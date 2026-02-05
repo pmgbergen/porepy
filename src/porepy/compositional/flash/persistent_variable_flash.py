@@ -339,11 +339,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     res_e = np.zeros((0,))
 
                 # Scaling of energy residual.
-                if res_e.size > 0:
-                    res_e /= T**2
-                    # Non-dimensional scaling of energy residual.
-                    if np.abs(s2) > 1.0:
-                        res_e /= s2
+                # NOTE analytically, this is correct, but numerically high T-values
+                # allow for non-physical solutions because the energy residual is
+                # scaled down.
+                # if res_e.size > 0:
+                #     res_e /= T**2
+                # Non-dimensional scaling of energy residual.
+                if np.abs(s2) > 1.0:
+                    res_e /= s2
 
                 return np.hstack((res_e, res))
 
@@ -425,21 +428,21 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # Pre-append energy block for non-isothermal specifications.
                 if spec in (FlashSpec.ph, FlashSpec.vh):
                     jac_e = first_order_constraint_jac(y, hs, dhs, True)
-                    res_e = first_order_constraint_res(s2, y, hs)[0]
+                    # res_e = first_order_constraint_res(s2, y, hs)[0]
                 elif spec == FlashSpec.vu:
                     jac_e = first_order_constraint_jac(y, us, dus, True)
-                    res_e = first_order_constraint_res(s2, y, us)[0]
+                    # res_e = first_order_constraint_res(s2, y, us)[0]
                 else:
                     jac_e = np.empty((0, jac.shape[1]))
-                    res_e = 0.0
+                    # res_e = 0.0
 
-                if jac_e.size > 0:
-                    TT = T**2
-                    jac_e /= TT
-                    jac_e[0, 1] -= 2.0 / (TT * T) * res_e
+                # if jac_e.size > 0:
+                #     TT = T**2
+                #     jac_e /= TT
+                #     jac_e[0, 1] -= 2.0 / (TT * T) * res_e
 
-                    if np.abs(s2) > 1.0:
-                        jac_e /= s2
+                if np.abs(s2) > 1.0:
+                    jac_e /= s2
 
                 return np.vstack((jac_e, jac))
 

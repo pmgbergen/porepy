@@ -337,43 +337,6 @@ def _feasible_fractions_scale(
     if np.any(upidx):
         alpha = min(alpha, np.min(emv[upidx] / d[upidx]))
 
-    # Simplex feasibility for updates:
-    # NOTE This turns out to be very aggressive, hence disable.
-    # The sum of each family of fractions must remain smaller or equal to 1.
-    # dx, dy = parse_xy(d, n_C, n_P)
-    # vx, vy = parse_xy(v, n_C, n_P)
-
-    # NOTE phase fractions contain 1 dependent variable. The net-change for the
-    # dependent phase fraction is different. This does not hold for partial fractions
-    # as they are all independent in the persistent-variable formulation.
-    # dy[0] = -dy[1:].sum()
-
-    # sdy = dy.sum()
-    # svy = vy.sum()
-    # asdy = np.abs(sdy)
-    # # NOTE By checking that the simplex is not active (sum is not close to 1),
-    # # we avoid canceling updates to zero. In principle, these checsk cover
-    # # fractions which are about to "emerge".
-    # if (
-    #     (sdy > 0)
-    #     & (asdy >= eps)
-    #     & ((asdy / max(svy, 1 - svy, rel_tol)) >= d_min)
-    #     & (svy < (1 - eps))
-    # ):
-    #     alpha = min(alpha, (1.0 - svy) / sdy)
-
-    # for j in range(n_P):
-    #     sdx = dx[j].sum()
-    #     svx = vx[j].sum()
-    #     asdx = np.abs(sdx)
-    #     if (
-    #         (sdx > 0)
-    #         & (asdx >= eps)
-    #         & ((asdx / max(svx, 1 - svx, rel_tol)) >= d_min)
-    #         & (svx < (1 - eps))
-    #     ):
-    #         alpha = min(alpha, (1.0 - svx) / sdx)
-
     return alpha
 
 
@@ -593,11 +556,11 @@ def npipm_inner(
 
     res_0 = np.linalg.norm(f_i)  # First residual.
     if res_0 <= tol:  # Initial guess is already solution.
-        return X0, 0, num_iter
+        return X0, 0, 0
     if np.any(np.isnan(f_i)):  # Failure in evaluation.
-        return X0, 4, num_iter
+        return X0, 4, 0
     if np.any(np.isinf(f_i)):  # Divergence.
-        return X0, 3, num_iter
+        return X0, 3, 0
 
     # region Adaptive solver parameters
 
@@ -759,7 +722,7 @@ def npipm_inner(
         ls_failed = True
         alpha_min = alpha_min_s * alpha_max
 
-        while alpha_j >= alpha_min:
+        while alpha_j > alpha_min:
             alpha_j = ls_ss**ls_i * alpha
             ls_i += 1
             X_i_j = X_i + alpha_j * dX_i
@@ -796,17 +759,17 @@ def npipm_inner(
 
         # If actual reduction is large enough, decrease tau.
         if reduction >= 1.8:
-            tau = max(tau_min, tau * 0.1)
+            # tau = max(tau_min, tau * 0.1)
             tr_delta = min(1.5 * tr_delta, tr_delta_max)
         # If actual reduction is too small, increase tau.
         elif reduction <= 1.0 or ls_failed:
-            tau = min(tau_max, tau * 2.0)
+            # tau = min(tau_max, tau * 2.0)
             tr_delta = max(0.5 * tr_delta, tr_delta_min)
 
-        if alpha < 1e-3 * alpha_max or tau > 0.5 * tau_max:
+        if alpha < 1e-3 * alpha_max:  # or tau > 0.5 * tau_max:
             ls_dec = max(ls_dec * 0.5, ls_dec_min)
         elif alpha > 0.9 * alpha_max:
-            ls_dec = min(ls_dec * 1.25, ls_dec_max)
+            ls_dec = min(ls_dec * 1.1, ls_dec_max)
 
         # Special action if line search failed, since this means no progress at all.
         if ls_failed:
@@ -864,25 +827,19 @@ def npipm_inner(
             else:
                 was_cycling = is_cycling
                 # Look for cycles with period 2 to max cycles - 1s.
+                is_cycling = False
                 for c in range(2, max_cycle):
-                    check_len = 2 * c
+                    res_2c = res_history[-2 * c :]
+                    rtol = np.max(np.abs(res_2c)) * rtol_cyc
 
-                    recent = res_history[-check_len:]
-                    rtol = np.max(np.abs(recent)) * rtol_cyc
-
-                    is_cycling = True
-                    for i in range(c, check_len):
-                        if np.abs(recent[i] - recent[i - c]) >= rtol:
-                            is_cycling = False
-                            break
-
-                    if is_cycling:
+                    if np.all(np.abs(res_2c[c:] - res_2c[:c]) <= rtol):
+                        is_cycling = True
                         # Keep original values from first cycle detection.
                         if not was_cycling:
                             detected_cycle = c
                             iter_cyst_detected = num_iter
                         # But make new lower bound in any case.
-                        lb_res = recent.min() * 0.99
+                        lb_res = res_2c.min() * 0.99
                         break
 
                 # If residual did not change due to failure in line search,
@@ -894,10 +851,10 @@ def npipm_inner(
                 if not (is_cycling or was_cycling or ls_failed):
                     tr_f2b = float(params["trustregion_fraction_to_boundary"])
                     ls_ss = float(params["armijo_step_size"])
-                    ls_dec = float(params["armijo_decline"])
+                    # ls_dec = float(params["armijo_decline"])
                     aa_depth = int(params["anderson_acceleration"])
                     do_LM = False
-                    alpha_max = 1.0
+                    alpha_max = 1.0 if ls_fail_count < 2 else alpha_max
                     rtol_desc = 1e-7
                 # If cycling detected, make line search more aggressive.
                 elif is_cycling and not was_cycling:

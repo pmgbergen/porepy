@@ -1153,7 +1153,7 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
                     v_pc = cubic_mix(z, v_cs)
                     p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
                     # Pseudo-critical compressibility factor.
-                    Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
+                    Z_pc = linear_mix(z, p_cs * v_cs / T_cs) / R_U
 
                     # Refining pressure and temperature guess based on ratio of
                     # pseudo-critical volume and given volume.
@@ -1339,7 +1339,7 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
                     p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
                     p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
                     # Pseudo-critical compressibility factor.
-                    Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
+                    Z_pc = linear_mix(z, p_cs * v_cs / T_cs) / R_U
 
                     # Refining pressure and temperature guess based on ratio of
                     # pseudo-critical volume and given volume.

@@ -23,7 +23,7 @@ _BRENT_PARAMS_KEYS: TypeAlias = Literal["brent_max_iterations", "brent_tolerance
 
 DEFAULT_BRENT_PARAMS: dict[_BRENT_PARAMS_KEYS, float] = {
     "brent_max_iterations": 100,
-    "brent_tolerance": 1e-16,
+    "brent_tolerance": 1e-15,
 }
 """Default parameters for :func:`brent`.
 
