@@ -8,112 +8,93 @@ from typing import Optional, TypeVar, no_type_check
 import numpy as np
 
 import porepy as pp
-from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-
 
 ModelType = TypeVar("ModelType", bound=pp.PorePyModel)
 """Type variable for objects inheriting from the PorePy model protocol."""
 
 
-def run_stationary_model(model: ModelType, params: dict) -> None:
-    """Run a stationary model.
-
-    Note:
-        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
-        ``False``), the progress of nonlinear iterations will be shown on a progressbar.
-        This requires the ``tqdm`` package to be installed. The package is not included
-        in the dependencies, but can be installed with
-        ```
-        pip install tqdm
-        ```
-
-    Parameters:
-        model: Model class containing all information on parameters, variables,
-            discretization, geometry. Various methods such as those relating to solving
-            the system, see the appropriate model for documentation.
-        params: Parameters related to the solution procedure.
-
-    """
-    model.prepare_simulation()
-
-    solver = _choose_solver(model, params)
-
-    solver.solve(model)
-
-    model.after_simulation()
+class ModelRunner:
+    def __init__(self, model: ModelType, params: Optional[dict] = None) -> None:
+        """_summary_
 
 
-def run_time_dependent_model(model: ModelType, params: Optional[dict] = None) -> None:
-    """Run a time dependent model.
 
-    Note:
-        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
-        ``False``), the progress of time steps and nonlinear iterations will be shown on
-        a progressbar. This requires the ``tqdm`` package to be installed. The package
-        is not included in the dependencies, but can be installed with
-        ```
-        pip install tqdm
-        ```
+        Parameters:
+            model: Model class containing all information on parameters, variables,
+                discretization, geometry. Various methods such as those relating to
+                solving the system, see the appropriate model for documentation.
+            params: Parameters related to the solution procedure. Defaults to None.
 
-    Parameters:
-        model: Model class containing all information on parameters, variables,
-            discretization, geometry. Various methods such as those relating to solving
-            the system, see the appropriate solver for documentation.
-        params: Parameters related to the solution procedure.
+        """
+        # PvS: Is this clean code?
+        self.params = params or {}
+        self.model = model
 
-    """
-    params = params or {}
-    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
-    if params.get("prepare_simulation", True):
-        model.prepare_simulation()
+        # Select a solver for the problem.
+        self.solver = _choose_solver(self.model, self.params)
 
-    if params.get("progressbars", False) and progressbar_class is DummyProgressBar:
-        logger.warning(
-            "Progress bars are requested, but `tqdm` is not installed. The time loop"
-            + " will run without progress bars."
-        )
-    # When multiple nested ``tqdm`` bars are used, their position needs to be specified
-    # such that they are displayed in the correct order. The orders are increasing, i.e.
-    # 0 specifies the lowest level, 1 the next-lowest etc.
-    # When the ``NewtonSolver`` is called inside ``run_time_dependent_model``, the
-    # ``_nl_progress_bar_position`` parameter with the updated position of the progress
-    # bar for the ``NewtonSolver`` is passed.
-    params.update({"_nl_progress_bar_position": 1})
 
-    # Assign a solver
-    solver = _choose_solver(model, params)
+class StationaryModelRunner(ModelRunner):
+    def run(self) -> None:
+        """Run a stationary model."""
+        self.model.prepare_simulation()
+        self.solver.solve(self.model)
+        self.model.after_simulation()
 
-    # Define a function that does all the work during one time step, except
-    # for everything ``tqdm`` related.
-    def time_step() -> bool:
-        model.time_manager.increase_time()
-        model.time_manager.increase_time_index()
-        logger.info(
-            f"\nTime step {model.time_manager.time_index} at time"
-            + f" {model.time_manager.time:.1e}"
-            + f" of {model.time_manager.time_final:.1e}"
-            + f" with time step {model.time_manager.dt:.1e}"
-        )
-        # Return convergence status s.t. the time loop can determine whether the time
-        # step succeeded or failed.
-        return solver.solve(model)
 
-    # Redirect the root logger, s.t. no logger interferes with with the
-    # progressbars.
-    with logging_redirect_tqdm([logging.root]):
-        initial_time_step: float = model.time_manager.dt
+class TimeDependentModelRunner(ModelRunner):
+    def __init__(self, model: ModelType, params: dict | None = None) -> None:
+        super().__init__(model, params)
+        self.initial_time_step: float = model.time_manager.dt
+        self.init_time_progressbar()
+
+        # To avoid checking the long name.
+        self.dt_isconstant: bool = model.time_manager.is_constant
+
+        # PvS: Shift to the base runner? Have this in a ``prepare_simulation`` method?
+        if self.params.get("prepare_simulation", True):
+            self.model.prepare_simulation()
+
+    def init_time_progressbar(self) -> None:
+        """
+
+        Note:
+            If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+            ``False``), the progress of nonlinear iterations will be shown on a
+            progressbar. This requires the ``tqdm`` package to be installed. The package
+            is not included in the dependencies, but can be installed with
+            ```
+            pip install tqdm
+            ```
+
+
+
+        """
+        use_progress_bar = self.params.get("progressbars", False)
+        if use_progress_bar and progressbar_class is DummyProgressBar:
+            logger.warning(
+                "Progress bars are requested, but `tqdm` is not installed. The time"
+                " loop will run without progress bars."
+            )
+        # To display nested ``tqdm`` bars in the correct order, their positions have to
+        # be specified. The orders are increasing, i.e., 0 is the lowest level, then 1,
+        # etc.
+        # When ``NewtonSolver`` is called inside ``run``, the
+        # ``_nl_progress_bar_position`` parameter specifying the position of the
+        # ``NewtonSolver`` progressbar is passed.
+        self.params.update({"_nl_progress_bar_position": 1})
 
         # Check if the user wants a progress bar. Initialize an instance of the
         # progressbar_class, which is either :class:`~tqdm.trange` or
         # :class:`~DummyProgressbar` in case `tqdm` is not installed.
-        if params.get("progressbars", False):
+        if self.params.get("progressbars", False):
             # Create a time bar. The length is estimated as the time_steps predetermined
             # by the schedule and initial time step size.
             # NOTE: If, e.g., adaptive time stepping results in more time steps, the
@@ -121,11 +102,14 @@ def run_time_dependent_model(model: ModelType, params: Optional[dict] = None) ->
             # the modified time step size to the initial time step size.
             expected_time_steps: int = int(
                 np.round(
-                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
-                    / initial_time_step
+                    (
+                        self.model.time_manager.schedule[-1]
+                        - self.model.time_manager.schedule[0]
+                    )
+                    / self.initial_time_step
                 )
             )
-            time_progressbar = progressbar_class(
+            self.time_progressbar = progressbar_class(
                 range(expected_time_steps),
                 desc="time loop",
                 position=0,
@@ -133,19 +117,81 @@ def run_time_dependent_model(model: ModelType, params: Optional[dict] = None) ->
             )
         # Otherwise, use a dummy progress bar.
         else:
-            time_progressbar = DummyProgressBar()
+            self.time_progressbar = DummyProgressBar()
 
-        # Time loop.
-        while not model.time_manager.final_time_reached():
-            time_progressbar.set_description_str(
-                f"Time step {model.time_manager.time_index + 1}"
-            )
-            converged: bool = time_step()
+    def before_time_step(self) -> None:
+        # Increase the simulation time.
+        self.model.time_manager.increase_time()
+        self.model.time_manager.increase_time_index()
+        # Update the model's AD time step object.
+        self.model.ad_time_step.set_value(self.model.time_manager.dt)
+
+        # Logging and progressbar update.
+        logger.info(
+            f"\nTime step {self.model.time_manager.time_index} at time"
+            + f" {self.model.time_manager.time:.1e}"
+            + f" of {self.model.time_manager.time_final:.1e}"
+            + f" with time step {self.model.time_manager.dt:.1e}"
+        )
+        self.time_progressbar.set_description_str(
+            f"Time step {self.model.time_manager.time_index + 1}"  # Why plus 1? Be consistent!
+        )
+
+    # Define a function that does all the work during one time step, except
+    # for everything ``tqdm`` related.
+    def time_step(self) -> bool:
+        """Does all the work during one time step.
+
+        Returns:
+            _description_
+
+        """
+
+        # Return convergence status s.t. the time loop can determine whether the time
+        # step succeeded or failed.
+        return self.solver.solve(self.model)
+
+    def after_time_step(self) -> None:
+        if self.ts_converged:
+            # Update the time step magnitude if the dynamic scheme is used.
+            if not self.dt_isconstant:
+                self.model.time_manager.compute_time_step(
+                    iterations=self.model.nonlinear_solver_statistics.num_iteration
+                )
+
             # Update progressbar length.
-            if converged:
-                time_progressbar.update(n=model.time_manager.dt / initial_time_step)
+            self.time_progressbar.update(
+                n=self.model.time_manager.dt / self.initial_time_step
+            )
 
-    model.after_simulation()
+    def run(self, model: ModelType, params: Optional[dict] = None) -> None:
+        """Run a time dependent model.
+
+        Note:
+            If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+            ``False``), the progress of time steps and nonlinear iterations will be shown on
+            a progressbar. This requires the ``tqdm`` package to be installed. The package
+            is not included in the dependencies, but can be installed with
+            ```
+            pip install tqdm
+            ```
+
+        Parameters:
+            model: Model class containing all information on parameters, variables,
+                discretization, geometry. Various methods such as those relating to solving
+                the system, see the appropriate solver for documentation.
+            params: Parameters related to the solution procedure.
+
+        """
+        # Redirect the root logger, to avoid logger-progressbars interference.
+        with logging_redirect_tqdm([logging.root]):
+            # Time loop.
+            while not self.model.time_manager.final_time_reached():
+                self.before_time_step()
+                self.ts_converged: bool = self.time_step()
+                self.after_time_step()
+
+        self.model.after_simulation()
 
 
 # TODO Model attributes here are nowhere defined, likely an artifact of fracture
