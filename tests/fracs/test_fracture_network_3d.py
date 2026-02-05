@@ -26,11 +26,12 @@ def mesh_args() -> dict:
     return {
         "mesh_size_bound": 1,
         "mesh_size_frac": 1,
-        "mesh_size_min": 0.5,
-        # Set a really small refinement threshold so that no refinement is done in
-        # tests. This will make the tests faster, to the price of poor mesh quality, but
-        # that should be fine.
-        "refinement_threshold": 0.0001,
+        "mesh_size_min": 0.1,
+        # Set a very low refinement proximity multiplier to avoid adaptive refinement.
+        "refinement_proximity_multiplier": 1e-6,
+        # Set values for mesh coarsening that will have minimal impact on the mesh.
+        "refinement_size_multiplier": 1.0,
+        "background_transition_multiplier": 1.01,
     }
 
 

@@ -49,6 +49,9 @@ def _create_mdg(
             "mesh_size_bound": 10,
             "mesh_size_frac": 10,
             "refinement_threshold": 1e-4,
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
         }
     network = pp.create_fracture_network(fractures, domain=domain)
     if constraints is None:

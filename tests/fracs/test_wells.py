@@ -62,7 +62,15 @@ def get_mdg():
             unit_domain(3), wells, parameters={"mesh_size": 1}
         )
 
-        mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
+        mdg = fracture_network.mesh(
+            {
+                "mesh_size_frac": 1,
+                "mesh_size_min": 1,
+                "refinement_proximity_multiplier": 1,
+                "refinement_size_multiplier": 1,
+                "background_transition_multiplier": 1.01,
+            }
+        )
 
         # Compute intersections
         pp.fracs.wells_3d.compute_well_fracture_intersections(

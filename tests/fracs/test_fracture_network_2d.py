@@ -26,9 +26,12 @@ def mesh_args() -> dict:
     return {
         "mesh_size_bound": 1.0,
         "mesh_size_frac": 1.0,
-        "mesh_size_min": 1e-1,
-        # Set a very low refinement threshold to avoid adaptive refinement.
-        "refinement_threshold": 1e-6,
+        "mesh_size_min": 0.1,
+        # Set a very low refinement proximity multiplier to avoid adaptive refinement.
+        "refinement_proximity_multiplier": 1e-6,
+        # Set values for mesh coarsening that will have minimal impact on the mesh.
+        "refinement_size_multiplier": 1.0,
+        "background_transition_multiplier": 1.01,
     }
 
 

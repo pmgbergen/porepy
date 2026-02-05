@@ -440,7 +440,14 @@ class TestGridFactory:
     def test_nested_simple(self):
         # Simple test of the nested generation. Both 2d and 3d domains.
         # Main check: The refinement is indeed by splitting
-        mesh_args = {"mesh_size_frac": 1, "mesh_size_bound": 1, "mesh_size_min": 0.1}
+        mesh_args = {
+            "mesh_size_frac": 1,
+            "mesh_size_bound": 1,
+            "mesh_size_min": 0.1,
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
+        }
 
         num_ref = 3
 
@@ -472,7 +479,13 @@ class TestGridFactory:
     def test_nested_pass_grid_args(self):
         # Check that grid arguments to the fracture network meshing ('grid_param' below)
         # are correctly passed
-        mesh_args = {"mesh_size_frac": 1, "mesh_size_bound": 1}
+        mesh_args = {
+            "mesh_size_frac": 1,
+            "mesh_size_bound": 1,
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
+        }
 
         num_ref = 2
 

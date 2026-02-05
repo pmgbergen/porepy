@@ -210,7 +210,7 @@ class TestMixedDimensionalGrids:
         )
         self.domain = network.domain
         self.check_matrix("simplex")
-        self.check_fractures(6, [4, 4, 3, 3, 2, 2])
+        self.check_fractures(6, [7, 7, 4, 4, 2, 2])
         self.check_intersections(9)
         self.check_domain(1, 1)
 
@@ -222,7 +222,7 @@ class TestMixedDimensionalGrids:
         ) = pp.mdg_library.seven_fractures_one_L_intersection({"cell_size": 0.2})
         self.domain = network.domain
         self.check_matrix("simplex")
-        self.check_fractures(7, [3, 4, 9, 5, 9, 6, 3])
+        self.check_fractures(7, [2, 2, 8, 3, 12, 7, 5])
         self.check_intersections(1)
         self.check_domain(2, 1)
 
