@@ -172,7 +172,13 @@ class TimeDependentModelRunner(ModelRunner):
             ``False``), the progress of time steps and nonlinear iterations will be
             shown on a progressbar. This requires the ``tqdm`` package to be installed.
             The package is not included in the dependencies, but can be installed with
+<<<<<<< HEAD
             using ``pip``.
+=======
+            ```
+            pip install tqdm
+            ```
+>>>>>>> 07c2427a6ccd91c614c224c960ca71b9fd26e61f
 
         Parameters:
             model: Model class containing all information on parameters, variables,

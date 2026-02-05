@@ -42,7 +42,8 @@ class LinearSolver:
             boolean: True if the linear solver converged.
 
         """
-
+        # PvS: Check if this has to be removed or replaced by new before_time_step or
+        # something else?
         model.before_nonlinear_loop()
 
         # For linear problems, the tolerance is irrelevant.
