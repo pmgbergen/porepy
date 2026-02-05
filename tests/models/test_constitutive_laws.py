@@ -479,8 +479,8 @@ def test_perturbation_from_reference(
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
     [
-        (models.OrthogonalFractures3d, 1, [0.02, 0.02**2, 0.02]),
-        (models.OrthogonalFractures3d, 0, [0.02, 0.02**3, 0.02**2]),
+        (models.CubeDomainOrthogonalFractures, 1, [0.02, 0.02**2, 0.02]),
+        (models.CubeDomainOrthogonalFractures, 0, [0.02, 0.02**3, 0.02**2]),
         (models.RectangularDomainThreeFractures, 0, [0.02, 0.02**2, 0.02]),
         (models.RectangularDomainThreeFractures, 2, [1, 1, 42]),
     ],

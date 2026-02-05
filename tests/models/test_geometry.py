@@ -35,7 +35,7 @@ geometry_list: list[type[pp.ModelGeometry]] = [
         pp.ModelGeometry,
     ),
     models.add_mixin(
-        porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+        porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
         pp.ModelGeometry,
     ),
 ]

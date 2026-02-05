@@ -596,7 +596,7 @@ def test_unit_conversion(units, model_class):
 
 class PoromechanicsWell(
     well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     pp.Poromechanics,
 ):
