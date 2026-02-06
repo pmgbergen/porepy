@@ -6,6 +6,7 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 from typing import Callable, Literal, Optional, Union, get_args
 from warnings import warn
 
@@ -467,22 +468,29 @@ def _preprocess_simplex_args(
     defaults: dict[str, inspect.Parameter] = dict(
         inspect.signature(mesh_function).parameters.items()
     )
-    # filter arguments processed in an alternative manner
+    # Filter arguments processed in an alternative manner.
     defaults.pop("self")
     defaults.pop("mesh_args")
     defaults.pop("kwargs")
 
-    # transfer defaults
+    # Transfer defaults.
     # The values of the dictionary are of type inspect.Parameter, which has a
     # default attribute that we access.
     extra_args_list: list = [
         kwargs.get(key, val.default) for (key, val) in defaults.items()
     ]
+    # Ensure ``file_name`` is a Path object.
+    if "file_name" in defaults:
+        file_name = kwargs.get("file_name", defaults["file_name"].default)
+        # None does not need conversion.
+        if file_name is not None:
+            file_name_index = extra_args_list.index(file_name)
+            extra_args_list[file_name_index] = Path(file_name)
 
-    # remove duplicate keys
+    # Remove duplicate keys.
     [kwargs.pop(key) for key in defaults if key in kwargs]
 
-    # translating quantities to lower level signature
+    # Translating quantities to lower level signature.
     lower_level_args: dict = {}
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
     lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", cell_size)
