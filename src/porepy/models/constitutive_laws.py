@@ -1384,8 +1384,7 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_flux_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-            )(t_f, potential_difference, potential(domains), boundary_value)
-
+            )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
             vector_source_d = pp.ad.Function(
                 partial(  # type: ignore[arg-type]
@@ -1607,8 +1606,9 @@ class AdTpfaFlux(pp.PorePyModel):
         T_f: ArrayType,
         p_diff: ArrayType,
         p: ArrayType,
-        bv,
-    ) -> tuple[ArrayType, ArrayType]:
+        T_bnd: ArrayType,
+        bv: ArrayType,
+    ) -> ArrayType:
         """Approximate the product rule for the expression d(T_MPFA * p), where T_MPFA
         is the transmissibility matrix for an Mpfa discretization.
 
@@ -1622,9 +1622,16 @@ class AdTpfaFlux(pp.PorePyModel):
 
         Parameters:
             base_discr: Base discretization of the flux. T_f: Transmissibility matrix.
+            T_f: Tpfa-style transmissibilities on the internal faces, represented as
+                either an AdArray or a numpy array, depending on whether the method is
+                called for Jacbian evaluation or not.
             p_diff: Difference in potential between the two cells on either side of the
                 face.
-            p: Potential.
+            p: Cell potential.
+            T_bnd: Tpfa-style transmissibilities on the boundary faces, represented as
+                either an AdArray or a numpy array.
+            bv: Boundary value, including contributions from both external boundaries
+                and internal boundaries.
 
         Returns:
             AdArray with value and Jacobian matrix representing the flux associated with
@@ -1645,15 +1652,15 @@ class AdTpfaFlux(pp.PorePyModel):
         # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
         # its val and jac attributes.
         val = base_flux @ p.val + base_bound_flux @ bv.val
-        # No contribution from differentiating the boundary flux, as bv is constant.
         jac = base_flux @ p.jac + base_bound_flux @ bv.jac
 
         if hasattr(T_f, "jac"):
             # Add the contribution to the Jacobian matrix from the derivative of the
-            # transmissibility matrix times the pressure difference. To see why this is
-            # correct, it may be useful to consider the flux over a single face
+            # transmissibility matrix times the pressure difference, and similarly for
+            # boundary face transmissibilities and the boundary values. To see why this
+            # is correct, it may be useful to consider the flux over a single face
             # (corresponding to one row in the Jacobian matrix).
-            jac += sps.diags(p_diff.val + bv.val) @ T_f.jac
+            jac += sps.diags(p_diff.val) @ T_f.jac + sps.diags(bv.val) @ T_bnd.jac
 
         return pp.ad.AdArray(val, jac)
 
