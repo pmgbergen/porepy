@@ -51,7 +51,7 @@ def network_from_csv(
 
     """
     # Marker for whether the file contains any non-comment content.
-    has_nontrival_content = False
+    has_nontrivial_content = False
     # Marker for whether the domain line has been read.
     domain_read = False
     # The dimension of the network. Set to None, but inferred from the first non-comment
@@ -71,7 +71,7 @@ def network_from_csv(
                 continue
 
             # There is data to be read, the file is not trivial.
-            has_nontrival_content = True
+            has_nontrivial_content = True
             data = np.array([line.strip().split(",")], dtype=float).ravel("F")
             if nd is None:
                 if data.size == 4:
@@ -130,7 +130,7 @@ def network_from_csv(
                         )
                     )
 
-    if not has_nontrival_content:
+    if not has_nontrivial_content:
         raise ValueError("The CSV file contains no data.")
 
     if has_domain:

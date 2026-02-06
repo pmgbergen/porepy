@@ -97,7 +97,7 @@ class ModelGeometry(pp.PorePyModel):
     def add_wells_to_mdg(self) -> None:
         """Add wells to the mixed-dimensional grid."""
         if len(self.well_network.wells) > 0:
-            # Compute intersections
+            # Compute intersections.
             assert isinstance(self.fracture_network, FractureNetwork3d)
             pp.compute_well_fracture_intersections(
                 self.well_network, self.fracture_network
