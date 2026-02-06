@@ -2730,7 +2730,7 @@ class FractureNetwork3d(object):
         # domain specification.
         max_pts = max(max(frac.pts.shape[1] for frac in self.fractures), 2)
 
-        with open(file_name, "w") as csv_file:
+        with open(file_name.with_suffix(".csv"), "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
                 header = ["# "] + [

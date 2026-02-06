@@ -1236,7 +1236,7 @@ class FractureNetwork2d:
 
         """
 
-        with open(file_name, "w") as csv_file:
+        with open(file_name.with_suffix(".csv"), "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
                 header = ["# ", "START_X", "START_Y", "END_X", "END_Y"]
