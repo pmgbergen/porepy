@@ -1226,7 +1226,8 @@ class FractureNetwork2d:
             prompting any warning.
 
         Parameters:
-            file_name: Name of the CSV file. write_header: ``default=True``
+            file_name: Name of the CSV file.
+            write_header: ``default=True``
 
                 Flag for writing headers for the five columns in the first row.
 
