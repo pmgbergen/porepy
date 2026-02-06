@@ -20,7 +20,7 @@ import numba as nb
 import numpy as np
 
 from ..._numba_interface import NUMBA_PARALLEL, cfunc, get_empty_numba_dict, typeof
-from ...utils import FlashSpec, FlashSpecMember_NUMBA_TYPE
+from ...utils import FlashSpec, FlashSpec_NUMBA_TYPE
 
 __all__ = [
     "GENERAL_SOLVER_PARAMS",
@@ -145,7 +145,7 @@ SOLVER_FUNCTION_SIGNATURE = nb.types.Tuple((nb.f8[:], nb.int_, nb.int_))(
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
-    FlashSpecMember_NUMBA_TYPE,
+    FlashSpec_NUMBA_TYPE,
 )
 """Numba signature for flash solvers.
 
@@ -226,7 +226,7 @@ _multi_solver_signature = nb.types.Tuple(
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
-    FlashSpecMember_NUMBA_TYPE,
+    FlashSpec_NUMBA_TYPE,
 )
 """Multi-solver signature for compiled sequential or parallel application of solvers."""
 
@@ -277,7 +277,7 @@ def sequential_solver(
         try:
             res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
         except Exception:
-            res_i = np.nan * np.ones(X0.shape[1])
+            res_i = X0[i]
             e_i = 5
             n_i = -1
         exitcodes[i] = e_i
@@ -322,6 +322,7 @@ def parallel_solver(
     result = np.zeros_like(X0)
     num_iter = np.zeros(n, dtype=np.int_)
     exitcodes = np.ones(n, dtype=np.int_) * 5
+    fallback_sequential = False
 
     try:
         for i in nb.prange(n):
@@ -331,9 +332,12 @@ def parallel_solver(
             result[i] = res_i
     except:
         print("Parallel solver threw exception, falling back to sequential solver.")
-        return sequential_solver(X0, F, DF, solver, solver_params, spec)
+        fallback_sequential = True
 
-    return result, exitcodes, num_iter
+    if fallback_sequential:
+        return sequential_solver(X0, F, DF, solver, solver_params, spec)
+    else:
+        return result, exitcodes, num_iter
 
 
 MULTI_SOLVERS: dict[

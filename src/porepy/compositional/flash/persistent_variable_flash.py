@@ -34,7 +34,7 @@ from .._numba_interface import get_empty_numba_dict, njit
 from ..compiled_eos import CompiledEoS
 from ..utils import (
     FlashSpec,
-    FlashSpecMember_NUMBA_TYPE,
+    FlashSpec_NUMBA_TYPE,
     _chainrule_fractional_derivatives,
     normalize_rows,
 )
@@ -281,7 +281,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if not hasattr(self, "_template_res"):
             logger.debug("Compiling template flash residual ...")
 
-            @njit(nb.f8[:](nb.f8[:], FlashSpecMember_NUMBA_TYPE))
+            @njit(nb.f8[:](nb.f8[:], FlashSpec_NUMBA_TYPE))
             def template_res(X_gen: np.ndarray, spec: FlashSpec) -> np.ndarray:
                 n_P = int(nphase)
                 n_C = int(ncomp)
@@ -355,7 +355,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if not hasattr(self, "_template_jac"):
             logger.debug("Compiling template flash Jacobian ...")
 
-            @njit(nb.f8[:, :](nb.f8[:], FlashSpecMember_NUMBA_TYPE))
+            @njit(nb.f8[:, :](nb.f8[:], FlashSpec_NUMBA_TYPE))
             def template_jac(X_gen: np.ndarray, spec: FlashSpec) -> np.ndarray:
                 n_P = int(nphase)
                 n_C = int(ncomp)

@@ -37,14 +37,13 @@ import numpy as np
 
 from ._numba_interface import NUMBA_PARALLEL, cfunc, njit, typeof
 from .base import Component, EquationOfState
-from .states import PhaseProperties, PhysicalState
-from .utils import normalize_rows
+from .states import PhaseProperties
+from .utils import PhysicalState, PhysicalState_NUMBA_TYPE, normalize_rows
 
 __all__ = [
     "ScalarFunction",
     "VectorFunction",
     "PropertyFunctionNames",
-    "PhysicalStateMember_NUMBA_TYPE",
     "PropertyFunctionDict",
     "PREARGUMENT_FUNC_SIGNATURE",
     "PROPERTY_FUNC_SIGNATURE",
@@ -102,14 +101,6 @@ See also:
 """
 
 
-PhysicalStateMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(
-    PhysicalState, nb.int_
-)
-"""Numba type for function signatures which take members of
-:class:`~porepy.compositional.states.PhysicalState` as arguments or as a return
-value."""
-
-
 class PropertyFunctionDict(TypedDict, total=False):
     """Typed dictionary defining which property functions are expected to be available
     in :attr:`CompiledEoS.funcs`."""
@@ -149,7 +140,7 @@ class PropertyFunctionDict(TypedDict, total=False):
 
 
 PREARGUMENT_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
-    PhysicalStateMember_NUMBA_TYPE, nb.f8, nb.f8, nb.f8[:], nb.f8[:]
+    PhysicalState_NUMBA_TYPE, nb.f8, nb.f8, nb.f8[:], nb.f8[:]
 )
 """Numba signature for pre-argument functions.
 
@@ -407,7 +398,7 @@ def fugacity_coeff_derivative_template_func(
 @_COMPILER(
     nb.f8[:, :](
         typeof(prearg_template_func),
-        PhysicalStateMember_NUMBA_TYPE,
+        PhysicalState_NUMBA_TYPE,
         nb.f8[:],
         nb.f8[:],
         nb.f8[:, :],

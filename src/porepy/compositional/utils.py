@@ -18,6 +18,7 @@ __all__ = [
     "compute_saturations",
     "CompositionalModellingError",
     "FlashSpec",
+    "PhysicalState",
 ]
 
 
@@ -331,6 +332,30 @@ class FlashSpec(IntEnum):
     """Equilibrium at fixed volume and internal energy."""
 
 
-FlashSpecMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
+class PhysicalState(IntEnum):
+    """Integer Enum object for characterizing the physical states of a phase.
+
+    - Zero is reserved for undefined state.
+    - 1 - 9 is reserved for liquid-like states with 1 being the base state.
+    - 10 - 19 is reserved for gas-like states with 10 being the base state.
+
+    """
+
+    undefined = 0
+    """Undefined physical state."""
+
+    liquid = 1
+    """Base liquid-like state."""
+
+    gas = 10
+    """Base gas-like state."""
+
+
+PhysicalState_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(PhysicalState, nb.int_)
+"""Numba type for function signatures which take members of :class:`PhysicalState` as 
+arguments or return values."""
+
+
+FlashSpec_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
 """Numba type for function signatures which take members of :class:`FlashSpec`
-as arguments or as a return value."""
+as arguments or return values."""

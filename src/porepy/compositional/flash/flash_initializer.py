@@ -15,6 +15,7 @@ import numpy as np
 import porepy as pp
 
 from .._global_thermodynamic_reference_state import R_U
+from .._global_thermodynamic_reference_state import T as T_REF
 from .._numba_interface import (
     NUMBA_CACHE,
     NUMBA_FAST_MATH,
@@ -27,7 +28,8 @@ from .._numba_interface import (
 from ..compiled_eos import CompiledEoS
 from ..utils import (
     FlashSpec,
-    FlashSpecMember_NUMBA_TYPE,
+    FlashSpec_NUMBA_TYPE,
+    PhysicalState,
     _compute_saturations,
     compute_saturations,
     normalize_rows,
@@ -47,7 +49,14 @@ from .solvers._core import SOLVER_PARAMETERS_TYPE
 __all__ = [
     "FlashInitializer",
     "UniformFlashInitializer",
-    "HeuristicTwoPhaseInitializer",
+    "HeuristicVLInitializer",
+    "K_Wilson",
+    "dT_K_Wilson",
+    "linear_mix",
+    "cubic_mix",
+    "critical_pressure_guess",
+    "get_dew_point_T",
+    "get_bubble_point_T",
 ]
 
 logger = logging.getLogger(__name__)
@@ -60,6 +69,292 @@ Uses :func:`~porepy.compositional._numba_interface.njit`
 """
 
 
+# region Helper methods
+
+
+@cfunc(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:, :], nb.f8[:]), cache=True)
+def get_K_values_template_func(
+    p: float, T: float, x: np.ndarray, params: np.ndarray
+) -> np.ndarray:
+    """Template c-function for K-value computations.
+
+    Parameters:
+        p: Pressure.
+        T: Temperature.
+        x: 2D array containing row-wise extended partial fractions per phase.
+        params: 1D array containing the parameters stored in the generic argument.
+
+    Returns:
+        K-values w.r.t. to the reference phase (first row in ``x``).
+
+    """
+    return x * p * T
+
+
+@cfunc(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE), cache=True)
+def update_state_template_func(
+    X_gen: np.ndarray, params: dict[str, float]
+) -> np.ndarray:
+    """Template c-functions for methods which update state functions such as pressure
+    or temperature.
+
+    Parameters:
+        X_gen: Generic flash argument.
+        params: Initialization parameters.
+
+    Returns:
+        Updated ``X_gen``.
+
+    """
+    return X_gen * params["0"]
+
+
+@_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]), cache=True)
+def K_Wilson(
+    p: float, T: float, p_cs: np.ndarray, T_cs: np.ndarray, omegas: np.ndarray
+) -> np.ndarray:
+    """Wilson correlation for fugacity values.
+
+    Parameters:
+        p: Pressure [Pa].
+        T: Temperature [K].
+        p_cs: Critical pressures per component.
+        T_cs: Critical temperatures per component.
+        omegas: Acentric factors per component.
+
+    Returns:
+        An array of size ``T_cs``/``p_cs`` containing K-values per component (ratio
+        of fugacity in liquid and fugacity in vapor).
+
+    """
+    return np.exp(5.37 * (1 + omegas) * (1 - T_cs / T)) * p_cs / p + 1e-10
+
+
+@_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]), cache=True)
+def dT_K_Wilson(
+    p: float, T: float, p_cs: np.ndarray, T_cs: np.ndarray, omegas: np.ndarray
+) -> np.ndarray:
+    """Temperature-derivative of Wilson correlation for fugacity values.
+
+    Parameters:
+        p: Pressure [Pa].
+        T: Temperature [K].
+        p_cs: Critical pressures per component.
+        T_cs: Critical temperatures per component.
+        omegas: Acentric factors per component.
+
+    Returns:
+        An array of size ``T_cs``/``p_cs`` containing the ``dK/dT``.
+
+    """
+    c = 5.37 * (1 + omegas)
+    return np.exp(c * (1 - T_cs / T)) * c * T_cs * p_cs / (p * T**2)
+
+
+@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def linear_mix(x: np.ndarray, phis: np.ndarray) -> float:
+    """Simple mixing rule, weighing the ``phis`` with ``x`` and summing.
+
+    Parameters:
+        x: Fractions.
+        phis: Quantity to be mixed.
+
+    Returns:
+        Approximation of the quantity for the mixture corresponding to the fractions.
+
+    """
+    assert x.shape == phis.shape, "Require equally shaped arrays."
+    return np.dot(x, phis)
+
+
+@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def cubic_mix(x: np.ndarray, phis: np.ndarray) -> float:
+    """Advanced mixing rule of Lorentz-Berthelot-type, used for volume-like quantities.
+
+    Parameters:
+        x: Fractions.
+        phis: Quantity to be mixed.
+
+    Returns:
+        Approximation of the quantity for the mixture corresponding to the fractions.
+
+    """
+    assert x.shape == phis.shape, "Require equally shaped arrays."
+    n = x.size
+    phi_mix = 0.0
+    cphis = np.cbrt(phis)
+    for i in range(n):
+        phi_mix += phis[i] * x[i] ** 2
+        phi_mix += x[i] * np.sum(x[i + 1 :] * (cphis[i] + cphis[i + 1 :]) ** 3) / 4.0
+    return phi_mix
+
+
+@_COMPILER(
+    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def critical_pressure_guess(
+    x: np.ndarray, p_cs: np.ndarray, T_cs: np.ndarray, v_cs: np.ndarray
+) -> float:
+    """Guess for critical pressure of a mixture using heuristics.
+
+    See also:
+
+        - Kay's rule, Prausnitz-Gunn rule, Lorentz-Berthelot-type mixing.
+        - :func:`linear_mix`
+        - :func:`cubic_mix`
+        - `Saha, Carrol 1997: The isoenergetic-isochoric flash
+          <https://doi.org/10.1016/S0378-3812(97)00151-9>`_
+
+    Parameters:
+        x: Fractions.
+        p_pcs: Critical pressure values.
+        T_pcs: Critical temperature values.
+        v_pcs: Critical specific volume values.
+
+    Returns:
+        A guess for the pseudo-critical pressure.
+
+    """
+    x_max = x.max()
+    # Kay's rule if 1 component clearly dominates.
+    if x_max >= 0.9:
+        p_pc = linear_mix(x, p_cs)
+    # Prausnitz-Gunn rule if 1 component is almost dominant.
+    # Other components influence pseudo-critical value more.
+    elif 0.5 < x_max < 0.9:
+        T_pc = linear_mix(x, T_cs)
+        p_pc = T_pc / linear_mix(x, T_cs / p_cs)
+    # Modified Prausnitz-Gunn rule if no clear dominance.
+    # Include information on critical specific volume.
+    else:
+        T_pc = linear_mix(x, T_cs)
+        v_pc = cubic_mix(x, v_cs)
+        v_pc_lin = linear_mix(x, v_cs)
+        # Pseudo-critical compressibility factor.
+        Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
+        p_pc_cub = Z_pc * R_U * T_pc / v_pc
+        p_pc_lin = linear_mix(x, p_cs)
+        # For high-variability mixtures, average with Kay's rule.
+        v_var = np.abs((v_cs - v_pc_lin) / v_pc_lin).max()
+        # NOTE: The weighing towards Kay's rule should be influenced by strong
+        # variability. For polar fluids like water mixed with CO2/H2S for example, it
+        # might be more beneficial to lean more towards Kay.
+        if v_var > 0.1:
+            # 0.7 is upper bound, at most that much Kay's rule.
+            # 0.2 is lower bound, at least that much Kay's rule.
+            # 1.2 is a slope for variability, more variability, more Kay's rule.
+            w = min(0.7, 0.2 + 1.2 * v_var)
+            p_pc = w * p_pc_lin + (1 - w) * p_pc_cub
+        # Else use the cubic rule.
+        else:
+            p_pc = p_pc_cub
+
+    return p_pc
+
+
+@_COMPILER(
+    nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    cache=NUMBA_CACHE,
+)
+def get_dew_point_T(
+    T0: float,
+    p: float,
+    z: np.ndarray,
+    p_cs: np.ndarray,
+    T_cs: np.ndarray,
+    omegas: np.ndarray,
+) -> float:
+    r"""Approximates the dew point temperature using Rachford-rice equations and
+    Wilson-correlations for K-values.
+
+    Applies Newton to obtain ``T`` at fixed ``p``:
+
+    ..math::
+
+        \sum_i \frac{z_i}{K_i(p, T)} = 1
+
+    Parameters:
+        T0: Initial guess for ``T``.
+        p: Pressure value [Pa].
+        z: Feed fractions per component.
+        p_cs: Critical pressures per component [Pa].
+        T_cs: Critical temperatures per component [Pa].
+        omegas: acentric factors per component [Pa].
+
+    Returns:
+        A temperature solving above equation approximately.
+
+    """
+    Ti = T0
+    T_r = T_cs.max()
+    for i in range(15):
+        K_i = K_Wilson(p, Ti, p_cs, T_cs, omegas)
+        f_i = np.sum(z / K_i) - 1.0
+        if np.abs(f_i) < 1e-7:
+            break
+
+        dKdT_i = dT_K_Wilson(p, Ti, p_cs, T_cs, omegas)
+        df_i = np.sum(-z / K_i**2 * dKdT_i) * T_r
+        dT = -f_i / df_i
+        dT = np.sign(dT) * min(np.abs(dT), 0.1)
+        Ti += dT * T_r
+
+    return Ti
+
+
+@_COMPILER(
+    nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    cache=NUMBA_CACHE,
+)
+def get_bubble_point_T(
+    T0: float,
+    p: float,
+    z: np.ndarray,
+    p_cs: np.ndarray,
+    T_cs: np.ndarray,
+    omegas: np.ndarray,
+) -> float:
+    r"""Approximates the bubble point temperature using Rachford-rice equations and
+    Wilson-correlations for K-values.
+
+    Applies Newton to obtain ``T`` at fixed ``p``:
+
+    ..math::
+
+        \sum_i z_i K_i(p, T) = 1
+
+    Parameters:
+        T0: Initial guess for ``T``.
+        p: Pressure value [Pa].
+        z: Feed fractions per component.
+        p_cs: Critical pressures per component [Pa].
+        T_cs: Critical temperatures per component [Pa].
+        omegas: acentric factors per component [Pa].
+
+    Returns:
+        A temperature solving above equation approximately.
+
+    """
+    Ti = T0
+    T_r = T_cs.max()
+    for i in range(15):
+        K_i = K_Wilson(p, Ti, p_cs, T_cs, omegas)
+        f_i = np.sum(z * K_i) - 1.0
+        if np.abs(f_i) < 1e-7:
+            break
+
+        dKdT_i = dT_K_Wilson(p, Ti, p_cs, T_cs, omegas)
+        df_i = np.sum(z * dKdT_i) * T_r
+        dT = -f_i / df_i
+        dT = np.sign(dT) * min(np.abs(dT), 0.1)
+        Ti += dT * T_r
+
+    return Ti
+
+
+# endregion
 # region Rachford-Rice equations
 
 
@@ -141,53 +436,12 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     return np.sum(-z * np.log(np.abs(_rr_poles(y, K))))
 
 
-# endregion
-# region General routines and helper methods
-
-
-@cfunc(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:, :], nb.f8[:]), cache=True)
-def get_K_values_template_func(
-    p: float, T: float, x: np.ndarray, params: np.ndarray
-) -> np.ndarray:
-    """Template c-function for K-value computations.
-
-    Parameters:
-        p: Pressure.
-        T: Temperature.
-        x: 2D array containing row-wise extended partial fractions per phase.
-        params: 1D array containing the parameters stored in the generic argument.
-
-    Returns:
-        K-values w.r.t. to the reference phase (first row in ``x``).
-
-    """
-    return x * p * T
-
-
-@cfunc(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE), cache=True)
-def update_state_template_func(
-    X_gen: np.ndarray, params: dict[str, float]
-) -> np.ndarray:
-    """Template c-functions for methods which update state functions such as pressure
-    or temperature.
-
-    Parameters:
-        X_gen: Generic flash argument.
-        params: Initialization parameters.
-
-    Returns:
-        Updated ``X_gen``.
-
-    """
-    return X_gen * params["0"]
-
-
 @_COMPILER(
     nb.f8[:](
         typeof(get_K_values_template_func),
         nb.f8[:],
         SOLVER_PARAMETERS_TYPE,
-        FlashSpecMember_NUMBA_TYPE,
+        FlashSpec_NUMBA_TYPE,
         nb.bool,
     ),
     cache=NUMBA_CACHE,
@@ -225,23 +479,21 @@ def fractions_from_rr(
     s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, ncomp, nphase, spec)
 
     omegas = np.empty(ncomp)
-    T_crits = np.empty(ncomp)
-    p_crits = np.empty(ncomp)
+    T_cs = np.empty(ncomp)
+    p_cs = np.empty(ncomp)
     for i in range(ncomp):
-        T_crits[i] = params[f"_T_crit_{i}"]
-        p_crits[i] = params[f"_p_crit_{i}"]
+        T_cs[i] = params[f"_T_crit_{i}"]
+        p_cs[i] = params[f"_p_crit_{i}"]
         omegas[i] = params[f"_omega_{i}"]
 
     # Pseudo-critical quantities.
-    T_pc = np.sum(z * T_crits)
-    p_pc = np.sum(z * p_crits)
+    T_pc = np.sum(z * T_cs)
+    p_pc = np.sum(z * p_cs)
 
     if use_wilson:
         K = np.empty((nphase - 1, ncomp), dtype=np.float64)
         for j in range(nphase - 1):
-            K[j, :] = (
-                np.exp(5.37 * (1 + omegas) * (1 - T_crits / T)) * p_crits / p + 1e-10
-            )
+            K[j, :] = K_Wilson(p, T, p_cs, T_cs, omegas)
     else:
         K = get_K_values(p, T, x, x_p)
 
@@ -381,11 +633,14 @@ def rachford_rice_initializer(
     return X_gen
 
 
+# endregion
+
+
 @_COMPILER(
     nb.f8[:, :](
         typeof(get_K_values_template_func),
         typeof(update_state_template_func),
-        FlashSpecMember_NUMBA_TYPE,
+        FlashSpec_NUMBA_TYPE,
         nb.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
@@ -418,125 +673,13 @@ def nested_initializer(
 
     """
     N3 = int(params["N3"])
-    # tol = params['tolerance']
     for f in nb.prange(X_gen.shape[0]):
         xf = X_gen[f]
         for _ in range(N3):
             xf = update_state_func(xf, params)
             xf = fractions_from_rr(get_K_values, xf, params, spec, False)
-
-            # abort if residual already small enough
-            # if np.linalg.norm(F(xf)) <= tol:
-            #     break
-
         X_gen[f] = xf
     return X_gen
-
-
-@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
-def linear_mix(x: np.ndarray, phis: np.ndarray) -> float:
-    """Simple mixing rule, weighing the ``phis`` with ``x`` and summing.
-
-    Parameters:
-        x: Fractions.
-        phis: Quantity to be mixed.
-
-    Returns:
-        Approximation of the quantity for the mixture corresponding to the fractions.
-
-    """
-    assert x.shape == phis.shape, "Require equally shaped arrays."
-    return np.dot(x, phis)
-
-
-@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
-def cubic_mix(x: np.ndarray, phis: np.ndarray) -> float:
-    """Advanced mixing rule of Lorentz-Berthelot-type, used for volume-like quantities.
-
-    Parameters:
-        x: Fractions.
-        phis: Quantity to be mixed.
-
-    Returns:
-        Approximation of the quantity for the mixture corresponding to the fractions.
-
-    """
-    assert x.shape == phis.shape, "Require equally shaped arrays."
-    n = x.size
-    phi_mix = 0.0
-    cphis = np.cbrt(phis)
-    for i in range(n):
-        phi_mix += phis[i] * x[i] ** 2
-        phi_mix += x[i] * np.sum(x[i + 1 :] * (cphis[i] + cphis[i + 1 :]) ** 3) / 4.0
-    return phi_mix
-
-
-@_COMPILER(
-    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def critical_pressure_guess(
-    x: np.ndarray, p_cs: np.ndarray, T_cs: np.ndarray, v_cs: np.ndarray
-) -> float:
-    """Guess for critical pressure of a mixture using heuristics.
-
-    See also:
-
-        - Kay's rule, Prausnitz-Gunn rule, Lorentz-Berthelot-type mixing.
-        - :func:`linear_mix`
-        - :func:`cubic_mix`
-        - `Saha, Carrol 1997: The isoenergetic-isochoric flash
-          <https://doi.org/10.1016/S0378-3812(97)00151-9>`_
-
-    Parameters:
-        x: Fractions.
-        p_pcs: Critical pressure values.
-        T_pcs: Critical temperature values.
-        v_pcs: Critical specific volume values.
-
-    Returns:
-        A guess for the pseudo-critical pressure.
-
-    """
-    x_max = x.max()
-    # Kay's rule if 1 component clearly dominates.
-    if x_max >= 0.9:
-        p_pc = linear_mix(x, p_cs)
-    # Prausnitz-Gunn rule if 1 component is almost dominant.
-    # Other components influence pseudo-critical value more.
-    elif 0.5 < x_max < 0.9:
-        T_pc = linear_mix(x, T_cs)
-        p_pc = T_pc / linear_mix(x, T_cs / p_cs)
-    # Modified Prausnitz-Gunn rule if no clear dominance.
-    # Include information on critical specific volume.
-    else:
-        T_pc = linear_mix(x, T_cs)
-        v_pc = cubic_mix(x, v_cs)
-        v_pc_lin = linear_mix(x, v_cs)
-        # Pseudo-critical compressibility factor.
-        Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
-        p_pc_cub = Z_pc * R_U * T_pc / v_pc
-        p_pc_lin = linear_mix(x, p_cs)
-        # For high-variability mixtures, average with Kay's rule.
-        v_var = np.abs((v_cs - v_pc_lin) / v_pc_lin).max()
-        # NOTE: The weighing towards Kay's rule should be influenced by strong
-        # variability. For polar fluids like water mixed with CO2/H2S for example, it
-        # might be more beneficial to lean more towards Kay.
-        if v_var > 0.1:
-            # 0.7 is upper bound, at most that much Kay's rule.
-            # 0.2 is lower bound, at least that much Kay's rule.
-            # 1.2 is a slope for variability, more variability, more Kay's rule.
-            w = min(0.7, 0.2 + 1.2 * v_var)
-            p_pc = w * p_pc_lin + (1 - w) * p_pc_cub
-        # Else use the cubic rule.
-        else:
-            p_pc = p_pc_cub
-
-    return p_pc
-
-
-# endregion
 
 
 class FlashInitializer(abc.ABC):
@@ -672,7 +815,7 @@ class UniformFlashInitializer(FlashInitializer):
             [comp.acentric_factor for comp in fluid.components]
         )
         """A list containing acentric factors per component."""
-        self._phasestates: tuple[pp.compositional.PhysicalState, ...] = tuple(
+        self._phasestates: tuple[PhysicalState, ...] = tuple(
             [phase.state for phase in fluid.phases]
         )
         """A sequence containing the physical phase state per phase."""
@@ -770,9 +913,7 @@ class UniformFlashInitializer(FlashInitializer):
         logger.info(f"Compiling uniform flash initialization ..")
         start = time.time()
 
-        @_COMPILER(
-            nb.f8[:](FlashSpecMember_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:])
-        )
+        @_COMPILER(nb.f8[:](FlashSpec_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:]))
         def initializer(
             spec: FlashSpec, params: dict[str, float], X_gen: np.ndarray
         ) -> np.ndarray:
@@ -866,9 +1007,7 @@ class UniformFlashInitializer(FlashInitializer):
             return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, spec)
 
         @_COMPILER(
-            nb.f8[:, :](
-                FlashSpecMember_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:, :]
-            ),
+            nb.f8[:, :](FlashSpec_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:, :]),
             parallel=NUMBA_PARALLEL,
         )
         def init_par(
@@ -886,7 +1025,7 @@ class UniformFlashInitializer(FlashInitializer):
         )
 
 
-class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
+class HeuristicVLInitializer(UniformFlashInitializer):
     """Initializer using heuristics and Rachford-Rice equations to provide initial
     values for fractions, pressure and temperature, depending on the flash type.
 
@@ -937,12 +1076,15 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
 
         """
 
+        self._get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray]
+        """Helper function computing K-values. Created during compilation."""
+
         # Provide new default parameters, if not already present.
         default_params: dict[str, float] = {
             "N1": 3.0,
             "N2": 1.0,
             "N3": 5.0,
-            "tolerance": 1e-6,
+            "atol": 1e-4,
         }
         default_params.update(self.params)
         self.params = default_params
@@ -1009,103 +1151,172 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
         logger.info(f"Compiling {[a.name for a in args]} flash initializations ..")
         start = time.time()
 
-        @_COMPILER(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:, :], nb.f8[:]))
-        def get_K_values(
-            p: float, T: float, x: np.ndarray, params: np.ndarray
-        ) -> np.ndarray:
-            """See :func:`get_K_values_template_func`."""
-            # To avoid overflow in exp differences.
-            cap = np.log(np.finfo(np.float64).max) - 10.0
-            nphase, ncomp = x.shape
-            K = np.empty((nphase - 1, ncomp), dtype=np.float64)
-            xn = normalize_rows(x)
-            pre_0 = prearg_val_c(phasestates[0], p, T, xn[0], params)
-            phi_0 = phi_c(pre_0, p, T, xn[0])
-            # NOTE phis are given as ln phis, but K-values are ratios of phis
-            for j in range(1, nphase):
-                pre_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
-                phi_j = phi_c(pre_j, p, T, xn[j])
-                # Binding K-values away from zero
-                # K[j - 1, :] = phi_0 / phi_j + 1e-10
-                K[j - 1, :] = np.exp(np.minimum(phi_0 - phi_j, cap)) + 1e-10
-            return K
+        if not hasattr(self, "_get_K_values"):
+            logger.debug("Compiling K-value computation ..")
 
-        self._initializers[FlashSpec.pT] = partial(
-            rachford_rice_initializer, get_K_values
-        )
+            @_COMPILER(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:, :], nb.f8[:]))
+            def get_K_values(
+                p: float, T: float, x: np.ndarray, xp: np.ndarray
+            ) -> np.ndarray:
+                """See :func:`get_K_values_template_func`."""
+                # To avoid overflow in exp differences.
+                cap = np.log(np.finfo(np.float64).max) - 10.0
+                nphase, ncomp = x.shape
+                K = np.empty((nphase - 1, ncomp), dtype=np.float64)
+                xn = normalize_rows(x)
+                pre_0 = prearg_val_c(phasestates[0], p, T, xn[0], xp)
+                phi_0 = phi_c(pre_0, p, T, xn[0])
+                # NOTE phis are given as ln phis, but K-values are ratios of phis
+                for j in range(1, nphase):
+                    pre_j = prearg_val_c(phasestates[j], p, T, xn[j], xp)
+                    phi_j = phi_c(pre_j, p, T, xn[j])
+                    # Binding K-values away from zero.
+                    # K[j - 1, :] = phi_0 / phi_j + 1e-10
+                    K[j - 1, :] = np.exp(np.minimum(phi_0 - phi_j, cap)) + 1e-10
+                return K
+
+            self._get_K_values = get_K_values
+
+        get_K_values = self._get_K_values
+
+        if FlashSpec.pT in args and FlashSpec.pT not in self._initializers:
+            logger.debug("Compiling pT flash initialization ..")
+
+            self._initializers[FlashSpec.pT] = partial(
+                rachford_rice_initializer, get_K_values
+            )
 
         if FlashSpec.ph in args and FlashSpec.ph not in self._initializers:
             logger.debug("Compiling ph flash initialization ..")
 
-            @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
-            def update_T_guess(
-                X_gen: np.ndarray, params: dict[str, float]
+            @_COMPILER(
+                nb.f8[:, :](
+                    nb.f8[:, :],
+                    SOLVER_PARAMETERS_TYPE,
+                ),
+                parallel=NUMBA_PARALLEL,
+            )
+            def ph_init(
+                X_gen: np.ndarray,
+                params: dict[str, float],
             ) -> np.ndarray:
-                """See :func:`update_state_template_func`."""
-                # Parsing parameters.
                 nphase = int(params["num_phases"])
                 ncomp = int(params["num_components"])
                 N2 = int(params["N2"])
-                tol = params["tolerance"]
-                gas_phase_idx = int(params["gas_phase_index"])
-                # state 2 is target enthalpy
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                    X_gen, ncomp, nphase, FlashSpec.ph
-                )
+                tol = params["atol"]
 
-                # If T has not been initialized at all (zero value), compute
-                # pseudo-critical value as starting point
-                if T == 0.0:
-                    T_cs = np.empty(ncomp)
-                    for i in range(ncomp):
-                        T_cs[i] = params[f"_T_crit_{i}"]
+                T_cs = np.empty(ncomp)
+                p_cs = np.empty(ncomp)
+                v_cs = np.empty(ncomp)
+                omegas = np.empty(ncomp)
+                for i in range(ncomp):
+                    T_cs[i] = params[f"_T_crit_{i}"]
+                    p_cs[i] = params[f"_p_crit_{i}"]
+                    v_cs[i] = params[f"_v_crit_{i}"]
+                    omegas[i] = params[f"_omega_{i}"]
 
-                    T_pc = linear_mix(z, T_cs)
-                    X_gen = assemble_generic_arg(
-                        s, x, y, z, p, T_pc, s1, s2, x_p, FlashSpec.ph
-                    )
-                    X_gen = fractions_from_rr(
-                        get_K_values, X_gen, params, FlashSpec.ph, True
-                    )
+                for k in nb.prange(X_gen.shape[0]):
+                    Xk = X_gen[k]
+
                     s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                        X_gen, ncomp, nphase, FlashSpec.ph
+                        Xk, ncomp, nphase, FlashSpec.ph
                     )
+                    # NOTE local copy for simplicity of compilation.
+                    p_cs_ = p_cs.copy()
+                    T_cs_ = T_cs.copy()
+                    v_cs_ = v_cs.copy()
+                    omegas_ = omegas.copy()
 
-                xn = normalize_rows(x)
-                hs = np.empty(nphase, dtype=np.float64)
-                dh_dTs = np.empty(nphase, dtype=np.float64)
+                    # Compute pseudo-critical estimate of enthalpy.
+                    T_pc = linear_mix(z, T_cs_)
+                    p_pc = critical_pressure_guess(z, p_cs_, T_cs_, v_cs_)
 
-                for _ in range(N2):
-                    for j in range(nphase):
-                        pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
-                        pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
-                        hs[j] = h_c(pre_val_j, p, T, xn[j])
-                        dh_dTs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])[1]
+                    pre_g_pc = prearg_val_c(PhysicalState.gas, p_pc, T_pc, z, x_p)
+                    pre_l_pc = prearg_val_c(PhysicalState.liquid, p_pc, T_pc, z, x_p)
+                    h_g_pc = h_c(pre_g_pc, p_pc, T_pc, z)
+                    h_l_pc = h_c(pre_l_pc, p_pc, T_pc, z)
+                    # Pseudo-critical estimates are not exact, hence these two can
+                    # differ slightly. Take average and obtain pseudo-critical h.
+                    h_pc = (h_g_pc + h_l_pc) * 0.5
 
-                    h_mix = (hs * y).sum()
-                    h_constr_res = h_mix / s2 - 1
-                    if np.abs(h_constr_res) < tol:
-                        break
+                    itr_gas = False
+                    itr_liq = False
+
+                    # We now refine the T guess by dividing the ph plane.
+                    # Above the pseudo-critical pressure, we iterate over the enthalpy
+                    # constraint. If we are left of the h_pc, use h_liq, otherwise use
+                    # h_gas.
+                    if p >= p_pc:
+                        T = T_pc  # Start with pseudo-critical T.
+                        if s2 < h_pc:
+                            itr_liq = True
+                        else:
+                            itr_gas = True
+                    # Below p_pc, approximate bubble and dew-point temperature, and
+                    # compute enthalpies at points. If we are left of h_bub, iterate
+                    # using h_liq, if we are right of h_dew iterate using h_liq.
+                    # If we are in between, interpolate T and not refine anymore.
                     else:
-                        dT_h_constr = (dh_dTs * y).sum() / s2
-                        dT = -h_constr_res / dT_h_constr  # Newton iteration
+                        # NOTE Starting from pseudo-critical alone is often unstable.
+                        T0 = (T_REF + T_pc) * 0.5
+                        T_dew = get_dew_point_T(T0, p, z, p_cs_, T_cs_, omegas_)
+                        T_bub = get_bubble_point_T(T_dew, p, z, p_cs_, T_cs_, omegas_)
 
-                        # corrections to unfeasible updates because of decoupling
-                        if np.abs(dT) > T:
-                            dT = 0.1 * T * np.sign(dT)
-                        dT *= 1 - np.abs(dT) / T
-                        # Correction if gas phase is present and mixture enthalpy is too
-                        # low to avoid overshooting T update
-                        if gas_phase_idx >= 0:
-                            if h_mix < s2 and y[gas_phase_idx] > 1e-3:
-                                dT *= 0.4
-                        T += dT
+                        # Compute enthalpies at points.
+                        pre_g_dew = prearg_val_c(PhysicalState.gas, p, T_dew, z, x_p)
+                        h_dew = h_c(pre_g_dew, p, T_dew, z)
+                        pre_l_bub = prearg_val_c(PhysicalState.liquid, p, T_bub, z, x_p)
+                        h_bub = h_c(pre_l_bub, p, T_bub, z)
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, FlashSpec.ph)
+                        if s2 > h_dew:  # Clearly gas-like.
+                            T = T_dew
+                            itr_gas = True
+                        elif s2 < h_bub:  # Clearly liquid-like.
+                            T = T_bub
+                            itr_liq = True
+                        else:  # If not clear, interpolate between bubble and dew point.
+                            assert h_dew >= h_bub, (
+                                "Expecting gas phase to have higher enthalpy."
+                            )
+                            w = np.abs(h_dew - h_bub)
+                            w = np.abs(s2 - h_bub) / w
+                            T = w * T_bub + (1 - w) * T_dew
 
-            self._initializers[FlashSpec.ph] = partial(
-                nested_initializer, get_K_values, update_T_guess, FlashSpec.ph
-            )
+                    if itr_gas or itr_liq:
+                        if itr_gas:
+                            ps = PhysicalState.gas
+                        else:
+                            ps = PhysicalState.liquid
+                        T_r = T_cs_.max()
+
+                        for i in range(N2):
+                            pre_v_k = prearg_val_c(ps, p, T, z, x_p)
+                            h_i = h_c(pre_v_k, p, T, z)
+
+                            r_i = h_i / s2 - 1.0  # residual energy constraint
+
+                            if np.abs(r_i) < tol:
+                                break
+
+                            pre_j_k = prearg_jac_c(pre_v_k, p, T, z, x_p)
+                            dhdT_i = dh_c(pre_v_k, pre_j_k, p, T, z)[1]
+
+                            J_i = dhdT_i / s2 * T_r  # Scaled derivative.
+                            dT = -r_i / J_i
+                            if dT in (np.nan, np.inf, -np.inf):  # Fail -> steep. desc.
+                                dT = -r_i
+                            dT = np.sign(dT) * min(np.abs(dT), 0.1) * T_r
+                            T += dT
+
+                    Xk = assemble_generic_arg(
+                        s, x, y, z, p, T, s1, s2, x_p, FlashSpec.ph
+                    )
+                    X_gen[k] = fractions_from_rr(
+                        get_K_values, Xk, params, FlashSpec.ph, True
+                    )
+                return X_gen
+
+            self._initializers[FlashSpec.ph] = ph_init
 
         if FlashSpec.vh in args and FlashSpec.vh not in self._initializers:
             logger.debug("Compiling vh flash initialization ..")
@@ -1119,7 +1330,7 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
 
                 # Parsing parameters
                 N2 = int(params["N2"])
-                tol = params["tolerance"]
+                tol = params["atol"]
                 gas_phase_idx = int(params["gas_phase_index"])
 
                 # Local system size.
@@ -1301,7 +1512,7 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
             self._initializers[FlashSpec.vh] = vh_init
 
         if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
-            logger.debug("Compiling vh flash initialization ..")
+            logger.debug("Compiling vu flash initialization ..")
 
             @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess_saha(

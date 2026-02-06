@@ -45,7 +45,7 @@ import numba as nb
 import numpy as np
 
 from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
-from ..utils import FlashSpec, FlashSpecMember_NUMBA_TYPE
+from ..utils import FlashSpec, FlashSpec_NUMBA_TYPE
 from .abstract_flash import FlashResults
 
 __all__ = [
@@ -162,7 +162,7 @@ def generic_arg_from_flash_results(
 
 
 @_COMPILER(
-    nb.int_(nb.int_, nb.int_, FlashSpecMember_NUMBA_TYPE),
+    nb.int_(nb.int_, nb.int_, FlashSpec_NUMBA_TYPE),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -258,7 +258,7 @@ def parse_xy(
             nb.f8,
             nb.f8[:],
         )
-    )(nb.f8[:], nb.int_, nb.int_, FlashSpecMember_NUMBA_TYPE),
+    )(nb.f8[:], nb.int_, nb.int_, FlashSpec_NUMBA_TYPE),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -388,7 +388,7 @@ def parse_generic_arg(
         nb.f8,
         nb.f8,
         nb.f8[:],
-        FlashSpecMember_NUMBA_TYPE,
+        FlashSpec_NUMBA_TYPE,
     ),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -511,7 +511,7 @@ def assemble_generic_arg(
             nb.f8[:],
             nb.f8[:, :],
         )
-    )(nb.f8[:, :], nb.int_, nb.int_, FlashSpecMember_NUMBA_TYPE),
+    )(nb.f8[:, :], nb.int_, nb.int_, FlashSpec_NUMBA_TYPE),
     fastmath=NUMBA_FAST_MATH,
     parallel=NUMBA_PARALLEL,
     cache=NUMBA_CACHE,
@@ -578,7 +578,7 @@ def parse_vectorized_generic_arg(
         nb.f8[:],
         nb.f8[:],
         nb.f8[:, :],
-        FlashSpecMember_NUMBA_TYPE,
+        FlashSpec_NUMBA_TYPE,
     ),
     parallel=NUMBA_PARALLEL,
     fastmath=NUMBA_FAST_MATH,

@@ -872,7 +872,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         The base method uses the :class:`~porepy.compositional.flash.
         persistent_variable_flash.CompiledPersistentVariableFlash` and the
         :class:`~porepy.compositional.flash.flash_initializer.
-        HeuristicTwoPhaseInitializer`.
+        HeuristicVLInitializer`.
 
         """
 
@@ -882,7 +882,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         params = cast(dict, self.params.get("flash_params", {}))
         assert isinstance(params, dict), "'flash_params' expected to be dictionary."
         if "initializer" not in params:
-            params["initializer"] = pf.HeuristicTwoPhaseInitializer
+            params["initializer"] = pf.HeuristicVLInitializer
 
         self.flash = pf.CompiledPersistentVariableFlash(self.fluid, params=params)
 
