@@ -50,15 +50,7 @@ model_params = {
         "cell_size_boundary": units.convert_units(0.5, "m"),  # For unstructured grids
         "cell_size_min": units.convert_units(0.51, "m"),  # For unstructured grids
     },
-    "meshing_kwargs": {
-        # The first three kwargs are passed to ``fracture_network.mesh``.
-        "file_name": "gmsh_frac_file.msh",  # Name of the output mesh and geo files.
-        # TODO PvS: Should we set a standard folder for geometry files?
-        "write_geo": True,  # Keep the geo file after meshing.
-        "clear_gmsh": False,  # Keep the msh file after meshing.
-        # The last one is used by `LoadGeometryMixin.set_geometry`.
-        "csv_file_name": "fracture_network.csv",
-    },
+    "meshing_kwargs": {},
     # Exporting and restarting
     "nonlinear_solver_statistics": pp.SolverStatistics,  # Must be a class, not instance
     "folder_name": "visualization",
