@@ -99,12 +99,6 @@ class AdArray:
             raise ValueError(
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
-        if self._is_diagonal and jac.ndim != 1:
-            if jac.shape[0] != 1 and jac.shape[1] != 1:
-                raise ValueError(
-                    "If the Jacobian is stored as a numpy array, it should be 1d."
-                )
-            jac = jac.ravel("F")
 
         # Enforce float format of all data to limit the number of cases we need to
         # handle and test.
@@ -214,21 +208,11 @@ class AdArray:
             raise ValueError("Sparse matrices cannot be added to AdArrays")
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size:
+            if other._is_diagonal:
+                other = other.to_full()
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for AdArray addition")
-            if self._same_format(other):
-                if self.jac.shape != other.jac.shape:
-                    raise ValueError("Incompatible Jacobian sizes for AdArray addition")
-                return AdArray(self.val + other.val, self.jac + other.jac)
-            elif self._is_diagonal:
-                if self.jac.size != other.jac.shape[0]:
-                    raise ValueError("Incompatible Jacobian sizes for AdArray addition")
-                return AdArray(self.val + other.val, sps.diags(self.jac) + other.jac)
-            else:
-                if self.jac.shape[0] != other.jac.size:
-                    raise ValueError("Incompatible Jacobian sizes for AdArray addition")
-                return AdArray(self.val + other.val, self.jac + sps.diags(other.jac))
-
+            return AdArray(self.val + other.val, self.jac + other.jac)
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray addition")
 
@@ -322,21 +306,12 @@ class AdArray:
             )
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size:
+            if other._is_diagonal:
+                other = other.to_full()
+
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError(
                     "Incompatible sizes for AdArray elementwise multiplication."
-                )
-            if self._same_format(other) and self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif self._is_diagonal and self.jac.size != other.jac.shape[0]:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif other._is_diagonal and self.jac.shape[0] != other.jac.size:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
                 )
 
             # For the values, use elementwise multiplication, as implemented by
@@ -435,22 +410,14 @@ class AdArray:
             return other.__rpow__(self)
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size:
+            if other._is_diagonal:
+                other = other.to_full()
+
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError(
                     "Incompatible sizes for AdArray elementwise multiplication."
                 )
-            if self._same_format(other) and self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif self._is_diagonal and self.jac.size != other.jac.shape[0]:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif other._is_diagonal and self.jac.shape[0] != other.jac.size:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
+
             # This is an expression of the type f = x^y, with derivative
             #
             #   df = (y * x ** (y-1)) * dx + x^y * log(x) * dy
@@ -515,22 +482,14 @@ class AdArray:
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size:
+            if other._is_diagonal:
+                other = other.to_full()
+
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError(
                     "Incompatible sizes for AdArray elementwise multiplication."
                 )
-            if self._same_format(other) and self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif self._is_diagonal and self.jac.size != other.jac.shape[0]:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif other._is_diagonal and self.jac.shape[0] != other.jac.size:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
+
             return other.__pow__(self)
 
         else:
@@ -573,21 +532,12 @@ class AdArray:
             return other.__rtruediv__(self)
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size:
+            if other._is_diagonal:
+                other = other.to_full()
+
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError(
                     "Incompatible sizes for AdArray elementwise multiplication."
-                )
-            if self._same_format(other) and self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif self._is_diagonal and self.jac.size != other.jac.shape[0]:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif other._is_diagonal and self.jac.shape[0] != other.jac.size:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
                 )
 
             return self.__mul__(other.__pow__(-1.0))
@@ -611,26 +561,17 @@ class AdArray:
         if isinstance(other, (float, int, np.ndarray, sps.spmatrix, sps.sparray)):
             # Divide a float or a numpy array by self is the same as raising self to
             # the power of -1 and multiplying by the float. The multiplication will
-            # end upcalling self.__mul__, which will do the right checks for numpy
+            # end up calling self.__mul__, which will do the right checks for numpy
             # arrays and sparse matrices.
             return self.__pow__(-1.0) * other
 
         elif isinstance(other, pp.ad.AdArray):
-            if self.val.size != other.val.size:
+            if other._is_diagonal:
+                other = other.to_full()
+
+            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError(
                     "Incompatible sizes for AdArray elementwise multiplication."
-                )
-            if self._same_format(other) and self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif self._is_diagonal and self.jac.size != other.jac.shape[0]:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
-                )
-            elif other._is_diagonal and self.jac.shape[0] != other.jac.size:
-                raise ValueError(
-                    "Incompatible Jacobian sizes for AdArray elementwise multiplication."
                 )
 
             return other.__mul__(self.__pow__(-1.0))
@@ -694,10 +635,7 @@ class AdArray:
                     matrix multiplication."""
                 )
             new_val = other @ self.val
-            if self._is_diagonal:
-                new_jac = other @ sps.diags(self.jac)
-            else:
-                new_jac = other @ self.jac
+            new_jac = other @ self.jac
             return AdArray(new_val, new_jac)
 
         else:
