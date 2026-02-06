@@ -113,7 +113,7 @@ def update_state_template_func(
 def K_Wilson(
     p: float, T: float, p_cs: np.ndarray, T_cs: np.ndarray, omegas: np.ndarray
 ) -> np.ndarray:
-    """Wilson correlation for fugacity values.
+    """Wilson correlation for K-values (ratio of liquid to gas fugacity coefficient).
 
     Parameters:
         p: Pressure [Pa].
@@ -134,7 +134,7 @@ def K_Wilson(
 def dT_K_Wilson(
     p: float, T: float, p_cs: np.ndarray, T_cs: np.ndarray, omegas: np.ndarray
 ) -> np.ndarray:
-    """Temperature-derivative of Wilson correlation for fugacity values.
+    """Temperature-derivative of Wilson correlation for K-values.
 
     Parameters:
         p: Pressure [Pa].
@@ -289,15 +289,15 @@ def get_dew_point_T(
     """
     Ti = T0
     T_r = T_cs.max()
-    for i in range(15):
+    for _ in range(15):  # Simple newton loop.
         K_i = K_Wilson(p, Ti, p_cs, T_cs, omegas)
-        f_i = np.sum(z / K_i) - 1.0
-        if np.abs(f_i) < 1e-7:
+        r_i = np.sum(z / K_i) - 1.0  # residual
+        if np.abs(r_i) < 1e-7:
             break
 
         dKdT_i = dT_K_Wilson(p, Ti, p_cs, T_cs, omegas)
-        df_i = np.sum(-z / K_i**2 * dKdT_i) * T_r
-        dT = -f_i / df_i
+        J_i = np.sum(-z / K_i**2 * dKdT_i) * T_r  # Jacobian
+        dT = -r_i / J_i
         dT = np.sign(dT) * min(np.abs(dT), 0.1)
         Ti += dT * T_r
 
@@ -339,15 +339,15 @@ def get_bubble_point_T(
     """
     Ti = T0
     T_r = T_cs.max()
-    for i in range(15):
+    for _ in range(15):  # Similar to dew point.
         K_i = K_Wilson(p, Ti, p_cs, T_cs, omegas)
-        f_i = np.sum(z * K_i) - 1.0
-        if np.abs(f_i) < 1e-7:
+        r_i = np.sum(z * K_i) - 1.0
+        if np.abs(r_i) < 1e-7:
             break
 
         dKdT_i = dT_K_Wilson(p, Ti, p_cs, T_cs, omegas)
-        df_i = np.sum(z * dKdT_i) * T_r
-        dT = -f_i / df_i
+        J_i = np.sum(z * dKdT_i) * T_r
+        dT = -r_i / J_i
         dT = np.sign(dT) * min(np.abs(dT), 0.1)
         Ti += dT * T_r
 
@@ -1083,7 +1083,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         default_params: dict[str, float] = {
             "N1": 3.0,
             "N2": 1.0,
-            "N3": 5.0,
+            "N3": 1.0,
             "atol": 1e-4,
         }
         default_params.update(self.params)
@@ -1145,6 +1145,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         phi_c = self._eos.funcs["phis"]
         h_c = self._eos.funcs["h"]
         dh_c = self._eos.funcs["dh"]
+        u_c = self._eos.funcs["u"]
+        du_c = self._eos.funcs["du"]
         rho_c = self._eos.funcs["rho"]
         drho_c = self._eos.funcs["drho"]
 
@@ -1289,12 +1291,13 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             ps = PhysicalState.liquid
                         T_r = T_cs_.max()
 
+                        # Simple Newton on energy constraint.
+                        # Single-phase is always well-behaved.
                         for i in range(N2):
                             pre_v_k = prearg_val_c(ps, p, T, z, x_p)
                             h_i = h_c(pre_v_k, p, T, z)
 
                             r_i = h_i / s2 - 1.0  # residual energy constraint
-
                             if np.abs(r_i) < tol:
                                 break
 
@@ -1302,10 +1305,10 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             dhdT_i = dh_c(pre_v_k, pre_j_k, p, T, z)[1]
 
                             J_i = dhdT_i / s2 * T_r  # Scaled derivative.
-                            dT = -r_i / J_i
+                            dT = -r_i / J_i  # Newton step.
                             if dT in (np.nan, np.inf, -np.inf):  # Fail -> steep. desc.
                                 dT = -r_i
-                            dT = np.sign(dT) * min(np.abs(dT), 0.1) * T_r
+                            dT = np.sign(dT) * min(np.abs(dT), 0.1) * T_r  # Chop.
                             T += dT
 
                     Xk = assemble_generic_arg(
@@ -1548,7 +1551,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     # pseudo-critical pressure guess
                     v_pc = cubic_mix(z, v_cs)
                     p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
-                    p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
                     # Pseudo-critical compressibility factor.
                     Z_pc = linear_mix(z, p_cs * v_cs / T_cs) / R_U
 
@@ -1592,16 +1594,16 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 if gas_phase_idx >= 0:
                     y_g = y[gas_phase_idx]
 
-                hs = np.empty(nphase)
-                dhs = np.empty((nphase, 2 + ncomp))
+                us = np.empty(nphase)
+                dus = np.empty((nphase, 2 + ncomp))
                 rhos = np.empty(nphase)
                 drhos = np.empty((nphase, 2 + ncomp))
 
                 for j in range(nphase):
                     pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
                     pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
-                    hs[j] = h_c(pre_val_j, p, T, xn[j])
-                    dhs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                    us[j] = u_c(pre_val_j, p, T, xn[j])
+                    dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
                     rhos[j] = rho_c(pre_val_j, p, T, xn[j])
                     drhos[j] = drho_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
@@ -1612,8 +1614,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 dv_new_dp = outer * np.dot(s, drhos[:, 0])
                 dv_new_dT = outer * np.dot(s, drhos[:, 1])
 
-                u_new = np.dot(y, hs) - p * v_new
-                du_new_dT = np.dot(y, dhs[:, 1]) - p * dv_new_dT
+                u_new = np.dot(y, us) - p * v_new
+                du_new_dT = np.dot(y, dus[:, 1]) - p * dv_new_dT
 
                 dT = (s2 - u_new) / du_new_dT
                 fc = 1 - np.abs(dT) / T

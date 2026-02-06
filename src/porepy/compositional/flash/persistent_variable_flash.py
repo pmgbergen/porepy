@@ -291,12 +291,11 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     X_gen, n_C, n_P, spec
                 )
 
-                # EoS specific computations
+                # EoS specific computations.
                 xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-                us = np.empty(n_P)
-                hs = np.empty(n_P)
-                rhos = np.empty(n_P)
+                phis = np.empty((n_P, n_C))  # Fugacities.
+                es = np.empty(n_P)  # Energies.
+                rhos = np.empty(n_P)  # Densities.
 
                 for j in range(n_P):
                     pre_res_j = prearg_val_c(states[j], p, T, xn[j], xp)
@@ -306,9 +305,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                         rhos[j] = rho_c(pre_res_j, p, T, xn[j])
 
                     if spec in (FlashSpec.ph, FlashSpec.vh):
-                        hs[j] = h_c(pre_res_j, p, T, xn[j])
+                        es[j] = h_c(pre_res_j, p, T, xn[j])
                     elif spec == FlashSpec.vu:
-                        us[j] = u_c(pre_res_j, p, T, xn[j])
+                        es[j] = u_c(pre_res_j, p, T, xn[j])
 
                 # Block which all flashes have in common.
                 res = np.hstack(
@@ -331,10 +330,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
 
                 # Pre-append energy block for non-isothermal specifications.
-                if spec in (FlashSpec.ph, FlashSpec.vh):
-                    res_e = first_order_constraint_res(s2, y, hs)
-                elif spec == FlashSpec.vu:  # NOTE Energy-blocks are mutually exclusive.
-                    res_e = first_order_constraint_res(s2, y, us)
+                if spec in (FlashSpec.ph, FlashSpec.vh, FlashSpec.vu):
+                    res_e = first_order_constraint_res(s2, y, es)
                 else:
                     res_e = np.zeros((0,))
 
@@ -366,16 +363,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     X_gen, n_C, n_P, spec
                 )
 
-                # EoS specific computations
+                # EoS specific computations.
                 xn = normalize_rows(x)
                 phis = np.empty((n_P, n_C))
-                us = np.empty(n_P)
-                hs = np.empty(n_P)
+                es = np.empty(n_P)
                 rhos = np.empty(n_P)
 
                 dphis = np.empty((n_P, n_C, 2 + n_C))
-                dus = np.empty((n_P, 2 + n_C))
-                dhs = np.empty((n_P, 2 + n_C))
+                des = np.empty((n_P, 2 + n_C))
                 drhos = np.empty((n_P, 2 + n_C))
 
                 for j in range(n_P):
@@ -396,13 +391,13 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                         )
 
                     if spec in (FlashSpec.ph, FlashSpec.vh):
-                        hs[j] = h_c(pre_res_j, p, T, xn[j])
-                        dhs[j] = _chainrule_fractional_derivatives(
+                        es[j] = h_c(pre_res_j, p, T, xn[j])
+                        des[j] = _chainrule_fractional_derivatives(
                             dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                         )
                     elif spec == FlashSpec.vu:
-                        us[j] = u_c(pre_res_j, p, T, xn[j])
-                        dus[j] = _chainrule_fractional_derivatives(
+                        es[j] = u_c(pre_res_j, p, T, xn[j])
+                        des[j] = _chainrule_fractional_derivatives(
                             du_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                         )
 
@@ -426,12 +421,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
 
                 # Pre-append energy block for non-isothermal specifications.
-                if spec in (FlashSpec.ph, FlashSpec.vh):
-                    jac_e = first_order_constraint_jac(y, hs, dhs, True)
-                    # res_e = first_order_constraint_res(s2, y, hs)[0]
-                elif spec == FlashSpec.vu:
-                    jac_e = first_order_constraint_jac(y, us, dus, True)
-                    # res_e = first_order_constraint_res(s2, y, us)[0]
+                if spec in (FlashSpec.ph, FlashSpec.vh, FlashSpec.vu):
+                    jac_e = first_order_constraint_jac(y, es, des, True)
+                    # res_e = first_order_constraint_res(s2, y, es)[0]
                 else:
                     jac_e = np.empty((0, jac.shape[1]))
                     # res_e = 0.0

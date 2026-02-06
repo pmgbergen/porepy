@@ -632,6 +632,8 @@ class AbstractFlash(abc.ABC):
         - ``'max_cols'``: If given, sets the number of columns for multi-field plots.
           Defaults to 3.
         - ``'figsize'``: A 2-tuple of floats containing width and height of the figure.
+        - ``'phasecontour'``: Boolean. If true, draws contour lines around different
+          phase regions.
 
         Parameters:
             specification: The flash to be calculated.
@@ -759,6 +761,7 @@ class AbstractFlash(abc.ABC):
 
         # Parse field and format values to be plotted.
         vals: list[np.ndarray] = []
+        split_v: np.ndarray | None = None
         if isinstance(field, str):
             fields = [field]
         else:
@@ -769,6 +772,8 @@ class AbstractFlash(abc.ABC):
             if transpose:
                 v = v.transpose()
             vals.append(v)
+            if f == "phasesplit":
+                split_v = v
 
         # Parse plotting options and create figure.
         nf = len(fields)
@@ -788,6 +793,15 @@ class AbstractFlash(abc.ABC):
                 if nf % ncols > 0:
                     nrows += 1
             assert nrows >= 1, "Require at least 1 row."
+
+        plot_contour = kwargs.get("phasecontour", False)
+        if split_v is None and plot_contour:
+            split_v = self._parse_field(
+                results, "phasesplit", kwargs.get("eps", 1e-7)
+            ).reshape(shape)
+            assert isinstance(split_v, np.ndarray)
+            if transpose:
+                split_v = split_v.transpose()
 
         base_fh = 5.0  # Base height for 1 plot.
         base_fw = 5.5  # Base width for 1 plot.
@@ -827,6 +841,11 @@ class AbstractFlash(abc.ABC):
             if f == "phasesplit":
                 cb_rr.set_ticks(cbticks)
                 cb_rr.set_ticklabels(cblabels)
+
+            if plot_contour:
+                assert isinstance(split_v, np.ndarray), "Failed to parse split values."
+                lvls = np.unique(split_v)
+                ax.contour(xm, ym, split_v, lvls, colors="black", linewidths=1.5)
 
             if np.any(not_conv) and kwargs.get("show_not_converged", False):
                 img_nc = ax.scatter(
