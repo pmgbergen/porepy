@@ -1099,7 +1099,13 @@ def _get_diag_array(
 
         return vec * var, equation_system
     else:
-        ad_arr = pp.ad.AdArray(jac * variable_val, jac)
+        ad_arr = pp.ad.DiagonalAdArray(
+            jac * variable_val,
+            jac,
+            indices=np.arange(variable_val.size),
+            offsets=np.array([0], dtype=int),
+            num_derivatives=3,
+        )
         return ad_arr
 
 
@@ -1507,6 +1513,87 @@ def _expected_value(
         else:
             return False
 
+    elif isinstance(var_1, pp.ad.DiagonalAdArray) and isinstance(
+        var_2, pp.ad.DiagonalAdArray
+    ):
+        # For this case, var_2 was modified manually to be twice var_1, see comments in
+        # the main test function. Mirror this here to be consistent.
+        var_2 = var_1 + var_1
+        if op == "+":
+            # This evaluates to 3 * Array (since var_2 = 2 * var_1)
+            val = np.array([18, 45, 72])
+            jac = 3 * np.array([6, 7.5, 8])
+            return pp.ad.DiagonalAdArray(
+                val,
+                jac,
+                indices=np.arange(3),
+                offsets=np.array([0], dtype=int),
+                num_derivatives=3,
+            )
+        elif op == "-":
+            # This evaluates to -Array (since var_2 = 2 * var_1)
+            val = np.array([-6, -15, -24])
+            jac = -np.array([6, 7.5, 8])
+            return pp.ad.DiagonalAdArray(
+                val,
+                jac,
+                indices=np.arange(3),
+                offsets=np.array([0], dtype=int),
+                num_derivatives=3,
+            )
+
+        elif op == "*":
+            # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
+            val = np.array([6 * 12, 15 * 30, 24 * 48])
+            # Product rule
+            jac = var_1.val * var_2.jac + var_2.val * var_1.jac
+            return pp.ad.DiagonalAdArray(
+                val,
+                jac,
+                indices=np.arange(3),
+                offsets=np.array([0], dtype=int),
+                num_derivatives=3,
+            )
+        elif op == "/":
+            # This evaluates to Array / (2 * Array)
+            # The derivative is computed from the product and chain rules
+            val = np.array([1 / 2, 1 / 2, 1 / 2])
+            j1 = sps.diags(var_1.jac).toarray()
+            return pp.ad.DiagonalAdArray(
+                val,
+                jac,
+                indices=np.arange(3),
+                offsets=np.array([0], dtype=int),
+                num_derivatives=3,
+            )
+        elif op == "**":
+            # This is Array ** (2 * Array)
+            # The derivative is
+            #    Array**(2 * Array - 1) * (2 * Array) * dArray
+            #  + Array**(2 * Array) * log(Array) * dArray
+            val = np.array([6**12, 15**30, 24**48])
+            j1 = var_1.jac
+            j2 = var_2.jac
+            np.vstack(  #
+                (
+                    var_2.val[0] * var_1.val[0] ** (var_2.val[0] - 1.0) * j1[0]
+                    + np.log(var_1.val[0]) * (var_1.val[0] ** var_2.val[0]) * j2[0],
+                    var_2.val[1] * var_1.val[1] ** (var_2.val[1] - 1.0) * j1[1]
+                    + np.log(var_1.val[1]) * (var_1.val[1] ** var_2.val[1]) * j2[1],
+                    var_2.val[2] * var_1.val[2] ** (var_2.val[2] - 1.0) * j1[2]
+                    + np.log(var_1.val[2]) * (var_1.val[2] ** var_2.val[2]) * j2[2],
+                )
+            )
+            return pp.ad.DiagonalAdArray(
+                val,
+                jac,
+                indices=np.arange(3),
+                offsets=np.array([0], dtype=int),
+                num_derivatives=3,
+            )
+        elif op == "@":
+            return False
+
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, pp.ad.AdArray):
         # For this case, var_2 was modified manually to be twice var_1, see comments in
         # the main test function. Mirror this here to be consistent.
@@ -1514,9 +1601,7 @@ def _expected_value(
         if op == "+":
             # This evaluates to 3 * Array (since var_2 = 2 * var_1)
             val = np.array([18, 45, 72])
-            if var_1._is_diagonal and var_2._is_diagonal:
-                jac = 3 * np.array([6, 7.5, 8])
-            elif var_1._is_diagonal:
+            if var_1._is_diagonal:
                 jac = sps.csr_matrix(
                     np.array([[6 + 2, 4, 6], [8, 7.5 + 10, 12], [14, 16, 8 + 18]])
                 )
@@ -1530,9 +1615,7 @@ def _expected_value(
         elif op == "-":
             # This evaluates to -Array (since var_2 = 2 * var_1)
             val = np.array([-6, -15, -24])
-            if var_1._is_diagonal and var_2._is_diagonal:
-                jac = -np.array([6, 7.5, 8])
-            elif var_1._is_diagonal:
+            if var_1._is_diagonal:
                 jac = sps.csr_matrix(
                     np.array(
                         [
@@ -1560,28 +1643,24 @@ def _expected_value(
         elif op == "*":
             # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
             val = np.array([6 * 12, 15 * 30, 24 * 48])
-            if var_1._is_diagonal and var_2._is_diagonal:
-                # Product rule
-                jac = var_1.val * var_2.jac + var_2.val * var_1.jac
+
+            if var_1._is_diagonal:
+                j1 = sps.diags(var_1.jac.ravel()).toarray()
             else:
-                if var_1._is_diagonal:
-                    j1 = sps.diags(var_1.jac).toarray()
-                else:
-                    j1 = var_1.jac.toarray()
-                if var_2._is_diagonal:
-                    j2 = sps.diags(var_2.jac).toarray()
-                else:
-                    j2 = var_2.jac.toarray()
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            j1[0] * var_2.val[0] + var_1.val[0] * j2[0],
-                            j1[1] * var_2.val[1] + var_1.val[1] * j2[1],
-                            j1[2] * var_2.val[2] + var_1.val[2] * j2[2],
-                        )
+                j1 = var_1.jac.toarray()
+            if var_2._is_diagonal:
+                j2 = sps.diags(var_2.jac.ravel()).toarray()
+            else:
+                j2 = var_2.jac.toarray()
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        j1[0] * var_2.val[0] + var_1.val[0] * j2[0],
+                        j1[1] * var_2.val[1] + var_1.val[1] * j2[1],
+                        j1[2] * var_2.val[2] + var_1.val[2] * j2[2],
                     )
                 )
-
+            )
             return pp.ad.AdArray(val, jac)
         elif op == "/":
             # This evaluates to Array / (2 * Array)
@@ -1589,11 +1668,11 @@ def _expected_value(
             val = np.array([1 / 2, 1 / 2, 1 / 2])
 
             if var_1._is_diagonal:
-                j1 = sps.diags(var_1.jac).toarray()
+                j1 = sps.diags(var_1.jac.ravel()).toarray()
             else:
                 j1 = var_1.jac.toarray()
             if var_2._is_diagonal:
-                j2 = sps.diags(var_2.jac).toarray()
+                j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
 
@@ -1614,11 +1693,11 @@ def _expected_value(
             #  + Array**(2 * Array) * log(Array) * dArray
             val = np.array([6**12, 15**30, 24**48])
             if var_1._is_diagonal:
-                j1 = sps.diags(var_1.jac).toarray()
+                j1 = sps.diags(var_1.jac.ravel()).toarray()
             else:
                 j1 = var_1.jac.toarray()
             if var_2._is_diagonal:
-                j2 = sps.diags(var_2.jac).toarray()
+                j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
             jac = sps.csr_matrix(
@@ -1724,6 +1803,12 @@ def test_arithmetic_operations_on_ad_objects(
         # we reassign v2 = v1 + v1. This also requires some adaptations in the
         # code to get the expected values, see that function.
         v2 = v1 + v1
+        if not wrapped and var_1 == "diag" and var_2 == "ad":
+            # Make sure we did not unintentionally make v2 a diagonal AdArray when it
+            # should have been a regular AdArray. This is only relevant for the
+            # non-wrapped case, since in the wrapped case, the parsing will take care of
+            # things.
+            v2 = v2.to_full()
 
     # Calculate the expected numerical values for this expression. This inolves
     # hard-coded values for the different operators and their combinations, see the
