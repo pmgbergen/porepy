@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import warnings
 from contextlib import contextmanager
+from logging import getLogger
 from pathlib import Path
 from typing import Optional, Union
 
@@ -14,6 +15,8 @@ import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.utils import pts_edges_to_linefractures
+
+logger = getLogger(__name__)
 
 
 def network_from_csv(
@@ -78,9 +81,15 @@ def network_from_csv(
                     # Both 2d box domains and fractures have four entries.
                     nd = 2
                 else:
-                    # This can be an elliptic fracture, a 3d domain or a 3d point-based
-                    # fracture, depending on the context.
-                    nd = 3
+                    # This can be a 3d domain (six entries) or a 3d point-based
+                    # fracture (elliptic or point-based), depending on the context.
+                    if data.size == 6 or (data.size >= 9 and data.size % 3 == 0):
+                        nd = 3
+                    else:
+                        raise ValueError(
+                            "Could not infer dimension from data, data size: "
+                            + f"{data.size}."
+                        )
 
             if has_domain and not domain_read:
                 # Read the domain line.
@@ -98,7 +107,7 @@ def network_from_csv(
                     )
                 continue
 
-            # This is a fracture.
+            # This is a fracture. Process the data according to the spatial dimension.
             if nd == 2:
                 if data.size != 4:
                     raise ValueError(
@@ -110,12 +119,31 @@ def network_from_csv(
                 fractures.append(
                     pp.LineFracture(data.reshape((2, -1), order="F"))  # type: ignore
                 )
-            else:  # nd == 3
-                if data.size == 8:
+            elif nd == 3:
+                # In 3d, the number of entries must be used to distinguish between
+                # elliptic and polygonal fractures.
+
+                if data.size == 9 and data[8] == int(data[8]) and data[8] > 0:
+                    # 9 entries can be interpreted as an elliptic fracture or a
+                    # triangular fracture. We check for the number of points to
+                    # distinguish the two cases, and issue a warning if the data is
+                    # interpreted as an elliptic fracture, as this is more likely to be
+                    # the intended interpretation in this case. This is a workaround
+                    # that will be fixed upon merging of GH issue #1576.
+                    logger.warning(
+                        "Interpreting fracture with 9 entries as elliptic fracture."
+                    )
+
                     # This will be interpreted as an elliptic fracture. The number of
                     # points should be represented as an integer.
                     frac = pp.create_elliptic_fracture(
-                        data[:3], data[3], data[4], data[5], data[6], int(data[7])
+                        data[:3],  # center
+                        data[3],  # major axis
+                        data[4],  # minor axis
+                        data[5],  # major axis angle
+                        data[6],  # strike angle
+                        data[7],  # dip angle
+                        int(data[8]),  # num points
                     )
                     fractures.append(frac)  # type: ignore
                 else:
@@ -129,6 +157,9 @@ def network_from_csv(
                             data.reshape((3, -1), order="F")
                         )
                     )
+            else:
+                # This should not happen.
+                raise ValueError("Could not infer dimension from data.")
 
     if not has_nontrivial_content:
         raise ValueError("The CSV file contains no data.")

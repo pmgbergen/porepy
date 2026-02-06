@@ -43,7 +43,7 @@ def fractures(nd: Literal[2, 3]) -> list[np.ndarray]:
             [[0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8], [0.5, 0.5, 0.5, 0.5]]
         )
         # Elliptic fracture.
-        f_1 = np.array([[0.5, 0.5, 0.6, 0.4, 0.2, np.pi / 3, np.pi / 4, 16]])
+        f_1 = np.array([[0.5, 0.5, 0.6, 0.4, 0.2, np.pi / 6, np.pi / 3, np.pi / 4, 16]])
         # Plane fracture with normal in y direction, and five points.
         f_2 = np.array(
             [
