@@ -750,7 +750,6 @@ class ModelGeometry(pp.PorePyModel):
 class LoadGeometryMixin(pp.PorePyModel):
     """Provide functionality to store and load the full model geometry from files.
 
-
     The intended workflow is as follows:
 
     Example:
@@ -764,7 +763,6 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Geometry is loaded from msh and fracture network files in subsequent runs.
         for i in range(num_runs):
             pp.run_time_dependent_model(model)
-
 
     """
 
