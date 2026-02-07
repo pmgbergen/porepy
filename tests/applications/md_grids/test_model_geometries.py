@@ -1,20 +1,19 @@
 import numpy as np
-import porepy as pp
-
 import pytest
 
+import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SubsurfaceCuboidDomain,
     TwoEllipticFractures3d,
     TwoWells3d,
 )
 
-class subsurface_domain_model(
-    SubsurfaceCuboidDomain
-):
+
+class subsurface_domain_model(SubsurfaceCuboidDomain):
     def __init__(self, params):
         self.params = params
         self.units = params.get("units", pp.Units)
+
 
 def test_subsurface_set_domain():
     params = {
@@ -33,12 +32,11 @@ def test_subsurface_set_domain():
     assert box["zmax"] == 0.0
 
 
-class TwoWells3d_model(
-    TwoWells3d
-):
+class TwoWells3d_model(TwoWells3d):
     def __init__(self, params):
         self.params = params
         self.units = params.get("units", pp.Units)
+
 
 def test_created_well_network():
     params = {
@@ -54,12 +52,12 @@ def test_created_well_network():
     assert len(wells) == 2
     assert names == ["injection_well", "production_well"]
 
-class TwoEllipticFractures3d_model(
-    TwoEllipticFractures3d
-):
+
+class TwoEllipticFractures3d_model(TwoEllipticFractures3d):
     def __init__(self, params):
         self.params = params
         self.units = params.get("units", pp.Units)
+
 
 def test_created_well_network():
     params = {
@@ -74,4 +72,3 @@ def test_created_well_network():
 
     assert len(fractures) == 2
     assert np.allclose(model.fracture_major_axes, expected_major_axis)
-
