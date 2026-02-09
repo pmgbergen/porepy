@@ -817,15 +817,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         self.fracture_network = pp.fracture_importer.network_from_csv(
             fracture_network_path
         )
-        # TODO (part of GH 1576): Replace with fracture_network.dim, which is introduced
-        # in that PR.
-        self.nd = (
-            2
-            if isinstance(
-                self.fracture_network, pp.fracs.fracture_network_2d.FractureNetwork2d
-            )
-            else 3
-        )
+        self.nd = self.fracture_network.nd
 
         self.mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
 
