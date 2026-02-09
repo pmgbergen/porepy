@@ -201,7 +201,7 @@ class FractureNetwork3d(FractureNetwork):
     def mesh(
         self,
         mesh_args: dict[str, float],
-        file_name: Optional[Path] = None,
+        file_name: Path,
         constraints: Optional[np.ndarray] = None,
         dfn: bool = False,
         **kwargs,
@@ -211,8 +211,7 @@ class FractureNetwork3d(FractureNetwork):
         Parameters:
             mesh_args: Dictionary with mesh size parameters. See
                 :class:`~porepy.fracs.fracture_network.MeshSizeComputer` for details.
-            file_name: Path to the output Gmsh .msh file. If ``None``, the default name
-                ``gmsh_frac_file.msh`` is used.
+            file_name: Path to the output Gmsh .msh file.
             constraints: Numpy array with indices of fractures to be treated as
                 constraints during meshing. The indices refer to the ordering of
                 fractures in the fracture network. If ``None``, no constraints are

@@ -23,6 +23,7 @@ def _validate_args_types(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
     fracture_network: FractureNetworkType,
+    file_name: Optional[Path] = None,
 ):
     """Validates argument types.
 
@@ -39,6 +40,7 @@ def _validate_args_types(
             - fracture_network is not an instance of
             :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` or
             :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
+            - ``file_name`` is not ``Path`` if provided.
 
     """
 
@@ -56,6 +58,8 @@ def _validate_args_types(
             "fracture_network must be FractureNetwork2d or FractureNetwork3d, not %r"
             % type(fracture_network)
         )
+    if file_name is not None and not isinstance(file_name, Path):
+        raise TypeError("file_name must be a Path, not %r" % type(file_name))
 
 
 def _validate_grid_type_value(
@@ -79,7 +83,9 @@ def _validate_grid_type_value(
         )
 
 
-def _validate_simplex_meshing_args_values(meshing_args: dict):
+def _validate_simplex_meshing_args_values(
+    meshing_args: dict, file_name: Optional[Path] = None
+):
     """Validates items in meshing_args for simplex mdg.
 
     Parameters:
@@ -98,6 +104,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
             - cell_size_fracture is not strictly positive
             - cell_size or cell_size_boundary are not provided
             - cell_size or cell_size_fracture are not provided
+            - file_name is not provided
 
     """
     # Get expected arguments.
@@ -158,6 +165,9 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
     else:
         # This is okay; a default value based on the other sizes will be used.
         pass
+
+    if file_name is None:
+        raise ValueError("file_name must be provided for simplex meshing.")
 
 
 def _validate_cartesian_meshing_args_values(dimension: int, meshing_args: dict):
@@ -376,6 +386,7 @@ def _validate_args(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
     fracture_network: FractureNetworkType,
+    file_name: Optional[Path] = None,
 ):
     """Validates grid_type, meshing_args and fracture_network types and values.
 
@@ -383,6 +394,7 @@ def _validate_args(
         grid_type: Type of grid.
         meshing_args: A ``dict`` with meshing keys depending on each grid_type.
         fracture_network: fracture network specification.
+        file_name: Optional path to the gmsh file.
 
     Raises:
         - ValueError: Raises value error messages if:
@@ -392,7 +404,7 @@ def _validate_args(
 
     """
 
-    _validate_args_types(grid_type, meshing_args, fracture_network)
+    _validate_args_types(grid_type, meshing_args, fracture_network, file_name)
     _validate_grid_type_value(grid_type)
 
     # DFN case is only supported for unstructured simplex meshes
@@ -446,7 +458,7 @@ def _validate_args(
                 warn(f"Found {sz} fractures outside the domain boundary")
 
     if grid_type == "simplex":
-        _validate_simplex_meshing_args_values(meshing_args)
+        _validate_simplex_meshing_args_values(meshing_args, file_name)
     elif grid_type == "cartesian":
         dimension = _infer_dimension_from_network(fracture_network)
         _validate_cartesian_meshing_args_values(dimension, meshing_args)
@@ -498,6 +510,7 @@ def _preprocess_simplex_args(
     # Filter arguments processed in an alternative manner.
     defaults.pop("self")
     defaults.pop("mesh_args")
+    defaults.pop("file_name")
     defaults.pop("kwargs")
 
     # Transfer defaults.
@@ -506,13 +519,6 @@ def _preprocess_simplex_args(
     extra_args_list: list = [
         kwargs.get(key, val.default) for (key, val) in defaults.items()
     ]
-    # Ensure ``file_name`` is a Path object.
-    if "file_name" in defaults:
-        file_name = kwargs.get("file_name", defaults["file_name"].default)
-        # None does not need conversion.
-        if file_name is not None:
-            file_name_index = extra_args_list.index(file_name)
-            extra_args_list[file_name_index] = Path(file_name)
 
     # Remove duplicate keys.
     [kwargs.pop(key) for key in defaults if key in kwargs]
@@ -720,6 +726,7 @@ def create_mdg(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
     fracture_network: FractureNetworkType,
+    file_name: Optional[Path] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Creates a mixed-dimensional grid.
@@ -805,8 +812,11 @@ def create_mdg(
                         np.min(z_pts), np.max(z_pts) must be on the boundary. If z_pts
                         is provided, it overwrites the information computed from
                         cell_size in the z-direction.
-            fracture_network: fracture network specification. **kwargs: A dictionary
-            with extra meshing keys associated with each grid_type:
+            fracture_network: fracture network specification.
+            file_name: Path to the output Gmsh .msh file. Must be provided if grid_type
+                is "simplex". It is ignored for other grid types.
+            **kwargs: A dictionary with extra meshing keys associated with each
+                grid_type:
                 if grid_type == "simplex":
                     constraints: ``np.ndarray``: Index list of the fractures that should
                         be treated as constraints in meshing, but not added as separate
@@ -815,8 +825,6 @@ def create_mdg(
                         properties, etc.).
                     dfn: ``bool``: Defaults to False. Directive for generating a DFN
                         mesh. Providing True activates the directive.
-                    file_name: ``str``: Defaults to None. If provided, the generated
-                        mesh will be saved to a file with this name (in .msh format).
                     refinement_proximity_multiplier: ``float``: Threshold for refinement
                         around proximate fractures. See tutorial on mixed-dimensional
                         grids for details.
@@ -848,7 +856,7 @@ def create_mdg(
 
     """
 
-    _validate_args(grid_type, meshing_args, fracture_network)
+    _validate_args(grid_type, meshing_args, fracture_network, file_name)
 
     mdg: pp.MixedDimensionalGrid
 
@@ -865,14 +873,18 @@ def create_mdg(
             )
 
             # perform the actual meshing
-            mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
+            mdg = fracture_network.mesh(
+                lower_level_args, file_name, *extra_args, **kwargs
+            )
         elif dim == 3:
             # preprocess user's arguments provided in kwargs
             (lower_level_args, extra_args, kwargs) = _preprocess_simplex_args(
                 meshing_args, kwargs, FractureNetwork3d.mesh
             )
             # perform the actual meshing
-            mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
+            mdg = fracture_network.mesh(
+                lower_level_args, file_name, *extra_args, **kwargs
+            )
 
     # Structured cases
     domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)

@@ -122,10 +122,7 @@ class FractureNetwork(ABC):
         pass
 
     def _prepare_mesh_inputs(
-        self,
-        file_name: Optional[Path],
-        constraints: Optional[np.ndarray] = None,
-        **kwargs,
+        self, file_name: Path, constraints: Optional[np.ndarray] = None, **kwargs
     ):
         """Prepare inputs for the meshing process.
         Parameters:
@@ -140,8 +137,8 @@ class FractureNetwork(ABC):
             - file_name: The prepared file name for the Gmsh mesh file.
             - constraints: The prepared array of fracture indices to be constrained.
         """
-        if file_name is None:
-            file_name = Path("gmsh_frac_file.msh")
+
+        file_name = file_name.with_suffix(".msh")
 
         if constraints is None:
             constraints = np.array([], dtype=int)
