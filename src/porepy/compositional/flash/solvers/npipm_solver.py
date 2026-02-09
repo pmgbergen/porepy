@@ -319,6 +319,11 @@ def _feasible_fractions_scale(
     """
     alpha = 1.0  # Default scale.
 
+    # NOTE: In order to avoid a negative scaling, we must exclude fractions outside
+    # [0, 1]. We might require a scaling somewhere else, or postprocessing if that
+    # happens.
+    feasible = (v >= 0) & (v <= 1)
+
     emv = 1.0 - v
     v0 = np.abs(v) < eps
     # Numerically relevant update in relative terms.
@@ -326,14 +331,14 @@ def _feasible_fractions_scale(
 
     # Ensuring lower-bound feasibility:
     # Negative update, fractions not numerically 0 and update numerically significant.
-    lbidx = (d < 0) & (~v0) & d_rel
+    lbidx = (d < 0) & (~v0) & d_rel & feasible
     if np.any(lbidx):
         alpha = min(alpha, np.min(-v[lbidx] / d[lbidx]))
 
     # Ensuring upper-bound feasibility:
     # Positive update, fractions not numericall 1 and update numerically significant.
     v1 = np.abs(emv) < eps
-    upidx = (d > 0) & (~v1) & d_rel
+    upidx = (d > 0) & (~v1) & d_rel & feasible
     if np.any(upidx):
         alpha = min(alpha, np.min(emv[upidx] / d[upidx]))
 
@@ -570,6 +575,7 @@ def npipm_inner(
     rtol_pert = 1e-6  # rel. tol for perturbing solutions.
     rtol_stag = 1e-3  # rel. tol for detecting stagnation in residuals.
     rtol_cyc = 1e-3  # rel. tol for detecting cycling in residuals.
+    y_emg = 1e-3  # Trial phase fraction for emerging phases.
 
     tau = 0.0  # Starting value for diagonal regularization
     tau_min = 1e-8  # Minimal value.
@@ -708,7 +714,7 @@ def npipm_inner(
         ls_failed = True
         alpha_min = alpha_min_s * alpha_max
 
-        while alpha_j > alpha_min:
+        while alpha_j >= alpha_min:
             alpha_j = ls_ss**ls_i * alpha
             ls_i += 1
             X_i_j = X_i + alpha_j * dX_i
@@ -724,21 +730,24 @@ def npipm_inner(
             if pot_i_j <= (1 - 2 * ls_dec * alpha_j) * pot_i:
                 ls_failed = False
                 break
-        alpha = alpha_j
+
         # endregion
+
         # Keep track of numerically relevant updates.
-        if alpha_j < alpha_min or ls_failed or np.linalg.norm(alpha * dX_i) < atol_num:
+        if (
+            alpha_j < alpha_min or ls_failed
+        ):  # or np.linalg.norm(alpha * dX_i) < atol_num:
             ls_failed = True
             ls_fail_count += 1
             reduction = 0.0
         else:
             ls_fail_count = 0
             # Actual reduction divided by predicted linear reduction
-            reduction = (pot_i - pot_i_j) / (2 * ls_dec * alpha * pot_i)
+            reduction = (pot_i - pot_i_j) / (2 * ls_dec * alpha_j * pot_i)
 
         # Due to MPCC nature, we accept even bad steps and allow the algorithm
         # to climb out of bad basins.
-        alpha = alpha_j
+        alpha = max(alpha_j, alpha_min)
         X_i += alpha * dX_i
 
         # region Adapt solver parameters
@@ -756,17 +765,6 @@ def npipm_inner(
             ls_dec = max(ls_dec * 0.5, ls_dec_min)
         elif alpha > 0.9 * alpha_max:
             ls_dec = min(ls_dec * 1.1, ls_dec_max)
-
-        # Special action if line search failed, since this means no progress at all.
-        if ls_failed:
-            # do_LM = True
-            if ls_fail_count == 2:
-                alpha_max *= 2.0
-                ls_dec = max(ls_dec * 0.5, ls_dec_min)
-            # If keeps failing, we hit a stationary point far from convergence.
-            elif ls_fail_count > 5:
-                exitcode = 2
-                break
 
         # endregion
 
@@ -792,7 +790,7 @@ def npipm_inner(
                 if (r < 1e-1) and res_history[-1] < res_0:
                     if i_cyst_detected == i:
                         alpha_max *= 2.0
-                    elif i >= i_cyst_detected + 3:
+                    elif i == i_cyst_detected + 3:
                         alpha_max *= 4.0
 
                     tr_f2b = min(tr_f2b * 1.01, 0.999)
@@ -838,7 +836,6 @@ def npipm_inner(
                     # ls_dec = float(params["armijo_decline"])
                     aa_depth = int(params["anderson_acceleration"])
                     do_LM = False
-                    alpha_max = 1.0 if ls_fail_count < 2 else alpha_max
                     rtol_desc = 1e-7
                 # If cycling detected, make line search more aggressive.
                 elif is_cycling and not was_cycling:
@@ -856,100 +853,138 @@ def npipm_inner(
                         do_LM = False
                     else:
                         is_cycling = True
+        # endregion
 
+        i_diff = i - i_cyst_detected
+
+        # region Special measures for persistent failures.
+        if is_cycling or is_stagnating or ls_fail_count > 0:
+            # First line of action: check special cases.
+
+            # Issues are often observed due to extended fractions being stuck at too low
+            # values when a phase vanished. Try to break free by perturbing using feed
+            # fractions. Indicator: Only isofugacity constraints have large residual.
+            idx = np.zeros(f_dim, dtype=np.bool)
+            idx[-(n_F + 1) : -(n_P + n_C1m + 1)] = True
+            res_part = np.linalg.norm(f_i_j[~idx])
+            x, y = parse_xy(X_i[:-1], n_C, n_P)
+
+            # First, make sure fractions are feasible.
+            y[y > 1] = 1.0
+            y[y < 0] = 0.0
+            for j in range(n_P):
+                xj = x[j, :]
+                xj[xj > 1] = 1.0
+                xj[xj < 0] = 0.0
+                if y[j] > 0:
+                    xj /= xj.sum()
+                x[j, :] = xj
+
+            # Perturb every n-th iteration, with n being maximal cycle detected.
+            if (res_part < tol) and (i_diff % (max_cycle - 1) == 0):
+                z = gen_arg[3]
+                for j in range(n_P):
+                    xj = x[j, :]
+                    # Perturb extended fractions where phase absent.
+                    # NOTE Perturbing phase fractions is tricky as it often has
+                    # a deteriorating effect. Requires more thinking.
+                    # if xj.sum() <= 1.0 - 1e-3:
+                    if y[j] < atol_frac:
+                        xj = (xj + z + 1 / n_C) / 3.0
+                        # Keep fractions feasible.
+                        sxj = xj.sum()
+                        if sxj > 1.0:
+                            xj /= sxj
+                    x[j, :] = xj
+
+            # If was_cycling and one of the y is small, likely stuck at border.
+            # Relaxe fraction-to-boundary-rule
+            if was_cycling and np.any(y < atol_frac):
+                tr_f2b = 0.999
+
+            # If line search failed twice in a row, try to hop out of an unfavorable
+            # area.
+            if ls_fail_count == 2:
+                alpha_max *= 2.0
+                ls_dec = max(ls_dec * 0.5, ls_dec_min)
+
+            # Check if phase is emergent: y is 0  and sum x approaching 1.
+            # Perturb system by adding small mass to emerging phase.
+            for j in range(n_P):
+                sxj = np.sum(x[j])
+                yj = y[j]
+                if np.abs(yj) <= atol_frac and sxj > 0.95:
+                    y_c = y_emg / (n_P - 1)  # Mass taken from other phases
+                    y = np.maximum(np.zeros(n_P), y - y_c)
+                    y[j] = y_emg
+                    x[j] /= sxj
+                    # NOTE consider for stability to adapt other partial fractions to
+                    # not violate mass constraints.
+                    # z_t = (gen_arg[3] - y_eps * x[j]) / (1.0 - y_eps)
+
+            X_i[-(n_F + 1) : -1] = np.hstack((y[1:], x.flatten()))
+
+            # Second line of action: Analyze system (expensive - if failures persist).
+            if (
+                (ls_fail_count >= 3)
+                or (is_cycling and was_cycling and i_diff > detected_cycle)
+                or (is_stagnating and i_diff >= stag_window)
+            ):
+                if ls_fail_count > 5:  # Abort algorithm as stationary point.
+                    exitcode = 2
+                    break
+
+                nFrob_J = float(np.linalg.norm(J_i.flatten()))  # Frobenius-norm
+                g = J_i.T @ f_i_j  # Gradient of least-squares model.
+                # NOTE: 1-norm is slightly faster, but often 1 order of magnitude larger
+                # if ill-conditioned. Use 1e5 for other norms
+                ill_cond = np.linalg.cond(J_i, p=1) >= 1e6
+                stationary = g.dot(g) < tol * max(1.0, nFrob_J) ** 2
+
+                if ill_cond:  # If ill-conditioned -> stabilize using LM
+                    # NOTE: The rational behind activating LM is to get faster to
+                    # steepest descent and a more robust descent direction.
+                    tr_delta = max(tr_delta * 0.5, tr_delta_min)
+                    if is_stagnating and res_history[-1] < res_0:
+                        do_LM = False
+                    else:
+                        do_LM = True
+                    # do_LM = True if not is_stagnating else False
+                    if ls_fail_count >= 4:
+                        alpha_min_s = 1e-7
+                        rtol_desc = 1e-10
+                else:  # Else mobilize
+                    aa_depth = max(aa_depth_default, aa_depth)
+                    if ls_fail_count == 2:
+                        alpha_max *= 2.0
+                        ls_dec = max(ls_dec * 0.5, ls_dec_min)
+
+                # We check first, if we are at a stationary point where we lost
+                # all sensitivy due to small gradient. If yes, perturb slightly.
+                if stationary or ls_fail_count == 3:
+                    # NOTE tighten to 1e-7 if perturbation leads to worsening.
+                    X_p = (
+                        rtol_pert
+                        * np.maximum(np.abs(X_i), 1.0)
+                        * ((1.0 - atol_num) * np.random.rand(f_dim) + atol_num)
+                    )
+                    X_p[-1] = 0.0
+                    X_i += X_p
+                    x, y = parse_xy(X_i[:-1], n_C, n_P)
+                    y[y < 0] = 0.0
+                    y[y > 1] = 1.0
+                    xf = x.flatten()  # Flatten for numba.
+                    xf[xf < 0] = 0.0
+                    xf[xf > 1] = 1.0
+                    x = xf.reshape((n_P, n_C))
+                    xs = x.sum(axis=1)
+                    for j, s in enumerate(xs):
+                        if s > 1:
+                            x[j, :] /= s + atol_num
+                    X_i[-(n_F + 1) : -1] = np.hstack((y[1:], x.flatten()))
+        else:
             alpha_min_s = 1e-3
-            i_diff = i - i_cyst_detected
-            # Stagnation or cycling is often observed due to extended fractions
-            # being stuck at too low values. Try to break free by perturbing using
-            # feed fractions.
-            if is_cycling or is_stagnating or ls_fail_count >= 2:
-                # Indices of isofugacity constraints.
-                idx = np.zeros(f_dim, dtype=np.bool)
-                idx[-(n_F + 1) : -(n_P + n_C1m + 1)] = True
-                # Partial residual excluding isofugacity constraints.
-                res_part = np.linalg.norm(f_i_j[~idx])
-                x, y = parse_xy(X_i[:-1], n_C, n_P)
-
-                # Perturb every n-th iteration, with n being maximal cycle detected.
-                if (res_part < tol) and (i_diff % (max_cycle - 1) == 0):
-                    z = gen_arg[3]
-                    for j in range(n_P):
-                        xj = x[j, :]
-                        # Perturb extended fractions where phase absent.
-                        # NOTE Perturbing phase fractions is tricky as it often has
-                        # a deteriorating effect. Requires more thinking.
-                        # if xj.sum() <= 1.0 - 1e-3:
-                        if y[j] < atol_frac:
-                            xj = (xj + z + 1 / n_C) / 3.0
-                            # Keep fractions feasible.
-                            sxj = xj.sum()
-                            if sxj > 1.0:
-                                xj /= sxj
-                        x[j, :] = xj
-                    X_i[-n_CP - 1 : -1] = x.flatten()
-
-                # If was_cycling and one of the y is zero, likely stuck at border.
-                # Relaxe fraction-to-boundary-rule
-                if was_cycling and np.any(y < atol_frac):
-                    tr_f2b = 0.999
-
-                # If cycling/ stagnation/ ls failure and no progress, investigate
-                # conditioning or if stationary point reached.
-                no_progress = (
-                    (ls_fail_count >= 3)
-                    or (is_cycling and was_cycling and i_diff > detected_cycle)
-                    or (is_stagnating and i_diff > stag_window)
-                )
-
-                if no_progress:
-                    Jf = float(np.linalg.norm(J_i.flatten()))  # Frobenius
-                    g = J_i.T @ f_i_j  # Gradient of leas-squares approximation.
-                    gn2 = g.dot(g)  # Norm squared
-                    ill_cond = np.linalg.cond(J_i, p=1) >= 1e5
-
-                    if ill_cond:  # If ill-conditioned -> stabilize using LM
-                        tr_delta = max(tr_delta * 0.5, tr_delta_min)
-                        if is_stagnating and res_history[-1] < res_0:
-                            do_LM = False
-                        else:
-                            do_LM = True
-                        # do_LM = True if not is_stagnating else False
-                        if ls_fail_count >= 4:
-                            alpha_min_s = 1e-7
-                            rtol_desc = 1e-10
-                    else:  # Else mobilize using AA
-                        aa_depth = max(aa_depth_default, aa_depth)
-
-                    # We check first, if we are at a stationary point where we lost
-                    # all sensitivy due to small gradient. If yes, perturb slightly.
-                    if gn2 < tol * max(1.0, Jf) ** 2 or ls_fail_count == 3:
-                        _x, _y = parse_xy(X_i[:-1], n_C, n_P)
-                        if np.any(_y >= 1 - atol_frac):
-                            _yp = np.roll(_y, -1)
-                            _xp = np.roll(_x.flatten(), -n_C)
-                            X_i[-(n_F + 1) : -1] = np.hstack((_yp[1:], _xp))
-
-                        # NOTE tighten to 1e-7 if perturbation leads to worsening.
-                        X_p = (
-                            rtol_pert
-                            * np.maximum(np.abs(X_i), 1.0)
-                            * ((1.0 - atol_num) * np.random.rand(f_dim) + atol_num)
-                        )
-                        X_p[-1] = 0.0
-                        X_i += X_p
-                        _x, _y = parse_xy(X_i[:-1], n_C, n_P)
-                        _y[_y < 0] = 0.0
-                        _y[_y > 1] = 1.0
-                        __x = _x.flatten()
-                        __x[__x < 0] = 0.0
-                        __x[__x > 1] = 1.0
-                        _x = __x.reshape((n_P, n_C))
-                        xs = _x.sum(axis=1)
-                        for j, s in enumerate(xs):
-                            if s > 1:
-                                _x[j, :] /= s + atol_num
-                        X_i[-(n_F + 1) : -1] = np.hstack((_y[1:], _x.flatten()))
-
+            alpha_max = 1.0
         # endregion
 
     if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)):

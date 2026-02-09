@@ -1280,9 +1280,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             assert h_dew >= h_bub, (
                                 "Expecting gas phase to have higher enthalpy."
                             )
-                            w = np.abs(h_dew - h_bub)
-                            w = np.abs(s2 - h_bub) / w
-                            T = w * T_bub + (1 - w) * T_dew
+                            w = np.abs(s2 - h_bub) / np.abs(h_dew - h_bub)
+                            T = (1.0 - w) * T_bub + w * T_dew
 
                     if itr_gas or itr_liq:
                         if itr_gas:
