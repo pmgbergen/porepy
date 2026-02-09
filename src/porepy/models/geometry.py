@@ -89,6 +89,7 @@ class ModelGeometry(pp.PorePyModel):
             self.grid_type(),
             self.meshing_arguments(),
             self.fracture_network,
+            self.gmsh_file_name(),
             **self.meshing_kwargs(),
         )
 
@@ -160,6 +161,15 @@ class ModelGeometry(pp.PorePyModel):
         if meshing_kwargs is None:
             meshing_kwargs = {}
         return meshing_kwargs
+
+    def gmsh_file_name(self) -> Path:
+        """Name of the file used to for input and output by gmsh.
+
+        Returns:
+            Name of the gmsh file.
+
+        """
+        return Path(self.params.get("gmsh_file_name", "gmsh_frac_file"))
 
     def depth(self, points: np.ndarray) -> np.ndarray:
         """Compute depth of points.
@@ -784,11 +794,11 @@ class LoadGeometryMixin(pp.PorePyModel):
         """
         # Paths to geometry files. The structure is how `self.fracture_network.mesh` and
         # `self.create_and_export_geometry` create them.
-        file_name = Path(self.meshing_kwargs()["file_name"])
+        file_name = self.gmsh_file_name()
         folder_path = file_name.parent
         msh_path = (folder_path / file_name.stem).with_suffix(".msh")
         geo_path = (folder_path / file_name.stem).with_suffix(".geo_unrolled")
-        fracture_network_path = folder_path / self.meshing_kwargs()["csv_file_name"]
+        fracture_network_path = folder_path / self.csv_file_name()
 
         # Check whether the msh or geo file exists. If used as in the docstring example,
         # both exist and the msh file is used to avoid remeshing unnecessarily.
@@ -832,6 +842,15 @@ class LoadGeometryMixin(pp.PorePyModel):
         self.set_well_network()
         self.add_wells_to_mdg()
 
+    def csv_file_name(self) -> Path:
+        """Name of the file used for input and output of fracture network csv files.
+
+        Returns:
+            Name of the fracture network csv file.
+
+        """
+        return Path(self.params.get("csv_file_name", "fracture_network.csv"))
+
     def create_and_export_geometry(self, set_geometry_class=ModelGeometry) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
 
@@ -844,15 +863,12 @@ class LoadGeometryMixin(pp.PorePyModel):
                 :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
-        # Explicitely call the ``set_geometry`` method of the provided class. msh and
-        # geo files are saved after meshing, since
-        # ``self.meshing_kwargs["write_geo"]`` is True and
-        # ``self.meshing_kwargs["clear_gmsh"]`` is False.
+        # Explicitely call the ``set_geometry`` method of the provided class.
         set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
 
         # In addition, save the fracture network.
-        folder_path = Path(self.meshing_kwargs()["file_name"]).parent
-        csv_file_name = self.meshing_kwargs()["csv_file_name"]
+        folder_path = Path(self.gmsh_file_name()).parent
+        csv_file_name = Path(self.csv_file_name())
         fracture_network_path = folder_path / csv_file_name
         self.fracture_network.to_csv(fracture_network_path)
 
@@ -862,16 +878,7 @@ class LoadGeometryMixin(pp.PorePyModel):
 
         The following keyword arguments are added if not already provided by
         :meth:`~porepy.models.geometry.ModelGeometry.meshing_kwargs`:
-        - ``file_name: str``: Name of the mesh and geo file (without extension). Default
-            is "gmsh_frac_file.msh".
-        TODO PvS: Consider including a default folder (same as default folder for
-        exporting).
-        - ``write_geo: bool``: Whether to keep the geo file after meshing. Default is
-            True.
-        - ``clear_gmsh: bool``: Whether to remove the msh file after meshing. Default is
-            False.
-        - ``csv_file_name: str``: Name of the fracture network csv file. Default is
-            "fracture_network.csv".
+
         Returns:
             Keyword arguments compatible with :meth:`~porepy.create_mdg()`.
 
@@ -879,12 +886,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Add kwargs related to storing the geometry files to the meshing kwargs of
         # ``ModelGeometry``.
         default_meshing_kwargs = {
-            # The first three kwargs are passed to ``fracture_network.mesh``.
-            "file_name": "gmsh_frac_file.msh",  # Name of the output mesh and geo files.
-            "write_geo": True,  # Keep the geo file after meshing.
-            "clear_gmsh": False,  # Keep the msh file after meshing.
-            # The latter two are used by `LoadGeometryMixin.set_geometry`.
-            "csv_file_name": "fracture_network.csv",
+            "csv_file_name": self.csv_file_name(),
         }
         meshing_kwargs = super().meshing_kwargs()  # type: ignore[safe-super]
         default_meshing_kwargs.update(meshing_kwargs)
