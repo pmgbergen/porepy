@@ -1211,11 +1211,15 @@ class FractureNetwork2d:
         """
         pp.plot_fractures(self._pts, self._edges, domain=self.domain, **kwargs)
 
-    def to_csv(self, file_name: Path, with_header: bool = True) -> None:
+    def to_csv(
+        self,
+        file_name: Path,
+        write_header: bool = True,
+    ) -> None:
         """Save the 2D network on a CSV file with comma as separator.
 
-        The format is ``FID, START_X, START_Y, END_X, END_Y``, where ``FID`` is the
-        fracture ID, and ``START_X, ..., END_Y`` are the point coordinates.
+            The format is ``START_X, START_Y, END_X, END_Y``, where  ``START_X, ...,
+            END_Y`` are the point coordinates.
 
         Warning:
             If ``file_name`` is already present, it will be overwritten without
@@ -1223,20 +1227,28 @@ class FractureNetwork2d:
 
         Parameters:
             file_name: Name of the CSV file.
-            with_header: ``default=True``
+            write_header: ``default=True``
 
                 Flag for writing headers for the five columns in the first row.
 
+            domain: ``default=None``
+
+                Domain specification.
+
         """
 
-        with open(file_name, "w") as csv_file:
+        with open(file_name.with_suffix(".csv"), "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
-            if with_header:
-                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+            if write_header:
+                header = ["# ", "START_X", "START_Y", "END_X", "END_Y"]
                 csv_writer.writerow(header)
-            # write all the fractures
-            for edge_id, edge in enumerate(self._edges.T):
-                data = [edge_id]
+            if self.domain is not None:
+                order = ["xmin", "ymin", "xmax", "ymax"]
+                # Write the domain bounding box.
+                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+            # Write all the fractures.
+            for edge in self._edges.T:
+                data: list[float] = []
                 data.extend(self._pts[:, edge[0]])
                 data.extend(self._pts[:, edge[1]])
                 csv_writer.writerow(data)
