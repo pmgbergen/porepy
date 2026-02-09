@@ -1,5 +1,7 @@
 """Testing functionality related to FractureNetwork2d."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -384,10 +386,10 @@ class TestGmshTags:
             "mesh_size_bound": 0.1,
         }
 
-        file_name = "mesh_simplex.msh"
+        file_name = Path("mesh_simplex.msh")
         gmsh_data = network.prepare_for_gmsh(mesh_args, None, True, None, False)
 
-        # Consider the dimension of the problem
+        # Consider the dimension of the problem.
         ndim = 2
         gmsh_writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
         gmsh_writer.generate(file_name, ndim)
@@ -404,13 +406,13 @@ class TestGmshTags:
                     f_cc1 = g.face_centers[:, g.tags["fracture_1_faces"]]
 
                     # Test position of the fracture faces. Fracture 1 is aligned with
-                    # the y-axis, fracture 2 is aligned with the x-axis
+                    # the y-axis, fracture 2 is aligned with the x-axis.
                     assert np.allclose(f_cc0[1], 0.5)
                     assert np.allclose(f_cc1[0], 0.5)
 
                 if g.dim > 0:
                     db_cc = g.face_centers[:, g.tags["domain_boundary_faces"]]
-                    # Test that domain boundary faces are on the boundary
+                    # Test that domain boundary faces are on the boundary.
                     assert np.all(
                         (np.abs(db_cc[0]) < 1e-10)
                         | (np.abs(db_cc[1]) < 1e-10)

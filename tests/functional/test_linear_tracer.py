@@ -41,7 +41,7 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     model = model_class(model_params)
     if isinstance(model, TracerFlowModel_3p):
         # To create phase fractions as variables and have a representation fo h_mix
-        model.params["equilibrium_type"] = "dummy"
+        model.params["equilibrium_condition"] = "dummy"
 
     model.prepare_simulation()
 

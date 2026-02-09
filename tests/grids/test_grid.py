@@ -4,8 +4,9 @@
 * Tests for the mortar grid.
 """
 
-import os
 import pickle
+from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -18,20 +19,66 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 
 
 @pytest.mark.parametrize(
-    "grid, expected_diameter",
+    "g, expected_diameters",
     [
         (
-            pp.CartGrid(np.array([3, 2]), np.array([1, 1])),
-            np.sqrt(0.5**2 + 1.0 / 3.0**2),
+            pp.CartGrid(np.array([2, 1]), np.array([1, 1])),  # 2d grid.
+            np.array(
+                [
+                    np.sqrt(1**2 + 0.5**2),  # Cell 0 has dx=0.5, dy=1.
+                    np.sqrt(1.5**2 + 2**2),  # Cell 1 is perturbed to have dx=1.5, dy=2.
+                ]
+            ),
         ),
-        (pp.CartGrid(np.array([3, 2, 1])), np.sqrt(3)),
+        (
+            pp.CartGrid(np.array([2, 1, 1]), np.array([1, 1, 1])),  # 3d grid.
+            np.array(
+                [
+                    np.sqrt(0.5**2 + 1**2 + 1**2),  # Cell 0 has dx=0.5, dy=dz=1.
+                    np.sqrt(1.5**2 + 2**2 + 1**2),  # Cell 1 has dx=1.5, dy=2, dz=1.
+                ]
+            ),
+        ),
     ],
 )
-def test_cell_diameters(grid, expected_diameter):
-    # The test is run for a 2d grid and a 3d grid.
-    cell_diameters = grid.cell_diameters()
-    known = np.repeat(expected_diameter, grid.num_cells)
-    assert np.allclose(cell_diameters, known)
+@pytest.mark.parametrize("cell_wise", [True, False])
+@pytest.mark.parametrize("func", [np.max, np.min, np.mean])
+def test_cell_diameters(
+    g: pp.Grid, expected_diameters: np.ndarray, cell_wise: bool, func: Callable
+):
+    """Test the computation of cell diameters.
+
+    Parameters:
+        g: Grid to be tested. This is expected to be of uniform size. The node of one of
+            the cells will be moved so that the cells have non-uniform diameter.
+        expected_diameters: Array of expected diameter for each cell.
+        cell_wise: Whether to compute the diameter cell-wise or not.
+        func: Function to apply to the expected diameters. Will only be used if
+            cell_wise=False, see Grid.cell_diameters() for details.
+
+    """
+    # Move the last node of the grid (it is easier to do this here than to modify the
+    # grid in the test parametrization). Since the grid is expected to be Cartesian,
+    # this will impact the diameter of cell 1, but not cell 0. Do not perturb the
+    # z-coordinate, so that a 2d grid stays 2d.
+    g.nodes[:2, -1] = 2
+
+    if cell_wise:
+        # When cell_wise is True, 'func' will not be used and a warning should be raised
+        # if func is not None. Check this.
+        with pytest.warns(UserWarning):
+            cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    else:
+        cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    if cell_wise:
+        # The returned array is an element-wise array of cell diameters, we can do a
+        # direct comparison.
+        assert np.allclose(cell_diameters, expected_diameters)
+    else:
+        # The returned value is a single value obtained by applying 'func' to the
+        # calculated cell diameters. Apply 'func' also to the expected diameters before
+        # comparing.
+        assert np.allclose(cell_diameters, func(expected_diameters))
 
 
 def test_repr():
@@ -854,7 +901,7 @@ def test_copy_grids():
 
 
 def test_merge_single_grid():
-    """
+    r"""
     Test coupling from one grid to itself. An example setting:
                     |--|--|--| ( grid )
                     0  1  2  3
@@ -882,7 +929,7 @@ def test_merge_single_grid():
 
 
 def test_merge_two_grids():
-    """
+    r"""
     Test coupling from one grid of three faces to grid of two faces.
     An example setting:
                     0  1  2
@@ -951,10 +998,10 @@ def test_boundary_grid():
 )
 def test_pickle_grid(g):
     """Test that grids can be pickled. Write, read and compare."""
-    fn = "tmp.grid"
+    fn = Path("tmp.grid")
     pickle.dump(g, open(fn, "wb"))
 
     g_read = pickle.load(open(fn, "rb"))
 
     pp.test_utils.grids.compare_grids(g, g_read)
-    os.unlink(fn)
+    fn.unlink()

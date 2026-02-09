@@ -27,7 +27,7 @@ def get_mock_model(
     components,
     phase_configuration,
     eliminate_reference,
-    equilibrium_type,
+    equilibrium_condition,
 ):
     # simple set up, 1 cell domain, with 1 boundary grid
     g = pp.CartGrid(np.array([1, 1]))
@@ -72,7 +72,7 @@ def get_mock_model(
     model.params = {
         "eliminate_reference_component": eliminate_reference,
         "eliminate_reference_phase": eliminate_reference,
-        "equilibrium_type": equilibrium_type,
+        "equilibrium_condition": equilibrium_condition,
     }
     model.pressure = pressure
     model.temperature = temperature
@@ -193,10 +193,10 @@ def test_mixture_contexts(
     "eliminate_reference",
     [True, False],  # for component and phase, test if eliminated
 )
-@pytest.mark.parametrize("equilibrium_type", [None, "unified-p-T", "p-T"])
+@pytest.mark.parametrize("equilibrium_condition", [None, "unified-p-T", "p-T"])
 def test_mixture_member_assignment(
     eliminate_reference: bool,
-    equilibrium_type: None | str,
+    equilibrium_condition: None | str,
 ):
     """Testint that all requried members of phases, components, compounds and
     fluid mixtures are assigned by the compositional mixins. Tested with and without
@@ -217,7 +217,7 @@ def test_mixture_member_assignment(
         [comp1, comp2],
         phases,
         eliminate_reference,
-        equilibrium_type,
+        equilibrium_condition,
     )
 
     subdomains = model.mdg.subdomains()
@@ -233,13 +233,13 @@ def test_mixture_member_assignment(
 
     # The names should reflect the created variables
     # ref partial fraction eliminated in case of no equilibrium
-    if equilibrium_type is None:
+    if equilibrium_condition is None:
         assert len(model.fraction_in_phase_variables) == (ncomp - 1) * nphase
     # ref partialf raction also eliminated in the case of non-unified equilibriu,
-    elif "unified" not in equilibrium_type:
+    elif "unified" not in equilibrium_condition:
         assert len(model.fraction_in_phase_variables) == (ncomp - 1) * nphase
     # Extended fractions are always independent, if unified equilibrium
-    elif "unified" in equilibrium_type:
+    elif "unified" in equilibrium_condition:
         assert len(model.fraction_in_phase_variables) == ncomp * nphase
     # there are always solute fraction variables in compounds
     assert len(model.tracer_fraction_variables) == 1
@@ -247,14 +247,14 @@ def test_mixture_member_assignment(
     if eliminate_reference:
         assert len(model.overall_fraction_variables) == ncomp - 1
         assert len(model.saturation_variables) == nphase - 1
-        if equilibrium_type is not None:
+        if equilibrium_condition is not None:
             assert len(model.phase_fraction_variables) == nphase - 1
         else:
             assert len(model.phase_fraction_variables) == 0
     else:
         assert len(model.overall_fraction_variables) == ncomp
         assert len(model.saturation_variables) == nphase
-        if equilibrium_type is not None:
+        if equilibrium_condition is not None:
             assert len(model.phase_fraction_variables) == nphase
         else:
             assert len(model.phase_fraction_variables) == 0
@@ -275,7 +275,7 @@ def test_mixture_member_assignment(
         assert hasattr(phase, "extended_fraction_of")
 
         # fractions should be defined in equilibrium setting
-        if compositional.get_equilibrium_type(model) is not None:
+        if compositional.get_local_equilibrium_condition(model) is not None:
             if model.has_independent_fraction(phase):
                 assert isinstance(phase.fraction(subdomains), pp.ad.Variable)
                 assert isinstance(
@@ -361,7 +361,7 @@ def test_mixture_member_assignment(
             )
             assert isinstance(phase.saturation(boundary_grids), pp.ad.Operator)
             # same holds for reference phase fraction in the equilibrium setting
-            if compositional.get_equilibrium_type(model) is not None:
+            if compositional.get_local_equilibrium_condition(model) is not None:
                 assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
                 assert isinstance(phase.fraction(subdomains), pp.ad.Operator)
                 assert not isinstance(
@@ -371,14 +371,14 @@ def test_mixture_member_assignment(
         else:
             # otherwise it must be a variable
             assert isinstance(phase.saturation(subdomains), pp.ad.Variable)
-            if compositional.get_equilibrium_type(model) is not None:
+            if compositional.get_local_equilibrium_condition(model) is not None:
                 assert isinstance(phase.fraction(subdomains), pp.ad.Variable)
 
             # fraction and saturation on boundaries are time-dependent dense arrays
             assert isinstance(
                 phase.saturation(boundary_grids), pp.ad.TimeDependentDenseArray
             )
-            if compositional.get_equilibrium_type(model) is not None:
+            if compositional.get_local_equilibrium_condition(model) is not None:
                 assert isinstance(
                     phase.saturation(boundary_grids), pp.ad.TimeDependentDenseArray
                 )
@@ -456,7 +456,7 @@ def test_mixture_member_assignment(
     assert not isinstance(model.fluid.density(subdomains), pp.ad.Variable)
     assert isinstance(model.fluid.specific_volume(subdomains), pp.ad.Operator)
     assert not isinstance(model.fluid.specific_volume(subdomains), pp.ad.Variable)
-    if compositional.get_equilibrium_type(model) is not None:
+    if compositional.get_local_equilibrium_condition(model) is not None:
         assert isinstance(model.fluid.specific_enthalpy(subdomains), pp.ad.Operator)
         assert not isinstance(model.fluid.specific_enthalpy(subdomains), pp.ad.Variable)
     else:
@@ -468,12 +468,12 @@ def test_mixture_member_assignment(
 
 # Parametrization to test for any combination
 @pytest.mark.parametrize(
-    "equilibrium_type",
+    "equilibrium_condition",
     [None, "unified-p-T", "p-T"],  # for None, no y or extended
 )
 @pytest.mark.parametrize("phase_names", [["L"], ["L", "G"]])
 @pytest.mark.parametrize("species", [["H2O"], ["H2O", "CO2"]])
-def test_singular_mixtures(species, phase_names, equilibrium_type):
+def test_singular_mixtures(species, phase_names, equilibrium_condition):
     """Testing the behavior when only 1 component, or 1 phase or both.
     In this case, the number of created variables follows certain rules."""
 
@@ -484,7 +484,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
     eos = compositional.EquationOfState(components)
     phases = [(compositional.PhysicalState.liquid, name, eos) for name in phase_names]
 
-    model: MockModel = get_mock_model(components, phases, True, equilibrium_type)
+    model: MockModel = get_mock_model(components, phases, True, equilibrium_condition)
 
     subdomains = model.mdg.subdomains()
 
@@ -503,7 +503,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
         phase = list(model.fluid.phases)[0]
         assert phase == model.fluid.reference_phase
         assert not isinstance(phase.saturation(subdomains), pp.ad.Variable)
-        if compositional.get_equilibrium_type(model) is not None:
+        if compositional.get_local_equilibrium_condition(model) is not None:
             assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
 
         for comp in model.fluid.components:
@@ -536,7 +536,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
         for phase in model.fluid.phases:
             if model.has_independent_saturation(phase):
                 assert isinstance(phase.saturation(subdomains), pp.ad.Variable)
-                if compositional.get_equilibrium_type(model) is not None:
+                if compositional.get_local_equilibrium_condition(model) is not None:
                     assert isinstance(phase.fraction(subdomains), pp.ad.Variable)
                 else:
                     with pytest.raises(compositional.CompositionalModellingError):
@@ -544,7 +544,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
             else:
                 assert phase == model.fluid.reference_phase
                 assert not isinstance(phase.saturation(subdomains), pp.ad.Variable)
-                if compositional.get_equilibrium_type(model) is not None:
+                if compositional.get_local_equilibrium_condition(model) is not None:
                     assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
                 else:
                     with pytest.raises(compositional.CompositionalModellingError):

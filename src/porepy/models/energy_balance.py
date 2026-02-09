@@ -918,14 +918,12 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
-                sd,
                 data,
                 self.enthalpy_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
-                intf,
                 data,
                 self.enthalpy_keyword,
                 {"darcy_flux": np.zeros(intf.num_cells)},
@@ -1031,17 +1029,17 @@ class InitialConditionsEnthalpy(pp.InitialConditionMixin):
     """See :class:`EnthalpyVariable`."""
 
     def set_initial_values_primary_variables(self) -> None:
-        """Calls :meth:`initial_enthalpy` and sets the values to iterate index 0."""
+        """Calls :meth:`ic_values_enthalpy` and sets the values to iterate index 0."""
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():
             self.equation_system.set_variable_values(
-                self.initial_enthalpy(sd),
+                self.ic_values_enthalpy(sd),
                 [cast(pp.ad.Variable, self.enthalpy([sd]))],
                 iterate_index=0,
             )
 
-    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         """Initial values for (specific fluid) enthalpy.
 
         Override this method to customize the initialization.
@@ -1175,7 +1173,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             loc_conductivity = conductivity_all_cells.restrict_to_cells(loc_cells)
 
             pp.initialize_data(
-                sd,
                 data,
                 self.fourier_keyword,
                 {
@@ -1185,7 +1182,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 },
             )
             pp.initialize_data(
-                sd,
                 data,
                 self.enthalpy_keyword,
                 {

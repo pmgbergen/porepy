@@ -22,42 +22,43 @@ from __future__ import annotations
 
 import copy
 import json
-import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional, Callable, cast
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.md_grids.mdg_library import (
+    cube_with_orthogonal_fractures,
+    square_with_orthogonal_fractures,
+)
 from porepy.applications.test_utils import models
+from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
-from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
-from porepy.applications.md_grids.mdg_library import (
-    square_with_orthogonal_fractures,
-    cube_with_orthogonal_fractures,
-)
-from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.applications.test_utils.models import add_mixin
+from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
-current_dir = Path(os.path.dirname(os.path.realpath(__file__)))
-reference_dir = current_dir / Path("restart_reference")
+current_dir = Path(__file__).parent
+reference_dir = current_dir / "restart_reference"
 visualization_dir = Path("visualization")
 
 
 def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ) -> TailoredPoromechanics:
-    # Create model with a fractured geometry
-    model = create_model_with_fracture(solid_vals, fluid_vals, {}, uy_north)
+    # Create model with a fractured geometry.
+    model = create_model_with_fracture(
+        solid_vals, fluid_vals, {}, uy_north, TailoredPoromechanics
+    )
 
-    # Fetch parameters for enhancing them
+    # Fetch parameters for enhancing them.
     params = model.params
 
     # Enable exporting
@@ -68,14 +69,14 @@ def create_restart_model(
         schedule=[0, 1], dt_init=0.5, constant_dt=True
     )
 
-    # Add restart possibility
+    # Add restart possibility.
     params["restart_options"] = {
         "restart": restart,
-        "pvd_file": reference_dir / Path("previous_data.pvd"),
-        "times_file": reference_dir / Path("previous_times.json"),
+        "pvd_file": reference_dir / "previous_data.pvd",
+        "times_file": reference_dir / "previous_times.json",
     }
 
-    # Redefine model
+    # Redefine model.
     model = TailoredPoromechanics(params)
     return model
 
@@ -425,6 +426,8 @@ def check_convergence_test_model() -> CheckConvergenceTest:
         (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
         # Case 4: Increment is nan.
         (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+        # Case 5: Residual is above divergence tolerance.
+        (np.array([1e-6, 1e-6]), np.array([2e4]), (False, True)),
     ],
 )
 def test_check_convergence(
@@ -442,6 +445,7 @@ def test_check_convergence(
     nl_params: dict[str, Any] = {
         "nl_convergence_tol": 1e-5,
         "nl_convergence_tol_res": 1e-5,
+        "nl_divergence_tol": 1e4,
     }
     converged, diverged = check_convergence_test_model.check_convergence(
         nonlinear_increment, residual, np.zeros(1), nl_params
@@ -558,7 +562,7 @@ def test_schur_complement_inverter_on_model(
 
     model_params = {
         "apply_schur_complement_reduction": True,
-        "equilibrium_type": "dummy",
+        "equilibrium_condition": "dummy",
         "meshing_arguments": {
             "cell_size": 0.1,
         },

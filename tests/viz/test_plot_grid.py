@@ -1,6 +1,6 @@
 """Tests of methods from porepy.vis.plot_grid."""
 
-import os
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -108,19 +108,29 @@ def test_plot_grid_simple_grid(mdg: MixedDimensionalGrid, vector_variable: str):
         vector_scale=10,
         info="CNFO",
     )
+    if mdg.dim_max() == 2:
+        # Run also with plot_2d=True.
+        pp.plot_grid(
+            grid,
+            cell_value=scalar_data,
+            vector_value=vector_data,
+            vector_scale=10,
+            info="CNFO",
+            plot_2d=True,
+        )
 
 
 @pytest.fixture
 def image_name():
-    image_name = "test_save_img.png"
-    assert not os.path.exists(image_name)
+    image_name = Path("test_save_img.png")
+    assert not image_name.exists()
     yield image_name
 
-    # Tear down
-    os.remove(image_name)
+    # Tear down.
+    image_name.unlink()
 
 
-def test_save_img(mdg: MixedDimensionalGrid, image_name: str):
+def test_save_img(mdg: MixedDimensionalGrid, image_name: Path):
     """Testing that `save_img` works."""
     pp.save_img(
         image_name,
@@ -129,4 +139,4 @@ def test_save_img(mdg: MixedDimensionalGrid, image_name: str):
         vector_value=VECTOR_VARIABLE_CELL,
     )
 
-    assert os.path.exists(image_name)
+    assert image_name.exists()

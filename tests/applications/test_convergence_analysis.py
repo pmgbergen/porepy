@@ -10,9 +10,9 @@ Tested functionality includes:
 
 from __future__ import annotations
 
-import os
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -742,14 +742,14 @@ class TestExportErrors:
     ):
         """Test if all errors are exported correctly for a stationary model."""
         conv_analysis_in_space.export_errors_to_txt(list_of_results_space)
-        read_data = read_data_from_txt("error_analysis.txt")
+        read_data = read_data_from_txt(Path("error_analysis.txt"))
 
         assert len(read_data.keys()) == 3
         np.testing.assert_equal(read_data["cell_diameter"], np.array([0.5, 0.25]))
         np.testing.assert_equal(read_data["error_var_0"], np.array([10.0, 5.0]))
         np.testing.assert_equal(read_data["error_var_1"], np.array([20.0, 5.0]))
 
-        os.remove("error_analysis.txt")
+        Path("error_analysis.txt").unlink()
 
     def test_export_errors_for_time_dependent_model(
         self,
@@ -758,7 +758,7 @@ class TestExportErrors:
     ):
         """Test if all errors are exported correctly for a time-dependent model."""
         conv_analysis_in_space_and_time.export_errors_to_txt(list_of_results_space_time)
-        read_data = read_data_from_txt("error_analysis.txt")
+        read_data = read_data_from_txt(Path("error_analysis.txt"))
 
         assert len(read_data.keys()) == 4
         np.testing.assert_equal(read_data["cell_diameter"], np.array([0.5, 0.25]))
@@ -766,7 +766,7 @@ class TestExportErrors:
         np.testing.assert_equal(read_data["error_var_0"], np.array([10.0, 5.0]))
         np.testing.assert_equal(read_data["error_var_1"], np.array([20.0, 5.0]))
 
-        os.remove("error_analysis.txt")
+        Path("error_analysis.txt").unlink()
 
 
 @pytest.fixture(scope="module")
@@ -830,51 +830,24 @@ def face_error(
         L2-error.
 
     """
-    face_nodes = sd.face_nodes
     meas = np.zeros(sd.num_faces)
     for face_number in range(sd.num_faces):
-        # Obtain the coordinates of the nodes of the face.
-        face_node_indices = face_nodes.indices[
-            face_nodes.indptr[face_number] : face_nodes.indptr[face_number + 1]
-        ]
+        fc = sd.face_centers[:, face_number]
+        normal = sd.face_normals[:, face_number] / sd.face_areas[face_number]
 
-        node_coordinates = []
-        for node in face_node_indices:
-            node_coordinates.append(sd.nodes[:, node])
         # Obtain the neighboring cells of the face.
         neighboring_cells = np.where(sd.cell_faces[face_number].todense() != 0)[
             1
         ].tolist()
 
-        def compute_volume(sd, cell, nodes):
-            """Compute the volume of a pyramid."""
-            cc = sd.cell_centers[:, cell].reshape(-1, 1)
-            # Compute the normal distance from the cell center to the face.
-            polygon = np.stack(nodes, axis=1)
-            distance = pp.geometry.distances.points_polygon(
-                p=cc, poly=polygon, tol=1e-8
-            )[0]
-            area = 1 / 3 * distance * sd.face_areas[face_number]
-            return area
-
-        def compute_area(sd, cell, nodes):
-            """Compute the area of a triangle."""
-            cc = sd.cell_centers[:, cell]
-            starting_point = nodes[0]
-            end_point = nodes[1]
-            # Compute the normal distance from the cell center to the face.
-            distance, _ = pp.geometry.distances.points_segments(
-                p=cc, start=starting_point, end=end_point
-            )
-            area = 1 / 2 * distance * sd.face_areas[face_number]
-            return area
-
         area_local = 0
         for cell in neighboring_cells:
-            if sd.dim == 3:
-                area_local += compute_volume(sd, cell, node_coordinates)
-            elif sd.dim == 2:
-                area_local += compute_area(sd, cell, node_coordinates)
+            cc = sd.cell_centers[:, cell]
+            # Compute the distance between face center and cell center in the normal
+            # direction.
+            distance = np.abs(normal.ravel().dot((fc - cc).ravel()))
+            area_local += distance * sd.face_areas[face_number] / sd.dim
+
         meas[face_number] = area_local
 
     if parameter_weight is not None:

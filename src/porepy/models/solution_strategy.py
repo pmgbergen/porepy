@@ -53,11 +53,9 @@ class SolutionStrategy(pp.PorePyModel):
         # we should have an enum here.
         self.convergence_status = False
         """Whether the non-linear iteration has converged."""
-        self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        self._nonlinear_discretizations: list[pp.ad.MergedOperator] = []
         """See :meth:`add_nonlinear_discretization`."""
-        self._nonlinear_diffusive_flux_discretizations: list[
-            pp.ad._ad_utils.MergedOperator
-        ] = []
+        self._nonlinear_diffusive_flux_discretizations: list[pp.ad.MergedOperator] = []
         """See :meth:`add_nonlinear_diffusive_flux_discretization`."""
         self.units = params.get("units", pp.Units())
         """Units of the model provided in ``params['units']``."""
@@ -74,12 +72,17 @@ class SolutionStrategy(pp.PorePyModel):
         Reference values can be provided through ``params['reference_values']``.
 
         """
+        # The explicit check (not get with a default) is to avoid instantiating a
+        # TimeManager if it is not needed. This is done to avoid unnecessary checks
+        # run in the manager.
+        if "time_manager" not in params:
+            self.time_manager = pp.TimeManager(
+                schedule=[0, 1], dt_init=1, constant_dt=True
+            )
+            """Time manager for the simulation."""
+        else:
+            self.time_manager = params["time_manager"]
 
-        self.time_manager = params.get(
-            "time_manager",
-            pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
-        )
-        """Time manager for the simulation."""
         self.restart_options = params.get(
             "restart_options",
             {
@@ -440,7 +443,7 @@ class SolutionStrategy(pp.PorePyModel):
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     @property
-    def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
+    def nonlinear_discretizations(self) -> list[pp.ad.MergedOperator]:
         """List of nonlinear discretizations in the equation system.
 
         This list encompasses discretizations other than flux discretizations, such as
@@ -459,7 +462,7 @@ class SolutionStrategy(pp.PorePyModel):
     @property
     def nonlinear_diffusive_flux_discretizations(
         self,
-    ) -> list[pp.ad._ad_utils.MergedOperator]:
+    ) -> list[pp.ad.MergedOperator]:
         """List of nonlinear flux discretizations in the equation system.
 
         Not to be confused with other discretizations (:meth:`nonlinear_discretizations`
@@ -481,7 +484,7 @@ class SolutionStrategy(pp.PorePyModel):
         return self._nonlinear_diffusive_flux_discretizations
 
     def add_nonlinear_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
+        self, discretization: pp.ad.MergedOperator
     ) -> None:
         """Add an entry to the list of :meth:`nonlinear_discretizations`.
 
@@ -501,8 +504,25 @@ class SolutionStrategy(pp.PorePyModel):
         if discretization not in self._nonlinear_discretizations:
             self._nonlinear_discretizations.append(discretization)
 
+    def remove_nonlinear_discretization(
+        self, discretization: pp.ad.MergedOperator
+    ) -> bool:
+        """Remove an entry from the list of :meth:`nonlinear_discretizations`.
+
+        Parameters:
+            discretization: The nonlinear discretization to be removed.
+
+        Returns:
+            True if the discretization was found and removed, False otherwise.
+        """
+        if discretization in self._nonlinear_discretizations:
+            self._nonlinear_discretizations.remove(discretization)
+            return True
+        else:
+            return False
+
     def add_nonlinear_diffusive_flux_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
+        self, discretization: pp.ad.MergedOperator
     ) -> None:
         """Add an entry to the list of :meth:`nonlinear_diffusive_flux_discretizations`.
 
@@ -521,6 +541,24 @@ class SolutionStrategy(pp.PorePyModel):
         # before discretization, so it should not be a problem.
         if discretization not in self._nonlinear_diffusive_flux_discretizations:
             self._nonlinear_diffusive_flux_discretizations.append(discretization)
+
+    def remove_nonlinear_diffusive_flux_discretization(
+        self, discretization: pp.ad.MergedOperator
+    ) -> bool:
+        """Remove an entry from the list of
+        :meth:`nonlinear_diffusive_flux_discretizations`.
+
+        Parameters:
+            discretization: The nonlinear flux discretization to be removed.
+
+        Returns:
+            True if the discretization was found and removed, False otherwise.
+        """
+        if discretization in self._nonlinear_diffusive_flux_discretizations:
+            self._nonlinear_diffusive_flux_discretizations.remove(discretization)
+            return True
+        else:
+            return False
 
     def set_nonlinear_discretizations(self) -> None:
         """Set the list of all nonlinear discretizations.
@@ -690,9 +728,14 @@ class SolutionStrategy(pp.PorePyModel):
             )
             # Residual based norm
             residual_norm = self.compute_residual_norm(residual, reference_residual)
-            logger.debug(
+            logger.info(
                 f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
+            )
+            # # Check divergence.
+            diverged = (
+                nl_params["nl_divergence_tol"] is not np.inf
+                and residual_norm > nl_params["nl_divergence_tol"]
             )
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
@@ -704,7 +747,6 @@ class SolutionStrategy(pp.PorePyModel):
                 or residual_norm < nl_params["nl_convergence_tol_res"]
             )
             converged = converged_inc and converged_res
-            diverged = False
 
         # Log the errors (here increments and residuals)
         self.nonlinear_solver_statistics.log_error(
@@ -984,10 +1026,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Discretize nonlinear fluxes."""
         tic = time.time()
         # Uniquify to save computational time, then discretize.
-        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+        unique_discr = pp.ad.uniquify_discretization_list(
             self.nonlinear_diffusive_flux_discretizations
         )
-        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
         logger.debug(f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds.")
 
     def update_flux_values(self) -> None:
@@ -1003,10 +1045,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Discretize nonlinear terms."""
         tic = time.time()
         # Uniquify to save computational time, then discretize.
-        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+        unique_discr = pp.ad.uniquify_discretization_list(
             self.nonlinear_discretizations
         )
-        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
         logger.debug(f"Re-discretized nonlinear terms in {time.time() - tic} seconds.")
 
     def darcy_flux_storage_keywords(self) -> list[str]:

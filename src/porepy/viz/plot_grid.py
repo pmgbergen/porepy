@@ -11,6 +11,7 @@ this folder.
 from __future__ import annotations
 
 import string
+from pathlib import Path
 from typing import Optional, Union
 
 import matplotlib as mpl
@@ -83,7 +84,7 @@ def plot_grid(
 
 
 def save_img(
-    name: str,
+    name: Path,
     grid: Union[pp.Grid, pp.MixedDimensionalGrid],
     cell_value: Optional[Union[np.ndarray, str]] = None,
     vector_value: Optional[Union[np.ndarray, str]] = None,
@@ -98,9 +99,9 @@ def save_img(
     informations are displayed.
 
     Parameters:
-        name: the name of the file
+        name: The name of the file.
         grid: subdomain or mixed-dimensional grid.
-        cell_value: if grid is a single grid, cell_value is a cell scalar field to
+        cell_value: If grid is a single grid, cell_value is a cell scalar field to
             be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
             cell_value is the name (key) of the scalar field as a string.
         vector_value: Same as cell_value, but for vector fields.
@@ -446,26 +447,46 @@ def _quiver(sd: pp.Grid, vector_value: np.ndarray, ax: mpl.axes.Axes, **kwargs) 
 
     # Define and draw all arrows.
     for v in np.arange(vector_value.shape[1]):
-        # Define head and tail points, using the face or cell centers
-        # and their prolongation by the data, incl. potential scaling.
-        x = [where[0, v], where[0, v] + scale * vector_value[0, v]]
-        y = [where[1, v], where[1, v] + scale * vector_value[1, v]]
-        z = [where[2, v], where[2, v] + scale * vector_value[2, v]]
+        # Depending on whether we plot in 2d or 3d, use the corresponding arrow class.
+        if kwargs.get("plot_2d", False):
+            # Define head and tail points, using the face or cell centers and their
+            # prolongation by the data, including potential scaling.
+            x0 = where[0, v]
+            y0 = where[1, v]
+            x1 = x0 + scale * vector_value[0, v]
+            y1 = y0 + scale * vector_value[1, v]
 
-        # Define the 3d arrow
-        a = _Arrow3D(
-            x,
-            y,
-            z,
-            mutation_scale=5,
-            linewidth=linewidth,
-            arrowstyle="-|>",
-            color="k",
-            zorder=np.inf,
-        )
+            # Define the 2d arrow.
+            arrow = FancyArrowPatch(
+                (x0, y0),
+                (x1, y1),
+                mutation_scale=5,
+                linewidth=linewidth,
+                arrowstyle="-|>",
+                color="k",
+                zorder=np.inf,
+            )
+        else:
+            # Define head and tail points, using the face or cell centers and their
+            # prolongation by the data, including potential scaling.
+            x = [where[0, v], where[0, v] + scale * vector_value[0, v]]
+            y = [where[1, v], where[1, v] + scale * vector_value[1, v]]
+            z = [where[2, v], where[2, v] + scale * vector_value[2, v]]
 
-        # Add arrow to axis
-        ax.add_artist(a)
+            # Define the 3d arrow.
+            arrow = _Arrow3D(
+                x,
+                y,
+                z,
+                mutation_scale=5,
+                linewidth=linewidth,
+                arrowstyle="-|>",
+                color="k",
+                zorder=np.inf,
+            )
+
+        # Finally, add arrow to axis.
+        ax.add_artist(arrow)
 
 
 def _plot_sd_xd(

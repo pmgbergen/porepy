@@ -10,6 +10,7 @@ etc.
 __all__ = []
 
 from . import (
+    ad_utils,
     discretizations,
     equation_system,
     forward_mode,
@@ -20,6 +21,7 @@ from . import (
     surrogate_operator,
     time_derivatives,
 )
+from .ad_utils import *
 from .discretizations import *
 from .equation_system import *
 from .forward_mode import *
@@ -30,6 +32,7 @@ from .operators import *
 from .surrogate_operator import *
 from .time_derivatives import *
 
+__all__.extend(ad_utils.__all__)
 __all__.extend(operators.__all__)
 __all__.extend(operator_functions.__all__)
 __all__.extend(discretizations.__all__)

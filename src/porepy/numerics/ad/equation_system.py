@@ -5,16 +5,15 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
 import scipy.sparse as sps
-from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_parser, _ad_utils
+from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -312,6 +311,25 @@ class EquationSystem:
 
         """
         return self._equations
+
+    @property
+    def equation_image_space_composition(
+        self,
+    ) -> dict[str, dict[pp.GridLike, np.ndarray]]:
+        """Dictionary containing image space composition, including subdomains
+        and their block indices in the global system, for every equation
+        set in this EquationSystem.
+
+        """
+        return self._equation_image_space_composition
+
+    @property
+    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
+        """Dictionary containing, for every equation set in this EquationSystem,
+        the number of equations per grid entity.
+
+        """
+        return self._equation_image_size_info
 
     @property
     def variables(self) -> list[Variable]:
@@ -613,7 +631,7 @@ class EquationSystem:
         the order of the argument.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.get_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -628,23 +646,30 @@ class EquationSystem:
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
-                :meth:`num_dofs`.
+            :meth:`num_dofs`.
 
         """
+        # Normalize the variable input.
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
+        var_ids = {var.id for var in variables}
+
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Loop over all blocks and process those requested.
-        # This ensures uniqueness and correct order.
+        # Cache for domain data to avoid recomputing it for the same domain.
+        data_cache = {}
+
         for id_ in self._variable_numbers:
             if id_ in var_ids:
                 variable = self._variables[id_]
+                domain = variable.domain
+
+                if domain not in data_cache:
+                    data_cache[domain] = self._get_data(domain)
 
                 val = pp.get_solution_values(
                     variable.name,
-                    self._get_data(variable.domain),
+                    data_cache[domain],
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                 )
@@ -652,11 +677,8 @@ class EquationSystem:
                 values.append(val)
 
         # If there are matching blocks, concatenate and return.
-        if values:
-            return np.concatenate(values)
         # Else return an empty vector.
-        else:
-            return np.array([])
+        return np.concatenate(values) if values else np.empty(0)
 
     def set_variable_values(
         self,
@@ -677,7 +699,7 @@ class EquationSystem:
             by ``variables`` will raise respective errors by numpy.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.set_solution_values`.
 
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
@@ -742,7 +764,7 @@ class EquationSystem:
         """Method for shifting stored time step values in data sub-dictionary.
 
         For details of the value shifting see the method
-        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+        :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -1232,6 +1254,49 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_equation(
+        self,
+        equation_name: str,
+        new_equation: Operator,
+        grids: Optional[DomainList] = None,
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+    ) -> None:
+        """Updates an existing equation with a new equation operator.
+
+        This method removes the existing equation and sets a new equation under the same
+        name as the old equation.
+
+        Parameters:
+            equation_name: Name of the equation to be updated.
+            new_equation: New equation in AD form.
+            grids: A list of subdomain *or* interface grids on which the equation is
+                defined. The default value is None, and in that case, the grids of the
+                previous equation are used.
+            equations_per_grid_entity: a dictionary describing how many equations
+                ``equation_operator`` provides. This is a temporary work-around until
+                operators are able to provide information on their image space. The
+                dictionary must contain the number of equations per grid entity (cells,
+                faces, nodes) for the operator. The default value is None, and in that
+                case, the equations_per_grid_entity of the previous equation are used.
+
+        """
+        if grids is None:
+            grids = cast(
+                list[pp.Grid] | list[pp.MortarGrid],
+                list(self._equation_image_space_composition[equation_name].keys()),
+            )
+
+        if equations_per_grid_entity is None:
+            equations_per_grid_entity = self._equation_image_size_info[equation_name]
+
+        self.remove_equation(equation_name)
+        new_equation.set_name(equation_name)
+        self.set_equation(
+            equation=new_equation,
+            grids=grids,
+            equations_per_grid_entity=equations_per_grid_entity,
+        )
+
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
@@ -1279,7 +1344,7 @@ class EquationSystem:
             for child in operator.children:
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
-        if isinstance(operator, _ad_utils.MergedOperator):
+        if isinstance(operator, pp.ad.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(operator)
 
@@ -1509,8 +1574,8 @@ class EquationSystem:
             discr += self._recursive_discretization_search(eqn, list())
 
         # Uniquify to save computational time, then discretize.
-        unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.mdg)
+        unique_discr = pp.ad.uniquify_discretization_list(discr)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
 
     @overload
     def assemble(

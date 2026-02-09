@@ -89,6 +89,53 @@ class EquationsPoromechanics(
         )
 
 
+class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
+    """Solid mass equation for poromechanics.
+
+    This is an extension of the solid mass equation in the three-field formulation of
+    the mechanics problem. The extension is the addition of the fluid pressure term.
+
+    """
+
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The Biot coefficient."""
+    second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The second Lamé parameter."""
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator representing the fluid pressure.."""
+
+    def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Extension of the solid mass equation to the poromechanics problem [-].
+
+        For details on the the solid mass equation, and the extension to poromechanical
+        systems, see https://arxiv.org/pdf/2405.10390 Section 2.1.
+
+        Parameters:
+            subdomains: List of subdomains where the solid mass equation is defined.
+
+        Returns:
+            Operator for the solid mass equation.
+
+        """
+        # The mechanics part of the solid mass equation is the same as in the momentum
+        # balance model.
+        momentum_term = super().solid_mass_equation(subdomains)
+
+        # Add the term related to the fluid pressure.
+        lmbda = self.second_lame_parameter(subdomains)
+        # Biot coefficient.
+        biot = self.biot_coefficient(subdomains)
+
+        pressure_term = self.volume_integral(
+            biot * self.pressure(subdomains) / lmbda, subdomains, 1
+        )
+        full_eq = momentum_term - pressure_term
+
+        full_eq.set_name("Solid_mass_equation_poromechanics")
+
+        return full_eq
+
+
 class VariablesPoromechanics(
     pp.momentum_balance.VariablesMomentumBalance,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
@@ -125,6 +172,45 @@ class InitialConditionsPoromechanics(
 ):
     """Combines initial conditions for mass and momentum balance and contact mechanics,
     and associated primary variables."""
+
+
+class TpsaPoromechanicsMixin(
+    pp.constitutive_laws.ConstitutiveLawsTpsaPoromechanics,
+    SolidMassEquation,
+    pp.momentum_balance.TpsaMomentumBalanceMixin,
+):
+    """Mixin for the TPSA poromechanics model. If mixed into a Poromechanics
+    class, the resulting objects will apply the four-field (displacement, rotation
+    stress, total pressure and fluid pressure) formulation for poromechanics,
+    discretized by the Tpsa method.
+
+    Can also be used to define a THM model with Tpsa.
+
+    Important:
+        The TPSA (Two-Point Stress Approximation) discretization is only consistent for
+        grids that fulfill certain alignment properties between face normals and vectors
+        connecting cell centers (for details see the TPSA paper,
+        https://doi.org/10.1016/j.camwa.2025.07.035, see in particular the illustration
+        of admissible grids in Figure 1).
+
+        The class of admissible grids includes:
+            - Cartesian grids (unless the nodes have been perturbed).
+            - Simplex grids where the cell centers are chosen as the circumcenters of
+              the elements *provided that these circumcenters lie within the elements*.
+
+        Code to obtain the circumcenter grid points is available in PorePy as
+        :meth:`porepy.grids.grid_utils.compute_circumcenter_2d` and
+        :meth:`porepy.grids.grid_utils.compute_circumcenter_3d`. If using these
+        functions to move the cell center, make sure that the modified center is still
+        within the cell, or else the discretization may break down.
+
+        For general grids, the inconsistency implies that TPSA will not provide a
+        convergent discretization. The method can still be used, but it is advisable to
+        proceed with caution.
+
+    """
+
+    pass
 
 
 class SolutionStrategyPoromechanics(

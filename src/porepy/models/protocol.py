@@ -79,7 +79,10 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
-        def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        def add_wells_to_mdg(self) -> None:
+            """Add wells to the mixed-dimensional grid."""
+
+        def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 
             Parameters:
@@ -112,6 +115,17 @@ else:
 
             Returns:
                 Keyword arguments compatible with pp.create_mdg() method.
+
+            """
+
+        def depth(self, coords: np.ndarray) -> np.ndarray:
+            """Compute depth of points.
+
+            Parameters:
+                coords: Array of points where depth is to be calculated.
+
+            Returns:
+                Depth of points.
 
             """
 
@@ -946,6 +960,27 @@ else:
 
             Raises:
                 ValueError: if incompatible file type provided.
+
+            """
+
+        def evaluate_and_scale(
+            self,
+            grids: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+            method_name: str,
+            units: str,
+        ) -> np.ndarray:
+            """Evaluate a method for a derived quantity and scale the result to SI
+            units.
+
+            Parameters:
+                grids: Sequence of grids or mortar grids for which the method should be
+                    evaluated.
+                method_name: Name of the method to be evaluated.
+                units: Units of the quantity returned by the method. Should be parsable
+                    by :meth:`porepy.models.units.Units.convert_units`.
+
+            Returns:
+                Array of values for the quantity, scaled to SI units.
 
             """
 

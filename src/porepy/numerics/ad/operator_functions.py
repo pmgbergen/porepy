@@ -191,7 +191,7 @@ class AbstractFunction(Operator):
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
                 values = np.array([values])
-            return AdArray(values, self.get_jacobian(*args))
+            return AdArray(values, jac)
         else:
             return values
 
