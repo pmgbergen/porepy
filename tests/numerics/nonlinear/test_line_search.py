@@ -7,14 +7,6 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.numerics.nonlinear import line_search as ls
 
 
-class ConstraintLineSearchNonlinearSolver(
-    ls.ConstraintLineSearch,
-    ls.SplineInterpolationLineSearch,
-    ls.LineSearchNewtonSolver,
-):
-    pass
-
-
 class ConstraintFunctionsMomentumBalance(
     SquareDomainOrthogonalFractures, pp.MomentumBalance
 ):
@@ -71,7 +63,7 @@ def test_line_search():
     """
     model = ConstraintFunctionsMomentumBalance({"times_to_export": []})
     solver_params = {
-        "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": ls.ConstraintLineSearchNonlinearSolver,
         "global_line_search": True,
         "local_line_search": True,
     }

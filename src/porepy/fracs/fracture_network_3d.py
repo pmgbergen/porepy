@@ -1127,7 +1127,11 @@ class FractureNetwork3d(FractureNetwork):
         path = folder_name / file_name
         meshio.write(path, meshio_grid_to_export, binary=binary)
 
-    def to_csv(self, file_name: Path, domain: Optional[pp.Domain] = None) -> None:
+    def to_csv(
+        self,
+        file_name: Path,
+        write_header: bool = True,
+    ) -> None:
         """Save the 3D network on a CSV file with comma as separator.
 
         The format is as follows:
@@ -1143,21 +1147,32 @@ class FractureNetwork3d(FractureNetwork):
 
         Parameters:
             file_name: Name of the CSV file.
-            domain: ``default=None``
+            write_header: ``default=True``
 
-                Domain specification.
+                Flag for writing headers for the five columns in the first row.
 
         Raises:
             NotImplementedError: If one of the fractures is elliptic.
 
         """
-        with open(file_name, "w") as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=",")
+        # Determine the maximum number of points in a fracture. Minimum is 2 for the
+        # domain specification.
+        max_pts = max(max(frac.pts.shape[1] for frac in self.fractures), 2)
 
-            # if the domain (as bounding box) is defined save it
-            if domain is not None:
+        with open(file_name.with_suffix(".csv"), "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=",")
+            if write_header:
+                header = ["# "] + [
+                    f"P{i}_{coord}" for i in range(max_pts) for coord in ["X", "Y", "Z"]
+                ]
+                csv_writer.writerow(header)
+            if self.domain is not None:
                 order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-                csv_writer.writerow([domain.bounding_box[o] for o in order])
+                # Write the domain bounding box.
+                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+            # Write all the fractures.
+            for fracture in self.fractures:
+                data = list(fracture.pts.ravel(order="F"))
 
             # write all the fractures
             for f in self.fractures:
