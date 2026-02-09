@@ -22,7 +22,7 @@ Important:
 from __future__ import annotations
 
 from typing import List, Tuple, Callable, Sequence, cast, Optional
-
+import numpy as np
 import porepy as pp
 
 
