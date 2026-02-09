@@ -33,7 +33,7 @@ def network_from_csv(
     - In 3D, Polygonal fractures are described as a list of points (one line per
         fracture) ``P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``.
         Elliptic fractures are described as ``CENTER_X, CENTER_Y, CENTER_Z,
-        MAJOR_AXIS, MINOR_AXIS, MAJOR_AXIS_ANGLE, STRIKE_ANGLE, DIP_ANGLE, NUM_POINTS``.
+        MAJOR_AXIS, MINOR_AXIS, MAJOR_AXIS_ANGLE, STRIKE_ANGLE, DIP_ANGLE``.
     Lines starting with ``#`` will be ignored.
 
     Parameters:
@@ -83,7 +83,13 @@ def network_from_csv(
                 else:
                     # This can be a 3d domain (six entries) or a 3d point-based
                     # fracture (elliptic or point-based), depending on the context.
-                    if data.size == 6 or (data.size >= 9 and data.size % 3 == 0):
+                    if (
+                        data.size == 6  # Domain in 3d
+                        or data.size == 8  # Elliptic fracture in 3d
+                        or (
+                            data.size >= 9 and data.size % 3 == 0
+                        )  # Point-based fracture in 3d
+                    ):
                         nd = 3
                     else:
                         raise ValueError(
@@ -123,17 +129,7 @@ def network_from_csv(
                 # In 3d, the number of entries must be used to distinguish between
                 # elliptic and polygonal fractures.
 
-                if data.size == 9 and data[8] == int(data[8]) and data[8] > 0:
-                    # 9 entries can be interpreted as an elliptic fracture or a
-                    # triangular fracture. We check for the number of points to
-                    # distinguish the two cases, and issue a warning if the data is
-                    # interpreted as an elliptic fracture, as this is more likely to be
-                    # the intended interpretation in this case. This is a workaround
-                    # that will be fixed upon merging of GH issue #1576.
-                    logger.warning(
-                        "Interpreting fracture with 9 entries as elliptic fracture."
-                    )
-
+                if data.size == 8:
                     # This will be interpreted as an elliptic fracture. The number of
                     # points should be represented as an integer.
                     frac = pp.create_elliptic_fracture(
@@ -143,7 +139,6 @@ def network_from_csv(
                         data[5],  # major axis angle
                         data[6],  # strike angle
                         data[7],  # dip angle
-                        int(data[8]),  # num points
                     )
                     fractures.append(frac)  # type: ignore
                 else:
