@@ -279,7 +279,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         start = time.time()
 
         if not hasattr(self, "_template_res"):
-            logger.debug("Compiling template flash residual ...")
+            logger.debug("Compiling template residual ...")
 
             @njit(nb.f8[:](nb.f8[:], FlashSpec_NUMBA_TYPE))
             def template_res(X_gen: np.ndarray, spec: FlashSpec) -> np.ndarray:
@@ -350,7 +350,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             self._template_res = template_res
 
         if not hasattr(self, "_template_jac"):
-            logger.debug("Compiling template flash Jacobian ...")
+            logger.debug("Compiling template Jacobian ...")
 
             @njit(nb.f8[:, :](nb.f8[:], FlashSpec_NUMBA_TYPE))
             def template_jac(X_gen: np.ndarray, spec: FlashSpec) -> np.ndarray:
@@ -450,7 +450,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         if FlashSpec.pT in args:
             if FlashSpec.pT not in self.residuals:
-                logger.debug("Compiling pT-flash residual ...")
+                logger.debug("Compiling pT-residual ...")
 
                 @res_compiler
                 def res_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -459,7 +459,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 self.residuals[FlashSpec.pT] = res_pT
 
             if FlashSpec.pT not in self.jacobians:
-                logger.debug("Compiling pT-flash Jacobian ...")
+                logger.debug("Compiling pT-Jacobian ...")
 
                 @jac_compiler
                 def jac_pT(X_gen: np.ndarray) -> np.ndarray:
@@ -471,7 +471,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         if FlashSpec.ph in args:
             if FlashSpec.ph not in self.residuals:
-                logger.debug("Compiling ph-flash residual ...")
+                logger.debug("Compiling ph-residual ...")
 
                 @res_compiler
                 def res_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -480,7 +480,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 self.residuals[FlashSpec.ph] = res_ph
 
             if FlashSpec.ph not in self.jacobians:
-                logger.debug("Compiling ph-flash Jacobian ...")
+                logger.debug("Compiling ph-Jacobian ...")
 
                 @jac_compiler
                 def jac_ph(X_gen: np.ndarray) -> np.ndarray:
@@ -495,7 +495,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         if FlashSpec.vu in args:
             if FlashSpec.vu not in self.residuals:
-                logger.debug("Compiling vu-flash residual ...")
+                logger.debug("Compiling vu-residual ...")
 
                 @res_compiler
                 def res_vu(X_gen: np.ndarray) -> np.ndarray:
@@ -504,7 +504,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 self.residuals[FlashSpec.vu] = res_vu
 
             if FlashSpec.vu not in self.jacobians:
-                logger.debug("Compiling vu-flash Jacobian ...")
+                logger.debug("Compiling vu-Jacobian ...")
 
                 @jac_compiler
                 def jac_vu(X_gen: np.ndarray) -> np.ndarray:
@@ -514,7 +514,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         if FlashSpec.vh in args:
             if FlashSpec.vh not in self.residuals:
-                logger.debug("Compiling vh-flash residual ...")
+                logger.debug("Compiling vh-residual ...")
 
                 @res_compiler
                 def res_vh(X_gen: np.ndarray) -> np.ndarray:
@@ -523,7 +523,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 self.residuals[FlashSpec.vh] = res_vh
 
             if FlashSpec.vh not in self.jacobians:
-                logger.debug("Compiling vh-flash Jacobian ...")
+                logger.debug("Compiling vh-Jacobian ...")
 
                 @jac_compiler
                 def jac_vh(X_gen: np.ndarray) -> np.ndarray:

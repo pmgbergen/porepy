@@ -565,9 +565,9 @@ class AbstractFlash(abc.ABC):
         spec1range: np.ndarray | pp.number,
         spec2range: np.ndarray | pp.number,
         zrange: Optional[Sequence[np.ndarray | pp.number]] = None,
-        field: str | list[str] = "phasesplit",
         /,
         *,
+        field: str | list[str] = "phasesplit",
         zindex: int = 0,
         transpose: bool = False,
         plotkwargs: Optional[dict] = None,
@@ -621,7 +621,8 @@ class AbstractFlash(abc.ABC):
           for the plot.
         - ``'ytransform'``: A callable transforming the values on the vertical axis for
           the plot.
-        - ``'vtransform'``: A callable transforming the values to be plotted.
+        - ``'vtransform'``: A callable transforming the values to be plotted. Must take
+          an array (values) and a string (field name).
         - ``'initial_state'``: See :meth:`flash`.
         - ``'params'``: See :meth:`flash`.
         - ``'flash_kwargs'``: See :meth:`flash`.
@@ -768,7 +769,7 @@ class AbstractFlash(abc.ABC):
             fields = field
         for f in fields:
             v = self._parse_field(results, f, kwargs.get("eps", 1e-7))
-            v = kwargs.get("vtransform", lambda x: x)(v).reshape(shape)
+            v = kwargs.get("vtransform", lambda x, s: x)(v, f).reshape(shape)
             if transpose:
                 v = v.transpose()
             vals.append(v)
