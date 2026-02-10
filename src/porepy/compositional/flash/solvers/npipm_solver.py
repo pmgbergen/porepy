@@ -59,7 +59,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
     "rpc_p": 1.0,
     "rpc_p_chop": np.inf,
     "trustregion_delta": 0.0,
-    "trustregion_fraction_to_boundary": 0.95,
+    "trustregion_fraction_to_boundary": 0.99,
     "anderson_acceleration": 0,
     "anderson_acceleration_regularization": 1e-7,
     "pT_npc_iterations": 0,
@@ -582,11 +582,12 @@ def npipm_inner(
     tau_max = 1e6  # Maximal value.
     do_LM = False  # Levenberg-Marquardt normalization.
     alpha_max = 1.0  # Maximal step size.
-    alpha_min_s = 1e-3  # Scale of alpha max to obtain alpha min
+    alpha_min_s = 1e-4  # Scale of alpha max to obtain alpha min
 
     tr_delta_max = f_dim  # Largest trust-region radius, assuming non-dim variables.
     tr_delta = tr_delta if tr_delta > 0 else tr_delta_max
-    tr_delta_min = 1e-4 * tr_delta  # Smallest trust-region radius
+    tr_delta_min = 1e-2  # Smallest trust-region radius
+    tr_f2b_max = 1.0 - min(atol_frac, tol)
     # Descent criteria in line search.
     # NOTE Increase lc_dec_min if too many small updates.
     ls_dec_min = 1e-4  # Smallest decrease required by linesearch
@@ -608,6 +609,9 @@ def npipm_inner(
     lb_res = 0.0  # Lower bound for residual when cycling or stagnation detected.
 
     i_cyst_detected = np.inf  # Iteration when cycling ot stagnation detected.
+    i_efp = 0  # Iteration when extended fractions where perturbed for isofugacity.
+    i_pert = 0  # Iteration when global perturbation was performed.
+    i_diff_pert = 30  # Iterations between perturbations.
     res_history = np.zeros(max(2 * (max_cycle - 1), stag_window))
 
     aa_depth_default = 3
@@ -694,7 +698,7 @@ def npipm_inner(
             X_i[-(n_F + 1) : -1], dX_i[-(n_F + 1) : -1], atol_num, atol_frac
         )
         if f2b < 1.0:
-            alpha = alpha_max * tr_f2b * f2b
+            alpha = tr_f2b * f2b
         else:
             alpha = alpha_max
         # endregion
@@ -753,18 +757,15 @@ def npipm_inner(
         # region Adapt solver parameters
 
         # If actual reduction is large enough, decrease tau.
-        if reduction >= 1.8:
-            # tau = max(tau_min, tau * 0.1)
-            tr_delta = min(1.5 * tr_delta, tr_delta_max)
-        # If actual reduction is too small, increase tau.
-        elif reduction <= 1.0 or ls_failed:
-            # tau = min(tau_max, tau * 2.0)
-            tr_delta = max(0.5 * tr_delta, tr_delta_min)
+        if reduction <= 1.0 or ls_failed:
+            tr_delta = max(0.8 * tr_delta, tr_delta_min)
+        else:
+            tr_delta = min(1.2 * tr_delta, tr_delta_max)
 
-        if alpha < 1e-3 * alpha_max:  # or tau > 0.5 * tau_max:
-            ls_dec = max(ls_dec * 0.5, ls_dec_min)
+        if alpha < 1e-3 * alpha_max:
+            ls_dec = max(ls_dec * 0.7, ls_dec_min)
         elif alpha > 0.9 * alpha_max:
-            ls_dec = min(ls_dec * 1.1, ls_dec_max)
+            ls_dec = min(ls_dec * 1.3, ls_dec_max)
 
         # endregion
 
@@ -793,7 +794,7 @@ def npipm_inner(
                     elif i == i_cyst_detected + 3:
                         alpha_max *= 4.0
 
-                    tr_f2b = min(tr_f2b * 1.01, 0.999)
+                    tr_f2b = min(tr_f2b * 1.01, tr_f2b_max)
                     ls_dec = max(ls_dec * 0.5, ls_dec_min)
                     aa_depth = max(aa_depth_default, aa_depth)
                     do_LM = False
@@ -860,13 +861,6 @@ def npipm_inner(
         # region Special measures for persistent failures.
         if is_cycling or is_stagnating or ls_fail_count > 0:
             # First line of action: check special cases.
-
-            # Issues are often observed due to extended fractions being stuck at too low
-            # values when a phase vanished. Try to break free by perturbing using feed
-            # fractions. Indicator: Only isofugacity constraints have large residual.
-            idx = np.zeros(f_dim, dtype=np.bool)
-            idx[-(n_F + 1) : -(n_P + n_C1m + 1)] = True
-            res_part = np.linalg.norm(f_i_j[~idx])
             x, y = parse_xy(X_i[:-1], n_C, n_P)
 
             # First, make sure fractions are feasible.
@@ -876,13 +870,19 @@ def npipm_inner(
                 xj = x[j, :]
                 xj[xj > 1] = 1.0
                 xj[xj < 0] = 0.0
-                if y[j] > 0:
+                if y[j] >= atol_frac:
                     xj /= xj.sum()
                 x[j, :] = xj
 
+            # Issues are often observed due to extended fractions being stuck at too low
+            # values when a phase vanished. Try to break free by perturbing using feed
+            # fractions. Indicator: Only isofugacity constraints have large residual.
+            idx = np.zeros(f_dim, dtype=np.bool)
+            idx[-(n_F + 1) : -(n_P + n_C1m + 1)] = True
+            res_part = np.linalg.norm(f_i_j[~idx])
+
             # Perturb every n-th iteration, with n being maximal cycle detected.
-            if (res_part < tol) and (i_diff % (max_cycle - 1) == 0):
-                z = gen_arg[3]
+            if (res_part < tol) and ((i >= i_efp + i_diff_pert) or i_efp == 0):
                 for j in range(n_P):
                     xj = x[j, :]
                     # Perturb extended fractions where phase absent.
@@ -890,17 +890,17 @@ def npipm_inner(
                     # a deteriorating effect. Requires more thinking.
                     # if xj.sum() <= 1.0 - 1e-3:
                     if y[j] < atol_frac:
-                        xj = (xj + z + 1 / n_C) / 3.0
+                        i_efp = i  # Mark when perturbed.
+                        xj = (xj + 1 / n_C) * 0.5
                         # Keep fractions feasible.
                         sxj = xj.sum()
                         if sxj > 1.0:
                             xj /= sxj
                     x[j, :] = xj
 
-            # If was_cycling and one of the y is small, likely stuck at border.
-            # Relaxe fraction-to-boundary-rule
-            if was_cycling and np.any(y < atol_frac):
-                tr_f2b = 0.999
+            # If close to a phase border, relaxe fraction-to-boundary rule.
+            if np.any(y < 1e-4):
+                tr_f2b = tr_f2b_max
 
             # If line search failed twice in a row, try to hop out of an unfavorable
             # area.
@@ -912,8 +912,7 @@ def npipm_inner(
             # Perturb system by adding small mass to emerging phase.
             for j in range(n_P):
                 sxj = np.sum(x[j])
-                yj = y[j]
-                if np.abs(yj) <= atol_frac and sxj > 0.95:
+                if np.abs(y[j]) < atol_frac and sxj > 0.95:
                     y_c = y_emg / (n_P - 1)  # Mass taken from other phases
                     y = np.maximum(np.zeros(n_P), y - y_c)
                     y[j] = y_emg
@@ -950,7 +949,7 @@ def npipm_inner(
                     else:
                         do_LM = True
                     # do_LM = True if not is_stagnating else False
-                    if ls_fail_count >= 4:
+                    if ls_fail_count >= 3:
                         alpha_min_s = 1e-7
                         rtol_desc = 1e-10
                 else:  # Else mobilize
@@ -961,7 +960,10 @@ def npipm_inner(
 
                 # We check first, if we are at a stationary point where we lost
                 # all sensitivy due to small gradient. If yes, perturb slightly.
-                if stationary or ls_fail_count == 3:
+                if (stationary or ls_fail_count == 4) and (
+                    (i >= i_pert + i_diff_pert) or i_pert == 0
+                ):
+                    i_pert = i  # Mark when perturbed.
                     # NOTE tighten to 1e-7 if perturbation leads to worsening.
                     X_p = (
                         rtol_pert
@@ -983,7 +985,7 @@ def npipm_inner(
                             x[j, :] /= s + atol_num
                     X_i[-(n_F + 1) : -1] = np.hstack((y[1:], x.flatten()))
         else:
-            alpha_min_s = 1e-3
+            alpha_min_s = 1e-4
             alpha_max = 1.0
         # endregion
 

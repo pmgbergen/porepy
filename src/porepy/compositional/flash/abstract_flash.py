@@ -794,8 +794,8 @@ class AbstractFlash(abc.ABC):
                     nrows += 1
             assert nrows >= 1, "Require at least 1 row."
 
-        plot_contour = kwargs.get("phasecontour", False)
-        if split_v is None and plot_contour:
+        plot_phase_contour = kwargs.get("phasecontour", False)
+        if split_v is None and plot_phase_contour:
             split_v = self._parse_field(
                 results, "phasesplit", kwargs.get("eps", 1e-7)
             ).reshape(shape)
@@ -842,7 +842,7 @@ class AbstractFlash(abc.ABC):
                 cb_rr.set_ticks(cbticks)
                 cb_rr.set_ticklabels(cblabels)
 
-            if plot_contour:
+            if plot_phase_contour:
                 assert isinstance(split_v, np.ndarray), "Failed to parse split values."
                 lvls = np.unique(split_v)
                 ax.contour(xm, ym, split_v, lvls, colors="black", linewidths=1.5)
@@ -854,9 +854,9 @@ class AbstractFlash(abc.ABC):
                     s=5,
                     c="firebrick",
                     marker="x",
-                    label="No convergence",
+                    label="No conv.",
                 )
-                ax.legend(handles=[img_nc], loc="upper center")
+                ax.legend(handles=[img_nc], loc="upper left")
 
         fig.tight_layout()
         return fig, results
