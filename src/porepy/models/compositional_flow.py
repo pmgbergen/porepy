@@ -1950,7 +1950,15 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             to zero array.
 
         """
-        return np.zeros(sd.num_cells)
+        phase_conc = np.zeros(sd.num_cells, dtype=np.float64)
+        for comp in phase.components:
+            conc = self.ic_values_species_concentration(comp, sd)
+            phase_conc += conc
+
+        if self.has_independent_partial_fraction(component, phase):
+            assert phase.name == "aqueous"
+            initial_conc = self.ic_values_species_concentration(component, sd)
+            return initial_conc / phase_conc
 
     def ic_values_mineral_saturation(
         self, component: pp.Component, sd: pp.Grid
@@ -1966,7 +1974,11 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             to zero array.
 
         """
-        return np.zeros(sd.num_cells)
+
+            # Some initial mineral saturation.
+        initial_conc = self.ic_values_species_concentration(component, sd)
+
+        return component.molar_volume * initial_conc / self.solid.total_porosity
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for fractions at iterate index 0.
@@ -2067,23 +2079,57 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
     def ic_values_species_concentration(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        if component.name != "H2O":
-            return 0 * np.ones(sd.num_cells, dtype=np.float64)
-        elif component.name == "H2O":
-            solute_conc = np.zeros(sd.num_cells)
-            for comp in self.fluid.components:
-                if comp.name != "H2O" and comp not in self.fluid.solid_components:
-                    solute_conc += self.ic_values_species_concentration(comp, sd)
-            ms = np.zeros(sd.num_cells)
-            for comp in self.fluid.solid_components:
-                ms += self.ic_values_mineral_saturation(comp, sd)
+        ms = np.zeros(sd.num_cells)
+        for comp in self.fluid.solid_components:
+            ms += self.ic_values_mineral_saturation(comp, sd)
 
-            porosity = self.solid.total_porosity * (np.ones(sd.num_cells) - ms)
-            fluid_density = self.fluid.reference_component.density * np.ones(
-                sd.num_cells
-            )
-            water_conc = porosity * fluid_density - solute_conc
-            return water_conc
+        porosity = self.solid.total_porosity * (np.ones(sd.num_cells) - ms)
+        if component.name != "H2O":
+            ic= self.ic_solute_concentration(component, sd)
+        elif component.name == "H2O":
+            ic= self.ic_water_concentration(sd)
+        return ic* porosity
+
+    def ic_water_concentration(
+        self, sd: pp.Grid
+    ) -> np.ndarray:
+        solute_conc = np.zeros(sd.num_cells)
+        for comp in self.fluid.components:
+            if comp.name != "H2O" and comp not in self.fluid.solid_components:
+                solute_conc += self.ic_solute_concentration(comp, sd)
+
+        fluid_density = self.fluid.reference_component.molar_density * np.ones(
+            sd.num_cells
+        )
+        water_conc = fluid_density - solute_conc
+        return water_conc
+
+    def ic_solute_concentration(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        return np.zeros(sd.num_cells)
+
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        """
+        Parameters:
+            component: A component in the :attr:`fluid` with an independent overall
+                fraction.
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial overall fraction values for a component on a subdomain. Defaults
+            to zero array.
+
+        """
+        total_conc = np.zeros(sd.num_cells, dtype=np.float64)
+        for comp in self.fluid.components:
+            total_conc += self.ic_values_species_concentration(comp, sd)
+
+        initial_conc = self.ic_values_species_concentration(component, sd)
+        return initial_conc / total_conc
 
 
 class SolutionStrategyPhaseProperties(pp.PorePyModel):

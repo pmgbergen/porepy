@@ -2262,16 +2262,36 @@ class ChemicalSystem(FluidMixin):
         # Should be available after SolutionStrategy.set_materials()
         # Getting the user-passed or default fluid component to create the default fluid
         # component.
-        fluid_constants = self.params["material_constants"]["reactions"]
-        # All materials are assumed to derive from Component.
-        assert isinstance(fluid_constants, Reaction), (
-            "model.params['material_constants']['reactions'] must be of type "
-            + f"{Reaction}"
-        )
-        # Need to cast into FluidComponent, because of the assert statement above.
-        return [cast(pp.Reaction, fluid_constants)]
+        mc = self.params.get("material_constants", {})
+        # Common: not provided yet
+        if "reactions" not in mc or mc["reactions"] is None:
+            return []
+        reactions  = mc["reactions"]
+        # Single reaction
+        if isinstance(reactions, pp.Reaction):
+            return [cast(pp.Reaction, reactions)]
 
-    def set_reactions(self, reactions: Sequence[Reaction]) -> None:
+        # Many reactions
+        if isinstance(reactions, (list, tuple)):
+            # Validate elements
+            for r in reactions:
+                if not isinstance(r, pp.Reaction):
+                    raise TypeError(
+                        "model.params['material_constants']['reactions'] must be a Reaction "
+                        "or a Sequence[Reaction]. Found element of type "
+                        f"{type(r)}."
+                    )
+            return cast(Sequence[pp.Reaction], list(reactions))
+
+        raise TypeError(
+            "model.params['material_constants']['reactions'] must be a Reaction, "
+            "a Sequence[Reaction], or None. Found type "
+            f"{type(reactions)}."
+        )
+
+
+
+    def set_reactions(self, reactions: Sequence[pp.Reaction]) -> None:
         """Sets the reactions for the chemical system and updates the fluid accordingly.
 
         Parameters:
@@ -2363,6 +2383,11 @@ class ChemicalSystem(FluidMixin):
 
         S = np.zeros((n_rxn, n_sp), dtype=float)
 
+        if n_rxn == 0:
+            for comp in self.fluid.components:
+                comp.is_equilibrium_species = "Non-reactive"
+            return S
+
         # Initialize flags and tracking
         is_equilibrium_species = ["Non-reactive"] * n_sp
         reaction_formulas = [""] * n_rxn
@@ -2399,7 +2424,7 @@ class ChemicalSystem(FluidMixin):
         for comp in self.fluid.components:
             if comp.name in self.species_names:
                 j = col_index[comp.name]
-                if sp in seen_species and is_equilibrium_species[j] != "equilibrium":
+                if comp.name in seen_species and is_equilibrium_species[j] != "equilibrium":
                     is_equilibrium_species[j] = "kinetic"
                 comp.is_equilibrium_species = is_equilibrium_species[j]
 
