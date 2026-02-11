@@ -588,7 +588,7 @@ else:
 
         def prepare_simulation(self) -> None:
             """Run at the start of simulation. Used for initialization etc."""
-            
+
         def set_materials(self) -> None:
             """Set material parameters.
 
@@ -712,6 +712,43 @@ else:
             The base method only defines the signature and individual physics model have
             to override this method. A super-call to trigger other physics' update is
             required.
+
+            """
+
+        def update_time_dependent_ad_arrays(self) -> None:
+            """Update the time dependent arrays before a new time step.
+
+            The base implementation updates those for the boundary condition values.
+            Override it to update other model-specific time dependent arrays.
+
+            """
+
+        def update_derived_quantities(self) -> None:
+            """Performs an update of derived and secondary quantities entering the
+            equations.
+
+            These updates include flux values and discretization matrices, or surrogate
+            operators which wrap externalized computations. In principle, anything not
+            part of the evaluation process in the AD framework, can be put here if it
+            requires an update for the evaluation to lead to correct values.
+
+            The base method performs the following updates:
+
+            1. Update material properties (if necessary) based on the current state
+            (see :meth:`update_material_properties`).
+            2. Update discretization parameters, most crucially those entering the flux
+            discretization (see :meth:`update_discretization_parameters`).
+            3. Rediscretize the non-linear fluxes depending on above tensors
+            (see :meth:`rediscretize_fluxes`).
+            4. Evaluate and store fluxes for upstream discretizations
+            (see :meth:`update_flux_values`).
+            5. Rediscretize upstream (and possibly other) discretizations
+            (see :meth:`rediscretize`).
+
+            For a consistent evaluation of the system, this method is called in
+            :meth:`after_solver_iteration` (after the global state vector changes)
+            and in :meth:`before_nonlinear_loop` (after the boundary conditions and
+            other time-dependent quantities change).
 
             """
 

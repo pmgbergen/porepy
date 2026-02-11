@@ -105,7 +105,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     for model_class in [ManuPoroMechModel2d, ManuPoroMechModel3d]:
         # Make deep copy of params to avoid nasty bugs.
         model: pp.PorePyModel = model_class(deepcopy(model_params))
-        pp.TimeDependentModelRunner(model).run()
+        pp.ModelRunner(model).run()
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
         for result in model.results:

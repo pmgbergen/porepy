@@ -339,7 +339,7 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_variables = [n for n in names]
 
     def before_time_step(self) -> None:
-        """Method to be called at the start of each time step by model runners.
+        """Called at the start of each time step by model runners.
 
         The base method does the following:
         1. Update the time step size in :attr:`ad_time_step`.
@@ -351,37 +351,45 @@ class SolutionStrategy(pp.PorePyModel):
         self.ad_time_step.set_value(self.time_manager.dt)
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
-        # Update other dependent quantities such as discretizations.
         self.update_derived_quantities()
 
     def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver.
-
+        """Method to be called before entering the non-linear solver if the model is
+        flagged as nonlinear.
         The base method does the following:
 
-        1. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
-           SolverStatistics.reset`.
+        1. Reset the nonlinear solver statistics.
 
         """
-        # Empty the log in the statistics object.
         self.nonlinear_solver_statistics.increase_index()
 
-    def after_nonlinear_convergence(self) -> None:
-        """Method to be called after the non-linear iterations converge.
+    def before_nonlinear_iteration(self) -> None:
+        """Called before a solver performs an iteration (calling the linear solver)."""
+
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Called after a solver performed an iteration computing an increment.
 
         The base method does the following:
 
-        1. Shift existing solutions backwards in time.
-        2. Saves the current iterate values as the most recent time step values
-           (see :meth:`update_solution`).
-        3. Calls :meth:`save_data_time_step`.
+        1. Shift the existing solutions backwards in the iterative sense.
+        2. Store the ``nonlinear_increment`` to the model state in the current iterate
+           additively.
+        3. Calls :meth:`update_derived_quantities` based on the recent iterate values.
 
-        Possible usage is to distribute information on the solution, visualization, etc.
+        Parameters:
+            nonlinear_increment: The new increment computed by the nonlinear solver.
 
         """
-        self.save_data_time_step()
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+        self.equation_system.set_variable_values(
+            values=nonlinear_increment, additive=True, iterate_index=0
+        )
+        self.update_derived_quantities()
 
-    def after_nonlinear_failure(self) -> pp.SimulationStatus:
+    def after_nonlinear_convergence(self) -> None:
+        """Called after the solver converges."""
+
+    def after_nonlinear_failure(self) -> SimulationStatus:
         """Method to be called if the non-linear solver fails to converge."""
         if self._is_nonlinear_problem():
             warn("Failed to solve the nonlinear problem.")
@@ -391,41 +399,28 @@ class SolutionStrategy(pp.PorePyModel):
             return SimulationStatus.STOPPED
 
     def after_time_step_convergence(self) -> None:
-        """Method to be called after a new time step solution has been achieved.
+        """Called after a new time step solution has been achieved.
 
         The base method does the following:
 
-        1. Shift previous time step solutions backwards in time.
-        2. Saves the new time step solution, i.e., what is stored at the current iterate
-           values (see :meth:`update_solution`).
-
-        Possible usage is to distribute information on the solution, visualization, etc.
+        1. Calls :meth:`update_solution` with the current global iterate vector.
+        3. Calls :meth:`save_data_time_step`.
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
         self.update_solution(solution)
+        self.save_data_time_step()
 
-    def after_time_step_failure(self) -> pp.SimulationStatus:
-        if self.time_manager.is_constant:
-            warn("Failed to solve the nonlinear problem.")
-            return SimulationStatus.STOPPED
-        else:
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            try:
-                self.time_manager.compute_time_step(recompute_solution=True)
-            except ValueError as e:
-                # Redirect the exception as a warning, and give the control to
-                # the run_models module to stop the simulation.
-                warn(str(e))
-                return SimulationStatus.STOPPED
+    def after_time_step_failure(self) -> None:
+        """Called after a time step has failed to converge.
 
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+        The base method does the following:
 
-        return SimulationStatus.FAILED
+        1. Resets the current iterate values to the previous time step solution.
+
+        """
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -693,8 +688,14 @@ class SolutionStrategy(pp.PorePyModel):
         )
         self.update_derived_quantities()
 
-
     def update_solution(self, solution: np.ndarray) -> None:
+        """Shifts the solution per time step index and sets the provided solution
+        as the recent time step solution.
+
+        Parameters:
+            solution: Global, accepted solution vector.
+
+        """
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
@@ -893,7 +894,7 @@ class SolutionStrategy(pp.PorePyModel):
            (see :meth:`update_material_properties`).
         2. Update discretization parameters, most crucially those entering the flux
            discretization (see :meth:`update_discretization_parameters`).
-        3. Rediscretize the non-linear fluxes depending on above tensors
+        3. Rediscretize the nonlinear fluxes depending on above tensors
            (see :meth:`rediscretize_fluxes`).
         4. Evaluate and store fluxes for upstream discretizations
            (see :meth:`update_flux_values`).
@@ -901,7 +902,7 @@ class SolutionStrategy(pp.PorePyModel):
            (see :meth:`rediscretize`).
 
         For a consistent evaluation of the system, this method is called in
-        :meth:`after_nonlinear_iteration` (after the global state vector changes) and in
+        :meth:`after_solver_iteration` (after the global state vector changes) and in
         :meth:`before_nonlinear_loop` (after the boundary conditions and other
         time-dependent quantities change).
 

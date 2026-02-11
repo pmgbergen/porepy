@@ -81,7 +81,7 @@ def test_boundary_condition_mixin(t_end: int):
     )
     model.time_manager.dt = 1
     model.time_manager.time_final = t_end
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     subdomains = model.mdg.subdomains()
 
@@ -394,7 +394,7 @@ def run_model(model_class: type[pp.PorePyModel], alpha: float) -> dict[str, np.n
 
     params["alpha"] = alpha
     model = model_class(params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     sd = model.mdg.subdomains(dim=2)[0]
 
     if isinstance(model, MomentumBalance):

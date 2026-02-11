@@ -76,7 +76,7 @@ def test_2d_single_fracture(
 
     # Create model and run simulation
     model = model_class(params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # Check that the pressure is linear
     matrix_subdomain = model.mdg.subdomains(dim=model.nd)[0]
@@ -175,12 +175,12 @@ def test_unit_conversion(units: dict, uy_north: float):
     reference_params = copy.deepcopy(params)
     # Create model and run simulation.
     reference_model = LinearModel(reference_params)
-    pp.TimeDependentModelRunner(reference_model).run()
+    pp.ModelRunner(reference_model).run()
 
     params["units"] = pp.Units(**units)
     model = LinearModel(params)
 
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     variables = [
         model.displacement_variable,
         model.interface_displacement_variable,
@@ -288,7 +288,7 @@ def test_lithostatic(dim: int):
     """
     # Create model and run simulation
     model = LithostaticModel({"dim": dim, "times_to_export": []})
-    pp.StationaryModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # Check that the pressure is linear
     sd = model.mdg.subdomains(dim=model.nd)[0]
@@ -524,7 +524,7 @@ def test_elastoplastic_2d_single_fracture(
 
     # Create model and run simulation.
     model = ElastoplasticModel2d(params)
-    pp.TimeDependentModelRunner(model, params).run()
+    pp.ModelRunner(model, params).run()
     verify_elastoplastic_deformation(
         model,
         u_e_expected,
@@ -604,7 +604,7 @@ def test_elastoplastic_3d_single_fracture(
 
     # Create model and run simulation
     model = ElastoplasticModel3d(params)
-    pp.TimeDependentModelRunner(model, params).run()
+    pp.ModelRunner(model, params).run()
     verify_elastoplastic_deformation(
         model,
         u_e_expected,
@@ -683,7 +683,7 @@ def test_time_dependent_bc():
 
     # Create model and run simulation. The north displacement is [1, -0.5, 1].
     model = ElastoplasticModelTimeDependentBCs(params)
-    pp.TimeDependentModelRunner(model, params).run()
+    pp.ModelRunner(model, params).run()
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
 
     verify_elastoplastic_deformation(
@@ -708,7 +708,7 @@ def test_time_dependent_bc():
     # Same goes here. We expect -0.375, since the top coordinate is 0.75 and we
     # displace the top by 0.5 and have a linear displacement profile.
     u_top = [0.96536718, -0.375, 14.48052228]
-    pp.TimeDependentModelRunner(model, params).run()
+    pp.ModelRunner(model, params).run()
     verify_elastoplastic_deformation(
         model,
         u_e,

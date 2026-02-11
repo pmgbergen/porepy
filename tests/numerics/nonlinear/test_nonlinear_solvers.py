@@ -1102,7 +1102,7 @@ def test_integration_nonlinear_iteration_count(num_iterations):
 
     """
     model = SinglePhaseFlow({"times_to_export": []})
-    pp.TimeDependentModelRunner(
+    pp.ModelRunner(
         model,
         {
             "nl_convergence_inc_atol": 0,

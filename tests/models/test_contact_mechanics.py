@@ -36,7 +36,7 @@ def test_contact_mechanics(nd):
     }
     model_class = add_mixin(grid_classes[nd], ContactMechanicsTester)
     model: pp.PorePyModel = model_class(params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     fractures = model.mdg.subdomains(dim=nd - 1)
     # Get displacement jump in global coordinates.
     displacement_jump_global = model.equation_system.evaluate(
