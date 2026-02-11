@@ -716,7 +716,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
             ),
         }
         model = TailoredThermoporomechanics(params=model_params)
-        pp.run_time_dependent_model(model)
+        pp.TimeDependentModelRunner(model).run()
 
     units_scaled = pp.Units(m=3.14, kg=42.0, K=3.79)
     units_unscaled = pp.Units()

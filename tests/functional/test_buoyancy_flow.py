@@ -102,7 +102,7 @@ def _run_buoyancy_model(
             pass
 
         model = Model3D(params)
-    pp.run_time_dependent_model(model, params)
+    pp.TimeDependentModelRunner(model, params).run()
 
 
 @pytest.mark.skipped  # reason: slow

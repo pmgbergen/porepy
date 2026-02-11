@@ -46,7 +46,7 @@ def test_nonlinear_iteration_count():
     """
     model = NonlinearSinglePhaseFlow({"times_to_export": []})
     model.expected_number_of_iterations = 3
-    pp.run_time_dependent_model(model, {})
+    pp.TimeDependentModelRunner(model).run()
 
     assert (
         model.nonlinear_solver_statistics.num_iteration

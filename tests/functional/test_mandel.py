@@ -43,7 +43,7 @@ def results() -> list[MandelSaveData]:
         "times_to_export": [],  # Suppress output for tests
     }
     model = MandelModel(model_params)
-    pp.run_time_dependent_model(model)
+    pp.TimeDependentModelRunner(model).run()
     return model.results
 
 
@@ -158,7 +158,7 @@ def test_scaled_vs_unscaled_systems():
         "times_to_export": [],  # Suppress output for tests
     }
     model_unscaled = MandelModel(params=model_params_unscaled)
-    pp.run_time_dependent_model(model_unscaled)
+    pp.TimeDependentModelRunner(model_unscaled).run()
 
     # The scaled problem
     material_constants_scaled = {
@@ -175,7 +175,7 @@ def test_scaled_vs_unscaled_systems():
         "times_to_export": [],  # Suppress output for tests
     }
     scaled_model = MandelModel(params=model_params_scaled)
-    pp.run_time_dependent_model(model=scaled_model)
+    pp.TimeDependentModelRunner(scaled_model).run()
 
     # Compare results
     np.testing.assert_almost_equal(

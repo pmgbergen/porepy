@@ -72,6 +72,7 @@ class LinearSolver:
             # TODO use update_solution in combination with get solution value, and
             # pull this step to after solve_linear_system
             model.after_nonlinear_iteration(nonlinear_increment)
+            model.nonlinear_solver_statistics.num_iteration = 1
             model.after_nonlinear_convergence()
         else:
             model.after_nonlinear_failure()

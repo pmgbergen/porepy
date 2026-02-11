@@ -382,7 +382,7 @@ class TestParameterInputs:
         }
 
         model = SinglePhaseFlow(model_params)
-        pp.run_time_dependent_model(model)
+        pp.TimeDependentModelRunner(model).run()
         performed_time_steps = model.time_manager.time_index
 
         assert performed_time_steps == num_time_steps
@@ -927,10 +927,12 @@ def test_model_time_step_control(params: dict):
     )
 
     if should_fail:
-        assert issubclass(should_fail, Exception), 'Test needs error specification.'
+        assert issubclass(should_fail, Exception), "Test needs error specification."
         with pytest.raises(should_fail):
-            pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
+            pp.TimeDependentModelRunner(
+                model, {"max_iterations": MAX_NONLINEAR_ITER}
+            ).run()
     else:
-        pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
+        pp.TimeDependentModelRunner(model, {"max_iterations": MAX_NONLINEAR_ITER}).run()
 
     assert np.allclose(model.time_step_history, exported_dt_expected)

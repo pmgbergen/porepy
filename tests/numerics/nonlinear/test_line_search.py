@@ -75,4 +75,4 @@ def test_line_search():
         "global_line_search": True,
         "local_line_search": True,
     }
-    pp.run_time_dependent_model(model, solver_params)
+    pp.TimeDependentModelRunner(model, solver_params).run()
