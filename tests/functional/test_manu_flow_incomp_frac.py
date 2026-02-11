@@ -93,7 +93,7 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
         model: ManuIncompFlowModel2d | ManuIncompFlowModel3d = model_class(
             deepcopy(model_params)
         )
-        pp.run_time_dependent_model(model)
+        pp.TimeDependentModelRunner(model).run()
         errors.append(
             {
                 "error_matrix_pressure": model.results[0].error_matrix_pressure,
