@@ -46,10 +46,10 @@ class ModelRunner(abc.ABC):
         self.solver: pp.NewtonSolver | pp.LinearSolver
         """Solver instance, set in :meth:`set_solver`."""
 
-        self.set_solver()
-
         if self.params.get("prepare_simulation", True):
             self.model.prepare_simulation()
+
+        self.set_solver()
 
     def set_solver(self) -> None:
         """Choose between linear and non-linear solver and set :attr:`solver`.
@@ -81,7 +81,13 @@ class StationaryModelRunner(ModelRunner):
         """Calls the solver once and executes
         :meth:`~porepy.models.solution_strategy.ModelSolverInterface.after_simulation`.
         """
-        self.solver.solve(self.model)
+        converged = self.solver.solve(self.model)
+        if converged:
+            # TODO This method should not be called here.
+            # Consider moving its functionality.
+            self.model.after_time_step_convergence()
+        else:
+            raise RuntimeError("Stationary model did not converge.")
         self.model.after_simulation()
 
 
@@ -192,6 +198,9 @@ class TimeDependentModelRunner(ModelRunner):
 
             # Update progressbar length.
             self.time_progressbar.update(n=self.model.time_manager.dt / self._dt_0)
+            self.model.after_time_step_convergence()
+        else:
+            self.model.after_time_step_failure()
 
     def run(self, *args, **kwargs) -> None:
         """Run a time dependent model.

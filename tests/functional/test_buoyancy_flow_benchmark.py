@@ -488,7 +488,7 @@ def slow_test_buoyancy_flow_benchmark(
     )
 
     print("\nTotal number of DoF: ", model.equation_system.num_dofs())
-    pp.run_time_dependent_model(model, params)
+    pp.TimeDependentModelRunner(model, params).run()
 
     # retrieve data from fixture
     data = saturation_at_5_days[rho_idx]
