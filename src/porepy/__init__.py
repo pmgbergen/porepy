@@ -149,11 +149,7 @@ from porepy.models.protocol import PorePyModel
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
-from porepy.models.run_models import (
-    run_stationary_model,
-    run_time_dependent_model,
-)
-
+from porepy.models.model_runners import StationaryModelRunner, TimeDependentModelRunner
 
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array

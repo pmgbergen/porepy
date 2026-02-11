@@ -24,6 +24,7 @@ from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -343,7 +344,6 @@ class NewtonSolver:
         self.solver_progressbar.close()
 
         return simulation_status
-
     def before_nonlinear_iteration(self, model: SolutionStrategy) -> None:
         """Prepare for a nonlinear iteration.
 

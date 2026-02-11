@@ -339,8 +339,7 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_variables = [n for n in names]
 
     def before_time_step(self) -> None:
-        """Method to be called at the start of each time step by
-        :meth:``porepy.models.run_models.run_time_dependent_model`.
+        """Method to be called at the start of each time step by model runners.
 
         The base method does the following:
         1. Update the time step size in :attr:`ad_time_step`.
@@ -461,7 +460,7 @@ class SolutionStrategy(pp.PorePyModel):
             # Update the boundary conditions to both the time step and iterate solution.
             self.update_time_dependent_ad_arrays()
 
-    def set_materials(self):
+    def set_materials(self) -> None:
         """Set material parameters.
 
         Searches for entries in ``params['material_constants']`` with keys ``'fluid'``
@@ -522,10 +521,10 @@ class SolutionStrategy(pp.PorePyModel):
         # Store the fluid component to be accessible by the FluidMixin for creating the
         # default fluid object of the model
         if "material_constants" not in self.params:
-            self.params["material_constants"] = {"fluid": fluid}
+            self.params["material_constants"] = {"fluid": fluid}  # type:ignore[assignment]
         else:
             # by logic, params['material_constants'] is ensured to be a dict
-            self.params["material_constants"]["fluid"] = fluid
+            self.params["material_constants"]["fluid"] = fluid  # type:ignore[index]
         self.create_fluid()
 
     def discretize(self) -> None:
