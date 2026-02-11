@@ -340,9 +340,9 @@ def benchmark_3d_case_2(
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
+    network = pp.fracture_importer.network_from_csv(fracture_network_path)
 
-    return mdg, network
+    return mdg, cast(FractureNetwork3d, network)
 
 
 def benchmark_3d_case_3(
@@ -398,9 +398,9 @@ def benchmark_3d_case_3(
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
+    network = pp.fracture_importer.network_from_csv(fracture_network_path)
 
-    return mdg, network
+    return mdg, cast(FractureNetwork3d, network)
 
 
 def benchmark_3d_case_4() -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
@@ -446,4 +446,4 @@ def benchmark_3d_case_4() -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
         fracture_network_path, check_convexity=False
     )
 
-    return mdg, network
+    return mdg, cast(FractureNetwork3d, network)

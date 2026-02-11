@@ -944,11 +944,19 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equations_per_grid_entity=dof_info_subdomain,
     )
 
-    # Check that the equation size has been set correctly
-    blocks = equation_system._equation_image_space_composition
+    # Check that the mapping of equation to subdomain to global dof
+    # indices is correctly set.
+    equation_subdomain_blocks = equation_system.equation_image_space_composition
     assert np.allclose(
-        blocks[model.eq_single_subdomain.name][model.sd_top],
+        equation_subdomain_blocks[model.eq_single_subdomain.name][model.sd_top],
         np.arange(model.sd_top.num_cells * dof_info_subdomain["cells"]),
+    )
+    # Check that the mapping of equation to grid entity block size
+    # is set correctly.
+    equation_grid_entity_blocks = equation_system.equation_image_size_info
+    assert (
+        equation_grid_entity_blocks[model.eq_single_subdomain.name]
+        == dof_info_subdomain
     )
 
     # Add a second equation, defined on both subdomains
@@ -960,7 +968,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     offset = 0
     for sd in model.subdomains:
         assert np.allclose(
-            blocks[model.eq_all_subdomains.name][sd],
+            equation_subdomain_blocks[model.eq_all_subdomains.name][sd],
             offset + np.arange(sd.num_cells * dof_info_subdomain["cells"]),
         )
         offset += sd.num_cells * dof_info_subdomain["cells"]
@@ -977,7 +985,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     offset = 0
     for intf in model.interfaces:
         assert np.allclose(
-            blocks[model.eq_all_interfaces.name][intf],
+            equation_subdomain_blocks[model.eq_all_interfaces.name][intf],
             offset + np.arange(intf.num_cells * dof_info_interface["cells"]),
         )
         offset += intf.num_cells * dof_info_interface["cells"]
@@ -997,7 +1005,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     offset = 0
     for intf in model.interfaces:
         assert np.allclose(
-            blocks[model.eq_all_interfaces.name][intf],
+            equation_subdomain_blocks[model.eq_all_interfaces.name][intf],
             offset + np.arange(intf.num_cells * dof_all_interfaces["cells"]),
         )
         offset += intf.num_cells * dof_all_interfaces["cells"]
@@ -1011,12 +1019,14 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     offset = 0
     for intf in model.interfaces:
         assert np.allclose(
-            blocks[model.eq_all_interfaces.name][intf],
+            equation_subdomain_blocks[model.eq_all_interfaces.name][intf],
             offset + np.arange(intf.num_cells * dof_all_interfaces["cells"]),
         )
         offset += intf.num_cells * dof_all_interfaces["cells"]
 
-    assert list(blocks["eq_all_interfaces"].keys()) == model.interfaces
+    assert (
+        list(equation_subdomain_blocks["eq_all_interfaces"].keys()) == model.interfaces
+    )
 
 
 def test_parse_variable_like(model: EquationSystemMockModel):
@@ -1475,7 +1485,7 @@ def test_schur_complement(eq_var_to_exclude):
         # kept on all subdomains (which we somewhat cumbersomely obtain from a private
         # variable of EquationSystem).
         equations = {
-            eq: list(equation_system._equation_image_space_composition[eq].keys())
+            eq: list(equation_system.equation_image_space_composition[eq].keys())
             for eq in eq_names
         }
         # In addition, we keep 'eq_all_subdomains' on the top subdomain.
