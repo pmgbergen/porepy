@@ -591,9 +591,11 @@ else:
 
             """
 
+        def prepare_simulation(self) -> None:
+            """Run at the start of simulation. Used for initialization etc."""
+
         def before_time_step(self) -> None:
-            """Method to be called at the start of each time step by
-            :meth:``porepy.models.run_models.run_time_dependent_model`.
+            """Method to be called at the start of each time step by model runners.
 
             The base method does the following:
             1. Call :meth:`update_time_dependent_ad_arrays`.
@@ -845,8 +847,55 @@ else:
 
             """
 
-        def prepare_simulation(self) -> None:
-            """Run at the start of simulation. Used for initialization etc."""
+        def set_materials(self) -> None:
+            """Set material parameters.
+
+            Searches for entries in ``params['material_constants']`` with keys
+            ``'fluid'`` and ``'solid'`` for respective material constant instances. If
+            not found, default materials are instantiated.
+
+            Provides the :attr:`solid` material constants as an attribute to the model,
+            as well as the :attr:`fluid` object by calling :attr:`create_fluid`.
+
+            By default, a 1-phase, 1-component fluid is created based on the fluid
+            component provided in ``params['material_constants']``.
+
+            """
+
+        def set_equation_system_manager(self) -> None:
+            """Create an equation_system manager on the mixed-dimensional grid."""
+
+        def initialize_previous_iterate_and_time_step_values(self) -> None:
+            """Method to be called after initial values are set at ``iterate_index=0``
+            in the mixins for initial conditions.
+
+            This methods copies respective values to all other iterate and time step
+            indices to finalize the initialization procedure.
+
+            """
+
+        def reset_state_from_file(self) -> None:
+            """Reset states but through a restart from file.
+
+            Similar to :meth:`initial_condition`.
+
+            """
+
+        def update_discretization_parameters(self) -> None:
+            """Method for evaluating and storing discretization parameters required for
+            discretizing fluxes and other discretizations.
+
+            This primarily involves second order tensors such as permeability and
+            thermal conductivity.
+
+            The base method only defines the signature and individual physics model have
+            to override this method. A super-call to trigger other physics' update is
+            required.
+
+            """
+
+        def discretize(self) -> None:
+            """Discretize all terms."""
 
         def _is_reference_phase_eliminated(self) -> bool:
             """Returns True if ``params['eliminate_reference_phase'] == True`.

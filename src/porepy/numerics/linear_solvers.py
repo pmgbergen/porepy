@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from porepy.models.run_models import ModelType
-from porepy.models.solution_strategy import SolutionStrategy
+from porepy.models.model_runners import ModelInstance
 
 
 class LinearSolver:
@@ -32,7 +31,7 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, model: ModelType) -> bool:
+    def solve(self, model: ModelInstance) -> bool:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:

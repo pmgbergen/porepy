@@ -180,17 +180,17 @@ class ConvergenceAnalysis:
         convergence_results: list = []
         for level in range(self.levels):
             model: pp.PorePyModel = self.model_class(deepcopy(self.model_params[level]))
+            params = deepcopy(self.model_params[level])
             if not model.is_time_dependent():
                 # Run stationary model
-                pp.run_stationary_model(model, deepcopy(self.model_params[level]))
-                # Complement information in results
-                setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
+                pp.StationaryModelRunner(model, params).run()
             else:
                 # Run time-dependent model
-                pp.run_time_dependent_model(model)
+                pp.TimeDependentModelRunner(model, params).run()
                 # Complement information in results
-                setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
                 setattr(model.results[-1], "dt", model.time_manager.dt)
+
+            setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
 
             convergence_results.append(model.results[-1])
         return convergence_results

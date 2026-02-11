@@ -412,4 +412,4 @@ if __name__ == "__main__":
         "local_line_search": 1,
     }
 
-    pp.run_time_dependent_model(model, solver_params)
+    pp.TimeDependentModelRunner(model, solver_params).run()
