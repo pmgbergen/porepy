@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import abc
 import logging
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import numpy as np
 
@@ -14,6 +13,8 @@ from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 
+__all__ = ["ModelRunner", "ModelInstance"]
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,15 @@ ModelInstance = TypeVar("ModelInstance", bound=pp.PorePyModel)
 """Type variable for objects inheriting from the PorePy model protocol."""
 
 
-class ModelRunner(abc.ABC):
-    """Abstract base class for running a porepy model.
+class ModelRunner:
+    """Class for running PorePy models according to their configurations.
 
-    Sets the model and solver, and defines the abstract method ``run`` to be implemented
-    by subclasses.
+    Sets the outer solver (nonlinear or linear), which in the nonlinear case can
+    be customized by providing a solver type as ``params["nonlinear_solver"]``.
 
-    Executes :meth:`~porepy.models.solution_strategy.ModelSolverInterface.
-    prepare_simulation` if ``params["prepare_simulation"]`` is ``True`` (default).
+    If ``params["prepare_simulation"]`` is ``True`` (default), calls the respective
+    method during initialization. Otherwise it assumes it was already called **before**
+    instantiating the runner.
 
     Parameters:
         model: A PorePy model instance.
@@ -36,7 +38,7 @@ class ModelRunner(abc.ABC):
 
     """
 
-    def __init__(self, model: ModelInstance, params: Optional[dict] = None) -> None:
+    def __init__(self, model: ModelInstance, params: dict | None = None) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
 
@@ -49,7 +51,22 @@ class ModelRunner(abc.ABC):
         if self.params.get("prepare_simulation", True):
             self.model.prepare_simulation()
 
+        self._is_nonlinear = self.model.is_nonlinear_problem()
+        """Flag indicating whether the problem is nonlinear, set at initialization."""
+
+        self._is_time_dependent = self.model.is_time_dependent()
+        """Flag indicating whether the problem is time-dependent, set at
+        initialization."""
+
+        self._dt_0: float = model.time_manager.dt
+        """Initial time step size, used for progress bar updates."""
+
         self.set_solver()
+
+        if self._is_time_dependent:
+            self.init_time_progressbar()
+        else:
+            self.time_progressbar = DummyProgressBar()
 
     def set_solver(self) -> None:
         """Choose between linear and non-linear solver and set :attr:`solver`.
@@ -62,48 +79,12 @@ class ModelRunner(abc.ABC):
         :class:`~porepy.numerics.linear_solvers.LinearSolver`.
 
         """
-        if self.model.is_nonlinear_problem():
+        if self._is_nonlinear:
             self.solver = self.params.get("nonlinear_solver", pp.NewtonSolver)(
                 self.params
             )
         else:
             self.solver = pp.LinearSolver(self.params)
-
-    @abc.abstractmethod
-    def run(self, *args, **kwargs) -> None:
-        """Abstract method to run the model. To be implemented by subclasses."""
-
-
-class StationaryModelRunner(ModelRunner):
-    """Runner for time-independent models."""
-
-    def run(self, *args, **kwargs) -> None:
-        """Calls the solver once and executes
-        :meth:`~porepy.models.solution_strategy.ModelSolverInterface.after_simulation`.
-        """
-        converged = self.solver.solve(self.model)
-        if converged:
-            # TODO This method should not be called here.
-            # Consider moving its functionality.
-            self.model.after_time_step_convergence()
-        else:
-            raise RuntimeError("Stationary model did not converge.")
-        self.model.after_simulation()
-
-
-class TimeDependentModelRunner(ModelRunner):
-    """Runner for time-dependent models."""
-
-    def __init__(self, model: ModelInstance, params: dict | None = None) -> None:
-        super().__init__(model, params)
-
-        self._dt_0: float = model.time_manager.dt
-        """Initial time step size, used for progress bar updates."""
-
-        self.time_step_converged: bool = False
-        """Flag set after each solver call indicating convergence."""
-
-        self.init_time_progressbar()
 
     def init_time_progressbar(self) -> None:
         """Initializes the a progressbar for logging according to
@@ -161,6 +142,29 @@ class TimeDependentModelRunner(ModelRunner):
         else:
             self.time_progressbar = DummyProgressBar()
 
+    def run(self, *args, **kwargs) -> None:
+        """Runs the model as specified."""
+
+        if self._is_time_dependent:
+            # Redirect the root logger, to avoid logger-progressbars interference.
+            with logging_redirect_tqdm([logging.root]):
+                # Time loop.
+                while not self.model.time_manager.final_time_reached():
+                    self.before_time_step()
+                    time_step_converged = self.solver.solve(self.model)
+                    self.after_time_step(time_step_converged)
+        else:
+            converged = self.solver.solve(self.model)
+            if converged:
+                # NOTE: time_step_convergence can be considered a misnomer.
+                # But technically this is the only time we solve for. Thus we reuse the
+                # method to set the solution and save data.
+                self.model.after_time_step_convergence()
+            else:
+                raise RuntimeError("Stationary model did not converge.")
+
+        self.model.after_simulation()
+
     def before_time_step(self) -> None:
         """Method to be executed at the beginning of each time step.
 
@@ -188,8 +192,8 @@ class TimeDependentModelRunner(ModelRunner):
             f"Time step {self.model.time_manager.time_index + 1}"  # Why +1? Consistent?
         )
 
-    def after_time_step(self) -> None:
-        if self.time_step_converged:
+    def after_time_step(self, time_step_converged: bool) -> None:
+        if time_step_converged:
             # Update the time step magnitude if the dynamic scheme is used.
             if not self.model.time_manager.is_constant:
                 self.model.time_manager.compute_time_step(
@@ -200,23 +204,12 @@ class TimeDependentModelRunner(ModelRunner):
             self.time_progressbar.update(n=self.model.time_manager.dt / self._dt_0)
             self.model.after_time_step_convergence()
         else:
-            self.model.after_time_step_failure()
-
-    def run(self, *args, **kwargs) -> None:
-        """Run a time dependent model.
-
-        Executes :meth:`before_time_step`, the solver and :meth:`after_time_step` until
-        final time is reached.
-        Executes :meth:`~porepy.models.solution_strategy.ModelSolverInterface.
-        after_simulation` at the end of the simulation.
-
-        """
-        # Redirect the root logger, to avoid logger-progressbars interference.
-        with logging_redirect_tqdm([logging.root]):
-            # Time loop.
-            while not self.model.time_manager.final_time_reached():
-                self.before_time_step()
-                self.time_step_converged = self.solver.solve(self.model)
-                self.after_time_step()
-
-        self.model.after_simulation()
+            if self.model.time_manager.is_constant:
+                raise pp.TimeSteppingError(
+                    "Solver failed to converge with constant time step size."
+                )
+            else:
+                # Update the time step magnitude if the dynamic scheme is used.
+                # It will also raise a ValueError if the minimal time step is reached.
+                self.model.time_manager.compute_time_step(recompute_solution=True)
+                self.model.after_time_step_failure()

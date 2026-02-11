@@ -60,7 +60,7 @@ def test_biot_equal_to_incompressible_poromechanics():
         "times_to_export": [],  # Suppress output for tests
     }
     model_poromech = TerzaghiModelPoromechanics(model_params_poromech)
-    pp.TimeDependentModelRunner(model_poromech).run()
+    pp.ModelRunner(model_poromech).run()
     p_poromechanics = model_poromech.results[0].approx_pressure
     u_poromechanics = model_poromech.results[0].approx_consolidation_degree
 
@@ -74,7 +74,7 @@ def test_biot_equal_to_incompressible_poromechanics():
         "times_to_export": [],  # Suppress output for tests
     }
     model_biot = TerzaghiModel(model_params_biot)
-    pp.TimeDependentModelRunner(model_biot).run()
+    pp.ModelRunner(model_biot).run()
     p_biot = model_biot.results[0].approx_pressure
     u_biot = model_biot.results[0].approx_consolidation_degree
 
@@ -120,7 +120,7 @@ def test_pressure_and_consolidation_degree_errors():
         "times_to_export": [],  # Suppress output for tests
     }
     model = TerzaghiModel(model_params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # Check pressure error
     desired_error_p = [0.09073522073879309, 0.0613512657231161]
@@ -153,7 +153,7 @@ def test_scaled_vs_unscaled_systems():
         "times_to_export": [],  # Suppress output for tests
     }
     unscaled_model = TerzaghiModel(params=model_params_unscaled)
-    pp.TimeDependentModelRunner(unscaled_model).run()
+    pp.ModelRunner(unscaled_model).run()
 
     # The scaled problem
     material_constants_scaled = {
@@ -168,7 +168,7 @@ def test_scaled_vs_unscaled_systems():
         "times_to_export": [],  # Suppress output for tests
     }
     scaled_model = TerzaghiModel(params=model_params_scaled)
-    pp.TimeDependentModelRunner(scaled_model).run()
+    pp.ModelRunner(scaled_model).run()
 
     # Compare results
     np.testing.assert_almost_equal(

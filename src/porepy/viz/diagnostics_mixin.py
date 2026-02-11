@@ -64,7 +64,7 @@ class DiagnosticsMixin:
         >>> class MandelDiagnostics(DiagnosticsMixin, MandelModel):
         >>>     pass
         >>> model = MandelDiagnostics(params={})
-        >>> porepy.TimeDependentModelRunner(model).run()
+        >>> porepy.ModelRunner(model).run()
         >>> model.run_diagnostics()
 
     """

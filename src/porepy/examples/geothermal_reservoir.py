@@ -404,4 +404,4 @@ def set_solver_params():
 
 if __name__ == "__main__":
     model = GeothermalReservoirWellBCs(set_model_params())
-    pp.TimeDependentModelRunner(model, set_solver_params()).run()
+    pp.ModelRunner(model, set_solver_params()).run()
