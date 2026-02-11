@@ -450,7 +450,7 @@ def npipm_inner(
     f_dim = int(params["f_dim"]) + 1  # + Slack variable
     n_C = int(params["num_components"])
     n_P = int(params["num_phases"])
-    tol = np.float64(params["atol_res"])
+    tol = float(params["atol_res"])
     max_iter = int(params["max_iterations"])
 
     npipm_cc = float(params["npipm_penalty_cc"])

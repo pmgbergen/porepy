@@ -442,7 +442,7 @@ def benchmark_3d_case_4() -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(
+    network = pp.fracture_importer.network_from_csv(
         fracture_network_path, check_convexity=False
     )
 

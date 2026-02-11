@@ -52,7 +52,6 @@ __all__ = [
     "HeuristicVLInitializer",
     "K_Wilson",
     "dT_K_Wilson",
-    "linear_mix",
     "cubic_mix",
     "critical_pressure_guess",
     "get_dew_point_T",
@@ -152,22 +151,6 @@ def dT_K_Wilson(
 
 
 @_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
-def linear_mix(x: np.ndarray, phis: np.ndarray) -> float:
-    """Simple mixing rule, weighing the ``phis`` with ``x`` and summing.
-
-    Parameters:
-        x: Fractions.
-        phis: Quantity to be mixed.
-
-    Returns:
-        Approximation of the quantity for the mixture corresponding to the fractions.
-
-    """
-    assert x.shape == phis.shape, "Require equally shaped arrays."
-    return np.dot(x, phis)
-
-
-@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def cubic_mix(x: np.ndarray, phis: np.ndarray) -> float:
     """Advanced mixing rule of Lorentz-Berthelot-type, used for volume-like quantities.
 
@@ -179,7 +162,6 @@ def cubic_mix(x: np.ndarray, phis: np.ndarray) -> float:
         Approximation of the quantity for the mixture corresponding to the fractions.
 
     """
-    assert x.shape == phis.shape, "Require equally shaped arrays."
     n = x.size
     phi_mix = 0.0
     cphis = np.cbrt(phis)
@@ -202,7 +184,6 @@ def critical_pressure_guess(
     See also:
 
         - Kay's rule, Prausnitz-Gunn rule, Lorentz-Berthelot-type mixing.
-        - :func:`linear_mix`
         - :func:`cubic_mix`
         - `Saha, Carrol 1997: The isoenergetic-isochoric flash
           <https://doi.org/10.1016/S0378-3812(97)00151-9>`_
@@ -220,22 +201,22 @@ def critical_pressure_guess(
     x_max = x.max()
     # Kay's rule if 1 component clearly dominates.
     if x_max >= 0.9:
-        p_pc = linear_mix(x, p_cs)
+        p_pc = np.dot(x, p_cs)
     # Prausnitz-Gunn rule if 1 component is almost dominant.
     # Other components influence pseudo-critical value more.
     elif 0.5 < x_max < 0.9:
-        T_pc = linear_mix(x, T_cs)
-        p_pc = T_pc / linear_mix(x, T_cs / p_cs)
+        T_pc = np.dot(x, T_cs)
+        p_pc = T_pc / np.dot(x, T_cs / p_cs)
     # Modified Prausnitz-Gunn rule if no clear dominance.
     # Include information on critical specific volume.
     else:
-        T_pc = linear_mix(x, T_cs)
+        T_pc = np.dot(x, T_cs)
         v_pc = cubic_mix(x, v_cs)
-        v_pc_lin = linear_mix(x, v_cs)
+        v_pc_lin = np.dot(x, v_cs)
         # Pseudo-critical compressibility factor.
-        Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
+        Z_pc = np.dot(x, p_cs * v_cs / T_cs) / R_U
         p_pc_cub = Z_pc * R_U * T_pc / v_pc
-        p_pc_lin = linear_mix(x, p_cs)
+        p_pc_lin = np.dot(x, p_cs)
         # For high-variability mixtures, average with Kay's rule.
         v_var = np.abs((v_cs - v_pc_lin) / v_pc_lin).max()
         # NOTE: The weighing towards Kay's rule should be influenced by strong
@@ -577,8 +558,6 @@ def fractions_from_rr(
                 elif exceeds & np.all(K_ > 1.0):
                     y_ = 1.0
 
-                # Assert corrections did what they have to do.
-                assert 0.0 <= y_ <= 1.0, "y fraction estimate outside bound [0, 1]."
             y[1] = y_
             y[0] = 1.0 - y_
         else:
@@ -941,7 +920,7 @@ class UniformFlashInitializer(FlashInitializer):
             )
             # Critical value approximations for pressure and temperature.
             if approx_T:
-                T = linear_mix(z, T_crits)
+                T = np.dot(z, T_crits)
 
             if approx_p:
                 p = critical_pressure_guess(z, p_crits, T_crits, v_crits)
@@ -1182,14 +1161,14 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         get_K_values = self._get_K_values
 
         if FlashSpec.pT in args and FlashSpec.pT not in self._initializers:
-            logger.debug("Compiling pT flash initialization ..")
+            logger.debug("Compiling pT-initialization ..")
 
             self._initializers[FlashSpec.pT] = partial(
                 rachford_rice_initializer, get_K_values
             )
 
         if FlashSpec.ph in args and FlashSpec.ph not in self._initializers:
-            logger.debug("Compiling ph flash initialization ..")
+            logger.debug("Compiling ph-initialization ..")
 
             @_COMPILER(
                 nb.f8[:, :](
@@ -1230,7 +1209,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     omegas_ = omegas.copy()
 
                     # Compute pseudo-critical estimate of enthalpy.
-                    T_pc = linear_mix(z, T_cs_)
+                    T_pc = np.dot(z, T_cs_)
                     p_pc = critical_pressure_guess(z, p_cs_, T_cs_, v_cs_)
 
                     pre_g_pc = prearg_val_c(PhysicalState.gas, p_pc, T_pc, z, x_p)
@@ -1277,9 +1256,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             T = T_bub
                             itr_liq = True
                         else:  # If not clear, interpolate between bubble and dew point.
-                            assert h_dew >= h_bub, (
-                                "Expecting gas phase to have higher enthalpy."
-                            )
                             w = np.abs(s2 - h_bub) / np.abs(h_dew - h_bub)
                             T = (1.0 - w) * T_bub + w * T_dew
 
@@ -1321,7 +1297,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
             self._initializers[FlashSpec.ph] = ph_init
 
         if FlashSpec.vh in args and FlashSpec.vh not in self._initializers:
-            logger.debug("Compiling vh flash initialization ..")
+            logger.debug("Compiling vh-initialization ..")
 
             @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess(
@@ -1360,13 +1336,13 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         v_cs[i] = params[f"_v_crit_{i}"]
                         p_cs[i] = params[f"_p_crit_{i}"]
                     # pseudo_critical T_guess
-                    T = linear_mix(z, T_cs)
+                    T = np.dot(z, T_cs)
 
                     # pseudo-critical pressure guess
                     v_pc = cubic_mix(z, v_cs)
                     p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
                     # Pseudo-critical compressibility factor.
-                    Z_pc = linear_mix(z, p_cs * v_cs / T_cs) / R_U
+                    Z_pc = np.dot(z, p_cs * v_cs / T_cs) / R_U
 
                     # Refining pressure and temperature guess based on ratio of
                     # pseudo-critical volume and given volume.
@@ -1514,7 +1490,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
             self._initializers[FlashSpec.vh] = vh_init
 
         if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
-            logger.debug("Compiling vu flash initialization ..")
+            logger.debug("Compiling vu-initialization ..")
 
             @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess_saha(
@@ -1545,13 +1521,13 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         v_cs[i] = params[f"_v_crit_{i}"]
                         p_cs[i] = params[f"_p_crit_{i}"]
                     # pseudo_critical T_guess
-                    T = linear_mix(z, T_cs)
+                    T = np.dot(z, T_cs)
 
                     # pseudo-critical pressure guess
                     v_pc = cubic_mix(z, v_cs)
                     p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
                     # Pseudo-critical compressibility factor.
-                    Z_pc = linear_mix(z, p_cs * v_cs / T_cs) / R_U
+                    Z_pc = np.dot(z, p_cs * v_cs / T_cs) / R_U
 
                     # Refining pressure and temperature guess based on ratio of
                     # pseudo-critical volume and given volume.
