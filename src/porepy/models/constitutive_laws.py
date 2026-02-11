@@ -253,7 +253,7 @@ class DimensionReduction(pp.PorePyModel):
             # subdomain neighbor.
             assert all(isinstance(g, pp.BoundaryGrid) for g in grids), "Mixed grids"
 
-            # Return 1's for 0D boundaries
+            # Return 1's for boundary grids.
             specific_volume = pp.wrap_as_dense_ad_array(
                 1,
                 size=sum(g.num_cells for g in grids),
