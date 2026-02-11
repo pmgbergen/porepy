@@ -82,7 +82,7 @@ def test_damage(
     )
 
     model = model_class(params_local)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     # Initialize test names for assertions
     test_names = [
         "friction_damage",
@@ -150,7 +150,7 @@ def test_momentum_balance_with_damage(dim: int):
     # slightly increase the number of iterations, thus capturing any future
     # deterioration in the convergence and avoiding excessive run times.
 
-    pp.TimeDependentModelRunner(model, {"max_iterations": 25}).run()
+    pp.ModelRunner(model, {"max_iterations": 25}).run()
     test_names = [
         "friction_damage",
         "dilation_damage",

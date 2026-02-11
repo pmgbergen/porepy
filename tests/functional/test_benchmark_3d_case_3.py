@@ -57,7 +57,7 @@ def model(
         "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     return model
 
 

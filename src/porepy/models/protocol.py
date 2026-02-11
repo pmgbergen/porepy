@@ -595,82 +595,69 @@ else:
             """Run at the start of simulation. Used for initialization etc."""
 
         def before_time_step(self) -> None:
-            """Method to be called at the start of each time step by model runners.
-
-            The base method does the following:
-            1. Call :meth:`update_time_dependent_ad_arrays`.
-            2. Call :meth:`update_derived_quantities`.
-
-            """
-
-        def after_time_step_convergence(self) -> None:
-            """Method to be called after a new time step solution has been achieved.
+            """Called at the start of each time step by model runners.
 
             The base method does the following:
 
-            1. Shift previous time step solutions backwards in time.
-            2. Saves the new time step solution, i.e., what is stored at the current
-               iterate values (see :meth:`update_solution`).
-            3. Calls :meth:`save_data_time_step`.
-
-            Possible usage is to distribute information on the solution, visualization,
-            etc.
+            1. Call :meth:`update_time_dependent_ad_arrays` to update BC values and
+               other time-dependent operators.
+            2. Call :meth:`update_derived_quantities` to update them based on the
+               time-dependent values.
 
             """
-
-        def after_time_step_failure(self) -> None:
-            """"""
 
         def before_nonlinear_loop(self) -> None:
-            """Method to be called before entering the non-linear solver, thus at the
-            start of a new time step.
+            """Called before entering a nonlinear solver loop if the model is flagged
+            as nonlinear."""
 
-            The base method does the following:
+        def before_solver_iteration(self) -> None:
+            """Called before a solver performs an iteration (calling the linear
+            solver)."""
 
-            1. Update the time step size in :attr:`ad_time_step`.
-            2. Reset the nonlinear solver statistics
-               :meth:`~porepy.viz.solver_statistics.SolverStatistics.reset`.
-            3. Calls :meth:`update_time_dependent_ad_arrays`.
-            4. Calls :meth:`update_derived_quantities`.
-
-            """
-
-        def before_nonlinear_iteration(self) -> None:
-            """Method to be called at the start of every non-linear iteration.
-
-            The base method only defines the method signature.
-
-            """
-
-        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-            """Method to be called after every non-linear iteration.
+        def after_solver_iteration(self, nonlinear_increment: np.ndarray) -> None:
+            """Called after a solver performed an iteration and the linear solver
+            computed an increment.
 
             The base method does the following:
 
             1. Shift the existing solutions backwards in the iterative sense.
-            2. Store the ``nonlinear_increment`` in the current iterate additively.
-            3. Calls :meth:`update_derived_quantities`.
+            2. Store the ``nonlinear_increment`` to the model state in the current
+               iterate additively.
+            3. Calls :meth:`update_derived_quantities` based on the recent iterate
+               values.
 
             Parameters:
-                The new increment computed by the non-linear solver.
+                nonlinear_increment: The new increment computed by the nonlinear solver.
 
             """
 
-        def after_nonlinear_convergence(self) -> None:
-            """Method to be called after the non-linear iterations converge.
+        def after_solver_convergence(self) -> None:
+            """Called after the solver converges."""
+
+        def after_solver_failure(self) -> None:
+            """Called if the solver fails to converge or diverges."""
+
+        def after_time_step_convergence(self) -> None:
+            """Called after a new time step solution has been achieved.
 
             The base method does the following:
 
-            1. Shift existing solutions backwards in time.
-            2. Saves the current iterate values as the most recent time step values
-            (see :meth:`update_solution`).
-            3. Flags the model as converged (:attr:`convergence_status`).
-            4. Calls :meth:`save_data_time_step`.
-
-            Possible usage is to distribute information on the solution, visualization,
-            etc.
+            1. Calls :meth:`update_solution` with the current global iterate vector.
+            3. Calls :meth:`save_data_time_step`.
 
             """
+
+        def after_time_step_failure(self) -> None:
+            """Called after a time step has failed to converge.
+
+            The base method does the following:
+
+            1. Resets the current iterate values to the previous time step solution.
+
+            """
+
+        def after_simulation(self) -> None:
+            """Called after a simulation run successfully."""
 
         def update_solution(self, solution: np.ndarray) -> None:
             """Shifts the solution per time step index and sets the provided solution
@@ -680,12 +667,6 @@ else:
                 solution: Global, accepted solution vector.
 
             """
-
-        def after_nonlinear_failure(self) -> None:
-            """Method to be called if the non-linear solver fails to converge."""
-
-        def after_simulation(self) -> None:
-            """Run at the end of simulation. Can be used for cleanup etc."""
 
         def check_convergence(
             self,
@@ -954,7 +935,7 @@ else:
             (see :meth:`rediscretize`).
 
             For a consistent evaluation of the system, this method is called in
-            :meth:`after_nonlinear_iteration` (after the global state vector changes)
+            :meth:`after_solver_iteration` (after the global state vector changes)
             and in :meth:`before_nonlinear_loop` (after the boundary conditions and
             other time-dependent quantities change).
 

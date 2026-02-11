@@ -609,12 +609,12 @@ def test_unit_conversion(units, grid_class):
 
     # Create model and run simulation
     reference_model = LocalModel(reference_params)
-    pp.TimeDependentModelRunner(reference_model, reference_solver_params).run()
+    pp.ModelRunner(reference_model, reference_solver_params).run()
 
     params["units"] = pp.Units(**units)
     model = LocalModel(params)
 
-    pp.TimeDependentModelRunner(model, solver_params).run()
+    pp.ModelRunner(model, solver_params).run()
     variables = [model.pressure_variable, model.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
     models.compare_scaled_primary_variables(
@@ -657,7 +657,7 @@ def test_well_incompressible_pressure_values():
     }
 
     model = WellModel(params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     # Check that the matrix pressure is close to linear in z
     matrix_subdomain = model.mdg.subdomains(dim=3)[0]
     matrix_pressure = model.equation_system.evaluate(model.pressure([matrix_subdomain]))
@@ -926,7 +926,7 @@ class TestMixedDimGravity:
     """Test gravity effects in a mixed-dimensional flow model."""
 
     def solve(self):
-        pp.TimeDependentModelRunner(self.model, self.model.params).run()
+        pp.ModelRunner(self.model, self.model.params).run()
         pressure = self.model.equation_system.get_variable_values(
             [self.model.pressure_variable], time_step_index=0
         )

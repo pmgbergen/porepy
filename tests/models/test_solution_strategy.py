@@ -107,7 +107,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
     model = create_restart_model(solid_vals, {}, north_displacement, restart=False)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # The run generates data for initial and the first two time steps. In order to use
     # the data as restart and reference data, move it to a reference folder.
@@ -125,7 +125,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
     # second time step which will serve as foundation for the comparison to the above
     # computed reference files.
     model = create_restart_model(solid_vals, {}, north_displacement, restart=True)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # To verify the restart capabilities, perform five tests.
 
@@ -280,14 +280,14 @@ def test_targeted_rediscretization(model_class):
     rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
     full_model: pp.PorePyModel = rediscretization_model_class(model_params)
-    pp.TimeDependentModelRunner(full_model).run()
+    pp.ModelRunner(full_model).run()
 
     # A model object with targeted rediscretization.
     targeted_model_params = model_params.copy()
     targeted_model_params["full_rediscretization"] = False
     # Set up the model.
     targeted_model = rediscretization_model_class(targeted_model_params)
-    pp.TimeDependentModelRunner(targeted_model).run()
+    pp.ModelRunner(targeted_model).run()
 
     # Check that the linear systems are the same.
     assert len(full_model.stored_linear_system) == 2
@@ -596,7 +596,7 @@ def test_schur_complement_inverter_on_model(
 
     model.before_time_step()
     model.before_nonlinear_loop()
-    model.before_nonlinear_iteration()
+    model.before_solver_iteration()
     model.assemble_linear_system()
     inv_A_ss = model.equation_system._Schur_complement[0]
 

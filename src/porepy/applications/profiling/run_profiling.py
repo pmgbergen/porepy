@@ -233,7 +233,7 @@ def run_model_with_tracer(args, model) -> None:
     # Newton iterations. Material parameters are defaults and not realistic, as these
     # bencmarks are focusing on code segments (e.g., AD assembly) independent of
     # parameter realism.
-    pp.TimeDependentModelRunner(
+    pp.ModelRunner(
         model,
         {
             "prepare_simulation": False,

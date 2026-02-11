@@ -66,7 +66,7 @@ def test_export_chosen_times(times_to_export):
 
     model = DataSavingModelMixinModel(model_params)
     model.exported_times = []
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
@@ -112,7 +112,7 @@ def test_exported_times_consistency_with_files(times_to_export, expected_times):
     }
 
     model = pp.SinglePhaseFlow(params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # Read times.json to get time data.
     times_file = Path(folder_name) / "times.json"

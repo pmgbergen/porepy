@@ -77,7 +77,7 @@ def model(
         model = Model3bWithEffectivePermeability(model_params)
     else:
         ValueError("Parameter combination not admissible.")
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     return model
 
 

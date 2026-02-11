@@ -20,7 +20,7 @@ The functionality is invoked by specifying the solver in the solver parameters, 
         pass
     solver_params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
     Pass 'solver_params' to a solver model, e.g.:
-    pp.TimeDependentModelRunner(model, solver_params)
+    pp.ModelRunner(model, solver_params)
     ```
 
 The solver can be further customized by specifying parameters in the solver parameters.

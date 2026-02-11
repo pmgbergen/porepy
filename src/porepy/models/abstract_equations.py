@@ -337,7 +337,7 @@ class LocalElimination(EquationMixin):
 
             - :meth:`update_all_boundary_conditions`
             - :meth:`initial_condition`
-            - :meth:`before_nonlinear_iteration`
+            - :meth:`before_solver_iteration`
 
         Parameters:
             local_equation_name: The name of the local equation eliminating

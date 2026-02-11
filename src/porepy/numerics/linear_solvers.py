@@ -8,72 +8,57 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
-from typing import Optional
-
-from porepy.models.model_runners import ModelInstance
+from porepy.models.model_runner import ModelInstance
 
 
 class LinearSolver:
-    """Wrapper around models that solves linear problems, and calls the methods in the
-    model class before and after solving the problem.
+    """Base solver class for PorePy models, assuming the model is linear and performing
+    only 1 linear solve.
+
+    Parameters:
+        params: ``default=None``
+
+            Solver parameters. Defaults to empty dictionary.
+
     """
 
-    def __init__(self, params: Optional[dict] = None) -> None:
-        """Define linear solver.
-
-        Parameters:
-            params (dict): Parameters for the linear solver. Will be passed on to the
-                model class. Thus the contect should be adapted to whatever needed for
-                the problem at hand.
-
-        """
-        if params is None:
-            params = {}
-        self.params = params
+    def __init__(self, params: dict | None = None) -> None:
+        self.params = params if isinstance(params, dict) else {}
+        """Parameters passed during instantiation."""
 
     def solve(self, model: ModelInstance) -> bool:
         """Solve a linear problem defined by the current state of the model.
+
+        The linear solver performs only one iteration and checks whether it converged.
+        Based on that, the methods ``after_solver_convergence`` or
+        ``after_solver_failure`` are called on the model.
 
         Parameters:
             model: Model to be solved.
 
         Returns:
-            boolean: True if the linear solver converged.
+            True if the linear solver converged, False otherwise.
 
         """
-        # PvS: Check if this has to be removed or replaced by new before_time_step or
-        # something else?
-        model.before_nonlinear_loop()
-
         # For linear problems, the tolerance is irrelevant.
         # FIXME: This assumes a direct solver is applied, but it may also be that
         # parameters for linear solvers should be a property of the model, not the
         # solver. This needs clarification at some point.
-
+        model.before_solver_iteration()
         model.assemble_linear_system()
         residual = model.equation_system.assemble(evaluate_jacobian=False)
         nonlinear_increment = model.solve_linear_system()
+        model.after_solver_iteration(nonlinear_increment)
+        # NOTE: The linear solver performs only one iteration.
+        # FIXME: Consider renaming the solver statistics to just "solver statistics".
+        model.nonlinear_solver_statistics.num_iteration = 1
 
         is_converged, _ = model.check_convergence(
             nonlinear_increment, residual, residual.copy(), self.params
         )
 
         if is_converged:
-            # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
-            # there is something wrong with how the linear and non-linear solvers
-            # interact with the models (and it illustrates that the model convention for
-            # the before_nonlinear_* and after_nonlinear_* methods is not ideal). Since
-            # the model's after_nonlinear_convergence may expect that the converged
-            # solution is already stored as an iterate (this may happen if a model is
-            # implemented to be valid for both linear and non-linear problems, as is the
-            # case for ContactMechanics and possibly others). Thus, we first call
-            # after_nonlinear_iteration(), and then after_nonlinear_convergence()
-
-            # TODO use update_solution in combination with get solution value, and
-            # pull this step to after solve_linear_system
-            model.after_nonlinear_iteration(nonlinear_increment)
-            model.nonlinear_solver_statistics.num_iteration = 1
-            model.after_nonlinear_convergence()
+            model.after_solver_convergence()
         else:
-            model.after_nonlinear_failure()
+            model.after_solver_failure()
         return is_converged

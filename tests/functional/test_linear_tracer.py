@@ -57,7 +57,7 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     )
     model.ad_time_step.set_value(dt)
     model.time_manager = time_manager
-    pp.TimeDependentModelRunner(model, model_params).run()
+    pp.ModelRunner(model, model_params).run()
     return model.results
 
 

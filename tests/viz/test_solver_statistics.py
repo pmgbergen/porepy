@@ -8,7 +8,7 @@ def test_solver_statistic_attributes():
     """Runs default Poromechanics simulation and tests availability of solver
     statistics."""
     model = Poromechanics()
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
 
     # Unit tests
     assert hasattr(model, "nonlinear_solver_statistics")
@@ -25,7 +25,7 @@ def test_solver_statistics_save():
     path = "solver_statistics.json"
     params = {"solver_statistics_file_name": path}
     model = Poromechanics(params)
-    pp.TimeDependentModelRunner(model).run()
+    pp.ModelRunner(model).run()
     # Check whether file was saved
     assert model.nonlinear_solver_statistics.path.exists()
     # Clean up

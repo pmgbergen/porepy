@@ -188,93 +188,40 @@ class ModelSolverInterface(pp.PorePyModel):
         # Export initial condition
         self.save_data_time_step()
 
-    def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleanup etc."""
-        pass
-
     def before_time_step(self) -> None:
-        """Method to be called at the start of each time step by model runners.
+        """Called at the start of each time step by model runners.
 
         The base method does the following:
-        1. Call :meth:`update_time_dependent_ad_arrays`.
-        2. Call :meth:`update_derived_quantities`.
+
+        1. Call :meth:`update_time_dependent_ad_arrays` to update BC values and other
+           time-dependent operators.
+        2. Call :meth:`update_derived_quantities` to update them based on the
+           time-dependent values.
 
         """
-        # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
-        # Update other dependent quantities such as discretizations.
         self.update_derived_quantities()
 
-    def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge."""
-        if self.is_nonlinear_problem():
-            raise ValueError("Failed to solve the nonlinear problem")
-        else:
-            raise ValueError("Failed to solve linear system for the linear problem.")
-        # TODO Check if any models overwrite this method and if that functionality has
-        # to be moved to ``after_time_step_failure``.
-
-    def after_time_step_convergence(self) -> None:
-        """Method to be called after a new time step solution has been achieved.
-
-        The base method does the following:
-
-        1. Shift previous time step solutions backwards in time.
-        2. Saves the new time step solution, i.e., what is stored at the current iterate
-           values (see :meth:`update_solution`).
-        3. Calls :meth:`save_data_time_step`.
-
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.update_solution(solution)
-        self.save_data_time_step()
-
-    def after_time_step_failure(self) -> None:
-        if self.time_manager.is_constant:
-            # We cannot decrease the constant time step.
-            raise pp.TimeSteppingError(
-                "Solver failed to converge. The time step is fixed and cannot be"
-                + " reduced further."
-            )
-        else:
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            self.time_manager.compute_time_step(recompute_solution=True)
-
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
     def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver.
+        """Called before entering a nonlinear solver loop if the model is flagged
+        as nonlinear."""
 
-        The base method only defines the method signature.
-        """
-        # TODO Check if any models overwrite this method and if that functionality has
-        # to be moved to ``before_time_step``.
+    def before_solver_iteration(self) -> None:
+        """Called before a solver performs an iteration (calling the linear solver)."""
 
-    def before_nonlinear_iteration(self) -> None:
-        """Method to be called at the start of every non-linear iteration.
-
-        The base method only defines the method signature.
-
-        """
-
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Method to be called after every non-linear iteration.
+    def after_solver_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Called after a solver performed an iteration and the linear solver computed
+        an increment.
 
         The base method does the following:
 
         1. Shift the existing solutions backwards in the iterative sense.
         2. Store the ``nonlinear_increment`` to the model state in the current iterate
            additively.
-        3. Calls :meth:`update_derived_quantities`.
+        3. Calls :meth:`update_derived_quantities` based on the recent iterate values.
 
         Parameters:
-            The new increment computed by the non-linear solver.
+            nonlinear_increment: The new increment computed by the nonlinear solver.
 
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
@@ -283,18 +230,38 @@ class ModelSolverInterface(pp.PorePyModel):
         )
         self.update_derived_quantities()
 
-    def after_nonlinear_convergence(self) -> None:
-        """Method to be called after the non-linear iterations converge.
+    def after_solver_convergence(self) -> None:
+        """Called after the solver converges."""
 
-        The base method only defines the method signature.. This is a relict from when
-        time stepping was handled here.
+    def after_solver_failure(self) -> None:
+        """Called if the solver fails to converge or diverges."""
 
-        Possible usage for advanced nonlinear solvers and/or models that overwrite this
-        method.
+    def after_time_step_convergence(self) -> None:
+        """Called after a new time step solution has been achieved.
+
+        The base method does the following:
+
+        1. Calls :meth:`update_solution` with the current global iterate vector.
+        3. Calls :meth:`save_data_time_step`.
 
         """
-        # TODO Check if any models overwrite this method and if that functionality has
-        # to be moved to ``after_time_step_convergence``.
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+        self.update_solution(solution)
+        self.save_data_time_step()
+
+    def after_time_step_failure(self) -> None:
+        """Called after a time step has failed to converge.
+
+        The base method does the following:
+
+        1. Resets the current iterate values to the previous time step solution.
+
+        """
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
+    def after_simulation(self) -> None:
+        """Called after a simulation run successfully."""
         pass
 
     def update_solution(self, solution: np.ndarray) -> None:
@@ -319,13 +286,13 @@ class ModelSolverInterface(pp.PorePyModel):
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
-        """Implements a convergence check, to be called by a non-linear solver.
+        """Implements a convergence check, to be called by a nonlinear solver.
 
         Parameters:
             nonlinear_increment: Newly obtained solution increment vector
-            residual: Residual vector of non-linear system, evaluated at the newly
+            residual: Residual vector of nonlinear system, evaluated at the newly
                 obtained solution vector. Potentially None, if not needed.
-            reference_residual: Reference residual vector of non-linear system,
+            reference_residual: Reference residual vector of nonlinear system,
                 evaluated for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
@@ -590,7 +557,7 @@ class SolutionStrategy(ModelSolverInterface):
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status = False
-        """Whether the non-linear iteration has converged."""
+        """Whether the nonlinear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad.MergedOperator] = []
         """See :meth:`add_nonlinear_discretization`."""
         self._nonlinear_diffusive_flux_discretizations: list[pp.ad.MergedOperator] = []
@@ -1002,7 +969,7 @@ class SolutionStrategy(ModelSolverInterface):
            (see :meth:`update_material_properties`).
         2. Update discretization parameters, most crucially those entering the flux
            discretization (see :meth:`update_discretization_parameters`).
-        3. Rediscretize the non-linear fluxes depending on above tensors
+        3. Rediscretize the nonlinear fluxes depending on above tensors
            (see :meth:`rediscretize_fluxes`).
         4. Evaluate and store fluxes for upstream discretizations
            (see :meth:`update_flux_values`).
@@ -1010,7 +977,7 @@ class SolutionStrategy(ModelSolverInterface):
            (see :meth:`rediscretize`).
 
         For a consistent evaluation of the system, this method is called in
-        :meth:`after_nonlinear_iteration` (after the global state vector changes) and in
+        :meth:`after_solver_iteration` (after the global state vector changes) and in
         :meth:`before_nonlinear_loop` (after the boundary conditions and other
         time-dependent quantities change).
 

@@ -1668,7 +1668,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                     update_fugacities=equilibrium_defined,
                 )
 
-    def after_nonlinear_convergence(self) -> None:
+    def after_solver_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
 
         Phase properties expected in the accumulation term (time-derivative) include
@@ -1680,7 +1680,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         assert isinstance(self, pp.SolutionStrategy), (
             "This is a mixin. Require SolutionStrategy as base."
         )
-        super().after_nonlinear_convergence()  # type:ignore[safe-super]
+        super().after_solver_convergence()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
         nt = self.time_step_indices.size
