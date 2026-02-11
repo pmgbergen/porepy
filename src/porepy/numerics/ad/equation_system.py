@@ -313,6 +313,25 @@ class EquationSystem:
         return self._equations
 
     @property
+    def equation_image_space_composition(
+        self,
+    ) -> dict[str, dict[pp.GridLike, np.ndarray]]:
+        """Dictionary containing image space composition, including subdomains
+        and their block indices in the global system, for every equation
+        set in this EquationSystem.
+
+        """
+        return self._equation_image_space_composition
+
+    @property
+    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
+        """Dictionary containing, for every equation set in this EquationSystem,
+        the number of equations per grid entity.
+
+        """
+        return self._equation_image_size_info
+
+    @property
     def variables(self) -> list[Variable]:
         """List containing all :class:`~porepy.numerics.ad.Variable`s known to this
         system.

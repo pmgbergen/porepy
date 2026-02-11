@@ -79,6 +79,9 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
+        def add_wells_to_mdg(self) -> None:
+            """Add wells to the mixed-dimensional grid."""
+
         def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 

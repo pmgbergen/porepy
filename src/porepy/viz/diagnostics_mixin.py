@@ -85,7 +85,7 @@ class DiagnosticsMixin:
 
         It is assumed that the full Jacobian matrix is stored in `self.linear_system`,
         and full information about the matrix indices is stored in
-        `self.equation_system._equation_image_space_composition`.
+        `self.equation_system.equation_image_space_composition`.
 
         Note:
             It is assumed that variables with the same name defined on different grids
@@ -310,13 +310,13 @@ class DiagnosticsMixin:
 
         assembled_equation_indices = self.equation_system.assembled_equation_indices
 
-        # `_equation_image_space_composition` has dof indices starting from zero for
+        # `equation_image_space_composition` has dof indices starting from zero for
         # each equation. We need to count the offset to get the global dof indices.
         block_indices = 0
 
         for eq_name, eq_dof_indices in assembled_equation_indices.items():
             equation_image_space = (
-                self.equation_system._equation_image_space_composition[eq_name]
+                self.equation_system.equation_image_space_composition[eq_name]
             )
             # Forming a block from required grids.
             for block_of_grids in grouping:
