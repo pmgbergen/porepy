@@ -59,8 +59,8 @@ from .solvers import (
     DEFAULT_SOLVER_PARAMS,
     FLASH_JACOBIAN_SIGNATURE,
     FLASH_RESIDUAL_SIGNATURE,
-    MULTI_SOLVERS,
     SOLVERS,
+    multi_solve,
 )
 
 __all__ = ["CompiledPersistentVariableFlash"]
@@ -577,13 +577,12 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         """
 
-        global SOLVERS, MULTI_SOLVERS, DEFAULT_SOLVER_PARAMS
+        global SOLVERS, DEFAULT_SOLVER_PARAMS
 
         if params is None:
             params = {"mode": "sequential", "solver": "npipm"}
 
         mode = params.get("mode", "sequential")
-        assert mode in MULTI_SOLVERS, f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}."
 
@@ -639,7 +638,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         self._convert_solver_params(solver_params)
 
         start = time.time()
-        resultsarray, exitcodes, num_iter = MULTI_SOLVERS[mode](
+        resultsarray, exitcodes, num_iter = multi_solve(
+            mode,
             np.ascontiguousarray(X0),
             self.residuals[results.specification],
             self.jacobians[results.specification],

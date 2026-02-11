@@ -14,12 +14,19 @@ Important:
 
 from __future__ import annotations
 
+import logging
 from typing import Callable, Literal
 
 import numba as nb
 import numpy as np
 
-from ..._numba_interface import NUMBA_PARALLEL, cfunc, get_empty_numba_dict, typeof
+from ..._numba_interface import (
+    NUMBA_PARALLEL,
+    cfunc,
+    get_empty_numba_dict,
+    njit,
+    typeof,
+)
 from ...utils import FlashSpec, FlashSpec_NUMBA_TYPE
 
 __all__ = [
@@ -32,8 +39,11 @@ __all__ = [
     "SOLVER_FUNCTION_SIGNATURE",
     "sequential_solver",
     "parallel_solver",
-    "MULTI_SOLVERS",
+    "multi_solve",
 ]
+
+
+logger = logging.getLogger(__name__)
 
 
 GENERAL_SOLVER_PARAMS: dict[
@@ -231,7 +241,7 @@ _multi_solver_signature = nb.types.Tuple(
 """Multi-solver signature for compiled sequential or parallel application of solvers."""
 
 
-@nb.njit(_multi_solver_signature, cache=True)
+@njit(_multi_solver_signature, cache=True)
 def sequential_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -287,7 +297,7 @@ def sequential_solver(
     return result, exitcodes, num_iter
 
 
-@nb.njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL, nogil=True)
+@njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -315,44 +325,75 @@ def parallel_solver(
     Important:
         As of now, numba does not support ``try.. except`` in the parallel environment.
         This makes this function fragile to exceptions thrown by the solver.
-        If an exception is thrown, the whole parallel execution is aborted.
+        If an exception is thrown, the whole parallel execution is aborted and the call
+        is returned with an exception.
 
     """
     n = X0.shape[0]
     result = np.zeros_like(X0)
     num_iter = np.zeros(n, dtype=np.int_)
     exitcodes = np.ones(n, dtype=np.int_) * 5
-    fallback_sequential = False
 
-    try:
-        for i in nb.prange(n):
-            res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
-            exitcodes[i] = e_i
-            num_iter[i] = n_i
-            result[i] = res_i
-    except:
-        print("Parallel solver threw exception, falling back to sequential solver.")
-        fallback_sequential = True
+    for i in nb.prange(n):
+        res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
+        exitcodes[i] = e_i
+        num_iter[i] = n_i
+        result[i] = res_i
 
-    if fallback_sequential:
+    return result, exitcodes, num_iter
+
+
+def multi_solve(
+    mode: str,
+    X0: np.ndarray,
+    F: Callable[[np.ndarray], np.ndarray],
+    DF: Callable[[np.ndarray], np.ndarray],
+    solver: Callable[
+        [
+            np.ndarray,
+            Callable[[np.ndarray], np.ndarray],
+            Callable[[np.ndarray], np.ndarray],
+            dict[str, float],
+            FlashSpec,
+        ],
+        tuple[np.ndarray, int, int],
+    ],
+    solver_params: dict[str, float],
+    spec: FlashSpec,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Wrapper function for multi-solvers.
+
+    Temporary work-around for when parallel execution fails. In that case, the
+    sequential multi-solver is used instead, and the failure is logged.
+
+    See also:
+        :func:`sequential_solver`, :func:`parallel_solver`
+
+    Parameters:
+        mode: Either "sequential" or "parallel". If "parallel" is selected but fails,
+            the sequential multi-solver is used instead.
+        X0: 2D array, where each row is an initial guess for an individual problem.
+        F: Flash residual function (see :data:`FLASH_RESIDUAL_FUNCTION_TYPE`).
+        DF: Flash Jacobian function (see :data:`FLASH_JACOBIAN_FUNCTION_TYPE`).
+        solver: Solver function (see :data:`SOLVER_FUNCTION_TYPE`).
+        solver_params: Solver parameters passed to every problem (see
+            :data:`SOLVER_PARAMETERS_TYPE`).
+        spec: Flash specification passed to every problem.
+
+    """
+    if mode == "sequential":
         return sequential_solver(X0, F, DF, solver, solver_params, spec)
+    elif mode == "parallel":
+        try:
+            return parallel_solver(X0, F, DF, solver, solver_params, spec)
+        except Exception:
+            logger.warning(
+                "Parallel multi-solver failed with exception. "
+                "Falling back to sequential multi-solver. "
+                "Investigate the failure of the parallel solver.",
+            )
+            return sequential_solver(X0, F, DF, solver, solver_params, spec)
     else:
-        return result, exitcodes, num_iter
-
-
-MULTI_SOLVERS: dict[
-    Literal["sequential", "parallel"],
-    Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]],
-] = {
-    "sequential": sequential_solver,
-    "parallel": parallel_solver,
-}
-"""Map of multi-solver functions, applying some solver either sequentially
-or in parallel for vectorized input.
-
-See also:
-
-    - :func:`sequential_solver`
-    - :func:`parallel_solver`
-
-"""
+        raise ValueError(
+            f"Invalid multi-solver mode: {mode}. Choose 'sequential' or 'parallel'."
+        )
