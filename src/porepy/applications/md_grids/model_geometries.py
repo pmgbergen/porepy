@@ -78,19 +78,6 @@ class CubeDomainOrthogonalFractures(pp.PorePyModel):
         """Set the cube domain."""
         self._domain = domains.nd_cube_domain(3, self.domain_size)
 
-    def meshing_arguments(self) -> dict:
-        """Set default cell sizes for subdomains."""
-        # Length scale:
-        ls = self.units.convert_units(1, "m")
-
-        mesh_sizes = {
-            "cell_size": 0.5 * ls,
-            "cell_size_fracture": 0.5 * ls,
-            "cell_size_boundary": 0.5 * ls,
-            "cell_size_min": 0.2 * ls,
-        }
-        return mesh_sizes
-
 
 class RectangularDomainThreeFractures(pp.PorePyModel):
     """A rectangular domain with up to three fractures.
