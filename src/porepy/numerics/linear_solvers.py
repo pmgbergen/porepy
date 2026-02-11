@@ -21,6 +21,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     SimulationStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
+from porepy.models.model_runners import ModelInstance
 
 
 class LinearSolver:
@@ -59,7 +60,7 @@ class LinearSolver:
         )
         """Divergence criterion used in the convergence check."""
 
-    def solve(self, model: SolutionStrategy) -> SimulationStatus:
+    def solve(self, model: ModelInstance) -> SimulationStatus:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:

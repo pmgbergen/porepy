@@ -233,7 +233,7 @@ def run_model_with_tracer(args, model) -> None:
     # Newton iterations. Material parameters are defaults and not realistic, as these
     # bencmarks are focusing on code segments (e.g., AD assembly) independent of
     # parameter realism.
-    pp.run_time_dependent_model(
+    pp.TimeDependentModelRunner(
         model,
         {
             "prepare_simulation": False,
@@ -243,7 +243,7 @@ def run_model_with_tracer(args, model) -> None:
             "nl_divergence_inc_atol": 1e8,
             "nl_divergence_res_atol": 1e8,
         },
-    )
+    ).run()
     tracer.stop()
 
     # Save the results and open them in a browser with vizviewer.
