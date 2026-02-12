@@ -732,7 +732,6 @@ def initialize_diagonal_ad_arrays(
     num_derivatives: int,
     derivatives: list[np.ndarray] | None = None,
 ) -> list[AdArray]:
-
     for var in variables:
         if var.size != indices.size:
             raise ValueError("Number of variables should match number of indices.")
@@ -884,7 +883,7 @@ class DiagonalAdArray(AdArray):
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
         else:
-            return super().__rpow__(other)
+            return other.__pow__(self)
 
     def __truediv__(self, other):
         if other._is_diagonal:
@@ -900,7 +899,7 @@ class DiagonalAdArray(AdArray):
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
         else:
-            return super().__truediv__(other)
+            return other.__rtruediv__(self)
 
     def __rtruediv__(self, other):
         if other._is_diagonal:
@@ -912,7 +911,7 @@ class DiagonalAdArray(AdArray):
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
         else:
-            return super().__rtruediv__(other)
+            return other.__truediv__(self)
 
     def __rmatmul__(self, other):
         # When multiplying with a sparse matrix, the expectation is that the result will
@@ -943,5 +942,4 @@ class DiagonalAdArray(AdArray):
             (self.jac.ravel("F"), indices_full, indptr),
             shape=(num_indices, self._num_derivatives),
         )
-
         return AdArray(self.val, jac)
