@@ -189,7 +189,7 @@ def test_init_criteria_valid_max_iterations(default_newton_solver):
 )
 def test_init_convergence_criteria_sanity_check(key, value):
     """Test sanity check in convergence criteria."""
-    try:
+    with pytest.raises(AssertionError) as e:
         pp.NewtonSolver(
             params={
                 key: value,
@@ -200,11 +200,10 @@ def test_init_convergence_criteria_sanity_check(key, value):
                 },
             }
         )
-
-        raise ValueError("Expected error not raised.")
-
-    except Exception as e:
-        assert isinstance(e, AssertionError)
+        assert (
+            """If 'nl_convergence_criteria' is provided, """
+            """do not provide individual convergence tolerances.""" in str(e.value)
+        )
 
 
 @pytest.mark.parametrize(
@@ -217,7 +216,7 @@ def test_init_convergence_criteria_sanity_check(key, value):
 )
 def test_init_divergence_criteria_sanity_check(key, value):
     """Test sanity check in divergence criteria."""
-    try:
+    with pytest.raises(AssertionError) as e:
         pp.NewtonSolver(
             params={
                 key: value,
@@ -226,11 +225,10 @@ def test_init_divergence_criteria_sanity_check(key, value):
                 },
             }
         )
-
-        raise ValueError("Expected error not raised.")
-
-    except Exception as e:
-        assert isinstance(e, AssertionError)
+        assert (
+            """If 'nl_divergence_criteria' is provided, do not provide """
+            """individual divergence tolerances.""" in str(e.value)
+        )
 
 
 def test_increase_iteration_index(default_newton_solver):
