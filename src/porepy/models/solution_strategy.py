@@ -354,13 +354,17 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_derived_quantities()
 
     def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver if the model is
-        flagged as nonlinear.
+        """Called before entering a nonlinear solver loop if the model is flagged
+        as nonlinear.
+
         The base method does the following:
 
-        1. Reset the nonlinear solver statistics.
+        1. Set the previous time step solution as the initial guess of the nonlinear
+           solver .
 
         """
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
         self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self) -> None:
@@ -403,24 +407,19 @@ class SolutionStrategy(pp.PorePyModel):
 
         The base method does the following:
 
-        1. Calls :meth:`update_solution` with the current global iterate vector.
+        1. Calls :meth:`update_solution`.
         3. Calls :meth:`save_data_time_step`.
 
         """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.update_solution(solution)
+        self.update_solution()
         self.save_data_time_step()
 
     def after_time_step_failure(self) -> None:
         """Called after a time step has failed to converge.
 
-        The base method does the following:
-
-        1. Resets the current iterate values to the previous time step solution.
+        The base method does nothing.
 
         """
-        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
