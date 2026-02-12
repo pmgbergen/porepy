@@ -96,7 +96,7 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
         # Other sides should contain values within the interval.
         assert np.all(values[other_sides] <= max_value)
         assert np.all(values[other_sides] >= min_value)
-        
+
         # Check the values vary linearly in depth
         z_cell_centers = boundary_grid.cell_centers[vertical_index]
         z_top = np.mean(z_cell_centers[min_value_side])
@@ -112,7 +112,6 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
             rtol=1e-10,
             atol=1e-10,
         )
-
 
 
 @pytest.mark.parametrize("model_dim", [2, 3])

@@ -531,19 +531,19 @@ class HydrostaticPressureValues(GravityMagnitude):
 
     def hydrostatic_pressure(self, depth: np.ndarray) -> np.ndarray:
         r"""Compute hydrostatic pressure at given depths.
- 
+
         The hydrostatic pressure at depth z is given by
         .. math::
             p(z) = \rho g z + p_{atm}
         where :math:`\rho` is the fluid density, :math:`g` is the gravity acceleration,
         and :math:`p_{atm}` is the atmospheric pressure.
- 
+
         Parameters:
             depth: Array of depths at which to compute hydrostatic pressure.
- 
+
         Returns:
             Array of hydrostatic pressure values at the given depths.
- 
+
         """
         gravity = self.gravity_force_magnitude("fluid")
         pressure = gravity * depth + self.units.convert_units(
