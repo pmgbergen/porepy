@@ -26,9 +26,13 @@ class SimulationStatus(StrEnum):
     """Enumeration of potential simulation statuses."""
 
     IN_PROGRESS = "in_progress"
+    """Simulation is currently in progress and in a nominal state."""
     SUCCESSFUL = "successful"
+    """Simulation completed with success."""
     FAILED = "failed"
+    """Simulation is currently in progress and in a failed state."""
     STOPPED = "stopped"
+    """Simulation was stopped due to an error."""
 
     def __str__(self):
         return self.value
@@ -54,13 +58,11 @@ class ConvergenceStatus(StrEnum):
     """Enumeration of potential convergence statuses."""
 
     CONVERGED = "converged"
+    """Convergence criterion is satisfied / Divergence criterion is not satisfied."""
     NOT_CONVERGED = "not_converged"
+    """Convergence criterion is not satisfied."""
     DIVERGED = "diverged"
-    CYCLED = "cycled"
-    STAGNATED = "stagnated"
-    NAN = "nan"
-    MAX_ITERATIONS_REACHED = "max_iterations_reached"
-    STOPPED = "stopped"
+    """Divergence criterion is satisfied."""
 
     def __str__(self):
         return self.value
@@ -77,39 +79,6 @@ class ConvergenceStatus(StrEnum):
         """Check if the status indicates divergence."""
         return self == ConvergenceStatus.DIVERGED
 
-    def is_cycled(self) -> bool:
-        """Check if the status indicates cycling."""
-        return self == ConvergenceStatus.CYCLED
-
-    def is_stagnated(self) -> bool:
-        """Check if the status indicates stagnation."""
-        return self == ConvergenceStatus.STAGNATED
-
-    def is_nan(self) -> bool:
-        """Check if the status indicates NaN."""
-        return self == ConvergenceStatus.NAN
-
-    def is_max_iterations_reached(self) -> bool:
-        """Check if the status indicates that the maximum number of iterations
-        was reached.
-
-        """
-        return self == ConvergenceStatus.MAX_ITERATIONS_REACHED
-
-    def is_stopped(self) -> bool:
-        """Check if the status indicates that the process was stopped."""
-        return self == ConvergenceStatus.STOPPED
-
-    def is_failed(self) -> bool:
-        """Check if the status indicates a failure - note absence of stopped."""
-        return self in {
-            ConvergenceStatus.DIVERGED,
-            ConvergenceStatus.CYCLED,
-            ConvergenceStatus.STAGNATED,
-            ConvergenceStatus.NAN,
-            ConvergenceStatus.MAX_ITERATIONS_REACHED,
-        }
-
 
 class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
     """Collection of convergence statuses for a collection of criteria."""
@@ -125,31 +94,6 @@ class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
     def is_diverged(self) -> bool:
         """Check if any status indicates divergence."""
         return any(status.is_diverged() for status in self.values())
-
-    def is_cycled(self) -> bool:
-        """Check if any status indicates cycling."""
-        return any(status.is_cycled() for status in self.values())
-
-    def is_stagnated(self) -> bool:
-        """Check if any status indicates stagnation."""
-        return any(status.is_stagnated() for status in self.values())
-
-    def is_nan(self) -> bool:
-        """Check if any status indicates NaN."""
-        return any(status.is_nan() for status in self.values())
-
-    def is_stopped(self) -> bool:
-        """Check if any status indicates stopping."""
-        return any(status.is_stopped() for status in self.values())
-
-    def is_max_iterations_reached(self) -> bool:
-        """Check if any status indicates that the maximum number of iterations
-        was reached."""
-        return any(status.is_max_iterations_reached() for status in self.values())
-
-    def is_failed(self) -> bool:
-        """Check if any status indicates failure."""
-        return any(status.is_failed() for status in self.values())
 
     def union(
         self, other: "ConvergenceStatusCollection"
@@ -435,7 +379,6 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
         )
         if status.is_not_converged():
             status = ConvergenceStatus.DIVERGED
-        if status.is_failed():
             logger.info(self.divergence_msg())
         return status
 
@@ -560,7 +503,6 @@ class RelativeDivergenceCriterion(RelativeCriterion, DivergenceCriterion):
         )
         if status.is_not_converged():
             status = ConvergenceStatus.DIVERGED
-        if status.is_failed():
             logger.info(self.divergence_msg())
         return status
 
@@ -673,7 +615,6 @@ class CombinedDivergenceCriterion(CombinedCriterion, DivergenceCriterion):
         )
         if status.is_not_converged():
             status = ConvergenceStatus.DIVERGED
-        if status.is_failed():
             logger.info(self.divergence_msg())
         return status
 

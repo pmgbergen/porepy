@@ -279,7 +279,7 @@ class NewtonSolver:
                 )
 
                 # Exit the Newton loop.
-                if convergence_status.is_converged() or divergence_status.is_failed():
+                if convergence_status.is_converged() or divergence_status.is_diverged():
                     break
 
         return convergence_status, divergence_status
@@ -306,7 +306,7 @@ class NewtonSolver:
             simulation_status = SimulationStatus.SUCCESSFUL
             self.update_solver_statistics(model, simulation_status=simulation_status)
             model.after_nonlinear_convergence()
-        elif divergence_status.is_failed():
+        elif divergence_status.is_diverged():
             simulation_status = SimulationStatus.FAILED
             self.update_solver_statistics(model, simulation_status=simulation_status)
             # TODO: Get back to this when reimplementing time stepping.

@@ -101,7 +101,7 @@ class LinearSolver:
         if status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
             model.after_nonlinear_convergence()
-        elif status.is_failed():
+        elif status.is_diverged():
             simulation_status = model.after_nonlinear_failure()
         else:
             raise ValueError(f"Unknown convergence status: {status}")

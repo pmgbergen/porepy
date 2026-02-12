@@ -62,43 +62,18 @@ def test_convergence_status_methods():
     """Test the status check methods of ConvergenceStatus enum members."""
     s = ConvergenceStatus
 
-    # Make sure each category method works
     assert s.CONVERGED.is_converged()
     assert s.NOT_CONVERGED.is_not_converged()
     assert s.DIVERGED.is_diverged()
-    assert s.CYCLED.is_cycled()
-    assert s.STAGNATED.is_stagnated()
-    assert s.NAN.is_nan()
-    assert s.MAX_ITERATIONS_REACHED.is_max_iterations_reached()
-    assert s.STOPPED.is_stopped()
 
+    assert not s.CONVERGED.is_not_converged()
+    assert not s.CONVERGED.is_diverged()
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        ConvergenceStatus.CONVERGED,
-        ConvergenceStatus.NOT_CONVERGED,
-        ConvergenceStatus.STOPPED,
-    ],
-)
-def test_convergence_status_not_failed(status):
-    """Test the negative result of is_failed method of ConvergenceStatus members."""
-    assert not status.is_failed()
+    assert not s.NOT_CONVERGED.is_converged()
+    assert not s.NOT_CONVERGED.is_diverged()
 
-
-@pytest.mark.parametrize(
-    "status",
-    [
-        ConvergenceStatus.DIVERGED,
-        ConvergenceStatus.CYCLED,
-        ConvergenceStatus.STAGNATED,
-        ConvergenceStatus.NAN,
-        ConvergenceStatus.MAX_ITERATIONS_REACHED,
-    ],
-)
-def test_convergence_status_failed(status):
-    """Test the positive result of is_failed method of ConvergenceStatus members."""
-    assert status.is_failed()
+    assert not s.DIVERGED.is_converged()
+    assert not s.DIVERGED.is_not_converged()
 
 
 def test_convergence_status_str():
@@ -107,11 +82,6 @@ def test_convergence_status_str():
     assert str(s.CONVERGED) == "converged"
     assert str(s.NOT_CONVERGED) == "not_converged"
     assert str(s.DIVERGED) == "diverged"
-    assert str(s.CYCLED) == "cycled"
-    assert str(s.STAGNATED) == "stagnated"
-    assert str(s.NAN) == "nan"
-    assert str(s.MAX_ITERATIONS_REACHED) == "max_iterations_reached"
-    assert str(s.STOPPED) == "stopped"
 
 
 @pytest.mark.parametrize(
@@ -122,77 +92,42 @@ def test_convergence_status_str():
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
-            [True, False, False, False, False, False, False, False, False],
+            [True, False, False],
         ),
         # All not converged
         (
             ConvergenceStatus.NOT_CONVERGED,
             ConvergenceStatus.NOT_CONVERGED,
             ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, False, False, False, False, False],
+            [False, True, False],
         ),
         # All diverged
         (
             ConvergenceStatus.DIVERGED,
             ConvergenceStatus.DIVERGED,
             ConvergenceStatus.DIVERGED,
-            [False, False, True, False, False, False, False, False, True],
+            [False, False, True],
         ),
         # Mixed: converged, converged, not converged
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, False, False, False, False, False],
+            [False, True, False],
         ),
         # Mixed: not converged, converged, not onverged
         (
             ConvergenceStatus.NOT_CONVERGED,
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, False, False, False, False, False],
+            [False, True, False],
         ),
         # Mixed: diverged, converged, nc
         (
             ConvergenceStatus.DIVERGED,
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.NOT_CONVERGED,
-            [False, True, True, False, False, False, False, False, True],
-        ),
-        # Mixed: cycled, c, nc
-        (
-            ConvergenceStatus.CYCLED,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, True, False, False, False, False, True],
-        ),
-        # Mixed: stagnated, c, nc
-        (
-            ConvergenceStatus.STAGNATED,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, True, False, False, False, True],
-        ),
-        # Mixed: nan, c, nc
-        (
-            ConvergenceStatus.NAN,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, False, True, False, False, True],
-        ),
-        # Mixed: max iterations reached, c, nc
-        (
-            ConvergenceStatus.MAX_ITERATIONS_REACHED,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, False, False, True, False, True],
-        ),
-        # Mixed: stopped, c, nc
-        (
-            ConvergenceStatus.STOPPED,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            [False, True, False, False, False, False, False, True, False],
+            [False, True, True],
         ),
     ],
 )
@@ -205,12 +140,6 @@ def test_convergence_status_collection_parametrized(c1, c2, c3, expected_status)
         collection.is_converged(),
         collection.is_not_converged(),
         collection.is_diverged(),
-        collection.is_cycled(),
-        collection.is_stagnated(),
-        collection.is_nan(),
-        collection.is_max_iterations_reached(),
-        collection.is_stopped(),
-        collection.is_failed(),
     ]
 
     assert status == expected_status
@@ -894,4 +823,4 @@ def test_divergence_criteria_collection(
     if expected_status == ConvergenceStatus.CONVERGED:
         assert status.is_converged()
     else:
-        assert status.is_failed()
+        assert status.is_diverged()
