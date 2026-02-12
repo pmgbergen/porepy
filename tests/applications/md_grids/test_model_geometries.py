@@ -1,5 +1,5 @@
 """
-Testing the functionality related to model geometries. There functions are covered: 
+Testing the functionality related to model geometries. There functions are covered:
 - SubsurfaceCuboidDomain
 - TwoWells3d
 - TwoEllipticFractures3d
@@ -25,7 +25,7 @@ class SubsurfaceDomainModel(SubsurfaceCuboidDomain):
 def test_subsurface_set_domain():
     """
     Check whether the domain in x, y, and z directions are correctly created from
-    the given domain size.  
+    the given domain size.
 
     """
     params = {
@@ -52,9 +52,9 @@ class TwoWells3dModel(TwoWells3d):
 
 def test_created_well_network():
     """
-    Check whether the expected well network for the model are correctly created. This test
-    specifically checks that two wells are exactly created and assigned with the corresponding 
-    well names. 
+    Check whether the expected well network for the model are correctly created. This
+    test specifically checks that two wells are exactly created and assigned with the
+    corresponding well names.
 
     """
     params = {
@@ -79,9 +79,9 @@ class TwoEllipticFractures3dModel(TwoEllipticFractures3d):
 
 def test_created_elliptic_fracs():
     """
-    Check whether elliptic fractures are correctly created and parameterized. 
-    This test specifically check that two elliptic fractures are exactly created 
-    with expected major axis length. 
+    Check whether elliptic fractures are correctly created and parameterized.
+    This test specifically check that two elliptic fractures are exactly created
+    with expected major axis length.
 
     """
     params = {

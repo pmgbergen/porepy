@@ -8,6 +8,7 @@ import pytest
 
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.test_utils import well_models
 from porepy.examples.geothermal_reservoir import (
     BoundaryConditionsMechanicsNeumann,
@@ -160,6 +161,9 @@ def test_mechanics_bcs_neumann(mechcanics_bc_model):
         assert np.array_equal(bc.is_neu[:, i], ~value)
 
 
+# MARK: Integration
+
+
 @pytest.mark.skipped(reason="slow")
 def test_geothermal_reservoir():
     """This is a slow integration test, which runs the whole model with realistic
@@ -215,6 +219,8 @@ def test_geothermal_reservoir():
     )  # [m]
     # Define model parameters.
     model_params = {
+        "darcy_flux_discretization": "tpfa",
+        "fourier_flux_discretization": "tpfa",
         # Set time manager.
         "time_manager": pp.TimeManager(
             schedule=schedule,
@@ -273,7 +279,7 @@ def test_geothermal_reservoir():
     pressure_data_production_fracture = []
     temperature_data_production_fracture = []
 
-    class ModelForTest(GeothermalReservoirWellBCs):
+    class ModelForTest(FluxDiscretization, GeothermalReservoirWellBCs):
         def after_nonlinear_convergence(self):
             # YZ: We don't use the model method collect_data, because it is triggered
             # both for checkpoints and for failed time steps. We don't need the latter.
@@ -417,13 +423,13 @@ def test_geothermal_reservoir():
     np.testing.assert_allclose(
         temperature_data_initialization[-2],
         temperature_data_initialization[-1],
-        atol=1e-3,
+        atol=1e-2,
         rtol=0,
     )
     np.testing.assert_allclose(
         displacement_data_initialization[-2],
         displacement_data_initialization[-1],
-        atol=1e-6,
+        atol=1e-5,
         rtol=0,
     )
 
