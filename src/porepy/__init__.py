@@ -147,7 +147,11 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
 from porepy.models.protocol import PorePyModel
 
 # Related to models and solvers
-from porepy.models.model_runner import ModelRunner
+from porepy.models.model_runner import (
+    ModelRunner,
+    run_time_dependent_model,
+    run_stationary_model,
+)
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 
