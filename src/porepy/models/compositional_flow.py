@@ -587,6 +587,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
     """Provided by mixin for compositional variables."""
 
+    total_molar_concentration: Callable[[list[pp.Grid]], pp.ad.Operator]
+
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
         component."""

@@ -629,6 +629,7 @@ class Phase(Generic[ComponentLike]):
 
         """
         self.activity_of: dict[Component, DomainFunctionType]
+        self.molar_density: ExtendedDomainFunctionType
 
     def __iter__(self) -> Generator[ComponentLike, None, None]:
         """Iterator over components present in this phase.
@@ -1157,6 +1158,26 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
     def porosity(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Porosity of the fluid."""
         ...
+
+    def molar_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """
+        Molar density of the fluid in ``[mol / m^3]``.
+        """
+        if self.num_fluid_phases > 1:
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.saturation(domains) * phase.molar_density(domains)
+                    for phase in self.phases
+                ],
+                "fluid_molar_density",
+            )
+
+        else:
+            op = self.reference_phase.molar_density(domains)
+            op.set_name("reference_fluid_molar_density")
+
+        return op
+
 
 
 class Element:

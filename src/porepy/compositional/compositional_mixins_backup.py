@@ -1732,6 +1732,24 @@ class FluidMixin(pp.PorePyModel):
             return _no_property_function
 
 
+    def molar_density_of_phase(self, phase: Phase) -> DomainFunctionType:
+       #if the eos is provided for massic density, we can compute the molar density
+        def molar_density(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            mc=self.params["material_constants"]
+            mode=mc.get("molar_density_mode","fully_coupled")
+            mean_molar_mass=pp.ad.sum_operator_list(
+            [
+                comp.molar_mass * phase.partial_fraction_of[comp](domains)
+                for comp in phase.components
+            ]
+            )
+            if mode=="provided":
+                return phase.density(domains)
+            elif mode=="fully_coupled":
+                return phase.density(domains) / mean_molar_mass
+
+        return molar_density
+
 class SolidMixin(pp.PorePyModel):
     """Mixin class for introducing a general solid (mixture) into a PorePy model and
     providing it as an attribute :attr:`solid`.

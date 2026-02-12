@@ -552,6 +552,7 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
     bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
+    total_molar_concentration: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     @staticmethod
     def primary_equation_name() -> str:

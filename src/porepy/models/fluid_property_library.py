@@ -44,6 +44,7 @@ __all__ = [
     "ConstantViscosity",
     "ConstantFluidThermalConductivity",
     "FluidEnthalpyFromTemperature",
+    "FluidMobilityReactiveTransport",
 ]
 
 Scalar = pp.ad.Scalar
@@ -570,6 +571,80 @@ class FluidMobility(pp.PorePyModel):
 
         total_op.set_name(f"element_mass_mobility_{element.name}")
         return total_op
+
+
+class FluidMobilityReactiveTransport(FluidMobility):
+    """Class for fluid mobility and its discretization in flow & transport equations."""
+
+    relative_permeability: Callable[
+        [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """Provided by some mixin dealing with the porous medium (work in progress).
+
+    Only relevant in the multi-phase case.
+
+    """
+
+    mobility_keyword: str
+    """Keyword for the discretization of the mobility. Normally provided by a mixin of
+    instance :class:`~porepy.models.SolutionStrategy`.
+
+    """
+
+
+
+
+    def component_mass_mobility(
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        r"""Non-linear term in the advective flux in a component mass balance equation.
+
+        It is obtained by summing :meth:`phase_mobility` weighed with
+        :attr:`~porepy.compositional.base.Phase.partial_fraction_of` the component,
+        and the phase :attr:`~porepy.compositional.base.Phase.density`,
+        if the component is present in the phase.
+
+        .. math::
+
+                \sum_j x_{n, ij} \rho_j \frac{k_r(s_j)}{\mu_j},
+
+        Note:
+            In the single-phase, single-component case, this is reduced to
+            :math:`\frac{\rho}{\mu}`.
+
+        Parameters:
+            component: A component in the fluid mixture.
+            domains: A sequence of subdomains or boundary grids.
+
+        Returns:
+            Above expression in operator form.
+
+        """
+        if self.fluid.num_phases > 1 or self.fluid.num_components > 1:
+            # NOTE: This method is kept as general as possible when typing the
+            # signature. But the default fluid of the PorePyModel consists of
+            # FluidComponent, not Component. Adding type:ignore for this reason.
+            mobility = pp.ad.sum_operator_list(
+                [
+                    phase.partial_fraction_of[component](domains)
+                    * phase.molar_density(domains)
+                    * self.phase_mobility(phase, domains)
+                    for phase in self.fluid.phases
+                    if component in phase  # type:ignore[operator]
+                ],
+            )
+        # This branch is for compatibility with single-phase or single component
+        # models, which do not have the complete notion of fractions.
+        else:
+            assert component == self.fluid.reference_component
+            mobility = self.fluid.reference_phase.molar_density(
+                domains
+            ) * self.phase_mobility(self.fluid.reference_phase, domains)
+
+        mobility.set_name(f"component_mass_mobility_{component.name}")
+        return mobility
+
+
 
 
 class FluidBuoyancy(pp.PorePyModel):

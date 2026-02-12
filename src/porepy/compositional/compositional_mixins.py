@@ -638,6 +638,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         fractions).
 
     """
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def create_variables(self) -> None:
         """Creates the sets of required variables for a fluid mixture.
@@ -736,6 +737,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         if self.reactions:
             self.set_kinetic_reaction_rates(self.reactions)
+
 
     def overall_fraction(
         self,
@@ -1269,6 +1271,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """Total molar concentration of the fluid."""
+
         if len(self.fluid.solid_components) > 0:
             solid_molar_concentration = pp.ad.sum_operator_list(
                 [
@@ -1280,10 +1283,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             )
 
             op = (
-                self.porosity(domains) * self.fluid.density(domains)
+                self.porosity(domains) * self.fluid.molar_density(domains)
             ) + solid_molar_concentration
         else:
-            op = self.porosity(domains) * self.fluid.density(domains)
+            op = self.porosity(domains) * self.fluid.molar_density(domains)
         return op
 
     def mineral_saturation(
@@ -1406,16 +1409,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         op = self.total_molar_concentration(domains) * comp.fraction(domains)
         op.set_name(f"molar_bulk_concentration_of_{comp.name}")
         return op
-
-    def molar_density_of_phase(self, phase: Phase, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-       #if the eos is provided for massic density, we can compute the molar density
-       mean_molar_mass=pp.ad.sum_operator_list(
-            [
-                comp.molar_mass * phase.partial_fraction_of[comp](domains)
-                for comp in phase.components
-            ]
-        )
-       return phase.density(domains) / mean_molar_mass
 
 
 
@@ -1627,12 +1620,34 @@ class FluidMixin(pp.PorePyModel):
             phase.thermal_conductivity = self.thermal_conductivity_of_phase(phase)
             phase.fugacity_coefficient_of = {}
             phase.chemical_potential_of = {}
+            phase.molar_density=self.molar_density_of_phase(phase)
 
             for comp in phase:
                 phase.fugacity_coefficient_of[comp] = self.fugacity_coefficient(
                     comp, phase
                 )
                 phase.chemical_potential_of[comp] = self.chemical_potential(comp, phase)
+
+    def molar_density_of_phase(self, phase: Phase) -> DomainFunctionType:
+       #if the eos is provided for massic density, we can compute the molar density
+        molar_density: DomainFunctionType
+        
+        def molar_density(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            mc=self.params["material_constants"]
+            mode=mc.get("molar_density_mode","fully_coupled")
+            mean_molar_mass=pp.ad.sum_operator_list(
+            [
+                pp.ad.Scalar(comp.molar_mass) * phase.partial_fraction_of[comp](domains)
+                for comp in phase.components
+            ]
+            )
+            if mode=="provided":
+                return phase.density(domains)
+            elif mode=="fully_coupled":
+                return phase.density(domains) / mean_molar_mass
+
+        return molar_density
+
 
     def dependencies_of_phase_properties(
         self, phase: Phase
