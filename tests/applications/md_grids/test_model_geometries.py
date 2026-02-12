@@ -1,6 +1,12 @@
-import numpy as np
-import pytest
+"""
+Testing the functionality related to model geometries. There functions are covered: 
+- SubsurfaceCuboidDomain
+- TwoWells3d
+- TwoEllipticFractures3d
 
+"""
+
+import numpy as np
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SubsurfaceCuboidDomain,
@@ -9,18 +15,23 @@ from porepy.applications.md_grids.model_geometries import (
 )
 
 
-class subsurface_domain_model(SubsurfaceCuboidDomain):
+class SubsurfaceDomainModel(SubsurfaceCuboidDomain):
     def __init__(self, params):
         self.params = params
         self.units = params.get("units", pp.Units)
 
 
 def test_subsurface_set_domain():
+    """
+    Check whether the domain in x, y, and z directions are correctly created from
+    the given domain size.  
+
+    """
     params = {
         "domain_sizes": np.array([10.0, 20.0, 30.0]),
         "units": pp.Units(m=1.0),
     }
-    model = subsurface_domain_model(params)
+    model = SubsurfaceDomainModel(params)
     model.set_domain()
     box = model._domain.bounding_box
 
@@ -32,18 +43,24 @@ def test_subsurface_set_domain():
     assert box["zmax"] == 0.0
 
 
-class TwoWells3d_model(TwoWells3d):
+class TwoWells3dModel(TwoWells3d):
     def __init__(self, params):
         self.params = params
         self.units = params.get("units", pp.Units)
 
 
 def test_created_well_network():
+    """
+    Check whether the expected well network for the model are correctly created. This test
+    specifically checks that two wells are exactly created and assigned with the corresponding 
+    well names. 
+
+    """
     params = {
         "domain_sizes": np.array([10.0, 20.0, 30.0]),
         "units": pp.Units(m=1.0),
     }
-    model = TwoWells3d_model(params)
+    model = TwoWells3dModel(params)
     model.set_domain()
     model.set_well_network()
     wells = model.well_network.wells
@@ -53,18 +70,24 @@ def test_created_well_network():
     assert names == ["injection_well", "production_well"]
 
 
-class TwoEllipticFractures3d_model(TwoEllipticFractures3d):
+class TwoEllipticFractures3dModel(TwoEllipticFractures3d):
     def __init__(self, params):
         self.params = params
         self.units = params.get("units", pp.Units)
 
 
-def test_created_well_network():
+def test_created_elliptic_fracs():
+    """
+    Check whether elliptic fractures are correctly created and parameterized. 
+    This test specifically check that two elliptic fractures are exactly created 
+    with expected major axis length. 
+
+    """
     params = {
         "domain_sizes": np.array([10.0, 20.0, 30.0]),
         "units": pp.Units(m=1.0),
     }
-    model = TwoEllipticFractures3d_model(params)
+    model = TwoEllipticFractures3dModel(params)
     model.set_domain()
     model.set_fractures()
     fractures = model._fractures
