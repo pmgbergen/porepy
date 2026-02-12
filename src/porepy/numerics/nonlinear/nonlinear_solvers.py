@@ -81,9 +81,9 @@ class NewtonSolver:
             )
         else:
             # If no custom convergence criteria are provided, use default ones.
-            inc_atol = self.params.get("nl_convergence_inc_atol", 1e-6)
+            inc_atol = self.params.get("nl_convergence_inc_atol", 1e-10)
             inc_rtol = self.params.get("nl_convergence_inc_rtol", np.inf)
-            res_atol = self.params.get("nl_convergence_res_atol", 1e-6)
+            res_atol = self.params.get("nl_convergence_res_atol", 1e-10)
             res_rtol = self.params.get("nl_convergence_res_rtol", np.inf)
             metric = self.params.get("nl_metric", pp.EuclideanMetric())
             convergence_criteria = {
