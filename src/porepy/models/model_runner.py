@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TypeVar
+import warnings
+from typing import Optional, TypeVar
 
 import numpy as np
 
@@ -22,15 +23,88 @@ ModelInstance = TypeVar("ModelInstance", bound=pp.PorePyModel)
 """Type variable for objects inheriting from the PorePy model protocol."""
 
 
+def run_stationary_model(model, params: dict) -> None:
+    """Run a stationary model.
+
+    Deprecated: This function is deprecated and will be removed in a future version.
+        Instead, use
+        ```
+        runner = pp.ModelRunner(model, params)
+        runner.run()
+        ```
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of nonlinear iterations will be shown on a progressbar.
+        This requires the ``tqdm`` package to be installed. The package is not included
+        in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
+
+    Parameters:
+        model: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate model for documentation.
+        params: Parameters related to the solution procedure.
+
+    """
+    warnings.deprecated(
+        "run_stationary_model is deprecated in favor of ModelRunner.run and will be"
+        + " removed in future versions."
+    )
+    runner = ModelRunner(model, params)
+    runner.run()
+
+
+def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
+    """Run a time dependent model.
+
+    Deprecated: This function is deprecated and will be removed in a future version.
+        Instead, use
+        ```
+        runner = pp.ModelRunner(model, params)
+        runner.run()
+        ```
+
+    Note:
+        If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
+        ``False``), the progress of time steps and nonlinear iterations will be shown on
+        a progressbar. This requires the ``tqdm`` package to be installed. The package
+        is not included in the dependencies, but can be installed with
+        ```
+        pip install tqdm
+        ```
+
+    Parameters:
+        model: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate solver for documentation.
+        params: Parameters related to the solution procedure.
+
+    """
+    warnings.deprecated(
+        "run_time_dependent_model is deprecated in favor of ModelRunner.run and will be"
+        + " removed in future versions."
+    )
+    runner = ModelRunner(model, params)
+    runner.run()
+
+
 class ModelRunner:
     """Class for running PorePy models according to their configurations.
 
-    Sets the outer solver (nonlinear or linear), which in the nonlinear case can
-    be customized by providing a solver type as ``params["nonlinear_solver"]``.
+    Sets the outer solver, linear or nonlinear, depending on `model.is_nonlinear`. In
+    the nonlinear case the solver can be customized by providing a solver type as
+    ``params["nonlinear_solver"]``.
 
     If ``params["prepare_simulation"]`` is ``True`` (default), calls the respective
     method during initialization. Otherwise it assumes it was already called **before**
     instantiating the runner.
+
+
+    :meth:`~ModelRunner.run` runs the simulation, stationary or time dependent,
+    depending on ``model.is_time_dependent.`
 
     Parameters:
         model: A PorePy model instance.
@@ -194,17 +268,20 @@ class ModelRunner:
                 self.model.time_manager.compute_time_step(
                     iterations=self.model.nonlinear_solver_statistics.num_iteration
                 )
+            self.model.after_time_step_convergence()
 
             # Update progressbar length.
             self.time_progressbar.update(n=self.model.time_manager.dt / self._dt_0)
-            self.model.after_time_step_convergence()
         else:
             if self.model.time_manager.is_constant:
                 raise pp.TimeSteppingError(
                     "Solver failed to converge with constant time step size."
                 )
             else:
-                # Update the time step magnitude if the dynamic scheme is used.
+                # This calls
+                # ``time_manager._adaptation_based_on_recomputation``, which substracts
+                # the current ``dt`` from the simulation time, computes a shorter
+                # ``dt``, and adds the updated ``dt`` to the simulation time again.
                 # It will also raise a ValueError if the minimal time step is reached.
                 self.model.time_manager.compute_time_step(recompute_solution=True)
                 self.model.after_time_step_failure()
