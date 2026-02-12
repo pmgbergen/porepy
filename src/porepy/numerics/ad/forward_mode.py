@@ -816,6 +816,22 @@ class DiagonalAdArray(AdArray):
         else:
             return self.to_full().__add__(other)
 
+    def copy(self) -> DiagonalAdArray:
+        """Return a copy of this DiagonalAdArray.
+
+        Returns:
+            A deep copy of this DiagonalAdArray.
+
+        """
+        b = DiagonalAdArray(
+            self.val.copy(),
+            self.jac.copy(),
+            self._indices.copy(),
+            self._offsets.copy(),
+            self._num_derivatives,
+        )
+        return b
+
     def __mul__(self, other: AdType) -> AdArray:
         if other._is_diagonal:
             val = self.val * other.val
