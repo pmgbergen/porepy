@@ -80,8 +80,15 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
             other_sides = sides.east | sides.west
             vertical_index = 1
 
-        max_value = values[max_value_side][0]
-        min_value = values[min_value_side][0]
+        depth_bc = tested_model.depth(boundary_grid.cell_centers)
+        if isinstance(tested_model, HydrostaticBoundaryPressureValues): 
+            expected_values = tested_model.hydrostatic_pressure(depth_bc)
+        elif isinstance(tested_model, ThermalGradientBoundaryTemperatureValues):
+            expected_values = tested_model.temperature_at_depth(depth_bc)
+        
+        max_value = expected_values[max_value_side][0]
+        min_value = expected_values[min_value_side][0]
+
         # We test that the boundary values are:
         #      top     min val
         #            |--------|
@@ -149,11 +156,11 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         south = np.repeat(sides.south, 3)
 
         if model_dim == 3:
-            max_value_side = bottom
-            min_value_side = top
+            max_value_side = sides.bottom
+            min_value_side = sides.top
         elif model_dim == 2:
-            max_value_side = south
-            min_value_side = north
+            max_value_side = sides.south
+            min_value_side = sides.north
 
         # Shear stresses must be zeros.
         np.testing.assert_array_equal(values[bottom | top][0::3], 0)
@@ -164,8 +171,20 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         np.testing.assert_array_equal(values[north | south][2::3], 0)
 
         # Normal stresses.
-        max_value = values[max_value_side].max()
-        min_value = values[min_value_side].min()
+        depth_bc = tested_model.depth(boundary_grid.cell_centers)
+        gravity = tested_model.gravity_force_magnitude("bulk")
+        multipliers = tested_model.lithostatic_stress_multipliers
+
+        vertical_index = 2 if model_dim == 3 else 1
+
+        expected_gradient = multipliers[vertical_index] * gravity
+        expected_stress = (expected_gradient
+                        * depth_bc
+                        * boundary_grid.cell_volumes
+        )
+
+        max_value = expected_stress[max_value_side].max()
+        min_value = expected_stress[min_value_side].min()
         assert min_value < max_value
 
         # For this geometry, some sides contain no cells for the fracture boundary.
