@@ -1574,7 +1574,7 @@ def _expected_value(
             val = np.array([6**12, 15**30, 24**48])
             j1 = var_1.jac
             j2 = var_2.jac
-            np.vstack(  #
+            jac = np.vstack(  #
                 (
                     var_2.val[0] * var_1.val[0] ** (var_2.val[0] - 1.0) * j1[0]
                     + np.log(var_1.val[0]) * (var_1.val[0] ** var_2.val[0]) * j2[0],
@@ -1597,52 +1597,60 @@ def _expected_value(
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, pp.ad.AdArray):
         # For this case, var_2 was modified manually to be twice var_1, see comments in
         # the main test function. Mirror this here to be consistent.
-        var_2 = var_1 + var_1
+        is_v2_doubled = (not var_1._is_diagonal) and (not var_2._is_diagonal)
         if op == "+":
-            # This evaluates to 3 * Array (since var_2 = 2 * var_1)
-            val = np.array([18, 45, 72])
-            if var_1._is_diagonal:
-                jac = sps.csr_matrix(
-                    np.array([[6 + 2, 4, 6], [8, 7.5 + 10, 12], [14, 16, 8 + 18]])
-                )
-            elif var_2._is_diagonal:
-                jac = sps.csr_matrix(
-                    np.array([[1 + 12, 2, 3], [4, 5 + 15, 6], [7, 8, 9 + 16]])
-                )
-            else:
+            if is_v2_doubled:
+                # This evaluates to 3 * Array (since var_2 = 2 * var_1)
+                val = np.array([18, 45, 72])
                 jac = sps.csr_matrix(np.array([[3, 6, 9], [12, 15, 18], [21, 24, 27]]))
+            else:
+                val = np.array([12, 30, 48])
+                if var_1._is_diagonal:
+                    jac = sps.csr_matrix(
+                        np.array([[6 + 1, 2, 3], [4, 7.5 + 5, 6], [7, 8, 8 + 9]])
+                    )
+                elif var_2._is_diagonal:
+                    jac = sps.csr_matrix(
+                        np.array([[1 + 6, 2, 3], [4, 5 + 7.5, 6], [7, 8, 9 + 8]])
+                    )
             return pp.ad.AdArray(val, jac)
         elif op == "-":
-            # This evaluates to -Array (since var_2 = 2 * var_1)
-            val = np.array([-6, -15, -24])
-            if var_1._is_diagonal:
-                jac = sps.csr_matrix(
-                    np.array(
-                        [
-                            [6 - 2 * 1, -2 * 2, -2 * 3],
-                            [-2 * 4, 15 - 2 * 5, -2 * 6],
-                            [-2 * 7, -2 * 8, 24 - 2 * 9],
-                        ]
-                    )
-                )
-            elif var_2._is_diagonal:
-                jac = sps.csr_matrix(
-                    np.array(
-                        [
-                            [1 - 2 * 6, 2, 3],
-                            [4, 5 - 2 * 15, 6],
-                            [7, 8, 9 - 2 * 24],
-                        ]
-                    )
-                )
-            else:
+            if is_v2_doubled:
+                # This evaluates to -Array (since var_2 = 2 * var_1)
+                val = np.array([-6, -15, -24])
                 jac = sps.csr_matrix(
                     np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]])
                 )
+            else:
+                val = np.array([0, 0, 0])
+                if var_1._is_diagonal:
+                    jac = sps.csr_matrix(
+                        np.array(
+                            [
+                                [6 - 1, -2, -3],
+                                [-4, 7.5 - 5, -6],
+                                [-7, -8, 8 - 9],
+                            ]
+                        )
+                    )
+                elif var_2._is_diagonal:
+                    jac = sps.csr_matrix(
+                        np.array(
+                            [
+                                [1 - 6, 2, 3],
+                                [4, 5 - 7.5, 6],
+                                [7, 8, 9 - 8],
+                            ]
+                        )
+                    )
             return pp.ad.AdArray(val, jac)
         elif op == "*":
-            # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
-            val = np.array([6 * 12, 15 * 30, 24 * 48])
+            if is_v2_doubled:
+                # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
+                val = np.array([6 * 12, 15 * 30, 24 * 48])
+            else:
+                # Array * Array
+                val = np.array([36, 225, 576])
 
             if var_1._is_diagonal:
                 j1 = sps.diags(var_1.jac.ravel()).toarray()
@@ -1652,6 +1660,9 @@ def _expected_value(
                 j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
+                if is_v2_doubled:
+                    var_2.val = 2 * var_2.val
+                    j2 = 2 * j2
             jac = sps.csr_matrix(
                 np.vstack(
                     (
@@ -1665,7 +1676,10 @@ def _expected_value(
         elif op == "/":
             # This evaluates to Array / (2 * Array)
             # The derivative is computed from the product and chain rules
-            val = np.array([1 / 2, 1 / 2, 1 / 2])
+            if is_v2_doubled:
+                val = np.array([1 / 2, 1 / 2, 1 / 2])
+            else:
+                val = np.array([1, 1, 1])
 
             if var_1._is_diagonal:
                 j1 = sps.diags(var_1.jac.ravel()).toarray()
@@ -1691,7 +1705,10 @@ def _expected_value(
             # The derivative is
             #    Array**(2 * Array - 1) * (2 * Array) * dArray
             #  + Array**(2 * Array) * log(Array) * dArray
-            val = np.array([6**12, 15**30, 24**48])
+            if is_v2_doubled:
+                val = np.array([6**12, 15**30, 24**48])
+            else:
+                val = np.array([6**6, 15**15, 24**24])
             if var_1._is_diagonal:
                 j1 = sps.diags(var_1.jac.ravel()).toarray()
             else:
@@ -1700,6 +1717,9 @@ def _expected_value(
                 j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
+                if is_v2_doubled:
+                    var_2.val = 2 * var_2.val
+                    j2 = 2 * j2
             jac = sps.csr_matrix(
                 np.vstack(  #
                     (
@@ -1796,19 +1816,13 @@ def test_arithmetic_operations_on_ad_objects(
         else:
             mdg = pp.MixedDimensionalGrid()
             equation_system = pp.ad.EquationSystem(mdg)
-    if var_1 in ["ad", "diag"] and var_2 in ["ad", "diag"]:
+    if (var_1 == "ad" and var_2 == "ad") or (var_1 == "diag" and var_2 == "diag"):
         # For the case of two ad variables, they should be associated with the
         # same EquationSystem, or else parsing will fail. We could have set v1 =
         # v2, but this is less likely to catch errors in the parsing. Instead,
         # we reassign v2 = v1 + v1. This also requires some adaptations in the
         # code to get the expected values, see that function.
         v2 = v1 + v1
-        if not wrapped and var_1 == "diag" and var_2 == "ad":
-            # Make sure we did not unintentionally make v2 a diagonal AdArray when it
-            # should have been a regular AdArray. This is only relevant for the
-            # non-wrapped case, since in the wrapped case, the parsing will take care of
-            # things.
-            v2 = v2.to_full()
 
     # Calculate the expected numerical values for this expression. This inolves
     # hard-coded values for the different operators and their combinations, see the
