@@ -75,6 +75,23 @@ def test_gradient_scalar_boundary_values(params):
         other_sides = sides.east | sides.west | sides.north | sides.south
         assert np.all(values[other_sides] <= max_value)
         assert np.all(values[other_sides] >= min_value)
+        
+        # Check the values vary linearly in depth
+        z_cell_centers = boundary_grid.cell_centers[2]
+        z_top = np.mean(z_cell_centers[sides.top])
+        z_bottom = np.mean(z_cell_centers[sides.bottom])
+
+        slope = (max_value - min_value) / (z_bottom - z_top)
+        intercept = min_value - slope * z_top
+        expected_values = slope * z_cell_centers + intercept
+
+        np.testing.assert_allclose(
+            values[other_sides],
+            expected_values[other_sides],
+            rtol=1e-10,
+            atol=1e-10,
+        )
+
 
 
 def test_lithostatic_boundary_stress_values():
