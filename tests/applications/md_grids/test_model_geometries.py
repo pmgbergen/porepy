@@ -7,6 +7,7 @@ Testing the functionality related to model geometries. There functions are cover
 """
 
 import numpy as np
+
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SubsurfaceCuboidDomain,
