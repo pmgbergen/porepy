@@ -20,7 +20,7 @@ from porepy.numerics.nonlinear import line_search
 
 class geothermal_model_neu(
     well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     NeumannWellBCsFirstTimeInterval,
     pp.Poromechanics,
 ):
@@ -62,7 +62,7 @@ class OneVerticalInjectionWell(well_models.OneVerticalWell):
 
 class geomhermal_model_well(
     OneVerticalInjectionWell,
-    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     WellBoundaryConditions,
     pp.Thermoporomechanics,
 ):
@@ -118,7 +118,7 @@ def test_well_bcs_temperature(well_bc_model):
 
 class geothermal_model_mechanics(
     well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     BoundaryConditionsMechanicsNeumann,
     pp.Poromechanics,
 ):
