@@ -1407,6 +1407,17 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         op.set_name(f"molar_bulk_concentration_of_{comp.name}")
         return op
 
+    def molar_density_of_phase(self, phase: Phase, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+       #if the eos is provided for massic density, we can compute the molar density
+       mean_molar_mass=pp.ad.sum_operator_list(
+            [
+                comp.molar_mass * phase.partial_fraction_of[comp](domains)
+                for comp in phase.components
+            ]
+        )
+       return phase.density(domains) / mean_molar_mass
+
+
 
 class FluidMixin(pp.PorePyModel):
     """Mixin class for introducing a general fluid (mixture) into a PorePy model and
