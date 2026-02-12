@@ -8,11 +8,10 @@ from typing import TypeVar
 import numpy as np
 
 import porepy as pp
-from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.utils.ui_and_logging import progressbar_class
 
 __all__ = ["ModelRunner", "ModelInstance"]
 
@@ -59,15 +58,9 @@ class ModelRunner:
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
 
-        self._dt_0: float = model.time_manager.dt
-        """Initial time step size, used for progress bar updates."""
-
         self.set_solver()
 
-        if self._is_time_dependent:
-            self.init_time_progressbar()
-        else:
-            self.time_progressbar = DummyProgressBar()
+        self.init_time_progressbar()
 
     def set_solver(self) -> None:
         """Choose between linear and non-linear solver and set :attr:`solver`.
@@ -96,7 +89,10 @@ class ModelRunner:
         ``pip install tqdm``.
 
         """
-        use_progress_bar = self.params.get("progressbars", False)
+        # Use time progressbar only when requested and the model is time dependent.
+        use_progress_bar = (
+            self.params.get("progressbars", False) and self._is_time_dependent
+        )
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The time"
@@ -113,7 +109,10 @@ class ModelRunner:
         # Check if the user wants a progress bar. Initialize an instance of the
         # progressbar_class, which is either :class:`~tqdm.trange` or
         # :class:`~DummyProgressbar` in case `tqdm` is not installed.
-        if self.params.get("progressbars", False):
+        if use_progress_bar:
+            # Initial time step size, used for progress bar updates.
+            self._dt_0: float = self.model.time_manager.dt
+
             # Create a time bar. The length is estimated as the time_steps predetermined
             # by the schedule and initial time step size.
             # NOTE: If, e.g., adaptive time stepping results in more time steps, the

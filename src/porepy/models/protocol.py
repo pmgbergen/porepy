@@ -611,7 +611,14 @@ else:
 
         def before_nonlinear_loop(self) -> None:
             """Called before entering a nonlinear solver loop if the model is flagged
-            as nonlinear."""
+            as nonlinear.
+
+            The base method does the following:
+
+            1. Set the previous time step solution as the initial guess of the nonlinear
+            solver .
+
+            """
 
         def before_solver_iteration(self) -> None:
             """Called before a solver performs an iteration (calling the linear
@@ -645,29 +652,25 @@ else:
 
             The base method does the following:
 
-            1. Calls :meth:`update_solution` with the current global iterate vector.
-            3. Calls :meth:`save_data_time_step`.
+            1. Calls :meth:`update_solution`.
+            2. Calls :meth:`save_data_time_step`.
 
             """
 
         def after_time_step_failure(self) -> None:
             """Called after a time step has failed to converge.
 
-            The base method does the following:
-
-            1. Resets the current iterate values to the previous time step solution.
+            The base method does nothing.
 
             """
 
         def after_simulation(self) -> None:
             """Called after a simulation run successfully."""
 
-        def update_solution(self, solution: np.ndarray) -> None:
+        def update_solution(self) -> None:
             """Shifts the solution per time step index and sets the provided solution
             as the recent time step solution.
 
-            Parameters:
-                solution: Global, accepted solution vector.
 
             """
 

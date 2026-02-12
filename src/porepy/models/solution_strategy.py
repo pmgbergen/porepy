@@ -29,7 +29,7 @@ class ModelSolverInterface(pp.PorePyModel):
     """
 
     def is_nonlinear_problem(self) -> bool:
-        """Specifies whether the Model problem is nonlinear.
+        """Specifies whether the problem is nonlinear.
 
         Returns:
             bool: True if the problem is nonlinear, False otherwise.
@@ -204,7 +204,16 @@ class ModelSolverInterface(pp.PorePyModel):
 
     def before_nonlinear_loop(self) -> None:
         """Called before entering a nonlinear solver loop if the model is flagged
-        as nonlinear."""
+        as nonlinear.
+
+        The base method does the following:
+
+        1. Set the previous time step solution as the initial guess of the nonlinear
+           solver .
+
+        """
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def before_solver_iteration(self) -> None:
         """Called before a solver performs an iteration (calling the linear solver)."""
@@ -241,40 +250,33 @@ class ModelSolverInterface(pp.PorePyModel):
 
         The base method does the following:
 
-        1. Calls :meth:`update_solution` with the current global iterate vector.
+        1. Calls :meth:`update_solution`.
         3. Calls :meth:`save_data_time_step`.
 
         """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.update_solution(solution)
+        self.update_solution()
         self.save_data_time_step()
 
     def after_time_step_failure(self) -> None:
         """Called after a time step has failed to converge.
 
-        The base method does the following:
-
-        1. Resets the current iterate values to the previous time step solution.
+        The base method does nothing.
 
         """
-        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def after_simulation(self) -> None:
         """Called after a simulation run successfully."""
         pass
 
-    def update_solution(self, solution: np.ndarray) -> None:
-        """Shifts the solution per time step index and sets the provided solution
-        as the recent time step solution.
-
-        Parameters:
-            solution: Global, accepted solution vector.
+    def update_solution(self) -> None:
+        """Shifts the solution per time step index and sets the current iterate solution
+        as the next time step solution.
 
         """
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
