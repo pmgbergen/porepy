@@ -1,4 +1,4 @@
-"""This module define the abstract base class for fracture networks. Concrete
+"""This module defines the abstract base class for fracture networks. Concrete
 implementations are found in derived classes in the same subpackage.
 
 Additionally, the module contains helper classes for mesh size control point insertion
@@ -60,7 +60,7 @@ class FractureNetwork(ABC):
             "gmsh_verbosity_level": 3,
         }
         """Extra meshing arguments for fracture network meshing.
-        
+
         This dictionary is meant to store extra meshing arguments that can be used for
         customizing the meshing process. While some such arguments get their defaults
         defined in the module 'mdg_generation', this dictionary defines what is
@@ -128,6 +128,7 @@ class FractureNetwork(ABC):
         **kwargs,
     ):
         """Prepare inputs for the meshing process.
+
         Parameters:
             file_name: Optional path to the Gmsh mesh file to be created.
             constraints: Optional array of fracture indices to be constrained during
@@ -175,29 +176,29 @@ class FractureNetwork(ABC):
     def _entity_on_domain_boundary(self, target_dim: int, ind: list[int]) -> bool:
         """Helper function to determine if an entity lies on the domain boundary.
 
-        The intended use is to determine if a line or set of points lie on the
-        boundary of the domain, in which case it should not be considered an
-        intersection line or point between fractures.
+        The intended use is to determine if a line or set of points lie on the boundary
+        of the domain, in which case it should not be considered an intersection line or
+        point between fractures.
 
-        The implementation could have been generalized in various ways, but is kept
-        as it is, since it concerns very specific use cases that are covered by the
-        current implementation.
+        The implementation could have been generalized in various ways, but is kept as
+        it is, since it concerns very specific use cases that are covered by the current
+        implementation.
 
-        Known possible issue: If the domain is fully split by a fracture, the
-        original boundary sides of the domain may have been split into multiple
-        parts (this will manifest as the variable boundary_surfaces containing more
-        surfaces than the original domain boundary, for instance more than six
-        surfaces for a box domain). In this case, a line that extends over multiple
-        of these 'sub-sides', but are really part of one side in the original
-        boundary definition, may be misidentified as an intersection line. In EK's
-        understanding, this should not happen, since that line will also have been
-        split into multiple parts during fragmentation, and each part will be on one
-        of the sub-sides. Still, Gmsh works in mysterious ways, so it was considered
-        wise to take note of this possible issue.
+        Known possible issue: If the domain is fully split by a fracture, the original
+        boundary sides of the domain may have been split into multiple parts (this will
+        manifest as the variable boundary_surfaces containing more surfaces than the
+        original domain boundary, for instance more than six surfaces for a box domain).
+        In this case, a line that extends over multiple of these 'sub-sides', but is
+        really part of one side in the original boundary definition, may be
+        misidentified as an intersection line. In EK's understanding, this should not
+        happen, since that line will also have been split into multiple parts during
+        fragmentation, and each part will be on one of the sub-sides. Still, Gmsh works
+        in mysterious ways, so it was considered wise to take note of this possible
+        issue.
 
         Parameters:
-            dim: Dimension of the entity to check (0 for points, 1 for line). ind:
-            List of Gmsh tags identifying the entity to check.
+            dim: Dimension of the entity to check (0 for points, 1 for line).
+            ind: List of Gmsh tags identifying the entity to check.
 
         Returns:
             bool: ``True`` if the entity lies on a single part (a single member of
@@ -218,17 +219,17 @@ class FractureNetwork(ABC):
             assert len(ind) == 1, "Only single entity indices are supported."
             boundary_points = gmsh.model.get_boundary([(target_dim, ind[0])])
 
-        # For each boundary surface of the domain, compute the distance to all
-        # boundary points of the entity to check if they are all zero. Note that the
-        # other way around (checking if each entity point is on any of the boundary
-        # entities) risk false positives for a line extending across the domain
-        # between two boundaries.
+        # For each boundary surface of the domain, compute the distance between the
+        # entity and all boundary points to check if they are all zero.
+        # Note that the other way around (checking if each entity point is on any of the
+        # boundary entities) risks false positives for a line extending across the
+        # domain between two boundaries.
         for ent in boundary_entities:
             dist = [gmsh.model.occ.get_distance(*bp, *ent)[0] for bp in boundary_points]
             # EK: It is not 100% clear what an empty list of boundary points (i.e.,
             # len(dist) == 0) implies - the case arose while working with disc
             # fractures. However, it seems safest that the lack of boundary points does
-            # not automatically leads to the fracture being classified as being on the
+            # not automatically lead to the fracture being classified as being on the
             # boundary, hence we rule out this case.
             if len(dist) > 0 and np.all(np.array(dist) < self._tol):
                 return True
@@ -412,14 +413,14 @@ class FractureNetwork(ABC):
                 parameters.
             gmsh_point_finder: Instance of GmshPointIdentifier for mapping points to
                 Gmsh indices.
-            is_boundary: ``True`` if the entity is on the domain boundary,
-                ``False`` otherwise.
+            is_boundary: ``True`` if the entity is on the domain boundary, ``False``
+                otherwise.
             codim: ``True`` if the mesh size is to be restricted to the entity itself
                 (codimension 1), ``False`` if the mesh size is to be set in the
                 surrounding domain.
-            surface_lines: (3D only) List of Gmsh tags identifying lines on the
-                surface, e.g., intersection lines with other fractures. The mesh size
-                field will also be applied on these lines.
+            surface_lines: (3D only) List of Gmsh tags identifying lines on the surface,
+                e.g., intersection lines with other fractures. The mesh size field will
+                also be applied on these lines.
 
         Returns:
             list: List of Gmsh size fields.

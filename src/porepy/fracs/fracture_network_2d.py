@@ -303,7 +303,7 @@ class FractureNetwork2d(FractureNetwork):
         #    boundary.
         # 4. Return the identified intersection points and updated data structures.
         #
-        # A comparison with the 3d version of this method will show that, though the
+        # A comparison with the 3d version of this method will show that though the
         # steps are similar, there are significant differences in implementation. The
         # two main causes for this are:
         # 1. The 3d version needs to consider planes and their intersections (which
@@ -330,7 +330,7 @@ class FractureNetwork2d(FractureNetwork):
             # According to gmsh documentation (v4.14), the function intersect should be
             # able to identify fractures that do not intersect with the domain. The
             # expected result is that the map from the old fracture to the new one, that
-            # is, the second return variable from the call to intersect is empty.
+            # is, the second return variable from the call to intersect, is empty.
             # However, this does not seem to work unless the parameters removeTool and
             # removeObject are set to True (either both or one of them must be True, EK
             # is not sure exactly what counts). However, using these will remove the
@@ -678,7 +678,7 @@ class FractureNetwork2d(FractureNetwork):
             )
 
     def mesh_quality_metrics(self) -> None:
-        """Visualize, and log elementwise mesh quality metrics using gmsh.
+        """Visualize and log elementwise mesh quality metrics using gmsh.
 
         The evaluated metrics include:
             - minDetJac / maxDetJac : Minimum and maximum determinant of the Jacobian.

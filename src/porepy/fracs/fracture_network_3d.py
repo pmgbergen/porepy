@@ -382,7 +382,7 @@ class FractureNetwork3d(FractureNetwork):
         nd = self.nd
         dim_fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
 
-        # Note: The method is called prior to the splitting fractures (which may also
+        # Note: The method is called prior to splitting of fractures (which may also
         # split the domain), hence there will be a single domain object to fragment.
         if domain_tag >= 0:
             _, isect_mapping = gmsh.model.occ.fragment(
@@ -479,9 +479,9 @@ class FractureNetwork3d(FractureNetwork):
 
                 # For each bounding point, compute the minimum distance to the different
                 # parts of the domain (the domain may have been split in multiple parts
-                # during fragmentation). Note to self: We cannot check the subsurface
+                # during fragmentation). Note to self: We cannot check the sub-surface
                 # itself, since for fractures partially inside the domain, the
-                # subsurface that should be excluded will still be inside the domain.
+                # sub-surface that should be excluded will still be inside the domain.
                 distances = np.zeros(len(bounding_points))
                 if domain_tag > 0:
                     # Only do this if we have a domain. If not, all distances are zero,

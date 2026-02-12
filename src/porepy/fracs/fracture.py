@@ -15,8 +15,8 @@ class Fracture(abc.ABC):
     """Abstract base class for representing a single fracture.
 
     This base class provides general functionalities agnostic to the dimension of the
-    fracture and the ambient dimension. It contains various utility methods,
-    mainly intended for the use together with the FractureNetwork class.
+    fracture and the ambient dimension. It contains various utility methods, mainly
+    intended for the use together with the FractureNetwork class.
 
     """
 
@@ -269,9 +269,9 @@ class PointBasedFracture(Fracture, abc.ABC):
     def local_coordinates(self) -> np.ndarray:
         """Abstract method for computing the local coordinates.
 
-        The computation is performed on the vertex coordinates in a local system and
-        its local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e.,
-        the fracture has co-dimension 1.
+        The computation is performed on the vertex coordinates in a local system and its
+        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e., the
+        fracture has co-dimension 1.
 
         Returns:
             Coordinates of the vertices in local dimensions with

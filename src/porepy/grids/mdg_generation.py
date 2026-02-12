@@ -896,9 +896,9 @@ def create_mdg(
         fracture_network.fractures
     ):
         # It seems most likely that this is an undesired effect (for a
-        # Cartesian geomtetry it should be possible to make sure the
+        # Cartesian geometry it should be possible to make sure the
         # fractures are within the domain), but we cannot rule out that the
-        # user on purpose use the domain to get rid of some fractures.
+        # user on purpose uses the domain to get rid of some fractures.
         # Giving a warning seems like a fair compromise between raising an
         # error and doing nothing.
         num_missing = len(fracture_network.fractures) - (
