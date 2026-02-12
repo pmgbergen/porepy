@@ -178,7 +178,7 @@ def test_geothermal_reservoir():
     """
     # MARK: Setup
     dt_init = 3 * pp.YEAR
-    # 6 * dt_init is enought to equilibrate the system. However, exactly 6 produces a
+    # 6 * dt_init is enough to equilibrate the system. However, exactly 6 produces a
     # bug with the time_manager, which does not adjust the schedule. Therefore, using
     # 6.1 instead. This can be reconcidered by just 6 later, when the time_manager works
     # more robustly.
