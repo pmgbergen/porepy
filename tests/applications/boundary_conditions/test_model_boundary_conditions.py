@@ -81,11 +81,11 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
             vertical_index = 1
 
         depth_bc = tested_model.depth(boundary_grid.cell_centers)
-        if isinstance(tested_model, HydrostaticBoundaryPressureValues): 
+        if isinstance(tested_model, HydrostaticBoundaryPressureValues):
             expected_values = tested_model.hydrostatic_pressure(depth_bc)
         elif isinstance(tested_model, ThermalGradientBoundaryTemperatureValues):
             expected_values = tested_model.temperature_at_depth(depth_bc)
-        
+
         max_value = expected_values[max_value_side][0]
         min_value = expected_values[min_value_side][0]
 
@@ -178,10 +178,7 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         vertical_index = 2 if model_dim == 3 else 1
 
         expected_gradient = multipliers[vertical_index] * gravity
-        expected_stress = (expected_gradient
-                        * depth_bc
-                        * boundary_grid.cell_volumes
-        )
+        expected_stress = expected_gradient * depth_bc * boundary_grid.cell_volumes
 
         max_value = expected_stress[max_value_side].max()
         min_value = expected_stress[min_value_side].min()
