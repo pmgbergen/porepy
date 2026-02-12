@@ -17,7 +17,7 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
     LithostaticBoundaryStressValues,
     ThermalGradientBoundaryTemperatureValues,
 )
-from porepy.applications.md_grids.model_geometries import OrthogonalFractures3d
+from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
 
 
 @pytest.mark.parametrize(
@@ -45,7 +45,7 @@ def test_gradient_scalar_boundary_values(params):
 
     class TestedModel(
         mixin_type,
-        OrthogonalFractures3d,
+        CubeDomainOrthogonalFractures,
         pp.MassAndEnergyBalance,
     ):
         pass
@@ -80,7 +80,7 @@ def test_gradient_scalar_boundary_values(params):
 def test_lithostatic_boundary_stress_values():
     class TestedModel(
         LithostaticBoundaryStressValues,
-        OrthogonalFractures3d,
+        CubeDomainOrthogonalFractures,
         pp.MomentumBalance,
     ):
         pass
