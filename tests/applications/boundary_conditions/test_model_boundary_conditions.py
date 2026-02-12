@@ -17,9 +17,13 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
     LithostaticBoundaryStressValues,
     ThermalGradientBoundaryTemperatureValues,
 )
-from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
+from porepy.applications.md_grids.model_geometries import (
+    CubeDomainOrthogonalFractures,
+    SquareDomainOrthogonalFractures,
+)
 
 
+@pytest.mark.parametrize("model_dim", [2, 3])
 @pytest.mark.parametrize(
     "params",
     [
@@ -39,13 +43,20 @@ from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFr
         ),
     ],
 )
-def test_gradient_scalar_boundary_values(params):
+def test_gradient_scalar_boundary_values(params, model_dim: int):
     mixin_type: Type[pp.PorePyModel] = params["mixin"]
     method_to_evaluate: Callable = params["method_to_evaluate"]
 
+    if model_dim == 3:
+        geometry_mixin_type = CubeDomainOrthogonalFractures
+    elif model_dim == 2:
+        geometry_mixin_type = SquareDomainOrthogonalFractures
+    else:
+        raise ValueError(model_dim)
+
     class TestedModel(
         mixin_type,
-        CubeDomainOrthogonalFractures,
+        geometry_mixin_type,
         pp.MassAndEnergyBalance,
     ):
         pass
@@ -58,8 +69,19 @@ def test_gradient_scalar_boundary_values(params):
 
         sides = tested_model.domain_boundary_sides(boundary_grid)
 
-        max_value = values[sides.bottom][0]
-        min_value = values[sides.top][0]
+        if model_dim == 3:
+            max_value_side = sides.bottom
+            min_value_side = sides.top
+            other_sides = sides.east | sides.west | sides.north | sides.south
+            vertical_index = 2
+        elif model_dim == 2:
+            max_value_side = sides.south
+            min_value_side = sides.north
+            other_sides = sides.east | sides.west
+            vertical_index = 1
+
+        max_value = values[max_value_side][0]
+        min_value = values[min_value_side][0]
         # We test that the boundary values are:
         #      top     min val
         #            |--------|
@@ -68,18 +90,17 @@ def test_gradient_scalar_boundary_values(params):
         #   bottom     max val
         assert min_value < max_value
         # Min and max values should be the same in each cell of the side.
-        np.testing.assert_array_equal(values[sides.bottom], max_value)
-        np.testing.assert_array_equal(values[sides.top], min_value)
+        np.testing.assert_array_equal(values[max_value_side], max_value)
+        np.testing.assert_array_equal(values[min_value_side], min_value)
 
         # Other sides should contain values within the interval.
-        other_sides = sides.east | sides.west | sides.north | sides.south
         assert np.all(values[other_sides] <= max_value)
         assert np.all(values[other_sides] >= min_value)
         
         # Check the values vary linearly in depth
-        z_cell_centers = boundary_grid.cell_centers[2]
-        z_top = np.mean(z_cell_centers[sides.top])
-        z_bottom = np.mean(z_cell_centers[sides.bottom])
+        z_cell_centers = boundary_grid.cell_centers[vertical_index]
+        z_top = np.mean(z_cell_centers[min_value_side])
+        z_bottom = np.mean(z_cell_centers[max_value_side])
 
         slope = (max_value - min_value) / (z_bottom - z_top)
         intercept = min_value - slope * z_top
@@ -94,10 +115,18 @@ def test_gradient_scalar_boundary_values(params):
 
 
 
-def test_lithostatic_boundary_stress_values():
+@pytest.mark.parametrize("model_dim", [2, 3])
+def test_lithostatic_boundary_stress_values(model_dim: int):
+    if model_dim == 3:
+        geometry_mixin_type = CubeDomainOrthogonalFractures
+    elif model_dim == 2:
+        geometry_mixin_type = SquareDomainOrthogonalFractures
+    else:
+        raise ValueError(model_dim)
+
     class TestedModel(
         LithostaticBoundaryStressValues,
-        CubeDomainOrthogonalFractures,
+        geometry_mixin_type,
         pp.MomentumBalance,
     ):
         pass
@@ -120,6 +149,13 @@ def test_lithostatic_boundary_stress_values():
         north = np.repeat(sides.north, 3)
         south = np.repeat(sides.south, 3)
 
+        if model_dim == 3:
+            max_value_side = bottom
+            min_value_side = top
+        elif model_dim == 2:
+            max_value_side = south
+            min_value_side = north
+
         # Shear stresses must be zeros.
         np.testing.assert_array_equal(values[bottom | top][0::3], 0)
         np.testing.assert_array_equal(values[bottom | top][1::3], 0)
@@ -129,29 +165,32 @@ def test_lithostatic_boundary_stress_values():
         np.testing.assert_array_equal(values[north | south][2::3], 0)
 
         # Normal stresses.
-        max_value = values[bottom][2::3].max()
-        min_value = values[top][2::3].min()
+        max_value = values[max_value_side].max()
+        min_value = values[min_value_side].min()
         assert min_value < max_value
 
-        # For this geometry, east and west sides contain no cells for the fracture
-        # boundary.
-        east_value = values[east][0::3].mean() if np.any(east) else 0
-        west_value = values[west][0::3].mean() if np.any(west) else 0
-        north_value = values[north][1::3].mean()
-        south_value = values[south][1::3].mean()
+        # For this geometry, some sides contain no cells for the fracture boundary.
+        east_value = values[east].mean() if np.any(east) else 0
+        west_value = values[west].mean() if np.any(west) else 0
+        if model_dim == 3:
+            north_value = values[north].mean()
+            south_value = values[south].mean()
 
         # All mean values of the sides are within the bounds.
         assert min_value <= abs(east_value) < max_value
         assert min_value <= abs(west_value) < max_value
-        assert min_value <= abs(north_value) < max_value
-        assert min_value <= abs(south_value) < max_value
+        if model_dim == 3:
+            assert min_value <= abs(north_value) < max_value
+            assert min_value <= abs(south_value) < max_value
 
         # Forces on opposite sides should have opposite sign.
         assert east_value <= 0
         assert west_value >= 0
-        assert north_value <= 0
-        assert south_value >= 0
+        if model_dim == 3:
+            assert north_value <= 0
+            assert south_value >= 0
 
         # Forces on opposite sides should equilibrate each other, the domain is static.
         np.testing.assert_almost_equal(east_value + west_value, 0)
-        np.testing.assert_almost_equal(north_value + south_value, 0)
+        if model_dim == 3:
+            np.testing.assert_almost_equal(north_value + south_value, 0)
