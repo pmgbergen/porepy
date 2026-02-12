@@ -728,7 +728,12 @@ def test_max_iterations_criterion(iteration_index, max_iterations, expected_stat
 
 # Test collection of criteria
 @pytest.mark.parametrize(
-    ("value", "expected_status_1", "expected_status_2", "expected_status"),
+    (
+        "value",
+        "expected_status_crit_1",
+        "expected_status_crit_2",
+        "expected_status_collection",
+    ),
     [
         (
             1e-4,
@@ -751,7 +756,10 @@ def test_max_iterations_criterion(iteration_index, max_iterations, expected_stat
     ],
 )
 def test_convergence_criteria_collection(
-    value, expected_status_1, expected_status_2, expected_status
+    value,
+    expected_status_crit_1,
+    expected_status_crit_2,
+    expected_status_collection,
 ):
     """Test ConvergenceCriteria with multiple criteria."""
     # Create two simple absolute convergence criteria with different tolerances
@@ -767,9 +775,9 @@ def test_convergence_criteria_collection(
     )
 
     status, info = criteria.check(value=np.array([value]))
-    assert status["crit1"] == expected_status_1
-    assert status["crit2"] == expected_status_2
-    if expected_status == ConvergenceStatus.CONVERGED:
+    assert status["crit1"] == expected_status_crit_1
+    assert status["crit2"] == expected_status_crit_2
+    if expected_status_collection == ConvergenceStatus.CONVERGED:
         assert status.is_converged()
     else:
         assert status.is_not_converged()
@@ -779,7 +787,12 @@ def test_convergence_criteria_collection(
 
 
 @pytest.mark.parametrize(
-    ("value", "expected_status_1", "expected_status_2", "expected_status"),
+    (
+        "value",
+        "expected_status_crit_1",
+        "expected_status_crit_2",
+        "expected_status_collection",
+    ),
     [
         (
             1e-4,
@@ -802,7 +815,10 @@ def test_convergence_criteria_collection(
     ],
 )
 def test_divergence_criteria_collection(
-    value, expected_status_1, expected_status_2, expected_status
+    value,
+    expected_status_crit_1,
+    expected_status_crit_2,
+    expected_status_collection,
 ):
     """Test DivergenceCriteria with multiple criteria."""
     # Create two simple absolute divergence criteria with different tolerances
@@ -818,9 +834,9 @@ def test_divergence_criteria_collection(
     )
 
     status = criteria.check(value=np.array([value]))
-    assert status["crit1"] == expected_status_1
-    assert status["crit2"] == expected_status_2
-    if expected_status == ConvergenceStatus.CONVERGED:
+    assert status["crit1"] == expected_status_crit_1
+    assert status["crit2"] == expected_status_crit_2
+    if expected_status_collection == ConvergenceStatus.CONVERGED:
         assert status.is_converged()
     else:
         assert status.is_diverged()
