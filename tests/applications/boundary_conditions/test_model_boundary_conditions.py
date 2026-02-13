@@ -62,6 +62,14 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
         pass
 
     tested_model = TestedModel()
+    thermal_gradient = 0.03
+    surface_temperature = 293.15
+    tested_model.params.update(
+        {
+            "thermal_gradient": thermal_gradient,
+            "surface_temperature": surface_temperature,
+        }
+    )
     tested_model.prepare_simulation()
 
     for boundary_grid in tested_model.mdg.boundaries():
@@ -80,9 +88,14 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
             other_sides = sides.east | sides.west
             vertical_index = 1
 
-        # Explicitly compute the expected values at the boundary based on the depth of
-        # the cell centers.
-        depth_bc = boundary_grid.cell_centers[vertical_index]
+        # Explicitly compute the expected values at the boundary based on the 
+        # depth of the cell centers.
+        domain_key = "zmax" if model_dim == 3 else "ymax"
+        depth_bc = (
+            tested_model.domain.bounding_box[domain_key] 
+            - boundary_grid.cell_centers[vertical_index]
+        )
+        
         if isinstance(tested_model, HydrostaticBoundaryPressureValues):
             # The expected values are computed as: P = rho * g * h + P_atm.
             rho = tested_model.fluid.reference_component.density
@@ -90,8 +103,8 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
                 pp.GRAVITY_ACCELERATION * rho * depth_bc + pp.ATMOSPHERIC_PRESSURE
             )
         elif isinstance(tested_model, ThermalGradientBoundaryTemperatureValues):
-            # TODO: As above
-            expected_values = tested_model.temperature_at_depth(depth_bc)
+            # The expected values are computed as: T = T_{surface} + G * h. 
+            expected_values = surface_temperature + thermal_gradient * depth_bc
 
         max_value = expected_values[max_value_side][0]
         min_value = expected_values[min_value_side][0]
@@ -144,8 +157,14 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
     ):
         pass
 
-    stress_multipliers = np.array([1, 2, 0.1])  # Scaling of the lithostatic stress.
-    tested_model = TestedModel({"lithostatic_stress_multipliers": stress_multipliers})
+    # Scaling of the lithostatic stress.
+    stress_multipliers = np.array([1, 2, 0.1])  
+    tested_model = TestedModel()
+    tested_model.params.update(
+        {
+            "lithostatic_stress_multipliers": stress_multipliers
+        }
+    )
     tested_model.prepare_simulation()
 
     # Lithostatic boundary condition requires non-zero time.
@@ -163,13 +182,6 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         north = np.repeat(sides.north, 3)
         south = np.repeat(sides.south, 3)
 
-        if model_dim == 3:
-            max_value_side = sides.bottom
-            min_value_side = sides.top
-        elif model_dim == 2:
-            max_value_side = sides.south
-            min_value_side = sides.north
-
         # Shear stresses must be zeros.
         np.testing.assert_array_equal(values[bottom | top][0::3], 0)
         np.testing.assert_array_equal(values[bottom | top][1::3], 0)
@@ -180,23 +192,33 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
 
         vertical_index = 2 if model_dim == 3 else 1
 
-        # Explicitly compute expected Normal stresses.
-        depth_bc = boundary_grid.cell_centers[vertical_index]
+        # Explicitly compute expected normal stresses in each direction.
+        domain_key = "zmax" if model_dim == 3 else "ymax"
+        depth_bc = (
+            tested_model.domain.bounding_box[domain_key] 
+            - boundary_grid.cell_centers[vertical_index]
+        )
         rho_f = tested_model.fluid.reference_component.density
         rho_s = tested_model.solid.density
         phi = tested_model.solid.porosity
         rho_eff = rho_s * (1 - phi) + rho_f * phi
-        gravity = pp.GRAVITY_ACCELERATION
-        expected_lithostatic_stress = rho_eff * gravity * depth_bc
+        gravity = rho_eff * pp.GRAVITY_ACCELERATION
 
-        expected_gradient = (
-            stress_multipliers[vertical_index] * expected_lithostatic_stress
-        )
-        expected_stress = expected_gradient * depth_bc * boundary_grid.cell_volumes
+        expected_stress = [
+            stress_multipliers[i] * gravity * depth_bc * boundary_grid.cell_volumes
+            for i in range(3)
+        ]
 
-        max_value = expected_stress[max_value_side].max()
-        min_value = expected_stress[min_value_side].min()
-        assert min_value < max_value
+        # Values from the model should be equal to explicitly expected results. 
+        expected_east = -expected_stress[0][sides.east]
+        expected_west = +expected_stress[0][sides.east]
+        np.testing.assert_allclose(values[east][0::3], expected_east)
+        np.testing.assert_allclose(values[west][0::3], expected_west)
+        if model_dim == 3: 
+            expected_north = -expected_stress[1][sides.north]
+            expected_south = +expected_stress[1][sides.south]
+            np.testing.assert_allclose(values[north][1::3], expected_north)
+            np.testing.assert_allclose(values[south][1::3], expected_south)
 
         # For this geometry, some sides contain no cells for the fracture boundary.
         east_value = values[east].mean() if np.any(east) else 0
@@ -204,20 +226,6 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         if model_dim == 3:
             north_value = values[north].mean()
             south_value = values[south].mean()
-
-        # All mean values of the sides are within the bounds.
-        assert min_value <= abs(east_value) < max_value
-        assert min_value <= abs(west_value) < max_value
-        if model_dim == 3:
-            assert min_value <= abs(north_value) < max_value
-            assert min_value <= abs(south_value) < max_value
-
-        # Forces on opposite sides should have opposite sign.
-        assert east_value <= 0
-        assert west_value >= 0
-        if model_dim == 3:
-            assert north_value <= 0
-            assert south_value >= 0
 
         # Forces on opposite sides should equilibrate each other, the domain is static.
         np.testing.assert_almost_equal(east_value + west_value, 0)
