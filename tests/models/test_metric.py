@@ -173,14 +173,14 @@ def test_equation_based_lebesgue_metric_on_model(orthogonal_3d_model):
 
     # Scale with the right cell volumes.
     for eqn in equations:
-        domains = orthogonal_3d_model.equation_system._equation_image_space_composition[
+        domains = orthogonal_3d_model.equation_system.equation_image_space_composition[
             eqn
         ].keys()
         if len(domains) == 0:
             continue
         indices = orthogonal_3d_model.equation_system.assembled_equation_indices[eqn]
         cell_volumes = np.hstack([_sd.cell_volumes for _sd in domains])
-        eq_dim = orthogonal_3d_model.equation_system._equation_image_size_info[eqn][
+        eq_dim = orthogonal_3d_model.equation_system.equation_image_size_info[eqn][
             "cells"
         ]
         dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=eq_dim)
@@ -193,11 +193,11 @@ def test_equation_based_lebesgue_metric_on_model(orthogonal_3d_model):
     # (incl. dimensionality and sqrt).
     result = {name: 0.0 for name in equations}
     for eqn in equations:
-        domains = orthogonal_3d_model.equation_system._equation_image_space_composition[
+        domains = orthogonal_3d_model.equation_system.equation_image_space_composition[
             eqn
         ].keys()
         volume = sum([domain.cell_volumes.sum() for domain in domains])
-        dimensionality = orthogonal_3d_model.equation_system._equation_image_size_info[
+        dimensionality = orthogonal_3d_model.equation_system.equation_image_size_info[
             eqn
         ]["cells"]
         result[eqn] += volume * dimensionality

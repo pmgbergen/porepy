@@ -200,18 +200,18 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each equation block
 
         """
-        norms = {name: 0.0 for name in self.model.equation_system._equations}
+        norms = {name: 0.0 for name in self.model.equation_system.equations}
         equation_blocks = {
             name: (
                 self.model.equation_system.assembled_equation_indices[name],
                 list(
-                    self.model.equation_system._equation_image_space_composition[
+                    self.model.equation_system.equation_image_space_composition[
                         name
                     ].keys()
                 ),
-                self.model.equation_system._equation_image_size_info[name]["cells"],
+                self.model.equation_system.equation_image_size_info[name]["cells"],
             )
-            for name in self.model.equation_system._equations
+            for name in self.model.equation_system.equations
         }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
             if len(sd) == 0:
