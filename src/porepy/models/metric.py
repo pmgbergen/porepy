@@ -69,7 +69,9 @@ class VariableBasedEuclideanMetric(EuclideanMetric):
             )
             for variable in self.model.equation_system.variables
         }
-        concatenated_variable_blocks = {name: [] for name in set(variable_names)}
+        concatenated_variable_blocks: dict[str, list[int]] = {
+            name: [] for name in set(variable_names)
+        }
         for (name, _), indices in variable_blocks.items():
             concatenated_variable_blocks[name].extend(indices)
 
