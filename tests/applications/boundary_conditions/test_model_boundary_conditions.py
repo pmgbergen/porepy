@@ -80,10 +80,17 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
             other_sides = sides.east | sides.west
             vertical_index = 1
 
-        depth_bc = tested_model.depth(boundary_grid.cell_centers)
+        # Explicitly compute the expected values at the boundary based on the depth of
+        # the cell centers.
+        depth_bc = boundary_grid.cell_centers[vertical_index]
         if isinstance(tested_model, HydrostaticBoundaryPressureValues):
-            expected_values = tested_model.hydrostatic_pressure(depth_bc)
+            # The expected values are computed as: P = rho * g * h + P_atm.
+            rho = tested_model.fluid.reference_component.density
+            expected_values = (
+                pp.GRAVITY_ACCELERATION * rho * depth_bc + pp.ATMOSPHERIC_PRESSURE
+            )
         elif isinstance(tested_model, ThermalGradientBoundaryTemperatureValues):
+            # TODO: As above
             expected_values = tested_model.temperature_at_depth(depth_bc)
 
         max_value = expected_values[max_value_side][0]
@@ -137,7 +144,8 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
     ):
         pass
 
-    tested_model = TestedModel()
+    stress_multipliers = np.array([1, 2, 0.1])  # Scaling of the lithostatic stress.
+    tested_model = TestedModel({"lithostatic_stress_multipliers": stress_multipliers})
     tested_model.prepare_simulation()
 
     # Lithostatic boundary condition requires non-zero time.
@@ -170,14 +178,20 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         np.testing.assert_array_equal(values[north | south][0::3], 0)
         np.testing.assert_array_equal(values[north | south][2::3], 0)
 
-        # Normal stresses.
-        depth_bc = tested_model.depth(boundary_grid.cell_centers)
-        gravity = tested_model.gravity_force_magnitude("bulk")
-        multipliers = tested_model.lithostatic_stress_multipliers
-
         vertical_index = 2 if model_dim == 3 else 1
 
-        expected_gradient = multipliers[vertical_index] * gravity
+        # Explicitly compute expected Normal stresses.
+        depth_bc = boundary_grid.cell_centers[vertical_index]
+        rho_f = tested_model.fluid.reference_component.density
+        rho_s = tested_model.solid.density
+        phi = tested_model.solid.porosity
+        rho_eff = rho_s * (1 - phi) + rho_f * phi
+        gravity = pp.GRAVITY_ACCELERATION
+        expected_lithostatic_stress = rho_eff * gravity * depth_bc
+
+        expected_gradient = (
+            stress_multipliers[vertical_index] * expected_lithostatic_stress
+        )
         expected_stress = expected_gradient * depth_bc * boundary_grid.cell_volumes
 
         max_value = expected_stress[max_value_side].max()
