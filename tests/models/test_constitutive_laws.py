@@ -27,8 +27,8 @@ import porepy as pp
 import porepy.models.constitutive_laws as c_l
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
     CubeDomainOrthogonalFractures,
+    SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
