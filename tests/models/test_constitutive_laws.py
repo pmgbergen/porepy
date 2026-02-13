@@ -28,6 +28,7 @@ import porepy.models.constitutive_laws as c_l
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
+    CubeDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
@@ -479,10 +480,10 @@ def test_perturbation_from_reference(
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
     [
-        (models.OrthogonalFractures3d, 3, [1, 1, 42, 1]),
-        (models.OrthogonalFractures3d, 2, [0.02, 0.02, 1, 1]),
-        (models.OrthogonalFractures3d, 1, [0.02, 0.02**2, 0.02, 1]),
-        (models.OrthogonalFractures3d, 0, [0.02, 0.02**3, 0.02**2, 1]),
+        (CubeDomainOrthogonalFractures, 3, [1, 1, 42, 1]),
+        (CubeDomainOrthogonalFractures, 2, [0.02, 0.02, 1, 1]),
+        (CubeDomainOrthogonalFractures, 1, [0.02, 0.02**2, 0.02, 1]),
+        (CubeDomainOrthogonalFractures, 0, [0.02, 0.02**3, 0.02**2, 1]),
         (models.RectangularDomainThreeFractures, 2, [1, 1, 42, 1]),
         (models.RectangularDomainThreeFractures, 1, [0.02, 0.02, 1, 1]),
         (models.RectangularDomainThreeFractures, 0, [0.02, 0.02**2, 0.02, 1]),
