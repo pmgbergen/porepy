@@ -156,11 +156,19 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each variable block.
 
         """
+        # Sanity check: Ensure that variables are defined on cells.
+        for variable in self.model.equation_system.variables:
+            if not variable._faces == 0 and variable._nodes == 0:
+                raise NotImplementedError(
+                    """VariableBasedLebesgueMetric currently only supports """
+                    """variables defined on cells."""
+                )
+
         norms = {v.name: 0.0 for v in self.model.equation_system.variables}
         variable_blocks = {
             (variable.name, variable.domain): (
                 self.model.equation_system.dofs_of([variable]),
-                variable._cells + variable._faces + variable._nodes,
+                variable._cells,  # + variable._faces + variable._nodes,
             )
             for variable in self.model.equation_system.variables
         }

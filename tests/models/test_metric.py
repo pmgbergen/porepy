@@ -121,7 +121,7 @@ def test_variable_based_lebesgue_metric_on_model(orthogonal_3d_model):
     for v in variables:
         domain = v.domain
         volume = domain.cell_volumes.sum()
-        dimensionality = v._cells + v._faces + v._nodes
+        dimensionality = v._cells
         result[v.name] += volume * dimensionality
     for name in result:
         result[name] = np.sqrt(result[name])
