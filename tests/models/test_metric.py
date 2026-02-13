@@ -308,10 +308,9 @@ class DummyModel(  # type: ignore[misc]
 ): ...
 
 
-def test_variable_based_lebesgue_metric_with_model():
-    """Compare analytical and numerical Lebesgue norms for random polynomial expressions
-    via variables."""
-
+@pytest.fixture
+def random_polynomial_setup():
+    """Fixture providing a random polynomial expression and its analytical L2 norm."""
     # Define symbols
     x, y, z = sp.symbols("x y z")
 
@@ -331,8 +330,21 @@ def test_variable_based_lebesgue_metric_with_model():
         sp.sqrt(sp.integrate(expr**2, (x, 0, 1), (y, 0, 1), (z, 0, 1)))
     )
 
+    return {
+        "coeffs": coeffs,
+        "exponents_x": exponents_x,
+        "exponents_y": exponents_y,
+        "exponents_z": exponents_z,
+        "l2_norm_analytical": l2_norm_analytical,
+    }
+
+
+def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
+    """Compare analytical and numerical Lebesgue norms for random polynomial expressions
+    via variables."""
+    setup = random_polynomial_setup
+
     # Evaluate the numerical norm using the VariableBasedLebesgueMetric.
-    # Use a minimal setup of a dummy model.
     model = DummyModel()
     m_var = pp.VariableBasedEuclideanMetric(model)
     model.prepare_simulation()
@@ -343,7 +355,12 @@ def test_variable_based_lebesgue_metric_with_model():
     cell_center_y = model.mdg.subdomains()[0].cell_centers[1, :]
     cell_center_z = model.mdg.subdomains()[0].cell_centers[2, :]
     polynomial_expression = np.zeros_like(cell_center_x)
-    for c, e_x, e_y, e_z in zip(coeffs, exponents_x, exponents_y, exponents_z):
+    for c, e_x, e_y, e_z in zip(
+        setup["coeffs"],
+        setup["exponents_x"],
+        setup["exponents_y"],
+        setup["exponents_z"],
+    ):
         polynomial_expression += (
             c * cell_center_x**e_x * cell_center_y**e_y * cell_center_z**e_z
         )
@@ -358,44 +375,25 @@ def test_variable_based_lebesgue_metric_with_model():
     l2_norm_numerical = metric_values_var["dummy_variable_x"]
 
     # Allow for small numerical errors due to numerical integration.
-    assert np.isclose(l2_norm_numerical, l2_norm_analytical, rtol=1e-1), (
+    assert np.isclose(l2_norm_numerical, setup["l2_norm_analytical"], rtol=1e-1), (
         """Numerical and analytical L2 norms do not match. """
         f"""Numerical: {l2_norm_numerical} """
-        f"""Analytical: {l2_norm_analytical} """
+        f"""Analytical: {setup["l2_norm_analytical"]} """
     )
 
 
-def test_equation_based_lebesgue_metric_with_model():
+def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
     """Compare analytical and numerical Lebesgue norms for random polynomial expressions
     via equations."""
-
-    # Define symbols
-    x, y, z = sp.symbols("x y z")
-
-    # Define a random polynomial in x,y,z.
-    coeffs = np.random.randint(-5, 6, size=10)
-    exponents_x = np.random.randint(0, 4, size=10)
-    exponents_y = np.random.randint(0, 4, size=10)
-    exponents_z = np.random.randint(0, 4, size=10)
-    expr = sum(
-        c * x**e_x * y**e_y * z**e_z
-        for c, e_x, e_y, e_z in zip(coeffs, exponents_x, exponents_y, exponents_z)
-    )
-
-    # Compute the analytical L2 norm over the unit cube.
-    l2_norm_analytical = float(
-        sp.sqrt(sp.integrate(expr**2, (x, 0, 1), (y, 0, 1), (z, 0, 1)))
-    )
+    setup = random_polynomial_setup
 
     # Evaluate the numerical norm using the EquationBasedLebesgueMetric.
-    # Pass the coefficients and exponents to the model parameters
-    # to define the polynomial expression in the equation.
     model = DummyModel(
         {
-            "coeff": coeffs,
-            "exp_x": exponents_x,
-            "exp_y": exponents_y,
-            "exp_z": exponents_z,
+            "coeff": setup["coeffs"],
+            "exp_x": setup["exponents_x"],
+            "exp_y": setup["exponents_y"],
+            "exp_z": setup["exponents_z"],
         }
     )
     m_eq = pp.EquationBasedLebesgueMetric(model)
@@ -413,8 +411,8 @@ def test_equation_based_lebesgue_metric_with_model():
     l2_norm_numerical = metric_values_eq["sd_eq"]
 
     # Allow for small numerical errors due to numerical integration.
-    assert np.isclose(l2_norm_numerical, l2_norm_analytical, rtol=1e-1), (
+    assert np.isclose(l2_norm_numerical, setup["l2_norm_analytical"], rtol=1e-1), (
         """Numerical and analytical L2 norms do not match. """
         f"""Numerical: {l2_norm_numerical} """
-        f"""Analytical: {l2_norm_analytical} """
+        f"""Analytical: {setup["l2_norm_analytical"]} """
     )
