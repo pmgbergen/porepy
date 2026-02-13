@@ -95,7 +95,7 @@ def test_variable_based_euclidean_metric_on_grids(
             orthogonal_3d_model.equation_system.dofs_of([variable])
         )
 
-    # Create a dummy variable and assign each variable block with the appropriate values.
+    # Create a dummy variable and assign each variable block with the values.
     dummy_variable = orthogonal_3d_model.equation_system.get_variable_values(
         time_step_index=0
     )
@@ -299,8 +299,8 @@ class DummyEquations(pp.PorePyModel):
         variable_x = self.dummy_variable_x(subdomains)
         variable_y = self.dummy_variable_y(subdomains)
         variable_z = self.dummy_variable_z(subdomains)
-        # Define a polynomial expression in the variables, with coefficients and exponents
-        # obtained from model parameters.
+        # Define a polynomial expression in the variables, with coefficients and
+        # exponents obtained from model parameters.
         coeff = self.params.get("coeff", [0])
         exp_x = self.params.get("exp_x", [0])
         exp_y = self.params.get("exp_y", [0])
@@ -390,7 +390,7 @@ def random_polynomial_setup():
 
 
 def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
-    """Test integral of a random polynomial expression over the unit cube for variables."""
+    """Test integral of a random polynomial expression via variables."""
     # Evaluate the numerical norm using the VariableBasedLebesgueMetric.
     model = DummyModel()
     m_var = pp.VariableBasedEuclideanMetric(model)
@@ -432,7 +432,7 @@ def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
 
 
 def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
-    """Test integral of a random polynomial expression over the unit cube for equations."""
+    """Test integral of a random polynomial expression via equations."""
     # Evaluate the numerical norm using the EquationBasedLebesgueMetric.
     model = DummyModel(
         {
