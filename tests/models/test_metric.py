@@ -43,31 +43,66 @@ def test_euclidean_metric_basic():
         assert np.isclose(m(arr), 1.0)
 
 
-def test_euclidean_metric_on_model(orthogonal_3d_model):
-    """Test that one arrays return 1.
-
-    Note the scaling of the Euclidean metric - it divides by sqrt(size).
-
-    """
+@pytest.mark.parametrize(
+    "assignment, expected_value",
+    [
+        (np.ones, lambda n: 1.0),
+        (np.arange, lambda n: np.sqrt(n * (n - 1) * (2 * n - 1) / 6) / np.sqrt(n)),
+    ],
+)
+def test_euclidean_metric_on_model(orthogonal_3d_model, assignment, expected_value):
+    """Test integration of EuclideanMetric in models."""
     m = pp.EuclideanMetric()
     for g in orthogonal_3d_model.mdg.subdomains():
-        arr = np.ones(g.num_cells)
-        assert np.isclose(m(arr), 1)
+        arr = assignment(g.num_cells)
+        assert np.isclose(m(arr), expected_value(g.num_cells))
 
 
-def test_variable_based_euclidean_metric_on_model(orthogonal_3d_model):
+@pytest.mark.parametrize(
+    "assignment, expected_value",
+    [
+        (np.ones, lambda n: 1.0),
+        (np.arange, lambda n: np.sqrt(n * (n - 1) * (2 * n - 1) / 6) / np.sqrt(n)),
+    ],
+)
+def test_variable_based_euclidean_metric_on_model(
+    orthogonal_3d_model, assignment, expected_value
+):
+    """Test integration of VariableBasedEuclideanMetric in models."""
     m = pp.VariableBasedEuclideanMetric(orthogonal_3d_model)
+
+    # Fetch variable names and corresponding dofs for each variable block.
+    variable_names = set(
+        [v.name for v in orthogonal_3d_model.equation_system.variables]
+    )
+    variable_dofs = {name: [] for name in variable_names}
+    for variable in orthogonal_3d_model.equation_system.variables:
+        variable_dofs[variable.name].extend(
+            orthogonal_3d_model.equation_system.dofs_of([variable])
+        )
+
+    # Create a dummy variable and assign each variable block with the appropriate values.
     dummy_variable = orthogonal_3d_model.equation_system.get_variable_values(
         time_step_index=0
     )
-    dummy_variable.fill(1.0)
+    for name in variable_names:
+        dofs = variable_dofs[name]
+        dummy_variable[dofs] = assignment(len(dofs))
+
+    # Compute the corresponding Euclidean metric.
     metric_values = m(dummy_variable)
-    for _, value in metric_values.items():
-        assert np.isclose(value, 1.0)
+
+    # Check keys
+    assert set(metric_values.keys()) == variable_names
+
+    # Check values
+    for key, value in metric_values.items():
+        dofs = variable_dofs[key]
+        assert np.isclose(value, expected_value(len(dofs)))
 
 
 def test_variable_based_lebesgue_metric_on_model(orthogonal_3d_model):
-    """Test that one arrays return correct Lebesgue metric."""
+    """Test integration of VariableBasedLebesgueMetric in models."""
 
     # Create a dummy variable array filled with ones.
     dummy_variable = orthogonal_3d_model.equation_system.get_variable_values(
