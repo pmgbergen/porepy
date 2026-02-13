@@ -130,24 +130,36 @@ def test_variable_based_lebesgue_metric_on_model(orthogonal_3d_model):
         assert np.isclose(result[name], metric_values[name])
 
 
-def test_equation_based_euclidean_metric_on_model(orthogonal_3d_model):
-    """Test whether the Euclidean metric of 1-s results in 1-s."""
+@pytest.mark.parametrize(
+    "assignment, expected_value",
+    [
+        (np.ones, lambda n: 1.0),
+        (np.arange, lambda n: np.sqrt(n * (n - 1) * (2 * n - 1) / 6) / np.sqrt(n)),
+    ],
+)
+def test_equation_based_euclidean_metric_on_grids(
+    orthogonal_3d_model, assignment, expected_value
+):
+    """Test integration of EquationBasedEuclideanMetric in models with grids."""
     # Generate a dummy residual array filled with ones.
     # NOTE: Evaluate Jacobian to initialize the equation system properly.
     _, dummy_residual_array = orthogonal_3d_model.equation_system.assemble()
-    dummy_residual_array.fill(1.0)
+
+    # Define array and expected norm values.
+    equations = orthogonal_3d_model.equation_system.equations
+    result = {}
+    for name in equations:
+        dofs = orthogonal_3d_model.equation_system.assembled_equation_indices[name]
+        if len(dofs) == 0:
+            # Expect zero norm for empty equations
+            result[name] = 0.0
+            continue
+        dummy_residual_array[dofs] = assignment(len(dofs))
+        result[name] = expected_value(len(dofs))
 
     # Compute Lebesgue metric values.
     m = pp.EquationBasedEuclideanMetric(orthogonal_3d_model)
     metric_values = m(dummy_residual_array)
-
-    # Define expected values - 1's for scaled Euclidean norm.
-    equations = orthogonal_3d_model.equation_system.equations
-    result = {name: 1.0 for name in equations}
-
-    # Since there is no wells, the well equation should have a zero contribution.
-    if "well_flux_equation" in result:
-        result["well_flux_equation"] = 0.0
 
     # Make sure that the dictionaries are the same.
     deepdiff_result = DeepDiff(
