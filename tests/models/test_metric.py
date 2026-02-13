@@ -23,7 +23,7 @@ from deepdiff import DeepDiff
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.applications.md_grids.model_geometries import OrthogonalFractures3d
+from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +37,7 @@ def orthogonal_3d_model() -> pp.PorePyModel:
         },
     }
 
-    class Model(OrthogonalFractures3d, pp.Poromechanics):
+    class Model(CubeDomainOrthogonalFractures, pp.Poromechanics):
         pass
 
     model = Model(params)
