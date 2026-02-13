@@ -1,4 +1,18 @@
-"""Unit tests for various metric implementations in PorePy."""
+"""Unit tests for various metric implementations in PorePy.
+
+Tested basic functionality and integration in models for the following metrics:
+- EuclideanMetric
+- VariableBasedEuclideanMetric
+- VariableBasedLebesgueMetric
+- EquationBasedEuclideanMetric
+- EquationBasedLebesgueMetric
+
+The tests combine simple unit tests and comparisons of norm computations for:
+- one arrays and one functions over domains
+- Gauss summation of squares for Euclidean metrics
+- random polynomial expressions for L2 norms
+
+"""
 
 from typing import Literal
 
@@ -14,7 +28,7 @@ from porepy.applications.md_grids.model_geometries import OrthogonalFractures3d
 
 @pytest.fixture(scope="module")
 def orthogonal_3d_model() -> pp.PorePyModel:
-    # Set up parameters for a unit cube with three orthogonal fractures.
+    """Set up parameters for a unit cube with three orthogonal fractures."""
     params = {
         "domain_size": 1.0,
         "fracture_indices": [0, 1, 2],  # Use all three orthogonal fractures.
@@ -50,8 +64,8 @@ def test_euclidean_metric_basic():
         (np.arange, lambda n: np.sqrt(n * (n - 1) * (2 * n - 1) / 6) / np.sqrt(n)),
     ],
 )
-def test_euclidean_metric_on_model(orthogonal_3d_model, assignment, expected_value):
-    """Test integration of EuclideanMetric in models."""
+def test_euclidean_metric_on_grids(orthogonal_3d_model, assignment, expected_value):
+    """Test integration of EuclideanMetric in models with grids."""
     m = pp.EuclideanMetric()
     for g in orthogonal_3d_model.mdg.subdomains():
         arr = assignment(g.num_cells)
@@ -65,10 +79,10 @@ def test_euclidean_metric_on_model(orthogonal_3d_model, assignment, expected_val
         (np.arange, lambda n: np.sqrt(n * (n - 1) * (2 * n - 1) / 6) / np.sqrt(n)),
     ],
 )
-def test_variable_based_euclidean_metric_on_model(
+def test_variable_based_euclidean_metric_on_grids(
     orthogonal_3d_model, assignment, expected_value
 ):
-    """Test integration of VariableBasedEuclideanMetric in models."""
+    """Test integration of VariableBasedEuclideanMetric in models with grids."""
     m = pp.VariableBasedEuclideanMetric(orthogonal_3d_model)
 
     # Fetch variable names and corresponding dofs for each variable block.
@@ -101,8 +115,13 @@ def test_variable_based_euclidean_metric_on_model(
         assert np.isclose(value, expected_value(len(dofs)))
 
 
-def test_variable_based_lebesgue_metric_on_model(orthogonal_3d_model):
-    """Test integration of VariableBasedLebesgueMetric in models."""
+def test_variable_based_lebesgue_metric_on_grids(orthogonal_3d_model):
+    """Test integration of VariableBasedLebesgueMetric in models with grids.
+
+    Check that the integration of 1-s over the domain results in the expected L2 norm,
+    which includes the volume of the domain and the dimensionality of the variable.
+
+    """
 
     # Create a dummy variable array filled with ones.
     dummy_variable = orthogonal_3d_model.equation_system.get_variable_values(
@@ -173,7 +192,7 @@ def test_equation_based_euclidean_metric_on_grids(
     assert deepdiff_result == {}
 
 
-def test_equation_based_lebesgue_metric_on_model(orthogonal_3d_model):
+def test_equation_based_lebesgue_metric_on_grid(orthogonal_3d_model):
     """Test whether the integration of 1-s over the domain results in volume."""
 
     # Fetch the equations.
@@ -222,6 +241,8 @@ def test_equation_based_lebesgue_metric_on_model(orthogonal_3d_model):
 
 
 class UnitCube:
+    """Model geometry for a unit cube domain."""
+
     def set_domain(self) -> None:
         """Set domain."""
         self._domain = nd_cube_domain(3, 1.0)
@@ -235,7 +256,10 @@ class UnitCube:
 
 
 class DummyVariables(pp.VariableMixin):
+    """Define dummy variables for testing metrics."""
+
     def create_variables(self) -> None:
+        """Create dummy variables associated with spatial coordinates."""
         self.equation_system.create_variables(
             "dummy_variable_x",
             subdomains=self.mdg.subdomains(),
@@ -253,25 +277,30 @@ class DummyVariables(pp.VariableMixin):
         )
 
     def dummy_variable_x(self, subdomains):
+        """Fetch dummy variable x."""
         return self.equation_system.md_variable("dummy_variable_x", subdomains)
 
     def dummy_variable_y(self, subdomains):
+        """Fetch dummy variable y."""
         return self.equation_system.md_variable("dummy_variable_y", subdomains)
 
     def dummy_variable_z(self, subdomains):
+        """Fetch dummy variable z."""
         return self.equation_system.md_variable("dummy_variable_z", subdomains)
 
 
 class DummyEquations(pp.PorePyModel):
-    def set_equations(self):
-        subdomains = self.mdg.subdomains()
-        sd_eq = self.sd_eq(subdomains)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+    """Define dummy equations for testing metrics."""
 
-    def sd_eq(self, subdomains):
+    def sd_eq(self, subdomains: pp.GridLikeSequence) -> pp.ad.Operator:
+        """Polynom in the variables, integrated over the domain with mass weighting."""
+
+        # Treat variables as spatial coordinates.
         variable_x = self.dummy_variable_x(subdomains)
         variable_y = self.dummy_variable_y(subdomains)
         variable_z = self.dummy_variable_z(subdomains)
+        # Define a polynomial expression in the variables, with coefficients and exponents
+        # obtained from model parameters.
         coeff = self.params.get("coeff", [0])
         exp_x = self.params.get("exp_x", [0])
         exp_y = self.params.get("exp_y", [0])
@@ -293,6 +322,12 @@ class DummyEquations(pp.PorePyModel):
         mass_weighted_expression.set_name("sd_eq")
         return mass_weighted_expression
 
+    def set_equations(self):
+        """Set dummy equations based on the polynomial expression."""
+        subdomains = self.mdg.subdomains()
+        sd_eq = self.sd_eq(subdomains)
+        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+
 
 class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):
     """Fetch only volume integral from BalanceEquation."""
@@ -303,6 +338,7 @@ class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):
         grids: pp.GridLikeSequence,
         dim: int,
     ) -> pp.ad.Operator:
+        """Fetch only volume integral from BalanceEquation for simple cases."""
         return pp.BalanceEquation.volume_integral(self, integrand, grids, dim)
 
 
@@ -317,7 +353,9 @@ class DummyModel(  # type: ignore[misc]
     pp.BoundaryConditionMixin,
     pp.InitialConditionMixin,
     pp.DataSavingMixin,
-): ...
+):
+    """A dummy model combining necessary components to test metrics with random
+    polynomial expressions."""
 
 
 @pytest.fixture
@@ -352,10 +390,7 @@ def random_polynomial_setup():
 
 
 def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
-    """Compare analytical and numerical Lebesgue norms for random polynomial expressions
-    via variables."""
-    setup = random_polynomial_setup
-
+    """Test integral of a random polynomial expression over the unit cube for variables."""
     # Evaluate the numerical norm using the VariableBasedLebesgueMetric.
     model = DummyModel()
     m_var = pp.VariableBasedEuclideanMetric(model)
@@ -368,10 +403,10 @@ def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
     cell_center_z = model.mdg.subdomains()[0].cell_centers[2, :]
     polynomial_expression = np.zeros_like(cell_center_x)
     for c, e_x, e_y, e_z in zip(
-        setup["coeffs"],
-        setup["exponents_x"],
-        setup["exponents_y"],
-        setup["exponents_z"],
+        random_polynomial_setup["coeffs"],
+        random_polynomial_setup["exponents_x"],
+        random_polynomial_setup["exponents_y"],
+        random_polynomial_setup["exponents_z"],
     ):
         polynomial_expression += (
             c * cell_center_x**e_x * cell_center_y**e_y * cell_center_z**e_z
@@ -387,25 +422,24 @@ def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
     l2_norm_numerical = metric_values_var["dummy_variable_x"]
 
     # Allow for small numerical errors due to numerical integration.
-    assert np.isclose(l2_norm_numerical, setup["l2_norm_analytical"], rtol=1e-1), (
+    assert np.isclose(
+        l2_norm_numerical, random_polynomial_setup["l2_norm_analytical"], rtol=1e-1
+    ), (
         """Numerical and analytical L2 norms do not match. """
         f"""Numerical: {l2_norm_numerical} """
-        f"""Analytical: {setup["l2_norm_analytical"]} """
+        f"""Analytical: {random_polynomial_setup["l2_norm_analytical"]} """
     )
 
 
 def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
-    """Compare analytical and numerical Lebesgue norms for random polynomial expressions
-    via equations."""
-    setup = random_polynomial_setup
-
+    """Test integral of a random polynomial expression over the unit cube for equations."""
     # Evaluate the numerical norm using the EquationBasedLebesgueMetric.
     model = DummyModel(
         {
-            "coeff": setup["coeffs"],
-            "exp_x": setup["exponents_x"],
-            "exp_y": setup["exponents_y"],
-            "exp_z": setup["exponents_z"],
+            "coeff": random_polynomial_setup["coeffs"],
+            "exp_x": random_polynomial_setup["exponents_x"],
+            "exp_y": random_polynomial_setup["exponents_y"],
+            "exp_z": random_polynomial_setup["exponents_z"],
         }
     )
     m_eq = pp.EquationBasedLebesgueMetric(model)
@@ -423,8 +457,10 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
     l2_norm_numerical = metric_values_eq["sd_eq"]
 
     # Allow for small numerical errors due to numerical integration.
-    assert np.isclose(l2_norm_numerical, setup["l2_norm_analytical"], rtol=1e-1), (
+    assert np.isclose(
+        l2_norm_numerical, random_polynomial_setup["l2_norm_analytical"], rtol=1e-1
+    ), (
         """Numerical and analytical L2 norms do not match. """
         f"""Numerical: {l2_norm_numerical} """
-        f"""Analytical: {setup["l2_norm_analytical"]} """
+        f"""Analytical: {random_polynomial_setup["l2_norm_analytical"]} """
     )
