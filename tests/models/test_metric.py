@@ -316,6 +316,7 @@ def test_variable_based_lebesgue_metric_with_model():
     x, y, z = sp.symbols("x y z")
 
     # Define a random polynomial in x,y,z.
+    np.random.seed(42)
     coeffs = np.random.randint(-5, 6, size=10)
     exponents_x = np.random.randint(0, 4, size=10)
     exponents_y = np.random.randint(0, 4, size=10)
