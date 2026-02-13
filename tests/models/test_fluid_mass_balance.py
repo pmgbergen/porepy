@@ -631,7 +631,7 @@ def test_unit_conversion(units, grid_class):
 
 class WellModel(
     well_models.OneVerticalWell,
-    models.OrthogonalFractures3d,
+    models.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
     pp.SinglePhaseFlow,
@@ -651,7 +651,7 @@ def test_well_incompressible_pressure_values():
         "material_constants": {
             "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
         },
-        # Use only the horizontal fracture of OrthogonalFractures3d
+        # Use only the horizontal fracture of CubeDomainOrthogonalFractures
         "fracture_indices": [2],
         "times_to_export": [],
     }
