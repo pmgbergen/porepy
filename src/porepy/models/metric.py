@@ -59,12 +59,23 @@ class VariableBasedEuclideanMetric(EuclideanMetric):
             dict[str, float]: measure of values for each variable block
 
         """
-        norms = {}
+        # Collect variable blocks based on variable names
+        variable_names = [
+            variable.name for variable in self.model.equation_system.variables
+        ]
         variable_blocks = {
-            variable.name: self.model.equation_system.dofs_of([variable])
+            (variable.name, variable.domain): (
+                self.model.equation_system.dofs_of([variable])
+            )
             for variable in self.model.equation_system.variables
         }
-        for name, indices in variable_blocks.items():
+        concatenated_variable_blocks = {name: [] for name in set(variable_names)}
+        for (name, _), indices in variable_blocks.items():
+            concatenated_variable_blocks[name].extend(indices)
+
+        # Compute norms for each variable block
+        norms = {name: 0.0 for name in set(variable_names)}
+        for name, indices in concatenated_variable_blocks.items():
             norms[name] = self._euclidean_norm(values[indices])
 
         return norms
