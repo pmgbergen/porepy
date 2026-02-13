@@ -131,6 +131,7 @@ def test_variable_based_lebesgue_metric_on_model(orthogonal_3d_model):
 
 
 def test_equation_based_euclidean_metric_on_model(orthogonal_3d_model):
+    """Test whether the Euclidean metric of 1-s results in 1-s."""
     # Generate a dummy residual array filled with ones.
     # NOTE: Evaluate Jacobian to initialize the equation system properly.
     _, dummy_residual_array = orthogonal_3d_model.equation_system.assemble()
@@ -172,6 +173,8 @@ def test_equation_based_lebesgue_metric_on_model(orthogonal_3d_model):
     dummy_residual_array.fill(1.0)
 
     # Scale with the right cell volumes.
+    # Simultaneously compute the expected L2 norm of the 1 vector (incl dimensionality).
+    result = {name: 0.0 for name in equations}
     for eqn in equations:
         domains = orthogonal_3d_model.equation_system.equation_image_space_composition[
             eqn
@@ -184,25 +187,15 @@ def test_equation_based_lebesgue_metric_on_model(orthogonal_3d_model):
             "cells"
         ]
         dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=eq_dim)
+        result[eqn] += sum(cell_volumes) * eq_dim
+
+    # Take square root to get L2 norm.
+    for name in result:
+        result[name] = np.sqrt(result[name])
 
     # Compute Lebesgue metric values.
     m = pp.EquationBasedLebesgueMetric(orthogonal_3d_model)
     metric_values = m(dummy_residual_array)
-
-    # Define expected values - L2 integral of 1 over the domain
-    # (incl. dimensionality and sqrt).
-    result = {name: 0.0 for name in equations}
-    for eqn in equations:
-        domains = orthogonal_3d_model.equation_system.equation_image_space_composition[
-            eqn
-        ].keys()
-        volume = sum([domain.cell_volumes.sum() for domain in domains])
-        dimensionality = orthogonal_3d_model.equation_system.equation_image_size_info[
-            eqn
-        ]["cells"]
-        result[eqn] += volume * dimensionality
-    for name in result:
-        result[name] = np.sqrt(result[name])
 
     # Make sure that the dictionaries are the same.
     deepdiff_result = DeepDiff(
