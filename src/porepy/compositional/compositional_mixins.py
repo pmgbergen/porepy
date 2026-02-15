@@ -2138,6 +2138,80 @@ class ChemicalSystem(FluidMixin):
             print(f"Phase: {phase}")
             print("  Components:", ", ".join(components))
 
+    def choose_independent_element_rows(
+        self,
+        A: np.ndarray,
+        elements: list[str],
+        *,
+        max_rank: int,
+        prefer_drop: tuple[str, ...] = ("Z",),
+    ) -> list[str]:
+        """
+        Choose a 'nice' set of linearly independent rows from A (elements x species).
+
+        Strategy:
+        - Never pick rows that don't increase rank.
+        - Prefer rows that cover more species (more nonzeros) and have larger variation.
+        - De-prioritize rows in prefer_drop (e.g., charge 'Z') unless needed.
+
+        Returns:
+        list of chosen element names (subset of `elements`) with rank == target_rank.
+        """
+        assert A.shape[0] == len(elements)
+
+        full_rank = np.linalg.matrix_rank(A)
+        target_rank = min(full_rank, max_rank)
+
+        # Build a priority score for each row: higher is better
+        nnz = np.count_nonzero(A, axis=1).astype(float)
+        var = np.var(A.astype(float), axis=1)
+        l2 = np.linalg.norm(A.astype(float), axis=1)
+
+        # Base score: coverage + variability + magnitude
+        score = 10.0 * nnz + 1.0 * var + 0.1 * l2
+
+        # Penalize rows we prefer to drop (e.g., Z)
+        for i, el in enumerate(elements):
+            if el in prefer_drop:
+                score[i] -= 1e6
+
+        # Sort candidate rows by descending score
+        order = np.argsort(-score)
+
+        chosen_idx: list[int] = []
+        current_rank = 0
+        for i in order:
+            trial = chosen_idx + [int(i)]
+            trial_rank = np.linalg.matrix_rank(A[trial, :])
+            if trial_rank > current_rank:
+                chosen_idx.append(int(i))
+                current_rank = trial_rank
+                if current_rank == target_rank:
+                    break
+
+        # If we still didn't reach target rank, allow Z etc. as fallback
+        if current_rank < target_rank:
+            for i in range(len(elements)):
+                if i in chosen_idx:
+                    continue
+                trial = chosen_idx + [i]
+                trial_rank = np.linalg.matrix_rank(A[trial, :])
+                if trial_rank > current_rank:
+                    chosen_idx.append(i)
+                    current_rank = trial_rank
+                    if current_rank == target_rank:
+                        break
+
+        if current_rank < target_rank:
+            raise ValueError(
+                f"Could not reach target rank {target_rank}. Got {current_rank}."
+            )
+
+        return [elements[i] for i in chosen_idx]
+
+
+
+
     def print_formula_matrix(self):
         """Prints the formula matrix of the system."""
         _, species_in_phase = self.get_all_components_by_phase()
@@ -2191,28 +2265,12 @@ class ChemicalSystem(FluidMixin):
 
         matrix = build_matrix(elements)
 
-        # Make a mutable working copy of the element list
-        working_elements = elements.copy()
-        while np.linalg.matrix_rank(build_matrix(working_elements)) < len(
-            working_elements
-        ):
-            print(
-                f"Matrix is not full-rank. Current rank: {np.linalg.matrix_rank(build_matrix(working_elements))}, elements: {working_elements}"
-            )
-            if not working_elements:
-                raise ValueError(
-                    "Cannot build a full-rank formula matrix with given species."
-                )
-
-            # Prioritize removing 'Z' first, then the element with the least variability
-            if "Z" in working_elements:
-                print("Removing 'Z' (charge) row.")
-                working_elements.remove("Z")
-            else:
-                # Try removing one element at a time (e.g. the last one)
-                removed = working_elements.pop()
-                print(f"Removing element '{removed}' to improve rank.")
-
+        working_elements = self.choose_independent_element_rows(
+            matrix,
+            elements,
+            max_rank=len(species_names),
+            prefer_drop=("Z",),   # drop charge unless necessary
+        )
         # Final full-rank matrix
         matrix = build_matrix(working_elements)
         elements = working_elements

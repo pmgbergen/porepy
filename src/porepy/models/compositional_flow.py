@@ -1978,7 +1978,7 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
         """
 
             # Some initial mineral saturation.
-        initial_conc = self.ic_values_species_concentration(component, sd)
+        initial_conc = self.ic_mineral_bulk_concentration(component, sd)
 
         return component.molar_volume * initial_conc / self.solid.total_porosity
 
@@ -2086,11 +2086,13 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             ms += self.ic_values_mineral_saturation(comp, sd)
 
         porosity = self.solid.total_porosity * (np.ones(sd.num_cells) - ms)
-        if component.name != "H2O":
-            ic= self.ic_solute_concentration(component, sd)
+        if component in self.fluid.solid_components:
+            ic = self.ic_mineral_bulk_concentration(component, sd)
+        elif component.name != "H2O":
+            ic= self.ic_solute_concentration(component, sd)* porosity
         elif component.name == "H2O":
-            ic= self.ic_water_concentration(sd)
-        return ic* porosity
+            ic= self.ic_water_concentration(sd)* porosity
+        return ic
 
     def ic_water_concentration(
         self, sd: pp.Grid
@@ -2099,6 +2101,13 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
         for comp in self.fluid.components:
             if comp.name != "H2O" and comp not in self.fluid.solid_components:
                 solute_conc += self.ic_solute_concentration(comp, sd)
+
+        mc=self.params["material_constants"]
+        mode=mc.get("molar_density_mode","fully_coupled")
+
+        if mode=="provided":
+            fluid_density=self.fluid.reference_component.molar_density * np.ones(sd.num_cells)
+
 
         fluid_density = self.fluid.reference_component.molar_density * np.ones(
             sd.num_cells
@@ -2133,6 +2142,11 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
         initial_conc = self.ic_values_species_concentration(component, sd)
         return initial_conc / total_conc
 
+
+    def ic_mineral_bulk_concentration(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        return np.zeros(sd.num_cells)
 
 class SolutionStrategyPhaseProperties(pp.PorePyModel):
     """A mixin solution strategy for CF models which use surrogate operators for phase
