@@ -783,7 +783,7 @@ class FractureNetwork3d(FractureNetwork):
         # and assign the minimum mesh size among all occurrences of the point.
         self._uniquify_mesh_size_dictionary(mesh_size_points)
 
-        # For lines that with no extra mesh size control points, assign an empty list.
+        # For lines with no extra mesh size control points, assign an empty list.
         mesh_size: dict[int, list[tuple[np.ndarray, float]]] = {
             tag: [] for tag in surface_tags
         }

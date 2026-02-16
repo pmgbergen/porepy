@@ -369,7 +369,7 @@ class FractureNetwork2d(FractureNetwork):
         for ind in removed_fractures:
             gmsh.model.occ.remove([(self.nd - 1, fracture_tags[ind])], recursive=True)
         # Also update the constraints: Each fracture removal in effect shifts the
-        # indices, but only for those with a higher index.
+        # indices, but only for those whose index is higher than the removed index.
         for i in range(len(removed_fractures)):
             constraints = np.array(
                 [
@@ -1022,7 +1022,7 @@ def _linefractures_to_pts_edges(
     else:
         pts = np.zeros([2, 0])
     # Before creating the ``edges`` array, determine the maximum number of tags.
-    # -> This determines the shape of the ``edges`` array.
+    # This determines the shape of the ``edges`` array.
     max_edge_dim = max((np.shape(edge)[0] for edge in edges_list), default=2)
     # Initialize the ``edges`` array with ``-1``. This value indicates that each edge
     # has no tags. Fill in the first two rows with the fracture start-/endpoints and
