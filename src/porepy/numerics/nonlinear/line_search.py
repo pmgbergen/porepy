@@ -125,10 +125,11 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         # step. If so, we can use the update without any relaxation. We normalize by
         # the number of degrees of freedom, meaning that if the residual objective
         # function is the l2 norm of the residual, the relative residual criterion here
-        # is consistent with the relative residual criterion used in check_convergence
-        # in :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+        # is consistent with the absolute residual criterion
+        # in :class:`~porepy.numerics.nonlinear.nonlinear_solvers.check_convergence.`
+        # using a `pp.ResidualBasedAbsoluteCriterion` with a `pp.EuclideanMetric`.
         relative_residual = f_1 / np.linalg.norm(dx.size)
-        tol_residual = self.params.get("nl_convergence_res_rtol", 1e-6)
+        tol_residual = self.params.get("nl_convergence_res_atol", 1e-10)
         if relative_residual < tol_residual:
             # The objective function is sufficiently small at the full nonlinear step.
             # This means that the nonlinear step is a minimum of the objective function.
