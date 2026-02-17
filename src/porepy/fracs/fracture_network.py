@@ -1231,8 +1231,8 @@ class MeshSizeComputer:
 
         Parameters:
             mesh_args: Dictionary of mesh size parameters. Supported keys are:
-                - "mesh_size_frac": Fracture mesh size [m].
-                - "mesh_size_bound": Background mesh size [m]. If not provided, it is
+                - "mesh_size_fracture": Fracture mesh size [m].
+                - "mesh_size_boundary": Background mesh size [m]. If not provided, it is
                   set equal to the fracture mesh size.
                 - "refinement_proximity_multiplier": Threshold for triggering refinement
                   around fractures (in units of fracture mesh size).
@@ -1253,12 +1253,12 @@ class MeshSizeComputer:
         # Use typing ignore here, since this class is only accessed through the mesh
         # methods of the fracture network classes, where most relevant parameters are
         # given dimension-dependent default values.
-        if "mesh_size_frac" not in mesh_args:
-            raise ValueError("mesh_size_frac must be provided in mesh_args.")
+        if "mesh_size_fracture" not in mesh_args:
+            raise ValueError("mesh_size_fracture must be provided in mesh_args.")
 
-        self._h_fracture: float = mesh_args.get("mesh_size_frac")  # type: ignore
+        self._h_fracture: float = mesh_args.get("mesh_size_fracture")  # type: ignore
         self._h_background: float = mesh_args.get(  # type: ignore
-            "mesh_size_bound", self._h_fracture
+            "mesh_size_boundary", self._h_fracture
         )
         self._threshold: float = mesh_args.get(  # type: ignore
             "refinement_proximity_multiplier"

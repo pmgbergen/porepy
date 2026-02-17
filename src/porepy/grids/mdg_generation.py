@@ -473,13 +473,8 @@ def _preprocess_simplex_args(
     Returns:
         lower_level_args: An instance of mesh_args which contains arguments passed
         on to mesh size control.
-        extra_args_list: A list with values of the following arguments:
-            - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, It
-            contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
-                remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
-            - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, It
-            contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
-                finalize_gmsh, and clear_gmsh.
+        extra_args_list: A list with values of the following arguments: constraints,
+            file_name, and dfn.
         kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter
             that quantifies a perturbation to nodes around the faces that are split.
             This is only for visualization purposes.
@@ -513,15 +508,15 @@ def _preprocess_simplex_args(
     lower_level_args: dict = {}
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
 
-    lower_level_args["mesh_size_bound"] = meshing_args.get(
+    lower_level_args["mesh_size_boundary"] = meshing_args.get(
         "cell_size_boundary", cell_size
     )
-    lower_level_args["mesh_size_frac"] = meshing_args.get(
+    lower_level_args["mesh_size_fracture"] = meshing_args.get(
         "cell_size_fracture", cell_size
     )
     # By default set mesh_size_min to 10% of the minimum of the other sizes.
     default_min = 0.1 * min(
-        lower_level_args["mesh_size_bound"], lower_level_args["mesh_size_frac"]
+        lower_level_args["mesh_size_boundary"], lower_level_args["mesh_size_fracture"]
     )
     lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", default_min)
 
