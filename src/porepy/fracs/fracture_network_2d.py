@@ -557,7 +557,7 @@ class FractureNetwork2d(FractureNetwork):
                 ]
             ).T
             length = np.linalg.norm(end_points[:, 1] - end_points[:, 0])
-            tol = np.minimum(length, mesh_size_computer.h_frac()) / 2
+            tol = np.minimum(length, mesh_size_computer.h_fracture()) / 2
             extra_points = (
                 np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
             )
@@ -575,7 +575,9 @@ class FractureNetwork2d(FractureNetwork):
                 (
                     np.array(
                         [
-                            d[1] if d[1] > self._tol else mesh_size_computer.h_frac()
+                            d[1]
+                            if d[1] > self._tol
+                            else mesh_size_computer.h_fracture()
                             for d in info
                         ]
                     )

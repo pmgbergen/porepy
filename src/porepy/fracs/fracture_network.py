@@ -293,7 +293,7 @@ class FractureNetwork(ABC):
         inserted_on_entity: list[int] = []
 
         # Take note of the boundary points of all entities, to avoid inserting points
-        # there (not doing so may confuse Gmsh).
+        # there (doing so may confuse Gmsh).
         for ent in entities:
             bp = gmsh.model.get_boundary([(self.nd - 1, ent)], recursive=True)
             for b in bp:
@@ -475,7 +475,7 @@ class FractureNetwork(ABC):
                 gmsh.model.mesh.field.setNumber(
                     threshold,
                     "SizeMax",
-                    mesh_size_computer.size_farfield(is_boundary),
+                    mesh_size_computer.h_end(is_boundary),
                 )
             else:
                 gmsh.model.mesh.field.setNumber(
@@ -484,11 +484,11 @@ class FractureNetwork(ABC):
                     mesh_size_computer.dist_farfield(is_boundary, on_codim=False),
                 )
                 gmsh.model.mesh.field.setNumber(
-                    threshold, "SizeMax", mesh_size_computer.h_farfield()
+                    threshold, "SizeMax", mesh_size_computer.h_background()
                 )
 
-            # Note to self: The order is important here - the restriction must refer
-            # to the threshold field, not the other way around.
+            # Implementation note: The order is important here - the restriction must
+            # refer to the threshold field, not the other way around.
             restriction = gmsh.model.mesh.field.add("Restrict")
             gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
             if codim:
@@ -521,7 +521,7 @@ class FractureNetwork(ABC):
         The mesh is either restricted to the entities themselves (if ``codim=True``), or
         in the surrounding domain (if ``codim=False``). In the former case, the mesh
         size is constant on the entities, while in the latter case, the mesh size
-        transitions from a fine mesh size close to the entities to the far-field mesh
+        transitions from a fine mesh size close to the entities to the background mesh
         size.
 
         Parameters:
@@ -561,12 +561,12 @@ class FractureNetwork(ABC):
                 )
                 Vin = mesh_size_computer.h_end(is_boundary)
                 gmsh.model.mesh.field.setNumber(uniform_field, "VIn", Vin)
-                # Set the mesh size outside the entities to the far-field size. Since we
-                # will take the minimum over all mesh size fields later, this will in
+                # Set the mesh size outside the entities to the background size. Since
+                # we will take the minimum over all mesh size fields later, this will in
                 # practice not affect the mesh size outside the entities, but it seems
                 # Gmsh requires that a value is set.
                 gmsh.model.mesh.field.setNumber(
-                    uniform_field, "VOut", mesh_size_computer.h_farfield()
+                    uniform_field, "VOut", mesh_size_computer.h_background()
                 )
                 restriction = gmsh.model.mesh.field.add("Restrict")
                 gmsh.model.mesh.field.setNumber(restriction, "InField", uniform_field)
@@ -574,7 +574,7 @@ class FractureNetwork(ABC):
                 gmsh_fields.append(restriction)
         else:
             # This will set a mesh size field in the surrounding domain, transitioning
-            # from a fine mesh size close to the entities to the far-field mesh size.
+            # from a fine mesh size close to the entities to the background mesh size.
 
             # Get all domain entities to be used in the restriction step.
             domain_entities = gmsh.model.get_entities(self.nd)
@@ -607,7 +607,7 @@ class FractureNetwork(ABC):
                 gmsh.model.mesh.field.setNumber(
                     threshold,
                     "SizeMax",
-                    mesh_size_computer.size_farfield(True),
+                    mesh_size_computer.h_end(True),
                 )
                 restriction = gmsh.model.mesh.field.add("Restrict")
                 gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
@@ -629,7 +629,7 @@ class FractureNetwork(ABC):
         # the Gmsh documentation.
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
-        # In cases where the far-field mesh size is large compared to the fracture size,
+        # In cases where the background mesh size is large compared to the fracture size,
         # but where refinement is triggered by fractures close to the boundary, we may
         # end up in situations where the mesh size on the boundary is much smaller than
         # in the interior. To avoid this, the user is given the option to extend the
@@ -832,7 +832,7 @@ class MeshSizeControlPointInserter:
             cp_0: Coordinates of the closest point on the main fracture.
             cp_1: Coordinates of the closest point on the other fracture.
             init_distance: Distance between the two closest points.
-            f_main_on_fracture: Boolean indicating if the main fracture is a fracture
+            f_main_is_fracture: Boolean indicating if the main fracture is a fracture
                 (as opposed to a boundary).
 
         Returns:
@@ -977,7 +977,7 @@ class MeshSizeControlPointInserter:
             # its parent / previous point. The step size is set so that, for parallel
             # fractures, the control points are just close enough to ensure that the
             # mesh size is constant, i.e., we do not enter the transition zone towards
-            # mesh sizes given by far-field conditions (see documentation of the
+            # mesh sizes given by background conditions (see documentation of the
             # MeshSizeComputer for details). This can be estimated to 2 times the
             # distance between the two fractures at the current point (which will give
             # the correct estimate for parallel fractures, and possibly a somewhat too
@@ -1232,7 +1232,7 @@ class MeshSizeComputer:
         Parameters:
             mesh_args: Dictionary of mesh size parameters. Supported keys are:
                 - "mesh_size_frac": Fracture mesh size [m].
-                - "mesh_size_bound": Far-field mesh size [m]. If not provided, it is
+                - "mesh_size_bound": Background mesh size [m]. If not provided, it is
                   set equal to the fracture mesh size.
                 - "refinement_proximity_multiplier": Threshold for triggering refinement
                   around fractures (in units of fracture mesh size).
@@ -1243,8 +1243,8 @@ class MeshSizeComputer:
                   value larger than the fracture mesh size, the fracture mesh size is
                   used.
                 - "background_transition_multiplier": Factor controlling the distance
-                  from fractures where far-field mesh size is reached (in units of
-                  far-field mesh size).
+                  from fractures where the background mesh size is reached (in units of
+                  background mesh size).
 
         Raises:
             ValueError: If required mesh size parameters are missing.
@@ -1256,22 +1256,24 @@ class MeshSizeComputer:
         if "mesh_size_frac" not in mesh_args:
             raise ValueError("mesh_size_frac must be provided in mesh_args.")
 
-        self._hfrac: float = mesh_args.get("mesh_size_frac")  # type: ignore
-        self._hfarfield: float = mesh_args.get(  # type: ignore
-            "mesh_size_bound", self._hfrac
+        self._h_fracture: float = mesh_args.get("mesh_size_frac")  # type: ignore
+        self._h_background: float = mesh_args.get(  # type: ignore
+            "mesh_size_bound", self._h_fracture
         )
         self._threshold: float = mesh_args.get(  # type: ignore
             "refinement_proximity_multiplier"
         )
-        self._buffer: float = mesh_args.get("refinement_size_multiplier")  # type: ignore
+        self._refinement_size_multiplier: float = mesh_args.get(
+            "refinement_size_multiplier"
+        )  # type: ignore
         # By default, we let the minimum mesh size scale with the buffer and the
         # fracture mesh size.
-        h_min = self._hfrac * self._buffer
+        h_min = self._h_fracture * self._refinement_size_multiplier
         if "mesh_size_min" in mesh_args:
             # If the user has set a value, use this, but do not permit values less than
             # the fracture size.
-            h_min = min(self._hfrac, mesh_args.get("mesh_size_min"))  # type: ignore
-        self._hmin: float = h_min
+            h_min = min(self._h_fracture, mesh_args.get("mesh_size_min"))  # type: ignore
+        self._h_min: float = h_min
         self._farfield_transition: float = mesh_args.get(  # type: ignore
             "background_transition_multiplier", 1.0
         )
@@ -1283,13 +1285,13 @@ class MeshSizeComputer:
         trigger mesh refinement.
 
         """
-        return self._threshold * self._hfrac
+        return self._threshold * self._h_fracture
 
-    def h_farfield(self) -> float:
-        """Far-field mesh size [m]."""
-        return self._hfarfield
+    def h_background(self) -> float:
+        """Background mesh size [m]."""
+        return self._h_background
 
-    def h_frac(self, is_boundary: bool = False) -> float:
+    def h_fracture(self, is_boundary: bool = False) -> float:
         """Fracture size on fracture or boundary [m].
 
         Parameters:
@@ -1297,13 +1299,13 @@ class MeshSizeComputer:
 
         Returns:
             float: Mesh size. Will be equal to the user-provided fracture mesh size
-                unless ``is_boundary = True``, in which case the far-field mesh size is
+                unless ``is_boundary = True``, in which case the background mesh size is
                 returned.
 
         """
         if is_boundary:
-            return self._hfarfield
-        return self._hfrac
+            return self._h_background
+        return self._h_fracture
 
     def h_min(self) -> float:
         """Minimum mesh size [m]. No smaller mesh sizes will be set anywhere in the
@@ -1314,47 +1316,33 @@ class MeshSizeComputer:
             float: Minimum mesh size.
 
         """
-        return self._hmin
+        return self._h_min
 
     def h_end(self, is_boundary: bool) -> float:
         """Mesh size at the end of the transition from refinement to 'standard'
         conditions [m].
 
         The 'standard' will be the fracture mesh size if ``is_boundary = False``, and
-        the far-field mesh size if ``is_boundary = True``.
+        the background mesh size if ``is_boundary = True``.
 
         """
-        return self._hfarfield if is_boundary else self._hfrac
+        return self._h_background if is_boundary else self._h_fracture
 
     def dist_farfield(self, is_boundary: bool, on_codim: bool) -> float:
-        """Distance from fracture where far-field mesh size is reached [m].
+        """Distance from fracture where background mesh size is reached [m].
 
         Parameters:
             is_boundary: If ``True``, return the distance for boundary mesh size.
             on_codim: If ``True``, return the distance on a lower-dimensional object.
 
         Returns:
-            float: Distance from fracture where far-field mesh size is reached [m].
+            float: Distance from fracture where background mesh size is reached [m].
 
         """
         if on_codim:
             return self.h_end(is_boundary) * self._farfield_transition
         else:
-            return self._hfrac * self._farfield_transition
-
-    def size_farfield(self, is_boundary: bool) -> float:
-        """Far-field mesh size [m].
-
-        Parameters:
-            is_boundary: If ``True``, return the boundary mesh size.
-
-        Returns:
-            float: Mesh size. Will be equal to the user-provided fracture mesh size
-                unless ``is_boundary = True``, in which case the far-field mesh size is
-                returned.
-
-        """
-        return self.h_end(is_boundary)
+            return self._h_fracture * self._farfield_transition
 
     def dist_min(self, dist: float) -> float:
         """Distance from a mesh size control point at which the transition from the
@@ -1379,50 +1367,63 @@ class MeshSizeComputer:
             float: Mesh size close to the fracture.
 
         """
-        return self._min_size(dist) * self._buffer
+        return self._min_size(dist) * self._refinement_size_multiplier
 
     def size_at_distance(
-        self, dist: float, old_distance: float, is_boundary: bool, on_codim: bool
+        self,
+        distance_from_existing_point: float,
+        fracture_distance_at_existing_point: float,
+        is_boundary: bool,
+        on_codim: bool,
     ) -> float:
         """Compute the mesh size at a given distance from a mesh size control point.
 
+        Given an existing mesh size control point, and a candidate new point at a
+        distance 'dist', the function calculates the mesh size that the existing point
+        will impose at this distance. The calling function can use this information to
+        assess whether adding a new point will lead to a finer mesh than will then
+        conditions imposed by the existing point (and hence adding the point will be
+        superfluous).
+
         Parameters:
-            dist: Distance from the mesh size control point.
-            old_distance: Distance from the fracture at the mesh size control point.
+            distance_from_existing_point: Distance from the existing mesh size control
+                point.
+            fracture_distance_at_existing_point: Distance from the fracture at the
+                existing mesh size control point.
             is_boundary: Whether the mesh size should be computed relative to the
-                boundary (far-field) mesh size (``True``) or the fracture mesh size
+                background mesh size (``True``) or the fracture mesh size
                 (``False``).
             on_codim: Whether the mesh size is to be computed on a codimension object
                 (``True``) or in the surrounding domain (``False``).
 
         """
-        # In the immediate vicinity of the old point, the mesh size is proportional to
-        # the distance to other objects at that point, though the distance is capped
-        # from below by a minimum distance. The mesh size in this region is scaled by
-        # the factor buffer.
-        end_near_old_region = self.dist_min(old_distance)
-        mesh_size_near_old = self.size_min(old_distance)
+        # In the immediate vicinity of the existing mesh size control point, the mesh
+        # size is proportional to the distance to other objects at that point, though
+        # the distance is capped from below by a minimum distance. The mesh size in this
+        # region is scaled by the factor buffer.
+        end_near_old_region = self.dist_min(fracture_distance_at_existing_point)
+        mesh_size_near_old = self.size_min(fracture_distance_at_existing_point)
 
-        # The mesh size transits linearly from the size near the old point to a mesh
-        # size far away from the contol point. This mesh size is either the fracture
-        # mesh size, if the control point is placed on a fracture surface, and the mesh
-        # size is used for codimension meshing (i.e., we construct the mesh on the
-        # fracture surface). Otherwise, the far-field mesh size is used. The extent of
-        # the transition region is controlled by the farfield_transition parameter and
-        # the mesh size.
+        # The mesh size transits linearly from the size near the existing point to a
+        # mesh size far away from the existing point. This mesh size is either the
+        # fracture mesh size, if the existing control point is placed on a fracture
+        # surface, and the mesh size is used for codimension meshing (i.e., we construct
+        # the mesh on the fracture surface). Otherwise, the background mesh size is
+        # used. The extent of the transition region is controlled by the
+        # farfield_transition parameter and the mesh size.
         start_far_away_region = self.dist_farfield(
             is_boundary=is_boundary, on_codim=on_codim
         )
-        size_far_away_region = self.size_farfield(is_boundary=is_boundary)
+        size_far_away_region = self.h_end(is_boundary=is_boundary)
 
-        if dist >= start_far_away_region:
+        if distance_from_existing_point >= start_far_away_region:
             return size_far_away_region
-        elif dist <= end_near_old_region:
+        elif distance_from_existing_point <= end_near_old_region:
             return mesh_size_near_old
         else:
             # Linear transition.
             h = mesh_size_near_old + (size_far_away_region - mesh_size_near_old) * (
-                (dist - end_near_old_region)
+                (distance_from_existing_point - end_near_old_region)
                 / (start_far_away_region - end_near_old_region)
             )
             return h
@@ -1443,9 +1444,9 @@ class MeshSizeComputer:
             # where the intersection angle is large. For small angles, we should refine,
             # but experience indicates that the mesh size will be small anyway, partly
             # due to nearby mesh control points.
-            return self._hfrac
+            return self._h_fracture
         else:
-            return max(self._hmin, dist)
+            return max(self._h_min, dist)
 
 
 class GmshPointIdentifier:

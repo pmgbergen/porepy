@@ -834,7 +834,7 @@ class FractureNetwork3d(FractureNetwork):
             else:
                 surface_lines = []
             # Distance to other objects for each point, as computed previously.
-            h_end = mesh_size_computer.size_farfield(surface in boundary_tags)
+            h_end = mesh_size_computer.h_end(surface in boundary_tags)
 
             # Points on intersection lines. Since intersection of lines should result in
             # the line being split, the line points should also contain such
