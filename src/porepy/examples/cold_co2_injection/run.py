@@ -28,7 +28,7 @@ Note:
 
 from __future__ import annotations
 
-REFINEMENT_LEVEL: int = 3
+REFINEMENT_LEVEL: int = 0
 """Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
 EQUILIBRIUM_CONDITION: Literal["unified-p-T", "unified-p-h"] = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -50,7 +50,7 @@ This option is for obtaining the uninfluenced results of the time stepping schem
 If True, a schedule is used at specified times for plotting purposes.
 
 """
-DISABLE_COMPILATION: bool = False
+DISABLE_COMPILATION: bool = True
 """For disabling numba compilation and faster start of simulation. Intended for
 debugging."""
 BUOYANCY_ON: bool = False
@@ -591,6 +591,35 @@ if __name__ == "__main__":
     else:
         model_class = ColdInjectionModel
 
+    import pp_solvers
+    from pp_solvers.preconditioners import cfle_factory
+
+    model_class = add_mixin(pp_solvers.IterativeSolverMixin, model_class)
+    model_params["linear_solver"] = {
+        "preconditioner_factory": cfle_factory,
+        "options": {
+            "gmres": {
+                "ksp_max_it": 300,
+                "ksp_gmres_restart": 100,
+                "ksp_monitor": None,
+            },
+            "cpr_stage1_ilu": {
+                "pc_type": "hypre",
+                "pc_hypre_type": "ilu",
+                "pc_hypre_ilu_level": 2,
+                "pc_hypre_ilu_maxiter": 10,
+            },
+            "cpr_stage0_identity": {
+                "pc_type": "jacobi",
+            },
+            "cpr_stage0_amg": {
+                "pc_hypre_boomeramg_strong_threshold": 0.25,
+                "pc_hypre_boomeramg_relax_type_all": "Chebyshev",
+            },
+        },
+        # "solver_selector": solver_selector,
+    }
+
     model_class = add_mixin(DataCollectionMixin, model_class)
 
     if BUOYANCY_ON:
@@ -607,6 +636,18 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
+    logging.getLogger("porepy.models.compositional_flow_with_equilibrium").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("porepy.compositional.compiled_flash.uniflash").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("porepy.examples.cold_co2_injection.solver").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("porepy.numerics.nonlinear.nonlinear_solvers").setLevel(
+        logging.WARNING
+    )
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
