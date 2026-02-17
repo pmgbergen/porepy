@@ -301,16 +301,22 @@ def _create_lower_dim_grids_3d(
             "zmax": physdims[2],
         }
     domain = pp.Domain(box)
-    # Combine the fractures into a network
+    # Combine the fractures into a network.
     network = FractureNetwork3d(fractures=frac_list, domain=domain)
 
     gmsh.initialize()
+    # We need to find intersections between the fractures. To that end we use the
+    # relevant methods in FractureNetwork3d (which are really geared towards doing the
+    # meshing in Gmsh, but will do the job for us as well).
 
+    # Export domain and fractures, keep the tags.
     domain_tag = network.domain_to_gmsh()
     fracture_tags = network.fractures_to_gmsh()
     gmsh.model.occ.synchronize()
+    # Tags in Gmsh are 1-offset, hence we need a map back to the PorePy indices.
     gmsh_2_input_fractures = {frac_tag: i for i, frac_tag in enumerate(fracture_tags)}
-
+    # Find the intersection lines and points of the fracture network. network will
+    # here invoke Gmsh, which will again invoke its OpenCASCADE backend.
     (intersection_points, intersection_lines, *_) = (
         network._impose_boundary_process_intersections(
             fracture_tags, domain_tag, np.array([]), gmsh_2_input_fractures
@@ -318,16 +324,18 @@ def _create_lower_dim_grids_3d(
     )
     # Create 1D grids.
     for line in intersection_lines:
+        # For reference, this is the (or one?) standard way of getting line information
+        # out of Gmsh.
+        # Get the end points of the line.
         pts = np.array(gmsh.model.get_bounding_box(1, int(line))).reshape(
             (3, -1), order="F"
         )
         assert pts.shape[1] == 2, "Bounding box of line should have two points"
-
+        # Find all nodes between the end poitns.
         all_nodes = _find_nodes_on_line(g_3d, nx, pts[:, 0], pts[:, 1])
         loc_coord = g_3d.nodes[:, all_nodes]
         assert loc_coord.shape[1] > 1, (
-            "1d grid in intersection should span\
-            more than one node"
+            "1d grid in intersection should span more than one node"
         )
         g = msh_2_grid.create_embedded_line_grid(loc_coord, all_nodes)
         g_1d.append(g)
@@ -338,12 +346,15 @@ def _create_lower_dim_grids_3d(
         pts = np.array(gmsh.model.get_bounding_box(0, int(pi))).reshape(
             (3, -1), order="F"
         )
+        # Find the node in the structured grid which is closest to the intersection
+        # point identified by Gmsh. It should be a perfect match.
         node = np.argmin(pp.distances.point_pointset(pts[:, 0], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, 0])
         g = pp.PointGrid(g_3d.nodes[:, node])
         g.global_point_ind = np.asarray(node)
         g_0d.append(g)
 
+    # Close the gmsh session.
     gmsh.finalize()
 
     grids: list[list[pp.Grid]] = [[g_3d], g_2d, g_1d, g_0d]

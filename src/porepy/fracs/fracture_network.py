@@ -166,7 +166,8 @@ class FractureNetwork(ABC):
         # See the Gmsh documentation for an overview of the available algorithms.
         meshing_algorithm = self._extra_meshing_args.get("meshing_algorithm", 10)
         if self.nd == 3:
-            # Note to self: It is important to use Mesh.Algorithm3D, not Mesh.Algorithm.
+            # Implementation note: It is important to use Mesh.Algorithm3D, not
+            # Mesh.Algorithm.
             gmsh.option.setNumber("Mesh.Algorithm3D", meshing_algorithm)
         else:
             gmsh.option.setNumber("Mesh.Algorithm", meshing_algorithm)
@@ -695,6 +696,22 @@ class FractureNetwork(ABC):
         isect_mapping: list[list[tuple[int, int]]],
         gmsh_to_porepy_fracture_ind_map: dict[int, int],
     ) -> dict[int, list[int]]:
+        """Map information from a subfracture (after intersections have been split) back
+        to the full fractures.
+
+        The mapping also
+
+        Parameters:
+            isect: Intersection information as obtained by Gmsh's fragment method.
+            gmsh_to_porepy_fracture_ind_map: Mapping from the Gmsh (1-offset)
+                bookkeeping of fractures to PorePy's 0-offset system.
+
+        Returns:
+            Dictionary mapping from the PorePy bookkeeping to the Gmsh one. The mapping
+            is in general one to many, since in Gmsh, the fractures may be have been
+            split into multiple objects due to intersections.
+
+        """
         fracture_to_surface: dict[int, list[int]] = {}
         # Count the number of fracture objects that survived both the fragmentation and
         # the distance-based domain trimming.
@@ -712,7 +729,7 @@ class FractureNetwork(ABC):
                 continue
 
             for fracture in fracture_group:
-                if fracture[0] == self.nd - 1:
+                if fracture[0] == self.nd - 1:  # Only nd - 1 objects.
                     all_fracs.append(fracture[1])
             if all_fracs:
                 frac_ind = gmsh_to_porepy_fracture_ind_map[all_fracs[0]]
@@ -766,8 +783,8 @@ class MeshSizeControlPointInserter:
         cp_0: list[float],
         cp_1: list[float],
         distance: float,
-        f_0_on_fracture: bool,
-        f_1_on_fracture: bool,
+        f_0_is_fracture: bool,
+        f_1_is_fracture: bool,
     ) -> tuple[list, list]:
         """Compute points to be inserted on the surfaces of two fractures.
 
@@ -783,9 +800,9 @@ class MeshSizeControlPointInserter:
             cp_0: Coordinates of the closest point on the first fracture.
             cp_1: Coordinates of the closest point on the second fracture.
             distance: Minimum distance between the two fractures.
-            f_0_on_fracture: Boolean indicating if the first fracture is a fracture
+            f_0_is_fracture: Boolean indicating if the first fracture is a fracture
                 (as opposed to a boundary).
-            f_1_on_fracture: Boolean indicating if the second fracture is a fracture
+            f_1_is_fracture: Boolean indicating if the second fracture is a fracture
                 (as opposed to a boundary).
 
         Returns:
@@ -794,8 +811,8 @@ class MeshSizeControlPointInserter:
                 - List of points to be inserted on the second fracture.
 
         """
-        points_0 = self._control_points(f_0, f_1, cp_0, cp_1, distance, f_0_on_fracture)
-        points_1 = self._control_points(f_1, f_0, cp_1, cp_0, distance, f_1_on_fracture)
+        points_0 = self._control_points(f_0, f_1, cp_0, cp_1, distance, f_0_is_fracture)
+        points_1 = self._control_points(f_1, f_0, cp_1, cp_0, distance, f_1_is_fracture)
         return points_0, points_1
 
     def _control_points(
@@ -805,7 +822,7 @@ class MeshSizeControlPointInserter:
         cp_0: list[float],
         cp_1: list[float],
         init_distance: float,
-        f_main_on_fracture: bool,
+        f_main_is_fracture: bool,
     ):
         """Compute control points to be inserted on a fracture surface.
 
@@ -822,6 +839,35 @@ class MeshSizeControlPointInserter:
             List of points to be inserted on the main fracture.
 
         """
+        # Insert mesh size control points based on the following approach: A
+        # Cartesian-like coordinate system is layed out on the main fracture surface,
+        # with center at the point on the main fracture which is closest to the other
+        # fracture. One axis of the coordinate system is in the direction where the
+        # distance increases the slowest, the other (since the fracture is plane) gives
+        # the fastest distance increase.
+        #
+        # Then, starting with the closest point denoted i=0, j=0 (if the fracture is 2d)
+        # as the candidate point:
+        #
+        # 1. The candidate point is considered as a mesh size control point. Whether it
+        #    is inserted depends on the mesh size parameters and the angle between the
+        #    two fractures (some details are given in the code below, but it may also be
+        #    helpful to interpret the mesh size parameters using pen and pencil to see
+        #    adding a mesh size control point will impact the actual meshing algorithm).
+        # 2. If a mesh size control point is inserted on (i, j),  all neighboring points
+        #    along the grid lines (so, i+1, i-1 and, for 2d surfaces, j+1, j-1) become
+        #    new candidate points. However, if we have already visited a given
+        #    combination (i, j), it is not regarded again.
+        # 3. A specific (i, j) combination can be encountered twice (for instance, go
+        #    first left, then up, or first up, then left). Since it is not clear to EK
+        #    that the two paths will render the same coordinate for the (i, j)
+        #    combination (maybe it is trivially so for plane fractures, but the code
+        #    what it is), the point colliding point closest to the point (i=0, j=0) is
+        #    chosen.
+        # 4. The candidate points are visited with priority closest to the origin (i=0,
+        #    j=0), using a priority queue (heapq). This order of priority is to some
+        #    degree motivated by a feeling it seems right, rather than deep insight into
+        #    the algorithm.
 
         t_i, t_j = self._tangent_basis(f_main, f_other, Point(*cp_0), Point(*cp_1))
 
@@ -838,8 +884,9 @@ class MeshSizeControlPointInserter:
         # Table mapping indices to candidate points, previous points, available
         # directions, and distance to the other fracture.
 
-        # Search directions for new candidate control points. For self.nd == 2, the
-        # fracture is a line, and we only search left and right.
+        # Search directions for new candidate control points - see point 2 in the
+        # outline of the algorithm. For self.nd == 2, the fracture is a line, and we
+        # only search left and right.
         direction = {
             Direction.WEST: True,
             Direction.EAST: True,
@@ -862,7 +909,12 @@ class MeshSizeControlPointInserter:
         # Set of indices that have been discarded.
         discarded_ijs = set()
 
+        # Count the number of iterations. Used for safeguarding.
+        iter_counter = 0
+
         while q:
+            iter_counter += 1
+
             _, i = heapq.heappop(q)
             if i in discarded_ijs:
                 continue
@@ -893,6 +945,7 @@ class MeshSizeControlPointInserter:
                 # set the mesh size from previous to positive inf to make sure it is not
                 # less than the mesh size set according to the distance to the other
                 # fracture, as this could have prevented adding the point.
+                assert iter_counter == 1
                 h_from_prev = np.inf
             else:
                 # There is a previous point. Compute the mesh size at the candidate
@@ -900,7 +953,7 @@ class MeshSizeControlPointInserter:
                 h_from_prev = self._mesh_size_computer.size_at_distance(
                     dist_other_fracture,
                     dist_cand_prev,
-                    f_main_on_fracture,
+                    f_main_is_fracture,
                     on_codim=True,
                 )
 
@@ -977,7 +1030,7 @@ class MeshSizeControlPointInserter:
                     # two points should have the same coordinates. But better safe than
                     # sorry.
                     p_new, dist_new = self._closest_point(cp_0, p_new, tab[di][0])
-                    dir_new = self._direction_union(dir_new, tab[di][2])
+                    dir_new = self._direction_intersection(dir_new, tab[di][2])
 
                 tab[di] = (p_new, p_cand, dir_new, dist_new)
                 heapq.heappush(q, (priority(di), di))
@@ -1014,21 +1067,21 @@ class MeshSizeControlPointInserter:
         else:
             return cand_1, dist_1
 
-    def _point_inside_other_surface(self, point: Point, f_other: int) -> bool:
+    def _point_inside_surface(self, point: Point, surface: int) -> bool:
         """Check if a point is inside another fracture surface.
 
         Parameters:
             point: Coordinates of the point to be checked.
-            f_other: Gmsh index of the other fracture surface.
+            surface: Gmsh index of the other fracture surface.
 
         Returns:
             True if the point is inside the other fracture surface, False otherwise.
 
         """
-        proj_pts, _ = gmsh.model.get_closest_point(self._nd - 1, f_other, point)
-        return gmsh.model.is_inside(self._nd - 1, f_other, proj_pts)
+        proj_pts, _ = gmsh.model.get_closest_point(self._nd - 1, surface, point)
+        return gmsh.model.is_inside(self._nd - 1, surface, proj_pts)
 
-    def _direction_union(
+    def _direction_intersection(
         self, dir_0: dict[Direction, bool], dir_1: dict[Direction, bool]
     ) -> dict[Direction, bool]:
         """Combine two direction dictionaries.
@@ -1080,14 +1133,24 @@ class MeshSizeControlPointInserter:
         if self._nd == 3:
             return self._tangent_basis_2d(f_main, f_other, cp_0, cp_1)
         else:
-            return self._tangent_basis_1d(f_main, f_other, cp_0, cp_1)
+            return self._tangent_basis_1d(f_main)
 
-    def _tangent_basis_1d(
-        self, f_main: int, f_other: int, cp_0: Point, cp_1: Point
-    ) -> tuple[np.ndarray, None]:
-        bnd = gmsh.model.get_parametrization_bounds(self._nd - 1, f_main)
-        start = gmsh.model.get_value(self._nd - 1, f_main, bnd[0].tolist())
-        end = gmsh.model.get_value(self._nd - 1, f_main, bnd[1].tolist())
+    def _tangent_basis_1d(self, surface_tag: int) -> tuple[np.ndarray, None]:
+        """Get a unit basis vector for the 1d line represented by surface_tag.
+
+        The basis vector has an arbitrary positive direction.
+
+        Parameters:
+            surface_tag: Gmsh tag for the fracture where a basis vector is sought.
+
+        Returns:
+            A 2-tuple, with the first element containing the basis vector. The second
+            element is None to mark that this is a 1d basis.
+
+        """
+        bnd = gmsh.model.get_parametrization_bounds(self._nd - 1, surface_tag)
+        start = gmsh.model.get_value(self._nd - 1, surface_tag, bnd[0].tolist())
+        end = gmsh.model.get_value(self._nd - 1, surface_tag, bnd[1].tolist())
         t_0 = np.array(end) - np.array(start)
         t_0 = t_0 / np.linalg.norm(t_0)
         return t_0, None
@@ -1095,6 +1158,26 @@ class MeshSizeControlPointInserter:
     def _tangent_basis_2d(
         self, f_main: int, f_other: int, cp_0: Point, cp_1: Point
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Get a tangential basis for the 2d fracture surface f_main.
+
+        The basis is constructed so that the first basis vector is aligned with the
+        direction in which the distance between f_main and f_other increases the slowest
+        (starting from the closest point on f_main, cp_0). The second basis vector is
+        orthogonal and hence points in the direction of maximum increase (assuming both
+        fractures are planar). The direction of the basis vectors is arbitrary, and
+        there is no guarantee that they form a righ-hand or left-hand system (this is
+        not needed by the calling method).
+
+        Parameters:
+            f_main: Gmsh tag of the fracture for which the tangential basis is sought.
+            f_other: Gmsh tag of the other fracture.
+            cp_0: Coordinate of the point on f_main which is closest to f_other.
+            cp_1: Coordinate of the point on f_other which is closest to f_main.
+
+        Returns:
+            A two-tuple containing the first and second basis vectors.
+
+        """
         n_0 = self._get_normal(f_main)
         vec = np.array(cp_1) - np.array(cp_0)
         nrm = np.linalg.norm(vec)
@@ -1128,6 +1211,7 @@ class MeshSizeControlPointInserter:
         return t_0_max, t_0_min
 
     def _get_normal(self, f):
+        """Helper method to get the normal vector of a nd-1 object from Gmsh."""
         bnd = gmsh.model.get_parametrization_bounds(self._nd - 1, f)
         u_mid = 0.5 * (bnd[0][0] + bnd[1][0])
         v_mid = 0.5 * (bnd[0][1] + bnd[1][1])

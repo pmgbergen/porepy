@@ -163,9 +163,6 @@ class PointBasedFracture(Fracture, abc.ABC):
     def copy(self) -> Fracture:
         """Return a copy of the fracture with the current vertices.
 
-        Note:
-            The original ``points`` (as given when the fracture was initialized) will
-            *not* be preserved.
 
         Returns:
             Fracture with the same points.
