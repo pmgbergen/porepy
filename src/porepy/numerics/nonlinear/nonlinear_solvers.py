@@ -4,7 +4,6 @@ Implemented classes
     NewtonSolver
 """
 
-import copy
 import logging
 from typing import cast
 
@@ -32,13 +31,37 @@ logger = logging.getLogger(__name__)
 
 
 class NewtonSolver:
+    """Nonlinear solver class implementing the Newton-Raphson method.
+
+    This class is responsible for solving nonlinear equations using the
+    Newton-Raphson method. It manages the iteration process, while convergence
+    and divergence criteria are checked at each iteration.
+
+    Parameters:
+        params: Dictionary of parameters for the nonlinear solver. This can include
+            - 'nl_convergence_criteria': Custom convergence criteria.
+            - 'nl_divergence_criteria': Custom divergence criteria.
+            - 'nl_max_iterations': Maximum number of iterations.
+            - 'nl_convergence_inc_atol': Increment-based absolute tolerance.
+            - 'nl_convergence_inc_rtol': Increment-based relative tolerance.
+            - 'nl_convergence_res_atol': Residual-based absolute tolerance.
+            - 'nl_convergence_res_rtol': Residual-based relative tolerance.
+            - 'nl_metric': Metric used for convergence checks.
+
+    If custom convergence or divergence criteria are provided, individual tolerance
+    parameters should not be provided to avoid double specification. If no custom
+    criteria are provided, default criteria are used based on the individual tolerance
+    parameters and metric.
+
+    """
+
     def __init__(self, params=None) -> None:
         if params is None:
             params = {}
         self.params = params
         """Dictionary of parameters for the nonlinear solver."""
-        self.iteration_index: int = -1
-        """Current iteration index."""
+        self.iteration_index: int = 0
+        """Current iteration index - equivalent with number of iterations."""
 
         self.init_convergence_criteria()
         self.init_divergence_criteria()
@@ -247,7 +270,7 @@ class NewtonSolver:
         model.before_nonlinear_loop()
 
         # Prepare solver for nonlinear loop.
-        self.iteration_index = -1
+        self.iteration_index = 0
         self.convergence_criteria.reset()
 
     def nonlinear_loop(
@@ -441,7 +464,7 @@ class NewtonSolver:
             reference_increment=iterate,
             residual=residual,
             reference_residual=residual,
-            iteration_index=self.iteration_index,
+            num_iterations=self.iteration_index,
         )
 
         return convergence_status, divergence_status, convergence_info
@@ -471,7 +494,7 @@ class NewtonSolver:
         )
 
         # Log iteration number.
-        iteration_msg = f"Newton iteration number {self.iteration_index + 1}"
+        iteration_msg = f"Newton iteration number {self.iteration_index}"
         if self.max_iterations is not None:
             iteration_msg += f" of {self.max_iterations}"
         logger.info(iteration_msg)

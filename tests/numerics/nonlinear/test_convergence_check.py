@@ -366,17 +366,17 @@ def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
 @pytest.mark.parametrize(
     ("iteration_index", "max_iterations", "expected_status"),
     [
-        (-1, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
-        (0, 3, ConvergenceStatus.CONVERGED),  # First active iteration
-        (1, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
-        (2, 3, ConvergenceStatus.DIVERGED),  # Third active iteration (max reached)
-        (3, 3, ConvergenceStatus.DIVERGED),
+        (0, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
+        (1, 3, ConvergenceStatus.CONVERGED),  # First active iteration
+        (2, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
+        (3, 3, ConvergenceStatus.DIVERGED),  # Third active iteration (max reached)
+        (4, 3, ConvergenceStatus.DIVERGED),
     ],
 )
 def test_max_iterations_criterion(iteration_index, max_iterations, expected_status):
     """Test of the MaxIterationsCriterion."""
     crit = pp.MaxIterationsCriterion(max_iterations=max_iterations)
-    status = crit.check(iteration_index=iteration_index)
+    status = crit.check(num_iterations=iteration_index)
     assert status == expected_status
 
 

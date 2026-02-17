@@ -59,7 +59,7 @@ def reference_solver_statistics_dict() -> dict:
                 SimulationStatus.SUCCESSFUL,
             ],
             "final_simulation_status": SimulationStatus.SUCCESSFUL,
-            "index": 1,
+            "num_entries": 2,
         },
         # Custom data from SolverStatistics
         "0": {"foo": ["bar1", "bar2"], "simulation_status": SimulationStatus.FAILED},

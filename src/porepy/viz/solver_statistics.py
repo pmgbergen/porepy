@@ -55,7 +55,7 @@ class SolverStatistics:
     """
 
     index: int = field(default=-1)
-    """Current index of the statistics object."""
+    """Current index of the statistics object - expected to be increased before use."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
     num_cells: dict[str, int] = field(default_factory=dict)
@@ -158,7 +158,7 @@ class SolverStatistics:
             "num_domains": self.num_domains,
             "simulation_status_history": str_simulation_status_history,
             "final_simulation_status": final_str_simulation_status,
-            "index": self.index,
+            "num_entries": self.index + 1,
         }
 
         return data

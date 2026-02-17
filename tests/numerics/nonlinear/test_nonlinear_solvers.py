@@ -1,3 +1,5 @@
+"""Unit tests for the Newton solver."""
+
 import copy
 import json
 from pathlib import Path
@@ -221,7 +223,7 @@ def test_init_divergence_criteria_sanity_check(key, value):
             params={
                 key: value,
                 "nl_divergence_criteria": {
-                    "max_iter": pp.MaxIterationsCriterion(max_iterations=3)
+                    "max_iter": pp.MaxIterationsCriterion(max_iterations=2)
                 },
             }
         )
@@ -237,11 +239,11 @@ def test_increase_iteration_index(default_newton_solver):
     solver = default_newton_solver
 
     # Advance iteration count.
-    assert solver.iteration_index == -1
-    solver.increase_iteration_index()
     assert solver.iteration_index == 0
     solver.increase_iteration_index()
     assert solver.iteration_index == 1
+    solver.increase_iteration_index()
+    assert solver.iteration_index == 2
 
 
 def test_solve_convergence(default_newton_solver):
@@ -291,7 +293,7 @@ def test_solve_convergence_statistics(default_newton_solver):
                     "num_domains": {},
                     "simulation_status_history": ["successful"],
                     "final_simulation_status": "successful",
-                    "index": 0,
+                    "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
                     "total_num_waisted_iterations": 0,
@@ -362,6 +364,10 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     correct behavior after convergence, for a time-dependent model.
 
     """
+    # Clean up.
+    if Path("solver_and_time_statistics.json").exists():
+        Path("solver_and_time_statistics.json").unlink()
+
     # Minimal setup.
     model = TimeDependentMockModel(
         nonlinear_increment_history=[[2.0, 0.5], [2.0, 1.0, 0.5]],
@@ -377,7 +383,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
             "num_domains": {},
             "simulation_status_history": ["successful"],
             "final_simulation_status": "successful",
-            "index": 0,
+            "num_entries": 1,
             "final_time_reached": 0,
             "total_num_time_steps": 1,
             "total_num_failed_time_steps": 0,
@@ -420,7 +426,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         {
             "simulation_status_history": ["successful", "successful"],
             "final_simulation_status": "successful",
-            "index": 1,
+            "num_entries": 2,
             "final_time_reached": 1,
             "total_num_time_steps": 2,
             "total_num_failed_time_steps": 0,
@@ -532,7 +538,7 @@ def test_solve_failure_statistics(default_newton_solver):
                     "num_domains": {},
                     "simulation_status_history": ["failed"],
                     "final_simulation_status": "failed",
-                    "index": 0,
+                    "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
                     "total_num_waisted_iterations": 2,
@@ -613,6 +619,10 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     correct behavior after failure, for a time-dependent model.
 
     """
+    # Clean up.
+    if Path("solver_and_time_statistics.json").exists():
+        Path("solver_and_time_statistics.json").unlink()
+
     # Minimal setup for failure for first of three iterations - last two identical.
     model = TimeDependentMockModel(
         nonlinear_increment_history=[[2.0, 100.0], [2.0, 1.0, 0.5], [2.0, 1.0, 0.5]],
@@ -628,7 +638,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
             "num_domains": {},
             "simulation_status_history": ["failed"],
             "final_simulation_status": "failed",
-            "index": 0,
+            "num_entries": 1,
             "final_time_reached": 0,
             "total_num_time_steps": 1,
             "total_num_failed_time_steps": 1,
@@ -671,7 +681,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         {
             "simulation_status_history": ["failed", "successful"],
             "final_simulation_status": "successful",
-            "index": 1,
+            "num_entries": 2,
             "final_time_reached": 0,
             "total_num_time_steps": 2,
             "total_num_failed_time_steps": 1,
@@ -717,7 +727,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         {
             "simulation_status_history": ["failed", "successful", "successful"],
             "final_simulation_status": "successful",
-            "index": 2,
+            "num_entries": 3,
             "final_time_reached": 1,
             "total_num_time_steps": 3,
             "total_num_failed_time_steps": 1,
@@ -804,24 +814,25 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
 
 
 def test_before_nonlinear_loop(default_newton_solver):
-    """Unit test for the before_nonlinear_loop method of the Newton solver."""
+    """Unit test for the before_nonlinear_loop method of the Newton solver.
+
+    Mainly check correct management of indices.
+
+    """
     # Init model and solver.
     model = MockModel()
     solver = default_newton_solver
 
-    # Perform one iteration to change the iteration index.
-    solver.increase_iteration_index()
-
-    # Ensure that the iteration index is not at initial value.
-    assert solver.iteration_index == 0
-    assert model.nonlinear_solver_statistics.index == -1
+    # Mock a situation in the midst of a simulation (after some time step).
+    solver.iteration_index = 10
+    model.nonlinear_solver_statistics.index = 5
 
     # Call before_nonlinear_loop.
     solver.before_nonlinear_loop(model)
 
-    # Check that the iteration and statistics indices have been updated.
-    assert solver.iteration_index == -1
-    assert model.nonlinear_solver_statistics.index == 0
+    # Ensure resetting of iteration index and increase of statistics index.
+    assert solver.iteration_index == 0
+    assert model.nonlinear_solver_statistics.index == 6
 
 
 @pytest.mark.parametrize(
@@ -867,7 +878,7 @@ def test_nonlinear_loop(
             assert divergence_status.is_converged()
 
         # Check that the number of iterations is as expected.
-        assert solver.iteration_index == num_iter - 1
+        assert solver.iteration_index == num_iter
 
     except Exception as e:
         # Newton loop only stops on convergence or divergence.
@@ -926,28 +937,28 @@ def test_before_nonlinear_iteration(default_newton_solver):
     solver = default_newton_solver
 
     # Check initial iteration index.
-    assert solver.iteration_index == -1
+    assert solver.iteration_index == 0
 
     # Call before_nonlinear_iteration.
     solver.before_nonlinear_iteration(model)
 
     # Check that the iteration index has been increased.
-    assert solver.iteration_index == 0
+    assert solver.iteration_index == 1
 
 
 @pytest.mark.parametrize(
     "inc, res, iteration_index, is_converged, is_diverged",
     [
-        ([2.0, 1.0, 0, False, False]),  # Not converged nor diverged
         ([2.0, 1.0, 1, False, False]),  # Not converged nor diverged
-        ([2.0, 1.0, 2, False, True]),  # Diverged due to max iterations
-        ([0.5, 0.5, 0, True, False]),  # Convergence
+        ([2.0, 1.0, 2, False, False]),  # Not converged nor diverged
+        ([2.0, 1.0, 3, False, True]),  # Diverged due to max iterations
         ([0.5, 0.5, 1, True, False]),  # Convergence
-        ([0.5, 0.5, 2, True, True]),  # Convergence and divergence
-        ([11.0, 0.5, 0, False, True]),  # Due to increment divergence
-        ([0.5, 11.0, 0, False, True]),  # Due to residual divergence
-        ([np.nan, 0.5, 0, False, True]),  # Due to increment nan
-        ([0.5, np.nan, 0, False, True]),  # Due to residual nan
+        ([0.5, 0.5, 2, True, False]),  # Convergence
+        ([0.5, 0.5, 3, True, True]),  # Convergence and divergence
+        ([11.0, 0.5, 1, False, True]),  # Due to increment divergence
+        ([0.5, 11.0, 1, False, True]),  # Due to residual divergence
+        ([np.nan, 0.5, 1, False, True]),  # Due to increment nan
+        ([0.5, np.nan, 1, False, True]),  # Due to residual nan
     ],
 )
 def test_after_nonlinear_iteration(
@@ -966,7 +977,7 @@ def test_after_nonlinear_iteration(
     solver.iteration_index = iteration_index
 
     # Minimal setup needed of the model statistics.
-    model.nonlinear_solver_statistics.num_iterations_history = [iteration_index + 1]
+    model.nonlinear_solver_statistics.num_iterations_history = [iteration_index]
 
     # Check convergence.
     convergence_status, divergence_status = solver.after_nonlinear_iteration(
@@ -987,16 +998,16 @@ def test_after_nonlinear_iteration(
 @pytest.mark.parametrize(
     "inc, res, iteration_index, is_converged, is_diverged",
     [
-        ([2.0, 1.0, 0, False, False]),  # Not converged nor diverged
         ([2.0, 1.0, 1, False, False]),  # Not converged nor diverged
-        ([2.0, 1.0, 2, False, True]),  # Diverged due to max iterations
-        ([0.5, 0.5, 0, True, False]),  # Convergence
+        ([2.0, 1.0, 2, False, False]),  # Not converged nor diverged
+        ([2.0, 1.0, 3, False, True]),  # Diverged due to max iterations
         ([0.5, 0.5, 1, True, False]),  # Convergence
-        ([0.5, 0.5, 2, True, True]),  # Convergence and divergence
-        ([11.0, 0.5, 0, False, True]),  # Due to increment divergence
-        ([0.5, 11.0, 0, False, True]),  # Due to residual divergence
-        ([np.nan, 0.5, 0, False, True]),  # Due to increment nan
-        ([0.5, np.nan, 0, False, True]),  # Due to residual nan
+        ([0.5, 0.5, 2, True, False]),  # Convergence
+        ([0.5, 0.5, 3, True, True]),  # Convergence and divergence
+        ([11.0, 0.5, 1, False, True]),  # Due to increment divergence
+        ([0.5, 11.0, 1, False, True]),  # Due to residual divergence
+        ([np.nan, 0.5, 1, False, True]),  # Due to increment nan
+        ([0.5, np.nan, 1, False, True]),  # Due to residual nan
     ],
 )
 def test_check_convergence(
