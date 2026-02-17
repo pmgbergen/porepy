@@ -162,6 +162,12 @@ class FractureNetwork(ABC):
         gmsh.option.setNumber(
             "General.Verbosity", self._extra_meshing_args["gmsh_verbosity_level"]
         )
+        # Set Gmsh to use the same geometric tolerance as the fracture network. This
+        # should maximize the chances that the PorePy and Gmsh algorithms are consistent
+        # in this manner (though, from bitter experience regarding the complexity of
+        # this problem, EK will not vouch for the implementation actually being
+        # consistent in all relevant cases).
+        gmsh.option.setNumber("General.Tolerance", self._tol)
 
         # See the Gmsh documentation for an overview of the available algorithms.
         meshing_algorithm = self._extra_meshing_args.get("meshing_algorithm", 10)
@@ -1181,6 +1187,12 @@ class MeshSizeControlPointInserter:
         n_0 = self._get_normal(f_main)
         vec = np.array(cp_1) - np.array(cp_0)
         nrm = np.linalg.norm(vec)
+        # Detect (almost) identical points. How close the points can get depends on the
+        # geometric tolerances used in the mesh size control algorithm in general. While
+        # we could have hooked up on that tolerance (to the price of passing around the
+        # relevant parameter), a simpler approach of detecting points that are so close
+        # that arithmetic computations barely makes sense, and use a fallback that
+        # should be equally fine in that case.
         if nrm < 1e-12:
             # If the control points are (almost) identical, we cannot use the
             # connecting vector to define a direction. Use the normal of the other
