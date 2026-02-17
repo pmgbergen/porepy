@@ -211,7 +211,6 @@ class DataCollectionMixin(pp.PorePyModel):
         start = time.time()
         sol = super().solve_linear_system()
         self._time_tracker["linsolve"].append(time.time() - start)
-        print("linear solve took:", self._time_tracker["linsolve"][-1])
         return sol
 
     def before_nonlinear_loop(self) -> None:
@@ -307,6 +306,7 @@ class QuadraticRelPerm(pp.PorePyModel):
 
 
 if __name__ == "__main__":
+    # region Argparsing
     parser = argparse.ArgumentParser(prog="Cold CO2 injection run script")
     parser.add_argument(
         "-e",
@@ -367,7 +367,7 @@ if __name__ == "__main__":
         ),
     )
 
-    args = parser.parse_args([])
+    args = parser.parse_args()
 
     if args.equilibrium:
         if isinstance(args.equilibrium, list):
@@ -479,8 +479,7 @@ if __name__ == "__main__":
     if REFINEMENT_LEVEL >= 4:
         newton_tol = 5e-7
 
-    # dt_init = pp.DAY / 2.0
-    dt_init = pp.MINUTE
+    dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
         time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
@@ -492,7 +491,7 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(1 * pp.SECOND, dt_max),
+        dt_min_max=(1 * pp.HOUR, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
@@ -688,6 +687,18 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
+    logging.getLogger("porepy.models.compositional_flow_with_equilibrium").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("porepy.compositional.compiled_flash.uniflash").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("porepy.examples.cold_co2_injection.solver").setLevel(
+        logging.WARNING
+    )
+    logging.getLogger("porepy.numerics.nonlinear.nonlinear_solvers").setLevel(
+        logging.WARNING
+    )
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
