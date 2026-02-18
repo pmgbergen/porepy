@@ -197,18 +197,23 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
         to compute the updates for phase properties, as well as for (extended) partial
         fractions and saturations.
 
-        Calls :meth:`boundary_equilibrium` for the matrix boundary only, using p-T
+        Calls :meth:`boundary_equilibrium` for all boundary grids, using p-T
         equilibrium conditions.
 
         """
 
-        # Matrix = (only) grid with ambient dimension
-        sd = self.mdg.subdomains(dim=self.nd)[0]
-        bg = self.mdg.subdomain_to_boundary_grid(sd)
-        assert bg is not None, "Boundary grid of matrix not found."
-        p = self.bc_values_pressure(bg)
-        T = self.bc_values_temperature(bg)
-        self.boundary_equilibrium(sd, IsobaricEquilibriumSpecs(p=p, T=T))
+        for sd in self.mdg.subdomains():
+            bg = self.mdg.subdomain_to_boundary_grid(sd)
+            if bg is not None:
+                p = self.bc_values_pressure(bg)
+                T = self.bc_values_temperature(bg)
+                self.boundary_equilibrium(sd, IsobaricEquilibriumSpecs(p=p, T=T))
+        # sd = self.mdg.subdomains(dim=self.nd)[0]
+        # bg = self.mdg.subdomain_to_boundary_grid(sd)
+        # assert bg is not None, "Boundary grid of matrix not found."
+        # p = self.bc_values_pressure(bg)
+        # T = self.bc_values_temperature(bg)
+        # self.boundary_equilibrium(sd, IsobaricEquilibriumSpecs(p=p, T=T))
 
     def boundary_equilibrium(
         self, sd: pp.Grid, equilibrium_specs: IsobaricEquilibriumSpecs
@@ -320,7 +325,7 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
 
         Returns:
             A boundary conditions object. By default fall faces are tagged as ``'dir'``
-            and the flash is performed everywhere.
+            and the flash is performed everywhere on the boundary.
 
         """
         # Define boundary faces.

@@ -456,7 +456,7 @@ def test_unit_conversion(units: dict, model_class: type):
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0],
-        "cartesian": True,
+        "grid_type": "cartesian",
         "u_north": [0.0, -1e-5],
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -500,7 +500,7 @@ def test_unit_conversion(units: dict, model_class: type):
 
 class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
-    model_geometries.OrthogonalFractures3d,
+    model_geometries.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     pp.Thermoporomechanics,
 ):

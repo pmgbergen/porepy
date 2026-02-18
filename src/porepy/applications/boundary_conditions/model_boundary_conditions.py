@@ -534,9 +534,9 @@ class HydrostaticPressureValues(GravityMagnitude):
 
         The hydrostatic pressure at depth z is given by
         .. math::
-            p(z) = \rho g z
-        where :math:`\rho` is the fluid density and :math:`g` is the gravity
-        acceleration.
+            p(z) = \rho g z + p_{atm}
+        where :math:`\rho` is the fluid density, :math:`g` is the gravity acceleration,
+        and :math:`p_{atm}` is the atmospheric pressure.
 
         Parameters:
             depth: Array of depths at which to compute hydrostatic pressure.
@@ -546,7 +546,9 @@ class HydrostaticPressureValues(GravityMagnitude):
 
         """
         gravity = self.gravity_force_magnitude("fluid")
-        pressure = gravity * depth
+        pressure = gravity * depth + self.units.convert_units(
+            pp.ATMOSPHERIC_PRESSURE, units="Pa"
+        )
         return pressure
 
 
