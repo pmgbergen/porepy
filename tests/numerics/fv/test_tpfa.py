@@ -769,7 +769,7 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
 
 
 class DiffTpfaFractureTipsInternalBoundaries(
-    model_geometries.OrthogonalFractures3d,
+    model_geometries.CubeDomainOrthogonalFractures,
     well_models.OneVerticalWell,
     well_models.BoundaryConditionsWellSetup,
     FluxDiscretization,
