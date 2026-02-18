@@ -200,9 +200,7 @@ class DimensionReduction(pp.PorePyModel):
         return apertures
 
     @pp.ad.cached_method
-    def specific_volume(
-        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
-    ) -> pp.ad.Operator:
+    def specific_volume(self, grids: pp.GridLikeSequence) -> pp.ad.Operator:
         """Specific volume [m^(nd-d)].
 
         For subdomains, the specific volume is the cross-sectional area/volume of the
@@ -213,7 +211,7 @@ class DimensionReduction(pp.PorePyModel):
             :meth:aperture.
 
         Parameters:
-            subdomains: List of subdomain or interface grids.
+            grids: List of subdomain, interface, or boundary grids.
 
         Returns:
             Specific volume for each cell.
@@ -248,6 +246,19 @@ class DimensionReduction(pp.PorePyModel):
                 projection.primary_to_mortar_avg() @ specific_volume_neighbors
             )
             specific_volume.set_name("specific_volume")
+            return specific_volume
+
+        if isinstance(grids[0], pp.BoundaryGrid):
+            # For boundary grids, the specific volume is inherited from the
+            # subdomain neighbor.
+            assert all(isinstance(g, pp.BoundaryGrid) for g in grids), "Mixed grids"
+
+            # Return 1's for boundary grids.
+            specific_volume = pp.wrap_as_dense_ad_array(
+                1,
+                size=sum(g.num_cells for g in grids),
+                name="specific_volume_boundary_grids",
+            )
             return specific_volume
 
         assert all(isinstance(g, pp.Grid) for g in grids), "Mixed grids"

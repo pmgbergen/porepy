@@ -600,8 +600,8 @@ def test_unit_conversion(units, grid_class):
         "reference_variable_values": reference_values,
     }
     solver_params = {
-        "nl_convergence_tol_res": 1e-12,
-        "nl_convergence_tol": 1,
+        "nl_convergence_inc_atol": 1,
+        "nl_convergence_res_atol": 1e-12,
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"

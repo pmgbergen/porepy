@@ -63,14 +63,11 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
-        if not self._is_time_dependent():  # stationary problem
-            if (
-                self.nonlinear_solver_statistics.num_iteration > 0
-            ):  # avoid saving initial condition
-                collected_data = self.collect_data()
-                if collected_data is not None:
-                    self.results.append(collected_data)
-        else:  # time-dependent problem
+        if not self._is_time_dependent():
+            collected_data = self.collect_data()
+            if collected_data is not None:
+                self.results.append(collected_data)
+        else:
             t = self.time_manager.time  # current time
             scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
             if any(np.isclose(t, scheduled)):
@@ -201,7 +198,10 @@ class DataSavingMixin(pp.PorePyModel):
             length_scale=self.units.m,
         )
 
-        if "solver_statistics_file_name" in self.params:
+        if (
+            "solver_statistics_file_name" in self.params
+            and self.params["solver_statistics_file_name"] is not None
+        ):
             self.nonlinear_solver_statistics.path = (
                 Path(self.params["folder_name"])
                 / self.params["solver_statistics_file_name"]
@@ -329,12 +329,12 @@ class IterationExporting(pp.PorePyModel):
         # part, we multiply the latter by the next power of ten above the maximum number
         # of nonlinear iterations. Default value set to 10 in accordance with the
         # default value used in NewtonSolver.
-        n = self.params.get("max_iterations", 10)
+        n = self.params.get("nl_max_iterations", 10)
         r = np.ceil(np.log10(n + 1))
         self.iteration_exporter.write_vtu(
             self.data_to_export_iteration(),
             time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iteration
+            time_step=self.nonlinear_solver_statistics.num_iterations
             + 10**r * self.time_manager.time_index,
         )
 
