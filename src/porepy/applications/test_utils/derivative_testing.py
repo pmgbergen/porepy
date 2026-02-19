@@ -55,10 +55,15 @@ def get_EOC_taylor(
 
     # Testing derivative along a random direction.
     errorlist = []
+    f0 = func(x0)
+    df0 = dfunc(x0)
+    if ddfunc:
+        ddf0 = ddfunc(x0)
+
     for h_ in h:
-        approx = func(x0) + h_ * (dfunc(x0) @ d)
+        approx = f0 + h_ * (df0 @ d)
         if ddfunc:
-            approx += h_**2 / 2 * (d.T @ (ddfunc(x0) @ d))
+            approx += h_**2 / 2 * (d.T @ (ddf0 @ d))
         exact = func(x0 + h_ * d)
         error = float(np.linalg.norm(exact - approx))
         # If errors are small, their ratios can falsely indicate order loss due to

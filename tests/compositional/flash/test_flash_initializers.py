@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
-
 from itertools import product
 
 import numpy as np
-import porepy as pp
+import pytest
 
+import porepy as pp
 import porepy.compositional.flash as pf
 from porepy.compositional._global_thermodynamic_reference_state import T as T_REF
-
 from tests.compositional.peng_robinson import components, comps_and_phases
 
 

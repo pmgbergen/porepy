@@ -9,8 +9,8 @@ import numba as nb
 import numpy as np
 import pytest
 
-from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
 from porepy.compositional._numba_interface import get_empty_numba_dict, njit
+from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
 
 
 @pytest.mark.parametrize(

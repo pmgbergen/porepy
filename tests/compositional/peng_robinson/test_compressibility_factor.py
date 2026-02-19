@@ -3,7 +3,7 @@ solution of real cubic polynomials."""
 
 from __future__ import annotations
 
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -16,11 +16,11 @@ from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
     B_CRIT,
     COVOLUME_LIMIT,
+    CRITICAL_SLOPE,
     Z_CRIT,
     _smooth_3root_region,
     _smooth_supercritical_transition,
     c_from_AB,
-    critical_line,
     dc_from_AB,
     extended_factor,
     extended_factor_derivatives,
@@ -153,7 +153,7 @@ def test_root_computation_in_AB_space(
         # Sub-critical liquid area.
         np.array([0.5, 0.02]),
         # Sub-critical gas area.
-        np.array([0.3, critical_line(0.3) - 0.001]),
+        np.array([0.3, CRITICAL_SLOPE * 0.3 - 0.001]),
         # 2-phase area.
         np.array([0.1, 0.01]),
         np.array([0.2, 0.02]),
@@ -706,7 +706,7 @@ def test_limitcase_zero_covolume_liquid_saturated(
 @pytest.mark.parametrize(
     ["d", "expected_liquid_order_loss"],
     [
-        (np.array([A_CRIT, critical_line(A_CRIT)]), False),
+        (np.array([A_CRIT, CRITICAL_SLOPE * A_CRIT]), False),
         (np.array([1.0, 1e3]), False),
         (np.array([1e3, 1.0]), True),
         (np.array([1.0, 0.0]), True),

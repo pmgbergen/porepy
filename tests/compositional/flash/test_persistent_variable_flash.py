@@ -21,7 +21,6 @@ from porepy.applications.test_utils.derivative_testing import (
 )
 from tests.compositional.peng_robinson import components, comps_and_phases, pr_eos
 
-
 _flash_cache: dict[tuple[str, ...], pr.CompiledPengRobinson] = {}
 """Caching expensive to create flash classes."""
 _cache_lock = Lock()

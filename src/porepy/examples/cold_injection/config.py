@@ -104,7 +104,9 @@ NUM_MONTHS = 15
 time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
 
 phase_property_params = {
-    "phase_property_params": [1e-4, 1e-2],
+    # TODO smooth to help global solver.
+    "phase_property_params": [1e-4, 1e-2, 0.25, 5.0],
+    "gen_arg_params": [1e-4, 1e-2, 0.25, 5.0],
 }
 
 basalt_ = basalt.copy()

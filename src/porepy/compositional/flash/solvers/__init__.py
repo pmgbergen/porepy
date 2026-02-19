@@ -3,16 +3,17 @@ flash."""
 
 from __future__ import annotations
 
-from typing import Any, Callable
-
-import numpy as np
-
-__all__ = []
+from typing import TYPE_CHECKING, Any, Callable
 
 from . import _core
 from ._core import *
 from .brent_method import DEFAULT_BRENT_PARAMS, brent
 from .npipm_solver import DEFAULT_NPIPM_SOLVER_PARAMS, npipm
+
+if TYPE_CHECKING:
+    import numpy as np
+
+    from ...utils import FlashSpec
 
 __all__ = [
     "brent",
@@ -33,6 +34,7 @@ SOLVERS: dict[
             Callable[[np.ndarray], np.ndarray],
             Callable[[np.ndarray], np.ndarray],
             dict[str, float],
+            FlashSpec,
         ],
         tuple[np.ndarray, int, int],
     ],

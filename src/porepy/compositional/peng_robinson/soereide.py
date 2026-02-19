@@ -190,7 +190,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     (see also :attr:`params`):
 
     1. ``'salinity'``: Molality of NaCl in the brine.
-    2. ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing roots
+    2. ``'s_mp'`` : Portion of 2-phase region used for smoothing roots
        near phase borders
     3. ``'eps'``: Numerical tolerance to determine zero (root case computation).
 
@@ -241,7 +241,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         B_c = self.ideal_funcs["B"]
 
         eps = self.params["eps"]
-        s_m = self.params["smoothing_multiphase"]
+        s_m = self.params["s_mp"]
         sal = self.params["salinity"]
 
         @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
@@ -295,7 +295,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         d = 2 + self.nc
 
         eps = self.params["eps"]
-        s_m = self.params["smoothing_multiphase"]
+        s_m = self.params["s_mp"]
         sal = self.params["salinity"]
 
         @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)

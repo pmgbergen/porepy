@@ -16,9 +16,9 @@ from porepy.applications.test_utils.derivative_testing import (
 from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
     B_CRIT,
+    CRITICAL_SLOPE,
     Z_CRIT,
     c_from_AB,
-    critical_line,
     is_supercritical,
 )
 from porepy.compositional.peng_robinson.cubic_polynomial import (
@@ -120,14 +120,14 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
         # get any closer when using float64
         (np.float64(1e-8), np.float64(0.0), False, 2),
         (np.float64(0.0), np.float64(1e-9), True, 2),
-        (np.float64(1e-8), critical_line(np.float64(1e-8)), True, 2),
+        (np.float64(1e-8), CRITICAL_SLOPE * np.float64(1e-8), True, 2),
         # Away from the point 0,0, the root case should  numerically switch to the
         # non-degenerate regions.
         (np.float64(1e-7), np.float64(0.0), False, 2),
         (np.float64(1e-6), np.float64(0.0), False, 3),
         (np.float64(0.0), np.float64(1e-8), True, 2),
         (np.float64(0.0), np.float64(1e-7), True, 3),
-        (np.float64(1e-7), critical_line(np.float64(1e-7)), True, 1),
+        (np.float64(1e-7), CRITICAL_SLOPE * np.float64(1e-7), True, 1),
         # Numerically challenging points due to cancelation.
         (
             np.float64(9.858323132194671e-08),

@@ -727,11 +727,11 @@ class CompiledPengRobinson(CompiledEoS):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
 
-    The parameter array for the pre-argument function can have up to 3 entries
-    (see also :attr:`params`).
-
     Important:
         All properties implemented here are molar quantities.
+
+        The pre-argument computation (compressibility factors) supports several
+        parameters (see :attr:`params`).
 
     Parameters:
         components: A sequence of ``num_comp`` component instances.
@@ -780,8 +780,10 @@ class CompiledPengRobinson(CompiledEoS):
         """Array of acentric factors per component."""
 
         default_params: dict[str, float] = {
-            "smoothing_multiphase": 1e-4,
-            "smoothing_sc": 1e-3,
+            "s_mp": 1e-4,
+            "sc_reg": 1e-2,
+            "sc_bw": 0.0,
+            "sc_ss": 5.0,
             "eps": 1e-14,
         }
         if params is None:
@@ -795,17 +797,16 @@ class CompiledPengRobinson(CompiledEoS):
 
         List of parameters:
 
-        - ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing
-          roots near phase borders.
-        - ``'smoothing_sc'`` : Stripes in the super-critical area to smooth transitions
-          from one extension formula to the other.
         - ``'eps'``: Numerical tolerance to determine zero (root case computation).
+        - ``'s_mp'`` : Portion of 2-phase region used for smoothing
+          root derivatives near phase borders.
+        - ``'sc_reg'`` : Regularization for derivatives of extended,
+          super-critical compressibility factors.
+        - ``'sc_bw'``: Band width around critical lines for smoothing.
+        - ``'sc_ss'``: Smoothing slope for smoothing towards critical lines
+          (logarithmic sigmoid).
 
         Warning:
-            Choosing the multiphase smoothing factor too big can alter the results of
-            the phase separation calculation, making the multiphase region for example
-            narrower or wider. Use only small values like ``1e-4``.
-
             Choosing a large smoothing factor for the super-critical transitions leads
             to larger areas, where the derivatives of the compressibility factor loose
             exactness. The order subsequent approximations may drop by at least.
@@ -822,8 +823,6 @@ class CompiledPengRobinson(CompiledEoS):
 
     def get_prearg_for_values(self) -> VectorFunction:
         eps = self.params["eps"]
-        s_m = self.params["smoothing_multiphase"]
-        s_sc = self.params["smoothing_sc"]
 
         Tcs = self.Tcs.copy()
         bcs = self.bcs.copy()
@@ -844,15 +843,9 @@ class CompiledPengRobinson(CompiledEoS):
             # Choose default parameters, and then parse given parameters.
             # Can only be done this way because params are a sub-array of the generic
             # argument.
-            _s_m = s_m
             _eps = eps
-            _s_sc = s_sc
-            if params.size >= 1:
-                _s_m = params[0]
-            if params.size >= 2:
-                _s_sc = params[1]
-            if params.size >= 3:
-                _eps = params[2]
+            if params.size >= 5:
+                _eps = params[4]
 
             # Copying turns arrays into function locals, making compilation and
             # signatures easier.
@@ -874,8 +867,6 @@ class CompiledPengRobinson(CompiledEoS):
                 B,
                 True if phase_state == PhysicalState.gas else False,
                 _eps,
-                _s_m,
-                _s_sc,
             )
             grad_A = grad_a_dl(grad_a, a, p, T)
 
@@ -895,8 +886,10 @@ class CompiledPengRobinson(CompiledEoS):
 
     def get_prearg_for_derivatives(self) -> VectorFunction:
         eps = self.params["eps"]
-        s_m = self.params["smoothing_multiphase"]
-        s_sc = self.params["smoothing_sc"]
+        sm = self.params["s_mp"]
+        scr = self.params["sc_reg"]
+        sc_bw = self.params["sc_bw"]
+        sc_ss = self.params["sc_ss"]
 
         Tcs = self.Tcs.copy()
         bcs = self.bcs.copy()
@@ -914,15 +907,21 @@ class CompiledPengRobinson(CompiledEoS):
         ) -> np.ndarray:
             dn = 2 + xn.size
 
-            _s_m = s_m
+            _sm = sm
             _eps = eps
-            _s_sc = s_sc
+            _scr = scr
+            _sc_bw = sc_bw
+            _sc_ss = sc_ss
             if params.size >= 1:
-                _s_m = params[0]
+                _sm = params[0]
             if params.size >= 2:
-                _s_sc = params[1]
+                _scr = params[1]
             if params.size >= 3:
-                _eps = params[2]
+                _sc_bw = params[2]
+            if params.size >= 4:
+                _sc_ss = params[3]
+            if params.size >= 5:
+                _eps = params[4]
 
             _Tcs = Tcs.copy()
             _acs = acs.copy()
@@ -946,8 +945,10 @@ class CompiledPengRobinson(CompiledEoS):
                 B,
                 True if phase_state == PhysicalState.gas.value else False,
                 _eps,
-                _s_m,
-                _s_sc,
+                _sm,
+                _scr,
+                _sc_bw,
+                _sc_ss,
             )
             grad_Z = dZ[0] * grad_A + dZ[1] * grad_B
 
