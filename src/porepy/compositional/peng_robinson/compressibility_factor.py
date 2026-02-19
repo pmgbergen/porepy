@@ -88,6 +88,9 @@ Z_CRIT: float = (
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
 
+dZ_CRIT: np.ndarray = np.array((0.0, -1 / 3))
+"""Derivative of critical compressibility factor with respect to ``A`` and ``B``."""
+
 
 CRITICAL_SLOPE: float = B_CRIT / A_CRIT
 """Slope of the critical line ``(0,0) -> (A_c, B_c)`` given by ``B_c / A_c``.
@@ -780,9 +783,15 @@ def dW_scip(A: float, B: float, sc_reg: float, sc_bw: float, sc_ss: float) -> fl
     S0 = Sigmoid(0, sc_ss)
     S1 = Sigmoid(1, sc_ss)
     w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
+
+    # Cancel smoothing if around critical point.
+    dc = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
+    dcmax = max(sc_reg, sc_bw)
+    w = 1.0 if dc <= dcmax else w
     dW = (1 - w) * dWc + w * dW
 
-    if not w < 1.0:  # If not smoothed towards critial lines, smooth towards Widom line
+    # If not smoothed towards critial lines, smooth towards Widom line
+    if not w < 1.0 and dc > dcmax:
         Aw = A
         Bw = widom_line(A)
         wd = abs(B - Bw)
@@ -944,6 +953,10 @@ def dW_fab(
     S0 = Sigmoid(0, sc_ss)
     S1 = Sigmoid(1, sc_ss)
     w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
+
+    # Cancel smoothing if around critical point.
+    dc = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
+    w = 1.0 if dc <= max(sc_reg, sc_bw) else w
     dW = (1 - w) * dWc + w * dW
 
     return dW
@@ -1174,6 +1187,16 @@ def get_compressibility_factor_derivatives(
         dZ = droots[-1]
     else:
         dZ = droots[0]
-    if extension_case > 10:
-        dZ = np.clip(dZ, -5.0, 5.0)
+
+    # Regularization around the critical point.
+    dmax = max(sc_reg, sc_bw)
+    d = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
+    if d < dmax:
+        w = d / dmax
+        S0 = Sigmoid(0, sc_ss)
+        S1 = Sigmoid(1, sc_ss)
+        w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
+        dZ = (1 - w) * dZ_CRIT + w * dZ
+    # if extension_case > 10:
+    #     dZ = np.clip(dZ, -5.0, 5.0)
     return dZ
