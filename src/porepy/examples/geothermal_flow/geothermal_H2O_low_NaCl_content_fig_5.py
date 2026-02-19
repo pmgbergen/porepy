@@ -1,3 +1,16 @@
+"""
+Geothermal flow simulation with H2O and low NaCl content (Figure 5).
+
+This script includes a backtracking line search algorithm to improve Newton
+convergence. The line search can be enabled/disabled via the 'use_line_search'
+parameter in the params dictionary.
+
+Line search parameters (in DriesnerModelConfiguration.backtracking_line_search):
+- alpha_init: Initial step length (default: 1.0)
+- rho: Step reduction factor (default: 0.5)
+- c: Armijo parameter (default: 1e-4)
+- max_iterations: Maximum backtracking steps (default: 10)
+"""
 from __future__ import annotations
 
 import time
@@ -7,7 +20,6 @@ import numpy as np
 
 import porepy as pp
 
-from porepy.numerics.nonlinear import line_search
 # geometry description horizontal case
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
     SimpleGeometryHorizontal as ModelGeometryH,
@@ -49,7 +61,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.0625 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 1.0 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -101,13 +113,14 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-3,
+    "nl_convergence_tol_res": 5.0e-4,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
+    "use_line_search": True,  # Enable backtracking line search for better convergence
 }
 # params = {
 #     "material_constants": material_constants,

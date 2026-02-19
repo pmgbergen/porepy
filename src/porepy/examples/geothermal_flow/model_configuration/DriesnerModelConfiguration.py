@@ -162,6 +162,52 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         super().update_flux_values()
         self.update_buoyancy_driven_fluxes()
 
+    def compute_residual_from_increment(
+        self, nonlinear_increment: np.ndarray
+    ) -> float:
+        """
+        Compute the residual norm after applying a nonlinear increment.
+
+        This method follows the logic for residual evaluation:
+        1. Shift iterate values
+        2. Apply the nonlinear increment
+        3. Update derived quantities
+        4. Update buoyancy-driven fluxes
+        5. Rediscretize
+        6. Assemble the residual
+        7. Compute and return the residual norm
+
+        Parameters:
+            nonlinear_increment: The increment to apply to current variable values
+
+        Returns:
+            The computed residual norm
+        """
+        # Shift iterate values
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+
+        # Apply the nonlinear increment additively to the current iterate
+        self.equation_system.set_variable_values(
+            values=nonlinear_increment, additive=True, iterate_index=0
+        )
+
+        # Update derived quantities
+        self.update_derived_quantities()
+
+        # Update buoyancy-driven fluxes
+        self.update_buoyancy_driven_fluxes()
+
+        # Rediscretize
+        self.rediscretize()
+
+        # Assemble the current nonlinear residual
+        current_nonlinear_residual = self.equation_system.assemble(evaluate_jacobian=False)
+
+        # Compute the residual norm
+        residual_norm_current = np.linalg.norm(current_nonlinear_residual)
+
+        return residual_norm_current
+
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
     ) -> float:
@@ -293,18 +339,126 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # if self.nonlinear_solver_statistics.num_iteration > 10:
         #     self.postprocessing_thermal_overshoots(solution)
 
-        # # Scale down the Newton correction if the non-linear solver is struggling
-        if self.nonlinear_solver_statistics.num_iteration > 10:
-            # The 'step' determines how many iterations to wait before dropping
-            step = 3
-            exponent = self.nonlinear_solver_statistics.num_iteration // step
-            # Calculation using integer division
-            scaling_factor = max(0.01, 0.95 ** exponent)
-            solution *= scaling_factor
-            print(f"Newton correction scale factor: {scaling_factor:.4f} (Step: {exponent})")
+        # Apply backtracking line search or simple damping
+        use_line_search = self.params.get("use_line_search", True)
 
+        # Evaluate the ACTUAL nonlinear residual at current iterate to decide if line search is needed
+        # (not the RHS vector which is the Newton correction direction)
+        # We use a zero increment to get the residual at the current state
+        try:
+            zero_increment = np.zeros_like(solution)
+            residual_norm_current = self.compute_residual_from_increment(zero_increment)
+        except:
+            # Fallback to using the RHS norm if we can't evaluate the residual
+            residual_norm_current = self.compute_residual_norm(residual_vector, residual_vector)
+
+        line_search_threshold = self.params.get("line_search_threshold", 1e-6)
+
+        if use_line_search and residual_norm_current > line_search_threshold:
+            alpha = self.backtracking_line_search(solution, residual_vector)
+            solution *= alpha
+            print(f"Line search: accepted alpha = {alpha:.4f}")
+        elif use_line_search:
+            # Skip line search if already well-converged
+            print(f"Line search skipped: residual norm {residual_norm_current:.4e} below threshold {line_search_threshold:.4e}")
+        else:
+            # Simple damping for iterations > 10
+            if self.nonlinear_solver_statistics.num_iteration > 10:
+                step = 3
+                exponent = self.nonlinear_solver_statistics.num_iteration // step
+                scaling_factor = max(0.01, 0.95 ** exponent)
+                solution *= scaling_factor
+                print(f"Newton correction scale factor: {scaling_factor:.4f} (Step: {exponent})")
 
         return solution
+
+    def backtracking_line_search(
+        self,
+        delta_x: np.ndarray,
+        current_residual: np.ndarray,
+        alpha_init: float = 1.0,
+        rho: float = 0.5,
+        c: float = 1e-4,
+        max_iterations: int = 10,
+    ) -> float:
+        """
+        Backtracking line search with Armijo condition.
+
+        Parameters:
+            delta_x: Newton step (correction)
+            current_residual: Residual at current iterate
+            alpha_init: Initial step length (default: 1.0)
+            rho: Step reduction factor (default: 0.5)
+            c: Armijo parameter (default: 1e-4)
+            max_iterations: Maximum number of backtracking steps
+
+        Returns:
+            Accepted step length alpha
+        """
+        # Get current solution
+        x_current = self.equation_system.get_variable_values(iterate_index=0).copy()
+
+        # Compute current residual norm using a zero increment
+        try:
+            zero_increment = np.zeros_like(delta_x)
+            residual_norm_current = self.compute_residual_from_increment(zero_increment)
+        except:
+            # Fallback to using the provided residual
+            residual_norm_current = self.compute_residual_norm(current_residual, current_residual)
+
+        alpha = alpha_init
+
+        # Tolerance for accepting step even if residual doesn't decrease
+        # (useful when already near convergence)
+        relative_tolerance = 1.1  # Accept if residual increases by less than 10%
+
+        for i in range(max_iterations):
+            # Compute the increment scaled by alpha
+            scaled_increment = alpha * delta_x
+
+            # Evaluate residual at new point using compute_residual_from_increment
+            try:
+                residual_norm_new = self.compute_residual_from_increment(scaled_increment)
+
+                # Accept step if:
+                # 1. Residual decreases, OR
+                # 2. Residual increase is negligible (within tolerance)
+                if residual_norm_new < residual_norm_current * relative_tolerance:
+                    # Accept this step length
+                    reduction_factor = residual_norm_new / residual_norm_current
+                    print(f"  Line search iter {i+1}: alpha={alpha:.4f}, "
+                          f"||r||={residual_norm_new:.4e} (factor: {reduction_factor:.4f})")
+                    # Restore original solution (will be updated by caller with accepted alpha)
+                    try:
+                        self.equation_system.set_variable_values(x_current, iterate_index=0)
+                    except TypeError:
+                        self.equation_system.set_variable_values(x_current)
+                    return alpha
+                else:
+                    print(f"  Line search iter {i+1}: alpha={alpha:.4f}, "
+                          f"||r||={residual_norm_new:.4e} (rejected, factor: {residual_norm_new/residual_norm_current:.4f})")
+
+            except Exception as e:
+                print(f"  Line search iter {i+1}: failed at alpha={alpha:.4f}: {e}")
+
+            # Restore state before trying next alpha
+            try:
+                self.equation_system.set_variable_values(x_current, iterate_index=0)
+            except TypeError:
+                self.equation_system.set_variable_values(x_current)
+
+            # Reduce step length
+            alpha *= rho
+
+        # Restore original solution
+        try:
+            self.equation_system.set_variable_values(x_current, iterate_index=0)
+        except TypeError:
+            self.equation_system.set_variable_values(x_current)
+
+        # If no sufficient decrease found, return minimal step
+        print(f"  Line search: max iterations reached, using alpha={alpha:.4f}")
+        return alpha
 
     def postprocessing_overshoots(self, delta_x):
 
