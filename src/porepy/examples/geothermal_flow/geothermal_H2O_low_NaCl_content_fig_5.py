@@ -61,7 +61,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 1.0 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -113,16 +113,22 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 5.0e-4,
+    "nl_convergence_tol_res": 1.0e-4,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
-    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
+    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
-    "use_line_search": True,  # Enable backtracking line search for better convergence
-    "line_search_alpha_min": 0.01,  # Minimum acceptable step length (prevents very small steps)
-    "line_search_threshold": 1e-5,  # Residual threshold for activating line search
+
+    # Step control method: "line_search", "trust_region", or "none"
+    "step_control_method": "line_search",  # or "trust_region"
+    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length (prevents very small steps)
+    "step_control_threshold": 1e-5,  # Residual threshold for activating step control
+
+    # Trust region specific parameters (only used if step_control_method="trust_region")
+    "trust_region_initial_radius": 1.0,  # Initial trust region radius
+    "trust_region_min_radius": 1.0e-2,      # Minimum trust region radius (prevents collapse)
 }
 # params = {
 #     "material_constants": material_constants,
