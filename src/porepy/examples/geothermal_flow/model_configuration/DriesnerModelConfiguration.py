@@ -163,28 +163,32 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         self.update_buoyancy_driven_fluxes()
 
     def compute_residual_from_increment(
-        self, nonlinear_increment: np.ndarray
+        self, nonlinear_increment: np.ndarray, restore_state: bool = True
     ) -> float:
         """
         Compute the residual norm after applying a nonlinear increment.
 
         This method follows the logic for residual evaluation:
-        1. Shift iterate values
+        1. Save current state (if restore_state=True)
         2. Apply the nonlinear increment
         3. Update derived quantities
         4. Update buoyancy-driven fluxes
         5. Rediscretize
         6. Assemble the residual
         7. Compute and return the residual norm
+        8. Restore original state (if restore_state=True)
 
         Parameters:
             nonlinear_increment: The increment to apply to current variable values
+            restore_state: If True, restore the original state after computing residual.
+                          Set to False when this is the final accepted increment.
 
         Returns:
             The computed residual norm
         """
-        # Shift iterate values
-        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+        # Save current state if we need to restore it later
+        if restore_state:
+            x_current = self.equation_system.get_variable_values(iterate_index=0).copy()
 
         # Apply the nonlinear increment additively to the current iterate
         self.equation_system.set_variable_values(
@@ -205,6 +209,13 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         # Compute the residual norm
         residual_norm_current = np.linalg.norm(current_nonlinear_residual)
+
+        # Restore original state if requested
+        if restore_state:
+            try:
+                self.equation_system.set_variable_values(x_current, iterate_index=0)
+            except TypeError:
+                self.equation_system.set_variable_values(x_current)
 
         return residual_norm_current
 
@@ -342,25 +353,22 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # Apply backtracking line search or simple damping
         use_line_search = self.params.get("use_line_search", True)
 
-        # Evaluate the ACTUAL nonlinear residual at current iterate to decide if line search is needed
-        # (not the RHS vector which is the Newton correction direction)
-        # We use a zero increment to get the residual at the current state
-        try:
-            zero_increment = np.zeros_like(solution)
-            residual_norm_current = self.compute_residual_from_increment(zero_increment)
-        except:
-            # Fallback to using the RHS norm if we can't evaluate the residual
-            residual_norm_current = self.compute_residual_norm(residual_vector, residual_vector)
+        residual_norm_current = np.linalg.norm(residual_vector)
+        residual_norm_future = self.compute_residual_from_increment(solution, restore_state=True)
 
         line_search_threshold = self.params.get("line_search_threshold", 1e-6)
+        line_search_alpha_min = self.params.get("line_search_alpha_min", 0.01)
 
-        if use_line_search and residual_norm_current > line_search_threshold:
-            alpha = self.backtracking_line_search(solution, residual_vector)
+        if use_line_search and residual_norm_future > residual_norm_current  and self.nonlinear_solver_statistics.num_iteration > 2 and residual_norm_current > line_search_threshold:
+            alpha = self.backtracking_line_search(
+                solution, residual_vector, alpha_min=line_search_alpha_min
+            )
             solution *= alpha
             print(f"Line search: accepted alpha = {alpha:.4f}")
         elif use_line_search:
             # Skip line search if already well-converged
-            print(f"Line search skipped: residual norm {residual_norm_current:.4e} below threshold {line_search_threshold:.4e}")
+            print(
+                f"Line search skipped: residual norm {residual_norm_current:.4e} below threshold {line_search_threshold:.4e}")
         else:
             # Simple damping for iterations > 10
             if self.nonlinear_solver_statistics.num_iteration > 10:
@@ -380,6 +388,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         rho: float = 0.5,
         c: float = 1e-4,
         max_iterations: int = 10,
+        alpha_min: float = 0.01,  # Minimum acceptable step length
     ) -> float:
         """
         Backtracking line search with Armijo condition.
@@ -390,35 +399,43 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             alpha_init: Initial step length (default: 1.0)
             rho: Step reduction factor (default: 0.5)
             c: Armijo parameter (default: 1e-4)
-            max_iterations: Maximum number of backtracking steps
+            max_iterations: Maximum backtracking steps (default: 10)
+            alpha_min: Minimum acceptable step length (default: 0.01)
 
         Returns:
             Accepted step length alpha
         """
-        # Get current solution
-        x_current = self.equation_system.get_variable_values(iterate_index=0).copy()
 
-        # Compute current residual norm using a zero increment
-        try:
-            zero_increment = np.zeros_like(delta_x)
-            residual_norm_current = self.compute_residual_from_increment(zero_increment)
-        except:
-            # Fallback to using the provided residual
-            residual_norm_current = self.compute_residual_norm(current_residual, current_residual)
-
+        residual_norm_current = np.linalg.norm(current_residual)
         alpha = alpha_init
+        best_alpha = alpha_init
+        best_residual = np.inf
 
         # Tolerance for accepting step even if residual doesn't decrease
         # (useful when already near convergence)
         relative_tolerance = 1.1  # Accept if residual increases by less than 10%
 
         for i in range(max_iterations):
+            # Don't try alphas below the minimum threshold
+            if alpha < alpha_min:
+                print(f"  Line search: alpha={alpha:.4f} below minimum {alpha_min:.4f}, "
+                      f"using best found alpha={best_alpha:.4f}")
+                break
+
             # Compute the increment scaled by alpha
             scaled_increment = alpha * delta_x
 
             # Evaluate residual at new point using compute_residual_from_increment
+            # restore_state=True so we can try different alphas
             try:
-                residual_norm_new = self.compute_residual_from_increment(scaled_increment)
+                residual_norm_new = self.compute_residual_from_increment(
+                    scaled_increment, restore_state=True
+                )
+
+                # Track the best alpha found so far
+                if residual_norm_new < best_residual:
+                    best_residual = residual_norm_new
+                    best_alpha = alpha
 
                 # Accept step if:
                 # 1. Residual decreases, OR
@@ -427,12 +444,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
                     # Accept this step length
                     reduction_factor = residual_norm_new / residual_norm_current
                     print(f"  Line search iter {i+1}: alpha={alpha:.4f}, "
-                          f"||r||={residual_norm_new:.4e} (factor: {reduction_factor:.4f})")
-                    # Restore original solution (will be updated by caller with accepted alpha)
-                    try:
-                        self.equation_system.set_variable_values(x_current, iterate_index=0)
-                    except TypeError:
-                        self.equation_system.set_variable_values(x_current)
+                          f"||r||={residual_norm_new:.4e} (accepted, factor: {reduction_factor:.4f})")
                     return alpha
                 else:
                     print(f"  Line search iter {i+1}: alpha={alpha:.4f}, "
@@ -441,24 +453,17 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             except Exception as e:
                 print(f"  Line search iter {i+1}: failed at alpha={alpha:.4f}: {e}")
 
-            # Restore state before trying next alpha
-            try:
-                self.equation_system.set_variable_values(x_current, iterate_index=0)
-            except TypeError:
-                self.equation_system.set_variable_values(x_current)
-
             # Reduce step length
             alpha *= rho
 
-        # Restore original solution
-        try:
-            self.equation_system.set_variable_values(x_current, iterate_index=0)
-        except TypeError:
-            self.equation_system.set_variable_values(x_current)
-
-        # If no sufficient decrease found, return minimal step
-        print(f"  Line search: max iterations reached, using alpha={alpha:.4f}")
-        return alpha
+        # If no sufficient decrease found, return the best alpha found (if above minimum)
+        # or a reasonable fallback
+        if best_alpha >= alpha_min:
+            print(f"  Line search: using best alpha={best_alpha:.4f} with ||r||={best_residual:.4e}")
+            return best_alpha
+        else:
+            print(f"  Line search: no good step found, using fallback alpha={alpha_min:.4f}")
+            return alpha_min
 
     def postprocessing_overshoots(self, delta_x):
 

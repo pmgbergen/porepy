@@ -121,6 +121,8 @@ params = {
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
     "use_line_search": True,  # Enable backtracking line search for better convergence
+    "line_search_alpha_min": 0.01,  # Minimum acceptable step length (prevents very small steps)
+    "line_search_threshold": 1e-5,  # Residual threshold for activating line search
 }
 # params = {
 #     "material_constants": material_constants,
