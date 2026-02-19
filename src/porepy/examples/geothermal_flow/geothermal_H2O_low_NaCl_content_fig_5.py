@@ -49,7 +49,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.0625 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }

@@ -405,11 +405,11 @@ class FlowModelBase(FlowTemplate):
         super().set_nonlinear_discretizations()
         self.set_nonlinear_buoyancy_discretization()
 
-    # def before_nonlinear_iteration(self) -> None:
-    #     self.before_nonlinear_loop()
-    #     self.update_buoyancy_driven_fluxes()
-    #     self.rediscretize()
-    #
+    def  after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        super().after_nonlinear_iteration(nonlinear_increment)
+        self.update_buoyancy_driven_fluxes()
+        self.rediscretize()
+
     def before_nonlinear_iteration(self) -> None:
 
         # Try to read iterate-0 vector
@@ -520,7 +520,7 @@ class FlowModelBase(FlowTemplate):
             logger.warning(f"Failed to write updated iterate-0 back to equation system: {e}")
 
         # keep existing bookkeeping and discretization updates
-        self.before_nonlinear_loop()
+        # self.before_nonlinear_loop()
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 

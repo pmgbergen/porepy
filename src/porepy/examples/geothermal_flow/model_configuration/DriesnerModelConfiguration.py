@@ -202,7 +202,8 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         res_xs_l_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_liquid']])
 
         res_t_norm /= 100.0
-        sub_residuals = [res_p_norm, res_z_norm, res_h_norm, res_t_norm, res_s_norm, res_xs_v_norm,res_xs_l_norm]
+        # sub_residuals = [res_p_norm, res_z_norm, res_h_norm, res_t_norm, res_s_norm, res_xs_v_norm,res_xs_l_norm]
+        sub_residuals = [res_p_norm, res_z_norm, res_h_norm]
         residual_norm = np.max(sub_residuals)
         return residual_norm
 
@@ -288,15 +289,19 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             enthalpy_high_res_idx,
         ]))
         # n_iter = 5
-        if temperature_high_res_idx.size != 0 and balance_indices.size ==0:
-            self.postprocessing_thermal_overshoots(solution, temperature_high_res_idx)
+        # if temperature_high_res_idx.size != 0 and balance_indices.size ==0:
+        # if self.nonlinear_solver_statistics.num_iteration > 10:
+        #     self.postprocessing_thermal_overshoots(solution)
 
         # # Scale down the Newton correction if the non-linear solver is struggling
-        # if self.nonlinear_solver_statistics.num_iteration > n_iter:
-        #
-        #     scaling_factor = max(0.01, 0.98 ** (self.nonlinear_solver_statistics.num_iteration))
-        #     solution *= scaling_factor
-        #     print(f"Newton correction scale factor: {scaling_factor:.4f}")
+        if self.nonlinear_solver_statistics.num_iteration > 10:
+            # The 'step' determines how many iterations to wait before dropping
+            step = 3
+            exponent = self.nonlinear_solver_statistics.num_iteration // step
+            # Calculation using integer division
+            scaling_factor = max(0.01, 0.95 ** exponent)
+            solution *= scaling_factor
+            print(f"Newton correction scale factor: {scaling_factor:.4f} (Step: {exponent})")
 
 
         return solution
@@ -406,7 +411,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # saturation
         new_s = delta_x[s_dof_idx] + s_0
         idx_mp = np.where(np.abs(new_s * (1 - new_s)) > 0.0)[0]
-        # idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
+        idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
 
         if idx_mp.size != 0:
             # correct saturation and temperature from enthalpy
@@ -419,25 +424,25 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             star_s = np.clip(star_s, 0.0, 1.0)
             delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
 
-        if idx_temp.size != 0:
-            # correct temperature from enthalpy
-            par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
-            self.vtk_sampler.sample_at(par_points)
-            star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
-            delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
-            star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
-            star_s = np.clip(star_s, 0.0, 1.0)
-            delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
-
-        # if idx_sp.size != 0:
-        #     # correct enthalpy from temperature
-        #     par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
-        #     self.vtk_sampler_ptz.sample_at(par_points)
-        #     star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
-        #     delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
-        #     star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
+        # if idx_temp.size != 0:
+        #     # correct temperature from enthalpy
+        #     par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
+        #     self.vtk_sampler.sample_at(par_points)
+        #     star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
+        #     delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
+        #     star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
         #     star_s = np.clip(star_s, 0.0, 1.0)
-        #     delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
+        #     delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
+
+        if idx_sp.size != 0:
+            # correct enthalpy from temperature
+            par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
+            self.vtk_sampler_ptz.sample_at(par_points)
+            star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+            delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
+            star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
+            star_s = np.clip(star_s, 0.0, 1.0)
+            delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
 
 
         te = time.time()
