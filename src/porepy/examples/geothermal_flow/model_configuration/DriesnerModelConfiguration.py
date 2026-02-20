@@ -1,4 +1,4 @@
-from typing import Callable, Literal, Union, cast, Optional
+from typing import Callable, Literal, Union, cast, Optional, Any
 
 import numpy as np
 import time
@@ -126,6 +126,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 ):
     # Trust region state (persistent across iterations)
     _trust_radius: float = None
+    _lambda: float = None  # Levenberg-Marquardt regularization parameter
 
     def relative_permeability(
         self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
@@ -225,13 +226,15 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         return current_nonlinear_residual
 
-    def compute_residual_norm(
-        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
-    ) -> float:
-        if residual is None:
-            return np.nan
+    def get_equation_indices_by_category(self):
+        """
+        Get equation indices organized by category: differential and algebraic.
 
-        # Retrieve Equation Indices
+        Returns:
+            tuple: (diff_eq_indices, alg_eq_indices)
+                - diff_eq_indices: dict of differential equation indices
+                - alg_eq_indices: dict of algebraic equation indices
+        """
         eq_indices = self.equation_system.assembled_equation_indices
 
         # Find equation names dynamically
@@ -243,32 +246,127 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         except StopIteration as e:
             raise KeyError(f"A required elimination equation was not found in the equation system. {e}")
 
-        # Map equation types to their corresponding indices
+        # Differential equations (conservation laws)
         diff_eq_indices = {
             'pressure': eq_indices['mass_balance_equation'],
             'composition_NaCl': eq_indices['component_mass_balance_equation_NaCl'],
             'enthalpy': eq_indices['energy_balance_equation'],
-            'temperature': eq_indices[temp_elim_name],
         }
+
+        # Algebraic equations (elimination/closure relations)
         alg_eq_indices = {
+            'temperature': eq_indices[temp_elim_name],
             'saturation': eq_indices[s_gas_elim_name],
             'mass_fraction_NaCl_gas': eq_indices[x_nacl_gas_elim_name],
             'mass_fraction_NaCl_liquid': eq_indices[x_nacl_liq_elim_name],
         }
 
-        res_p_norm = np.linalg.norm(residual[diff_eq_indices['pressure']])
-        res_z_norm = np.linalg.norm(residual[diff_eq_indices['composition_NaCl']])
-        res_h_norm = np.linalg.norm(residual[diff_eq_indices['enthalpy']])
-        res_t_norm = np.linalg.norm(residual[diff_eq_indices['temperature']]) / np.sqrt(len(diff_eq_indices['temperature']))
-        res_s_norm = np.linalg.norm(residual[alg_eq_indices['saturation']])
-        res_xs_v_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_gas']])
-        res_xs_l_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_liquid']])
+        return diff_eq_indices, alg_eq_indices
 
-        res_t_norm /= 100.0
-        # sub_residuals = [res_p_norm, res_z_norm, res_h_norm, res_t_norm, res_s_norm, res_xs_v_norm,res_xs_l_norm]
-        sub_residuals = [res_p_norm, res_z_norm, res_h_norm]
-        residual_norm = np.max(sub_residuals)
-        return residual_norm
+    def compute_residuals_by_category(self, residual: np.ndarray) -> tuple[dict, dict, float, float]:
+        """
+        Compute residual norms organized by category.
+
+        Parameters:
+            residual: Full residual vector
+
+        Returns:
+            tuple: (diff_residuals, alg_residuals, diff_norm, alg_norm)
+                - diff_residuals: dict of individual differential equation norms
+                - alg_residuals: dict of individual algebraic equation norms
+                - diff_norm: combined differential equations norm
+                - alg_norm: combined algebraic equations norm
+        """
+        diff_eq_indices, alg_eq_indices = self.get_equation_indices_by_category()
+
+        # Compute individual differential equation norms
+        diff_residuals = {}
+        for name, indices in diff_eq_indices.items():
+            diff_residuals[name] = np.linalg.norm(residual[indices])
+
+        # Compute individual algebraic equation norms
+        alg_residuals = {}
+        for name, indices in alg_eq_indices.items():
+            alg_residuals[name] = np.linalg.norm(residual[indices])
+
+        # Compute combined norms by category
+        differential_components = [residual[indices] for indices in diff_eq_indices.values()]
+        algebraic_components = [residual[indices] for indices in alg_eq_indices.values()]
+
+        differential_norm = np.linalg.norm(np.concatenate(differential_components))
+        algebraic_norm = np.linalg.norm(np.concatenate(algebraic_components))
+
+        return diff_residuals, alg_residuals, differential_norm, algebraic_norm
+
+    def compute_residual_norm(
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+    ) -> float:
+        """
+        Compute residual norm for convergence check.
+
+        NOTE: Only differential equations are checked for convergence since
+        algebraic equations (temperature, saturation, phase fractions) can
+        always be reconstructed from the differential variables.
+
+        Parameters:
+            residual: Current residual vector
+            reference_residual: Reference residual (not used currently)
+
+        Returns:
+            Residual norm based on differential equations only
+        """
+        if residual is None:
+            return np.nan
+
+        # Use unified method to compute residuals by category
+        diff_residuals, alg_residuals, differential_norm, algebraic_norm = \
+            self.compute_residuals_by_category(residual)
+
+        # Return only differential equations norm for convergence check
+        # Algebraic equations can be reconstructed and don't need to be converged
+        return differential_norm
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        if self._is_nonlinear_problem():
+
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+
+            # Residual per subsystem
+            # Use unified method to compute residuals by category
+            diff_residuals, alg_residuals, differential_norm, algebraic_norm = \
+                self.compute_residuals_by_category(residual)
+
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = (
+                nl_params["nl_convergence_tol"] is np.inf
+                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                nl_params["nl_convergence_tol_res"] is np.inf
+                or differential_norm < nl_params["nl_convergence_tol_res"]
+            )
+            converged = converged_inc and converged_res
+            diverged = False
+        else:
+            raise ValueError(
+                "Gravitational segregation is nonlinear in its simpler form."
+            )
+        if converged:
+            print("Differential equations residual norm: ", differential_norm)
+            print("Algebraic equations  residual norm: ", algebraic_norm)
+
+        return converged, diverged
+
+
 
     def solve_linear_system(self) -> np.ndarray:
         """
@@ -278,37 +376,112 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         Returns:
             np.ndarray: The solution vector of the linear system.
         """
-        # Retrieve Equation Indices
-        eq_indices = self.equation_system.assembled_equation_indices
-
-        # Find equation names dynamically
-        try:
-            temp_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_temperature"))
-            s_gas_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_s_gas"))
-            x_nacl_gas_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_x_NaCl_gas"))
-            x_nacl_liq_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_x_NaCl_liq"))
-        except StopIteration as e:
-            raise KeyError(f"A required elimination equation was not found in the equation system. {e}")
-
-        # Map equation types to their corresponding indices
-        diff_eq_indices = {
-            'pressure': eq_indices['mass_balance_equation'],
-            'composition_NaCl': eq_indices['component_mass_balance_equation_NaCl'],
-            'enthalpy': eq_indices['energy_balance_equation'],
-            'temperature': eq_indices[temp_elim_name],
-        }
-        alg_eq_indices = {
-            'saturation': eq_indices[s_gas_elim_name],
-            'mass_fraction_NaCl_gas': eq_indices[x_nacl_gas_elim_name],
-            'mass_fraction_NaCl_liquid': eq_indices[x_nacl_liq_elim_name],
-        }
-
         # Solve the Linear System
         start_time = time.time()
 
         _, residual_vector = self.linear_system
+
+        # Use unified method to compute residuals by category
+        diff_residuals, alg_residuals, differential_residual_norm, algebraic_residual_norm = \
+            self.compute_residuals_by_category(residual_vector)
+
+        # Report Residuals
+        print("\n Report Residuals ")
+        print(f"Overall residual norm: {np.linalg.norm(residual_vector):.4e}")
+
+        print("Residual norms for differential equations:")
+        for name, norm in diff_residuals.items():
+            print(f"  - {name.capitalize()}: {norm:.4e}")
+
+        print("Residual norms for algebraic equations:")
+        for name, norm in alg_residuals.items():
+            print(f"  - {name.capitalize()}: {norm:.4e}")
+
+        print(f"\nResidual norm comparison:")
+        print(f"  Differential equations norm: {differential_residual_norm:.4e}")
+        print(f"  Algebraic equations norm:    {algebraic_residual_norm:.4e}")
+        print(f"  (Note: Convergence check only uses differential equations)")
+
+        # selector for the step control
+        # - line search (LS)
+        # - trust region (TR)
+        # - trust region with line search (TR-LS)
+        # - plain newton (no step control) (none)
+
+        step_control_method = self.params.get("step_control_method", "LS")
+
+        # Reset lambda at the start of each time step (iteration 0)
+        if self.nonlinear_solver_statistics.num_iteration == 0:
+            self._lambda = 1.0
+            print("Trust region: Reset lambda = 1.0 at start of time step")
+
         residual_norm_current = np.linalg.norm(residual_vector)
-        solution = super().solve_linear_system()
+
+        # Get configuration parameters
+        step_control_alpha_min = self.params.get("step_control_alpha_min", 0.01)
+        activate_after_iteration = self.params.get("activate_step_control_after_iter", 1)
+        activate_step_control_Q = self.nonlinear_solver_statistics.num_iteration > activate_after_iteration
+
+        # === CASE 1: Plain Newton (no step control) ===
+        if step_control_method == "None":
+            print("Step control: Plain Newton (no step control)")
+            solution = super().solve_linear_system()
+
+        # === CASE 2: Line Search (LS) ===
+        elif step_control_method == "LS":
+            solution = super().solve_linear_system()
+
+            # Check if we should activate line search
+            residual_future = self.compute_residual_from_increment(solution, restore_state=True)
+            residual_norm_future = np.linalg.norm(residual_future)
+            increasing_residual_Q = residual_norm_future > residual_norm_current
+
+            if increasing_residual_Q and activate_step_control_Q:
+                print("Step control: Line Search (LS)")
+                alpha = self.backtracking_line_search(
+                    solution, residual_vector, alpha_min=step_control_alpha_min
+                )
+                solution *= alpha
+                print(f"Line search: accepted alpha = {alpha:.4f}")
+            else:
+                print("Step control: LS not needed (residual decreasing or early iteration)")
+
+        # === CASE 3: Trust Region (TR) ===
+        elif step_control_method == "TR":
+            if activate_step_control_Q:
+                print("Step control: Trust Region (TR) with Levenberg-Marquardt")
+                solution, self._lambda = self.trust_region_solve(lambda_param=self._lambda)
+            else:
+                print("Step control: TR not active yet (early iteration), using plain Newton")
+                solution = super().solve_linear_system()
+
+        # === CASE 4: Trust Region + Line Search (TR-LS) ===
+        elif step_control_method == "TR-LS":
+            if activate_step_control_Q:
+                print("Step control: Trust Region + Line Search (TR-LS)")
+                # Step 1: Trust Region solve
+                solution, self._lambda = self.trust_region_solve(lambda_param=self._lambda)
+
+                # Step 2: Line Search on TR solution
+                residual_after_tr = self.compute_residual_from_increment(solution, restore_state=True)
+                residual_norm_after_tr = np.linalg.norm(residual_after_tr)
+
+                if residual_norm_after_tr > residual_norm_current * 1.1:
+                    print("  TR-LS: Applying line search refinement")
+                    alpha = self.backtracking_line_search(
+                        solution, residual_vector, alpha_min=step_control_alpha_min
+                    )
+                    solution *= alpha
+                    print(f"  TR-LS: Line search alpha = {alpha:.4f}")
+                else:
+                    print("  TR-LS: Line search not needed (TR solution good)")
+            else:
+                print("Step control: TR-LS not active yet (early iteration), using plain Newton")
+                solution = super().solve_linear_system()
+
+        else:
+            raise ValueError(f"Unknown step_control_method: {step_control_method}. "
+                           f"Valid options are: 'None', 'LS', 'TR', 'TR-LS'")
 
         if self.params.get("reduce_linear_system_q", False):
             raise NotImplementedError("The 'reduce_linear_system_q' case is not yet implemented.")
@@ -316,130 +489,119 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         end_time = time.time()
         print(f"Elapsed time for linear solve: {end_time - start_time:.4f} seconds\n")
 
-        # Report Residuals
-        print("\n Report Residuals ")
-        print(f"Overall residual norm: {np.linalg.norm(residual_vector):.4e}")
-        print("Residual norms for differential equations:")
-        for name, indices in diff_eq_indices.items():
-            print(f"  - {name.capitalize()}: {np.linalg.norm(residual_vector[indices]):.4e}")
-
-        print("Residual norms for algebraic equations:")
-        for name, indices in alg_eq_indices.items():
-            print(f"  - {name.capitalize()}: {np.linalg.norm(residual_vector[indices]):.4e}")
-
-
-
         # Post-processing solution overshoots
         self.postprocessing_overshoots(solution)
 
-        # Identify indices where the residual for primary variables exceeds a tolerance
-        residual_tolerance = 1.0e-2
-        pressure_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['pressure']]) > residual_tolerance)[0]
-        composition_high_res_idx = \
-        np.where(np.abs(residual_vector[diff_eq_indices['composition_NaCl']]) > residual_tolerance)[0]
-        enthalpy_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['enthalpy']]) > residual_tolerance)[0]
-        temperature_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['temperature']]) > residual_tolerance)[0]
-
-        # Combine unique indices for thermal overshoot post-processing
-        thermal_indices = np.unique(np.concatenate([
-            pressure_high_res_idx,
-            composition_high_res_idx,
-            enthalpy_high_res_idx,
-            temperature_high_res_idx
-        ]))
-        balance_indices = np.unique(np.concatenate([
-            pressure_high_res_idx,
-            composition_high_res_idx,
-            enthalpy_high_res_idx,
-        ]))
-        # n_iter = 5
-        # if temperature_high_res_idx.size != 0 and balance_indices.size ==0:
-        # if self.nonlinear_solver_statistics.num_iteration > 10:
-        #     self.postprocessing_thermal_overshoots(solution)
-
-        # residual_vector_current = self.compute_residual_from_increment(np.zeros_like(solution), restore_state=True)
-        # residual_norm_current_loc = np.linalg.norm(residual_vector_current)
-        # assert np.isclose(residual_norm_current, residual_norm_current_loc)
-
-        # Apply step control method: line search, trust region, or none
-        step_control_method = self.params.get("step_control_method", "line_search")
-
-
-        residual_future = self.compute_residual_from_increment(solution, restore_state=True)
-        residual_norm_future = np.linalg.norm(residual_future)
-
-        # local_dx = solution.copy()
-        # self.postprocessing_thermal_overshoots(local_dx)
-        # residual_future_post = self.compute_residual_from_increment(local_dx, restore_state=True)
-        # residual_norm_future_post = np.linalg.norm(residual_future_post)
-
-        # print(f"Residual comparison: current={residual_norm_current:.4e}, "
-        #       f"future={residual_norm_future:.4e}, future_post={residual_norm_future_post:.4e}")
-        #
-        # if residual_norm_future_post < residual_norm_future:
-        #     print(
-        #         f"Post-processing check: residual norm after thermal overshoot correction: {residual_norm_future_post:.4e}")
-        #     print("Thermal overshoot post-processing reduced the residual. Applying correction.")
-        #     solution = local_dx
-        # else:
-        #     print(f"Thermal overshoot post-processing INCREASED residual from {residual_norm_future:.4e} "
-        #           f"to {residual_norm_future_post:.4e}. NOT applying correction.")
-
-        step_control_threshold = self.params.get("step_control_threshold", 1e-6)
-        step_control_alpha_min = self.params.get("step_control_alpha_min", 0.01)
-
-        increasing_residual_Q = residual_norm_future > residual_norm_current
-        activate_step_control_method_Q = self.nonlinear_solver_statistics.num_iteration > 3
-
-        if step_control_method == "line_search" and increasing_residual_Q and activate_step_control_method_Q:
-            # Use backtracking line search
-            alpha = self.backtracking_line_search(
-                solution, residual_vector, alpha_min=step_control_alpha_min
-            )
-            solution *= alpha
-            print(f"Line search: accepted alpha = {alpha:.4f}")
-
-        elif step_control_method == "trust_region" and activate_step_control_method_Q:
-            # Use trust region method
-            # Get or initialize trust radius
-            if self._trust_radius is None:
-                self._trust_radius = self.params.get("trust_region_initial_radius", 1.0)
-
-            trust_region_min_radius = self.params.get("trust_region_min_radius", 0.1)
-
-            # Get Jacobian for quadratic model (optional, method will fallback if not available)
-            try:
-                jacobian_matrix, _ = self.linear_system
-            except:
-                jacobian_matrix = None
-
-            alpha, self._trust_radius = self.trust_region_step(
-                solution,
-                residual_vector,
-                trust_radius=self._trust_radius,
-                alpha_min=step_control_alpha_min,
-                min_radius=trust_region_min_radius,
-                jacobian=jacobian_matrix  # Pass Jacobian for quadratic model
-            )
-            solution *= alpha
-            print(f"Trust region: accepted alpha = {alpha:.4f}, new radius = {self._trust_radius:.4f}")
-
-
-        elif step_control_method in ["line_search", "trust_region"]:
-            # Skip step control if already well-converged or in early iterations
-            print(f"Step control skipped: residual norm {residual_norm_current:.4e} "
-                  f"(method: {step_control_method})")
-        # else:
-        #     local_dx = solution.copy()
-        #     self.postprocessing_thermal_overshoots(local_dx)
-        #     residual_norm_future_post = self.compute_residual_from_increment(local_dx, restore_state=True)
-        #     if residual_norm_future_post < residual_norm_future:
-        #         print(
-        #             f"Post-processing check: residual norm after thermal overshoot correction: {residual_norm_future_post:.4e}")
-        #         print("Thermal overshoot post-processing reduced the residual. Applying correction.")
-        #         solution = local_dx
+        # Conditional thermal overshoot post-processing
+        # Apply if differential residual is smaller than algebraic residual
+        if differential_residual_norm < algebraic_residual_norm:
+            print(f"\nThermal overshoot condition triggered:")
+            print(f"  Differential norm ({differential_residual_norm:.4e}) < "
+                  f"Algebraic norm ({algebraic_residual_norm:.4e})")
+            print("  Applying thermal overshoot post-processing...")
+            self.postprocessing_thermal_overshoots(solution)
+        else:
+            print(f"\nThermal overshoot condition NOT triggered:")
+            print(f"  Differential norm ({differential_residual_norm:.4e}) >= "
+                  f"Algebraic norm ({algebraic_residual_norm:.4e})")
 
         return solution
+
+    def trust_region_solve(
+        self,
+        lambda_param: float = 1.0,
+        eta: float = 0.1,
+        lambda_increase: float = 4.0,
+        lambda_decrease: float = 0.5,
+    ) -> tuple[np.ndarray, float]:
+        """
+        Trust Region solver with Levenberg-Marquardt regularization.
+
+        Based on the algorithm:
+        1. Modify Jacobian: H_reg = H + lambda * diag(|H|)
+        2. Solve: (H_reg) * p = -g
+        3. Evaluate reduction ratio rho
+        4. Update lambda based on rho
+
+        Parameters:
+            residual_vector: Current residual vector
+            lambda_param: Current Levenberg-Marquardt parameter
+            eta: Threshold for accepting step (default: 0.1)
+            lambda_increase: Factor to increase lambda when step rejected (default: 4.0)
+            lambda_decrease: Factor to decrease lambda when step accepted (default: 0.5)
+
+        Returns:
+            tuple: (solution, new_lambda)
+                - solution: Newton step with LM regularization
+                - new_lambda: Updated lambda for next iteration
+        """
+        # Get Jacobian and residual
+        jacobian_matrix, residual_vector = self.linear_system
+        x_current = self.equation_system.get_variable_values(iterate_index=0)
+
+        # Compute diagonal for regularization: diag(|H|)
+        if hasattr(jacobian_matrix, 'diagonal'):
+            jac_diag = np.abs(jacobian_matrix.diagonal())
+        else:
+            jac_diag = np.abs(jacobian_matrix.toarray().diagonal())
+
+        # Create regularization matrix: lambda * diag(|H|)
+        from scipy.sparse import diags
+        regularization = lambda_param * diags(jac_diag, format='csr')
+
+        # Modified Jacobian: H_reg = H + lambda * diag(|H|)
+        jacobian_regularized = jacobian_matrix + regularization
+
+        print(f"  TR: lambda = {lambda_param:.4e}, solving regularized system")
+
+        # Store the regularized Jacobian temporarily
+        original_jacobian = self.linear_system[0]
+        self.linear_system =  (jacobian_regularized, residual_vector)
+        # Solve with regularized Jacobian
+        pk_solution = super().solve_linear_system()
+        self.postprocessing_overshoots(pk_solution)
+
+        # Restore original Jacobian
+        self.linear_system = (original_jacobian, residual_vector)
+
+        # Evaluate the step quality
+        residual_norm_current = np.linalg.norm(residual_vector)
+
+        # Compute new residual (trial step)
+        residual_new_vec = self.compute_residual_from_increment(pk_solution, restore_state=True)
+        residual_norm_new = np.linalg.norm(residual_new_vec)
+
+        # Compute actual reduction
+        actual_reduction = residual_norm_current - residual_norm_new
+
+        # Compute predicted reduction using quadratic model
+        pHp = pk_solution @ jacobian_matrix @ pk_solution
+        predicted_reduction = -(residual_vector @ pk_solution) - 0.5 * pHp
+
+        # Compute reduction ratio
+        if abs(predicted_reduction) > 1e-14:
+            rho = actual_reduction / predicted_reduction
+        else:
+            rho = 0.0
+
+        print(f"  TR: ||r_old||={residual_norm_current:.4e}, ||r_new||={residual_norm_new:.4e}, rho={rho:.4f}")
+
+        # Update lambda based on reduction ratio
+        if rho > eta:
+            # Accept step
+            new_lambda = lambda_param
+            if rho > 0.75:
+                # Very good agreement, decrease lambda (trust model more)
+                new_lambda = max(lambda_param * lambda_decrease, 1e-10)
+                print(f"  TR: Good agreement, decreasing lambda to {new_lambda:.4e}")
+            else:
+                print(f"  TR: Moderate agreement, keeping lambda = {new_lambda:.4e}")
+        else:
+            # Reject/poor agreement, increase lambda (trust model less)
+            new_lambda = lambda_param * lambda_increase
+            print(f"  TR: Poor agreement (rho={rho:.4f}), increasing lambda to {new_lambda:.4e}")
+
+        return pk_solution, new_lambda
 
     def backtracking_line_search(
         self,
@@ -447,8 +609,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         current_residual: np.ndarray,
         alpha_init: float = 1.0,
         rho: float = 0.5,
-        c: float = 1e-4,
-        max_iterations: int = 15,
+        max_iterations: int = 25,
         alpha_min: float = 0.01,  # Minimum acceptable step length
     ) -> float:
         """
@@ -526,238 +687,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         else:
             print(f"  Line search: no good step found, using fallback alpha={alpha_min:.4f}")
             return alpha_min
-
-    def trust_region_step(
-        self,
-        delta_x: np.ndarray,
-        current_residual: np.ndarray,
-        trust_radius: float = None,
-        eta_1: float = 0.1,
-        eta_2: float = 0.75,
-        gamma_1: float = 0.5,
-        gamma_2: float = 2.0,
-        alpha_min: float = 0.01,
-        alpha_max: float = 1.0,
-        max_radius: float = 10.0,
-        min_radius: float = 0.1,
-        jacobian = None,  # NEW: Jacobian matrix for quadratic model
-    ) -> tuple[float, float]:
-        """
-        Trust region method for step length control based on residual norms.
-
-        Uses a quadratic model based on the Jacobian to predict residual reduction:
-        m(p) = 0.5*||r||^2 + r^T*J*p + 0.5*p^T*(J^T*J)*p
-
-        This method computes the actual reduction vs. predicted reduction in residual
-        to determine whether to accept/reject the step and how to adjust the trust region.
-
-        Parameters:
-            delta_x: Newton step (correction)
-            current_residual: Residual at current iterate
-            trust_radius: Current trust region radius (if None, uses ||delta_x||)
-            eta_1: Threshold for poor agreement (default: 0.1)
-            eta_2: Threshold for good agreement (default: 0.75)
-            gamma_1: Trust radius reduction factor (default: 0.5)
-            gamma_2: Trust radius expansion factor (default: 2.0)
-            alpha_min: Minimum acceptable step length (default: 0.01)
-            alpha_max: Maximum step length (default: 1.0)
-            max_radius: Maximum trust region radius (default: 10.0)
-            min_radius: Minimum trust region radius (default: 0.1)
-            jacobian: Jacobian matrix (if available) for quadratic model
-
-        Returns:
-            tuple: (alpha, new_trust_radius)
-                - alpha: Accepted step length
-                - new_trust_radius: Updated trust region radius for next iteration
-        """
-        # Compute current residual norm
-        residual_norm_current = np.linalg.norm(current_residual)
-
-        # Initialize trust radius if not provided
-        if trust_radius is None or trust_radius < min_radius:
-            trust_radius = max(min_radius, np.linalg.norm(delta_x) * 0.5)
-            print(f"  Trust region: initializing/resetting radius to {trust_radius:.4f}")
-
-        # Compute step norm
-        step_norm = np.linalg.norm(delta_x)
-
-        # Determine initial alpha based on trust radius
-        if step_norm > trust_radius:
-            alpha_trial = trust_radius / step_norm
-        else:
-            alpha_trial = min(alpha_max, 1.0)
-
-        # Ensure alpha is within bounds
-        alpha_trial = max(alpha_min, min(alpha_max, alpha_trial))
-
-        print(f"  Trust region: radius={trust_radius:.4f}, step_norm={step_norm:.4f}, "
-              f"alpha_trial={alpha_trial:.4f}")
-
-        # Compute scaled increment
-        scaled_increment = alpha_trial * delta_x
-
-        # Evaluate residual at new point
-        residual_new = self.compute_residual_from_increment(
-            scaled_increment, restore_state=True
-        )
-        residual_norm_new = np.linalg.norm(residual_new)
-
-
-        # Compute actual reduction in residual
-        actual_reduction = residual_norm_current - residual_norm_new
-
-        # Predict reduction using quadratic model
-        # For a proper trust region, we use: m(p) = f + g^T*p + 0.5*p^T*H*p
-        # where f = 0.5*||r||^2, g = J^T*r, H ≈ J^T*J (Gauss-Newton)
-        # The predicted reduction is: -g^T*p - 0.5*p^T*H*p
-        # For scaling by alpha: p = alpha * delta_x
-
-        # Try to use Jacobian for quadratic model
-        if jacobian is not None:
-            try:
-                # Compute J * delta_x (reuse if Newton step: delta_x solves J*delta_x = -r)
-                J_delta_x = jacobian @ delta_x
-
-                # Quadratic model prediction for step p = alpha * delta_x:
-                # pred_red = -alpha * g^T * delta_x - 0.5 * alpha^2 * delta_x^T * (J^T*J) * delta_x
-                #          = -alpha * (J^T*r)^T * delta_x - 0.5 * alpha^2 * (J*delta_x)^T * (J*delta_x)
-                #          = -alpha * r^T * (J*delta_x) - 0.5 * alpha^2 * ||J*delta_x||^2
-
-                linear_term = -np.dot(current_residual, J_delta_x)
-                quadratic_term = -0.5 * np.dot(J_delta_x, J_delta_x)
-
-                predicted_reduction = alpha_trial * linear_term + (alpha_trial ** 2) * quadratic_term
-
-                print(f"  Trust region: using quadratic model (linear={linear_term:.4e}, "
-                      f"quad={quadratic_term:.4e})")
-
-            except Exception as e:
-                # Fallback to simple linear model if computation fails
-                print(f"  Trust region: quadratic model failed, using simple model ({e})")
-                predicted_reduction = alpha_trial * residual_norm_current
-        else:
-            # Fallback to simple linear model if Jacobian not available
-            print(f"  Trust region: Jacobian not available, using simple linear model")
-            predicted_reduction = alpha_trial * residual_norm_current
-
-        # Compute reduction ratio (rho)
-        # IMPORTANT: rho should only be meaningful when predicted_reduction > 0
-        # If predicted reduction is negative or zero, the model is predicting an increase
-
-        reduction_factor = residual_norm_new / residual_norm_current
-
-        # First check: Did the residual actually decrease?
-        if actual_reduction <= 0:
-            # Residual increased or stayed the same - this is always bad
-            rho = -1.0  # Force poor agreement
-            print(f"  Trust region: ||r_old||={residual_norm_current:.4e}, "
-                  f"||r_new||={residual_norm_new:.4e}, rho={rho:.4f} (REJECTED: residual increased)")
-        elif predicted_reduction <= 0:
-            # Model predicts increase, but we got decrease - model is very wrong
-            rho = 0.0  # Poor agreement, but not as bad as actual increase
-            print(f"  Trust region: ||r_old||={residual_norm_current:.4e}, "
-                  f"||r_new||={residual_norm_new:.4e}, rho={rho:.4f} (WARNING: model predicted increase)")
-        elif abs(predicted_reduction) < 1e-14:
-            # Predicted reduction is too small to be meaningful
-            rho = 0.0
-            print(f"  Trust region: ||r_old||={residual_norm_current:.4e}, "
-                  f"||r_new||={residual_norm_new:.4e}, rho={rho:.4f} (WARNING: predicted reduction too small)")
-        else:
-            # Normal case: both actual and predicted reductions are positive
-            rho = actual_reduction / predicted_reduction
-            print(f"  Trust region: ||r_old||={residual_norm_current:.4e}, "
-                  f"||r_new||={residual_norm_new:.4e}, rho={rho:.4f}")
-
-        # Decide whether to accept the step and how to adjust trust radius
-
-        # SAFETY CHECK: Never accept a step that significantly increases the residual
-        # This is an absolute safeguard regardless of rho
-        max_allowed_increase = 1.5  # Allow up to 50% increase
-        if reduction_factor > max_allowed_increase:
-            print(f"  Trust region: SAFETY REJECT - residual increased by {reduction_factor:.2f}x "
-                  f"(max allowed: {max_allowed_increase:.2f}x)")
-            new_trust_radius = max(min_radius, trust_radius * 0.25)  # Aggressive shrink
-
-            # Try much smaller step
-            for alpha_try in [alpha_trial * 0.1, alpha_trial * 0.01, alpha_min]:
-                if alpha_try < alpha_min * 0.1:
-                    break
-                try:
-                    scaled_inc_try = alpha_try * delta_x
-                    res_norm_try = self.compute_residual_from_increment(
-                        scaled_inc_try, restore_state=True
-                    )
-                    if res_norm_try < residual_norm_current * max_allowed_increase:
-                        print(f"  Trust region: found safer alpha={alpha_try:.4e}, "
-                              f"||r||={res_norm_try:.4e}")
-                        return alpha_try, new_trust_radius
-                except:
-                    continue
-
-            # If nothing works, use minimum step
-            print(f"  Trust region: no safe step found, using alpha={alpha_min:.4e}")
-            return alpha_min, new_trust_radius
-
-        if rho < eta_1:
-            # Poor agreement: reject step or use smaller step, shrink trust region
-            print(f"  Trust region: poor agreement (rho={rho:.4f} < {eta_1:.4f}), "
-                  f"shrinking radius by {gamma_1:.2f}x")
-            new_trust_radius = max(min_radius, trust_radius * gamma_1)
-
-            # Check if we're stuck at minimum radius
-            if trust_radius <= min_radius * 1.01:
-                # Already at minimum, can't shrink further
-                # This suggests the Newton step is very poor
-                print(f"  Trust region: at minimum radius, trying line search approach")
-                # Try different alphas via simple backtracking
-                for alpha_try in [alpha_trial * 0.5, alpha_trial * 0.25, alpha_min]:
-                    if alpha_try < alpha_min:
-                        break
-                    try:
-                        scaled_inc_try = alpha_try * delta_x
-                        res_norm_try = self.compute_residual_from_increment(
-                            scaled_inc_try, restore_state=True
-                        )
-                        if res_norm_try < residual_norm_current * 1.5:
-                            print(f"  Trust region: found acceptable alpha={alpha_try:.4f}, "
-                                  f"||r||={res_norm_try:.4e}")
-                            return alpha_try, min_radius
-                    except:
-                        continue
-
-                # If nothing works, reset radius to a larger value for next iteration
-                print(f"  Trust region: resetting radius to {min_radius * 5:.4f} for next iteration")
-                return alpha_min, min_radius * 5
-
-            # Normal shrinking case
-            if reduction_factor < 1.1:
-                # Still some reduction, accept with smaller alpha
-                alpha_accepted = max(alpha_min, alpha_trial * gamma_1)
-                print(f"  Trust region: accepting reduced step alpha={alpha_accepted:.4f}")
-                return alpha_accepted, new_trust_radius
-            else:
-                # No improvement, use minimum step
-                print(f"  Trust region: no improvement, using alpha={alpha_min:.4f}")
-                return alpha_min, new_trust_radius
-
-        elif rho < eta_2:
-            # Moderate agreement: accept step, keep trust radius
-            print(f"  Trust region: moderate agreement (rho={rho:.4f}), "
-                  f"keeping radius={trust_radius:.4f}")
-            new_trust_radius = trust_radius
-            return alpha_trial, new_trust_radius
-
-        else:
-            # Good agreement: accept step, expand trust radius
-            print(f"  Trust region: good agreement (rho={rho:.4f} >= {eta_2:.4f}), "
-                  f"expanding radius by {gamma_2:.2f}x")
-            new_trust_radius = min(trust_radius * gamma_2, max_radius)
-
-            # If we're not at the boundary, try full step
-            if alpha_trial >= 0.99:
-                return 1.0, new_trust_radius
-            else:
-                return alpha_trial, new_trust_radius
 
     def postprocessing_overshoots(self, delta_x):
 
@@ -874,7 +803,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
             delta_x[t_dof_idx[idx_mp]] = star_t - t_0[idx_mp]
             star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
-            star_s = np.clip(star_s, 0.0, 1.0)
             delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
 
         # if idx_temp.size != 0:
@@ -884,7 +812,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         #     star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
         #     delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
         #     star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
-        #     star_s = np.clip(star_s, 0.0, 1.0)
         #     delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
 
         if idx_sp.size != 0:
@@ -894,7 +821,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
             delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
             star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
-            star_s = np.clip(star_s, 0.0, 1.0)
             delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
 
 

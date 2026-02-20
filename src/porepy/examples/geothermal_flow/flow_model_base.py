@@ -543,45 +543,6 @@ class FlowModelBase(FlowTemplate):
         """
         return self.get_components()[1].name
 
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: Optional[np.ndarray],
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        if self._is_nonlinear_problem():
-
-            total_volume = 0.0
-            for sd in self.mdg.subdomains():
-                total_volume += np.sum(
-                    self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
-
-            # nonlinear_increment based norm
-            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                nonlinear_increment
-            )
-
-            # Residual per subsystem
-            residual_norm = np.linalg.norm(residual)
-            # Check convergence requiring both the increment and residual to be small.
-            converged_inc = (
-                nl_params["nl_convergence_tol"] is np.inf
-                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            )
-            converged_res = (
-                nl_params["nl_convergence_tol_res"] is np.inf
-                or residual_norm < nl_params["nl_convergence_tol_res"]
-            )
-            converged = converged_inc and converged_res
-            diverged = False
-        else:
-            raise ValueError(
-                "Gravitational segregation is nonlinear in its simpler form."
-            )
-        print("residual norm: ", residual_norm)
-        return converged, diverged
-
     def permute_equations_and_variables(self):
         """
         Permute equations and variables in the following order:

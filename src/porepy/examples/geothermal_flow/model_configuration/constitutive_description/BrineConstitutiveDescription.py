@@ -68,7 +68,7 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
         dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 0] * 1.0e-6
         dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 1] * 1.0e-6
         dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 2] * 1.0e-6
-        dmu = np.vstack((dmudp, dmudH, dmudz)) * 0.0
+        dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
@@ -155,7 +155,7 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 0] * 1.0e-6
         dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 1] * 1.0e-6
         dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 2] * 1.0e-6
-        dmu = np.vstack((dmudp, dmudH, dmudz)) * 0.0
+        dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array

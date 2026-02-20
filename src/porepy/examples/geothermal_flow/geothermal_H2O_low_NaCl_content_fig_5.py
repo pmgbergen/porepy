@@ -61,7 +61,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 1.0 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -113,7 +113,7 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-4,
+    "nl_convergence_tol_res": 1.0e-5,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
@@ -121,14 +121,19 @@ params = {
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
 
-    # Step control method: "line_search", "trust_region", or "none"
-    "step_control_method": "line_search",  # or "trust_region"
-    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length (prevents very small steps)
-    "step_control_threshold": 1e-5,  # Residual threshold for activating step control
+    # Step control method options:
+    # - "LS": Line Search (backtracking with Armijo condition)
+    # - "TR": Trust Region with Levenberg-Marquardt regularization
+    # - "TR-LS": Trust Region + Line Search refinement
+    # - "None": Plain Newton (no step control)
+    "step_control_method": "None",
 
-    # Trust region specific parameters (only used if step_control_method="trust_region")
-    "trust_region_initial_radius": 1.0,  # Initial trust region radius
-    "trust_region_min_radius": 1.0e-2,      # Minimum trust region radius (prevents collapse)
+    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
+    "activate_step_control_after_iter": 2,  # Activate after this many iterations
+
+    # Trust region specific parameters (only used for TR and TR-LS methods)
+    "trust_region_initial_radius": 1.0,  # Initial trust region radius (not used anymore)
+    "trust_region_min_radius": 1.0e-2,   # Minimum trust region radius (not used anymore)
 }
 # params = {
 #     "material_constants": material_constants,
