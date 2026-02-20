@@ -123,18 +123,25 @@ params = {
 
     # Step control method options:
     # - "LS": Line Search (backtracking with Armijo condition)
-    # - "TR": Trust Region with Levenberg-Marquardt regularization
+    # - "TR": Trust Region with CFL-aware dynamic radius adjustment
     # - "TR-LS": Trust Region + Line Search refinement
     # - "None": Plain Newton (no step control)
     "step_control_method": "TR",
 
     "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
-    "activate_step_control_after_iter": 2,  # Activate after this many iterations
+    "activate_step_control_after_iter": 1,  # Activate after this many iterations
 
     # Trust region specific parameters (only used for TR and TR-LS methods)
-    "trust_region_min_radius": 0.5,       # Minimum trust region radius (prevents collapse)
-    "trust_region_max_radius": 100.0,     # Maximum trust region radius (prevents unbounded growth)
-    "trust_region_aggressive": True,      # For hyperbolic systems: accept any step that reduces residual
+    "trust_region_min_radius": 0.5,          # Minimum trust region radius (prevents collapse)
+    "trust_region_max_radius": 100.0,        # Maximum trust region radius (prevents unbounded growth)
+    "trust_region_aggressive": True,         # For hyperbolic systems: accept any step that reduces residual
+    "trust_region_block_structured": True,   # Leverage block structure: trust pressure (SPD), limit hyperbolic vars
+
+    # CFL-aware dynamic radius adjustment (acts as dynamic CFL limiter)
+    "trust_region_cfl_target": 0.8,              # Target CFL for expansion (< 1.0 for stability)
+    "trust_region_cfl_shrink_factor": 0.25,      # Aggressive shrink when CFL violated (residual increased a lot)
+    "trust_region_cfl_shrink_moderate": 0.5,     # Moderate shrink when at CFL boundary
+    "trust_region_cfl_expand_factor": 2.0,       # Expand when well within CFL (residual decreased well)
 }
 # params = {
 #     "material_constants": material_constants,

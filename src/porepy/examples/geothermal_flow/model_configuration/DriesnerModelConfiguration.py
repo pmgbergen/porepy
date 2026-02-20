@@ -506,26 +506,85 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         return solution
 
+    def estimate_mixed_dimensional_cfl_number(self) -> tuple[float, float, float]:
+        """
+        Estimate the MD-CFL number
+
+        Uses the same divergence operator as mass balance equations:
+            ∂(φρ)/∂t + ∇·(ρq) = 0
+
+        where div = pp.ad.Divergence(subdomains, dim=1)
+
+        Returns:
+            tuple: (cfl_max, div_max, dx_min)
+                - cfl_max: Maximum CFL number over all cells
+                - div_max: Maximum divergence magnitude [1/s]
+                - dx_min: Minimum cell size [m]
+        """
+
+        # Get the subdomains
+        subdomains = self.mdg.subdomains(dim=self.nd)
+        # Get current time step
+        dt = self.time_manager.dt
+
+        # Get characteristic cell size
+        cell_diameters = self.volume_integral(1,subdomains,dim=1).value(self.equation_system)
+        dx_min = np.min(cell_diameters)
+
+        # === Use PorePy's AD operators (same as mass balance equations) ===
+
+        # 1. Get Darcy flux using AD operator
+        darcy_flux_ad = self.darcy_flux(subdomains)
+
+        # 2. Get density on cells
+        density_ad = self.fluid.density(subdomains)
+        density_values = density_ad.value(self.equation_system)
+
+        # 3. Use PorePy's Divergence operator (consistent with mass balance)
+        div_operator = pp.ad.Divergence(subdomains, dim=1)
+
+        # Compute divergence of Darcy flux [m³/s/m³ = 1/s]
+        div_darcy_ad = div_operator @ darcy_flux_ad
+        div_mass_flux = div_darcy_ad.value(self.equation_system)
+
+        # Absolute divergence
+        abs_div = np.abs(div_mass_flux)
+
+        # 4. Get accumulation density: φρ [kg/m³]
+        porosity_op = self.porosity(subdomains)
+        porosity = porosity_op.value(self.equation_system)
+
+        accumulation_density = porosity * density_values
+
+        # 5. CFL number: CFL = dt * |∇·(ρq)| / (φρ)
+        cfl_per_cell = np.nan_to_num(dt * abs_div / (accumulation_density) , nan=0.0, posinf=0.0)
+        cfl_max = np.max(cfl_per_cell)
+        div_max = np.max(np.nan_to_num(abs_div / (accumulation_density) , nan=0.0, posinf=0.0))
+
+        return cfl_max, div_max, dx_min
+
     def trust_region_solve(
             self,
             trust_radius: float = 1.0,
             eta: float = 0.1,
     ) -> tuple[np.ndarray, float]:
         """
-        Physics-aware Trust Region solver for mixed Parabolic-Hyperbolic systems.
+        Block-structured Trust Region solver for mixed Elliptic-Hyperbolic systems.
 
-        For hyperbolic systems (advection/transport), the Newton step norm is NOT
-        a good measure of step quality. Instead, we focus on:
-        1. Residual reduction (does the step improve the solution?)
-        2. Model agreement (does our linearization predict reality?)
-        3. Relative changes (|Δx|/|x| rather than |Δx|)
+        System structure:
+        - Pressure (Elliptic/SPD): Smooth field, trust Newton fully
+        - Enthalpy (Hyperbolic): Energy advection, CFL-sensitive
+        - Composition (Hyperbolic): Mass transport, CFL-sensitive
 
-        This avoids the "trust radius collapse" problem where the algorithm gets
-        stuck taking infinitesimal steps that can't reduce the residual.
+        Strategy:
+        1. Trust pressure Newton step completely (it's SPD and well-behaved)
+        2. Apply adaptive trust region to hyperbolic variables (enthalpy, composition)
+        3. Use residual reduction as primary metric for acceptance
         """
         # Get parameters
         trust_radius_min = self.params.get("trust_region_min_radius", 0.1)
         trust_radius_max = self.params.get("trust_region_max_radius", 100.0)
+        use_block_structure = self.params.get("trust_region_block_structured", True)
         aggressive_acceptance = self.params.get("trust_region_aggressive", True)
 
         # 1. Get Jacobian (J) and residual (R)
@@ -543,17 +602,84 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # Apply overshoot post-processing to the Newton direction
         self.postprocessing_overshoots(pk_newton)
 
-        # Calculate step norm
-        step_norm_newton = np.linalg.norm(pk_newton)
+        # === 3. Block-structured approach ===
+        if use_block_structure:
+            # Get DOF indices for each variable
+            p_dof_idx = self.equation_system.dofs_of(['pressure'])
+            z_dof_idx = self.equation_system.dofs_of(['z_NaCl'])
+            h_dof_idx = self.equation_system.dofs_of(['enthalpy'])
 
-        # Get current solution for relative change calculation
-        x_current = self.equation_system.get_variable_values(iterate_index=0)
-        x_norm = np.linalg.norm(x_current)
+            # Compute norms for each block
+            p_step_norm = np.linalg.norm(pk_newton[p_dof_idx])
+            z_step_norm = np.linalg.norm(pk_newton[z_dof_idx])
+            h_step_norm = np.linalg.norm(pk_newton[h_dof_idx])
 
-        # Relative step size (more meaningful for hyperbolic systems)
-        relative_step = step_norm_newton / (x_norm + 1e-10)
+            total_step_norm = np.linalg.norm(pk_newton)
 
-        print(f"  TR: Newton step norm = {step_norm_newton:.2e}, relative = {relative_step:.2e}")
+            print(f"  TR Block norms: ||Δp||={p_step_norm:.2e}, ||Δh||={h_step_norm:.2e}, ||Δz||={z_step_norm:.2e}")
+            print(f"  TR Total norm: ||Δx||={total_step_norm:.2e}")
+
+            # Get current solution for relative changes
+            x_current = self.equation_system.get_variable_values(iterate_index=0)
+            p_current = x_current[p_dof_idx]
+            z_current = x_current[z_dof_idx]
+            h_current = x_current[h_dof_idx]
+
+            # Relative changes
+            p_rel = p_step_norm / (np.linalg.norm(p_current) + 1e-10)
+            h_rel = h_step_norm / (np.linalg.norm(h_current) + 1e-10)
+            z_rel = z_step_norm / (np.linalg.norm(z_current) + 1e-10)
+
+            print(f"  TR Relative changes: pressure={p_rel:.2e}, enthalpy={h_rel:.2e}, composition={z_rel:.2e}")
+
+            # Strategy: Trust pressure (SPD), but limit hyperbolic variables
+            pk_solution = pk_newton.copy()
+
+            # Pressure: Always trust (it's SPD and smooth)
+            # No modification needed
+
+            # Hyperbolic variables (enthalpy, composition): Apply trust region
+            hyperbolic_step_norm = np.sqrt(h_step_norm**2 + z_step_norm**2)
+
+            if hyperbolic_step_norm > trust_radius:
+                # Scale back ONLY the hyperbolic components
+                scaling_factor = trust_radius / hyperbolic_step_norm
+                pk_solution[h_dof_idx] *= scaling_factor
+                pk_solution[z_dof_idx] *= scaling_factor
+                is_step_limited = True
+                print(f"  TR: Scaling hyperbolic variables by {scaling_factor:.4f}")
+                print(f"  TR: Pressure step UNTOUCHED (trusting SPD structure)")
+            else:
+                is_step_limited = False
+                print(f"  TR: Using full Newton step for all variables")
+
+            step_norm_newton = total_step_norm
+        else:
+            # Standard approach: treat all variables uniformly
+            step_norm_newton = np.linalg.norm(pk_newton)
+
+            # Get current solution for relative change calculation
+            x_current = self.equation_system.get_variable_values(iterate_index=0)
+            x_norm = np.linalg.norm(x_current)
+
+            # Relative step size (more meaningful for hyperbolic systems)
+            relative_step = step_norm_newton / (x_norm + 1e-10)
+
+            print(f"  TR: Newton step norm = {step_norm_newton:.2e}, relative = {relative_step:.2e}")
+
+            # === 3. Decide on step scaling ===
+            if step_norm_newton <= trust_radius:
+                # Full Newton step
+                pk_solution = pk_newton
+                scaling_factor = 1.0
+                is_step_limited = False
+                print(f"  TR: Using full Newton step (within trust radius)")
+            else:
+                # Scale back the step
+                scaling_factor = trust_radius / step_norm_newton
+                pk_solution = scaling_factor * pk_newton
+                is_step_limited = True
+                print(f"  TR: Scaling step by {scaling_factor:.4f} to respect trust radius")
 
         # === 3. Decide on step scaling ===
         # For hyperbolic systems, we trust the Newton direction but may scale it
@@ -625,37 +751,124 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
                 accept_step = True
                 reason = f"model agreement rho={rho:.3f} > eta={eta}"
 
-        # === 6. Update Trust Radius ===
+        # === 6. CFL-Aware Trust Radius Update ===
+        # Key insight: Trust radius acts as a dynamic CFL limiter
+        # - Estimate actual CFL number from flow velocities
+        # - Use residual reduction to detect CFL violations
+        # - Adjust radius to keep effective CFL ~ 1.0
+
+        # Estimate current CFL number using divergence of Darcy flux
+        cfl_current, div_max, dx_min = self.estimate_mixed_dimensional_cfl_number()
+
+        cfl_shrink_aggressive = self.params.get("trust_region_cfl_shrink_factor", 0.25)
+        cfl_shrink_moderate = self.params.get("trust_region_cfl_shrink_moderate", 0.5)
+        cfl_expand_factor = self.params.get("trust_region_cfl_expand_factor", 2.0)
+        cfl_target = self.params.get("trust_region_cfl_target", 0.8)  # Target CFL for expansion
+
+        print(f"  TR-CFL: Estimated CFL = {cfl_current:.4f} (div-based), div_max = {div_max:.2e} 1/s, dx_min = {dx_min:.2e} m")
+
+        # Thresholds for residual-based detection
+        bad_reduction_threshold = -0.1  # Residual increased > 10%
+        poor_reduction_threshold = 0.0   # No reduction at all
+        good_reduction_threshold = 0.1   # Residual decreased > 10%
+        excellent_reduction_threshold = 0.5  # Residual decreased > 50%
+
         if accept_step:
             print(f"  TR: ✓ ACCEPTING step ({reason})")
 
-            # Adjust trust radius based on model quality
-            if rho > 0.9 and is_step_limited:
-                # Excellent model and we were constrained → expand aggressively
-                new_radius = min(trust_radius * 3.0, trust_radius_max)
-                print(f"  TR: Excellent model, expanding Delta → {new_radius:.4e}")
-            elif rho > 0.75:
-                # Good model → expand
-                new_radius = min(trust_radius * 2.0, trust_radius_max)
-                print(f"  TR: Good model, expanding Delta → {new_radius:.4e}")
-            elif rho > 0.25:
-                # Decent model → keep radius
-                new_radius = trust_radius
-                print(f"  TR: Decent model, keeping Delta = {new_radius:.4e}")
-            else:
-                # Poor model but residual decreased → shrink slightly
-                new_radius = max(trust_radius * 0.8, trust_radius_min)
-                print(f"  TR: Poor model but progress made, shrinking Delta → {new_radius:.4e}")
-        else:
-            # REJECT step
-            print(f"  TR: ✗ REJECTING step (no residual reduction, rho={rho:.3f})")
-            pk_solution = np.zeros_like(pk_solution)  # Zero out the step
-            new_radius = max(trust_radius * 0.5, trust_radius_min)
-            print(f"  TR: Shrinking Delta → {new_radius:.4e}")
+            # CFL-guided trust radius adjustment
+            if relative_residual_change > excellent_reduction_threshold:
+                # EXCELLENT reduction: Well within CFL limit
+                # Check if we can expand based on actual CFL
+                if cfl_current < cfl_target:
+                    # CFL is low, can take larger steps
+                    expansion_potential = cfl_target / (cfl_current + 1e-10)
+                    expansion_factor = min(cfl_expand_factor, expansion_potential)
+                    new_radius = min(trust_radius * expansion_factor, trust_radius_max)
+                    print(f"  TR-CFL: Excellent reduction ({relative_residual_change:.1%}), CFL={cfl_current:.3f} < target")
+                    print(f"  TR-CFL: ✓✓ Can transport info further → EXPAND Delta to {new_radius:.4e}")
+                else:
+                    # CFL is already high, keep or expand cautiously
+                    new_radius = min(trust_radius * 1.2, trust_radius_max)
+                    print(f"  TR-CFL: Excellent reduction ({relative_residual_change:.1%}), but CFL={cfl_current:.3f} ≈ target")
+                    print(f"  TR-CFL: ✓ At optimal CFL → cautious expand to {new_radius:.4e}")
 
-            # Safety: if we've shrunk to minimum and still failing, force a small step
+            elif relative_residual_change > good_reduction_threshold:
+                # GOOD reduction: Within CFL limit
+                if cfl_current < cfl_target * 0.7:
+                    # Room to expand
+                    new_radius = min(trust_radius * 1.5, trust_radius_max)
+                    print(f"  TR-CFL: Good reduction ({relative_residual_change:.1%}), CFL={cfl_current:.3f} < target")
+                    print(f"  TR-CFL: ✓ Within CFL → expand Delta to {new_radius:.4e}")
+                else:
+                    # Close to target, keep current
+                    new_radius = trust_radius
+                    print(f"  TR-CFL: Good reduction ({relative_residual_change:.1%}), CFL={cfl_current:.3f} ≈ target")
+                    print(f"  TR-CFL: ✓ Optimal CFL → keep Delta = {new_radius:.4e}")
+
+            elif relative_residual_change > poor_reduction_threshold:
+                # MARGINAL: Small reduction → may be at CFL boundary
+                if cfl_current > cfl_target * 1.2:
+                    # CFL too high, shrink even though residual decreased
+                    new_radius = max(trust_radius * cfl_shrink_moderate, trust_radius_min)
+                    print(f"  TR-CFL: Small reduction ({relative_residual_change:.1%}), CFL={cfl_current:.3f} > target")
+                    print(f"  TR-CFL: ⚠ Approaching CFL limit → shrink Delta to {new_radius:.4e}")
+                elif rho > 0.75:
+                    # Model is good, keep radius
+                    new_radius = trust_radius
+                    print(f"  TR-CFL: Small reduction ({relative_residual_change:.1%}), CFL={cfl_current:.3f}, good model")
+                    print(f"  TR-CFL: Keep Delta = {new_radius:.4e}")
+                else:
+                    # Model is poor, shrink slightly
+                    new_radius = max(trust_radius * cfl_shrink_moderate, trust_radius_min)
+                    print(f"  TR-CFL: Small reduction ({relative_residual_change:.1%}), CFL={cfl_current:.3f}, poor model")
+                    print(f"  TR-CFL: ⚠ Near CFL boundary → shrink Delta to {new_radius:.4e}")
+
+            else:
+                # ACCEPTED BUT RESIDUAL INCREASED: Near convergence special case
+                new_radius = max(trust_radius * cfl_shrink_moderate, trust_radius_min)
+                print(f"  TR-CFL: Accepted but residual increased ({relative_residual_change:.1%}), CFL={cfl_current:.3f}")
+                print(f"  TR-CFL: ⚠ Special case: shrink Delta to {new_radius:.4e}")
+
+        else:
+            # === REJECT STEP: CFL violation detected ===
+            print(f"  TR: ✗ REJECTING step (rho={rho:.3f})")
+            pk_solution = np.zeros_like(pk_solution)  # Zero out the step
+
+            # Use both residual behavior AND CFL estimate to guide shrinking
+            if relative_residual_change < bad_reduction_threshold:
+                # SEVERE: Residual increased significantly
+                if cfl_current > cfl_target * 1.5:
+                    # CFL violation confirmed by both metrics
+                    new_radius = max(trust_radius * cfl_shrink_aggressive, trust_radius_min)
+                    print(f"  TR-CFL: ✗✗ SEVERE CFL VIOLATION!")
+                    print(f"  TR-CFL: Residual increased {abs(relative_residual_change):.1%}, CFL={cfl_current:.3f} >> target")
+                    print(f"  TR-CFL: Transported information TOO FAR → aggressive shrink to {new_radius:.4e}")
+                else:
+                    # Residual increased but CFL seems OK → numerical issue
+                    new_radius = max(trust_radius * cfl_shrink_moderate, trust_radius_min)
+                    print(f"  TR-CFL: ✗ Residual increased {abs(relative_residual_change):.1%}, but CFL={cfl_current:.3f} OK")
+                    print(f"  TR-CFL: Likely numerical issue → moderate shrink to {new_radius:.4e}")
+
+            elif relative_residual_change < poor_reduction_threshold:
+                # MODERATE: Residual increased moderately
+                correction_factor = cfl_target / (cfl_current + 1e-10)
+                shrink_factor = min(correction_factor, cfl_shrink_moderate)
+                new_radius = max(trust_radius * shrink_factor, trust_radius_min)
+                print(f"  TR-CFL: ✗ MODERATE CFL VIOLATION: Residual increased {abs(relative_residual_change):.1%}")
+                print(f"  TR-CFL: CFL={cfl_current:.3f}, target={cfl_target:.3f}")
+                print(f"  TR-CFL: At CFL boundary → shrink by {shrink_factor:.2f} to {new_radius:.4e}")
+
+            else:
+                # MILD: Residual barely decreased but model poor
+                new_radius = max(trust_radius * 0.7, trust_radius_min)
+                print(f"  TR-CFL: Residual barely decreased ({relative_residual_change:.1%}), CFL={cfl_current:.3f}")
+                print(f"  TR-CFL: Poor model quality → cautious shrink to {new_radius:.4e}")
+
+            # Safety: if at minimum radius, warn that we'll force progress next iteration
             if new_radius <= trust_radius_min * 1.01:
-                print(f"  TR: ⚠ At minimum radius, forcing small Newton step next iteration")
+                print(f"  TR-CFL: ⚠ AT MINIMUM RADIUS ({trust_radius_min:.4e})")
+                print(f"  TR-CFL: Current CFL={cfl_current:.3f}, will force small step next iteration")
                 new_radius = trust_radius_min
 
         return pk_solution, new_radius
