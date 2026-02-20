@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import NDArray
 
 import porepy as pp
 
@@ -118,10 +119,9 @@ class RectangularDomainThreeFractures(pp.PorePyModel):
         return mesh_sizes
 
     def set_domain(self) -> None:
-        if not self.params.get("cartesian", False):
-            self.params["grid_type"] = "simplex"
-        else:
-            self.params["grid_type"] = "cartesian"
+        """A default grid type ('simplex') is set if none is provided."""
+
+        self.params["grid_type"] = self.params.get("grid_type", "simplex")
 
         # Length scale:
         ls = self.units.convert_units(1, "m")
@@ -130,31 +130,6 @@ class RectangularDomainThreeFractures(pp.PorePyModel):
         phys_dims = np.array([2, 1]) * ls
         box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]}
         self._domain = pp.Domain(box)
-
-
-class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
-    """A 3d domain of the unit cube with up to three orthogonal fractures.
-
-    The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
-    and are situated in a unit cube domain. The number of fractures is controlled by
-    the parameter ``num_fracs``, which can be 0, 1, 2 or 3.
-
-    """
-
-    params: dict
-    """Model parameters."""
-
-    def meshing_arguments(self) -> dict:
-        # Length scale:
-        ls = self.units.convert_units(1, "m")
-
-        mesh_sizes = {
-            "cell_size": 0.5 * ls,
-            "cell_size_fracture": 0.5 * ls,
-            "cell_size_boundary": 0.5 * ls,
-            "cell_size_min": 0.2 * ls,
-        }
-        return mesh_sizes
 
 
 class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
@@ -196,3 +171,217 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
+
+
+class SubsurfaceCuboidDomain:
+    """Mixin class for cuboid subsurface domains.
+
+    Provides method for setting domain, defining its side lengths and depth calculation.
+    The resulting domain extends from surface to bottom in negative z direction. The
+    depth calculation can be extended by adding an offset representing the depth of the
+    top boundary if needed.
+
+    """
+
+    domain: pp.Domain
+    """Model domain."""
+    nd: int
+    """Number of spatial dimensions."""
+    params: dict
+    """Model parameters."""
+    units: pp.Units
+    """Model units."""
+
+    def domain_sizes(self) -> NDArray[np.float64]:
+        """Return the size of the domain in each of the three coordinate directions."""
+        # Hard-coded to 3 instead of self.nd since nd is not necessarily set when this
+        # method is (first) called. Justified since this is a *cuboid* domain.
+        return self.units.convert_units(
+            self.params.get("domain_sizes", np.ones(3, dtype=float)), "m"
+        )
+
+    def set_domain(self) -> None:
+        """Set the cubic domain."""
+        x_size, y_size, z_size = self.domain_sizes()
+        box = {
+            "xmin": 0.0,
+            "xmax": x_size,
+            "ymin": 0.0,
+            "ymax": y_size,
+            "zmin": -z_size,
+            "zmax": 0.0,
+        }
+        self._domain = pp.Domain(box)
+
+
+class TwoWells3d(SubsurfaceCuboidDomain):
+    """A mixin adding two wells to a 3d model.
+
+    By default, one straight vertical well and one kinked well are added to a cubic
+    domain. The domain size and well mesh size can be controlled by the parameters
+    ``domain_sizes`` and ``well_mesh_size``, respectively.
+
+    A sketch of the setup in the x-z plane is provided in the comments of the method
+    :meth:`set_well_network`.
+    """
+
+    params: dict
+    """Model parameters."""
+    units: pp.Units
+    """Model units."""
+
+    @property
+    def well_names(self) -> list[str]:
+        """Return the names of the two wells.
+
+        By default, the names are "injection_well" and "production_well". In this class,
+        these names are used to tag the wells when creating them. If used e.g. for
+        setting boundary conditions or source terms, the user should ensure consistency
+        with these names, and may override this property to provide custom names or
+        switch the roles of the wells.
+
+        """
+        return ["injection_well", "production_well"]
+
+    def set_well_network(self) -> None:
+        """Set the two wells.
+
+        See below comment for a sketch of the setup.
+        """
+        # With constant y coordinates for both wells, the projection in the x-z plane
+        # looks roughly as follows, using double lines to indicate the domain
+        # boundaries:
+
+        #               w1      w2
+        #     ==============================
+        #     ||        |        |         ||
+        #     ||        |        |         ||
+        #     ||        |        |         ||
+        #     ||        |        \         ||
+        #     ||        |         \        ||
+        #     ||        |          \       ||
+        #     ||                           ||
+        #     ==============================
+
+        # Side lengths of the domain:
+        dx, dy, dz = self.domain_sizes()
+        # One straight vertical well at (0.35dx, 0.35dy) extending from z=0 to z=-0.8dz.
+        well_1 = pp.Well(
+            np.array([[0.35 * dx, 0.35 * dx], [0.35 * dy, 0.35 * dy], [0, -0.8 * dz]]),
+            tags={"well_name": self.well_names[0]},
+        )
+        # One kinked well at (0.6dx, 0.65dy), with a kink at z=-0.4dz and terminating at
+        # (0.7dx, 0.65dy, -0.8dz).
+        well_2 = pp.Well(
+            np.array(
+                [
+                    [0.6 * dx, 0.6 * dx, 0.7 * dx],
+                    [0.65 * dy, 0.65 * dy, 0.65 * dy],
+                    [0, -0.4 * dz, -0.8 * dz],
+                ]
+            ),
+            tags={"well_name": self.well_names[1]},
+        )
+        self._wells = [well_1, well_2]
+
+        mesh_size = self.params.get("well_mesh_size", {"mesh_size": 0.1 * dz})
+        self.well_network = pp.WellNetwork3d(
+            domain=self._domain, wells=self._wells, parameters=mesh_size
+        )
+
+
+class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
+    """A mixin adding two elliptic fractures to a 3d model.
+
+    The fractures are defined by their centers, major and minor axes, strike and dip
+    angles, and major axis angles. The parameters can be controlled by passing a
+    dictionary ``fracture_params`` to the model parameter dictionary. See the property
+    :meth:`fracture_params` for details on the available parameters and their default
+    values.
+
+    If extending to more than two fractures, the user should override all properties
+    defining fracture parameters to return arrays of size (at least) self.num_fractures.
+    The case num_fractures < (size of arrays) is allowed, in which case only the first
+    num_fractures entries are used.
+
+    """
+
+    params: dict
+    """Model parameters."""
+    units: pp.Units
+    """Model units."""
+
+    def fracture_params(self) -> dict:
+        """Return fracture parameters with defaults.
+
+        The available parameters are:
+            - num_fractures: Number of fractures (default 2)
+            - fracture_major_axes: Major axes of the fractures (default [0.2, 0.2])
+            - fracture_minor_axes: Minor axes of the fractures (default equal to
+                major axes, whether explicitly provided or not)
+            - strike_angles: Strike angles of the fractures (default [pi/4, pi/4])
+            - dip_angles: Dip angles of the fractures (default [pi/2, pi/2])
+            - major_axis_angles: Major axis angles of the fractures (default [0.0, 0.0])
+            - num_points: Number of points to define each fracture (default [10, 10])
+
+        The fracture axes are scaled by the minimum of the domain sizes. For adjusting
+        the fracture centers, the user should override the property
+        :meth:`fracture_centers`.
+
+        Returns:
+            A dictionary with fracture parameters.
+
+        """
+        default_params = {
+            "num_fractures": 2,
+            "num_points": np.array([10, 10]),
+            "fracture_major_axes": np.array([0.2, 0.2]),
+            "strike_angles": np.array([np.pi / 4, np.pi / 4]),
+            "dip_angles": np.array([np.pi / 2, np.pi / 2]),
+            "major_axis_angles": np.array([0.0, 0.0]),
+        }
+        user_params = self.params.get("fracture_params", {})
+        default_params.update(user_params)
+        if "fracture_minor_axes" not in default_params:
+            default_params["fracture_minor_axes"] = default_params[
+                "fracture_major_axes"
+            ]
+        return default_params
+
+    @property
+    def fracture_minor_axes(self) -> np.ndarray:
+        params = self.fracture_params()
+        # Scale minor axes by the minimum domain size.
+        size = min(self.domain_sizes())
+        return params["fracture_minor_axes"] * size
+
+    @property
+    def fracture_major_axes(self) -> np.ndarray:
+        params = self.fracture_params()
+        # Scale major axes by the minimum domain size.
+        size = min(self.domain_sizes())
+        return params["fracture_major_axes"] * size
+
+    @property
+    def fracture_centers(self) -> tuple[np.ndarray, np.ndarray]:
+        dx, dy, dz = self.domain_sizes()
+        center_1 = np.array([0.35 * dx, 0.35 * dy, -0.6 * dz])
+        center_2 = np.array([0.65 * dx, 0.65 * dy, -0.6 * dz])
+        return center_1, center_2
+
+    def set_fractures(self):
+        """Set the elliptic fractures as defined in the fracture parameters and the
+        fracture centers method."""
+        self._fractures = []
+        params = self.fracture_params()
+        for i in range(params["num_fractures"]):
+            f = pp.create_elliptic_fracture(
+                center=self.fracture_centers[i],
+                strike_angle=params["strike_angles"][i],
+                dip_angle=params["dip_angles"][i],
+                major_axis=self.fracture_major_axes[i],
+                minor_axis=self.fracture_minor_axes[i],
+                major_axis_angle=params["major_axis_angles"][i],
+                num_points=params["num_points"][i],
+            )
+            self._fractures.append(f)
