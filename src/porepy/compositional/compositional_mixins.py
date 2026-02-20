@@ -1642,7 +1642,8 @@ class FluidMixin(pp.PorePyModel):
             ]
             )
             if mode=="provided":
-                return phase.density(domains)
+                #return phase.density(domains)
+                return pp.ad.Scalar(self.fluid.reference_component.molar_density)
             elif mode=="fully_coupled":
                 return phase.density(domains) / mean_molar_mass
 
