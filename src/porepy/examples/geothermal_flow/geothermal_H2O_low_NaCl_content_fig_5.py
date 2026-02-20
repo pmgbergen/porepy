@@ -137,11 +137,11 @@ params = {
     "trust_region_aggressive": True,         # For hyperbolic systems: accept any step that reduces residual
     "trust_region_block_structured": True,   # Leverage block structure: trust pressure (SPD), limit hyperbolic vars
 
+    # CFL-based trust radius bounds (RECOMMENDED for hyperbolic stability)
+    "trust_region_use_cfl_bounds": True,     # Use CFL to set physics-based bounds: min=1/CFL, max=CFL*10
+
     # CFL-aware dynamic radius adjustment (acts as dynamic CFL limiter)
-    "trust_region_cfl_target": 0.8,              # Target CFL for expansion (< 1.0 for stability)
-    "trust_region_cfl_shrink_factor": 0.25,      # Aggressive shrink when CFL violated (residual increased a lot)
-    "trust_region_cfl_shrink_moderate": 0.5,     # Moderate shrink when at CFL boundary
-    "trust_region_cfl_expand_factor": 2.0,       # Expand when well within CFL (residual decreased well)
+    "trust_region_cfl_max_target": 10.0,              # Target CFL for expansion
 }
 # params = {
 #     "material_constants": material_constants,
