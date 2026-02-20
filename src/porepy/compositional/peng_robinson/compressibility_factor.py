@@ -786,12 +786,11 @@ def dW_scip(A: float, B: float, sc_reg: float, sc_bw: float, sc_ss: float) -> fl
 
     # Cancel smoothing if around critical point.
     dc = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
-    dcmax = max(sc_reg, sc_bw)
-    w = 1.0 if dc <= dcmax else w
+    w = 1.0 if dc < sc_bw else w
     dW = (1 - w) * dWc + w * dW
 
     # If not smoothed towards critial lines, smooth towards Widom line
-    if not w < 1.0 and dc > dcmax:
+    if not w < 1.0 and dc > sc_bw:
         Aw = A
         Bw = widom_line(A)
         wd = abs(B - Bw)
@@ -956,7 +955,7 @@ def dW_fab(
 
     # Cancel smoothing if around critical point.
     dc = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
-    w = 1.0 if dc <= max(sc_reg, sc_bw) else w
+    w = 1.0 if dc < sc_bw else w
     dW = (1 - w) * dWc + w * dW
 
     return dW
@@ -1166,9 +1165,6 @@ def get_compressibility_factor_derivatives(
             droots[0] = dW_fab(A, B, roots[-1], droots[-1], sc_reg, sc_bw, sc_ss)
             # droots[0] = dW_scip(A, B, sc_reg, sc_bw, sc_ss)
         case 21:
-            assert droots.shape == (1, 2), (
-                "Expecting shape (1, 2) of root derivatives in extension cases 21."
-            )
             # droots[-1] = extended_factor_derivatives(droots[0])
             # droots[-1, 1] += 2.0 * B - B_CRIT
             droots[-1] = dW_fab(A, B, roots[0], droots[0], sc_reg, sc_bw, sc_ss)
@@ -1189,10 +1185,10 @@ def get_compressibility_factor_derivatives(
         dZ = droots[0]
 
     # Regularization around the critical point.
-    dmax = max(sc_reg, sc_bw)
     d = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
-    if d < dmax:
-        w = d / dmax
+    # d = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + (B - B_CRIT) ** 2)
+    if d < sc_bw:
+        w = d / sc_bw
         S0 = Sigmoid(0, sc_ss)
         S1 = Sigmoid(1, sc_ss)
         w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)

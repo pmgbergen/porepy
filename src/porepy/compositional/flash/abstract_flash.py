@@ -170,14 +170,16 @@ class FlashResults(pp.compositional.FluidProperties):
         v[self.exitcode > 5] = "unknown"
         return v.astype(str)
 
-    def postprocess_fractions(self, eps: float = 1e-7) -> None:
+    def postprocess_fractions(self, eps: float = 1e-8) -> None:
         """Ensures fractions are strictly in the interval [0, 1] and fulfill the
         unity constraint.
 
         Overall fractions :attr:`z` are not modified.
 
         Parameters:
-            eps: Used to determine absence of a phase and whether partial fractions
+            eps: ``default=1e-8``
+
+                Used to determine absence of a phase and whether partial fractions
                 should be normalized.
 
         """
@@ -195,6 +197,27 @@ class FlashResults(pp.compositional.FluidProperties):
             phase.x[phase.x > 1] = 1.0
             if np.any(idx):
                 phase.x[:, idx] = normalize_rows(phase.x[:, idx].T).T
+
+    def log_summary(self, logger: logging.Logger | None = None) -> None:
+        """Logs a summary of flash results.
+
+        Parameters:
+            logger: If given, logs the summary as an information log.
+                By default, it is printed to the console.
+
+        """
+        notc = (~self.converged).sum()
+        sr = (1 - notc / self.size) * 100
+        mi = self.max_iter_reached.sum()
+        st = self.stationary.sum()
+        div = self.diverged.sum()
+        f = self.failure.sum()
+        msg = f"Not converged: {notc} / {self.size} (success rate {(sr):.2f} %)\n"
+        msg += f"Max iter / Stationary / Diverged / Failure: {mi} / {st} / {div} / {f}"
+        if logger is not None:
+            logger.info(msg)
+        else:
+            print(msg)
 
 
 class AbstractFlash(abc.ABC):
@@ -232,7 +255,7 @@ class AbstractFlash(abc.ABC):
 
         self.solver_params: dict[str, float] = {
             "atol_res": 1e-7,
-            "max_iterations": 100.0,
+            "max_iterations": 150.0,
             "num_phases": float(fluid.num_phases),
             "num_components": float(fluid.num_components),
         }
@@ -738,6 +761,7 @@ class AbstractFlash(abc.ABC):
         shape: tuple[int, int] = xm.shape
         assert ym.shape == shape, "Failed to reshape axis values."
         spec = {specification.name[0]: s1, specification.name[1]: s2}
+        eps = kwargs.get("eps", 1e-7)
 
         # Compute results for plot.
         results = self.flash(
@@ -748,6 +772,7 @@ class AbstractFlash(abc.ABC):
             params=kwargs.get("params", None),
             **kwargs.get("flash_kwargs", {}),
         )
+        results.postprocess_fractions(eps)
 
         not_conv = ~results.converged
 
@@ -768,7 +793,7 @@ class AbstractFlash(abc.ABC):
         else:
             fields = field
         for f in fields:
-            v = self._parse_field(results, f, kwargs.get("eps", 1e-7))
+            v = self._parse_field(results, f, eps)
             v = kwargs.get("vtransform", lambda x, s: x)(v, f).reshape(shape)
             if transpose:
                 v = v.transpose()
@@ -797,9 +822,7 @@ class AbstractFlash(abc.ABC):
 
         plot_phase_contour = kwargs.get("phasecontour", False)
         if split_v is None and plot_phase_contour:
-            split_v = self._parse_field(
-                results, "phasesplit", kwargs.get("eps", 1e-7)
-            ).reshape(shape)
+            split_v = self._parse_field(results, "phasesplit", eps).reshape(shape)
             assert isinstance(split_v, np.ndarray)
             if transpose:
                 split_v = split_v.transpose()

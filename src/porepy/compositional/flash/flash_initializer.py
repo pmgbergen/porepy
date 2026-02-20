@@ -1209,7 +1209,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     omegas_ = omegas.copy()
 
                     # Compute pseudo-critical estimate of enthalpy.
-                    T_pc = np.dot(z, T_cs_)
+                    T_pc = (z * T_cs_).sum()
                     p_pc = critical_pressure_guess(z, p_cs_, T_cs_, v_cs_)
 
                     pre_g_pc = prearg_val_c(PhysicalState.gas, p_pc, T_pc, z, x_p)

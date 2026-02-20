@@ -53,7 +53,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
     "npipm_penalty_neg": 1.0,
     "npipm_slack_decline": 0.5,
     "armijo_step_size": 0.99,
-    "armijo_decline": 0.45,
+    "armijo_decline": 0.495,
     "rpc_T": 1.0,
     "rpc_T_chop": np.inf,
     "rpc_p": 1.0,
@@ -443,6 +443,7 @@ def npipm_inner(
 ) -> tuple[np.ndarray, int, int]:
     """Inner function for the NPIPM-solver, suitable for recursion when using the
     pT-flash as a non-linear preconditioning."""
+
     # Default exit code is maximum iterations reached.
     exitcode = 1
 
@@ -473,18 +474,17 @@ def npipm_inner(
     # endregion
 
     # region System set-up
-    # Get generic argument for easy access to constant parts.
-    gen_arg = parse_generic_arg(X0, n_C, n_P, spec)
 
     n_P1m = n_P - 1  # Number of independent phases.
     n_C1m = n_C - 1  # Number of independent components.
     n_CP = n_C * n_P  # Number of independent partial fractions
     n_F = n_P1m + n_CP  # Number of phase and partial fractions.
+    n_F1p = n_F + 1
 
     # Declare pT nonlinear preconditioning cycle:
     if (pT_npc_cycle > 0) and (spec != FlashSpec.pT):
         is_pT_npc_cycle = True
-        f_dim = n_F + 1
+        f_dim = n_F1p
     else:
         is_pT_npc_cycle = False
 
@@ -578,8 +578,6 @@ def npipm_inner(
     y_emg = 1e-3  # Trial phase fraction for emerging phases.
 
     tau = 0.0  # Starting value for diagonal regularization
-    tau_min = 1e-8  # Minimal value.
-    tau_max = 1e6  # Maximal value.
     do_LM = False  # Levenberg-Marquardt normalization.
     alpha_max = 1.0  # Maximal step size.
     alpha_min_s = 1e-4  # Scale of alpha max to obtain alpha min
@@ -629,7 +627,8 @@ def npipm_inner(
     # endregion
 
     i = 0
-    for i in range(pT_npc_cycle if is_pT_npc_cycle else max_iter):
+    Ni = pT_npc_cycle if is_pT_npc_cycle else max_iter
+    for i in range(Ni):
         if X_i[-1] < 0:  # Safety net for slack variable, cannot be negative.
             x, y = parse_xy(X_i[:-1], n_C, n_P)
             X_i[-1] = np.abs(np.sum(y * (1 - np.sum(x, axis=1))))
@@ -695,7 +694,7 @@ def npipm_inner(
             # soon very small.
             dX_i *= tr_delta / d_norm
         f2b = _feasible_fractions_scale(
-            X_i[-(n_F + 1) : -1], dX_i[-(n_F + 1) : -1], atol_num, atol_frac
+            X_i[-n_F1p:-1], dX_i[-n_F1p:-1], atol_num, atol_frac
         )
         if f2b < 1.0:
             alpha = tr_f2b * f2b
@@ -874,30 +873,6 @@ def npipm_inner(
                     xj /= xj.sum()
                 x[j, :] = xj
 
-            # Issues are often observed due to extended fractions being stuck at too low
-            # values when a phase vanished. Try to break free by perturbing using feed
-            # fractions. Indicator: Only isofugacity constraints have large residual.
-            idx = np.zeros(f_dim, dtype=np.bool)
-            idx[-(n_F + 1) : -(n_P + n_C1m + 1)] = True
-            res_part = np.linalg.norm(f_i_j[~idx])
-
-            # Perturb every n-th iteration, with n being maximal cycle detected.
-            if (res_part < tol) and ((i >= i_efp + i_diff_pert) or i_efp == 0):
-                for j in range(n_P):
-                    xj = x[j, :]
-                    # Perturb extended fractions where phase absent.
-                    # NOTE Perturbing phase fractions is tricky as it often has
-                    # a deteriorating effect. Requires more thinking.
-                    # if xj.sum() <= 1.0 - 1e-3:
-                    if y[j] < atol_frac:
-                        i_efp = i  # Mark when perturbed.
-                        xj = (xj + 1 / n_C) * 0.5
-                        # Keep fractions feasible.
-                        sxj = xj.sum()
-                        if sxj > 1.0:
-                            xj /= sxj
-                    x[j, :] = xj
-
             # If close to a phase border, relaxe fraction-to-boundary rule.
             if np.any(y < 1e-4):
                 tr_f2b = tr_f2b_max
@@ -921,7 +896,112 @@ def npipm_inner(
                     # not violate mass constraints.
                     # z_t = (gen_arg[3] - y_eps * x[j]) / (1.0 - y_eps)
 
-            X_i[-(n_F + 1) : -1] = np.hstack((y[1:], x.flatten()))
+            X_i[-n_F1p:-1] = np.hstack((y[1:], x.flatten()))
+
+            # Issues are often observed due to extended fractions being stuck at too low
+            # values when a phase vanished. Try to break free by perturbing using feed
+            # fractions. Indicator: Only isofugacity constraints have large residual.
+            idx = np.zeros(f_dim, dtype=np.bool)
+            idx[-n_F1p : -(n_P + n_C1m + 1)] = True
+            res_part = np.linalg.norm(f_i_j[~idx])
+
+            # Perturb every n-th iteration, with n being maximal cycle detected.
+            if (res_part < tol) and ((i >= i_efp + i_diff_pert) or i_efp == 0):
+                for j in range(n_P):
+                    xj = x[j, :]
+                    # Perturb extended fractions where phase absent.
+                    # NOTE Perturbing phase fractions is tricky as it often has
+                    # a deteriorating effect. Requires more thinking.
+                    # if xj.sum() <= 1.0 - 1e-3:
+                    if y[j] < atol_frac:
+                        i_efp = i  # Mark when perturbed.
+                        xj = (xj + 1 / n_C) * 0.5
+                        # Keep fractions feasible.
+                        sxj = xj.sum()
+                        if sxj > 1.0:
+                            xj /= sxj
+                    x[j, :] = xj
+                X_i[-n_F1p:-1] = np.hstack((y[1:], x.flatten()))
+            elif (res_part < tol) and (0 < i_efp < i):
+                X_i[-n_F1p:-1] = np.hstack((y[1:], x.flatten()))
+
+                # Find rows belonging to isofug constraints and complementarity
+                # conditions associated with DOFs of partial fractions of vanished
+                # phases.
+                idxr = np.zeros(f_dim, dtype=np.bool_)
+                idxc = idxr.copy()
+                if y[0] < atol_frac:
+                    idxr[-(n_P + 1)] = True
+                    idxr[-n_F1p:n_C] = True
+                    idxc[-n_F1p + n_P1m : -n_F1p + n_P1m + n_C] = True
+                for j in range(1, n_P):
+                    if y[j] < atol_frac:
+                        idxr[-(n_P + 1) + j] = True
+                        idxr[-n_F1p + (j - 1) * n_C : -n_F1p + j * n_C] = True
+                        idxc[
+                            -n_F1p + n_P1m + j * n_C : -n_F1p + n_P1m + (j + 1) * n_C
+                        ] = True
+
+                # Include Slack variable and equation.
+                idxr[-1] = True
+                idxc[-1] = True
+
+                t_k = 0.4 * max(1.0, float(np.linalg.norm(X_i[idxc])))
+                f_i_k = f_i_j[idxr]
+                success_k = False
+                dX_ = np.zeros_like(X_i)
+                for k in range(i, Ni):
+                    J_i_k = eval_DF(X_i)[idxr, :][:, idxc]
+                    g_k = -J_i_k.T @ f_i_k
+
+                    try:
+                        dX_i_k = np.linalg.lstsq(J_i_k, -f_i_k, rcond=EPS)[0]
+                    except:
+                        dX_i_k = g_k
+
+                    if np.any(np.isnan(dX_i_k)):
+                        break
+
+                    dn = np.linalg.norm(dX_i_k)
+                    if dn > t_k:
+                        dX_i_k *= t_k / dn
+
+                    r2 = np.sum(f_i_k**2) * 0.5
+                    dX_[idxc] = dX_i_k
+                    f_i_k_trial = eval_F(X_i + dX_)[idxr]
+                    ar2 = r2 - np.sum(f_i_k_trial**2) * 0.5
+
+                    pr = f_i_k + J_i_k @ dX_i_k
+                    pr2 = r2 - np.sum(pr**2) * 0.5
+                    rho = ar2 / max(pr2, 1e-14)
+
+                    if rho <= 0.25:
+                        t_k = max(t_k * 0.9, tr_delta_min)
+                        if spec != FlashSpec.pT:
+                            dX_i_k = g_k * 0.1
+                            dn = np.linalg.norm(dX_i_k)
+                            if dn > t_k:
+                                dX_i_k *= t_k / dn
+                    elif rho >= 0.75:
+                        t_k = min(2 * t_k, 1.0)
+
+                    f2b = _feasible_fractions_scale(
+                        X_i[idxc][:-1], dX_i_k[:-1], atol_num, atol_frac
+                    )
+                    if f2b < 1.0:
+                        dX_i_k *= f2b * tr_f2b_max
+
+                    X_i[idxc] += dX_i_k
+                    f_i_k = eval_F(X_i)[idxr]
+                    # print(np.linalg.norm(f_i_k))
+                    if np.linalg.norm(f_i_k) <= min(
+                        res_history.min(), 10 ** (np.log10(tol) / 2)
+                    ):
+                        success_k = True
+                        break
+
+                if success_k:  # We are already converged, go to exit condition.
+                    continue
 
             # Second line of action: Analyze system (expensive - if failures persist).
             if (
@@ -983,7 +1063,7 @@ def npipm_inner(
                     for j, s in enumerate(xs):
                         if s > 1:
                             x[j, :] /= s + atol_num
-                    X_i[-(n_F + 1) : -1] = np.hstack((y[1:], x.flatten()))
+                    X_i[-n_F1p:-1] = np.hstack((y[1:], x.flatten()))
         else:
             alpha_min_s = 1e-4
             alpha_max = 1.0
