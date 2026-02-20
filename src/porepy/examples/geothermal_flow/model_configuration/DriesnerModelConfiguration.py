@@ -126,7 +126,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 ):
     # Trust region state (persistent across iterations)
     _trust_radius: float = None
-    _lambda: float = None  # Levenberg-Marquardt regularization parameter
 
     def relative_permeability(
         self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
@@ -412,8 +411,8 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         # Reset lambda at the start of each time step (iteration 0)
         if self.nonlinear_solver_statistics.num_iteration == 0:
-            self._lambda = 1.0
-            print("Trust region: Reset lambda = 1.0 at start of time step")
+            self._trust_radius = 1.0
+            print("Trust region: Reset trust_radius = 1.0 at start of time step")
 
         residual_norm_current = np.linalg.norm(residual_vector)
 
@@ -450,7 +449,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         elif step_control_method == "TR":
             if activate_step_control_Q:
                 print("Step control: Trust Region (TR) with Levenberg-Marquardt")
-                solution, self._lambda = self.trust_region_solve(lambda_param=self._lambda)
+                solution, self._trust_radius = self.trust_region_solve(trust_radius=self._trust_radius)
             else:
                 print("Step control: TR not active yet (early iteration), using plain Newton")
                 solution = super().solve_linear_system()
@@ -460,13 +459,13 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             if activate_step_control_Q:
                 print("Step control: Trust Region + Line Search (TR-LS)")
                 # Step 1: Trust Region solve
-                solution, self._lambda = self.trust_region_solve(lambda_param=self._lambda)
+                solution, self._trust_radius = self.trust_region_solve(trust_radius=self._trust_radius)
 
                 # Step 2: Line Search on TR solution
                 residual_after_tr = self.compute_residual_from_increment(solution, restore_state=True)
                 residual_norm_after_tr = np.linalg.norm(residual_after_tr)
 
-                if residual_norm_after_tr > residual_norm_current * 1.1:
+                if residual_norm_after_tr > residual_norm_current * 0.9:
                     print("  TR-LS: Applying line search refinement")
                     alpha = self.backtracking_line_search(
                         solution, residual_vector, alpha_min=step_control_alpha_min
@@ -508,100 +507,158 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         return solution
 
     def trust_region_solve(
-        self,
-        lambda_param: float = 1.0,
-        eta: float = 0.1,
-        lambda_increase: float = 4.0,
-        lambda_decrease: float = 0.5,
+            self,
+            trust_radius: float = 1.0,
+            eta: float = 0.1,
     ) -> tuple[np.ndarray, float]:
         """
-        Trust Region solver with Levenberg-Marquardt regularization.
+        Physics-aware Trust Region solver for mixed Parabolic-Hyperbolic systems.
 
-        Based on the algorithm:
-        1. Modify Jacobian: H_reg = H + lambda * diag(|H|)
-        2. Solve: (H_reg) * p = -g
-        3. Evaluate reduction ratio rho
-        4. Update lambda based on rho
+        For hyperbolic systems (advection/transport), the Newton step norm is NOT
+        a good measure of step quality. Instead, we focus on:
+        1. Residual reduction (does the step improve the solution?)
+        2. Model agreement (does our linearization predict reality?)
+        3. Relative changes (|Δx|/|x| rather than |Δx|)
 
-        Parameters:
-            residual_vector: Current residual vector
-            lambda_param: Current Levenberg-Marquardt parameter
-            eta: Threshold for accepting step (default: 0.1)
-            lambda_increase: Factor to increase lambda when step rejected (default: 4.0)
-            lambda_decrease: Factor to decrease lambda when step accepted (default: 0.5)
-
-        Returns:
-            tuple: (solution, new_lambda)
-                - solution: Newton step with LM regularization
-                - new_lambda: Updated lambda for next iteration
+        This avoids the "trust radius collapse" problem where the algorithm gets
+        stuck taking infinitesimal steps that can't reduce the residual.
         """
-        # Get Jacobian and residual
+        # Get parameters
+        trust_radius_min = self.params.get("trust_region_min_radius", 0.1)
+        trust_radius_max = self.params.get("trust_region_max_radius", 100.0)
+        aggressive_acceptance = self.params.get("trust_region_aggressive", True)
+
+        # 1. Get Jacobian (J) and residual (R)
         jacobian_matrix, residual_vector = self.linear_system
+
+        # Objective: f(x) = 0.5 * ||R(x)||^2
+        f_current = 0.5 * np.dot(residual_vector, residual_vector)
+        residual_norm_current = np.sqrt(2.0 * f_current)
+
+        print(f"  TR: Current Trust Radius (Delta) = {trust_radius:.4e}")
+
+        # === 2. Compute the PURE Newton Step ===
+        pk_newton = super().solve_linear_system()
+
+        # Apply overshoot post-processing to the Newton direction
+        self.postprocessing_overshoots(pk_newton)
+
+        # Calculate step norm
+        step_norm_newton = np.linalg.norm(pk_newton)
+
+        # Get current solution for relative change calculation
         x_current = self.equation_system.get_variable_values(iterate_index=0)
+        x_norm = np.linalg.norm(x_current)
 
-        # Compute diagonal for regularization: diag(|H|)
-        if hasattr(jacobian_matrix, 'diagonal'):
-            jac_diag = np.abs(jacobian_matrix.diagonal())
+        # Relative step size (more meaningful for hyperbolic systems)
+        relative_step = step_norm_newton / (x_norm + 1e-10)
+
+        print(f"  TR: Newton step norm = {step_norm_newton:.2e}, relative = {relative_step:.2e}")
+
+        # === 3. Decide on step scaling ===
+        # For hyperbolic systems, we trust the Newton direction but may scale it
+        if step_norm_newton <= trust_radius:
+            # Full Newton step
+            pk_solution = pk_newton
+            scaling_factor = 1.0
+            is_step_limited = False
+            print(f"  TR: Using full Newton step (within trust radius)")
         else:
-            jac_diag = np.abs(jacobian_matrix.toarray().diagonal())
+            # Scale back the step
+            scaling_factor = trust_radius / step_norm_newton
+            pk_solution = scaling_factor * pk_newton
+            is_step_limited = True
+            print(f"  TR: Scaling step by {scaling_factor:.4f} to respect trust radius")
 
-        # Create regularization matrix: lambda * diag(|H|)
-        from scipy.sparse import diags
-        regularization = lambda_param * diags(jac_diag, format='csr')
-
-        # Modified Jacobian: H_reg = H + lambda * diag(|H|)
-        jacobian_regularized = jacobian_matrix + regularization
-
-        print(f"  TR: lambda = {lambda_param:.4e}, solving regularized system")
-
-        # Store the regularized Jacobian temporarily
-        original_jacobian = self.linear_system[0]
-        self.linear_system =  (jacobian_regularized, residual_vector)
-        # Solve with regularized Jacobian
-        pk_solution = super().solve_linear_system()
-        self.postprocessing_overshoots(pk_solution)
-
-        # Restore original Jacobian
-        self.linear_system = (original_jacobian, residual_vector)
-
-        # Evaluate the step quality
-        residual_norm_current = np.linalg.norm(residual_vector)
-
-        # Compute new residual (trial step)
+        # === 4. Evaluate Step Quality ===
         residual_new_vec = self.compute_residual_from_increment(pk_solution, restore_state=True)
         residual_norm_new = np.linalg.norm(residual_new_vec)
+        f_new = 0.5 * np.dot(residual_new_vec, residual_new_vec)
 
-        # Compute actual reduction
-        actual_reduction = residual_norm_current - residual_norm_new
+        # Actual reduction: Δf_actual = f(x) - f(x+p)
+        actual_reduction = f_current - f_new
+        relative_residual_change = (residual_norm_current - residual_norm_new) / residual_norm_current
 
-        # Compute predicted reduction using quadratic model
-        pHp = pk_solution @ jacobian_matrix @ pk_solution
-        predicted_reduction = -(residual_vector @ pk_solution) - 0.5 * pHp
+        # Predicted reduction: Using the Gauss-Newton model
+        Jp = jacobian_matrix @ pk_solution
+        gTp = np.dot(residual_vector, Jp)
+        pHp = np.dot(Jp, Jp)
+        predicted_reduction = -gTp - 0.5 * pHp
 
-        # Compute reduction ratio
+        # Gain Ratio (rho) - measures model quality
         if abs(predicted_reduction) > 1e-14:
             rho = actual_reduction / predicted_reduction
         else:
-            rho = 0.0
-
-        print(f"  TR: ||r_old||={residual_norm_current:.4e}, ||r_new||={residual_norm_new:.4e}, rho={rho:.4f}")
-
-        # Update lambda based on reduction ratio
-        if rho > eta:
-            # Accept step
-            new_lambda = lambda_param
-            if rho > 0.75:
-                # Very good agreement, decrease lambda (trust model more)
-                new_lambda = max(lambda_param * lambda_decrease, 1e-10)
-                print(f"  TR: Good agreement, decreasing lambda to {new_lambda:.4e}")
+            # Near a minimum or model is very accurate
+            if actual_reduction > 0:
+                rho = 1.0
+            elif abs(actual_reduction) < 1e-14:
+                rho = 1.0  # Already converged
             else:
-                print(f"  TR: Moderate agreement, keeping lambda = {new_lambda:.4e}")
-        else:
-            # Reject/poor agreement, increase lambda (trust model less)
-            new_lambda = lambda_param * lambda_increase
-            print(f"  TR: Poor agreement (rho={rho:.4f}), increasing lambda to {new_lambda:.4e}")
+                rho = -1.0  # Step made things worse
 
-        return pk_solution, new_lambda
+        print(f"  TR: ||R_old||={residual_norm_current:.4e}, ||R_new||={residual_norm_new:.4e}")
+        print(f"  TR: Actual Δf={actual_reduction:.4e}, Predicted Δf={predicted_reduction:.4e}")
+        print(f"  TR: rho={rho:.4f}, relative residual change={relative_residual_change:.4f}")
+
+        # === 5. Acceptance Decision (Hyperbolic-aware) ===
+        # For hyperbolic systems, we care MORE about residual reduction
+        # and LESS about model agreement (rho)
+
+        accept_step = False
+        reason = ""
+
+        if aggressive_acceptance:
+            # Accept if residual decreased OR we're near convergence
+            if actual_reduction > 0:
+                accept_step = True
+                reason = "residual decreased"
+            elif residual_norm_new < 1.1 * residual_norm_current and residual_norm_current < 1e-4:
+                accept_step = True
+                reason = "near convergence, small increase acceptable"
+            elif rho > eta:
+                accept_step = True
+                reason = f"model agreement rho={rho:.3f} > eta={eta}"
+        else:
+            # Standard trust region: require model agreement
+            if rho > eta and actual_reduction > 0:
+                accept_step = True
+                reason = f"model agreement rho={rho:.3f} > eta={eta}"
+
+        # === 6. Update Trust Radius ===
+        if accept_step:
+            print(f"  TR: ✓ ACCEPTING step ({reason})")
+
+            # Adjust trust radius based on model quality
+            if rho > 0.9 and is_step_limited:
+                # Excellent model and we were constrained → expand aggressively
+                new_radius = min(trust_radius * 3.0, trust_radius_max)
+                print(f"  TR: Excellent model, expanding Delta → {new_radius:.4e}")
+            elif rho > 0.75:
+                # Good model → expand
+                new_radius = min(trust_radius * 2.0, trust_radius_max)
+                print(f"  TR: Good model, expanding Delta → {new_radius:.4e}")
+            elif rho > 0.25:
+                # Decent model → keep radius
+                new_radius = trust_radius
+                print(f"  TR: Decent model, keeping Delta = {new_radius:.4e}")
+            else:
+                # Poor model but residual decreased → shrink slightly
+                new_radius = max(trust_radius * 0.8, trust_radius_min)
+                print(f"  TR: Poor model but progress made, shrinking Delta → {new_radius:.4e}")
+        else:
+            # REJECT step
+            print(f"  TR: ✗ REJECTING step (no residual reduction, rho={rho:.3f})")
+            pk_solution = np.zeros_like(pk_solution)  # Zero out the step
+            new_radius = max(trust_radius * 0.5, trust_radius_min)
+            print(f"  TR: Shrinking Delta → {new_radius:.4e}")
+
+            # Safety: if we've shrunk to minimum and still failing, force a small step
+            if new_radius <= trust_radius_min * 1.01:
+                print(f"  TR: ⚠ At minimum radius, forcing small Newton step next iteration")
+                new_radius = trust_radius_min
+
+        return pk_solution, new_radius
 
     def backtracking_line_search(
         self,

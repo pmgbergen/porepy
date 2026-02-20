@@ -126,14 +126,15 @@ params = {
     # - "TR": Trust Region with Levenberg-Marquardt regularization
     # - "TR-LS": Trust Region + Line Search refinement
     # - "None": Plain Newton (no step control)
-    "step_control_method": "None",
+    "step_control_method": "TR",
 
     "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
     "activate_step_control_after_iter": 2,  # Activate after this many iterations
 
     # Trust region specific parameters (only used for TR and TR-LS methods)
-    "trust_region_initial_radius": 1.0,  # Initial trust region radius (not used anymore)
-    "trust_region_min_radius": 1.0e-2,   # Minimum trust region radius (not used anymore)
+    "trust_region_min_radius": 0.5,       # Minimum trust region radius (prevents collapse)
+    "trust_region_max_radius": 100.0,     # Maximum trust region radius (prevents unbounded growth)
+    "trust_region_aggressive": True,      # For hyperbolic systems: accept any step that reduces residual
 }
 # params = {
 #     "material_constants": material_constants,
