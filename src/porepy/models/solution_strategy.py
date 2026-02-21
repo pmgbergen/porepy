@@ -880,6 +880,11 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         A, b = self.linear_system
+
+        np.savetxt("data.txt", A.data, fmt="%.16e")
+        np.savetxt("indices.txt", A.indices, fmt="%d")
+        np.savetxt("indptr.txt", A.indptr, fmt="%d")
+
         t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(

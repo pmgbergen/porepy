@@ -1628,10 +1628,10 @@ class FluidMixin(pp.PorePyModel):
                 )
                 phase.chemical_potential_of[comp] = self.chemical_potential(comp, phase)
 
-    def molar_density_of_phase(self, phase: Phase) -> DomainFunctionType:
+    def molar_density_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
        #if the eos is provided for massic density, we can compute the molar density
-        molar_density: DomainFunctionType
-        
+        molar_density: ExtendedDomainFunctionType
+
         def molar_density(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             mc=self.params["material_constants"]
             mode=mc.get("molar_density_mode","fully_coupled")
@@ -1643,7 +1643,13 @@ class FluidMixin(pp.PorePyModel):
             )
             if mode=="provided":
                 #return phase.density(domains)
-                return pp.ad.Scalar(self.fluid.reference_component.molar_density)
+                rho_ref = pp.ad.Scalar(self.fluid.reference_component.molar_density)
+
+                rho_ = rho_ref * self.pressure_exponential(cast(list[pp.Grid], domains))
+                rho_.set_name("fluid_molar_density_from_pressure")
+                return rho_
+
+
             elif mode=="fully_coupled":
                 return phase.density(domains) / mean_molar_mass
 

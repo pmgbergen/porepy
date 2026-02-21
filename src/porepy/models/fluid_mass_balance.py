@@ -662,6 +662,10 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
         total_op = pp.ad.sum_operator_list(
             [self.element_mass_mobility(ele, domains) for ele in self.fluid.elements]
         )
+
+        if not isinstance(total_op, pp.ad.Operator):
+            total_op = pp.ad.Scalar(total_op)
+
         return total_op
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:

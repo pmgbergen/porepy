@@ -1028,7 +1028,10 @@ class EquationsChemical(EquationMixin):
             returned.
 
         """
-        equ = self.fluid.specific_enthalpy(subdomains) - self.enthalpy(subdomains)
+        #equ = self.fluid.specific_enthalpy(subdomains) - self.enthalpy(subdomains)
+        equ = self.fluid.specific_enthalpy(subdomains) / self.enthalpy(
+            subdomains
+        ) - pp.ad.Scalar(1.0)
         equ.set_name("local_fluid_enthalpy_constraint")
         return equ
 

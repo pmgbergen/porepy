@@ -569,6 +569,11 @@ class FluidMobility(pp.PorePyModel):
                 [pp.ad.Scalar(w) * z for w, z in zip(W_row, z_ops)]
             )
 
+
+            # --- Ensure result is an AD operator ---
+            if not isinstance(total_op, pp.ad.Operator):
+                total_op = pp.ad.Scalar(total_op)
+
         total_op.set_name(f"element_mass_mobility_{element.name}")
         return total_op
 
