@@ -149,16 +149,34 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         """
         super().set_equations()
         subdomains = self.mdg.subdomains()
-        _, no_injection_wells = self._filter_wells(subdomains, "injection")
         codim_1_interfaces = self.mdg.interfaces(codim=1)
         codim_2_interfaces = self.mdg.interfaces(codim=2)
+        
+        if self.params.get("use_preconditioner", False):
+            if hasattr(self, "_filter_wells"):
+                _, no_injection_wells = self._filter_wells(subdomains, "injection")
+                # Define equations
+                sd_eq = self.energy_balance_equation(no_injection_wells)
+                self.equation_system.set_equation(sd_eq, no_injection_wells, {"cells": 1})
+            else:
+                sd_eq = self.energy_balance_equation(subdomains)
+                self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        else:
+            sd_eq = self.energy_balance_equation(subdomains)
+            self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+
+        # For all subdomains:
+        # NOTE: When there is _filter_wells and I don't want preconditioner, the
+        # above if-else must be commented out and the two code lines must be uncommented 
+        # to creste the energy balance equation for all subdomain
+        # sd_eq = self.energy_balance_equation(subdomains)
+        # self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+
         # Define the equations
-        sd_eq = self.energy_balance_equation(no_injection_wells)
         intf_cond = self.interface_fourier_flux_equation(codim_1_interfaces)
         intf_adv = self.interface_enthalpy_flux_equation(codim_1_interfaces)
         well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
 
-        self.equation_system.set_equation(sd_eq, no_injection_wells, {"cells": 1})
         self.equation_system.set_equation(intf_cond, codim_1_interfaces, {"cells": 1})
         self.equation_system.set_equation(intf_adv, codim_1_interfaces, {"cells": 1})
         self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})

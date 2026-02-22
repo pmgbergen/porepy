@@ -171,6 +171,9 @@ class SolutionStrategy(pp.PorePyModel):
 
         self.update_discretization_parameters()
         self.discretize()
+        print(f"DEBUG: use_preconditioner = {self.params.get('use_preconditioner', False)}")
+        if not self.params.get("use_preconditioner", False):
+            self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
         # Export initial condition
@@ -861,13 +864,14 @@ class SolutionStrategy(pp.PorePyModel):
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
 
-        if not hasattr(self, '_linear_solver_initialized'):
-            # Silly ad-hoc solution because the iterative solver needs projections,
-            # which are assembled with the schur complement, and this is done only now.
-            # TODO: This should be fixed when we figure out how to connect the 
-            # primary-secondary variables logic with the iterative solver. 
-            self._initialize_linear_solver()
-            self._linear_solver_initialized = True
+        if self.params.get("use_preconditioner", False):
+            if not hasattr(self, '_linear_solver_initialized'):
+                # Silly ad-hoc solution because the iterative solver needs projections,
+                # which are assembled with the schur complement, and this is done only now.
+                # TODO: This should be fixed when we figure out how to connect the 
+                # primary-secondary variables logic with the iterative solver. 
+                self._initialize_linear_solver()
+                self._linear_solver_initialized = True
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.

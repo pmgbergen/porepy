@@ -211,3 +211,4 @@ class PhysicalState(Enum):
 
     liquid = 0
     gas = 1
+    halite = 2

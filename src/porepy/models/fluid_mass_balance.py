@@ -135,15 +135,32 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
         """
         super().set_equations()
         subdomains = self.mdg.subdomains()
-
-        _, no_production_wells = self._filter_wells(subdomains, "production")
-
         codim_1_interfaces = self.mdg.interfaces(codim=1)
         codim_2_interfaces = self.mdg.interfaces(codim=2)
-        sd_eq = self.mass_balance_equation(no_production_wells)
+        
+        if self.params.get("use_preconditioner", False):
+            if hasattr(self, "_filter_wells"):
+                # _, no_production_wells = self._filter_wells(subdomains, "production")
+                # sd_eq = self.mass_balance_equation(no_production_wells)
+                # self.equation_system.set_equation(sd_eq, no_production_wells, {"cells": 1})
+
+                # For now, we set the same mass balance equation on all subdomains
+                # because there is no dirichlet pressure at the producing cell.
+                # so the two lines of codes is the same as the else code block.
+                # NOTE: If dirichlet is used then, two lines must be commented out and
+                # the above 3 lines of codes uncommented*!
+                sd_eq = self.mass_balance_equation(subdomains)
+                self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+            else:
+                sd_eq = self.mass_balance_equation(subdomains)
+                self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        else:
+            sd_eq = self.mass_balance_equation(subdomains)
+            self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
         well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, no_production_wells, {"cells": 1})
+        
         self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
         self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
 
