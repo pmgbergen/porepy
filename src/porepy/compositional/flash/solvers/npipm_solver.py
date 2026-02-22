@@ -674,7 +674,9 @@ def npipm_inner(
                 b = B.T @ b
                 B = B.T @ B + aa_reg * np.eye(B.shape[1])
 
-            h = np.linalg.lstsq(B, b, rcond=EPS)[0]
+            h = np.linalg.lstsq(
+                np.ascontiguousarray(B), np.ascontiguousarray(b), rcond=EPS
+            )[0]
             dX_i = gk - np.dot(Gk[:, :mk], h) - X_i
         # endregion
 
@@ -955,7 +957,11 @@ def npipm_inner(
                     g_k = -J_i_k.T @ f_i_k
 
                     try:
-                        dX_i_k = np.linalg.lstsq(J_i_k, -f_i_k, rcond=EPS)[0]
+                        dX_i_k = np.linalg.lstsq(
+                            np.ascontiguousarray(J_i_k),
+                            np.ascontiguousarray(-f_i_k),
+                            rcond=EPS,
+                        )[0]
                     except:
                         dX_i_k = g_k
 
