@@ -53,6 +53,7 @@ __all__ = [
     "ActivityModels",
     "ReactionRatesKineticArrhenius",
     "ReactionRatesKineticFirstOrder",
+    "ModifiedSourceAsWells",
 ]
 
 DomainFunctionType = pp.DomainFunctionType
@@ -2777,3 +2778,414 @@ class ReactionRatesKineticFirstOrder:
         xR = x_faces[1:]
         overlap = np.maximum(0.0, np.minimum(xR, right) - np.maximum(xL, left))
         return C0 * overlap / (xR - xL)
+
+
+
+class ModifiedSourceAsWells:
+    def fluid_source(self,sd:list[pp.Grid])-> pp.ad.Operator:
+        """Source term for fluid mass balance equation.
+
+        Parameters:
+            sd: List of subdomain grids in the mixed-dimensional grid.
+
+        Returns:
+            An operator representing the fluid source term.
+        """
+        # Create a source term for each subdomain
+        internal_sources: pp.ad.Operator = super().fluid_source(sd)
+
+        external_sources = pp.ad.sum_operator_list(
+            [
+                self.element_injection_source(element, sd)
+                for element in self.fluid.elements
+            ],
+            "fluid_injection_sources",
+        )
+
+        # Add up both contributions
+        source = internal_sources + external_sources
+        source.set_name("fluid sources")
+
+        # Combine the source terms into a single operator
+        return source
+
+
+    def component_source(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Source term in a component's mass balance equation.
+
+        Analogous to
+        :meth:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.fluid_source`
+        , but using :meth:`interface_component_flux` and :meth:`well_component_flux` to
+        obtain the correct component flux accross
+        interfaces.
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            subdomains: A list of subdomains in the :attr:`mdg`.
+
+        Returns:
+            The base method returns the sources corresponding to the fluxes in the
+            mixed-dimensional setting.
+
+        """
+        # Interdimensional fluxes manifest as source terms in lower-dimensional
+        # subdomains.
+        internal_sources: pp.ad.Operator = super().component_source(component, subdomains)
+        external_sources = self.component_injection_source(component, subdomains)
+        # Add up both contributions
+        source = internal_sources + external_sources
+        source.set_name("component_source_" + component.name)
+
+        # Combine the source terms into a single operator
+        return source
+
+    def component_injection_source(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    )  -> np.ndarray|pp.ad.Operator:
+        injection_terms = []
+        for subdomain in subdomains:
+            # Define the source term for the subdomain
+            if subdomain.dim == self.mdg.dim_max():
+                if component in self.fluid.solid_components:
+                    injection_terms.append(np.zeros(subdomain.num_cells, dtype=np.float64))
+                else:
+                    values=np.zeros(subdomain.num_cells, dtype=np.float64)
+                    # Define injection and production cells
+                    injection_mask, production_mask = self.well_masks_from_coordinates(subdomain)
+                    injected_concentration = self.ic_values_species_concentration(component, subdomain) / self.solid.total_porosity
+                    values[injection_mask] = self.injection_and_production_rates("injection") * injected_concentration[injection_mask]  # Injection rate (positive)
+                    injection_terms.append(values)
+            else:
+                injection_terms.append(np.zeros(subdomain.num_cells, dtype=np.float64))
+
+        external_sources = pp.wrap_as_dense_ad_array(np.hstack(injection_terms))
+        external_sources.set_name(f"component_source_{component.name}_injection_and_production_wells")
+        
+        #compute production source term
+
+        production_source_terms= pp.ad.sum_operator_list([
+            phase.molar_density(subdomains) * phase.saturation(subdomains) * phase.partial_fraction_of[component](subdomains)
+            for phase in self.fluid.phases if component in phase.components
+        ])
+        mask_inj,mask_prod = self.global_well_masks(subdomains)
+        mask_prod_ad = pp.wrap_as_dense_ad_array(mask_prod.astype(float))
+        production_source_terms = mask_prod_ad * pp.ad.Scalar(self.injection_and_production_rates("production"))* production_source_terms
+        external_sources += production_source_terms
+        return external_sources
+
+
+    #constant production concentration
+    # def component_injection_source(
+    #     self, component: pp.Component, subdomains: list[pp.Grid]
+    # )  -> np.ndarray|pp.ad.Operator:
+    #     injection_terms = []
+    #     for subdomain in subdomains:
+    #         # Define the source term for the subdomain
+    #         if subdomain.dim == self.mdg.dim_max():
+    #             if component in self.fluid.solid_components:
+    #                 injection_terms.append(np.zeros(subdomain.num_cells, dtype=np.float64))
+    #             else:
+    #                 values=np.zeros(subdomain.num_cells, dtype=np.float64)
+    #                 # Define injection and production cells
+    #                 injection_mask, production_mask = self.well_masks_from_coordinates(subdomain)
+    #                 injected_concentration = self.ic_values_species_concentration(component, subdomain) / self.solid.total_porosity
+    #                 values[injection_mask] = self.injection_and_production_rates("injection") * injected_concentration[injection_mask]  # Injection rate (positive)
+    #                 values[production_mask] = self.injection_and_production_rates("production")*injected_concentration[production_mask]  # Production rate (negative)
+    #                 injection_terms.append(values)
+    #         else:
+    #             injection_terms.append(np.zeros(subdomain.num_cells, dtype=np.float64))
+
+    #     external_sources = pp.wrap_as_dense_ad_array(np.hstack(injection_terms))
+    #     external_sources.set_name(f"component_source_{component.name}_injection_and_production_wells")
+        
+    #     #compute production source term
+
+
+    #     return external_sources
+
+
+
+
+    def element_source(
+        self, element: pp.Element, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Source term in an element's mass balance equation.
+
+        Analogous to
+        :meth:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.fluid_source`
+        , but using :meth:`interface_element_flux` and :meth:`well_element_flux` to
+        obtain the correct element flux accross
+        interfaces.
+
+        Parameters:
+            element: An element in the :attr:`fluid`.
+            subdomains: A list of subdomains in the :attr:`mdg`.
+
+        Returns:
+            The base method returns the sources corresponding to the fluxes in the
+            mixed-dimensional setting.
+
+        """
+        # Interdimensional fluxes manifest as source terms in lower-dimensional
+        # subdomains.
+        internal_sources: pp.ad.Operator = super().element_source(element, subdomains)
+
+        external_sources = self.element_injection_source(element, subdomains)
+
+        # Add up both contributions
+        source = internal_sources + external_sources
+        source.set_name("element_source_" + element.name)
+
+        # Combine the source terms into a single operator
+        return source
+
+
+    def element_injection_source(
+        self, element: pp.Element, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        W = self.fluid.fluid_formula_matrix  # shape (E, C)
+        species_names = self.fluid.fluid_species_names
+        components = self.fluid.components
+
+        # Map species name -> AD function
+        z_funcs = {
+            comp.name: self.component_injection_source(comp, subdomains)
+            for comp in components
+        }
+
+        # Evaluate z_ξ(subdomains) to get a list of Operators
+        try:
+            z_ops = [z_funcs[name] for name in species_names]  # shape (C,)
+        except KeyError as e:
+            raise KeyError(
+                f"Species name '{e.args[0]}' not found in fluid components."
+            )
+
+        # Extract row for the element
+        # find the row index according to element name
+        try:
+            element_index = self.fluid.element_names.index(element.name)
+        except ValueError as e:
+            raise ValueError(
+                f"Element name '{e.args[0]}' not found in fluid elements."
+            )
+        W_row = W[element_index, :]  # shape (C,)
+        # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
+        external_sources = pp.ad.sum_operator_list(
+            [pp.ad.Scalar(w) * z for w, z in zip(W_row, z_ops)]
+        )
+
+        external_sources.set_name(f"element_injection_source_{element.name}")
+        return external_sources
+
+
+    def injection_and_production_rates(self,well_type:str):
+        """Define injection and production rates for wells.
+        unit: m3/s
+        Parameters:
+            well_type: A string indicating the type of well ("injection" or "production").
+
+        Returns:
+            A dictionary containing the injection and production rates for the wells.
+        """
+        if well_type == "injection":
+            return self.params.get("injection_rate", 1e-14)  # Injection rate (positive)
+        elif well_type == "production":
+            return self.params.get("production_rate", -1e-14)  # Production rate (negative)
+        else:
+            raise ValueError("Invalid well type. Must be 'injection' or 'production'.")
+
+
+
+    def well_region_masks(
+        self,
+        subdomain: pp.Grid,
+        depth_range=(1000.0, 1500.0),
+        north_inj_range=(500.0,1000.0),
+        north_prod_range=(1500.0,2000.0),
+        east_range=(1000.0, 1500.0),
+    ):
+        """
+        Return injection and production boolean masks based on geometric filters.
+
+        Coordinates convention:
+
+        """
+
+        cc = subdomain.cell_centers
+        
+        east = cc[0, :]
+        north = cc[1, :]
+        depth = cc[2, :]
+
+        zmin, zmax = depth_range
+        emin, emax = east_range
+
+        deep_mask = (depth >= zmin) & (depth <= zmax)
+        east_mask = (east >= emin) & (east <= emax)
+        injection_north_mask=(north >= north_inj_range[0]) & (north <= north_inj_range[1])
+        production_north_mask=(north >= north_prod_range[0]) & (north <= north_prod_range[1])
+
+        injection_mask = (
+            deep_mask
+            & injection_north_mask
+            & east_mask
+        )
+
+        production_mask = (
+            deep_mask
+            & production_north_mask
+            & east_mask
+        )
+
+        return injection_mask, production_mask
+
+
+    def global_well_masks(
+        self,
+        subdomains: list[pp.Grid],
+    ):
+        """
+        Build global injection/production masks over a list of subdomains.
+        - For grids with dim == self.mdg.dim_max(): use geometric masks.
+        - For all other grids: all False.
+
+        Returns:
+            inj_global: np.ndarray[bool] of length sum(sd.num_cells)
+            prod_global: np.ndarray[bool] of length sum(sd.num_cells)
+        """
+        # inj_parts = []
+        # prod_parts = []
+
+        # dim_max = self.mdg.dim_max()
+
+        # for sd in subdomains:
+        #     if sd.dim == dim_max:
+        #         inj, prod = self.well_region_masks(
+        #             sd,
+        #         )
+        #     else:
+        #         inj = np.zeros(sd.num_cells, dtype=bool)
+        #         prod = np.zeros(sd.num_cells, dtype=bool)
+
+        #     inj_parts.append(inj)
+        #     prod_parts.append(prod)
+
+        # inj_global = np.hstack(inj_parts) if len(inj_parts) else np.array([], dtype=bool)
+        # prod_global = np.hstack(prod_parts) if len(prod_parts) else np.array([], dtype=bool)
+
+        # return inj_global, prod_global
+        return self.global_well_masks_from_coordinates(
+            subdomains,)
+
+
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Thermal source."""
+
+        # Internal sources are inherited from parent class.
+        # Zero internal sources for unfractured domains, but we keep it to maintain
+        # good code practice
+        internal_sources: pp.ad.Operator = super().energy_source(subdomains)
+
+
+        external_sources = pp.ad.Scalar(0.0)
+        #compute production source term
+
+        production_source_terms= pp.ad.sum_operator_list([
+            phase.density(subdomains) * phase.specific_enthalpy(subdomains)
+            for phase in self.fluid.phases if phase.state != PhysicalState.solid
+        ])
+        mask_inj,mask_prod = self.global_well_masks(subdomains)
+        mask_prod_ad = pp.wrap_as_dense_ad_array(mask_prod.astype(float))
+        production_source_terms = mask_prod_ad * pp.ad.Scalar(self.injection_and_production_rates("production"))* production_source_terms
+        mask_inj_ad= pp.wrap_as_dense_ad_array(mask_inj.astype(float))
+        injected_temperature=self.params.get("injected_temperature", 300)
+        injected_enthalpy= self.fluid.reference_component.specific_heat_capacity * (injected_temperature - self.reference_variable_values.temperature)
+        injection_source_terms = mask_inj_ad * pp.ad.Scalar(self.injection_and_production_rates("injection")*injected_enthalpy*self.fluid.reference_component.density) 
+        external_sources += injection_source_terms
+        external_sources += production_source_terms
+
+
+
+        # Add up contribution of internal and external sources of energy.
+        thermal_sources = internal_sources + external_sources
+        thermal_sources.set_name("Energy source")
+
+        return thermal_sources
+
+    def nearest_cell_mask(self,subdomain: pp.Grid, xyz: tuple[float, float, float]) -> np.ndarray:
+        """
+        Return a boolean mask with exactly one True: the cell whose center is
+        closest (Euclidean) to xyz = (north, east, depth).
+
+        If xyz lies outside the min/max bounds, this still picks the nearest boundary cell.
+        """
+        cc = subdomain.cell_centers  # shape (3, num_cells)
+        target = np.array(xyz, dtype=float).reshape(3, 1)
+
+        # Squared Euclidean distance per cell
+        d2 = np.sum((cc - target) ** 2, axis=0)
+        
+        min_val=np.min(d2)
+        candidates= np.where(d2 == min_val)[0]
+        idx = candidates[0]  # In case of ties, pick the first one. This is deterministic and consistent with the "nearest" definition.
+
+
+        mask = np.zeros(subdomain.num_cells, dtype=bool)
+        mask[idx] = True
+        return mask
+
+
+    def well_masks_from_coordinates(
+        self,
+        subdomain: pp.Grid,
+        inj_xyz: tuple[float, float, float] | None = None,
+        prod_xyz: tuple[float, float, float] | None = None,
+
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns (injection_mask, production_mask) where each mask has exactly one True.
+        """
+        # domain_sizes = self.params.get("domain_sizes", None)
+        # if domain_sizes is None:
+        #     raise KeyError(
+        #         "Missing parameter 'domain_sizes' in self.params. "
+        #         "Set self.params['domain_sizes'] = [Lx, Ly, Lz]."
+        #     )
+        domain=self._domain
+
+        Lx, Ly, Lz = domain.side_lengths()
+
+        # Auto coordinates only if not provided
+        if inj_xyz is None:
+            inj_xyz = (0.5 * Lx, (1.0 / 3.0) * Ly, 0.5 * Lz)
+        if prod_xyz is None:
+            prod_xyz = (0.5 * Lx, (2.0 / 3.0) * Ly, 0.5 * Lz)
+
+        inj_mask = self.nearest_cell_mask(subdomain, inj_xyz)
+        prod_mask = self.nearest_cell_mask(subdomain, prod_xyz)
+
+        if np.any(inj_mask & prod_mask):
+            raise ValueError("Injection and production snapped to the same cell. Move wells apart.")
+
+        return inj_mask, prod_mask
+
+    def global_well_masks_from_coordinates(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        inj_parts, prod_parts = [], []
+        dim_max = self.mdg.dim_max()
+
+        for sd in subdomains:
+            if sd.dim == dim_max:
+                inj, prod = self.well_masks_from_coordinates(sd)
+            else:
+                inj = np.zeros(sd.num_cells, dtype=bool)
+                prod = np.zeros(sd.num_cells, dtype=bool)
+            inj_parts.append(inj)
+            prod_parts.append(prod)
+
+        return np.hstack(inj_parts), np.hstack(prod_parts)

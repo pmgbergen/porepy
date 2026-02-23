@@ -849,6 +849,78 @@ class CubicLawPermeability(DimensionDependentPermeability):
         return self.cubic_law_permeability(subdomains)
 
 
+class LayerSpecificPermeability(ConstantPermeability):
+    """A spatially heterogeneous permeability field."""
+
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability [m^2], assigned by depth-dependent geological layers.
+
+        Depth intervals (m) and permeability values:
+
+        - Overburden (0–1650 m):                    1.00e-15
+        - Muschelkalk (1650–1800 m):                2.82e-15
+        - Buntsandstein + Permian (1800–2150 m):    7.24e-15
+        - Crystalline basement (>=2150 m):          1.82e-16
+
+        Depth is computed using:
+            depth = self.depth(sd.cell_centers)
+
+        Reference:
+            "Thermo-hydraulic modeling of the northern Upper Rhine Graben using OpenGeoSys.
+            In: Proceedings of the Geothermiekongress DGK 2025, 18–20 November 2025, Germany."
+
+        Parameters:
+            subdomains: Subdomains where the permeability is defined.
+
+        Returns:
+            Cell-wise isotropic permeability tensor as an Ad operator.
+        """
+
+        k_all = []
+
+        size=sum(sd.num_cells for sd in subdomains)
+        if size == 0:
+            permeability= pp.wrap_as_dense_ad_array(0, size=0)
+            return self.isotropic_second_order_tensor(subdomains, permeability)
+
+
+        for sd in subdomains:
+            if sd.dim==self.nd:
+                depth = np.asarray(self.depth(sd.cell_centers), dtype=float)
+
+                k = np.empty(sd.num_cells, dtype=float)
+
+                # Overburden
+                m = (depth >= 0.0) & (depth < 1650.0)
+                k[m] = 1.0e-15
+
+                # Muschelkalk
+                m = (depth >= 1650.0) & (depth < 1800.0)
+                k[m] = 2.82e-15
+
+                # Buntsandstein + Permian
+                m = (depth >= 1800.0) & (depth < 2150.0)
+                k[m] = 7.24e-15
+
+                # Crystalline basement
+                m = depth >= 2150.0
+                k[m] = 1.82e-16
+
+                k_all.append(k)
+            elif sd.dim==self.nd-1:
+                k_all.append(np.ones(sd.num_cells)*1e-13)
+
+        k_all = np.concatenate(k_all)
+
+        permeability = pp.wrap_as_dense_ad_array(
+            k_all, k_all.size, name="permeability"
+        )
+
+        return self.isotropic_second_order_tensor(subdomains, permeability)
+
+
+
 class DarcysLaw(pp.PorePyModel):
     """This class could be refactored to reuse for other diffusive fluxes, such as
     heat conduction. It's somewhat cumbersome, though, since potential, discretization,
@@ -4861,5 +4933,87 @@ class ReactiveTransportPorosity(pp.PorePyModel):
         else:
             sum0 = pp.ad.Scalar(0.0)
         phi = pp.ad.Scalar(self.solid.total_porosity) - sum0
+        phi.set_name("reactive_transport_porosity")
+        return phi
+
+
+
+
+class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity changes due to mineral dissolution and dissipation [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Depth intervals (m) and porosity values:
+
+        - Overburden (0–1650 m):                    0.137
+        - Muschelkalk (1650–1800 m):                0.145
+        - Buntsandstein + Permian (1800–2150 m):    0.05
+        - Crystalline basement (>=2150 m):          0.036
+
+        Reference:
+            "Thermo-hydraulic modeling of the northern Upper Rhine Graben using OpenGeoSys.
+            In: Proceedings of the Geothermiekongress DGK 2025, 18–20 November 2025, Germany."
+            
+        Returns:
+            The porosity represented as an Ad operator.
+
+        """
+        k_all = []
+
+        size=sum(sd.num_cells for sd in subdomains)
+        if size == 0:
+            porosity= pp.wrap_as_dense_ad_array(0, size=0)
+            return porosity
+
+
+        for sd in subdomains:
+            if sd.dim==self.nd:
+                depth = np.asarray(self.depth(sd.cell_centers), dtype=float)
+
+                k = np.empty(sd.num_cells, dtype=float)
+
+                # Overburden
+                m = (depth >= 0.0) & (depth < 1650.0)
+                k[m] = 0.137
+
+                # Muschelkalk
+                m = (depth >= 1650.0) & (depth < 1800.0)
+                k[m] = 0.145
+
+                # Buntsandstein + Permian
+                m = (depth >= 1800.0) & (depth < 2150.0)
+                k[m] = 0.05
+
+                # Crystalline basement
+                m = depth >= 2150.0
+                k[m] = 0.036
+
+                k_all.append(k)
+            elif sd.dim==self.nd-1:
+                k_all.append(np.ones(sd.num_cells)*0.25)
+
+        k_all = np.concatenate(k_all)
+
+        total_porosity = pp.wrap_as_dense_ad_array(
+            k_all, k_all.size, name="porosity"
+        )
+
+
+
+
+        if len(self.fluid.solid_components) > 0:
+            sum0 = pp.ad.sum_operator_list(
+                [
+                    total_porosity
+                    * comp.mineral_saturation(subdomains)
+                    for comp in self.fluid.solid_components
+                ]
+            )
+        else:
+            sum0 = pp.ad.Scalar(0.0)
+        phi = total_porosity - sum0
         phi.set_name("reactive_transport_porosity")
         return phi
