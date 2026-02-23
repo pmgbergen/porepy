@@ -1174,6 +1174,34 @@ class CompiledPengRobinson(CompiledEoS):
 
         return drho_c
 
+    def get_v_function(self):
+        # NOTE: Overwrite parent method to avoid double division.
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
+        def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return prearg[3] * (R_U * T) / p
+
+        return v_c
+
+    def get_grad_v_function(self):
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+        def dv_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            dn = 2 + xn.size
+
+            Z = prearg_val[3]
+            dZ = prearg_jac[dn : 2 * dn]
+            Rdp = R_U / p
+            dv = Rdp * T * dZ
+            dv[:2] += np.array((-T / p, 1.0)) * Z * Rdp  # Ideal contribution
+            return dv
+
+        return dv_c
+
     def compile(self):
         """Compiles the ideal part of the fluid properties before continuing to parent
         method."""

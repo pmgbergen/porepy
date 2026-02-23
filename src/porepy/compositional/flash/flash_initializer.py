@@ -26,23 +26,12 @@ from .._numba_interface import (
     typeof,
 )
 from ..compiled_eos import CompiledEoS
-from ..utils import (
-    FlashSpec,
-    FlashSpec_NUMBA_TYPE,
-    PhysicalState,
-    _compute_saturations,
-    compute_saturations,
-    normalize_rows,
-)
+from ..utils import FlashSpec, FlashSpec_NUMBA_TYPE, PhysicalState, normalize_rows
 from .flash_equations import (
     assemble_generic_arg,
-    assemble_vectorized_generic_arg,
     first_order_constraint_jac,
     first_order_constraint_res,
     parse_generic_arg,
-    parse_vectorized_generic_arg,
-    phase_mass_constraints_jac,
-    phase_mass_constraints_res,
 )
 from .solvers._core import SOLVER_PARAMETERS_TYPE
 
@@ -457,7 +446,7 @@ def fractions_from_rr(
     nphase = int(params["num_phases"])
     ncomp = int(params["num_components"])
     N1 = int(params["N1"])
-    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, ncomp, nphase, spec)
+    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, ncomp, nphase, spec)
 
     omegas = np.empty(ncomp)
     T_cs = np.empty(ncomp)
@@ -574,7 +563,7 @@ def fractions_from_rr(
         if n < N1 - 1:
             K = get_K_values(p, T, x, x_p)
 
-    return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, spec)
+    return assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, spec)
 
 
 @_COMPILER(
@@ -915,9 +904,7 @@ class UniformFlashInitializer(FlashInitializer):
             approx_T = spec not in (FlashSpec.pT, FlashSpec.vT)
             approx_p = spec >= FlashSpec.vT
 
-            _, _, _, z, p, T, s1, s2, x_p = parse_generic_arg(
-                X_gen, ncomp, nphase, spec
-            )
+            _, _, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, ncomp, nphase, spec)
             # Critical value approximations for pressure and temperature.
             if approx_T:
                 T = np.dot(z, T_crits)
@@ -927,7 +914,6 @@ class UniformFlashInitializer(FlashInitializer):
 
             # Phase fractions and saturations are always uniformly guessed.
             y = np.ones(nphase) / nphase
-            s = y.copy()
 
             # Uniform distribution as starting point for partial fractions.
             x = np.ones((nphase, ncomp)) / ncomp
@@ -983,7 +969,7 @@ class UniformFlashInitializer(FlashInitializer):
                 # Unity should be achieved by above maths, but we play safe.
                 x = normalize_rows(x)
 
-            return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, spec)
+            return assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, spec)
 
         @_COMPILER(
             nb.f8[:, :](FlashSpec_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:, :]),
@@ -1126,8 +1112,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         dh_c = self._eos.funcs["dh"]
         u_c = self._eos.funcs["u"]
         du_c = self._eos.funcs["du"]
-        rho_c = self._eos.funcs["rho"]
-        drho_c = self._eos.funcs["drho"]
+        v_c = self._eos.funcs["v"]
+        dv_c = self._eos.funcs["dv"]
 
         logger.info(f"Compiling {[a.name for a in args]} flash initializations ..")
         start = time.time()
@@ -1152,7 +1138,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     pre_j = prearg_val_c(phasestates[j], p, T, xn[j], xp)
                     phi_j = phi_c(pre_j, p, T, xn[j])
                     # Binding K-values away from zero.
-                    # K[j - 1, :] = phi_0 / phi_j + 1e-10
                     K[j - 1, :] = np.exp(np.minimum(phi_0 - phi_j, cap)) + 1e-10
                 return K
 
@@ -1199,7 +1184,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 for k in nb.prange(X_gen.shape[0]):
                     Xk = X_gen[k]
 
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                         Xk, ncomp, nphase, FlashSpec.ph
                     )
                     # NOTE local copy for simplicity of compilation.
@@ -1286,9 +1271,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             dT = np.sign(dT) * min(np.abs(dT), 0.1) * T_r  # Chop.
                             T += dT
 
-                    Xk = assemble_generic_arg(
-                        s, x, y, z, p, T, s1, s2, x_p, FlashSpec.ph
-                    )
+                    Xk = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.ph)
                     X_gen[k] = fractions_from_rr(
                         get_K_values, Xk, params, FlashSpec.ph, True
                     )
@@ -1311,14 +1294,11 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 tol = params["atol"]
                 gas_phase_idx = int(params["gas_phase_index"])
 
-                # Local system size.
-                M = 2 + nphase - 1
-
-                res = np.zeros(M)
-                jac = np.zeros((M, M))
+                res = np.zeros(2)
+                jac = np.zeros((2, 2))
 
                 # s1 and s2 are target volume and enthalpy respectively
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                     X_gen, ncomp, nphase, FlashSpec.vh
                 )
 
@@ -1354,11 +1334,9 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         p *= 0.7 / Z_pc
 
                     # Make first fraction guess based on pseudo-critical values.
-                    xf = assemble_generic_arg(
-                        s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
-                    )
+                    xf = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vh)
                     xf = fractions_from_rr(get_K_values, xf, params, FlashSpec.vh, True)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                         xf, ncomp, nphase, FlashSpec.vh
                     )
 
@@ -1371,12 +1349,12 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         # T *= 1.1
                         # Refine fraction guess based on corrected pressure.
                         xf = assemble_generic_arg(
-                            s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
+                            x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
                         )
                         xf = fractions_from_rr(
                             get_K_values, xf, params, FlashSpec.vh, False
                         )
-                        s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                        x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                             xf, ncomp, nphase, FlashSpec.vh
                         )
 
@@ -1384,10 +1362,10 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 if gas_phase_idx >= 0:
                     y_g = y[gas_phase_idx]
 
-                rhos = np.empty(nphase)
+                vs = np.empty(nphase)
                 hs = np.empty(nphase)
                 dhs = np.empty((nphase, 2 + ncomp))
-                drhos = np.empty((nphase, 2 + ncomp))
+                dvs = np.empty((nphase, 2 + ncomp))
 
                 for _ in range(N2):
                     # Assembling volume and enthalpy constraints with derivatives for
@@ -1396,37 +1374,30 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     for j in range(nphase):
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
                         pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
-                        rhos[j] = rho_c(pre_val_j, p, T, xn[j])
-                        drhos[j] = drho_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                        vs[j] = v_c(pre_val_j, p, T, xn[j])
+                        dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
                         hs[j] = h_c(pre_val_j, p, T, xn[j])
                         dhs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
                     # Saturations are only used locally, hence we refer to sat, not s
                     # which is in the generic arg.
-                    sat = _compute_saturations(y, rhos, 1e-10)
-                    v_mix = 1.0 / (sat * rhos).sum()
+                    v_mix = 1.0 / (y * vs).sum()
                     h_mix = (y * hs).sum()
 
-                    res[0] = first_order_constraint_res(s2, y, hs)[0] / s2  # / T**2
-                    res[1] = first_order_constraint_res(1.0, sat, s1 * rhos)[0]
-                    res[2:] = phase_mass_constraints_res(sat, y, rhos)
+                    res[0] = first_order_constraint_res(1.0, y, hs / s2)[0]
+                    res[1] = first_order_constraint_res(1.0, y, vs / s1)[0]
 
-                    jac[0] = first_order_constraint_jac(y, hs, dhs, True)[0, :M]
-                    # jac[0, 1] -= 2 / T * res[0]
-                    jac[0] /= s2
-                    jac[1] = (
-                        first_order_constraint_jac(sat, rhos, drhos, False)[0, :M] * s1
-                    )
-                    jac[2:] = phase_mass_constraints_jac(sat, y, rhos, drhos)[:, :M]
+                    jac[0] = first_order_constraint_jac(y, hs, dhs)[0, :2] / s2
+                    jac[1] = first_order_constraint_jac(y, vs, dvs)[0, :2] / s1
 
                     if np.linalg.norm(res) <= tol:
                         break
                     else:
-                        dspT = np.linalg.solve(jac, -res)
+                        dpT = np.linalg.solve(jac, -res)
 
                         # update corrections
-                        dp = dspT[-2]
-                        dT = dspT[-1]
+                        dp = dpT[0]
+                        dT = dpT[1]
                         if np.abs(dT) > T:
                             dT = 0.1 * T * np.sign(dT)
                         if np.abs(dp) > p:
@@ -1461,33 +1432,11 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         p = p_
                         T = T_
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh)
+                return assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vh)
 
-            def vh_init(X_gen: np.ndarray, params: dict[str, float]):
-                X_gen = nested_initializer(
-                    get_K_values, update_pT_guess, FlashSpec.vh, X_gen, params
-                )
-                # Performing final saturation update, after guessing fractions and p,T
-                s, x, y, z, p, T, s1, s2, x_p = parse_vectorized_generic_arg(
-                    X_gen, ncomp, nphase, FlashSpec.vh
-                )
-                rhos = np.empty(y.shape)
-                for j in range(nphase):
-                    x_j = x[j, :, :]
-                    # NOTE accessing the gufuncs directly require the fractions
-                    # column-wise.
-                    xn = normalize_rows(x_j.T)
-                    pre = self._eos.gufuncs["prearg_val"](
-                        phasestates[j], p, T, xn, x_p.T
-                    )
-                    rhos[j] = self._eos.gufuncs["rho"](pre, p, T, xn)
-                s = compute_saturations(y, rhos)
-
-                return assemble_vectorized_generic_arg(
-                    s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
-                )
-
-            self._initializers[FlashSpec.vh] = vh_init
+            self._initializers[FlashSpec.vh] = partial(
+                nested_initializer, get_K_values, update_pT_guess, FlashSpec.vh
+            )
 
         if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
             logger.debug("Compiling vu-initialization ..")
@@ -1503,7 +1452,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 gas_phase_idx = int(params["gas_phase_index"])
 
                 # s1 and s2 are target volume and enthalpy respectively
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                     X_gen, ncomp, nphase, FlashSpec.vu
                 )
 
@@ -1539,11 +1488,9 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         p *= 0.7 / Z_pc
 
                     # Make first fraction guess based on pseudo-critical values.
-                    xf = assemble_generic_arg(
-                        s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
-                    )
+                    xf = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vu)
                     xf = fractions_from_rr(get_K_values, xf, params, FlashSpec.vu, True)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                         xf, ncomp, nphase, FlashSpec.vu
                     )
 
@@ -1556,12 +1503,12 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         T *= 1.1
                         # Refine fraction guess.
                         xf = assemble_generic_arg(
-                            s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                            x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
                         )
                         xf = fractions_from_rr(
                             get_K_values, xf, params, FlashSpec.vu, False
                         )
-                        s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                        x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                             xf, ncomp, nphase, FlashSpec.vu
                         )
 
@@ -1571,25 +1518,22 @@ class HeuristicVLInitializer(UniformFlashInitializer):
 
                 us = np.empty(nphase)
                 dus = np.empty((nphase, 2 + ncomp))
-                rhos = np.empty(nphase)
-                drhos = np.empty((nphase, 2 + ncomp))
+                vs = np.empty(nphase)
+                dvs = np.empty((nphase, 2 + ncomp))
 
                 for j in range(nphase):
                     pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
                     pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
                     us[j] = u_c(pre_val_j, p, T, xn[j])
                     dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
-                    rhos[j] = rho_c(pre_val_j, p, T, xn[j])
-                    drhos[j] = drho_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                    vs[j] = v_c(pre_val_j, p, T, xn[j])
+                    dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
-                s = _compute_saturations(y, rhos, 1e-10)
-                rho_mix = np.dot(s, rhos)
-                outer = -1.0 / rho_mix**2
-                v_new = 1.0 / rho_mix
-                dv_new_dp = outer * np.dot(s, drhos[:, 0])
-                dv_new_dT = outer * np.dot(s, drhos[:, 1])
+                v_mix = np.sum(y, vs)
+                dv_new_dp = np.sum(y, dvs[:, 0])
+                dv_new_dT = np.sum(y, dvs[:, 1])
 
-                u_new = np.dot(y, us) - p * v_new
+                u_new = np.dot(y, us) - p * v_mix
                 du_new_dT = np.dot(y, dus[:, 1]) - p * dv_new_dT
 
                 dT = (s2 - u_new) / du_new_dT
@@ -1604,33 +1548,11 @@ class HeuristicVLInitializer(UniformFlashInitializer):
 
                 T += fc * dT
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu)
+                return assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vu)
 
-            def vu_init(X_gen: np.ndarray, params: dict[str, float]):
-                X_gen = nested_initializer(
-                    get_K_values, update_pT_guess_saha, FlashSpec.vu, X_gen, params
-                )
-                # Performing final saturation update, after guessing fractions and p,T
-                s, x, y, z, p, T, s1, s2, x_p = parse_vectorized_generic_arg(
-                    X_gen, ncomp, nphase, FlashSpec.vu
-                )
-                rhos = np.empty(y.shape)
-                for j in range(nphase):
-                    x_j = x[j, :, :]
-                    # NOTE accessing the gufuncs directly require the fractions
-                    # column-wise.
-                    xn = normalize_rows(x_j.T)
-                    pre = self._eos.gufuncs["prearg_val"](
-                        phasestates[j], p, T, xn, x_p.T
-                    )
-                    rhos[j] = self._eos.gufuncs["rho"](pre, p, T, xn)
-                s = compute_saturations(y, rhos)
-
-                return assemble_vectorized_generic_arg(
-                    s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
-                )
-
-            self._initializers[FlashSpec.vu] = vu_init
+            self._initializers[FlashSpec.vu] = partial(
+                nested_initializer, get_K_values, update_pT_guess_saha, FlashSpec.vu
+            )
 
         logger.info(
             "Flash initialization routines compiled"

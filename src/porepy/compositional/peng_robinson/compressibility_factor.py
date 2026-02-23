@@ -25,8 +25,6 @@ I.e., it provides an additional root in the 1-root area.
 
 from __future__ import annotations
 
-from typing import Literal
-
 import numba as nb
 import numpy as np
 

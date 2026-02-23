@@ -19,7 +19,6 @@ Note:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import IntEnum
 from typing import Optional, Sequence, cast
 
 import numpy as np

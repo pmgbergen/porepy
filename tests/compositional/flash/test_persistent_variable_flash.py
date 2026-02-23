@@ -173,7 +173,7 @@ def _dh_from_cp(
                 (3, "LL"),
                 (3, "LLL"),
             ],
-            [pc.FlashSpec.pT, pc.FlashSpec.ph, pc.FlashSpec.vh, pc.FlashSpec.vu],
+            pf.CompiledPersistentVariableFlash.SUPPORTED_SPECIFICATIONS,
         )
         for d, h in _dh_from_cp(cp, spec)
     ],
@@ -214,7 +214,6 @@ def test_assembly_of_flash_systems(
     z = np.ones(ncomp) / ncomp
     # NOTE: scale with 0.9 to avoid linear dependent complementarity conditions
     y = np.ones(nphase) / nphase * 0.9
-    sat = y.copy()
     x = np.ones((nphase, ncomp)) / ncomp * 0.9
     p = 1e7
     T = 400.0
@@ -226,9 +225,7 @@ def test_assembly_of_flash_systems(
     # Can only be energetic, if relevant at all.
     state2 = 3e4
 
-    x0 = pf.assemble_generic_arg(
-        sat, x, y, z, p, T, state1, state2, np.zeros(0), flash_spec
-    )
+    x0 = pf.assemble_generic_arg(x, y, z, p, T, state1, state2, np.zeros(0), flash_spec)
 
     def func(x):
         r = res(x)

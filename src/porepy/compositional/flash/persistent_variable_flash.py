@@ -51,8 +51,6 @@ from .flash_equations import (
     mass_constraint_res,
     parse_generic_arg,
     parse_vectorized_generic_arg,
-    phase_mass_constraints_jac,
-    phase_mass_constraints_res,
 )
 from .flash_initializer import FlashInitializer, UniformFlashInitializer
 from .solvers import (
@@ -108,6 +106,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
     SUPPORTED_SPECIFICATIONS: tuple[FlashSpec, ...] = (
         FlashSpec.pT,
         FlashSpec.ph,
+        FlashSpec.vT,
         FlashSpec.vh,
         FlashSpec.vu,
     )
@@ -190,11 +189,11 @@ class CompiledPersistentVariableFlash(AbstractFlash):
     ) -> None:
         """Helper function to fill a fluid state with the equilibrium results from the
         flash and evaluate all fluid properties using the values at equilibrium."""
-        nphase = self.params["num_phases"]
-        ncomp = self.params["num_components"]
+        n_P = self.params["num_phases"]
+        n_C = self.params["num_components"]
 
-        s, x, y, _, p, T, *_ = parse_vectorized_generic_arg(
-            resultsarray, ncomp, nphase, results.specification
+        x, y, _, p, T, *_ = parse_vectorized_generic_arg(
+            resultsarray, n_C, n_P, results.specification
         )
 
         results.y = y
@@ -202,11 +201,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             results.T = T
         if results.specification >= FlashSpec.vT:
             results.p = p
-            results.sat = s
 
         # Computing states for each phase after filling p, T and x
         results.phases = list()
-        for j in range(nphase):
+        for j in range(n_P):
             results.phases.append(
                 self._eos.compute_phase_properties(
                     self._phasestates[j],
@@ -217,10 +215,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 )
             )
 
-        # If not isochoric, evaluate saturations based on rho and y.
-        if results.specification < FlashSpec.vT:
-            results.evaluate_saturations()
-        # Evaluate extensive properties of the fluid mixture at equilibrium values.
+        # Evaluate extensive properties and saturations of the fluid mixture at
+        # equilibrium values.
+        results.evaluate_saturations()
         results.evaluate_extensive_state()
 
     def _convert_solver_params(self, solver_params: dict[str, float]) -> None:
@@ -270,8 +267,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         dphis_c = self._eos.funcs["dphis"]
         h_c = self._eos.funcs["h"]
         dh_c = self._eos.funcs["dh"]
-        rho_c = self._eos.funcs["rho"]
-        drho_c = self._eos.funcs["drho"]
+        v_c = self._eos.funcs["v"]
+        dv_c = self._eos.funcs["dv"]
         u_c = self._eos.funcs["u"]
         du_c = self._eos.funcs["du"]
 
@@ -287,22 +284,20 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 n_C = int(ncomp)
                 states = nb.literal_unroll(phasestates)
 
-                sat, x, y, z, p, T, s1, s2, xp = parse_generic_arg(
-                    X_gen, n_C, n_P, spec
-                )
+                x, y, z, p, T, s1, s2, xp = parse_generic_arg(X_gen, n_C, n_P, spec)
 
                 # EoS specific computations.
                 xn = normalize_rows(x)
                 phis = np.empty((n_P, n_C))  # Fugacities.
                 es = np.empty(n_P)  # Energies.
-                rhos = np.empty(n_P)  # Densities.
+                vs = np.empty(n_P)  # Densities.
 
                 for j in range(n_P):
                     pre_res_j = prearg_val_c(states[j], p, T, xn[j], xp)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
 
                     if spec >= FlashSpec.vT:
-                        rhos[j] = rho_c(pre_res_j, p, T, xn[j])
+                        vs[j] = v_c(pre_res_j, p, T, xn[j])
 
                     if spec in (FlashSpec.ph, FlashSpec.vh):
                         es[j] = h_c(pre_res_j, p, T, xn[j])
@@ -322,30 +317,26 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 if spec >= FlashSpec.vT:
                     res = np.hstack(
                         (
-                            # NOTE: Scaling volume constraint with target volume s1
-                            first_order_constraint_res(1.0, sat, s1 * rhos),
-                            phase_mass_constraints_res(sat, y, rhos),
+                            # Scaling volume constraint with target volume s1.
+                            first_order_constraint_res(1.0, y, vs / s1),
                             res,
                         )
                     )
 
                 # Pre-append energy block for non-isothermal specifications.
                 if spec in (FlashSpec.ph, FlashSpec.vh, FlashSpec.vu):
-                    res_e = first_order_constraint_res(s2, y, es)
-                else:
-                    res_e = np.zeros((0,))
+                    res = np.hstack(
+                        (
+                            # Scaling energy constraint with target energy s2.
+                            # NOTE analytically, T-factor is correct, but numerically
+                            # high T-values allow for non-physical solutions because the
+                            # energy residual is scaled down.
+                            first_order_constraint_res(1.0, y, es / s2),  # / T**2
+                            res,
+                        )
+                    )
 
-                # Scaling of energy residual.
-                # NOTE analytically, this is correct, but numerically high T-values
-                # allow for non-physical solutions because the energy residual is
-                # scaled down.
-                # if res_e.size > 0:
-                #     res_e /= T**2
-                # Non-dimensional scaling of energy residual.
-                if np.abs(s2) > 1.0:
-                    res_e /= s2
-
-                return np.hstack((res_e, res))
+                return res
 
             self._template_res = template_res
 
@@ -359,35 +350,31 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 states = nb.literal_unroll(phasestates)
 
                 # Analogous to template_res, but for derivatives.
-                sat, x, y, _, p, T, s1, s2, xp = parse_generic_arg(
-                    X_gen, n_C, n_P, spec
-                )
+                x, y, _, p, T, s1, s2, xp = parse_generic_arg(X_gen, n_C, n_P, spec)
 
                 # EoS specific computations.
                 xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
                 es = np.empty(n_P)
-                rhos = np.empty(n_P)
+                vs = np.empty(n_P)
 
-                dphis = np.empty((n_P, n_C, 2 + n_C))
+                dlnphis = np.empty((n_P, n_C, 2 + n_C))
                 des = np.empty((n_P, 2 + n_C))
-                drhos = np.empty((n_P, 2 + n_C))
+                dvs = np.empty((n_P, 2 + n_C))
 
                 for j in range(n_P):
                     pre_res_j = prearg_val_c(states[j], p, T, xn[j], xp)
                     pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], xp)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
 
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(n_C):
-                        dphis[j, i, :] = _chainrule_fractional_derivatives(
+                        dlnphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
                         )
 
                     if spec >= FlashSpec.vT:
-                        rhos[j] = rho_c(pre_res_j, p, T, xn[j])
-                        drhos[j] = _chainrule_fractional_derivatives(
-                            drho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        vs[j] = v_c(pre_res_j, p, T, xn[j])
+                        dvs[j] = _chainrule_fractional_derivatives(
+                            dv_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                         )
 
                     if spec in (FlashSpec.ph, FlashSpec.vh):
@@ -404,7 +391,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # Common block.
                 jac = np.vstack(
                     (
-                        isofugacity_constraints_jac(x, phis, dphis),
+                        isofugacity_constraints_jac(x, dlnphis),
                         mass_constraint_jac(x, y),
                         complementary_conditions_jac(x, y),
                     )
@@ -414,29 +401,24 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 if spec >= FlashSpec.vT:
                     jac = np.vstack(
                         (
-                            first_order_constraint_jac(sat, rhos, drhos, False) * s1,
-                            phase_mass_constraints_jac(sat, y, rhos, drhos),
+                            first_order_constraint_jac(y, vs, dvs) / s1,
                             jac,
                         )
                     )
 
                 # Pre-append energy block for non-isothermal specifications.
                 if spec in (FlashSpec.ph, FlashSpec.vh, FlashSpec.vu):
-                    jac_e = first_order_constraint_jac(y, es, des, True)
-                    # res_e = first_order_constraint_res(s2, y, es)[0]
-                else:
-                    jac_e = np.empty((0, jac.shape[1]))
-                    # res_e = 0.0
+                    jac = np.vstack(
+                        (
+                            first_order_constraint_jac(y, es, des) / s2,
+                            jac,
+                        )
+                    )
+                    # TT = T**2
+                    # jac[0] /= TT
+                    # jac[0, 1] -= 2.0 / (TT * T) * res_e
 
-                # if jac_e.size > 0:
-                #     TT = T**2
-                #     jac_e /= TT
-                #     jac_e[0, 1] -= 2.0 / (TT * T) * res_e
-
-                if np.abs(s2) > 1.0:
-                    jac_e /= s2
-
-                return np.vstack((jac_e, jac))
+                return jac
 
             self._template_jac = template_jac
 
@@ -463,9 +445,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 @jac_compiler
                 def jac_pT(X_gen: np.ndarray) -> np.ndarray:
-                    n_P = int(nphase)
-                    J = template_jac(X_gen, FlashSpec.pT)
-                    return J[:, 2 + n_P - 1 :]
+                    return template_jac(X_gen, FlashSpec.pT)[:, 2:]
 
                 self.jacobians[FlashSpec.pT] = jac_pT
 
@@ -484,14 +464,32 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 @jac_compiler
                 def jac_ph(X_gen: np.ndarray) -> np.ndarray:
-                    n_P = int(nphase)
-                    J = template_jac(X_gen, FlashSpec.ph)
-                    idx = np.zeros(J.shape[1], dtype=np.bool_)
-                    idx[1] = True
-                    idx[2 + n_P - 1 :] = True
-                    return J[:, idx]
+                    return template_jac(X_gen, FlashSpec.ph)[:, 1:]
 
                 self.jacobians[FlashSpec.ph] = jac_ph
+
+        if FlashSpec.vT in args:
+            if FlashSpec.vT not in self.residuals:
+                logger.debug("Compiling vT-residual ...")
+
+                @res_compiler
+                def res_vT(X_gen: np.ndarray) -> np.ndarray:
+                    return template_res(X_gen, FlashSpec.vT)
+
+                self.residuals[FlashSpec.vT] = res_vT
+
+            if FlashSpec.vT not in self.jacobians:
+                logger.debug("Compiling vT-Jacobian ...")
+
+                @jac_compiler
+                def jac_vT(X_gen: np.ndarray) -> np.ndarray:
+                    J = template_jac(X_gen, FlashSpec.vT)
+                    idx = np.zeros(J.shape[1], dtype=np.bool_)
+                    idx[0] = True
+                    idx[2:] = True  # No T-derivative.
+                    return J[:, idx]
+
+                self.jacobians[FlashSpec.vT] = jac_vT
 
         if FlashSpec.vu in args:
             if FlashSpec.vu not in self.residuals:

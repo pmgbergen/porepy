@@ -12,7 +12,7 @@ import numpy as np
 
 from ..._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ...utils import FlashSpec, FlashSpec_NUMBA_TYPE
-from ..flash_equations import parse_generic_arg, parse_xy
+from ..flash_equations import parse_xy
 from ._core import (
     FLASH_JACOBIAN_FUNCTION_TYPE,
     FLASH_RESIDUAL_FUNCTION_TYPE,
@@ -1142,7 +1142,6 @@ def npipm(
         do_rpc_p = False
         pidx = -1
 
-    gen_arg = parse_generic_arg(X0, n_C, n_P, spec)
     X_gen = X0[:-f_dim].copy()
     X_i = X0[-f_dim:].copy()
     dX_i = np.zeros_like(X_i)

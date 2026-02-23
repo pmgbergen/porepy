@@ -88,10 +88,9 @@ def test_assembly_and_parsing_of_generic_flash_argument(
     else:
         Xgen = np.hstack([params, non_params])
 
-    sat, x, y, z, p, T, state1, state2, pars = parser(Xgen, ncomp, nphase, spec)
+    x, y, z, p, T, state1, state2, pars = parser(Xgen, ncomp, nphase, spec)
 
     if vectorized:
-        assert sat.shape == (nphase, N), "Saturations of unexpected shape."
         assert x.shape == (nphase, ncomp, N), "Partial fractions of unexpected shape."
         assert y.shape == (nphase, N), "Phase fractions of unexpected shape."
         assert z.shape == (ncomp, N), "Overall compositions of unexpected shape."
@@ -100,7 +99,6 @@ def test_assembly_and_parsing_of_generic_flash_argument(
         assert state1.shape == (N,), "State value 1 of unexpected shape."
         assert state2.shape == (N,), "State value 2 of unexpected shape."
     else:
-        assert sat.shape == (nphase,), "Saturations of unexpected shape."
         assert x.shape == (nphase, ncomp), "Partial fractions of unexpected shape."
         assert y.shape == (nphase,), "Phase fractions of unexpected shape."
         assert z.shape == (ncomp,), "Overall compositions of unexpected shape."
@@ -152,17 +150,16 @@ def test_assembly_and_parsing_of_generic_flash_argument(
             "isochoric, non-isothermal spec."
         )
 
-    Xgen2 = assembler(sat, x, y, z, p, T, state1, state2, pars, spec)
+    Xgen2 = assembler(x, y, z, p, T, state1, state2, pars, spec)
     assert np.all(Xgen == Xgen2), (
         "Parsed and re-assembled generic arg expected to be equal to original arg,"
     )
 
     # Sanity check that the values remain the same and there is no accidental
     # cancelation of errors.
-    sat2, x2, y2, z2, p2, T2, state12, state22, pars2 = parser(
+    x2, y2, z2, p2, T2, state12, state22, pars2 = parser(
         Xgen2.copy(), ncomp, nphase, spec
     )
-    assert np.all(sat2 == sat)
     assert np.all(x2 == x)
     assert np.all(y2 == y)
     assert np.all(z == z)
@@ -172,7 +169,7 @@ def test_assembly_and_parsing_of_generic_flash_argument(
     assert np.all(state22 == state2)
     assert np.all(pars2 == pars)
 
-    Xgen3 = assembler(sat2, x2, y2, z2, p2, T2, state12, state22, pars2, spec)
+    Xgen3 = assembler(x2, y2, z2, p2, T2, state12, state22, pars2, spec)
     assert np.all(Xgen == Xgen3)
 
 
@@ -191,12 +188,7 @@ def test_parsing_with_no_flash_spec() -> None:
 
 @pytest.mark.parametrize(
     "spec",
-    [  # NOTE: add more onces isoenergetic definitions u are supported by FluidProperty
-        pc.FlashSpec.pT,
-        pc.FlashSpec.ph,
-        pc.FlashSpec.vh,
-        pc.FlashSpec.vu,
-    ],
+    [spec for spec in pf.FlashSpec if spec != pf.FlashSpec.none],
 )
 @pytest.mark.parametrize("with_params", [True, False])
 @pytest.mark.parametrize("with_init", [True, False])
@@ -204,7 +196,12 @@ def test_parsing_with_no_flash_spec() -> None:
 @pytest.mark.parametrize("ncomp", [1, 2, 5])
 @pytest.mark.parametrize("N", [1, 10])
 def test_generic_arg_from_result_struture(
-    N: int, ncomp: int, nphase: int, with_params: bool, with_init, spec: pc.FlashSpec
+    N: int,
+    ncomp: int,
+    nphase: int,
+    with_params: bool,
+    with_init: bool,
+    spec: pc.FlashSpec,
 ) -> None:
     """Tests the assembly of the generic argument using a flash results structure."""
 
@@ -213,9 +210,8 @@ def test_generic_arg_from_result_struture(
     T = np.random.random((N,))
     h = np.random.random((N,))
     u = np.random.random((N,))
-    rho = np.random.random((N,))
+    v = np.random.random((N,))
     y = np.random.random((nphase, N))
-    sat = np.random.random((nphase, N))
     x = np.random.random((nphase, ncomp, N))
 
     match spec:
@@ -225,12 +221,17 @@ def test_generic_arg_from_result_struture(
         case pc.FlashSpec.ph:
             state1 = p.copy()
             state2 = h.copy()
+        case pc.FlashSpec.vT:
+            state1 = v.copy()
+            state2 = T.copy()
         case pc.FlashSpec.vh:
-            state1 = 1 / rho.copy()
+            state1 = v.copy()
             state2 = h.copy()
         case pc.FlashSpec.vu:
-            state1 = 1 / rho.copy()
+            state1 = v.copy()
             state2 = u.copy()
+        case _:
+            assert False, "Missing test logic."
 
     if with_params:
         params = np.random.random((np.random.randint(1, 10), N))
@@ -244,35 +245,34 @@ def test_generic_arg_from_result_struture(
         T=T,
         z=z,
         y=y,
-        sat=sat,
         h=h,
         u=u,
-        rho=rho,
+        rho=1.0 / v,
         phases=[pp.compositional.PhaseProperties(x=x[j, :, :]) for j in range(nphase)],
     )
 
     XgenA = pf.assemble_vectorized_generic_arg(
-        sat, x, y, z, p, T, state1, state2, params, spec
+        x, y, z, p, T, state1, state2, params, spec
     )
     XgenB = pf.generic_arg_from_flash_results(
         results, ncomp, nphase, with_init, params if with_params else None
     )
 
     # If all values are used, they must be identical.
+    # NOTE: The checks for volume/state1 must be done with allclose because v=1/rho
+    # in the FlashResults structure.
     if with_init:
-        assert np.all(XgenA == XgenB)
+        assert np.allclose(XgenA, XgenB, rtol=0.0, atol=1e-15)
     # If not all values are used, the ones associated with degrees of freedom must be 0.
     else:
-        satb, xb, yb, zb, pb, Tb, st1b, st2b, paramsb = pf.parse_vectorized_generic_arg(
+        xb, yb, zb, pb, Tb, st1b, st2b, paramsb = pf.parse_vectorized_generic_arg(
             XgenB, ncomp, nphase, spec
         )
 
         assert np.all(xb == 0.0)
         # The parsing assembles the reference entities by unity of fractions
         assert np.all(yb[0] == 1)
-        assert np.all(satb[0] == 1)
         if nphase > 1:
-            assert np.all(satb[1:] == 0)
             assert np.all(yb[1:] == 0)
 
         if ncomp == 1:
@@ -281,7 +281,7 @@ def test_generic_arg_from_result_struture(
             assert np.all(zb[1:] == z[1:])
             assert np.all(zb[0] == 1 - z[1:].sum(axis=0))
 
-        assert np.all(st1b == state1)
+        assert np.allclose(st1b, state1, rtol=0.0, atol=1e-15)
         assert np.all(st2b == state2)
         assert np.all(paramsb == params)
 
@@ -296,7 +296,7 @@ def test_generic_arg_from_result_struture(
             else:
                 assert False, "Missing test logic"
         elif spec >= pc.FlashSpec.vT:
-            assert np.all(1 / rho == st1b)
+            assert np.allclose(v, st1b, rtol=0.0, atol=1e-15)
             assert np.all(pb == 0)
             if spec == pc.FlashSpec.vT:
                 assert np.all(T == Tb)
@@ -340,19 +340,17 @@ def test_mass_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None:
     nf = ncomp * nphase + nphase - 1
 
     def func(xgen):
-        _, x, y, z, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, y, z, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         res = pf.mass_constraint_res(x, y, z)
         assert res.shape == (ncomp - 1,), "Residual of unexpected shape."
         return res
 
     def dfunc(xgen):
-        _, x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         jac = pf.mass_constraint_jac(x, y)
-        assert jac.shape == (ncomp - 1, nf + 2 + nphase - 1), (
-            "Jacobian of unexpected shape."
-        )
-        assert np.all(jac[:, : 2 + nphase - 1] == 0), (
-            "Jacobian has non-trivial derivatives for p, T and sat."
+        assert jac.shape == (ncomp - 1, nf + 2), "Jacobian of unexpected shape."
+        assert np.all(jac[:, :2] == 0), (
+            "Jacobian has non-trivial derivatives for p and T."
         )
         return np.hstack((np.zeros((ncomp - 1, dim - nf)), jac[:, -nf:]))
 
@@ -405,19 +403,17 @@ def test_complementary_conditions(ncomp: int, nphase: int, d: np.ndarray) -> Non
     nf = ncomp * nphase + nphase - 1
 
     def func(xgen):
-        _, x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         res = pf.complementary_conditions_res(x, y)
         assert res.shape == (nphase,), "Residual of unexpected shape."
         return res
 
     def dfunc(xgen):
-        _, x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         jac = pf.complementary_conditions_jac(x, y)
-        assert jac.shape == (nphase, nf + 2 + nphase - 1), (
-            "Jacobian of unexpected shape."
-        )
-        assert np.all(jac[:, : 2 + nphase - 1] == 0), (
-            "Jacobian has non-trivial derivatives for p, T and sat."
+        assert jac.shape == (nphase, nf + 2), "Jacobian of unexpected shape."
+        assert np.all(jac[:, :2] == 0), (
+            "Jacobian has non-trivial derivatives for p and T."
         )
         return np.hstack((np.zeros((nphase, dim - nf)), jac[:, -nf:]))
 
@@ -457,40 +453,29 @@ def test_complementary_conditions(ncomp: int, nphase: int, d: np.ndarray) -> Non
         for d in _d_from_npnc(nphase, ncomp, pc.FlashSpec.vh)
     ],
 )
-@pytest.mark.parametrize("w_flag", [True, False])
-def test_first_order_constraint(
-    w_flag: bool, ncomp: int, nphase: int, d: np.ndarray
-) -> None:
+def test_first_order_constraint(ncomp: int, nphase: int, d: np.ndarray) -> None:
     """Tests if the first-order constraint is correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order."""
     spec = pc.FlashSpec.vh
     dim = pf.dim_gen_arg(ncomp, nphase, spec)
-    nf = ncomp * nphase + 2 * (nphase - 1) + 2
+    nf = ncomp * nphase + nphase - 1 + 2
 
     # Target value of the constraint.
     phi = np.random.rand()
 
     def func(xgen):
-        sat, x, y, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, y, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array([_dummy_property(p, T, x_) for x_ in x])
-        res = pf.first_order_constraint_res(phi, y if w_flag else sat, phis)
+        res = pf.first_order_constraint_res(phi, y, phis)
         assert res.shape == (1,), "Residual of unexpected shape."
         return res
 
     def dfunc(xgen):
-        sat, x, y, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, y, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array([_dummy_property(p, T, x_) for x_ in x])
         dphis = np.array([_dummy_property_derivative(p, T, x_) for x_ in x])
-        jac = pf.first_order_constraint_jac(y if w_flag else sat, phis, dphis, w_flag)
+        jac = pf.first_order_constraint_jac(y, phis, dphis)
         assert jac.shape == (1, nf), "Jacobian of unexpected shape."
-        if w_flag:
-            assert np.all(jac[:, 2 : 2 + nphase - 1] == 0), (
-                "Jacobian has non-trivial derivatives for sat."
-            )
-        else:
-            assert np.all(jac[:, 2 + nphase - 1 : 2 + 2 * (nphase - 1)] == 0), (
-                "Jacobian has non-trivial derivatives for y."
-            )
         return np.hstack((np.zeros((1, dim - nf)), jac))
 
     # If weights are zero, or the phis are zero, we expect -phi
@@ -521,64 +506,6 @@ def test_first_order_constraint(
     assert_order_at_least(orders, 2.0, tol=1e-2)
 
 
-@pytest.mark.parametrize(
-    ["nphase", "ncomp", "d"],
-    [
-        (nphase, ncomp, d)
-        for nphase, ncomp in product([1, 2, 5], [1, 2, 5])
-        for d in _d_from_npnc(nphase, ncomp, pc.FlashSpec.vh)
-    ],
-)
-def test_phase_mass_constraint(ncomp: int, nphase: int, d: np.ndarray) -> None:
-    """Tests if the phase mass constraints are correctly implemented and its
-    Jacobian function allows the Taylor approximation to be of second order."""
-    spec = pc.FlashSpec.vh
-    dim = pf.dim_gen_arg(ncomp, nphase, spec)
-    nf = ncomp * nphase + 2 * (nphase - 1) + 2
-
-    def func(xgen):
-        sat, x, y, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
-        phis = np.array([_dummy_property(p, T, x_) for x_ in x])
-        res = pf.phase_mass_constraints_res(sat, y, phis)
-        assert res.shape == (nphase - 1,), "Residual of unexpected shape."
-        return res
-
-    def dfunc(xgen):
-        sat, x, y, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
-        phis = np.array([_dummy_property(p, T, x_) for x_ in x])
-        dphis = np.array([_dummy_property_derivative(p, T, x_) for x_ in x])
-        jac = pf.phase_mass_constraints_jac(sat, y, phis, dphis)
-        assert jac.shape == (nphase - 1, nf), "Jacobian of unexpected shape."
-        return np.hstack((np.zeros((nphase - 1, dim - nf)), jac))
-
-    # If saturations are zero, the constraint is zero.
-    y = np.random.random((nphase,))
-    rhos = np.random.random((nphase,))
-    sat = np.zeros(nphase)
-    res = pf.phase_mass_constraints_res(sat, y, rhos)
-    assert np.all(res == 0.0), "Unexpected residual values."
-    # If fractions are zero, the constraint is -s
-    res = pf.phase_mass_constraints_res(y, sat, rhos)
-    assert np.all(res == -y[1:]), "Unexpected residual values."
-    # For individual zero entries, the residual is never zero if one saturation vanishes
-    # but elementwise zero where the fraction vanishes.
-    for j in range(nphase - 1):
-        y = np.random.random((nphase,)) + 1
-        rhos = np.random.random((nphase,)) + 1
-        sat = np.random.random((nphase,)) + 1
-        sat[j + 1] = 0.0
-        res = pf.phase_mass_constraints_res(sat, y, rhos)
-        assert np.all(res != 0.0), "Unexpected residual values."
-        res = pf.phase_mass_constraints_res(y, sat, rhos)
-        assert np.all(res[j] == -y[j + 1]), "Unexpected residual values."
-
-    Xgen = np.random.random((dim,))
-    h = np.logspace(0, -10, 11)
-
-    orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-    assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
-
-
 # Isofugacity constraints make no sense for 1 phase.
 @pytest.mark.parametrize(
     ["nphase", "ncomp", "d"],
@@ -600,10 +527,10 @@ def test_isofugacity_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None
     its Jacobian function allows the Taylor approximation to be of second order."""
     spec = pc.FlashSpec.vh
     dim = pf.dim_gen_arg(ncomp, nphase, spec)
-    nf = ncomp * nphase + 2 * (nphase - 1) + 2
+    nf = ncomp * nphase + nphase - 1 + 2
 
     def func(xgen):
-        _, x, _, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, _, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array(
             [[_dummy_property(p, T, x_, power=i + 1) for i in range(ncomp)] for x_ in x]
         )
@@ -613,7 +540,7 @@ def test_isofugacity_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None
         return res
 
     def dfunc(xgen):
-        _, x, _, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
+        x, _, _, p, T, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array(
             [[_dummy_property(p, T, x_, power=i + 1) for i in range(ncomp)] for x_ in x]
         )
@@ -628,7 +555,7 @@ def test_isofugacity_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None
         )
         assert phis.shape == x.shape
         assert dphis.shape == (nphase, ncomp, 2 + ncomp)
-        jac = pf.isofugacity_constraints_jac(x, phis, dphis)
+        jac = pf.isofugacity_constraints_jac(x, dphis)
         assert jac.shape == ((nphase - 1) * ncomp, nf), "Jacobian of unexpected shape."
         return np.hstack((np.zeros(((nphase - 1) * ncomp, dim - nf)), jac))
 

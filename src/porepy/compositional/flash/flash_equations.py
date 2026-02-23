@@ -64,13 +64,11 @@ __all__ = [
     "isofugacity_constraints_jac",
     "first_order_constraint_res",
     "first_order_constraint_jac",
-    "phase_mass_constraints_res",
-    "phase_mass_constraints_jac",
 ]
 
 
 _COMPILER = njit
-"""CDecorator for compiling functions in this module."""
+"""Decorator for compiling functions in this module."""
 
 
 def generic_arg_from_flash_results(
@@ -151,14 +149,7 @@ def generic_arg_from_flash_results(
         y = np.zeros((nphase, N))
         x = np.zeros((nphase, ncomp, N))
 
-    if spec >= FlashSpec.vT and state_is_initialized:
-        sat = results.sat
-    else:
-        sat = np.zeros((nphase, N))
-
-    return assemble_vectorized_generic_arg(
-        sat, x, y, z, p, T, state1, state2, params, spec
-    )
+    return assemble_vectorized_generic_arg(x, y, z, p, T, state1, state2, params, spec)
 
 
 @_COMPILER(
@@ -181,13 +172,13 @@ def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
 
     """
     # Number of independent phases.
-    nip = nphase - 1
+    n_P1m = nphase - 1
 
     # Base dimension is for all the same.
     # NOTE: Pressure and temperature could be the same as the target state for many
     # of the state definitions, but this simplifies
     d = (
-        nip  # Number of independent phase fractions.
+        n_P1m  # Number of independent phase fractions.
         + nphase * ncomp  # Number of partial fractions.
         + ncomp
         - 1  # Independent overall compositions.
@@ -200,10 +191,9 @@ def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
     # state value related to energy
     if FlashSpec.pT < spec < FlashSpec.vT:
         d += 1
-    # If isochoric specifications, independent saturations and volume values are part of
-    # the generic argument as well.
+    # If isochoric specifications, volume values are part of the generic argument.
     if spec >= FlashSpec.vT:
-        d += nip + 1
+        d += 1
     # If isochoric and not isothermal, we need an additional energy-related state
     # variable.
     if spec > FlashSpec.vT:
@@ -248,7 +238,6 @@ def parse_xy(
 @_COMPILER(
     nb.types.Tuple(
         (
-            nb.f8[:],
             nb.f8[:, :],
             nb.f8[:],
             nb.f8[:],
@@ -265,7 +254,6 @@ def parse_xy(
 def parse_generic_arg(
     X_gen: np.ndarray, ncomp: int, nphase: int, spec: FlashSpec
 ) -> tuple[
-    np.ndarray,
     np.ndarray,
     np.ndarray,
     np.ndarray,
@@ -287,15 +275,14 @@ def parse_generic_arg(
     Returns:
         A tuple containing
 
-        1. 1D array of saturations,
-        2. 2D array of (extended) partial fractions, row-wise per phase,
-        3. 1D array of phase fractions,
-        4. 1D array of overall fractions,
-        5. pressure value,
-        6. temperature value,
-        7. first target state according to ``spec``,
-        8. second target state according to ``spec``,
-        9. other parameters stored in the generic argument.
+        1. 2D array of (extended) partial fractions, row-wise per phase,
+        2. 1D array of phase fractions,
+        3. 1D array of overall fractions,
+        4. pressure value,
+        5. temperature value,
+        6. first target state according to ``spec``,
+        7. second target state according to ``spec``,
+        8. other parameters stored in the generic argument.
 
         The first and second target state can coincide with the pressure or temperature
         value, if pressure or temperature are defined as target state values in
@@ -304,15 +291,12 @@ def parse_generic_arg(
         All fractions contain values for reference phase and component. They are
         always stored as the first value.
 
-        Saturations are returned as a zero array, if the flash is not isochoric.
-
         If no parameters are stored, the parameter array is a zero array.
 
     """
     if spec == FlashSpec.none:
         raise ValueError("No safe parsing possible if flash not specified.")
 
-    sat = np.zeros(nphase)
     y = np.zeros(nphase)
     z = np.zeros(ncomp)
     x = np.zeros((nphase, ncomp))
@@ -326,12 +310,6 @@ def parse_generic_arg(
     y[1:] = X_gen[-(i + nphase - 1) : -i]
     y[0] = 1.0 - y.sum()
     i += nphase - 1
-
-    # If isochoric specifications, saturations are unknowns.
-    if spec >= FlashSpec.vT:
-        sat[1:] = X_gen[-(i + nphase - 1) : -i]
-        i += nphase - 1
-    sat[0] = 1.0 - sat.sum()
 
     # pressure and temperature are always the last (seen from back) unknowns.
     p, T = X_gen[-(i + 2) : -i]
@@ -369,17 +347,16 @@ def parse_generic_arg(
     # Other parameters, if any.
     params = X_gen[:-i]
 
-    # Sanity check.
+    # Sanity check, avoid accessing random memory in compiled version.
     assert X_gen.shape[0] == i + params.shape[0], (
         f"Parsing generic argument failed with specification {spec}."
     )
 
-    return sat, x, y, z, p, T, state1, state2, params
+    return x, y, z, p, T, state1, state2, params
 
 
 @_COMPILER(
     nb.f8[:](
-        nb.f8[:],
         nb.f8[:, :],
         nb.f8[:],
         nb.f8[:],
@@ -394,7 +371,6 @@ def parse_generic_arg(
     cache=True,
 )
 def assemble_generic_arg(
-    sat: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
     z: np.ndarray,
@@ -416,9 +392,6 @@ def assemble_generic_arg(
         It also makes this (and the parser) usable for any flash type.
 
     Parameters:
-        sat: ``shape=(num_phases,)``
-
-            Phase saturations.
         x: ``shape=(num_phases, num_components)``
 
             (Extended) partial fractions per phase.
@@ -452,13 +425,6 @@ def assemble_generic_arg(
     # Keeping track of the size.
     i = nphase - 1 + nphase * ncomp
 
-    # If isochoric specifications, saturations are unknowns.
-    if spec >= FlashSpec.vT:
-        X_gen_sat = sat[1:]
-        i += nphase - 1
-    else:
-        X_gen_sat = np.zeros((0,))
-
     # Pressure and temperature values.
     X_gen_pT = np.array([p, T])
     i += 2
@@ -490,7 +456,7 @@ def assemble_generic_arg(
     i += ncomp - 1
 
     # Create generic argument.
-    X_gen = np.hstack((params, X_gen_z, X_gen_state, X_gen_pT, X_gen_sat, X_gen_yx))
+    X_gen = np.hstack((params, X_gen_z, X_gen_state, X_gen_pT, X_gen_yx))
 
     # Sanity check.
     assert X_gen.shape[0] == i + params.shape[0]
@@ -501,7 +467,6 @@ def assemble_generic_arg(
 @_COMPILER(
     nb.types.Tuple(
         (
-            nb.f8[:, :],
             nb.f8[:, :, :],
             nb.f8[:, :],
             nb.f8[:, :],
@@ -527,7 +492,6 @@ def parse_vectorized_generic_arg(
     np.ndarray,
     np.ndarray,
     np.ndarray,
-    np.ndarray,
 ]:
     """Parallelized version of :func:`parse_generic_arg` for vectorized input.
 
@@ -536,7 +500,6 @@ def parse_vectorized_generic_arg(
     """
     n, m = X_gen.shape
 
-    s = np.empty((nphase, n), dtype=np.float64)
     x = np.empty((nphase, ncomp, n), dtype=np.float64)
     y = np.empty((nphase, n), dtype=np.float64)
     z = np.empty((ncomp, n), dtype=np.float64)
@@ -550,11 +513,10 @@ def parse_vectorized_generic_arg(
     params = np.empty((dim_params, n), dtype=np.float64)
 
     for i in nb.prange(n):
-        s_i, x_i, y_i, z_i, p_i, T_i, state1_i, state2_i, x_p_i = parse_generic_arg(
+        x_i, y_i, z_i, p_i, T_i, state1_i, state2_i, x_p_i = parse_generic_arg(
             X_gen[i], ncomp, nphase, spec
         )
 
-        s[:, i] = s_i
         x[:, :, i] = x_i
         y[:, i] = y_i
         z[:, i] = z_i
@@ -564,12 +526,11 @@ def parse_vectorized_generic_arg(
         state2[i] = state2_i
         params[:, i] = x_p_i
 
-    return s, x, y, z, p, T, state1, state2, params
+    return x, y, z, p, T, state1, state2, params
 
 
 @_COMPILER(
     nb.f8[:, :](
-        nb.f8[:, :],
         nb.f8[:, :, :],
         nb.f8[:, :],
         nb.f8[:, :],
@@ -585,7 +546,6 @@ def parse_vectorized_generic_arg(
     cache=NUMBA_CACHE,
 )
 def assemble_vectorized_generic_arg(
-    sat: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
     z: np.ndarray,
@@ -612,7 +572,6 @@ def assemble_vectorized_generic_arg(
 
     for i in nb.prange(n):
         X_gen[i] = assemble_generic_arg(
-            sat[:, i],
             x[:, :, i],
             y[:, i],
             z[:, i],
@@ -671,9 +630,6 @@ def mass_constraint_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarr
 
     """
     if z.size > 1:
-        # tensordot is the fastest option for non-contiguous arrays,
-        # but currently unsupported by numba TODO
-        # return (z - np.tensordot(y, x, axes=1))[1:]
         return (np.dot(y, x) - z)[1:]
     else:
         return np.empty(0)
@@ -705,27 +661,23 @@ def mass_constraint_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         num_phases * num_components)``.
 
     """
-    nphase, ncomp = x.shape
-    nip = nphase - 1  # number of independent phases
-    # In the 1-component case, return an array with zero rows, but proper amount of
-    # columns (compatibility with the general assembly of the flash system).
-    if ncomp == 1:
-        return np.empty((0, 2 + 2 * nip + nphase * ncomp))
+    n_P, n_C = x.shape
+    n_P1p = n_P + 1  # Independent phases and p, T.
 
     # Must fill with zeros, since slightly sparse and below fill-up does not cover
     # elements which are zero.
-    jac = np.zeros((ncomp - 1, nip + nphase * ncomp), dtype=np.float64)
+    jac = np.zeros((n_C - 1, n_P1p + n_P * n_C), dtype=np.float64)
 
-    for i in range(ncomp - 1):
-        # (1 - sum_j y_j) x_ir + y_j x_ij is there, per phase
-        # hence d mass_i / d y_j = x_ij - x_ir
-        jac[i, :nip] = x[1:, i + 1] - x[0, i + 1]  # i + 1 to skip ref component
+    for i in range(n_C - 1):
+        # (1 - sum_j y_j) x_ir + y_j x_ij is there, per phase.
+        # Hence d mass_i / d y_j = x_ij - x_ir
+        # i + 1 to skip ref component.
+        jac[i, 2:n_P1p] = x[1:, i + 1] - x[0, i + 1]
 
         # d.r.t. w.r.t x_ij is always y_j for all j per mass conv.
-        jac[i, nphase + i :: ncomp] = y  # nphase -1 + i + 1 to skip ref component
+        jac[i, 2 + n_P + i :: n_C] = y  # nphase -1 + i + 1 to skip ref component
 
-    # Adding trivial derivatives w.r.t. p, T and saturations
-    return np.hstack((np.zeros((ncomp - 1, 2 + nip), dtype=np.float64), jac))
+    return jac
 
 
 @_COMPILER(
@@ -786,23 +738,23 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         num_components)``.
 
     """
-    nphase, ncomp = x.shape
-    nip = nphase - 1  # number of independent phases
-    # must fill with zeros, since matrix sparsely populated.
-    jac = np.zeros((nphase, nip + nphase * ncomp), dtype=np.float64)
+    n_P, n_C = x.shape
+    n_P1p = n_P + 1  # Independent phase fractions and p, T.
+
+    jac = np.zeros((n_P, n_P1p + n_P * n_C), dtype=np.float64)
 
     unities = 1 - np.sum(x, axis=1)
 
     # first complementary condition is w.r.t. to reference phase
     # (1 - sum_j y_j) * (1 - sum_i x_i0)
-    jac[0, :nip] = -unities[0]
-    jac[0, nip : nip + ncomp] = -y[0]
-    for j in range(1, nphase):
+    jac[0, 2:n_P1p] = -unities[0]
+    jac[0, n_P1p : n_P1p + n_C] = -y[0]
+    for j in range(1, n_P):
         # for the other phases, it's slightly easier since y_j * (1 - sum_i x_ij)
-        jac[j, j - 1] = unities[j]
-        jac[j, nip + j * ncomp : nip + (j + 1) * ncomp] = -y[j]
+        jac[j, 1 + j] = unities[j]  # 2 + j - 1 to skip reference phase.
+        jac[j, n_P1p + j * n_C : n_P1p + (j + 1) * n_C] = -y[j]
 
-    return np.hstack((np.zeros((nphase, 2 + nip), dtype=np.float64), jac))
+    return jac
 
 
 @_COMPILER(
@@ -810,14 +762,14 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
-    r"""Assembles the residual of the isofugacity constraints.
+def isofugacity_constraints_res(x: np.ndarray, lnphis: np.ndarray) -> np.ndarray:
+    r"""Assembles the residual of the isofugacity constraints in log space.
 
     For each independent phase ``j``, and each component ``i`` it holds
 
     ... math::
 
-        x_{ij}\varphi_{ij} - x_{i0}\varphi_{i0} = 0.
+        \log{x_{ij}} + \varphi_{ij} - \log{x_{i0}} - \varphi_{i0} = 0.
 
     Number of phases and components is determined from the chape of ``x``.
     The reference phase is assumed to be the first one.
@@ -826,9 +778,9 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
         x: ``shape=(num_phases, num_components)``
 
             (Extended) partial fractions per phase.
-        phis: ``shape=(num_phases, num_components)``
+        lnphis: ``shape=(num_phases, num_components)``
 
-            Fugacities per phase and component.
+            Logarithm of fugacity coefficients per phase and component.
 
     Returns:
         An array with ``shape=((num_phases - 1) * num_components,)`` containing the
@@ -836,29 +788,27 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
         component.
 
     """
-    nphase, ncomp = x.shape
-    res = np.zeros(ncomp * (nphase - 1), dtype=np.float64)
+    n_P, n_C = x.shape
+    res = np.zeros(n_C * (n_P - 1), dtype=np.float64)
     eps = 1e-14
 
-    for j in range(1, nphase):
-        res[(j - 1) * ncomp : j * ncomp] = (
+    for j in range(1, n_P):
+        res[(j - 1) * n_C : j * n_C] = (
             np.log(np.maximum(x[j], eps))
-            + phis[j]
+            + lnphis[j]
             - np.log(np.maximum(x[0], eps))
-            - phis[0]
+            - lnphis[0]
         )
 
     return res
 
 
 @_COMPILER(
-    nb.f8[:, :](nb.f8[:, :], nb.f8[:, :], nb.f8[:, :, :]),
+    nb.f8[:, :](nb.f8[:, :], nb.f8[:, :, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def isofugacity_constraints_jac(
-    x: np.ndarray, phis: np.ndarray, dphis: np.ndarray
-) -> np.ndarray:
+def isofugacity_constraints_jac(x: np.ndarray, dlnphis: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
     :func:`isofugacity_constraints_res`.
 
@@ -869,51 +819,51 @@ def isofugacity_constraints_jac(
         phis: ``shape=(num_phases, num_components)``
 
             Fugacity coefficients per phase and component.
-        dphis: ``shape=(num_phases, num_components, 2 + num_diffs)``
+        dlnphis: ``shape=(num_phases, num_components, 2 + num_diffs)``
 
-            Derivatives of fugacity coefficients per phase and component.
+            Derivatives of log-fugacity coefficients per phase and component.
 
     Returns:
-        The Jacobian of shape ``((num_phases -1) * num_components, 2 + 2 *
-        (num_phases - 1) + num_phases * num_components)``.
+        The Jacobian of shape ``((num_phases -1) * num_components, 2 + num_phases - 1 +
+        num_phases * num_components)``.
 
     """
-    nphase, ncomp = x.shape
-    nip = nphase - 1  # number of independent phases
+    n_P, n_C = x.shape
+    n_P1m = n_P - 1  # Independent phases.
     # Allocating for pTx derivatives
-    jac = np.zeros((ncomp * nip, 2 + ncomp * nphase))
+    jac = np.zeros((n_C * n_P1m, 2 + n_C * n_P))
     eps = 1e-14
 
     # Creating block of derivatives of expression x_{i0} + phi_{i0}
     # product rule: x * dphi
     # block_0 = (dphis[0, :, :].T * x[0]).T
-    block_0 = dphis[0, :, :]
+    block_0 = dlnphis[0, :, :]
     # + phi * dx  (minding the first two columns which contain the dp dT)
     # block_0[:, 2:] += np.diag(phis[0])
     block_0[:, 2:] += np.diag(1.0 / np.maximum(x[0], eps))
 
     # Loop over row blocks associated with constraints between an independent phase
     # and the reference phase, for all components.
-    for j in range(1, nphase):
+    for j in range(1, n_P):
         # Creating block of derivatives of expression x_{ij} phi_{ij}
         # block_j = (dphis[j, :, :].T * x[j]).T
-        block_j = dphis[j, :, :]
+        block_j = dlnphis[j, :, :]
         # block_j[:, 2:] += np.diag(phis[j])
         block_j[:, 2:] += np.diag(1.0 / np.maximum(x[j], eps))
 
         # p, T derivatives
-        idx = (j - 1) * ncomp  # start of row block
-        jac[idx : idx + ncomp, :2] = block_j[:, :2] - block_0[:, :2]
+        idx = (j - 1) * n_C  # start of row block
+        jac[idx : idx + n_C, :2] = block_j[:, :2] - block_0[:, :2]
 
         # Derivatives w.r.t. partial fractions.
         # d(x_ij * phi_ij - x_ir * phi_ir)
         # Hence every row-block associated with an independent phase contains -block_0
-        jac[idx : idx + ncomp, 2 : 2 + ncomp] = -block_0[:, 2:]
+        jac[idx : idx + n_C, 2 : 2 + n_C] = -block_0[:, 2:]
         # Derivatives w.r.t. fractions in independent phase j
-        jac[idx : idx + ncomp, 2 + j * ncomp : 2 + (j + 1) * ncomp] = block_j[:, 2:]
+        jac[idx : idx + n_C, 2 + j * n_C : 2 + (j + 1) * n_C] = block_j[:, 2:]
 
     # Adding trivial columns for derivatives w.r.t. phase fractions and saturations.
-    return np.hstack((jac[:, :2], np.zeros((ncomp * nip, 2 * nip)), jac[:, 2:]))
+    return np.hstack((jac[:, :2], np.zeros((n_C * n_P1m, n_P1m)), jac[:, 2:]))
 
 
 @_COMPILER(nb.f8[:](nb.f8, nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -924,7 +874,7 @@ def first_order_constraint_res(
 
     .. math::
 
-        \frac{\sum_j w_j \phi_j}{\hat{\phi}} - 1 = 0,
+        \sum_j w_j \phi_j - \hat{\phi} = 0,
 
     where :math:`\phi_j` is some phase-related quantity, and :math:`\hat{\phi}` the
     target value of respective quantity for the fluid.
@@ -950,31 +900,20 @@ def first_order_constraint_res(
 
 
 @_COMPILER(
-    nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.bool),
+    nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def first_order_constraint_jac(
-    w: np.ndarray, phis: np.ndarray, dphis: np.ndarray, w_flag: bool
+    w: np.ndarray, phis: np.ndarray, dphis: np.ndarray
 ) -> np.ndarray:
     """Assembles the Jacobian of the first order constraint given by
     :func:`first_order_constraint_res`.
 
-    The derivatives are assembled such that the first two columns contain the
-    derivatives w.r.t. two common dependencies of the phase-related quantities
-    (like enthalpy, which depends on pressure and temperature for every phase enthalpy).
-    The next columns contain the derivatives w.r.t. independent fractions.
-    The last columns contain the derivatives w.r.t. the dependencies per phase, for each
-    phase (like partial fractions per phase) in phase-major order.
-
-    Important:
-        This is the only (partial) Jacobian which does not include *all* derivatives
-        by default, because the weights can either be phase fractions or saturations.
-
     Parameters:
         w: ``shape=(num_phases,)``
 
-            Phase fractions/saturations.
+            Weights.
         phis: ``shape=(num_phases,)``
 
             Phase-related partial value of constrained function.
@@ -985,153 +924,29 @@ def first_order_constraint_jac(
             derivatives w.r.t. to the same variables (like pressure and temperature).
             The remaining columns can be phase-related variables (like partial
             fractions), but they must be equal in number per phase (``num_diffs``).
-        w_flag: Specifies whether ``w`` denotes the saturations or phase fractions, and
-            hence the columns of the respective derivatives in the Jacobian.
-
-            True for fractions, False for saturations. The columns of the saturation
-            derivatives come before the fraction derivatives.
-
-            If True, the columns ``2 : 2 + num_phases - 1`` are zero, otherwise
-            the columns ``2 + num_phases - 1: 2 + 2*(num_phases - 1)`` are zero.
 
     Returns:
-        The Jacobian of shape ``(1, 2 + 2 * (num_phases - 1) + num_phases *
-        num_components)``.
+        The Jacobian of shape ``(1, 2 + num_phases - 1 + num_phases * num_components)``.
 
     """
-    nphase = w.shape[0]
+    n_P = w.shape[0]
     # Number of derivatives excluding p and T derivatives is equal to number of partial
     # fractions (components).
-    ncomp = dphis.shape[1] - 2
-    nip = nphase - 1  # number of independent phases
+    n_C = dphis.shape[1] - 2
+    n_P1p = n_P + 1  # Independent phases and p, T.
 
     # Allocate correct number of derivatives.
-    jac = np.zeros(2 + nip + nphase * ncomp, dtype=np.float64)
+    jac = np.zeros(n_P1p + n_P * n_C, dtype=np.float64)
 
     # Derivatives w.r.t. p and T
     jac[:2] = (dphis[:, :2].T * w).T.sum(axis=0)
     # Derivatives w.r.t weights. Keep in mind that w_0 = 1 - w_1 - w_2 ...
-    jac[2 : 2 + nip] = phis[1:] - phis[0]
+    jac[2:n_P1p] = phis[1:] - phis[0]
     # Derivatives w.r.t. partial fractions per phase.
     # NOTE ().T will introduce somewhere a Fortran-order which numba cannot process.
     # This workaround using transpose().copy() will create a contiguous C-order array.
     # See https://github.com/numba/numba/issues/5433
-    jac[2 + nip :] = np.transpose(dphis[:, 2:].T * w).copy().reshape((nphase * ncomp,))
-
-    # Including zero columns for the other phase-related variables.
-    u = np.zeros(nip, dtype=np.float64)
-    if w_flag:  # w represents fractions
-        jac = np.hstack((jac[:2], u, jac[2:]))
-    else:  # w represents saturations
-        jac = np.hstack((jac[: 2 + nip], u, jac[2 + nip :]))
+    jac[n_P1p:] = np.transpose(dphis[:, 2:].T * w).copy().reshape((n_P * n_C,))
 
     # Reshaping because this is expected to be a row in a larger Jacobian.
     return jac.reshape((1, jac.shape[0]))
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:]),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def phase_mass_constraints_res(
-    s: np.ndarray, y: np.ndarray, rhos: np.ndarray
-) -> np.ndarray:
-    r"""Assembles the residual of the phase mass constraints
-
-    .. math::
-
-        s_j \rho_j - y_j (\sum_k s_k \rho_k) = 0,
-
-    for each independent phase ``j``.
-
-    Parameters:
-        s: ``shape=(num_phases,)``
-
-            Phase saturations.
-        y: ``shape=(num_phases,)``
-
-            Phase fractions.
-        rhos: ``shape=(num_phases,)``
-
-            Phase densities.
-
-    Returns:
-        An array with shape ``(num_phases - 1,)``, containing the residuals of above
-        equations.
-
-    """
-    rho = (s * rhos).sum()
-    # First phase is dependent.
-    return (rho * y / rhos - s)[1:]
-
-
-@_COMPILER(
-    nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def phase_mass_constraints_jac(
-    s: np.ndarray, y: np.ndarray, rhos: np.ndarray, drhos: np.ndarray
-) -> np.ndarray:
-    """Assembles the Jacobian of the phase mass constraints given by
-    :func:`phase_mass_constraints_res`.
-
-    Parameters:
-        s: ``shape=(num_phases,)``
-
-            Phase saturations.
-        y: ``shape=(num_phases,)``
-
-            Phase fractions.
-        rhos: ``shape=(num_phases,)``
-
-            Phase densities.
-        drhos: ``shape=(num_phases, 2 + num_diffs)``
-
-            Derivatives of phase densities, with pressure and temperature derivatives
-            in the first two columns, and derivatives w.r.t. to other dependencies
-            in the remaining columns (like partial fractions per component in phase).
-
-    Returns:
-        The Jacobian with shape ``(num_phases - 1, 2 + 2 * (num_phases - 1) + num_phases
-        * num_components)``.
-
-    """
-    nphase = s.shape[0]
-    # Number of derivatives excluding p and T derivatives is equal to number of partial
-    # fractions (components).
-    ncomp = drhos.shape[1] - 2
-    nip = nphase - 1  # number of independent phases
-
-    # Allocating Jacobian
-    jac = np.zeros((nip, 2 + 2 * nip + nphase * ncomp), dtype=np.float64)
-
-    # overall density sum s_j rho_j
-    rho = (s * rhos).sum()
-    drho = first_order_constraint_jac(s, rhos, drhos, False)
-
-    for j in range(nip):
-        j1 = j + 1  # Skipping the reference phase.
-        # Every phase mass constraint can be seen as a weighted first-order constraint.
-        # y_j / rho_j * (sum_k s_k* rho_k) - s_j = 0
-        w = y[j1] / rhos[j1]
-        # NOTE outer multiplication with w holds because below function considers s_j
-        # constant and makes only the Jacobian of (sum_k s_k * rho_k)
-        jac[j] = drho.copy() * w
-        # The derivative w.r.t. s_j has an additional term not covered by above.
-        jac[j, 2 + j] -= 1.0
-
-        # The derivative w.r.t. y_j.
-        jac[j, 2 + nip + j] = rho / rhos[j1]
-
-        # Now we require also the product rule for the term (y_j / rho_j) * rho.
-        # (y_j / rho_j) * d rho is covered above, we need + rho * d (y_j / rho_j).
-        # And we need this only w.r.t. to the dependencies of rho_j, which are p,T,x_ij
-        outer = -rho * y[j1] / (rhos[j1] * rhos[j1])
-        d = outer * drhos[j1]
-        # Contribution to p,T, and the partial fractions respectively.
-        jac[j, :2] += d[:2]
-        jac[j, 2 + 2 * nip + j1 * ncomp : 2 + 2 * nip + (j1 + 1) * ncomp] += d[2:]
-
-    return jac
