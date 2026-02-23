@@ -35,6 +35,9 @@ from porepy.applications.md_grids.model_geometries import (
     NonMatchingSquareDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
+from porepy.applications.initial_conditions.model_initial_conditions import (
+    InitialConditionHydrostaticPressureValues,
+)
 from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -639,6 +642,16 @@ class WellModel(
     pass
 
 
+class WellWithGravity(
+    CubeDomainOrthogonalFractures,
+    well_models.OneSlantedWell,
+    InitialConditionHydrostaticPressureValues,
+    pp.constitutive_laws.GravityForce,
+    SinglePhaseFlow,
+):
+    pass
+
+
 def test_well_incompressible_pressure_values():
     """One central vertical well, one horizontal fracture.
 
@@ -1210,3 +1223,31 @@ class TestMixedDimGravity:
         self.solve()
         self.verify_hydrostatic()
         self.verify_mortar_flux(0.0)
+
+    def test_one_fracture_one_well_3d_hydrostatic_zero_flux(self):
+        """This test is designed to check that the well flux correctly accounts for
+        gravity."""
+        # The well points are  np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]]), so the
+        # well intersects the fracture at the point (0.5, 0.3, 0.1).  This is above the
+        # cell center of the fracture cell, which is at (0.5, 0.25, 0.75), so the well
+        # flux would be nonzero except for the gravity correction term.
+        m = WellWithGravity(
+            {
+                "times_to_export": [],
+                "fracture_indices": [0],  # x=0.5 plane
+                "grid_type": "cartesian",
+                "meshing_arguments": {"cell_size": 0.5},
+                "material_constants": {"solid": pp.SolidConstants(well_radius=0.01)},
+            }
+        )
+        m.prepare_simulation()
+        self.model = m
+
+        # The flux should be initialized to zero. Assert that is the case. Provided it
+        # is, we can check the other terms of the well flux equation by comparing it
+        # to zero as well, which should follow from the combination of the hydrostatic
+        #  pressure distribution and the gravity term of the well flux equation.
+        flux = m.well_flux(m.mdg.interfaces(codim=2)).value(m.equation_system)
+        eq = m.well_flux_equation(m.mdg.interfaces(codim=2)).value(m.equation_system)
+        assert np.allclose(flux, 0, atol=1e-10)
+        assert np.allclose(eq, 0, atol=1e-10)
