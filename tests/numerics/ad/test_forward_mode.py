@@ -227,7 +227,7 @@ def test_exp_scalar_times_ad_var(create_csc, create_diags):
 @pytest.mark.parametrize(
     "index,index_c",
     [  # indices and their complement for tested array
-        (1, [0, 2, 3, 4, 5, 6, 7, 8, 9]),
+        (np.array([1]), [0, 2, 3, 4, 5, 6, 7, 8, 9]),
         (slice(0, 10, 2), slice(1, 10, 2)),
         (np.array([0, 2, 4, 6, 8], dtype=int), np.array([1, 3, 5, 7, 9], dtype=int)),
     ],
