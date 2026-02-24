@@ -1045,12 +1045,12 @@ def get_compressibility_factor(
         # Super-critical gas extension.
         # Contrary to the super-critical liquid, we only know how to deal with the
         # 1-root case.
-        case 21:
+        case 21 | 22 | 23:
             # roots[-1] = B * (B - B_CRIT) + extended_factor(roots[0], B)
             # smooth_sc_idx = -1
             roots[-1] = W_fab(A, B, roots[-1])
             # roots[-1] = W_scip(A, B)
-        case _:  # Extension case 22 and 23 are uncovered.
+        case _:
             raise NotImplementedError(
                 f"Uncovered extension case {extension_case} for A,B = {(A, B)}."
             )
@@ -1162,10 +1162,10 @@ def get_compressibility_factor_derivatives(
             # droots[0, 1] += 0.5
             droots[0] = dW_fab(A, B, roots[-1], droots[-1], sc_reg, sc_bw, sc_ss)
             # droots[0] = dW_scip(A, B, sc_reg, sc_bw, sc_ss)
-        case 21:
+        case 21 | 22 | 23:
             # droots[-1] = extended_factor_derivatives(droots[0])
             # droots[-1, 1] += 2.0 * B - B_CRIT
-            droots[-1] = dW_fab(A, B, roots[0], droots[0], sc_reg, sc_bw, sc_ss)
+            droots[-1] = dW_fab(A, B, roots[-1], droots[-1], sc_reg, sc_bw, sc_ss)
             # droots[-1] = dW_scip(A, B, sc_reg, sc_bw, sc_ss)
         case _:
             raise NotImplementedError(

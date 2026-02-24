@@ -18,7 +18,7 @@ def test_dew_and_bubble_point_T_computation(
     comps_and_phases: tuple[int, str],
     components: list[pp.compositional.FluidComponent],
 ) -> None:
-    """Tests the computation of dew and bubble point for a mixture of water and CO2."""
+    """Tests the computation of dew and bubble point temperature for a mixture."""
 
     p_cs = np.array([c.critical_pressure for c in components])
     T_cs = np.array([c.critical_temperature for c in components])

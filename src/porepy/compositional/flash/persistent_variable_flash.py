@@ -315,10 +315,12 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # Pre-append volume block for isochoric specifications.
                 if spec >= FlashSpec.vT:
+                    vm = np.dot(y, vs)
                     res = np.hstack(
                         (
                             # Scaling volume constraint with target volume s1.
-                            first_order_constraint_res(1.0, y, vs / s1),
+                            # first_order_constraint_res(1.0, y, vs / s1),
+                            np.ones(1) * (np.log(vm) - np.log(s1)),
                             res,
                         )
                     )
@@ -399,9 +401,11 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # Pre-append volume block for isochoric specifications.
                 if spec >= FlashSpec.vT:
+                    vm = np.dot(y, vs)
                     jac = np.vstack(
                         (
-                            first_order_constraint_jac(y, vs, dvs) / s1,
+                            # first_order_constraint_jac(y, vs, dvs) / s1,
+                            (1.0 / np.abs(vm) * first_order_constraint_jac(y, vs, dvs)),
                             jac,
                         )
                     )

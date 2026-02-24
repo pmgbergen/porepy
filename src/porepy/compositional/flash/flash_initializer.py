@@ -16,6 +16,7 @@ import porepy as pp
 
 from .._global_thermodynamic_reference_state import R_U
 from .._global_thermodynamic_reference_state import T as T_REF
+from .._global_thermodynamic_reference_state import P as P_REF
 from .._numba_interface import (
     NUMBA_CACHE,
     NUMBA_FAST_MATH,
@@ -40,7 +41,7 @@ __all__ = [
     "UniformFlashInitializer",
     "HeuristicVLInitializer",
     "K_Wilson",
-    "dT_K_Wilson",
+    "dK_Wilson",
     "cubic_mix",
     "critical_pressure_guess",
     "get_dew_point_T",
@@ -118,11 +119,11 @@ def K_Wilson(
     return np.exp(5.37 * (1 + omegas) * (1 - T_cs / T)) * p_cs / p + 1e-10
 
 
-@_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]), cache=True)
-def dT_K_Wilson(
+@_COMPILER(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]), cache=True)
+def dK_Wilson(
     p: float, T: float, p_cs: np.ndarray, T_cs: np.ndarray, omegas: np.ndarray
 ) -> np.ndarray:
-    """Temperature-derivative of Wilson correlation for K-values.
+    """Pressure- and temperature-derivative of Wilson correlation for K-values.
 
     Parameters:
         p: Pressure [Pa].
@@ -132,11 +133,16 @@ def dT_K_Wilson(
         omegas: Acentric factors per component.
 
     Returns:
-        An array of size ``T_cs``/``p_cs`` containing the ``dK/dT``.
+        An array of ``shape=(2, p_cs.size)`` containing pressure and temperature
+        derivatives per rows.
 
     """
     c = 5.37 * (1 + omegas)
-    return np.exp(c * (1 - T_cs / T)) * c * T_cs * p_cs / (p * T**2)
+    cTr = 1.0 - T_cs / T
+    dK = np.empty((2, p_cs.size))
+    dK[0] = -np.exp(c * cTr) * p_cs / p**2
+    dK[1] = np.exp(c * cTr) * c * T_cs * p_cs / (p * T**2)
+    return dK
 
 
 @_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -246,12 +252,12 @@ def get_dew_point_T(
         \sum_i \frac{z_i}{K_i(p, T)} = 1
 
     Parameters:
-        T0: Initial guess for ``T``.
+        T0: Initial guess for ``T`` [K].
         p: Pressure value [Pa].
         z: Feed fractions per component.
         p_cs: Critical pressures per component [Pa].
-        T_cs: Critical temperatures per component [Pa].
-        omegas: acentric factors per component [Pa].
+        T_cs: Critical temperatures per component [K].
+        omegas: acentric factors per component [-].
 
     Returns:
         A temperature solving above equation approximately.
@@ -265,7 +271,7 @@ def get_dew_point_T(
         if np.abs(r_i) < 1e-7:
             break
 
-        dKdT_i = dT_K_Wilson(p, Ti, p_cs, T_cs, omegas)
+        dKdT_i = dK_Wilson(p, Ti, p_cs, T_cs, omegas)[1]
         J_i = np.sum(-z / K_i**2 * dKdT_i) * T_r  # Jacobian
         dT = -r_i / J_i
         dT = np.sign(dT) * min(np.abs(dT), 0.1)
@@ -296,12 +302,12 @@ def get_bubble_point_T(
         \sum_i z_i K_i(p, T) = 1
 
     Parameters:
-        T0: Initial guess for ``T``.
+        T0: Initial guess for ``T`` [K].
         p: Pressure value [Pa].
         z: Feed fractions per component.
         p_cs: Critical pressures per component [Pa].
-        T_cs: Critical temperatures per component [Pa].
-        omegas: acentric factors per component [Pa].
+        T_cs: Critical temperatures per component [K].
+        omegas: acentric factors per component [-].
 
     Returns:
         A temperature solving above equation approximately.
@@ -315,7 +321,7 @@ def get_bubble_point_T(
         if np.abs(r_i) < 1e-7:
             break
 
-        dKdT_i = dT_K_Wilson(p, Ti, p_cs, T_cs, omegas)
+        dKdT_i = dK_Wilson(p, Ti, p_cs, T_cs, omegas)[1]
         J_i = np.sum(z * dKdT_i) * T_r
         dT = -r_i / J_i
         dT = np.sign(dT) * min(np.abs(dT), 0.1)
@@ -1008,6 +1014,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
     SUPPORTED_SPECIFICATIONS: tuple[FlashSpec, ...] = (
         FlashSpec.pT,
         FlashSpec.ph,
+        FlashSpec.vT,
         FlashSpec.vh,
         FlashSpec.vu,
     )
@@ -1108,12 +1115,16 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
         phi_c = self._eos.funcs["phis"]
+        dphi_c = self._eos.funcs["dphis"]
         h_c = self._eos.funcs["h"]
         dh_c = self._eos.funcs["dh"]
         u_c = self._eos.funcs["u"]
         du_c = self._eos.funcs["du"]
         v_c = self._eos.funcs["v"]
         dv_c = self._eos.funcs["dv"]
+
+        # To avoid overflow in exp differences.
+        cap = np.log(np.finfo(np.float64).max) - 10.0
 
         logger.info(f"Compiling {[a.name for a in args]} flash initializations ..")
         start = time.time()
@@ -1126,8 +1137,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 p: float, T: float, x: np.ndarray, xp: np.ndarray
             ) -> np.ndarray:
                 """See :func:`get_K_values_template_func`."""
-                # To avoid overflow in exp differences.
-                cap = np.log(np.finfo(np.float64).max) - 10.0
                 nphase, ncomp = x.shape
                 K = np.empty((nphase - 1, ncomp), dtype=np.float64)
                 xn = normalize_rows(x)
@@ -1221,7 +1230,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     # Below p_pc, approximate bubble and dew-point temperature, and
                     # compute enthalpies at points. If we are left of h_bub, iterate
                     # using h_liq, if we are right of h_dew iterate using h_liq.
-                    # If we are in between, interpolate T and not refine anymore.
+                    # If we are in between, interpolate T and do not refine anymore.
                     else:
                         # NOTE Starting from pseudo-critical alone is often unstable.
                         T0 = (T_REF + T_pc) * 0.5
@@ -1278,6 +1287,241 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 return X_gen
 
             self._initializers[FlashSpec.ph] = ph_init
+
+        if FlashSpec.vT in args and FlashSpec.vT not in self._initializers:
+            logger.debug("Compiling vT-initialization ..")
+
+            @_COMPILER(
+                nb.f8[:, :](
+                    nb.f8[:, :],
+                    SOLVER_PARAMETERS_TYPE,
+                ),
+                parallel=NUMBA_PARALLEL,
+            )
+            def vT_init(
+                X_gen: np.ndarray,
+                params: dict[str, float],
+            ) -> np.ndarray:
+                nphase = int(params["num_phases"])
+                ncomp = int(params["num_components"])
+                N2 = int(params["N2"])
+                tol = params["atol"]
+
+                T_cs = np.empty(ncomp)
+                p_cs = np.empty(ncomp)
+                v_cs = np.empty(ncomp)
+                omegas = np.empty(ncomp)
+                for i in range(ncomp):
+                    T_cs[i] = params[f"_T_crit_{i}"]
+                    p_cs[i] = params[f"_p_crit_{i}"]
+                    v_cs[i] = params[f"_v_crit_{i}"]
+                    omegas[i] = params[f"_omega_{i}"]
+
+                for k in nb.prange(X_gen.shape[0]):
+                    Xk = X_gen[k]
+
+                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                        Xk, ncomp, nphase, FlashSpec.vT
+                    )
+                    # NOTE local copy for simplicity of compilation.
+                    p_cs_ = p_cs.copy()
+                    T_cs_ = T_cs.copy()
+                    v_cs_ = v_cs.copy()
+                    omegas_ = omegas.copy()
+
+                    # Compute pseudo-critical estimate of enthalpy.
+                    T_pc = np.sum(z * T_cs_)
+                    p_pc = critical_pressure_guess(z, p_cs_, T_cs_, v_cs_)
+                    v_pc = cubic_mix(z, v_cs_)
+
+                    is_gas = False
+                    is_liq = False
+
+                    # We now refine the p guess by dividing the vT plane.
+                    # Above the pseudo-critical temperature, we iterate over the volume
+                    # constraint. If we are left of the v_pc, use v_liq, otherwise use
+                    # v_gas.
+                    if T >= T_pc:
+                        p = p_pc  # Start with pseudo-critical T.
+                        if s1 < v_pc:
+                            is_liq = True
+                        else:
+                            is_gas = True
+                    # Below T_pc, approximate bubble and dew-point pressure, and
+                    # compute volumes at points. If we are left of v_bub, iterate
+                    # using v_liq, if we are right of v_dew iterate using v_liq.
+                    # If we are in between, interpolate p and do not refine anymore.
+                    else:
+
+                        def get_x(K_: np.ndarray, dew: bool) -> np.ndarray:
+                            if dew:
+                                x_ = z / K_
+                            else:
+                                x_ = z * K_
+                            x_ = np.maximum(x_, 1e-7)
+                            xs = np.sum(x_)
+                            if xs > 1:
+                                x_ /= xs
+                            if (
+                                dew
+                                and phasestates[0] == PhysicalState.liquid
+                                or (not dew and phasestates[0] == PhysicalState.gas)
+                            ):
+                                return np.vstack((x_, z))
+                            else:
+                                return np.vstack((z, x_))
+
+                        td = 0.3  # Capping p updates
+                        tdu = 2.0  # Clapping log(p) updates.
+                        fd = 1e-6  # Finite difference mesh size for dKdp.
+                        # p_0 = (
+                        #     P_REF + (p_pc - P_REF) * ((T - T_REF) / (T_pc - T_REF))
+                        # )
+
+                        # Bubble point computations.
+                        p_i = 1.0
+                        K_w = K_Wilson(p_i, T, p_cs, T_cs, omegas_)
+                        p_i = 1.0 / np.sum(z / K_w)
+                        x_i = get_x(K_w, False)
+                        K_i = get_K_values(p_i, T, x_i, x_p)[0]
+                        r_i = np.sum(z * K_i - 1.0)
+
+                        # log space transformation
+                        u_i = np.log(p_i / p_pc)
+                        p_ui = p_i
+                        x_ui = x_i
+                        K_ui = K_i
+                        r_ui = r_i
+
+                        for _ in range(N2):
+                            if abs(r_i) <= tol:
+                                break
+                            if abs(r_ui) <= tol:
+                                p_i = p_ui
+                                x_i = x_ui
+                                K_i = K_ui
+                                break
+
+                            # dKdp_i = get_dKdp(p_i, x_i)
+
+                            dKdp_i = (
+                                get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
+                                - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
+                            ) / (2 * fd * p_i)
+                            dKdp_ui = (
+                                get_K_values(p_ui * (1 + fd), T, x_i, x_p)[0]
+                                - get_K_values(p_ui * (1 - fd), T, x_i, x_p)[0]
+                            ) / (2 * fd * p_ui)
+
+                            dp = -r_i / (np.sum(z * dKdp_i) * p_pc)
+                            dp = np.sign(dp) * min(np.abs(dp), td) * p_pc
+                            p_i += dp
+                            du = -r_i / (np.sum(z * dKdp_ui) * np.exp(u_i) * p_pc)
+                            u_i += np.sign(du) * min(np.abs(du), tdu)
+                            p_ui = np.exp(u_i) * p_pc
+
+                            K_ui = get_K_values(p_ui, T, x_i, x_p)[0]
+                            x_ui = get_x(K_ui, False)
+                            r_ui = np.sum(z * K_ui) - 1.0
+
+                            K_i = get_K_values(p_i, T, x_i, x_p)[0]
+                            x_i = get_x(K_i, False)
+                            r_i = np.sum(z * K_i) - 1.0
+                            # print("p: ", abs(r_i), f"{(p_i * 1e-6):.3f}")
+                            # print("u: ", abs(r_ui), f"{(p_ui * 1e-6):.3f}")
+                            # print(_)
+
+                        p_bub = p_i
+
+                        # Dew point calculations.
+                        p_i = 1.0
+                        K_w = K_Wilson(p_i, T, p_cs, T_cs, omegas_)
+                        p_i = 1.0 / np.sum(z / K_w)
+                        x_i = get_x(K_w, False)
+                        K_i = get_K_values(p_i, T, x_i, x_p)[0]
+                        r_i = np.sum(z / K_i) - 1.0
+
+                        # log space transformation
+                        u_i = np.log(p_i / p_pc)
+                        p_ui = p_i
+                        x_ui = x_i
+                        K_ui = K_i
+                        r_ui = r_i
+
+                        for _ in range(N2):
+                            if abs(r_i) <= tol:
+                                break
+                            if abs(r_ui) <= tol:
+                                p_i = p_ui
+                                x_i = x_ui
+                                K_i = K_ui
+                                break
+
+                            dKdp_i = (
+                                get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
+                                - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
+                            ) / (2 * fd * p_i)
+                            dKdp_ui = (
+                                get_K_values(p_ui * (1 + fd), T, x_i, x_p)[0]
+                                - get_K_values(p_ui * (1 - fd), T, x_i, x_p)[0]
+                            ) / (2 * fd * p_ui)
+
+                            dp = -r_i / (np.sum(-z / K_i**2 * dKdp_i) * p_pc)
+                            dp = np.sign(dp) * min(np.abs(dp), td) * p_pc
+                            p_i += dp
+                            du = -r_i / (
+                                np.sum(-z / K_ui**2 * dKdp_ui) * np.exp(u_i) * p_pc
+                            )
+                            u_i += np.sign(du) * min(np.abs(du), tdu)
+                            p_ui = np.exp(u_i) * p_pc
+
+                            K_ui = get_K_values(p_ui, T, x_i, x_p)[0]
+                            x_ui = get_x(K_ui, False)
+                            r_ui = np.sum(z / K_ui) - 1.0
+
+                            K_i = get_K_values(p_i, T, x_i, x_p)[0]
+                            x_i = get_x(K_i, False)
+                            r_i = np.sum(z / K_i) - 1.0
+                            # print("p: ", abs(r_i), f"{(p_i * 1e-6):.3f}")
+                            # print("u: ", abs(r_ui), f"{(p_ui * 1e-6):.3f}")
+                            # print(_)
+
+                        p_dew = p_i
+
+                        # Compute volumes at points.
+                        pre_g_dew = prearg_val_c(PhysicalState.gas, p_dew, T, z, x_p)
+                        v_dew = v_c(pre_g_dew, p_dew, T, z)
+                        pre_l_bub = prearg_val_c(PhysicalState.liquid, p_bub, T, z, x_p)
+                        v_bub = v_c(pre_l_bub, p_bub, T, z)
+
+                        if s1 > v_dew:  # Clearly gas-like.
+                            p = p_dew
+                            is_gas = True
+                        elif s1 < v_bub:  # Clearly liquid-like.
+                            p = p_bub
+                            is_liq = True
+                        else:  # If not clear, interpolate between bubble and dew point.
+                            w = np.abs(s1 - v_bub) / np.abs(v_dew - v_bub)
+                            p = (1.0 - w) * p_bub + w * p_dew
+
+                    if is_gas or is_liq:
+                        # TODO generalize to other EOS.
+                        # TODO us A,B where Z is real root.
+                        # TODO computations should be independent of state (1 root)
+                        # Evaluate pressure directly using EoS.
+                        pre = prearg_val_c(PhysicalState.gas, p, T, z, x_p)
+                        a = pre[4]
+                        b = pre[5]
+
+                        p = R_U * T / (s1 - b) - a / (s1**2 + 2 * b * s1 - b**2)
+
+                    Xk = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vT)
+                    X_gen[k] = fractions_from_rr(
+                        get_K_values, Xk, params, FlashSpec.vT, True
+                    )
+                return X_gen
+
+            self._initializers[FlashSpec.vT] = vT_init
 
         if FlashSpec.vh in args and FlashSpec.vh not in self._initializers:
             logger.debug("Compiling vh-initialization ..")

@@ -1075,10 +1075,11 @@ def npipm_inner(
             alpha_max = 1.0
         # endregion
 
-    if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)):
-        # Return initial guess back to not break subsequent code.
+    # Avoid returning nans, infs or values which caused failure in F or DF.
+    # By returning safe values in the form of the initial guess, we avoid failure in
+    # subsequent code.
+    if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)) or exitcode > 2:
         X_i[:-1] = X0[-f_dim + 1 :].copy()
-        assert exitcode > 1, "Expecting exitcode > 1 in case of failure."
 
     return np.hstack((X_gen, X_i[:-1])), exitcode, i
 
@@ -1102,9 +1103,8 @@ def npipm(
     :data:`~porepy.compositional.flash.solvers._core.GENERAL_SOLVER_PARAMS`.
 
     """
-    # return npipm_inner(X0, F, DF, params, spec, 0)
-    # Use full-algorithm on pT flash.
-    if spec in (FlashSpec.pT, FlashSpec.vT):
+    # Use always full-algorithm on pT flash.
+    if spec == FlashSpec.pT:
         return npipm_inner(X0, F, DF, params, spec, 0)
 
     pT_npc_iter = int(params["pT_npc_iterations"])

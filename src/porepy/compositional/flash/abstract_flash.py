@@ -880,7 +880,7 @@ class AbstractFlash(abc.ABC):
                     marker="x",
                     label="No conv.",
                 )
-                ax.legend(handles=[img_nc], loc="upper left")
+                ax.legend(handles=[img_nc], loc="lower center")
 
         fig.tight_layout()
         return fig, results

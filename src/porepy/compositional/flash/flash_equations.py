@@ -2,10 +2,10 @@
 problem, as well as the parsing and assembly of the generic argument for all flash
 configurations.
 
-The structure of the generic argument is as follows:
+The structure of the generic argument in array form is as follows:
 
 *(params, overall fractions, target state 1, target state 2, pressure, temperature,
-saturations, phase fractions, partial fractions in phase 1, ... , partial fractions in
+phase fractions, partial fractions in phase 1, ... , partial fractions in
 phase n)*
 
 This is the most general layout, reflecting especially the order of values in the
@@ -22,16 +22,17 @@ of derivatives (columns) in the Jacobian ``DF(X_gen)``.
 Various ``*_jac``-functions returning partial Jacobians of the unified flash system
 always return the full Jacobian w.r.t. to **all** possible dependencies:
 
-*(pressure, temperature, saturations, phase fractions, partial fractions)*
+*(pressure, temperature, phase fractions, partial fractions)*
 
 Individual flash systems must assemble the partial Jacobians they need and slice them.
 
 The rows in every flash system are expected to be of a particular order:
 
-1. Local mass constraints (``num_components - 1``)
-2. Local energy and/or volume constraints (1+)
-3. Isofugacity equations (``num_components * (num_phases - 1)``)
-4. Complementary conditions (``num_phases``).
+1. Local energy constraint (non-isothermal specifications).
+2. Local volume constraint (isochoric specifications).
+3. Local mass constraints (all specifications - ``num_components - 1``).
+4. Isofugacity equations (all specifications - ``num_components * (num_phases - 1)``).
+5. Complementary conditions (all specifications - ``num_phases``).
 
 Follow this pattern for maximum compatibility when assembling flash systems.
 
@@ -334,8 +335,10 @@ def parse_generic_arg(
         if spec > FlashSpec.vT:
             state2 = X_gen[-(i + 1)]
             i += 1
-        # Isothermal, temperature is already contained.
+        # Isothermal, mind the special order here, v-T-p not v-p-T. because T is a
+        # fixed state function
         else:
+            p, T = (T, p)
             state2 = T
 
     # The final standard elements of the generic argument are the independent overall
@@ -442,7 +445,10 @@ def assemble_generic_arg(
             i += 2
         # Isothermal.
         else:
-            X_gen_state = np.array([state1])
+            X_gen_state = np.array([state1, T])
+            # NOTE Change order here for compatibility with assumptions that DOFs
+            # are not interrupted with states/params (T in this case.)
+            X_gen_pT = np.ones(1) * p
             i += 1
     # Isobaric, isothermal: No additional state value required
     else:
