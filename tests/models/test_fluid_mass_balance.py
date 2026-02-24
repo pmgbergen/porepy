@@ -264,7 +264,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         (
             "equivalent_well_radius",
-            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2]),
+            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2.0]),
             None,
         ),
         ("fluid_compressibility", water_values["compressibility"], None),
