@@ -392,7 +392,7 @@ def multi_solve(
                 "Falling back to sequential multi-solver. "
                 "Investigate the failure of the parallel solver.",
             )
-            return sequential_solver(X0, F, DF, solver, solver_params, spec)
+        return sequential_solver(X0, F, DF, solver, solver_params, spec)
     else:
         raise ValueError(
             f"Invalid multi-solver mode: {mode}. Choose 'sequential' or 'parallel'."
