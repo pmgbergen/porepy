@@ -903,7 +903,7 @@ class DarcysLaw(pp.PorePyModel):
     """
 
     gravity_force: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid", "bulk"]],
         pp.ad.Operator,
     ]
     """Gravity force. Normally provided by a mixin instance of
@@ -1890,6 +1890,16 @@ class PeacemanWellFlux(pp.PorePyModel):
     formation/fracture and the wellbore.
 
     Assumes permeability is cell-wise scalar.
+
+    """
+
+    gravity_force: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid", "bulk"]],
+        pp.ad.Operator,
+    ]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
 
     """
 

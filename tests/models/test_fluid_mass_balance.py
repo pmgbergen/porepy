@@ -24,6 +24,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.applications.initial_conditions.model_initial_conditions import (
+    InitialConditionHydrostaticPressureValues,
+)
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
@@ -34,9 +37,6 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     NonMatchingSquareDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
-)
-from porepy.applications.initial_conditions.model_initial_conditions import (
-    InitialConditionHydrostaticPressureValues,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
