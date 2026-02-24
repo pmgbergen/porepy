@@ -3157,6 +3157,8 @@ class ModifiedSourceAsWells:
         domain=self._domain
 
         Lx, Ly, Lz = domain.side_lengths()
+        inj_xyz = self.params.get("injection_coordinates", inj_xyz)
+        prod_xyz = self.params.get("production_coordinates", prod_xyz)
 
         # Auto coordinates only if not provided
         if inj_xyz is None:
