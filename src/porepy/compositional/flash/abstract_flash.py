@@ -5,7 +5,16 @@ from __future__ import annotations
 import abc
 import logging
 from dataclasses import dataclass, field
-from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
+from typing import (
+    Any,
+    NotRequired,
+    Optional,
+    Sequence,
+    TypeAlias,
+    TypedDict,
+    cast,
+    Callable,
+)
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -774,7 +783,19 @@ class AbstractFlash(abc.ABC):
         )
         results.postprocess_fractions(eps)
 
+        xtransform: Callable[[np.ndarray], np.ndarray] = kwargs.get(
+            "xtransform", lambda x: x
+        )
+        ytransform: Callable[[np.ndarray], np.ndarray] = kwargs.get(
+            "ytransform", lambda x: x
+        )
+        vtransform: Callable[[np.ndarray, str], np.ndarray] = kwargs.get(
+            "vtransform", lambda x, s: x
+        )
+
         not_conv = ~results.converged
+        s1f = spec[specification.name[0]][not_conv]
+        s2f = spec[specification.name[1]][not_conv]
 
         # Shape axis values.
         xlabel = specification.name[1]
@@ -782,8 +803,11 @@ class AbstractFlash(abc.ABC):
         if transpose:
             xm, ym = [ym.transpose(), xm.transpose()]
             xlabel, ylabel = [ylabel, xlabel]
-        xm = kwargs.get("xtransform", lambda x: x)(xm.flatten()).reshape(shape)
-        ym = kwargs.get("ytransform", lambda x: x)(ym.flatten()).reshape(shape)
+            s1f, s2f = [s2f, s1f]
+        xm = xtransform(xm.flatten()).reshape(shape)
+        ym = ytransform(ym.flatten()).reshape(shape)
+        s2f = xtransform(s2f)
+        s1f = ytransform(s1f)
 
         # Parse field and format values to be plotted.
         vals: list[np.ndarray] = []
@@ -794,7 +818,7 @@ class AbstractFlash(abc.ABC):
             fields = field
         for f in fields:
             v = self._parse_field(results, f, eps)
-            v = kwargs.get("vtransform", lambda x, s: x)(v, f).reshape(shape)
+            v = vtransform(v, f).reshape(shape)
             if transpose:
                 v = v.transpose()
             vals.append(v)
@@ -873,8 +897,8 @@ class AbstractFlash(abc.ABC):
 
             if np.any(not_conv) and kwargs.get("show_not_converged", False):
                 img_nc = ax.scatter(
-                    xm.flatten()[not_conv],
-                    ym.flatten()[not_conv],
+                    s2f,
+                    s1f,
                     s=5,
                     c="firebrick",
                     marker="x",
