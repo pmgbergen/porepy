@@ -35,9 +35,16 @@ class OneVerticalWell(pp.PorePyModel):
 
 
 class OneSlantedWell(pp.PorePyModel):
+    """Model with one slanted well.
+
+    If used with a unit cube domain, the well starts at the top at x=0.25 and ends
+    almost at the bottom at x=0.75. The y coordinate is constant at 0.3.
+
+    """
+
     def set_well_network(self) -> None:
         """Assign well network class."""
-        points = np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.1]])
+        points = np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]])
         mesh_size = self.units.convert_units(1 / 10.0, "m")
         self.well_network = pp.WellNetwork3d(
             domain=self.domain,

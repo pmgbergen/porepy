@@ -2013,8 +2013,8 @@ class PeacemanWellFlux(pp.PorePyModel):
                 # Avoid division by zero for points. The value is not used in calling
                 # method well_flux_equation, as all wells are 1d. Set high value
                 # (greater than expected actual well radii) to ensure that the argument
-                # of the  logarithmic term in the well index is greater than 1.
-                h_list.append(np.array([10]))
+                # of the logarithmic term in the well index is greater than 1.
+                h_list.append(np.array([self.units.convert_units(10, "m")]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
         r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
@@ -2083,7 +2083,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         # Combine elevation for all subdomains.
         elevations = pp.wrap_as_dense_ad_array(np.concatenate(elevation_list))
 
-        # Compute elevation difference: z_primary - z_secondary
+        # Compute elevation difference: z_primary - z_secondary.
         if len(subdomains) >= 2:
             delta_z = (
                 projection.primary_to_mortar_avg() @ elevations
@@ -2094,13 +2094,13 @@ class PeacemanWellFlux(pp.PorePyModel):
             # direction of gravity. We extract the magnitude in the gravity direction.
             gravity_vector = self.gravity_force(subdomains, "fluid")
 
-            # Extract the component in the gravity direction (last coordinate)
+            # Extract the component in the gravity direction (last coordinate).
             e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
             rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
 
             # Gravity correction: rho * g * delta_z
             # Positive delta_z means primary is higher than secondary, so fluid column
-            # from secondary to primary has positive pressure contribution
+            # from secondary to primary has positive pressure contribution.
             gravity_correction = rho_g * delta_z
         else:
             gravity_correction = pp.ad.Scalar(0)

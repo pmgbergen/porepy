@@ -1228,8 +1228,8 @@ class TestMixedDimGravity:
         """This test is designed to check that the well flux correctly accounts for
         gravity."""
         # The well points are  np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]]), so the
-        # well intersects the fracture at the point (0.5, 0.3, 0.1).  This is above the
-        # cell center of the fracture cell, which is at (0.5, 0.25, 0.75), so the well
+        # well intersects the fracture at the point (0.5, 0.3, 0.6).  This is above the
+        # cell center of the fracture cell, which is at (0.5, 0.25, 0.25), so the well
         # flux would be nonzero except for the gravity correction term.
         m = WellWithGravity(
             {
