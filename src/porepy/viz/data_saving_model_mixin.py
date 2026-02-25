@@ -496,3 +496,14 @@ class FractureDeformationExporting(pp.PorePyModel):
                 )
             )
         return data
+
+
+class ExportingTemperatureAnomaly:
+    def data_to_export(self) -> list[DataInput]:
+        data=super().data_to_export()
+        sds=self.mdg.subdomains(dim=self.nd)
+        temperature=self.evaluate_and_scale(sds,"temperature","K")
+        for subdomain in sds:
+            initial_temperature = self.ic_values_temperature(subdomain)
+            data.append((subdomain,"temperature_anomaly",temperature- initial_temperature))
+        return data
