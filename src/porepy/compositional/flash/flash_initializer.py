@@ -15,8 +15,8 @@ import numpy as np
 import porepy as pp
 
 from .._global_thermodynamic_reference_state import R_U
-from .._global_thermodynamic_reference_state import T as T_REF
 from .._global_thermodynamic_reference_state import P as P_REF
+from .._global_thermodynamic_reference_state import T as T_REF
 from .._numba_interface import (
     NUMBA_CACHE,
     NUMBA_FAST_MATH,
@@ -1123,6 +1123,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         v_c = self._eos.funcs["v"]
         dv_c = self._eos.funcs["dv"]
 
+        pvT_c = self._eos.pvT_function
+
         # To avoid overflow in exp differences.
         cap = np.log(np.finfo(np.float64).max) - 10.0
 
@@ -1402,8 +1404,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                                 K_i = K_ui
                                 break
 
-                            # dKdp_i = get_dKdp(p_i, x_i)
-
                             dKdp_i = (
                                 get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
                                 - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
@@ -1427,9 +1427,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             K_i = get_K_values(p_i, T, x_i, x_p)[0]
                             x_i = get_x(K_i, False)
                             r_i = np.sum(z * K_i) - 1.0
-                            # print("p: ", abs(r_i), f"{(p_i * 1e-6):.3f}")
-                            # print("u: ", abs(r_ui), f"{(p_ui * 1e-6):.3f}")
-                            # print(_)
 
                         p_bub = p_i
 
@@ -1482,9 +1479,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             K_i = get_K_values(p_i, T, x_i, x_p)[0]
                             x_i = get_x(K_i, False)
                             r_i = np.sum(z / K_i) - 1.0
-                            # print("p: ", abs(r_i), f"{(p_i * 1e-6):.3f}")
-                            # print("u: ", abs(r_ui), f"{(p_ui * 1e-6):.3f}")
-                            # print(_)
 
                         p_dew = p_i
 
@@ -1504,16 +1498,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             w = np.abs(s1 - v_bub) / np.abs(v_dew - v_bub)
                             p = (1.0 - w) * p_bub + w * p_dew
 
-                    if is_gas or is_liq:
-                        # TODO generalize to other EOS.
-                        # TODO us A,B where Z is real root.
-                        # TODO computations should be independent of state (1 root)
-                        # Evaluate pressure directly using EoS.
-                        pre = prearg_val_c(PhysicalState.gas, p, T, z, x_p)
-                        a = pre[4]
-                        b = pre[5]
-
-                        p = R_U * T / (s1 - b) - a / (s1**2 + 2 * b * s1 - b**2)
+                    if is_gas or is_liq:  # If 1-phase, evaluate pressure using EoS.
+                        p = pvT_c(s1, T, z, x_p)
 
                     Xk = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vT)
                     X_gen[k] = fractions_from_rr(
@@ -1773,9 +1759,9 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     vs[j] = v_c(pre_val_j, p, T, xn[j])
                     dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
-                v_mix = np.sum(y, vs)
-                dv_new_dp = np.sum(y, dvs[:, 0])
-                dv_new_dT = np.sum(y, dvs[:, 1])
+                v_mix = np.dot(y, vs)
+                dv_new_dp = np.sum(y * dvs[:, 0])
+                dv_new_dT = np.sum(y * dvs[:, 1])
 
                 u_new = np.dot(y, us) - p * v_mix
                 du_new_dT = np.dot(y, dus[:, 1]) - p * dv_new_dT

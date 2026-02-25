@@ -41,6 +41,7 @@ from .states import PhaseProperties
 from .utils import PhysicalState, PhysicalState_NUMBA_TYPE, normalize_rows
 
 __all__ = [
+    "PVTFunction",
     "ScalarFunction",
     "VectorFunction",
     "PropertyFunctionNames",
@@ -56,10 +57,12 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-_COMPILER = njit
-"""Decorator for compiling functions in this module.
+PVTFunction: TypeAlias = Callable[[float, float, np.ndarray, np.ndarray], float]
+"""Classical representation of an equation of state :math:`p = p(v, T, x)`,
+with :math:`p, v, T` being pressure, specific volume and temperature respectively,
+and :math:`x` a vector of fractions for a multi-component mixture.
 
-Uses :func:`~porepy.compositional._numba_interface.njit`.
+As a last argument, the function must accept an array of parameters as well.
 
 """
 
@@ -395,7 +398,7 @@ def fugacity_coeff_derivative_template_func(
 # NOTE Every parallelized evaluation requires an own method because of the exact
 # signatures. This ensures maximum efficiency when importing and executing the code
 # continuously.
-@_COMPILER(
+@njit(
     nb.f8[:, :](
         typeof(prearg_template_func),
         PhysicalState_NUMBA_TYPE,
@@ -447,7 +450,7 @@ def _evaluate_vectorized_prearg_func(
     return prearg
 
 
-@_COMPILER(
+@njit(
     nb.f8[:, :](
         typeof(prearg_d_template_func),
         nb.f8[:, :],
@@ -504,7 +507,7 @@ def _evaluate_vectorized_prearg_d_func(
     return prearg_jac
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](
         typeof(property_template_func), nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]
     ),
@@ -549,7 +552,7 @@ def _evaluate_vectorized_property_func(
     return vals
 
 
-@_COMPILER(
+@njit(
     nb.f8[:, :](
         typeof(property_derivative_template_func),
         nb.f8[:, :],
@@ -612,7 +615,7 @@ def _evaluate_vectorized_property_derivatives_func(
     return diffs
 
 
-@_COMPILER(
+@njit(
     nb.f8[:, :](
         typeof(fugacity_coeff_template_func),
         nb.f8[:, :],
@@ -665,7 +668,7 @@ def _evaluate_vectorized_fug_coeff_func(
     return phis
 
 
-@_COMPILER(
+@njit(
     nb.f8[:, :, :](
         typeof(fugacity_coeff_derivative_template_func),
         nb.f8[:, :],
@@ -783,6 +786,14 @@ class CompiledEoS(EquationOfState):
     def __init__(self, components: Sequence[Component]) -> None:
         super().__init__(components)
 
+        self.pvT_function: PVTFunction
+        """EoS function returning pressure depending on specific volume temperature
+        and vector of fractions.
+        
+        Created during compilation.
+    
+        """
+
         self.funcs: PropertyFunctionDict = {}
         """Dictionary for storing functions which are compiled in various
         ``get_*`` methods.
@@ -812,14 +823,24 @@ class CompiledEoS(EquationOfState):
         """Returns true, if :meth:`compile` has already been called, False otherwise."""
         return self._is_compiled
 
+    @abc.abstractmethod
+    def get_pvT_function(self) -> PVTFunction:
+        """Abstract factory for the EoS-characteristic function, expressing
+        pressure through specific volume, temperature and a vector of fractions.
+
+        See also:
+            :data:`PVT_FUNC_SIGNATURE`
+
+        """
+
     # TODO what is more efficient, just one pre-arg having everything?
     # Or splitting for computations for residuals, since it does not need derivatives?
     # 1. Armijo line search evaluated often, need only residual
     # 2. On the other hand, residual pre-arg is evaluated twice, for residual and jac
     @abc.abstractmethod
     def get_prearg_for_values(self) -> VectorFunction:
-        """Abstract function for obtaining the compiled computation of the pre-argument
-        for the evaluation of thermodynamic properties.
+        """Abstract factory for implementing the compiled computation of the
+        pre-argument for the evaluation of thermodynamic properties.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -830,8 +851,8 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_prearg_for_derivatives(self) -> VectorFunction:
-        """Abstract function for obtaining the compiled computation of the pre-argument
-        for the evaluation of derivatives of thermodynamic properties.
+        """Abstract factory for implementing the compiled computation of the
+        pre-argument for the evaluation of derivatives of thermodynamic properties.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -841,7 +862,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_lnphis_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the fugacity coefficients.
+        """Abstract factory for compiled computations of the fugacity coefficients.
 
         Note:
             This method must return the logarithm of the fugacity coefficients.
@@ -857,7 +878,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_lnphis_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivatives of fugacity
+        """Abstract factory for compiled computations of the derivatives of fugacity
         coefficients.
 
         The functions should return the derivative fugacities for each component
@@ -880,7 +901,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_h_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the specific enthalpy.
+        """Abstract factory for compiled computations of the specific enthalpy.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -891,7 +912,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_h_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivatives of the
+        """Abstract factory for compiled computations of the derivatives of the
         enthalpy function for a phase.
 
         Returns:
@@ -903,7 +924,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_u_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the specific internal energy.
+        """Abstract factory for compiled computations of the specific internal energy.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -914,7 +935,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_u_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivatives of the
+        """Abstract factory for compiled computations of the derivatives of the
         internal energy function for a phase.
 
         Returns:
@@ -926,7 +947,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_rho_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the density.
+        """Abstract factory for compiled computations of the density.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -937,7 +958,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_rho_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivatives of the
+        """Abstract factory for compiled computations of the derivatives of the
         density function for a phase.
 
         Returns:
@@ -949,7 +970,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_mu_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the dynamic viscosity.
+        """Abstract factory for compiled computations of the dynamic viscosity.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -960,7 +981,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_mu_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivatives of the
+        """Abstract factory for compiled computations of the derivatives of the
         viscosity function for a phase.
 
         Returns:
@@ -972,7 +993,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_kappa_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the thermal conductivity.
+        """Abstract factory for compiled computations of the thermal conductivity.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -983,7 +1004,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_kappa_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivatives of the
+        """Abstract factory for compiled computations of the derivatives of the
         thermal conductivity function for a phase.
 
         Returns:
@@ -994,7 +1015,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     def get_v_function(self) -> ScalarFunction:
-        """Assembler for compiled computations of the specific volume.
+        """Factory for compiled computations of the specific volume.
 
         The specific volume is computed as the reciprocal of the return value of
         :meth:`get_rho_function`.
@@ -1014,7 +1035,7 @@ class CompiledEoS(EquationOfState):
 
         rho_c = cast(ScalarFunction, rho_c)
 
-        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
+        @njit(PROPERTY_FUNC_SIGNATURE)
         def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             rho = rho_c(prearg, p, T, xn)
             if rho > 0.0:
@@ -1025,7 +1046,7 @@ class CompiledEoS(EquationOfState):
         return v_c
 
     def get_grad_v_function(self) -> VectorFunction:
-        """Assembler for compiled computations of the derivatives of the
+        """Factory for compiled computations of the derivatives of the
         specific volume for a phase.
 
         Specific volume is expressed as the reciprocal of density.
@@ -1053,7 +1074,7 @@ class CompiledEoS(EquationOfState):
         rho_c = cast(ScalarFunction, rho_c)
         drho_c = cast(VectorFunction, drho_c)
 
-        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+        @njit(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dv_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1090,24 +1111,44 @@ class CompiledEoS(EquationOfState):
         if self.is_compiled:
             return
 
+        logger.info("Compiling EoS function ..")
+        self.pvT_function = njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8[:]))(
+            self.get_pvT_function()
+        )
+
+        logger.info("Compiling pre-arguments ..")
+        self.funcs["prearg_val"] = njit(PREARGUMENT_FUNC_SIGNATURE)(
+            self.get_prearg_for_values()
+        )
+        self.funcs["prearg_jac"] = njit(PREARGUMENT_DFUNC_SIGNATURE)(
+            self.get_prearg_for_derivatives()
+        )
+
         logger.info("Compiling real property functions ..")
 
-        self.funcs["prearg_val"] = self.get_prearg_for_values()
-        self.funcs["prearg_jac"] = self.get_prearg_for_derivatives()
-        self.funcs["phis"] = self.get_lnphis_function()
-        self.funcs["dphis"] = self.get_grad_lnphis_function()
-        self.funcs["h"] = self.get_h_function()
-        self.funcs["dh"] = self.get_grad_h_function()
-        self.funcs["u"] = self.get_u_function()
-        self.funcs["du"] = self.get_grad_u_function()
-        self.funcs["rho"] = self.get_rho_function()
-        self.funcs["drho"] = self.get_grad_rho_function()
-        self.funcs["v"] = self.get_v_function()
-        self.funcs["dv"] = self.get_grad_v_function()
-        self.funcs["mu"] = self.get_mu_function()
-        self.funcs["dmu"] = self.get_grad_mu_function()
-        self.funcs["kappa"] = self.get_kappa_function()
-        self.funcs["dkappa"] = self.get_grad_kappa_function()
+        self.funcs["phis"] = njit(FUGACITY_COEFF_FUNC_SIGNATURE)(
+            self.get_lnphis_function()
+        )
+        self.funcs["dphis"] = njit(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE)(
+            self.get_grad_lnphis_function()
+        )
+
+        prop_compiler = njit(PROPERTY_FUNC_SIGNATURE)
+        dprop_compiler = njit(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+
+        self.funcs["h"] = prop_compiler(self.get_h_function())
+        self.funcs["u"] = prop_compiler(self.get_u_function())
+        self.funcs["rho"] = prop_compiler(self.get_rho_function())
+        self.funcs["v"] = prop_compiler(self.get_v_function())
+        self.funcs["mu"] = prop_compiler(self.get_mu_function())
+        self.funcs["kappa"] = prop_compiler(self.get_kappa_function())
+
+        self.funcs["dh"] = dprop_compiler(self.get_grad_h_function())
+        self.funcs["du"] = dprop_compiler(self.get_grad_u_function())
+        self.funcs["drho"] = dprop_compiler(self.get_grad_rho_function())
+        self.funcs["dv"] = dprop_compiler(self.get_grad_v_function())
+        self.funcs["dmu"] = dprop_compiler(self.get_grad_mu_function())
+        self.funcs["dkappa"] = dprop_compiler(self.get_grad_kappa_function())
 
         logger.info("Assembling vectorized functions ..")
 

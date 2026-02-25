@@ -37,7 +37,6 @@ import porepy as pp
 import porepy.compositional.compiled_eos as ceos
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.compositional._numba_interface import njit
 from porepy.examples.cold_injection.solver import NewtonArmijoAndersonSolver
 
 # Select the case to run.
@@ -112,14 +111,6 @@ CONFIG: dict[str, dict[str, Any]] = {
 }
 
 
-_COMPILER = njit
-"""Decorator for compiling functions in this module.
-
-Uses :func:`~porepy.compositional._numba_interface.njit`.
-
-"""
-
-
 class Pipe2D(pp.PorePyModel):
     """Benchmark geometry, which is a 2D domain mimicking a 1D pipe.
 
@@ -172,7 +163,6 @@ class WaterEoS(pr.CompiledPengRobinson):
     """
 
     def get_mu_function(self) -> ceos.ScalarFunction:
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1e-3
             # Liquidlike
@@ -188,7 +178,6 @@ class WaterEoS(pr.CompiledPengRobinson):
         return mu_c
 
     def get_grad_mu_function(self) -> ceos.VectorFunction:
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -201,7 +190,6 @@ class WaterEoS(pr.CompiledPengRobinson):
         return dmu_c
 
     def get_kappa_function(self) -> ceos.ScalarFunction:
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1.0
             # Liquidlike
@@ -217,7 +205,6 @@ class WaterEoS(pr.CompiledPengRobinson):
         return kappa_c
 
     def get_grad_kappa_function(self) -> ceos.VectorFunction:
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,

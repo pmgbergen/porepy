@@ -24,7 +24,6 @@ import porepy as pp
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.compositional._numba_interface import njit as _COMPILER
 from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
 
 from .config import ModelConfig
@@ -41,14 +40,12 @@ class FluidEoS(pr.CompiledPengRobinson):
     """
 
     def get_mu_function(self) -> ScalarFunction:
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1e-3
 
         return mu_c
 
     def get_grad_mu_function(self) -> VectorFunction:
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -61,14 +58,12 @@ class FluidEoS(pr.CompiledPengRobinson):
         return dmu_c
 
     def get_kappa_function(self) -> ScalarFunction:
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
     def get_grad_kappa_function(self) -> VectorFunction:
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,

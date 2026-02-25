@@ -21,13 +21,7 @@ import numba as nb
 import numpy as np
 
 from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
-from ..compiled_eos import (
-    PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
-    PROPERTY_FUNC_SIGNATURE,
-    CompiledEoS,
-    ScalarFunction,
-    VectorFunction,
-)
+from ..compiled_eos import CompiledEoS, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 
 __all__ = [
@@ -35,15 +29,7 @@ __all__ = [
 ]
 
 
-_COMPILER = njit
-"""Decorator for compiling functions in this module.
-
-Uses :func:`~porepy.compositional._numba_interface.njit`
-
-"""
-
-
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -86,7 +72,7 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
     return mus
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -139,7 +125,7 @@ def _dmu_pure_dT(
     return mus
 
 
-@_COMPILER(
+@njit(
     nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -166,7 +152,7 @@ def _mu_zero(xn: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
     return np.sum(n * mus) / np.sum(n)
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -218,7 +204,7 @@ def _dmu_zero(
     return np.hstack((dpt, dx))
 
 
-@_COMPILER(
+@njit(
     nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -251,7 +237,7 @@ def _xi(xn: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> fl
     return n / d
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -291,7 +277,7 @@ def _dxi(
     return (dn * d - n * dd) / (d * d)
 
 
-@_COMPILER(
+@njit(
     nb.f8(nb.f8, nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -320,7 +306,7 @@ def _reduced_pseudo_density(
     return rho * np.sum(xn * vcs)
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -353,7 +339,7 @@ def _d_reduced_pseudo_density(
     return drho_r
 
 
-@_COMPILER(
+@njit(
     nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -406,7 +392,7 @@ def _mu_correction(
     return n / xi
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -512,17 +498,17 @@ class LBCViscosity(CompiledEoS):
         """Array of molar masses per component."""
 
     def get_mu_function(self) -> ScalarFunction:
-        mws = self.mws.copy()
-        Tcs = self.Tcs.copy()
-        pcs = self.pcs.copy()
-        vcs = self.vcs.copy()
+        mws = self.mws
+        Tcs = self.Tcs
+        pcs = self.pcs
+        vcs = self.vcs
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
         else:
             rho_c = self.get_rho_function()
 
-        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
+        # @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # Copy to create local object, simplifies compilation, remains in memory.
             _mws = mws.copy()
@@ -544,10 +530,10 @@ class LBCViscosity(CompiledEoS):
         return mu_c
 
     def get_grad_mu_function(self) -> VectorFunction:
-        mws = self.mws.copy()
-        Tcs = self.Tcs.copy()
-        pcs = self.pcs.copy()
-        vcs = self.vcs.copy()
+        mws = self.mws
+        Tcs = self.Tcs
+        pcs = self.pcs
+        vcs = self.vcs
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
@@ -559,7 +545,7 @@ class LBCViscosity(CompiledEoS):
         else:
             drho_c = self.get_grad_rho_function()
 
-        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+        # @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,

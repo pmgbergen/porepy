@@ -7,13 +7,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import (
     Any,
+    Callable,
     NotRequired,
     Optional,
     Sequence,
     TypeAlias,
     TypedDict,
     cast,
-    Callable,
 )
 
 import numpy as np

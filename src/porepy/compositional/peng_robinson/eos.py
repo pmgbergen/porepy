@@ -24,14 +24,9 @@ import numpy as np
 from .._global_thermodynamic_reference_state import R_U
 from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ..compiled_eos import (
-    FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE,
-    FUGACITY_COEFF_FUNC_SIGNATURE,
-    PREARGUMENT_DFUNC_SIGNATURE,
-    PREARGUMENT_FUNC_SIGNATURE,
-    PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
-    PROPERTY_FUNC_SIGNATURE,
     CompiledEoS,
     PropertyFunctionDict,
+    PVTFunction,
     ScalarFunction,
     VectorFunction,
 )
@@ -62,15 +57,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-_COMPILER = njit
-"""Decorator for compiling functions in this module.
 
-Uses :func:`~porepy.compositional._numba_interface.njit`.
-
-"""
-
-
-@_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def covolume_dep(Z: float, B: float) -> float:
     r"""Special treatment of departure term to remain well-defined.
 
@@ -96,7 +84,7 @@ def covolume_dep(Z: float, B: float) -> float:
     return np.log1p(ZB1 - 1.0)
 
 
-@_COMPILER(nb.f8[:](nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8[:](nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def grad_covolume_dep(Z: float, B: float) -> float:
     r"""Gradient of :func:`_lnZB1`.
 
@@ -122,7 +110,7 @@ def grad_covolume_dep(Z: float, B: float) -> float:
     return np.array((dZB1dZ, dZB1dB)) / np.abs(ZB1)
 
 
-@_COMPILER(
+@njit(
     [nb.f8[:, :](nb.f8[:]), nb.f8[:](nb.f8[:, :])], fastmath=NUMBA_FAST_MATH, cache=True
 )
 def compact_dense_symmat(mat_arr: np.ndarray) -> np.ndarray:
@@ -171,7 +159,7 @@ def compact_dense_symmat(mat_arr: np.ndarray) -> np.ndarray:
     return out
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def bc_component(pc: np.ndarray, Tc: np.ndarray) -> float:
     """Computes the critical covolume of a component based on critical values.
 
@@ -187,7 +175,7 @@ def bc_component(pc: np.ndarray, Tc: np.ndarray) -> float:
     return B_CRIT * R_U * Tc / pc
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def b_dl(b: float, p: float, T: float) -> float:
     """Computes the dimensionless covolume.
 
@@ -203,9 +191,7 @@ def b_dl(b: float, p: float, T: float) -> float:
     return b * p / (R_U * T)
 
 
-@_COMPILER(
-    nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True
-)
+@njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def grad_b_dl(grad_b: np.ndarray, b: float, p: float, T: float) -> np.ndarray:
     """Expands the gradient of the cohesion to the gradient to the dimensionless
     cohesion by chainrule.
@@ -232,7 +218,7 @@ def grad_b_dl(grad_b: np.ndarray, b: float, p: float, T: float) -> np.ndarray:
     return np.hstack((dBdpT, grad_b * p / RT))
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def ac_component(pc: float, Tc: float) -> float:
     """Computes the critical cohesion of a component based on critical values.
 
@@ -249,7 +235,7 @@ def ac_component(pc: float, Tc: float) -> float:
     return A_CRIT * RT**2 / pc
 
 
-@_COMPILER(nb.f8(nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8(nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def _k_of_omega(omega: float) -> float:
     """Returns the weight depending on the acentric factor, which is used in
     :func:`alpha` and its derivatives."""
@@ -259,7 +245,7 @@ def _k_of_omega(omega: float) -> float:
         return 0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 def alpha(T: float, Tc: float, omega: float) -> float:
     """Returns the temperature-dependent weight in the cohesion of a component.
 
@@ -280,7 +266,7 @@ def alpha(T: float, Tc: float, omega: float) -> float:
     return salpha**2
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 def dalpha_dT(T: float, Tc: float, omega: float) -> float:
     """Returns the derivative of :func:`alpha` with respect to temperature."""
     k = _k_of_omega(omega)
@@ -288,7 +274,7 @@ def dalpha_dT(T: float, Tc: float, omega: float) -> float:
     return -k / Tc * ((1 + k) / sqrtTr - k)
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 def ddalpha_dTT(T: float, Tc: float, omega: float) -> float:
     """Returns the second derivative of :func:`alpha` w.r.t. temperature."""
     k = _k_of_omega(omega)
@@ -296,7 +282,7 @@ def ddalpha_dTT(T: float, Tc: float, omega: float) -> float:
     return k * (k + 1) / (2.0 * Tc**2 * sqrtTr**3)
 
 
-@_COMPILER(
+@njit(
     nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -342,7 +328,7 @@ def a_VdW(
     return a
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -396,7 +382,7 @@ def grad_a_VdW(
     return da
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -469,7 +455,7 @@ def hess_a_VdW(
     return hess_arr
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def a_dl(a: float, p: float, T: float) -> float:
     """Computes the dimensionless cohesion.
 
@@ -486,9 +472,7 @@ def a_dl(a: float, p: float, T: float) -> float:
     return iR * a * p / T**2
 
 
-@_COMPILER(
-    nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True
-)
+@njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def grad_a_dl(grad_a: np.ndarray, a: float, p: float, T: float) -> np.ndarray:
     """Expands the gradient of the cohesion to the gradient to the dimensionless
     cohesion by chainrule.
@@ -513,7 +497,7 @@ def grad_a_dl(grad_a: np.ndarray, a: float, p: float, T: float) -> np.ndarray:
     return np.hstack((np.ones(1) * dAdp, dAdTx))
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -556,7 +540,7 @@ def hess_a_dl(
     return np.hstack((dp_gradA, hess_Tx_A))
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -599,7 +583,7 @@ def lnphis(
     return out
 
 
-@_COMPILER(
+@njit(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -663,7 +647,7 @@ def lnphis_jac(
     return out
 
 
-@_COMPILER(
+@njit(
     nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -694,7 +678,7 @@ def u_dep(
     return _c * T * (A + T * dAdT) * lnZB1 * iB
 
 
-@_COMPILER(
+@njit(
     nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -821,16 +805,39 @@ class CompiledPengRobinson(CompiledEoS):
         self.ideal_funcs: PropertyFunctionDict = {}
         """Contains ideal parts for thermodynamic properties."""
 
+    def get_pvT_function(self) -> PVTFunction:
+        Tcs = self.Tcs
+        bcs = self.bcs
+        acs = self.acs
+        omegas = self.omegas
+        bips = self.bips
+
+        def pvt(v: float, T: float, xn: np.ndarray, params: np.ndarray) -> float:
+            # Create local copies for compilation.
+            _Tcs = Tcs.copy()
+            _acs = acs.copy()
+            _bcs = bcs.copy()
+            _omegas = omegas.copy()
+            _bips = bips.copy()
+
+            a = a_VdW(T, xn, _Tcs, _omegas, _acs, _bips)
+            b = np.sum(xn * _bcs)
+
+            # Peng-Robinson EoS formula.
+            p = R_U * T / (v - b) - a / (v**2 + 2 * b * v - b**2)
+            return p
+
+        return pvt
+
     def get_prearg_for_values(self) -> VectorFunction:
         eps = self.params["eps"]
 
-        Tcs = self.Tcs.copy()
-        bcs = self.bcs.copy()
-        acs = self.acs.copy()
-        omegas = self.omegas.copy()
-        bips = self.bips.copy()
+        Tcs = self.Tcs
+        bcs = self.bcs
+        acs = self.acs
+        omegas = self.omegas
+        bips = self.bips
 
-        @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_val_c(
             phase_state: PhysicalState,
             p: float,
@@ -891,13 +898,12 @@ class CompiledPengRobinson(CompiledEoS):
         sc_bw = self.params["sc_bw"]
         sc_ss = self.params["sc_ss"]
 
-        Tcs = self.Tcs.copy()
-        bcs = self.bcs.copy()
-        acs = self.acs.copy()
-        omegas = self.omegas.copy()
-        bips = self.bips.copy()
+        Tcs = self.Tcs
+        bcs = self.bcs
+        acs = self.acs
+        omegas = self.omegas
+        bips = self.bips
 
-        @_COMPILER(PREARGUMENT_DFUNC_SIGNATURE)
         def prearg_jac_c(
             prearg_val: np.ndarray,
             p: float,
@@ -963,9 +969,8 @@ class CompiledPengRobinson(CompiledEoS):
         return prearg_jac_c
 
     def get_lnphis_function(self) -> VectorFunction:
-        bs = self.bcs.copy()
+        bs = self.bcs
 
-        @_COMPILER(FUGACITY_COEFF_FUNC_SIGNATURE)
         def phis_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -985,9 +990,8 @@ class CompiledPengRobinson(CompiledEoS):
         return phis_c
 
     def get_grad_lnphis_function(self) -> VectorFunction:
-        bs = self.bcs.copy()
+        bs = self.bcs
 
-        @_COMPILER(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE)
         def dphi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1036,7 +1040,6 @@ class CompiledPengRobinson(CompiledEoS):
     def get_h_function(self) -> ScalarFunction:
         h_id_c = self.ideal_funcs["h"]
 
-        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             dn = 2 + xn.size
             A = prearg[1]
@@ -1053,7 +1056,6 @@ class CompiledPengRobinson(CompiledEoS):
     def get_grad_h_function(self) -> VectorFunction:
         dh_id_c = self.ideal_funcs["dh"]
 
-        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dh_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1093,7 +1095,6 @@ class CompiledPengRobinson(CompiledEoS):
     def get_u_function(self) -> ScalarFunction:
         u_id_c = self.ideal_funcs["u"]
 
-        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def u_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             dn = 2 + xn.size
             A = prearg[1]
@@ -1108,7 +1109,6 @@ class CompiledPengRobinson(CompiledEoS):
     def get_grad_u_function(self) -> VectorFunction:
         du_id_c = self.ideal_funcs["du"]
 
-        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def du_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1144,7 +1144,6 @@ class CompiledPengRobinson(CompiledEoS):
         return du_c
 
     def get_rho_function(self) -> ScalarFunction:
-        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # Real density is ideal density divided by compressibility factor.
             return ideal_rho(p, T) / prearg[3]
@@ -1152,7 +1151,6 @@ class CompiledPengRobinson(CompiledEoS):
         return rho_c
 
     def get_grad_rho_function(self) -> VectorFunction:
-        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def drho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1175,15 +1173,19 @@ class CompiledPengRobinson(CompiledEoS):
         return drho_c
 
     def get_v_function(self):
-        # NOTE: Overwrite parent method to avoid double division.
-        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
+        """
+        Note:
+            We overwrite the parent method for volume to avoid double division and
+            loss of floating point precision.
+
+        """
+
         def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return prearg[3] * (R_U * T) / p
 
         return v_c
 
     def get_grad_v_function(self):
-        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dv_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
