@@ -233,8 +233,6 @@ class FractureNetwork2d(FractureNetwork):
 
         # STEP 6: Create list of grids and assemble mixed-dimensional grid.
         if dfn:
-            # FIXME The constraint weren't considered until here, so this will probably
-            # not work when constraints is not None.
             subdomains = porepy.fracs.simplex.line_grid_from_gmsh(
                 file_name, constraints=constraints
             )
