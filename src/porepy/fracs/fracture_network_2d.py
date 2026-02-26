@@ -394,28 +394,7 @@ class FractureNetwork2d(FractureNetwork):
         # fractures are embedded in the domain, hence the mesh will conform to the
         # fractures).
         line_tags_new = fracture_tags + boundary_tags
-
-        if domain_tag >= 0:
-            _, isect_mapping = gmsh.model.occ.fragment(
-                [(self.nd - 1, ft) for ft in line_tags_new],
-                [(self.nd, domain_tag)],
-                removeObject=True,
-                removeTool=True,
-            )
-        else:
-            # No intersections possible with only one fracture and no domain.
-            if len(fracture_tags) == 1:
-                # Gmsh did not seem to like fragmenting a single object without a
-                # secondary object. Hence, we handle this case separately.
-                isect_mapping = [[(self.nd - 1, fracture_tags[0])]]
-            else:
-                _, isect_mapping = gmsh.model.occ.fragment(
-                    [(self.nd - 1, ft) for ft in fracture_tags],
-                    [],
-                    removeObject=True,
-                    removeTool=True,
-                )
-        gmsh.model.occ.synchronize()
+        isect_mapping = self._fragment_fractures(line_tags_new, domain_tag)
 
         # During intersection removal, gmsh will add intersection points and replace the
         # fractures with non-intersecting polylines (example: Two fractures intersecting

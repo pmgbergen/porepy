@@ -268,6 +268,42 @@ class FractureNetwork(ABC):
 
         return file_name, constraints
 
+    def _fragment_fractures(self, fracture_tags: list[int], domain_tag: int):
+        """Helper method to do fracture fragmentation.
+
+        Parameters:
+            fracture_tags: List of gmsh indices representing fractures.
+            domain_tag: Gmsh tag of the domain.
+
+        Returns:
+            Intersection information, see the Gmsh manual or usage elsewhere in this
+            code for more information.
+
+        """
+        dim_fracture_tags = [(self.nd - 1, tag) for tag in fracture_tags]
+
+        if domain_tag >= 0:
+            _, isect_mapping = gmsh.model.occ.fragment(
+                dim_fracture_tags,
+                [(self.nd, domain_tag)],
+                removeObject=True,
+                removeTool=True,
+            )
+        else:
+            # Special handling of DFN-style meshing.
+            # No intersections possible with only one fracture and no domain.
+            if len(fracture_tags) == 1:
+                # Gmsh did not seem to like fragmenting a single object without a
+                # secondary object. Hence, we handle this case separately.
+                isect_mapping = [[(self.nd - 1, fracture_tags[0])]]
+            else:
+                _, isect_mapping = gmsh.model.occ.fragment(
+                    dim_fracture_tags, [], removeObject=True, removeTool=True
+                )
+
+        gmsh.model.occ.synchronize()
+        return isect_mapping
+
     def _entity_on_domain_boundary(self, target_dim: int, ind: list[int]) -> bool:
         """Helper function to determine if an entity lies on the domain boundary.
 

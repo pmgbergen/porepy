@@ -368,26 +368,7 @@ class FractureNetwork3d(FractureNetwork):
 
         # Note: The method is called prior to splitting of fractures (which may also
         # split the domain), hence there will be a single domain object to fragment.
-        if domain_tag >= 0:
-            _, isect_mapping = gmsh.model.occ.fragment(
-                dim_fracture_tags,
-                [(nd, domain_tag)],
-                removeObject=True,
-                removeTool=True,
-            )
-        else:
-            # Special handling of DFN-style meshing.
-            # No intersections possible with only one fracture and no domain.
-            if len(fracture_tags) == 1:
-                # Gmsh did not seem to like fragmenting a single object without a
-                # secondary object. Hence, we handle this case separately.
-                isect_mapping = [[(self.nd - 1, fracture_tags[0])]]
-            else:
-                _, isect_mapping = gmsh.model.occ.fragment(
-                    dim_fracture_tags, [], removeObject=True, removeTool=True
-                )
-
-        gmsh.model.occ.synchronize()
+        isect_mapping = self._fragment_fractures(fracture_tags, domain_tag)
 
         # It turns out (...) that the fragmentation process may not eliminate parts of
         # fractures that lie outside the domain (this is contrary to EK's reading of the
