@@ -254,7 +254,7 @@ def test_one_fracture_dfn(file_name):
     # fracture(s). Remove it to test only the fracture meshing.
     network.domain = None
 
-    mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+    mesh_args = {"mesh_size_fracture": 0.3, "mesh_size_boundary": 0.3}
     mdg = network.mesh(mesh_args, dfn=True)
 
     bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
@@ -277,7 +277,7 @@ def test_two_fractures_dfn(file_name):
     # The import function will generate a domain equal to the bounding box of the
     # fracture(s). Remove it to test only the fracture meshing.
     network.domain = None
-    mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
+    mesh_args = {"mesh_size_fracture": 0.2, "mesh_size_boundary": 0.2}
     mdg = network.mesh(mesh_args, dfn=True)
 
     bmin, bmax = pp.domain.mdg_minmax_coordinates(mdg)
@@ -305,7 +305,7 @@ def test_two_intersecting_fractures_dfn():
     # The import function will generate a domain equal to the bounding box of the
     # fracture(s). Remove it to test only the fracture meshing.
     network.domain = None
-    mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
+    mesh_args = {"mesh_size_fracture": 0.2, "mesh_size_boundary": 0.2}
     mdg = network.mesh(mesh_args, dfn=True)
 
     assert mdg.dim_max() == 1

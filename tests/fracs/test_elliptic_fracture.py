@@ -46,8 +46,8 @@ def _create_mdg(
     """Create a mixed-dimensional grid from a list of fractures."""
     if mesh_args is None:
         mesh_args = {
-            "mesh_size_bound": 10,
-            "mesh_size_frac": 10,
+            "mesh_size_boundary": 10,
+            "mesh_size_fracture": 10,
             "refinement_threshold": 1e-4,
             "refinement_proximity_multiplier": 1,
             "refinement_size_multiplier": 1,

@@ -24,8 +24,8 @@ def unit_box() -> pp.Domain:
 def mesh_args() -> dict:
     """Create standard mesh arguments for testing purposes."""
     return {
-        "mesh_size_bound": 1,
-        "mesh_size_frac": 1,
+        "mesh_size_boundary": 1,
+        "mesh_size_fracture": 1,
         "mesh_size_min": 0.1,
         # Set a very low refinement proximity multiplier to avoid adaptive refinement.
         "refinement_proximity_multiplier": 1e-6,
