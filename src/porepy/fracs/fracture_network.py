@@ -255,7 +255,7 @@ class FractureNetwork(ABC):
         # in this manner (though, from bitter experience regarding the complexity of
         # this problem, EK will not vouch for the implementation actually being
         # consistent in all relevant cases).
-        gmsh.option.setNumber("General.Tolerance", self._tol)
+        gmsh.option.setNumber("Geometry.Tolerance", self._tol)
 
         # See the Gmsh documentation for an overview of the available algorithms.
         meshing_algorithm = self._extra_meshing_args.get("meshing_algorithm", 10)
