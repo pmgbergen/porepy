@@ -1118,9 +1118,6 @@ class FractureNetwork3d(FractureNetwork):
 
                 Domain specification.
 
-        Raises:
-            NotImplementedError: If one of the fractures is elliptic.
-
         """
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
@@ -1133,7 +1130,16 @@ class FractureNetwork3d(FractureNetwork):
             # write all the fractures
             for f in self.fractures:
                 if isinstance(f, pp.EllipticFracture):
-                    raise NotImplementedError(
-                        "CSV export not implemented for elliptic fractures."
-                    )
-                csv_writer.writerow(f.pts.ravel(order="F"))
+                    data = [
+                        f.center[0],
+                        f.center[1],
+                        f.center[2],
+                        f.r1,
+                        f.r2,
+                        f.major_axis_angle,
+                        f.strike_angle,
+                        f.dip_angle,
+                    ]
+                    csv_writer.writerow(data)
+                else:
+                    csv_writer.writerow(f.pts.ravel(order="F"))
