@@ -155,22 +155,6 @@ class FractureNetwork3d(FractureNetwork):
         gmsh.model.occ.synchronize()
         return domain_tag
 
-    def fractures_to_gmsh(self) -> list[int]:
-        """WIP: Take the tags of all fractures in the fracture network.
-
-        By using the method for exporting a single fracture tag, we here collect the
-        tags of all the fractures in the fracture network. The tags are returned as
-        elements in a list.
-
-        Returns:
-            A list of integers which represent all fracture tags in the fracture
-            network.
-
-        """
-        fracture_tags = [fracture.fracture_to_gmsh() for fracture in self.fractures]
-
-        return fracture_tags
-
     def copy(self) -> FractureNetwork3d:
         """Create a deep copy of the fracture network.
 

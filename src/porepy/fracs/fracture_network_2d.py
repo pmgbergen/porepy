@@ -133,22 +133,6 @@ class FractureNetwork2d(FractureNetwork):
 
         return domain_tag
 
-    def fractures_to_gmsh(self) -> list[int]:
-        """Take the tags of all fractures in the fracture network.
-
-        By using the method for exporting a single fracture tag, we here collect the
-        tags of all the fractures in the fracture network. The tags are returned as
-        elements in a list.
-
-        Returns:
-            A list of integers which represent all fracture tags in the fracture
-            network.
-
-        """
-        fracture_tags = [fracture.fracture_to_gmsh() for fracture in self.fractures]
-
-        return fracture_tags
-
     def mesh(
         self,
         mesh_args: dict[str, float],

@@ -84,10 +84,16 @@ class FractureNetwork(ABC):
         """Define the domain in gmsh."""
         pass
 
-    @abstractmethod
     def fractures_to_gmsh(self) -> list[int]:
-        """Define the fractures in gmsh."""
-        pass
+        """Export the fractures to Gmsh using the OpenCASCADE kernel.
+
+        Returns:
+            A list of gmsh tags corresponding to the fractures in the network.
+
+        """
+        fracture_tags = [fracture.fracture_to_gmsh() for fracture in self.fractures]
+
+        return fracture_tags
 
     @abstractmethod
     def mesh(
