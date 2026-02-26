@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import heapq
+import logging
 import multiprocessing
 import warnings
 from abc import ABC, abstractmethod
@@ -17,14 +18,12 @@ from enum import Enum
 from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Union, cast
-from matplotlib import pyplot as plt
 
 import gmsh
 import numpy as np
+from matplotlib import pyplot as plt
 
 import porepy as pp
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -769,12 +768,12 @@ class FractureNetwork(ABC):
         # the Gmsh documentation.
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
-        # In cases where the background mesh size is large compared to the fracture size,
-        # but where refinement is triggered by fractures close to the boundary, we may
-        # end up in situations where the mesh size on the boundary is much smaller than
-        # in the interior. To avoid this, the user is given the option to extend the
-        # mesh size from the boundary into the domain. This is off by default, in line
-        # with the recommendations in the Gmsh documentation.
+        # In cases where the background mesh size is large compared to the fracture
+        # size, but where refinement is triggered by fractures close to the boundary, we
+        # may end up in situations where the mesh size on the boundary is much smaller
+        # than in the interior. To avoid this, the user is given the option to extend
+        # the mesh size from the boundary into the domain. This is off by default, in
+        # line with the recommendations in the Gmsh documentation.
         gmsh.option.setNumber(
             "Mesh.MeshSizeExtendFromBoundary",
             int(self._extra_meshing_args["extend_mesh_size_from_boundary"]),
@@ -1479,7 +1478,8 @@ class MeshSizeComputer:
 
         Parameters:
             is_boundary: If ``True``, return the distance for boundary mesh size.
-            on_lower_dim: If ``True``, return the distance on a lower-dimensional object.
+            on_lower_dim: If ``True``, return the distance on a lower-dimensional
+                object.
 
         Returns:
             float: Distance from fracture where background mesh size is reached [m].
