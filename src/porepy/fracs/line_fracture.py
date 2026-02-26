@@ -20,7 +20,7 @@ class LineFracture(PointBasedFracture):
     """
 
     def fracture_to_gmsh(self) -> int:
-        """Creates a gmsh representation of the fracture and exports its tag.
+        """Creates a gmsh representation of the fracture.
 
         Returns:
             An integer representing the tag of the fracture.

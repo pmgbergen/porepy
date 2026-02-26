@@ -53,7 +53,7 @@ class PlaneFracture(PointBasedFracture):
 
         """
         pts = self.pts.T
-        num_pts = len(pts)
+        num_pts = pts.shape[0]
         gmsh_pts = [gmsh.model.occ.addPoint(*pt) for pt in pts]
         pt_indices = np.concatenate([np.arange(num_pts), [0]])
         gmsh_lines = [

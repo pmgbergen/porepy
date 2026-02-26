@@ -531,7 +531,7 @@ class FractureNetwork3d(FractureNetwork):
                 # Get the boundary of the sub-fracture. It can contain both lines on the
                 # boundary of the original fracture and lines on the boundary of
                 # subfractures that were introduced because a fracture was cut in two.
-                bnd = gmsh.model.get_boundary([subfrac])
+                bnd = gmsh.model.get_boundary([subfrac], oriented=False)
                 # Loop over the boundary.
                 for line in bnd:
                     if line[0] == 1 and not self._entity_on_domain_boundary(
@@ -555,7 +555,7 @@ class FractureNetwork3d(FractureNetwork):
 
         # For a boundary line to be an intersection, it must be shared by at least two
         # fractures.
-        num_lines_occ = np.bincount(np.abs(bnd_lines).astype(int))
+        num_lines_occ = np.bincount(np.array(bnd_lines).astype(int))
         # Find the boundary lines occuring more than once.
         boundary_lines = np.where(num_lines_occ > 1)[0]
         all_lines = np.hstack((embedded_lines, boundary_lines))
@@ -573,7 +573,7 @@ class FractureNetwork3d(FractureNetwork):
             # intersection can be on the boundary of fracture, but not the other).
             parent = np.hstack(
                 (
-                    np.asarray(fi_bnd)[np.where(np.abs(bnd_lines) == line)[0]],
+                    np.asarray(fi_bnd)[np.where(np.array(bnd_lines) == line)[0]],
                     np.asarray(fi_embedded)[
                         np.where(np.abs(embedded_lines) == line)[0]
                     ],
@@ -727,13 +727,19 @@ class FractureNetwork3d(FractureNetwork):
 
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(nd)
-        # TODO: If there is more than one domain entity (the domain is split into parts
-        # by fractures), we need to pick out the outer boundary, that is, the ones which
-        # only occurs once.
+        # Get the boundaries.
         boundaries = gmsh.model.get_boundary([(nd, tag) for _, tag in domain_entities])
 
         surface_tags = set(tag for _, tag in gmsh.model.get_entities(nd - 1))
         boundary_tags = set(tag for _, tag in boundaries)
+        # It seems that, if there is more than one domain entity (the domain is split
+        # into parts by fractures), the call to get_boundary will only return the outer
+        # boundary, and not the internal boundaries between the domain parts. If this is
+        # not the case, there will be duplicate boundaries in the list. Compare the list
+        # to the set to detect this. If the assertion ever fails, we will need to be
+        # more careful in the identification of boundaries, perhaps by sending in one
+        # domain entity at a time to get_boundary and then postprocess the results.
+        assert len(boundaries) == len(boundary_tags)
 
         # The list of gmsh fields created.
         gmsh_fields = []

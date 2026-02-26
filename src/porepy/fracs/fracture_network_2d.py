@@ -122,9 +122,10 @@ class FractureNetwork2d(FractureNetwork):
             pt_tags = [gmsh.model.occ.addPoint(p[0], p[1], 0) for p in pts]
             # Close the list of points, represented as gmsh tags.
             pt_tags.append(pt_tags[0])
-            # The lines of the polygon, the line loop, and the plane surface can all be
-            # created, assuming that the lines are specificed in a consecutive manner.
+            # Now build the domain by first adding the lines of the boundary, then
+            # define them to be a loop, and then define a surface inside that loop.
             lines = [
+                # i + 1 is okay here, since pt_tags was augmented above.
                 gmsh.model.occ.addLine(pt_tags[i], pt_tags[i + 1])
                 for i in range(len(pts))
             ]
@@ -268,12 +269,13 @@ class FractureNetwork2d(FractureNetwork):
         Returns:
             A tuple containing:
             - A list of gmsh tags representing intersection points.
-            - Updated isect_mapping after processing.
+            - isect_mapping updated so that fractures that have been split are
+              identified as separate but related objects in the Gmsh representation.
             - Updated constraints array, still referring to input fracture indices, but
               with indices of removed fractures eliminated and indices shifted
               accordingly.
             - Updated inverse fracture tag map, mapping gmsh fracture tags to input
-                fracture indices (with removed fractures eliminated).
+              fracture indices (with removed fractures eliminated).
             - Updated mesh_size_points dictionary.
 
         """
@@ -489,6 +491,18 @@ class FractureNetwork2d(FractureNetwork):
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         restrict_to_fractures: bool,
     ) -> list:
+        """Given a mesh size computer and a set of mesh control points with distance
+        information, assign mesh size fields in the Gmsh representation.
+
+        Parameters:
+            mesh_size_computer: Object that stores and processes mesh size information.
+            mesh_size_points: Dictionary that maps points (identified by their gmsh
+                tags) to the point coordinates and the distance to the nearest object.
+
+        Returns:
+            List of gmsh fields (to be used by Gmsh).
+
+        """
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
         boundaries = gmsh.model.get_boundary(
@@ -498,21 +512,30 @@ class FractureNetwork2d(FractureNetwork):
         line_tags = set(tag for _, tag in gmsh.model.getEntities(self.nd - 1))
         boundary_tags = set(tag for _, tag in boundaries)
 
+        # Storage of the (gmsh tags for) mesh size fields.
         gmsh_fields = []
-
+        # Object that maps from point coordinates to gmsh point indices.
         gmsh_point_finder = GmshPointIdentifier()
 
+        # Ensure that the mesh size points are unique.
         self._uniquify_mesh_size_dictionary(mesh_size_points)
-
-        # For lines that with no extra
+        # For fractures or boundaries with no information, we assign an empty list.
         mesh_size: dict[int, list[tuple[np.ndarray, float]]] = {
             tag: [] for tag in line_tags
         }
         mesh_size.update(mesh_size_points)
 
         for line, info in mesh_size.items():
-            # Uniquify the point set (the same point may have been identified multiple
-            # times).
+            extra_points = (
+                np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
+            )
+            if extra_points.size == 0:
+                # If there are no mesh size control points, we continue to the next
+                # line.
+                continue
+
+            # Uniquify the points. As a threshold for point uniqueness we use half of
+            # the minimum of the fracture mesh size and the fracture length.
             end_points = np.array(
                 [
                     gmsh.model.occ.get_bounding_box(0, p[1])[:3]
@@ -521,12 +544,6 @@ class FractureNetwork2d(FractureNetwork):
             ).T
             length = np.linalg.norm(end_points[:, 1] - end_points[:, 0])
             tol = np.minimum(length, mesh_size_computer.h_fracture()) / 2
-            extra_points = (
-                np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
-            )
-            if extra_points.size == 0:
-                continue
-
             points, _, ind_map = pp.array_operations.uniquify_point_set(
                 extra_points, tol=tol
             )

@@ -133,7 +133,7 @@ class EllipticFracture(Fracture):
         )
 
     def copy(self) -> Fracture:
-        """Return a copy of the fracture with the current vertices.
+        """Return a copy of the fracture.
 
         Returns:
             EllipticFracture: A copy of the fracture.

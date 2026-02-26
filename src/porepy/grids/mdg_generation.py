@@ -765,7 +765,7 @@ def create_mdg(
                         fracture. If not provided, cell_size will be used for
                         completeness.
                     cell_size_boundary: ``float``: target mesh size close to the
-                        external boundaries (can be seen as a far-field value). If not
+                        external boundaries (can be seen as a background value). If not
                         provided, cell_size will be used for completeness.
                 if grid_type == "cartesian"
                     cell_size: ``float``: side length of the grid elements (squares in
@@ -808,7 +808,7 @@ def create_mdg(
                         around proximate fractures. See tutorial on mixed-dimensional
                         grids for details.
                     background_transition_multiplier: ``float``: Distance from fractures
-                        where the mesh size transitions to far-field mesh size. See
+                        where the mesh size transitions to the background mesh size. See
                         tutorial on mixed-dimensional grids for details.
                     refinement_size_multiplier: ``float``: Size of buffer zone around
                         fractures where refinement is applied. See tutorial on
