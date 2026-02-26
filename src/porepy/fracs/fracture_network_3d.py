@@ -316,6 +316,10 @@ class FractureNetwork3d(FractureNetwork):
             gmsh.model.mesh.generate(self.nd)
 
         gmsh.write(str(file_name))
+        # Report mesh quality metrics.
+        if self._extra_meshing_args["plot_mesh_quality_metrics"]:
+            self.mesh_quality_metrics()
+
         # STEP 6: Process the gmsh .msh output file, to make first a list of grids, then
         # a MixedDimensionalGrid.
         if dfn:

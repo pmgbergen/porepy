@@ -17,11 +17,16 @@ from enum import Enum
 from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Union, cast
+from matplotlib import pyplot as plt
 
 import gmsh
 import numpy as np
 
 import porepy as pp
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class FractureNetwork(ABC):
@@ -58,6 +63,9 @@ class FractureNetwork(ABC):
             # Set a moderate verbosity level for Gmsh output. See the Gmsh documentation
             # for details on the available levels.
             "gmsh_verbosity_level": 3,
+            # Whether to plot mesh quality metrics after meshing. This is set to False
+            # by default.
+            "plot_mesh_quality_metrics": False,
         }
         """Extra meshing arguments for fracture network meshing.
 

@@ -228,7 +228,7 @@ class FractureNetwork2d(FractureNetwork):
         gmsh.write(str(file_name))
 
         # Report mesh quality metrics.
-        if False:
+        if self._extra_meshing_args["plot_mesh_quality_metrics"]:
             self.mesh_quality_metrics()
 
         # STEP 6: Create list of grids and assemble mixed-dimensional grid.
@@ -865,7 +865,8 @@ def _linefractures_to_pts_and_edges(
         tol: ``default=1e-8``
 
             Absolute tolerance to decide if start-/endpoints of two different fractures
-            are equal. The comparison is done element-wise.
+            are equal. The comparison uses the max-norm over the difference in
+            coordinates.
 
     Returns:
         A 2-tuple containing
