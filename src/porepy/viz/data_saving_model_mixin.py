@@ -521,14 +521,14 @@ class FractureDeformationExporting(pp.PorePyModel):
             - Regular values are positive for fractures in contact.
             - NaN indicates undefined slip tendency (zero normal traction).
         """
-        # Compute slip tendency
+        # Compute slip tendency.
         # Minus to follow convention that positive slip tendency indicates slip and
         # compressive normal traction is negative.
         slip_tendency = -np.linalg.norm(traction[:-1], axis=0) / (
             traction[-1] * friction_coefficient
         )
 
-        # Set to NaN where normal traction is zero (undefined)
+        # Set to NaN where normal traction is zero (undefined).
         zero_inds = np.isclose(traction[-1], 0, atol=atol)
         slip_tendency[zero_inds] = np.nan
 

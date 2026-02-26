@@ -5,6 +5,8 @@ The following is covered:
 - Test that only the specified exported times are exported.
 - Test that the physical times are exported, and that there is a match between the
   specified schedule and all exported files.
+- Test the compute_slip_tendency static method for a variety of cases, including edge
+  cases such as zero normal traction, positive normal traction, and custom tolerances.
 
 """
 
@@ -127,7 +129,7 @@ def test_exported_times_consistency_with_files(times_to_export, expected_times):
     assert np.allclose(model.time_manager.exported_times, expected_times)
 
     # Check that the correct number of files are exported.
-    # Parse the PVD file
+    # Parse the PVD file.
     pvd_file = Path(folder_name) / "data.pvd"
     tree = ET.parse(pvd_file)
     root = tree.getroot()
@@ -147,9 +149,8 @@ class TestComputeSlipTendency:
 
     def test_normal_contact(self):
         """Test slip tendency computation for normal contact conditions."""
-        # 2D case: traction shape (2, 3) for 3 cells
-        # Shear = [3, 4], Normal = -10, friction = 0.6
-        # Expected: -sqrt(3^2 + 4^2) / (-10 * 0.6) = -5 / -6 = 0.8333...
+        # 2D case: traction shape (2, 3) for 3 cells, one friction coefficient value for
+        # each cell.
         traction = np.array([[3.0, 0.0, 1.0], [-10.0, -5.0, -2.0]])
         friction = np.array([0.6, 0.5, 0.4])
 
@@ -173,7 +174,7 @@ class TestComputeSlipTendency:
 
         result = FractureDeformationExporting.compute_slip_tendency(traction, friction)
 
-        # First cell should be NaN, second should be valid
+        # First cell should be NaN, second should be valid.
         assert np.isnan(result[0])
         assert not np.isnan(result[1])
         assert np.isclose(result[1], -2.0 / (-5.0 * 0.5))
@@ -181,8 +182,8 @@ class TestComputeSlipTendency:
     def test_3d_case(self):
         """Test slip tendency computation in 3D."""
         # 3D case: traction shape (3, 2) for 2 cells
-        # Shear = [3, 4], Normal = -10, friction = 0.6
-        # Expected: -sqrt(3^2 + 4^2) / (-10 * 0.6) = -5 / -6 = 0.8333...
+        # First cell: Shear = [3, 4], Normal = -10, friction = 0.6
+        # Expected: -sqrt(3^2 + 4^2) / (-10 * 0.6) = -5 / -6 = 0.8333
         traction = np.array([[3.0, 1.0], [4.0, 2.0], [-10.0, -8.0]])
         friction = np.array([0.6, 0.4])
 
@@ -202,13 +203,13 @@ class TestComputeSlipTendency:
         traction = np.array([[1.0, 2.0], [0.0, -5.0]])
         friction = np.array([0.6, 0.5])
 
-        # Make copies to check against
+        # Make copies to check against.
         traction_orig = traction.copy()
         friction_orig = friction.copy()
 
         _ = FractureDeformationExporting.compute_slip_tendency(traction, friction)
 
-        # Verify inputs weren't modified
+        # Verify inputs weren't modified.
         assert np.array_equal(traction, traction_orig)
         assert np.array_equal(friction, friction_orig)
 
@@ -220,7 +221,7 @@ class TestComputeSlipTendency:
 
         result = FractureDeformationExporting.compute_slip_tendency(traction, friction)
 
-        # Should be NaN due to np.isclose tolerance
+        # Should be NaN due to np.isclose tolerance defaulting to 1e-8 in the method.
         assert np.isnan(result[0])
         assert not np.isnan(result[1])
 
@@ -234,7 +235,7 @@ class TestComputeSlipTendency:
 
         result = FractureDeformationExporting.compute_slip_tendency(traction, friction)
 
-        # Result should be negative (non-physical but mathematically correct)
+        # Result should be negative (non-physical but mathematically correct).
         expected = -3.0 / (5.0 * 0.6)
         assert np.isclose(result[0], expected)
         assert result[0] < 0  # Negative slip tendency
@@ -244,7 +245,7 @@ class TestComputeSlipTendency:
         traction = np.array([[1.0, 2.0, 3.0], [-2.0, -4.0, -6.0]])
         friction = 0.5  # Scalar - should be broadcast
 
-        # Should work with scalar friction coefficient
+        # Should work with scalar friction coefficient.
         friction_array = np.full(3, friction)
         result = FractureDeformationExporting.compute_slip_tendency(
             traction, friction_array
@@ -255,11 +256,11 @@ class TestComputeSlipTendency:
 
     def test_custom_tolerance(self):
         """Test that custom tolerance parameter works correctly."""
-        # Test with a value that is within default tolerance but outside custom one
+        # Test with a value that is within default tolerance but outside custom one.
         traction = np.array([[1.0, 2.0, 3.0], [1e-6, 1e-10, -5.0]])
         friction = np.array([0.6, 0.5, 0.4])
 
-        # With default tolerance (1e-8), first value should not be NaN
+        # With default tolerance (1e-8), first value should not be NaN.
         result_default = FractureDeformationExporting.compute_slip_tendency(
             traction, friction
         )
@@ -275,7 +276,7 @@ class TestComputeSlipTendency:
         assert np.isnan(result_strict[1])
         assert not np.isnan(result_strict[2])
 
-        # With looser tolerance (1e-12), second value should not be NaN
+        # With looser tolerance (1e-12), second value should not be NaN.
         result_loose = FractureDeformationExporting.compute_slip_tendency(
             traction, friction, atol=1e-12
         )
