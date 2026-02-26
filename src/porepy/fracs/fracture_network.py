@@ -526,13 +526,14 @@ class FractureNetwork(ABC):
         mesh_size_computer: MeshSizeComputer,
         gmsh_point_finder: GmshPointIdentifier,
         is_boundary: bool,
-        codim: bool,
+        on_lower_dim: bool,
         surface_lines: Optional[list[int]] = None,
     ) -> list:
         """Assign mesh size field based on distances from points to fractures.
 
         The mesh size field is either restricted to the entity itself (if
-        ``codim=True``), or set in the surrounding domain (if ``codim=False``).
+        ``on_lower_dim=True``), or set in the surrounding domain (if
+        ``on_lower_dim=False``).
 
         Parameters:
             entity: Gmsh tag identifying the entity where the mesh size field is to
@@ -546,8 +547,8 @@ class FractureNetwork(ABC):
                 Gmsh indices.
             is_boundary: ``True`` if the entity is on the domain boundary, ``False``
                 otherwise.
-            codim: ``True`` if the mesh size is to be restricted to the entity itself
-                (codimension 1), ``False`` if the mesh size is to be set in the
+            on_lower_dim: ``True`` if the mesh size is to be restricted to the entity
+                itself (codimension 1), ``False`` if the mesh size is to be set in the
                 surrounding domain.
             surface_lines: (3D only) List of Gmsh tags identifying lines on the surface,
                 e.g., intersection lines with other fractures. The mesh size field will
@@ -583,7 +584,8 @@ class FractureNetwork(ABC):
 
             # Set distance field for the given point, then a threshold field to set the
             # mesh size based on the distance, and finally a restriction to either the
-            # entity itself (codim=True) or the surrounding domain (codim=False).
+            # entity itself (on_lower_dim=True) or the surrounding domain
+            # (on_lower_dim=False).
             pi = gmsh_point_finder.index(points[:, i])
             field = gmsh.model.mesh.field.add("Distance")
             gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
@@ -596,11 +598,11 @@ class FractureNetwork(ABC):
             gmsh.model.mesh.field.setNumber(
                 threshold, "SizeMin", mesh_size_computer.size_min(d)
             )
-            if codim:
+            if on_lower_dim:
                 gmsh.model.mesh.field.setNumber(
                     threshold,
                     "DistMax",
-                    mesh_size_computer.dist_farfield(is_boundary, on_codim=True),
+                    mesh_size_computer.dist_farfield(is_boundary, on_lower_dim=True),
                 )
                 gmsh.model.mesh.field.setNumber(
                     threshold,
@@ -611,7 +613,7 @@ class FractureNetwork(ABC):
                 gmsh.model.mesh.field.setNumber(
                     threshold,
                     "DistMax",
-                    mesh_size_computer.dist_farfield(is_boundary, on_codim=False),
+                    mesh_size_computer.dist_farfield(is_boundary, on_lower_dim=False),
                 )
                 gmsh.model.mesh.field.setNumber(
                     threshold, "SizeMax", mesh_size_computer.h_background()
@@ -621,7 +623,7 @@ class FractureNetwork(ABC):
             # refer to the threshold field, not the other way around.
             restriction = gmsh.model.mesh.field.add("Restrict")
             gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
-            if codim:
+            if on_lower_dim:
                 if self.nd == 3 and surface_lines is not None:
                     # Intersection lines on the surface should also have the same mesh
                     # size field applied.
@@ -644,15 +646,15 @@ class FractureNetwork(ABC):
         entities: list[int],
         mesh_size_computer: MeshSizeComputer,
         boundary_tags: set[int],
-        codim: bool,
+        on_lower_dim: bool,
     ) -> list:
         """Set uniform mesh size fields on the given entities.
 
-        The mesh is either restricted to the entities themselves (if ``codim=True``), or
-        in the surrounding domain (if ``codim=False``). In the former case, the mesh
-        size is constant on the entities, while in the latter case, the mesh size
-        transitions from a fine mesh size close to the entities to the background mesh
-        size.
+        The mesh is either restricted to the entities themselves (if
+        ``on_lower_dim=True``), or in the surrounding domain (if
+        ``on_lower_dim=False``). In the former case, the mesh size is constant on the
+        entities, while in the latter case, the mesh size transitions from a fine mesh
+        size close to the entities to the background mesh size.
 
         Parameters:
             entities: Set of Gmsh tags identifying the entities where the mesh size
@@ -661,7 +663,7 @@ class FractureNetwork(ABC):
                 parameters.
             boundary_tags: Set of Gmsh tags identifying the boundary entities of the
                 domain.
-            codim: ``True`` if the mesh size is to be restricted to the entities
+            on_lower_dim: ``True`` if the mesh size is to be restricted to the entities
                 themselves (codimension 1), ``False`` if the mesh size is to be set in
                 the surrounding domain.
 
@@ -677,7 +679,7 @@ class FractureNetwork(ABC):
         else:
             entity_str = "CurvesList"
             domain_str = "SurfacesList"
-        if codim:
+        if on_lower_dim:
             # This will set a uniform mesh size on the entities themselves. Set the
             # mesh size on boundary and interior entities separately.
             for is_boundary in [True, False]:
@@ -731,7 +733,7 @@ class FractureNetwork(ABC):
                     threshold,
                     "DistMax",
                     mesh_size_computer.dist_farfield(
-                        ent in boundary_tags, on_codim=False
+                        ent in boundary_tags, on_lower_dim=False
                     ),
                 )
                 gmsh.model.mesh.field.setNumber(
@@ -1084,7 +1086,7 @@ class MeshSizeControlPointInserter:
                     dist_other_fracture,
                     dist_cand_prev,
                     f_main_is_fracture,
-                    on_codim=True,
+                    on_lower_dim=True,
                 )
 
             # Check if the new point is so far away from the other surface that no more
@@ -1464,18 +1466,18 @@ class MeshSizeComputer:
         """
         return self._h_background if is_boundary else self._h_fracture
 
-    def dist_farfield(self, is_boundary: bool, on_codim: bool) -> float:
+    def dist_farfield(self, is_boundary: bool, on_lower_dim: bool) -> float:
         """Distance from fracture where background mesh size is reached [m].
 
         Parameters:
             is_boundary: If ``True``, return the distance for boundary mesh size.
-            on_codim: If ``True``, return the distance on a lower-dimensional object.
+            on_lower_dim: If ``True``, return the distance on a lower-dimensional object.
 
         Returns:
             float: Distance from fracture where background mesh size is reached [m].
 
         """
-        if on_codim:
+        if on_lower_dim:
             return self.h_end(is_boundary) * self._farfield_transition
         else:
             return self._h_fracture * self._farfield_transition
@@ -1510,7 +1512,7 @@ class MeshSizeComputer:
         distance_from_existing_point: float,
         fracture_distance_at_existing_point: float,
         is_boundary: bool,
-        on_codim: bool,
+        on_lower_dim: bool,
     ) -> float:
         """Compute the mesh size at a given distance from a mesh size control point.
 
@@ -1529,8 +1531,8 @@ class MeshSizeComputer:
             is_boundary: Whether the mesh size should be computed relative to the
                 background mesh size (``True``) or the fracture mesh size
                 (``False``).
-            on_codim: Whether the mesh size is to be computed on a codimension object
-                (``True``) or in the surrounding domain (``False``).
+            on_lower_dim: Whether the mesh size is to be computed on a lower-dimensional
+                object (``True``) or in the surrounding domain (``False``).
 
         """
         # In the immediate vicinity of the existing mesh size control point, the mesh
@@ -1548,7 +1550,7 @@ class MeshSizeComputer:
         # used. The extent of the transition region is controlled by the
         # farfield_transition parameter and the mesh size.
         start_far_away_region = self.dist_farfield(
-            is_boundary=is_boundary, on_codim=on_codim
+            is_boundary=is_boundary, on_lower_dim=on_lower_dim
         )
         size_far_away_region = self.h_end(is_boundary=is_boundary)
 
