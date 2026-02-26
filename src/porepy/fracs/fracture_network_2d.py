@@ -713,7 +713,7 @@ class FractureNetwork2d(FractureNetwork):
         """
         fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
         pp.plot_fractures(
-            *_linefractures_to_pts_edges(fracs), domain=self.domain, **kwargs
+            *_linefractures_to_pts_and_edges(fracs), domain=self.domain, **kwargs
         )
 
     def to_csv(self, file_name: Path, with_header: bool = True) -> None:
@@ -734,7 +734,7 @@ class FractureNetwork2d(FractureNetwork):
 
         """
         fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
-        pts, edges = _linefractures_to_pts_edges(fracs)
+        pts, edges = _linefractures_to_pts_and_edges(fracs)
 
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
@@ -808,7 +808,7 @@ class FractureNetwork2d(FractureNetwork):
         cell_type = "line"
 
         fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
-        pts, edges = _linefractures_to_pts_edges(fracs)
+        pts, edges = _linefractures_to_pts_and_edges(fracs)
 
         # cell connectivity information
         meshio_cells = np.empty(1, dtype=object)
@@ -851,7 +851,7 @@ class FractureNetwork2d(FractureNetwork):
         return self.__str__()
 
 
-def _linefractures_to_pts_edges(
+def _linefractures_to_pts_and_edges(
     fractures: list[pp.LineFracture], tol: float = 1e-8
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert a list of line fractures into arrays of the corresponding points and
