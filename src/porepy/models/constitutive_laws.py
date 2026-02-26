@@ -2002,19 +2002,19 @@ class PeacemanWellFlux(pp.PorePyModel):
         # advanced alternatives, see the MRST book,
         # https://www.cambridge.org/core/books/an-introduction-to-
         # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
+
+        # Set high value (greater than expected actual well radii) to ensure that the
+        # argument of the logarithmic term in the well index is greater than 1.
+        unused_val = self.units.convert_units(10, "m")
         if len(subdomains) == 0:
-            # Set 0.2 as the unused value for equivalent radius. This is a bit
-            # arbitrary, but 0 is a bad choice, as it will lead to division by zero.
-            return Scalar(0.2, name="equivalent_well_radius")
+            return Scalar(unused_val, name="equivalent_well_radius")
 
         h_list = []
         for sd in subdomains:
             if sd.dim == 0:
                 # Avoid division by zero for points. The value is not used in calling
-                # method well_flux_equation, as all wells are 1d. Set high value
-                # (greater than expected actual well radii) to ensure that the argument
-                # of the logarithmic term in the well index is greater than 1.
-                h_list.append(np.array([self.units.convert_units(10, "m")]))
+                # method well_flux_equation, as all wells are 1d.
+                h_list.append(np.array([unused_val]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
         r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
@@ -2068,7 +2068,9 @@ class PeacemanWellFlux(pp.PorePyModel):
             Gravity correction operator with units [Pa].
 
         """
-        if len(subdomains) == 0:
+        if len(subdomains) < 2:
+            # If there are less than 2 subdomains, there is no interface and no gravity
+            # correction. Return a zero operator.
             return pp.ad.Scalar(0, name="gravity_pressure_correction")
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
 
@@ -2084,26 +2086,23 @@ class PeacemanWellFlux(pp.PorePyModel):
         elevations = pp.wrap_as_dense_ad_array(np.concatenate(elevation_list))
 
         # Compute elevation difference: z_primary - z_secondary.
-        if len(subdomains) >= 2:
-            delta_z = (
-                projection.primary_to_mortar_avg() @ elevations
-                - projection.secondary_to_mortar_avg() @ elevations
-            )
+        delta_z = (
+            projection.primary_to_mortar_avg() @ elevations
+            - projection.secondary_to_mortar_avg() @ elevations
+        )
 
-            # Get gravity force (rho * g * e_n) where e_n is the unit vector in the
-            # direction of gravity. We extract the magnitude in the gravity direction.
-            gravity_vector = self.gravity_force(subdomains, "fluid")
+        # Get gravity force (rho * g * e_n) where e_n is the unit vector in the
+        # direction of gravity. We extract the magnitude in the gravity direction.
+        gravity_vector = self.gravity_force(subdomains, "fluid")
 
-            # Extract the component in the gravity direction (last coordinate).
-            e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
-            rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
+        # Extract the component in the gravity direction (last coordinate).
+        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
 
-            # Gravity correction: rho * g * delta_z
-            # Positive delta_z means primary is higher than secondary, so fluid column
-            # from secondary to primary has positive pressure contribution.
-            gravity_correction = rho_g * delta_z
-        else:
-            gravity_correction = pp.ad.Scalar(0)
+        # Gravity correction: rho * g * delta_z
+        # Positive delta_z means primary is higher than secondary, so fluid column
+        # from secondary to primary has positive pressure contribution.
+        gravity_correction = rho_g * delta_z
 
         gravity_correction.set_name("gravity_pressure_correction")
         return gravity_correction
