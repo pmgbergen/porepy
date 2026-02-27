@@ -679,7 +679,7 @@ class SolutionStrategy(pp.PorePyModel):
             return SimulationStatus.STOPPED
 
         if self.time_manager.is_constant:
-            warn("Failed to solve linear system for the linear problem.")
+            warn("Failed to solve the nonlinear problem.")
             return SimulationStatus.STOPPED
         else:
             # Update the time step magnitude if the dynamic scheme is used.
