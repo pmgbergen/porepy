@@ -678,7 +678,10 @@ class SolutionStrategy(pp.PorePyModel):
             warn("Failed to solve linear system for the linear problem.")
             return SimulationStatus.STOPPED
 
-        if not self.time_manager.is_constant:
+        if self.time_manager.is_constant:
+            warn("Failed to solve linear system for the linear problem.")
+            return SimulationStatus.STOPPED
+        else:
             # Update the time step magnitude if the dynamic scheme is used.
             # Note: It will also raise a ValueError if the minimal time step is reached.
             try:
