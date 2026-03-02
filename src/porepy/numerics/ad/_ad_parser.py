@@ -14,6 +14,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics import ad
 
 from .operators import Operations
 
@@ -134,8 +135,9 @@ class AdParser:
 
         # Create an AdArray representation of the state, if the derivative is requested.
         # If not, the state is used as is (as a numpy array).
-        ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
-
+        ad_base = self._initialize_variables(
+            op if isinstance(op, list) else [op], state, equation_system, derivative
+        )
         # Evaluate the operators. A single operator is treated as a list to simplify the
         # post-processing below.
         if isinstance(op, list):
@@ -185,6 +187,134 @@ class AdParser:
         else:
             return result_list[0]
 
+    def _initialize_variables(
+        self,
+        op_list: list[pp.ad.Operator],
+        state: np.ndarray,
+        equation_system: pp.EquationSystem,
+        derivative: bool = True,
+    ) -> None:
+        """Represent all variables in a mixed form: Those variables that are suited for
+        a diagonal representation will receive this, while the rest will be represented in a standard way.
+        """
+
+        variables_for_diag_representation = []
+
+        other_variables = []
+
+        all_operators = list(set(self._flatten_operator_tree(op_list)))
+
+        for op in all_operators:
+            # Loop over the operator tree to find all variables. Take note of those that are
+            # 1) defined on subdomains and not interfaces (mortar grids), 2) are defined on the current iteration (not previous iterate or time step), 3) have a single cell degree of freedom.
+            if isinstance(op, pp.ad.Variable):
+                if op.is_previous_iterate or op.is_previous_time:
+                    # This has no derivative.
+                    other_variables.append(op)
+                    continue
+                # TODO: This should be an enum.
+                if op.domain_type == "interfaces" or op.domain_type == "boundary grids":
+                    # For now, we only support diagonal representations of variables defined on subdomains.
+                    other_variables.append(op)
+                    continue
+                num_subdomains = len(self._mdg.subdomains())
+                domains = op.domains
+                if len(domains) < num_subdomains:
+                    # This variable is not defined on all subdomains, so we cannot readily use a diagonal representation. This can be improved, but does not seem worth the effort at the moment.
+                    other_variables.append(op)
+                    continue
+                # Get the number of dofs for the variable on each subdomain.
+                num_cells_in_domain = [sd.num_cells for sd in domains]
+                if op.size() != num_cells_in_domain:
+                    # The variable has more than one dof per cell, so we cannot use a diagonal representation.
+                    other_variables.append(op)
+                    continue
+                # This variable is defined on all subdomains, has a single dof per cell, and is not defined on interfaces. We can use a diagonal representation for this variable.
+                variables_for_diag_representation.append(op)
+
+        # Failure here  would be very strange.
+        assert len(variables_for_diag_representation) == len(
+            set(variables_for_diag_representation)
+        )
+        if not derivative:
+            # We don't need Ad arrays at all here.
+            #
+            # IMPLEMENTATION NOTE, DELETE BEFORE MERGE: By itself, this should
+            # speed up the parsing, perhaps considerably so, since we don't need to
+            # create indices etc. for all variables in the system.
+            all_vars = variables_for_diag_representation + other_variables
+            value_map = {}
+            for var in all_vars:
+                indices = equation_system.dofs_of([var])
+                value_map[var] = state[indices]
+            return value_map
+
+        array_map = {}
+
+        # Now we need to 1) get the offsets for all variables, ii) get the right state
+        # for all the diagonal variables. Then we can initialize the diagonal representation.
+        # The other variables should be simpler, but we need to do some filtertering,
+        # and it could be that the initialization method should be changed.
+        diag_states, indices, offsets = [], []
+        num_diag = len(variables_for_diag_representation)
+        for var in variables_for_diag_representation:
+            # EK: I believe this is what is needed to achieve the diagonal representation,
+            # but expect adjustments here.
+            dofs = equation_system.dofs_of([var])
+            diag_states.append(state[dofs])
+            indices.append(dofs)
+            offsets.append(dofs[0])
+
+        # This should give a diagonal representation of the relevant variables.
+        diag_vars = pp.ad.initialize_diagonal_ad_arrays(
+            diag_states, indices, offsets, num_diag
+        )
+
+        # Update the array_map with the diagonal variables.
+        for i, var in enumerate(variables_for_diag_representation):
+            array_map[var] = diag_vars[i]
+
+        # For the remaining variables, use the standard initialization method. Set
+        # the state of the diagonal variables to zero; this should
+        other_variables = list(set(other_variables))
+        ind_other_vars = [equation_system.dofs_of([var]) for var in other_variables]
+        if len(ind_other_vars) == 0:
+            ind_other_vars = np.array([], dtype=int)
+        else:
+            ind_other_vars = np.hstack(ind_other_vars)
+
+        other_state = np.zeros_like(state)
+
+        other_state[ind_other_vars] = state[ind_other_vars]
+        ordinary_vars = pp.ad.initAdArrays([other_state])[0]
+
+        # I believe this will break, and to fix it will require a new take on the
+        # initialization routine. The key is, we use the AdArray initialization through
+        # a single variable, and then extract relevant values by slicing (in the real parse method).
+        # I think this will give us derivatives on all variables (since the trick with
+        # offsets in the for loop in the initialization method will not really work here).
+        # However, we also use that for the diagonal variables, so we cannot modify
+        # uncritically. The best option would be to revisit the design here.
+        for ind in indices:
+            assert np.all(ordinary_vars.val[ind] == 0)
+            assert np.all(ordinary_vars.jac[ind].toarray() == 0)
+            array_map[ind] = diag_vars[indices.index(ind)]
+
+        return diag_vars, ordinary_vars
+
+    def _flatten_operator_tree(
+        self, op_list: list[pp.ad.Operator]
+    ) -> list[pp.ad.Operator]:
+        # Loop over the operator tree to flatten it into a list of operators. This is
+        # used to simplify the parsing of the operators, and to enable caching of
+        # results for sub-operators.
+
+        flattened = []
+        for op in op_list:
+            flattened.extend(self._flatten_operator_tree(op.children))
+            flattened.append(op)
+        return flattened
+
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
@@ -218,9 +348,7 @@ class AdParser:
                 if op.is_previous_iterate or op.is_previous_time or op.is_reference:
                     # Empty vector like the global vector of unknowns for prev time/iter
                     # insert the values at the right dofs and slice.
-                    vals = np.empty_like(
-                        ad_base.val if isinstance(ad_base, pp.ad.AdArray) else ad_base
-                    )
+                    vals = np.zeros(op.size(), dtype=float)
                     # List of indices for sub variables.
                     dofs = []
                     for sub_var in op.sub_vars:
@@ -231,7 +359,7 @@ class AdParser:
                     return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
                 else:
                     # Fetch the values from the state vector.
-                    return ad_base[equation_system.dofs_of([op])]
+                    return ad_base[op]
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
@@ -240,8 +368,8 @@ class AdParser:
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[equation_system.dofs_of([op])]
-            # All other leafs like discretizations or some wrapped data.
+                    return ad_base[op]
+            # All other leaves like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
                 res = op.parse(equation_system.mdg)  # type:ignore
