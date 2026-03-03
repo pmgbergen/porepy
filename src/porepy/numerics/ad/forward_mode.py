@@ -739,17 +739,19 @@ class AdArray:
 
 def initialize_diagonal_ad_arrays(
     variables: list[np.ndarray],
-    indices: np.ndarray,
+    indices: list[np.ndarray],
     offsets: np.ndarray,
     num_derivatives: int,
+    # Use derivatives for SurrogateOperators?
     derivatives: list[np.ndarray] | None = None,
 ) -> list[AdArray]:
-    for var in variables:
-        if var.size != indices.size:
+    for var, ind in zip(variables, indices):
+        if var.size != ind.size:
             raise ValueError("Number of variables should match number of indices.")
 
     num_vars = len(variables)
-    num_indices = indices.size
+    num_indices = len(variables)
+    sz_vars = variables[0].size if len(variables) > 0 else 0
 
     diagonal_variables = []
 
@@ -757,13 +759,13 @@ def initialize_diagonal_ad_arrays(
         raise ValueError("Number of variables should match number of offsets.")
     for ind in range(num_vars):
         val = variables[ind]
-        jac = np.zeros((num_vars, num_indices))
+        jac = np.zeros((num_vars, sz_vars))
         if derivatives is not None:
             jac[ind] = derivatives[ind]
         else:
             jac[ind] = 1.0
         diagonal_variables.append(
-            DiagonalAdArray(val, jac, indices, offsets, num_derivatives)
+            DiagonalAdArray(val, jac, indices[ind], offsets, num_derivatives)
         )
     return diagonal_variables
 
