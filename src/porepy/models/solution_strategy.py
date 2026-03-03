@@ -193,12 +193,14 @@ class ModelSolverInterface(pp.PorePyModel):
 
         The base method does the following:
 
-        1. Call :meth:`update_time_dependent_ad_arrays` to update BC values and other
+        1. Update :attr:`ad_time_step` with the current time step size.
+        2. Call :meth:`update_time_dependent_ad_arrays` to update BC values and other
            time-dependent operators.
-        2. Call :meth:`update_derived_quantities` to update them based on the
+        3. Call :meth:`update_derived_quantities` to update them based on the
            time-dependent values.
 
         """
+        self.ad_time_step.set_value(self.time_manager.dt)
         self.update_time_dependent_ad_arrays()
         self.update_derived_quantities()
 
@@ -208,15 +210,17 @@ class ModelSolverInterface(pp.PorePyModel):
 
         The base method does the following:
 
-        1. Set the previous time step solution as the initial guess of the nonlinear
-           solver .
+        1. Call :meth:`initialize_nonlinear_solution`.
 
         """
-        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+        self.initialize_nonlinear_solution()
 
     def before_solver_iteration(self) -> None:
-        """Called before a solver performs an iteration (calling the linear solver)."""
+        """Called before a solver performs an iteration (calling the linear solver).
+
+        The base method does nothing.
+
+        """
 
     def after_solver_iteration(self, nonlinear_increment: np.ndarray) -> None:
         """Called after a solver performed an iteration and the linear solver computed
@@ -227,7 +231,7 @@ class ModelSolverInterface(pp.PorePyModel):
         1. Shift the existing solutions backwards in the iterative sense.
         2. Store the ``nonlinear_increment`` to the model state in the current iterate
            additively.
-        3. Calls :meth:`update_derived_quantities` based on the recent iterate values.
+        3. Call :meth:`update_derived_quantities` based on the recent iterate values.
 
         Parameters:
             nonlinear_increment: The new increment computed by the nonlinear solver.
@@ -240,21 +244,29 @@ class ModelSolverInterface(pp.PorePyModel):
         self.update_derived_quantities()
 
     def after_solver_convergence(self) -> None:
-        """Called after the solver converges."""
+        """Called after the solver converges.
+
+        The base method does nothing.
+
+        """
 
     def after_solver_failure(self) -> None:
-        """Called if the solver fails to converge or diverges."""
+        """Called if the solver fails to converge or diverges.
+
+        The base method does nothing.
+
+        """
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
 
         The base method does the following:
 
-        1. Calls :meth:`update_solution`.
-        3. Calls :meth:`save_data_time_step`.
+        1. Call :meth:`update_time_step_solution`.
+        2. Call :meth:`save_data_time_step`.
 
         """
-        self.update_solution()
+        self.update_time_step_solution()
         self.save_data_time_step()
 
     def after_time_step_failure(self) -> None:
@@ -268,8 +280,16 @@ class ModelSolverInterface(pp.PorePyModel):
         """Called after a simulation run successfully."""
         pass
 
-    def update_solution(self) -> None:
-        """Shifts the solution per time step index and sets the current iterate solution
+    def initialize_nonlinear_solution(self) -> None:
+        """Set the previous time step solution as the initial guess for the nonlinear
+        solver.
+
+        """
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
+    def update_time_step_solution(self) -> None:
+        """Shift the solution per time step index and sets the current iterate solution
         as the next time step solution.
 
         """

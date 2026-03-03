@@ -10,11 +10,10 @@ import numpy as np
 
 from porepy.models.model_runner import ModelInstance
 from porepy.numerics.linear_solvers import LinearSolver
-from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ class NewtonSolver(LinearSolver):
         if self.progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The solver"
-                + " will run without progress bars."
+                " will run without progress bars."
             )
         # Allow the position of the progress bar to be flexible, depending on whether
         # this is called inside a time loop, a time loop and an additional propagation

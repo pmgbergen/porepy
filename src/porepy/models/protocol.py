@@ -611,12 +611,11 @@ else:
 
         def before_nonlinear_loop(self) -> None:
             """Called before entering a nonlinear solver loop if the model is flagged
-            as nonlinear.
+                as nonlinear.
 
             The base method does the following:
 
-            1. Set the previous time step solution as the initial guess of the nonlinear
-            solver .
+            1. Call :meth:`initialize_nonlinear_solution`.
 
             """
 
@@ -633,7 +632,7 @@ else:
             1. Shift the existing solutions backwards in the iterative sense.
             2. Store the ``nonlinear_increment`` to the model state in the current
                iterate additively.
-            3. Calls :meth:`update_derived_quantities` based on the recent iterate
+            3. Call :meth:`update_derived_quantities` based on the recent iterate
                values.
 
             Parameters:
@@ -652,8 +651,8 @@ else:
 
             The base method does the following:
 
-            1. Calls :meth:`update_solution`.
-            2. Calls :meth:`save_data_time_step`.
+            1. Call :meth:`update_time_step_solution`.
+            2. Call :meth:`save_data_time_step`.
 
             """
 
@@ -667,7 +666,14 @@ else:
         def after_simulation(self) -> None:
             """Called after a simulation run successfully."""
 
-        def update_solution(self) -> None:
+        def initialize_nonlinear_solution(self) -> None:
+            """Set the previous time step solution as the initial guess for the nonlinear
+            solver.
+
+            """
+            ...
+
+        def update_time_step_solution(self) -> None:
             """Shifts the solution per time step index and sets the provided solution
             as the recent time step solution.
 

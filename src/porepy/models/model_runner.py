@@ -51,7 +51,7 @@ def run_stationary_model(model, params: dict) -> None:
     """
     warnings.deprecated(
         "run_stationary_model is deprecated in favor of ModelRunner.run and will be"
-        + " removed in future versions."
+        " removed in future versions."
     )
     runner = ModelRunner(model, params)
     runner.run()
@@ -85,7 +85,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     """
     warnings.deprecated(
         "run_time_dependent_model is deprecated in favor of ModelRunner.run and will be"
-        + " removed in future versions."
+        " removed in future versions."
     )
     runner = ModelRunner(model, params)
     runner.run()
@@ -245,9 +245,6 @@ class ModelRunner:
         # Increase the simulation time.
         self.model.time_manager.increase_time()
         self.model.time_manager.increase_time_index()
-        # Update the model's AD time step object.
-        self.model.ad_time_step.set_value(self.model.time_manager.dt)
-
         self.model.before_time_step()
 
         # Logging and progressbar update.
@@ -258,7 +255,7 @@ class ModelRunner:
             + f" with time step {self.model.time_manager.dt:.1e}"
         )
         self.time_progressbar.set_description_str(
-            f"Time step {self.model.time_manager.time_index + 1}"  # Why +1? Consistent?
+            f"Time step {self.model.time_manager.time_index}"
         )
 
     def after_time_step(self, time_step_converged: bool) -> None:
@@ -275,7 +272,8 @@ class ModelRunner:
         else:
             if self.model.time_manager.is_constant:
                 raise pp.TimeSteppingError(
-                    "Solver failed to converge with constant time step size."
+                    "Solver failed to converge but time step size is constant and"
+                    " cannot be reduced."
                 )
             else:
                 # This calls
