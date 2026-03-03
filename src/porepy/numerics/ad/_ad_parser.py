@@ -224,8 +224,8 @@ class AdParser:
                     other_variables.append(op)
                     continue
                 # Get the number of dofs for the variable on each subdomain.
-                num_cells_in_domain = [sd.num_cells for sd in domains]
-                if op.size() != num_cells_in_domain:
+                num_cells_in_domain = np.sum([sd.num_cells for sd in domains])
+                if op.size != num_cells_in_domain:
                     # The variable has more than one dof per cell, so we cannot use a diagonal representation.
                     other_variables.append(op)
                     continue
@@ -245,8 +245,8 @@ class AdParser:
             all_vars = variables_for_diag_representation + other_variables
             value_map = {}
             for var in all_vars:
-                indices = equation_system.dofs_of([var])
-                value_map[var] = state[indices]
+                ind_diag_vars = equation_system.dofs_of([var])
+                value_map[var] = state[ind_diag_vars]
             return value_map
 
         array_map = {}
@@ -255,19 +255,19 @@ class AdParser:
         # for all the diagonal variables. Then we can initialize the diagonal representation.
         # The other variables should be simpler, but we need to do some filtertering,
         # and it could be that the initialization method should be changed.
-        diag_states, indices, offsets = [], []
+        diag_states, ind_diag_vars, offsets = [], [], []
         num_diag = len(variables_for_diag_representation)
         for var in variables_for_diag_representation:
             # EK: I believe this is what is needed to achieve the diagonal representation,
             # but expect adjustments here.
             dofs = equation_system.dofs_of([var])
             diag_states.append(state[dofs])
-            indices.append(dofs)
+            ind_diag_vars.append(dofs)
             offsets.append(dofs[0])
 
         # This should give a diagonal representation of the relevant variables.
         diag_vars = pp.ad.initialize_diagonal_ad_arrays(
-            diag_states, indices, offsets, num_diag
+            diag_states, ind_diag_vars, offsets, equation_system.num_dofs()
         )
 
         # Update the array_map with the diagonal variables.
@@ -286,21 +286,16 @@ class AdParser:
         other_state = np.zeros_like(state)
 
         other_state[ind_other_vars] = state[ind_other_vars]
-        ordinary_vars = pp.ad.initAdArrays([other_state])[0]
+        ordinary_vars = pp.ad.init_partial_ad_array(other_state, ind_other_vars)
 
-        # I believe this will break, and to fix it will require a new take on the
-        # initialization routine. The key is, we use the AdArray initialization through
-        # a single variable, and then extract relevant values by slicing (in the real parse method).
-        # I think this will give us derivatives on all variables (since the trick with
-        # offsets in the for loop in the initialization method will not really work here).
-        # However, we also use that for the diagonal variables, so we cannot modify
-        # uncritically. The best option would be to revisit the design here.
-        for ind in indices:
+        for ind in ind_diag_vars:
             assert np.all(ordinary_vars.val[ind] == 0)
             assert np.all(ordinary_vars.jac[ind].toarray() == 0)
-            array_map[ind] = diag_vars[indices.index(ind)]
 
-        return diag_vars, ordinary_vars
+        for op, diag_var in zip(variables_for_diag_representation, diag_vars):
+            array_map[op] = diag_var
+
+        return array_map
 
     def _flatten_operator_tree(
         self, op_list: list[pp.ad.Operator]
