@@ -16,6 +16,7 @@ __all__ = [
     "AdArray",
     "DiagonalAdArray",
     "initialize_diagonal_ad_arrays",
+    "init_partial_ad_array",
 ]
 
 
@@ -48,6 +49,17 @@ def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
         ad_arrays.append(AdArray(val, jac))
 
     return ad_arrays
+
+
+def init_partial_ad_array(state: np.ndarray, indices: np.ndarray):
+    # Helper method to create the part of the system that is not represented by a
+    # diagonal ad array. TODO: Should be modified before PR.
+    sz = state.size
+    derivatives = np.zeros(sz, dtype=float)
+    derivatives[indices] = 1.0
+    jac = sps.dia_matrix((derivatives, 0), shape=(sz, sz)).tocsr()
+    var = AdArray(state, jac)
+    return var
 
 
 class AdArray:
