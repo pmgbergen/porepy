@@ -10,10 +10,11 @@ import numpy as np
 
 from porepy.models.model_runner import ModelInstance
 from porepy.numerics.linear_solvers import LinearSolver
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

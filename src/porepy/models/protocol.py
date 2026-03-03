@@ -667,8 +667,8 @@ else:
             """Called after a simulation run successfully."""
 
         def initialize_nonlinear_solution(self) -> None:
-            """Set the previous time step solution as the initial guess for the nonlinear
-            solver.
+            """Set the previous time step solution as the initial guess for the
+            nonlinear solver.
 
             """
             ...
