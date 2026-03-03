@@ -9,10 +9,11 @@ from typing import Optional, TypeVar
 import numpy as np
 
 import porepy as pp
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
 
 __all__ = ["ModelRunner", "ModelInstance"]
 
@@ -177,26 +178,21 @@ class ModelRunner:
                 "Progress bars are requested, but `tqdm` is not installed. The time"
                 " loop will run without progress bars."
             )
+
+        # Save initial time step size; used for progress bar updates.
+        self._dt_0: float = self.model.time_manager.dt
+
         # To display nested ``tqdm`` bars in the correct order, their positions have to
-        # be specified. The orders are increasing, i.e., 0 is the lowest level, then 1,
-        # etc.
-        # When ``NewtonSolver`` is called inside ``run``, the
-        # ``_nl_progress_bar_position`` parameter specifying the position of the
-        # ``NewtonSolver`` progressbar is passed.
+        # be specified. The orders are increasing, i.e., 0 is the lowest level, then 1.
+        # Position is passed via '_nl_progress_bar_position' when calling 'NewtonSolver'
+        # in ``run``.
         self.params.update({"_nl_progress_bar_position": 1})
 
-        # Check if the user wants a progress bar. Initialize an instance of the
-        # progressbar_class, which is either :class:`~tqdm.trange` or
-        # :class:`~DummyProgressbar` in case `tqdm` is not installed.
         if use_progress_bar:
-            # Initial time step size, used for progress bar updates.
-            self._dt_0: float = self.model.time_manager.dt
-
-            # Create a time bar. The length is estimated as the time_steps predetermined
-            # by the schedule and initial time step size.
-            # NOTE: If, e.g., adaptive time stepping results in more time steps, the
-            # time bar will increase with partial steps corresponding to the ratio of
-            # the modified time step size to the initial time step size.
+            # Create a time bar of length of expected number of time steps, estimated
+            # from the initial time step size.
+            # NOTE: Adaptive time stepping updates the bar proportionally if step sizes
+            # change from initial time step size.
             expected_time_steps: int = int(
                 np.round(
                     (
@@ -206,13 +202,14 @@ class ModelRunner:
                     / self._dt_0
                 )
             )
+
+            # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
                 range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,
             )
-        # Otherwise, use a dummy progress bar.
         else:
             self.time_progressbar = DummyProgressBar()
 
