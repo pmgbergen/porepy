@@ -203,7 +203,7 @@ class NewtonSolver:
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The solver"
-                + " will run without progress bars."
+                " will run without progress bars."
             )
 
         # Check if the user wants a progress bar. Initialize an instance of the
