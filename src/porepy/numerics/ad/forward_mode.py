@@ -789,6 +789,7 @@ class DiagonalAdArray(AdArray):
         super().__init__(val, jac)
 
         self._num_derivatives = num_derivatives
+        """Total number of derivatives in the system."""
         self._indices = indices
         self._offsets = offsets
 
@@ -811,19 +812,19 @@ class DiagonalAdArray(AdArray):
             raise NotImplementedError("Setting")
 
     def __add__(self, other: AdType) -> AdArray:
-        if other._is_diagonal:
-            val = self.val + other.val
-            jac = self.jac + other.jac
-            return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
-            )
-        elif isinstance(other, (float, int, np.ndarray)):
+        if isinstance(other, (float, int, np.ndarray)):
             return DiagonalAdArray(
                 self.val + other,
                 self.jac,
                 self._indices,
                 self._offsets,
                 self._num_derivatives,
+            )
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            val = self.val + other.val
+            jac = self.jac + other.jac
+            return DiagonalAdArray(
+                val, jac, self._indices, self._offsets, self._num_derivatives
             )
 
         else:
@@ -846,7 +847,15 @@ class DiagonalAdArray(AdArray):
         return b
 
     def __mul__(self, other: AdType) -> AdArray:
-        if other._is_diagonal:
+        if isinstance(other, (float, int, np.ndarray)):
+            return DiagonalAdArray(
+                self.val * other,
+                self.jac * other,
+                self._indices,
+                self._offsets,
+                self._num_derivatives,
+            )
+        elif isinstance(other, AdArray) and other._is_diagonal:
             val = self.val * other.val
             # Do atleast 2d to make sure the shapes are compatible for broadcasting,
             jac = self.jac * np.atleast_2d(other.val) + other.jac * np.atleast_2d(
@@ -855,20 +864,18 @@ class DiagonalAdArray(AdArray):
             return DiagonalAdArray(
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
-        elif isinstance(other, (float, int, np.ndarray)):
-            return DiagonalAdArray(
-                self.val * other,
-                self.jac * other,
-                self._indices,
-                self._offsets,
-                self._num_derivatives,
-            )
 
         else:
             return self.to_full().__mul__(other)
 
     def __pow__(self, other: AdType) -> AdArray:
-        if other._is_diagonal:
+        if isinstance(other, (float, int, np.ndarray)):
+            val = self.val**other
+            jac = other * self.val ** (other - 1) * self.jac
+            return DiagonalAdArray(
+                val, jac, self._indices, self._offsets, self._num_derivatives
+            )
+        elif isinstance(other, AdArray) and other._is_diagonal:
             val = self.val**other.val
             jac = (
                 other.val * self.val ** (other.val - 1) * self.jac
@@ -877,38 +884,32 @@ class DiagonalAdArray(AdArray):
             return DiagonalAdArray(
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
-        elif isinstance(other, (float, int, np.ndarray)):
-            val = self.val**other
-            jac = other * self.val ** (other - 1) * self.jac
-            return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
-            )
 
         else:
             return self.to_full().__pow__(other)
 
     def __rpow__(self, other):
-        if other._is_diagonal:
-            return other.__pow__(self)
-        elif isinstance(other, (float, int, np.ndarray)):
+        if isinstance(other, (float, int, np.ndarray)):
             val = other**self.val
             jac = (other**self.val) * np.log(other) * self.jac
             return DiagonalAdArray(
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            return other.__pow__(self)
         else:
             return other.__pow__(self)
 
     def __truediv__(self, other):
-        if other._is_diagonal:
-            val = self.val / other.val
-            jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
+        if isinstance(other, (float, int, np.ndarray)):
+            val = self.val / other
+            jac = self.jac / other
             return DiagonalAdArray(
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
-        elif isinstance(other, (float, int, np.ndarray)):
-            val = self.val / other
-            jac = self.jac / other
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            val = self.val / other.val
+            jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
             return DiagonalAdArray(
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
@@ -916,14 +917,14 @@ class DiagonalAdArray(AdArray):
             return other.__rtruediv__(self)
 
     def __rtruediv__(self, other):
-        if other._is_diagonal:
-            return other.__truediv__(self)
-        elif isinstance(other, (float, int, np.ndarray)):
+        if isinstance(other, (float, int, np.ndarray)):
             val = other / self.val
             jac = -other * self.jac / (self.val**2)
             return DiagonalAdArray(
                 val, jac, self._indices, self._offsets, self._num_derivatives
             )
+        elif isinstance(other, AdArray) and other._is_diagonal:
+            return other.__truediv__(self)
         else:
             return other.__truediv__(self)
 
