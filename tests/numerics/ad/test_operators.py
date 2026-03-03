@@ -1495,7 +1495,7 @@ def _expected_value(
         if op == "@":
             val = var_1 * var_2.val
             if var_2._is_diagonal:
-                jac = var_1 @ sps.diags(var_2.jac)
+                jac = var_1 @ sps.diags(var_2.jac.ravel())
             else:
                 jac = var_1 * var_2.jac
             return pp.ad.AdArray(val, jac)
@@ -1506,7 +1506,7 @@ def _expected_value(
         if op == "@":
             val = var_1 @ var_2.val
             if var_2._is_diagonal:
-                jac = var_1 @ sps.diags(var_2.jac)
+                jac = var_1 @ sps.diags(var_2.jac.ravel())
             else:
                 jac = var_1 @ var_2.jac
             return pp.ad.AdArray(val, jac)
@@ -1558,7 +1558,7 @@ def _expected_value(
             # This evaluates to Array / (2 * Array)
             # The derivative is computed from the product and chain rules
             val = np.array([1 / 2, 1 / 2, 1 / 2])
-            j1 = sps.diags(var_1.jac).toarray()
+            jac = np.atleast_2d(np.zeros(3))
             return pp.ad.DiagonalAdArray(
                 val,
                 jac,
@@ -1572,8 +1572,8 @@ def _expected_value(
             #    Array**(2 * Array - 1) * (2 * Array) * dArray
             #  + Array**(2 * Array) * log(Array) * dArray
             val = np.array([6**12, 15**30, 24**48])
-            j1 = var_1.jac
-            j2 = var_2.jac
+            j1 = var_1.jac[0] if var_1._is_diagonal else var_1.jac
+            j2 = var_2.jac[0] if var_2._is_diagonal else var_2.jac
             jac = np.vstack(  #
                 (
                     var_2.val[0] * var_1.val[0] ** (var_2.val[0] - 1.0) * j1[0]
@@ -1844,11 +1844,11 @@ def test_arithmetic_operations_on_ad_objects(
         elif isinstance(v1, pp.ad.AdArray):
             assert np.allclose(v1.val, v2.val)
             if v1._is_diagonal:
-                jac = sps.diags(v1.jac).toarray()
+                jac = sps.diags(v1.jac.ravel()).toarray()
             else:
                 jac = v1.jac.toarray()
             if v2._is_diagonal:
-                expected_jac = sps.diags(v2.jac).toarray()
+                expected_jac = sps.diags(v2.jac.ravel()).toarray()
             else:
                 expected_jac = v2.jac.toarray()
             assert np.allclose(jac, expected_jac)
