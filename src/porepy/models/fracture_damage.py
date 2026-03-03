@@ -54,13 +54,8 @@ class DamageHistoryVariable(pp.PorePyModel):
             tags={"si_units": "-"},
         )
 
-    def update_time_step_solution(self, solution: np.ndarray) -> None:
-        """Update the solution with the damage history variable.
-
-        Parameters:
-            solution: Solution to update.
-
-        """
+    def update_time_step_solution(self) -> None:
+        """Update the solution with the damage history variable."""
         assert isinstance(self, pp.SolutionStrategy), (
             "The DamageHistoryVariable class should be combined with the "
             "SolutionStrategy class."
@@ -74,7 +69,8 @@ class DamageHistoryVariable(pp.PorePyModel):
         for cls in self.__class__.__mro__:
             if cls in (DamageHistoryVariable, pp.ModelSolverInterface):
                 continue
-            # Check if the class has its own implementation of update_time_step_solution
+            # Check if the class has its own implementation of
+            # update_time_step_solution.
             update_time_step_solution_method = cls.__dict__.get(
                 "update_time_step_solution", None
             )
@@ -100,6 +96,7 @@ class DamageHistoryVariable(pp.PorePyModel):
             max_index=len(self.time_step_indices), variables=other_vars
         )
 
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
