@@ -54,7 +54,7 @@ class DamageHistoryVariable(pp.PorePyModel):
             tags={"si_units": "-"},
         )
 
-    def update_solution(self, solution: np.ndarray) -> None:
+    def update_time_step_solution(self, solution: np.ndarray) -> None:
         """Update the solution with the damage history variable.
 
         Parameters:
@@ -76,13 +76,15 @@ class DamageHistoryVariable(pp.PorePyModel):
                 continue
             if cls is pp.SolutionStrategy:
                 continue
-            # Check if the class has its own implementation of update_solution
-            update_solution_method = cls.__dict__.get("update_solution", None)
-            if update_solution_method is not None:
+            # Check if the class has its own implementation of update_time_step_solution
+            update_time_step_solution_method = cls.__dict__.get(
+                "update_time_step_solution", None
+            )
+            if update_time_step_solution_method is not None:
                 raise AssertionError(
-                    f"The class {cls.__name__} implements update_solution, but the "
-                    "DamageHistoryVariable class assumes only pp.SolutionStrategy "
-                    "implements this method."
+                    f"The class {cls.__name__} implements update_time_step_solution,"
+                    " but the DamageHistoryVariable class assumes only"
+                    "pp.SolutionStrategy implements this method."
                 )
 
         history_variables = self.variables_stored_all_time_steps()
