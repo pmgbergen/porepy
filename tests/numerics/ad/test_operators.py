@@ -1867,11 +1867,12 @@ def test_arithmetic_operations_on_ad_objects(
             # frontend evaluation is done below (calls to equation_system.value()), as
             # well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
-            state = pp.ad.initAdArrays(
-                [equation_system.get_variable_values(time_step_index=0)]
-            )[0]
+            state = equation_system.get_variable_values(time_step_index=0)
+            ad_base = equation_system._ad_parser._initialize_variables(
+                [expression], state, equation_system, derivative=True
+            )
             val = equation_system._ad_parser._evaluate_single(
-                expression, state, equation_system
+                expression, ad_base, equation_system
             )
         except (TypeError, ValueError, NotImplementedError):
             # The variable e is not used here, but it is invaluable for debugging.
