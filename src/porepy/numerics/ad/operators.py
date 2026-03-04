@@ -608,6 +608,26 @@ class Operator:
 
     ### Special methods ----------------------------------------------------------------
 
+    def __check_domains(self, other, op):
+        # Do a rough test of domain compatibility for the operators, and return a
+        # notion of a common domain. This is far from complete, since not all operators
+        # have domains (see GH 1601), but it is gives sufficient functionality for the
+        # diagonal ad array project for now. TODO: Fix.
+
+        if isinstance(self, Scalar):
+            return other.domains
+        elif isinstance(other, Scalar):
+            return self.domains
+        elif op in [Operations.add, Operations.sub, Operations.div, Operations.mul]:
+            if self.domains == []:
+                return other.domains
+            elif other.domains == []:
+                return self.domains
+            if self.domains != other.domains:
+                raise ValueError("Mismatching domains")
+            return self.domains
+        # TODO: What to do with matrix multiplications?
+
     def __str__(self) -> str:
         return self._name if self._name is not None else ""
 
@@ -644,8 +664,15 @@ class Operator:
         if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0)
 
+        new_domains = self.__check_domains(other, Operations.add)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.add, name="+ operator")
+
+        return Operator(
+            children=children,
+            domains=new_domains,
+            operation=Operations.add,
+            name="+ operator",
+        )
 
     def __radd__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -672,8 +699,14 @@ class Operator:
             The difference of self and other.
 
         """
+        new_domains = self.__check_domains(other, Operations.sub)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.sub, name="- operator")
+        return Operator(
+            children=children,
+            domains=new_domains,
+            operation=Operations.sub,
+            name="- operator",
+        )
 
     def __rsub__(self, other: Operator) -> Operator:
         """Subtract two operators.
@@ -701,8 +734,14 @@ class Operator:
             The elementwise product of self and other.
 
         """
+        new_domains = self.__check_domains(other, Operations.mul)
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.mul, name="* operator")
+        return Operator(
+            children=children,
+            domains=new_domains,
+            operation=Operations.mul,
+            name="* operator",
+        )
 
     def __rmul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -717,9 +756,11 @@ class Operator:
             The elementwise product of self and other.
 
         """
+        new_domains = self.__check_domains(other, Operations.mul)
         children = self._parse_other(other)
         return Operator(
             children=children,
+            domains=new_domains,
             operation=Operations.rmul,
             name="right * operator",
         )
@@ -734,8 +775,15 @@ class Operator:
             The elementwise division of self and other.
 
         """
+        new_domains = self.__check_domains(other, Operations.div)
+
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.div, name="/ operator")
+        return Operator(
+            children=children,
+            domains=new_domains,
+            operation=Operations.div,
+            name="/ operator",
+        )
 
     def __rtruediv__(self, other: Operator) -> Operator:
         """Elementwise division of two operators.
@@ -750,9 +798,12 @@ class Operator:
             The elementwise division of other and self.
 
         """
+        new_domains = self.__check_domains(other, Operations.div)
+
         children = self._parse_other(other)
         return Operator(
             children=children,
+            domains=new_domains,
             operation=Operations.rdiv,
             name="right / operator",
         )
@@ -794,7 +845,13 @@ class Operator:
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
         children = self._parse_other(other)
-        return Operator(children=children, operation=Operations.pow, name="** operator")
+        new_domains = self.__check_domains(other, Operations.pow)
+        return Operator(
+            children=children,
+            domains=new_domains,
+            operation=Operations.pow,
+            name="** operator",
+        )
 
     def __rpow__(self, other: Operator) -> Operator:
         """Elementwise exponentiation of two operators.
@@ -809,9 +866,11 @@ class Operator:
             The elementwise exponentiation of other and self.
 
         """
+        new_domains = self.__check_domains(other, Operations.pow)
         children = self._parse_other(other)
         return Operator(
             children=children,
+            domains=new_domains,
             operation=Operations.rpow,
             name="reverse ** operator",
         )
@@ -1599,12 +1658,22 @@ class MixedDimensionalVariable(Variable):
             assert len(set(domains)) == len(domains), (
                 "Cannot create md-variable from variables with overlapping domains."
             )
+            if all(isinstance(grid, pp.Grid) for grid in domains):
+                domain_types = "subdomains"
+            elif all(isinstance(grid, pp.MortarGrid) for grid in domains):
+                domain_types = "interfaces"
+            elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
+                domain_types = "boundary grids"
+            else:
+                raise ValueError("Unknown domain class ")
+
         # Default values for empty md variable
         else:
             time_indices = [-1]
             iter_indices = [None]
             current_iter = [True]
             reference = [False]
+            domain_types = ""
             names = ["empty_md_variable"]
 
         # NOTE everything below here is redundent with a proper super() call
@@ -1636,6 +1705,7 @@ class MixedDimensionalVariable(Variable):
         # domain. While formally correct, this should be picked up in other places so we
         # ignore the warning here.
         self._domains = domains  # type: ignore[assignment]
+        self._domain_type = domain_types
 
         # If someone attempts to create a prev time or iter md-variable using
         # atomic variables at prev time and iter, we have a missing reference to the
