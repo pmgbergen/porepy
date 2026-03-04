@@ -1660,9 +1660,9 @@ def _expected_value(
                 j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
-                if is_v2_doubled:
-                    var_2.val = 2 * var_2.val
-                    j2 = 2 * j2
+                # if is_v2_doubled:
+                #     var_2.val = 2 * var_2.val
+                # j2 = 2 * j2
             jac = sps.csr_matrix(
                 np.vstack(
                     (
@@ -1717,9 +1717,9 @@ def _expected_value(
                 j2 = sps.diags(var_2.jac.ravel()).toarray()
             else:
                 j2 = var_2.jac.toarray()
-                if is_v2_doubled:
-                    var_2.val = 2 * var_2.val
-                    j2 = 2 * j2
+                # if is_v2_doubled:
+                #     var_2.val = 2 * var_2.val
+                #     j2 = 2 * j2
             jac = sps.csr_matrix(
                 np.vstack(  #
                     (
@@ -1798,6 +1798,8 @@ def test_arithmetic_operations_on_ad_objects(
     v1 = _var_from_string(var_1, wrapped)
     v2 = _var_from_string(var_2, wrapped)
 
+    v1_as_value = _var_from_string(var_1, False)
+    v2_as_value = _var_from_string(var_2, False)
     # Some gymnastics is needed here: In the wrapped form, expressions need an
     # EquationSystem for evaluation and, if one of the operands is an AdArray, this
     # should be the EquationSystem used to generate this operand (see method
@@ -1808,7 +1810,16 @@ def test_arithmetic_operations_on_ad_objects(
     # evaluate the expression, but since this will not actually be used for anything, we
     # can generate a new one and pass it as a formality.
     if wrapped:
-        if var_1 in ["ad", "diag"]:
+        if var_1 == "ad" and var_2 == "diag":
+            v1, equation_system = v1
+            v2 = v1 + v1
+            v2_as_value = v1_as_value * 2
+        elif var_1 == "diag" and var_2 == "ad":
+            v1, equation_system = v1
+            v2 = v1 + v1
+            v2_as_value = v1_as_value * 2
+
+        elif var_1 in ["ad", "diag"]:
             v1, equation_system = v1
         elif var_2 in ["ad", "diag"]:
             # The case of both v1 and v2 being Ad variables is dealt with below.
@@ -1823,14 +1834,13 @@ def test_arithmetic_operations_on_ad_objects(
         # we reassign v2 = v1 + v1. This also requires some adaptations in the
         # code to get the expected values, see that function.
         v2 = v1 + v1
+        v2_as_value = v1_as_value * 2
 
     # Calculate the expected numerical values for this expression. This inolves
     # hard-coded values for the different operators and their combinations, see the
     # function for more information. If the operation is not expected to succeeed, the
     # function will return False.
-    expected = _expected_value(
-        _var_from_string(var_1, False), _var_from_string(var_2, False), op
-    )
+    expected = _expected_value(v1_as_value, v2_as_value, op)
 
     def _compare(v1, v2):
         # Helper function to compare two evaluated objects.
@@ -1859,6 +1869,15 @@ def test_arithmetic_operations_on_ad_objects(
     # but the logic is the same: Try to evaluate. If this breaks, check that this was
     # not a surprize (variable expected is False).
     if wrapped:
+        # TODO BEFORE PR: Delete lines below, down to 'try':
+        # expression = eval(f"v1 {op} v2")
+        # state = equation_system.get_variable_values(time_step_index=0)
+        # ad_base = equation_system._ad_parser._initialize_variables(
+        #     [expression], state, equation_system, derivative=True
+        # )
+        # val = equation_system._ad_parser._evaluate_single(
+        #     expression, ad_base, equation_system
+        # )
         try:
             # The idea here is to test evaluation on the deepest level, i.e., the method
             # _evaluate_single in the AdParser. This is the method that actually
