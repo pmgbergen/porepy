@@ -34,18 +34,17 @@ def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
         ``variables`` list.
 
     """
-
     num_values_per_variable = [v.size for v in variables]
     ad_arrays: list[AdArray] = []
-
-    offsets = np.cumsum([0] + num_values_per_variable)
 
     for i, val in enumerate(variables):
         # initiate zero jacobian
         n = num_values_per_variable[i]
-        jac = np.zeros(sum(num_values_per_variable), dtype=float)
-        # Set jacobian of variable i to 1
-        jac[offsets[i] : offsets[i + 1]] = 1.0
+        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
+        # Set jacobian of variable i to I
+        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
+        # initiate AdArray
+        jac = sps.bmat([jac])
         ad_arrays.append(AdArray(val, jac))
 
     return ad_arrays
