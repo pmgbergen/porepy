@@ -714,7 +714,7 @@ def test_variable_combinations(grids, variables):
                 assert np.allclose(expr.val, values)
                 # Check that the Jacobian matrix has the right number of columns
                 if isinstance(expr, pp.ad.AdArray) and expr._is_diagonal:
-                    sz = expr.jac.size
+                    sz = expr.to_full().jac.shape[1]
                 else:
                     sz = expr.jac.shape[1]
 
@@ -734,7 +734,7 @@ def test_variable_combinations(grids, variables):
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
         # Check that the Jacobian matrix size is correct
         if isinstance(expr, pp.ad.AdArray) and expr._is_diagonal:
-            sz = expr.jac.size
+            sz = expr.to_full().jac.shape[1]
         else:
             sz = expr.jac.shape[1]
         assert sz == equation_system.num_dofs()
@@ -771,7 +771,7 @@ def test_variable_combinations(grids, variables):
                 expr = eq.value_and_jacobian(equation_system)
                 # Jacobian matrix size is set according to the dof manager,
                 if isinstance(expr, pp.ad.AdArray) and expr._is_diagonal:
-                    sz = expr.jac.size
+                    sz = expr.to_full().jac.shape[1]
                 else:
                     sz = expr.jac.shape[1]
                 assert sz == equation_system.num_dofs()
