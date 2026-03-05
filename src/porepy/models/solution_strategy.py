@@ -254,13 +254,6 @@ class ModelSolverInterface(pp.PorePyModel):
 
         """
 
-    def after_solver_failure(self) -> None:
-        """Called if the solver fails to converge or diverges.
-
-        The base method does nothing.
-
-        """
-
     def after_solver_failure(self) -> SimulationStatus:
         """Method to be called if the solver fails to converge.
 
@@ -272,7 +265,7 @@ class ModelSolverInterface(pp.PorePyModel):
                 if serious issues are detected.
 
         """
-        if not self._is_nonlinear_problem():
+        if not self.is_nonlinear_problem():
             warn("Failed to solve linear system for the linear problem.")
             return SimulationStatus.STOPPED
 
@@ -297,7 +290,7 @@ class ModelSolverInterface(pp.PorePyModel):
             prev_solution = self.equation_system.get_variable_values(time_step_index=0)
             self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
-        return SimulationStatus.FAILED
+            return SimulationStatus.FAILED
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
@@ -637,8 +630,8 @@ class SolutionStrategy(ModelSolverInterface):
         statistics = self.params.get(
             "nonlinear_solver_statistics",
             SolverStatisticsFactory.create_statistics_type(
-                nonlinear=self._is_nonlinear_problem(),
-                time_dependent=self._is_time_dependent(),
+                nonlinear=self.is_nonlinear_problem(),
+                time_dependent=self.is_time_dependent(),
             ),
         )
 

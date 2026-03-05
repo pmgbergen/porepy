@@ -641,7 +641,7 @@ else:
         def after_solver_convergence(self) -> None:
             """Called after the solver converges."""
 
-        def after_solver_failure(self) -> None:
+        def after_solver_failure(self) -> pp.SimulationStatus:
             """Called if the solver fails to converge or diverges."""
 
         def after_time_step_convergence(self) -> None:
@@ -675,63 +675,6 @@ else:
             """Shifts the solution per time step index and sets the provided solution
             as the recent time step solution.
 
-
-            """
-
-        def check_convergence(
-            self,
-            nonlinear_increment: np.ndarray,
-            residual: Optional[np.ndarray],
-            reference_residual: np.ndarray,
-            nl_params: dict[str, Any],
-        ) -> tuple[bool, bool]:
-            """Implements a convergence check, to be called by a non-linear solver.
-
-            Parameters:
-                nonlinear_increment: Newly obtained solution increment vector
-                residual: Residual vector of non-linear system, evaluated at the newly
-                    obtained solution vector. Potentially None, if not needed.
-                reference_residual: Reference residual vector of non-linear system,
-                    evaluated for the initial guess at current time step.
-                nl_params: Dictionary of parameters used for the convergence check.
-                    Which items are required will depend on the convergence test to be
-                    implemented.
-
-            Returns:
-                A 2-tuple containing two bools.
-
-                1. ``converged``: True if the solution is converged according to the
-                   test implemented by this method.
-                2. ``diverged``: True if the solution is diverged according to the test
-                   implemented by this method.
-
-            """
-
-        def compute_residual_norm(
-            self, residual: Optional[np.ndarray], reference_residual: np.ndarray
-        ) -> float:
-            """Compute the residual norm for a nonlinear iteration.
-
-            Parameters:
-                residual: Residual of current iteration.
-                reference_residual: Reference residual value (initial residual expected)
-                    allowing for defining relative criteria.
-
-            Returns:
-                float: Residual norm; np.nan if the residual is None.
-
-            """
-
-        def compute_nonlinear_increment_norm(
-            self, nonlinear_increment: np.ndarray
-        ) -> float:
-            """Compute the norm based on the update increment for a nonlinear iteration.
-
-            Parameters:
-                nonlinear_increment: Solution to the linearization.
-
-            Returns:
-                float: Update increment norm.
 
             """
 

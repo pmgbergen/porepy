@@ -9,6 +9,7 @@ from typing import Optional, TypeVar
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -217,8 +218,8 @@ class ModelRunner:
                 # Time loop.
                 while not self.model.time_manager.final_time_reached():
                     self.before_time_step()
-                    time_step_converged = self.solver.solve(self.model)
-                    self.after_time_step(time_step_converged)
+                    time_step_status = self.solver.solve(self.model)
+                    self.after_time_step(time_step_status)
         else:
             converged = self.solver.solve(self.model)
             if converged:
@@ -255,12 +256,15 @@ class ModelRunner:
             f"Time step {self.model.time_manager.time_index}"
         )
 
-    def after_time_step(self, time_step_converged: bool) -> None:
-        if time_step_converged:
+    def after_time_step(self, time_step_status: SimulationStatus) -> None:
+        if time_step_status.is_successful():
             # Update the time step magnitude if the dynamic scheme is used.
             if not self.model.time_manager.is_constant:
+                assert isinstance(
+                    self.model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+                )
                 self.model.time_manager.compute_time_step(
-                    iterations=self.model.nonlinear_solver_statistics.num_iteration
+                    iterations=self.model.nonlinear_solver_statistics.num_iterations
                 )
             self.model.after_time_step_convergence()
 

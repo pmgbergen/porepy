@@ -9,7 +9,6 @@ case, see numerics.nonlinear.nonlinear_solvers.
 from __future__ import annotations
 
 from porepy.models.model_runner import ModelInstance
-from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
@@ -84,10 +83,12 @@ class LinearSolver:
         model.after_solver_iteration(nonlinear_increment)
         # NOTE: The linear solver performs only one iteration.
         # FIXME: Consider renaming the solver statistics to just "solver statistics".
-        model.nonlinear_solver_statistics.num_iteration = 1
+        # model.nonlinear_solver_statistics.num_iterations = 1
 
         # Monitor convergence.
-        status, info = self.check_convergence(model, nonlinear_increment)
+        convergence_status, divergence_status, _ = self.check_convergence(
+            model, nonlinear_increment
+        )
 
         # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
         # there is something wrong with how the linear and non-linear solvers
@@ -100,25 +101,34 @@ class LinearSolver:
         # after_nonlinear_iteration(), and then after_nonlinear_convergence()
 
         # Update model status.
-        model.after_nonlinear_iteration(nonlinear_increment)
+        model.after_solver_iteration(nonlinear_increment)
 
         # React to convergence status.
-        if status.is_converged():
+        if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
-            model.after_nonlinear_convergence()
-        elif status.is_diverged():
-            simulation_status = model.after_nonlinear_failure()
+            self.update_solver_statistics(model, simulation_status=simulation_status)
+            model.after_solver_convergence()
+        elif divergence_status.is_diverged():
+            # TODO: Get back to this when reimplementing time stepping.
+            # NOTE: Currently, if a simulation fully stopps, this is not logged in
+            # SolverStatistics. For this, better coordination between solver and time
+            # stepping is needed.
+            simulation_status = model.after_solver_failure()
         else:
-            raise ValueError(f"Unknown convergence status: {status}")
+            raise ValueError(f"Unknown convergence status: {convergence_status}")
 
         # Update (global) solver statistics.
-        self.update_solver_statistics(model, simulation_status)
+        self.update_solver_statistics(model, simulation_status=simulation_status)
 
         return simulation_status
 
     def check_convergence(
-        self, model: SolutionStrategy, nonlinear_increment
-    ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
+        self, model: ModelInstance, nonlinear_increment
+    ) -> tuple[
+        ConvergenceStatusCollection,
+        ConvergenceStatusCollection,
+        ConvergenceInfoCollection,
+    ]:
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
@@ -147,13 +157,14 @@ class LinearSolver:
 
         # Combine convergence and divergence status.
         return (
-            convergence_status.union(divergence_status),
+            convergence_status,
+            divergence_status,
             convergence_info,
         )
 
     def update_solver_statistics(
         self,
-        model: SolutionStrategy,
+        model: ModelInstance,
         simulation_status: SimulationStatus,
     ) -> None:
         """Update the solver statistics in the model.
@@ -167,7 +178,7 @@ class LinearSolver:
         # Basic discretization-related information and overall simulation status.
         model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
-        if model._is_time_dependent():
+        if model.is_time_dependent():
             assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
             model.nonlinear_solver_statistics.log_time_information(
                 model.time_manager.time_index,

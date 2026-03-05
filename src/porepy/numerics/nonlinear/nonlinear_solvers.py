@@ -174,7 +174,7 @@ class NewtonSolver(LinearSolver):
                     max_iterations = c.max_iterations
         else:
             # Default parameters for divergence criteria.
-            max_iterations = self.params.get("nl_max_iterations", 10)
+            max_iterations = int(self.params.get("nl_max_iterations", 10))
             inc_div_atol = self.params.get("nl_divergence_inc_atol", np.inf)
             res_div_atol = self.params.get("nl_divergence_res_atol", np.inf)
             metric = self.params.get("nl_metric", pp.EuclideanMetric())
@@ -240,7 +240,7 @@ class NewtonSolver(LinearSolver):
         """Advance to the next iteration."""
         self.iteration_index += 1
 
-    def solve(self, model: SolutionStrategy) -> SimulationStatus:
+    def solve(self, model: ModelInstance) -> SimulationStatus:
         """Solve the nonlinear problem using the Newton-Raphson method.
 
         Parameters:
@@ -263,7 +263,7 @@ class NewtonSolver(LinearSolver):
 
         return simulation_status
 
-    def before_nonlinear_loop(self, model: SolutionStrategy) -> None:
+    def before_nonlinear_loop(self, model: ModelInstance) -> None:
         """Prepare for the nonlinear loop.
 
         Parameters:
@@ -278,7 +278,7 @@ class NewtonSolver(LinearSolver):
         self.convergence_criteria.reset()
 
     def nonlinear_loop(
-        self, model: SolutionStrategy
+        self, model: ModelInstance
     ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
         """Perform the nonlinear loop (Newton iterations).
 
@@ -295,14 +295,14 @@ class NewtonSolver(LinearSolver):
             # Perform at least one Newton iteration.
             while True:
                 # Prepare for nonlinear iteration.
-                self.before_solver_iteration(model)
+                self.before_nonlinear_iteration(model)
 
                 # Perform nonlinear iteration and obtain increment.
                 nonlinear_increment = self.nonlinear_iteration(model)
 
                 # Finalize nonlinear iteration and determine status.
-                (convergence_status, divergence_status) = self.after_solver_iteration(
-                    model, nonlinear_increment
+                (convergence_status, divergence_status) = (
+                    self.after_nonlinear_iteration(model, nonlinear_increment)
                 )
 
                 # Exit the Newton loop.
@@ -313,7 +313,7 @@ class NewtonSolver(LinearSolver):
 
     def after_nonlinear_loop(
         self,
-        model: SolutionStrategy,
+        model: ModelInstance,
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
     ) -> SimulationStatus:
@@ -331,11 +331,8 @@ class NewtonSolver(LinearSolver):
         # React to convergence status. Let convergence trump divergence.
         if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
-            self.update_solver_statistics(model, simulation_status=simulation_status)
             model.after_solver_convergence()
         elif divergence_status.is_diverged():
-            simulation_status = SimulationStatus.FAILED
-            self.update_solver_statistics(model, simulation_status=simulation_status)
             # TODO: Get back to this when reimplementing time stepping.
             # NOTE: Currently, if a simulation fully stopps, this is not logged in
             # SolverStatistics. For this, better coordination between solver and time
@@ -344,12 +341,15 @@ class NewtonSolver(LinearSolver):
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
 
+        # Update (global) solver statistics.
+        self.update_solver_statistics(model, simulation_status=simulation_status)
+
         # Close the progress bar.
         self.solver_progressbar.close()
 
         return simulation_status
 
-    def before_nonlinear_iteration(self, model: SolutionStrategy) -> None:
+    def before_nonlinear_iteration(self, model: ModelInstance) -> None:
         """Prepare for a nonlinear iteration.
 
         Parameters:
@@ -360,7 +360,7 @@ class NewtonSolver(LinearSolver):
         self.increase_iteration_index()
 
         # Prepare model for a nonlinear iteration.
-        model.before_nonlinear_iteration()
+        model.before_solver_iteration()
 
     def nonlinear_iteration(self, model: ModelInstance) -> np.ndarray:
         """Perform a single nonlinear iteration.
@@ -378,7 +378,7 @@ class NewtonSolver(LinearSolver):
         nonlinear_increment = self.iteration(model)
         return nonlinear_increment
 
-    def iteration(self, model: SolutionStrategy) -> np.ndarray:
+    def iteration(self, model: ModelInstance) -> np.ndarray:
         """A single linearization step.
 
         Parameters:
@@ -393,7 +393,7 @@ class NewtonSolver(LinearSolver):
         return nonlinear_increment
 
     def after_nonlinear_iteration(
-        self, model: SolutionStrategy, nonlinear_increment: np.ndarray
+        self, model: ModelInstance, nonlinear_increment: np.ndarray
     ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
         """Finalize a nonlinear iteration.
 
@@ -430,7 +430,7 @@ class NewtonSolver(LinearSolver):
 
     def check_convergence(
         self,
-        model: SolutionStrategy,
+        model: ModelInstance,
         nonlinear_increment: np.ndarray,
     ) -> tuple[
         ConvergenceStatusCollection,
@@ -475,7 +475,7 @@ class NewtonSolver(LinearSolver):
 
     def logging(
         self,
-        model: SolutionStrategy,
+        model: ModelInstance,
         convergence_info: dict[str, dict | float],
         nonlinear_increment: np.ndarray,
     ) -> None:
@@ -521,7 +521,7 @@ class NewtonSolver(LinearSolver):
 
     def update_solver_statistics(
         self,
-        model: SolutionStrategy,
+        model: ModelInstance,
         simulation_status: SimulationStatus | None = None,
         convergence_status: ConvergenceStatusCollection | None = None,
         convergence_info: ConvergenceInfoCollection | None = None,
