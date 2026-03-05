@@ -621,3 +621,59 @@ def test_poromechanics_well():
     }
     model = PoromechanicsWell(model_params)
     pp.run_time_dependent_model(model)
+
+
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_poromechanics_empty_equation_filter(model_class):
+    """Test that empty equations in poromechanics models exist and are 
+    filtered before assembly. 
+
+    For poromechanics models without fractures, the fracture-related equations
+    can still exist in the equation system. These empty equations should be 
+    filtered and not contribute to the assembly pipline. 
+    """
+
+    # Run models without fractures. 
+    fluid = pp.FluidComponent(compressibility=0.5)
+    solid = pp.SolidConstants(biot_coefficient=0.5)
+    params = {
+        "fracture_indices": [],
+        "material_constants": {"fluid": fluid, "solid": solid},
+        "u_north": [0.0, 0.001],
+        "grid_type": "cartesian",
+        "times_to_export": [],
+    }
+    model = model_class(params)
+    model.prepare_simulation()
+    equation_system = model.equation_system
+
+    all_equations = list(equation_system._equations.keys())
+    parsed_equations = list(equation_system._parse_equations().keys())
+
+    # Check empty equations exist. 
+    empty_equations = []
+    for name in equation_system._equations:
+        total = sum(
+            len(indices)
+            for indices in equation_system._equation_image_space_composition[name].values()
+        )
+        if total == 0:
+            empty_equations.append(name)
+
+    assert len(empty_equations) > 0
+
+    # Check empty equations are filtered. 
+    for name in empty_equations: 
+        assert name not in parsed_equations
+
+    # Check that the assembled system does not include empty equations.
+    A_all, b_all = equation_system.assemble(all_equations)
+    A_filtered, b_filtered = equation_system.assemble(parsed_equations)
+
+    assert A_all.shape == A_filtered.shape
+    assert np.allclose(b_all, b_filtered)
+    assert pp.test_utils.arrays.compare_matrices(A_all, A_filtered)
+
+
