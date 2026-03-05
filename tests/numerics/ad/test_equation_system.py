@@ -1600,3 +1600,37 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
 
     # Check bookkeeping does not suddenly include the empty equation.
     assert "empty_equation" not in equation_system.assembled_equation_indices
+
+def test_schur_complement_empty_equation_filter():
+
+    model = EquationSystemMockModel(square_system=True)
+    equation_system = model.equation_system
+
+    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
+
+    # Generate a reference Schur system.
+    S_ref, bS_ref = equation_system.assemble_schur_complement_system(
+        primary_equations=["eq_all_subdomains"],
+        primary_variables=["x"],
+        inverter=inverter,
+    )
+
+    # Add equation on empty domain using the empty variable
+    model.add_equation_on_empty_domain()
+
+    # Check the empty equation exists in system.
+    assert "empty_equation" in equation_system._equations
+
+    # Check whether the parse filter the empty equation out.
+    assert "empty_equation" not in equation_system._parse_equations()
+
+    # Check Schur complement should be unchanged. 
+    S, bS = equation_system.assemble_schur_complement_system(
+        primary_equations=["eq_all_subdomains"],
+        primary_variables=["x"],
+        inverter=inverter,
+    )
+
+    assert np.allclose(bS, bS_ref)
+    assert S.shape == S_ref.shape
+    assert pp.test_utils.arrays.compare_matrices(S, S_ref)
