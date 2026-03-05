@@ -9,7 +9,6 @@ from typing import Optional, TypeVar
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -256,7 +255,7 @@ class ModelRunner:
             f"Time step {self.model.time_manager.time_index}"
         )
 
-    def after_time_step(self, time_step_status: SimulationStatus) -> None:
+    def after_time_step(self, time_step_status: pp.SimulationStatus) -> None:
         if time_step_status.is_successful():
             # Update the time step magnitude if the dynamic scheme is used.
             if not self.model.time_manager.is_constant:

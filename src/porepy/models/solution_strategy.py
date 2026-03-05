@@ -19,7 +19,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -254,7 +253,7 @@ class ModelSolverInterface(pp.PorePyModel):
 
         """
 
-    def after_solver_failure(self) -> SimulationStatus:
+    def after_solver_failure(self) -> pp.SimulationStatus:
         """Method to be called if the solver fails to converge.
 
         Allowed to adapt the convergence status, used for orchestration of the
@@ -267,11 +266,11 @@ class ModelSolverInterface(pp.PorePyModel):
         """
         if not self.is_nonlinear_problem():
             warn("Failed to solve linear system for the linear problem.")
-            return SimulationStatus.STOPPED
+            return pp.SimulationStatus.STOPPED
 
         elif self.time_manager.is_constant:
             warn("Failed to solve the nonlinear problem.")
-            return SimulationStatus.STOPPED
+            return pp.SimulationStatus.STOPPED
 
         else:
             raise NotImplementedError("Code left over due to merge conflict")
@@ -283,14 +282,14 @@ class ModelSolverInterface(pp.PorePyModel):
                 # Redirect the exception as a warning, and give the control to
                 # the run_models module to stop the simulation.
                 warn(str(e))
-                return SimulationStatus.STOPPED
+                return pp.SimulationStatus.STOPPED
 
             # Reset the iterate values. This ensures that the initial guess for an
             # unknown time step equals the known time step.
             prev_solution = self.equation_system.get_variable_values(time_step_index=0)
             self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
-            return SimulationStatus.FAILED
+            return pp.SimulationStatus.FAILED
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.

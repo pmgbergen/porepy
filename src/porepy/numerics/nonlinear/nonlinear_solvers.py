@@ -19,7 +19,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
     DivergenceCriteria,
-    SimulationStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
@@ -240,7 +239,7 @@ class NewtonSolver(LinearSolver):
         """Advance to the next iteration."""
         self.iteration_index += 1
 
-    def solve(self, model: ModelInstance) -> SimulationStatus:
+    def solve(self, model: ModelInstance) -> pp.SimulationStatus:
         """Solve the nonlinear problem using the Newton-Raphson method.
 
         Parameters:
@@ -316,7 +315,7 @@ class NewtonSolver(LinearSolver):
         model: ModelInstance,
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
-    ) -> SimulationStatus:
+    ) -> pp.SimulationStatus:
         """Finalize the nonlinear loop.
 
         Parameters:
@@ -330,7 +329,7 @@ class NewtonSolver(LinearSolver):
         """
         # React to convergence status. Let convergence trump divergence.
         if convergence_status.is_converged():
-            simulation_status = SimulationStatus.SUCCESSFUL
+            simulation_status = pp.SimulationStatus.SUCCESSFUL
             model.after_solver_convergence()
         elif divergence_status.is_diverged():
             # TODO: Get back to this when reimplementing time stepping.
@@ -522,7 +521,7 @@ class NewtonSolver(LinearSolver):
     def update_solver_statistics(
         self,
         model: ModelInstance,
-        simulation_status: SimulationStatus | None = None,
+        simulation_status: pp.SimulationStatus | None = None,
         convergence_status: ConvergenceStatusCollection | None = None,
         convergence_info: ConvergenceInfoCollection | None = None,
     ) -> None:

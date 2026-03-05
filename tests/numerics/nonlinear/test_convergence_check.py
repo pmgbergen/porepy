@@ -31,7 +31,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     NanDivergenceCriterion,
     RelativeConvergenceCriterion,
     RelativeDivergenceCriterion,
-    SimulationStatus,
 )
 
 
@@ -58,7 +57,7 @@ def multiphysics_check(info, expected_value):
 
 def test_simulation_status_methods():
     """Test the status check methods of SimulationStatus enum members."""
-    s = SimulationStatus
+    s = pp.SimulationStatus
     assert s.IN_PROGRESS.is_in_progress()
     assert s.SUCCESSFUL.is_successful()
     assert s.FAILED.is_failed()
@@ -83,7 +82,7 @@ def test_simulation_status_methods():
 
 def test_simulation_status_str():
     """Test the string representation of SimulationStatus enum members."""
-    s = SimulationStatus
+    s = pp.SimulationStatus
     assert str(s.IN_PROGRESS) == "in_progress"
     assert str(s.SUCCESSFUL) == "successful"
     assert str(s.FAILED) == "failed"

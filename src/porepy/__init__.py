@@ -265,6 +265,7 @@ from porepy.models.metric import (
 
 # Divergence criteria
 from porepy.numerics.nonlinear.convergence_check import (
+    SimulationStatus,
     MaxIterationsCriterion,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
