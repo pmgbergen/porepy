@@ -951,7 +951,6 @@ def test_model_time_step_control(params: dict):
         "nl_max_iterations": MAX_NONLINEAR_ITER,
     }
 
-    
     if should_fail:
         assert issubclass(should_fail, Exception), "Test needs error specification."
         with pytest.raises(should_fail):

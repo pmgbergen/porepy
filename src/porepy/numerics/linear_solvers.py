@@ -9,8 +9,6 @@ case, see numerics.nonlinear.nonlinear_solvers.
 from __future__ import annotations
 
 from porepy.models.model_runner import ModelInstance
-from typing import Optional
-
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
@@ -38,7 +36,7 @@ class LinearSolver:
     def __init__(self, params: dict | None = None) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed during instantiation."""
-        
+
         # Default parameters for convergence and divergence criteria
         if "nl_convergence_criteria" not in self.params:
             self.params["nl_convergence_criteria"] = {}

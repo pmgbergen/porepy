@@ -279,7 +279,7 @@ class ModelSolverInterface(pp.PorePyModel):
         elif self.time_manager.is_constant:
             warn("Failed to solve the nonlinear problem.")
             return SimulationStatus.STOPPED
-          
+
         else:
             raise NotImplementedError("Code left over due to merge conflict")
             # Update the time step magnitude if the dynamic scheme is used.
@@ -298,7 +298,7 @@ class ModelSolverInterface(pp.PorePyModel):
             self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
         return SimulationStatus.FAILED
-        
+
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
 
@@ -475,7 +475,7 @@ class ModelSolverInterface(pp.PorePyModel):
 
         """
         return bool(self.params.get("apply_schur_complement_reduction", False))
-     
+
 
 class SolutionStrategy(ModelSolverInterface):
     """This is a class that specifies methods that a model must implement to
@@ -619,7 +619,7 @@ class SolutionStrategy(ModelSolverInterface):
         """Create an equation_system manager on the mixed-dimensional grid."""
         if not hasattr(self, "equation_system"):
             self.equation_system = pp.ad.EquationSystem(self.mdg)
-            
+
     def set_nonlinear_solver_statistics(self) -> None:
         """Set the solver statistics object.
 
@@ -641,7 +641,7 @@ class SolutionStrategy(ModelSolverInterface):
                 time_dependent=self._is_time_dependent(),
             ),
         )
-        
+
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
         if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):

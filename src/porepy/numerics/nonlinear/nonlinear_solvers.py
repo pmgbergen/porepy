@@ -9,9 +9,9 @@ from typing import cast
 
 import numpy as np
 
+import porepy as pp
 from porepy.models.model_runner import ModelInstance
 from porepy.numerics.linear_solvers import LinearSolver
-import porepy as pp
 
 # from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
@@ -58,10 +58,10 @@ class NewtonSolver(LinearSolver):
 
     def __init__(self, params=None) -> None:
         super().__init__(params)
-        
+
         if params is None:
             params = {}
-            
+
         self.params = params
         """Dictionary of parameters for the nonlinear solver."""
         self.iteration_index: int = 0
@@ -301,8 +301,8 @@ class NewtonSolver(LinearSolver):
                 nonlinear_increment = self.nonlinear_iteration(model)
 
                 # Finalize nonlinear iteration and determine status.
-                (convergence_status, divergence_status) = (
-                    self.after_solver_iteration(model, nonlinear_increment)
+                (convergence_status, divergence_status) = self.after_solver_iteration(
+                    model, nonlinear_increment
                 )
 
                 # Exit the Newton loop.

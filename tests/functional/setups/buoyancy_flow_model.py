@@ -17,7 +17,7 @@ Fixed- and mixed-dimensional meshes are defined on cartesian grids.
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Callable, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
@@ -493,6 +493,7 @@ class BaseFlowModel(
         gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
         gravity_field.set_name("gravity_field")
         return gravity_field
+
 
 # constitutive description for N=2
 def temperature_2N(

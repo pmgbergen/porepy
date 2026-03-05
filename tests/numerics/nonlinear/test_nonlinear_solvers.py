@@ -1102,11 +1102,13 @@ def test_integration_nonlinear_iteration_count(num_iterations):
 
     """
     model = SinglePhaseFlow({"times_to_export": []})
-    pp.ModelRunner(model, {
+    pp.ModelRunner(
+        model,
+        {
             "nl_convergence_inc_atol": 0,
             "nl_convergence_res_atol": 0,
             "nl_max_iterations": num_iterations,
-        }
+        },
     ).run()
 
     assert model.nonlinear_solver_statistics.num_iterations == num_iterations
