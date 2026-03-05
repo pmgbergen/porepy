@@ -343,7 +343,7 @@ class AdParser:
                 if op.is_previous_iterate or op.is_previous_time or op.is_reference:
                     # Empty vector like the global vector of unknowns for prev time/iter
                     # insert the values at the right dofs and slice.
-                    vals = np.zeros(op.size, dtype=float)
+                    vals = np.zeros(equation_system.num_dofs(), dtype=float)
                     # List of indices for sub variables.
                     dofs = []
                     for sub_var in op.sub_vars:
