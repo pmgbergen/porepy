@@ -627,12 +627,12 @@ def test_poromechanics_well():
     "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
 )
 def test_poromechanics_empty_equation_filter(model_class):
-    """Test that empty equations in poromechanics models exist and are 
+    """Test that empty domain equations in poromechanics models exist and are 
     filtered before assembly. 
 
     For poromechanics models without fractures, the fracture-related equations
-    can still exist in the equation system. These empty equations should be 
-    filtered and not contribute to the assembly pipline. 
+    can still exist in the equation system. These empty domain equations should 
+    be filtered and not contribute to the assembly pipline. 
     """
 
     # Run models without fractures. 
@@ -652,7 +652,7 @@ def test_poromechanics_empty_equation_filter(model_class):
     all_equations = list(equation_system._equations.keys())
     parsed_equations = list(equation_system._parse_equations().keys())
 
-    # Check empty equations exist. 
+    # Check empty domain equations exist. 
     empty_equations = []
     for name in equation_system._equations:
         total = sum(
@@ -664,11 +664,11 @@ def test_poromechanics_empty_equation_filter(model_class):
 
     assert len(empty_equations) > 0
 
-    # Check empty equations are filtered. 
+    # Check empty domain equations are filtered. 
     for name in empty_equations: 
         assert name not in parsed_equations
 
-    # Check that the assembled system does not include empty equations.
+    # Check that the assembled system does not include empty domain equations.
     A_all, b_all = equation_system.assemble(all_equations)
     A_filtered, b_filtered = equation_system.assemble(parsed_equations)
 
