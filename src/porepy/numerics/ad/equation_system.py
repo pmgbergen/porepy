@@ -1405,6 +1405,17 @@ class EquationSystem:
             # By now, all equations are contained in requested_row_blocks.
             if equation in requested_row_blocks:
                 ordered_blocks.update({equation: requested_row_blocks[equation]})
+       
+        # Remove equations with empty domains (1.e., zero dofs).
+        ordered_blocks = {
+            name: row 
+            for name, row in ordered_blocks.items()
+            if sum(
+                len(indices) 
+                for indices in self._equation_image_space_composition[name].values()
+            )
+            > 0
+        }
 
         # Filter to remove equations with empty domains (1.e., zero dofs).
         ordered_blocks = {
