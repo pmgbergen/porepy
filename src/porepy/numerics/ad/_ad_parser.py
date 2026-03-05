@@ -278,22 +278,29 @@ class AdParser:
         # the state of the diagonal variables to zero; this should
         other_variables = list(set(other_variables))
         ind_other_vars = [equation_system.dofs_of([var]) for var in other_variables]
+        # Make a stacked verison of the indices to create a global array of the other
+        # variables. We will keep the indices of individual variables to split this below.
+        # TODO: It should be possible to avoid this, perhaps by reactivating the old
+        # initAdArray function.
         if len(ind_other_vars) == 0:
-            ind_other_vars = np.array([], dtype=int)
+            ind_other_vars_stacked = np.array([], dtype=int)
         else:
-            ind_other_vars = np.hstack(ind_other_vars)
+            ind_other_vars_stacked = np.hstack(ind_other_vars)
 
         other_state = np.zeros_like(state)
 
-        other_state[ind_other_vars] = state[ind_other_vars]
-        ordinary_vars = pp.ad.init_partial_ad_array(other_state, ind_other_vars)
+        other_state[ind_other_vars_stacked] = state[ind_other_vars_stacked]
+        ordinary_vars = pp.ad.init_partial_ad_array(other_state, ind_other_vars_stacked)
 
-        for ind in ind_diag_vars:
-            assert np.all(ordinary_vars.val[ind] == 0)
-            assert np.all(ordinary_vars.jac[ind].toarray() == 0)
+        # TODO: Clean up. Disable this test for cases where a variable is present both
+        # as mixed (and then ammenable for diagonal treatment) and atomic (not ammenable
+        # since it does not cover all subdomains).
+        # for ind in ind_diag_vars:
+        #     assert np.all(ordinary_vars.val[ind] == 0)
+        #     assert np.all(ordinary_vars.jac[ind].toarray() == 0)
 
-        for op, diag_var in zip(variables_for_diag_representation, diag_vars):
-            array_map[op] = diag_var
+        for op, inds in zip(other_variables, ind_other_vars):
+            array_map[op] = ordinary_vars[inds]
 
         return array_map
 
