@@ -1156,10 +1156,12 @@ def test_parse_single_equation(model: EquationSystemMockModel):
 def test_parse_equations(model: EquationSystemMockModel):
     """Test the helper function for parsing equations.
 
-    The test focuses on the functionality of EquationSystem._parse_equation_like()
+    The test focuses on the functionality of EquationSystem._parse_equation()
     beyond the parsing of individual equations, which is tested in the method
-    test_parse_single_equation_like(). That is, we test the parsing of multiple
+    test_parse_single_equation(). That is, we test the parsing of multiple
     equations and check that the order of the returned equations is correct.
+    In addition, we test that equations on empty domain are not parsed in the
+    equation system.
 
     """
     equation_system = model.equation_system
