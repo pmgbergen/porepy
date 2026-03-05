@@ -120,7 +120,7 @@ class BalanceEquation(EquationMixin):
     def volume_integral(
         self,
         integrand: pp.ad.Operator,
-        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        grids: pp.GridLikeSequence,
         dim: int,
     ) -> pp.ad.Operator:
         """Numerical volume integral over subdomain or interface cells.
@@ -130,7 +130,8 @@ class BalanceEquation(EquationMixin):
         Parameters:
             integrand: Operator for the integrand. Assumed to be a cell-wise scalar
                 or vector quantity, cf. :code:`dim` argument.
-            grids: List of subdomains or interfaces to be integrated over.
+            grids: List of subdomains, interfaces, or boundary grids to be integrated
+                over.
             dim: Spatial dimension of the integrand. dim = 1 for scalar problems,
                 dim > 1 for vector problems.
 

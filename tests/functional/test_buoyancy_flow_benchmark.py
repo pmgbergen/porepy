@@ -418,7 +418,7 @@ def slow_test_buoyancy_flow_benchmark(
             super().after_solver_convergence()
             print(
                 "\nNumber of iterations: ",
-                self.nonlinear_solver_statistics.num_iteration,
+                self.nonlinear_solver_statistics.num_iterations,
             )
             print("Time value: ", self.time_manager.time)
             print("Time index: ", self.time_manager.time_index)
@@ -445,43 +445,6 @@ def slow_test_buoyancy_flow_benchmark(
             gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
             gravity_field.set_name("gravity_field")
             return gravity_field
-
-        def check_convergence(
-            self,
-            nonlinear_increment: np.ndarray,
-            residual: Optional[np.ndarray],
-            reference_residual: np.ndarray,
-            nl_params: dict[str, Any],
-        ) -> tuple[bool, bool]:
-            if self.is_nonlinear_problem():
-                total_volume = 0.0
-                for sd in self.mdg.subdomains():
-                    total_volume += np.sum(
-                        self.equation_system.evaluate(
-                            self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
-                        )
-                    )
-
-                nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                    nonlinear_increment
-                )
-                residual_norm = np.linalg.norm(residual) * total_volume
-                print("Residual norm: ", residual_norm)
-                converged_inc = (
-                    nl_params["nl_convergence_tol"] is np.inf
-                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-                )
-                converged_res = (
-                    nl_params["nl_convergence_tol_res"] is np.inf
-                    or residual_norm < nl_params["nl_convergence_tol_res"]
-                )
-                converged = converged_inc and converged_res
-                diverged = False
-            else:
-                raise ValueError(
-                    "Gravitational segregation is nonlinear in its simpler form."
-                )
-            return converged, diverged
 
     # --- Simulation setup and execution ---
 
@@ -511,9 +474,9 @@ def slow_test_buoyancy_flow_benchmark(
         "time_manager": time_manager,
         "prepare_simulation": False,
         "reduce_linear_system": False,
-        "nl_convergence_tol": np.inf,
-        "nl_convergence_tol_res": 1.0e-8,
-        "max_iterations": 25,
+        "nl_max_iterations": 25,
+        "nl_convergence_inc_atol": np.inf,
+        "nl_convergence_res_atol": 1.0e-8,
     }
 
     model = FlowModel(params)

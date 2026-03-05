@@ -15,13 +15,17 @@ scheduled times).
 """
 
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pytest
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceInfoCollection,
+    ConvergenceStatus,
+    ConvergenceStatusCollection,
+)
 
 
 class TestParameterInputs:
@@ -815,32 +819,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     def is_nonlinear_problem(self):
         return True
 
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        # :meth:`NewtonSolver.solve` expects a nonempty nonlinear_increment list, so we
-        # update it with dummy values in all cases.
-        self.nonlinear_solver_statistics.log_error(0.1, 0.1)
-
-        if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
-            # Neither converged nor diverged
-            return False, False
-        if self.time_step_converged[self.time_step_idx] is True:
-            # Converged
-            return True, False
-        if self.time_step_converged[self.time_step_idx] is False:
-            # Diverged
-            return False, True
-        assert False, (
-            "Nonlinear solver did not stop iterating after the iteration limit."
-        )
-
-    # Minimizing computational expences.
-
+    # Minimizing computational expenses.
     def assemble_linear_system(self) -> None:
         pass
 
@@ -883,7 +862,7 @@ MAX_NONLINEAR_ITER = 10
             "exported_dt_expected": [1, 1],
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
-        # minimal time step and failed.
+        # minimal time step and should fail.
         {
             "should_fail": pp.TimeSteppingError,
             "num_nonlinear_iterations": [1, 1, 1],
@@ -902,7 +881,6 @@ MAX_NONLINEAR_ITER = 10
 def test_model_time_step_control(params: dict):
     """The integration test of the `TimeManager` class into PorePy models."""
     constant_dt = params.get("constant_dt", False)
-    should_fail = params.get("should_fail", False)
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
     exported_dt_expected = params["exported_dt_expected"]
@@ -917,6 +895,47 @@ def test_model_time_step_control(params: dict):
         iter_optimal_range=(4, 7),
         recomp_factor=0.3,
     )
+
+    class DynamicNewtonSolver(pp.NewtonSolver):
+        def check_convergence(
+            self, model, nonlinear_increment
+        ) -> tuple[
+            ConvergenceStatusCollection,
+            ConvergenceStatusCollection,
+            ConvergenceInfoCollection,
+        ]:
+            if (
+                model.nonlinear_solver_statistics.num_iterations
+                < model.num_nonlinear_iterations[model.time_step_idx] - 1
+            ):
+                return (
+                    ConvergenceStatusCollection(
+                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                    ),
+                    ConvergenceStatusCollection(
+                        {"div_crit": ConvergenceStatus.CONVERGED}
+                    ),
+                    ConvergenceInfoCollection({"crit": 1.0}),
+                )
+            if model.time_step_converged[model.time_step_idx] is True:
+                return (
+                    ConvergenceStatusCollection({"crit": ConvergenceStatus.CONVERGED}),
+                    ConvergenceStatusCollection(
+                        {"div_crit": ConvergenceStatus.CONVERGED}
+                    ),
+                    ConvergenceInfoCollection({"crit": 0.0}),
+                )
+            else:
+                return (
+                    ConvergenceStatusCollection(
+                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                    ),
+                    ConvergenceStatusCollection(
+                        {"div_crit": ConvergenceStatus.DIVERGED}
+                    ),
+                    ConvergenceInfoCollection({"crit": np.nan}),
+                )
+
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,
         time_step_converged=time_step_converged,
@@ -926,11 +945,18 @@ def test_model_time_step_control(params: dict):
         },
     )
 
+    solver_params = {
+        "nonlinear_solver": DynamicNewtonSolver,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": MAX_NONLINEAR_ITER,
+    }
+
+    
     if should_fail:
         assert issubclass(should_fail, Exception), "Test needs error specification."
         with pytest.raises(should_fail):
-            pp.ModelRunner(model, {"max_iterations": MAX_NONLINEAR_ITER}).run()
+            pp.ModelRunner(model, solver_params).run()
     else:
-        pp.ModelRunner(model, {"max_iterations": MAX_NONLINEAR_ITER}).run()
+        pp.ModelRunner(model, solver_params).run()
 
     assert np.allclose(model.time_step_history, exported_dt_expected)

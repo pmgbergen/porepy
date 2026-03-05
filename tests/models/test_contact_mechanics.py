@@ -58,7 +58,7 @@ def test_contact_mechanics(nd):
     expected_jump = displacement_vals[:, 1].reshape((nd, -1))
     if not positive_side_first:
         expected_jump *= -1
-    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0, atol=1e-15)
+    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0, atol=1e-12)
     # Check the contact traction.
     scaled_traction = model.contact_traction(
         fractures

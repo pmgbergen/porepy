@@ -215,7 +215,8 @@ def create_model_with_fracture(
         "material_constants": {"solid": solid, "fluid": fluid},
         "reference_variable_values": reference_values,
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
-        "max_iterations": 20,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": 20,
     }
 
     if issubclass(model_class, TailoredPoromechanicsTpsa):

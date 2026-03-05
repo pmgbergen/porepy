@@ -76,7 +76,8 @@ def create_fractured_model(
     default = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "max_iterations": 20,
+        "nl_max_iterations": 20,
+        "nl_convergence_inc_atol": 1e-6,
     }
     default.update(params)
     if issubclass(model_class, TailoredThermoporomechanicsTpsa):

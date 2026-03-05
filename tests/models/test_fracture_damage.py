@@ -150,7 +150,7 @@ def test_momentum_balance_with_damage(dim: int):
     # slightly increase the number of iterations, thus capturing any future
     # deterioration in the convergence and avoiding excessive run times.
 
-    pp.ModelRunner(model, {"max_iterations": 25}).run()
+    pp.ModelRunner(model, {"nl_convergence_inc_atol": 1e-6, "nl_max_iterations": 25}).run()
     test_names = [
         "friction_damage",
         "dilation_damage",
