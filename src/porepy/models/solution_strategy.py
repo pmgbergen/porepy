@@ -163,6 +163,7 @@ class ModelSolverInterface(pp.PorePyModel):
         # Exporter initialization must be done after grid creation,
         # but prior to data initialization.
         self.initialize_data_saving()
+        self.set_nonlinear_solver_statistics()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
@@ -585,8 +586,6 @@ class SolutionStrategy(ModelSolverInterface):
         self._schur_complement_primary_equations: list[str] = []
         """See :meth:`schur_complement_primary_equations`."""
 
-        self.set_nonlinear_solver_statistics()
-
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in
         the mixins for initial conditions.
@@ -606,11 +605,6 @@ class SolutionStrategy(ModelSolverInterface):
                 val,
                 time_step_index=time_step_index,
             )
-
-    def set_equation_system_manager(self) -> None:
-        """Create an equation_system manager on the mixed-dimensional grid."""
-        if not hasattr(self, "equation_system"):
-            self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def set_nonlinear_solver_statistics(self) -> None:
         """Set the solver statistics object.
@@ -644,6 +638,11 @@ class SolutionStrategy(ModelSolverInterface):
             raise ValueError(
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
+
+    def set_equation_system_manager(self) -> None:
+        """Create an equation_system manager on the mixed-dimensional grid."""
+        if not hasattr(self, "equation_system"):
+            self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
