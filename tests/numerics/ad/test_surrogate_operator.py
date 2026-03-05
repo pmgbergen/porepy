@@ -256,7 +256,11 @@ def test_secondary_operators(
     # with new data
     jacs = []
     for v, d in zip(var_vals, diff_vals):
-        jac_ = v.jac.copy()
+        if v._is_diagonal:
+            jac_ = v.to_full().jac
+        else:
+            jac_ = v.jac.copy()
+
         jac_.data = d
         jacs.append(jac_)
 
