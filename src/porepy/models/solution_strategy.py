@@ -163,7 +163,7 @@ class ModelSolverInterface(pp.PorePyModel):
         # Exporter initialization must be done after grid creation,
         # but prior to data initialization.
         self.initialize_data_saving()
-        self.set_nonlinear_solver_statistics()
+        self._initialize_nonlinear_solver_statistics()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
@@ -437,6 +437,39 @@ class ModelSolverInterface(pp.PorePyModel):
         logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
         return x
 
+    def _initialize_nonlinear_solver_statistics(self) -> None:
+        """Set the solver statistics object.
+
+        This method is called at initialization. It is intended to be used to set the
+        solver statistics object(s). Currently, the solver statistics object is related
+        to nonlinearity only. Statistics on other parts of the solution process, such as
+        linear solvers, may be added in the future.
+
+        Raises:
+            ValueError: If the solver statistics object is not a subclass of
+                pp.SolverStatistics.
+
+        """
+        # Retrieve the value with a default of pp.SolverStatistics.
+        statistics = self.params.get(
+            "nonlinear_solver_statistics",
+            SolverStatisticsFactory.create_statistics_type(
+                nonlinear=self.is_nonlinear_problem(),
+                time_dependent=self.is_time_dependent(),
+            ),
+        )
+
+        # Explicitly check if the retrieved value is a class and a subclass of
+        # pp.SolverStatistics for type checking.
+        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
+            self.nonlinear_solver_statistics = statistics(
+                path=cast(Path, self.params.get("solver_statistics_file_name"))
+            )
+        else:
+            raise ValueError(
+                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
+            )
+
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
 
@@ -604,39 +637,6 @@ class SolutionStrategy(ModelSolverInterface):
             self.equation_system.set_variable_values(
                 val,
                 time_step_index=time_step_index,
-            )
-
-    def set_nonlinear_solver_statistics(self) -> None:
-        """Set the solver statistics object.
-
-        This method is called at initialization. It is intended to be used to set the
-        solver statistics object(s). Currently, the solver statistics object is related
-        to nonlinearity only. Statistics on other parts of the solution process, such as
-        linear solvers, may be added in the future.
-
-        Raises:
-            ValueError: If the solver statistics object is not a subclass of
-                pp.SolverStatistics.
-
-        """
-        # Retrieve the value with a default of pp.SolverStatistics.
-        statistics = self.params.get(
-            "nonlinear_solver_statistics",
-            SolverStatisticsFactory.create_statistics_type(
-                nonlinear=self.is_nonlinear_problem(),
-                time_dependent=self.is_time_dependent(),
-            ),
-        )
-
-        # Explicitly check if the retrieved value is a class and a subclass of
-        # pp.SolverStatistics for type checking.
-        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
-            self.nonlinear_solver_statistics = statistics(
-                path=cast(Path, self.params.get("solver_statistics_file_name"))
-            )
-        else:
-            raise ValueError(
-                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
 
     def set_equation_system_manager(self) -> None:
