@@ -1367,9 +1367,22 @@ class EquationSystem:
             equation rows) as values. If no restriction is given, the value is None.
 
         """
+
+        # Precompute equations on non-empty domain. This is to avoid 
+        # injecting such equations into the assembly pipeline
+        non_empty_equations = [
+            name
+            for name in self._equations
+            if sum(
+                len(indices)
+                for indices in self._equation_image_space_composition[name].values()
+            )
+            > 0
+        ]
+
         # The default return value is all equations with no grid restrictions.
         if equations is None:
-            return dict((name, None) for name in self._equations)
+            return dict((name, None) for name in non_empty_equations)
 
         # We need to parse the input.
         # Storage for requested blocks, unique information per equation name.
@@ -1405,29 +1418,7 @@ class EquationSystem:
             # By now, all equations are contained in requested_row_blocks.
             if equation in requested_row_blocks:
                 ordered_blocks.update({equation: requested_row_blocks[equation]})
-       
-        # Remove equations with empty domains (1.e., zero dofs).
-        ordered_blocks = {
-            name: row 
-            for name, row in ordered_blocks.items()
-            if sum(
-                len(indices) 
-                for indices in self._equation_image_space_composition[name].values()
-            )
-            > 0
-        }
-
-        # Filter to remove equations with empty domains (1.e., zero dofs).
-        ordered_blocks = {
-            name: row
-            for name, row in ordered_blocks.items()
-            if sum(
-                len(indices)
-                for indices in self._equation_image_space_composition[name].values()
-            )
-            > 0
-        }
-
+                
         return ordered_blocks
 
     def _parse_single_equation(
