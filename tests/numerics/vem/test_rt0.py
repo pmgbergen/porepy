@@ -773,18 +773,14 @@ class TestRaviartThomasDiscretization:
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
         )
         p_ex = lambda pt: rhs_ex(pt) / a
-        u_ex_0 = (
-            lambda pt: np.multiply(
-                -np.cos(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
-            )
+        u_ex_0 = lambda pt: (
+            np.multiply(-np.cos(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :]))
             * 2
             * np.pi
             / a
         )
-        u_ex_1 = (
-            lambda pt: np.multiply(
-                -np.sin(2 * np.pi * pt[0, :]), np.cos(2 * np.pi * pt[1, :])
-            )
+        u_ex_1 = lambda pt: (
+            np.multiply(-np.sin(2 * np.pi * pt[0, :]), np.cos(2 * np.pi * pt[1, :]))
             * 2
             * np.pi
             / a
@@ -870,8 +866,8 @@ class TestRaviartThomasDiscretization:
 
     def test_convergence_2d_anisotropic_permeability_constant_rhs(self):
         rhs_ex = lambda pt: 14
-        p_ex = (
-            lambda pt: 2 * np.power(pt[0, :], 2)
+        p_ex = lambda pt: (
+            2 * np.power(pt[0, :], 2)
             - 6 * np.power(pt[1, :], 2)
             + np.multiply(pt[0, :], pt[1, :])
         )
@@ -2244,19 +2240,15 @@ class TestRaviartThomasRHS:
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
         )
         p_ex = lambda pt: rhs_ex(pt) / a
-        u_ex_0 = (
-            lambda pt: np.multiply(
-                -np.cos(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
-            )
+        u_ex_0 = lambda pt: (
+            np.multiply(-np.cos(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :]))
             * 2
             * np.pi
             / a
             + 1
         )
-        u_ex_1 = (
-            lambda pt: np.multiply(
-                -np.sin(2 * np.pi * pt[0, :]), np.cos(2 * np.pi * pt[1, :])
-            )
+        u_ex_1 = lambda pt: (
+            np.multiply(-np.sin(2 * np.pi * pt[0, :]), np.cos(2 * np.pi * pt[1, :]))
             * 2
             * np.pi
             / a
@@ -2347,8 +2339,8 @@ class TestRaviartThomasRHS:
 
     def test_convergence_2d_anisotropic_permeability_constant_rhs(self):
         rhs_ex = lambda pt: 14
-        p_ex = (
-            lambda pt: 2 * np.power(pt[0, :], 2)
+        p_ex = lambda pt: (
+            2 * np.power(pt[0, :], 2)
             - 6 * np.power(pt[1, :], 2)
             + np.multiply(pt[0, :], pt[1, :])
         )

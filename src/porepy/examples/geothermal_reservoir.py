@@ -295,14 +295,6 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     """
 
 
-class ConstraintLineSearchNonlinearSolver(
-    line_search.ConstraintLineSearch,
-    line_search.SplineInterpolationLineSearch,
-    line_search.LineSearchNewtonSolver,
-):
-    """Collect line search nonlinear solver classes. Passed in solver_params."""
-
-
 if __name__ == "__main__":
     # Define time schedule for the simulation.
     schedule = np.array([0, pp.HOUR, 10 * pp.HOUR, 100 * pp.DAY])
@@ -394,15 +386,16 @@ if __name__ == "__main__":
     model = GeothermalReservoirWellBCs(model_params)
     solver_params = {
         "prepare_simulation": True,
-        "max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
-        "nl_divergence_tol": 1e20,
-        "nl_convergence_tol": 1e-7,  # Increment norm
-        "nl_convergence_tol_res": 1e-7,  # Residual norm
+        "nl_max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
+        "nl_convergence_inc_atol": 1e-7,  # Increment norm
+        "nl_convergence_res_atol": 1e-7,  # Residual norm
+        "nl_divergence_inc_atol": 1e20,
+        "nl_divergence_res_atol": 1e20,
         # Line search / Solution Strategies. These are considered "advanced" options,
         # improving the robustness of the nonlinear solver at the cost of some
         # additional computational overhead. Delete/comment the following lines for the
         # default Newton's method.
-        "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
         # Set to 1 to use turn on a residual-based line search. This involves some extra
         # residual evaluations and may be quite costly.
         "global_line_search": 0,
