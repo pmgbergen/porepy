@@ -500,6 +500,9 @@ else:
         """This protocol provides the API for time stepping algorithms, nonlinear and
         linear solvers."""
 
+        nonlinear_solver_statistics: pp.SolverStatistics
+        """Solver statistics for the nonlinear solver."""
+
         def is_nonlinear_problem(self) -> bool:
             """Specifies whether the Model problem is nonlinear.
 
@@ -763,8 +766,6 @@ else:
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         ad_time_step: pp.ad.Scalar
         """Time step as an automatic differentiation scalar."""
-        nonlinear_solver_statistics: pp.SolverStatistics
-        """Solver statistics for the nonlinear solver."""
         results: list[Any]
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
