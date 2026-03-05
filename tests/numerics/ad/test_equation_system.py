@@ -70,7 +70,7 @@ def test_evaluate_variables():
         assert isinstance(ad_array, pp.ad.AdArray)
         assert np.allclose(ad_array.val, 2)
         if ad_array._is_diagonal:
-            jac = sps.diags(ad_array.jac)
+            jac = sps.diags(ad_array.jac.ravel())
         else:
             jac = ad_array.jac
         assert np.allclose(jac.toarray(), known_jac)
@@ -102,7 +102,12 @@ def test_evaluate_variables():
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
         )
-        assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
+        if ad_array_increment._is_diagonal:
+            assert np.allclose(
+                sps.diags(ad_array_increment.jac.ravel()).toarray(), known_jac
+            )
+        else:
+            assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
 
 
 def test_variable_creation():
