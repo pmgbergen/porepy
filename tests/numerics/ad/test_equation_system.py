@@ -1203,6 +1203,36 @@ def test_parse_equations(model: EquationSystemMockModel):
         received_equations_3[all_equation_names[0]], np.arange(model.sd_top.num_cells)
     )
 
+    ### Test to check that _parse_equations filters out equations on empty domain
+    # Store the original matrix and residual vector to check that they are not altered by
+    # the empty equation remover by the parsed equation.
+    A_ref, b_ref = model.A, model.b
+
+    # Create a varaiable on an empty domain
+    empty_var = equation_system.create_variables(name="empty_var", subdomains=[])
+
+    # Create and set an equation using the empty variable.
+    empty_equation = empty_var * empty_var
+    empty_equation.set_name("empty_equation")
+    equation_system.set_equation(
+        equation=empty_equation,
+        grids=[],
+        equations_per_grid_entity={"cells": 1},
+    )
+
+    # Check that the empty equation is included in the equation system.
+    assert "empty_equation" in equation_system._equations
+
+    # Check that the parsed equations do not include the empty equation.
+    assert "empty_equation" not in equation_system._parse_equations(
+        list(equation_system._equations.keys())
+    )
+
+    # Check that empty equation has no impact om the assembly pipeline.
+    A, b = equation_system.assemble()
+    assert A.shape == A_ref.shape
+    assert np.allclose(b, b_ref)
+
 
 @pytest.mark.parametrize(
     "var_names",
