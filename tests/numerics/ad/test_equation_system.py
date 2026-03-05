@@ -1574,3 +1574,40 @@ def test_schur_complement(eq_var_to_exclude):
     x_reconstructed = equation_system.expand_schur_complement_solution(x_schur)
 
     assert np.allclose(x_reconstructed, x_expected)
+
+
+def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
+    """Test that assemble() ignores equations defined on empty domains.
+
+    An equation defined on an empty domain (no grids) should not contribute to the
+    assembled system. After adding such an equation, assembling the system should
+    produce the same matrix and residual vector as before the equation was added.
+    """
+
+    equation_system = model.equation_system
+
+    # Store Baseline system matrix and vector.
+    A_ref, b_ref = equation_system.assemble()
+
+    # Create a custom varaiable on an empty domain
+    empty_var = equation_system.create_variables(name="empty_var", subdomains=[])
+
+    # Create and add an equation on empty domain using the empty variable.
+    empty_equation = empty_var * empty_var
+    empty_equation.set_name("empty_equation")
+    equation_system.set_equation(
+        equation=empty_equation,
+        grids=[],
+        equations_per_grid_entity={"cells": 1},
+    )
+
+    # Check that the empty equation is included in the equation system.
+    assert "empty_equation" in equation_system._equations
+
+    # Check that the assembled system does not include the empty equation.
+    A, b = equation_system.assemble()
+    assert np.allclose(b, b_ref)
+    assert pp.test_utils.arrays.compare_matrices(A, A_ref)
+
+    # Check bookkeeping does not suddenly include the empty equation.
+    assert "empty_equation" not in equation_system.assembled_equation_indices
