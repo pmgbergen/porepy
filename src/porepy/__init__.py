@@ -144,6 +144,9 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
 # The protocol must be imported before anything related to models.
 from porepy.models.protocol import PorePyModel
 
+# Status objects
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+
 # Related to models and solvers
 from porepy.models.model_runner import (
     ModelRunner,
@@ -265,7 +268,6 @@ from porepy.models.metric import (
 
 # Divergence criteria
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
     MaxIterationsCriterion,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
