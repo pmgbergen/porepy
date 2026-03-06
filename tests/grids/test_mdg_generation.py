@@ -95,8 +95,8 @@ class TestMDGridGeneration:
         """Admissible keys for 2d cases"""
         simplex_extra_args: dict = {
             "mesh_size_min": 0.1 * self.cell_size(),
-            "mesh_size_bound": 2 * self.cell_size(),
-            "mesh_size_frac": self.cell_size(),
+            "mesh_size_boundary": 2 * self.cell_size(),
+            "mesh_size_fracture": self.cell_size(),
             "refinement_proximity_multiplier": 1,
             "refinement_size_multiplier": 1,
             "background_transition_multiplier": 1.01,
@@ -134,8 +134,8 @@ class TestMDGridGeneration:
         """Admissible keys for 3d cases"""
         simplex_extra_args: dict = {
             "mesh_size_min": 0.1 * self.cell_size(),
-            "mesh_size_bound": 1.0,
-            "mesh_size_frac": 0.5,
+            "mesh_size_boundary": 1.0,
+            "mesh_size_fracture": 0.5,
             "refinement_proximity_multiplier": 1,
             "refinement_size_multiplier": 1,
             "background_transition_multiplier": 1.01,
@@ -239,8 +239,8 @@ class TestMDGridGeneration:
 
         if grid_type == "simplex":
             file_name = Path("gmsh_frac_file")
-            lower_level_arguments["mesh_size_frac"] = self.cell_size()
-            lower_level_arguments["mesh_size_bound"] = 2 * self.cell_size()
+            lower_level_arguments["mesh_size_fracture"] = self.cell_size()
+            lower_level_arguments["mesh_size_boundary"] = 2 * self.cell_size()
             lower_level_arguments["mesh_size_min"] = 0.1 * self.cell_size()
             lower_level_arguments["refinement_proximity_multiplier"] = 1
             lower_level_arguments["refinement_size_multiplier"] = 1

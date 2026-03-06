@@ -63,7 +63,7 @@ def get_mdg():
         )
 
         mdg = fracture_network.mesh(
-            {
+            mesh_args={
                 "mesh_size_fracture": 1,
                 "mesh_size_boundary": 1,
                 "mesh_size_min": 1,
