@@ -185,7 +185,7 @@ class FractureNetwork3d(FractureNetwork):
     def mesh(
         self,
         mesh_args: dict[str, float],
-        file_name: Path,
+        file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         dfn: bool = False,
         **kwargs,
@@ -1128,22 +1128,23 @@ class FractureNetwork3d(FractureNetwork):
         """
         # Determine the maximum number of points in a fracture. Minimum is 2 for the
         # domain specification.
-        max_pts = max(max(frac.pts.shape[1] for frac in self.fractures), 2)
 
         with open(file_name.with_suffix(".csv"), "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
-                header = ["# "] + [
-                    f"P{i}_{coord}" for i in range(max_pts) for coord in ["X", "Y", "Z"]
-                ]
-                csv_writer.writerow(header)
+                csv_writer.writerow("# Fracture network exported from porepy.")
+                csv_writer.writerow(
+                    "# The first line may contain a 6-item bounding box for the domain"
+                    " in the format X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX."
+                )
+                csv_writer.writerow(
+                    "# The following lines contain the fractures, described "
+                    "either as point sets or as elliptic shapes."
+                )
             if self.domain is not None:
                 order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
                 # Write the domain bounding box.
                 csv_writer.writerow([self.domain.bounding_box[o] for o in order])
-            # Write all the fractures.
-            for fracture in self.fractures:
-                data = list(fracture.pts.ravel(order="F"))
 
             # write all the fractures
             for f in self.fractures:

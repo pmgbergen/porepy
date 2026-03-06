@@ -850,6 +850,8 @@ def create_mdg(
             Mixed-dimensional grid object.
 
     """
+    if file_name is None:
+        file_name = Path("gmsh_frac_file.msh")
 
     _validate_args(grid_type, meshing_args, fracture_network, file_name)
 

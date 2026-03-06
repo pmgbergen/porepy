@@ -217,7 +217,10 @@ class FractureNetwork(ABC):
                 logger.info(f"{qtype:15s}: (no values returned)")
 
     def _prepare_mesh_inputs(
-        self, file_name: Path, constraints: Optional[np.ndarray] = None, **kwargs
+        self,
+        file_name: Optional[Path] = None,
+        constraints: Optional[np.ndarray] = None,
+        **kwargs,
     ):
         """Prepare inputs for the meshing process.
 
@@ -233,7 +236,8 @@ class FractureNetwork(ABC):
             - file_name: The prepared file name for the Gmsh mesh file.
             - constraints: The prepared array of fracture indices to be constrained.
         """
-
+        if file_name is None:
+            file_name = Path("gmsh_frac_file.msh")
         file_name = file_name.with_suffix(".msh")
 
         if constraints is None:
@@ -995,8 +999,8 @@ class MeshSizeControlPointInserter:
         # 3. A specific (i, j) combination can be encountered twice (for instance, go
         #    first left, then up, or first up, then left). Since it is not clear to EK
         #    that the two paths will render the same coordinate for the (i, j)
-        #    combination (maybe it is trivially so for plane fractures, but to be sure
-g
+        #    combination (maybe it is trivially so for plane fractures), we do a check
+        #    and pick one closest to (i=0, j=0).
         # 4. The candidate points are visited with priority closest to the origin (i=0,
         #    j=0), using a priority queue (heapq). This order of priority is to some
         #    degree motivated by a feeling it seems right, rather than deep insight into

@@ -137,7 +137,7 @@ class FractureNetwork2d(FractureNetwork):
     def mesh(
         self,
         mesh_args: dict[str, float],
-        file_name: Path,
+        file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         dfn: bool = False,
         **kwargs,
