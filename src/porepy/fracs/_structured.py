@@ -331,7 +331,7 @@ def _create_lower_dim_grids_3d(
             (3, -1), order="F"
         )
         assert pts.shape[1] == 2, "Bounding box of line should have two points"
-        # Find all nodes between the end poitns.
+        # Find all nodes between the end points.
         all_nodes = _find_nodes_on_line(g_3d, nx, pts[:, 0], pts[:, 1])
         loc_coord = g_3d.nodes[:, all_nodes]
         assert loc_coord.shape[1] > 1, (

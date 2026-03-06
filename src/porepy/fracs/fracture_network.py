@@ -838,8 +838,6 @@ class FractureNetwork(ABC):
         """Map information from a subfracture (after intersections have been split) back
         to the full fractures.
 
-        The mapping also
-
         Parameters:
             isect: Intersection information as obtained by Gmsh's fragment method.
             gmsh_to_porepy_fracture_ind_map: Mapping from the Gmsh (1-offset)
@@ -991,8 +989,8 @@ class MeshSizeControlPointInserter:
         # 1. The candidate point is considered as a mesh size control point. Whether it
         #    is inserted depends on the mesh size parameters and the angle between the
         #    two fractures (some details are given in the code below, but it may also be
-        #    helpful to interpret the mesh size parameters using pen and pencil to see
-        #    adding a mesh size control point will impact the actual meshing algorithm).
+        #    helpful to interpret the mesh size parameters individually to see adding a
+        #    mesh size control point will impact the actual meshing algorithm).
         # 2. If a mesh size control point is inserted on (i, j),  all neighboring points
         #    along the grid lines (so, i+1, i-1 and, for 2d surfaces, j+1, j-1) become
         #    new candidate points. However, if we have already visited a given
@@ -1000,9 +998,8 @@ class MeshSizeControlPointInserter:
         # 3. A specific (i, j) combination can be encountered twice (for instance, go
         #    first left, then up, or first up, then left). Since it is not clear to EK
         #    that the two paths will render the same coordinate for the (i, j)
-        #    combination (maybe it is trivially so for plane fractures, but the code
-        #    what it is), the point colliding point closest to the point (i=0, j=0) is
-        #    chosen.
+        #    combination (maybe it is trivially so for plane fractures, but to be sure
+g
         # 4. The candidate points are visited with priority closest to the origin (i=0,
         #    j=0), using a priority queue (heapq). This order of priority is to some
         #    degree motivated by a feeling it seems right, rather than deep insight into
