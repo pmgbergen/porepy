@@ -12,8 +12,9 @@ Functionalities being tested:
 
 from __future__ import annotations
 
-from typing import List, Union
 from pathlib import Path
+from typing import List, Union
+
 import numpy as np
 import pytest
 

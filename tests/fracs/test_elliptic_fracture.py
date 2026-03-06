@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.fracs import elliptic_fracture
 from porepy.applications.test_utils.fracture_properties import (
     distance_from_points_to_fracture_plane,
 )
+from porepy.fracs import elliptic_fracture
 
 
 @pytest.mark.parametrize(

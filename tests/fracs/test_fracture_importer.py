@@ -16,11 +16,11 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
-from porepy.fracs import fracture_importer
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.applications.test_utils.fracture_properties import (
     distance_from_points_to_fracture_plane,
 )
+from porepy.fracs import fracture_importer
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 @pytest.fixture(params=[2, 3])

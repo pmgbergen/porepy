@@ -6,8 +6,8 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Callable, Literal, Optional, Union, get_args
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable, Literal, Optional, Union, get_args
 from warnings import warn
 
 import numpy as np
