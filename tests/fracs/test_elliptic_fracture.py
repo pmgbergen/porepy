@@ -6,6 +6,9 @@ import pytest
 
 import porepy as pp
 from porepy.fracs import elliptic_fracture
+from porepy.applications.test_utils.fracture_properties import (
+    distance_from_points_to_fracture_plane,
+)
 
 
 @pytest.mark.parametrize(
@@ -26,7 +29,9 @@ def test_fracture_geometry(elliptic_fracture_params):
     domain = _standard_domain()
     mdg = _create_mdg([fracture], domain)
     frac_nodes = mdg.subdomains(dim=2)[0].nodes
-    dis = plane_check(frac_nodes.T, center, strike_angle, dip_angle)
+    dis = distance_from_points_to_fracture_plane(
+        frac_nodes.T, center, strike_angle, dip_angle
+    )
     assert np.abs(dis).max() <= 1e-6
 
 
@@ -59,21 +64,3 @@ def _create_mdg(
     else:
         mdg = network.mesh(mesh_args, constraints=constraints)
     return mdg
-
-
-def plane_check(points_xyz, center, strike_angle, dip_angle):
-    """
-    Check whether the given points are located in the plane defined by strike and dip.
-    """
-    P = np.asarray(points_xyz)
-    c = np.asarray(center).ravel()
-    phi = float(strike_angle)
-    theta = float(dip_angle)
-
-    n = np.array(
-        [np.sin(theta) * np.sin(phi), -np.sin(theta) * np.cos(phi), np.cos(theta)],
-    )
-    n /= np.linalg.norm(n)
-
-    dis_error = (P - c) @ n
-    return dis_error

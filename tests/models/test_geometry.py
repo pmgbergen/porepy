@@ -18,14 +18,30 @@ Testing covers:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
+import porepy.models.geometry
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
+from porepy.examples.flow_benchmark_2d_case_1 import (
+    Geometry as Benchmark2dCase1Fractures,
+)
+from porepy.examples.flow_benchmark_3d_case_2 import (
+    Geometry as Benchmark3dCase2Geometry,
+)
+
+
+# :class:`~porepy.examples.flow_benchmark_2d_case_1.Geometry`` provides only
+# :meth:`set_fractures`. We combine it with :class:`pp.ModelGeometry` to get a Mixin
+# with working :set_geometry` method.
+class Benchmark2dCase1Geometry(Benchmark2dCase1Fractures, pp.ModelGeometry): ...
+
 
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
@@ -663,3 +679,61 @@ class TestGeometry:
         # transpose, which should give the identity matrix.
         val = pp.EquationSystem(geometry_model.mdg).evaluate(global_to_local).todense()
         assert np.allclose(val @ val.T, np.eye(val.shape[0]))
+
+
+@pytest.mark.parametrize("geometry_class", geometry_list)
+@pytest.mark.parametrize("num_fractures", [0, 2])
+def test_load_geometry_mixin(geometry_class, num_fractures: int, tmp_path) -> None:
+    """Test the LoadGeometryMixin class.
+
+    Parameters:
+        geometry_class: Geometry class to test.
+        num_fractures: Number of fractures to include in the test.
+        tmp_path: Temporary path for storing files.
+
+    """
+    folder_path = tmp_path
+    gmsh_file_name = "mdg.msh"
+    csv_file_name = "fracture_network.csv"
+
+    model_class = models.add_mixin(
+        porepy.models.geometry.LoadGeometryMixin,
+        models.NoPhysics,
+    )
+    params = {
+        "num_fractures": num_fractures,
+        "fracture_indices": [i for i in range(num_fractures)],
+        "grid_type": "simplex",
+    }
+    model_1 = model_class(params)
+    model_2 = model_class(params)
+
+    model_1.create_and_export_geometry(
+        set_geometry_class=geometry_class,
+    )
+    model_2.set_geometry()
+
+    def frac_pts_equal(a: np.ndarray, b: np.ndarray) -> bool:
+        """Check if two arrays of fracture points are equal, disregarding order of
+        points.
+        """
+        if a.shape != b.shape:
+            return False
+        return np.array_equal(np.sort(a), np.sort(b))
+
+    # Check that loaded geometry is identical.
+    assert model_1.domain == model_2.domain
+    for frac1, frac2 in zip(
+        model_1.fracture_network.fractures,
+        model_2.fracture_network.fractures,
+    ):
+        assert frac_pts_equal(frac1.pts, frac2.pts)
+
+    for sd1, sd2 in zip(
+        model_1.mdg.subdomains(),
+        model_2.mdg.subdomains(),
+    ):
+        assert sd1.num_cells == sd2.num_cells
+        assert sd1.num_faces == sd2.num_faces
+        assert np.allclose(sd1.cell_centers, sd2.cell_centers)
+        assert np.allclose(sd1.face_centers, sd2.face_centers)

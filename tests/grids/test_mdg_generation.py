@@ -13,7 +13,7 @@ Functionalities being tested:
 from __future__ import annotations
 
 from typing import List, Union
-
+from pathlib import Path
 import numpy as np
 import pytest
 
@@ -195,6 +195,8 @@ class TestMDGridGeneration:
         # common mesh argument
         meshing_args: dict = {"cell_size": self.cell_size()}
 
+        file_name = Path("gmsh_frac_file")
+
         # Collect extra arguments for the test
         extra_arg_index: int = self.mdg_types().index(grid_type)
         extra_arguments: Union[dict, None] = None
@@ -206,7 +208,7 @@ class TestMDGridGeneration:
 
         # call high level function
         mdg = pp.create_mdg(
-            grid_type, meshing_args, fracture_network, **extra_arguments
+            grid_type, meshing_args, fracture_network, file_name, **extra_arguments
         )
         return mdg
 
@@ -236,13 +238,14 @@ class TestMDGridGeneration:
             ]
 
         if grid_type == "simplex":
+            file_name = Path("gmsh_frac_file")
             lower_level_arguments["mesh_size_frac"] = self.cell_size()
             lower_level_arguments["mesh_size_bound"] = 2 * self.cell_size()
             lower_level_arguments["mesh_size_min"] = 0.1 * self.cell_size()
             lower_level_arguments["refinement_proximity_multiplier"] = 1
             lower_level_arguments["refinement_size_multiplier"] = 1
             lower_level_arguments["background_transition_multiplier"] = 1.01
-            mdg = fracture_network.mesh(lower_level_arguments)
+            mdg = fracture_network.mesh(lower_level_arguments, file_name)
             return mdg
 
         elif grid_type == "cartesian":
@@ -595,6 +598,7 @@ class TestMDGridGenerationWithoutDomains:
             grid_type="simplex",
             meshing_args={"cell_size": 0.125},
             fracture_network=fn,
+            file_name=Path("gmsh_frac_file"),
             **{"dfn": True},
         )
         if fracs_idx == 0:  # the case of a single line fracture
@@ -629,6 +633,7 @@ class TestMDGridGenerationWithoutDomains:
             grid_type="simplex",
             meshing_args={"cell_size": 2.0},
             fracture_network=fn,
+            file_name=Path("gmsh_frac_file"),
             **{"dfn": True},
         )
         if fracs_idx == 0:  # the case of a single plane fracture
