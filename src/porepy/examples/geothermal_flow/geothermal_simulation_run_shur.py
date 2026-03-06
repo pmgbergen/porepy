@@ -59,6 +59,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 )
 
 use_schur_technique = True
+use_preconditioner = False
 
 BASE_DIR = Path(__file__).resolve().parent  # This gives the path of this script's folder
 VTK_DIR = BASE_DIR / "model_configuration" / "constitutive_description" / "driesner_vtk_files"
@@ -219,6 +220,7 @@ def run_simulation(
         "rediscretize_darcy_flux": True,
         "nl_convergence_tol": np.inf,
         "nl_convergence_tol_res": 1.0e-3,
+        "use_preconditioner": use_preconditioner,
         "max_iterations": 100,
     }
 
