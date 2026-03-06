@@ -296,7 +296,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             # permeability. 9 * (nc = 32) entries of isotropic permeability.
             models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 16],
+            5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
@@ -306,7 +306,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             # entries of isotropic permeability.
             models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 10],
+            0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (
@@ -323,14 +323,14 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
-            * reference_arrays["isotropic_second_order_tensor"][: 9 * 16],
+            * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
             models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
-            * reference_arrays["isotropic_second_order_tensor"][: 9 * 10],
+            * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (
