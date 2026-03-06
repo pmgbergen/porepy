@@ -867,7 +867,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
 
         # In addition, save the fracture network.
-        folder_path = Path(self.gmsh_file_name()).parent
+        folder_path = Path(self.csv_file_name()).parent
         csv_file_name = Path(self.csv_file_name())
         fracture_network_path = folder_path / csv_file_name
         self.fracture_network.to_csv(fracture_network_path)
