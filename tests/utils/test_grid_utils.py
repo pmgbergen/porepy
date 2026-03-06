@@ -13,49 +13,112 @@ import porepy as pp
 from porepy.utils.grid_utils import compute_circumcenter_2d, compute_circumcenter_3d
 
 
-def test_compute_circumcenter_2d_equilateral_triangle_replaces_center():
-    # Equilateral triangle: angles are 60° < 0.45*pi, so replacement should occur.
-    h = np.sqrt(3.0) / 2.0
-    p = np.array(
-        [
-            [0.0, 1.0, 0.5],
-            [0.0, 0.0, h],
-        ]
-    )
-    tri = np.array([[0], [1], [2]])
-    g = pp.TriangleGrid(p, tri)
-    g.compute_geometry()
+@pytest.mark.parametrize(
+    ["p", "tri", "expected_shift"],
+    [
+        (
+            # 1 equilateral triangle, shift value should be 1, but centers should
+            # coincide after computation.
+            np.array([[0, 1, 0.5], [0, 0, np.sqrt(3.0) / 2.0]]),
+            None,
+            None,
+        ),
+        (
+            # 2 equilateral triangle in diamond-constillation, shift value should be 1,
+            # but centers should coincide after computation.
+            np.array(
+                [
+                    [0.0, 1.0, 0.5, 0.5],
+                    [0.0, 0.0, np.sqrt(3.0) / 2.0, -np.sqrt(3.0) / 2.0],
+                ]
+            ),
+            np.array([[0, 0], [1, 1], [2, 3]]),
+            None,
+        ),
+        (
+            # 1 acute triangle, full shift.
+            np.array([[0, 1, 0.5], [0, 0, 1]]),
+            None,
+            1.0,
+        ),
+        (
+            # 2 acute triangles, in a diamond-like constellation. Full shift.
+            np.array(
+                [
+                    [0.0, 1.0, 0.5, 0.5],
+                    [0.0, 0.0, np.sqrt(3.0) / 2.0 + 1e-2, -np.sqrt(3.0) / 2.0 - 1e-2],
+                ]
+            ),
+            np.array([[0, 0], [1, 1], [2, 3]]),
+            1,
+        ),
+        (
+            # 1 right triangles, shift is equal to default value of threshold argument
+            # since circumcenter would be placed right on face.
+            np.array([[0, 1, 0], [0, 0, 1]]),
+            None,
+            0.95,
+        ),
+        (
+            # 2 right triangles, all shifts are equal to default value of threshold
+            # argument.
+            np.array([[0, 1, 0, 1], [0, 0, 1, 1]]),
+            None,
+            0.95,
+        ),
+        (
+            # 1 obtuse triangle, specified shift.
+            np.array([[0, 1, -0.5], [0, 0, 1]]),
+            None,
+            np.float64(0.2763636363636363),
+        ),
+        (
+            # 2 obtuse triangles, specified shift.
+            np.array([[0, 1, 2, 1.5], [0, 0, 0.5, 0]]),
+            None,
+            np.array([np.float64(0.0358490566037736), np.float64(0.11176470588235295)]),
+        ),
+    ],
+)
+def test_compute_circumcenter_2d(
+    p: np.ndarray,
+    tri: np.ndarray | None,
+    expected_shift: np.ndarray | float | None,
+) -> None:
+    """Tests the circumcenter computation for triangular 2D grids.
 
-    cc_new, replace = compute_circumcenter_2d(g)
+    A triangle grid with default arguments will be created using the provided nodes.
 
-    assert replace.size == 1 and bool(replace[0])
-    # Circumcenter of equilateral triangle equals centroid.
-    expected = np.array([0.5, h / 3.0])
-    assert np.allclose(cc_new[:2, 0], expected, rtol=1e-12, atol=1e-12)
-    # z-coordinate should remain zero.
-    assert np.isclose(cc_new[2, 0], 0.0)
+    Parameters:
+        p: 2D array of nodes of shape ``(2, N)``, with ``N>=3``.
+        tri: Explicit triangulation, if given.
+        expected_shift: 1D of shift values of shape ``(num_cells,)`` or a float if
+            shift is expected to be uniform.
+            If None, asserts that the returned shift value is 1 and that the
+            cell-centers did not change (only the case for equilaterals!).
+
+    """
+    sd = pp.TriangleGrid(p, tri=tri)
+    sd.compute_geometry()
+    cc = sd.cell_centers
+
+    new_cc, shift, is_changed = compute_circumcenter_2d(sd)
+
+    assert cc.shape == new_cc.shape, "Expecting same shapes."
+    if expected_shift is not None:
+        if not isinstance(expected_shift, np.ndarray):
+            expected_shift = np.ones(sd.num_cells) * expected_shift
+        np.testing.assert_allclose(shift, expected_shift, rtol=0, atol=1e-14)
+        assert np.all(is_changed)
+    else:
+        np.testing.assert_allclose(shift, 1.0, rtol=0, atol=1e-14)
+        np.testing.assert_allclose(new_cc, cc, rtol=0, atol=1e-14)
+        assert np.all(~is_changed)
 
 
-def test_compute_circumcenter_2d_right_triangle_no_replacement():
-    # Right isosceles triangle from a unit right triangle has a 90° angle
-    # which is > 0.45*pi threshold; no replacement should occur.
-    points = np.array(
-        [
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ]
-    )
-    tri = np.array([[0], [1], [2]])
-    g = pp.TriangleGrid(points, tri)
-    g.compute_geometry()
-    cc_original = g.cell_centers.copy()
-    cc_new, replace = compute_circumcenter_2d(g)
-    assert replace.size == 1 and not bool(replace[0])
-    assert np.allclose(cc_new, cc_original, rtol=1e-13, atol=1e-13)
-
-
-def test_compute_circumcenter_2d_degenerate_raises():
-    # Colinear points -> degenerate triangle; function should raise ValueError.
+def test_compute_circumcenter_2d_raises_expected_errors():
+    """The method should raise value errors if a grid is degenerate, or the threshold
+    parameter is not in (0,  1)."""
     p = np.array(
         [
             [0.0, 1.0, 2.0],
@@ -63,13 +126,18 @@ def test_compute_circumcenter_2d_degenerate_raises():
         ]
     )
     tri = np.array([[0], [1], [2]])
-    g = pp.TriangleGrid(p, tri)
+    sd = pp.TriangleGrid(p, tri)
     # compute_geometry raises for a degenerate (colinear) triangle. Manually set cell
     # centers to avoid that. The value does not matter, any point will take us to the
     # line in compute_circumcenter_2d raising the error.
-    g.cell_centers = np.array([[1.0], [0.0], [0.0]])
-    with pytest.raises((ValueError)):
-        compute_circumcenter_2d(g)
+    sd.cell_centers = np.array([[1.0], [0.0], [0.0]])
+
+    with pytest.raises(ValueError):
+        compute_circumcenter_2d(sd)
+
+    for t in [-0.1, 0, 1, 1.1]:
+        with pytest.raises(ValueError):
+            compute_circumcenter_2d(sd, threshold=t)
 
 
 def test_compute_circumcenter_3d_regular_tetrahedron_replaces_and_matches():
@@ -198,49 +266,3 @@ def test_compute_circumcenter_3d_two_tetra_internal_alignment():
     denom = np.linalg.norm(cc_vec) * np.linalg.norm(face_normal) + 1e-15
     # Use same tolerance as implementation (1e-10), with small safety factor.
     assert cross_mag / denom < 5e-10
-
-
-@pytest.mark.parametrize("perturb", [1e-2, 0.0])
-def test_compute_circumcenter_2d_two_triangles_internal_alignment(perturb):
-    """Two acute triangles sharing an edge: both should be replaced.
-
-    Use two equilateral triangles sharing an edge (forming a symmetric "diamond").
-    All internal angles are 60°, well below the default threshold (~81°). We verify
-    both centers replaced and that the vector between circumcenters is perpendicular
-    to the shared edge.
-    """
-    # Equilateral triangle side length 1: height sqrt(3)/2.
-    h = np.sqrt(3.0) / 2.0
-    # Perturb the height slightly to avoid perfect symmetry that could mask issues and
-    # would imply no replacement needed, i.e., circumcenters equal centroids.
-    h += perturb
-    # Points: A(0,0), B(1,0), C(0.5,h) (upper), D(0.5,-h) (lower)
-    pts = np.array(
-        [
-            [0.0, 1.0, 0.5, 0.5],  # x
-            [0.0, 0.0, h, -h],  # y
-        ]
-    )
-    # Triangles: T0 = (A,B,C) and T1 = (A,B,D) share edge (A,B) indices (0,1)
-    tris = np.array([[0, 0], [1, 1], [2, 3]])
-    g = pp.TriangleGrid(pts, tris)
-    g.compute_geometry()
-    cc_new, replace = compute_circumcenter_2d(g)
-    assert replace.size == 2 and bool(replace[0]) and bool(replace[1])
-    # Shared edge endpoints indices 0 and 1 (A,B).
-    pA = pts[:, 0]
-    pB = pts[:, 1]
-    edge_vec = pB - pA
-    # Vector between circumcenters (should be vertical, perpendicular to AB)
-    cc_vec = cc_new[:2, 0] - cc_new[:2, 1]
-    # Check perpendicular: dot ~ 0
-    dot = float(np.dot(edge_vec, cc_vec))
-    norm_prod = np.linalg.norm(edge_vec) * np.linalg.norm(cc_vec) + 1e-15
-    assert abs(dot) / norm_prod < 1e-10
-    match = np.allclose(cc_new, g.cell_centers, rtol=1e-13, atol=1e-13)
-    if perturb != 0.0:
-        # Check that new and old centers differ.
-        assert not match
-    else:
-        # In the unperturbed case, circumcenters equal centroids.
-        assert match

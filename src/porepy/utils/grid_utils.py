@@ -125,7 +125,7 @@ def compute_circumcenter_2d(
     sd: TriangleGrid,
     threshold: float = 0.95,
     eps: float = 1e-14,
-) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Compute circumcenters of triangular cells in 2D grid.
 
     Parameters:
@@ -139,17 +139,19 @@ def compute_circumcenter_2d(
             circumcenter.
         eps: ``default=1e-14``
 
-            Tolerance for detecting degenerate triangles.
+            Tolerance for detecting degenerate triangles and changes in circumcenter.
 
     Raises:
         ValueError: If degenerate triangles are detected.
         ValueError: If ``threshold`` is not in (0, 1).
 
     Returns:
-        A 2-tuple containing
+        A 3-tuple containing
 
         1. the new cell centers of shape ``sd.cell_centers``.
-        2. The shift values of shape ``(sd.num_cells,)``.
+        2. the shift values of shape ``(sd.num_cells,)``.
+        3. a boolean array of shape ``(sd.num_cells,)`` indicating where numerically
+           relevant changes in cell center occurred.
 
         The shift values contain the scale of the vector going from current center
         to circumcenter per cell. A value of 1 indicates the circumcenter is strictly
@@ -264,7 +266,7 @@ def compute_circumcenter_2d(
                     / denom
                     * threshold  # Apply threshold to stay in interior.
                 )
-                MCC[:, intercept] = from_ + (to_i - from_) * t
+                MCC[:, intercept] = from_ + V[:, intercept] * t
                 mshifts[intercept] = t
 
         assert np.all(~np.isnan(MCC)), "Failed to find modified cell centers."
@@ -295,7 +297,15 @@ def compute_circumcenter_2d(
         "New cell centers not strictly in interior."
     )
 
-    return NCC, shifts
+    # Compute indicators where center changed (column-wise norm).
+    # NOTE: Numerically there is always a change. Furthermore, by default the cell
+    # centers are originally at the bary-center. It coincides with the circumcenter if
+    # and only if triangle is equilateral. We use simply the distance between new and
+    # old centers to indicate numerically relevant change.
+    # Multiply eps with 2 to account for dimension.
+    changed = np.sqrt(np.sum(np.pow(NCC - sd.cell_centers, 2), axis=0)) > eps * 2
+
+    return NCC, shifts, changed
 
 
 def compute_circumcenter_3d(
