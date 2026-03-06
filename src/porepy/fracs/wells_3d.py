@@ -405,7 +405,7 @@ class WellNetwork3d:
 
             for inds_seg, seg in w.segments():
                 tags_seg = [tags_w[i] for i in inds_seg]
-                length = pp.geometry.distances.point_pointset(seg[:, 0], seg[:, 1])
+                length = pp.geometry.distances.point_pointset(seg[:, 0], seg[:, 1])[0]
                 num_pts = int(length / self._mesh_size(w, inds_seg))
                 num_pts = max(num_pts, 2)
                 points_loc = np.linspace(seg[:, 0], seg[:, 1], num_pts).T

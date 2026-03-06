@@ -210,9 +210,7 @@ class DimensionReduction(pp.PorePyModel):
         return apertures
 
     @pp.ad.cached_method
-    def specific_volume(
-        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
-    ) -> pp.ad.Operator:
+    def specific_volume(self, grids: pp.GridLikeSequence) -> pp.ad.Operator:
         """Specific volume [m^(nd-d)].
 
         For subdomains, the specific volume is the cross-sectional area/volume of the
@@ -223,7 +221,7 @@ class DimensionReduction(pp.PorePyModel):
             :meth:aperture.
 
         Parameters:
-            subdomains: List of subdomain or interface grids.
+            grids: List of subdomain, interface, or boundary grids.
 
         Returns:
             Specific volume for each cell.
@@ -258,6 +256,19 @@ class DimensionReduction(pp.PorePyModel):
                 projection.primary_to_mortar_avg() @ specific_volume_neighbors
             )
             specific_volume.set_name("specific_volume")
+            return specific_volume
+
+        if isinstance(grids[0], pp.BoundaryGrid):
+            # For boundary grids, the specific volume is inherited from the
+            # subdomain neighbor.
+            assert all(isinstance(g, pp.BoundaryGrid) for g in grids), "Mixed grids"
+
+            # Return 1's for boundary grids.
+            specific_volume = pp.wrap_as_dense_ad_array(
+                1,
+                size=sum(g.num_cells for g in grids),
+                name="specific_volume_boundary_grids",
+            )
             return specific_volume
 
         assert all(isinstance(g, pp.Grid) for g in grids), "Mixed grids"
@@ -902,7 +913,7 @@ class DarcysLaw(pp.PorePyModel):
     """
 
     gravity_force: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid", "bulk"]],
         pp.ad.Operator,
     ]
     """Gravity force. Normally provided by a mixin instance of
@@ -1878,10 +1889,27 @@ class DarcysLawAd(AdTpfaFlux):
 class PeacemanWellFlux(pp.PorePyModel):
     """Well fluxes.
 
-    Relations between well fluxes and pressures are implemented in this class.
-    Peaceman 1977 https://doi.org/10.2118/6893-PA
+    Relations between well fluxes and pressures are implemented in this class. Peaceman
+    1977 https://doi.org/10.2118/6893-PA. The equation is
+
+    .. math:: q = WI * (p_{avg} - p_{w} + \\rho g \\Delta z)
+
+    where q is the flux into the well, WI is the well index, p_{w} is the wellbore
+    pressure, p_{avg} is the average formation pressure around the well, and the last
+    term is a gravity correction based on the elevation difference between the
+    formation/fracture and the wellbore.
 
     Assumes permeability is cell-wise scalar.
+
+    """
+
+    gravity_force: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid", "bulk"]],
+        pp.ad.Operator,
+    ]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
 
     """
 
@@ -1949,9 +1977,22 @@ class PeacemanWellFlux(pp.PorePyModel):
             interfaces,
             1,
         )
-        eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
+
+        # Compute gravity correction term, -rho * g * delta_z, where delta_z is the
+        # elevation difference between the primary and secondary side of the interface.
+        gravity_correction = self.gravity_pressure_correction(subdomains, interfaces)
+        # Note the negative sign, as a positive gravity correction means that the
+        # pressure in the primary is higher than in the secondary due to elevation,
+        # thus the pressure difference (primary - secondary) should be reduced by this
+        # amount.
+        pressure_difference = (
             projection.primary_to_mortar_avg() @ self.pressure(subdomains)
             - projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
+            - gravity_correction
+        )
+
+        eq: pp.ad.Operator = (
+            self.well_flux(interfaces) - well_index * pressure_difference
         )
         eq.set_name("well_flux_equation")
         return eq
@@ -1971,17 +2012,19 @@ class PeacemanWellFlux(pp.PorePyModel):
         # advanced alternatives, see the MRST book,
         # https://www.cambridge.org/core/books/an-introduction-to-
         # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
+
+        # Set high value (greater than expected actual well radii) to ensure that the
+        # argument of the logarithmic term in the well index is greater than 1.
+        unused_val = self.units.convert_units(10, "m")
         if len(subdomains) == 0:
-            # Set 0.2 as the unused value for equivalent radius. This is a bit
-            # arbitrary, but 0 is a bad choice, as it will lead to division by zero.
-            return Scalar(0.2, name="equivalent_well_radius")
+            return Scalar(unused_val, name="equivalent_well_radius")
 
         h_list = []
         for sd in subdomains:
             if sd.dim == 0:
                 # Avoid division by zero for points. The value is not used in calling
                 # method well_flux_equation, as all wells are 1d.
-                h_list.append(np.array([1]))
+                h_list.append(np.array([unused_val]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
         r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
@@ -2015,6 +2058,64 @@ class PeacemanWellFlux(pp.PorePyModel):
         r_w = pp.ad.Scalar(self.solid.well_radius)
         r_w.set_name("well_radius")
         return r_w
+
+    def gravity_pressure_correction(
+        self,
+        subdomains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+    ) -> pp.ad.Operator:
+        """Compute gravity correction term for well flux equation.
+
+        The gravity correction accounts for the hydrostatic pressure difference due to
+        elevation changes between the well and the formation. The correction is rho * g
+        * delta_e, where delta_e is the elevation difference e_primary - e_secondary.
+
+        Parameters:
+            subdomains: List of subdomains.
+            interfaces: List of interfaces where the well fluxes are defined.
+
+        Returns:
+            Gravity correction operator with units [Pa].
+
+        """
+        if len(subdomains) < 2:
+            # If there are less than 2 subdomains, there is no interface and no gravity
+            # correction. Return a zero operator.
+            return pp.ad.Scalar(0, name="gravity_pressure_correction")
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
+        elevation_list = []
+        for sd in subdomains:
+            # Use the last coordinate component as elevation.
+            # Ensure we have at least a 1D array (needed for subdomains with 1 cell)
+            z = np.atleast_1d(sd.cell_centers[self.nd - 1, :])
+            elevation_list.append(z)
+
+        # Combine elevation for all subdomains.
+        elevations = pp.wrap_as_dense_ad_array(np.concatenate(elevation_list))
+
+        # Compute elevation difference: z_primary - z_secondary.
+        delta_z = (
+            projection.primary_to_mortar_avg() @ elevations
+            - projection.secondary_to_mortar_avg() @ elevations
+        )
+
+        # Get gravity force (rho * g * e_n) where e_n is the unit vector in the
+        # direction of gravity. We extract the magnitude in the gravity direction.
+        gravity_vector = self.gravity_force(subdomains, "fluid")
+
+        # Extract the component in the gravity direction (last coordinate).
+        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
+
+        # Gravity correction: rho * g * delta_z
+        # Positive delta_z means primary is higher than secondary, so fluid column
+        # from secondary to primary has positive pressure contribution.
+        gravity_correction = rho_g * delta_z
+
+        gravity_correction.set_name("gravity_pressure_correction")
+        return gravity_correction
 
 
 class ThermalExpansion(pp.PorePyModel):
