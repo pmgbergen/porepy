@@ -61,7 +61,7 @@ def network_from_csv(
     # line.
     nd = None
 
-    fractures: list[pp.LineFracture] | list[pp.PlaneFracture] = []
+    fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture] = []
 
     with open(file_name, "r") as csv_file:
         while True:
