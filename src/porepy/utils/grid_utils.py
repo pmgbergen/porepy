@@ -167,136 +167,135 @@ def compute_circumcenter_2d(
     ni = cn.indices.reshape((3, sd.num_cells), order="F")
     x = sd.nodes[0]
     y = sd.nodes[1]
-    ax: np.ndarray = x[ni[0]]
-    ay: np.ndarray = y[ni[0]]
-    bx: np.ndarray = x[ni[1]]
-    by: np.ndarray = y[ni[1]]
-    cx: np.ndarray = x[ni[2]]
-    cy: np.ndarray = y[ni[2]]
+
+    # Nodes spanning triangle.
+    A = np.vstack((x[ni[0]], y[ni[0]]))
+    B = np.vstack((x[ni[1]], y[ni[1]]))
+    C = np.vstack((x[ni[2]], y[ni[2]]))
 
     # Compute circumcenters. First compute determinant D.
-    D = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    D = 2.0 * (A[0] * (B[1] - C[1]) + B[0] * (C[1] - A[1]) + C[0] * (A[1] - B[1]))
     if not np.all(abs(D) > eps):
         raise ValueError("Degenerate triangle with zero area encountered.")
 
-    a2 = ax**2 + ay**2
-    b2 = bx**2 + by**2
-    c2 = cx**2 + cy**2
-    # Compute circumcenter coordinates.
-    CCx = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / D
-    CCy = a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax) / D
+    # Norm squared of coordinates.
+    a2 = np.sum(np.pow(A, 2), axis=0)
+    b2 = np.sum(np.pow(B, 2), axis=0)
+    c2 = np.sum(np.pow(C, 2), axis=0)
+    # Edges.
+    A2B = B - A
+    B2C = C - B
+    C2A = A - C
+    # Squared side lengths.
+    ab2 = np.sum(np.pow(A2B, 2), axis=0)
+    bc2 = np.sum(np.pow(B2C, 2), axis=0)
+    ca2 = np.sum(np.pow(C2A, 2), axis=0)
 
-    # Squared side lengths
-    ab2 = (ax - bx) ** 2 + (ay - by) ** 2
-    bc2 = (bx - cx) ** 2 + (by - cy) ** 2
-    ca2 = (cx - ax) ** 2 + (cy - ay) ** 2
+    # Compute circumcenter coordinates.
+    CC = np.array(
+        (
+            -(a2 * B2C[1] + b2 * C2A[1] + c2 * A2B[1]) / D,
+            (a2 * B2C[0] + b2 * C2A[0] + c2 * A2B[0]) / D,
+        )
+    )
 
     # Mask indicating acute triangles, only triangles where circumcenter is strictly
     # in the interior of the triangle. NOTE: Thales' theorem.
     is_acute = (ab2 + bc2 > ca2) & (ab2 + ca2 > bc2) & (bc2 + ca2 > ab2)
 
     # New cell centers.
-    ncc = sd.cell_centers.copy()
-    ncc[0, is_acute] = CCx
-    ncc[1, is_acute] = CCy
+    NCC = sd.cell_centers.copy()
+    NCC[:2, is_acute] = CC[:, is_acute]
     shifts = np.ones(sd.num_cells, dtype=np.float64)
 
     # If any obtuse or right triangle, the new centers are not strictly inside.
-    # Instead we compute baricenters, and move in direction circumcenter.
+    # Instead we compute barycenters, and move in direction circumcenter.
     not_acute = ~is_acute
     if np.any(not_acute):
-        # Starting point: Barycentres.
-        BCx = (ax + bx + cx)[not_acute] / 3.0
-        BCy = (ay + by + cy)[not_acute] / 3.0
-        # Compute shift vector to new center.
-        vx = CCx[not_acute] - BCx
-        vy = CCy[not_acute] - BCy
+        # Starting point: barycenters.
+        BCC = (A + B + C)[:, not_acute] / 3.0
+        # Shift vector from barycenters to circumcenters.
+        V = CC[:, not_acute] - BCC
 
         # Allocate modified cell centers and shifts.
-        mccx = np.full_like(vx, np.nan)
-        mccy = np.full_like(vx, np.nan)
-        mshifts = np.full_like(vx, np.nan)
+        MCC = np.full_like(BCC, np.nan)
+        mshifts = np.full_like(BCC[0], np.nan)
 
         # Assume counter-clockwise (CCW) order ABC of triangle, A being lower left node.
-        # Compute edges BA, CA, BC
-        bax = (bx - ax)[not_acute]
-        bay = (by - ay)[not_acute]
-        cax = (cx - ax)[not_acute]
-        cay = (cy - ay)[not_acute]
-        bcx = (bx - cx)[not_acute]
-        bcy = (by - cy)[not_acute]
-
         # Get sign if not CCW.
-        signed_area_2 = bax * cay - bay * cax
+        signed_area_2 = A2B[1] * C2A[0] - A2B[0] * C2A[1]
         sign = np.sign(signed_area_2)
         # sign = np.where(sign == 0, 1.0, sign)  # In case almost degenerate
 
         # Compute outward normal by rotating edges, mind the sign in case not CCW.
-        nbax = bay * sign
-        nbay = (-bax) * sign
-        ncax = (-cay) * sign
-        ncay = cax * sign
-        nbcx = (-bcy) * sign
-        nbcy = bcx * sign
+        nA2B = np.array((A2B[1] * sign, -A2B[0] * sign))[:, not_acute]
+        nB2C = np.array((B2C[1] * sign, -B2C[0] * sign))[:, not_acute]
+        nC2A = np.array((C2A[1] * sign, -C2A[0] * sign))[:, not_acute]
 
         # The shift vector has a positive dot product with the one outward face normal,
         # whose face lies between baycenter and circumcenter.
         # Find interception point by equating barycenter-circumcenter line and
         # face in normal form.
 
-        intercept_ba = (nbax * vx + nbay * vy) > 0
-        intercept_ca = (ncax * vx + ncay * vy) > 0
-        intercept_bc = (nbcx * vx + nbcy * vy) > 0
+        intercept_ba = np.sum(nA2B * V, axis=0) > 0
+        intercept_bc = np.sum(nB2C * V, axis=0) > 0
+        intercept_ca = np.sum(nC2A * V, axis=0) > 0
         # Sanity check: should be mutually exclusive and cover all cells.
-        check = np.vstack((intercept_ba, intercept_bc, intercept_ca)).sum(axis=1)
+        check = np.vstack((intercept_ba, intercept_bc, intercept_ca)).sum(axis=0)
         assert np.all(check == 1), "Failed to find unique intercepting face."
 
-        def get_intercept(
-            from_x: NDArray[np.float64],
-            from_y: NDArray[np.float64],
-            to_x: NDArray[np.float64],
-            to_y: NDArray[np.float64],
-            fx: NDArray[np.float64],
-            fy: NDArray[np.float64],
-            fnx: NDArray[np.float64],
-            fny: NDArray[np.float64],
-        ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-            t = (
-                ((fx - from_x) * fnx + (fy - from_y) * fny)
-                / np.maximum((to_x - from_x) * fnx + (to_y - from_y) * fny, 1e-14)
-                * threshold
-            )
-
-            return from_x + t * (to_x - from_x), from_y + t * (to_x - from_y), t
-
-        for intercept in [intercept_ba, intercept_ca, intercept_bc]:
+        to_ = CC[:, not_acute]
+        for intercept, P, N in [
+            (intercept_ba, A, nA2B),
+            (intercept_bc, B, nB2C),
+            (intercept_ca, C, nC2A),
+        ]:
             if np.any(intercept):
-                mccx_, mccy_, shift_ = get_intercept(
-                    BCx[intercept],
-                    BCy[intercept],
-                    CCx[not_acute][intercept],
-                    CCy[not_acute][intercept],
-                    ax[not_acute][intercept],
-                    ay[not_acute][intercept],
-                    nbax[intercept],
-                    nbay[intercept],
+                from_ = BCC[:, intercept]  # from barycenter
+                to_i = to_[:, intercept]  # to circumcenter
+                pof = P[:, not_acute][:, intercept]  # point on face
+                fn = N[:, intercept]  # face normal
+
+                denom = (to_i[0] - from_[0]) * fn[0] + (to_i[1] - from_[1]) * fn[1]
+                denom = np.sign(denom) * np.maximum(np.abs(denom), 1e-14)
+
+                t = (
+                    ((pof[0] - from_[0]) * fn[0] + (pof[1] - from_[1]) * fn[1])
+                    / denom
+                    * threshold  # Apply threshold to stay in interior.
                 )
-                mccx[intercept] = mccx_
-                mccy[intercept] = mccy_
-                mshifts[intercept] = shift_
+                MCC[:, intercept] = from_ + (to_i - from_) * t
+                mshifts[intercept] = t
 
-        assert np.all(~np.isnan(mccx)), "Failed to find modified cell centers (x)."
-        assert np.all(~np.isnan(mccy)), "Failed to find modified cell centers (y)."
-        assert np.all(~np.isnan(mshifts)), "Failed to find modified shift values."
+        assert np.all(~np.isnan(MCC)), "Failed to find modified cell centers."
+        # This will also raise errors if nans are still present.
+        assert np.all(mshifts) >= 0.0, "Shift must be non-negative."
+        assert np.all(mshifts) <= 1.0, "Shift must be at most 1."
 
-        ncc[0, not_acute] = mccx
-        ncc[1, not_acute] = mccy
+        NCC[:2, not_acute] = MCC
         shifts[not_acute] = mshifts
 
-    assert np.all(shifts) >= 0.0, "Shift must be non-negative."
-    assert np.all(shifts) <= 1.0, "Shift must be at most 1."
+    # Sanity check: Computed cell centers are strictly inside triangle using barycentric
+    # coordinates.
+    v0 = -C2A  # vector from A to C
+    v1 = A2B  # vector from A to B
+    v2 = NCC[:2] - A  # vector from A to center.
+    dot00 = np.sum(np.pow(v0, 2), axis=0)
+    dot11 = np.sum(np.pow(v1, 2), axis=0)
+    dot01 = np.sum(v0 * v1, axis=0)
+    dot02 = np.sum(v0 * v2, axis=0)
+    dot12 = np.sum(v1 * v2, axis=0)
 
-    return ncc, shifts
+    denom = dot00 * dot11 - np.pow(dot01, 2)
+    # Should not happen after check above, but nevertheless.
+    assert np.all(np.abs(denom) > eps), "Degeneration detected."
+    u = (dot11 * dot02 - dot01 * dot12) / denom
+    v = (dot00 * dot12 - dot01 * dot02) / denom
+    assert np.all(u > 0) and np.all(v > 0) and np.all(u + v < 1), (
+        "New cell centers not strictly in interior."
+    )
+
+    return NCC, shifts
 
 
 def compute_circumcenter_3d(
