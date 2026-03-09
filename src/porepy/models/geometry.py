@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 from pathlib import Path
-from typing import Literal, Optional, Sequence, Union, cast
+from typing import Callable, Literal, Optional, Sequence, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -777,6 +777,9 @@ class LoadGeometryMixin(pp.PorePyModel):
             pp.run_time_dependent_model(model)
 
     """
+
+    gmsh_file_name: Callable[[], Path]
+    """Method that returns the name of the file used to for input and output by gmsh."""
 
     def set_geometry(self) -> None:
         """Load and set model geometry from ``msh``, ``geo``, and ``csv`` files that

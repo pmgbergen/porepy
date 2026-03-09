@@ -746,17 +746,32 @@ class FractureNetwork2d(FractureNetwork):
 
         with open(file_name.with_suffix(".csv"), "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
-            if write_header:
-                header = ["# ", "START_X", "START_Y", "END_X", "END_Y"]
-                csv_writer.writerow(header)
             # write all the fractures
-            for edge_id, edge in enumerate(edges.T):
-                data = [pts[:, edge[0]], pts[:, edge[1]]]
-                csv_writer.writerow(data)
             if self.domain is not None:
+                if write_header:
+                    header = [
+                        "# ",
+                        "DOMAIN_XMIN",
+                        "DOMAIN_YMIN",
+                        "DOMAIN_XMAX",
+                        "DOMAIN_YMAX",
+                    ]
+                    csv_writer.writerow(header)
                 order = ["xmin", "ymin", "xmax", "ymax"]
                 # Write the domain bounding box.
                 csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+            if write_header:
+                header = [
+                    "# FRACTURE COORDINATES",
+                    "START_X",
+                    "START_Y",
+                    "END_X",
+                    "END_Y",
+                ]
+                csv_writer.writerow(header)
+            for edge_id, edge in enumerate(edges.T):
+                data = np.hstack([pts[:, edge[0]], pts[:, edge[1]]]).tolist()
+                csv_writer.writerow(data)
 
     def to_file(
         self, file_name: Path, data: Optional[dict[str, np.ndarray]] = None, **kwargs
