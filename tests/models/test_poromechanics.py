@@ -30,8 +30,9 @@ Overview of tests:
     Finally, there are tests for unit conversion and a well model:
     - test_unit_conversion: Test that solution is independent of units.
     - test_poromechanics_well: Test that the poromechanics model runs without errors.
-    - test_poromechanics_empty_equation_filter: Test that empty domain equations in poromechanics
-    models on non-fractured domain exist and are filtered before assembly.
+    - test_poromechanics_empty_equation_filter: Test that empty domain equations
+        in poromechanics models on non-fractured domain exist and are filtered
+        before assembly.
 """
 
 from __future__ import annotations
