@@ -8,6 +8,7 @@ keep them separate, to avoid breaking existing code (legacy models).
 from __future__ import annotations
 
 import logging
+import os
 import time
 import warnings
 from functools import partial
@@ -881,9 +882,12 @@ class SolutionStrategy(pp.PorePyModel):
         """
         A, b = self.linear_system
 
-        np.savetxt("data.txt", A.data, fmt="%.16e")
-        np.savetxt("indices.txt", A.indices, fmt="%d")
-        np.savetxt("indptr.txt", A.indptr, fmt="%d")
+        folder="linear_system_debug"
+        os.makedirs(folder, exist_ok=True)
+
+        np.savetxt(f"{folder}/data.txt", A.data, fmt="%.16e")
+        np.savetxt(f"{folder}/indices.txt", A.indices, fmt="%d")
+        np.savetxt(f"{folder}/indptr.txt", A.indptr, fmt="%d")
 
         t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")

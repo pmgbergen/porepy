@@ -1646,10 +1646,13 @@ class FluidMixin(pp.PorePyModel):
                 #return phase.density(domains)
                 rho_ref = pp.ad.Scalar(self.fluid.reference_component.molar_density)
 
-                rho_ = rho_ref * self.pressure_exponential(cast(list[pp.Grid], domains))
-                rho_.set_name("fluid_molar_density_from_pressure")
+                rho_ = (
+                    rho_ref
+                    * self.pressure_exponential(cast(list[pp.Grid], domains))
+                    * self.temperature_exponential(cast(list[pp.Grid], domains))
+                )
+                rho_.set_name("fluid_molar_density_from_pressure_and_temperature")
                 return rho_
-
 
             elif mode=="fully_coupled":
                 return phase.density(domains) / mean_molar_mass
@@ -2782,6 +2785,9 @@ class ReactionRatesKineticFirstOrder:
 
 
 class ModifiedSourceAsWells:
+
+    ic_values_species_concentration: Callable[[pp.Component, pp.Grid], np.ndarray]
+    
     def fluid_source(self,sd:list[pp.Grid])-> pp.ad.Operator:
         """Source term for fluid mass balance equation.
 
