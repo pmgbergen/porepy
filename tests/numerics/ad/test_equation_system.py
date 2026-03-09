@@ -1576,6 +1576,7 @@ def test_schur_complement(eq_var_to_exclude):
 
     assert np.allclose(x_reconstructed, x_expected)
 
+
 def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     """Test that assemble() ignores equations defined on empty domains.
 
@@ -1601,12 +1602,13 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     # Check bookkeeping does not suddenly include the empty equation.
     assert "empty_equation" not in equation_system.assembled_equation_indices
 
+
 def test_schur_complement_empty_equation_filter():
     """Test the filtering function in schur complement assembly.
 
-    This test verified that equations defined on empty domains do not 
+    This test verified that equations defined on empty domains do not
     affect the schur complement system. So the resulting schur complement
-    system is unchanged. 
+    system is unchanged.
     """
 
     model = EquationSystemMockModel(square_system=True)
@@ -1629,7 +1631,7 @@ def test_schur_complement_empty_equation_filter():
     # Check whether the parse filter the empty equation out.
     assert "empty_equation" not in equation_system._parse_equations()
 
-    # Check Schur complement should be unchanged. 
+    # Check Schur complement should be unchanged.
     S, bS = equation_system.assemble_schur_complement_system(
         primary_equations=["eq_all_subdomains"],
         primary_variables=["x"],
