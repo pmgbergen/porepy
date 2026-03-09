@@ -215,7 +215,8 @@ def create_model_with_fracture(
         "material_constants": {"solid": solid, "fluid": fluid},
         "reference_variable_values": reference_values,
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
-        "max_iterations": 20,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": 20,
     }
 
     if issubclass(model_class, TailoredPoromechanicsTpsa):
@@ -378,7 +379,7 @@ def test_without_fracture(biot_coefficient, model_class):
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "u_north": [0.0, 0.001],
-        "cartesian": True,
+        "grid_type": "cartesian",
         "times_to_export": [],
     }
     model = model_class(params)
@@ -560,7 +561,7 @@ def test_unit_conversion(units, model_class):
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
-        "cartesian": True,
+        "grid_type": "cartesian",
         "u_north": [0.0, 1e-5],
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -596,7 +597,7 @@ def test_unit_conversion(units, model_class):
 
 class PoromechanicsWell(
     well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     pp.Poromechanics,
 ):

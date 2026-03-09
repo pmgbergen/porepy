@@ -375,8 +375,8 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
         fc_cc_dist = np.linalg.norm(fc_cc)
 
-        trm = np.dot(n, np.dot(k, fc_cc) / np.power(fc_cc_dist, 2))
-        trm_diff = np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))
+        trm = np.dot(n, np.dot(k, fc_cc) / np.power(fc_cc_dist, 2))[0]
+        trm_diff = np.dot(n, np.dot(k_diff, fc_cc) / np.power(fc_cc_dist, 2))[0]
         return trm, trm_diff
 
     def _project_vector_source(fi: int, ci: int) -> np.ndarray:
@@ -418,7 +418,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
             # If a vector source is present, the flux will be modified by the vector
             # source term.
-            flux_without_vs = flux[0]
+            flux_without_vs = flux
             flux += projected_vs * trm
 
             # Sanity check: The computed vector source flux, using the logic of the
@@ -769,7 +769,7 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
 
 
 class DiffTpfaFractureTipsInternalBoundaries(
-    model_geometries.OrthogonalFractures3d,
+    model_geometries.CubeDomainOrthogonalFractures,
     well_models.OneVerticalWell,
     well_models.BoundaryConditionsWellSetup,
     FluxDiscretization,
