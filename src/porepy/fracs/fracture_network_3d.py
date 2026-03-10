@@ -424,8 +424,8 @@ class FractureNetwork3d(FractureNetwork):
                     # lines/points. Simply do a distance check between the fracture and
                     # the domain.
                     #
-                    # EK: If this assertion fails, this indicates that we have produced
-                    # a non-disc domain without boundary lines/points. This case must be
+                    # If this assertion fails, this indicates that we have produced a
+                    # non-disc domain without boundary lines/points. This case must be
                     # handled if it ever arises.
                     assert len(frac) == 1
                     distances = np.array(

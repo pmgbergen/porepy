@@ -365,7 +365,7 @@ class FractureNetwork(ABC):
         # domain between two boundaries.
         for ent in boundary_entities:
             dist = [gmsh.model.occ.get_distance(*bp, *ent)[0] for bp in boundary_points]
-            # EK: It is not 100% clear what an empty list of boundary points (i.e.,
+            # It is not 100% clear what an empty list of boundary points (i.e.,
             # len(dist) == 0) implies - the case arose while working with disc
             # fractures. However, it seems safest that the lack of boundary points does
             # not automatically lead to the fracture being classified as being on the

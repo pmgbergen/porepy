@@ -243,7 +243,7 @@ class PlaneFracture(PointBasedFracture):
     def compute_normal(self) -> np.ndarray:
         return pp.map_geometry.compute_normal(self.pts)[:, None]
 
-    # EK: Removed typing of return type, since this would necessitate an import of the
+    # Removed typing of return type, since this would necessitate an import of the
     # full sympy module during import of PorePy, which is not desirable.
     def as_sympy_polygon(self, pts: Optional[np.ndarray] = None):
         """Represent polygon as a sympy object.

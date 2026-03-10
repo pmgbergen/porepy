@@ -549,8 +549,8 @@ class FractureNetwork2d(FractureNetwork):
             # because this is an intersection point (if it is an intersection with a bad
             # angle, this should be picked up by a close point on another line).
 
-            # EK: Ignore a typing error here; the type checker does not understand that
-            # the numpy array will consist of floats.
+            # Ignore a typing error here; the type checker does not understand that the
+            # numpy array will consist of floats.
             other_object_distances_all = np.hstack(  # type: ignore[call-overload]
                 (
                     np.array(
