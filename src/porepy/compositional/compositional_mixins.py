@@ -3123,7 +3123,7 @@ class ModifiedSourceAsWells:
 
         return thermal_sources
 
-    def nearest_cell_mask(self,subdomain: pp.Grid, xyz: tuple[float, float, float]) -> np.ndarray:
+    def nearest_cell_mask(self,subdomain: pp.Grid, xyz: tuple[float, float, float]) -> tuple[np.ndarray, int, np.ndarray]:
         """
         Return a boolean mask with exactly one True: the cell whose center is
         closest (Euclidean) to xyz = (north, east, depth).
@@ -3143,7 +3143,10 @@ class ModifiedSourceAsWells:
 
         mask = np.zeros(subdomain.num_cells, dtype=bool)
         mask[idx] = True
-        return mask
+
+
+        center = cc[:, idx].copy()
+        return mask, idx, center
 
 
     def well_masks_from_coordinates(
@@ -3174,11 +3177,15 @@ class ModifiedSourceAsWells:
         if prod_xyz is None:
             prod_xyz = (0.5 * Lx, (2.0 / 3.0) * Ly, 0.5 * Lz)
 
-        inj_mask = self.nearest_cell_mask(subdomain, inj_xyz)
-        prod_mask = self.nearest_cell_mask(subdomain, prod_xyz)
+        inj_mask, inj_idx, inj_center = self.nearest_cell_mask(subdomain, inj_xyz)
+        prod_mask, prod_idx, prod_center = self.nearest_cell_mask(subdomain, prod_xyz)
 
         if np.any(inj_mask & prod_mask):
             raise ValueError("Injection and production snapped to the same cell. Move wells apart.")
+
+        self.injection_well_center = inj_center
+        self.production_well_center = prod_center
+
 
         return inj_mask, prod_mask
 
