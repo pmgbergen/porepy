@@ -71,7 +71,7 @@ class EllipticFracture(Fracture):
         index: int | None = None,
     ):
         """Initialize an elliptic fracture in 3D."""
-        self.center = center
+        self.center = center.reshape((-1, 1))
         self.r1 = major_axis
         self.r2 = minor_axis
         self.major_axis_angle = major_axis_angle
@@ -112,7 +112,7 @@ class EllipticFracture(Fracture):
 
         # 4) Translate the surface to the specified center.
         gmsh.model.occ.translate(
-            dimTags, self.center[0], self.center[1], self.center[2]
+            dimTags, self.center[0][0], self.center[1][0], self.center[2][0]
         )
 
         return surface_tag
