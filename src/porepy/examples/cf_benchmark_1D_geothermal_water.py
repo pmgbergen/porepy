@@ -355,7 +355,7 @@ class GeothermalWaterModel(  # type:ignore[misc]
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
         print("Time value (day): ", self.time_manager.time / pp.DAY)
         print("Time index: ", self.time_manager.time_index)
         print("")

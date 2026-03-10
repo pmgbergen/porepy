@@ -132,14 +132,15 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
 
         norm_dx_raw = np.linalg.norm(dx)
 
-        res = model.equation_system.assemble(evaluate_jacobian=False)
-        self._last_res_norm = model.compute_residual_norm(res, res)  # type:ignore[attr-defined]
+        self._last_res_norm = np.linalg.norm(
+            model.equation_system.assemble(evaluate_jacobian=False)
+        )
 
-        dx *= self.armijo_line_search(model, dx)
         dx = self.appleyard_chop(model, dx)
+        dx *= self.armijo_line_search(model, dx)
 
         if self.params.get("anderson_acceleration", False):
-            iteration = model.nonlinear_solver_statistics.num_iteration
+            iteration = model.nonlinear_solver_statistics.num_iterations
             x = model.equation_system.get_variable_values(iterate_index=0)
             x_temp = x + dx
             if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
@@ -193,8 +194,9 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
             if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
                 break
 
-        if hasattr(model.nonlinear_solver_statistics, "num_iteration_armijo"):
-            model.nonlinear_solver_statistics.num_iteration_armijo += n  # type:ignore
+        model.nonlinear_solver_statistics.log_custom_data(
+            append=True, armijo_iterations=n
+        )
         logger.info(f"Armijo line search determined weight: {rho_i:.4f} ({n})")
         return rho_i
 

@@ -62,7 +62,7 @@ params = {
 class GeothermalFlowModel(FlowModel):
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")

@@ -974,7 +974,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             # NOTE Iteration counter is increased after iteration, and 0 modulo anything
             # is zero.
             assert stride > 0, "Global iteration stride must be positive."
-            n = self.nonlinear_solver_statistics.num_iteration
+            n = self.nonlinear_solver_statistics.num_iterations
             do_flash = (n + 1) % stride == 0 or n == 0
 
         for sd in self.mdg.subdomains():
@@ -1023,12 +1023,15 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         # EPS for fractions of absent phases in persistent form.
         # Used to detect absence of phase (y) and to bind extended fractions away
         # from zero.
-        eps_persistent = 1e-5
+        eps_persistent = 1e-8
 
         z = np.array(
             [
-                self.equation_system.evaluate(
-                    component.fraction(subdomains), state=state
+                # NOTE: In the case of 1 component, z is implemented as the scalar 1.
+                np.atleast_1d(
+                    self.equation_system.evaluate(
+                        component.fraction(subdomains), state=state
+                    )
                 )
                 for component in self.fluid.components
             ]
@@ -1189,7 +1192,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
         logger.info(
             f"Equilibration on grid {sd.id} at t={self.time_manager.time:.3e},"
-            + f" iter={self.nonlinear_solver_statistics.num_iteration}."
+            + f" iter={self.nonlinear_solver_statistics.num_iterations}."
         )
         start = time.time()
 

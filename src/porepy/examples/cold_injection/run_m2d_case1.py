@@ -11,22 +11,30 @@ from datetime import datetime
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.examples.cold_injection.config import MODEL_PARAMS
+
+from porepy.applications.test_utils.models import add_mixin
+from porepy.examples.cold_injection.config import (
+    get_default_convergence_criteria,
+    get_default_params,
+)
 from porepy.examples.cold_injection.geometry import RandomFracturesAndPointWells2D
 from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
+    DataCollectionMixin,
     NoFluxRediscretization,
     set_schur_complement,
 )
 
 
 BUOYANCY_ON = False
+COLLECT_DATA = False
 
 max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
-newton_tol = 5e-3
-newton_tol_increment = 1e-2
+newton_tol_res = 5e-3
+newton_tol_inc = 1e-2
+newton_tol_res_isofug = 1e-2
 
 time_schedule = [i * pp.DAY for i in range(121)] + [
     i * 30 * pp.DAY for i in range(5, 30 + 1)
@@ -47,10 +55,7 @@ time_manager = pp.TimeManager(
     rtol=0.0,
 )
 
-model_params = MODEL_PARAMS.copy()
-model_params["max_iterations"] = max_iterations
-model_params["nl_convergence_tol"] = newton_tol
-model_params["nl_convergence_tol_increment"] = newton_tol_increment
+model_params, solver_params = get_default_params()
 model_params["time_manager"] = time_manager
 model_params["times_to_export"] = time_schedule
 
@@ -63,13 +68,10 @@ model_params["fractional_flow"] = BUOYANCY_ON
 model_params["enable_buoyancy_effects"] = BUOYANCY_ON
 model_params["armijo_stop_after_residual_reaches"] = 1e-3
 
-model_params["flash_params"]["solver_params"]["npipm_penalty_cc"] = 1.0  # type:ignore[index]
-model_params["flash_params"]["solver_params"]["npipm_penalty_neg"] = 1.0  # type:ignore[index]
-
 
 if BUOYANCY_ON:
 
-    class ModelClass(  # type:ignore[misc]
+    class ModelClass(  # type:ignore
         BuoyancyModel,
         RandomFracturesAndPointWells2D,
         ColdInjectionMixins,
@@ -88,6 +90,10 @@ else:
         pass
 
 
+if COLLECT_DATA:
+    ModelClass = add_mixin(DataCollectionMixin, ModelClass)
+
+
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
     model_params["folder_name"] = f"visualization/{timestamp}"
@@ -103,11 +109,16 @@ if __name__ == "__main__":
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]
+    solver_params.update(
+        get_default_convergence_criteria(
+            model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug
+        )
+    )
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
     try:
-        pp.run_time_dependent_model(model, model_params)
+        pp.run_time_dependent_model(model, solver_params)
     except Exception as err:
         SIMULATION_SUCCESS = False
         print(f"Simulation failed:\n{str(err)}")

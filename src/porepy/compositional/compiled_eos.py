@@ -1235,9 +1235,12 @@ class CompiledEoS(EquationOfState):
                 "(p, T, x_1, .., x_n) or (p, T) in case only 1 component."
             )
 
-        # Reshape to matrix in the single-value case for compatibility reasons.
+        # Reshape to matrix in the single-value or single-component case for
+        # compatibility reasons.
         if x.ndim == 1 and thermodynamic_input[0].size == 1:
             x = x.reshape((self.nc, 1))
+        elif x.ndim == 1 and self.nc == 1:
+            x = x.reshape((1, x.size))
 
         # Assert basic format to avoid unexpected behavior in compiled computations.
         assert thermodynamic_input[0].shape == thermodynamic_input[1].shape, (

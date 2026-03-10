@@ -143,3 +143,31 @@ class RandomFracturesAndPointWells2D(PointWells):
             fractures.append(pp.LineFracture(coords))
 
         self._fractures = fractures
+
+
+class HorizontalFractureAndPointWells2D(PointWells):
+    """Introduces a single horizontal fracture in the middel of the domain,
+    with length equal to half the domain length in x-direction."""
+
+    def set_fractures(self) -> None:
+        x_min, y_min = 0.0, 0.9
+        x_max = self._DOMAIN_DIMENSIONS[0]
+        y_max = self._DOMAIN_DIMENSIONS[1]
+        domain_width = x_max - x_min
+        domain_height = y_max - y_min
+
+        x_center = x_min + domain_width * 0.5
+        y_center = y_min + domain_height * 0.5
+
+        frac_width = domain_width * 0.5
+
+        self._fractures = [
+            pp.LineFracture(
+                np.array(
+                    [
+                        [x_center - 0.5 * frac_width, x_center + 0.5 * frac_width],
+                        [y_center, y_center],
+                    ]
+                )
+            )
+        ]

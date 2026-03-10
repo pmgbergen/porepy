@@ -7,17 +7,76 @@ such as position of wells and injection rates.
 
 from __future__ import annotations
 
+from typing import Callable
+
 import numpy as np
 
 import porepy as pp
 from porepy.applications.material_values.solid_values import basalt
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceInfo,
+    ConvergenceStatus,
+)
 
 from .solver import NewtonArmijoAndersonSolver
+
+
+class RelaxedCFLEResidualCriterion(pp.ResidualBasedAbsoluteCriterion):
+    """Relaxed residual-based convergence criterion applying a separate tolerance
+    for isofugacity constraints."""
+
+    def __init__(
+        self,
+        tol: float,
+        metric: Callable[[np.ndarray], ConvergenceInfo],
+        tol_isofug: float | None = None,
+    ):
+        super().__init__(tol, metric)
+        self.tol_isofug = tol_isofug if tol_isofug is not None else tol
+
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+        """Check convergence using :attr:`tol_isofug` for isofugacity constraints, and
+        :attr:`tol` for all other equations.
+
+        Parameters:
+            args: Positional arguments for the convergence check.
+            kwargs: Quantities to check for convergence.
+                - value: The value to check for convergence.
+
+        Returns:
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of
+                the non-linear iteration and information about the convergence check.
+
+        """
+        metric_value = self.metric(kwargs["residual"])
+        if isinstance(metric_value, dict):
+            status = (
+                ConvergenceStatus.CONVERGED
+                if all(
+                    [
+                        v < self.tol_isofug if "isofugacity" in k else v < self.tol
+                        for k, v in metric_value.items()
+                    ]
+                )
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        else:
+            status = (
+                ConvergenceStatus.CONVERGED
+                if metric_value < self.tol
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+
+        return status, metric_value
 
 
 class ModelConfig(pp.PorePyModel):
     """Helper class to bundle the model configuration and inherit from
     ``PorePyModel``."""
+
+    _ISOFUG_ATOL: float = 1e-2
+    """Absolute tolerance for relaxed convergence criteria on absent phase
+    compositions."""
 
     ### Domain configurations.
 
@@ -100,96 +159,112 @@ class ModelConfig(pp.PorePyModel):
         _INJECTED_MASS[n] = {0: _TOTAL_INJECTED_MASS * _z_IN[n]}
 
 
-NUM_MONTHS = 15
-time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
+def get_default_params(
+    *,
+    base_permeability: float = 1e-14,
+) -> tuple[dict, dict]:
+    """Get default parametrization for example.
 
-phase_property_params = {
-    # TODO smooth to help global solver.
-    "phase_property_params": [1e-4, 1e-2, 0.25, 5.0],
-    "gen_arg_params": [1e-4, 1e-2, 0.25, 5.0],
-}
+    Some parametrization is supported by this method, others must be set directly when
+    obtaining the dict.
 
-basalt_ = basalt.copy()
-basalt_["permeability"] = 1e-14
-material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore
+    """
+    phase_property_params = {
+        "phase_property_params": [1e-4, 1e-2, 0.25, 5.0],
+        "gen_arg_params": [1e-4, 1e-2, 0.25, 5.0],
+    }
 
-flash_params = {
-    "mode": "parallel",
-    "solver": "npipm",
-    "solver_params": {
-        "atol_res": 1e-3,
-        "max_iterations": 80,
-        "armijo_step_size": 0.95,
-        "armijo_decline": 0.495,
-        "npipm_penalty_cc": 1,
-        "npipm_penalty_neg": 1,
-        "npipm_slack_decline": 0.5,
-    },
-    "global_iteration_stride": 3,
-    "fallback_to_iterate": True,
-}
-flash_params.update(phase_property_params)
+    basalt_ = basalt.copy()
+    basalt_["permeability"] = base_permeability
+    material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore
 
-# restart_params = {
-#     "restart_options": {
-#         "restart": False,
-#         "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
-#         "is_mdg_pvd": False,
-#         "vtu_files": None,
-#         "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
-#     },
-# }
+    flash_params = {
+        "mode": "parallel",
+        "solver": "npipm",
+        "solver_params": {
+            "atol_res": 1e-3,
+            "max_iterations": 80,
+        },
+        "global_iteration_stride": 3,
+        "fallback_to_iterate": True,
+    }
+    flash_params.update(phase_property_params)
 
-meshing_params = {
-    "grid_type": "simplex",
-    "meshing_arguments": {
-        "cell_size": 5e-1,
-        "cell_size_fracture": 5e-1,
-    },
-}
+    meshing_params = {
+        "grid_type": "simplex",
+        "meshing_arguments": {
+            "cell_size": 5e-1,
+            "cell_size_fracture": 5e-1,
+        },
+    }
 
-solver_params = {
-    "max_iterations": 30,
-    "nl_convergence_tol": 5e-6,
-    "nl_convergence_tol_res": 1e-6,
-    "apply_schur_complement_reduction": True,
-    "linear_solver": "scipy_sparse",
-    "nonlinear_solver": NewtonArmijoAndersonSolver,
-    "armijo_line_search": True,
-    "armijo_line_search_weight": 0.9,
-    "armijo_line_search_incline": 0.2,
-    "armijo_line_search_max_iterations": 15,
-    "armijo_stop_after_residual_reaches": 1e0,
-    "appplyard_chop": 0.3,
-    "newton_chop": 1.0,
-    "anderson_acceleration": False,
-    "anderson_acceleration_depth": 3,
-    "anderson_acceleration_constrained": False,
-    "anderson_acceleration_regularization_parameter": 1e-3,
-    "anderson_start_after_residual_reaches": 1e2,
-    "solver_statistics_file_name": "solver_statistics.json",
-    "flag_failure_as_diverged": False,
-}
+    MODEL_PARAMS = {
+        "solver_statistics_file_name": "solver_statistics.json",
+        "equilibrium_specification": (
+            pp.compositional.FlashSpec.ph,
+            "persistent-variables",
+        ),
+        "linear_solver": "scipy_sparse",
+        "apply_schur_complement_reduction": True,
+        "flash_params": flash_params,
+        "fractional_flow": False,
+        "material_constants": material_params,
+        "enable_buoyancy_effects": False,
+        "compile": True,
+        "flash_compiler_args": (
+            pp.compositional.FlashSpec.pT,
+            pp.compositional.FlashSpec.ph,
+        ),
+    }
 
-MODEL_PARAMS = {
-    "equilibrium_specification": (
-        pp.compositional.FlashSpec.ph,
-        "persistent-variables",
-    ),
-    "eliminate_reference_phase": True,
-    "eliminate_reference_component": True,
-    "flash_params": flash_params,
-    "fractional_flow": False,
-    "material_constants": material_params,
-    "prepare_simulation": False,
-    "enable_buoyancy_effects": False,
-    "compile": True,
-    "flash_compiler_args": (
-        pp.compositional.FlashSpec.pT,
-        pp.compositional.FlashSpec.ph,
-    ),
-}
+    MODEL_PARAMS.update(phase_property_params)
+    MODEL_PARAMS.update(meshing_params)
 
-MODEL_PARAMS.update(phase_property_params)
-MODEL_PARAMS.update(meshing_params)
-MODEL_PARAMS.update(solver_params)
+    SOLVER_PARAMS = {
+        "nonlinear_solver": NewtonArmijoAndersonSolver,
+        "armijo_line_search": True,
+        "armijo_line_search_weight": 0.95,
+        "armijo_line_search_incline": 0.2,
+        "armijo_line_search_max_iterations": 15,
+        "armijo_stop_after_residual_reaches": 1e0,
+        "appplyard_chop": 0.3,
+        "newton_chop": 1.0,
+        "anderson_acceleration": False,
+        "anderson_acceleration_depth": 3,
+        "anderson_acceleration_constrained": False,
+        "anderson_acceleration_regularization_parameter": 1e-3,
+        "anderson_start_after_residual_reaches": 1e2,
+        "flag_failure_as_diverged": False,
+        "prepare_simulation": False,
+    }
+
+    return MODEL_PARAMS, SOLVER_PARAMS
+
+
+def get_default_convergence_criteria(
+    model: ModelConfig,
+    max_iterations: float,
+    atol_res: float,
+    atol_inc: float,
+    atol_res_isofug: float,
+) -> dict:
+    """Returns the default convergence criteria for the CFLE setup."""
+
+    return {
+        "max_iterations": int(max_iterations),
+        "nl_convergence_criteria": {
+            "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+                tol=atol_inc, metric=pp.VariableBasedLebesgueMetric(model)
+            ),
+            "res_abs": RelaxedCFLEResidualCriterion(
+                tol=atol_res,
+                metric=pp.EquationBasedLebesgueMetric(model),
+                tol_isofug=atol_res_isofug,
+            ),
+        },
+        "nl_divergence_criteria": {
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
+            "inc_nan": pp.IncrementBasedNanCriterion(),
+            "res_nan": pp.ResidualBasedNanCriterion(),
+        },
+    }

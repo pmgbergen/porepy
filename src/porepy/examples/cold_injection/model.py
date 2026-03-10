@@ -14,22 +14,18 @@ Note:
 from __future__ import annotations
 
 import time
-from collections import deque
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence, cast
+from typing import Callable, Literal, Optional, Sequence
 
-import numba as nb
 import numpy as np
 
 import porepy as pp
+import porepy.compositional.flash as pf
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
 
 from .config import ModelConfig
-
-if TYPE_CHECKING:
-    import porepy.compositional.flash as pf
 
 
 class FluidEoS(pr.CompiledPengRobinson):
@@ -109,157 +105,33 @@ class FluidMixture(ModelConfig):
 
 
 class SolutionStrategy(cfle.SolutionStrategyCFLE):
-    """Provides some pre- and post-processing for flash methods."""
+    """Strategy implementing choice of flash based.
 
-    pressure_variable: str
-    temperature_variable: str
-    enthalpy_variable: str
-    fraction_in_phase_variables: list[str]
+    Performs the pT flash on domains tagged as injection wells in every iteration.
+    Otherwise it performs the base specification as specified.
 
-    def __init__(self, params: dict | None = None):
-        super().__init__(params)
-
-        self._residual_norm_history: deque[float] = deque(maxlen=4)
-        self._increment_norm_history: deque[float] = deque(maxlen=3)
-
-    def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()
-        self._residual_norm_history.clear()
-        self._increment_norm_history.clear()
-
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: Optional[np.ndarray],
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        """Flags the time step as diverged, if there is a nan in the residual."""
-        status = super().check_convergence(  # type:ignore[misc]
-            nonlinear_increment, residual, reference_residual, nl_params
-        )
-        if residual is not None:
-            if np.any(np.isnan(residual)) or np.any(np.isinf(residual)):
-                status = (False, True)
-
-        # Convergence check for individual norms, if the global residual is not yet
-        # small enough.
-        tol_res = float(self.params["nl_convergence_tol_res"])
-        tol_inc = float(self.params["nl_convergence_tol"])
-        # Relaxed tolerance for quantities loosing their physical meaning in the unified
-        # setting when a phase dissappears.
-        # Relaxed tolerance for partial fractions and isofugacity constraints.
-        # Saying variations have to drop below 1% (not significant enough to change the
-        # state)
-        tol_relaxed = 1e-2
-
-        # Additional tracking for analysis
-        res_norm_per_eq = {}
-        incr_norm_per_var = {}
-
-        if status == (False, False):
-            residuals_converged: list[bool] = []
-            increments_converged: list[bool] = []
-
-            # First, perform standard check for all equations except isofugacity
-            # constraints, and all variables except partial fractions
-            for name, eq in self.equation_system.equations.items():
-                rn = self.compute_residual_norm(
-                    cast(np.ndarray, self.equation_system.evaluate(eq)),
-                    reference_residual,
-                )
-                res_norm_per_eq[name] = rn
-
-                if "isofugacity" not in name:
-                    residuals_converged.append(rn < tol_res)
-                else:
-                    residuals_converged.append(rn < tol_relaxed)
-
-            partial_frac_vars = self.fraction_in_phase_variables
-            for var in self.equation_system.variables:
-                rn = self.compute_nonlinear_increment_norm(
-                    nonlinear_increment[self.equation_system.dofs_of([var])]
-                )
-                if var.name not in incr_norm_per_var:
-                    incr_norm_per_var[var.name] = rn
-                else:
-                    incr_norm_per_var[var.name] = np.sqrt(
-                        incr_norm_per_var[var.name] ** 2 + rn**2
-                    )
-                if var.name not in partial_frac_vars:
-                    increments_converged.append(rn < tol_inc)
-                else:
-                    increments_converged.append(rn < tol_relaxed)
-
-            status = (
-                all(residuals_converged) and all(increments_converged),
-                False,
-            )
-
-        # Keeping residual/ increment norm history and checking for stationary points.
-        self._residual_norm_history.append(
-            self.compute_residual_norm(residual, reference_residual)
-        )
-        self._increment_norm_history.append(
-            self.compute_nonlinear_increment_norm(nonlinear_increment)
-        )
-
-        if len(self._residual_norm_history) == self._residual_norm_history.maxlen:
-            residual_stationary = (
-                np.allclose(
-                    self._residual_norm_history,
-                    self._residual_norm_history[-1],
-                    rtol=0.0,
-                    atol=np.min((tol_res, 1e-6)),
-                )
-                and tol_res != np.inf
-            )
-            increment_stationary = (
-                np.allclose(
-                    self._increment_norm_history,
-                    self._increment_norm_history[-1],
-                    rtol=0.0,
-                    atol=np.min((tol_inc, 1e-6)),
-                )
-                and tol_inc != np.inf
-            )
-            if residual_stationary and increment_stationary and not status[0]:
-                # print("Detected stationary point. Flagging as diverged.")
-                status = (False, True)
-
-        return status
-
-    def compute_residual_norm(
-        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
-    ) -> float:
-        if residual is None:
-            return np.nan
-        residual_norm = np.linalg.norm(residual)
-        return float(residual_norm)
+    """
 
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
     ) -> None:
-        """Performing pT flash in injection wells, because T is fixed there."""
         stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
         do_flash = False
         if isinstance(stride, int):
             # NOTE Iteration counter is increased after iteration, and 0 modulo anything
             # is zero.
             assert stride > 0, "Global iteration stride must be positive."
-            n = self.nonlinear_solver_statistics.num_iteration
+            n = self.nonlinear_solver_statistics.num_iterations
             do_flash = (n + 1) % stride == 0 or n == 0
 
         for sd in self.mdg.subdomains():
-            if "injection_well" in sd.tags:  # and stride is not None:
-                equ_spec = {
-                    "p": self.equation_system.evaluate(
-                        self.pressure([sd]), state=state
-                    ),
-                    "T": self.equation_system.evaluate(
+            if "injection_well" in sd.tags:
+                equ_spec = pf.IsobaricSpecifications(
+                    p=self.equation_system.evaluate(self.pressure([sd]), state=state),
+                    T=self.equation_system.evaluate(
                         self.temperature([sd]), state=state
                     ),
-                }
+                )
 
                 self.local_equilibrium(
                     sd,
@@ -312,10 +184,6 @@ class AdjustedPointWellModel(ModelConfig):
 
     """
 
-    compute_residual_norm: Callable[[Optional[np.ndarray], np.ndarray], float]
-    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
-
-    pressure_variable: str
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
@@ -346,10 +214,26 @@ class AdjustedPointWellModel(ModelConfig):
     # Adjusting PDEs
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
-        are not production wells."""
-        _, no_production_wells = self._filter_wells(subdomains, "production")
-        eq: pp.ad.Operator = super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
-        return eq
+        are not production wells.
+
+        Important:
+            This is a hack which removes production wells from the subdomains, having
+            also an impact on the code in the outerscope.
+
+        """
+        prod_wells, no_prod_wells = self._filter_wells(subdomains, "production")
+        sds_ = [sd for sd in subdomains]
+        eq: pp.ad.Operator = super().mass_balance_equation(sds_)  # type:ignore[misc]
+        name = eq.name
+        eq.set_name(f"{name}_raw")
+        projection = pp.ad.SubdomainProjections(sds_)
+        eq_slice = projection.cell_restriction(no_prod_wells) @ eq
+        eq_slice.set_name(name)
+
+        for pw in prod_wells:
+            subdomains.remove(pw)
+
+        return eq_slice
 
         # name = eq.name
         # volume_stabilization = self.fluid.density(
@@ -376,8 +260,17 @@ class AdjustedPointWellModel(ModelConfig):
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
         are not production wells."""
-        _, no_injection_wells = self._filter_wells(subdomains, "injection")
-        return super().energy_balance_equation(no_injection_wells)  # type:ignore[misc]
+        inj_wells, no_inj_wells = self._filter_wells(subdomains, "injection")
+        sds_ = [sd for sd in subdomains]
+        eq: pp.ad.Operator = super().energy_balance_equation(sds_)  # type:ignore[misc]
+        name = eq.name
+        eq.set_name(f"{name}_raw")
+        projection = pp.ad.SubdomainProjections(sds_)
+        eq_slice = projection.cell_restriction(no_inj_wells) @ eq
+        eq_slice.set_name(name)
+        for iw in inj_wells:
+            subdomains.remove(iw)
+        return eq_slice
 
     # Introducing pressure and temperature constraint at production and injection.
     def set_equations(self):
@@ -447,8 +340,9 @@ class AdjustedPointWellModel(ModelConfig):
         source: pp.ad.Operator = super().fluid_source(subdomains)  # type:ignore[misc]
 
         injection_wells, _ = self._filter_wells(subdomains, "injection")
+        # production_wells, _ = self._filter_wells(subdomains, "production")
 
-        subdomain_projections = pp.ad.SubdomainProjections(self.mdg.subdomains())
+        projection = pp.ad.SubdomainProjections(subdomains)
 
         injected_mass: pp.ad.Operator = pp.ad.sum_operator_list(
             [
@@ -462,9 +356,16 @@ class AdjustedPointWellModel(ModelConfig):
             "total_injected_fluid_mass",
         )
 
-        source += subdomain_projections.cell_restriction(subdomains) @ (
-            subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
-        )
+        # source += projection.cell_restriction(subdomains) @ (
+        #     projection.cell_prolongation(injection_wells) @ injected_mass
+        # )
+        # Adding total injected mass in injection wells.
+        source += projection.cell_prolongation(injection_wells) @ injected_mass
+
+        # Removing mass flowing out of the production wells.
+        # source -= projection.cell_prolongation(production_wells) @ (
+        #     projection.cell_restriction(production_wells) @ source
+        # )
 
         return source
 
@@ -477,8 +378,9 @@ class AdjustedPointWellModel(ModelConfig):
         source: pp.ad.Operator = super().component_source(component, subdomains)  # type:ignore[misc]
 
         injection_wells, _ = self._filter_wells(subdomains, "injection")
+        production_wells, _ = self._filter_wells(subdomains, "production")
 
-        subdomain_projections = pp.ad.SubdomainProjections(self.mdg.subdomains())
+        projection = pp.ad.SubdomainProjections(subdomains)
 
         injected_mass = self.volume_integral(
             self.injected_component_mass(component, injection_wells),
@@ -486,14 +388,15 @@ class AdjustedPointWellModel(ModelConfig):
             1,
         )
 
-        source += subdomain_projections.cell_restriction(subdomains) @ (
-            subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
-        )
+        # source += subdomain_projections.cell_restriction(subdomains) @ (
+        #     subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
+        # )
+        # Adding mass in injection wells
+        source += projection.cell_prolongation(injection_wells) @ injected_mass
 
         # Removing source term in production well, mimicing outflow of mass.
-        production_wells, _ = self._filter_wells(subdomains, "production")
-        source -= subdomain_projections.cell_prolongation(production_wells) @ (
-            subdomain_projections.cell_restriction(production_wells) @ source
+        source -= projection.cell_prolongation(production_wells) @ (
+            projection.cell_restriction(production_wells) @ source
         )
 
         return source
@@ -502,12 +405,12 @@ class AdjustedPointWellModel(ModelConfig):
         """Adjusted energy source term removing all energy in the production wells."""
         source = super().energy_source(subdomains)  # type:ignore[misc]
 
-        # Removing source term in production well, mimicing outflow of energy.
+        projection = pp.ad.SubdomainProjections(subdomains)
         production_wells, _ = self._filter_wells(subdomains, "production")
-        _, no_injection_wells = self._filter_wells(subdomains, "injection")
-        subdomain_projections = pp.ad.SubdomainProjections(no_injection_wells)
-        source -= subdomain_projections.cell_prolongation(production_wells) @ (
-            subdomain_projections.cell_restriction(production_wells) @ source
+
+        # Removing energy in production well.
+        source -= projection.cell_prolongation(production_wells) @ (
+            projection.cell_restriction(production_wells) @ source
         )
         return source
 
@@ -567,9 +470,6 @@ class InitialConditions(ModelConfig):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         return np.ones(sd.num_cells) * self._z_INIT[component.name]
-
-    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        return np.zeros(sd.num_cells)
 
 
 class BoundaryConditions(ModelConfig):
@@ -879,43 +779,14 @@ class DataCollectionMixin(pp.PorePyModel):
 
     def __init__(self, params: dict | None = None):
         super().__init__(params)
-
-        # Data saving for plotting for paper.
-        self._time_steps: list[float] = []
-        self._time_step_sizes: list[float] = []
-        self._time_tracker: dict[
-            Literal["flash", "assembly", "linsolve"], list[float]
-        ] = {
-            "flash": [],
-            "assembly": [],
-            "linsolve": [],
-        }
-        self._recomputations: list[int] = []
-        """Number of recomputations of dt at a time due to convergence failure."""
-        self._num_global_iter: list[int] = []
-        """Number of global iterations per successful time step."""
-        self._num_cell_averaged_flash_iter: list[float | int] = []
-        """Number of cell-averaged flash iterations per successful time step."""
-        self._num_linesearch_iter: list[int] = []
-        """Number of linesearch iterations per successful time step."""
-
-        self._flash_iter_counter: int = 0
-        """Counter for cell-averaged flash iterations per time step."""
-
-        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
-        self._flash_iter_for_cell_mean: list[np.ndarray] = []
-
-        self._total_num_time_steps: int = 0
-        self._total_num_global_iter: int = 0
-        self._total_num_flash_iter: int = 0
-        self.nonlinear_solver_statistics.num_iteration_armijo = 0
+        self._flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
 
     def data_to_export(self):
         data: list = super().data_to_export()
 
         for sd in self.mdg.subdomains():
-            if sd in self._cum_flash_iter_per_grid:
-                ni = self._cum_flash_iter_per_grid[sd]
+            if sd in self._flash_iter_per_grid:
+                ni = self._flash_iter_per_grid[sd]
                 n = np.array(sum(ni), dtype=int)
             else:
                 n = np.zeros(sd.num_cells, dtype=int)
@@ -927,65 +798,23 @@ class DataCollectionMixin(pp.PorePyModel):
     def assemble_linear_system(self) -> None:
         start = time.time()
         super().assemble_linear_system()
-        self._time_tracker["assembly"].append(time.time() - start)
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            assembly_clocktime=time.time() - start,
+        )
 
     def solve_linear_system(self) -> np.ndarray:
         start = time.time()
         sol = super().solve_linear_system()
-        self._time_tracker["linsolve"].append(time.time() - start)
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            linsolve_clocktime=time.time() - start,
+        )
         return sol
 
     def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()
-        self._cum_flash_iter_per_grid.clear()
-        self._flash_iter_counter = 0
-        self.nonlinear_solver_statistics.num_iteration_armijo = 0
-
-    def after_nonlinear_convergence(self):
-        # Get data before reset and recomputation in super-call.
-        self._num_global_iter.append(self.nonlinear_solver_statistics.num_iteration)
-        self._num_cell_averaged_flash_iter.append(self._flash_iter_counter)
-        self._num_linesearch_iter.append(
-            self.nonlinear_solver_statistics.num_iteration_armijo
-        )
-
-        self._recomputations.append(self.time_manager._recomp_num)
-        self._time_step_sizes.append(self.time_manager.dt)
-        # NOTE the time manager always returns the time at the end of the time step,
-        # The one for which we solve.
-        self._time_steps.append(self.time_manager.time - self.time_manager.dt)
-
-        self._total_num_time_steps += 1
-        self._total_num_global_iter += self.nonlinear_solver_statistics.num_iteration
-        self._total_num_flash_iter += sum(
-            [sum(vals).sum() for vals in self._cum_flash_iter_per_grid.values()]
-        )
-
-        return super().after_nonlinear_convergence()
-
-    def after_nonlinear_failure(self):
-        # Do not include clock times of failed attempts.
-        n = self.nonlinear_solver_statistics.num_iteration
-        self._time_tracker["linsolve"] = self._time_tracker["linsolve"][:-n]
-        self._time_tracker["assembly"] = self._time_tracker["assembly"][:-n]
-        self._time_tracker["flash"] = self._time_tracker["flash"][:-n]
-        self._total_num_time_steps += 1
-        self._total_num_global_iter += n
-        self._total_num_flash_iter += sum(
-            [sum(vals).sum() for vals in self._cum_flash_iter_per_grid.values()]
-        )
-        return super().after_nonlinear_failure()
-
-    def update_thermodynamic_properties_of_phases(
-        self, state: Optional[np.ndarray] = None
-    ) -> None:
-        start = time.time()
-        super().update_thermodynamic_properties_of_phases(state=state)
-        self._time_tracker["flash"].append(time.time() - start)
-        if self._flash_iter_for_cell_mean:
-            ni = np.concatenate(self._flash_iter_for_cell_mean)
-            self._flash_iter_counter += float(ni.mean())
-        self._flash_iter_for_cell_mean.clear()
+        self._flash_iter_per_grid.clear()
+        return super().before_nonlinear_loop()
 
     def local_equilibrium(
         self,
@@ -1003,10 +832,19 @@ class DataCollectionMixin(pp.PorePyModel):
             update_secondary_variables=update_secondary_variables,
         )
 
-        self._flash_iter_for_cell_mean.append(state.num_iter)
-
-        if sd not in self._cum_flash_iter_per_grid:
-            self._cum_flash_iter_per_grid[sd] = []
-        self._cum_flash_iter_per_grid[sd].append(state.num_iter)
+        if sd not in self._flash_iter_per_grid:
+            self._flash_iter_per_grid[sd] = []
+        self._flash_iter_per_grid[sd].append(state.num_iter)
 
         return state
+
+    def after_nonlinear_convergence(self):
+        flash_iter_per_grid: list[np.ndarray] = [
+            sum(v) for v in self._flash_iter_per_grid.values()
+        ]
+        total_flash_iter = sum([np.sum(v) for v in flash_iter_per_grid])
+        self.nonlinear_solver_statistics.log_custom_data(
+            flash_iterations=total_flash_iter,
+        )
+
+        return super().after_nonlinear_convergence()
