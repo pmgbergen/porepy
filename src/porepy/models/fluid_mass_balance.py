@@ -844,6 +844,41 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
 
         return source
 
+class FluidMassBalanceEquationsReactiveTransportWithWells(FluidMassBalanceEquationsReactiveTransport):
+    """Mixed-dimensional balance equation for total mass (pressure equation).
+
+    Balance equation for all subdomains and Darcy-type flux relation on all interfaces
+    of codimension one and Peaceman flux relation on interfaces of codimension two
+    (well-fracture intersections).
+
+    """
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Mass balance equation for subdomains.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the mass balance equation.
+
+        """
+        # Assemble the terms of the mass balance equation.
+        mass_eq= super().mass_balance_equation(subdomains)
+        p_control = pp.ad.Scalar(self.params["production_pressure"])
+        mask_inj,mask_prod = self.global_well_masks(subdomains)
+        mask_prod_ad = pp.wrap_as_dense_ad_array(mask_prod.astype(float))
+
+        prod_pressure_constraint = mask_prod_ad * (self.pressure(subdomains) - p_control)
+        prod_pressure_constraint.set_name("production_pressure_constraint")        
+
+
+        one = pp.ad.Scalar(1.0)
+        modified_mass_eq = (one - mask_prod_ad) * mass_eq + prod_pressure_constraint
+        modified_mass_eq.set_name("mass_balance_with_fixed_production_pressure")
+        return modified_mass_eq
+
+
+
 
 class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.ZeroGravityForce,

@@ -2860,15 +2860,17 @@ class ModifiedSourceAsWells:
                     values=np.zeros(subdomain.num_cells, dtype=np.float64)
                     # Define injection and production cells
                     injection_mask, production_mask = self.well_masks_from_coordinates(subdomain)
-                    injected_concentration = self.ic_values_species_concentration(component, subdomain) / self.solid.total_porosity
-                    values[injection_mask] = self.injection_and_production_rates("injection") * injected_concentration[injection_mask]  # Injection rate (positive)
+                    injected_fraction = self.ic_values_species_concentration(component, subdomain) / self.solid.total_porosity / self.fluid.reference_component.molar_density
+                    values[injection_mask] = self.injection_and_production_rates("injection") * injected_fraction[injection_mask]  # Injection rate (positive)
                     injection_terms.append(values)
             else:
                 injection_terms.append(np.zeros(subdomain.num_cells, dtype=np.float64))
 
-        external_sources = pp.wrap_as_dense_ad_array(np.hstack(injection_terms))
+        injection_sources = pp.wrap_as_dense_ad_array(np.hstack(injection_terms))
+        external_sources = injection_sources * self.injection_density(subdomains,"molar")
+
         external_sources.set_name(f"component_source_{component.name}_injection_and_production_wells")
-        
+
         #compute production source term
 
         production_source_terms= pp.ad.sum_operator_list([
@@ -2878,7 +2880,7 @@ class ModifiedSourceAsWells:
         mask_inj,mask_prod = self.global_well_masks(subdomains)
         mask_prod_ad = pp.wrap_as_dense_ad_array(mask_prod.astype(float))
         production_source_terms = mask_prod_ad * pp.ad.Scalar(self.injection_and_production_rates("production"))* production_source_terms
-        external_sources += production_source_terms
+        #external_sources += production_source_terms
         return external_sources
 
 
@@ -3109,9 +3111,9 @@ class ModifiedSourceAsWells:
         mask_inj_ad= pp.wrap_as_dense_ad_array(mask_inj.astype(float))
         injected_temperature=self.params.get("injected_temperature", 300)
         injected_enthalpy= self.fluid.reference_component.specific_heat_capacity * (injected_temperature - self.reference_variable_values.temperature)
-        injection_source_terms = mask_inj_ad * pp.ad.Scalar(self.injection_and_production_rates("injection")*injected_enthalpy*self.fluid.reference_component.density) 
+        injection_source_terms = mask_inj_ad * pp.ad.Scalar(self.injection_and_production_rates("injection")*injected_enthalpy) * self.injection_density(subdomains,"mass")
         external_sources += injection_source_terms
-        external_sources += production_source_terms
+        #external_sources += production_source_terms
 
 
 
@@ -3197,3 +3199,54 @@ class ModifiedSourceAsWells:
             prod_parts.append(prod)
 
         return np.hstack(inj_parts), np.hstack(prod_parts)
+
+
+    def injection_density(
+        self,
+        domains: pp.SubdomainsOrBoundaries,
+        density_type: str = "mass",
+    ) -> pp.ad.Operator:
+        """Density of injected fluid using cell pressure and prescribed injection
+        temperature.
+
+        The pressure dependence is identical to the rest of the code, since it uses
+        `self.pressure_exponential(...)` directly. The temperature dependence uses the
+        injected temperature instead of the cell temperature.
+
+        Parameters
+        ----------
+        domains : pp.SubdomainsOrBoundaries
+            Domains where the density is evaluated.
+        density_type : str
+            "mass"  -> return mass density (kg/m^3)
+            "molar" -> return molar density (mol/m^3)
+
+        Returns
+        -------
+        pp.ad.Operator
+            Injection density operator.
+        """
+        grids = cast(list[pp.Grid], domains)
+
+        if density_type == "mass":
+            rho_ref = pp.ad.Scalar(self.fluid.reference_component.density)
+        elif density_type == "molar":
+            rho_ref = pp.ad.Scalar(self.fluid.reference_component.molar_density)
+        else:
+            raise ValueError("density_type must be 'mass' or 'molar'")
+
+        injected_temperature = self.units.convert_units(
+            self.params["injected_temperature"], "K"
+        )
+
+        T_ref = self.reference_variable_values.temperature
+        alpha = self.fluid_thermal_expansion(grids)
+
+        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+        temperature_factor = exp(
+            pp.ad.Scalar(-1.0) * alpha * pp.ad.Scalar(injected_temperature - T_ref)
+        )
+
+        rho_ = rho_ref * self.pressure_exponential(grids) * temperature_factor
+        rho_.set_name(f"injection_{density_type}_density")
+        return rho_
