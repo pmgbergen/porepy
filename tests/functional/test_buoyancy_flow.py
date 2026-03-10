@@ -23,6 +23,7 @@ time step the following are tested:
 
 import numpy as np
 import pytest
+from typing import Literal
 
 import porepy as pp
 from tests.functional.setups.buoyancy_flow_model import (
@@ -34,23 +35,27 @@ from tests.functional.setups.buoyancy_flow_model import (
     ModelMDGeometry3D,
     to_Mega,
 )
+from porepy.applications.test_utils.models import add_mixin
 
 # Parameterization list for both tests
 Parameterization = [
-    (BuoyancyFlowModel2N, True, 4),
-    (BuoyancyFlowModel2N, False, 4),
-    (BuoyancyFlowModel3N, True, 4),
-    (BuoyancyFlowModel3N, False, 4),
+    (BuoyancyFlowModel2N, 2, 4),
+    (BuoyancyFlowModel2N, 3, 4),
+    (BuoyancyFlowModel3N, 2, 4),
+    (BuoyancyFlowModel3N, 3, 4),
 ]
 
 
 def _run_buoyancy_model(
     model_class: type,
-    mesh_2d_Q: bool,
+    dim: Literal[2, 3],
     expected_order_loss: int,
     md: bool = False,
 ) -> None:
     """Run buoyancy flow simulation for given parameters."""
+
+    # The residual tolerance for Newton should be related to the expected (requested)
+    # order loss.
     residual_tolerance = 10.0 ** (-expected_order_loss)
     day = 86400
     if md:
@@ -90,26 +95,16 @@ def _run_buoyancy_model(
         "expected_order_loss": expected_order_loss,
     }
     # Combine geometry with model class
-    if mesh_2d_Q:
+    geometry_class = geometry2d if dim == 2 else geometry3d
+    model_class = add_mixin(geometry_class, model_class)
+    model = model_class(params)
 
-        class Model2D(geometry2d, model_class):
-            pass
-
-        model = Model2D(params)
-    else:
-
-        class Model3D(geometry3d, model_class):
-            pass
-
-        model = Model3D(params)
     pp.run_time_dependent_model(model, params)
 
 
 @pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize(
-    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
-)
+@pytest.mark.parametrize("model_class, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
-def test_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md):
+def test_buoyancy_model(model_class, dim: Literal[2, 3], expected_order_loss, md):
     """Test buoyancy-driven flow model (FD)."""
-    _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=md)
+    _run_buoyancy_model(model_class, dim, expected_order_loss, md=md)
