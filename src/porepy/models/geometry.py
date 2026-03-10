@@ -779,7 +779,7 @@ class LoadGeometryMixin(pp.PorePyModel):
     """
 
     gmsh_file_name: Callable[[], Path]
-    """Method that returns the name of the file used to for input and output by gmsh."""
+    """Method that returns the name of the file used for input and output by gmsh."""
 
     def set_geometry(self) -> None:
         """Load and set model geometry from ``msh``, ``geo``, and ``csv`` files that
@@ -854,7 +854,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         """
         return Path(self.params.get("csv_file_name", "fracture_network.csv"))
 
-    def create_and_export_geometry(self, set_geometry_class=ModelGeometry) -> None:
+    def create_and_export_geometry(self, set_geometry_class=None) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
 
         Parameters:
@@ -866,6 +866,15 @@ class LoadGeometryMixin(pp.PorePyModel):
                 :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
+        # IMPLEMENTATION NOTE: To give full control of which version of ``set_geometry``
+        # method is used to create the geometry file, the class containing this method
+        # is given as an explicit argument rather then by a super call. Though this is a
+        # break with the mixin style that is mainly followed in the multiphysics models,
+        # it seems to be the better solution in this case.
+
+        if set_geometry_class is None:
+            set_geometry_class = ModelGeometry
+
         # Explicitely call the ``set_geometry`` method of the provided class.
         set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
 
