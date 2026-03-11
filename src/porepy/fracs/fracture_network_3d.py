@@ -314,6 +314,11 @@ class FractureNetwork3d(FractureNetwork):
             )
             gmsh.model.mesh.generate(self.nd)
 
+        # Delete the file 'file_name' if it exists, and write the new mesh to
+        # 'file_name'. This seems to be necessary to run tests on GH actions.
+        if file_name.exists():
+            file_name.unlink()
+
         gmsh.write(str(file_name))
         # Report mesh quality metrics.
         if self._extra_meshing_args["plot_mesh_quality_metrics"]:
@@ -1126,10 +1131,14 @@ class FractureNetwork3d(FractureNetwork):
                 Flag for writing headers for the five columns in the first row.
 
         """
-        # Determine the maximum number of points in a fracture. Minimum is 2 for the
-        # domain specification.
+        file_name = file_name.with_suffix(".csv")
 
-        with open(file_name.with_suffix(".csv"), "w") as csv_file:
+        # Delete the file 'csv_file' if it exists. This seems to be necessary to run
+        # tests on GH actions.
+        if file_name.exists():
+            file_name.unlink()
+
+        with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
                 csv_writer.writerow("# Fracture network exported from porepy.")

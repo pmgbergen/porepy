@@ -224,6 +224,10 @@ class FractureNetwork2d(FractureNetwork):
             )
             gmsh.model.mesh.generate(2)
 
+        # Delete the file 'file_name' if it exists, and write the new mesh to
+        # 'file_name'. This seems to be necessary to run tests on GH actions.
+        if file_name.exists():
+            file_name.unlink()
         gmsh.write(str(file_name))
 
         # Report mesh quality metrics.
@@ -744,7 +748,13 @@ class FractureNetwork2d(FractureNetwork):
         fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
         pts, edges = _linefractures_to_pts_and_edges(fracs)
 
-        with open(file_name.with_suffix(".csv"), "w") as csv_file:
+        # Delete the file 'csv_file' if it exists. This seems to be necessary to run
+        # tests on GH actions.
+        file_name = file_name.with_suffix(".csv")
+        if file_name.exists():
+            file_name.unlink()
+
+        with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             # write all the fractures
             if self.domain is not None:
