@@ -49,7 +49,8 @@ model_params = {
         "cell_size_fracture": units.convert_units(0.25, "m"),  # For unstructured grids
         "cell_size_boundary": units.convert_units(0.5, "m"),  # For unstructured grids
         "cell_size_min": units.convert_units(0.51, "m"),  # For unstructured grids
-        "use_circumcenters": 0,  # Positive for moving cell centers to circumcenters.
+        "circumcenter_threshold": 0,  # Relative distance to move cell centers from
+        # centroids to circumcenters in [0, 1). 0 implies no movement.
     },
     "meshing_kwargs": {},
     # Exporting and restarting

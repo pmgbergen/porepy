@@ -134,9 +134,8 @@ def compute_circumcenter_2d(
 
             Used for cases where the circumcenter is not in the interior of the
             triangle. The center is moved 95% of the distance from barycenter to
-            triangle boundary, in the direction circumcenter, ensuring the
-            new center lies strictly inside the triangle and approximates the
-            circumcenter.
+            triangle boundary, in the direction circumcenter, ensuring the new center
+            lies strictly inside the triangle and approximates the circumcenter.
         eps: ``default=1e-14``
 
             Tolerance for detecting degenerate triangles and changes in circumcenter.
@@ -294,7 +293,7 @@ def compute_circumcenter_2d(
 
     # Compute indicators where center changed (column-wise norm).
     # NOTE: Numerically there is always a change. Furthermore, by default the cell
-    # centers are originally at the bary-center. It coincides with the circumcenter if
+    # centers are originally at the barycenter. It coincides with the circumcenter if
     # and only if triangle is equilateral. We use simply the distance between new and
     # old centers to indicate numerically relevant change.
     changed = np.sqrt(np.sum(np.square(NCC - sd.cell_centers), axis=0)) > eps_loc
@@ -472,7 +471,7 @@ def compute_circumcenter_3d(
             # Alignment of motion direction with outward normals.
             dots = normals.T @ V
 
-            # choose face with maximal positive dot product.
+            # Choose face with maximal positive dot product.
             positive = dots > eps
             if not np.any(positive):
                 # Fallback: this should not happen for a strictly interior barycenter

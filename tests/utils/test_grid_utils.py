@@ -53,7 +53,7 @@ from porepy.utils.grid_utils import compute_circumcenter_2d, compute_circumcente
             1,
         ),
         (
-            # 1 right triangles, shift is equal to default value of threshold argument
+            # 1 right triangle, shift is equal to default value of threshold argument
             # since circumcenter would be placed right on face.
             np.array([[0, 1, 0], [0, 0, 1]]),
             None,

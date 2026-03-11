@@ -56,7 +56,7 @@ class ModelGeometry(pp.PorePyModel):
         self.add_wells_to_mdg()
 
         # Move cell centers if requested.
-        self.move_cellcenters()
+        self.move_cell_centers()
 
     @property
     def domain(self) -> pp.Domain:
@@ -175,7 +175,7 @@ class ModelGeometry(pp.PorePyModel):
 
         The criteria to do that are:
 
-        1. ``params["meshing_kwargs"]["use_circumcenters"]`` is a positive float.
+        1. ``params["meshing_kwargs"]["circumcenter_threshold"]`` is a positive float.
            Defaults to 0.
         2. TPxA is used for stress, Darcy or Fourier flux discretization (at least one).
 
@@ -183,29 +183,29 @@ class ModelGeometry(pp.PorePyModel):
             A bool indicating whether the movement should be performed or not.
 
         """
-        is_requested = bool(self.meshing_arguments().get("use_circumcenters", 0))
+        is_requested = bool(self.meshing_arguments().get("circumcenter_threshold", 0))
 
-        tpfa4fourier = False
-        tpfa4darcy = False
-        tpsa4stress = False
+        tpfa_for_fourier = False
+        tpfa_for_darcy = False
+        tpsa_for_stress = False
 
         subdomains = self.mdg.subdomains()
 
         if hasattr(self, "stress_keyword"):
             if isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
-                tpsa4stress = True
+                tpsa_for_stress = True
 
         if hasattr(self, "fourier_keyword"):
             if isinstance(self.fourier_flux_discretization(subdomains), pp.ad.TpfaAd):
-                tpfa4fourier = True
+                tpfa_for_fourier = True
 
         if hasattr(self, "darcy_keyword"):
             if isinstance(self.darcy_flux_discretization(subdomains), pp.ad.TpfaAd):
-                tpfa4darcy = True
+                tpfa_for_darcy = True
 
-        return is_requested and (tpfa4darcy or tpfa4fourier or tpsa4stress)
+        return is_requested and (tpfa_for_darcy or tpfa_for_fourier or tpsa_for_stress)
 
-    def move_cellcenters(self) -> None:
+    def move_cell_centers(self) -> None:
         """Sets the cell centers according to specifications.
 
         See also:
@@ -214,7 +214,7 @@ class ModelGeometry(pp.PorePyModel):
         """
 
         if self.use_circumcenters():
-            threshold = float(self.meshing_arguments()["use_circumcenters"])
+            threshold = float(self.meshing_arguments()["circumcenter_threshold"])
             for sd in self.mdg.subdomains():
                 # NOTE: Grid type acts as dimension filter.
                 if isinstance(sd, pp.TriangleGrid):
