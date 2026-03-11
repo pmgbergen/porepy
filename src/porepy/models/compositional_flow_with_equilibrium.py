@@ -607,9 +607,9 @@ class BoundaryConditionsCFFLE(
             idx = self._boundary_equilibrium_cells(bg)
             component_mass_mobility = self._bc_value_component_mass_mobility(
                 component, bg
-            )
-            total_mass_mobility = self._bc_value_total_mass_mobility(bg)
-            vals[idx] = (component_mass_mobility / total_mass_mobility)[idx]
+            )[idx]
+            total_mass_mobility = self._bc_value_total_mass_mobility(bg)[idx]
+            vals[idx] = component_mass_mobility / total_mass_mobility
 
         return vals
 
@@ -622,9 +622,9 @@ class BoundaryConditionsCFFLE(
 
         if bg in self.boundary_equilibrium_results:
             idx = self._boundary_equilibrium_cells(bg)
-            advected_enthalpy = self._bc_value_advected_enthalpy(bg)
-            total_mass_mobility = self._bc_value_total_mass_mobility(bg)
-            vals[idx] = (advected_enthalpy / total_mass_mobility)[idx]
+            advected_enthalpy = self._bc_value_advected_enthalpy(bg)[idx]
+            total_mass_mobility = self._bc_value_total_mass_mobility(bg)[idx]
+            vals[idx] = advected_enthalpy / total_mass_mobility
 
         return vals
 

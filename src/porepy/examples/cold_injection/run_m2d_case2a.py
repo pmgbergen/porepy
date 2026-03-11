@@ -39,11 +39,8 @@ newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1e-2
 
-T_END_DAYS = 150
+T_END_DAYS = 500
 
-# time_schedule = [i * pp.DAY for i in range(121)] + [
-#     i * 30 * pp.DAY for i in range(5, 30 + 1)
-# ]
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 
 
@@ -113,6 +110,8 @@ class Case2aMixin:
     _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = [
         # (50 * pp.DAY, 10.0),
         # (60 * pp.DAY, 1.0),
+        # (300 * pp.DAY, 10.0),
+        # (310 * pp.DAY, 1.0),
     ]
 
     _T_INJECTION: dict[int, float] = {0: _T_IN}
@@ -150,7 +149,7 @@ if COLLECT_DATA:
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
-    model_params["folder_name"] = f"visualization/{timestamp}"
+    model_params["folder_name"] = f"visualization/{timestamp}_BUOY_{BUOYANCY_ON}"
 
     model = ModelClass(model_params)  # type:ignore[abstract]
 
