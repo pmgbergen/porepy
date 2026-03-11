@@ -154,12 +154,7 @@ class ModelConfig(pp.PorePyModel):
     for n in _COMPONENT_NAMES:
         _INJECTED_MASS[n] = {0: _TOTAL_INJECTED_MASS * _z_IN[n]}
 
-
-    # For case2
-
-    _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = [
-        (100 * pp.DAY, 10)
-    ]
+    _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = []
     """2-tuples of time-factor pairs, indicating at which time the aperture is
     multiplied with given factor."""
 

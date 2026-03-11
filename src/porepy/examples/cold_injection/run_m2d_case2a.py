@@ -24,6 +24,7 @@ from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
     DataCollectionMixin,
+    FluidPoreInteraction,
     NoFluxRediscretization,
     set_schur_complement,
 )
@@ -94,12 +95,12 @@ class Case2aMixin:
     ]
 
     # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
-    _TOTAL_INJECTED_MASS: float = 10 * np.float64(47134.59273520758) / (60 * 60)
+    _TOTAL_INJECTED_MASS: float = 4 * np.float64(47134.59273520758) / (60 * 60)
 
     _p_INIT: float = 10e6
     _T_INIT: float = 450.0
 
-    _p_OUT: float = 10e6
+    _p_OUT: float = 10e6  # roughly hydrostatic pressure of water at depth of 1 km.
     _T_IN: float = 300.0
 
     # _T_BC: float = 650.0
@@ -108,11 +109,17 @@ class Case2aMixin:
     _z_INIT: dict[str, float] = {"H2O", 1.0}
     _z_IN: dict[str, float] = {"H2O", 1.0}
 
+    _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = [
+        (50 * pp.DAY, 10.0),
+        (60 * pp.DAY, 1.0),
+    ]
+
 
 if BUOYANCY_ON:
 
     class ModelClass(  # type:ignore
         Case2aMixin,
+        FluidPoreInteraction,
         BuoyancyModel,
         HorizontalFractureAndPointWells2D,
         ColdInjectionMixins,
@@ -124,6 +131,7 @@ else:
 
     class ModelClass(  # type:ignore
         Case2aMixin,
+        FluidPoreInteraction,
         NoFluxRediscretization,
         HorizontalFractureAndPointWells2D,
         ColdInjectionMixins,

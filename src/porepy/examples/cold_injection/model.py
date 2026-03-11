@@ -29,7 +29,6 @@ from .config import ModelConfig
 
 
 class FluidPoreInteraction(ModelConfig):
-
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def pore_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -38,24 +37,29 @@ class FluidPoreInteraction(ModelConfig):
         porosity = self.porosity(subdomains)
 
         return cell_volumes * aperture * porosity
-    
+
     def pore_volume_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         pore_volume = self.pore_volume(subdomains)
         op = pore_volume / pore_volume.previous_timestep()
-        op.set_name('pore_volume_jump')
+        op.set_name("pore_volume_jump")
         return op
-    
+
     @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         a = super().aperture(subdomains)
 
         jump_factor = pp.ad.Function(self.a_jump, "a_jump")(self.ad_time_step)
 
-        fracs = [sd for sd in subdomains if 0 < sd.dim < self.nd]
+        sds_w_jump = [sd for sd in subdomains if 0 < sd.dim < self.nd]
+        sds_wo_jump = [sd for sd in subdomains if sd not in sds_w_jump]
         projection = pp.ad.SubdomainProjections(subdomains)
-        v = pp.wrap_as_dense_ad_array(1, size=sum([f.num_cells for f in fracs]))
 
-        a *= projection.cell_prolongation(fracs) @ (v * jump_factor)
+        v0 = pp.wrap_as_dense_ad_array(1, size=sum([g.num_cells for g in sds_wo_jump]))
+        v1 = pp.wrap_as_dense_ad_array(1, size=sum([g.num_cells for g in sds_w_jump]))
+
+        a *= projection.cell_prolongation(
+            sds_wo_jump
+        ) @ v0 + projection.cell_prolongation(sds_w_jump) @ (v1 * jump_factor)
         a.set_name("jumping_aperture")
         return a
 
