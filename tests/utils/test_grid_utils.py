@@ -140,51 +140,118 @@ def test_compute_circumcenter_2d_raises_expected_errors():
             compute_circumcenter_2d(sd, threshold=t)
 
 
-def test_compute_circumcenter_3d_regular_tetrahedron_replaces_and_matches():
-    # Regular tetrahedron with circumcenter at the origin.
-    pts = np.array(
+
+
+def _make_single_tetra_grid(points: np.ndarray) -> pp.TetrahedralGrid:
+    """Create a single-cell tetrahedral grid from points of shape (3, 4)."""
+    tet = np.array([[0], [1], [2], [3]])
+    g = pp.TetrahedralGrid(points, tet)
+    g.compute_geometry()
+    return g
+
+def _tetra_barycenter(points: np.ndarray) -> np.ndarray:
+    return np.mean(points, axis=1)
+
+def _tetra_circumcenter(points: np.ndarray) -> np.ndarray:
+    """Circumcenter of a tetrahedron with points shape (3, 4)."""
+    A = points[:, 0]
+    B = points[:, 1]
+    C = points[:, 2]
+    D = points[:, 3]
+
+    M = np.vstack((B - A, C - A, D - A))
+    rhs = 0.5 * np.array(
+        [
+            np.dot(B, B) - np.dot(A, A),
+            np.dot(C, C) - np.dot(A, A),
+            np.dot(D, D) - np.dot(A, A),
+        ]
+    )
+    return np.linalg.solve(M, rhs)
+
+
+def _tetra_barycentric_coords(points: np.ndarray, p: np.ndarray) -> np.ndarray:
+    """Return barycentric coordinates of p wrt tetrahedron points."""
+    A = points[:, 0]
+    B = points[:, 1]
+    C = points[:, 2]
+    D = points[:, 3]
+
+    M = np.column_stack((B - A, C - A, D - A))
+    u, v, w = np.linalg.solve(M, p - A)
+    return np.array([1.0 - u - v - w, u, v, w])
+
+
+def _point_in_tetra(points: np.ndarray, p: np.ndarray, tol: float = 1e-12) -> bool:
+    lam = _tetra_barycentric_coords(points, p)
+    return np.all(lam >= -tol) and np.all(lam <= 1.0 + tol)
+
+
+def _face_data(points: np.ndarray):
+    """Faces as (vertex_ids, opposite_id, name)."""
+    return [
+        ([1, 2, 3], 0, "BCD"),
+        ([0, 3, 2], 1, "ADC"),
+        ([0, 1, 3], 2, "ABD"),
+        ([0, 2, 1], 3, "ACB"),  # same geometric face as ABC
+    ]
+
+def _outward_unit_normal(points: np.ndarray, face_ids: list[int], opp_id: int) -> np.ndarray:
+    p0 = points[:, face_ids[0]]
+    p1 = points[:, face_ids[1]]
+    p2 = points[:, face_ids[2]]
+    opp = points[:, opp_id]
+    n = np.cross(p1 - p0, p2 - p0)
+    if np.dot(n, opp - p0) > 0:
+        n = -n
+    return n / np.linalg.norm(n)
+
+
+def _max_dot_shift(points: np.ndarray, threshold: float) -> float:
+    G = _tetra_barycenter(points)
+    Cc = _tetra_circumcenter(points)
+    V = Cc - G
+
+    best_dot = -np.inf
+    best_t = None
+    for face_ids, opp_id, _ in _face_data(points):
+        n = _outward_unit_normal(points, face_ids, opp_id)
+        p0 = points[:, face_ids[0]]
+        denom = np.dot(n, V)
+        if denom > best_dot:
+            best_dot = denom
+            if denom > 1e-14:
+                best_t = np.dot(n, p0 - G) / denom
+
+    assert best_t is not None
+    return threshold * best_t
+
+
+def test_compute_circumcenter_3d_regular_tetra_shift_one_not_changed():
+    """Regular tetrahedron: circumcenter = barycenter = centroid."""
+    points = np.array(
         [
             [1.0, -1.0, -1.0, 1.0],
             [1.0, -1.0, 1.0, -1.0],
             [1.0, 1.0, -1.0, -1.0],
         ]
     )
-    tet = np.array([[0], [1], [2], [3]])
-    g = pp.TetrahedralGrid(pts, tet)
-    g.compute_geometry()
+    sd = _make_single_tetra_grid(points)
+    cc = sd.cell_centers.copy()
 
-    cc_new, replace = compute_circumcenter_3d(g)
+    new_cc, shift, is_changed = compute_circumcenter_3d(sd)
 
-    assert replace.size == 1 and bool(replace[0])
-    # Expected circumcenter at the origin for this symmetric tetrahedron.
-    expected = np.array([0.0, 0.0, 0.0])
-    assert np.allclose(cc_new[:, 0], expected, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(shift, np.array([1.0]), rtol=0, atol=1e-14)
+    np.testing.assert_allclose(new_cc, cc, rtol=0, atol=1e-14)
+    assert np.all(~is_changed)
 
-
-def test_compute_circumcenter_3d_outside_tetra_no_replacement():
-    # Create an obtuse tetrahedron where the circumcenter is outside the cell.
-    # No replacement should occur.
-    pts = np.array(
-        [
-            [0.0, 1.0, 0.0, 3.0],
-            [0.0, 0.0, 1.0, 3.0],
-            [0.0, 0.0, 0.0, 0.01],
-        ]
-    )
-    tet = np.array([[0], [1], [2], [3]])
-    g = pp.TetrahedralGrid(pts, tet)
-    g.compute_geometry()
-
-    _cc_new, replace = compute_circumcenter_3d(g)
-
-    assert replace.size == 1 and not bool(replace[0])
+    Cc = _tetra_circumcenter(points)
+    G = _tetra_barycenter(points)
+    np.testing.assert_allclose(Cc, G, rtol=0, atol=1e-14)
 
 
-def test_compute_circumcenter_3d_benign_inside_replaces_and_not_centroid():
-    # Skewed but acute-ish tetra where circumcenter is inside; replacement occurs
-    # and circumcenter differs from centroid.
-    # Start from a regular tetra and perturb one vertex slightly to keep it acute
-    # while moving the circumcenter away from the centroid
+def test_compute_circumcenter_3d_acute_nonregular_full_shift_changed():
+    """Acute non-regular tetrahedron: circumcenter strictly inside, shift = 1."""
     points = np.array(
         [
             [1.0, -1.0, -1.0, 1.0],
@@ -192,77 +259,201 @@ def test_compute_circumcenter_3d_benign_inside_replaces_and_not_centroid():
             [1.0, 1.0, -1.2, -1.0],
         ]
     )
-    tet = np.array([[0], [1], [2], [3]])
-    g = pp.TetrahedralGrid(points, tet)
-    g.compute_geometry()
-    new_centers, replace = compute_circumcenter_3d(g)
-    assert replace.size == 1 and bool(replace[0])
-    centroid = np.mean(points, axis=1)
-    # Ensure circumcenter is not the centroid (nontrivial case).
-    assert np.linalg.norm(new_centers[:, 0] - centroid) > 1e-3
+    sd = _make_single_tetra_grid(points)
+    cc = sd.cell_centers.copy()
+
+    new_cc, shift, is_changed = compute_circumcenter_3d(sd)
+
+    Cc = _tetra_circumcenter(points)
+
+    np.testing.assert_allclose(shift, np.array([1.0]), rtol=0, atol=1e-14)
+    np.testing.assert_allclose(new_cc[:, 0], Cc, rtol=0, atol=1e-14)
+    assert np.all(is_changed)
+
+    # Nontrivial: circumcenter should differ from old center / barycenter.
+    assert np.linalg.norm(Cc - cc[:, 0]) > 1e-3
+    assert _point_in_tetra(points, Cc)
 
 
-def test_compute_circumcenter_3d_large_dihedral_angle_no_replacement():
-    """Tetrahedron with one very flat face pair producing a large dihedral angle.
-
-    By making one edge extremely long while keeping the opposite face small, we can
-    induce a dihedral angle between two faces that exceeds the default threshold
-    (0.45*pi). Expect no replacement.
-    """
-    # Construct points: Start with a near-regular base triangle and stretch one
-    # vertex far along x to create a large angle between faces sharing that edge.
-    pts = np.array(
+def test_compute_circumcenter_3d_boundary_circumcenter_shift_equals_threshold():
+    """Circumcenter on a face: expected shift equals threshold."""
+    points = np.array(
         [
-            [0.0, 1.0, 0.0, 10.0],  # Stretch last vertex far in x
-            [0.0, 0.0, 1.0, 0.2],
-            [0.0, 0.0, 0.0, 0.1],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 2.0, 0.0],
+            [0.0, -1.0, -1.0, -2.0],
+        ]
+    )
+    threshold = 0.95
+    sd = _make_single_tetra_grid(points)
+
+    new_cc, shift, is_changed = compute_circumcenter_3d(sd, threshold=threshold)
+
+    Cc = _tetra_circumcenter(points)
+    G = _tetra_barycenter(points)
+    expected_shift = _max_dot_shift(points, threshold)
+    expected_center = G + expected_shift * (Cc - G)
+
+    np.testing.assert_allclose(Cc, np.array([0.0, 0.75, -1.0]), rtol=0, atol=1e-14)
+    np.testing.assert_allclose(shift, np.array([threshold]), rtol=0, atol=1e-14)
+    np.testing.assert_allclose(shift, np.array([expected_shift]), rtol=0, atol=1e-14)
+    np.testing.assert_allclose(new_cc[:, 0], expected_center, rtol=0, atol=1e-14)
+    assert np.all(is_changed)
+    assert _point_in_tetra(points, new_cc[:, 0])
+
+
+def test_compute_circumcenter_3d_outside_circumcenter_partial_shift():
+    """Circumcenter outside tetrahedron: expected partial shift in (0, 1)."""
+    points = np.array(
+        [
+            [0.0, 2.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+    threshold = 0.95
+    sd = _make_single_tetra_grid(points)
+
+    new_cc, shift, is_changed = compute_circumcenter_3d(sd, threshold=threshold)
+
+    Cc = _tetra_circumcenter(points)
+    G = _tetra_barycenter(points)
+    expected_shift = _max_dot_shift(points, threshold)
+    expected_center = G + expected_shift * (Cc - G)
+
+    assert not _point_in_tetra(points, Cc)
+    assert 0.0 < expected_shift < 1.0
+
+    np.testing.assert_allclose(shift, np.array([expected_shift]), rtol=0, atol=1e-14)
+    np.testing.assert_allclose(new_cc[:, 0], expected_center, rtol=0, atol=1e-14)
+    assert np.all(is_changed)
+    assert _point_in_tetra(points, new_cc[:, 0])
+
+
+def test_compute_circumcenter_3d_two_tetras_full_shift():
+    """Two tetrahedra sharing one face; both have interior circumcenters.
+
+    This checks multi-cell handling, full shifts, and that the returned centers
+    equal the true circumcenters cell-by-cell.
+    """
+    points = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.63421812, 0.69305481],
+            [0.0, 0.0, 1.0, 0.38912899, 0.45283182],
+            [0.0, 0.0, 0.0, 0.96604107, -0.81093435],
+        ]
+    )
+    # Two tetrahedra sharing face (0, 1, 2):
+    # cell 0 = (0,1,2,3), cell 1 = (0,1,2,4)
+    tet = np.array([[0, 0], [1, 1], [2, 2], [3, 4]])
+
+    sd = pp.TetrahedralGrid(points, tet)
+    sd.compute_geometry()
+    cc = sd.cell_centers.copy()
+
+    new_cc, shift, is_changed = compute_circumcenter_3d(sd)
+
+    assert new_cc.shape == cc.shape
+    assert shift.shape == (2,)
+    assert is_changed.shape == (2,)
+
+    np.testing.assert_allclose(shift, np.ones(2), rtol=0, atol=1e-14)
+    assert np.all(is_changed)
+
+    # Check returned centers against true circumcenters of the two cells.
+    for i, cell_nodes in enumerate(tet.T):
+        pts = points[:, cell_nodes]
+        Cc = _tetra_circumcenter(pts)
+        np.testing.assert_allclose(new_cc[:, i], Cc, rtol=0, atol=1e-14)
+        assert _point_in_tetra(pts, Cc)
+        assert np.linalg.norm(new_cc[:, i] - cc[:, i]) > 1e-8
+
+
+def test_compute_circumcenter_3d_raises_expected_errors():
+    """The method should raise value errors if a grid is degenerate, or the threshold
+    parameter is not in (0, 1).
+    """
+    # Degenerate tetrahedron: all 4 points lie in the plane z = 0.
+    points = np.array(
+        [
+            [0.0, 1.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0],
         ]
     )
     tet = np.array([[0], [1], [2], [3]])
-    g = pp.TetrahedralGrid(pts, tet)
-    g.compute_geometry()
-    cc_new, replace = compute_circumcenter_3d(g)
-    assert replace.size == 1 and not bool(replace[0])
-    # If no replacement, cc_new should match old cell center.
-    assert np.allclose(cc_new, g.cell_centers, rtol=1e-13, atol=1e-13)
+    sd = pp.TetrahedralGrid(points, tet)
+
+    # compute_geometry may raise for degenerate tetrahedra. As in the 2D test,
+    # manually set cell centers so the function itself is what raises.
+    sd.cell_centers = np.array([[0.25], [0.25], [0.0]])
+
+    with pytest.raises(ValueError):
+        compute_circumcenter_3d(sd)
+
+    # Invalid threshold values.
+    # Use a valid tetrahedron here so the threshold check is what is tested.
+    good_points = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+    good_sd = _make_single_tetra_grid(good_points)
+
+    for t in [-0.1, 0.0, 1.0, 1.1]:
+        with pytest.raises(ValueError):
+            compute_circumcenter_3d(good_sd, threshold=t)
 
 
-def test_compute_circumcenter_3d_two_tetra_internal_alignment():
-    """Create two tetrahedra sharing a face and test alignment and replacement.
+def test_compute_circumcenter_3d_two_tetras_mixed_shift():
+    """Two tetrahedra sharing a face where one has interior circumcenter
+    and the other has exterior circumcenter."""
+    
+    points = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.56928343, 0.77728280],
+            [0.0, 0.0, 1.0, 0.53093376, 1.70282285],
+            [0.0, 0.0, 0.0, 0.73827729, -0.13988499],
+        ]
+    )
 
-    We build two moderately acute tetrahedra sharing a face; both should satisfy the
-    dihedral threshold so both are replaced. Then verify the circumcenter vector
-    across the internal face is parallel to the face normal (as enforced in the
-    utility function). We cannot directly access the internal check's intermediate
-    data, but we can recompute the cross product and ensure near-zero magnitude.
-    """
-    # Build two regular tetrahedra sharing the same equilateral base face.
-    s = 1.0
-    h = np.sqrt(2.0 / 3.0) * s  # Height for a regular tetra with side length s
-    A = np.array([[0.0], [0.0], [0.0]])
-    B = np.array([[s], [0.0], [0.0]])
-    C = np.array([[0.5 * s], [np.sqrt(3.0) / 2.0 * s], [0.0]])
-    centroid_xy = np.array([[0.5 * s], [np.sqrt(3.0) / 6.0 * s], [0.0]])
-    apex_up = centroid_xy + np.array([[0.0], [0.0], [h]])
-    apex_down = centroid_xy + np.array([[0.0], [0.0], [-h]])
-    pts = np.concatenate((A, B, C, apex_up, apex_down), axis=1)
-    # Two tetrahedra: (0,1,2,3) and (0,1,2,4) share face (0,1,2).
-    tets = np.array([[0, 0], [1, 1], [2, 2], [3, 4]])
-    g = pp.TetrahedralGrid(pts, tets)
-    g.compute_geometry()
-    cc_new, replace = compute_circumcenter_3d(g)
-    # Both replaced expected.
-    assert replace.size == 2 and bool(replace[0]) and bool(replace[1])
-    # Internal face normal should be parallel to difference of circumcenters.
-    # Identify shared face nodes (0,1,2). Compute face normal via cross product of
-    # edges using original coordinates.
-    p0, p1, p2 = pts[:, 0], pts[:, 1], pts[:, 2]
-    v1 = p1 - p0
-    v2 = p2 - p0
-    face_normal = np.cross(v1, v2)
-    face_normal /= np.linalg.norm(face_normal) + 1e-15
-    cc_vec = cc_new[:, 0] - cc_new[:, 1]
-    cross_mag = np.linalg.norm(np.cross(cc_vec, face_normal))
-    denom = np.linalg.norm(cc_vec) * np.linalg.norm(face_normal) + 1e-15
-    # Use same tolerance as implementation (1e-10), with small safety factor.
-    assert cross_mag / denom < 5e-10
+    # Shared face is (0, 1, 2), but reversed in the second tetra.
+    tet = np.array([[0, 0], [1, 2], [2, 1], [3, 4]])
+
+    sd = pp.TetrahedralGrid(points, tet)
+    sd.compute_geometry()
+    cc = sd.cell_centers.copy()
+
+    threshold = 0.95
+    new_cc, shift, is_changed = compute_circumcenter_3d(sd, threshold=threshold)
+
+    assert new_cc.shape == cc.shape
+    assert shift.shape == (2,)
+    assert is_changed.shape == (2,)
+
+    # --- cell 0 ---
+    pts0 = points[:, tet[:, 0]]
+    Cc0 = _tetra_circumcenter(pts0)
+
+    assert _point_in_tetra(pts0, Cc0)
+    np.testing.assert_allclose(shift[0], 1.0, rtol=0, atol=1e-14)
+    np.testing.assert_allclose(new_cc[:, 0], Cc0, rtol=0, atol=1e-14)
+    assert is_changed[0]
+
+    # --- cell 1 ---
+    pts1 = points[:, tet[:, 1]]
+    Cc1 = _tetra_circumcenter(pts1)
+
+    assert not _point_in_tetra(pts1, Cc1)
+
+    G1 = _tetra_barycenter(pts1)
+    expected_shift = _max_dot_shift(pts1, threshold)
+    expected_center = G1 + expected_shift * (Cc1 - G1)
+
+    np.testing.assert_allclose(shift[1], expected_shift, rtol=0, atol=1e-14)
+    np.testing.assert_allclose(new_cc[:, 1], expected_center, rtol=0, atol=1e-14)
+
+    assert is_changed[1]
+    assert _point_in_tetra(pts1, new_cc[:, 1])
