@@ -14,7 +14,7 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 
 if TYPE_CHECKING:  # Avoid importing heavyish modules at runtime purely for typing.
     from porepy.grids.grid import Grid
-    from porepy.grids.simplex import TriangleGrid
+    from porepy.grids.simplex import TetrahedralGrid, TriangleGrid
 
 logger = logging.getLogger(__name__)
 
@@ -297,14 +297,17 @@ def compute_circumcenter_2d(
     # centers are originally at the bary-center. It coincides with the circumcenter if
     # and only if triangle is equilateral. We use simply the distance between new and
     # old centers to indicate numerically relevant change.
-    # Multiply eps with 2 to account for dimension.
     changed = np.sqrt(np.sum(np.square(NCC - sd.cell_centers), axis=0)) > eps_loc
+
+    logger.info(
+        "Replaced %d out of %d cell centers.", int(changed.sum()), int(sd.num_cells)
+    )
 
     return NCC, shifts, changed
 
 
 def compute_circumcenter_3d(
-    sd: Grid, threshold_angle: float = np.pi * 0.45
+    sd: TetrahedralGrid, threshold_angle: float = np.pi * 0.45
 ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
     """Compute circumcenters of tetrahedral cells in 3D grid.
 
