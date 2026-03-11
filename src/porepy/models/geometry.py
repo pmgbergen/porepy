@@ -191,15 +191,15 @@ class ModelGeometry(pp.PorePyModel):
 
         subdomains = self.mdg.subdomains()
 
-        if hasattr(self, "stress_discretization"):
+        if hasattr(self, "stress_keyword"):
             if isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
                 tpsa4stress = True
 
-        if hasattr(self, "fourier_flux_discretization"):
+        if hasattr(self, "fourier_keyword"):
             if isinstance(self.fourier_flux_discretization(subdomains), pp.ad.TpfaAd):
                 tpfa4fourier = True
 
-        if hasattr(self, "darcy_flux_discretization"):
+        if hasattr(self, "darcy_keyword"):
             if isinstance(self.darcy_flux_discretization(subdomains), pp.ad.TpfaAd):
                 tpfa4darcy = True
 
