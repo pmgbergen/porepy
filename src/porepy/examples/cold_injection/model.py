@@ -28,6 +28,48 @@ from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
 from .config import ModelConfig
 
 
+class FluidPoreInteraction(ModelConfig):
+
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    def pore_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        cell_volumes = self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1)
+        aperture = self.aperture(subdomains)
+        porosity = self.porosity(subdomains)
+
+        return cell_volumes * aperture * porosity
+    
+    def pore_volume_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        pore_volume = self.pore_volume(subdomains)
+        op = pore_volume / pore_volume.previous_timestep()
+        op.set_name('pore_volume_jump')
+        return op
+    
+    @pp.ad.cached_method
+    def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        a = super().aperture(subdomains)
+
+        jump_factor = pp.ad.Function(self.a_jump, "a_jump")(self.ad_time_step)
+
+        fracs = [sd for sd in subdomains if 0 < sd.dim < self.nd]
+        projection = pp.ad.SubdomainProjections(subdomains)
+        v = pp.wrap_as_dense_ad_array(1, size=sum([f.num_cells for f in fracs]))
+
+        a *= projection.cell_prolongation(fracs) @ (v * jump_factor)
+        a.set_name("jumping_aperture")
+        return a
+
+    def a_jump(self, t: float) -> float:
+        """Returns a scaling factor for aperture depending on time."""
+
+        f = 1.0
+        for ti, fi in self._TIME_INDUCED_APERTURE_FACTOR:
+            if t >= ti:
+                f = fi
+
+        return f
+
+
 class FluidEoS(pr.CompiledPengRobinson):
     """Constant viscosity and thermal conductivity for all phases.
 

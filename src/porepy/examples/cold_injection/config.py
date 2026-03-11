@@ -74,10 +74,6 @@ class ModelConfig(pp.PorePyModel):
     """Helper class to bundle the model configuration and inherit from
     ``PorePyModel``."""
 
-    _ISOFUG_ATOL: float = 1e-2
-    """Absolute tolerance for relaxed convergence criteria on absent phase
-    compositions."""
-
     ### Domain configurations.
 
     _DOMAIN_DIMENSIONS: list[float] = [100.0, 20.0, 100.0]
@@ -157,6 +153,15 @@ class ModelConfig(pp.PorePyModel):
     injected mass and injected overall fractions."""
     for n in _COMPONENT_NAMES:
         _INJECTED_MASS[n] = {0: _TOTAL_INJECTED_MASS * _z_IN[n]}
+
+
+    # For case2
+
+    _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = [
+        (100 * pp.DAY, 10)
+    ]
+    """2-tuples of time-factor pairs, indicating at which time the aperture is
+    multiplied with given factor."""
 
 
 def get_default_params(
