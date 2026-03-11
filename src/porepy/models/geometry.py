@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 from pathlib import Path
-from typing import Literal, Optional, Sequence, Union, cast
+from typing import Callable, Literal, Optional, Sequence, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -13,6 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.utils.grid_utils import compute_circumcenter_2d, compute_circumcenter_3d
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,12 @@ class ModelGeometry(pp.PorePyModel):
 
     _domain: pp.Domain
     _fractures: list
+
+    stress_discretization: Callable[
+        [list[pp.Grid]], pp.ad.TpsaAd | pp.ad.MpsaAd | pp.ad.BiotAd
+    ]
+    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.TpfaAd | pp.ad.MpfaAd]
+    darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.TpfaAd | pp.ad.MpfaAd]
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid.
@@ -47,6 +54,9 @@ class ModelGeometry(pp.PorePyModel):
         # Set up well network and add wells to the mixed-dimensional grid.
         self.set_well_network()
         self.add_wells_to_mdg()
+
+        # Move cell centers if requested.
+        self.move_cellcenters()
 
     @property
     def domain(self) -> pp.Domain:
@@ -158,6 +168,63 @@ class ModelGeometry(pp.PorePyModel):
         if meshing_kwargs is None:
             meshing_kwargs = {}
         return meshing_kwargs
+
+    def use_circumcenters(self) -> bool:
+        """Checks whether cell centers in subdomains should be moved to circumcenters
+        (instead of barycenters which is the default).
+
+        The criteria to do that are:
+
+        1. ``params["meshing_kwargs"]["use_circumcenters"]`` is a positive float.
+           Defaults to 0.
+        2. TPxA is used for stress, Darcy or Fourier flux discretization (at least one).
+
+        Returns:
+            A bool indicating whether the movement should be performed or not.
+
+        """
+        is_requested = bool(self.meshing_arguments().get("use_circumcenters", 0))
+
+        tpfa4fourier = False
+        tpfa4darcy = False
+        tpsa4stress = False
+
+        subdomains = self.mdg.subdomains()
+
+        if hasattr(self, "stress_discretization"):
+            if isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
+                tpsa4stress = True
+
+        if hasattr(self, "fourier_flux_discretization"):
+            if isinstance(self.fourier_flux_discretization(subdomains), pp.ad.TpfaAd):
+                tpfa4fourier = True
+
+        if hasattr(self, "darcy_flux_discretization"):
+            if isinstance(self.darcy_flux_discretization(subdomains), pp.ad.TpfaAd):
+                tpfa4darcy = True
+
+        return is_requested and (tpfa4darcy or tpfa4fourier or tpsa4stress)
+
+    def move_cellcenters(self) -> None:
+        """Sets the cell centers according to specifications.
+
+        See also:
+            :meth:`use_circumcenters` for subdomains.
+
+        """
+
+        if self.use_circumcenters():
+            threshold = float(self.meshing_arguments()["use_circumcenters"])
+            for sd in self.mdg.subdomains():
+                # NOTE: Grid type acts as dimension filter.
+                if isinstance(sd, pp.TriangleGrid):
+                    new_centers, *_ = compute_circumcenter_2d(sd, threshold)
+                elif isinstance(sd, pp.TetrahedralGrid):
+                    new_centers, *_ = compute_circumcenter_3d(sd, threshold)
+                else:
+                    continue
+
+                sd.cell_centers = new_centers
 
     def depth(self, points: np.ndarray) -> np.ndarray:
         """Compute depth of points.
