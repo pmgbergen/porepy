@@ -140,8 +140,6 @@ def test_compute_circumcenter_2d_raises_expected_errors():
             compute_circumcenter_2d(sd, threshold=t)
 
 
-
-
 def _make_single_tetra_grid(points: np.ndarray) -> pp.TetrahedralGrid:
     """Create a single-cell tetrahedral grid from points of shape (3, 4)."""
     tet = np.array([[0], [1], [2], [3]])
@@ -149,8 +147,10 @@ def _make_single_tetra_grid(points: np.ndarray) -> pp.TetrahedralGrid:
     g.compute_geometry()
     return g
 
+
 def _tetra_barycenter(points: np.ndarray) -> np.ndarray:
     return np.mean(points, axis=1)
+
 
 def _tetra_circumcenter(points: np.ndarray) -> np.ndarray:
     """Circumcenter of a tetrahedron with points shape (3, 4)."""
@@ -196,7 +196,10 @@ def _face_data(points: np.ndarray):
         ([0, 2, 1], 3, "ACB"),  # same geometric face as ABC
     ]
 
-def _outward_unit_normal(points: np.ndarray, face_ids: list[int], opp_id: int) -> np.ndarray:
+
+def _outward_unit_normal(
+    points: np.ndarray, face_ids: list[int], opp_id: int
+) -> np.ndarray:
     p0 = points[:, face_ids[0]]
     p1 = points[:, face_ids[1]]
     p2 = points[:, face_ids[2]]
@@ -410,7 +413,7 @@ def test_compute_circumcenter_3d_raises_expected_errors():
 def test_compute_circumcenter_3d_two_tetras_mixed_shift():
     """Two tetrahedra sharing a face where one has interior circumcenter
     and the other has exterior circumcenter."""
-    
+
     points = np.array(
         [
             [0.0, 1.0, 0.0, 0.56928343, 0.77728280],

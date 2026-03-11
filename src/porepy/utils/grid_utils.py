@@ -306,9 +306,8 @@ def compute_circumcenter_2d(
     return NCC, shifts, changed
 
 
-
 def compute_circumcenter_3d(
-    sd,
+    sd: TetrahedralGrid,
     threshold: float = 0.95,
     eps: float = 1e-14,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.bool_]]:
@@ -327,6 +326,10 @@ def compute_circumcenter_3d(
             Tolerance for detecting degenerate tetrahedra and numerically relevant
             changes in cell center.
 
+    Raises:
+        ValueError: If degenerate tetrahedra are detected.
+        ValueError: If ``threshold`` is not in (0, 1).
+
     Returns:
         A 3-tuple containing
 
@@ -340,9 +343,6 @@ def compute_circumcenter_3d(
         - values below 1.0 mean only part of the move from barycenter to circumcenter
           was used so the new center stays strictly inside the tetrahedron.
 
-    Raises:
-        ValueError: If degenerate tetrahedra are detected.
-        ValueError: If ``threshold`` is not in (0, 1).
     """
     if not (0.0 < threshold < 1.0):
         raise ValueError(f"Threshold must be in (0, 1), got {threshold}.")
@@ -352,9 +352,7 @@ def compute_circumcenter_3d(
 
     eps_loc = eps * max(sd.dim, 3)
 
-    # -------------------------------------------------------------------------
     # Extract tetrahedron nodes for all cells.
-    # -------------------------------------------------------------------------
     cn = sd.cell_nodes().tocsc()
     ni = cn.indices.reshape((4, sd.num_cells), order="F")
 
@@ -365,13 +363,11 @@ def compute_circumcenter_3d(
     C = np.vstack((x[ni[2]], y[ni[2]], z[ni[2]]))
     D = np.vstack((x[ni[3]], y[ni[3]], z[ni[3]]))
 
-    # -------------------------------------------------------------------------
     # Compute circumcenters by solving a 3x3 linear system per cell.
     # Let c be the circumcenter. Then:
     #   (B-A)·c = (|B|^2 - |A|^2)/2
     #   (C-A)·c = (|C|^2 - |A|^2)/2
     #   (D-A)·c = (|D|^2 - |A|^2)/2
-    # -------------------------------------------------------------------------
     AB = B - A
     AC = C - A
     AD = D - A
@@ -397,9 +393,7 @@ def compute_circumcenter_3d(
     for i in range(sd.num_cells):
         CC[:, i] = np.linalg.solve(M[:, :, i], rhs[:, i])
 
-    # -------------------------------------------------------------------------
     # Verify circumcenters are equidistant from all four nodes.
-    # -------------------------------------------------------------------------
     distA = np.linalg.norm(CC - A, axis=0)
     distB = np.linalg.norm(CC - B, axis=0)
     distC = np.linalg.norm(CC - C, axis=0)
@@ -411,14 +405,12 @@ def compute_circumcenter_3d(
     if np.max((max_dist - min_dist) / radius) >= 1e-10:
         raise ValueError("Circumcenter not equidistant from all nodes.")
 
-    # -------------------------------------------------------------------------
     # Test whether circumcenters are strictly inside using barycentric coordinates.
     # We write:
     #   CC = A + u(B-A) + v(C-A) + w(D-A)
     # Then barycentric coords are:
     #   λ0 = 1-u-v-w, λ1 = u, λ2 = v, λ3 = w
     # Strict interior <=> all λi > 0.
-    # -------------------------------------------------------------------------
     bary = np.empty((4, sd.num_cells), dtype=np.float64)
     for i in range(sd.num_cells):
         uvw = np.linalg.solve(M[:, :, i].T, CC[:, i] - A[:, i])
@@ -427,22 +419,16 @@ def compute_circumcenter_3d(
 
     is_interior = np.all(bary > eps_loc, axis=0)
 
-    # -------------------------------------------------------------------------
     # Initialize outputs.
-    # -------------------------------------------------------------------------
     NCC = sd.cell_centers.copy()
     NCC[:3, is_interior] = CC[:, is_interior]
-
     shifts = np.ones(sd.num_cells, dtype=np.float64)
 
-    # -------------------------------------------------------------------------
     # Non-interior circumcenters: start from barycenter and move toward circumcenter,
     # but stop before crossing the boundary.
-    #
     # In 2D exactly one face has n·V > 0.
     # In 3D there may be several faces with n·V > 0, so we choose the face with the
     # maximal value of n·V.
-    # -------------------------------------------------------------------------
     not_interior = ~is_interior
     if np.any(not_interior):
         BCC = (A + B + C + D) / 4.0
@@ -480,8 +466,8 @@ def compute_circumcenter_3d(
 
             # Outward face normals.
             normals = (sd.face_normals[:, f_loc] / sd.face_areas[f_loc]) * sgn
-            normal_norms = np.linalg.norm(normals, axis=0)
-            normals = normals / (normal_norms + eps)
+            normal_norms: NDArray[np.float64] = np.linalg.norm(normals, axis=0)
+            normals /= normal_norms + eps
 
             # Alignment of motion direction with outward normals.
             dots = normals.T @ V
@@ -489,8 +475,8 @@ def compute_circumcenter_3d(
             # choose face with maximal positive dot product.
             positive = dots > eps
             if not np.any(positive):
-                # Fallback: this should not happen for a strictly interior barycenter and
-                # a target outside the tetrahedron, but keep code robust.
+                # Fallback: this should not happen for a strictly interior barycenter
+                # and a target outside the tetrahedron, but keep code robust.
                 best = int(np.argmax(dots))
             else:
                 pos_idx = np.where(positive)[0]
@@ -516,22 +502,22 @@ def compute_circumcenter_3d(
         NCC[:3, not_interior] = MCC
         shifts[not_interior] = mshifts
 
-    # -------------------------------------------------------------------------
     # Final sanity check: all new centers lie inside tetrahedra.
-    # -------------------------------------------------------------------------
     final_bary = np.empty((4, sd.num_cells), dtype=np.float64)
     for i in range(sd.num_cells):
         uvw = np.linalg.solve(M[:, :, i].T, NCC[:3, i] - A[:, i])
         u, v, w = uvw
         final_bary[:, i] = np.array([1.0 - u - v - w, u, v, w])
 
-    assert np.all(final_bary > -eps_loc), "New cell centers not in tetrahedron interior."
+    assert np.all(final_bary > -eps_loc), "New cell centers not in interior."
 
-    # -------------------------------------------------------------------------
     # Compute indicators where center changed (column-wise norm).
-    # -------------------------------------------------------------------------
-    changed = (
+    changed: NDArray[np.bool_] = (
         np.sqrt(np.sum(np.square(NCC[:3] - sd.cell_centers[:3]), axis=0)) > eps_loc
+    )
+
+    logger.info(
+        "Replaced %d out of %d cell centers.", int(changed.sum()), int(sd.num_cells)
     )
 
     return NCC, shifts, changed
