@@ -39,7 +39,7 @@ newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1e-2
 
-T_END_DAYS = 300
+T_END_DAYS = 150
 
 # time_schedule = [i * pp.DAY for i in range(121)] + [
 #     i * 30 * pp.DAY for i in range(5, 30 + 1)
@@ -70,7 +70,8 @@ model_params, solver_params = get_default_params(
 
 model_params["time_manager"] = time_manager
 model_params["times_to_export"] = time_schedule
-model_params["meshing_arguments"]["cell_size"] = 4.0
+model_params["meshing_arguments"]["cell_size"] = 2.0
+model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
 model_params["_well_surrounding_permeability"] = 1e-13
 model_params["_fracture_permeability"] = 1e-10
@@ -95,7 +96,7 @@ class Case2aMixin:
     ]
 
     # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
-    _TOTAL_INJECTED_MASS: float = 4 * np.float64(47134.59273520758) / (60 * 60)
+    _TOTAL_INJECTED_MASS: float = 10 * np.float64(47134.59273520758) / (60 * 60)
 
     _p_INIT: float = 10e6
     _T_INIT: float = 450.0
@@ -110,9 +111,12 @@ class Case2aMixin:
     _z_IN: dict[str, float] = {"H2O", 1.0}
 
     _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = [
-        (50 * pp.DAY, 10.0),
-        (60 * pp.DAY, 1.0),
+        # (50 * pp.DAY, 10.0),
+        # (60 * pp.DAY, 1.0),
     ]
+
+    _T_INJECTION: dict[int, float] = {0: _T_IN}
+    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
 
 
 if BUOYANCY_ON:
@@ -145,7 +149,7 @@ if COLLECT_DATA:
 
 
 if __name__ == "__main__":
-    timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
+    timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     model_params["folder_name"] = f"visualization/{timestamp}"
 
     model = ModelClass(model_params)  # type:ignore[abstract]

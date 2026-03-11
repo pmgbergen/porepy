@@ -858,6 +858,17 @@ class DataCollectionMixin(pp.PorePyModel):
         )
         return sol
 
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
+        start = time.time()
+        out = super().update_thermodynamic_properties_of_phases(state=state)
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            flash_clocktime=time.time() - start,
+        )
+        return out
+
     def before_nonlinear_loop(self) -> None:
         self._flash_iter_per_grid.clear()
         return super().before_nonlinear_loop()
