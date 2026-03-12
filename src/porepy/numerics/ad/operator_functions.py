@@ -215,8 +215,8 @@ class AbstractFunction(Operator):
                 return pp.ad.DiagonalAdArray(
                     values,
                     jac,
-                    args[0]._row_indices,
-                    args[0]._col_indices,
+                    np.arange(values.size),
+                    indices,
                     num_derivatives,
                 )
 
