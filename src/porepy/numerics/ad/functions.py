@@ -26,7 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray
+from porepy.numerics.ad.forward_mode import AdArray, DiagonalAdArray
 
 FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
 
@@ -63,8 +63,14 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(val)
-        return AdArray(val, der)
+        if var._is_diagonal:
+            der = val * var.jac
+            return DiagonalAdArray(
+                val, der, var._row_indices, var._col_indices, var._num_derivatives
+            )
+        else:
+            der = var._diagvec_mul_jac(np.exp(var.val))
+            return AdArray(val, der)
     else:
         return np.exp(var)
 
@@ -72,8 +78,14 @@ def exp(var: FloatType) -> FloatType:
 def log(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.log(var.val)
-        der = var._diagvec_mul_jac(1 / var.val)
-        return AdArray(val, der)
+        if var._is_diagonal:
+            der = var.jac / var.val
+            return DiagonalAdArray(
+                val, der, var._row_indices, var._col_indices, var._num_derivatives
+            )
+        else:
+            der = var._diagvec_mul_jac(1 / var.val)
+            return AdArray(val, der)
     else:
         return np.log(var)
 
@@ -114,8 +126,14 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
 def abs(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.abs(var.val)
-        jac = var._diagvec_mul_jac(np.sign(var.val))
-        return AdArray(val, jac)
+        if var._is_diagonal:
+            der = np.sign(var.val)
+            return DiagonalAdArray(
+                val, der, var._row_indices, var._col_indices, var._num_derivatives
+            )
+        else:
+            jac = var._diagvec_mul_jac(np.sign(var.val))
+            return AdArray(val, jac)
     else:
         return np.abs(var)
 
