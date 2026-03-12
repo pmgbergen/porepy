@@ -267,7 +267,7 @@ class AdParser:
 
         # This should give a diagonal representation of the relevant variables.
         diag_vars = pp.ad.initialize_diagonal_ad_arrays(
-            diag_states, ind_diag_vars, offsets, equation_system.num_dofs()
+            diag_states, ind_diag_vars, equation_system.num_dofs()
         )
 
         # Update the array_map with the diagonal variables.

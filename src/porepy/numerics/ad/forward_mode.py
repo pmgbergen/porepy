@@ -739,11 +739,12 @@ class AdArray:
 def initialize_diagonal_ad_arrays(
     variables: list[np.ndarray],
     indices: list[np.ndarray],
-    offsets: np.ndarray,
     num_derivatives: int,
     # Use derivatives for SurrogateOperators?
     derivatives: list[np.ndarray] | None = None,
 ) -> list[AdArray]:
+    if len(variables) != len(indices):
+        raise ValueError("Number of variables should match number of offsets.")
     for var, ind in zip(variables, indices):
         if var.size != ind.size:
             raise ValueError("Number of variables should match number of indices.")
@@ -754,8 +755,6 @@ def initialize_diagonal_ad_arrays(
 
     diagonal_variables = []
 
-    if len(variables) != len(offsets):
-        raise ValueError("Number of variables should match number of offsets.")
     for ind in range(num_vars):
         val = variables[ind]
         jac = np.zeros((num_vars, sz_vars))
@@ -764,7 +763,7 @@ def initialize_diagonal_ad_arrays(
         else:
             jac[ind] = 1.0
         diagonal_variables.append(
-            DiagonalAdArray(val, jac, indices[ind], offsets, num_derivatives)
+            DiagonalAdArray(val, jac, indices[ind], indices, num_derivatives)
         )
     return diagonal_variables
 
@@ -782,22 +781,30 @@ class DiagonalAdArray(AdArray):
     """
 
     def __init__(
-        self, val: np.ndarray, jac: np.ndarray, indices, offsets, num_derivatives
+        self,
+        val: np.ndarray,
+        jac: np.ndarray,
+        row_indices: np.ndarray,
+        col_indices: list[np.ndarray],
+        num_derivatives,
     ) -> None:
         jac = np.atleast_2d(jac)
         super().__init__(val, jac)
 
         self._num_derivatives = num_derivatives
         """Total number of derivatives in the system."""
-        self._indices = indices
-        self._offsets = offsets
+        self._row_indices = row_indices
+        self._col_indices = col_indices
 
     def __getitem__(self, key: slice | np.ndarray[Any, np.dtype[np.int_]]) -> AdArray:
         vals = self.val[key]
         jac = self.jac[:, key]
 
-        indices = self._indices[key]
-        return DiagonalAdArray(vals, jac, indices, self._offsets, self._num_derivatives)
+        row_indices = self._row_indices[key]
+        col_indices = [col_ind[key] for col_ind in self._col_indices]
+        return DiagonalAdArray(
+            vals, jac, row_indices, col_indices, self._num_derivatives
+        )
 
     def __setitem__(
         self, key: slice | np.ndarray[Any, np.dtype[np.int_]], new_value: AdType
@@ -815,15 +822,15 @@ class DiagonalAdArray(AdArray):
             return DiagonalAdArray(
                 self.val + other,
                 self.jac,
-                self._indices,
-                self._offsets,
+                self._row_indices,
+                self._col_indices,
                 self._num_derivatives,
             )
         elif isinstance(other, AdArray) and other._is_diagonal:
             val = self.val + other.val
             jac = self.jac + other.jac
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
 
         else:
@@ -839,8 +846,8 @@ class DiagonalAdArray(AdArray):
         b = DiagonalAdArray(
             self.val.copy(),
             self.jac.copy(),
-            self._indices.copy(),
-            self._offsets.copy(),
+            self._row_indices.copy(),
+            [col_ind.copy() for col_ind in self._col_indices],
             self._num_derivatives,
         )
         return b
@@ -850,8 +857,8 @@ class DiagonalAdArray(AdArray):
             return DiagonalAdArray(
                 self.val * other,
                 self.jac * other,
-                self._indices,
-                self._offsets,
+                self._row_indices,
+                self._col_indices,
                 self._num_derivatives,
             )
         elif isinstance(other, AdArray) and other._is_diagonal:
@@ -861,7 +868,7 @@ class DiagonalAdArray(AdArray):
                 self.val
             )
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
 
         else:
@@ -872,7 +879,7 @@ class DiagonalAdArray(AdArray):
             val = self.val**other
             jac = other * self.val ** (other - 1) * self.jac
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
         elif isinstance(other, AdArray) and other._is_diagonal:
             val = self.val**other.val
@@ -881,7 +888,7 @@ class DiagonalAdArray(AdArray):
                 + self.val**other.val * np.log(self.val) * other.jac
             )
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
 
         else:
@@ -892,7 +899,7 @@ class DiagonalAdArray(AdArray):
             val = other**self.val
             jac = (other**self.val) * np.log(other) * self.jac
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
         elif isinstance(other, AdArray) and other._is_diagonal:
             return other.__pow__(self)
@@ -904,13 +911,13 @@ class DiagonalAdArray(AdArray):
             val = self.val / other
             jac = self.jac / other
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
         elif isinstance(other, AdArray) and other._is_diagonal:
             val = self.val / other.val
             jac = (self.jac * other.val - self.val * other.jac) / (other.val**2)
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
         else:
             return other.__rtruediv__(self)
@@ -920,7 +927,7 @@ class DiagonalAdArray(AdArray):
             val = other / self.val
             jac = -other * self.jac / (self.val**2)
             return DiagonalAdArray(
-                val, jac, self._indices, self._offsets, self._num_derivatives
+                val, jac, self._row_indices, self._col_indices, self._num_derivatives
             )
         elif isinstance(other, AdArray) and other._is_diagonal:
             return other.__truediv__(self)
@@ -947,13 +954,12 @@ class DiagonalAdArray(AdArray):
         """
         num_vars = self.jac.shape[0]
 
-        num_indices = self._indices.size
+        num_indices = self._row_indices.size
 
         indptr = np.arange(0, num_indices * num_vars + 1, num_vars)
-        indices_repeated = np.tile(self._indices, num_vars).ravel("F")
-        indices_full = indices_repeated + np.repeat(self._offsets, num_indices)
+        indices = np.vstack([col for col in self._col_indices]).ravel("F")
         jac = sps.csr_matrix(
-            (self.jac.ravel("F"), indices_full, indptr),
+            (self.jac.ravel("F"), indices, indptr),
             shape=(num_indices, self._num_derivatives),
         )
         return AdArray(self.val, jac)
