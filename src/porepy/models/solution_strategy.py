@@ -162,8 +162,8 @@ class ModelSolverInterface(pp.PorePyModel):
 
         # Exporter initialization must be done after grid creation,
         # but prior to data initialization.
-        self.initialize_data_saving()
         self._initialize_nonlinear_solver_statistics()
+        self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
         # Order of operations is important here.
