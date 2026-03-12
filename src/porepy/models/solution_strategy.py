@@ -205,7 +205,6 @@ class ModelSolverInterface(pp.PorePyModel):
 
         """
         self.ad_time_step.set_value(self.time_manager.dt)
-        self.nonlinear_solver_statistics.increase_index()
         self.update_time_dependent_ad_arrays()
         self.update_derived_quantities()
 
@@ -216,9 +215,12 @@ class ModelSolverInterface(pp.PorePyModel):
         The base method does the following:
 
         1. Call :meth:`initialize_nonlinear_solution`.
+        2. Increase the nonlinear solver statistics index by one, to prepare the
+            statistics object.
 
         """
         self.initialize_nonlinear_solution()
+        self.nonlinear_solver_statistics.increase_index()
 
     def before_solver_iteration(self) -> None:
         """Called before a solver performs an iteration (calling the linear solver).
