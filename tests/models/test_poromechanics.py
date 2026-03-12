@@ -635,7 +635,7 @@ def test_poromechanics_empty_equation_filter(model_class):
 
     For poromechanics models without fractures, the fracture-related equations
     can still exist in the equation system. These empty domain equations should
-    be filtered as they donot contribute to the assembly pipline.
+    be filtered as they do not contribute to the assembly pipline.
     """
 
     # Run models without fractures.
@@ -651,16 +651,23 @@ def test_poromechanics_empty_equation_filter(model_class):
     model = model_class(params)
     model.prepare_simulation()
     equation_system = model.equation_system
+    
+    # All equations registered in the equation systems. These include equations
+    # defined on all possible subdomains (matrix, fractures, interfaces),
+    # regardless of whether the corresponding domains are present in the model.
+    all_equations = list(equation_system.equations.keys())
 
-    all_equations = list(equation_system._equations.keys())
+    # Parsed equations after discarding those whose image space is empty. 
+    # In poromechanics models without fractures, fracture-related equations are 
+    # also registered but have empty image spaces, and are therefore removed here.
     parsed_equations = list(equation_system._parse_equations().keys())
 
     # Check empty domain equations exist.
     empty_equations = []
-    for name in equation_system._equations:
+    for name in equation_system.equations:
         total = sum(
             len(indices)
-            for indices in equation_system._equation_image_space_composition[
+            for indices in equation_system.equation_image_space_composition[
                 name
             ].values()
         )

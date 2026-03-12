@@ -1220,7 +1220,7 @@ def test_parse_equations(model: EquationSystemMockModel):
     model.add_equation_on_empty_domain()
 
     # Check that the empty equation is included in the equation system.
-    assert "empty_equation" in equation_system._equations
+    assert "empty_equation" in equation_system.equations
 
     # Check that _parse_equations filters out equations on empty domain.
     assert "empty_equation" not in equation_system._parse_equations()
@@ -1627,7 +1627,7 @@ def test_schur_complement_empty_equation_filter():
     model.add_equation_on_empty_domain()
 
     # Check the empty equation exists in system.
-    assert "empty_equation" in equation_system._equations
+    assert "empty_equation" in equation_system.equations
     # Check whether the parse filter the empty equation out.
     assert "empty_equation" not in equation_system._parse_equations()
 
