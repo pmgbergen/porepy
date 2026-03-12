@@ -162,6 +162,9 @@ def test_secondary_operators(
         with pytest.raises(KeyError):
             expr.fetch_data(sop, g, get_derivatives=False)
 
+    # Evaluate the SOPs using the Ad parsing framework. This will give a key error like
+    # when calling fetch_data directly (still no data set), but the parser will catch
+    # this and raise a generic ValueError, which we expect.
     with pytest.raises(ValueError):
         _ = sop.value_and_jacobian(equation_system)
     with pytest.raises(ValueError):
