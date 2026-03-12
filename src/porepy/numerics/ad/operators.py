@@ -883,6 +883,11 @@ class Operator:
     def __hash__(self):
         return hash(self._key())
 
+    def __eq__(self, other):
+        if not isinstance(other, Operator):
+            return False
+        return self._key() == other._key()
+
     def _key(self) -> str:
         """String representation for hashing.
 
