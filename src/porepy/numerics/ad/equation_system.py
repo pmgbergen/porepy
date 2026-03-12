@@ -1357,7 +1357,7 @@ class EquationSystem:
 
         The equations will be ordered according to the order in self._equations (which
         is the order in which they were added to the equation system manager and which
-        alsois fixed since iteration of dictionaries is so).
+        also is fixed since iteration of dictionaries is so).
 
         Parameters:
             equations: A list of equations or a dictionary of equation restrictions.
@@ -1367,9 +1367,23 @@ class EquationSystem:
             equation rows) as values. If no restriction is given, the value is None.
 
         """
-        # The default return value is all equations with no grid restrictions.
+
+        # The default return value is all equations defined on non-empty domains
+        # with no grid restriction.
         if equations is None:
-            return dict((name, None) for name in self._equations)
+            # Precompute equations on non-empty domain. This is to avoid
+            # injecting equations with empty-domain into the assembly pipeline.
+            non_empty_equations = [
+                name
+                for name in self._equations
+                if sum(
+                    len(indices)
+                    for indices in self._equation_image_space_composition[name].values()
+                )
+                > 0
+            ]
+
+            return dict((name, None) for name in non_empty_equations)
 
         # We need to parse the input.
         # Storage for requested blocks, unique information per equation name.
