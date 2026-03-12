@@ -208,10 +208,10 @@ class AbstractFunction(Operator):
                 # TODO: What to do with offsets here. EK thinks we need external information.
                 # ANSWER: It will be available in args, somehow.
                 base_index = np.arange(values.size)
-                num_derivatives = jac.shape[0]
+                num_derivatives = args[0]._num_derivatives
                 indices = [args[i]._row_indices for i in range(len(args))]
 
-                all_indices = args[0]._column_indices
+                all_indices = args[0]._col_indices
                 return pp.ad.DiagonalAdArray(
                     values,
                     jac,
