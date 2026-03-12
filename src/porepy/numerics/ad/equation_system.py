@@ -1357,7 +1357,7 @@ class EquationSystem:
 
         The equations will be ordered according to the order in self._equations (which
         is the order in which they were added to the equation system manager and which
-        alsois fixed since iteration of dictionaries is so).
+        also is fixed since iteration of dictionaries is so).
 
         Parameters:
             equations: A list of equations or a dictionary of equation restrictions.
@@ -1368,10 +1368,11 @@ class EquationSystem:
 
         """
 
-        # The default return value is all equations with no grid restrictions.
+        # The default return value is all equations defined on non-empty domains
+        # with no grid restriction.
         if equations is None:
             # Precompute equations on non-empty domain. This is to avoid
-            # injecting such equations into the assembly pipeline
+            # injecting equations with empty-domain into the assembly pipeline.
             non_empty_equations = [
                 name
                 for name in self._equations
