@@ -1102,8 +1102,8 @@ def _get_diag_array(
         ad_arr = pp.ad.DiagonalAdArray(
             jac * variable_val,
             jac,
-            indices=np.arange(variable_val.size),
-            offsets=np.array([0], dtype=int),
+            row_indices=np.arange(variable_val.size),
+            col_indices=[np.arange(variable_val.size)],
             num_derivatives=3,
         )
         return ad_arr
@@ -1526,8 +1526,8 @@ def _expected_value(
             return pp.ad.DiagonalAdArray(
                 val,
                 jac,
-                indices=np.arange(3),
-                offsets=np.array([0], dtype=int),
+                row_indices=np.arange(3),
+                col_indices=[np.arange(3)],
                 num_derivatives=3,
             )
         elif op == "-":
@@ -1537,8 +1537,8 @@ def _expected_value(
             return pp.ad.DiagonalAdArray(
                 val,
                 jac,
-                indices=np.arange(3),
-                offsets=np.array([0], dtype=int),
+                row_indices=np.arange(3),
+                col_indices=[np.arange(3)],
                 num_derivatives=3,
             )
 
@@ -1550,8 +1550,8 @@ def _expected_value(
             return pp.ad.DiagonalAdArray(
                 val,
                 jac,
-                indices=np.arange(3),
-                offsets=np.array([0], dtype=int),
+                row_indices=np.arange(3),
+                col_indices=[np.arange(3)],
                 num_derivatives=3,
             )
         elif op == "/":
@@ -1562,8 +1562,8 @@ def _expected_value(
             return pp.ad.DiagonalAdArray(
                 val,
                 jac,
-                indices=np.arange(3),
-                offsets=np.array([0], dtype=int),
+                row_indices=np.arange(3),
+                col_indices=[np.arange(3)],
                 num_derivatives=3,
             )
         elif op == "**":
@@ -1587,8 +1587,8 @@ def _expected_value(
             return pp.ad.DiagonalAdArray(
                 val,
                 jac,
-                indices=np.arange(3),
-                offsets=np.array([0], dtype=int),
+                row_indices=np.arange(3),
+                col_indices=[np.arange(3)],
                 num_derivatives=3,
             )
         elif op == "@":
