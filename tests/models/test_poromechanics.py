@@ -651,14 +651,14 @@ def test_poromechanics_empty_equation_filter(model_class):
     model = model_class(params)
     model.prepare_simulation()
     equation_system = model.equation_system
-    
+
     # All equations registered in the equation systems. These include equations
     # defined on all possible subdomains (matrix, fractures, interfaces),
     # regardless of whether the corresponding domains are present in the model.
     all_equations = list(equation_system.equations.keys())
 
-    # Parsed equations after discarding those whose image space is empty. 
-    # In poromechanics models without fractures, fracture-related equations are 
+    # Parsed equations after discarding those whose image space is empty.
+    # In poromechanics models without fractures, fracture-related equations are
     # also registered but have empty image spaces, and are therefore removed here.
     parsed_equations = list(equation_system._parse_equations().keys())
 
