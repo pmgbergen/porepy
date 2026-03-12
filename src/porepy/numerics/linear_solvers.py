@@ -19,6 +19,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
     SimulationStatus,
+    LinearSolverConvergenceStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
 
@@ -79,7 +80,9 @@ class LinearSolver:
 
         # Perform a single (Newton) iteration.
         model.assemble_linear_system()
-        nonlinear_increment = model.solve_linear_system()
+        nonlinear_increment, msg = model.solve_linear_system()
+        if msg != LinearSolverConvergenceStatus.CONVERGED:
+            raise RuntimeError(f"Linear solver failed with message: {msg}")
 
         # Monitor convergence.
         status, info = self.check_convergence(model, nonlinear_increment)

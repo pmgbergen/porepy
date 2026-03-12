@@ -294,7 +294,7 @@ class NewtonSolver:
                 self.before_nonlinear_iteration(model)
 
                 # Perform nonlinear iteration and obtain increment.
-                nonlinear_increment = self.nonlinear_iteration(model)
+                nonlinear_increment, msg = self.nonlinear_iteration(model)
 
                 # Finalize nonlinear iteration and determine status.
                 (convergence_status, divergence_status) = (
