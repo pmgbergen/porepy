@@ -19,7 +19,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+from porepy.numerics.nonlinear.convergence_check import (
+    SimulationStatus,
+    LinearSolverConvergenceStatus,
+)
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -808,14 +811,38 @@ class SolutionStrategy(pp.PorePyModel):
                     """PyPardiso could not be imported,
                     falling back on scipy.sparse.linalg.spsolve"""
                 )
-            x = sparse_solver(A, b)
+            try:
+                import pypardiso  # type: ignore
+
+                x = sparse_solver(A, b)
+            except pypardiso.pypardiso_wrapper.PyPardisoError as e:
+                logger.error(f"Pardiso solver failed with error: {e}")
+                return (
+                    np.full_like(b, np.nan),
+                    LinearSolverConvergenceStatus.DIRECT_SOLVER_FAILED,
+                )
+
         elif solver == "umfpack":
             # Following may be needed:
             # A.indices = A.indices.astype(np.int64)
             # A.indptr = A.indptr.astype(np.int64)
-            x = sps.linalg.spsolve(A, b, use_umfpack=True)
+            try:
+                x = sps.linalg.spsolve(A, b, use_umfpack=True)
+            except Exception as e:
+                logger.error(f"UMFPACK solver failed with error: {e}")
+                return (
+                    np.full_like(b, np.nan),
+                    LinearSolverConvergenceStatus.DIRECT_SOLVER_FAILED,
+                )
         elif solver == "scipy_sparse":
-            x = sps.linalg.spsolve(A, b)
+            try:
+                x = sps.linalg.spsolve(A, b)
+            except Exception as e:
+                logger.error(f"Scipy sparse solver failed with error: {e}")
+                return (
+                    np.full_like(b, np.nan),
+                    LinearSolverConvergenceStatus.DIRECT_SOLVER_FAILED,
+                )
         else:
             raise ValueError(
                 f"AbstractModel does not know how to apply the linear solver {solver}"
@@ -826,7 +853,7 @@ class SolutionStrategy(pp.PorePyModel):
             x = self.equation_system.expand_schur_complement_solution(x)
 
         logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
-        return x
+        return (x, LinearSolverConvergenceStatus.CONVERGED)
 
     def _apply_schur_complement_reduction(self) -> bool:
         """Returns the model parameter on whether the linear system should be reduced
