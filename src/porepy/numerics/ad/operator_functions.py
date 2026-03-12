@@ -199,6 +199,7 @@ class AbstractFunction(Operator):
             if isinstance(values, float):
                 assert jac.shape[0] == 1, "Inconsistent Jacobian of scalar function."
                 values = np.array([values])
+                return AdArray(values, jac)
             elif isinstance(jac, np.ndarray):
                 assert jac.ndim == 2, "Diagonal AdArrays should have 2d Jacobians"
                 assert jac.shape[1] == values.size, (
@@ -208,17 +209,15 @@ class AbstractFunction(Operator):
                 # ANSWER: It will be available in args, somehow.
                 base_index = np.arange(values.size)
                 num_derivatives = jac.shape[0]
-                # 1) Offsets should be a single number for each DiagonalAdArray
-                # 2) The indices for the derivatives is found by args[i].indices + args[i].offset for i in offsets.
-                # 3) I need some clearer thinking about what indices and offsets really mean.
-                indices = [
-                    args[i]._indices + args[i]._offset[i] for i in range(len(args))
-                ]
+                indices = [args[i]._row_indices for i in range(len(args))]
 
-                offsets = values.size * np.arange(0, num_derivatives)
-                all_indices = [base_index * offsets[i] for i in range(num_derivatives)]
+                all_indices = args[0]._column_indices
                 return pp.ad.DiagonalAdArray(
-                    values, jac, all_indices, offsets, num_derivatives
+                    values,
+                    jac,
+                    args[0]._row_indices,
+                    args[0]._col_indices,
+                    num_derivatives,
                 )
 
             else:
