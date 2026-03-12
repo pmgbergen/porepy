@@ -267,7 +267,12 @@ def test_secondary_operators(
         jac_.data = d
         jacs.append(jac_)
 
-    assert np.all(sop_val.jac.toarray() == sum(jacs).toarray())
+    if sop_val._is_diagonal:
+        sop_jac = sop_val.to_full().jac
+    else:
+        sop_jac = sop_val.jac
+
+    assert np.all(sop_jac.toarray() == sum(jacs).toarray())
 
     # progress values in time and check that only values are progressed, and that
     # they are correct, i.e. current iter is set as previous time
