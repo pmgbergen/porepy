@@ -80,6 +80,78 @@ class ConvergenceStatus(StrEnum):
         return self == ConvergenceStatus.DIVERGED
 
 
+class LinearSolverConvergenceStatus(StrEnum):
+    """Enumeration of potential convergence statuses for linear solvers."""
+
+    CONVERGED = "converged"
+    """Linear solver converged."""
+    DIVERGED = "diverged"
+    """Linear solver diverged."""
+    MAX_NUM_ITERATIONS = "max_num_iterations"
+    """Linear solver reached maximum number of iterations without convergence."""
+    SINGULAR = "singular"
+    """Linear solver encountered a singular matrix."""
+    PRECONDITIONER_SETUP_FAILED = "preconditioner_setup_failed"
+    """Preconditioner setup failed during the linear solve."""
+    BREAKDOWN = "breakdown"
+    """Breakdown during the linear solve, e.g., due to numerical issues. For PETSc KSP
+    solvers, this corresponds to PETSc error codes -5 and -6 (KSP_DIVERGED_BREAKDOWN and
+    KSP_DIVERGED_BREAKDOWN_BICG, respectively).
+    """
+    NAN_OR_INF = "nan_or_inf"
+    """NaN or Inf values during the linear solve. For PETSc KSP solvers, this
+    corresponds to PETSC error code -9 (KSP_DIVERGED_NANORINF).    
+    """
+    ERROR = "error"
+    """An error occurred during the linear solve. Should be used if none of the above
+    statuses apply, but the linear solver did not converge.
+    """
+    DIRECT_SOLVER_FAILED = "direct_solver_failed"
+    """General failure of the direct solver.
+    A more fine-grained classification of failures is possible, but the motivation is
+    currently lacking.
+    """
+
+    def __str__(self):
+        return self.value
+
+    def is_converged(self) -> bool:
+        """Check if the status indicates convergence."""
+        return self == LinearSolverConvergenceStatus.CONVERGED
+
+    def is_diverged(self) -> bool:
+        """Check if the status indicates divergence."""
+        return self == LinearSolverConvergenceStatus.DIVERGED
+
+    def is_max_num_iterations(self) -> bool:
+        """Check if the status indicates reaching maximum number of iterations."""
+        return self == LinearSolverConvergenceStatus.MAX_NUM_ITERATIONS
+
+    def is_singular(self) -> bool:
+        """Check if the status indicates a singular matrix."""
+        return self == LinearSolverConvergenceStatus.SINGULAR
+
+    def is_preconditioner_setup_failed(self) -> bool:
+        """Check if the status indicates preconditioner setup failure."""
+        return self == LinearSolverConvergenceStatus.PRECONDITIONER_SETUP_FAILED
+
+    def is_breakdown(self) -> bool:
+        """Check if the status indicates a breakdown during the linear solve."""
+        return self == LinearSolverConvergenceStatus.BREAKDOWN
+
+    def is_nan_or_inf(self) -> bool:
+        """Check if the status indicates NaN or Inf values during the linear solve."""
+        return self == LinearSolverConvergenceStatus.NAN_OR_INF
+
+    def is_error(self) -> bool:
+        """Check if the status indicates an error."""
+        return self == LinearSolverConvergenceStatus.ERROR
+
+    def is_direct_solver_failed(self) -> bool:
+        """Check if the status indicates a failure of the PyPardiso solver."""
+        return self == LinearSolverConvergenceStatus.PYPARDISO_FAILED
+
+
 class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
     """Collection of convergence statuses for a collection of criteria."""
 
