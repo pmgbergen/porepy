@@ -109,10 +109,10 @@ class Case2aMixin:
     _z_IN: dict[str, float] = {"H2O": 1.0}
 
     _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = [
-        # (50 * pp.DAY, 10.0),
-        # (60 * pp.DAY, 1.0),
-        # (300 * pp.DAY, 10.0),
-        # (310 * pp.DAY, 1.0),
+        (50 * pp.DAY, 10.0),
+        (60 * pp.DAY, 1.0),
+        (300 * pp.DAY, 10.0),
+        (310 * pp.DAY, 1.0),
     ]
 
     _T_INJECTION: dict[int, float] = {0: _T_IN}

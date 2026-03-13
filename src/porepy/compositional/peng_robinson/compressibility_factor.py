@@ -1014,6 +1014,8 @@ def get_compressibility_factor(
     # NOTE: c contains the coefficients as the polynomial is read from left to right:
     # C[0] contains c_2, c[2] contains c_0
     # NOTE: Roots always ordered by size.
+    if np.any(np.isnan(c)) or np.any(np.isinf(c)):
+        return np.nan
     roots = calculate_roots(c, eps)
     assert roots[-1] > B, (
         "Expecting largest compressibility factor to be greater than covolume."
@@ -1134,6 +1136,8 @@ def get_compressibility_factor_derivatives(
         assert B != B_original, "Copy error for B original."
 
     c = c_from_AB(A, B)
+    if np.any(np.isnan(c)) or np.any(np.isinf(c)):
+        return np.full((2,), np.nan)
     # Chainrule to obtain derivatives w.r.t. A and B.
     droots: np.ndarray = np.dot(calculate_root_derivatives(c, eps), dc_from_AB(A, B))
 

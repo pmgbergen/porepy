@@ -11,6 +11,7 @@ import numpy as np
 import porepy as pp
 
 timestamp = "13March2026_15-24-31_BUOY_False_AJUMP_False"
+timestamp = "13March2026_20-33-40_BUOY_False_AJUMP_True"
 folder = f"visualization/{timestamp}/"
 file = f"{folder}solver_statistics.json"
 

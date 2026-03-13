@@ -181,7 +181,13 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         kappa = float(self.params.get("armijo_line_search_incline", 0.4))
         N = int(self.params.get("armijo_line_search_max_iterations", 50))
 
-        pot_0 = self.armijo_objective_function(model, dx, 0.0)
+        try:
+            pot_0 = self.armijo_objective_function(model, dx, 0.0)
+        except:
+            logger.warning(
+                "Armijo line search failed initial evaluation. Returning nan."
+            )
+            return np.nan
         rho_i = rho
         n = 0
 
@@ -192,6 +198,8 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
             try:
                 pot_i = self.armijo_objective_function(model, dx, rho_i)
             except:
+                # In case this was the last evaluation and it failed, return nan.
+                rho_i = np.nan
                 continue
 
             if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
@@ -200,7 +208,12 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         model.nonlinear_solver_statistics.log_custom_data(
             append=True, armijo_iterations=n
         )
-        logger.info(f"Armijo line search determined weight: {rho_i:.4f} ({n})")
+        if np.isnan(rho_i):
+            logger.warning(
+                f"Armijo line search failed at last evaluation. Returning nan."
+            )
+        else:
+            logger.info(f"Armijo line search determined weight: {rho_i:.4f} ({n})")
         return rho_i
 
     def armijo_objective_function(

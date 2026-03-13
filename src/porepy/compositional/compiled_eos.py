@@ -1259,7 +1259,9 @@ class CompiledEoS(EquationOfState):
         # the primary axis of 2D arrays is the zero-th (rows).
         # The parallel evaluation on the other hand, takes all arguments row-wise, hence
         # the transpose here.
-        x_norm = normalize_rows(x.T)
+        # Also, cap from below by tiny number to avoid division by zero or negative
+        # values.
+        x_norm = normalize_rows(np.maximum(x, 1e-14).T)
 
         thermodynamic_input = tuple([_ for _ in thermodynamic_input[:-1]] + [x_norm])
 
