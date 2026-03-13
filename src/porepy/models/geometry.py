@@ -13,7 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.utils.grid_utils import compute_circumcenter_2d, compute_circumcenter_3d
+from porepy.utils.grid_utils import compute_circumcenters
 
 logger = logging.getLogger(__name__)
 
@@ -214,13 +214,11 @@ class ModelGeometry(pp.PorePyModel):
         """
 
         if self.use_circumcenters():
+            # NOTE: Moving to circumcenter only performed for simplex grids.
             threshold = float(self.meshing_arguments()["circumcenter_threshold"])
             for sd in self.mdg.subdomains():
-                # NOTE: Grid type acts as dimension filter.
-                if isinstance(sd, pp.TriangleGrid):
-                    new_centers, *_ = compute_circumcenter_2d(sd, threshold)
-                elif isinstance(sd, pp.TetrahedralGrid):
-                    new_centers, *_ = compute_circumcenter_3d(sd, threshold)
+                if isinstance(sd, (pp.TriangleGrid, pp.TetrahedralGrid)):
+                    new_centers, *_ = compute_circumcenters(sd, threshold)
                 else:
                     continue
 
