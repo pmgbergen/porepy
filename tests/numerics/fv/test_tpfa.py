@@ -6,9 +6,11 @@ The tests fall into two categories:
 
 """
 
+from typing import Literal
 import numpy as np
 import pytest
 import scipy.sparse as sps
+from copy import deepcopy
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
@@ -16,6 +18,7 @@ from porepy.applications.md_grids import model_geometries
 from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
+from porepy.applications.test_utils.models import add_mixin
 
 """Local utility functions."""
 
@@ -693,7 +696,8 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 class WithoutDiffTpfa(
     FluxDiscretization,
-    pp.MassAndEnergyBalance,
+    # pp.MassAndEnergyBalance,
+    pp.SinglePhaseFlow,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -766,6 +770,163 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
 
     assert np.allclose(matrix[0].toarray(), matrix[1].toarray())
     assert np.allclose(vector[0], vector[1])
+
+
+class DiffTpfaNewtonPerformanceGeometry(
+    FluxDiscretization,
+    pp.applications.boundary_conditions.model_boundary_conditions.HydrostaticBoundaryPressureValues,
+    pp.SinglePhaseFlow,
+):
+    """Model class to test the performance of Newton's method with and without the
+    differentiable tpfa mixin.
+
+    """
+
+    def set_fractures(self) -> None:
+        """Set the fractures in the domain.
+
+        TODO: This can be done by one of the standard geometry mixins
+        """
+        if self.params["include_fracture"]:
+            # TODO IVAR: Do we want to allow for rotations of the fracture, or should
+            # we just hardcode the geometry without preparing for a parametrized angle?
+            angle = self.params.get("fracture_angle", 2) * np.pi / 180
+            length = self.domain.bounding_box["xmax"] / 3
+            r = self.units.convert_units(length / 2, "m")
+
+            points = np.array(
+                [
+                    [-r * np.cos(angle), -r * np.sin(angle)],
+                    [r * np.cos(angle), r * np.sin(angle)],
+                ]
+            ).T
+            self._fractures = [pp.LineFracture(points)]
+        else:
+            self._fractures = []
+
+    def domain_size(self) -> float:
+        """Return the size of the domain."""
+        return 2
+
+    def set_domain(self) -> None:
+        """Set the cube domain."""
+        sz = self.domain_size() / 2
+        bounding_box = {
+            "xmin": self.units.convert_units(-sz, "m"),
+            "xmax": self.units.convert_units(sz, "m"),
+            "ymin": self.units.convert_units(-sz, "m"),
+            "ymax": self.units.convert_units(sz, "m"),
+        }
+        self._domain = pp.Domain(bounding_box)
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        if self.params["constant_permeability"]:
+            return super().permeability(subdomains)
+        else:
+            f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+            permeability = pp.ad.Scalar(self.solid.permeability) * f_max(
+                self.pressure(subdomains), pp.ad.Scalar(1e-5)
+            )
+            return self.isotropic_second_order_tensor(subdomains, permeability)
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Poromechanics rely by default on Darcy flux re-discretization.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        )
+
+
+# @pytest.mark.skipped  # reason: slow
+@pytest.mark.parametrize("base_scheme", ["tpfa", "mpfa"])
+@pytest.mark.parametrize("gravity", [True, False])
+@pytest.mark.parametrize("include_fracture", [True, False])
+@pytest.mark.parametrize("constant_permeability", [True, False])
+def test_diff_tpfa_newton_performance(
+    base_scheme: Literal["mpfa", "tpfa"],
+    gravity: bool,
+    include_fracture: bool,
+    constant_permeability: bool,
+):
+    """Verify that the solutions computed with and without diff-tpfa are consistent,
+    and that inclusion of the diffenetiable tpfa does not increase the number of
+    Newton iteration.
+
+    Parameters:
+        base_scheme: Spatial discretization scheme for diffusive equations.
+        gravity: Whether to include gravity.
+        include_fracture: If True, a single fracture will be included in the domain.
+        constant_permeability: If False, a non-linearity will be included in the
+            permeability tensor.
+
+    """
+    model_params = {
+        "time_manager": pp.TimeManager(
+            schedule=[0, pp.DAY],
+            dt_init=pp.DAY,
+            constant_dt=True,
+        ),
+        "include_fracture": include_fracture,
+        "meshing_arguments": {"cell_size": 0.3},
+        "darcy_flux_discretization": base_scheme,
+        "grid_type": "simplex",
+        "constant_permeability": constant_permeability,
+    }
+
+    # Solver parameters. TODO IVAR: We need to check that these values do what we
+    # actually want.
+    solver_params = {
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_convergence_res_atol": np.inf,
+        "nl_max_iterations": 25,
+    }
+
+    models = []
+    num_iters = []
+    pressures = []
+
+    if include_fracture:
+        interface_darcy_fluxes = []
+
+    # Solve problem with and without differentiable tpfa, gather statistics.
+    for differentiable in [True, False]:
+        model_class = DiffTpfaNewtonPerformanceGeometry
+        if gravity:
+            model_class = add_mixin(pp.constitutive_laws.GravityForce, model_class)
+        if differentiable:
+            model_class = add_mixin(pp.constitutive_laws.DarcysLawAd, model_class)
+
+        m = model_class(deepcopy(model_params))
+        pp.run_time_dependent_model(m, solver_params)
+        num_iters.append(m.nonlinear_solver_statistics.num_iterations)
+
+        sds = m.mdg.subdomains()
+        intfs = m.mdg.interfaces()
+
+        equation_system = m.equation_system
+        pressures.append(equation_system.evaluate(m.pressure(sds)))
+
+        if include_fracture:
+            interface_darcy_fluxes.append(
+                equation_system.evaluate(m.interface_darcy_flux(intfs))
+            )
+
+    if constant_permeability:
+        assert num_iters[0] == num_iters[1]
+    else:
+        # TODO IVAR: Achiving strict inequality may require some tuning of the permeability
+        # tensor, and I am a bit afraid such a criterion will be sensitive to changes
+        # in a broad sonse to the model and numerics. What do you think?
+        assert num_iters[0] < num_iters[1]
+    assert np.allclose(pressures[0], pressures[1])
+    if include_fracture:
+        assert np.allclose(interface_darcy_fluxes[0], interface_darcy_fluxes[1])
 
 
 class DiffTpfaFractureTipsInternalBoundaries(
