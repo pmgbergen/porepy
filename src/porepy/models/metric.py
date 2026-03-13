@@ -203,9 +203,16 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
 
         """
         norms = {name: 0.0 for name in self.model.equation_system.equations}
-        equation_blocks = {
-            name: (
-                self.model.equation_system.assembled_equation_indices[name],
+
+        equation_blocks = {}
+        for name in self.model.equation_system.equations:
+            if name not in self.model.equation_system.assembled_equation_indices:
+                continue
+            indices = self.model.equation_system.assembled_equation_indices[name]
+            if len(indices) == 0:
+                continue
+            equation_blocks[name] = (
+                indices,
                 list(
                     self.model.equation_system.equation_image_space_composition[
                         name
@@ -213,8 +220,6 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
                 ),
                 self.model.equation_system.equation_image_size_info[name]["cells"],
             )
-            for name in self.model.equation_system.equations
-        }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
             if len(sd) == 0:
                 norms[name] = 0.0
