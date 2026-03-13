@@ -551,7 +551,7 @@ class BoundaryConditions(ModelConfig):
         return heated
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if sd.dim == self.nd:
+        if sd.dim == self.nd and self.params.get("_heated_boundary_on", True):
             heated = self._heated_boundary_faces(sd)
             return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC

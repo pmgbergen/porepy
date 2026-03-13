@@ -39,7 +39,7 @@ newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1e-2
 
-T_END_DAYS = 500
+T_END_DAYS = 350
 
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 
@@ -70,7 +70,7 @@ model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"]["cell_size"] = 2.0
 model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
-model_params["_well_surrounding_permeability"] = 1e-13
+model_params["_well_surrounding_permeability"] = 1e-12
 model_params["_fracture_permeability"] = 1e-10
 
 model_params["fractional_flow"] = BUOYANCY_ON
@@ -80,7 +80,8 @@ model_params["flash_params"]["gen_arg_params"] = [1e-4, 5e-2, 0.1, 15.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 5e-2, 0.1, 15.0]
 model_params["phase_property_params"] = [1e-4, 5e-2, 0.1, 15.0]
 
-solver_params["armijo_stop_after_residual_reaches"] = 1e-3
+# solver_params["armijo_stop_after_residual_reaches"] = 1e-3
+model_params["_heated_boundary_on"] = False
 
 
 class Case2aMixin:
@@ -151,7 +152,12 @@ if COLLECT_DATA:
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
-    model_params["folder_name"] = f"visualization/{timestamp}_BUOY_{BUOYANCY_ON}"
+    sub_folder = (
+        f"{timestamp}"
+        f"_BUOY_{BUOYANCY_ON}"
+        f"_AJUMP_{bool(model_class._APERTURE_FACTOR_AFTER_TIME)}"
+    )
+    model_params["folder_name"] = f"visualization/{sub_folder}"
 
     model = model_class(model_params)  # type:ignore[abstract]
 

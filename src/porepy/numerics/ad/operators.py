@@ -1558,6 +1558,21 @@ class TimeDependentScalar(Scalar, TimeDependentOperator):
         super().__init__(value=value, name=name)
 
         self._history: deque[float] = deque([float(value)], maxlen=int(depth))
+        """Historic values shared accross instances of this object in time.
+        
+        IMPORTANT: Mechanism will likely break if shallow-copy-approach in
+        TimeDependentOperator is changed.
+        """
+
+    def __neg__(self):
+        """Ensures to fetch the correct value in time during negation."""
+        op = super().__neg__()
+
+        if self.is_previous_time:
+            assert isinstance(self.time_step_index, int)
+            op.set_value(-self._history[-(1 + self.time_step_index)])
+
+        return op
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """See :meth:`Operator.parse`.
