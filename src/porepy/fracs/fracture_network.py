@@ -1365,7 +1365,13 @@ class MeshSizeControlPointInserter:
 class MeshSizeComputer:
     """Helper class to manage and compute mesh size parameters.
 
-    This provides a unified way to access mesh size parameters used in meshing.
+    This class provides a translation from the user-provided mesh size parameters as
+    listed in the documentation of the __init__ method to the mesh size parameters that
+    are used in the mesh size control algorithm.
+
+    The methods h_{min, end, ...} provide (sometimes context-dependent) mesh size
+    parameters. To understand the details of how this class is used, it is probably
+    necassary to also study the wider mesh size control algorithm.
 
     """
 
