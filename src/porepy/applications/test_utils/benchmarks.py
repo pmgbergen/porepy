@@ -107,7 +107,7 @@ class EffectivePermeability:
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        normal_gradient = pp.ad.Scalar(2) * (
+        normal_gradient_scaling = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** pp.ad.Scalar(-1)
         )
@@ -115,7 +115,7 @@ class EffectivePermeability:
         effective_normal_permeability = (
             self.specific_volume(interfaces)
             * self.normal_permeability(interfaces)
-            * normal_gradient
+            * normal_gradient_scaling
         )
         effective_normal_permeability.set_name("effective_normal_permeability")
 
