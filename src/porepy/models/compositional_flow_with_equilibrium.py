@@ -970,12 +970,17 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         """
         stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
         do_flash = False
-        if isinstance(stride, int):
+        # Gives indirectly that the problem is nonlinear and does iterate.
+        if isinstance(stride, int) and isinstance(
+            self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+        ):
             # NOTE Iteration counter is increased after iteration, and 0 modulo anything
             # is zero.
             assert stride > 0, "Global iteration stride must be positive."
             n = self.nonlinear_solver_statistics.num_iterations
             do_flash = (n + 1) % stride == 0 or n == 0
+        elif bool(stride):  # If linear problem, check if flash activated.
+            do_flash = True
 
         for sd in self.mdg.subdomains():
             if do_flash:
@@ -1190,10 +1195,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
         """
 
-        logger.info(
-            f"Equilibration on grid {sd.id} at t={self.time_manager.time:.3e},"
-            + f" iter={self.nonlinear_solver_statistics.num_iterations}."
-        )
+        logger.info(f"Equilibration on grid {sd.id} at t={self.time_manager.time:.3e}.")
         start = time.time()
 
         if specification is None:

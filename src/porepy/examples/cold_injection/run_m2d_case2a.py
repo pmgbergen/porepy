@@ -93,7 +93,7 @@ class Case2aMixin:
     ]
 
     # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
-    _TOTAL_INJECTED_MASS: float = 10 * np.float64(47134.59273520758) / (60 * 60)
+    _TOTAL_INJECTED_MASS: float = 10 * 47134.59273520758 / (60 * 60)
 
     _p_INIT: float = 10e6
     _T_INIT: float = 450.0
@@ -104,10 +104,10 @@ class Case2aMixin:
     # _T_BC: float = 650.0
     _T_BC: float = 450.0
 
-    _z_INIT: dict[str, float] = {"H2O", 1.0}
-    _z_IN: dict[str, float] = {"H2O", 1.0}
+    _z_INIT: dict[str, float] = {"H2O": 1.0}
+    _z_IN: dict[str, float] = {"H2O": 1.0}
 
-    _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = [
+    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = [
         # (50 * pp.DAY, 10.0),
         # (60 * pp.DAY, 1.0),
         # (300 * pp.DAY, 10.0),
@@ -143,15 +143,17 @@ else:
         pass
 
 
+model_class = ModelClass
+
 if COLLECT_DATA:
-    ModelClass = add_mixin(DataCollectionMixin, ModelClass)
+    model_class = add_mixin(DataCollectionMixin, model_class)  # type:ignore
 
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     model_params["folder_name"] = f"visualization/{timestamp}_BUOY_{BUOYANCY_ON}"
 
-    model = ModelClass(model_params)  # type:ignore[abstract]
+    model = model_class(model_params)  # type:ignore[abstract]
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy").setLevel(logging.DEBUG)

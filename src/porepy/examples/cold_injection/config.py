@@ -154,7 +154,7 @@ class ModelConfig(pp.PorePyModel):
     for n in _COMPONENT_NAMES:
         _INJECTED_MASS[n] = {0: _TOTAL_INJECTED_MASS * _z_IN[n]}
 
-    _TIME_INDUCED_APERTURE_FACTOR: list[tuple[float, float]] = []
+    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = []
     """2-tuples of time-factor pairs, indicating at which time the aperture is
     multiplied with given factor."""
 
@@ -243,7 +243,7 @@ def get_default_params(
 
 def get_default_convergence_criteria(
     model: ModelConfig,
-    max_iterations: float,
+    max_iterations: int,
     atol_res: float,
     atol_inc: float,
     atol_res_isofug: float,

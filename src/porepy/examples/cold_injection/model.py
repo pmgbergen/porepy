@@ -48,7 +48,7 @@ class FluidPoreInteraction(ModelConfig):
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         a = super().aperture(subdomains)
 
-        jump_factor = pp.ad.Function(self.a_jump, "a_jump")(self.ad_time_step)
+        jump_factor = pp.ad.Function(self.a_jump, "a_jump")(self.ad_time)
 
         sds_w_jump = [sd for sd in subdomains if 0 < sd.dim < self.nd]
         sds_wo_jump = [sd for sd in subdomains if sd not in sds_w_jump]
@@ -67,7 +67,7 @@ class FluidPoreInteraction(ModelConfig):
         """Returns a scaling factor for aperture depending on time."""
 
         f = 1.0
-        for ti, fi in self._TIME_INDUCED_APERTURE_FACTOR:
+        for ti, fi in self._APERTURE_FACTOR_AFTER_TIME:
             if t >= ti:
                 f = fi
 

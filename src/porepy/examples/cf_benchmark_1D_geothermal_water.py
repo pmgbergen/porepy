@@ -353,13 +353,6 @@ class GeothermalWaterModel(  # type:ignore[misc]
         self._residual_norm_history: deque[float] = deque(maxlen=4)
         self._increment_norm_history: deque[float] = deque(maxlen=3)
 
-    def after_nonlinear_convergence(self) -> None:
-        super().after_nonlinear_convergence()
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
-        print("Time value (day): ", self.time_manager.time / pp.DAY)
-        print("Time index: ", self.time_manager.time_index)
-        print("")
-
     def data_to_export(self):
         data = super().data_to_export()
 

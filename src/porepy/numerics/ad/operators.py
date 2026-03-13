@@ -39,6 +39,7 @@ __all__ = [
     "DenseArray",
     "TimeDependentDenseArray",
     "Scalar",
+    "TimeDependentScalar",
     "Variable",
     "MixedDimensionalVariable",
     "Projection",
@@ -1497,7 +1498,7 @@ class Scalar(Operator):
 
     def _key(self) -> str:
         if self._cached_key is None:
-            self._cached_key = f"(scalar, {self._value})"
+            self._cached_key = f"(scalar, name={self.name}, {self._value})"
         return self._cached_key
 
     def __repr__(self) -> str:
@@ -1547,6 +1548,46 @@ class Scalar(Operator):
             value: The new value.
 
         """
+        self._value = value
+
+
+class TimeDependentScalar(Scalar, TimeDependentOperator):
+    """Time-dependent scalar value, storing history of scalar values locally"""
+
+    def __init__(self, value: float, depth: int, name: str | None = None):
+        super().__init__(value=value, name=name)
+
+        self._history: deque[float] = deque([float(value)], maxlen=int(depth))
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
+        """See :meth:`Operator.parse`.
+
+        Returns:
+            The number corresponding to the time step index.
+
+        """
+        if self.is_previous_time:
+            assert isinstance(self.time_step_index, int)
+            value = self._history[-(1 + self.time_step_index)]
+        else:
+            value = self._value
+
+        return value
+
+    def set_value(self, value: float, new_time: bool = True) -> None:
+        """Set the value of this scalar at the current time.
+
+        Parameters:
+            value: The new value in time.
+            new_time: ``default=True``
+
+                If True, the passed value is treated as the new value in time, and the
+                current value is stored as a previous value in time (including shift of
+                other previous values).
+
+        """
+        if new_time:
+            self._history.append(self._value)
         self._value = value
 
 

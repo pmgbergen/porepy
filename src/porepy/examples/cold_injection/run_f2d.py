@@ -114,15 +114,17 @@ else:
         pass
 
 
+model_class = ModelClass
+
 if COLLECT_DATA:
-    ModelClass = add_mixin(DataCollectionMixin, ModelClass)
+    model_class = add_mixin(DataCollectionMixin, model_class)  # type:ignore
 
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
     model_params["folder_name"] = f"visualization/{timestamp}"
 
-    model = ModelClass(model_params)  # type:ignore[abstract]
+    model = model_class(model_params)  # type:ignore[abstract]
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy").setLevel(logging.DEBUG)

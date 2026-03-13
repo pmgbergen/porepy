@@ -117,6 +117,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
         """Time step as an automatic differentiation scalar."""
+        self.ad_time = pp.ad.TimeDependentScalar(
+            0.0, self.time_step_indices.size, name="time"
+        )
+        """Simulation time as a time-dependent AD scalar."""
         self.results: list[Any] = []
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
@@ -593,6 +597,8 @@ class SolutionStrategy(pp.PorePyModel):
         """
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
+        # Don't override previous time until we are sure that current time converged.
+        self.ad_time.set_value(self.time_manager.time, new_time=False)
         # Empty the log in the statistics object.
         self.nonlinear_solver_statistics.increase_index()
         # Update the boundary conditions to both the time step and iterate solution.
@@ -643,6 +649,8 @@ class SolutionStrategy(pp.PorePyModel):
         solution = self.equation_system.get_variable_values(iterate_index=0)
 
         # Update the time step magnitude if the dynamic scheme is used.
+        # Converged -> override value in time.
+        self.ad_time.set_value(self.time_manager.time, new_time=True)
         if not self.time_manager.is_constant:
             assert isinstance(
                 self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics

@@ -543,6 +543,8 @@ else:
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         ad_time_step: pp.ad.Scalar
         """Time step as an automatic differentiation scalar."""
+        ad_time: pp.ad.TimeDependentScalar
+        """Simulation time as a time-dependent AD scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
         results: list[Any]

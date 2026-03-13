@@ -119,7 +119,7 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
     def __init__(self, params: dict | None = None):
         pp.NewtonSolver.__init__(self, params)
         AndersonAcceleration.__init__(self, params)
-        self._last_res_norm: float = 0.0
+        self._last_res_norm: float | np.floating = 0.0
 
     def iteration(self, model: pp.PorePyModel):
         """An iteration consists of performing the Newton step and obtaining the step
@@ -140,6 +140,9 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         dx *= self.armijo_line_search(model, dx)
 
         if self.params.get("anderson_acceleration", False):
+            assert isinstance(
+                model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+            )
             iteration = model.nonlinear_solver_statistics.num_iterations
             x = model.equation_system.get_variable_values(iterate_index=0)
             x_temp = x + dx
