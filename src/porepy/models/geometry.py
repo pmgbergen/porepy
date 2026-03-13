@@ -219,10 +219,7 @@ class ModelGeometry(pp.PorePyModel):
             for sd in self.mdg.subdomains():
                 if isinstance(sd, (pp.TriangleGrid, pp.TetrahedralGrid)):
                     new_centers, *_ = compute_circumcenters(sd, threshold)
-                else:
-                    continue
-
-                sd.cell_centers = new_centers
+                    sd.cell_centers = new_centers
 
     def depth(self, points: np.ndarray) -> np.ndarray:
         """Compute depth of points.
