@@ -842,32 +842,33 @@ MAX_NONLINEAR_ITER = 10
         # - decrease the time step due to many nonlinear iterations (after convergence)
         # - decrease the time step to meet the schedule (last time step)
         {
-            # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
+            # Below reads as: time step 1 takes 4 nonlinear iterations, time step 2
             # takes 3 nonlinear iterations, etc.
             "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
-            # Time step 0 diverged after 4 iterations, time step 1 converged after 3
+            # Time step 1 diverged after 4 iterations, time step 2 converged after 3
             # iterations, etc. "unreachable" means that the convergence check should not
             # be called due to exceeding the iteration limit.
             "time_step_converged": [False, True, "unreachable"] + [True] * 5,
             # Time step magnitudes to compare with. These are known values produced with
             # the settings of the TimeStepper found in the test function below.
             "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
+            "expected_status": pp.SimulationStatus.SUCCESSFUL,
         },
         # Case 2: constant_dt. Should fail after nonlinear divergence.
         {
             "constant_dt": True,
-            "should_fail": pp.TimeSteppingError,
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
+            "expected_status": pp.SimulationStatus.STOPPED,
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and should fail.
         {
-            "should_fail": pp.TimeSteppingError,
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
+            "expected_status": pp.SimulationStatus.STOPPED,
         },
         # Case 4: The time step fails right before the schedule point. Expected to
         # decrease dt and meet the schedule regardless.
@@ -875,6 +876,7 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [1, 1, 1, 1, 1],
             "time_step_converged": [True, False, True, True, True],
             "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
+            "expected_status": pp.SimulationStatus.SUCCESSFUL,
         },
     ],
 )
@@ -884,6 +886,7 @@ def test_model_time_step_control(params: dict):
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
     exported_dt_expected = params["exported_dt_expected"]
+    expected_status = params["expected_status"]
 
     schedule_end = 2 if constant_dt else 1.35
     time_manager = pp.TimeManager(
@@ -951,11 +954,6 @@ def test_model_time_step_control(params: dict):
         "nl_max_iterations": MAX_NONLINEAR_ITER,
     }
 
-    if should_fail:
-        assert issubclass(should_fail, Exception), "Test needs error specification."
-        with pytest.raises(should_fail):
-            pp.ModelRunner(model, solver_params).run()
-    else:
-        pp.ModelRunner(model, solver_params).run()
-
+    pp.ModelRunner(model, solver_params).run()
+    assert model.nonlinear_solver_statistics.simulation_status == expected_status
     assert np.allclose(model.time_step_history, exported_dt_expected)
