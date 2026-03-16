@@ -84,21 +84,20 @@ class MockModel:
     def before_nonlinear_loop(self):
         self.nonlinear_solver_statistics.increase_index()
 
-    def before_nonlinear_iteration(self):
+    def before_solver_iteration(self):
         self.nonlinear_increment = np.array(self.nonlinear_increment_history[0])
         self.nonlinear_increment_history = self.nonlinear_increment_history[1:]
         self.equation_system.residual = np.array(self.residual_history[0])
         self.residual_history = self.residual_history[1:]
 
-    def after_nonlinear_iteration(self, inc):
+    def after_solver_iteration(self, inc):
         pass
 
-    def after_nonlinear_convergence(self):
+    def after_solver_convergence(self):
         self.nonlinear_solver_statistics.save()
 
-    def after_nonlinear_failure(self):
+    def after_solver_failure(self):
         self.nonlinear_solver_statistics.save()
-        return pp.SimulationStatus.FAILED
 
     def assemble_linear_system(self):
         pass
@@ -106,7 +105,7 @@ class MockModel:
     def solve_linear_system(self):
         return self.nonlinear_increment
 
-    def _is_time_dependent(self):
+    def is_time_dependent(self):
         return False
 
 
@@ -138,13 +137,13 @@ class TimeDependentMockModel(MockModel):
         self.residuals = self.residual_history[0]
         self.residual_history = self.residual_history[1:]
 
-    def before_nonlinear_iteration(self):
+    def before_solver_iteration(self):
         self.nonlinear_increment = np.array(self.nonlinear_increments[0])
         self.nonlinear_increments = self.nonlinear_increments[1:]
         self.equation_system.residual = np.array(self.residuals[0])
         self.residuals = self.residuals[1:]
 
-    def _is_time_dependent(self):
+    def is_time_dependent(self):
         return True
 
 
