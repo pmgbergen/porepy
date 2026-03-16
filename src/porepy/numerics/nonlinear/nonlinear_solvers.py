@@ -58,16 +58,9 @@ class NewtonSolver(LinearSolver):
     def __init__(self, params=None) -> None:
         super().__init__(params)
 
-        if params is None:
-            params = {}
-
-        self.params = params
-        """Dictionary of parameters for the nonlinear solver."""
         self.iteration_index: int = 0
         """Current iteration index - equivalent with number of iterations."""
 
-        self.init_convergence_criteria()
-        self.init_divergence_criteria()
         self.init_solver_progressbar()
 
     def init_convergence_criteria(self) -> None:
@@ -85,7 +78,7 @@ class NewtonSolver(LinearSolver):
 
         """
 
-        if "nl_convergence_criteria" in self.params:
+        if self.params.get("nl_convergence_criteria"):
             # Use user-provided convergence criteria.
             convergence_criteria = self.params["nl_convergence_criteria"]
 
@@ -144,8 +137,7 @@ class NewtonSolver(LinearSolver):
         - Metric: 'nl_metric'
 
         """
-
-        if "nl_divergence_criteria" in self.params:
+        if self.params.get("nl_divergence_criteria"):
             # Use user-provided divergence criteria.
             divergence_criteria = self.params["nl_divergence_criteria"]
 
@@ -534,17 +526,14 @@ class NewtonSolver(LinearSolver):
             convergence_info: Dictionary containing norms and other information.
 
         """
-        assert isinstance(
-            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-        )
-
-        # Convergence-related information.
+        # Convergence-related information (logged in all iterations).
         if convergence_status is not None and convergence_info is not None:
+            assert isinstance(
+                model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+            )
             model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
             model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
 
-        # Basic discretization-related information and overall simulation status.
+        # Global information (logged after loop).
         if simulation_status is not None:
-            pp.LinearSolver.update_solver_statistics(
-                cast(pp.LinearSolver, self), model, simulation_status
-            )
+            super().update_solver_statistics(model, simulation_status)

@@ -36,7 +36,16 @@ class LinearSolver:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed during instantiation."""
 
-        # Default parameters for convergence and divergence criteria
+        self.init_convergence_criteria()
+        self.init_divergence_criteria()
+
+    def init_convergence_criteria(self) -> None:
+        """Parse and initialize convergence criteria.
+
+        Convergence criteria can be provided as a dictionary in the
+        'nl_convergence_criteria' parameter.
+
+        """
         if "nl_convergence_criteria" not in self.params:
             self.params["nl_convergence_criteria"] = {}
         self.convergence_criteria = ConvergenceCriteria(
@@ -44,6 +53,14 @@ class LinearSolver:
         )
         """Convergence criterion used in the convergence check."""
 
+    def init_divergence_criteria(self) -> None:
+        """Parse and initialize divergence criteria.
+
+        Divergence criteria can be provided as a dictionary in the
+        'nl_divergence_criteria' parameter. Otherwise, default criteria
+        are used checking for NaNs in the increment and residual, respectively.
+
+        """
         if "nl_divergence_criteria" not in self.params:
             self.params["nl_divergence_criteria"] = {
                 "inc_nan": IncrementBasedNanCriterion(),
