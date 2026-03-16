@@ -257,43 +257,10 @@ class ModelSolverInterface(pp.PorePyModel):
 
         """
 
-    def after_solver_failure(self) -> pp.SimulationStatus:
-        """Method to be called if the solver fails to converge.
-
-        Allowed to adapt the convergence status, used for orchestration of the
-        simulation.
-
-        Returns:
-            SimulationStatus: The status of the simulation - either failed or stopped
-                if serious issues are detected.
-
-        """
+    def after_solver_failure(self) -> None:
+        """Method to be called if the solver fails to converge."""
         if not self.is_nonlinear_problem():
-            warn("Failed to solve linear system for the linear problem.")
-            return pp.SimulationStatus.STOPPED
-
-        elif self.time_manager.is_constant:
-            warn("Failed to solve the nonlinear problem.")
-            return pp.SimulationStatus.STOPPED
-
-        else:
-            raise NotImplementedError("Code left over due to merge conflict")
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            try:
-                self.time_manager.compute_time_step(recompute_solution=True)
-            except ValueError as e:
-                # Redirect the exception as a warning, and give the control to
-                # the run_models module to stop the simulation.
-                warn(str(e))
-                return pp.SimulationStatus.STOPPED
-
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
-            return pp.SimulationStatus.FAILED
+            raise ValueError("Failed to solve linear system for the linear problem.")
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.

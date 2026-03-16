@@ -644,7 +644,7 @@ else:
         def after_solver_convergence(self) -> None:
             """Called after the solver converges."""
 
-        def after_solver_failure(self) -> pp.SimulationStatus:
+        def after_solver_failure(self) -> None:
             """Called if the solver fails to converge or diverges."""
 
         def after_time_step_convergence(self) -> None:

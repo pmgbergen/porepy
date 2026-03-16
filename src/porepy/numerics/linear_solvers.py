@@ -18,7 +18,9 @@ from porepy.numerics.nonlinear.convergence_check import (
     ResidualBasedNanCriterion,
     SimulationStatus,
 )
-from porepy.viz.solver_statistics import TimeStatistics
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LinearSolver:
@@ -122,20 +124,23 @@ class LinearSolver:
 
         # React to convergence status.
         if convergence_status.is_converged():
-            simulation_status = SimulationStatus.SUCCESSFUL
-            self.update_solver_statistics(model, simulation_status=simulation_status)
             model.after_solver_convergence()
+            simulation_status = SimulationStatus.SUCCESSFUL
         elif divergence_status.is_diverged():
             # TODO: Get back to this when reimplementing time stepping.
             # NOTE: Currently, if a simulation fully stopps, this is not logged in
             # SolverStatistics. For this, better coordination between solver and time
             # stepping is needed.
-            simulation_status = model.after_solver_failure()
+            try:
+                model.after_solver_failure()
+                simulation_status = SimulationStatus.FAILED
+            except Exception as e:
+                logger.warning(
+                    f"Model's after_solver_failure method raised an exception: {e}"
+                )
+                simulation_status = SimulationStatus.STOPPED
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
-
-        # Update (global) solver statistics.
-        self.update_solver_statistics(model, simulation_status=simulation_status)
 
         return simulation_status
 
@@ -178,28 +183,3 @@ class LinearSolver:
             divergence_status,
             convergence_info,
         )
-
-    def update_solver_statistics(
-        self,
-        model: ModelInstance,
-        simulation_status: SimulationStatus,
-    ) -> None:
-        """Update the solver statistics in the model.
-
-        Parameters:
-            model: The model instance specifying the problem to be solved.
-            simulation_status: Simulation status of the solver.
-            info: Dictionary containing norms and other information.
-
-        """
-        # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
-        model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
-        if model.is_time_dependent():
-            assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
-            model.nonlinear_solver_statistics.log_time_information(
-                model.time_manager.time_index,
-                model.time_manager.time,
-                model.time_manager.dt,
-                model.time_manager.final_time_reached(),
-            )

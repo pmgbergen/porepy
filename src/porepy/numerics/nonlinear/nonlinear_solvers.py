@@ -321,19 +321,23 @@ class NewtonSolver(LinearSolver):
         """
         # React to convergence status. Let convergence trump divergence.
         if convergence_status.is_converged():
-            simulation_status = pp.SimulationStatus.SUCCESSFUL
             model.after_solver_convergence()
+            simulation_status = pp.SimulationStatus.SUCCESSFUL
         elif divergence_status.is_diverged():
             # TODO: Get back to this when reimplementing time stepping.
             # NOTE: Currently, if a simulation fully stopps, this is not logged in
             # SolverStatistics. For this, better coordination between solver and time
             # stepping is needed.
-            simulation_status = model.after_solver_failure()
+            try:
+                model.after_solver_failure()
+                simulation_status = pp.SimulationStatus.FAILED
+            except Exception as e:
+                logger.warning(
+                    f"Model's after_solver_failure method raised an exception: {e}"
+                )
+                simulation_status = pp.SimulationStatus.STOPPED
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
-
-        # Update (global) solver statistics.
-        self.update_solver_statistics(model, simulation_status=simulation_status)
 
         # Close the progress bar.
         self.solver_progressbar.close()
@@ -513,7 +517,6 @@ class NewtonSolver(LinearSolver):
     def update_solver_statistics(
         self,
         model: ModelInstance,
-        simulation_status: pp.SimulationStatus | None = None,
         convergence_status: ConvergenceStatusCollection | None = None,
         convergence_info: ConvergenceInfoCollection | None = None,
     ) -> None:
@@ -527,13 +530,8 @@ class NewtonSolver(LinearSolver):
 
         """
         # Convergence-related information (logged in all iterations).
-        if convergence_status is not None and convergence_info is not None:
-            assert isinstance(
-                model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-            )
-            model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
-            model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
-
-        # Global information (logged after loop).
-        if simulation_status is not None:
-            super().update_solver_statistics(model, simulation_status)
+        assert isinstance(
+            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+        )
+        model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
+        model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
