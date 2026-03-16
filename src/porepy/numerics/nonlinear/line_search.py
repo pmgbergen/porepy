@@ -461,10 +461,14 @@ class SplineInterpolationLineSearch:
                 f_pt = f_b
             else:
                 f_pt = f(pt)
-            if np.any(np.isnan(f_pt)):
-                # If we get overflow, truncate the x vector. For future reference,
-                # overflows have # occured during experimentation, but it is unclear why
-                # this happened.
+            # Safeguard 2: Check for any non-finite values (NaN or inf)
+            if not np.all(np.isfinite(f_pt)):
+                logger.warning(
+                    f"Non-finite constraint values at relaxation weight {pt:.6e}. "
+                    "This suggests the Newton update leads to an unphysical state. "
+                    "Truncating line search interval."
+                )
+                # If we get non-finite values, truncate the x vector
                 x = x[: np.where(x == pt)[0][0]]
                 break
             # Collect function values, scalar or vector.

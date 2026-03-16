@@ -594,6 +594,17 @@ class EquationSystemMockModel:
         # Get the size of an equation block
         return self.eq_ind(name).size
 
+    def add_equation_on_empty_domain(self):
+        # Add an equation on an empty domain to the equation system.
+        empty_var = self.equation_system.create_variables(
+            name="empty_var", subdomains=[]
+        )
+        empty_equation = empty_var * empty_var
+        empty_equation.set_name("empty_equation")
+        self.equation_system.set_equation(
+            empty_equation, grids=[], equations_per_grid_entity={"cells": 1}
+        )
+
 
 def _eliminate_columns_from_matrix(A, indices, reverse):
     # Helper method to extract submatrix by column indices
@@ -1156,10 +1167,12 @@ def test_parse_single_equation(model: EquationSystemMockModel):
 def test_parse_equations(model: EquationSystemMockModel):
     """Test the helper function for parsing equations.
 
-    The test focuses on the functionality of EquationSystem._parse_equation_like()
+    The test focuses on the functionality of EquationSystem._parse_equation()
     beyond the parsing of individual equations, which is tested in the method
-    test_parse_single_equation_like(). That is, we test the parsing of multiple
+    test_parse_single_equation(). That is, we test the parsing of multiple
     equations and check that the order of the returned equations is correct.
+    In addition, we test that equations on empty domain are not parsed in the
+    equation system.
 
     """
     equation_system = model.equation_system
@@ -1202,6 +1215,15 @@ def test_parse_equations(model: EquationSystemMockModel):
     assert np.allclose(
         received_equations_3[all_equation_names[0]], np.arange(model.sd_top.num_cells)
     )
+
+    # Add an equation on an empty domain to the equation system.
+    model.add_equation_on_empty_domain()
+
+    # Check that the empty equation is included in the equation system.
+    assert "empty_equation" in equation_system.equations
+
+    # Check that _parse_equations filters out equations on empty domain.
+    assert "empty_equation" not in equation_system._parse_equations()
 
 
 @pytest.mark.parametrize(
@@ -1553,3 +1575,69 @@ def test_schur_complement(eq_var_to_exclude):
     x_reconstructed = equation_system.expand_schur_complement_solution(x_schur)
 
     assert np.allclose(x_reconstructed, x_expected)
+
+
+def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
+    """Test that assemble() ignores equations defined on empty domains.
+
+    An equation defined on an empty domain (no grids) should not contribute to the
+    assembled system. After adding such an equation, assembling the system should
+    produce the same matrix and residual vector as before the equation was added.
+    """
+
+    # Get the system of equations from the model.
+    equation_system = model.equation_system
+
+    # Store Baseline system matrix and vector.
+    A_ref, b_ref = equation_system.assemble()
+
+    # Add equation on empty domain using the empty variable
+    model.add_equation_on_empty_domain()
+
+    # Check that the assembled system does not include the empty equation.
+    A, b = equation_system.assemble()
+    assert np.allclose(b, b_ref)
+    assert pp.test_utils.arrays.compare_matrices(A, A_ref)
+
+    # Check bookkeeping does not suddenly include the empty equation.
+    assert "empty_equation" not in equation_system.assembled_equation_indices
+
+
+def test_schur_complement_empty_equation_filter():
+    """Test the filtering function in schur complement assembly.
+
+    This test verified that equations defined on empty domains do not
+    affect the schur complement system. So the resulting schur complement
+    system is unchanged.
+    """
+
+    model = EquationSystemMockModel(square_system=True)
+    equation_system = model.equation_system
+
+    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
+
+    # Generate a reference Schur system.
+    S_ref, bS_ref = equation_system.assemble_schur_complement_system(
+        primary_equations=["eq_all_subdomains"],
+        primary_variables=["x"],
+        inverter=inverter,
+    )
+
+    # Add equation on empty domain using the empty variable
+    model.add_equation_on_empty_domain()
+
+    # Check the empty equation exists in system.
+    assert "empty_equation" in equation_system.equations
+    # Check whether the parse filter the empty equation out.
+    assert "empty_equation" not in equation_system._parse_equations()
+
+    # Check Schur complement should be unchanged.
+    S, bS = equation_system.assemble_schur_complement_system(
+        primary_equations=["eq_all_subdomains"],
+        primary_variables=["x"],
+        inverter=inverter,
+    )
+
+    assert np.allclose(bS, bS_ref)
+    assert S.shape == S_ref.shape
+    assert pp.test_utils.arrays.compare_matrices(S, S_ref)

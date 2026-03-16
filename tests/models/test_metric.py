@@ -168,6 +168,8 @@ def test_equation_based_euclidean_metric_on_grids(
     equations = orthogonal_3d_model.equation_system.equations
     result = {}
     for name in equations:
+        if name not in orthogonal_3d_model.equation_system.assembled_equation_indices:
+            continue
         dofs = orthogonal_3d_model.equation_system.assembled_equation_indices[name]
         if len(dofs) == 0:
             # Expect zero norm for empty equations
