@@ -1590,6 +1590,8 @@ class EquationSystem:
         # Uniquify to save computational time, then discretize.
         unique_discr = pp.ad.uniquify_discretization_list(discr)
         pp.ad.discretize_from_list(unique_discr, self.mdg)
+        # Reduce the memory footprint of discretization matrices.
+        pp.matrix_operations.prune_discretization_matrices(self.mdg)
 
     @overload
     def assemble(
