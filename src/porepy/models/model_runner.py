@@ -307,7 +307,8 @@ class ModelRunner:
                 # ``time_manager._adaptation_based_on_recomputation``, which substracts
                 # the current ``dt`` from the simulation time, computes a shorter
                 # ``dt``, and adds the updated ``dt`` to the simulation time again.
-                # It will also raise a TimeSteppingError if the minimal time step is reached.
+                # It will also raise a TimeSteppingError if the minimal time step
+                # is reached.
                 try:
                     self.model.time_manager.compute_time_step(recompute_solution=True)
                     simulation_status = pp.SimulationStatus.FAILED

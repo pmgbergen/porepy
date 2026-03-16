@@ -8,6 +8,8 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
+import logging
+
 from porepy.models.model_runner import ModelInstance
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
@@ -18,7 +20,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ResidualBasedNanCriterion,
     SimulationStatus,
 )
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -517,8 +517,8 @@ class NewtonSolver(LinearSolver):
     def update_solver_statistics(
         self,
         model: ModelInstance,
-        convergence_status: ConvergenceStatusCollection | None = None,
-        convergence_info: ConvergenceInfoCollection | None = None,
+        convergence_status: ConvergenceStatusCollection,
+        convergence_info: ConvergenceInfoCollection,
     ) -> None:
         """Update the solver statistics in the model.
 
