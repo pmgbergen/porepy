@@ -126,16 +126,16 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         size from the line search."""
         # dx = super().iteration(model)
 
-        dx = pp.NewtonSolver.iteration(self, model) * float(
-            self.params.get("newton_chop", 1.0)
-        )
+        dx = pp.NewtonSolver.iteration(self, model)  # type:ignore[arg-type]
 
-        norm_dx_raw = np.linalg.norm(dx)
-
+        chop = float(self.params.get("newton_chop", 1.0))
         self._last_res_norm = np.linalg.norm(
             model.equation_system.assemble(evaluate_jacobian=False)
         )
+        if self._last_res_norm > 100.0:
+            dx *= chop
 
+        norm_dx_raw = np.linalg.norm(dx)
         dx = self.appleyard_chop(model, dx)
         dx *= self.armijo_line_search(model, dx)
 
@@ -157,7 +157,7 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
                     dx = xp1 - x
 
         logger.info(
-            f"Change in update norm: {norm_dx_raw:.4f} -> ({np.linalg.norm(dx):.4f})"
+            f"Change in update norm: {norm_dx_raw:.4e} -> ({np.linalg.norm(dx):.4e})"
         )
 
         return dx
@@ -180,6 +180,13 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         rho = float(self.params.get("armijo_line_search_weight", 0.9))
         kappa = float(self.params.get("armijo_line_search_incline", 0.4))
         N = int(self.params.get("armijo_line_search_max_iterations", 50))
+        least_squares = bool(self.params.get("armijo_least_squares_form", True))
+
+        lin_decrease = 0.0
+        if not least_squares:
+            x0 = model.equation_system.get_variable_values(iterate_index=0)
+            A, b = model.equation_system.assemble(evaluate_jacobian=True, state=x0 + dx)
+            lin_decrease = float(np.dot(-A.transpose() @ b, dx))
 
         try:
             pot_0 = self.armijo_objective_function(model, dx, 0.0)
@@ -202,7 +209,12 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
                 rho_i = np.nan
                 continue
 
-            if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
+            if least_squares:
+                break_condition = pot_i <= (1 - 2 * kappa * rho_i) * pot_0
+            else:
+                break_condition = pot_i <= pot_0 + kappa * rho_i * lin_decrease
+
+            if break_condition:
                 break
 
         model.nonlinear_solver_statistics.log_custom_data(

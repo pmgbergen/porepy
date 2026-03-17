@@ -176,6 +176,7 @@ def get_default_params(
 
     basalt_ = basalt.copy()
     basalt_["permeability"] = base_permeability
+    basalt_["specific_heat_capacity"] = 0.0
     material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore
 
     flash_params = {

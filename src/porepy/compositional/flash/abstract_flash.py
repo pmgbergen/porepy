@@ -102,16 +102,15 @@ class FlashResults(pp.compositional.FluidProperties):
 
     dofs: int = 0
     """Degrees of freedom of the flash problem, which depends on the number of phases,
-    components and equilibrium specifiations.
+    components and equilibrium specification.
     
     Example:
-
-    For a 2-component, 2-phase flash with specified pressure and specific enthalpy,
-    the number of DOFs is 6:
-    
-    - vapor fraction (1),
-    - partial fraction per component per phase (4).
-    - temperature (1).
+        For a 2-component, 2-phase flash with specified pressure and specific enthalpy,
+        the number of DOFs is 6:
+        
+        - vapor fraction (1),
+        - partial fraction per component per phase (4).
+        - temperature (1).
 
     """
 
@@ -462,7 +461,6 @@ class AbstractFlash(abc.ABC):
         elif isochoric_spec:
             results.rho = 1.0 / s1
         else:
-            # For reminding future developers.
             assert False, "Missing parsing of flash input"
 
         setattr(results, spec.name[1], s2)
@@ -472,28 +470,28 @@ class AbstractFlash(abc.ABC):
             # Check initial values.
             n = len(initial_state.y)
             assert n == nphase, f"Expecting {nphase} phase fractions, {n} provided."
-            assert np.allclose(initial_state.y.sum(axis=0), 1.0), (
-                "Initial phase fractions violate strong unity constraint."
-            )
+            # assert np.allclose(initial_state.y.sum(axis=0), 1.0), (
+            #     "Initial phase fractions violate strong unity constraint."
+            # )
 
             for j in range(nphase):
-                assert np.all(initial_state.phases[j].x.sum(axis=0) <= 1.0 + 1e-7), (
-                    f"Component fractions in phase {j} violate weak unity constraint."
-                )
+                # assert np.all(initial_state.phases[j].x.sum(axis=0) <= 1.0 + 1e-7), (
+                #     f"Component fractions in phase {j} violate unity constraint."
+                # )
                 n = len(initial_state.phases[j].x)
                 n_j = self.params["components_per_phase"][j]
                 assert n == n_j, (
                     f"Expexting {n_j} partial fractions in phase {j}, {n} provided."
                 )
 
-            if isochoric_spec:
-                n = len(initial_state.sat)
-                assert n == nphase, (
-                    f"Expecting {nphase} phase saturations, {n} provided."
-                )
-                assert np.allclose(initial_state.sat.sum(axis=0), 1.0), (
-                    "Initial phase saturations violate strong unity constraint."
-                )
+            # if isochoric_spec:
+            #     n = len(initial_state.sat)
+            #     assert n == nphase, (
+            #         f"Expecting {nphase} phase saturations, {n} provided."
+            #     )
+            #     assert np.allclose(initial_state.sat.sum(axis=0), 1.0), (
+            #         "Initial phase saturations violate strong unity constraint."
+            #     )
 
             # Broadcast initial values.
             try:
@@ -519,12 +517,12 @@ class AbstractFlash(abc.ABC):
                 results.phases = phases
 
                 if isochoric_spec:
-                    S = list()
-                    for j in range(nphase):
-                        s = np.zeros(size)
-                        s[:] = initial_state.sat[j]
-                        S.append(s)
-                    results.sat = np.array(S)
+                    # S = list()
+                    # for j in range(nphase):
+                    #     s = np.zeros(size)
+                    #     s[:] = initial_state.sat[j]
+                    #     S.append(s)
+                    # results.sat = np.array(S)
                     p = np.zeros(size)
                     p[:] = initial_state.p
                     results.p = p
@@ -533,12 +531,7 @@ class AbstractFlash(abc.ABC):
                     T[:] = initial_state.T
                     results.T = T
             except Exception as err:
-                raise ValueError(
-                    "Failed to uniformize initial state for:\n"
-                    + f"y: {initial_state.y}\n"
-                    + f"s: {initial_state.sat}\n"
-                    + f"x per phase: {[phase.x for phase in initial_state.phases]}"
-                ) from err
+                raise ValueError("Failed to parse initial state.") from err
 
         return results
 

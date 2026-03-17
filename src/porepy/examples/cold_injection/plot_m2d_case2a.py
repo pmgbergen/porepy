@@ -10,8 +10,8 @@ import numpy as np
 
 import porepy as pp
 
-timestamp = "13March2026_15-24-31_BUOY_False_AJUMP_False"
-timestamp = "13March2026_20-33-40_BUOY_False_AJUMP_True"
+timestamp = "16March2026_10-53-49_BUOY_False_AJUMP_False"
+timestamp = "16March2026_11-45-36_BUOY_False_AJUMP_True"
 folder = f"visualization/{timestamp}/"
 file = f"{folder}solver_statistics.json"
 
@@ -22,6 +22,8 @@ FONTSIZE: int = 22
 MARKERSIZE: int = 18
 LINEWIDTH: float = 3
 
+rax_color = "salmon"
+
 
 path = pathlib.Path(file).resolve()
 data: dict
@@ -31,7 +33,7 @@ if path.is_file():
 else:
     raise ValueError(f"Simulation data not found: {str(path)}")
 
-
+# region Load data.
 globaldata = data["global"]
 nc = int(sum(globaldata["num_cells"].values()))
 ne = int(globaldata["num_entries"])
@@ -63,7 +65,7 @@ for i in range(ne):
         linsolve_ct.append(float(np.array(locdata["linsolve_clocktime"]).sum()))
         flash_ct.append(float(np.array(locdata["flash_clocktime"]).sum()))
         time_in_days.append(float(locdata["time"] / pp.DAY))
-        dt_in_days.append(float(locdata["dt"]))
+        dt_in_days.append(float(locdata["dt"] / pp.DAY))
         recomputations_per_timestep.append(rc)
         rc = 0
     else:
@@ -81,7 +83,7 @@ act = np.array(assembly_ct)
 lsct = np.array(linsolve_ct)
 fct = np.array(flash_ct)
 
-
+# endregion
 # region Plotting number of iterations per time step
 
 fig = plt.figure(figsize=(2 * FIGSIZE, FIGSIZE))
@@ -110,14 +112,13 @@ imgs += ax.plot(
     label="line search",
 )
 
-color = "salmon"
 axr = ax.twinx()
 ax.set_zorder(axr.get_zorder() + 1)
 ax.patch.set_visible(False)
 imgsr += axr.plot(
     t,
     nfi,
-    color=color,
+    color=rax_color,
     linestyle="dashed",
     # marker="s",
     mfc="white",
@@ -125,43 +126,6 @@ imgsr += axr.plot(
     linewidth=LINEWIDTH,
     label="loc. flash",
 )
-
-rcid = recomputations > 0
-if recomputations.size > 0:
-    tid = t[rcid]
-    ngiid = ngi[rcid] + 2
-    rid = recomputations[rcid]
-    n = 3e2
-    N = 1e3
-    m = rid.min()
-    M = rid.max()
-    a = (N - n) / max(M - m, 1)
-    b = n - a * m
-    sizes = a * rid + b
-
-    mav = np.max([ngi.max(), nlsi.max()])
-    ypos = float(1.1 * mav)
-    imgs += [
-        ax.scatter(
-            tid,
-            np.ones_like(tid).astype(int) * ypos,
-            s=sizes,
-            alpha=0.5,
-            label="recomputations",
-        )
-    ]
-
-    idx = rid == M
-
-    ax.text(
-        tid[idx][0],
-        ypos,
-        M,
-        fontsize=FONTSIZE + 2,
-        fontweight="heavy",
-        horizontalalignment="center",
-        verticalalignment="center",
-    )
 
 ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
@@ -173,9 +137,9 @@ ax.set_xticks(ticks)
 ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=10))
 ax.set_ylabel("Global iterations", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelsize=FONTSIZE)
-axr.set_ylabel("Local iterations", color=color, fontsize=FONTSIZE + 2)
+axr.set_ylabel("Local iterations", color=rax_color, fontsize=FONTSIZE + 2)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
+axr.tick_params(axis="y", which="both", labelcolor=rax_color, labelsize=FONTSIZE)
 
 mav = np.max((nlsi.max(), ngi.max()))
 miv = np.min((nlsi.min(), ngi.min()))
@@ -194,7 +158,7 @@ ticks = np.concatenate([ticks, np.array([miv, mav])])
 axr.set_yticks(ticks)
 
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
-axr.yaxis.grid(visible=True, which="both", color=color, alpha=0.3, linewidth=0.5)
+axr.yaxis.grid(visible=True, which="both", color=rax_color, alpha=0.3, linewidth=0.5)
 
 ax.margins(0.05)
 axr.margins(0.05)
@@ -220,6 +184,7 @@ fig.savefig(
     dpi=DPI,
     bbox_inches="tight",
 )
+print(f"\nSaved fig: {name}")
 # endregion
 # region Plot time spent in algorithm.
 
@@ -287,4 +252,117 @@ fig.savefig(
     dpi=DPI,
     bbox_inches="tight",
 )
+print(f"\nSaved fig: {name}")
+# endregion
+# region Progress in time.
+fig = plt.figure(figsize=(2 * FIGSIZE, FIGSIZE))
+
+t_indices = np.arange(t.size).astype(int)
+ax = fig.add_subplot(1, 1, 1)
+imgs = []
+imgsr = []
+
+imgs += ax.plot(
+    t_indices,
+    t,
+    color="black",
+    # marker="^",
+    markersize=int(MARKERSIZE / 2),
+    linewidth=LINEWIDTH,
+    label="time [d]",
+)
+
+axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
+
+imgsr += axr.plot(
+    t_indices,
+    dt,
+    color=rax_color,
+    # marker="s",
+    mfc="white",
+    markersize=int(MARKERSIZE / 2),
+    linewidth=LINEWIDTH,
+    label=r"$\Delta$ t",
+)
+
+rcid = recomputations > 0
+if recomputations.size > 0:
+    tid = t_indices[rcid]
+    rid = recomputations[rcid]
+    n = 3e2
+    N = 1e3
+    m = rid.min()
+    M = rid.max()
+    a = (N - n) / max(M - m, 1)
+    b = n - a * m
+    sizes = a * rid + b
+
+    ypos = dt.max() * 1.1
+    imgsr += [
+        axr.scatter(
+            tid,
+            np.ones_like(tid) * ypos,
+            s=sizes,
+            alpha=0.5,
+            label="time step failures",
+        )
+    ]
+
+    axr.text(
+        tid[rid == M][0],
+        ypos,
+        M,
+        fontsize=FONTSIZE + 2,
+        # fontweight="heavy",
+        horizontalalignment="center",
+        verticalalignment="center",
+    )
+
+ax.set_xlabel("Time step index", fontsize=FONTSIZE + 2)
+ax.set_ylabel("Time [d]", color="black", fontsize=FONTSIZE + 2)
+ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
+# ax.set_yscale("symlog", linthresh=1)
+mav = t_indices.max()
+ticks = ax.get_xticks()
+ticks = ticks[ticks < mav - 3]
+ticks = np.concatenate((ticks, np.array([mav]))).astype(int)
+ax.set_xticks(ticks)
+ticks = ax.get_yticks()
+ticks = np.concatenate([ticks, np.array([20 * 30]).astype(int)])
+ax.set_yticks(ticks)
+ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.yaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
+axr.set_ylabel(r"$\Delta$ t [d]", color=rax_color, fontsize=FONTSIZE + 2)
+axr.tick_params(axis="y", which="both", labelcolor=rax_color, labelsize=FONTSIZE)
+axr.set_yscale("symlog", linthresh=1 / pp.DAY)
+axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+axr.yaxis.grid(visible=True, which="major", color=rax_color, alpha=0.3, linewidth=0.5)
+lim = axr.get_ylim()
+mav = dt.max()
+miv = dt.min()
+ticks = axr.get_yticks()
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
+axr.set_yticks(ticks)
+ticks = axr.get_yticks(minor=True)
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+axr.set_yticks(ticks, minor=True)
+
+ax.margins(0.1)
+axr.margins(0.1)
+
+fig.tight_layout(pad=FIGUREPAD)
+name = f"{folder}time_progress.png"
+fig.savefig(
+    name,
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+)
+print(f"\nSaved fig: {name}")
 # endregion

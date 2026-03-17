@@ -30,8 +30,16 @@ from porepy.examples.cold_injection.model import (
 )
 
 
+ISOCHORIC_NPC = True
 BUOYANCY_ON = False
 COLLECT_DATA = True
+
+APERTURE_JUMP_SCHEDULE = [
+    (20 * pp.DAY, 5.0),
+    (30 * pp.DAY, 1.0),
+    (300 * pp.DAY, 5.0),
+    (310 * pp.DAY, 1.0),
+]
 
 max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
@@ -44,7 +52,7 @@ T_END_DAYS = 350
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 
 
-dt_init = pp.DAY
+dt_init = pp.DAY * 0.5
 dt_min = pp.SECOND
 dt_max = np.max(np.diff(np.array(time_schedule)))
 
@@ -66,7 +74,7 @@ model_params, solver_params = get_default_params(
 )
 
 model_params["time_manager"] = time_manager
-model_params["times_to_export"] = time_schedule
+# model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"]["cell_size"] = 2.0
 model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
@@ -82,6 +90,27 @@ model_params["phase_property_params"] = [1e-4, 5e-2, 0.1, 15.0]
 
 # solver_params["armijo_stop_after_residual_reaches"] = 1e-3
 model_params["_heated_boundary_on"] = False
+if ISOCHORIC_NPC:
+    model_params["_do_isochoric_npc"] = True
+    model_params["flash_compiler_args"] = (
+        pp.compositional.FlashSpec.pT,
+        pp.compositional.FlashSpec.ph,
+        pp.compositional.FlashSpec.vT,
+    )
+
+
+model_params["variable_scaling_linear_rpc"] = {
+    "pressure": 22064000.0,
+    "temperature": 647.096,
+    "enthalpy": 524641.0735546586,
+}
+
+solver_params["armijo_line_search_weight"] = 0.9
+solver_params["armijo_line_search_incline"] = 1e-4
+solver_params["armijo_line_search_max_iterations"] = 20
+solver_params["armijo_stop_after_residual_reaches"] = 1e-5
+solver_params["armijo_least_squares_form"] = False
+solver_params["newton_chop"] = 0.4
 
 
 class Case2aMixin:
@@ -108,12 +137,7 @@ class Case2aMixin:
     _z_INIT: dict[str, float] = {"H2O": 1.0}
     _z_IN: dict[str, float] = {"H2O": 1.0}
 
-    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = [
-        (50 * pp.DAY, 10.0),
-        (60 * pp.DAY, 1.0),
-        (300 * pp.DAY, 10.0),
-        (310 * pp.DAY, 1.0),
-    ]
+    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = APERTURE_JUMP_SCHEDULE
 
     _T_INJECTION: dict[int, float] = {0: _T_IN}
     _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
@@ -156,6 +180,7 @@ if __name__ == "__main__":
         f"{timestamp}"
         f"_BUOY_{BUOYANCY_ON}"
         f"_AJUMP_{bool(model_class._APERTURE_FACTOR_AFTER_TIME)}"
+        f"_ICHOR_{bool(ISOCHORIC_NPC)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 

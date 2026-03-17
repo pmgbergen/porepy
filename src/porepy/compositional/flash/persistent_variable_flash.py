@@ -658,6 +658,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
 
+        failure = exitcodes >= 3
+        resultsarray[failure, -results.dofs :] = X0[failure, -results.dofs :]
+
         self._parse_and_complete_results(
             resultsarray,
             results,

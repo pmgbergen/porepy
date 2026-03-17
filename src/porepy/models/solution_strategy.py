@@ -773,6 +773,7 @@ class SolutionStrategy(pp.PorePyModel):
                     Callable[[sps.spmatrix], sps.spmatrix],
                     self.params.get("schur_complement_inverter", None),
                 ),
+                variable_scaling=self.params.get("variable_scaling_linear_rpc", None),
             )
         else:
             self.linear_system = self.equation_system.assemble()
@@ -803,31 +804,33 @@ class SolutionStrategy(pp.PorePyModel):
             {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
         )
 
-        solver = self.linear_solver
-        if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overridden
-            # by the user. We need to check if the pypardiso package is available.
-            try:
-                from pypardiso import spsolve as sparse_solver  # type: ignore
-            except ImportError:
-                # Fall back on the standard scipy sparse solver.
-                sparse_solver = sps.linalg.spsolve
-                warnings.warn(
-                    """PyPardiso could not be imported,
-                    falling back on scipy.sparse.linalg.spsolve"""
-                )
-            x = sparse_solver(A, b)
-        elif solver == "umfpack":
-            # Following may be needed:
-            # A.indices = A.indices.astype(np.int64)
-            # A.indptr = A.indptr.astype(np.int64)
-            x = sps.linalg.spsolve(A, b, use_umfpack=True)
-        elif solver == "scipy_sparse":
-            x = sps.linalg.spsolve(A, b)
+        if np.any(np.isnan(b)) or np.any(np.isnan(A.data)):
+            x = np.full_like(b, np.nan)
         else:
-            raise ValueError(
-                f"AbstractModel does not know how to apply the linear solver {solver}"
-            )
+            solver = self.linear_solver
+            if solver == "pypardiso":
+                # This is the default option which is invoked unless explicitly
+                # overridden by the user. We need to check if the pypardiso package is
+                # available.
+                try:
+                    from pypardiso import spsolve as sparse_solver  # type: ignore
+                except ImportError:
+                    # Fall back on the standard scipy sparse solver.
+                    sparse_solver = sps.linalg.spsolve
+                    warnings.warn(
+                        """PyPardiso could not be imported,
+                        falling back on scipy.sparse.linalg.spsolve"""
+                    )
+                x = sparse_solver(A, b)
+            elif solver == "umfpack":
+                # Following may be needed:
+                # A.indices = A.indices.astype(np.int64)
+                # A.indptr = A.indptr.astype(np.int64)
+                x = sps.linalg.spsolve(A, b, use_umfpack=True)
+            elif solver == "scipy_sparse":
+                x = sps.linalg.spsolve(A, b)
+            else:
+                raise ValueError(f"Unsupported linear solver {solver}.")
 
         x = np.atleast_1d(x)
         if self._apply_schur_complement_reduction():

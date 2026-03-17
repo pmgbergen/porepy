@@ -600,7 +600,6 @@ if __name__ == "__main__":
         "anderson_acceleration_regularization_parameter": 1e-3,
         "anderson_start_after_residual_reaches": 1e2,
         "solver_statistics_file_name": "solver_statistics.json",
-        "flag_failure_as_diverged": True,
     }
 
     model_params = {

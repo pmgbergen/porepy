@@ -226,6 +226,9 @@ class EquationSystem:
 
         """
 
+        self._variable_scales: np.ndarray | None = None
+        """Variable scaling for linear-right preconditioning of assembled systems."""
+
     def SubSystem(
         self,
         equation_names: Optional[EquationList] = None,
@@ -1743,6 +1746,7 @@ class EquationSystem:
         primary_variables: VariableList,
         inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
+        variable_scaling: dict[str, float] | None = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         r"""Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -1850,6 +1854,13 @@ class EquationSystem:
         ind_start = 0
         self.assembled_equation_indices = dict()
 
+        if variable_scaling:
+            self._variable_scales: np.ndarray = np.ones(self.num_dofs())
+            for k, v in variable_scaling.items():
+                self._variable_scales[self.dofs_of([k])] = v
+        else:
+            self._variable_scales = None
+
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
         # Excluded local primary blocks are stored as top rows in the secondary block.
@@ -1857,6 +1868,14 @@ class EquationSystem:
             if name in primary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
                 idx_p = primary_rows[name]
+                if isinstance(self._variable_scales, np.ndarray):
+                    assert A_temp.shape[1] == self._variable_scales.size
+                    A_temp = A_temp @ sps.diags_array(
+                        [self._variable_scales],
+                        offsets=[0],
+                        shape=(A_temp.shape[1], A_temp.shape[1]),
+                        format="csr",
+                    )
                 # Check if a grid filter was applied for that equation
                 if idx_p is not None:
                     # Append the respective rows.
@@ -1887,6 +1906,14 @@ class EquationSystem:
             # assembled wholesale to the secondary block.
             if name in secondary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
+                if isinstance(self._variable_scales, np.ndarray):
+                    assert A_temp.shape[1] == self._variable_scales.size
+                    A_temp = A_temp @ sps.diags_array(
+                        [self._variable_scales],
+                        offsets=[0],
+                        shape=(A_temp.shape[1], A_temp.shape[1]),
+                        format="csr",
+                    )
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
 
@@ -1980,6 +2007,9 @@ class EquationSystem:
 
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
+        if isinstance(self._variable_scales, np.ndarray):
+            assert self._variable_scales.size == X.size
+            X *= self._variable_scales
         return X
 
     def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:

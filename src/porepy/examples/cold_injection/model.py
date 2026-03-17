@@ -13,10 +13,13 @@ Note:
 
 from __future__ import annotations
 
+import inspect
+import logging
 import time
 from typing import Callable, Literal, Optional, Sequence
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.compositional.flash as pf
@@ -26,6 +29,9 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
 
 from .config import ModelConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 class FluidPoreInteraction(ModelConfig):
@@ -158,19 +164,48 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
 
     """
 
+    def __init__(self, params=None):
+        super().__init__(params)
+
+        self._isochoric_npc_done: bool = False
+
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
     ) -> None:
         stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
-        do_flash = False
-        if isinstance(stride, int):
-            # NOTE Iteration counter is increased after iteration, and 0 modulo anything
-            # is zero.
-            assert stride > 0, "Global iteration stride must be positive."
-            n = self.nonlinear_solver_statistics.num_iterations
-            do_flash = (n + 1) % stride == 0 or n == 0
+        assert stride > 0, "Global iteration stride must be positive."
+        assert isinstance(
+            self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+        ), "Expecting nonlinear solver statistics attribute."
+        ni = self.nonlinear_solver_statistics.num_iterations
+
+        # Avoid redundant flash computation in this routine.
+        is_before_loop = "before_nonlinear_loop" in [
+            f.function for f in inspect.stack()
+        ]
+
+        # NOTE: iteration counter is increased after after_nonlinar_iteration ends.
+        # Add 1 for the stride check
+        do_default_flash = not is_before_loop and ((ni + 1) % stride == 0)
+        # do_flash = False
+        # if isinstance(stride, int):
+        #     # NOTE Iteration counter is increased after iteration, and 0 modulo x
+        #     # is zero.
+        #     n = self.nonlinear_solver_statistics.num_iterations
+        #     do_flash = (n + 1) % stride == 0 or n == 0
+
+        # isochoric nonlinear preconditioning.
+        _do_isochoric_npc = bool(self.params.get("_do_isochoric_npc", False))
+        isochoric_npc_done = False
 
         for sd in self.mdg.subdomains():
+            do_isochoric_npc = False
+            if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
+                v_jump_factor = self.equation_system.evaluate(
+                    self.pore_volume_jump([sd])
+                )
+                if np.max(v_jump_factor) > 1.1:
+                    do_isochoric_npc = True and _do_isochoric_npc
             if "injection_well" in sd.tags:
                 equ_spec = pf.IsobaricSpecifications(
                     p=self.equation_system.evaluate(self.pressure([sd]), state=state),
@@ -184,10 +219,123 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                     state=state,
                     specification=equ_spec,
                 )
-            elif do_flash:
+            elif do_isochoric_npc and is_before_loop:
+                assert v_jump_factor.size == sd.num_cells
+                rho = self.equation_system.evaluate(
+                    self.fluid.density([sd]), state=state
+                )
+                assert np.all(rho > 0), "Bad density."
+                equ_spec = pf.IsochoricSpecifications(
+                    v=v_jump_factor / rho,
+                    T=self.equation_system.evaluate(
+                        self.temperature([sd]), state=state
+                    ),
+                )
+                isochoric_npc_done = True
+                logger.info(f"Performing isochoric preconditioning on grid {sd.id}.")
+                # Perform full, isochoric flash, including initial guess computation.
+                self.local_equilibrium(
+                    sd,
+                    state=state,
+                    specification=equ_spec,
+                    initial_guess_from_current_state=False,
+                )
+            elif do_default_flash:
                 self.local_equilibrium(sd, state=state)
             else:
                 self.update_thermodynamic_properties_of_phases_on_grid(sd, state=state)
+
+        self._isochoric_npc_done = isochoric_npc_done
+
+    def update_interface_fluxes_after_isochor(self) -> None:
+        interfaces = self.mdg.interfaces(codim=1)
+
+        idfe = self.interface_darcy_flux_equation(interfaces)
+        idf = self.interface_darcy_flux(interfaces)
+
+        for _ in range(5):
+            A, b = self.equation_system.assemble(
+                evaluate_jacobian=True, equations=[idfe], variables=[idf]
+            )
+            norm = np.linalg.norm(b)
+            if norm < 1e-1:
+                break
+            delta_idf = sps.linalg.spsolve(A, b)
+            self.equation_system.set_variable_values(
+                delta_idf,
+                [idf],
+                iterate_index=0,
+                additive=True,
+            )
+            self.rediscretize_fluxes()
+            self.update_flux_values()
+            self.rediscretize()
+
+        self.update_discretization_parameters()
+        self.rediscretize_fluxes()
+        self.update_flux_values()
+        self.rediscretize()
+
+        # NOTE: Enthalpy flux equation is linear in the respective unknown.
+        # So adding the negative residual of the equation will solve the equation
+        # exactly.
+        intf_enthalpy = self.equation_system.evaluate(
+            self.interface_enthalpy_flux(interfaces)
+            - self.interface_enthalpy_flux_equation(interfaces)
+        )
+        self.equation_system.set_variable_values(
+            intf_enthalpy, [self.interface_enthalpy_flux(interfaces)], iterate_index=0
+        )
+
+        iffe = self.interface_fourier_flux_equation(interfaces)
+        iff = self.interface_fourier_flux(interfaces)
+
+        for _ in range(5):
+            A, b = self.equation_system.assemble(
+                evaluate_jacobian=True, equations=[iffe], variables=[iff]
+            )
+            norm = np.linalg.norm(b)
+            if norm < 1e-1:
+                break
+            delta_iff = sps.linalg.spsolve(A, b)
+            self.equation_system.set_variable_values(
+                delta_iff,
+                [iff],
+                iterate_index=0,
+                additive=True,
+            )
+            self.rediscretize_fluxes()
+            self.update_flux_values()
+            self.rediscretize()
+
+        self.update_discretization_parameters()
+        self.rediscretize_fluxes()
+        self.update_flux_values()
+        self.rediscretize()
+
+    def update_derived_quantities(self) -> None:
+        super().update_derived_quantities()
+
+        if self._isochoric_npc_done:
+            self.update_interface_fluxes_after_isochor()
+
+    def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
+        subdomains = [sd]
+
+        op: pp.ad.Operator = self.volume_integral(
+            (
+                self.fluid.density(subdomains)
+                * self.fluid.specific_enthalpy(subdomains)
+                - self.pressure(subdomains)
+            )
+            * self.porosity(subdomains),
+            subdomains,
+            dim=1,
+        )
+
+        if prev_time:
+            op = op.previous_timestep()
+        return self.equation_system.evaluate(op)
 
 
 class AdjustedPointWellModel(ModelConfig):
