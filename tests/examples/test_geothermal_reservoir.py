@@ -396,10 +396,10 @@ def test_geothermal_reservoir():
     model = ModelForTest(model_params)
     solver_params = {
         "prepare_simulation": True,
-        "max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
-        "nl_divergence_tol": 1e20,
-        "nl_convergence_tol": 1e-7,  # Increment norm
-        "nl_convergence_tol_res": 1e-7,  # Residual norm
+        "nl_max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
+        "nl_divergence_inc_atol": 1e20,
+        "nl_convergence_inc_atol": 1e-7,  # Increment norm
+        "nl_convergence_res_atol": 1e-7,  # Residual norm
         "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
         "global_line_search": 0,
         "local_line_search": 1,
