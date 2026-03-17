@@ -17,7 +17,6 @@ from porepy.utils.ui_and_logging import progressbar_class
 
 __all__ = ["ModelRunner", "ModelInstance"]
 
-# Module-wide logger
 logger = logging.getLogger(__name__)
 
 ModelInstance = TypeVar("ModelInstance", bound=pp.PorePyModel)
@@ -219,7 +218,6 @@ class ModelRunner:
                     self.before_time_step()
                     solver_status = self.solver.solve(self.model)
                     simulation_status = self.after_time_step(solver_status)
-                    self.logging(simulation_status)
                     if (
                         simulation_status.is_successful()
                         or simulation_status.is_stopped()
@@ -230,7 +228,6 @@ class ModelRunner:
             # Solver status identical with simulation status for stationary problems.
             solver_status = self.solver.solve(self.model)
             simulation_status = self.after_stationary_solve(solver_status)
-            self.logging(simulation_status)
 
         self.model.after_simulation()
 
@@ -274,12 +271,16 @@ class ModelRunner:
 
         """
         if solver_status.is_successful():
-            # Assign simulation status.
+            # Conclude simulation status if final time reached.
             simulation_status = (
                 pp.SimulationStatus.SUCCESSFUL
                 if self.model.time_manager.final_time_reached()
                 else pp.SimulationStatus.IN_PROGRESS
             )
+            self.model.after_time_step_convergence()
+
+            # Need to log before updating the time step size.
+            self.logging(simulation_status)
 
             # Update the time step magnitude if the dynamic scheme is used.
             if not self.model.time_manager.is_constant:
@@ -289,7 +290,6 @@ class ModelRunner:
                 self.model.time_manager.compute_time_step(
                     iterations=self.model.nonlinear_solver_statistics.num_iterations
                 )
-            self.model.after_time_step_convergence()
 
             # Update progressbar length.
             self.time_progressbar.update(n=self.model.time_manager.dt / self._dt_0)
@@ -301,6 +301,7 @@ class ModelRunner:
                     """cannot be reduced."""
                 )
                 simulation_status = pp.SimulationStatus.STOPPED
+                self.logging(simulation_status)
 
             else:
                 # This calls
@@ -310,14 +311,18 @@ class ModelRunner:
                 # It will also raise a TimeSteppingError if the minimal time step
                 # is reached.
                 try:
-                    self.model.time_manager.compute_time_step(recompute_solution=True)
                     simulation_status = pp.SimulationStatus.FAILED
                     self.model.after_time_step_failure()
+                    # Need to log before updating the time step size.yy
+                    self.logging(simulation_status)
+                    # Update the time step size for the next attempt.
+                    self.model.time_manager.compute_time_step(recompute_solution=True)
                 except pp.TimeSteppingError as e:
                     # Redirect the exception as a warning, and give the control to
                     # the ModelRunner to stop the simulation.
                     logger.warning(str(e))
-                    return pp.SimulationStatus.STOPPED
+                    simulation_status = pp.SimulationStatus.STOPPED
+                    self.logging(simulation_status)
 
         else:
             raise ValueError("Unrecognized time step status.")
