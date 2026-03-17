@@ -271,7 +271,7 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
 
         t = self.time_manager.time
         dt = self.time_manager.dt
-        num_iter = self.nonlinear_solver_statistics.num_iteration
+        num_iter = self.nonlinear_solver_statistics.num_iterations
 
         _, tracer = self.fluid.components
         approx_p = self.pressure(subdomains).value(self.equation_system)

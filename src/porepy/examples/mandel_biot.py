@@ -211,10 +211,10 @@ class MandelDataSaving(pp.PorePyModel):
         approx_consolidation_degree = self.numerical_consolidation_degree()
         error_consolidation_degree_x = np.abs(
             approx_consolidation_degree[0] - exact_consolidation_degree
-        )
+        )[0]
         error_consolidation_degree_y = np.abs(
             approx_consolidation_degree[1] - exact_consolidation_degree
-        )
+        )[0]
         error_consolidation_degree = (
             float(error_consolidation_degree_x),
             float(error_consolidation_degree_y),
