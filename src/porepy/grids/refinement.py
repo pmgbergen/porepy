@@ -649,7 +649,7 @@ class GridSequenceFactory(abc.ABC):
     The number of refinement is set by the parameter ``'num_refinements'``.
 
     Mesh sizes are set by the standard ``FractureNetwork.mesh()`` arguments
-    ``mesh_size_fracs`` and ``mesh_size_bound``. These are set by the parameter
+    ``mesh_size_fracture`` and ``mesh_size_boundary``. These are set by the parameter
     ``mesh_param``.
 
     If the mode is ``'nested'``, ``mesh_param`` should be a single

@@ -605,7 +605,7 @@ class DiffTpfaGridsOfAllDimensions(
         if params["grid_type"] == "cartesian":
             params["meshing_arguments"] = {"cell_size": 0.5}
         else:  # Simplex
-            params["mesh_args"] = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
+            params["mesh_args"] = {"mesh_size_fracture": 0.5, "mesh_size_min": 0.5}
 
         super().__init__(params)
 
