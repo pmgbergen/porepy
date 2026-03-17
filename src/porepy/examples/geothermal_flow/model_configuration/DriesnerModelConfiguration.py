@@ -410,7 +410,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         step_control_method = self.params.get("step_control_method", "LS")
 
         # Reset lambda at the start of each time step (iteration 0)
-        if self.nonlinear_solver_statistics.num_iteration == 0:
+        if self.nonlinear_solver_statistics.num_iterations == 0:
             self._trust_radius = 1.0
             print("Trust region: Reset trust_radius = 1.0 at start of time step")
 
@@ -419,7 +419,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # Get configuration parameters
         step_control_alpha_min = self.params.get("step_control_alpha_min", 0.01)
         activate_after_iteration = self.params.get("activate_step_control_after_iter", 1)
-        activate_step_control_Q = self.nonlinear_solver_statistics.num_iteration > activate_after_iteration
+        activate_step_control_Q = self.nonlinear_solver_statistics.num_iterations > activate_after_iteration
 
         # === CASE 1: Plain Newton (no step control) ===
         if step_control_method == "None":
