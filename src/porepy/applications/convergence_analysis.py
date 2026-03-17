@@ -180,7 +180,7 @@ class ConvergenceAnalysis:
         convergence_results: list = []
         for level in range(self.levels):
             model: pp.PorePyModel = self.model_class(deepcopy(self.model_params[level]))
-            if self._is_time_dependent():
+            if self._is_time_dependent:
                 # Run time-dependent model
                 pp.ModelRunner(model).run()
                 setattr(model.results[-1], "dt", model.time_manager.dt)
