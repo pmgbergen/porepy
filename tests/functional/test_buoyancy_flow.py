@@ -21,11 +21,13 @@ time step the following are tested:
    discretization of the energy convective buoyancy terms.
 """
 
-import numpy as np
-import pytest
 from typing import Literal
 
+import numpy as np
+import pytest
+
 import porepy as pp
+from porepy.applications.test_utils.models import add_mixin
 from tests.functional.setups.buoyancy_flow_model import (
     BuoyancyFlowModel2N,
     BuoyancyFlowModel3N,
@@ -35,7 +37,6 @@ from tests.functional.setups.buoyancy_flow_model import (
     ModelMDGeometry3D,
     to_Mega,
 )
-from porepy.applications.test_utils.models import add_mixin
 
 # Parameterization list for both tests
 Parameterization = [
@@ -83,23 +84,32 @@ def _run_buoyancy_model(
         iter_max=50,
         print_info=True,
     )
-    params = {
+    model_params = {
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
-        "nl_max_iterations": 50,
-        "nl_convergence_inc_atol": np.inf,
-        "nl_convergence_res_atol": residual_tolerance,
         "expected_order_loss": expected_order_loss,
     }
-    # Combine geometry with model class
+    # Combine geometry with model class.
     geometry_class = geometry2d if dim == 2 else geometry3d
     model_class = add_mixin(geometry_class, model_class)
-    model = model_class(params)
+    model = model_class(model_params)
+    # Use a Lebesgue metric for the residual convergence criterion, since this will
+    # strictly bound the residual error in the mass conservation equations.
+    solver_params = {
+        "nl_convergence_criteria": {
+            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+                tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
+            ),
+        },
+        "nl_divergence_criteria": {
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+        },
+    }
 
-    pp.run_time_dependent_model(model, params)
+    pp.run_time_dependent_model(model, solver_params)
 
 
 @pytest.mark.skipped  # reason: slow
