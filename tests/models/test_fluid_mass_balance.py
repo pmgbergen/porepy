@@ -869,7 +869,7 @@ def model_setup_gravity(
             """
             if np.isclose(gravity_angle, 0):
                 # Normalize by the GravityForce class' default value.
-                default = (
+                default = pp.ad.Scalar(
                     self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
                     * self.fluid.reference_component.density
                 )
