@@ -102,11 +102,11 @@ class AdArray:
         if val.ndim != 1:
             raise ValueError("The Ad array value should be one dimensional")
 
-        self._is_diagonal = isinstance(jac, np.ndarray)
+        self._is_diagonal = False
 
-        num_derivatives = jac.size if self._is_diagonal else jac.shape[0]
+        num_derivatives = jac.shape[0]
 
-        if not self._is_diagonal and num_derivatives != val.size:
+        if num_derivatives != val.size:
             raise ValueError(
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
@@ -789,7 +789,10 @@ class DiagonalAdArray(AdArray):
         num_derivatives,
     ) -> None:
         jac = np.atleast_2d(jac)
-        super().__init__(val, jac)
+        self._is_diagonal = True
+
+        self.val = val
+        self.jac = jac
 
         self._num_derivatives = num_derivatives
         """Total number of derivatives in the system."""
