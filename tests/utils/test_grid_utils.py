@@ -200,7 +200,7 @@ def test_compute_circumcenters(
         assert False, "Test set up for dimension 2 and 3 only."
 
     sd.compute_geometry()
-    cc = sd.cell_centers
+    cc = sd.cell_centers.copy()
     nc = sd.num_cells
 
     new_cc, shift, is_changed = compute_circumcenters(sd, tol=tol)
