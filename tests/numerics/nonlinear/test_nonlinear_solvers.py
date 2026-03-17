@@ -264,6 +264,9 @@ def test_solve_convergence_statistics(default_newton_solver):
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after convergence.
 
+    TODO: Consider (re)moving this test, as simulation_status should be tested in the
+    ModelRunner.
+
     """
     if Path("solver_statistics.json").exists():
         Path("solver_statistics.json").unlink()
@@ -289,8 +292,8 @@ def test_solve_convergence_statistics(default_newton_solver):
                 "global": {
                     "num_cells": {},
                     "num_domains": {},
-                    "simulation_status_history": ["successful"],
-                    "final_simulation_status": "successful",
+                    "simulation_status_history": [],
+                    "final_simulation_status": None,
                     "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
@@ -307,7 +310,7 @@ def test_solve_convergence_statistics(default_newton_solver):
                 },
                 "0": {
                     "num_iterations": 2,
-                    "simulation_status": "successful",
+                    "simulation_status": "None",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "converged"],
                         "res_abs": ["not_converged", "converged"],
@@ -332,7 +335,12 @@ def test_solve_convergence_statistics(default_newton_solver):
 
 
 def test_solve_convergence_time_dependent(default_newton_solver):
-    """Test that the solver returns SUCCESSFUL for converged time-dependent model."""
+    """Test that the solver returns SUCCESSFUL for converged time-dependent model.
+
+    TODO: Consider (re)moving this test, as time dependence should be tested in the
+    ModelRunner.
+
+    """
     # Minimal setup.
     model = TimeDependentMockModel(
         nonlinear_increment_history=[[2.0, 0.5], [2.0, 1.0, 0.5]],
@@ -361,6 +369,9 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after convergence, for a time-dependent model.
 
+    TODO: Consider (re)moving this test, as time dependence should be tested in the
+    ModelRunner.
+
     """
     # Clean up.
     if Path("solver_and_time_statistics.json").exists():
@@ -379,11 +390,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "global": {
             "num_cells": {},
             "num_domains": {},
-            "simulation_status_history": ["successful"],
-            "final_simulation_status": "successful",
+            "simulation_status_history": [],
+            "final_simulation_status": None,
             "num_entries": 1,
             "final_time_reached": 0,
-            "total_num_time_steps": 1,
+            "total_num_time_steps": 0,
             "total_num_failed_time_steps": 0,
             "num_iterations_history": [2],
             "total_num_iterations": 2,
@@ -400,11 +411,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         },
         "0": {
             "final_time_reached": 0,
-            "time_index": 1,
-            "time": 0.5,
-            "dt": 0.5,
+            "time_index": 0,
+            "time": 0.0,
+            "dt": 0.0,
             "num_iterations": 2,
-            "simulation_status": "successful",
+            "simulation_status": "None",
             "convergence_status": {
                 "inc_abs": ["not_converged", "converged"],
                 "res_abs": ["not_converged", "converged"],
@@ -422,11 +433,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     reference_data_after_2 = copy.deepcopy(reference_data_after_1)
     reference_data_after_2["global"].update(
         {
-            "simulation_status_history": ["successful", "successful"],
-            "final_simulation_status": "successful",
+            "simulation_status_history": [],
+            "final_simulation_status": None,
             "num_entries": 2,
-            "final_time_reached": 1,
-            "total_num_time_steps": 2,
+            "final_time_reached": 0,
+            "total_num_time_steps": 0,
             "total_num_failed_time_steps": 0,
             "num_iterations_history": [2, 3],
             "total_num_iterations": 5,
@@ -443,12 +454,12 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         }
     )
     reference_data_after_2["1"] = {
-        "final_time_reached": 1,
-        "time_index": 2,
-        "time": 1.0,
-        "dt": 0.5,
+        "final_time_reached": 0,
+        "time_index": 0,
+        "time": 0.0,
+        "dt": 0.0,
         "num_iterations": 3,
-        "simulation_status": "successful",
+        "simulation_status": "None",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
             "res_abs": ["not_converged", "not_converged", "converged"],
@@ -510,6 +521,9 @@ def test_solve_failure_statistics(default_newton_solver):
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after failure.
 
+    TODO: Consider (re)moving this test, as simulation status should be tested in the
+    ModelRunner.
+
     """
     # Minimal setup for failure after two iterations.
     model = MockModel(
@@ -534,12 +548,12 @@ def test_solve_failure_statistics(default_newton_solver):
                 "global": {
                     "num_cells": {},
                     "num_domains": {},
-                    "simulation_status_history": ["failed"],
-                    "final_simulation_status": "failed",
+                    "simulation_status_history": [],
+                    "final_simulation_status": None,
                     "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
-                    "total_num_waisted_iterations": 2,
+                    "total_num_waisted_iterations": 0,
                     "final_convergence_status": {
                         "inc_abs": "not_converged",
                         "res_abs": "not_converged",
@@ -552,7 +566,7 @@ def test_solve_failure_statistics(default_newton_solver):
                 },
                 "0": {
                     "num_iterations": 2,
-                    "simulation_status": "failed",
+                    "simulation_status": "None",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "not_converged"],
                         "res_abs": ["not_converged", "not_converged"],
@@ -578,7 +592,12 @@ def test_solve_failure_statistics(default_newton_solver):
 
 
 def test_solve_failure_time_dependent(default_newton_solver):
-    """Test that the solver returns FAILED on divergence for a time-dependent model,"""
+    """Test that the solver returns FAILED on divergence for a time-dependent model.
+
+    TODO: Consider (re)moving this test, as time dependence should be tested in the
+    ModelRunner.
+
+    """
     # Minimal setup for failure for first of three iterations - last two identical.
     model = TimeDependentMockModel(
         nonlinear_increment_history=[[2.0, 100.0], [2.0, 1.0, 0.5], [2.0, 1.0, 0.5]],
@@ -616,6 +635,9 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after failure, for a time-dependent model.
 
+    TODO: Consider (re)moving this test, as time dependence should be tested in the
+    ModelRunner.
+
     """
     # Clean up.
     if Path("solver_and_time_statistics.json").exists():
@@ -634,15 +656,15 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "global": {
             "num_cells": {},
             "num_domains": {},
-            "simulation_status_history": ["failed"],
-            "final_simulation_status": "failed",
+            "simulation_status_history": [],
+            "final_simulation_status": None,
             "num_entries": 1,
             "final_time_reached": 0,
-            "total_num_time_steps": 1,
-            "total_num_failed_time_steps": 1,
+            "total_num_time_steps": 0,
+            "total_num_failed_time_steps": 0,
             "num_iterations_history": [2],
             "total_num_iterations": 2,
-            "total_num_waisted_iterations": 2,
+            "total_num_waisted_iterations": 0,
             "final_convergence_status": {
                 "inc_abs": "not_converged",
                 "res_abs": "not_converged",
@@ -655,11 +677,11 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         },
         "0": {
             "final_time_reached": 0,
-            "time_index": 1,
-            "time": 0.5,
-            "dt": 0.5,
+            "time_index": 0,
+            "time": 0.0,
+            "dt": 0.0,
             "num_iterations": 2,
-            "simulation_status": "failed",
+            "simulation_status": "None",
             "convergence_status": {
                 "inc_abs": ["not_converged", "not_converged"],
                 "res_abs": ["not_converged", "not_converged"],
@@ -677,15 +699,15 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_2 = copy.deepcopy(reference_data_after_1)
     reference_data_after_2["global"].update(
         {
-            "simulation_status_history": ["failed", "successful"],
-            "final_simulation_status": "successful",
+            "simulation_status_history": [],
+            "final_simulation_status": None,
             "num_entries": 2,
             "final_time_reached": 0,
-            "total_num_time_steps": 2,
-            "total_num_failed_time_steps": 1,
+            "total_num_time_steps": 0,
+            "total_num_failed_time_steps": 0,
             "num_iterations_history": [2, 3],
             "total_num_iterations": 5,
-            "total_num_waisted_iterations": 2,
+            "total_num_waisted_iterations": 0,
             "final_convergence_status": {
                 "inc_abs": "converged",
                 "res_abs": "converged",
@@ -699,11 +721,11 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     )
     reference_data_after_2["1"] = {
         "final_time_reached": 0,
-        "time_index": 1,
-        "time": 0.5,
-        "dt": 0.5,
+        "time_index": 0,
+        "time": 0.0,
+        "dt": 0.0,
         "num_iterations": 3,
-        "simulation_status": "successful",
+        "simulation_status": "None",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
             "res_abs": ["not_converged", "not_converged", "converged"],
@@ -723,15 +745,15 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3 = copy.deepcopy(reference_data_after_2)
     reference_data_after_3["global"].update(
         {
-            "simulation_status_history": ["failed", "successful", "successful"],
-            "final_simulation_status": "successful",
+            "simulation_status_history": [],
+            "final_simulation_status": None,
             "num_entries": 3,
-            "final_time_reached": 1,
-            "total_num_time_steps": 3,
-            "total_num_failed_time_steps": 1,
+            "final_time_reached": 0,
+            "total_num_time_steps": 0,
+            "total_num_failed_time_steps": 0,
             "num_iterations_history": [2, 3, 3],
             "total_num_iterations": 8,
-            "total_num_waisted_iterations": 2,
+            "total_num_waisted_iterations": 0,
             "final_convergence_status": {
                 "inc_abs": "converged",
                 "res_abs": "converged",
@@ -746,9 +768,9 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3["2"] = copy.deepcopy(reference_data_after_2["1"])
     reference_data_after_3["2"].update(
         {
-            "final_time_reached": 1,
-            "time_index": 2,
-            "time": 1.0,
+            "final_time_reached": 0,
+            "time_index": 0,
+            "time": 0.0,
         }
     )
 
