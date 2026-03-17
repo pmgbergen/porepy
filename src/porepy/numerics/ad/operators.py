@@ -164,13 +164,18 @@ class Operator:
         if domains is None:
             domains = []
         self._domains: GridLikeSequence = domains
-        self._domain_type: Literal["subdomains", "interfaces", "boundary grids"]
+        self._domain_type: Literal[
+            "subdomains", "interfaces", "boundary grids", "scalar"
+        ]
         if all([isinstance(d, pp.Grid) for d in domains]):
             self._domain_type = "subdomains"
         elif all([isinstance(d, pp.MortarGrid) for d in domains]):
             self._domain_type = "interfaces"
         elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
             self._domain_type = "boundary grids"
+        elif len(domains) == 0:
+            self._domain_type = "scalar"
+
         else:
             raise ValueError(
                 "An operator must be associated with either"
@@ -613,8 +618,9 @@ class Operator:
         # notion of a common domain. This is far from complete, since not all operators
         # have domains (see GH 1601), but it is gives sufficient functionality for the
         # diagonal ad array project for now. TODO: Fix.
-
-        if isinstance(self, Scalar):
+        if isinstance(self, Scalar) and isinstance(other, Scalar):
+            return []
+        elif isinstance(self, Scalar):
             return other.domains
         elif isinstance(other, Scalar):
             return self.domains
@@ -1328,7 +1334,7 @@ class Scalar(Operator):
         # data types that we need to consider in parsing.
         self._value = float(value)
         # Call the super constructor after setting the value.
-        super().__init__(name=name)
+        super().__init__(name=name, domains=[])
 
     def _key(self) -> str:
         if self._cached_key is None:
