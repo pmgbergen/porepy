@@ -100,15 +100,9 @@ class LinearSolver:
         # Perform a single (Newton) iteration.
         model.assemble_linear_system()
         nonlinear_increment = model.solve_linear_system()
-        model.after_solver_iteration(nonlinear_increment)
         # NOTE: The linear solver performs only one iteration.
         # FIXME: Consider renaming the solver statistics to just "solver statistics".
         # model.nonlinear_solver_statistics.num_iterations = 1
-
-        # Monitor convergence.
-        convergence_status, divergence_status, _ = self.check_convergence(
-            model, nonlinear_increment
-        )
 
         # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
         # there is something wrong with how the linear and non-linear solvers
@@ -122,6 +116,11 @@ class LinearSolver:
 
         # Update model status.
         model.after_solver_iteration(nonlinear_increment)
+
+        # Monitor convergence.
+        convergence_status, divergence_status, _ = self.check_convergence(
+            model, nonlinear_increment
+        )
 
         # React to convergence status.
         if convergence_status.is_converged():
