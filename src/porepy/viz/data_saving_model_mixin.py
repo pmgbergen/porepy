@@ -63,7 +63,9 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
-        if not self.is_time_dependent():  # stationary problem
+        if (
+            not self.is_time_dependent() and self.nonlinear_solver_statistics.index >= 0
+        ):  # stationary problem (avoid storing initial condition).
             collected_data = self.collect_data()
             if collected_data is not None:
                 self.results.append(collected_data)
