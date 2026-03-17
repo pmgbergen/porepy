@@ -191,6 +191,16 @@ def compute_circumcenters(
     # Starting point for movement: barycenters (3, nc)
     bcs = np.mean(nds, axis=0)
 
+    # Solving system for coordinates of circumcenter c_i.
+    # The general system reads something like
+    # [node_i - node_0].T * c = (||node_i||^2 - ||node_0||^2) / 2
+    # for all nodes with respect to the arbitrarily chosen node 0 (a matrix must be
+    # inverted). We assemble the system in a vectorized fashion (vectorization over
+    # cells) by introducing an additional array axis for both right-hand sides and
+    # matrices and reshuffle them such that numpy recognizes a batch of linear systems
+    # to be solved. This way we exploit numpy's vectorization of various ufuncs such as
+    # det and solve.
+
     # NOTE: For 2D, the z-coordinate is redundant and would cause issues. Cut it off.
     mat_batch = np.moveaxis(eds[:, :dim, :], -1, 0)  # (nc, dim, dim)
 
@@ -316,4 +326,4 @@ def compute_circumcenters(
     assert shift.shape == (nc,), "Inconsistent shape for shift values."
     assert changed.shape == (nc,), "Inconsistent shape for change indicators."
 
-    return nccs, shift, changed
+    return nccs, shift, changed  #
