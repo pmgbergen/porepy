@@ -126,7 +126,7 @@ params = {
     # - "TR": Trust Region with CFL-aware dynamic radius adjustment
     # - "TR-LS": Trust Region + Line Search refinement
     # - "None": Plain Newton (no step control)
-    "step_control_method": "TR",
+    "step_control_method": "None",
 
     "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
     "activate_step_control_after_iter": 1,  # Activate after this many iterations
@@ -162,7 +162,7 @@ class GeothermalWaterFlowModel(
     def after_nonlinear_convergence(self) -> None:
         second_to_year = 1.0 / (365 * day_to_second)
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
         print("Time value (year): ", self.time_manager.time * second_to_year)
         print("Time index: ", self.time_manager.time_index)
         print("")

@@ -698,7 +698,7 @@ class FlowModelBase(FlowTemplate):
         t_0 = time.time()
 
         # Get current Newton iteration number
-        iteration_num = self.nonlinear_solver_statistics.num_iteration
+        iteration_num = self.nonlinear_solver_statistics.num_iterations
 
         if iteration_num % 2 == 0 or iteration_num < 10:
             # Update both Jacobian and residual at iterations 0, 3, 6, 9, ...
@@ -743,7 +743,7 @@ class FlowModelBase(FlowTemplate):
         super().after_nonlinear_convergence()
 
         # Track Newton iterations for this timestep
-        current_iterations = self.nonlinear_solver_statistics.num_iteration
+        current_iterations = self.nonlinear_solver_statistics.num_iterations
         self.newton_iterations_per_timestep.append(current_iterations)
         self.total_newton_iterations += current_iterations
 
