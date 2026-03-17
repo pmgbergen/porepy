@@ -24,6 +24,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.applications.initial_conditions.model_initial_conditions import (
+    InitialConditionHydrostaticPressureValues,
+)
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
@@ -261,7 +264,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         (
             "equivalent_well_radius",
-            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2]),
+            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2.0]),
             None,
         ),
         ("fluid_compressibility", water_values["compressibility"], None),
@@ -600,8 +603,8 @@ def test_unit_conversion(units, grid_class):
         "reference_variable_values": reference_values,
     }
     solver_params = {
-        "nl_convergence_tol_res": 1e-12,
-        "nl_convergence_tol": 1,
+        "nl_convergence_inc_atol": 1,
+        "nl_convergence_res_atol": 1e-12,
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
@@ -635,6 +638,16 @@ class WellModel(
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
     pp.SinglePhaseFlow,
+):
+    pass
+
+
+class WellWithGravity(
+    CubeDomainOrthogonalFractures,
+    well_models.OneSlantedWell,
+    InitialConditionHydrostaticPressureValues,
+    pp.constitutive_laws.GravityForce,
+    SinglePhaseFlow,
 ):
     pass
 
@@ -1210,3 +1223,31 @@ class TestMixedDimGravity:
         self.solve()
         self.verify_hydrostatic()
         self.verify_mortar_flux(0.0)
+
+    def test_one_fracture_one_well_3d_hydrostatic_zero_flux(self):
+        """This test is designed to check that the well flux correctly accounts for
+        gravity."""
+        # The well points are  np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]]), so the
+        # well intersects the fracture at the point (0.5, 0.3, 0.6).  This is above the
+        # cell center of the fracture cell, which is at (0.5, 0.25, 0.25), so the well
+        # flux would be nonzero except for the gravity correction term.
+        m = WellWithGravity(
+            {
+                "times_to_export": [],
+                "fracture_indices": [0],  # x=0.5 plane
+                "grid_type": "cartesian",
+                "meshing_arguments": {"cell_size": 0.5},
+                "material_constants": {"solid": pp.SolidConstants(well_radius=0.01)},
+            }
+        )
+        m.prepare_simulation()
+        self.model = m
+
+        # The flux should be initialized to zero. Assert that is the case. Provided it
+        # is, we can check the other terms of the well flux equation by comparing it
+        # to zero as well, which should follow from the combination of the hydrostatic
+        #  pressure distribution and the gravity term of the well flux equation.
+        flux = m.well_flux(m.mdg.interfaces(codim=2)).value(m.equation_system)
+        eq = m.well_flux_equation(m.mdg.interfaces(codim=2)).value(m.equation_system)
+        assert np.allclose(flux, 0, atol=1e-10)
+        assert np.allclose(eq, 0, atol=1e-10)
