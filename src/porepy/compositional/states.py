@@ -204,6 +204,11 @@ class PhaseProperties(ExtensiveProperties):
         return self._for_extended_fractions(self.dh)
 
     @property
+    def du_ext(self) -> np.ndarray:
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.du)
+
+    @property
     def dmu_ext(self) -> np.ndarray:
         """See :meth:`drho_ext` for more information."""
         return self._for_extended_fractions(self.dmu)

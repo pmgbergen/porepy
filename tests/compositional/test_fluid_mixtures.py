@@ -393,6 +393,7 @@ def test_mixture_member_assignment(
         # On boundaries we expect a time-dependent dense array
         assert isinstance(phase.density(subdomains), pp.ad.Operator)
         assert isinstance(phase.specific_enthalpy(subdomains), pp.ad.Operator)
+        assert isinstance(phase.specific_internal_energy(subdomains), pp.ad.Operator)
         assert isinstance(phase.specific_volume(subdomains), pp.ad.Operator)
         assert isinstance(phase.viscosity(subdomains), pp.ad.Operator)
         assert isinstance(phase.thermal_conductivity(subdomains), pp.ad.Operator)
@@ -400,6 +401,10 @@ def test_mixture_member_assignment(
         assert isinstance(phase.density(boundary_grids), pp.ad.TimeDependentDenseArray)
         assert isinstance(
             phase.specific_enthalpy(boundary_grids), pp.ad.TimeDependentDenseArray
+        )
+        assert isinstance(
+            phase.specific_internal_energy(boundary_grids),
+            pp.ad.TimeDependentDenseArray,
         )
         # NOTE Volume is taken as the reciprocal of density, hence a general operator
         assert isinstance(phase.specific_volume(boundary_grids), pp.ad.Operator)

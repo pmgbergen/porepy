@@ -773,7 +773,9 @@ class SolutionStrategy(pp.PorePyModel):
                     Callable[[sps.spmatrix], sps.spmatrix],
                     self.params.get("schur_complement_inverter", None),
                 ),
-                variable_scaling=self.params.get("variable_scaling_linear_rpc", None),
+                variable_scaling=cast(
+                    None, self.params.get("variable_scaling_linear_rpc", None)
+                ),
             )
         else:
             self.linear_system = self.equation_system.assemble()

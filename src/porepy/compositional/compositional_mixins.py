@@ -1045,6 +1045,8 @@ class FluidMixin(pp.PorePyModel):
 
     """
 
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
     def create_fluid(self) -> None:
         """Set-up method to create a fluid mixture.
 
@@ -1200,6 +1202,9 @@ class FluidMixin(pp.PorePyModel):
             phase.density = self.density_of_phase(phase)
             phase.specific_volume = self.specific_volume_of_phase(phase)
             phase.specific_enthalpy = self.specific_enthalpy_of_phase(phase)
+            phase.specific_internal_energy = self.specific_internal_energy_of_phase(
+                phase
+            )
             phase.viscosity = self.viscosity_of_phase(phase)
             phase.thermal_conductivity = self.thermal_conductivity_of_phase(phase)
             phase.fugacity_coefficient_of = {}
@@ -1358,6 +1363,35 @@ class FluidMixin(pp.PorePyModel):
             return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
         else:
             return _no_property_function
+
+    def specific_internal_energy_of_phase(
+        self, phase: Phase
+    ) -> pp.ExtendedDomainFunctionType:
+        """Analogous to :meth:`density_of_phase`, but for
+        :attr:`~porepy.compositional.base.Phase.specific_internal_energy` of a
+        ``phase``.
+
+        Note:
+            For thermodynamic consistency, :math:`u = h - \\frac{p}{\\rho}` must hold.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
+
+        def u(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            name = f"phase_{phase.name}_specific_internal_energy"
+            op = phase.specific_enthalpy(domains) - self.pressure(
+                domains
+            ) * phase.specific_volume(domains)
+            op.set_name(f"phase_{phase.name}_specific_internal_energy")
+            return op
+
+        return u
 
     def viscosity_of_phase(self, phase: Phase) -> pp.ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`,  but for

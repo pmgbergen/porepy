@@ -532,6 +532,16 @@ class Phase(Generic[ComponentLike]):
 
         """
 
+        self.specific_internal_energy: ExtendedDomainFunctionType
+        """Specific internal energy of this phase.
+        
+        Scalar field with physical dimensions ``[J / mol K]`` or ``[J / kg K]``.
+
+        Note:
+            For thermodynamic consistency, :math:`u = h - \\frac{p}{\\rho}` must hold.
+        
+        """
+
         self.viscosity: ExtendedDomainFunctionType
         """Dynamic viscosity of this phase.
 
@@ -987,13 +997,12 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     phase.saturation(domains) * phase.density(domains)
                     for phase in self.phases
                 ],
-                "fluid_density",
             )
 
         else:
             op = self.reference_phase.density(domains)
-            op.set_name("fluid_density")
 
+        op.set_name("fluid_density")
         return op
 
     def specific_volume(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -1037,12 +1046,44 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     phase.fraction(domains) * phase.specific_enthalpy(domains)
                     for phase in self.phases
                 ],
-                "fluid_specific_enthalpy",
             )
 
         else:
             op = self.reference_phase.specific_enthalpy(domains)
-            op.set_name("fluid_specific_enthalpy")
+
+        op.set_name("fluid_specific_enthalpy")
+        return op
+
+    def specific_internal_energy(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Analogous to :meth:`specific_enthalpy`, but assembled using the
+        specific internal energies of the phases.
+
+        Note:
+            For thermodynamic consistency, :math:`u = h - \\frac{p}{\\rho}` must hold.
+
+        Parameters:
+            domains: A sequence of grids.
+
+        Returns:
+            The sum of internal energies of phases weight with phase fractions..
+            In the case of only 1 phase, it returns the specific internal energy of the
+            reference phase.
+
+        """
+        if self.num_phases > 1:
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.fraction(domains) * phase.specific_internal_energy(domains)
+                    for phase in self.phases
+                ],
+                "fluid_specific_internal_energy",
+            )
+
+        else:
+            op = self.reference_phase.specific_internal_energy(domains)
+            op.set_name("fluid_specific_internal_energy")
 
         return op
 
@@ -1075,11 +1116,10 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     phase.saturation(domains) * phase.thermal_conductivity(domains)
                     for phase in self.phases
                 ],
-                "fluid_thermal_conductivity",
             )
 
         else:
             op = self.reference_phase.thermal_conductivity(domains)
-            op.set_name("fluid_thermal_conductivity")
 
+        op.set_name("fluid_thermal_conductivity")
         return op

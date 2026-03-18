@@ -445,6 +445,10 @@ class BoundaryConditionsCFLE(
                 phase.specific_enthalpy.update_boundary_values(
                     phase_props.h, bg, depth=nt
                 )
+            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
+                phase.specific_internal_energy.update_boundary_values(
+                    phase_props.u, bg, depth=nt
+                )
             if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
                 phase.viscosity.update_boundary_values(phase_props.mu, bg, depth=nt)
             if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):

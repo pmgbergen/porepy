@@ -163,6 +163,14 @@ def update_phase_properties(
             phase.specific_enthalpy.set_derivatives_on_grid(
                 props.dh_ext if use_extended_derivatives else props.dh, sd
             )
+    if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
+        phase.specific_internal_energy.progress_iterate_values_on_grid(
+            props.u, sd, depth=depth
+        )
+        if update_derivatives:
+            phase.specific_internal_energy.set_derivatives_on_grid(
+                props.du_ext if use_extended_derivatives else props.du, sd
+            )
     if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
         phase.viscosity.progress_iterate_values_on_grid(props.mu, sd, depth=depth)
         if update_derivatives:
@@ -1271,6 +1279,7 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
                     h_bc = np.zeros(0)
+                    u_bc = np.zeros(0)
                     mu_bc = np.zeros(0)
                     kappa_bc = np.zeros(0)
                 else:
@@ -1284,6 +1293,7 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     )
                     rho_bc = state.rho
                     h_bc = state.h
+                    u_bc = state.u
                     mu_bc = state.mu
                     kappa_bc = state.kappa
 
@@ -1291,6 +1301,10 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     phase.density.update_boundary_values(rho_bc, bg, depth=nt)
                 if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                     phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
+                if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
+                    phase.specific_internal_energy.update_boundary_values(
+                        u_bc, bg, depth=nt
+                    )
                 if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
                     phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
                 if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
@@ -1697,6 +1711,10 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 phase.density.progress_values_in_time(subdomains, depth=nt)
             if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                 phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
+            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
+                phase.specific_internal_energy.progress_values_in_time(
+                    subdomains, depth=nt
+                )
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Attaches to the iterate and time step initialization and copies the values
@@ -1738,6 +1756,15 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         phase.specific_enthalpy.progress_iterate_values_on_grid(
                             vals, sd, depth=ni
                         )
+                    if isinstance(
+                        phase.specific_internal_energy, pp.ad.SurrogateFactory
+                    ):
+                        vals = phase.specific_internal_energy.get_values_on_grid(
+                            sd, iterate_index=0
+                        )
+                        phase.specific_internal_energy.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
                     if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
                         vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
                         phase.viscosity.progress_iterate_values_on_grid(
@@ -1764,6 +1791,12 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         phase.density.progress_values_in_time([sd], depth=nt)
                     if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                         phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
+                    if isinstance(
+                        phase.specific_internal_energy, pp.ad.SurrogateFactory
+                    ):
+                        phase.specific_internal_energy.progress_values_in_time(
+                            [sd], depth=nt
+                        )
 
 
 class SolutionStrategyExtendedFluidMassAndEnergy(
