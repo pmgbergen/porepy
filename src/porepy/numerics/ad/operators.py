@@ -665,8 +665,8 @@ class Operator:
 
         """
         # When using the sum operator on a list with a single item, Python will call the
-        # addition operator with other == 0. Convert that other to a an Ad Scalar with
-        # value 0, to avoid errors in the addition operator.
+        # addition operator with other == 0. Convert that other to an Ad Scalar with
+        # value 0 to avoid errors in the addition operator.
         if other == 0:
             other = Scalar(0)
 
