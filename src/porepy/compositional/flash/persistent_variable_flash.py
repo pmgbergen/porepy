@@ -326,7 +326,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
 
                 # Pre-append energy block for non-isothermal specifications.
-                if spec in (FlashSpec.ph, FlashSpec.vh, FlashSpec.vu):
+                if spec not in (FlashSpec.pT, FlashSpec.vT):
                     res = np.hstack(
                         (
                             # Scaling energy constraint with target energy s2.
@@ -411,7 +411,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
 
                 # Pre-append energy block for non-isothermal specifications.
-                if spec in (FlashSpec.ph, FlashSpec.vh, FlashSpec.vu):
+                if spec not in (FlashSpec.pT, FlashSpec.vT):
                     jac = np.vstack(
                         (
                             first_order_constraint_jac(y, es, des) / s2,
@@ -630,9 +630,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if initial_state is None:
             start = time.time()
             X0 = self.initializer[results.specification](X0)
+            results.clocktime_init = time.time() - start
             logger.debug(
                 "Initial values computed (elapsed time: %.5f (s))."
-                % (time.time() - start)
+                % results.clocktime_init
             )
 
         # Convert local solver params to numba-conform type
@@ -649,13 +650,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             self._nb_solver_params,
             results.specification,
         )
+        results.clocktime_solve = time.time() - start
 
         results.exitcode = exitcodes
         results.num_iter = num_iter
 
         logger.debug(
             f"{results.size} {results.specification.name} flash solved"
-            + " (elapsed time: %.5f (s))." % (time.time() - start)
+            + " (elapsed time: %.5f (s))." % results.clocktime_solve
         )
 
         failure = exitcodes >= 3

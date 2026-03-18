@@ -1855,7 +1855,7 @@ class EquationSystem:
         self.assembled_equation_indices = dict()
 
         if variable_scaling:
-            self._variable_scales: np.ndarray = np.ones(self.num_dofs())
+            self._variable_scales = np.ones(self.num_dofs())
             for k, v in variable_scaling.items():
                 self._variable_scales[self.dofs_of([k])] = v
         else:

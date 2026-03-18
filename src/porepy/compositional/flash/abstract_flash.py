@@ -122,6 +122,12 @@ class FlashResults(pp.compositional.FluidProperties):
 
     """
 
+    clocktime_solve: float = 0.0
+    """Clocktime for call to flash solver."""
+
+    clocktime_init: float = 0.0
+    """Clocktime for call to initialization."""
+
     exitcode: NDArray[np.int_] = field(
         default_factory=lambda: np.zeros(0, dtype=np.int_)
     )
@@ -382,28 +388,25 @@ class AbstractFlash(abc.ABC):
             elif "h" in specification:
                 state2 = specification["h"]
                 spec = FlashSpec.ph
-                # Temperature is an additional unknown.
-                dofs += 1
+                dofs += 1  # Temperature is unknown.
             else:
                 raise_spec_error = True
         elif "v" in specification:
             state1 = specification["v"]
             isochoric_spec = True
+            dofs += 1  # Pressure is unknown.
             if "T" in specification:
                 state2 = specification["T"]
                 spec = FlashSpec.vT
                 isothermal_spec = True
-                # No additional unknowns as it is equivalent to pT
             elif "u" in specification:
                 state2 = specification["u"]
                 spec = FlashSpec.vu
-                # Pressure and temperature are additional unknowns.
-                dofs += 2
+                dofs += 1  # Temperature is unknown.
             elif "h" in specification:
                 state2 = specification["h"]
                 spec = FlashSpec.vh
-                # Pressure and temperature are additional unknowns.
-                dofs += 2
+                dofs += 1  # Temperature is unknown.
             else:
                 raise_spec_error = True
         else:
@@ -418,11 +421,6 @@ class AbstractFlash(abc.ABC):
             raise NotImplementedError(
                 f"Unsupported flash specifications {list(specification.keys())}."
             )
-
-        # Isochoric specifications also have saturations as independent variables.
-        # NOTE: for vT this might change, as pressure is not necessarily a DOF.
-        if isochoric_spec:
-            dofs += nphase - 1
 
         # Simple way to determine system size and check if input is broadcastable.
         try:
@@ -852,7 +850,7 @@ class AbstractFlash(abc.ABC):
 
         for v, f in zip(vals, fields):
             default_plotkwargs: dict[str, Any] = {
-                "shading": "nearest",
+                "shading": "gouraud",
                 "label": f,
                 "cmap": "viridis",
             }
@@ -863,6 +861,7 @@ class AbstractFlash(abc.ABC):
                 cmap, norm, cbticks, cblabels = self._get_split_cmap(v)
                 default_plotkwargs["cmap"] = cmap
                 default_plotkwargs["norm"] = norm
+                default_plotkwargs["shading"] = "nearest"
 
             ax = fig.add_subplot(nrows, ncols, ni)
             ni += 1

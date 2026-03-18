@@ -1,0 +1,72 @@
+{
+    "global": {
+        "num_cells": {
+            "2": 100,
+            "1": 10
+        },
+        "num_domains": {
+            "2": 1,
+            "1": 1
+        },
+        "simulation_status_history": [
+            "successful"
+        ],
+        "final_simulation_status": "successful",
+        "num_entries": 1,
+        "final_time_reached": 1,
+        "total_num_time_steps": 1,
+        "total_num_failed_time_steps": 0,
+        "num_iterations_history": [
+            2
+        ],
+        "total_num_iterations": 2,
+        "total_num_waisted_iterations": 0,
+        "final_convergence_status": {
+            "inc_abs": "converged",
+            "res_abs": "converged",
+            "max_iter": "converged",
+            "inc_nan": "converged",
+            "res_nan": "converged"
+        }
+    },
+    "0": {
+        "simulation_status": "successful",
+        "final_time_reached": 1,
+        "time_index": 1,
+        "time": 1,
+        "dt": 1,
+        "num_iterations": 2,
+        "convergence_status": {
+            "inc_abs": [
+                "not_converged",
+                "converged"
+            ],
+            "res_abs": [
+                "converged",
+                "converged"
+            ],
+            "max_iter": [
+                "converged",
+                "converged"
+            ],
+            "inc_nan": [
+                "converged",
+                "converged"
+            ],
+            "res_nan": [
+                "converged",
+                "converged"
+            ]
+        },
+        "convergence_info": {
+            "inc_abs": [
+                0.2560886543094374,
+                0.008844003885343928
+            ],
+            "res_abs": [
+                0.007139573017523767,
+                0.0008057256726769088
+            ]
+        }
+    }
+}

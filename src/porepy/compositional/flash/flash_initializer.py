@@ -1051,6 +1051,9 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         self._get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray]
         """Helper function computing K-values. Created during compilation."""
 
+        self._vT_init: Callable[[FlashSpec, np.ndarray, dict], np.ndarray]
+        """Base initialization method for isochoric flashes."""
+
         # Provide new default parameters, if not already present.
         default_params: dict[str, float] = {
             "N1": 3.0,
@@ -1104,9 +1107,12 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         if not self._eos.is_compiled:
             self._eos.compile()
 
+        compile_isochoric = False  # Flag to compile parts for isochoric initialization.
         for a in args:
             if a not in self.SUPPORTED_SPECIFICATIONS:
                 raise ValueError(f"Unsupported flash specification {a.name}")
+            if a >= FlashSpec.vT:
+                compile_isochoric = True
 
         # Setting outer scope variables to avoid referencing self in JIT functions.
         nphase, ncomp = self._n_PC
@@ -1115,7 +1121,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
         phi_c = self._eos.funcs["phis"]
-        dphi_c = self._eos.funcs["dphis"]
         h_c = self._eos.funcs["h"]
         dh_c = self._eos.funcs["dh"]
         u_c = self._eos.funcs["u"]
@@ -1156,9 +1161,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
 
         get_K_values = self._get_K_values
 
-        if FlashSpec.pT in args and FlashSpec.pT not in self._initializers:
-            logger.debug("Compiling pT-initialization ..")
-
+        if FlashSpec.pT not in self._initializers:
             self._initializers[FlashSpec.pT] = partial(
                 rachford_rice_initializer, get_K_values
             )
@@ -1290,224 +1293,354 @@ class HeuristicVLInitializer(UniformFlashInitializer):
 
             self._initializers[FlashSpec.ph] = ph_init
 
-        if FlashSpec.vT in args and FlashSpec.vT not in self._initializers:
-            logger.debug("Compiling vT-initialization ..")
+        if compile_isochoric:
+            logger.debug("Compiling isochoric base-initialization ..")
 
-            @_COMPILER(
-                nb.f8[:, :](
-                    nb.f8[:, :],
-                    SOLVER_PARAMETERS_TYPE,
-                ),
-                parallel=NUMBA_PARALLEL,
-            )
-            def vT_init(
-                X_gen: np.ndarray,
-                params: dict[str, float],
-            ) -> np.ndarray:
-                nphase = int(params["num_phases"])
-                ncomp = int(params["num_components"])
-                N2 = int(params["N2"])
-                tol = params["atol"]
+            if not hasattr(self, "_vT_init"):
 
-                T_cs = np.empty(ncomp)
-                p_cs = np.empty(ncomp)
-                v_cs = np.empty(ncomp)
-                omegas = np.empty(ncomp)
-                for i in range(ncomp):
-                    T_cs[i] = params[f"_T_crit_{i}"]
-                    p_cs[i] = params[f"_p_crit_{i}"]
-                    v_cs[i] = params[f"_v_crit_{i}"]
-                    omegas[i] = params[f"_omega_{i}"]
+                @_COMPILER(
+                    nb.f8[:, :](
+                        FlashSpec_NUMBA_TYPE,
+                        nb.f8[:, :],
+                        SOLVER_PARAMETERS_TYPE,
+                    ),
+                    parallel=NUMBA_PARALLEL,
+                )
+                def vT_init(
+                    spec: FlashSpec,
+                    X_gen: np.ndarray,
+                    params: dict[str, float],
+                ) -> np.ndarray:
+                    nphase = int(params["num_phases"])
+                    ncomp = int(params["num_components"])
+                    N2 = int(params["N2"])
+                    tol = params["atol"]
 
-                for k in nb.prange(X_gen.shape[0]):
-                    Xk = X_gen[k]
+                    T_cs = np.empty(ncomp)
+                    p_cs = np.empty(ncomp)
+                    v_cs = np.empty(ncomp)
+                    omegas = np.empty(ncomp)
+                    for i in range(ncomp):
+                        T_cs[i] = params[f"_T_crit_{i}"]
+                        p_cs[i] = params[f"_p_crit_{i}"]
+                        v_cs[i] = params[f"_v_crit_{i}"]
+                        omegas[i] = params[f"_omega_{i}"]
 
-                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                        Xk, ncomp, nphase, FlashSpec.vT
-                    )
-                    # NOTE local copy for simplicity of compilation.
-                    p_cs_ = p_cs.copy()
-                    T_cs_ = T_cs.copy()
-                    v_cs_ = v_cs.copy()
-                    omegas_ = omegas.copy()
+                    for k in nb.prange(X_gen.shape[0]):
+                        Xk = X_gen[k]
 
-                    # Compute pseudo-critical estimate of enthalpy.
-                    T_pc = np.sum(z * T_cs_)
-                    p_pc = critical_pressure_guess(z, p_cs_, T_cs_, v_cs_)
-                    v_pc = cubic_mix(z, v_cs_)
+                        x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                            Xk, ncomp, nphase, spec
+                        )
 
-                    is_gas = False
-                    is_liq = False
+                        # Compute pseudo-critical estimate.
+                        T_pc = np.sum(z * T_cs)
+                        p_pc = critical_pressure_guess(z, p_cs, T_cs, v_cs)
+                        v_pc = cubic_mix(z, v_cs)
 
-                    # We now refine the p guess by dividing the vT plane.
-                    # Above the pseudo-critical temperature, we iterate over the volume
-                    # constraint. If we are left of the v_pc, use v_liq, otherwise use
-                    # v_gas.
-                    if T >= T_pc:
-                        p = p_pc  # Start with pseudo-critical T.
-                        if s1 < v_pc:
-                            is_liq = True
+                        is_gas = False
+                        is_liq = False
+
+                        # We now refine the p guess by dividing the vT plane.
+                        # Above the pseudo-critical temperature, we iterate over the
+                        # volume constraint. If we are left of the v_pc, use v_liq,
+                        # otherwise use v_gas.
+                        if T >= T_pc:
+                            p = p_pc  # Start with pseudo-critical T.
+                            if s1 < v_pc:
+                                is_liq = True
+                            else:
+                                is_gas = True
+                        # Below T_pc, approximate bubble and dew-point pressure, and
+                        # compute volumes at points. If we are left of v_bub, iterate
+                        # using v_liq, if we are right of v_dew iterate using v_liq.
+                        # If we are in between, interpolate p and do not refine anymore.
                         else:
-                            is_gas = True
-                    # Below T_pc, approximate bubble and dew-point pressure, and
-                    # compute volumes at points. If we are left of v_bub, iterate
-                    # using v_liq, if we are right of v_dew iterate using v_liq.
-                    # If we are in between, interpolate p and do not refine anymore.
-                    else:
 
-                        def get_x(K_: np.ndarray, dew: bool) -> np.ndarray:
-                            if dew:
-                                x_ = z / K_
-                            else:
-                                x_ = z * K_
-                            x_ = np.maximum(x_, 1e-7)
-                            xs = np.sum(x_)
-                            if xs > 1:
-                                x_ /= xs
-                            if (
-                                dew
-                                and phasestates[0] == PhysicalState.liquid
-                                or (not dew and phasestates[0] == PhysicalState.gas)
-                            ):
-                                return np.vstack((x_, z))
-                            else:
-                                return np.vstack((z, x_))
+                            def get_x(K_: np.ndarray, dew: bool) -> np.ndarray:
+                                if dew:
+                                    x_ = z / K_
+                                else:
+                                    x_ = z * K_
+                                x_ = np.maximum(x_, 1e-7)
+                                xs = np.sum(x_)
+                                if xs > 1:
+                                    x_ /= xs
+                                if (
+                                    dew
+                                    and phasestates[0] == PhysicalState.liquid
+                                    or (not dew and phasestates[0] == PhysicalState.gas)
+                                ):
+                                    return np.vstack((x_, z))
+                                else:
+                                    return np.vstack((z, x_))
 
-                        td = 0.3  # Capping p updates
-                        tdu = 2.0  # Clapping log(p) updates.
-                        fd = 1e-6  # Finite difference mesh size for dKdp.
-                        # p_0 = (
-                        #     P_REF + (p_pc - P_REF) * ((T - T_REF) / (T_pc - T_REF))
-                        # )
+                            td = 0.3  # Capping p updates
+                            tdu = 2.0  # Clapping log(p) updates.
+                            fd = 1e-6  # Finite difference mesh size for dKdp.
 
-                        # Bubble point computations.
-                        p_i = 1.0
-                        K_w = K_Wilson(p_i, T, p_cs, T_cs, omegas_)
-                        p_i = 1.0 / np.sum(z / K_w)
-                        x_i = get_x(K_w, False)
-                        K_i = get_K_values(p_i, T, x_i, x_p)[0]
-                        r_i = np.sum(z * K_i - 1.0)
-
-                        # log space transformation
-                        u_i = np.log(p_i / p_pc)
-                        p_ui = p_i
-                        x_ui = x_i
-                        K_ui = K_i
-                        r_ui = r_i
-
-                        for _ in range(N2):
-                            if abs(r_i) <= tol:
-                                break
-                            if abs(r_ui) <= tol:
-                                p_i = p_ui
-                                x_i = x_ui
-                                K_i = K_ui
-                                break
-
-                            dKdp_i = (
-                                get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
-                                - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
-                            ) / (2 * fd * p_i)
-                            dKdp_ui = (
-                                get_K_values(p_ui * (1 + fd), T, x_i, x_p)[0]
-                                - get_K_values(p_ui * (1 - fd), T, x_i, x_p)[0]
-                            ) / (2 * fd * p_ui)
-
-                            dp = -r_i / (np.sum(z * dKdp_i) * p_pc)
-                            dp = np.sign(dp) * min(np.abs(dp), td) * p_pc
-                            p_i += dp
-                            du = -r_i / (np.sum(z * dKdp_ui) * np.exp(u_i) * p_pc)
-                            u_i += np.sign(du) * min(np.abs(du), tdu)
-                            p_ui = np.exp(u_i) * p_pc
-
-                            K_ui = get_K_values(p_ui, T, x_i, x_p)[0]
-                            x_ui = get_x(K_ui, False)
-                            r_ui = np.sum(z * K_ui) - 1.0
-
+                            # Bubble point computations.
+                            p_i = 1.0
+                            K_w = K_Wilson(p_i, T, p_cs, T_cs, omegas)
+                            p_i = 1.0 / np.sum(z / K_w)
+                            x_i = get_x(K_w, False)
                             K_i = get_K_values(p_i, T, x_i, x_p)[0]
-                            x_i = get_x(K_i, False)
-                            r_i = np.sum(z * K_i) - 1.0
+                            r_i = np.sum(z * K_i - 1.0)
 
-                        p_bub = p_i
+                            # log space transformation
+                            u_i = np.log(p_i / p_pc)
+                            p_ui = p_i
+                            x_ui = x_i
+                            K_ui = K_i
+                            r_ui = r_i
 
-                        # Dew point calculations.
-                        p_i = 1.0
-                        K_w = K_Wilson(p_i, T, p_cs, T_cs, omegas_)
-                        p_i = 1.0 / np.sum(z / K_w)
-                        x_i = get_x(K_w, False)
-                        K_i = get_K_values(p_i, T, x_i, x_p)[0]
-                        r_i = np.sum(z / K_i) - 1.0
+                            for _ in range(N2):
+                                if abs(r_i) <= tol:
+                                    break
+                                if abs(r_ui) <= tol:
+                                    p_i = p_ui
+                                    x_i = x_ui
+                                    K_i = K_ui
+                                    break
 
-                        # log space transformation
-                        u_i = np.log(p_i / p_pc)
-                        p_ui = p_i
-                        x_ui = x_i
-                        K_ui = K_i
-                        r_ui = r_i
+                                dKdp_i = (
+                                    get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
+                                    - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
+                                ) / (2 * fd * p_i)
+                                dKdp_ui = (
+                                    get_K_values(p_ui * (1 + fd), T, x_i, x_p)[0]
+                                    - get_K_values(p_ui * (1 - fd), T, x_i, x_p)[0]
+                                ) / (2 * fd * p_ui)
 
-                        for _ in range(N2):
-                            if abs(r_i) <= tol:
-                                break
-                            if abs(r_ui) <= tol:
-                                p_i = p_ui
-                                x_i = x_ui
-                                K_i = K_ui
-                                break
+                                dp = -r_i / (np.sum(z * dKdp_i) * p_pc)
+                                dp = np.sign(dp) * min(np.abs(dp), td) * p_pc
+                                p_i += dp
+                                du = -r_i / (np.sum(z * dKdp_ui) * np.exp(u_i) * p_pc)
+                                u_i += np.sign(du) * min(np.abs(du), tdu)
+                                p_ui = np.exp(u_i) * p_pc
 
-                            dKdp_i = (
-                                get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
-                                - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
-                            ) / (2 * fd * p_i)
-                            dKdp_ui = (
-                                get_K_values(p_ui * (1 + fd), T, x_i, x_p)[0]
-                                - get_K_values(p_ui * (1 - fd), T, x_i, x_p)[0]
-                            ) / (2 * fd * p_ui)
+                                K_ui = get_K_values(p_ui, T, x_i, x_p)[0]
+                                x_ui = get_x(K_ui, False)
+                                r_ui = np.sum(z * K_ui) - 1.0
 
-                            dp = -r_i / (np.sum(-z / K_i**2 * dKdp_i) * p_pc)
-                            dp = np.sign(dp) * min(np.abs(dp), td) * p_pc
-                            p_i += dp
-                            du = -r_i / (
-                                np.sum(-z / K_ui**2 * dKdp_ui) * np.exp(u_i) * p_pc
-                            )
-                            u_i += np.sign(du) * min(np.abs(du), tdu)
-                            p_ui = np.exp(u_i) * p_pc
+                                K_i = get_K_values(p_i, T, x_i, x_p)[0]
+                                x_i = get_x(K_i, False)
+                                r_i = np.sum(z * K_i) - 1.0
 
-                            K_ui = get_K_values(p_ui, T, x_i, x_p)[0]
-                            x_ui = get_x(K_ui, False)
-                            r_ui = np.sum(z / K_ui) - 1.0
+                            p_bub = p_i
 
+                            # Dew point calculations.
+                            p_i = 1.0
+                            K_w = K_Wilson(p_i, T, p_cs, T_cs, omegas)
+                            p_i = 1.0 / np.sum(z / K_w)
+                            x_i = get_x(K_w, False)
                             K_i = get_K_values(p_i, T, x_i, x_p)[0]
-                            x_i = get_x(K_i, False)
                             r_i = np.sum(z / K_i) - 1.0
 
-                        p_dew = p_i
+                            # log space transformation
+                            u_i = np.log(p_i / p_pc)
+                            p_ui = p_i
+                            x_ui = x_i
+                            K_ui = K_i
+                            r_ui = r_i
 
-                        # Compute volumes at points.
-                        pre_g_dew = prearg_val_c(PhysicalState.gas, p_dew, T, z, x_p)
-                        v_dew = v_c(pre_g_dew, p_dew, T, z)
-                        pre_l_bub = prearg_val_c(PhysicalState.liquid, p_bub, T, z, x_p)
-                        v_bub = v_c(pre_l_bub, p_bub, T, z)
+                            for _ in range(N2):
+                                if abs(r_i) <= tol:
+                                    break
+                                if abs(r_ui) <= tol:
+                                    p_i = p_ui
+                                    x_i = x_ui
+                                    K_i = K_ui
+                                    break
 
-                        if s1 > v_dew:  # Clearly gas-like.
-                            p = p_dew
-                            is_gas = True
-                        elif s1 < v_bub:  # Clearly liquid-like.
-                            p = p_bub
-                            is_liq = True
-                        else:  # If not clear, interpolate between bubble and dew point.
-                            w = np.abs(s1 - v_bub) / np.abs(v_dew - v_bub)
-                            p = (1.0 - w) * p_bub + w * p_dew
+                                dKdp_i = (
+                                    get_K_values(p_i * (1 + fd), T, x_i, x_p)[0]
+                                    - get_K_values(p_i * (1 - fd), T, x_i, x_p)[0]
+                                ) / (2 * fd * p_i)
+                                dKdp_ui = (
+                                    get_K_values(p_ui * (1 + fd), T, x_i, x_p)[0]
+                                    - get_K_values(p_ui * (1 - fd), T, x_i, x_p)[0]
+                                ) / (2 * fd * p_ui)
 
-                    if is_gas or is_liq:  # If 1-phase, evaluate pressure using EoS.
-                        p = pvT_c(s1, T, z, x_p)
+                                dp = -r_i / (np.sum(-z / K_i**2 * dKdp_i) * p_pc)
+                                dp = np.sign(dp) * min(np.abs(dp), td) * p_pc
+                                p_i += dp
+                                du = -r_i / (
+                                    np.sum(-z / K_ui**2 * dKdp_ui) * np.exp(u_i) * p_pc
+                                )
+                                u_i += np.sign(du) * min(np.abs(du), tdu)
+                                p_ui = np.exp(u_i) * p_pc
 
-                    Xk = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vT)
-                    X_gen[k] = fractions_from_rr(
-                        get_K_values, Xk, params, FlashSpec.vT, True
-                    )
-                return X_gen
+                                K_ui = get_K_values(p_ui, T, x_i, x_p)[0]
+                                x_ui = get_x(K_ui, False)
+                                r_ui = np.sum(z / K_ui) - 1.0
 
-            self._initializers[FlashSpec.vT] = vT_init
+                                K_i = get_K_values(p_i, T, x_i, x_p)[0]
+                                x_i = get_x(K_i, False)
+                                r_i = np.sum(z / K_i) - 1.0
+
+                            p_dew = p_i
+
+                            # Compute volumes at points.
+                            pre_g_dew = prearg_val_c(
+                                PhysicalState.gas, p_dew, T, z, x_p
+                            )
+                            v_dew = v_c(pre_g_dew, p_dew, T, z)
+                            pre_l_bub = prearg_val_c(
+                                PhysicalState.liquid, p_bub, T, z, x_p
+                            )
+                            v_bub = v_c(pre_l_bub, p_bub, T, z)
+
+                            if s1 > v_dew:  # Clearly gas-like.
+                                p = p_dew
+                                is_gas = True
+                            elif s1 < v_bub:  # Clearly liquid-like.
+                                p = p_bub
+                                is_liq = True
+                            else:  # If not clear, interpolate between bubble and dew.
+                                w = np.abs(s1 - v_bub) / np.abs(v_dew - v_bub)
+                                p = (1.0 - w) * p_bub + w * p_dew
+
+                        if is_gas or is_liq:  # If 1-phase, evaluate pressure using EoS.
+                            p = pvT_c(s1, T, z, x_p)
+
+                        Xk = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, spec)
+                        X_gen[k] = fractions_from_rr(
+                            get_K_values, Xk, params, spec, True
+                        )
+                    return X_gen
+
+                self._vT_init = vT_init
+
+            vT_init = self._vT_init
+
+            if FlashSpec.vT not in self._initializers:
+                self._initializers[FlashSpec.vT] = partial(vT_init, FlashSpec.vT)
+
+            if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
+                logger.debug("Compiling vu-initialization ..")
+
+                @_COMPILER(
+                    nb.f8[:, :](nb.f8[:, :], SOLVER_PARAMETERS_TYPE),
+                    parallel=NUMBA_PARALLEL,
+                )
+                def vu_init(X_gen: np.ndarray, params: dict[str, float]) -> np.ndarray:
+                    """Helper function to update pT guess for vh flash by solving
+                    respective equations using Newton and some corrections."""
+
+                    # Parsing parameters
+                    gas_idx = int(params["gas_phase_index"])
+                    nphase = int(params["num_phases"])
+                    ncomp = int(params["num_components"])
+
+                    T_cs = np.empty(ncomp)
+                    p_cs = np.empty(ncomp)
+                    v_cs = np.empty(ncomp)
+                    for i in range(ncomp):
+                        T_cs[i] = params[f"_T_crit_{i}"]
+                        p_cs[i] = params[f"_p_crit_{i}"]
+                        v_cs[i] = params[f"_v_crit_{i}"]
+
+                    for k in nb.prange(X_gen.shape[0]):
+                        Xk = X_gen[k]
+
+                        # s1 and s2 are target volume and energy respectively
+                        x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                            Xk, ncomp, nphase, FlashSpec.vu
+                        )
+
+                        # Assume no gas, fetch later if otherwise.
+                        y_g = 0.0
+
+                        # Initial pT values using pseudo-critical values with some
+                        # adjustments.
+                        if p == 0.0 or T == 0.0:
+                            T = np.dot(z, T_cs)
+                            v_pc = cubic_mix(z, v_cs)
+                            p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
+
+                            # Refining pressure and temperature guess based on ratio of
+                            # pseudo-critical volume and given volume. We multiply with
+                            # some estimate for the compressibility factor.
+                            R = v_pc / s1
+                            if R > 1:  # liquid-like
+                                p *= 0.1
+                                T = T / np.sqrt(R)
+                            else:  # gas-like
+                                p *= 0.9
+
+                            # Make first fraction guess based on pseudo-critical values.
+                            xf = assemble_generic_arg(
+                                x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                            )
+                            xf = fractions_from_rr(
+                                get_K_values, xf, params, FlashSpec.vu, True
+                            )
+                            x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                                xf, ncomp, nphase, FlashSpec.vu
+                            )
+
+                            # Correct pressure if no gas phase
+                            if gas_idx >= 0:
+                                y_g = y[gas_idx]
+
+                            if y_g < 1e-3:
+                                p *= 0.7
+                                T *= 1.1
+                                # Refine fraction guess.
+                                xf = assemble_generic_arg(
+                                    x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                                )
+                                xf = fractions_from_rr(
+                                    get_K_values, xf, params, FlashSpec.vu, False
+                                )
+                                x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                                    xf, ncomp, nphase, FlashSpec.vu
+                                )
+
+                        xn = normalize_rows(x)
+                        if gas_idx >= 0:
+                            y_g = y[gas_idx]
+
+                        us = np.empty(nphase)
+                        dus = np.empty((nphase, 2 + ncomp))
+                        vs = np.empty(nphase)
+                        dvs = np.empty((nphase, 2 + ncomp))
+
+                        for j in range(nphase):
+                            pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
+                            pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
+                            us[j] = u_c(pre_val_j, p, T, xn[j])
+                            dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                            vs[j] = v_c(pre_val_j, p, T, xn[j])
+                            dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
+
+                        v_mix = np.dot(y, vs)
+                        # dvdp = np.sum(y * dvs[:, 0])
+                        dvdT = np.sum(y * dvs[:, 1])
+
+                        u_new = np.dot(y, us) - p * v_mix
+                        du_new_dT = np.dot(y, dus[:, 1]) - p * dvdT
+
+                        dT = (s2 - u_new) / du_new_dT
+                        fc = 1 - np.abs(dT) / T
+
+                        # if y_g > 1e-3:
+                        #     if y_g > 1.0 - 1e-8:
+                        #         fc = 1.0
+                        #     p += fc * dT * dvdT / np.abs(dvdp)
+                        # else:
+                        #     p *= 2.0 - fc
+
+                        T += fc * dT
+
+                        X_gen[k] = assemble_generic_arg(
+                            x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                        )
+
+                    return vT_init(FlashSpec.vu, X_gen, params)
+
+                self._initializers[FlashSpec.vu] = vu_init
 
         if FlashSpec.vh in args and FlashSpec.vh not in self._initializers:
             logger.debug("Compiling vh-initialization ..")
@@ -1666,122 +1799,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
 
             self._initializers[FlashSpec.vh] = partial(
                 nested_initializer, get_K_values, update_pT_guess, FlashSpec.vh
-            )
-
-        if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
-            logger.debug("Compiling vu-initialization ..")
-
-            @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
-            def update_pT_guess_saha(
-                X_gen: np.ndarray, params: dict[str, float]
-            ) -> np.ndarray:
-                """Helper function to update pT guess for vh flash by solving
-                respective equations using Newton and some corrections."""
-
-                # Parsing parameters
-                gas_phase_idx = int(params["gas_phase_index"])
-
-                # s1 and s2 are target volume and enthalpy respectively
-                x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                    X_gen, ncomp, nphase, FlashSpec.vu
-                )
-
-                # Assume no gas, fetch later if otherwise.
-                y_g = 0.0
-
-                # If no p or T value are provided at all, create initial guess using
-                # pseudo-critical values
-                if p == 0.0 or T == 0.0:
-                    T_cs = np.empty(ncomp)
-                    v_cs = np.empty(ncomp)
-                    p_cs = np.empty(ncomp)
-                    for i in range(ncomp):
-                        T_cs[i] = params[f"_T_crit_{i}"]
-                        v_cs[i] = params[f"_v_crit_{i}"]
-                        p_cs[i] = params[f"_p_crit_{i}"]
-                    # pseudo_critical T_guess
-                    T = np.dot(z, T_cs)
-
-                    # pseudo-critical pressure guess
-                    v_pc = cubic_mix(z, v_cs)
-                    p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
-                    # Pseudo-critical compressibility factor.
-                    Z_pc = np.dot(z, p_cs * v_cs / T_cs) / R_U
-
-                    # Refining pressure and temperature guess based on ratio of
-                    # pseudo-critical volume and given volume.
-                    R = v_pc / s1
-                    if R > 1:  # liquid-like
-                        p *= 0.2 / Z_pc
-                        T = T / np.sqrt(R)
-                    else:  # gas-like
-                        p *= 0.7 / Z_pc
-
-                    # Make first fraction guess based on pseudo-critical values.
-                    xf = assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vu)
-                    xf = fractions_from_rr(get_K_values, xf, params, FlashSpec.vu, True)
-                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                        xf, ncomp, nphase, FlashSpec.vu
-                    )
-
-                    # Correct pressure if no gas phase
-                    if gas_phase_idx >= 0:
-                        y_g = y[gas_phase_idx]
-
-                    if y_g < 1e-3:
-                        p *= 0.7
-                        T *= 1.1
-                        # Refine fraction guess.
-                        xf = assemble_generic_arg(
-                            x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
-                        )
-                        xf = fractions_from_rr(
-                            get_K_values, xf, params, FlashSpec.vu, False
-                        )
-                        x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                            xf, ncomp, nphase, FlashSpec.vu
-                        )
-
-                xn = normalize_rows(x)
-                if gas_phase_idx >= 0:
-                    y_g = y[gas_phase_idx]
-
-                us = np.empty(nphase)
-                dus = np.empty((nphase, 2 + ncomp))
-                vs = np.empty(nphase)
-                dvs = np.empty((nphase, 2 + ncomp))
-
-                for j in range(nphase):
-                    pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
-                    pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
-                    us[j] = u_c(pre_val_j, p, T, xn[j])
-                    dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
-                    vs[j] = v_c(pre_val_j, p, T, xn[j])
-                    dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
-
-                v_mix = np.dot(y, vs)
-                dv_new_dp = np.sum(y * dvs[:, 0])
-                dv_new_dT = np.sum(y * dvs[:, 1])
-
-                u_new = np.dot(y, us) - p * v_mix
-                du_new_dT = np.dot(y, dus[:, 1]) - p * dv_new_dT
-
-                dT = (s2 - u_new) / du_new_dT
-                fc = 1 - np.abs(dT) / T
-
-                if y_g > 1e-3:
-                    if y_g > 1.0 - 1e-8:
-                        fc = 1.0
-                    p += fc * dT * dv_new_dT / np.abs(dv_new_dp)
-                else:
-                    p *= 2.0 - fc
-
-                T += fc * dT
-
-                return assemble_generic_arg(x, y, z, p, T, s1, s2, x_p, FlashSpec.vu)
-
-            self._initializers[FlashSpec.vu] = partial(
-                nested_initializer, get_K_values, update_pT_guess_saha, FlashSpec.vu
             )
 
         logger.info(
