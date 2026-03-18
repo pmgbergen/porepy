@@ -664,6 +664,12 @@ class Operator:
             The sum of self and other.
 
         """
+        # When using the sum operator on a list with a single item, Python will call the
+        # addition operator with other == 0. Convert that other to an Ad Scalar with
+        # value 0 to avoid errors in the addition operator.
+        if other == 0:
+            other = Scalar(0)
+
         children = self._parse_other(other)
         return Operator(children=children, operation=Operations.add, name="+ operator")
 
