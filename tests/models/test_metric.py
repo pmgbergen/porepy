@@ -302,7 +302,7 @@ class DummyEquations(pp.PorePyModel):
         coeff = self.params.get("coeff", [0])
         exp_x = self.params.get("exp_x", [0])
         exp_y = self.params.get("exp_y", [0])
-        polynomial_expression = sum(
+        polynomial_expression = pp.ad.sum_operator_list(
             [
                 pp.ad.Scalar(c)
                 * variable_x ** pp.ad.Scalar(e_x)
