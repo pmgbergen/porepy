@@ -134,7 +134,8 @@ class ModelRunner:
 
         self.set_solver()
 
-        self.init_time_progressbar()
+        if self._is_time_dependent:
+            self.init_time_progressbar()
 
     def set_solver(self) -> None:
         """Choose between linear and non-linear solver and set :attr:`solver`.
@@ -313,7 +314,7 @@ class ModelRunner:
                 try:
                     simulation_status = pp.SimulationStatus.FAILED
                     self.model.after_time_step_failure()
-                    # Need to log before updating the time step size.yy
+                    # Need to log before updating the time step size.
                     self.logging(simulation_status)
                     # Update the time step size for the next attempt.
                     self.model.time_manager.compute_time_step(recompute_solution=True)
