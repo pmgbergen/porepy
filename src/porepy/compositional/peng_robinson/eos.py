@@ -717,6 +717,9 @@ class CompiledPengRobinson(CompiledEoS):
         The pre-argument computation (compressibility factors) supports several
         parameters (see :attr:`params`).
 
+        Transport properties are returned as trivial values, enabling this class to be
+        used alone.
+
     Parameters:
         components: A sequence of ``num_comp`` component instances.
         ideal_fluids: A sequence of ``num_comp`` of ideal fluids.
@@ -1203,6 +1206,46 @@ class CompiledPengRobinson(CompiledEoS):
             return dv
 
         return dv_c
+
+    def get_mu_function(self):
+        """Returns the trivial value of 1."""
+
+        def mu(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1.0
+
+        return mu
+
+    def get_grad_mu_function(self):
+        def dmu(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dmu
+
+    def get_kappa_function(self):
+        """Returns the trivial value of 1."""
+
+        def kappa(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1.0
+
+        return kappa
+
+    def get_grad_kappa_function(self):
+        def dkappa(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dkappa
 
     def compile(self):
         """Compiles the ideal part of the fluid properties before continuing to parent

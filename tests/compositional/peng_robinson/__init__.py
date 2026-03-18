@@ -108,29 +108,7 @@ def calculate_expected_order(
 
 
 class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
-    """Combined Peng-Robinson EoS and LBC viscosity model, for testing purposes.
-
-    Thermal conductivities are set to 1.0, with zero derivatives.
-
-    """
-
-    def get_kappa_function(self):
-        def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1.0
-
-        return kappa_c
-
-    def get_grad_kappa_function(self):
-        def dkappa_c(
-            prearg_val: np.ndarray,
-            prearg_jac: np.ndarray,
-            p: float,
-            T: float,
-            xn: np.ndarray,
-        ) -> np.ndarray:
-            return np.zeros(2 + xn.shape[0])
-
-        return dkappa_c
+    """Combined Peng-Robinson EoS and LBC viscosity model, for testing purposes."""
 
 
 @pytest.fixture(scope="session")

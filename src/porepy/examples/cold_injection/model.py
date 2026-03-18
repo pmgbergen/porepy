@@ -93,35 +93,11 @@ class FluidEoS(pr.CompiledPengRobinson):
 
         return mu_c
 
-    def get_grad_mu_function(self) -> VectorFunction:
-        def dmu_c(
-            prearg_val: np.ndarray,
-            prearg_jac: np.ndarray,
-            p: float,
-            T: float,
-            xn: np.ndarray,
-        ) -> np.ndarray:
-            return np.zeros(2 + xn.shape[0], dtype=np.float64)
-
-        return dmu_c
-
     def get_kappa_function(self) -> ScalarFunction:
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
-
-    def get_grad_kappa_function(self) -> VectorFunction:
-        def dkappa_c(
-            prearg_val: np.ndarray,
-            prearg_jac: np.ndarray,
-            p: float,
-            T: float,
-            xn: np.ndarray,
-        ) -> np.ndarray:
-            return np.zeros(2 + xn.shape[0], dtype=np.float64)
-
-        return dkappa_c
 
 
 class FluidMixture(ModelConfig):

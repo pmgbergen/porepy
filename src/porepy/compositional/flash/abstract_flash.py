@@ -596,7 +596,7 @@ class AbstractFlash(abc.ABC):
         plotkwargs: Optional[dict] = None,
         **kwargs,
     ) -> tuple[Figure, FlashResults]:
-        """ "Plot a 2D phase diagram for specified ranges.
+        """Plot a 2D phase diagram for specified ranges.
 
         The type of flash performed is indicated with ``specification``.
 
@@ -607,8 +607,9 @@ class AbstractFlash(abc.ABC):
         The first non-scalar range is used as the vertical axis.
         The second non-scalar range is used as the horizontal axis.
         If ```zrange`` is an array, the fluid must be a mixture (multiple componets) and
-        which ``z`` value`` to plot on the vertical axis can be defined using
-        ``zindex``.
+        which ``z`` value to plot on the horizontal axis can be defined using
+        ``zindex``. Note that if one specification range is scalar, one ``z`` must be
+        a range and is by default on the horizontal axis (as the second range).
 
         The values to be plotted are indicated using a string.
         In general, the strings are expected to denote fields of the
@@ -709,20 +710,28 @@ class AbstractFlash(abc.ABC):
                 raise ValueError(f"Compositions at index {zindex} must be an array.")
             isrange[2] = True
 
+        # State specifications
         s1: np.ndarray | pp.number
         s2: np.ndarray | pp.number
         z: Sequence[np.ndarray | pp.number]
+
+        # Axis values for failure indicators.
+        x_fail: np.ndarray
+        y_fail: np.ndarray
 
         match isrange:
             case [True, True, False]:
                 yvals = spec1range
                 xvals = spec2range
                 xm, ym = np.meshgrid(xvals, yvals)
+
                 s1 = ym.flatten()
                 s2 = xm.flatten()
                 z = zrange
                 xlabel = specification.name[1]
                 ylabel = specification.name[0]
+                x_fail = s2
+                y_fail = s1
             case [True, False, True]:
                 yvals = spec1range
                 xvals = zrange[zindex]
@@ -739,6 +748,8 @@ class AbstractFlash(abc.ABC):
                 ]
                 xlabel = f"z_{zindex}"
                 ylabel = specification.name[0]
+                x_fail = cast(np.ndarray, z[zindex])
+                y_fail = s1
             case [False, True, True]:
                 yvals = spec2range
                 xvals = zrange[zindex]
@@ -755,6 +766,8 @@ class AbstractFlash(abc.ABC):
                 ]
                 xlabel = f"z_{zindex}"
                 ylabel = specification.name[1]
+                x_fail = cast(np.ndarray, z[zindex])
+                y_fail = s2
             case _:
                 raise ValueError("Exactly two of the 3 ranges must be arrays.")
 
@@ -785,20 +798,18 @@ class AbstractFlash(abc.ABC):
         )
 
         not_conv = ~results.converged
-        s1f = spec[specification.name[0]][not_conv]
-        s2f = spec[specification.name[1]][not_conv]
+        x_fail = x_fail[not_conv].copy()
+        y_fail = y_fail[not_conv].copy()
 
         # Shape axis values.
-        xlabel = specification.name[1]
-        ylabel = specification.name[0]
         if transpose:
             xm, ym = [ym.transpose(), xm.transpose()]
             xlabel, ylabel = [ylabel, xlabel]
-            s1f, s2f = [s2f, s1f]
+            x_fail, y_fail = [y_fail, x_fail]
         xm = xtransform(xm.flatten()).reshape(shape)
         ym = ytransform(ym.flatten()).reshape(shape)
-        s2f = xtransform(s2f)
-        s1f = ytransform(s1f)
+        x_fail = xtransform(x_fail)
+        y_fail = ytransform(y_fail)
 
         # Parse field and format values to be plotted.
         vals: list[np.ndarray] = []
@@ -889,8 +900,8 @@ class AbstractFlash(abc.ABC):
 
             if np.any(not_conv) and kwargs.get("show_not_converged", False):
                 img_nc = ax.scatter(
-                    s2f,
-                    s1f,
+                    x_fail,
+                    y_fail,
                     s=5,
                     c="firebrick",
                     marker="x",
