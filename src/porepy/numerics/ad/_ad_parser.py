@@ -435,7 +435,7 @@ class AdParser:
                 assert len(child_values) == 2
 
                 if operation == Operations.matmul and isinstance(child_values[0], list):
-                    # This is a special case for dealing with pp.ad.PorjectionList.
+                    # This is a special case for dealing with pp.ad.ProjectionList.
                     if all(
                         [
                             isinstance(c, pp.matrix_operations.ArraySlicer)
