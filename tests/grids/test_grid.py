@@ -765,6 +765,151 @@ def test_geometry_triangle_grid(triangle_grid):
     assert np.allclose(triangle_grid.face_normals, fn)
 
 
+@pytest.fixture
+def triangle_grid_four_split():
+    g = simplex.StructuredTriangleGrid(np.array([2, 2]), split_type="four")
+    g.compute_geometry()
+    return g
+
+
+def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
+    """Test the geometry of a structured triangle grid with the 'four' split type.
+    
+    Tests the following connectivities:
+        * Given a node, check that the faces touching that node have the expected face  
+        centers.
+        * Given a face center, check that the neighboring cells are the expected ones.
+    
+    These tests use the known geometry of the structured grid, specifically face-center
+    and cell-center coordinates. This is more robust than relying on implicit
+    assumptions about cell, face, or node ordering.
+
+    """    
+    # Gathering the relevant geometry and connectivity information from the grid.
+    face_nodes = triangle_grid_four_split.face_nodes
+    cell_faces = triangle_grid_four_split.cell_faces
+    face_centers = triangle_grid_four_split.face_centers
+    cell_centers = triangle_grid_four_split.cell_centers
+    node_coords = triangle_grid_four_split.nodes
+
+    # Get x and y coordinates of the nodes.
+    x_coords = node_coords[0]
+    y_coords = node_coords[1]
+    
+    # Get x and y coordinates of the cell centers.
+    x_center = cell_centers[0]
+    y_center = cell_centers[1]
+
+    def _assert_neighboring_faces(
+        node_idx: int, expected_centers: np.ndarray
+    ) -> None:
+        """Checks the faces neighboring a given node.
+        
+        This method uses the face-node connectivity to find the faces neighboring a
+        given node, and then checks that the face centers of these faces match the
+        expected face centers. the expected face centers are determined based on the
+        known geometry of the structured grid.
+
+        Parameters:
+            node_idx: The index of the node for which the neighboring faces should be
+                checked.
+            expected_centers: The expected coordinates of the face centers for the      
+                faces neighboring the node.
+
+        """
+        face_indices = face_nodes.getrow(node_idx).indices
+        computed_face_centers = face_centers[:, face_indices][:2]
+
+        computed_pairs = set(map(tuple, computed_face_centers.T))
+        expected_pairs = set(map(tuple, expected_centers.T))
+        assert computed_pairs == expected_pairs
+
+    def _assert_neighboring_cells(
+        face_center: tuple[float, float],
+        fixed_axis: str,
+        fixed_value: float,
+    ) -> None:
+        """Checks the cells neighboring a given face.
+        
+        This method uses the cell-face connectivity to find the cells neighboring a
+        given face, and then checks that the cell centers of these cells match the
+        expected cell centers. The expected cell centers are determined based on the
+        known geometry of the structured grid.
+
+        Parameters:
+            face_center: The coordinates of the face center for which the neighboring
+                cells should be checked.
+            fixed_axis: The axis along which the face is located (either 'x' or 'y').
+            fixed_value: The value of the coordinate along the fixed axis for the face.
+        
+        """
+        idx = np.where(
+            np.isclose(face_centers[0], face_center[0])
+            & np.isclose(face_centers[1], face_center[1])
+        )[0]
+        assert idx.size == 1
+
+        neighboring_cells = cell_faces.getrow(idx.item()).indices
+
+        in_x_interval = ((x_center > 0.5) & (x_center < 1.0)) | (
+            (x_center > 1.0) & (x_center < 1.5)
+        )
+        in_y_interval = ((y_center > 0.5) & (y_center < 1.0)) | (
+            (y_center > 1.0) & (y_center < 1.5)
+        )
+
+        if fixed_axis == "x":
+            in_target_band = np.isclose(x_center, fixed_value) & in_y_interval
+        else:
+            in_target_band = np.isclose(y_center, fixed_value) & in_x_interval
+
+        cell_indices_in_band = np.where(in_target_band)[0]
+
+        assert cell_indices_in_band.size == 2
+        assert np.array_equal(
+            np.sort(neighboring_cells),
+            np.sort(cell_indices_in_band),
+        )
+
+    # Check the faces neighboring two nodes: one in the top of the domain and one in the
+    # middle of the domain.
+
+    # First get the indices of the nodes:
+    ind_top_node = np.where(np.isclose(x_coords, 1) & np.isclose(y_coords, 2))[0]
+    ind_middle_node = np.where(np.isclose(x_coords, 1) & np.isclose(y_coords, 1))[0]
+
+    # Then assert that the neighboring faces of these nodes have the expected face
+    # centers.
+    _assert_neighboring_faces(
+        ind_top_node.item(),
+        np.array([[0.5, 0.75, 1.0, 1.25, 1.5], [2.0, 1.75, 1.5, 1.75, 2.0]]),
+    )
+    _assert_neighboring_faces(
+        ind_middle_node.item(),
+        np.array(
+            [
+                [0.5, 0.75, 1.0, 1.25, 1.5, 1.25, 1.0, 0.75],
+                [1.0, 1.25, 1.5, 1.25, 1.0, 0.75, 0.5, 0.75],
+            ]
+        ),
+    )
+
+    # Similar check for faces in the grid: check that the neighboring cells of a face
+    # are the expected ones. We check four internal grid faces.
+    _assert_neighboring_cells(
+        face_center=(1.0, 1.5), fixed_axis="y", fixed_value=1.5
+    )
+    _assert_neighboring_cells(
+        face_center=(0.5, 1.0), fixed_axis="x", fixed_value=0.5
+    )
+    _assert_neighboring_cells(
+        face_center=(1.0, 0.5), fixed_axis="y", fixed_value=0.5
+    )
+    _assert_neighboring_cells(
+        face_center=(1.5, 1.0), fixed_axis="x", fixed_value=1.5
+    )
+
+
 # ----- Tests for a structured tetrahedral grid ----- #
 
 
