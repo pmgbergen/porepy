@@ -63,14 +63,11 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
-        if not self._is_time_dependent():  # stationary problem
-            if (
-                self.nonlinear_solver_statistics.num_iteration > 0
-            ):  # avoid saving initial condition
-                collected_data = self.collect_data()
-                if collected_data is not None:
-                    self.results.append(collected_data)
-        else:  # time-dependent problem
+        if not self._is_time_dependent():
+            collected_data = self.collect_data()
+            if collected_data is not None:
+                self.results.append(collected_data)
+        else:
             t = self.time_manager.time  # current time
             scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
             if any(np.isclose(t, scheduled)):
@@ -201,7 +198,10 @@ class DataSavingMixin(pp.PorePyModel):
             length_scale=self.units.m,
         )
 
-        if "solver_statistics_file_name" in self.params:
+        if (
+            "solver_statistics_file_name" in self.params
+            and self.params["solver_statistics_file_name"] is not None
+        ):
             self.nonlinear_solver_statistics.path = (
                 Path(self.params["folder_name"])
                 / self.params["solver_statistics_file_name"]
@@ -329,12 +329,12 @@ class IterationExporting(pp.PorePyModel):
         # part, we multiply the latter by the next power of ten above the maximum number
         # of nonlinear iterations. Default value set to 10 in accordance with the
         # default value used in NewtonSolver.
-        n = self.params.get("max_iterations", 10)
+        n = self.params.get("nl_max_iterations", 10)
         r = np.ceil(np.log10(n + 1))
         self.iteration_exporter.write_vtu(
             self.data_to_export_iteration(),
             time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iteration
+            time_step=self.nonlinear_solver_statistics.num_iterations
             + 10**r * self.time_manager.time_index,
         )
 
@@ -449,10 +449,13 @@ class FractureDeformationExporting(pp.PorePyModel):
 
         char = ensure_array(char)
         friction_coefficient = ensure_array(friction_coefficient)
-        traction = self.evaluate_and_scale(sds, "contact_traction", "-")
+        traction = self.evaluate_and_scale(sds, "contact_traction", "-").reshape(
+            (self.nd, -1), order="F"
+        )
         # Compute apertures, which are scalar quantities.
         cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
         apertures = self.evaluate_and_scale(sds, "aperture", "m")
+        slip_tendency = self.compute_slip_tendency(traction, friction_coefficient)
 
         # Loop over the fracture subdomains.
         for id, sd in enumerate(sds):
@@ -466,25 +469,15 @@ class FractureDeformationExporting(pp.PorePyModel):
             )
             # Export the slip tendency, defined as the ratio of the shear traction to
             # the normal traction.
-            traction_loc = traction[
-                cell_offsets_nd[id] : cell_offsets_nd[id + 1]
-            ].reshape((self.nd, -1), order="F")
-            # Avoid division by zero. If normal traction is zero (open fractures), we
-            # set it to 1.
-            zero_inds = np.isclose(traction_loc[-1], 0)
-            traction_loc[-1, zero_inds] = 1
-            # Minus to follow convention that positive slip tendency indicates slip and
-            # compressive normal traction is negative. Summing up:
-            # - regular values are positive for fractures in contact,
-            # - negative slip tendency is non-physical, except for
-            # - zero normal traction.
-            slip_tendency = -np.linalg.norm(traction_loc[:-1], axis=0) / (
-                traction_loc[-1]
-                * friction_coefficient[cell_offsets[id] : cell_offsets[id + 1]]
+            data.append(
+                (
+                    sd,
+                    "slip_tendency",
+                    slip_tendency[cell_offsets[id] : cell_offsets[id + 1]],
+                )
             )
-
-            data.append((sd, "slip_tendency", slip_tendency))
             # Rescale traction by characteristic contact traction.
+            traction_loc = traction[:, cell_offsets[id] : cell_offsets[id + 1]]
             traction_loc *= char[cell_offsets[id] : cell_offsets[id + 1]]
             data.append((sd, "contact_traction_in_Pa", traction_loc.ravel("F")))
 
@@ -496,6 +489,52 @@ class FractureDeformationExporting(pp.PorePyModel):
                 )
             )
         return data
+
+
+
+    @staticmethod
+    def compute_slip_tendency(
+        traction: np.ndarray,
+        friction_coefficient: np.ndarray,
+        atol: float = 1e-8,
+    ) -> np.ndarray:
+        """Compute slip tendency as the ratio of shear traction to normal traction.
+
+        For cells where normal traction is zero (open fractures), slip tendency is
+        physically undefined and set to NaN.
+
+        Parameters:
+            traction: Array of shape (nd, num_cells) containing the traction vector for
+                each cell.
+            friction_coefficient: Array of shape (num_cells,) containing the friction
+                coefficient for each cell.
+            atol: Absolute tolerance for detecting zero normal traction. Defaults to
+                1e-8, matching numpy's default.
+
+            Returns:
+                Array of shape (num_cells,) containing the slip tendency for each cell.
+                NaN values indicate cells with zero normal traction (open fractures).
+
+        Notes:
+            Slip tendency convention:
+            - Positive values indicate tendency to slip (shear traction exceeds
+              friction limit).
+            - Compressive normal traction is negative.
+            - Regular values are positive for fractures in contact.
+            - NaN indicates undefined slip tendency (zero normal traction).
+        """
+        # Compute slip tendency.
+        # Minus to follow convention that positive slip tendency indicates slip and
+        # compressive normal traction is negative.
+        slip_tendency = -np.linalg.norm(traction[:-1], axis=0) / (
+            traction[-1] * friction_coefficient
+        )
+
+        # Set to NaN where normal traction is zero (undefined).
+        zero_inds = np.isclose(traction[-1], 0, atol=atol)
+        slip_tendency[zero_inds] = np.nan
+
+        return slip_tendency
 
 
 class ExportingTemperatureAnomaly:

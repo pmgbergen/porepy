@@ -30,6 +30,9 @@ Overview of tests:
     Finally, there are tests for unit conversion and a well model:
     - test_unit_conversion: Test that solution is independent of units.
     - test_poromechanics_well: Test that the poromechanics model runs without errors.
+    - test_poromechanics_empty_equation_filter: Test that empty domain equations
+        in poromechanics models on non-fractured domain exist and are filtered
+        before assembly.
 """
 
 from __future__ import annotations
@@ -215,7 +218,8 @@ def create_model_with_fracture(
         "material_constants": {"solid": solid, "fluid": fluid},
         "reference_variable_values": reference_values,
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
-        "max_iterations": 20,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": 20,
     }
 
     if issubclass(model_class, TailoredPoromechanicsTpsa):
@@ -378,7 +382,7 @@ def test_without_fracture(biot_coefficient, model_class):
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "u_north": [0.0, 0.001],
-        "cartesian": True,
+        "grid_type": "cartesian",
         "times_to_export": [],
     }
     model = model_class(params)
@@ -560,7 +564,7 @@ def test_unit_conversion(units, model_class):
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
-        "cartesian": True,
+        "grid_type": "cartesian",
         "u_north": [0.0, 1e-5],
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -596,7 +600,7 @@ def test_unit_conversion(units, model_class):
 
 class PoromechanicsWell(
     well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     pp.Poromechanics,
 ):
@@ -620,3 +624,66 @@ def test_poromechanics_well():
     }
     model = PoromechanicsWell(model_params)
     pp.run_time_dependent_model(model)
+
+
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_poromechanics_empty_equation_filter(model_class):
+    """Test that empty domain equations in poromechanics models exist and are
+    filtered before assembly.
+
+    For poromechanics models without fractures, the fracture-related equations
+    can still exist in the equation system. These empty domain equations should
+    be filtered as they do not contribute to the assembly pipline.
+    """
+
+    # Run models without fractures.
+    fluid = pp.FluidComponent(compressibility=0.5)
+    solid = pp.SolidConstants(biot_coefficient=0.5)
+    params = {
+        "fracture_indices": [],
+        "material_constants": {"fluid": fluid, "solid": solid},
+        "u_north": [0.0, 0.001],
+        "grid_type": "cartesian",
+        "times_to_export": [],
+    }
+    model = model_class(params)
+    model.prepare_simulation()
+    equation_system = model.equation_system
+
+    # All equations registered in the equation systems. These include equations
+    # defined on all possible subdomains (matrix, fractures, interfaces),
+    # regardless of whether the corresponding domains are present in the model.
+    all_equations = list(equation_system.equations.keys())
+
+    # Parsed equations after discarding those whose image space is empty.
+    # In poromechanics models without fractures, fracture-related equations are
+    # also registered but have empty image spaces, and are therefore removed here.
+    parsed_equations = list(equation_system._parse_equations().keys())
+
+    # Check empty domain equations exist.
+    empty_equations = []
+    for name in equation_system.equations:
+        total = sum(
+            len(indices)
+            for indices in equation_system.equation_image_space_composition[
+                name
+            ].values()
+        )
+        if total == 0:
+            empty_equations.append(name)
+
+    assert len(empty_equations) > 0
+
+    # Check empty domain equations are filtered.
+    for name in empty_equations:
+        assert name not in parsed_equations
+
+    # Check that the assembled system does not include empty domain equations.
+    A_all, b_all = equation_system.assemble(all_equations)
+    A_filtered, b_filtered = equation_system.assemble(parsed_equations)
+
+    assert A_all.shape == A_filtered.shape
+    assert np.allclose(b_all, b_filtered)
+    assert pp.test_utils.arrays.compare_matrices(A_all, A_filtered)

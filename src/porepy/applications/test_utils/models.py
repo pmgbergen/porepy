@@ -9,7 +9,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
-    OrthogonalFractures3d,
+    CubeDomainOrthogonalFractures,
     RectangularDomainThreeFractures,
 )
 from porepy.models.contact_mechanics import ContactMechanics
@@ -134,7 +134,7 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     if dim == 2:
         geometry = RectangularDomainThreeFractures
     elif dim == 3:
-        geometry = OrthogonalFractures3d
+        geometry = CubeDomainOrthogonalFractures
     else:
         raise ValueError(f"Unknown dimension {dim}")
 
