@@ -164,8 +164,7 @@ class TriangleGrid(Grid):
 
 
 class StructuredTriangleGrid(TriangleGrid):
-    """Class for a structured triangular grids, composed of squares divided
-    into two.
+    """Structured triangular grids: Grid composed of squares divided into two or four.
 
     Example:
         Grid on the unit cube.
@@ -184,6 +183,13 @@ class StructuredTriangleGrid(TriangleGrid):
         name: ``default=None``
 
             Name of the grid. If None, ``'StructuredTriangleGrid'`` will be assigned.
+        split_type: ``default='two'``
+
+            Triangle split per Cartesian cell. Options are:
+
+            - ``'two'``: split each square into two triangles.
+            - ``'four'``: split each square into four triangles by adding one center
+              node per square.
 
     """
 
@@ -192,6 +198,7 @@ class StructuredTriangleGrid(TriangleGrid):
         nx: np.ndarray,
         physdims: Optional[np.ndarray] = None,
         name: Optional[str] = None,
+        split_type: str = "two",
     ) -> None:
         nx = np.asarray(nx)
         assert nx.size == 2
@@ -199,11 +206,16 @@ class StructuredTriangleGrid(TriangleGrid):
         if name is None:
             name = "StructuredTriangleGrid"
 
+        if split_type not in ("two", "four"):
+            raise ValueError("split_type must be 'two' or 'four'.")
+
         if physdims is None:
             physdims = nx
         else:
             physdims = np.asarray(physdims)
             assert physdims.size == 2
+
+        nx = nx.astype(int)
 
         x = np.linspace(0, physdims[0], nx[0] + 1)
         y = np.linspace(0, physdims[1], nx[1] + 1)
@@ -219,21 +231,97 @@ class StructuredTriangleGrid(TriangleGrid):
         ind_3 = nx[0] + 2 + tmp_ind  # Upper right node
         ind_4 = nx[0] + 1 + tmp_ind  # Upper left node
 
-        # The first triangle is defined by (i1, i2, i3), the next by (i1, i3, i4). Stack
-        # these vertically, and reshape so that the first quad is split into cells 0 and
-        # 1 and so on
-        tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3, ind_4)).reshape(
-            (3, -1), order="F"
-        )
-        # Initialize array of triangles. For the moment, we will append the cells here,
-        # but we do know how many cells there are in advance, so pre-allocation is
-        # possible if this turns out to be a bottleneck
-        tri = tri_base
+        if split_type == "two":
+            # The first triangle is defined by (i1, i2, i3), the next by (i1, i3, i4).
+            # Stack these vertically, and reshape so that the first quad is split into
+            # cells 0 and 1 and so on.
+            tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3, ind_4)).reshape(
+                (3, -1), order="F"
+            )
 
-        # Loop over all remaining rows in the y-direction.
-        for iter1 in range(nx[1].astype(int) - 1):
-            # The node numbers are increased by nx[0] + 1 for each row
-            tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
+            # Initialize array of triangles and append rows in y-direction.
+            tri = tri_base
+            for iter1 in range(nx[1] - 1):
+                # Corner-node numbers are increased by nx[0] + 1 for each row.
+                tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
+        else:
+            # Add one center node per Cartesian cell.
+            center_start = p.shape[1]
+            center_ind_base = center_start + tmp_ind
+
+            # Centers for first row of Cartesian cells. Center coordinates are the
+            # average of the four corner nodes (therefore 0.25).
+            center_base = 0.25 * (
+                p[:, ind_1] + p[:, ind_2] + p[:, ind_3] + p[:, ind_4]
+            )
+            center = center_base
+
+            # Build connectivity for first row:
+            # (LL, LR, C), (LR, UR, C), (UR, UL, C), (UL, LL, C). This will give out an
+            # array with 3 rows and 4 x nx[0] columns. The first four columns will
+            # represent the indices of the nodes that stem from the first Cartesian
+            # cell. The next four columns will represent the second Cartesian cell, and
+            # so on.
+            tri_base = np.vstack(
+                (
+                    ind_1,
+                    ind_2,
+                    center_ind_base,
+                    ind_2,
+                    ind_3,
+                    center_ind_base,
+                    ind_3,
+                    ind_4,
+                    center_ind_base,
+                    ind_4,
+                    ind_1,
+                    center_ind_base,
+                )
+            ).reshape((3, -1), order="F")
+
+            tri = tri_base
+
+            # Append centers and connectivity for all remaining rows in y-direction.
+            for iter1 in range(nx[1] - 1):
+                node_shift = (iter1 + 1) * (nx[0] + 1)
+                center_shift = (iter1 + 1) * nx[0]
+
+                row_ind_1 = ind_1 + node_shift
+                row_ind_2 = ind_2 + node_shift
+                row_ind_3 = ind_3 + node_shift
+                row_ind_4 = ind_4 + node_shift
+                row_center_ind = center_ind_base + center_shift
+
+                # Center coordinates are the average of the four corner nodes (therefore
+                # 0.25).
+                row_center = 0.25 * (
+                    p[:, row_ind_1]
+                    + p[:, row_ind_2]
+                    + p[:, row_ind_3]
+                    + p[:, row_ind_4]
+                )
+                center = np.hstack((center, row_center))
+
+                row_tri = np.vstack(
+                    (
+                        row_ind_1,
+                        row_ind_2,
+                        row_center_ind,
+                        row_ind_2,
+                        row_ind_3,
+                        row_center_ind,
+                        row_ind_3,
+                        row_ind_4,
+                        row_center_ind,
+                        row_ind_4,
+                        row_ind_1,
+                        row_center_ind,
+                    )
+                ).reshape((3, -1), order="F")
+                tri = np.hstack((tri, row_tri))
+
+            # Append all generated center nodes once.
+            p = np.hstack((p, center))
 
         super().__init__(p, tri, name=name)
 
