@@ -994,6 +994,9 @@ def _csx_matrix_from_sparse_blocks(
     # Calculate the size of the block matrix.
     num_rows = sum([m.shape[0] for m in blocks])
     num_cols = sum([m.shape[1] for m in blocks])
+    tot_size = sum([m.data.size for m in blocks])
+
+    _safe_data_types_of_index_arrays(blocks, max(num_rows, num_cols), tot_size)
 
     # CSC and CSR matrices are constructed and operated on in a very similar way; the
     # difference is in which dimension the indices represent. We need this to get the
@@ -1016,6 +1019,47 @@ def _csx_matrix_from_sparse_blocks(
         shape=(num_rows, num_cols),
     )
     return block_mat
+
+
+def _safe_data_types_of_index_arrays(
+    blocks: list[sps.spmatrix], max_size: int, tot_size: int
+) -> None:
+    """Helper function to ensure the data types of a set of matrices.
+
+    This is needed to guard against cases where the indices of individual matrices
+    can be represented in reduced precision (int16 or int32), but where the stacked
+    matrix require higher precision.
+
+    Parameters:
+        blocks: List of matrices to be converted. The matrices are modified in place.
+        max_int: Maximum of the number of rows and columns.
+        tot_size: Total number of non-zero elements in the stacked matrix.
+
+    """
+    # Use a small buffer to avoid overflow issues when close to the maximum size.
+    buffer = 10
+
+    # For mypy.
+    dtype_indices: type[np.integer]
+    dtype_indptr: type[np.integer]
+
+    if max_size < np.iinfo(np.int16).max - buffer:
+        dtype_indices = np.int16
+    elif max_size < np.iinfo(np.int32).max - buffer:
+        dtype_indices = np.int32
+    else:
+        dtype_indices = np.int64
+
+    if tot_size < np.iinfo(np.int16).max - buffer:
+        dtype_indptr = np.int16
+    elif tot_size < np.iinfo(np.int32).max - buffer:
+        dtype_indptr = np.int32
+    else:
+        dtype_indptr = np.int64
+
+    for mat in blocks:
+        mat.indices = mat.indices.astype(dtype_indices)
+        mat.indptr = mat.indptr.astype(dtype_indptr)
 
 
 def csr_matrix_from_dense_blocks(
