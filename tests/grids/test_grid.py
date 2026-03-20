@@ -774,17 +774,17 @@ def triangle_grid_four_split():
 
 def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
     """Test the geometry of a structured triangle grid with the 'four' split type.
-    
+
     Tests the following connectivities:
-        * Given a node, check that the faces touching that node have the expected face  
+        * Given a node, check that the faces touching that node have the expected face
         centers.
         * Given a face center, check that the neighboring cells are the expected ones.
-    
+
     These tests use the known geometry of the structured grid, specifically face-center
     and cell-center coordinates. This is more robust than relying on implicit
     assumptions about cell, face, or node ordering.
 
-    """    
+    """
     # Gathering the relevant geometry and connectivity information from the grid.
     face_nodes = triangle_grid_four_split.face_nodes
     cell_faces = triangle_grid_four_split.cell_faces
@@ -795,7 +795,7 @@ def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
     # Get x and y coordinates of the nodes.
     x_coords = node_coords[0]
     y_coords = node_coords[1]
-    
+
     # Get x and y coordinates of the cell centers.
     x_center = cell_centers[0]
     y_center = cell_centers[1]
@@ -804,17 +804,17 @@ def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
         node_idx: int, expected_centers: np.ndarray
     ) -> None:
         """Checks the faces neighboring a given node.
-        
+
         This method uses the face-node connectivity to find the faces neighboring a
         given node, and then checks that the face centers of these faces match the
-        expected face centers. the expected face centers are determined based on the
+        expected face centers. The expected face centers are determined based on the
         known geometry of the structured grid.
 
         Parameters:
             node_idx: The index of the node for which the neighboring faces should be
                 checked.
-            expected_centers: The expected coordinates of the face centers for the      
-                faces neighboring the node.
+            expected_centers: The expected coordinates of the face centers for the faces
+                neighboring the node.
 
         """
         face_indices = face_nodes.getrow(node_idx).indices
@@ -830,7 +830,7 @@ def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
         fixed_value: float,
     ) -> None:
         """Checks the cells neighboring a given face.
-        
+
         This method uses the cell-face connectivity to find the cells neighboring a
         given face, and then checks that the cell centers of these cells match the
         expected cell centers. The expected cell centers are determined based on the
@@ -841,7 +841,7 @@ def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
                 cells should be checked.
             fixed_axis: The axis along which the face is located (either 'x' or 'y').
             fixed_value: The value of the coordinate along the fixed axis for the face.
-        
+
         """
         idx = np.where(
             np.isclose(face_centers[0], face_center[0])
