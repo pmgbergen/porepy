@@ -251,9 +251,7 @@ class StructuredTriangleGrid(TriangleGrid):
 
             # Centers for first row of Cartesian cells. Center coordinates are the
             # average of the four corner nodes (therefore 0.25).
-            center_base = 0.25 * (
-                p[:, ind_1] + p[:, ind_2] + p[:, ind_3] + p[:, ind_4]
-            )
+            center_base = 0.25 * (p[:, ind_1] + p[:, ind_2] + p[:, ind_3] + p[:, ind_4])
             center = center_base
 
             # Build connectivity for first row:
