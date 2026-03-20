@@ -126,7 +126,7 @@ def compute_circumcenters(
     threshold: float = 0.95,
     tol: float = 1e-14,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.bool_]]:
-    """Compute circumcenters for simplex grids in 2 and 3 dimensions.
+    """Compute circumcenters for simplicial grids in 2 and 3 dimensions.
 
     If the circumcenter lies outside of the cell, or too close to the boundary, a
     partial movement from barycenter towards circumcenter is applied.
@@ -141,7 +141,7 @@ def compute_circumcenters(
     ``threshold`` times the exit distance.
 
     For simplices with obtuse angles, the circumcenter lies outside the simplex.
-    The shift is capped analogously.
+    The shift is capped analogously. They are logged as bad cells.
 
     Paremters:
         sd: A simplex grid.
@@ -190,9 +190,9 @@ def compute_circumcenters(
     n_idx = c2n.indices.reshape((dim1p, numc), order="F")
     x, y, z = sd.nodes[0], sd.nodes[1], sd.nodes[2]
 
-    # Let A be the matrix of edges point away from n_0 columnwise. It has shape (3, dim)
-    # per cell. The barycentric coordinates with respect to n_0 are given by a vector
-    # b of shape (dim,), and it holds that the circumcenter c = n_0 + Ab.
+    # Let A be the matrix of edges (columnwise) pointing away from node n_0. It has
+    # shape (3, dim) per cell. The barycentric coordinates with respect to n_0 are given
+    # by a vector b of shape (dim,), and it holds that the circumcenter c = n_0 + Ab.
     # For the circumcenter it holds that ||c - n_i||^2 = ||c - n_0||^2, i = 1..dim, i.e.
     # it is equidistant to all nodes. Plugging in the barycentric representation we get
     # ||Ab + n_0 - n_i||^2 = ||Ab||^2, i = 1 ..dim, a dim x dim system of nonlinear
@@ -211,7 +211,8 @@ def compute_circumcenters(
     # degenerate.
 
     # For batched computations, we stack the matrices A and the rhs v/2 along a new
-    # axis, and let numpy solve it (hopefully) efficiently.
+    # axis, and let numpy solve it efficiently. The vectorized computations are
+    # triggered for the first axis, hence we move the per-cell axis to 0.
 
     # nodes (dim + 1, 3, nc)
     n = np.array([(x[n_idx[i]], y[n_idx[i]], z[n_idx[i]]) for i in range(dim1p)])
@@ -245,7 +246,7 @@ def compute_circumcenters(
 
     # Solve system and obtain barycentric coordinates.
     # Move batch axis (cells) again to the back
-    b_r: NDArray[np.float64] = np.linalg.solve(M_batch, v_batch[..., None])[..., 0].T
+    b_r = np.linalg.solve(M_batch, v_batch[..., None])[..., 0].T
     assert b_r.shape == (dim, numc)
 
     # The circumcenter is given by c = n_0 + Ab.
@@ -364,4 +365,4 @@ def compute_circumcenters(
     assert shift.shape == (numc,), "Inconsistent shape for shift values."
     assert changed.shape == (numc,), "Inconsistent shape for change indicators."
 
-    return nccs, shift, changed  #
+    return nccs, shift, changed
