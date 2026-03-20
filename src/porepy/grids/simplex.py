@@ -254,8 +254,8 @@ class StructuredTriangleGrid(TriangleGrid):
             center_base = 0.25 * (p[:, ind_1] + p[:, ind_2] + p[:, ind_3] + p[:, ind_4])
             center = center_base
 
-            # Build connectivity for first row:
-            # (LL, LR, C), (LR, UR, C), (UR, UL, C), (UL, LL, C). This will give out an
+            # Build connectivity for first row (Lower/Upper Left/Right, Center):
+            # (LL, LR, C), (LR, UR, C), (UR, UL, C), (UL, LL, C). This will give an
             # array with 3 rows and 4 x nx[0] columns. The first four columns will
             # represent the indices of the nodes that stem from the first Cartesian
             # cell. The next four columns will represent the second Cartesian cell, and

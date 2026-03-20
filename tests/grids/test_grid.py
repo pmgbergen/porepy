@@ -796,23 +796,19 @@ def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
     x_coords = node_coords[0]
     y_coords = node_coords[1]
 
-    # Get x and y coordinates of the cell centers.
-    x_center = cell_centers[0]
-    y_center = cell_centers[1]
-
     def _assert_neighboring_faces(node_idx: int, expected_centers: np.ndarray) -> None:
         """Checks the faces neighboring a given node.
 
         This method uses the face-node connectivity to find the faces neighboring a
         given node, and then checks that the face centers of these faces match the
-        expected face centers. the expected face centers are determined based on the
+        expected face centers. The expected face centers are determined based on the
         known geometry of the structured grid.
 
         Parameters:
             node_idx: The index of the node for which the neighboring faces should be
                 checked.
-            expected_centers: The expected coordinates of the face centers for the
-                faces neighboring the node.
+            expected_centers: The expected coordinates of the face centers for the faces
+                neighboring the node.
 
         """
         face_indices = face_nodes.getrow(node_idx).indices
