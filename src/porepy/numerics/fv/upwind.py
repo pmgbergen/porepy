@@ -485,7 +485,7 @@ class UpwindCoupling(InterfaceDiscretization):
         # First check if the grid dimensions are compatible with the implementation. It
         # is not difficult to cover the case of equal dimensions, it will require trace
         # operators for both grids, but it has not yet been done.
-        if sd_primary.dim - sd_secondary.dim not in [1, 2]:
+        if sd_primary.dim - sd_secondary.dim not in [1, 2, 3]:
             raise ValueError(
                 "Implementation is only valid for grids one dimension apart."
             )

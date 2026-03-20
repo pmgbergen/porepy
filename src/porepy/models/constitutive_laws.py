@@ -921,6 +921,8 @@ class LayerSpecificPermeability(ConstantPermeability):
                 k_all.append(k)
             elif sd.dim==self.nd-1:
                 k_all.append(np.ones(sd.num_cells)*1e-13)
+            else:
+                k_all.append(np.ones(sd.num_cells))
 
         k_all = np.concatenate(k_all)
 
@@ -5095,6 +5097,8 @@ class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
                 k_all.append(k)
             elif sd.dim==self.nd-1:
                 k_all.append(np.ones(sd.num_cells)*0.25)
+            else:
+                k_all.append(np.ones(sd.num_cells))
 
         k_all = np.concatenate(k_all)
 
