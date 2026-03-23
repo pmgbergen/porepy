@@ -849,27 +849,21 @@ def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
 
         neighboring_cells = cell_faces.getrow(idx.item()).indices
         actual_ccs = cell_centers[:, neighboring_cells][:2]
-        if direction_to_cc == "x":
-            expected_cc_left = np.array([face_center[0] - 1 / 6, face_center[1]])
-            expected_cc_right = np.array([face_center[0] + 1 / 6, face_center[1]])
 
-            # Order actual columns left->right by x-coordinate
-            order = np.argsort(actual_ccs[0, :])
-            actual_ccs = actual_ccs[:, order]
+        # Determine which coordinate (x or y) to adjust based on direction_to_cc, and
+        # construct the corresponding offset vector.
+        coord_idx = 0 if direction_to_cc == "x" else 1
+        offset_vector = np.array([1 / 6, 0] if direction_to_cc == "x" else [0, 1 / 6])
 
-            expected_ccs = np.column_stack((expected_cc_left, expected_cc_right))
-            assert np.allclose(actual_ccs, expected_ccs)
+        expected_cc_before = face_center - offset_vector
+        expected_cc_after = face_center + offset_vector
 
-        elif direction_to_cc == "y":
-            expected_cc_bottom = np.array([face_center[0], face_center[1] - 1 / 6])
-            expected_cc_top = np.array([face_center[0], face_center[1] + 1 / 6])
+        # Order actual columns by the relevant coordinate
+        order = np.argsort(actual_ccs[coord_idx, :])
+        actual_ccs = actual_ccs[:, order]
 
-            # Order actual columns bottom->top by y-coordinate
-            order = np.argsort(actual_ccs[1, :])
-            actual_ccs = actual_ccs[:, order]
-
-            expected_ccs = np.column_stack((expected_cc_bottom, expected_cc_top))
-            assert np.allclose(actual_ccs, expected_ccs)
+        expected_ccs = np.column_stack((expected_cc_before, expected_cc_after))
+        assert np.allclose(actual_ccs, expected_ccs)
 
     # Check the faces neighboring two nodes: one in the top of the domain and one in the
     # middle of the domain.
