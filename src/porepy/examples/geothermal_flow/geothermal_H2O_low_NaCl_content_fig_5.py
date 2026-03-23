@@ -112,10 +112,12 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
-    "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-5,
+    "nl_convergence_res_atol": 1.0e-5,
+    "nl_convergence_res_rtol": 1.0e-5,
     "flag_failure_as_diverged": False,
-    "max_iterations": 100,
+    # Maximum number of nonlinear iterations (was incorrectly set as
+    # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
+    "nl_max_iterations": 100,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
@@ -171,30 +173,43 @@ class GeothermalWaterFlowModel(
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 2
+parametric_space_ref_level = 0
 folder_prefix = "src/porepy/examples/geothermal_flow/"
 file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )
+# file_name_phz = (
+#     file_name_prefix
+#     + "XHP_l"
+#     + str(parametric_space_ref_level)
+#     + "_modified_low_salt_content.vtk"
+# )
+# file_name_ptz = (
+#     file_name_prefix
+#     + "XTP_l"
+#     + str(parametric_space_ref_level)
+#     + "_modified_low_salt_content.vtk"
+# )
+
 file_name_phz = (
     file_name_prefix
-    + "XHP_l"
+    + "opensowat_xph_l_"
     + str(parametric_space_ref_level)
-    + "_modified_low_salt_content.vtk"
+    + "_grads.vtk"
 )
 file_name_ptz = (
     file_name_prefix
-    + "XTP_l"
+    + "opensowat_xpt_l_"
     + str(parametric_space_ref_level)
-    + "_modified_low_salt_content.vtk"
+    + "_grads.vtk"
 )
 
 brine_sampler_phz = VTKSampler(file_name_phz)
-brine_sampler_phz.conversion_factors = (1.0, 1.0e3, 10.0)  # (z,h,p)
+brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
 model.vtk_sampler = brine_sampler_phz
 
 brine_sampler_ptz = VTKSampler(file_name_ptz)
-brine_sampler_ptz.conversion_factors = (1.0, 1.0, 10.0)  # (z,t,p)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0)  # (z,t,p)
 brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
 model.vtk_sampler_ptz = brine_sampler_ptz
 

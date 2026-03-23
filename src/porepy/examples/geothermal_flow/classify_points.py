@@ -1,47 +1,56 @@
+# python
 import numpy as np
+
+# Global tolerance for all isclose calls in this module.
+_IS_CLOSE_TOL = 1e-3
+
+
+def _is_close(a, b):
+    """Wrapper around np.isclose using the module-level tolerance."""
+    return np.isclose(a, b, atol=_IS_CLOSE_TOL, rtol=0)
 
 
 def __below_x_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    x_pre = np.logical_or(x < xmin, np.isclose(x, xmin))
+    x_pre = np.logical_or(x < xmin, _is_close(x, xmin))
     return x_pre
 
 
 def __above_x_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    x_pre = np.logical_or(x > xmax, np.isclose(x, xmax))
+    x_pre = np.logical_or(x > xmax, _is_close(x, xmax))
     return x_pre
 
 
 def __below_y_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    y_pre = np.logical_or(y < ymin, np.isclose(y, ymin))
+    y_pre = np.logical_or(y < ymin, _is_close(y, ymin))
     return y_pre
 
 
 def __above_y_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    y_pre = np.logical_or(y > ymax, np.isclose(y, ymax))
+    y_pre = np.logical_or(y > ymax, _is_close(y, ymax))
     return y_pre
 
 
 def __below_z_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    z_pre = np.logical_or(z < zmin, np.isclose(z, zmin))
+    z_pre = np.logical_or(z < zmin, _is_close(z, zmin))
     return z_pre
 
 
 def __above_z_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
-    z_pre = np.logical_or(z > zmax, np.isclose(z, zmax))
+    z_pre = np.logical_or(z > zmax, _is_close(z, zmax))
     return z_pre
 
 
 def x_range_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
     x_range_pre = np.logical_and(
-        np.logical_or(x > xmin, np.isclose(x, xmin)),
-        np.logical_or(x < xmax, np.isclose(x, xmax)),
+        np.logical_or(x > xmin, _is_close(x, xmin)),
+        np.logical_or(x < xmax, _is_close(x, xmax)),
     )
     return x_range_pre
 
@@ -49,8 +58,8 @@ def x_range_predicate(x, y, z, bounds):
 def y_range_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
     y_range_pre = np.logical_and(
-        np.logical_or(y > ymin, np.isclose(y, ymin)),
-        np.logical_or(y < ymax, np.isclose(y, ymax)),
+        np.logical_or(y > ymin, _is_close(y, ymin)),
+        np.logical_or(y < ymax, _is_close(y, ymax)),
     )
     return y_range_pre
 
@@ -58,8 +67,8 @@ def y_range_predicate(x, y, z, bounds):
 def z_range_predicate(x, y, z, bounds):
     xmin, xmax, ymin, ymax, zmin, zmax = bounds
     z_range_pre = np.logical_and(
-        np.logical_or(z > zmin, np.isclose(z, zmin)),
-        np.logical_or(z < zmax, np.isclose(z, zmax)),
+        np.logical_or(z > zmin, _is_close(z, zmin)),
+        np.logical_or(z < zmax, _is_close(z, zmax)),
     )
     return z_range_pre
 

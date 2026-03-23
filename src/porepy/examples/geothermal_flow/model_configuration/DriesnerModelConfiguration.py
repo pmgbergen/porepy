@@ -5,10 +5,13 @@ import time
 import porepy as pp
 import porepy.compositional as ppc
 
-# from porepy.models.compositional_flow import CompositionalFlowTemplate as FlowTemplate
-# from porepy.models.compositional_flow import (
-#     CompositionalFractionalFlowTemplate as FlowModelBase,
-# )
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceCriteria,
+    ConvergenceInfoCollection,
+    ConvergenceStatusCollection,
+    DivergenceCriteria,
+    SimulationStatus,
+)
 from porepy.examples.geothermal_flow.flow_model_base import FlowModelBase
 
 from ..vtk_sampler import VTKSampler
@@ -64,7 +67,7 @@ class BoundaryConditions(pp.PorePyModel):
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h
 
     def bc_values_overall_fraction(
@@ -106,7 +109,7 @@ class InitialConditions(pp.PorePyModel):
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h_init
 
     def ic_values_overall_fraction(
@@ -224,6 +227,58 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             self.rediscretize()
 
         return current_nonlinear_residual
+
+    def check_convergence(
+        self,
+        model: pp.PorePyModel,
+        nonlinear_increment: np.ndarray,
+    ) -> tuple[
+        ConvergenceStatusCollection,
+        ConvergenceStatusCollection,
+        ConvergenceInfoCollection,
+    ]:
+        """Check convergence and divergence based on passed criteria.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved, knowing
+                of its metrics for measuring states and residuals.
+            nonlinear_increment: Newly obtained solution increment vector.
+
+        Returns:
+            tuple[ConvergenceStatusCollection, ConvergenceStatusCollection,
+            ConvergenceInfoCollection]: Status and
+                info about convergence and divergence.
+
+        """
+        # Fetch the residual and current iterate.
+        # Update derived quantities
+        model.update_derived_quantities()
+        # Update buoyancy-driven fluxes
+        model.update_buoyancy_driven_fluxes()
+        # Rediscretize
+        model.rediscretize()
+
+        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        iterate = model.equation_system.get_variable_values(iterate_index=0)
+
+        # Check convergence status based on current iteration.
+        convergence_status, convergence_info = self.convergence_criteria.check(
+            increment=nonlinear_increment,
+            reference_increment=iterate,
+            residual=residual,
+            reference_residual=residual,
+        )
+
+        # Check divergence status based on current iteration.
+        divergence_status = self.divergence_criteria.check(
+            increment=nonlinear_increment,
+            reference_increment=iterate,
+            residual=residual,
+            reference_residual=residual,
+            num_iterations=self.iteration_index,
+        )
+
+        return convergence_status, divergence_status, convergence_info
 
     def get_equation_indices_by_category(self):
         """
@@ -867,7 +922,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             # correct enthalpy from temperature
             par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
             self.vtk_sampler_ptz.sample_at(par_points)
-            star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+            star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
             delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
             star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
             delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]

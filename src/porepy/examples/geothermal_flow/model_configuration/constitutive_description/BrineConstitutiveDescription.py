@@ -57,10 +57,10 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_l"] * 1.0e-6
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0] * 1.0e-6
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1] * 1.0e-6
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 2] * 1.0e-6
+        h = self.vtk_sampler.sampled_could.point_data["H_l"] * 1.0e-3
+        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0] * 1.0e-3
+        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1] * 1.0e-3
+        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 2] * 1.0e-3
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
@@ -144,10 +144,10 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_v"] * 1.0e-6
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0] * 1.0e-6
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1] * 1.0e-6
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 2] * 1.0e-6
+        h = self.vtk_sampler.sampled_could.point_data["H_v"] * 1.0e-3
+        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0] * 1.0e-3
+        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1] * 1.0e-3
+        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 2] * 1.0e-3
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
