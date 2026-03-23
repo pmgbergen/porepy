@@ -256,6 +256,7 @@ from porepy import applications
 # Metrics for assessing convergence
 from porepy.models.metric import (
     EuclideanMetric,
+    LebesgueMetric,
     VariableBasedEuclideanMetric,
     EquationBasedEuclideanMetric,
     VariableBasedLebesgueMetric,
