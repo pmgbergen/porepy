@@ -859,7 +859,7 @@ def get_compressibility_factor(
             )
 
     # Since ordered by size, gaslike is largest root and liquidlike is smallest.
-    if gaslike:
+    if gaslike or (is_supercritical(A, B) and extension_case == 0):
         return roots[-1]
     else:
         return roots[0]
@@ -952,7 +952,7 @@ def get_compressibility_factor_derivatives(
         if B_limit_reached or d <= 5e-3:
             droots[0] = np.array([0.0, 1.1 if B_original > 0.0 else 0.0])
 
-    if gaslike:
+    if gaslike or (is_supercritical(A, B) and extension_case == 0):
         dZ = droots[-1]
     else:
         dZ = droots[0]
