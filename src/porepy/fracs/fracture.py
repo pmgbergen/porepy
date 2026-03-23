@@ -15,17 +15,54 @@ class Fracture(abc.ABC):
     """Abstract base class for representing a single fracture.
 
     This base class provides general functionalities agnostic to the dimension of the
-    fracture and the ambient dimension. It contains various utility methods,
-    mainly intended for the use together with the FractureNetwork class.
+    fracture and the ambient dimension. It contains various utility methods, mainly
+    intended for the use together with the FractureNetwork class.
 
-    A fracture is defined by its ``num_points`` vertices, stored in an ``nd x
-    num_points`` numpy-array, where ``nd`` is the ambient dimension. The
-    order/sorting of vertices has to be implemented explicitly.
+    """
 
-    Dimension-dependent routines are implemented as abstract methods.
+    def set_index(self, index: int) -> None:
+        """Set the index of this fracture.
 
-    PorePy currently only provides full support for planar, convex fractures. As a
-    work-around, the fracture can be split into convex parts.
+        Parameters:
+            index: Index.
+
+        """
+        self.index: Optional[int] = index
+
+    def __eq__(self, other: object) -> bool:
+        """Equality is defined as two fractures having the same index.
+
+        Parameters:
+            other: Fracture to be compared to self.
+
+        Returns:
+            True if the fractures have the same index, False otherwise.
+
+        Note:
+            There are issues with this, behavior may change in the future.
+
+        """
+        if not isinstance(other, Fracture):
+            return NotImplemented
+        return self.index == other.index
+
+    @abc.abstractmethod
+    def copy(self) -> Fracture:
+        """Return a copy of the fracture.
+
+        Returns:
+            A copy of the fracture.
+
+        """
+        pass
+
+
+class PointBasedFracture(Fracture, abc.ABC):
+    """Abstract base class for fractures defined by points only.
+
+    This class extends :class:`Fracture` and provides additional functionality for
+    fractures defined solely by their vertices. In particular, it includes methods for
+    modifying the geometry of the fracture by manipulating its vertices.
 
     Parameters:
         points: ``shape=(nd, num_points)``
@@ -123,31 +160,15 @@ class Fracture(abc.ABC):
         s += "Normal: \n" + str(self.normal)
         return s
 
-    def __eq__(self, other: object) -> bool:
-        """Equality is defined as two fractures having the same index.
+    def copy(self) -> Fracture:
+        """Return a copy of the fracture with the current vertices.
 
-        Parameters:
-            other: Fracture to be compared to self.
 
         Returns:
-            True if the fractures have the same index, False otherwise.
-
-        Note:
-            There are issues with this, behavior may change in the future.
+            Fracture with the same points.
 
         """
-        if not isinstance(other, Fracture):
-            return NotImplemented
-        return self.index == other.index
-
-    def set_index(self, index: int) -> None:
-        """Set the index of this fracture.
-
-        Parameters:
-            index: Index.
-
-        """
-        self.index = index
+        return type(self)(self.pts.copy(), index=self.index)
 
     def points(self) -> Generator[np.ndarray, None, None]:
         """Generator over the vertices of the fracture.
@@ -205,19 +226,6 @@ class Fracture(abc.ABC):
             occurrences = np.where(ind == ind[0])[0]
             return True, (occurrences[1] - 1)
 
-    def copy(self) -> Fracture:
-        """Return a copy of the fracture with the current vertices.
-
-        Note:
-            The original ``points`` (as given when the fracture was initialized) will
-            *not* be preserved.
-
-        Returns:
-            Fracture with the same points.
-
-        """
-        return type(self)(self.pts.copy(), index=self.index)
-
     # Below are the dimension-dependent abstract methods
     @abc.abstractmethod
     def sort_points(self) -> np.ndarray:
@@ -225,21 +233,6 @@ class Fracture(abc.ABC):
 
         Returns:
             Array of integer indices corresponding to the sorting.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def local_coordinates(self) -> np.ndarray:
-        """Abstract method for computing the local coordinates.
-
-        The computation is performed on the vertex coordinates in a local system and
-        its local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e.,
-        the fracture has co-dimension 1.
-
-        Returns:
-            Coordinates of the vertices in local dimensions with
-            ``shape=(d, num_points)``.
 
         """
         pass
@@ -265,6 +258,21 @@ class Fracture(abc.ABC):
         Raises:
             ValueError:
                 If :attr:`pts` violates some assumptions (e.g. shape).
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def local_coordinates(self) -> np.ndarray:
+        """Abstract method for computing the local coordinates.
+
+        The computation is performed on the vertex coordinates in a local system and its
+        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e., the
+        fracture has co-dimension 1.
+
+        Returns:
+            Coordinates of the vertices in local dimensions with
+            ``shape=(d, num_points)``.
 
         """
         pass

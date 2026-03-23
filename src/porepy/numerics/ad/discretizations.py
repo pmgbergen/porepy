@@ -24,10 +24,12 @@ Example:
 from __future__ import annotations
 
 import abc
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import porepy as pp
-from porepy.utils.porepy_types import discretization_type
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import discretization_type
 
 __all__ = [
     "Discretization",

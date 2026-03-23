@@ -265,11 +265,11 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_matrix_pressure": 1.900941278698522,
         },
         {  # simplex
-            "ooc_frac_flux": 1.300742223520386,
-            "ooc_frac_pressure": 1.9739463002335342,
-            "ooc_intf_flux": 2.0761838366094403,
-            "ooc_matrix_flux": 1.7348556672914186,
-            "ooc_matrix_pressure": 1.904889457326223,
+            "ooc_frac_flux": 1.051547021172006,
+            "ooc_frac_pressure": 1.989265288198256,
+            "ooc_intf_flux": 2.0870860514276526,
+            "ooc_matrix_flux": 1.6084063492723142,
+            "ooc_matrix_pressure": 1.9567841833494022,
         },
     ]
 

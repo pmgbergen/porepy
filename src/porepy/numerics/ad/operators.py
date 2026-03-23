@@ -10,6 +10,7 @@ from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Literal,
@@ -27,9 +28,11 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from .forward_mode import AdArray
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 __all__ = [
     "Operator",

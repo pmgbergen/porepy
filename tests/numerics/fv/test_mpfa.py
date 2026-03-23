@@ -812,7 +812,13 @@ class TestMpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
         return discr_instance
 
     def test_linear_flow_simplex_grid(self):
-        mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+        mesh_size = {
+            "mesh_size_fracture": 0.3,
+            "mesh_size_boundary": 0.3,
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
+        }
         network = pp.create_fracture_network(
             None, pp.domains.unit_cube_domain(dimension=2)
         )

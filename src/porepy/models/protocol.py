@@ -39,7 +39,7 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in ModelGeometry."""
 
-        fracture_network: pp.fracture_network
+        fracture_network: pp.FractureNetworkType
         """Representation of fracture network including intersections."""
 
         well_network: pp.WellNetwork3d
@@ -64,7 +64,9 @@ else:
             """Domain of the problem."""
 
         @property
-        def fractures(self) -> list[pp.LineFracture] | list[pp.PlaneFracture]:
+        def fractures(
+            self,
+        ) -> list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]:
             """Fractures of the problem."""
 
         def set_geometry(self) -> None:

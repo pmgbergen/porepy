@@ -742,7 +742,7 @@ def polygons_3d(
                         if in_or_on == 1:
                             assert isinstance(vert_ind_on_main, tuple)
                             assert len(vert_ind_on_main) == 2
-                            # EK: mypy complains about a tuple index out of range below
+                            # mypy complains about a tuple index out of range below
                             # despite the check that the length is 2. Ignore it.
                             if vert_ind_on_main[1] is None:  # type: ignore
                                 # This is a segment, but not a vertex intersection
@@ -2034,9 +2034,8 @@ def surface_tessellations(
         # Data structure for the triangulation
         tri: list[np.ndarray] = []
 
-        # Loop over all isect_polys, split those with more than three vertices
-        # EK: Somehow, mypy does not understand poly will be an np.ndarray, thus all
-        # ignores
+        # Loop over all isect_polys, split those with more than three vertices. Somehow,
+        # mypy does not understand poly will be an np.ndarray, thus all ignores.
         for pi, poly in enumerate(isect_polys):  # type: ignore
             if poly.shape[1] == 3:  # type: ignore
                 # Triangles can be used as they are
