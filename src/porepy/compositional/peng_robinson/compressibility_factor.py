@@ -101,20 +101,6 @@ See also:
 """
 
 
-ABMETRIC: np.ndarray = np.diag((B_CRIT / A_CRIT, 1.0))
-"""Metric for computing distances in the AB space :meth:`\\langle x, Ay\\rangle`.
-
-This is required to properly determin distance in the AB space, since covolume and
-cohesion are of different orders.
-
-Intended use is for arrays of shape ``(2,)``, where the first entry is a cohesion value
-and the second a covolume value.
-Scales the cohesion dimension down to operate on distances relevant for the covolume
-dimension.
-
-"""
-
-
 COVOLUME_LIMIT: float = 1e-7
 """"Below this value, the covolume is considered zero.
 
@@ -126,6 +112,50 @@ Note:
     well.
 
 """
+
+
+@_COMPILER(
+    nb.f8(nb.f8[:], nb.f8[:]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def cometric(v1: np.ndarray, v2: np.ndarray) -> float:
+    """Metric in AB space considering the discrepancies in size between cohesion and
+    covolume.
+
+    The dot product is equivalent to ``numpy.dot(v1, M@v2)``, with ``M`` being a
+    diagonal matrix scaling the first entry using :data:`CRITICAL_SLOPE`. I.e, it
+    introduces a distance in cohesion-dimension scaling the same as the covolume
+    dimension.
+
+    Parameters:
+        v1: Vector of shape ``(2,)`` containing cohesion and covolume values.
+        v2: Vector of same shape.
+
+    Returns:
+        The scalar product using the co-metric.
+
+    """
+    return v1[0] * v2[0] * CRITICAL_SLOPE + v1[1] * v2[1]
+
+
+@_COMPILER(
+    nb.f8(nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def conorm(A: float, B: float) -> float:
+    """Norm induced by co-metric :func:`cometric`.
+
+    Parameters:
+        A: Dimensionless cohesion.
+        B: Dimensionless covolume.
+
+    Returns:
+        Norm of the vector ``(A, B)`` using the metric.
+
+    """
+    return np.sqrt(A**2 * CRITICAL_SLOPE + B**2)
 
 
 @_COMPILER(
@@ -272,23 +302,6 @@ def project_point_to_line(p: np.ndarray, line: np.ndarray, A: np.ndarray) -> np.
     return Q
 
 
-SUPERCRITICAL_LINE: np.ndarray = np.array(
-    [
-        [0.0, 0.0],
-        [A_CRIT, B_CRIT],
-    ],
-    dtype=np.float64,
-)
-r"""2D array containing points per row spanning the super-critical line
-
-.. math::
-
-    (0,0),~(A_{crit},B_{crit})
-
-See :data:`B_CRIT`, data:`A_CRIT`.
-
-"""
-
 WIDOM_LINE: np.ndarray = np.array(
     [
         [0.0, widom_line(0.0)],
@@ -302,13 +315,15 @@ The points are created by using :func:`widom_line` for :math:`A\in\{0, A_{crit}\
 
 """
 
-WL: np.ndarray = WIDOM_LINE[1] - WIDOM_LINE[0]
+WIDOM_VEC: np.ndarray = WIDOM_LINE[1] - WIDOM_LINE[0]
 """Vector spanning the Widom line."""
 ABc: np.ndarray = -np.array([A_CRIT, B_CRIT])
 """Vector spanning the super-critical line."""
-THETA_WIDOM_SC = np.atan2(WL[0] * ABc[1] - WL[1] * ABc[0], np.dot(WL, ABc))
+THETA_WIDOM_SC = np.atan2(
+    WIDOM_VEC[0] * ABc[1] - WIDOM_VEC[1] * ABc[0], np.dot(WIDOM_VEC, ABc)
+)
 """Angle between critical line and Widom line."""
-THETA_WIDOM_BC = np.atan2(WL[1], WL[0])
+THETA_WIDOM_BC = np.atan2(WIDOM_VEC[1], WIDOM_VEC[0])
 """Angle between line ``B=B_CRIT`` and Widom line."""
 
 
@@ -387,59 +402,6 @@ def _smooth_3root_region(
             w = 1.0 - (w**2) * (3 - 2 * w)
 
     out[i] = out[i] * (1 - w) + (out[1] + out[i]) * 0.5 * w
-
-
-@_COMPILER(
-    [
-        nb.void(nb.f8, nb.f8, nb.f8, nb.f8[:]),
-        nb.void(nb.f8, nb.f8, nb.f8, nb.f8[:, :]),
-    ],
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def _smooth_supercritical_transition(
-    B: float, W: float, T: float, out: np.ndarray
-) -> None:
-    """Smoothing the super-critical liquid-like root when it comes close to a target
-    value.
-
-    The smoothing is performed using a cubic function which is 1 if ``W==B`` and zero
-    if ``W==T``, decreasing monotonously in between, assuming ``B <= W <= T``.
-    I.e., assuming a threshold ``T`` the value ``W`` is smoothed towards ``B`` once it
-    falls below that threshold.
-
-    .. math::
-
-        d = \\lvert W - B \\rvert
-        s = \\lvert T - B \\rvert
-        w = 1 - (\\frac{d}{s})^2 (3 - 2 \\frac{d}{s})
-        out[0] = out[0](1 - w) + out[1] w
-
-    ``out`` is operated on by reference. This design-choice is made so that this
-    function can be used to smooth both, ``W`` and potentially it's derivatives.
-
-    Parameters:
-        B: Reference value for distance.
-        W: Value to be smoothed.
-        T: Top or target value towards which it is smoothed.
-        s: Fraction of range on which smoothing is applied
-        out: An output array of shape ``(2,n)``, containing the values to be smoothed at
-            index 0 and the values towards which it is smoothed at index 1.
-
-    """
-    d = np.abs((W - B))
-    s = np.abs((T - B))
-    assert s >= d, "Expecting the |W-B| <= |T - B|"
-    assert B <= W, "Expecting B <= W"
-
-    if d >= s:
-        w = 0.0
-    elif d <= 0.0:
-        w = 1.0
-    else:
-        w = 1.0 - (d / s) ** 2 * (3 - 2 * d / s)
-
-    out[0] = out[0] * (1 - w) + out[1] * w
 
 
 @_COMPILER(
@@ -578,249 +540,24 @@ def Sigmoid(t: float, k: float) -> float:
     return 1.0 / (1 + np.exp(-k * (t - 0.5)))
 
 
-@_COMPILER(
-    nb.f8(nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def W_scip(A: float, B: float) -> float:
-    """Super-critical extension for the compressibility factor."""
-    Ac = A_CRIT
-    Bc = B_CRIT
-
-    AB = np.array([A - Ac, B - Bc])
-    dotW = np.dot(AB, WL)
-
-    if B <= widom_line(A):
-        thn = THETA_WIDOM_BC
-        # Rotate counter-clockwise onto Widom line and compute Zw
-        th_w = np.atan2(AB[0] * WL[1] - AB[1] * WL[0], dotW)
-        Aw = Ac + AB[0] * np.cos(th_w) - AB[1] * np.sin(th_w)
-        Bw = widom_line(Aw)
-        Zw = calculate_roots(c_from_AB(Aw, Bw), 1e-14)[-1]
-
-        # Rotate clockwise onto horizontal line B=Bc and compute Wbc
-        th_c = np.atan2(AB[1], AB[0])
-        Asc = Ac + AB[0] * np.cos(th_c) + AB[1] * np.sin(th_c)
-        Zsc = calculate_roots(c_from_AB(Asc, Bc), 1e-14)[-1]
-        Wsc = extended_factor(Zsc, Bc)
-    else:
-        thn = THETA_WIDOM_SC
-        # Rotate clockwise onto widom line and compute Zw
-        th_w = np.atan2(WL[0] * AB[1] - WL[1] * AB[0], dotW)
-        Aw = Ac + AB[0] * np.cos(th_w) + AB[1] * np.sin(th_w)
-        Bw = widom_line(Aw)
-        Zw = calculate_roots(c_from_AB(Aw, Bw), 1e-14)[-1]
-
-        # Rotate counter-clockwise onto critical line and compute Zc
-        th_c = np.atan2(AB[0] * ABc[1] - AB[1] * ABc[0], np.dot(AB, ABc))
-        Asc = max(1e-8, Ac + AB[0] * np.cos(th_c) - AB[1] * np.sin(th_c))
-        Bsc = CRITICAL_SLOPE * Asc
-        Zsc = calculate_roots(c_from_AB(Asc, Bsc), 1e-14)[-1]
-        Wsc = extended_factor(Zsc, Bsc)
-
-    w = max(min(th_c / thn, 1.0), 0.0)
-    Ze = (1.0 - w) * Wsc + w * Zw
-
-    if Ze < 1.01 * B:
-        return 1.01 * B
-    else:
-        return Ze
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def dW_scip(A: float, B: float, sc_reg: float, sc_bw: float, sc_ss: float) -> float:
-    """Super-critical extension for the compressibility factor."""
-    Ac = A_CRIT
-    Bc = B_CRIT
-
-    AB = np.array([A - Ac, B - Bc])
-    dotW = np.dot(AB, WL)
-
-    if B <= widom_line(A):
-        thn = THETA_WIDOM_BC
-        y = AB[0] * WL[1] - AB[1] * WL[0]
-        r = max(dotW**2 + y**2, sc_reg)
-        th_w = np.atan2(y, dotW)
-        dthdy = dotW / r
-        dthdx = -y / r
-        dthdA = dthdy * WL[1] + dthdx * WL[0]
-        dthdB = -dthdy * WL[0] + dthdx * WL[1]
-
-        sthw = np.sin(th_w)
-        cthw = np.cos(th_w)
-
-        Aw = Ac + AB[0] * cthw - AB[1] * sthw
-
-        dAwdA = cthw - (AB[0] * sthw + AB[1] * cthw) * dthdA
-        dAwdB = -sthw - (AB[1] * cthw + AB[0] * sthw) * dthdB
-
-        Bw = widom_line(Aw)
-        dBwdA = WIDOM_SLOPE * dAwdA
-        dBwdB = WIDOM_SLOPE * dAwdB
-
-        cw = c_from_AB(Aw, Bw)
-        Zw = calculate_roots(cw, 1e-14)[-1]
-        dZw = np.dot(calculate_root_derivatives(cw, 1e-14), dc_from_AB(Aw, Bw))[-1]
-        dZw = np.array(
-            (dZw[0] * dAwdA + dZw[1] * dBwdA, dZw[0] * dAwdB + dZw[1] * dBwdB)
-        )
-
-        y = AB[1]
-        x = AB[0]
-        r = max(x**2 + y**2, sc_reg)
-        th_c = np.atan2(y, x)
-        dthdA = -y / r
-        dthdB = x / r
-
-        sthc = np.sin(th_c)
-        cthc = np.cos(th_c)
-
-        Asc = Ac + AB[0] * cthc + AB[1] * sthc
-        dAscdA = cthc + (AB[1] * cthc - AB[0] * sthc) * dthdA
-        dAscdB = sthc + (AB[1] * cthc - AB[0] * sthc) * dthdB
-
-        cc = c_from_AB(Asc, Bc)
-        Zsc = calculate_roots(cc, 1e-14)[-1]
-        Wsc = extended_factor(Zsc, Bc)
-
-        dZsc = np.dot(calculate_root_derivatives(cc, 1e-14), dc_from_AB(Asc, Bc))[-1]
-        dZsc = np.array((dZsc[0] * dAscdA, dZsc[0] * dAscdB))
-        dWsc = -0.5 * dZsc
-        # dWsc = extended_factor_derivatives(dZsc)
-    else:
-        sc_ss = 1.0
-        thn = THETA_WIDOM_SC
-        # Rotate clockwise onto widom line and compute Zw
-        y = WL[0] * AB[1] - WL[1] * AB[0]
-        r = max(dotW**2 + y**2, sc_reg)
-        th_w = np.atan2(y, dotW)
-        dthdy = dotW / r
-        dthdx = -y / r
-        dthdA = -dthdy * WL[1] + dthdx * WL[0]
-        dthdB = dthdy * WL[0] + dthdx * WL[1]
-
-        sthw = np.sin(th_w)
-        cthw = np.cos(th_w)
-
-        Aw = Ac + AB[0] * cthw + AB[1] * sthw
-        dAwdA = cthw + (AB[1] * cthw - AB[0] * sthw) * dthdA
-        dAwdB = sthw + (AB[1] * cthw - AB[0] * sthw) * dthdB
-
-        Bw = widom_line(Aw)
-        dBwdA = WIDOM_SLOPE * dAwdA
-        dBwdB = WIDOM_SLOPE * dAwdB
-
-        cw = c_from_AB(Aw, Bw)
-        Zw = calculate_roots(cw, 1e-14)[-1]
-        dZw = np.dot(calculate_root_derivatives(cw, 1e-14), dc_from_AB(Aw, Bw))[-1]
-        dZw = np.array(
-            (dZw[0] * dAwdA + dZw[1] * dBwdA, dZw[0] * dAwdB + dZw[1] * dBwdB)
-        )
-
-        y = AB[0] * ABc[1] - AB[1] * ABc[0]
-        x = np.dot(AB, ABc)
-        r = max(x**2 + y**2, sc_reg)
-        th_c = np.atan2(y, x)
-        dthdy = x / r
-        dthdx = -y / r
-        dthdA = dthdy * ABc[1] + dthdx * ABc[0]
-        dthdB = -dthdy * ABc[0] + dthdx * ABc[1]
-
-        sthc = np.sin(th_c)
-        cthc = np.cos(th_c)
-
-        Asc = max(1e-8, Ac + AB[0] * cthc - AB[1] * sthc)
-        dAscdA = cthc - (AB[0] * sthc + AB[1] * cthc) * dthdA
-        dAscdB = -sthc - (AB[1] * cthc + AB[0] * sthc) * dthdB
-
-        Bsc = CRITICAL_SLOPE * Asc
-        dBscdA = CRITICAL_SLOPE * dAscdA
-        dBscdB = CRITICAL_SLOPE * dAscdB
-        cc = c_from_AB(Asc, Bsc)
-        Zsc = calculate_roots(cc, 1e-14)[-1]
-        Wsc = extended_factor(Zsc, Bsc)
-
-        dZsc = np.dot(calculate_root_derivatives(cc, 1e-14), dc_from_AB(Asc, Bsc))[-1]
-        dZsc = np.array(
-            (dZsc[0] * dAscdA + dZsc[1] * dBscdA, dZsc[0] * dAscdB + dZsc[1] * dBscdB)
-        )
-        dWsc = -0.5 * (dZsc + np.array((dBscdA, dBscdB)))
-        # dWsc = extended_factor_derivatives(dZsc)
-
-    dw = np.array((dthdA, dthdB)) / thn
-    w = max(min(th_c / thn, 1.0), 0.0)
-
-    dW = (1.0 - w) * dWsc + w * dZw + (Zw - Wsc) * dw
-
-    # NOTE: Idea is to smooth derivatives towards the the values at the critical lines
-    # to avoid jumps in derivatives.
-    w = 1.0
-    dWc = np.zeros(2)
-    if B <= widom_line(A):  # SCG smoothing
-        cd = abs(B - Bc)
-        dmax = sc_bw * Bc
-        if cd < dmax:
-            cc = c_from_AB(A, Bc)
-            dZc = (calculate_root_derivatives(cc, 1e-14) @ dc_from_AB(A, Bc))[-1]
-            dWc = extended_factor_derivatives(dZc)
-            w = max(min(cd / dmax, 1.0), 0.0)
-    elif B <= Bc:  # SCL smoothing
-        Asc = B / CRITICAL_SLOPE
-        cd = abs(A - Asc)
-        dmax = 0.5 * sc_bw * Ac
-        if cd < dmax:
-            cc = c_from_AB(Asc, B)
-            dZc = (calculate_root_derivatives(cc, 1e-14) @ dc_from_AB(Asc, B))[-1]
-            dWc = extended_factor_derivatives(dZc)
-            w = max(min(cd / dmax, 1.0), 0.0)
-    S0 = Sigmoid(0, sc_ss)
-    S1 = Sigmoid(1, sc_ss)
-    w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
-
-    # Cancel smoothing if around critical point.
-    dc = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
-    w = 1.0 if dc < sc_bw else w
-    dW = (1 - w) * dWc + w * dW
-
-    # If not smoothed towards critial lines, smooth towards Widom line
-    if not w < 1.0 and dc > sc_bw:
-        Aw = A
-        Bw = widom_line(A)
-        wd = abs(B - Bw)
-        dmax = sc_bw * Bc
-        if wd < dmax:
-            w = max(min(wd / dmax, 1.0), 0.0)
-            w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
-            dW = (1 - w) * np.ones(2) * 1e-1 + w * dW
-
-    return dW
-
-
 @_COMPILER(nb.f8(nb.f8, nb.f8), cache=NUMBA_CACHE, fastmath=NUMBA_FAST_MATH)
 def fab(A: float, B: float) -> float:
-    Ac = A_CRIT
-    Bc = B_CRIT
-    AB = np.array([A - Ac, B - Bc])
+    AB = np.array([A - A_CRIT, B - B_CRIT])
 
     if B <= widom_line(A):  # SCG extension
         thn = THETA_WIDOM_BC
         # Angle between AB and horizontal line: atan((1, 0) X AB, dot)
         th = np.atan2(AB[1], AB[0])
         # Shift the AB point parallel to the Widom line onto the horizontal line B=Bc.
-        Asc = A + (Bc - B) / WL[1] * WL[0]
-        Bsc = Bc
-        Zsc = calculate_roots(c_from_AB(Asc, Bc), 1e-14)[-1]
+        Asc = A + (B_CRIT - B) / WIDOM_VEC[1] * WIDOM_VEC[0]
+        Bsc = B_CRIT
+        Zsc = calculate_roots(c_from_AB(Asc, B_CRIT), 1e-14)[-1]
     else:  # SCL extension
         thn = THETA_WIDOM_SC
         # Angle between AcBc -> AB and AcBc -> 00.
         th = np.atan2(AB[0] * ABc[1] - AB[1] * ABc[0], np.dot(AB, ABc))
         # Rotate onto super-critical line 00 -> AcBc counter-clockwise.
-        Asc = max(0.0, Ac + AB[0] * np.cos(th) - AB[1] * np.sin(th))
+        Asc = max(0.0, A_CRIT + AB[0] * np.cos(th) - AB[1] * np.sin(th))
         Bsc = CRITICAL_SLOPE * Asc
         # Evaluate value on super-critical line.
         Zsc = calculate_roots(c_from_AB(Asc, Bsc), 1e-14)[-1]
@@ -833,9 +570,7 @@ def fab(A: float, B: float) -> float:
 
 @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8), cache=NUMBA_CACHE, fastmath=NUMBA_FAST_MATH)
 def dfab(A: float, B: float, sc_reg: float) -> np.ndarray:
-    Ac = A_CRIT
-    Bc = B_CRIT
-    AB = np.array([A - Ac, B - Bc])
+    AB = np.array([A - A_CRIT, B - B_CRIT])
 
     if B <= widom_line(A):
         thn = THETA_WIDOM_BC
@@ -846,16 +581,18 @@ def dfab(A: float, B: float, sc_reg: float) -> np.ndarray:
         dthdA = -y / r
         dthdB = x / r
 
-        Asc = A + (Bc - B) / WL[1] * WL[0]
-        dAscdB = -WL[0] / WL[1]
+        Asc = A + (B_CRIT - B) / WIDOM_VEC[1] * WIDOM_VEC[0]
+        dAscdB = -WIDOM_VEC[0] / WIDOM_VEC[1]
 
-        Bsc = Bc
+        Bsc = B_CRIT
         dBscdA = 0.0
         dBscdB = 0.0
 
-        cc = c_from_AB(Asc, Bc)
+        cc = c_from_AB(Asc, B_CRIT)
         Zsc = calculate_roots(cc, 1e-14)[-1]
-        dZsc = np.dot(calculate_root_derivatives(cc, 1e-14), dc_from_AB(Asc, Bc))[-1]
+        dZsc = np.dot(calculate_root_derivatives(cc, 1e-14), dc_from_AB(Asc, B_CRIT))[
+            -1
+        ]
         dZsc = np.array((dZsc[0], dZsc[0] * dAscdB))
     else:
         thn = THETA_WIDOM_SC
@@ -871,7 +608,7 @@ def dfab(A: float, B: float, sc_reg: float) -> np.ndarray:
         sth = np.sin(th)
         cth = np.cos(th)
 
-        Asc = Ac + AB[0] * cth - AB[1] * sth
+        Asc = A_CRIT + AB[0] * cth - AB[1] * sth
         dAscdA = cth - (AB[0] * sth + AB[1] * cth) * dthdA
         dAscdB = -sth - (AB[0] * sth + AB[1] * cth) * dthdB
 
@@ -926,22 +663,20 @@ def dW_fab(
 
     # NOTE: Idea is to smooth derivatives towards the the values at the critical lines
     # to avoid jumps in derivatives.
-    Ac = A_CRIT
-    Bc = B_CRIT
     w = 1.0
     dWc = np.zeros(2)
     if B <= widom_line(A):  # SCG smoothing
-        cd = abs(B - Bc)
-        dmax = sc_bw * Bc
+        cd = abs(B - B_CRIT)
+        dmax = sc_bw * B_CRIT
         if cd < dmax:
-            cc = c_from_AB(A, Bc)
-            dZ = (calculate_root_derivatives(cc, 1e-14) @ dc_from_AB(A, Bc))[-1]
+            cc = c_from_AB(A, B_CRIT)
+            dZ = (calculate_root_derivatives(cc, 1e-14) @ dc_from_AB(A, B_CRIT))[-1]
             dWc = extended_factor_derivatives(dZ)
             w = max(min(cd / dmax, 1.0), 0.0)
-    elif B <= Bc:  # SCL smoothing
+    elif B <= B_CRIT:  # SCL smoothing
         Asc = B / CRITICAL_SLOPE
         cd = abs(A - Asc)
-        dmax = 0.5 * sc_bw * Ac
+        dmax = 0.5 * sc_bw * A_CRIT
         if cd < dmax:
             cc = c_from_AB(Asc, B)
             dZ = (calculate_root_derivatives(cc, 1e-14) @ dc_from_AB(Asc, B))[-1]
@@ -952,7 +687,7 @@ def dW_fab(
     w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
 
     # Cancel smoothing if around critical point.
-    dc = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
+    dc = conorm(A - A_CRIT, B - B_CRIT)
     w = 1.0 if dc < sc_bw else w
     dW = (1 - w) * dWc + w * dW
 
@@ -1040,18 +775,12 @@ def get_compressibility_factor(
         # The value of the smallest root can go below B and needs extra attention.
         # Point A, B = (0,0) for example.
         case 11 | 12 | 13:
-            # roots[0] = (roots[-1] + B) * 0.5
-            # smooth_sc_idx = 0
             roots[0] = W_fab(A, B, roots[-1])
-            # roots[0] = W_scip(A, B)
         # Super-critical gas extension.
         # Contrary to the super-critical liquid, we only know how to deal with the
         # 1-root case.
         case 21 | 22 | 23:
-            # roots[-1] = B * (B - B_CRIT) + extended_factor(roots[0], B)
-            # smooth_sc_idx = -1
             roots[-1] = W_fab(A, B, roots[-1])
-            # roots[-1] = W_scip(A, B)
         case _:
             raise NotImplementedError(
                 f"Uncovered extension case {extension_case} for A,B = {(A, B)}."
@@ -1070,7 +799,9 @@ def get_compressibility_factor(
         # In the limit case B = 0 and close to A=B=0, all kind of violations can happen
         # We avoid the lower-B-bound violation and pay with an approximation error.
         # Compute distance to zero point.
-        d = np.sqrt(B_original**2 + ABMETRIC[0, 0] * A**2)
+        # NOTE: Use critical slope to get a metric in AB space which considers the
+        # discrepancy in size between A and B.
+        d = conorm(A, B_original)
         if B_limit_reached or d <= 5e-3:
             roots[0] = max(eps, 1.1 * B_original)
         else:
@@ -1162,22 +893,16 @@ def get_compressibility_factor_derivatives(
                     "Encountered triple root which is not critical point."
                 )
         case 11 | 12 | 13:
-            # droots[0] = 0.5 * droots[-1]
-            # droots[0, 1] += 0.5
             droots[0] = dW_fab(A, B, roots[-1], droots[-1], sc_reg, sc_bw, sc_ss)
-            # droots[0] = dW_scip(A, B, sc_reg, sc_bw, sc_ss)
         case 21 | 22 | 23:
-            # droots[-1] = extended_factor_derivatives(droots[0])
-            # droots[-1, 1] += 2.0 * B - B_CRIT
             droots[-1] = dW_fab(A, B, roots[-1], droots[-1], sc_reg, sc_bw, sc_ss)
-            # droots[-1] = dW_scip(A, B, sc_reg, sc_bw, sc_ss)
         case _:
             raise NotImplementedError(
                 f"Uncovered extension case {extension_case} for A,B = {(A, B)}."
             )
 
     if not gaslike and roots[0] <= B and extension_case >= 10:
-        d = np.sqrt(B_original**2 + ABMETRIC[0, 0] * A**2)
+        d = conorm(A, B_original)
         if B_limit_reached or d <= 5e-3:
             droots[0] = np.array([0.0, 1.1 if B_original > 0.0 else 0.0])
 
@@ -1187,13 +912,13 @@ def get_compressibility_factor_derivatives(
         dZ = droots[0]
 
     # Regularization around the critical point.
-    d = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + B_CRIT**2)
-    # d = np.sqrt((A - A_CRIT) ** 2 * B_CRIT / A_CRIT + (B - B_CRIT) ** 2)
-    if d < sc_bw:
-        w = d / sc_bw
+    # d = conorm(A - A_CRIT, B_CRIT)
+    d = conorm(A - A_CRIT, B - B_CRIT)
+    dmax = sc_bw * B_CRIT
+    if d <= dmax:
         S0 = Sigmoid(0, sc_ss)
         S1 = Sigmoid(1, sc_ss)
-        w = (Sigmoid(w, sc_ss) - S0) / (S1 - S0)
+        w = (Sigmoid(d / dmax, sc_ss) - S0) / (S1 - S0)
         dZ = (1 - w) * dZ_CRIT + w * dZ
     # if extension_case > 10:
     #     dZ = np.clip(dZ, -5.0, 5.0)
