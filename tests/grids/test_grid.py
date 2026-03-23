@@ -775,7 +775,6 @@ def triangle_grid_four_split():
 def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
     """Test the geometry of a structured triangle grid with the 'four' split type.
 
-
     Tests the following connectivities:
         * Given a node, check that the faces touching that node have the expected face
         centers.
