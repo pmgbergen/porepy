@@ -544,6 +544,8 @@ def Sigmoid(t: float, k: float) -> float:
 def fab(A: float, B: float) -> float:
     AB = np.array([A - A_CRIT, B - B_CRIT])
 
+    # Zw_gap = 1e-3
+
     if B <= widom_line(A):  # SCG extension
         thn = THETA_WIDOM_BC
         # Angle between AB and horizontal line: atan((1, 0) X AB, dot)
@@ -551,7 +553,11 @@ def fab(A: float, B: float) -> float:
         # Shift the AB point parallel to the Widom line onto the horizontal line B=Bc.
         Asc = A + (B_CRIT - B) / WIDOM_VEC[1] * WIDOM_VEC[0]
         Bsc = B_CRIT
-        Zsc = calculate_roots(c_from_AB(Asc, B_CRIT), 1e-14)[-1]
+
+        # Rotate CCW onto widom line
+        # thw = thn - th
+        # Aw = A_CRIT + AB[0] * np.cos(thw) - AB[1] * np.sin(thw)
+        # cZw = 0.5 * Zw_gap
     else:  # SCL extension
         thn = THETA_WIDOM_SC
         # Angle between AcBc -> AB and AcBc -> 00.
@@ -560,17 +566,29 @@ def fab(A: float, B: float) -> float:
         Asc = max(0.0, A_CRIT + AB[0] * np.cos(th) - AB[1] * np.sin(th))
         Bsc = CRITICAL_SLOPE * Asc
         # Evaluate value on super-critical line.
-        Zsc = calculate_roots(c_from_AB(Asc, Bsc), 1e-14)[-1]
         # Weigh towards value 1 on Widom line using the angle fraction.
+        # Rotate CW onto widom line.
+        # thw = thn - th
+        # Aw = A_CRIT + AB[0] * np.cos(thw) + AB[1] * np.sin(thw)
+        # cZw = -0.5 * Zw_gap
 
-    f = max((1 - 3 * Bsc - Zsc) / (Zsc - Bsc) * 0.5, 1e-14)
+    # Bw = widom_line(Aw)
+    # Zw = calculate_roots(c_from_AB(Aw, Bw), 1e-14)[-1]
+    # fw = (cZw * Zw - Bw) / (Zw - Bw)
+    fw = 1.0
+
+    Zsc = calculate_roots(c_from_AB(Asc, Bsc), 1e-14)[-1]
+
+    fsc = max((1 - 3 * Bsc - Zsc) / (Zsc - Bsc) * 0.5, 1e-14)
     w = max(min(th / thn, 1.0), 0.0)
-    return (1.0 - w) * f + w
+    return (1.0 - w) * fsc + w * fw
 
 
 @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8), cache=NUMBA_CACHE, fastmath=NUMBA_FAST_MATH)
 def dfab(A: float, B: float, sc_reg: float) -> np.ndarray:
     AB = np.array([A - A_CRIT, B - B_CRIT])
+
+    # Zw_gap = 1e-3
 
     if B <= widom_line(A):
         thn = THETA_WIDOM_BC
@@ -582,18 +600,21 @@ def dfab(A: float, B: float, sc_reg: float) -> np.ndarray:
         dthdB = x / r
 
         Asc = A + (B_CRIT - B) / WIDOM_VEC[1] * WIDOM_VEC[0]
+        dAscdA = 1.0
         dAscdB = -WIDOM_VEC[0] / WIDOM_VEC[1]
 
         Bsc = B_CRIT
         dBscdA = 0.0
         dBscdB = 0.0
 
-        cc = c_from_AB(Asc, B_CRIT)
-        Zsc = calculate_roots(cc, 1e-14)[-1]
-        dZsc = np.dot(calculate_root_derivatives(cc, 1e-14), dc_from_AB(Asc, B_CRIT))[
-            -1
-        ]
-        dZsc = np.array((dZsc[0], dZsc[0] * dAscdB))
+        # thw = thn - th
+        # cthw = np.cos(thw)
+        # sthw = np.sin(thw)
+        # Aw = A_CRIT + AB[0] * cthw - AB[1] * sthw
+        # dtrig = -AB[0] * sthw - AB[1] * cthw
+        # dAwdA = cthw - dtrig * dthdA
+        # dAwdB = -sthw - dtrig * dthdB
+        # cZw = 0.5 * Zw_gap
     else:
         thn = THETA_WIDOM_SC
         y = AB[0] * ABc[1] - AB[1] * ABc[0]
@@ -616,22 +637,47 @@ def dfab(A: float, B: float, sc_reg: float) -> np.ndarray:
         dBscdA = CRITICAL_SLOPE * dAscdA
         dBscdB = CRITICAL_SLOPE * dAscdB
 
-        cc = c_from_AB(Asc, Bsc)
-        Zsc = calculate_roots(cc, 1e-14)[-1]
-        dZsc = np.dot(calculate_root_derivatives(cc, 1e-14), dc_from_AB(Asc, Bsc))[-1]
-        dZsc = np.array(
-            (dZsc[0] * dAscdA + dZsc[1] * dBscdA, dZsc[0] * dAscdB + dZsc[1] * dBscdB)
-        )
+        # thw = thn - th
+        # cthw = np.cos(thw)
+        # sthw = np.sin(thw)
+        # Aw = A_CRIT + AB[0] * cthw + AB[1] * sthw
+        # dtrig = -AB[0] * sthw + AB[1] * cthw
+        # dAwdA = cthw - dtrig * dthdA
+        # dAwdB = sthw - dtrig * dthdB
+        # cZw = -0.5 * Zw_gap
 
-    f = max((1 - 3 * Bsc - Zsc) / (Zsc - Bsc) * 0.5, 1e-14)
-    df = (
+    # Bw = widom_line(Aw)
+    # dBwdA = WIDOM_SLOPE * dAwdA
+    # dBwdB = WIDOM_SLOPE * dAwdB
+    # cw = c_from_AB(Aw, Bw)
+    # Zw = calculate_roots(cw, 1e-14)[-1]
+    # dZw = np.dot(calculate_root_derivatives(cw, 1e-14), dc_from_AB(Aw, Bw))[-1]
+    # dZw = np.array((dZw[0] * dAwdA + dZw[1] * dBwdA, dZw[0] * dAwdB + dZw[1] * dBwdB))
+    # fw = (cZw * Zw - Bw) / (Zw - Bw)
+    # dBw = np.array((dBwdA, dBwdB))
+    # dfw = ((cZw * dZw - dBw) * (Zw - Bw) - (cZw * Zw - Bw) * (dZw - dBw)) / (
+    #     Zw - Bw
+    # ) ** 2
+    # dfw = np.zeros(2)
+    fw = 1.0
+
+    csc = c_from_AB(Asc, Bsc)
+    Zsc = calculate_roots(csc, 1e-14)[-1]
+    dZsc = np.dot(calculate_root_derivatives(csc, 1e-14), dc_from_AB(Asc, Bsc))[-1]
+    dZsc = np.array(
+        (dZsc[0] * dAscdA + dZsc[1] * dBscdA, dZsc[0] * dAscdB + dZsc[1] * dBscdB)
+    )
+
+    fsc = max((1 - 3 * Bsc - Zsc) / (Zsc - Bsc) * 0.5, 1e-14)
+    dfsc = (
         ((4 * Bsc - 1) * dZsc + (1 - 4 * Zsc) * np.array([dBscdA, dBscdB]))
         / (Zsc - Bsc) ** 2
         * 0.5
     )
     w = max(min(th / thn, 1.0), 0.0)
     dw = np.array((dthdA, dthdB)) / thn
-    return (1.0 - w) * df + dw * (1 - f)
+    # return (1.0 - w) * dfsc + dw * (fw - fsc) + w * dfw
+    return (1.0 - w) * dfsc + dw * (fw - fsc)
 
 
 @_COMPILER(
