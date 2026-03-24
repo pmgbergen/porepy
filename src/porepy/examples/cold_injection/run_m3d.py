@@ -63,17 +63,13 @@ model_params["nl_convergence_tol_increment"] = newton_tol_inc
 model_params["time_manager"] = time_manager
 model_params["times_to_export"] = time_schedule
 
-model_params["_num_fractures"] = 8
 model_params["_well_surrounding_permeability"] = 1e-13
 model_params["_impermeable_fracture_permeability"] = 1e-16
 model_params["_fracture_permeability"] = 1e-10
 
 model_params["fractional_flow"] = BUOYANCY_ON
 model_params["enable_buoyancy_effects"] = BUOYANCY_ON
-model_params["armijo_stop_after_residual_reaches"] = 1e-3
-
-model_params["flash_params"]["solver_params"]["npipm_penalty_cc"] = 1.0  # type:ignore[index]
-model_params["flash_params"]["solver_params"]["npipm_penalty_neg"] = 1.0  # type:ignore[index]
+model_params["_heated_boundary_on"] = False
 
 
 class Mixin3d(ModelConfig):
@@ -132,7 +128,8 @@ if COLLECT_DATA:
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
-    model_params["folder_name"] = f"visualization/{timestamp}"
+    sub_folder = f"m3d_{timestamp}_BUOY_{BUOYANCY_ON}"
+    model_params["folder_name"] = f"visualization/{sub_folder}"
 
     model = model_class(model_params)  # type:ignore[abstract]
 
@@ -152,12 +149,7 @@ if __name__ == "__main__":
     )
 
     t_0 = time.time()
-    SIMULATION_SUCCESS: bool = True
-    try:
-        pp.run_time_dependent_model(model, solver_params)
-    except Exception as err:
-        SIMULATION_SUCCESS = False
-        print(f"Simulation failed:\n{str(err)}")
+    pp.run_time_dependent_model(model, solver_params)
     sim_time = time.time() - t_0
 
     print(f"Simulation prepared after {prep_sim_time:.2f} (s).")

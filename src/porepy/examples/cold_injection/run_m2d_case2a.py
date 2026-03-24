@@ -39,16 +39,16 @@ COLLECT_DATA = True
 assert not BUOYANCY_ON, "Fractional flow not supported for case 2a."
 
 APERTURE_JUMP_SCHEDULE: list[tuple[float, float]] = [
-    # (50 * pp.DAY, 5.0),
+    # (25 * pp.DAY, 5.0),
 ]
 
 max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
 newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
-newton_tol_inc = 1e-2
+newton_tol_inc = 1e-5
 
-T_END_DAYS = 100
+T_END_DAYS = 50
 
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 
@@ -196,12 +196,7 @@ if __name__ == "__main__":
     )
 
     t_0 = time.time()
-    SIMULATION_SUCCESS: bool = True
-    # try:
     pp.run_time_dependent_model(model, solver_params)
-    # except Exception as err:
-    #     SIMULATION_SUCCESS = False
-    #     print(f"Simulation failed:\n{str(err)}")
     sim_time = time.time() - t_0
 
     print(f"Simulation prepared after {prep_sim_time:.2f} (s).")

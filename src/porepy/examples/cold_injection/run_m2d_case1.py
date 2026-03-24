@@ -97,7 +97,8 @@ if COLLECT_DATA:
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
-    model_params["folder_name"] = f"visualization/{timestamp}"
+    sub_folder = f"m2d_case1_{timestamp}_BUOY_{BUOYANCY_ON}"
+    model_params["folder_name"] = f"visualization/{sub_folder}"
 
     model = model_class(model_params)  # type:ignore[abstract]
 
@@ -117,12 +118,7 @@ if __name__ == "__main__":
     )
 
     t_0 = time.time()
-    SIMULATION_SUCCESS: bool = True
-    try:
-        pp.run_time_dependent_model(model, solver_params)
-    except Exception as err:
-        SIMULATION_SUCCESS = False
-        print(f"Simulation failed:\n{str(err)}")
+    pp.run_time_dependent_model(model, solver_params)
     sim_time = time.time() - t_0
 
     print(f"Simulation prepared after {prep_sim_time:.2f} (s).")
