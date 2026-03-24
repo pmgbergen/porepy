@@ -141,7 +141,10 @@ def compute_circumcenters(
     ``threshold`` times the exit distance.
 
     For simplices with obtuse angles, the circumcenter lies outside the simplex.
-    The shift is capped analogously. They are logged as bad cells.
+    The shift is capped analogously.
+
+    All cases, where the circumcenter would violate the threshold, are logged as bad
+    cells.
 
     Paremters:
         sd: A simplex grid.

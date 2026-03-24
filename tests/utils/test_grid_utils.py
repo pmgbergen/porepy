@@ -274,6 +274,7 @@ def test_compute_circumcenters_raises_expected_errors():
         with pytest.raises(ValueError):
             compute_circumcenters(sd, threshold=t)
 
+
 def _rotation_matrix_x(theta: float) -> np.ndarray:
     c, s = np.cos(theta), np.sin(theta)
     return np.array(
