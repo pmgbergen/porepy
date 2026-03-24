@@ -322,7 +322,6 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
             - strike_angles: Strike angles of the fractures (default [pi/4, pi/4])
             - dip_angles: Dip angles of the fractures (default [pi/2, pi/2])
             - major_axis_angles: Major axis angles of the fractures (default [0.0, 0.0])
-            - num_points: Number of points to define each fracture (default [10, 10])
 
         The fracture axes are scaled by the minimum of the domain sizes. For adjusting
         the fracture centers, the user should override the property
@@ -375,13 +374,12 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
         self._fractures = []
         params = self.fracture_params()
         for i in range(params["num_fractures"]):
-            f = pp.create_elliptic_fracture(
+            f = pp.EllipticFracture(
                 center=self.fracture_centers[i],
                 strike_angle=params["strike_angles"][i],
                 dip_angle=params["dip_angles"][i],
                 major_axis=self.fracture_major_axes[i],
                 minor_axis=self.fracture_minor_axes[i],
                 major_axis_angle=params["major_axis_angles"][i],
-                num_points=params["num_points"][i],
             )
             self._fractures.append(f)

@@ -132,7 +132,7 @@ def network_from_csv(
                 if data.size == 8:
                     # This will be interpreted as an elliptic fracture. The number of
                     # points should be represented as an integer.
-                    frac = pp.create_elliptic_fracture(
+                    frac = pp.EllipticFracture(
                         data[:3],  # center
                         data[3],  # major axis
                         data[4],  # minor axis
