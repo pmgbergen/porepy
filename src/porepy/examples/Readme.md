@@ -17,12 +17,5 @@ Users are also encouraged to explore different physical scenarios by modifying m
 # Overview
 There are brief descriptions for the PorePy examples below: 
 
-1. [Example parameters](./example_params.py) defines reference parameter dictonaries for configurations of PorePy models and related solvers. The parameters include physical properties, 
-grid and meshing, time stepping, output control, and detailed nonlinear solver settings such as 
-convergence criteria and line search strategies.
-
-
-
-
-
+1. [Example parameters](./example_params.py) defines reference parameter dictonaries for configurations of PorePy models and related solvers. The parameters include physical properties grid and meshing, time stepping, output control, and detailed nonlinear solver settings such as convergence criteria and line search strategies.
 
