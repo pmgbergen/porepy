@@ -318,6 +318,7 @@ def test_energy_conservation():
         "fracture_indices": [2],
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
         "grid_type": "cartesian",
+        "meshing_args": {"cell_size": 0.25},
         "times_to_export": [],  # Suppress output for tests
     }
 
