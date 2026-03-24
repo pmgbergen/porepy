@@ -7,8 +7,7 @@ The examples focus on the following aspects:
 *	Practical configurations of models, grids, and parameters
 *	Templates that can be adapted to new applications
 
-These scripts are particularly helpful for users who would like to quickly run a working model, need a reference implementation for specific physics, or build their own models based on existing
-setups. For more guidance, we refer to the [benchmark simulation tutorial](../../../tutorials/benchmark_simulation.ipynb), where some of examples are further developed and extended.
+These scripts are particularly helpful for users who would like to quickly run a working model, need a reference implementation for specific physics, or build their own models based on existing setups. For more guidance, we refer to the [benchmark simulation tutorial](../../../tutorials/benchmark_simulation.ipynb), where some of examples are further developed and extended.
 
 # How to run examples
 Each example is a self-contained Python script and can be run directly by `python <example_name>.py`. 
