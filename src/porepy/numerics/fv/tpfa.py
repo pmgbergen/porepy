@@ -12,6 +12,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.fv import _fvutils
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
@@ -52,6 +53,9 @@ class Tpfa(pp.FVElliptic):
             ambient_dimension: (int) Optional. Ambient dimension, used in the
                 discretization of vector source terms. Defaults to the dimension of the
                 grid.
+            reconstruct_on_internal_faces (``bool``): Optional. Whether to
+                reconstruct the pressure at internal faces. This is not needed in
+                most cases, but is kept for completeness.
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (sd.num_faces, sd.num_cells)
@@ -83,6 +87,9 @@ class Tpfa(pp.FVElliptic):
 
         # Ambient dimension of the grid
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", sd.dim)
+        reconstruct_on_internal_faces = parameter_dictionary.get(
+            "reconstruct_on_internal_faces", False
+        )
 
         if sd.dim == 0:
             # Shortcut for 0d grids
@@ -238,12 +245,18 @@ class Tpfa(pp.FVElliptic):
         v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]
         v_cell[bnd.is_neu[fi]] = 1
 
-        bound_pressure_cell = sps.coo_matrix(
-            (v_cell, (fi, ci)), (sd.num_faces, sd.num_cells)
-        ).tocsr()
-        bound_pressure_face = sps.dia_matrix(
-            (v_face, 0), (sd.num_faces, sd.num_faces)
-        ).tocsr()
+        boundary_face_mask = _fvutils.boundary_face_mask(
+            sd, reconstruct_on_internal_faces
+        )
+
+        bound_pressure_cell = (
+            boundary_face_mask
+            @ sps.coo_matrix((v_cell, (fi, ci)), (sd.num_faces, sd.num_cells)).tocsr()
+        )
+        bound_pressure_face = (
+            boundary_face_mask
+            @ sps.dia_matrix((v_face, 0), (sd.num_faces, sd.num_faces)).tocsr()
+        )
         matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
         matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
 
@@ -270,9 +283,9 @@ class Tpfa(pp.FVElliptic):
         # source and the distance vector from cell to face centers.
         vals = np.zeros((vector_source_dim, fi.size))
         vals[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
-        bound_pressure_vector_source = sps.coo_matrix(
-            (vals.ravel("F"), (rows, cols))
-        ).tocsr()
+        bound_pressure_vector_source = (
+            boundary_face_mask @ sps.coo_matrix((vals.ravel("F"), (rows, cols))).tocsr()
+        )
         matrix_dictionary[self.bound_pressure_vector_source_matrix_key] = (
             bound_pressure_vector_source
         )

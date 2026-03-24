@@ -8,15 +8,16 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
+import gmsh
 import numpy as np
 from numpy.typing import ArrayLike
 
 import porepy as pp
 
-from .fracture import Fracture
+from .fracture import PointBasedFracture
 
 
-class PlaneFracture(Fracture):
+class PlaneFracture(PointBasedFracture):
     """A class representing planar fractures in 3D in form of a (bounded) plane,
     i.e. manifolds of dimension 2 embedded in 3D.
 
@@ -43,6 +44,26 @@ class PlaneFracture(Fracture):
         assert self.is_planar(), "Points define non-planar fracture"
         if check_convexity:
             assert self.is_convex(), "Points form non-convex polygon"
+
+    def fracture_to_gmsh(self):
+        """Creates a gmsh representation of the fracture and exports its tag.
+
+        Returns:
+            An integer representing the tag of the fracture.
+
+        """
+        pts = self.pts.T
+        num_pts = pts.shape[0]
+        gmsh_pts = [gmsh.model.occ.addPoint(*pt) for pt in pts]
+        pt_indices = np.concatenate([np.arange(num_pts), [0]])
+        gmsh_lines = [
+            gmsh.model.occ.add_line(
+                gmsh_pts[pt_indices[i]], gmsh_pts[pt_indices[i + 1]]
+            )
+            for i in range(num_pts)
+        ]
+        loop = gmsh.model.occ.add_curve_loop(gmsh_lines)
+        return gmsh.model.occ.add_plane_surface([loop])
 
     def sort_points(self) -> np.ndarray:
         """Sort the points in a counter-clockwise (CCW) order.
@@ -222,7 +243,7 @@ class PlaneFracture(Fracture):
     def compute_normal(self) -> np.ndarray:
         return pp.map_geometry.compute_normal(self.pts)[:, None]
 
-    # EK: Removed typing of return type, since this would necessitate an import of the
+    # Removed typing of return type, since this would necessitate an import of the
     # full sympy module during import of PorePy, which is not desirable.
     def as_sympy_polygon(self, pts: Optional[np.ndarray] = None):
         """Represent polygon as a sympy object.

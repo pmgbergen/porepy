@@ -24,6 +24,8 @@ from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearS
 # Used for conversion of units.
 units = pp.Units()
 
+# NOTE: When expanding this list, please mark those parameters that are not used by
+# the default models by 'not invoked by default'.
 
 model_params = {
     "linear_solver": "pypardiso",
@@ -53,6 +55,10 @@ model_params = {
         # centroids to circumcenters in [0, 1). 0 implies no movement.
     },
     "meshing_kwargs": {},
+    # Used to export the fracture network to enable later reuse. Not invoked by default.
+    "csv_file_name": "fracture_network.csv",
+    # Used to export the gmsh geometry and the created mesh file.
+    "gmsh_file_name": "gmsh_frac_file.msh",
     # Exporting and restarting
     "nonlinear_solver_statistics": pp.SolverStatistics,  # Must be a class, not instance
     "folder_name": "visualization",

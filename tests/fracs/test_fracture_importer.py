@@ -16,6 +16,9 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
+from porepy.applications.test_utils.fracture_properties import (
+    distance_from_points_to_fracture_plane,
+)
 from porepy.fracs import fracture_importer
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
@@ -43,7 +46,7 @@ def fractures(nd: Literal[2, 3]) -> list[np.ndarray]:
             [[0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8], [0.5, 0.5, 0.5, 0.5]]
         )
         # Elliptic fracture.
-        f_1 = np.array([[0.5, 0.5, 0.6, 0.4, 0.2, np.pi / 6, np.pi / 3, np.pi / 4, 16]])
+        f_1 = np.array([[0.5, 0.5, 0.6, 0.4, 0.2, np.pi / 6, np.pi / 3, np.pi / 4]])
         # Plane fracture with normal in y direction, and five points.
         f_2 = np.array(
             [
@@ -124,8 +127,12 @@ def test_fracture_importer(
             f_imported = network.fractures[fi].pts
             assert compare_arrays(f_known.reshape((nd, -1), order="F"), f_imported)
         else:  # nd == 3 and fi == 1 (elliptic fracture)
-            # TODO: When the meshing rework is done, we will have a new implementation
-            # of the elliptic fracture, and, as part of the reworked test suite,
-            # functionality to verify that an elliptic fracture has the correct
-            # geometry.
-            pass
+            f_known = f_known.ravel()
+            center = f_known[:3].ravel()
+            strike_angle = f_known[6]
+            dip_angle = f_known[7]
+            frac_nodes = network.fractures[fi].pts
+            dis = distance_from_points_to_fracture_plane(
+                frac_nodes.T, center, strike_angle, dip_angle
+            )
+            assert np.abs(dis).max() <= 1e-6

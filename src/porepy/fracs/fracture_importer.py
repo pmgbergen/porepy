@@ -33,7 +33,7 @@ def network_from_csv(
     - In 3D, Polygonal fractures are described as a list of points (one line per
         fracture) ``P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``.
         Elliptic fractures are described as ``CENTER_X, CENTER_Y, CENTER_Z,
-        MAJOR_AXIS, MINOR_AXIS, MAJOR_AXIS_ANGLE, STRIKE_ANGLE, DIP_ANGLE, NUM_POINTS``.
+        MAJOR_AXIS, MINOR_AXIS, MAJOR_AXIS_ANGLE, STRIKE_ANGLE, DIP_ANGLE``.
     Lines starting with ``#`` will be ignored.
 
     Parameters:
@@ -61,7 +61,7 @@ def network_from_csv(
     # line.
     nd = None
 
-    fractures: list[pp.LineFracture] | list[pp.PlaneFracture] = []
+    fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture] = []
 
     with open(file_name, "r") as csv_file:
         while True:
@@ -83,7 +83,13 @@ def network_from_csv(
                 else:
                     # This can be a 3d domain (six entries) or a 3d point-based
                     # fracture (elliptic or point-based), depending on the context.
-                    if data.size == 6 or (data.size >= 9 and data.size % 3 == 0):
+                    if (
+                        data.size == 6  # Domain in 3d
+                        or data.size == 8  # Elliptic fracture in 3d
+                        or (
+                            data.size >= 9 and data.size % 3 == 0
+                        )  # Point-based fracture in 3d
+                    ):
                         nd = 3
                     else:
                         raise ValueError(
@@ -123,17 +129,7 @@ def network_from_csv(
                 # In 3d, the number of entries must be used to distinguish between
                 # elliptic and polygonal fractures.
 
-                if data.size == 9 and data[8] == int(data[8]) and data[8] > 0:
-                    # 9 entries can be interpreted as an elliptic fracture or a
-                    # triangular fracture. We check for the number of points to
-                    # distinguish the two cases, and issue a warning if the data is
-                    # interpreted as an elliptic fracture, as this is more likely to be
-                    # the intended interpretation in this case. This is a workaround
-                    # that will be fixed upon merging of GH issue #1576.
-                    logger.warning(
-                        "Interpreting fracture with 9 entries as elliptic fracture."
-                    )
-
+                if data.size == 8:
                     # This will be interpreted as an elliptic fracture. The number of
                     # points should be represented as an integer.
                     frac = pp.create_elliptic_fracture(
@@ -143,7 +139,6 @@ def network_from_csv(
                         data[5],  # major axis angle
                         data[6],  # strike angle
                         data[7],  # dip angle
-                        int(data[8]),  # num points
                     )
                     fractures.append(frac)  # type: ignore
                 else:
@@ -246,175 +241,3 @@ def dfm_from_gmsh(file_name: Path, dim: int, **kwargs) -> pp.MixedDimensionalGri
     else:
         raise ValueError(f"Unknown dimension, dim: {dim}")
     return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
-
-
-def dfm_3d_from_fab(
-    file_name: Path,
-    tol: float = 1e-4,
-    domain: Optional[pp.Domain] = None,
-    return_domain: bool = False,
-    **mesh_kwargs,
-) -> Union[pp.MixedDimensionalGrid, tuple[pp.MixedDimensionalGrid, pp.Domain]]:
-    """Create the mdg from a set of 3d fractures stored in a fab file and domain.
-
-    Parameters:
-        file_name: Name of the file.
-        tol: ``default=1e-4``
-
-            Tolerance for the methods.
-        domain: ``default=None``
-
-            Domain specification. If not given, the bounding box is considered.
-        return_domain:  ``default=False``
-
-            Whether to return the domain.
-        mesh_kwargs: ``kwargs`` for the gridding, see e.g.,
-            :meth:`~porepy.fracs.simplex.tetrahedral_grid_from_gmsh`.
-
-    Returns:
-        The resulting mixed-dimensional grid, and if :attr:`return_domain` is ``True``,
-        also the domain.
-
-    """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
-
-    network = network_3d_from_fab(file_name, return_all=False, tol=tol)
-    assert isinstance(network, FractureNetwork3d)
-
-    # Compute the domain if not given
-    if domain is None:
-        domain = pp.Domain(network.bounding_box())
-
-    network.domain = domain
-    mdg = network.mesh(mesh_kwargs)
-
-    if return_domain:
-        return mdg, domain
-    else:
-        return mdg
-
-
-def network_3d_from_fab(
-    f_name: Path, return_all: bool = False, tol: Optional[float] = None
-) -> Union[FractureNetwork3d, tuple[FractureNetwork3d, list[np.ndarray], np.ndarray]]:
-    r"""Create 3D fracture network from a ``.fab`` file, as specified by FracMan.
-
-    The filter is based on the ``.fab``-files available at the time of writing and
-    may not cover all options available.
-
-    Note:
-        The function also reads various other information of unknown usefulness,
-        see implementation for details. This information is currently not returned.
-
-    Parameters:
-        f_name: Path to the ``.fab`` file.
-        return_all: ``default=False``
-
-            Whether to return additional information (see the Returns section).
-        tol: ``default=None``
-
-            Tolerance passed on instantiation of the returned
-            :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
-
-    Returns:
-        3D fracture network, and if ``return_all=True`` also
-
-        - A list of numpy arrays of ``shape=(nd, num_points)``, where each
-          item of the list contains the fractures cut by the domain boundary,
-          represented by their ``num_points`` vertexes.
-        - A numpy array, where for each element in the list of numpy arrays from
-          above, a :math:`\pm 1` is associated, establishing which boundary the
-          fracture is on.
-
-    """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
-
-    def read_keyword(line):
-        # Read a single keyword, on the form  key = val
-        words = line.split("=")
-        key = words[0].strip()
-        val = words[1].strip()
-        return key, val
-
-    def read_section(f, section_name):
-        # Read a section of the file, surrounded by a BEGIN / END wrapping
-        d = {}
-        for line in f:
-            if line.strip() == "END " + section_name.upper().strip():
-                return d
-            k, v = read_keyword(line)
-            d[k] = v
-
-    def read_fractures(f, is_tess=False):
-        # Read the fracture
-        fracs = []
-        fracture_ids = []
-        trans = []
-        nd = 3
-        for line in f:
-            if not is_tess and line.strip() == "END FRACTURE":
-                return fracs, np.asarray(fracture_ids), np.asarray(trans)
-            elif is_tess and line.strip() == "END TESSFRACTURE":
-                return fracs, np.asarray(fracture_ids), np.asarray(trans)
-            if is_tess:
-                ids, num_vert = line.split()
-            else:
-                ids, num_vert, t = line.split()[:3]
-
-                trans.append(float(t))
-
-            ids = int(ids)
-            num_vert = int(num_vert)
-            vert = np.zeros((num_vert, nd))
-            for i in range(num_vert):
-                data = f.readline().split()
-                vert[i] = np.asarray(data[1:])
-
-            # Transpose to nd x n_pt format
-            vert = vert.T
-
-            # Read line containing normal vector, but disregard result
-            data = f.readline().split()
-            if is_tess:
-                trans.append(int(data[1]))
-            fracs.append(vert)
-            fracture_ids.append(ids)
-
-    with open(f_name, "r") as f:
-        for line in f:
-            if line.strip() == "BEGIN FORMAT":
-                # Read the format section, but disregard the information for
-                # now
-                _ = read_section(f, "FORMAT")
-            elif line.strip() == "BEGIN PROPERTIES":
-                # Read in properties section, but disregard information
-                _ = read_section(f, "PROPERTIES")
-            elif line.strip() == "BEGIN SETS":
-                # Read set section, but disregard information.
-                _ = read_section(f, "SETS")
-            elif line.strip() == "BEGIN FRACTURE":
-                # Read fractures
-                fracs, _, _ = read_fractures(f, is_tess=False)
-            elif line.strip() == "BEGIN TESSFRACTURE":
-                # Read tess_fractures
-                tess_fracs, _, tess_sgn = read_fractures(f, is_tess=True)
-            elif line.strip() == "BEGIN ROCKBLOCK":
-                # Not considered block
-                pass
-            elif line.strip()[:5] == "BEGIN":
-                # Check for keywords not yet implemented.
-                raise ValueError("Unknown section type " + line)
-
-    fractures = [pp.PlaneFracture(f) for f in fracs]
-    if tol is not None:
-        network = pp.create_fracture_network(fractures, tol=tol)
-    else:
-        network = pp.create_fracture_network(fractures)
-    assert isinstance(network, FractureNetwork3d)
-
-    if return_all:
-        return network, tess_fracs, tess_sgn
-    else:
-        return network

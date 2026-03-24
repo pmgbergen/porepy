@@ -5,18 +5,35 @@ That is, manifolds of dimension 1 embedded in 2Dd
 
 from __future__ import annotations
 
+import gmsh
 import numpy as np
 
-from .fracture import Fracture
+from .fracture import PointBasedFracture
 
 
-class LineFracture(Fracture):
+class LineFracture(PointBasedFracture):
     """A class representing linear fractures in 2D, i.e. manifolds of dimension 1
     embedded in 2D.
 
     For a description of constructor arguments, see base class.
 
     """
+
+    def fracture_to_gmsh(self) -> int:
+        """Creates a gmsh representation of the fracture.
+
+        Returns:
+            An integer representing the tag of the fracture.
+
+        """
+        endpoint_1 = gmsh.model.occ.addPoint(
+            float(self.pts[0, 0]), float(self.pts[1, 0]), 0.0
+        )
+        endpoint_2 = gmsh.model.occ.addPoint(
+            float(self.pts[0, 1]), float(self.pts[1, 1]), 0.0
+        )
+        fracture_id = gmsh.model.occ.addLine(endpoint_1, endpoint_2)
+        return fracture_id
 
     def sort_points(self) -> np.ndarray:
         """Sort the vertices.
