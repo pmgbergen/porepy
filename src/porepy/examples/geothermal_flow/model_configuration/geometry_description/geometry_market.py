@@ -204,9 +204,9 @@ class SimpleGeometryHorizontal(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 10.0
-    _inlet_centre: np.ndarray = np.array([0.0, 10.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([2000.0, 10.0, 0.0])
+    _dist_from_ref_point: float = 5.0
+    _inlet_centre: np.ndarray = np.array([0.0, 5.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([2000.0, 5.0, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(2000.0, "m")
@@ -218,7 +218,7 @@ class SimpleGeometryHorizontal(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(20.0, "m")
+        cell_size = self.units.convert_units(10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 

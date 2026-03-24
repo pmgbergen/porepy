@@ -410,119 +410,119 @@ class FlowModelBase(FlowTemplate):
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
-    def before_nonlinear_iteration(self) -> None:
-
-        # Try to read iterate-0 vector
-        try:
-            x0 = self.equation_system.get_variable_values(iterate_index=0).copy()
-        except Exception as e:
-            logger.debug(f"Could not read iterate-0 variable values: {e}")
-            return
-
-        # Determine DOF indices for fields we want to update
-        try:
-            p_dof_idx = self.equation_system.dofs_of(['pressure'])
-            comp_name = None
-            try:
-                comp_name = self._get_non_reference_component()
-            except Exception:
-                comp_name = None
-            if comp_name:
-                z_var = f"z_{comp_name}"
-            else:
-                # fallback to any z-like variable if component unknown
-                z_var = next((v.name for v in self.equation_system.variables if v.name.startswith("z_")), None)
-                if z_var is None:
-                    logger.debug("No composition variable found to update.")
-            if z_var:
-                z_dof_idx = self.equation_system.dofs_of([z_var])
-            else:
-                z_dof_idx = np.array([], dtype=int)
-
-            h_dof_idx = self.equation_system.dofs_of(['enthalpy'])
-            t_dof_idx = self.equation_system.dofs_of(['temperature'])
-            s_dof_idx = self.equation_system.dofs_of(['s_gas'])
-        except Exception as e:
-            logger.warning(f"Failed to determine DOF indices for thermo update: {e}")
-            return
-
-        # Extract current control parameters (flatten)
-        try:
-            p0 = np.asarray(x0[p_dof_idx]).flatten() if p_dof_idx.size else np.array([])
-            z0 = np.asarray(x0[z_dof_idx]).flatten() if z_dof_idx.size else np.array([])
-            h0 = np.asarray(x0[h_dof_idx]).flatten() if h_dof_idx.size else np.array([])
-        except Exception as e:
-            logger.warning(f"Failed to extract current DOF values: {e}")
-            return
-
-        # If any of p,z,h are missing, skip sampling
-        if p0.size == 0 or h0.size == 0 or z0.size == 0:
-            logger.debug("Insufficient data for thermo sampling (p/z/h missing). Skipping iterate-0 update.")
-            return
-
-        # Build sampling points and sample thermo state
-        try:
-            par_points = np.vstack((z0, h0, p0)).T
-            self.vtk_sampler.sample_at(par_points)
-
-            sampled = self.vtk_sampler.sampled_could.point_data
-
-            # Update temperature if available
-            if "Temperature" in sampled and t_dof_idx.size:
-                star_t = np.asarray(sampled["Temperature"]).flatten()
-                if star_t.size == t_dof_idx.size:
-                    x0[t_dof_idx] = star_t
-                else:
-                    # try broadcast-safe assignment for per-cell values
-                    x0[t_dof_idx] = star_t[: t_dof_idx.size]
-
-            # Update saturation if available
-            if "S_v" in sampled and s_dof_idx.size:
-                star_s = np.clip(np.asarray(sampled["S_v"]).flatten(), 0.0, 1.0)
-                if star_s.size == s_dof_idx.size:
-                    x0[s_dof_idx] = star_s
-                else:
-                    x0[s_dof_idx] = star_s[: s_dof_idx.size]
-
-            # Optionally update composition if sampler provides a matching key
-            if z_dof_idx.size:
-                comp_keys = [f"X_{comp_name}_liq" if comp_name else None,
-                             f"x_{comp_name}_liq" if comp_name else None,
-                             z_var]
-                for key in comp_keys:
-                    if key and key in sampled:
-                        star_comp = np.asarray(sampled[key]).flatten()
-                        if star_comp.size == z_dof_idx.size:
-                            x0[z_dof_idx] = star_comp
-                        else:
-                            x0[z_dof_idx] = star_comp[: z_dof_idx.size]
-                        break
-
-        except Exception as e:
-            logger.warning(f"Thermo sampling/update failed: {e}")
-            return
-
-        # Write modified iterate-0 back into the equation system (with fallbacks)
-        try:
-            if hasattr(self.equation_system, "set_variable_values"):
-                try:
-                    self.equation_system.set_variable_values(x0, iterate_index=0)
-                except TypeError:
-                    self.equation_system.set_variable_values(x0)
-            elif hasattr(self.equation_system, "iterates"):
-                try:
-                    self.equation_system.iterates[0] = x0
-                except Exception as e:
-                    logger.warning(f"Could not assign to equation_system.iterates[0]: {e}")
-            else:
-                logger.warning("No supported method found to write iterate-0 values back to equation_system.")
-        except Exception as e:
-            logger.warning(f"Failed to write updated iterate-0 back to equation system: {e}")
-
-        # keep existing bookkeeping and discretization updates
-        # self.before_nonlinear_loop()
-        self.update_buoyancy_driven_fluxes()
-        self.rediscretize()
+    # def before_nonlinear_iteration(self) -> None:
+    #
+    #     # Try to read iterate-0 vector
+    #     try:
+    #         x0 = self.equation_system.get_variable_values(iterate_index=0).copy()
+    #     except Exception as e:
+    #         logger.debug(f"Could not read iterate-0 variable values: {e}")
+    #         return
+    #
+    #     # Determine DOF indices for fields we want to update
+    #     try:
+    #         p_dof_idx = self.equation_system.dofs_of(['pressure'])
+    #         comp_name = None
+    #         try:
+    #             comp_name = self._get_non_reference_component()
+    #         except Exception:
+    #             comp_name = None
+    #         if comp_name:
+    #             z_var = f"z_{comp_name}"
+    #         else:
+    #             # fallback to any z-like variable if component unknown
+    #             z_var = next((v.name for v in self.equation_system.variables if v.name.startswith("z_")), None)
+    #             if z_var is None:
+    #                 logger.debug("No composition variable found to update.")
+    #         if z_var:
+    #             z_dof_idx = self.equation_system.dofs_of([z_var])
+    #         else:
+    #             z_dof_idx = np.array([], dtype=int)
+    #
+    #         h_dof_idx = self.equation_system.dofs_of(['enthalpy'])
+    #         t_dof_idx = self.equation_system.dofs_of(['temperature'])
+    #         s_dof_idx = self.equation_system.dofs_of(['s_gas'])
+    #     except Exception as e:
+    #         logger.warning(f"Failed to determine DOF indices for thermo update: {e}")
+    #         return
+    #
+    #     # Extract current control parameters (flatten)
+    #     try:
+    #         p0 = np.asarray(x0[p_dof_idx]).flatten() if p_dof_idx.size else np.array([])
+    #         z0 = np.asarray(x0[z_dof_idx]).flatten() if z_dof_idx.size else np.array([])
+    #         h0 = np.asarray(x0[h_dof_idx]).flatten() if h_dof_idx.size else np.array([])
+    #     except Exception as e:
+    #         logger.warning(f"Failed to extract current DOF values: {e}")
+    #         return
+    #
+    #     # If any of p,z,h are missing, skip sampling
+    #     if p0.size == 0 or h0.size == 0 or z0.size == 0:
+    #         logger.debug("Insufficient data for thermo sampling (p/z/h missing). Skipping iterate-0 update.")
+    #         return
+    #
+    #     # Build sampling points and sample thermo state
+    #     try:
+    #         par_points = np.vstack((z0, h0, p0)).T
+    #         self.vtk_sampler.sample_at(par_points)
+    #
+    #         sampled = self.vtk_sampler.sampled_could.point_data
+    #
+    #         # Update temperature if available
+    #         if "Temperature" in sampled and t_dof_idx.size:
+    #             star_t = np.asarray(sampled["Temperature"]).flatten()
+    #             if star_t.size == t_dof_idx.size:
+    #                 x0[t_dof_idx] = star_t
+    #             else:
+    #                 # try broadcast-safe assignment for per-cell values
+    #                 x0[t_dof_idx] = star_t[: t_dof_idx.size]
+    #
+    #         # Update saturation if available
+    #         if "S_v" in sampled and s_dof_idx.size:
+    #             star_s = np.clip(np.asarray(sampled["S_v"]).flatten(), 0.0, 1.0)
+    #             if star_s.size == s_dof_idx.size:
+    #                 x0[s_dof_idx] = star_s
+    #             else:
+    #                 x0[s_dof_idx] = star_s[: s_dof_idx.size]
+    #
+    #         # Optionally update composition if sampler provides a matching key
+    #         if z_dof_idx.size:
+    #             comp_keys = [f"X_{comp_name}_liq" if comp_name else None,
+    #                          f"x_{comp_name}_liq" if comp_name else None,
+    #                          z_var]
+    #             for key in comp_keys:
+    #                 if key and key in sampled:
+    #                     star_comp = np.asarray(sampled[key]).flatten()
+    #                     if star_comp.size == z_dof_idx.size:
+    #                         x0[z_dof_idx] = star_comp
+    #                     else:
+    #                         x0[z_dof_idx] = star_comp[: z_dof_idx.size]
+    #                     break
+    #
+    #     except Exception as e:
+    #         logger.warning(f"Thermo sampling/update failed: {e}")
+    #         return
+    #
+    #     # Write modified iterate-0 back into the equation system (with fallbacks)
+    #     try:
+    #         if hasattr(self.equation_system, "set_variable_values"):
+    #             try:
+    #                 self.equation_system.set_variable_values(x0, iterate_index=0)
+    #             except TypeError:
+    #                 self.equation_system.set_variable_values(x0)
+    #         elif hasattr(self.equation_system, "iterates"):
+    #             try:
+    #                 self.equation_system.iterates[0] = x0
+    #             except Exception as e:
+    #                 logger.warning(f"Could not assign to equation_system.iterates[0]: {e}")
+    #         else:
+    #             logger.warning("No supported method found to write iterate-0 values back to equation_system.")
+    #     except Exception as e:
+    #         logger.warning(f"Failed to write updated iterate-0 back to equation system: {e}")
+    #
+    #     # keep existing bookkeeping and discretization updates
+    #     # self.before_nonlinear_loop()
+    #     self.update_buoyancy_driven_fluxes()
+    #     self.rediscretize()
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         g_constant = pp.GRAVITY_ACCELERATION

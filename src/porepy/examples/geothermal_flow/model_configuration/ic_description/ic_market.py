@@ -52,7 +52,7 @@ class IC_Base(pp.PorePyModel):
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h_init
 
 

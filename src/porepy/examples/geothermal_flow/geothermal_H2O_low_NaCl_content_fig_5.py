@@ -78,24 +78,24 @@ BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
 InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, geometry_cases[geometry_case])
 
-time_manager = pp.TimeManager(
-    schedule=[0.0, tf],
-    dt_init=dt,
-    constant_dt=True,
-    iter_max=50,
-    print_info=True,
-)
-
 # time_manager = pp.TimeManager(
 #     schedule=[0.0, tf],
 #     dt_init=dt,
-#     constant_dt=False,
-#     dt_min_max=(dt * 0.05, 1.0 * dt),
-#     iter_relax_factors=(0.5, 1.5),
-#     iter_optimal_range=(3, 8),
-#     recomp_factor=0.3,
+#     constant_dt=True,
+#     iter_max=50,
 #     print_info=True,
 # )
+
+time_manager = pp.TimeManager(
+    schedule=[0.0, tf],
+    dt_init=dt,
+    constant_dt=False,
+    dt_min_max=(dt * 0.05, 1.0 * dt),
+    iter_relax_factors=(0.5, 1.5),
+    iter_optimal_range=(3, 8),
+    recomp_factor=0.3,
+    print_info=True,
+)
 
 solid_constants = pp.SolidConstants(
     permeability=1e-15,
@@ -112,12 +112,14 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
-    "nl_convergence_res_atol": 1.0e-5,
-    "nl_convergence_res_rtol": 1.0e-5,
+    "nl_convergence_inc_atol": 1.0e-3,
+    "nl_convergence_inc_rtol": 1.0e-3,
+    "nl_convergence_res_atol": 1.0e-3,
+    "nl_convergence_res_rtol": 1.0e-3,
     "flag_failure_as_diverged": False,
     # Maximum number of nonlinear iterations (was incorrectly set as
     # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
-    "nl_max_iterations": 100,
+    "nl_max_iterations": 20,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver

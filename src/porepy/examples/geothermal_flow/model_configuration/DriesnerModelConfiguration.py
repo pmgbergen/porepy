@@ -317,7 +317,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         return diff_eq_indices, alg_eq_indices
 
-    def compute_residuals_by_category(self, residual: np.ndarray) -> tuple[dict, dict, float, float]:
+    def compute_residuals_by_category(self, residual: np.ndarray) -> tuple[dict, dict, float, float, dict]:
         """
         Compute residual norms organized by category.
 
@@ -325,32 +325,85 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             residual: Full residual vector
 
         Returns:
-            tuple: (diff_residuals, alg_residuals, diff_norm, alg_norm)
+            tuple: (diff_residuals, alg_residuals, diff_norm, alg_norm, alg_exceeds)
                 - diff_residuals: dict of individual differential equation norms
                 - alg_residuals: dict of individual algebraic equation norms
                 - diff_norm: combined differential equations norm
                 - alg_norm: combined algebraic equations norm
+                - alg_exceeds: dict mapping algebraic variable name to an array of
+                  cell indices where the algebraic residual magnitude exceeds the
+                  combined differential residual magnitude for the same cell.
         """
         diff_eq_indices, alg_eq_indices = self.get_equation_indices_by_category()
 
         # Compute individual differential equation norms
         diff_residuals = {}
+        diff_components_arrays = {}
         for name, indices in diff_eq_indices.items():
-            diff_residuals[name] = np.linalg.norm(residual[indices])
+            arr = residual[indices]
+            diff_components_arrays[name] = np.asarray(arr).ravel()
+            diff_residuals[name] = np.linalg.norm(diff_components_arrays[name])
 
         # Compute individual algebraic equation norms
         alg_residuals = {}
+        alg_components_arrays = {}
         for name, indices in alg_eq_indices.items():
-            alg_residuals[name] = np.linalg.norm(residual[indices])
+            arr = residual[indices]
+            alg_components_arrays[name] = np.asarray(arr).ravel()
+            alg_residuals[name] = np.linalg.norm(alg_components_arrays[name])
 
         # Compute combined norms by category
-        differential_components = [residual[indices] for indices in diff_eq_indices.values()]
-        algebraic_components = [residual[indices] for indices in alg_eq_indices.values()]
+        differential_components = [diff_components_arrays[name] for name in diff_eq_indices.keys()]
+        algebraic_components = [alg_components_arrays[name] for name in alg_eq_indices.keys()]
 
-        differential_norm = np.linalg.norm(np.concatenate(differential_components))
-        algebraic_norm = np.linalg.norm(np.concatenate(algebraic_components))
+        # Combined global norms
+        try:
+            differential_norm = np.linalg.norm(np.concatenate(differential_components))
+        except Exception:
+            differential_norm = float(np.linalg.norm(np.hstack(list(diff_components_arrays.values()))))
+        try:
+            algebraic_norm = np.linalg.norm(np.concatenate(algebraic_components))
+        except Exception:
+            algebraic_norm = float(np.linalg.norm(np.hstack(list(alg_components_arrays.values()))))
 
-        return diff_residuals, alg_residuals, differential_norm, algebraic_norm
+        # Now compute per-cell exceedance: for each algebraic variable, find cell
+        # indices where |alg_residual(cell)| > combined_diff_cell_norm(cell).
+        # This requires that the per-variable residual arrays have the same length
+        # (number of cells). If lengths don't match, we fall back to empty masks
+        # and print a diagnostic.
+        alg_exceeds: dict = {}
+        # Determine if we can compute per-cell combined differential norm
+        diff_lengths = [arr.size for arr in differential_components]
+        alg_lengths = {name: arr.size for name, arr in alg_components_arrays.items()}
+
+        if len(set(diff_lengths)) == 1:
+            # All differential components have same length -> can compute per-cell vector
+            n_cells = diff_lengths[0]
+            # build per-cell combined differential norm (Euclidean over components)
+            diff_stack = np.vstack([diff_components_arrays[name] for name in diff_eq_indices.keys()])
+            # shape (n_components, n_cells) -> compute norm over axis=0
+            combined_diff_per_cell = np.linalg.norm(diff_stack, axis=0)
+
+            # For each algebraic variable, compare if lengths match and compute mask
+            for name, arr in alg_components_arrays.items():
+                if arr.size == n_cells:
+                    mask = np.abs(arr) > combined_diff_per_cell
+                    alg_exceeds[name] = np.nonzero(mask)[0]
+                else:
+                    # Length mismatch; cannot compute per-cell comparison reliably
+                    alg_exceeds[name] = np.array([], dtype=int)
+                    print(
+                        f"Warning: cannot compare per-cell residuals for '{name}' (size={arr.size}) to differential components (n_cells={n_cells})."
+                    )
+        else:
+            # Differential components have different sizes -- cannot build per-cell comparison
+            for name in alg_components_arrays.keys():
+                alg_exceeds[name] = np.array([], dtype=int)
+            print(
+                "Warning: differential residual components have inconsistent lengths; skipping per-cell exceedance check."
+            )
+
+        return diff_residuals, alg_residuals, differential_norm, algebraic_norm, alg_exceeds
 
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
@@ -373,7 +426,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             return np.nan
 
         # Use unified method to compute residuals by category
-        diff_residuals, alg_residuals, differential_norm, algebraic_norm = \
+        diff_residuals, alg_residuals, differential_norm, algebraic_norm, _ = \
             self.compute_residuals_by_category(residual)
 
         # Return only differential equations norm for convergence check
@@ -396,7 +449,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
             # Residual per subsystem
             # Use unified method to compute residuals by category
-            diff_residuals, alg_residuals, differential_norm, algebraic_norm = \
+            diff_residuals, alg_residuals, differential_norm, algebraic_norm, _ = \
                 self.compute_residuals_by_category(residual)
 
             # Check convergence requiring both the increment and residual to be small.
@@ -436,7 +489,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         _, residual_vector = self.linear_system
 
         # Use unified method to compute residuals by category
-        diff_residuals, alg_residuals, differential_residual_norm, algebraic_residual_norm = \
+        diff_residuals, alg_residuals, differential_residual_norm, algebraic_residual_norm, alg_exceeds = \
             self.compute_residuals_by_category(residual_vector)
 
         # Report Residuals
@@ -451,10 +504,15 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         for name, norm in alg_residuals.items():
             print(f"  - {name.capitalize()}: {norm:.4e}")
 
-        print(f"\nResidual norm comparison:")
-        print(f"  Differential equations norm: {differential_residual_norm:.4e}")
-        print(f"  Algebraic equations norm:    {algebraic_residual_norm:.4e}")
-        print(f"  (Note: Convergence check only uses differential equations)")
+        # Print brief summary of algebraic residual exceedances (per-cell)
+        print("\nAlgebraic residuals exceeding combined differential residual per cell:")
+        for name, idxs in alg_exceeds.items():
+            try:
+                count = int(idxs.size)
+            except Exception:
+                count = len(idxs)
+            sample = idxs[:10].tolist() if count > 0 else []
+            print(f"  - {name}: {count} cells (examples: {sample})")
 
         # selector for the step control
         # - line search (LS)
@@ -553,7 +611,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             print(f"  Differential norm ({differential_residual_norm:.4e}) < "
                   f"Algebraic norm ({algebraic_residual_norm:.4e})")
             print("  Applying thermal overshoot post-processing...")
-            self.postprocessing_thermal_overshoots(solution)
+            self.postprocessing_thermal_overshoots(solution, alg_exceeds)
         else:
             print(f"\nThermal overshoot condition NOT triggered:")
             print(f"  Differential norm ({differential_residual_norm:.4e}) >= "
@@ -861,7 +919,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         print("Elapsed time for postprocessing overshoots: ", te - tb)
         return np.min([p_scale,z_scale,h_scale,t_scale])
 
-    def postprocessing_thermal_overshoots(self, delta_x, idx_temp=[]):
+    def postprocessing_thermal_overshoots(self, delta_x, alg_exceeds: dict):
 
         tb = time.time()
         x0 = self.equation_system.get_variable_values(iterate_index=0)
@@ -899,33 +957,35 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         idx_mp = np.where(np.abs(new_s * (1 - new_s)) > 0.0)[0]
         idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
 
-        if idx_mp.size != 0:
-            # correct saturation and temperature from enthalpy
-            par_points = np.array((z_0[idx_mp], h_0[idx_mp], p_0[idx_mp])).T
-            self.vtk_sampler.sample_at(par_points)
-
-            star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
-            delta_x[t_dof_idx[idx_mp]] = star_t - t_0[idx_mp]
-            star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
-            delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
-
-        # if idx_temp.size != 0:
-        #     # correct temperature from enthalpy
-        #     par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
+        # if idx_mp.size != 0:
+        #     # correct saturation and temperature from enthalpy
+        #     par_points = np.array((z_0[idx_mp], h_0[idx_mp], p_0[idx_mp])).T
         #     self.vtk_sampler.sample_at(par_points)
+        #
         #     star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
-        #     delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
+        #     delta_x[t_dof_idx[idx_mp]] = star_t - t_0[idx_mp]
         #     star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
-        #     delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
+        #     delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
 
-        if idx_sp.size != 0:
-            # correct enthalpy from temperature
-            par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
-            self.vtk_sampler_ptz.sample_at(par_points)
-            star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
-            delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
-            star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
-            delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
+        if len(alg_exceeds) != 0:
+            # correct from enthalpy using  temperature idxs
+            idx_temp = alg_exceeds.get('temperature', np.array([], dtype=int))
+            par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
+            self.vtk_sampler.sample_at(par_points)
+            star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
+            delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
+
+            star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
+            delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
+
+        # if idx_sp.size != 0:
+        #     # correct enthalpy from temperature
+        #     par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
+        #     self.vtk_sampler_ptz.sample_at(par_points)
+        #     star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        #     delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
+        #     star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
+        #     delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
 
 
         te = time.time()
