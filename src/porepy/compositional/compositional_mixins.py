@@ -3409,25 +3409,32 @@ class PointWellModel:
         Returns:
             The source term wrapped as a dens AD array.
         """
-        injected_mass: list[np.ndarray] = []
+        injected_mass= []
         for sd in subdomains:
             assert "injection_well" in sd.tags, (
                 f"Grid {sd.id} not tagged as injection well."
             )
             #note that for this setting, the injection rate is in 1/s
             # here we use a constant molar density for the injected fluid: self.fluid.reference_component.molar_density
-            injected_mass.append(
-                np.ones(sd.num_cells)
-                * self.injection_and_production_rates("injection")
-                * self.ic_values_species_concentration(component, sd) / self.solid.total_porosity
-            )
+            if component in self.fluid.solid_components:
+                injected_mass.append(np.zeros(sd.num_cells))
+            else:
+                injected_mass.append(
+                    np.ones(sd.num_cells)
+                    * self.injection_and_production_rates("injection")
+                    * self.ic_values_species_concentration(component, sd) / self.solid.total_porosity / self.fluid.reference_component.molar_density
+                )
 
         if injected_mass:
-            source = np.hstack(injected_mass)
+            source = pp.wrap_as_dense_ad_array(np.hstack(injected_mass))
         else:
-            source = np.zeros((0,))
+            source = pp.wrap_as_dense_ad_array(np.zeros((0,)))
 
-        return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
+        source *= self.injection_density(subdomains,"molar")
+        source.set_name(f"injected_{component.name}_mass")
+
+        return source
+    
     
 
     def element_source(
@@ -3742,3 +3749,54 @@ class PointWellModel:
             prod_parts.append(prod)
 
         return np.hstack(inj_parts), np.hstack(prod_parts)
+
+
+    def injection_density(
+        self,
+        domains: pp.SubdomainsOrBoundaries,
+        density_type: str = "mass",
+    ) -> pp.ad.Operator:
+        """Density of injected fluid using cell pressure and prescribed injection
+        temperature.
+
+        The pressure dependence is identical to the rest of the code, since it uses
+        `self.pressure_exponential(...)` directly. The temperature dependence uses the
+        injected temperature instead of the cell temperature.
+
+        Parameters
+        ----------
+        domains : pp.SubdomainsOrBoundaries
+            Domains where the density is evaluated.
+        density_type : str
+            "mass"  -> return mass density (kg/m^3)
+            "molar" -> return molar density (mol/m^3)
+
+        Returns
+        -------
+        pp.ad.Operator
+            Injection density operator.
+        """
+        grids = cast(list[pp.Grid], domains)
+
+        if density_type == "mass":
+            rho_ref = pp.ad.Scalar(self.fluid.reference_component.density)
+        elif density_type == "molar":
+            rho_ref = pp.ad.Scalar(self.fluid.reference_component.molar_density)
+        else:
+            raise ValueError("density_type must be 'mass' or 'molar'")
+
+        injected_temperature = self.units.convert_units(
+            self.params["injected_temperature"], "K"
+        )
+
+        T_ref = self.reference_variable_values.temperature
+        alpha = self.fluid_thermal_expansion(grids)
+
+        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+        temperature_factor = exp(
+            pp.ad.Scalar(-1.0) * alpha * pp.ad.Scalar(injected_temperature - T_ref)
+        )
+
+        rho_ = rho_ref * self.pressure_exponential(grids) * temperature_factor
+        rho_.set_name(f"injection_{density_type}_density")
+        return rho_
