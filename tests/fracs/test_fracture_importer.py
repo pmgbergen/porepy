@@ -127,7 +127,7 @@ def test_fracture_importer(
             # We have to generate points on the elliptic fracture to compare: One is the
             # center, two others will be half the distance from the center in the
             # direction of the major and minor axis, respectively. If the distance
-            # from all these points are zero, the fracture must be in the right plane,
+            # between the fracture and each of these points is zero, the fracture must be in the right plane,
             # which is the main property we want to test.
             f_known = f_known.ravel()
             center = f_known[:3].ravel()
@@ -161,10 +161,10 @@ def test_fracture_importer(
                 dip_angle,
                 vect=np.array([np.cos(strike_angle), np.sin(strike_angle), 0]),
             )
-
+Apply first strike rotation, then dip rotation around the rotated major axis.
             major_axis_rotated = rot_dip @ rot_strike @ vec_major_xy
             minor_axis_rotated = rot_dip @ rot_strike @ vec_minor_xy
-            # Controll points.
+            # Control points.
             point_major = center + 0.5 * major_axis * major_axis_rotated
             point_minor = center + 0.5 * minor_axis * minor_axis_rotated
 
