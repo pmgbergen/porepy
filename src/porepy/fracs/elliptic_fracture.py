@@ -84,10 +84,6 @@ class EllipticFracture(Fracture):
         Create the elliptic fracture as an OpenCASCADE entity in Gmsh and return the
         corresponding 2D surface tag.
 
-        The procedure follows the same geometric logic as in `create_elliptic_fracture`
-        (polygonal version), but uses the OpenCASCADE kernel for exact geometry
-        definition.
-
         Returns:
             int: Tag of the generated 2D OCC surface.
 
