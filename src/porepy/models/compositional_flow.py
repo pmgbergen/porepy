@@ -1831,43 +1831,6 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
         advected enthalpy to be equal to the upwinding discretization for component
         mass balances."""
 
-
-class SolutionStrategyCF(
-    SolutionStrategyPhaseProperties,
-    SolutionStrategyExtendedFluidMassAndEnergy,
-):
-    """Solution strategy for general compositional flow.
-
-    The generality refers to the fluid phase properties being surrogate operators. I.e,
-    they are given by some underlying EoS and their values must be computed and stored
-    explicitly at several steps in the algorithm.
-
-    It uses a mixed-in solution strategy for phase property updates and is based on the
-    fully functional solution strategy for fluid mass and energy balance equations,
-    including an independent fluid enthalpy variable.
-
-    Supports the following model parameters:
-
-    - ``'eliminate_reference_phase'``: Defaults to True. If True, the molar fraction
-      and saturation of the reference phase are eliminated by unity, reducing the size
-      of the system. If False, more work is required by the modeller.
-    - ``'eliminate_reference_component'``: Defaults to True. If True, the overall
-      fraction of the reference component is eliminated by unity, reducing the number
-      of unknowns. Also, the mass balance equation for the reference component is
-      removed as an equation. If False, the modeller must close the system.
-    - ``'fractional_flow'``: Defaults to False. If True, the model treats the
-      non-linear weights in the advective fluxes in mass and energy balances as closed
-      terms on the boundary. The user must then provide values for the non-linear
-      weights explicitly. It also uses fractional mobilities, instead of regular ones.
-      To be used with consistently discretized diffusive parts or balance equations.
-    - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
-      part, it should be a string indicating the fixed state of the local phase
-      equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
-      qualifiers providing information about the equilibrium model, for example
-      ``'unified-p-h'``.
-
-    """
-
     def add_nonlinear_darcy_flux_discretization(self) -> None:
         """If the fractional flow formulation is used, the nonlinear Darcy flux
         discretization is added by default for all subdomains to the update routine."""
@@ -1887,6 +1850,23 @@ class SolutionStrategyCF(
         self.add_nonlinear_diffusive_flux_discretization(
             self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
+
+
+class SolutionStrategyCF(
+    SolutionStrategyPhaseProperties,
+    SolutionStrategyExtendedFluidMassAndEnergy,
+):
+    """Solution strategy for general compositional flow.
+
+    The generality refers to the fluid phase properties being surrogate operators. I.e,
+    they are given by some underlying EoS and their values must be computed and stored
+    explicitly at several steps in the algorithm.
+
+    It uses a mixed-in solution strategy for phase property updates and is based on the
+    fully functional solution strategy for fluid mass and energy balance equations,
+    including an independent fluid enthalpy variable.
+
+    """
 
 
 # endregion

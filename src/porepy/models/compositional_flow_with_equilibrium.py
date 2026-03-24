@@ -43,42 +43,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class LocalIsenthalpicEquilibriumEquations(PH_PVEEquations):
-    """Equations for closing compositional flow models with isobaric-isenthalpic
-    equilibrium conditions.
-
-    Due to saturations and molar fractions being independent variables, the model is
-    closed with local phase mass conservation equations.
-
-    Note:
-        Using an independent fluid enthalpy variable, these model equations are suitable
-        for both, isenthalpic and isothermal flash procedures.
-
-    """
-
-    has_independent_saturation: Callable[[pp.Phase], bool]
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-
-    def set_equations(self):
-        """Assembles primary balance equations, local equilibrium equations and
-        local phase mass conservation, in that order.
-
-        The phase fraction variable usually appears in equilibrium formulations.
-        Since saturations are variables as well, the system must be closed by relating
-        those two phase-related quantities to each other.
-
-        """
-        super().set_equations()
-
-        subdomains = self.mdg.subdomains()
-        for phase in self.fluid.phases:
-            if self.has_independent_saturation(phase):
-                equ = self.mass_constraint_for_phase(phase, subdomains)
-                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-
 class EnthalpyBasedEquationsCFLE(
-    LocalIsenthalpicEquilibriumEquations,
+    pc.PhaseVariablesClosure,
+    PH_PVEEquations,
     cf.PrimaryEquationsCF,
 ):
     """CFLE model equations with a p-h equilibrium.
@@ -91,7 +58,8 @@ class EnthalpyBasedEquationsCFLE(
 
 
 class EnthalpyBasedEquationsCFFLE(
-    LocalIsenthalpicEquilibriumEquations,
+    pc.PhaseVariablesClosure,
+    PH_PVEEquations,
     cf.PrimaryEquationsCFF,
 ):
     """CFFLE model equations with a p-h equilibrium.
@@ -129,19 +97,18 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
     """
 
     flash: AbstractFlash
-    """See :class:`SolutionStrategyCFLE`."""
 
     bc_values_pressure: Callable[[pp.BoundaryGrid], np.ndarray]
-    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
-    """
     bc_values_temperature: Callable[[pp.BoundaryGrid], np.ndarray]
-    """See :class:`~porepy.models.energy_balance.BoundaryConditionsEnergy`."""
     bc_values_overall_fraction: Callable[[pp.Component, pp.BoundaryGrid], np.ndarray]
-    """See :class:`~porepy.models.compositional_flow.BoundaryConditionsMulticomponent`.
-    """
 
+    # Provided by CompositionalVariablesMixin
     has_independent_fraction: Callable[[pp.Component], bool]
-    """Provided by mixin for compositional variables."""
+    has_independent_saturation: Callable[[pp.Phase], bool]
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+    has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
+    _saturation_variable: Callable[[pp.Phase], str]
+    _partial_fraction_variable: Callable[[pp.Component, pp.Phase], str]
 
     @property
     def _boundary_equilibrium_required(self) -> bool:
@@ -366,33 +333,6 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
 
         return bg_state
 
-
-class BoundaryConditionsCFLE(
-    # NOTE The order here is critical, since primary variables must be updated first in
-    # order for the BC flash to work.
-    BoundaryConditionsEquilibrium,
-    cf.BoundaryConditionsMulticomponent,
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
-):
-    """BC mixin for CFLE models in the standard formulation (not fractional flow).
-
-    The results of the boundary flash are used to update values of phase properties and
-    secondary variables such as partial fractions, which are relevant on the boundary.
-
-    Note:
-        This mixin is built on the same assumption as
-        :class:`BoundaryConditionsEquilibrium`, in terms of which variables are required
-        on the boundary for the flash. Hence no BC values for enthalpy.
-
-    """
-
-    # Provided by CompositionalVariablesMixin
-    has_independent_saturation: Callable[[pp.Phase], bool]
-    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
-    has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
-    _saturation_variable: Callable[[pp.Phase], str]
-    _partial_fraction_variable: Callable[[pp.Component, pp.Phase], str]
-
     def update_all_boundary_conditions(self):
         """Updates BC values of phase properties (surrogate operators) and secondary
         variables appearing in the non-linear weights on the boundary.
@@ -401,6 +341,9 @@ class BoundaryConditionsCFLE(
 
         """
         super().update_all_boundary_conditions()
+
+        if cf.is_fractional_flow(self):
+            return
 
         for phase in self.fluid.phases:
             self._update_phase_properties_on_boundaries(phase)
@@ -503,6 +446,17 @@ class BoundaryConditionsCFLE(
             return self.boundary_equilibrium_results[bg].phases[j].x[i]
         else:
             return np.zeros(bg.num_cells)
+
+
+class BoundaryConditionsCFLE(
+    # NOTE The order here is critical, since primary variables must be updated first in
+    # order for the BC flash to work.
+    BoundaryConditionsEquilibrium,
+    cf.BoundaryConditionsMulticomponent,
+    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
+):
+    """Collection of boundary condition mixins for compositional flow with local
+    equilibrium."""
 
 
 class BoundaryConditionsCFFLE(
@@ -633,7 +587,7 @@ class BoundaryConditionsCFFLE(
         return vals
 
 
-class InitialConditionsEquilibrium(cf.InitialConditionsCF):
+class InitialConditionsEquilibrium(cf.InitialConditionsPhaseProperties):
     """Modified initialization procedure for compositional flow problem with
     equilibrium conditions and a flash instance.
 
@@ -654,6 +608,11 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
     has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    # Provided by initial condition mixins
+    ic_values_pressure: Callable[[pp.Grid], np.ndarray]
+    ic_values_temperature: Callable[[pp.Grid], np.ndarray]
+    ic_values_overall_fraction: Callable[[pp.Component, pp.Grid], np.ndarray]
 
     def set_initial_values_phase_properties(self) -> None:
         """Instead of computing the initial values using the underlying EoS, it performs
@@ -732,20 +691,24 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
             params=self.params.get("flash_params", None),
         )
 
-        if not np.all(results.converged):
-            raise ValueError(f"Initial flash not successful on grid {sd.id}")
+        self.postprocess_initial_equilibrium(sd, results)
 
         # NOTE Multiple ingores for mypy because the return type of several
         # callables is a general operator, while by logic it is indeed a variable.
 
         # Initializing values for unknown state functions.
-        if results.specification >= pc.FlashSpec.vT:
+        if results.specification >= pc.FlashSpec.vT and isinstance(
+            self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        ):
             self.equation_system.set_variable_values(
                 results.p,
                 [self.pressure([sd])],  # type: ignore[arg-type]
                 iterate_index=0,
             )
-        if results.specification not in [pc.FlashSpec.pT, pc.FlashSpec.vT]:
+        if results.specification not in [
+            pc.FlashSpec.pT,
+            pc.FlashSpec.vT,
+        ] and isinstance(self, pp.energy_balance.VariablesEnergyBalance):
             self.equation_system.set_variable_values(
                 results.T,
                 [self.temperature([sd])],  # type: ignore[arg-type]
@@ -805,16 +768,39 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
                 update_fugacities=True,
             )
 
+    def postprocess_initial_equilibrium(
+        self, sd: pp.Grid, results: FlashResults
+    ) -> None:
+        """Postprocessing of initial equilibrium calculations.
 
-# mypy: disable-error-code="union-attr"
-# NOTE When using the flash it is clear that the properties are surrogate
-# factories.
-class SolutionStrategyCFLE(cf.SolutionStrategyCF):
+        The base method asserts that all calculations converged.
+
+        Parameters:
+            sd: Grid on which the equilibrium was calculated.
+            results: Flash results for given grid.
+
+        """
+        if not np.all(results.converged):
+            raise ValueError(f"Initial flash not successful on grid {sd.id}")
+
+
+class InitialConditionsCFLE(
+    InitialConditionsEquilibrium,
+    pp.energy_balance.InitialConditionsEnthalpy,
+    pp.mass_and_energy_balance.InitialConditionsMassAndEnergy,
+    cf.InitialConditionsFractions,
+):
+    """Collection of initial condition mixins for compositional flow with local
+    equilibrium."""
+
+
+class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     """A solution strategy for compositional flow with local equilibrium conditions in
     the form of algebraic equations.
 
-    Updates of secondary variables and expressions (thermodynamic properties) are
-    performed using the provided flash instance.
+    Performs nonlinear preconditioning in the form of local equilibrium calculations.
+    I.e., it solves the respective subsystem and updates secondary quantities using the
+    results from the flash.
 
     Important:
         Compositional flow models with local equilibrium equations assume that the
@@ -836,21 +822,19 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
     flash: AbstractFlash
     """The flash class set by this solution strategy."""
 
+    # Provided by respective variable mixins.
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.energy_balance.EnthalpyVariable`."""
+    fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    pressure_variable: str
+    temperature_variable: str
 
     has_independent_saturation: Callable[[pp.Phase], bool]
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
     has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def set_materials(self):
         """Sets the flash class after defining the fluid via super-call.
@@ -1212,28 +1196,59 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 spec["p"] = self.equation_system.evaluate(
                     self.pressure([sd]), state=state
                 )
-                if flash_spec == pc.FlashSpec.pT:
+
+                if flash_spec == pc.FlashSpec.pT and isinstance(
+                    self, pp.energy_balance.VariablesEnergyBalance
+                ):
                     spec["T"] = self.equation_system.evaluate(
                         self.temperature([sd]), state=state
                     )
                 elif flash_spec == pc.FlashSpec.ph:
                     if isinstance(self, pp.energy_balance.EnthalpyVariable):
-                        _h = self.equation_system.evaluate(
+                        spec["h"] = self.equation_system.evaluate(
                             self.enthalpy([sd]), state=state
                         )
                     else:
-                        _h = self.equation_system.evaluate(
+                        spec["h"] = self.equation_system.evaluate(
                             self.fluid.specific_enthalpy([sd]), state=state
                         )
-                    spec["h"] = _h
                 else:
                     raise NotImplementedError(
-                        f"Isobaric specification {flash_spec} not yet implemented."
+                        f"Isobaric specification {flash_spec} not implemented."
                     )
             else:
-                raise NotImplementedError(
-                    "Isochoric specifications not yet implemented."
-                )
+                if hasattr(self, "fluid_specific_volume"):
+                    spec["v"] = self.equation_system.evaluate(
+                        self.fluid_specific_volume([sd]), state=state
+                    )
+                else:
+                    spec["v"] = self.equation_system.evaluate(
+                        self.fluid.specific_volume([sd]), state=state
+                    )
+
+                if flash_spec == pc.FlashSpec.pT and isinstance(
+                    self, pp.energy_balance.VariablesEnergyBalance
+                ):
+                    spec["T"] = self.equation_system.evaluate(
+                        self.temperature([sd]), state=state
+                    )
+                elif flash_spec == pc.FlashSpec.ph:
+                    if isinstance(self, pp.energy_balance.EnthalpyVariable):
+                        spec["h"] = self.equation_system.evaluate(
+                            self.enthalpy([sd]), state=state
+                        )
+                    else:
+                        spec["h"] = self.equation_system.evaluate(
+                            self.fluid.specific_enthalpy([sd]), state=state
+                        )
+                elif flash_spec == pc.FlashSpec.vu:
+                    spec["u"] = self.equation_system.evaluate(
+                        self.fluid.specific_internal_energy([sd]), state=state
+                    )
+                else:
+                    raise NotImplementedError(
+                        f"Isochoric specification {flash_spec} not implemented."
+                    )
 
             specification = spec  # type:ignore
 
@@ -1496,46 +1511,76 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                     phase.fraction(subdomains).name, data, iterate_index=0
                 )[idx]
 
+            # NOTE ignore union attribute mypy errors, because in CFLE the phase
+            # properties are all surrogate factories.
             results.phases[j].rho[idx] = pp.get_solution_values(
-                phase.density.name, data, iterate_index=0
+                phase.density.name,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[idx]
             results.phases[j].h[idx] = pp.get_solution_values(
-                phase.specific_enthalpy.name, data, iterate_index=0
+                phase.specific_enthalpy.name,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
+            )[idx]
+            results.phases[j].u[idx] = pp.get_solution_values(
+                phase.specific_internal_energy.name,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[idx]
             results.phases[j].mu[idx] = pp.get_solution_values(
-                phase.viscosity.name, data, iterate_index=0
+                phase.viscosity.name,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[idx]
             results.phases[j].kappa[idx] = pp.get_solution_values(
-                phase.thermal_conductivity.name, data, iterate_index=0
+                phase.thermal_conductivity.name,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[idx]
 
             results.phases[j].drho[:, idx] = pp.get_solution_values(
-                phase.density._name_derivatives, data, iterate_index=0
+                phase.density._name_derivatives,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[:, idx]
             results.phases[j].dh[:, idx] = pp.get_solution_values(
-                phase.specific_enthalpy._name_derivatives, data, iterate_index=0
+                phase.specific_enthalpy._name_derivatives,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
+            )[:, idx]
+            results.phases[j].du[:, idx] = pp.get_solution_values(
+                phase.specific_internal_energy._name_derivatives,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[:, idx]
             results.phases[j].dmu[:, idx] = pp.get_solution_values(
-                phase.viscosity._name_derivatives, data, iterate_index=0
+                phase.viscosity._name_derivatives,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[:, idx]
             results.phases[j].dkappa[:, idx] = pp.get_solution_values(
-                phase.thermal_conductivity._name_derivatives, data, iterate_index=0
+                phase.thermal_conductivity._name_derivatives,  # type:ignore[union-attr]
+                data,
+                iterate_index=0,
             )[:, idx]
 
             for i, comp in enumerate(phase):
                 results.phases[j].x[i, idx] = pp.get_solution_values(
-                    phase.extended_fraction_of[comp](subdomains).name,
+                    phase.extended_fraction_of[comp](subdomains).name,  # type:ignore[union-attr]
                     data,
                     iterate_index=0,
                 )[idx]
 
                 results.phases[j].phis[i, idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp].name, data, iterate_index=0
+                    phase.fugacity_coefficient_of[comp].name,  # type:ignore[union-attr]
+                    data,
+                    iterate_index=0,
                 )[idx]
                 # NOTE numpy does some weird transpositions when dealing with 3D arrays
                 dphi = results.phases[j].dphis[i]
                 dphi[:, idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp]._name_derivatives,
+                    phase.fugacity_coefficient_of[comp]._name_derivatives,  # type:ignore[union-attr]
                     data,
                     iterate_index=0,
                 )[:, idx]
@@ -1550,12 +1595,20 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         )
 
 
+class SolutionStrategyCFLE(
+    SolutionStrategyEquilibrium,
+    cf.SolutionStrategyExtendedFluidMassAndEnergy,
+):
+    """Collection of solution strategies for compositional flow with local
+    equilibrium."""
+
+
 class EnthalpyBasedCFLETemplate(  # type: ignore[misc]
+    cf.ConstitutiveLawsCF,
     EnthalpyBasedEquationsCFLE,
     cf.VariablesCF,
-    cf.ConstitutiveLawsCF,
-    InitialConditionsEquilibrium,
     BoundaryConditionsCFLE,
+    InitialConditionsCFLE,
     SolutionStrategyCFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,
@@ -1565,11 +1618,11 @@ class EnthalpyBasedCFLETemplate(  # type: ignore[misc]
 
 
 class EnthalpyBasedCFFLETemplate(  # type: ignore[misc]
+    cf.ConstitutiveLawsCF,
     EnthalpyBasedEquationsCFFLE,
     cf.VariablesCF,
-    cf.ConstitutiveLawsCF,
-    InitialConditionsEquilibrium,
     BoundaryConditionsCFFLE,
+    InitialConditionsCFLE,
     SolutionStrategyCFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,

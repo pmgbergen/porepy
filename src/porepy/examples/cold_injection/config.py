@@ -79,6 +79,16 @@ class ModelConfig(pp.PorePyModel):
     _DOMAIN_DIMENSIONS: list[float] = [100.0, 20.0, 100.0]
     """Domain dimensions in meters."""
 
+    _INJECTION_POINTS: list[np.ndarray] = [np.array([15.0, 10.0])]
+    """Coordinates of injection wells in meters."""
+
+    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([85.0, 10.0])]
+    """Coordinates of production wells in meters."""
+
+    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = []
+    """2-tuples of time-factor pairs, indicating at which time the aperture is
+    multiplied with given factor."""
+
     ### Fluid components.
 
     _COMPONENT_NAMES: list[str] = ["H2O", "CO2"]
@@ -98,9 +108,7 @@ class ModelConfig(pp.PorePyModel):
     _T_INIT: float = 450.0
     """Initial temperature in the whole domain in Kelvin."""
 
-    _z_INIT: dict[str, float] = dict(
-        [(n, z) for n, z in zip(_COMPONENT_NAMES, [0.995, 0.005])]
-    )
+    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
     """Initial overall fractions of fluid components in the whole domain, given as a
     dictionary mapping component names to values."""
 
@@ -112,9 +120,7 @@ class ModelConfig(pp.PorePyModel):
     _T_IN: float = 300.0
     """Temperature of injected fluid in Kelvin."""
 
-    _z_IN: dict[str, float] = dict(
-        [(n, z) for n, z in zip(_COMPONENT_NAMES, [0.9, 0.1])]
-    )
+    _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
     """Overall fractions of injected fluid, given as a dictionary mapping component
     names to values. Total injection is scaled by these values per component."""
 
@@ -134,29 +140,36 @@ class ModelConfig(pp.PorePyModel):
     _T_BC: float = 640.0
     """Temperature at the heated boundary in Kelvin."""
 
-    ### Well configurations.
+    @property
+    def _INJECTED_MASS(self) -> dict[str, dict[int, float]]:
+        """Injected mass per component name and injection well index, calculated from
+        total injected mass and injected overall fractions."""
+        d: dict[str, dict[int, float]] = {}
+        for n in self._COMPONENT_NAMES:
+            d[n] = {}
+            for i in range(len(self._INJECTION_POINTS)):
+                if self.fluid.num_components == 1:
+                    d[n][i] = self._TOTAL_INJECTED_MASS
+                else:
+                    d[n][i] = self._TOTAL_INJECTED_MASS * self._z_IN[n]
 
-    _INJECTION_POINTS: list[np.ndarray] = [np.array([15.0, 10.0])]
-    """Coordinates of injection wells in meters."""
+        return d
 
-    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([85.0, 10.0])]
-    """Coordinates of production wells in meters."""
+    @property
+    def _T_INJECTION(self) -> dict[int, float]:
+        """Injection temperature per injection well index."""
+        d = {}
+        for i in range(len(self._INJECTION_POINTS)):
+            d[i] = self._T_IN
+        return d
 
-    _T_INJECTION: dict[int, float] = {0: _T_IN}
-    """Injection temperature per injection well index (starting with 0)."""
-
-    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
-    """Production pressure per production well index (starting with 0)."""
-
-    _INJECTED_MASS: dict[str, dict[int, float]] = {}
-    """Injected mass per component name and injection well index, calculated from total
-    injected mass and injected overall fractions."""
-    for n in _COMPONENT_NAMES:
-        _INJECTED_MASS[n] = {0: _TOTAL_INJECTED_MASS * _z_IN[n]}
-
-    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = []
-    """2-tuples of time-factor pairs, indicating at which time the aperture is
-    multiplied with given factor."""
+    @property
+    def _p_PRODUCTION(self) -> dict[int, float]:
+        """Production pressure per production well index."""
+        d = {}
+        for i in range(len(self._PRODUCTION_POINTS)):
+            d[i] = self._p_OUT
+        return d
 
 
 def get_default_params(

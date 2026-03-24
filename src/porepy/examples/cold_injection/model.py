@@ -16,20 +16,21 @@ from __future__ import annotations
 import inspect
 import logging
 import time
-from typing import Callable, Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+import porepy.compositional as pc
 import porepy.compositional.flash as pf
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
+import porepy.models.persistent_variable_equilibrium as pve
+from porepy.compositional.compiled_eos import ScalarFunction
 
 from .config import ModelConfig
-
 
 logger = logging.getLogger(__name__)
 
@@ -127,23 +128,23 @@ class FluidMixture(ModelConfig):
     def dependencies_of_phase_properties(
         self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
-        return [self.pressure, self.temperature] + [  # type:ignore[return-value]
+        d = [self.pressure]
+        if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+            d += [self.temperature]
+        return d + [  # type:ignore[return-value]
             phase.extended_fraction_of[comp] for comp in phase
         ]
 
 
-class SolutionStrategy(cfle.SolutionStrategyCFLE):
-    """Strategy implementing choice of flash based.
+class SolutionStrategy(ModelConfig):
+    """Strategy implementing choice of flash based on dimensions and well-tags.
 
     Performs the pT flash on domains tagged as injection wells in every iteration.
     Otherwise it performs the base specification as specified.
+    If isochoric preconditioning is activated, performs isochoric calculations
+    before entering the nonlinear loop.
 
     """
-
-    def __init__(self, params=None):
-        super().__init__(params)
-
-        self._isochoric_npc_done: bool = False
 
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
@@ -163,25 +164,18 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         # NOTE: iteration counter is increased after after_nonlinar_iteration ends.
         # Add 1 for the stride check
         do_default_flash = not is_before_loop and ((ni + 1) % stride == 0)
-        # do_flash = False
-        # if isinstance(stride, int):
-        #     # NOTE Iteration counter is increased after iteration, and 0 modulo x
-        #     # is zero.
-        #     n = self.nonlinear_solver_statistics.num_iterations
-        #     do_flash = (n + 1) % stride == 0 or n == 0
 
-        # isochoric nonlinear preconditioning.
-        _do_isochoric_npc = bool(self.params.get("_do_isochoric_npc", False))
-        isochoric_npc_done = False
+        # _do_isochoric_npc = bool(self.params.get("_do_isochoric_npc", False))
+        # isochoric_npc_done = False
 
         for sd in self.mdg.subdomains():
-            do_isochoric_npc = False
-            if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
-                v_jump_factor = self.equation_system.evaluate(
-                    self.pore_volume_jump([sd])
-                )
-                if np.max(v_jump_factor) > 1.1:
-                    do_isochoric_npc = True and _do_isochoric_npc
+            # do_isochoric_npc = False
+            # if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
+            #     v_jump_factor = self.equation_system.evaluate(
+            #         self.pore_volume_jump([sd])
+            #     )
+            #     if np.max(v_jump_factor) > 1.1:
+            #         do_isochoric_npc = True and _do_isochoric_npc
             if "injection_well" in sd.tags:
                 equ_spec = pf.IsobaricSpecifications(
                     p=self.equation_system.evaluate(self.pressure([sd]), state=state),
@@ -195,33 +189,33 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                     state=state,
                     specification=equ_spec,
                 )
-            elif do_isochoric_npc and is_before_loop:
-                assert v_jump_factor.size == sd.num_cells
-                rho = self.equation_system.evaluate(
-                    self.fluid.density([sd]), state=state
-                )
-                assert np.all(rho > 0), "Bad density."
-                equ_spec = pf.IsochoricSpecifications(
-                    v=v_jump_factor / rho,
-                    T=self.equation_system.evaluate(
-                        self.temperature([sd]), state=state
-                    ),
-                )
-                isochoric_npc_done = True
-                logger.info(f"Performing isochoric preconditioning on grid {sd.id}.")
-                # Perform full, isochoric flash, including initial guess computation.
-                self.local_equilibrium(
-                    sd,
-                    state=state,
-                    specification=equ_spec,
-                    initial_guess_from_current_state=False,
-                )
+            # elif do_isochoric_npc and is_before_loop:
+            #     assert v_jump_factor.size == sd.num_cells
+            #     rho = self.equation_system.evaluate(
+            #         self.fluid.density([sd]), state=state
+            #     )
+            #     assert np.all(rho > 0), "Bad density."
+            #     equ_spec = pf.IsochoricSpecifications(
+            #         v=v_jump_factor / rho,
+            #         T=self.equation_system.evaluate(
+            #             self.temperature([sd]), state=state
+            #         ),
+            #     )
+            #     isochoric_npc_done = True
+            #     logger.info(f"Performing isochoric preconditioning on grid {sd.id}.")
+            #     # Perform full, isochoric flash, including initial guess computation.
+            #     self.local_equilibrium(
+            #         sd,
+            #         state=state,
+            #         specification=equ_spec,
+            #         initial_guess_from_current_state=False,
+            #     )
             elif do_default_flash:
                 self.local_equilibrium(sd, state=state)
             else:
                 self.update_thermodynamic_properties_of_phases_on_grid(sd, state=state)
 
-        self._isochoric_npc_done = isochoric_npc_done
+        # self._isochoric_npc_done = isochoric_npc_done
 
     def update_interface_fluxes_after_isochor(self) -> None:
         interfaces = self.mdg.interfaces(codim=1)
@@ -289,10 +283,51 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self.update_flux_values()
         self.rediscretize()
 
-    def update_derived_quantities(self) -> None:
-        super().update_derived_quantities()
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()
 
-        if self._isochoric_npc_done:
+        isochoric_spec: pf.FlashSpec = self.params.get(
+            "_do_isochoric_npc", pf.FlashSpec.none
+        )
+
+        if isochoric_spec == pf.FlashSpec.none:
+            return
+
+        isochoric_npc_done = False
+
+        for sd in self.mdg.subdomains():
+            if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
+                v_jump_factor = self.equation_system.evaluate(
+                    self.pore_volume_jump([sd])
+                )
+                if np.max(v_jump_factor) > 1.1:
+                    rho = self.equation_system.evaluate(self.fluid.density([sd]))
+                    assert np.all(rho > 0), "Bad density."
+                    if isochoric_spec == pf.FlashSpec.vT:
+                        equ_spec = pf.IsochoricSpecifications(
+                            v=v_jump_factor / rho,
+                            T=self.equation_system.evaluate(self.temperature([sd])),
+                        )
+                    elif isochoric_spec == pf.FlashSpec.vu:
+                        equ_spec = pf.IsochoricSpecifications(
+                            v=v_jump_factor / rho,
+                            u=self.equation_system.evaluate(
+                                self.fluid.specific_internal_energy([sd])
+                            ),
+                        )
+                    logger.info(
+                        f"Performing isochoric preconditioning on grid {sd.id}."
+                    )
+                    # Perform full, isochoric flash, including initial guess.
+                    self.local_equilibrium(
+                        sd,
+                        specification=equ_spec,
+                        initial_guess_from_current_state=False,
+                        update_secondary_variables=True,
+                    )
+                    isochoric_npc_done = True
+
+        if isochoric_npc_done:
             self.update_interface_fluxes_after_isochor()
 
     def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
@@ -454,8 +489,13 @@ class AdjustedPointWellModel(ModelConfig):
 
         p_constraint = self.pressure_constraint_at_production_wells(production_wells)
         self.equation_system.set_equation(p_constraint, production_wells, {"cells": 1})
-        T_constraint = self.temperature_constraint_at_injection_wells(injection_wells)
-        self.equation_system.set_equation(T_constraint, injection_wells, {"cells": 1})
+        if isinstance(self, pp.energy_balance.TotalEnergyBalanceEquations):
+            T_constraint = self.temperature_constraint_at_injection_wells(
+                injection_wells
+            )
+            self.equation_system.set_equation(
+                T_constraint, injection_wells, {"cells": 1}
+            )
 
     def pressure_constraint_at_production_wells(
         self, subdomains: list[pp.Grid]
@@ -639,7 +679,11 @@ class InitialConditions(ModelConfig):
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        return np.ones(sd.num_cells) * self._z_INIT[component.name]
+        vals = np.ones(sd.num_cells)
+        if self.fluid.num_components == 1:
+            return vals
+        else:
+            return vals * self._z_INIT[component.name]
 
 
 class BoundaryConditions(ModelConfig):
@@ -735,7 +779,10 @@ class BoundaryConditions(ModelConfig):
         if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
-            vals[heated_faces] = self._z_INIT[component.name]
+            if self.fluid.num_components == 1:
+                vals[heated_faces] = 1.0
+            else:
+                vals[heated_faces] = self._z_INIT[component.name]
 
         return vals
 
@@ -914,10 +961,6 @@ class NoFluxRediscretization:
         """If the fractional flow formulation is used, the nonlinear Darcy flux
         discretization is added by default for all subdomains to the update routine."""
         return
-        # if cfle.cf.is_fractional_flow(self):
-        #     self.add_nonlinear_diffusive_flux_discretization(
-        #         self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
-        #     )
 
     def add_nonlinear_fourier_flux_discretization(self) -> None:
         """Compositional flow models relay on re-discretization of the
@@ -928,9 +971,6 @@ class NoFluxRediscretization:
 
         """
         return
-        # self.add_nonlinear_diffusive_flux_discretization(
-        #     self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
-        # )
 
 
 class QuadraticRelPerm(pp.PorePyModel):
@@ -1029,3 +1069,173 @@ class DataCollectionMixin(pp.PorePyModel):
         )
 
         return super().after_nonlinear_convergence()
+
+
+class IsothermalModelTemplate(
+    cf.ConstitutiveLawsCF,
+    pc.PhaseVariablesClosure,
+    pve.VT_PVEEquations,
+    cf.ComponentMassBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
+    pc.CompositionalVariables,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    cfle.BoundaryConditionsEquilibrium,
+    cf.BoundaryConditionsMulticomponent,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    cfle.InitialConditionsEquilibrium,
+    cf.InitialConditionsFractions,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    cfle.SolutionStrategyEquilibrium,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
+):
+    """Isothermal model template for case 2."""
+
+    _T_IN: float
+
+    def __init__(self, params=None):
+        super().__init__(params)
+        self.fluid_volume_variable: str = "fluid_specific_volume"
+
+    def create_variables(self) -> None:
+        super().create_variables()
+
+        self.equation_system.create_variables(
+            self.fluid_volume_variable,
+            subdomains=self.mdg.subdomains(),
+            tags={"si_units": "mol * m^-3"},
+        )
+
+    def fluid_specific_volume(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            return self.create_boundary_operator(
+                name=self.fluid_volume_variable,
+                domains=domains,  # type: ignore[arg-type]
+            )
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument domains a mixture of subdomain and boundary grids."""
+            )
+
+        domains = cast(list[pp.Grid], domains)
+
+        return self.equation_system.md_variable(self.fluid_volume_variable, domains)
+
+    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        mass_density = self.porosity(subdomains) / self.fluid_specific_volume(
+            subdomains
+        )
+        mass = self.volume_integral(mass_density, subdomains, dim=1)
+        mass.set_name("fluid_mass_through_volume")
+        return mass
+
+    def initial_condition(self) -> None:
+        super().initial_condition()
+
+        subdomains = self.mdg.subdomains()
+        rho = self.fluid.density(subdomains)
+
+        rho_val = self.equation_system.evaluate(rho)
+        assert np.all(rho_val > 0.0)
+
+        self.equation_system.set_variable_values(
+            cast(np.ndarray, 1.0 / rho_val),
+            [cast(pp.ad.Variable, self.fluid_specific_volume(subdomains))],
+            iterate_index=0,
+        )
+
+    def temperature(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        return pp.ad.Scalar(self._T_IN, "temperature")
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        return np.ones(sd.num_cells) * self._T_IN
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.ones(bg.num_cells) * self._T_IN
+
+    def postprocess_equilibrium(
+        self,
+        results: pf.FlashResults,
+        sd: pp.Grid,
+        state: Optional[np.ndarray] = None,
+    ) -> None:
+        """Removes temperature-dependency from derivatives of phase properties."""
+        row_idx = np.array(
+            [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
+        )
+
+        for phase in results.phases:
+            phase.dh = phase.dh[row_idx, :]
+            phase.drho = phase.drho[row_idx, :]
+            phase.du = phase.du[row_idx, :]
+            phase.dmu = phase.dmu[row_idx, :]
+            phase.dkappa = phase.dkappa[row_idx, :]
+            phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
+
+        super().postprocess_equilibrium(results, sd, state)
+
+    def postprocess_initial_equilibrium(
+        self, sd: pp.Grid, results: pf.FlashResults
+    ) -> None:
+        """Removes temperature-dependency from derivatives of phase properties."""
+        row_idx = np.array(
+            [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
+        )
+
+        for phase in results.phases:
+            phase.dh = phase.dh[row_idx, :]
+            phase.drho = phase.drho[row_idx, :]
+            phase.du = phase.du[row_idx, :]
+            phase.dmu = phase.dmu[row_idx, :]
+            phase.dkappa = phase.dkappa[row_idx, :]
+            phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
+
+        super().postprocess_initial_equilibrium(sd, results)
+
+    def update_thermodynamic_properties_of_phases_on_grid(
+        self, grid: pp.Grid, state: Optional[np.ndarray] = None
+    ) -> None:
+        """Handling of constant temperature case for EoS computations."""
+
+        row_idx = np.array(
+            [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
+        )
+
+        equilibrium_defined = pc.has_equilibrium_specified(self)
+        is_persistent = pc.is_persistent_variable_form(self)
+
+        for phase in self.fluid.phases:
+            dep_vals = [
+                self.equation_system.evaluate(d([grid]), state=state)
+                for d in self.dependencies_of_phase_properties(phase)
+            ]
+            dep_vals = (
+                dep_vals[:1] + [np.ones(grid.num_cells) * self._T_IN] + dep_vals[1:]
+            )
+            phase_state = phase.compute_properties(
+                *cast(list[np.ndarray], dep_vals),
+                params=self.params.get("phase_property_params", None),
+            )
+
+            phase_state.dh = phase_state.dh[row_idx, :]
+            phase_state.drho = phase_state.drho[row_idx, :]
+            phase_state.du = phase_state.du[row_idx, :]
+            phase_state.dmu = phase_state.dmu[row_idx, :]
+            phase_state.dkappa = phase_state.dkappa[row_idx, :]
+            phase_state.dphis = np.array(
+                [dphis[row_idx, :] for dphis in phase_state.dphis]
+            )
+
+            cf.update_phase_properties(
+                grid,
+                phase,
+                phase_state,
+                0,
+                use_extended_derivatives=is_persistent,
+                update_fugacities=equilibrium_defined,
+            )

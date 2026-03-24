@@ -1,6 +1,7 @@
 """2-phase water flow through single fracture domain with temporal aperture jump.
 
-Isothermal model with nonlinear preconditioning using the vT flash.
+Non-isothermal model with nonlinear preconditioning using the uv flash.
+
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from datetime import datetime
 import numpy as np
 
 import porepy as pp
-
+import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
@@ -23,20 +24,19 @@ from porepy.examples.cold_injection.config import (
 )
 from porepy.examples.cold_injection.geometry import HorizontalFractureAndPointWells2D
 from porepy.examples.cold_injection.model import (
+    BuoyancyModel,
     ColdInjectionMixins,
     DataCollectionMixin,
     FluidPoreInteraction,
     NoFluxRediscretization,
     set_schur_complement,
-    IsothermalModelTemplate,
 )
+from porepy.examples.cold_injection.run_m2d_case2a import Case2aMixin
 
 
 ISOCHORIC_NPC = False
 BUOYANCY_ON = False
 COLLECT_DATA = True
-
-assert not BUOYANCY_ON, "Fractional flow not supported for case 2a."
 
 APERTURE_JUMP_SCHEDULE: list[tuple[float, float]] = [
     # (50 * pp.DAY, 5.0),
@@ -46,7 +46,7 @@ max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
 newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
-newton_tol_inc = 1e-2
+newton_tol_inc = 1e-5
 
 T_END_DAYS = 100
 
@@ -88,28 +88,18 @@ model_params["_heated_boundary_on"] = False
 
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = max_iterations
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 
-model_params["equilibrium_specification"] = (
-    pp.compositional.FlashSpec.vT,
-    "persistent-variables",
-)
 if ISOCHORIC_NPC:
     model_params["flash_compiler_args"] = (
         pp.compositional.FlashSpec.pT,
-        pp.compositional.FlashSpec.vT,
+        pp.compositional.FlashSpec.ph,
+        pp.compositional.FlashSpec.vu,
     )
-    model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.vT
+    model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.vu
 else:
-    if model_params["flash_params"]["global_iteration_stride"] < max_iterations:
-        model_params["flash_compiler_args"] = (
-            pp.compositional.FlashSpec.pT,
-            pp.compositional.FlashSpec.vT,
-        )
-    else:
-        model_params["flash_compiler_args"] = (pp.compositional.FlashSpec.pT,)
     model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
+
 
 model_params["variable_scaling_linear_rpc"] = {
     "pressure": 22064000.0,
@@ -125,38 +115,36 @@ solver_params["armijo_least_squares_form"] = False
 solver_params["newton_chop"] = 0.4
 
 
-class Case2aMixin:
-    """Model configuration for case 1e: 2-phase water flow."""
-
-    _COMPONENT_NAMES: list[str] = ["H2O"]
-
-    _IDEAL_COMPONENTS: list[pp.compositional.ideal.IdealFluid] = [
-        pp.compositional.ideal.IdealH2O,
-    ]
-
-    # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
-    _TOTAL_INJECTED_MASS: float = 10 * 47134.59273520758 / (60 * 60)
-
-    _p_INIT: float = 10e6
+class Case2bMixin(Case2aMixin):
     _T_INIT: float = 300.0
-
-    _p_OUT: float = 10e6  # roughly hydrostatic pressure of water at depth of 1 km.
-    _T_IN: float = 300.0
-
-    _T_BC: float = 300.0
+    _T_BC: float = 300.0  # 640.0
 
     _APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
 
-class ModelClass(  # type:ignore
-    Case2aMixin,
-    FluidPoreInteraction,
-    NoFluxRediscretization,
-    HorizontalFractureAndPointWells2D,
-    ColdInjectionMixins,
-    IsothermalModelTemplate,
-):
-    pass
+if BUOYANCY_ON:
+
+    class ModelClass(  # type:ignore
+        Case2bMixin,
+        FluidPoreInteraction,
+        BuoyancyModel,
+        HorizontalFractureAndPointWells2D,
+        ColdInjectionMixins,
+        cfle.EnthalpyBasedCFFLETemplate,
+    ):
+        pass
+
+else:
+
+    class ModelClass(  # type:ignore
+        Case2bMixin,
+        FluidPoreInteraction,
+        NoFluxRediscretization,
+        HorizontalFractureAndPointWells2D,
+        ColdInjectionMixins,
+        cfle.EnthalpyBasedCFLETemplate,
+    ):
+        pass
 
 
 model_class = ModelClass
@@ -168,7 +156,7 @@ if COLLECT_DATA:
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     sub_folder = (
-        "m2d_case2a"
+        "m2d_case2b"
         f"_{timestamp}"
         f"_BUOY_{BUOYANCY_ON}"
         f"_AJUMP_{bool(model_class._APERTURE_FACTOR_AFTER_TIME)}"
@@ -177,6 +165,7 @@ if __name__ == "__main__":
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
     model = model_class(model_params)  # type:ignore[abstract]
+    model._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -187,8 +176,6 @@ if __name__ == "__main__":
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]
-    model.schur_complement_primary_variables.remove("pressure")
-    model.schur_complement_primary_variables.append("fluid_specific_volume")
     solver_params.update(
         get_default_convergence_criteria(
             model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug

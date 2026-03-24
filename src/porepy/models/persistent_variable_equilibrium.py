@@ -21,78 +21,26 @@ from porepy.compositional.utils import CompositionalModellingError
 from porepy.models.abstract_equations import EquationMixin
 
 __all__ = [
-    "EnthalpyTemperatureRelation",
     "PVEEquations",
     "PT_PVEEquations",
     "PH_PVEEquations",
-    "VH_PVEEquations",
+    "VT_PVEEquations",
 ]
 
 
-class EnthalpyTemperatureRelation(EquationMixin):
-    r"""A single, local equation for closing models with independent enthalpy and
-    temperature variables.
-
-    It relates the independent enthalpy variable to the enthalpy of the fluid
-
-    .. math::
-
-        \tilde{h} = \sum_j y_j h_j  - h = (\sum_j y_j h_j) / h - 1= 0~.
-
-    Additionally, a float ``params['relaxation_enthalpy_constraint']`` can be passed to
-    introduce a temporal relaxation
-
-    .. math::
-
-        \frac{\partial}{\partial t} \tilde{h} + \frac{a}{\Delta t} \tilde{h} = 0~,
-
-    with :math:`a` being the respective parameters.
-
-    Note:
-        Use this equation only in models where the local equilibrium is not defined in
-        terms of enthalpy. Otherwise the regular enthalpy constraint should be used.
-
-    """
-
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.energy_balance.EnthalpyVariable`."""
-
-    def set_equations(self):
-        """Introduces the (relaxed) enthalpy-temperature relation on all subdomains."""
-        super().set_equations()
-
-        subdomains = self.mdg.subdomains()
-
-        equ = self.fluid.specific_enthalpy(subdomains) / self.enthalpy(
-            subdomains
-        ) - pp.ad.Scalar(1.0)
-
-        relaxation_parameter = self.params.get("relaxation_enthalpy_constraint", None)
-        if relaxation_parameter is not None:
-            equ = (
-                pp.ad.dt(equ, self.ad_time_step)
-                + (pp.ad.Scalar(relaxation_parameter) / self.ad_time_step) * equ
-            )
-            equ.set_name("relaxed_local_fluid_enthalpy_constraint")
-        else:
-            equ.set_name("local_fluid_enthalpy_constraint")
-
-        self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-
-class PVEEquations(pp.PorePyModel):
+class PVEEquations(EquationMixin):
     """Base class for introducing local phase equilibrium equations into a model using
-    the unified formulation.
+    the persisten-variable formulation.
 
     The base class provides means to assemble required equations, as well as a
-    verification of model assumptions for the unified formulation.
+    verification of model assumptions for the formulation.
 
     A :class:`~porepy.compositional.utils.CompositionalModellingError` will be raised
     if any of the following assumptions is violated:
 
     1. At least 2 components and 2 phases are modelled.
     2. The model's ``params['equilibrium_specification']`` is not None and contains the
-       keyword ``'unified'``.
+       keyword ``'persistent-variables'``.
     3. All phases have all components set in them (all extended partial fractions are
        defined and introduced).
 
@@ -102,8 +50,9 @@ class PVEEquations(pp.PorePyModel):
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.energy_balance.EnthalpyVariable`."""
-    volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
+    fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """WIP: Hypothetical mixed in method returning the fluid specific volume as an
+    AD operator."""
 
     __ad_capped_log: pp.ad.Function = pp.ad.Function(
         # pp.ad.log,
@@ -113,10 +62,11 @@ class PVEEquations(pp.PorePyModel):
 
     def set_equations(self) -> None:
         """The base class method without defined equilibrium condition performs a model
-        validation to ensure that the assumptions for the unified flash are fulfilled.
+        validation to ensure that the assumptions for the persistent-variable
+        formulation are fulfilled.
+
         """
-        assert isinstance(self, EquationMixin)
-        super().set_equations()  # type:ignore[safe-super]
+        super().set_equations()
 
         nphase = self.fluid.num_phases
 
@@ -143,11 +93,11 @@ class PVEEquations(pp.PorePyModel):
             phase_comps = set(phase)
             if all_comps.symmetric_difference(phase_comps):
                 raise CompositionalModellingError(
-                    f"Unified equilibrium assumption violated for phase: {phase.name}."
+                    f"Persistent-variables assumption violated for phase: {phase.name}."
                     + " All phases must have all components modelled in them."
                 )
 
-    def mass_constraint_for_component(
+    def local_mass_constraint_for_component(
         self, component: pp.FluidComponent, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Constructs the local mass constraint for a component :math:`i`.
@@ -276,7 +226,7 @@ class PVEEquations(pp.PorePyModel):
         )
         return equ
 
-    def mixture_enthalpy_constraint(
+    def local_fluid_enthalpy_constraint(
         self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Constructs the enthalpy constraint for the mixture enthalpy and the
@@ -299,9 +249,7 @@ class PVEEquations(pp.PorePyModel):
             subdomains: A list of subdomains on which to define the equation.
 
         Returns:
-            The left-hand side of above equations. If the normalization of state
-            constraints is required by the solution strategy, the second form is
-            returned.
+            The left-hand side of above equations.
 
         """
         equ = self.fluid.specific_enthalpy(subdomains) / self.enthalpy(
@@ -310,84 +258,37 @@ class PVEEquations(pp.PorePyModel):
         equ.set_name("local_fluid_enthalpy_constraint")
         return equ
 
-    def mixture_volume_constraint(
+    def local_fluid_volume_constraint(
         self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
-        """Constructs the volume constraint using the reciprocal of the mixture density.
+        """Returns the constraint on the specific volume of the fluid in log-space
 
         .. math::
 
-            \\dfrac{1}{\\sum_j s_j \\rho_j} - v = 0~,~
-            v \\left(\\sum_j s_j \\rho_j\\right) - 1 = 0.
+            \\log{\\hat{v}} - \\log{v}~,
 
-        - :math:`s_j` : Phase :attr:`~porepy.compositional.base.Phase.saturation`
-        - :math:`\\rho_j` : Phase :attr:`~porepy.compositional.base.Phase.density`
+        with :math:`v` being :meth:`~porepy.compositional.base.FluidMixture.
+        specific_volume` and :math:`\\hat{v}` some mixed in method returning the
+        available specific volume.
 
         Parameters:
             subdomains: A list of subdomains on which to define the equation.
 
         Returns:
-            The left-hand side of above equations. If the normalization of state
-            constraints is required by the solution strategy, the second form is
-            returned.
-
-        """
-        equ = self.volume(subdomains) * self.fluid.density(subdomains) - pp.ad.Scalar(
-            1.0
-        )
-        equ.set_name("local_fluid_volume_constraint")
-        return equ
-
-    def mass_constraint_for_phase(
-        self, phase: pp.Phase, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Constructs a type of local mass constraint based on a relation between
-        mixture density, saturated phase density and phase fractions.
-
-        For a phase :math:`j` it holds:
-
-        .. math::
-
-            y_j \\rho - s_j \\rho_j = 0~,~
-            y_j - s_j \\dfrac{\\rho_j}{rho} = 0
-
-        with the mixture density :math:`\\rho = \\sum_k s_k \\rho_k`, assuming
-        :math:`\\rho_k` is the density of a phase when saturated.
-
-        - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
-        - :math:`s` : Phase :attr:`~porepy.compositional.base.Phase.saturation`
-        - :math:`\\rho` : Fluid mixture :attr:`~porepy.compositional.base.Fluid.
-          density`
-        - :math:`\\rho_j` : Phase:attr:`~porepy.compositional.base.Phase.density`
-
-        Note:
-            These equations can be used to close the model if molar phase fractions and
-            saturations are independent variables.
-
-            They also appear in the unified flash with isochoric specifications.
-
-        Parameters:
-            phase: A phase for which the equation should be assembled.
-            subdomains: A list of subdomains on which the equation is defined.
-
-        Returns:
             The left-hand side of above equations.
 
-            If normalization of state constraints is set in the solution strategy,
-            it returns the normalized form.
-
         """
-        equ = phase.fraction(subdomains) * self.fluid.density(
-            subdomains
-        ) / phase.density(subdomains) - phase.saturation(subdomains)
-        equ.set_name(f"local_phase_mass_constraint_{phase.name}")
+        equ = self.__ad_capped_log(
+            self.fluid_specific_volume(subdomains)
+        ) - self.__ad_capped_log(self.fluid.specific_volume(subdomains))
+        equ.set_name("local_fluid_volume_constraint")
         return equ
 
 
 class PT_PVEEquations(PVEEquations):
-    """Mixin class modelling the unified p-T flash.
+    """Mixin class modelling the persistent p-T flash.
 
-    The unified p-T flash consists of
+    This local system of equations consists of:
 
     - ``num_components - 1`` local mass constraints for components
     - ``(num_phases - 1) * num_components`` isofugacity constraints
@@ -401,17 +302,16 @@ class PT_PVEEquations(PVEEquations):
 
     def set_equations(self) -> None:
         """Introduces the equations into the equation system on all subdomains."""
-        assert isinstance(self, EquationMixin)
-        super().set_equations()  # type:ignore[safe-super]
+        super().set_equations()
 
         subdomains = self.mdg.subdomains()
 
         ## starting with equations common to all equilibrium definitions
         # local mass constraint per independent component
         for comp in self.fluid.components:
-            # skipping reference component according to unified assumptions
+            # skipping reference component according to assumptions
             if comp != self.fluid.reference_component:
-                equ = self.mass_constraint_for_component(comp, subdomains)
+                equ = self.local_mass_constraint_for_component(comp, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # isofugacity constraints
@@ -431,51 +331,32 @@ class PT_PVEEquations(PVEEquations):
 
 
 class PH_PVEEquations(PT_PVEEquations):
-    """Unified equilibrium equations where temperature is treated as an unknown.
+    """Equilibrium system where temperature is treated as an unknown.
 
-    To close the system, this class introduces a local enthalpy constraint atop the
-    standard equations set up by the unified p-T flash.
-    This equation mixin introduces a local enthalpy constraint, constraining
-    the fluid mixture enthalpy to a given enthalpy value.
-
-    Compared to the p-T model, it has hence 1 equation and 1 unknown more, and is
-    closed.
+    To close the system, this class introduces a local fluid enthalpy constraint on top
+    of the standard equations set up by the p-T system.
+    It constraints the enthalpy of the fluid mixture to a (presumed) enthalpy variable.
 
     """
 
     def set_equations(self) -> None:
-        """Introduces the local  enthalpy constraint, atop the equations introduced
-        by :class:`PT_PVEEquations`, on all subdomains."""
-        assert isinstance(self, EquationMixin)
-        super().set_equations()  # type:ignore[safe-super]
+        super().set_equations()
         subdomains = self.mdg.subdomains()
-        equ = self.mixture_enthalpy_constraint(subdomains)
+        equ = self.local_fluid_enthalpy_constraint(subdomains)
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
 
-class VH_PVEEquations(PH_PVEEquations):
-    """Unified equilibrium model if pressure and temperature are unknown at equilibrium.
+class VT_PVEEquations(PT_PVEEquations):
+    """Analogous to :class:`PH_PVEEquations` but instead of a local enthalpy constraint
+    it introduces a local fluid volume constraint, coupling the specific volume of
+    the fluid mixture to a presumed variable for the fluid volume.
 
-    It extends the unified p-h equilibrium formulation by introducing a local
-    volume constraint, and ``num_phases - 1`` phase density relations.
-
-    If volume is given, the saturation of independent phases
-    (volumetric fractions) are required to define a fluid volume as the reciprocal
-    of the mixture density.
-
-    In total, this system has ``1 + (num_phases - 1)`` additional unknowns and equations
-    and is hence closed.
+    The equation is formulated in the log-space.
 
     """
 
-    def set_equations(self) -> None:
-        assert isinstance(self, EquationMixin)
-        super().set_equations()  # type:ignore[safe-super]
+    def set_equations(self):
+        super().set_equations()
         subdomains = self.mdg.subdomains()
-        equ = self.mixture_volume_constraint(subdomains)
+        equ = self.local_fluid_volume_constraint(subdomains)
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-        for phase in self.fluid.phases:
-            if phase != self.fluid.reference_phase:
-                equ = self.mass_constraint_for_phase(phase, subdomains)
-                self.equation_system.set_equation(equ, subdomains, {"cells": 1})

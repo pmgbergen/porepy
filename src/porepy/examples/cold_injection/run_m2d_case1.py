@@ -11,7 +11,6 @@ from datetime import datetime
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
