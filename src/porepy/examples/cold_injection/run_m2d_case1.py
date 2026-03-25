@@ -1,13 +1,13 @@
-"""mD Model of cold CO2 injection with randomized seed."""
+"""2D Model of cold CO2 injection with randomized fractures."""
 
 from __future__ import annotations
 
 import logging
+import os
 import time
 from datetime import datetime
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
@@ -24,7 +24,6 @@ from porepy.examples.cold_injection.model import (
     NoFluxRediscretization,
     set_schur_complement,
 )
-
 
 BUOYANCY_ON = False
 COLLECT_DATA = False

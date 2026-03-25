@@ -1,4 +1,4 @@
-"""2-phase water flow through single fracture domain with temporal aperture jump.
+"""2D, 2-phase water flow through single fracture domain with temporal aperture jump.
 
 Non-isothermal model with nonlinear preconditioning using the uv flash.
 
@@ -7,10 +7,10 @@ Non-isothermal model with nonlinear preconditioning using the uv flash.
 from __future__ import annotations
 
 import logging
+import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# import os
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
@@ -32,7 +32,6 @@ from porepy.examples.cold_injection.model import (
     set_schur_complement,
 )
 from porepy.examples.cold_injection.run_m2d_case2a import Case2aMixin
-
 
 ISOCHORIC_NPC = False
 BUOYANCY_ON = False
@@ -116,8 +115,9 @@ solver_params["newton_chop"] = 0.4
 
 
 class Case2bMixin(Case2aMixin):
-    _T_INIT: float = 300.0
+    _T_INIT: float = 450.0
     _T_BC: float = 300.0  # 640.0
+    _T_IN: float = 300.0
 
     _APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
@@ -187,5 +187,5 @@ if __name__ == "__main__":
     pp.run_time_dependent_model(model, solver_params)
     sim_time = time.time() - t_0
 
-    print(f"Simulation prepared after {prep_sim_time:.2f} (s).")
-    print(f"Simulation finished after {sim_time / 60.0:.2f} (m).")
+    print(f"Simulation prepared after {str(timedelta(seconds=prep_sim_time))}")
+    print(f"Simulation finished after {str(timedelta(seconds=sim_time))}")

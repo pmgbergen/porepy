@@ -13,13 +13,13 @@ Note:
 
 from __future__ import annotations
 
-import inspect
 import logging
 import time
 from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
+from numpy.typing import NDArray
 
 import porepy as pp
 import porepy.compositional as pc
@@ -146,78 +146,25 @@ class SolutionStrategy(ModelConfig):
 
     """
 
-    def update_thermodynamic_properties_of_phases(
-        self, state: Optional[np.ndarray] = None
-    ) -> None:
-        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
-        assert stride > 0, "Global iteration stride must be positive."
-        assert isinstance(
-            self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-        ), "Expecting nonlinear solver statistics attribute."
-        ni = self.nonlinear_solver_statistics.num_iterations
-
-        # Avoid redundant flash computation in this routine.
-        is_before_loop = "before_nonlinear_loop" in [
-            f.function for f in inspect.stack()
-        ]
-
-        # NOTE: iteration counter is increased after after_nonlinar_iteration ends.
-        # Add 1 for the stride check
-        do_default_flash = not is_before_loop and ((ni + 1) % stride == 0)
-
-        # _do_isochoric_npc = bool(self.params.get("_do_isochoric_npc", False))
-        # isochoric_npc_done = False
+    def nonlinear_flash_preconditioning(self):
+        do_default_flash = self.do_flash_preconditioning()
 
         for sd in self.mdg.subdomains():
-            # do_isochoric_npc = False
-            # if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
-            #     v_jump_factor = self.equation_system.evaluate(
-            #         self.pore_volume_jump([sd])
-            #     )
-            #     if np.max(v_jump_factor) > 1.1:
-            #         do_isochoric_npc = True and _do_isochoric_npc
             if "injection_well" in sd.tags:
                 equ_spec = pf.IsobaricSpecifications(
-                    p=self.equation_system.evaluate(self.pressure([sd]), state=state),
-                    T=self.equation_system.evaluate(
-                        self.temperature([sd]), state=state
-                    ),
+                    p=self.equation_system.evaluate(self.pressure([sd])),
+                    T=self.equation_system.evaluate(self.temperature([sd])),
                 )
 
                 self.local_equilibrium(
                     sd,
-                    state=state,
                     specification=equ_spec,
                 )
-            # elif do_isochoric_npc and is_before_loop:
-            #     assert v_jump_factor.size == sd.num_cells
-            #     rho = self.equation_system.evaluate(
-            #         self.fluid.density([sd]), state=state
-            #     )
-            #     assert np.all(rho > 0), "Bad density."
-            #     equ_spec = pf.IsochoricSpecifications(
-            #         v=v_jump_factor / rho,
-            #         T=self.equation_system.evaluate(
-            #             self.temperature([sd]), state=state
-            #         ),
-            #     )
-            #     isochoric_npc_done = True
-            #     logger.info(f"Performing isochoric preconditioning on grid {sd.id}.")
-            #     # Perform full, isochoric flash, including initial guess computation.
-            #     self.local_equilibrium(
-            #         sd,
-            #         state=state,
-            #         specification=equ_spec,
-            #         initial_guess_from_current_state=False,
-            #     )
+
             elif do_default_flash:
-                self.local_equilibrium(sd, state=state)
-            else:
-                self.update_thermodynamic_properties_of_phases_on_grid(sd, state=state)
+                self.local_equilibrium(sd)
 
-        # self._isochoric_npc_done = isochoric_npc_done
-
-    def update_interface_fluxes_after_isochor(self) -> None:
+    def update_interface_fluxes(self) -> None:
         interfaces = self.mdg.interfaces(codim=1)
 
         idfe = self.interface_darcy_flux_equation(interfaces)
@@ -328,7 +275,7 @@ class SolutionStrategy(ModelConfig):
                     isochoric_npc_done = True
 
         if isochoric_npc_done:
-            self.update_interface_fluxes_after_isochor()
+            self.update_interface_fluxes()
 
     def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
         subdomains = [sd]
@@ -1061,17 +1008,19 @@ class DataCollectionMixin(pp.PorePyModel):
     def local_equilibrium(
         self,
         sd: pp.Grid,
-        state: Optional[np.ndarray] = None,
+        /,
+        *,
         specification: Optional[cfle.StateSpecDict] = None,
         initial_guess_from_current_state: bool = True,
         update_secondary_variables: bool = True,
+        state: Optional[np.ndarray] = None,
     ) -> pf.FlashResults:
         state: pf.FlashResults = super().local_equilibrium(
-            sd=sd,
-            state=state,
+            sd,
             specification=specification,
             initial_guess_from_current_state=initial_guess_from_current_state,
             update_secondary_variables=update_secondary_variables,
+            state=state,
         )
 
         if sd not in self._flash_iter_per_grid:
@@ -1155,10 +1104,12 @@ class IsothermalModelTemplate(
 
     def postprocess_equilibrium(
         self,
-        results: pf.FlashResults,
         sd: pp.Grid,
+        results: pf.FlashResults,
+        /,
+        *,
         state: Optional[np.ndarray] = None,
-    ) -> None:
+    ) -> NDArray[np.bool_]:
         """Removes temperature-dependency from derivatives of phase properties."""
         row_idx = np.array(
             [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
@@ -1172,7 +1123,7 @@ class IsothermalModelTemplate(
             phase.dkappa = phase.dkappa[row_idx, :]
             phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
 
-        super().postprocess_equilibrium(results, sd, state)
+        return super().postprocess_equilibrium(sd, results, state=state)
 
     def postprocess_initial_equilibrium(
         self, sd: pp.Grid, results: pf.FlashResults

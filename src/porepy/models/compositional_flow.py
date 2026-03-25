@@ -106,6 +106,7 @@ from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 import porepy as pp
 import porepy.compositional as pc
@@ -118,15 +119,22 @@ def update_phase_properties(
     phase: pp.Phase,
     props: pc.PhaseProperties,
     depth: int,
+    /,
+    *,
     update_derivatives: bool = True,
     use_extended_derivatives: bool = False,
     update_fugacities: bool = False,
+    mask: NDArray[np.bool_] | None = None,
 ) -> None:
     """Helper method to update the phase properties and its derivatives.
 
     This method is intended for a grid-local update of properties and their derivatives,
     using the methods of the
     :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
+
+    Note:
+        If a ``mask`` is given and no iterate values are stored for some property, an
+        error will be raised because an attempt to access values is made.
 
     Parameters:
         sd: A subdomain grid in the md-domain.
@@ -147,53 +155,51 @@ def update_phase_properties(
 
             If True, fugacity coefficients are also updates. To be used in combination
             with local equilibrium conditions.
+        mask: ``default=None``
+
+            If a boolean array is given, the update is only applied for indicated
+            indices.
 
     """
-    if isinstance(phase.density, pp.ad.SurrogateFactory):
-        phase.density.progress_iterate_values_on_grid(props.rho, sd, depth=depth)
-        if update_derivatives:
-            phase.density.set_derivatives_on_grid(
-                props.drho_ext if use_extended_derivatives else props.drho, sd
-            )
-    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-        phase.specific_enthalpy.progress_iterate_values_on_grid(
-            props.h, sd, depth=depth
-        )
-        if update_derivatives:
-            phase.specific_enthalpy.set_derivatives_on_grid(
-                props.dh_ext if use_extended_derivatives else props.dh, sd
-            )
-    if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-        phase.specific_internal_energy.progress_iterate_values_on_grid(
-            props.u, sd, depth=depth
-        )
-        if update_derivatives:
-            phase.specific_internal_energy.set_derivatives_on_grid(
-                props.du_ext if use_extended_derivatives else props.du, sd
-            )
-    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-        phase.viscosity.progress_iterate_values_on_grid(props.mu, sd, depth=depth)
-        if update_derivatives:
-            phase.viscosity.set_derivatives_on_grid(
-                props.dmu_ext if use_extended_derivatives else props.dmu, sd
-            )
-    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-        phase.thermal_conductivity.progress_iterate_values_on_grid(
-            props.kappa, sd, depth=depth
-        )
-        if update_derivatives:
-            phase.thermal_conductivity.set_derivatives_on_grid(
-                props.dkappa_ext if use_extended_derivatives else props.dkappa, sd
-            )
+
+    ops = [
+        phase.density,
+        phase.specific_enthalpy,
+        phase.specific_internal_energy,
+        phase.viscosity,
+        phase.thermal_conductivity,
+    ]
+    vals = [props.rho, props.h, props.u, props.mu, props.kappa]
+    if use_extended_derivatives:
+        dvals = [
+            props.drho_ext,
+            props.dh_ext,
+            props.du_ext,
+            props.dmu_ext,
+            props.dkappa_ext,
+        ]
+    else:
+        dvals = [props.drho, props.dh, props.du, props.dmu, props.dkappa]
 
     if update_fugacities:
-        dphis = props.dphis_ext if use_extended_derivatives else props.dphis
-        for k, comp in enumerate(phase.components):
-            phi = phase.fugacity_coefficient_of[comp]
-            if isinstance(phi, pp.ad.SurrogateFactory):
-                phi.progress_iterate_values_on_grid(props.phis[k], sd, depth=depth)
-                if update_derivatives:
-                    phi.set_derivatives_on_grid(dphis[k], sd)
+        ops += [phase.fugacity_coefficient_of[comp] for comp in phase]
+        vals += [phi for phi in props.phis]
+        if use_extended_derivatives:
+            dvals += [dphi for dphi in props.dphis_ext]
+        else:
+            dvals += [dphi for dphi in props.dphis]
+
+    for op, val, dval in zip(ops, vals, dvals):
+        if isinstance(op, pp.ad.SurrogateFactory):
+            if mask is not None:
+                val = np.where(mask, val, op.get_values_on_grid(sd, iterate_index=0))
+            op.progress_iterate_values_on_grid(val, sd, depth=depth)
+            if update_derivatives:
+                if mask is not None:
+                    dval_ = op.get_derivatives_on_grid(sd)
+                    dval_[:, mask] = dval[:, mask]
+                    dval = dval
+                op.set_derivatives_on_grid(dval, sd)
 
 
 def is_fractional_flow(model: pp.PorePyModel) -> bool:

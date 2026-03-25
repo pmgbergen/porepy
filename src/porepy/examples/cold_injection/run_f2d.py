@@ -1,39 +1,13 @@
-"""Run script for the cold CO2 injection model.
-
-Script is executable from command line. For a list of possible flags and
-model configurations run
-
-Windows:
-
-> python.exe ./run.py --help
-
-Linux:
-
-> python run.py --help
-
-
-Note:
-    The code within the docker image from Zenodo should be static and unchanging for
-    all time.
-    There is also a repository on Github containing a snapshot of the code, which is
-    perhaps easier accessible. But the continuous availability of that repo is not
-    guaranteed.
-
-Note:
-    For some reason, the flag ``-p`` must be given a value, otherwise the parsing won't
-    work when executing from bash script. Any integer must be given, value is
-    meaningless. Just a work-around.
-
-"""
+"""2D model for injection cold water-CO2 mixture into hot domain."""
 
 from __future__ import annotations
 
 import logging
+import os
 import time
 from datetime import datetime
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
@@ -50,7 +24,6 @@ from porepy.examples.cold_injection.model import (
     NoFluxRediscretization,
     set_schur_complement,
 )
-
 
 BUOYANCY_ON = False
 COLLECT_DATA = False

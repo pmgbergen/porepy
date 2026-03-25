@@ -200,7 +200,6 @@ def get_default_params(
             "max_iterations": 80,
         },
         "global_iteration_stride": 3,
-        "fallback_to_iterate": True,
     }
     flash_params.update(phase_property_params)
 

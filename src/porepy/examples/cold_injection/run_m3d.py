@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from datetime import datetime
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
@@ -27,7 +27,6 @@ from porepy.examples.cold_injection.model import (
     set_schur_complement,
 )
 from porepy.examples.flow_benchmark_3d_case_4 import Geometry as Geometry3D
-
 
 BUOYANCY_ON = False
 COLLECT_DATA = False

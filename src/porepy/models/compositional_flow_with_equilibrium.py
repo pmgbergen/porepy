@@ -33,6 +33,8 @@ from .persistent_variable_equilibrium import PH_PVEEquations
 # NOTE: Avoid actual import and triggering of compilation. We only need this for type
 # checking
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from porepy.compositional.flash.abstract_flash import (
         AbstractFlash,
         FlashResults,
@@ -929,50 +931,62 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                         iterate_index=0,
                     )
 
-    def update_thermodynamic_properties_of_phases(
-        self, state: Optional[np.ndarray] = None
-    ) -> None:
-        """The solution strategy for CF with LE uses this step of the
-        algorithm to compute the flash and update the values of thermodynamic
-        properties of phases, as well as secondary variables based on the
-        flash results.
+    def do_flash_preconditioning(self) -> bool:
+        """Checks whether the flash should be done for the given iteration as specified
+        in ``params["flash_params"]["global_iteration_stride"]``.
 
-        This splits the solution strategy into two parts, by resolving the instantaneous
-        equilibrium time scale and giving secondary quantities and variables an
-        intermediate update by solving the local equilibrium problem with fixed primary
-        variables.
+        The parameter can be set to some boolean value to activate or deactivate the
+        preconditioning using the flash.
+        It can also be set to an integer, specifying that it should be done every
+        n-th iteration.
 
-        This method loops over all subdomains and and calls :meth:`local_equilibrium`,
-        with default arguments.
-
-        Note:
-            The update performed here is not an update in the iterative sense.
-            It is an update to the values of the current iterate.
-
-        Parameters:
-            state: Global state vector to evaluate the flash input from.
-                Passed to :meth:`local_equilibrium`.
+        Returns:
+            A boolean indicating if the flash is requested.
 
         """
         stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
         do_flash = False
-        # Gives indirectly that the problem is nonlinear and does iterate.
-        if isinstance(stride, int) and isinstance(
-            self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-        ):
-            # NOTE Iteration counter is increased after iteration, and 0 modulo anything
-            # is zero.
-            assert stride > 0, "Global iteration stride must be positive."
-            n = self.nonlinear_solver_statistics.num_iterations
-            do_flash = (n + 1) % stride == 0 or n == 0
-        elif bool(stride):  # If linear problem, check if flash activated.
-            do_flash = True
 
-        for sd in self.mdg.subdomains():
-            if do_flash:
-                self.local_equilibrium(sd, state=state)  # type:ignore
+        # If non-integer or non-positive value, return boolean equivalent.
+        if not isinstance(stride, int):
+            do_flash = bool(stride)
+        # If positive integer value, do calculations.
+        else:
+            # If problem is nonlinear, do it every n-th iteration.
+            if (
+                isinstance(
+                    self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+                )
+                and stride > 0
+            ):
+                n = self.nonlinear_solver_statistics.num_iterations
+                # NOTE The iteration counter is increased after the iteration.
+                do_flash = (n + 1) % stride == 0
+            # For possibly linear problems, just return boolean value again.
             else:
-                self.update_thermodynamic_properties_of_phases_on_grid(sd, state=state)
+                do_flash = bool(stride)
+
+        return do_flash
+
+    def before_nonlinear_iteration(self) -> None:
+        """Calls :meth:`nonlinear_flash_preconditioning` after the super-call."""
+        super().before_nonlinear_iteration()  # type:ignore[safe-super]
+        self.nonlinear_flash_preconditioning()
+
+    def nonlinear_flash_preconditioning(self):
+        """Uses the defined flash instance to solve the local equilibrium subproblem.
+
+        If requested, loops over subdomains and equilibrates the fluid using the
+        default equilibrium specifications and the current state as initial guess.
+
+        See also:
+            :meth:`do_flash_preconditioning`, :meth:`local_equilibrium`
+
+        """
+
+        if self.do_flash_preconditioning():
+            for sd in self.mdg.subdomains():
+                self.local_equilibrium(sd)
 
     def current_fluid_state(
         self,
@@ -1135,10 +1149,12 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     def local_equilibrium(
         self,
         sd: pp.Grid,
-        state: Optional[np.ndarray] = None,
+        /,
+        *,
         specification: Optional[StateSpecDict] = None,
         initial_guess_from_current_state: bool = True,
         update_secondary_variables: bool = True,
+        state: Optional[np.ndarray] = None,
     ) -> FlashResults:
         """Performs flash calculations on the given grid and updates the fluid
         properties at the current iterate.
@@ -1146,18 +1162,14 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         Performs a full flash (with initial guess), where the flash based on the global
         iterate state did not succeed.
 
-        Calls :meth:`postprocess_equilibrium` at the end.
+        Calls :meth:`postprocess_equilibrium` and applies the update where indicated.
 
         See also:
-            :meth:`~porepy.compositional.flash.abstract_flash.AbstractFlash.flash`
-
+            :meth:`~porepy.compositional.flash.abstract_flash.AbstractFlash.flash`,
             :meth:`current_fluid_state`
 
         Parameters:
             sd: A subdomain in the md-grid.
-            state: ``default=None``
-
-                Global state vector to evaluate the equilibrium state functions.
             specification: ``default=None``
 
                 Definition of the equilibrium condition in terms of state functions and
@@ -1178,6 +1190,9 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 Besides updates of various fractions, this includes also an update
                 of pressure or temperature for example, if they are not defined in
                 ``specification``.
+            state: ``default=None``
+
+                Global state vector to evaluate the equilibrium state functions.
 
         """
 
@@ -1279,7 +1294,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             )
             self._full_equilibrium(results, specification)
 
-        self.postprocess_equilibrium(results, sd, state=state)
+        idx = self.postprocess_equilibrium(sd, results, state=state)
         results.postprocess_fractions()
         results.evaluate_saturations()
         results.evaluate_extensive_state()
@@ -1287,13 +1302,6 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         # Updating fluid properties.
         is_persistent = pc.is_persistent_variable_form(self)
         for phase, phase_state in zip(self.fluid.phases, results.phases):
-            # extend derivatives from partial to extended fractions.
-            # NOTE The flash returns properties with derivatives w.r.t
-            # partial/physical fractions by default. Must be extended since
-            # here extended fractions are used (chain rule for normalization)
-            # NOTE also, that the progress_* methods with depth 0, don't shift
-            # the iterate values, but overwrite only the current one at iterate
-            # index 0
             cf.update_phase_properties(
                 sd,
                 phase,
@@ -1301,53 +1309,47 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 0,
                 use_extended_derivatives=is_persistent,
                 update_fugacities=True,
+                mask=idx,
+            )
+
+        def update(var: pp.ad.Operator, vals: np.ndarray) -> None:
+            assert isinstance(var, (pp.ad.MixedDimensionalVariable, pp.ad.Variable)), (
+                f"Operator {var.name} not independent variable."
+            )
+            current_vals = self.equation_system.get_variable_values(
+                [var], iterate_index=0
+            )
+            current_vals[idx] = vals[idx]
+            self.equation_system.set_variable_values(
+                current_vals, [var], iterate_index=0
             )
 
         # Updating variables which are also unknowns in the equilibrium problem.
         if update_secondary_variables:
             for j, phase in enumerate(self.fluid.phases):
                 if self.has_independent_fraction(phase):
-                    self.equation_system.set_variable_values(
-                        results.y[j],
-                        [phase.fraction([sd])],  # type: ignore[arg-type]
-                        iterate_index=0,
-                    )
+                    update(phase.fraction([sd]), results.y[j])
+
                 if self.has_independent_saturation(phase):
-                    self.equation_system.set_variable_values(
-                        results.sat[j],
-                        [phase.saturation([sd])],  # type: ignore[arg-type]
-                        iterate_index=0,
-                    )
+                    update(phase.saturation([sd]), results.sat[j])
 
                 for i, comp in enumerate(phase.components):
                     if self.has_independent_extended_fraction(comp, phase):
-                        self.equation_system.set_variable_values(
-                            results.phases[j].x[i],
-                            [phase.extended_fraction_of[comp]([sd])],  # type: ignore[arg-type]
-                            iterate_index=0,
-                        )
+                        var = phase.extended_fraction_of[comp]([sd])
                     elif self.has_independent_partial_fraction(comp, phase):
-                        self.equation_system.set_variable_values(
-                            results.phases[j].x[i],
-                            [phase.partial_fraction_of[comp]([sd])],  # type: ignore[arg-type]
-                            iterate_index=0,
-                        )
+                        var = phase.partial_fraction_of[comp]([sd])
+                    else:
+                        continue
+
+                    update(var, results.phases[j].x[i])
 
             # Updating state variables. If isochoric, update pressure which is
             # assumed to be always a variable. If isobaric, update fluid volume if it is
             # a variable.
             if results.specification >= pc.FlashSpec.vT:
-                self.equation_system.set_variable_values(
-                    results.p,
-                    [self.pressure([sd])],  # type: ignore[arg-type]
-                    iterate_index=0,
-                )
+                update(self.pressure([sd]), results.p)
             elif isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
-                self.equation_system.set_variable_values(
-                    results.v,
-                    [self.fluid_specific_volume([sd])],  # type: ignore[arg-type]
-                    iterate_index=0,
-                )
+                update(self.fluid_specific_volume([sd]), results.v)
 
             # Update energy-related variables if applicable.
             # Nonisothermal -> update temperature.
@@ -1355,21 +1357,14 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 pc.FlashSpec.pT,
                 pc.FlashSpec.vT,
             ] and isinstance(self, pp.energy_balance.VariablesEnergyBalance):
-                self.equation_system.set_variable_values(
-                    results.T,
-                    [self.temperature([sd])],  # type: ignore[arg-type]
-                    iterate_index=0,
-                )
+                update(self.temperature([sd]), results.T)
+
             # Enthalpy specified -> update variable if present.
             if results.specification not in [
                 pc.FlashSpec.ph,
                 pc.FlashSpec.vh,
             ] and isinstance(self, pp.energy_balance.EnthalpyVariable):
-                self.equation_system.set_variable_values(
-                    results.h,
-                    [self.enthalpy([sd])],  # type: ignore[arg-type]
-                    iterate_index=0,
-                )
+                update(self.enthalpy([sd]), results.h)
 
         logger.debug(
             f"Fluid equilibrated on grid {sd.id}"
@@ -1440,173 +1435,38 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
     def postprocess_equilibrium(
         self,
-        results: FlashResults,
         sd: pp.Grid,
+        results: FlashResults,
+        /,
+        *,
         state: Optional[np.ndarray] = None,
-    ) -> None:
-        """A method called by :meth:`local_equilibrium` to post-process failures if
-        any.
+    ) -> NDArray[np.bool_]:
+        """A method called by :meth:`local_equilibrium` to post-process flash results
+        and indicate which results to use to update values in the global system.
 
-        The base method asserts that the success flags returned by the flash are zero
-        everywhere.
-
-        It allows also to define a flag ``'fall_back_to_iterate'`` in the model
-        paramters ```flash_params``` for the flash to fall back to the current iterate
-        values where the flash failed.
+        The base method returns True where the flash converged.
 
         Parameters:
+            sd: The grid on which the flash was performed.
             results: The resulting fluid properties and success flags from
                 the call to :meth:`local_equilibrium`.
-            sd: The grid on which the flash was performed.
             state: A global state vector from which the state variables were evaluated
                 for the flash.
 
-        Raises:
-            ValueError: If any success flag in ``results`` is not zero.
+        Returns:
+            A boolean array indicating where the flash results should replace the
+            current iterate values of phase properties and, in the thermodynamic sense,
+            dependent variables.
 
         """
-
-        if not np.all(results.converged):
-            num_fail = (~results.converged).sum()
-
-            if self.params.get("flash_params", {}).get("fallback_to_iterate", False):  # type:ignore
-                logger.info(
-                    f"Flash failed in {num_fail} cells on grid"
-                    + f" {sd.id}. Falling back to previous iterate values."
-                )
-                self._fall_back_to_current_values(results, sd)
-            else:
-                raise ValueError(
-                    f"Flash strategy failed in {num_fail} / {results.size} cases."
-                )
-
-    def _fall_back_to_current_values(
-        self,
-        results: FlashResults,
-        sd: pp.Grid,
-    ) -> None:
-        """A method to fall back to the current values of the fluid state stored in
-        the grid data dictionary.
-
-        Can be used as a last resort if the flash proves to be unsuccessful.
-        The global solver can often take care of the convergence issues.
-
-        Paramters:
-            results: The flash results where some failures occurred.
-            sd: The grid on which the flash was performed. Used to fetch stored iterate
-                data and populate the failed entries in ``results``.
-
-        """
-        idx = ~results.converged
-        subdomains = [sd]
-        data = self.mdg.subdomain_data(sd)
-
-        if results.specification not in [pc.FlashSpec.pT, pc.FlashSpec.vT]:
-            results.T[idx] = pp.get_solution_values(
-                self.temperature_variable, data, iterate_index=0
-            )[idx]
-        if results.specification >= pc.FlashSpec.vT:
-            results.p[idx] = pp.get_solution_values(
-                self.pressure_variable, data, iterate_index=0
-            )[idx]
-
-        for j, phase in enumerate(self.fluid.phases):
-            if phase != self.fluid.reference_phase:
-                results.sat[j][idx] = pp.get_solution_values(
-                    phase.saturation(subdomains).name, data, iterate_index=0
-                )[idx]
-                results.y[j][idx] = pp.get_solution_values(
-                    phase.fraction(subdomains).name, data, iterate_index=0
-                )[idx]
-
-            # NOTE ignore union attribute mypy errors, because in CFLE the phase
-            # properties are all surrogate factories.
-            if isinstance(phase.density, pp.ad.SurrogateFactory):
-                results.phases[j].rho[idx] = pp.get_solution_values(
-                    phase.density.name,
-                    data,
-                    iterate_index=0,
-                )[idx]
-                results.phases[j].drho[:, idx] = pp.get_solution_values(
-                    phase.density._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, idx]
-            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                results.phases[j].h[idx] = pp.get_solution_values(
-                    phase.specific_enthalpy.name,
-                    data,
-                    iterate_index=0,
-                )[idx]
-                results.phases[j].dh[:, idx] = pp.get_solution_values(
-                    phase.specific_enthalpy._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, idx]
-            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-                results.phases[j].u[idx] = pp.get_solution_values(
-                    phase.specific_internal_energy.name,
-                    data,
-                    iterate_index=0,
-                )[idx]
-                results.phases[j].du[:, idx] = pp.get_solution_values(
-                    phase.specific_internal_energy._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, idx]
-            if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                results.phases[j].mu[idx] = pp.get_solution_values(
-                    phase.viscosity.name,
-                    data,
-                    iterate_index=0,
-                )[idx]
-                results.phases[j].dmu[:, idx] = pp.get_solution_values(
-                    phase.viscosity._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, idx]
-            if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                results.phases[j].kappa[idx] = pp.get_solution_values(
-                    phase.thermal_conductivity.name,
-                    data,
-                    iterate_index=0,
-                )[idx]
-                results.phases[j].dkappa[:, idx] = pp.get_solution_values(
-                    phase.thermal_conductivity._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, idx]
-
-            for i, comp in enumerate(phase):
-                results.phases[j].x[i, idx] = pp.get_solution_values(
-                    phase.extended_fraction_of[comp](subdomains).name,
-                    data,
-                    iterate_index=0,
-                )[idx]
-
-                phis = phase.fugacity_coefficient_of[comp]
-                if isinstance(phis, pp.ad.SurrogateFactory):
-                    results.phases[j].phis[i, idx] = pp.get_solution_values(
-                        phis.name,
-                        data,
-                        iterate_index=0,
-                    )[idx]
-                    # NOTE Careful with indexing 3D arrays.
-                    dphi_val = results.phases[j].dphis[i]
-                    dphi_val[:, idx] = pp.get_solution_values(
-                        phis._name_derivatives,
-                        data,
-                        iterate_index=0,
-                    )[:, idx]
-                    results.phases[j].dphis[i, :, :] = dphi_val
-
-        # reference phase fractions and saturations must be computed, since not stored.
-        results.y[self.fluid.reference_phase_index, :] = 1 - np.sum(
-            results.y[1:, :], axis=0
-        )
-        results.sat[self.fluid.reference_phase_index, :] = 1 - np.sum(
-            results.sat[1:, :], axis=0
-        )
+        not_converged = ~results.converged
+        n = int(not_converged.sum())
+        if n > 0:
+            logger.warning(
+                f"{results.specification.name}-flash failed in {n} cells on grid"
+                f" {sd.id}."
+            )
+        return results.converged
 
 
 class SolutionStrategyCFLE(

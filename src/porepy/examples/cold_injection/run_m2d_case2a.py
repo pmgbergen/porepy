@@ -1,21 +1,21 @@
-"""2-phase water flow through single fracture domain with temporal aperture jump.
+"""2D, 2-phase water flow through single fracture domain with temporal aperture jump.
 
 Isothermal model with nonlinear preconditioning using the vT flash.
+
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# import os
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
 import porepy as pp
-
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
@@ -26,12 +26,12 @@ from porepy.examples.cold_injection.model import (
     ColdInjectionMixins,
     DataCollectionMixin,
     FluidPoreInteraction,
+    IsothermalModelTemplate,
     NoFluxRediscretization,
     set_schur_complement,
-    IsothermalModelTemplate,
 )
 
-
+P_PRIMARY = False
 ISOCHORIC_NPC = False
 BUOYANCY_ON = False
 COLLECT_DATA = True
@@ -46,7 +46,7 @@ max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
 newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
-newton_tol_inc = 1e-5
+newton_tol_inc = 1e-4
 
 T_END_DAYS = 50
 
@@ -88,8 +88,8 @@ model_params["_heated_boundary_on"] = False
 
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = max_iterations + 1
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
+model_params["flash_params"]["global_iteration_stride"] = 1
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
@@ -121,6 +121,7 @@ solver_params["armijo_line_search_weight"] = 0.9
 solver_params["armijo_line_search_incline"] = 1e-4
 solver_params["armijo_line_search_max_iterations"] = 20
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
+# solver_params["armijo_start_after_residual_reaches"] = 10.0
 solver_params["armijo_least_squares_form"] = False
 solver_params["newton_chop"] = 0.4
 
@@ -168,12 +169,15 @@ if COLLECT_DATA:
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
+    _stride = model_params["flash_params"]["global_iteration_stride"]
     sub_folder = (
         "m2d_case2a/"
         f"{timestamp}"
         f"_BUOY_{BUOYANCY_ON}"
         f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
+        f"_PPRIM_{bool(P_PRIMARY)}"
+        f"_STRIDE_{int(_stride)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
@@ -188,8 +192,9 @@ if __name__ == "__main__":
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]
-    model.schur_complement_primary_variables.remove("pressure")
-    model.schur_complement_primary_variables.append("fluid_specific_volume")
+    if not P_PRIMARY:
+        model.schur_complement_primary_variables.remove("pressure")
+        model.schur_complement_primary_variables.append("fluid_specific_volume")
     solver_params.update(
         get_default_convergence_criteria(
             model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug
@@ -200,5 +205,5 @@ if __name__ == "__main__":
     pp.run_time_dependent_model(model, solver_params)
     sim_time = time.time() - t_0
 
-    print(f"Simulation prepared after {prep_sim_time:.2f} (s).")
-    print(f"Simulation finished after {sim_time / 60.0:.2f} (m).")
+    print(f"Simulation prepared after {str(timedelta(seconds=prep_sim_time))}")
+    print(f"Simulation finished after {str(timedelta(seconds=sim_time))}")
