@@ -1128,6 +1128,12 @@ def _expected_value(
             similar to compute the actual values.
 
     """
+
+    def create_adarray(val, jac):
+        if isinstance(jac, np.ndarray):
+            jac = sps.dia_matrix((jac, [0]), shape=(jac.size, jac.size))
+        return pp.ad.AdArray(val, jac)
+
     # General comment regarding implementation for cases that do not include the
     # AdArray: We always (except in a few cases which are documented explicitly) use
     # eval to evaluate the expression. To catch cases that are not supported by numpy
@@ -1137,7 +1143,6 @@ def _expected_value(
     # something is wrong. For a few combinations of operators, the combination will fail
     # in almost all cases, and the assertion is for simplicity put inside the try
     # instead of the except block.
-
     ### First do all combinations that do not involve AdArrays
     if isinstance(var_1, float) and isinstance(var_2, float):
         try:
@@ -1216,6 +1221,14 @@ def _expected_value(
 
     ### From here on, we have at least one AdArray
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, float):
+        if op == "@":
+            # We disallow this operation due to the following reason: The only case in
+            # which it is convenient to use the @ operator for the scalars is a generic
+            # operator that can accept everything: scalars, ndarrays and sparse
+            # matrices. However, we do not know any cases where one operator can be both
+            # a scalar or ndarray AND a matrix. This choice will be reconsidered if a
+            # reasonable example is found.
+            return False
         if op == "+":
             # Array + 2.0
             val = np.array([8, 17, 26])
@@ -1223,7 +1236,6 @@ def _expected_value(
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # Array - 2.0
             val = np.array([4, 13, 22])
@@ -1231,7 +1243,6 @@ def _expected_value(
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # Array * 2.0
             val = np.array([12, 30, 48])
@@ -1239,7 +1250,6 @@ def _expected_value(
                 jac = np.array([12, 15, 16])
             else:
                 jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # Array / 2.0
             val = np.array([6 / 2, 15 / 2, 24 / 2])
@@ -1255,7 +1265,6 @@ def _expected_value(
                         ]
                     )
                 )
-            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # Array ** 2.0
             val = np.array([6**2, 15**2, 24**2])
@@ -1272,17 +1281,11 @@ def _expected_value(
                         )
                     ),
                 )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # We disallow this operation due to the following reason: The only case in
-            # which it is convenient to use the @ operator for the scalars is a generic
-            # operator that can accept everything: scalars, ndarrays and sparse
-            # matrices. However, we do not know any cases where one operator can be both
-            # a scalar or ndarray AND a matrix. This choice will be reconsidered if a
-            # reasonable example is found.
-            return False
+        return create_adarray(val, jac)
 
     elif isinstance(var_1, float) and isinstance(var_2, pp.ad.AdArray):
+        if op == "@":
+            return False
         if op == "+":
             # 2.0 + Array
             val = np.array([8, 17, 26])
@@ -1290,7 +1293,6 @@ def _expected_value(
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # 2.0 - Array
             val = np.array([-4, -13, -22])
@@ -1300,7 +1302,6 @@ def _expected_value(
                 jac = sps.csr_matrix(
                     np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]])
                 )
-            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # 2.0 * Array
             val = np.array([12, 30, 48])
@@ -1308,13 +1309,12 @@ def _expected_value(
                 jac = np.array([12, 15, 16])
             else:
                 jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # This is 2 / Array
             # The derivative is -2 / Array**2 * dArray
             val = np.array([2 / 6, 2 / 15, 2 / 24])
             if var_2._is_diagonal:
-                jac = np.array([-2 / var_2.val**2 * var_2.jac])
+                jac = -2 / var_2.val**2 * var_2.jac
             else:
                 jac = sps.csr_matrix(
                     np.vstack(
@@ -1325,7 +1325,6 @@ def _expected_value(
                         )
                     ),
                 )
-            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # 2.0 ** Array
             # The derivative is 2**Array * log(2) * dArray
@@ -1342,13 +1341,14 @@ def _expected_value(
                         )
                     ),
                 )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # Note: See the comment for the case AdArray @ scalar.
-            return False
+        return create_adarray(val, jac)
 
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, np.ndarray):
         # Recall that the numpy array has values np.array([1, 2, 3])
+        if op == "@":
+            # The operation is not allowed
+            return False
+
         if op == "+":
             # Array + np.array([1, 2, 3])
             val = np.array([7, 17, 27])
@@ -1356,7 +1356,6 @@ def _expected_value(
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # Array - np.array([1, 2, 3])
             val = np.array([5, 13, 21])
@@ -1364,7 +1363,6 @@ def _expected_value(
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # Array * np.array([1, 2, 3])
             val = np.array([6, 30, 72])
@@ -1372,7 +1370,6 @@ def _expected_value(
                 jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # Array / np.array([1, 2, 3])
             val = np.array([6 / 1, 15 / 2, 24 / 3])
@@ -1388,7 +1385,6 @@ def _expected_value(
                         )
                     )
                 )
-            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # Array ** np.array([1, 2, 3])
             # The derivative is
@@ -1412,11 +1408,13 @@ def _expected_value(
                         )
                     )
                 )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # The operation is not allowed
-            return False
+        return create_adarray(val, jac)
+
     elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.AdArray):
+        if op == "@":
+            # Note: See the comment for the case AdArray @ scalar.
+            return False
+
         # Recall that the numpy array has values np.array([1, 2, 3])
         if op == "+":
             # Array + np.array([1, 2, 3])
@@ -1425,7 +1423,6 @@ def _expected_value(
                 jac = np.array([6, 7.5, 8])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "-":
             # np.array([1, 2, 3]) - Array
             val = np.array([-5, -13, -21])
@@ -1435,7 +1432,6 @@ def _expected_value(
                 jac = sps.csr_matrix(
                     np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]])
                 )
-            return pp.ad.AdArray(val, jac)
         elif op == "*":
             # Array * np.array([1, 2, 3])
             val = np.array([6, 30, 72])
@@ -1443,12 +1439,11 @@ def _expected_value(
                 jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
             else:
                 jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # np.array([1, 2, 3]) / Array
             val = np.array([1 / 6, 2 / 15, 3 / 24])
             if var_2._is_diagonal:
-                jac = -np.array([1 / var_2.val**2 * var_2.jac * np.array([1, 2, 3])])
+                jac = -1 / var_2.val**2 * var_2.jac * np.array([1, 2, 3])
             else:
                 jac = sps.csr_matrix(
                     np.vstack(
@@ -1459,7 +1454,6 @@ def _expected_value(
                         )
                     )
                 )
-            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # np.array([1, 2, 3]) ** Array
             val = np.array([1, 2**15, 3**24])
@@ -1481,10 +1475,7 @@ def _expected_value(
                         )
                     )
                 )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            # Note: See the comment for the case AdArray @ scalar.
-            return False
+        return create_adarray(val, jac)
 
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(
         var_2, (sps.spmatrix, sps.sparray)
@@ -1516,6 +1507,9 @@ def _expected_value(
     elif isinstance(var_1, pp.ad.DiagonalAdArray) and isinstance(
         var_2, pp.ad.DiagonalAdArray
     ):
+        if op == "@":
+            return False
+
         # For this case, var_2 was modified manually to be twice var_1, see comments in
         # the main test function. Mirror this here to be consistent.
         var_2 = var_1 + var_1
@@ -1523,58 +1517,29 @@ def _expected_value(
             # This evaluates to 3 * Array (since var_2 = 2 * var_1)
             val = np.array([18, 45, 72])
             jac = 3 * np.array([6, 7.5, 8])
-            return pp.ad.DiagonalAdArray(
-                val,
-                jac,
-                row_indices=np.arange(3),
-                col_indices=[np.arange(3)],
-                num_derivatives=3,
-            )
         elif op == "-":
             # This evaluates to -Array (since var_2 = 2 * var_1)
             val = np.array([-6, -15, -24])
             jac = -np.array([6, 7.5, 8])
-            return pp.ad.DiagonalAdArray(
-                val,
-                jac,
-                row_indices=np.arange(3),
-                col_indices=[np.arange(3)],
-                num_derivatives=3,
-            )
-
         elif op == "*":
             # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
             val = np.array([6 * 12, 15 * 30, 24 * 48])
             # Product rule
             jac = var_1.val * var_2.jac + var_2.val * var_1.jac
-            return pp.ad.DiagonalAdArray(
-                val,
-                jac,
-                row_indices=np.arange(3),
-                col_indices=[np.arange(3)],
-                num_derivatives=3,
-            )
         elif op == "/":
             # This evaluates to Array / (2 * Array)
             # The derivative is computed from the product and chain rules
             val = np.array([1 / 2, 1 / 2, 1 / 2])
             jac = np.atleast_2d(np.zeros(3))
-            return pp.ad.DiagonalAdArray(
-                val,
-                jac,
-                row_indices=np.arange(3),
-                col_indices=[np.arange(3)],
-                num_derivatives=3,
-            )
         elif op == "**":
             # This is Array ** (2 * Array)
             # The derivative is
             #    Array**(2 * Array - 1) * (2 * Array) * dArray
             #  + Array**(2 * Array) * log(Array) * dArray
-            val = np.array([6**12, 15**30, 24**48])
+            val = np.array([6**12, 15**30, 24**48], dtype=float)
             j1 = var_1.jac[0] if var_1._is_diagonal else var_1.jac
             j2 = var_2.jac[0] if var_2._is_diagonal else var_2.jac
-            jac = np.vstack(  #
+            jac = np.atleast_2d(  #
                 (
                     var_2.val[0] * var_1.val[0] ** (var_2.val[0] - 1.0) * j1[0]
                     + np.log(var_1.val[0]) * (var_1.val[0] ** var_2.val[0]) * j2[0],
@@ -1584,17 +1549,18 @@ def _expected_value(
                     + np.log(var_1.val[2]) * (var_1.val[2] ** var_2.val[2]) * j2[2],
                 )
             )
-            return pp.ad.DiagonalAdArray(
-                val,
-                jac,
-                row_indices=np.arange(3),
-                col_indices=[np.arange(3)],
-                num_derivatives=3,
-            )
-        elif op == "@":
-            return False
+        return pp.ad.DiagonalAdArray(
+            val,
+            jac,
+            row_indices=np.arange(3),
+            col_indices=[np.arange(3)],
+            num_derivatives=3,
+        )
 
     elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, pp.ad.AdArray):
+        if op == "@":
+            return False
+
         # For this case, var_2 was modified manually to be twice var_1, see comments in
         # the main test function. Mirror this here to be consistent.
         is_v2_doubled = (not var_1._is_diagonal) and (not var_2._is_diagonal)
@@ -1613,7 +1579,6 @@ def _expected_value(
                     jac = sps.csr_matrix(
                         np.array([[1 + 6, 2, 3], [4, 5 + 7.5, 6], [7, 8, 9 + 8]])
                     )
-            return pp.ad.AdArray(val, jac)
         elif op == "-":
             if is_v2_doubled:
                 # This evaluates to -Array (since var_2 = 2 * var_1)
@@ -1643,7 +1608,6 @@ def _expected_value(
                             ]
                         )
                     )
-            return pp.ad.AdArray(val, jac)
         elif op == "*":
             if is_v2_doubled:
                 # This evaluates to 2 * Array**2 (since var_2 = 2 * var_1)
@@ -1672,7 +1636,6 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.AdArray(val, jac)
         elif op == "/":
             # This evaluates to Array / (2 * Array)
             # The derivative is computed from the product and chain rules
@@ -1699,7 +1662,6 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.AdArray(val, jac)
         elif op == "**":
             # This is Array ** (2 * Array)
             # The derivative is
@@ -1732,9 +1694,7 @@ def _expected_value(
                     )
                 )
             )
-            return pp.ad.AdArray(val, jac)
-        elif op == "@":
-            return False
+        return pp.ad.AdArray(val, jac)
     else:
         raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
