@@ -185,16 +185,16 @@ def test_geothermal_reservoir():
     # The model setup is mostly copied from porepy/examples/geothermal_reservoir.py
 
     dt_init = 20 * pp.YEAR
-    # 6 * dt_init is enough to equilibrate the system. However, exactly 6 produces a
-    # bug with the time_manager, which does not adjust the schedule. Therefore, using
-    # 6.1 instead. This can be reconcidered by just 6 later, when the time_manager works
-    # more robustly.
+    # The initialization phase is run for INITIALIZATION_LENGTH * dt_init.
+    # A value of 3.1 * dt_init has been found sufficient for the system to
+    # reach a near-equilibrium state in this test setup while keeping the
+    # overall runtime reasonable.
     INITIALIZATION_LENGTH = 3.1
     schedule = np.array(
         [
             0,  # Initialization, wells are off.
             dt_init * INITIALIZATION_LENGTH,  # Initialization done, wells are pumping.
-            dt_init * INITIALIZATION_LENGTH + 1e2,  # Simulation ends.
+            dt_init * INITIALIZATION_LENGTH + 100 * pp.SECOND,  # Simulation ends.
         ]
     )
 
@@ -226,7 +226,7 @@ def test_geothermal_reservoir():
             schedule=schedule,
             dt_init=dt_init,
             constant_dt=False,
-            dt_min_max=(1e1, max(pp.YEAR, dt_init)),
+            dt_min_max=(10 * pp.SECOND, max(pp.YEAR, dt_init)),
             iter_optimal_range=(6, 10),  # Allow more iterations than default.
             iter_relax_factors=(0.5, 1.8),  # More aggressive relaxation
         ),
@@ -464,7 +464,7 @@ def test_geothermal_reservoir():
     # average flux is well below the tolerance.
     assert np.mean(darcy_flux_data_injection_well[-1]) < -flux_tolerance * 10
 
-    # Test 2.2: The production well temperarture increases, as hot water enters the well
+    # Test 2.2: The production well temperature increases, as hot water enters the well
     # from the reservoir. Production fluxes should be positive (up the well). Pressure
     # can increase or decrease and is not tested.
     assert (
