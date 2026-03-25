@@ -372,7 +372,9 @@ if __name__ == "__main__":
             "cell_size_fracture": fracture_size * length_scale / 2.5,
         },
         "fracture_params": {  # Other options are available in the geometry mixin.
-            "fracture_major_axes": np.array((fracture_size, fracture_size)),  # dimensionless, scaled by domain size
+            "fracture_major_axes": np.array(
+                (fracture_size, fracture_size)
+            ),  # dimensionless, scaled by domain size
             "dip_angles": np.array((np.pi / 4, -np.pi / 4)),  # [rad]
         },
         "domain_sizes": domain_sizes,
