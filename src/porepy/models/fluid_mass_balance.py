@@ -808,6 +808,42 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         return flux
 
 
+class FluidVolumeVariable(pp.VariableMixin):
+    """Introduces a variable for the specific volume of the fluid (mixture)."""
+
+    fluid_volume_variable: str
+
+    def create_variables(self):
+        """Mixin overload creating the variable."""
+        super().create_variables()
+
+        self.equation_system.create_variables(
+            self.fluid_volume_variable,
+            subdomains=self.mdg.subdomains(),
+            tags={"si_units": "mol * m^-3"},
+        )
+
+    def fluid_specific_volume(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Method for accessing the variable."""
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            return self.create_boundary_operator(
+                name=self.fluid_volume_variable,
+                domains=domains,  # type: ignore[arg-type]
+            )
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument domains a mixture of subdomain and boundary grids."""
+            )
+
+        domains = cast(list[pp.Grid], domains)
+
+        return self.equation_system.md_variable(self.fluid_volume_variable, domains)
+
+
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     """Solution strategy and numerics-related methods for a single-phase flow problem.
 

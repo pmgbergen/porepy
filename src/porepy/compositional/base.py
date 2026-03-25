@@ -1006,9 +1006,35 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         return op
 
     def specific_volume(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Returns the reciprocal of :attr:`density`."""
+        """Specific volume of the fluid in ``[m^3 / kg]`` or ``[m^3 / mol]``.
 
-        op = self.density(domains) ** pp.ad.Scalar(-1)
+        Its general, thermodynamically consistent representation is
+        :math:`\\sum_j y_j \\y_j`, with :math:`y_j, \\v_j` being the fraction
+        and specific volume of a phase respectively.
+
+        For a single-phase, single-component fluid, it can be reduced to a single term
+        :math:`\\v`.
+
+        Parameters:
+            domains: A sequence of grids.
+
+        Returns:
+            Above expression by calling the phase fractions and specific volumes.
+            In the case of only 1 phase, it returns the reference phase specific volume.
+
+        """
+
+        if self.num_phases > 1:
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.fraction(domains) * phase.specific_volume(domains)
+                    for phase in self.phases
+                ],
+            )
+
+        else:
+            op = self.reference_phase.specific_volume(domains)
+
         op.set_name("fluid_specific_volume")
         return op
 

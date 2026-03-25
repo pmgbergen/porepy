@@ -38,8 +38,8 @@ COLLECT_DATA = True
 
 assert not BUOYANCY_ON, "Fractional flow not supported for case 2a."
 
-APERTURE_JUMP_SCHEDULE: list[tuple[float, float]] = [
-    # (25 * pp.DAY, 5.0),
+APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
+    (25 * pp.DAY, 100),
 ]
 
 max_iterations = 40 if BUOYANCY_ON else 30
@@ -88,7 +88,7 @@ model_params["_heated_boundary_on"] = False
 
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = max_iterations
+model_params["flash_params"]["global_iteration_stride"] = max_iterations + 1
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 
 model_params["equilibrium_specification"] = (
@@ -138,12 +138,12 @@ class Case2aMixin:
     _TOTAL_INJECTED_MASS: float = 10 * 47134.59273520758 / (60 * 60)
 
     _p_INIT: float = 10e6
-    _T_INIT: float = 300.0
+    _T_INIT: float = 450.0
 
     _p_OUT: float = 10e6  # roughly hydrostatic pressure of water at depth of 1 km.
-    _T_IN: float = 300.0
+    _T_IN: float = 450.0
 
-    _T_BC: float = 300.0
+    _T_BC: float = 450.0
 
     _APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
@@ -167,11 +167,12 @@ if COLLECT_DATA:
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
+    _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
     sub_folder = (
-        "m2d_case2a"
-        f"_{timestamp}"
+        "m2d_case2a/"
+        f"{timestamp}"
         f"_BUOY_{BUOYANCY_ON}"
-        f"_AJUMP_{bool(model_class._APERTURE_FACTOR_AFTER_TIME)}"
+        f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"

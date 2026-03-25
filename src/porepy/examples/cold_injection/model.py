@@ -1002,6 +1002,27 @@ class DataCollectionMixin(pp.PorePyModel):
                 n = np.zeros(sd.num_cells, dtype=int)
 
             data.append((sd, "cumulative flash iterations", n))
+            data.append(
+                (sd, "aperture", self.equation_system.evaluate(self.aperture([sd])))
+            )
+            if not isinstance(
+                self, pp.energy_balance.VariablesEnergyBalance
+            ) and hasattr(self, "temperature"):
+                data.append(
+                    (
+                        sd,
+                        "temperature",
+                        self.equation_system.evaluate(self.temperature([sd])),
+                    )
+                )
+            if not isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                data.append(
+                    (
+                        sd,
+                        "fluid_specific_volume",
+                        self.equation_system.evaluate(self.fluid.specific_volume([sd])),
+                    )
+                )
 
         return data
 
@@ -1078,6 +1099,7 @@ class IsothermalModelTemplate(
     cf.ComponentMassBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
     pc.CompositionalVariables,
+    pp.fluid_mass_balance.FluidVolumeVariable,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
     cfle.BoundaryConditionsEquilibrium,
     cf.BoundaryConditionsMulticomponent,
@@ -1097,34 +1119,6 @@ class IsothermalModelTemplate(
     def __init__(self, params=None):
         super().__init__(params)
         self.fluid_volume_variable: str = "fluid_specific_volume"
-
-    def create_variables(self) -> None:
-        super().create_variables()
-
-        self.equation_system.create_variables(
-            self.fluid_volume_variable,
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": "mol * m^-3"},
-        )
-
-    def fluid_specific_volume(
-        self, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
-            return self.create_boundary_operator(
-                name=self.fluid_volume_variable,
-                domains=domains,  # type: ignore[arg-type]
-            )
-
-        # Check that the domains are grids.
-        if not all([isinstance(g, pp.Grid) for g in domains]):
-            raise ValueError(
-                """Argument domains a mixture of subdomain and boundary grids."""
-            )
-
-        domains = cast(list[pp.Grid], domains)
-
-        return self.equation_system.md_variable(self.fluid_volume_variable, domains)
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         mass_density = self.porosity(subdomains) / self.fluid_specific_volume(
@@ -1150,7 +1144,8 @@ class IsothermalModelTemplate(
         )
 
     def temperature(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        return pp.ad.Scalar(self._T_IN, "temperature")
+        nc = sum([sd.num_cells for sd in subdomains])
+        return pp.wrap_as_dense_ad_array(self._T_IN, nc, "temperature")
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         return np.ones(sd.num_cells) * self._T_IN

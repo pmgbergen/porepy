@@ -51,8 +51,7 @@ class PVEEquations(EquationMixin):
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.energy_balance.EnthalpyVariable`."""
     fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """WIP: Hypothetical mixed in method returning the fluid specific volume as an
-    AD operator."""
+    """See :class:`~porepy.models.fluid_mass_balance.FluidVolumeVariable`."""
 
     __ad_capped_log: pp.ad.Function = pp.ad.Function(
         # pp.ad.log,

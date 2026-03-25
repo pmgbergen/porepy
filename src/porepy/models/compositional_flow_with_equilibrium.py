@@ -825,8 +825,6 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     # Provided by respective variable mixins.
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     pressure_variable: str
     temperature_variable: str
@@ -1197,9 +1195,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                     self.pressure([sd]), state=state
                 )
 
-                if flash_spec == pc.FlashSpec.pT and isinstance(
-                    self, pp.energy_balance.VariablesEnergyBalance
-                ):
+                if flash_spec == pc.FlashSpec.pT:
                     spec["T"] = self.equation_system.evaluate(
                         self.temperature([sd]), state=state
                     )
@@ -1217,7 +1213,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                         f"Isobaric specification {flash_spec} not implemented."
                     )
             else:
-                if hasattr(self, "fluid_specific_volume"):
+                if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
                     spec["v"] = self.equation_system.evaluate(
                         self.fluid_specific_volume([sd]), state=state
                     )
@@ -1226,13 +1222,11 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                         self.fluid.specific_volume([sd]), state=state
                     )
 
-                if flash_spec == pc.FlashSpec.pT and isinstance(
-                    self, pp.energy_balance.VariablesEnergyBalance
-                ):
+                if flash_spec == pc.FlashSpec.vT:
                     spec["T"] = self.equation_system.evaluate(
                         self.temperature([sd]), state=state
                     )
-                elif flash_spec == pc.FlashSpec.ph:
+                elif flash_spec == pc.FlashSpec.vh:
                     if isinstance(self, pp.energy_balance.EnthalpyVariable):
                         spec["h"] = self.equation_system.evaluate(
                             self.enthalpy([sd]), state=state
@@ -1339,20 +1333,34 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                             iterate_index=0,
                         )
 
-            # Updating other state functions, if they are were not used to compute the
-            # equilibrium.
+            # Updating state variables. If isochoric, update pressure which is
+            # assumed to be always a variable. If isobaric, update fluid volume if it is
+            # a variable.
             if results.specification >= pc.FlashSpec.vT:
                 self.equation_system.set_variable_values(
                     results.p,
                     [self.pressure([sd])],  # type: ignore[arg-type]
                     iterate_index=0,
                 )
-            if results.specification not in [pc.FlashSpec.pT, pc.FlashSpec.vT]:
+            elif isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                self.equation_system.set_variable_values(
+                    results.v,
+                    [self.fluid_specific_volume([sd])],  # type: ignore[arg-type]
+                    iterate_index=0,
+                )
+
+            # Update energy-related variables if applicable.
+            # Nonisothermal -> update temperature.
+            if results.specification not in [
+                pc.FlashSpec.pT,
+                pc.FlashSpec.vT,
+            ] and isinstance(self, pp.energy_balance.VariablesEnergyBalance):
                 self.equation_system.set_variable_values(
                     results.T,
                     [self.temperature([sd])],  # type: ignore[arg-type]
                     iterate_index=0,
                 )
+            # Enthalpy specified -> update variable if present.
             if results.specification not in [
                 pc.FlashSpec.ph,
                 pc.FlashSpec.vh,
@@ -1513,78 +1521,84 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
             # NOTE ignore union attribute mypy errors, because in CFLE the phase
             # properties are all surrogate factories.
-            results.phases[j].rho[idx] = pp.get_solution_values(
-                phase.density.name,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[idx]
-            results.phases[j].h[idx] = pp.get_solution_values(
-                phase.specific_enthalpy.name,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[idx]
-            results.phases[j].u[idx] = pp.get_solution_values(
-                phase.specific_internal_energy.name,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[idx]
-            results.phases[j].mu[idx] = pp.get_solution_values(
-                phase.viscosity.name,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[idx]
-            results.phases[j].kappa[idx] = pp.get_solution_values(
-                phase.thermal_conductivity.name,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[idx]
-
-            results.phases[j].drho[:, idx] = pp.get_solution_values(
-                phase.density._name_derivatives,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[:, idx]
-            results.phases[j].dh[:, idx] = pp.get_solution_values(
-                phase.specific_enthalpy._name_derivatives,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[:, idx]
-            results.phases[j].du[:, idx] = pp.get_solution_values(
-                phase.specific_internal_energy._name_derivatives,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[:, idx]
-            results.phases[j].dmu[:, idx] = pp.get_solution_values(
-                phase.viscosity._name_derivatives,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[:, idx]
-            results.phases[j].dkappa[:, idx] = pp.get_solution_values(
-                phase.thermal_conductivity._name_derivatives,  # type:ignore[union-attr]
-                data,
-                iterate_index=0,
-            )[:, idx]
-
-            for i, comp in enumerate(phase):
-                results.phases[j].x[i, idx] = pp.get_solution_values(
-                    phase.extended_fraction_of[comp](subdomains).name,  # type:ignore[union-attr]
+            if isinstance(phase.density, pp.ad.SurrogateFactory):
+                results.phases[j].rho[idx] = pp.get_solution_values(
+                    phase.density.name,
                     data,
                     iterate_index=0,
                 )[idx]
-
-                results.phases[j].phis[i, idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp].name,  # type:ignore[union-attr]
-                    data,
-                    iterate_index=0,
-                )[idx]
-                # NOTE numpy does some weird transpositions when dealing with 3D arrays
-                dphi = results.phases[j].dphis[i]
-                dphi[:, idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp]._name_derivatives,  # type:ignore[union-attr]
+                results.phases[j].drho[:, idx] = pp.get_solution_values(
+                    phase.density._name_derivatives,
                     data,
                     iterate_index=0,
                 )[:, idx]
-                results.phases[j].dphis[i, :, :] = dphi
+            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                results.phases[j].h[idx] = pp.get_solution_values(
+                    phase.specific_enthalpy.name,
+                    data,
+                    iterate_index=0,
+                )[idx]
+                results.phases[j].dh[:, idx] = pp.get_solution_values(
+                    phase.specific_enthalpy._name_derivatives,
+                    data,
+                    iterate_index=0,
+                )[:, idx]
+            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
+                results.phases[j].u[idx] = pp.get_solution_values(
+                    phase.specific_internal_energy.name,
+                    data,
+                    iterate_index=0,
+                )[idx]
+                results.phases[j].du[:, idx] = pp.get_solution_values(
+                    phase.specific_internal_energy._name_derivatives,
+                    data,
+                    iterate_index=0,
+                )[:, idx]
+            if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                results.phases[j].mu[idx] = pp.get_solution_values(
+                    phase.viscosity.name,
+                    data,
+                    iterate_index=0,
+                )[idx]
+                results.phases[j].dmu[:, idx] = pp.get_solution_values(
+                    phase.viscosity._name_derivatives,
+                    data,
+                    iterate_index=0,
+                )[:, idx]
+            if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                results.phases[j].kappa[idx] = pp.get_solution_values(
+                    phase.thermal_conductivity.name,
+                    data,
+                    iterate_index=0,
+                )[idx]
+                results.phases[j].dkappa[:, idx] = pp.get_solution_values(
+                    phase.thermal_conductivity._name_derivatives,
+                    data,
+                    iterate_index=0,
+                )[:, idx]
+
+            for i, comp in enumerate(phase):
+                results.phases[j].x[i, idx] = pp.get_solution_values(
+                    phase.extended_fraction_of[comp](subdomains).name,
+                    data,
+                    iterate_index=0,
+                )[idx]
+
+                phis = phase.fugacity_coefficient_of[comp]
+                if isinstance(phis, pp.ad.SurrogateFactory):
+                    results.phases[j].phis[i, idx] = pp.get_solution_values(
+                        phis.name,
+                        data,
+                        iterate_index=0,
+                    )[idx]
+                    # NOTE Careful with indexing 3D arrays.
+                    dphi_val = results.phases[j].dphis[i]
+                    dphi_val[:, idx] = pp.get_solution_values(
+                        phis._name_derivatives,
+                        data,
+                        iterate_index=0,
+                    )[:, idx]
+                    results.phases[j].dphis[i, :, :] = dphi_val
 
         # reference phase fractions and saturations must be computed, since not stored.
         results.y[self.fluid.reference_phase_index, :] = 1 - np.sum(

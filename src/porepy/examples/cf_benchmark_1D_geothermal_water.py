@@ -495,23 +495,6 @@ class GeothermalWaterModel(  # type:ignore[misc]
         # eq.set_name(name)
         # return eq
 
-    def volume_stabilization_term(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        volume_stabilization = self.fluid.density(subdomains) * pp.ad.sum_operator_list(
-            [
-                phase.fraction(subdomains) / phase.density(subdomains)
-                for phase in self.fluid.phases
-            ],
-            "fluid_specific_volume",
-        ) - self.porosity(subdomains)
-
-        volume_stabilization = self.volume_integral(
-            volume_stabilization, subdomains, dim=1
-        )
-        volume_stabilization = pp.ad.time_derivatives.dt(
-            volume_stabilization, self.ad_time_step
-        )
-        return volume_stabilization
-
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:

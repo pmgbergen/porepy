@@ -155,11 +155,12 @@ if COLLECT_DATA:
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
+    _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
     sub_folder = (
-        "m2d_case2b"
-        f"_{timestamp}"
+        "m2d_case2b/"
+        f"{timestamp}"
         f"_BUOY_{BUOYANCY_ON}"
-        f"_AJUMP_{bool(model_class._APERTURE_FACTOR_AFTER_TIME)}"
+        f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"

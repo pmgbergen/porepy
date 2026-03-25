@@ -85,7 +85,7 @@ class ModelConfig(pp.PorePyModel):
     _PRODUCTION_POINTS: list[np.ndarray] = [np.array([85.0, 10.0])]
     """Coordinates of production wells in meters."""
 
-    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, float]] = []
+    _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, pp.number]] = []
     """2-tuples of time-factor pairs, indicating at which time the aperture is
     multiplied with given factor."""
 
