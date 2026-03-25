@@ -185,10 +185,9 @@ def test_geothermal_reservoir():
     # The model setup is mostly copied from porepy/examples/geothermal_reservoir.py
 
     dt_init = 20 * pp.YEAR
-    # The initialization phase is run for INITIALIZATION_LENGTH * dt_init.
-    # A value of 3.1 * dt_init has been found sufficient for the system to
-    # reach a near-equilibrium state in this test setup while keeping the
-    # overall runtime reasonable.
+    # The initialization phase is run for INITIALIZATION_LENGTH * dt_init. A value of
+    # 3.1 * dt_init has been found sufficient for the system to reach a near-equilibrium
+    # state in this test setup while keeping the overall runtime reasonable.
     INITIALIZATION_LENGTH = 3.1
     schedule = np.array(
         [
