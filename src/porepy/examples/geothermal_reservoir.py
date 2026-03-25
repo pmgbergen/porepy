@@ -334,7 +334,7 @@ if __name__ == "__main__":
     )
     # Define domain sizes (x, y, z) and fracture size.
     length_scale = 1e3  # [m]
-    fracture_size = 0.15  # [-], fraction of length_scale
+    fracture_size = 0.2  # [-], fraction of length_scale
     domain_sizes = np.array(
         [1.0 * length_scale, 1.0 * length_scale, 1.0 * length_scale]
     )  # [m]
@@ -354,7 +354,7 @@ if __name__ == "__main__":
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
         "injection_well_temperatures": 300.00,
         "injection_well_pressures": injection_pressures,
-        "production_well_temperatures": 300.0,
+        "production_well_temperatures": 350.0,
         "production_well_pressures": pp.ATMOSPHERIC_PRESSURE,  # = 1.01325e5 Pa
         "material_constants": {
             "solid": pp.SolidConstants(**solid_values),  # type: ignore[arg-type]
@@ -372,9 +372,8 @@ if __name__ == "__main__":
             "cell_size_fracture": fracture_size * length_scale / 2.5,
         },
         "fracture_params": {  # Other options are available in the geometry mixin.
-            "fracture_major_axes": np.array((fracture_size, fracture_size * 1.2)),
-            "num_points": np.array((9, 8)),  # Number of points to define each fracture
-            "dip_angles": np.array((np.pi / 4, np.pi / 2)),  # Slanted and vertical
+            "fracture_major_axes": np.array((fracture_size, fracture_size)),  # [m]
+            "dip_angles": np.array((np.pi / 4, -np.pi / 4)),  # [rad]
         },
         "domain_sizes": domain_sizes,
         # Line search: Scale the indicator used for the local_line_search (see below)
@@ -389,8 +388,8 @@ if __name__ == "__main__":
         "nl_max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
         "nl_convergence_inc_atol": 1e-7,  # Increment norm
         "nl_convergence_res_atol": 1e-7,  # Residual norm
-        "nl_divergence_inc_atol": 1e20,
-        "nl_divergence_res_atol": 1e20,
+        "nl_divergence_inc_atol": 1e12,
+        "nl_divergence_res_atol": 1e12,
         # Line search / Solution Strategies. These are considered "advanced" options,
         # improving the robustness of the nonlinear solver at the cost of some
         # additional computational overhead. Delete/comment the following lines for the
