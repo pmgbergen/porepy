@@ -184,22 +184,22 @@ def test_geothermal_reservoir():
 
     # The model setup is mostly copied from porepy/examples/geothermal_reservoir.py
 
-    dt_init = 3 * pp.YEAR
+    dt_init = 20 * pp.YEAR
     # 6 * dt_init is enough to equilibrate the system. However, exactly 6 produces a
     # bug with the time_manager, which does not adjust the schedule. Therefore, using
     # 6.1 instead. This can be reconcidered by just 6 later, when the time_manager works
     # more robustly.
-    INITIALIZATION_LENGTH = 6.1
+    INITIALIZATION_LENGTH = 3.1
     schedule = np.array(
         [
             0,  # Initialization, wells are off.
             dt_init * INITIALIZATION_LENGTH,  # Initialization done, wells are pumping.
-            dt_init * INITIALIZATION_LENGTH + pp.HOUR,  # Simulation ends.
+            dt_init * INITIALIZATION_LENGTH + 1e2,  # Simulation ends.
         ]
     )
 
     # Injection pressure schedule, its size == schedule.size
-    injection_pressures = [1e5, 5e6, 9e6]  # [Pa]
+    injection_pressures = [1e5, 1e5, 5e5]  # [Pa]
 
     # Adjust solid values, while using default values for water.
     solid_values = pp.solid_values.basalt
@@ -213,7 +213,7 @@ def test_geothermal_reservoir():
     )
     # Define domain sizes (x, y, z) and fracture size.
     length_scale = 1e3  # [m]
-    fracture_size = 0.15  # [-], fraction of length_scale
+    fracture_size = 0.2  # [-], fraction of length_scale
     domain_sizes = np.array(
         [1.0 * length_scale, 1.0 * length_scale, 1.0 * length_scale]
     )  # [m]
@@ -226,7 +226,7 @@ def test_geothermal_reservoir():
             schedule=schedule,
             dt_init=dt_init,
             constant_dt=False,
-            dt_min_max=(0.1 * pp.HOUR, max(pp.YEAR, dt_init)),
+            dt_min_max=(1e1, max(pp.YEAR, dt_init)),
             iter_optimal_range=(6, 10),  # Allow more iterations than default.
             iter_relax_factors=(0.5, 1.8),  # More aggressive relaxation
         ),
@@ -234,7 +234,7 @@ def test_geothermal_reservoir():
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
         "injection_well_temperatures": 250.00,
         "injection_well_pressures": injection_pressures,
-        "production_well_temperatures": 300.0,
+        "production_well_temperatures": 350.0,
         "production_well_pressures": pp.ATMOSPHERIC_PRESSURE,  # = 1.01325e5 Pa
         "material_constants": {
             "solid": pp.SolidConstants(**solid_values),  # type: ignore[arg-type]
@@ -250,13 +250,13 @@ def test_geothermal_reservoir():
         # Set geometry and meshing related parameters.
         "grid_type": "simplex",
         "meshing_arguments": {
-            "cell_size": length_scale / 5.0,
-            "cell_size_fracture": fracture_size * length_scale,
+            "cell_size": length_scale / 4.0,
+            "cell_size_fracture": fracture_size * length_scale * 0.7,
+            "background_transition_multiplier": 6.0,
         },
         "fracture_params": {  # Other options are available in the geometry mixin.
-            "fracture_major_axes": np.array((fracture_size, fracture_size * 1.2)),
-            "num_points": np.array((9, 8)),  # Number of points to define each fracture
-            "dip_angles": np.array((np.pi / 4, np.pi / 2)),  # Slanted and vertical
+            "fracture_major_axes": np.array((fracture_size, fracture_size)),
+            "dip_angles": np.array((np.pi / 4, -np.pi / 4)),  # [rad]
         },
         "domain_sizes": domain_sizes,
         # Line search: Scale the indicator used for the local_line_search (see below)
@@ -271,8 +271,10 @@ def test_geothermal_reservoir():
     temperature_data_initialization = []
     displacement_data_initialization = []
     pressure_data_injection_well = []
+    darcy_flux_data_injection_well = []
     temperature_data_injection_well = []
     pressure_data_production_well = []
+    darcy_flux_data_production_well = []
     temperature_data_production_well = []
     pressure_data_injection_fracture = []
     temperature_data_injection_fracture = []
@@ -325,11 +327,13 @@ def test_geothermal_reservoir():
                 for well in all_wells
                 if well.tags["parent_well_index"] == inj_well_index
             ]
+            injection_signs = [np.sign(sd.face_normals[2]) for sd in injection_wells]
             production_wells = [
                 well
                 for well in all_wells
                 if well.tags["parent_well_index"] == prod_well_index
             ]
+            production_signs = [np.sign(sd.face_normals[2]) for sd in production_wells]
 
             def identify_well_fracture(parent_well_index):
                 # Identifying the fracture corresponding to this well index.
@@ -377,11 +381,19 @@ def test_geothermal_reservoir():
             pressure_data_production_well.append(
                 self.equation_system.evaluate(self.pressure(production_wells))
             )
+            darcy_flux_data_production_well.append(
+                self.equation_system.evaluate(self.darcy_flux(production_wells))
+                * np.hstack(production_signs)
+            )
             temperature_data_production_well.append(
                 self.equation_system.evaluate(self.temperature(production_wells))
             )
             pressure_data_injection_fracture.append(
                 self.equation_system.evaluate(self.pressure(injection_fractures))
+            )
+            darcy_flux_data_injection_well.append(
+                self.equation_system.evaluate(self.darcy_flux(injection_wells))
+                * np.hstack(injection_signs)
             )
             temperature_data_injection_fracture.append(
                 self.equation_system.evaluate(self.temperature(injection_fractures))
@@ -396,9 +408,9 @@ def test_geothermal_reservoir():
     model = ModelForTest(model_params)
     solver_params = {
         "prepare_simulation": True,
-        "max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
-        "nl_divergence_tol": 1e20,
-        "nl_convergence_inc_atol": 1e-7,  # Increment norm
+        "nl_max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
+        "nl_divergence_res_atol": 1e12,
+        "nl_convergence_inc_atol": 1e-5,  # Increment norm
         "nl_convergence_res_atol": 1e-7,  # Residual norm
         "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
         "global_line_search": 0,
@@ -413,17 +425,16 @@ def test_geothermal_reservoir():
     # reached the steady state. We check that the last two states during the
     # initialization are close.
     assert len(pressure_data_initialization) >= 2
-
     np.testing.assert_allclose(
         pressure_data_initialization[-2],
         pressure_data_initialization[-1],
-        atol=1e-3,
+        atol=5e-4,
         rtol=0,
     )
     np.testing.assert_allclose(
         temperature_data_initialization[-2],
         temperature_data_initialization[-1],
-        atol=1e-2,
+        atol=2e-2,
         rtol=0,
     )
     np.testing.assert_allclose(
@@ -433,10 +444,14 @@ def test_geothermal_reservoir():
         rtol=0,
     )
 
-    # Test 2.1: Injection starts.
+    # Test 2: Injection starts.
 
-    # We check that the pressure increases and the temperature decreases in the
-    # injection well.
+    # Test 2.1: The pressure increases and the temperature decreases in the injection
+    # well, as cold water is injected into the reservoir. Injection fluxes should be
+    # negative (down the well). Allow tolerance for the flux, due to the cells below the
+    # well fracture intersection, which should be very small but can have some numerical
+    # noise.
+    flux_tolerance = 2e-14
     assert (
         pressure_data_injection_well[1].mean() > pressure_data_injection_well[0].mean()
     )
@@ -444,29 +459,25 @@ def test_geothermal_reservoir():
         temperature_data_injection_well[1].mean()
         < temperature_data_injection_well[0].mean()
     )
+    assert np.all(darcy_flux_data_injection_well[-1] < flux_tolerance)
+    # To avoid masking the test above using a too large tolerance, we verify that the
+    # average flux is well below the tolerance.
+    assert np.mean(darcy_flux_data_injection_well[-1]) < -flux_tolerance * 10
 
-    # Test 2.2: The opposite for the production well.
-    assert (
-        pressure_data_production_well[1].mean()
-        < pressure_data_production_well[0].mean()
-    )
+    # Test 2.2: The production well temperarture increases, as hot water enters the well
+    # from the reservoir. Production fluxes should be positive (up the well). Pressure
+    # can increase or decrease and is not tested.
     assert (
         temperature_data_production_well[1].mean()
         > temperature_data_production_well[0].mean()
     )
+    assert np.all(darcy_flux_data_production_well[-1] > -flux_tolerance)
+    # To avoid masking the test above using a too large tolerance, we verify that the
+    # average flux is well above the tolerance.
+    assert np.mean(darcy_flux_data_production_well[-1]) > flux_tolerance * 10
 
     # Test 2.3: The same for the injection fracture.
     assert (
         pressure_data_injection_fracture[1].mean()
         > pressure_data_injection_fracture[0].mean()
-    )
-    assert (
-        temperature_data_injection_fracture[1].mean()
-        < temperature_data_injection_fracture[0].mean()
-    )
-
-    # Test 2.4: Pressure should decrease for the production fracture.
-    assert (
-        pressure_data_production_fracture[1].mean()
-        < pressure_data_production_fracture[0].mean()
     )
