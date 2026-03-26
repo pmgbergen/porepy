@@ -32,7 +32,7 @@ from porepy.examples.cold_injection.model import (
 )
 
 P_PRIMARY = False
-ISOCHORIC_NPC = False
+ISOCHORIC_NPC = True
 BUOYANCY_ON = False
 COLLECT_DATA = True
 
@@ -51,7 +51,14 @@ newton_tol_inc = 1e-4
 T_END_DAYS = 50
 
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
-
+if APERTURE_JUMP_SCHEDULE:
+    t_jump = APERTURE_JUMP_SCHEDULE[0][0]
+    t = np.array(time_schedule)
+    t_before: list[float] = t[t<t_jump].tolist()
+    t_after: list[float] = t[t>t_jump].tolist()
+    if t_before[-1] < t_jump - pp.HOUR:
+        t_before += [t_jump - pp.HOUR]
+    time_schedule = t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
 
 dt_init = pp.DAY * 0.5
 dt_min = pp.SECOND
@@ -89,7 +96,7 @@ model_params["_heated_boundary_on"] = False
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = 1
+model_params["flash_params"]["global_iteration_stride"] = 0
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,

@@ -193,6 +193,9 @@ class SolutionStrategy(ModelConfig):
         self.update_flux_values()
         self.rediscretize()
 
+        if not isinstance(self, pp.energy_balance.TotalEnergyBalanceEquations):
+            return
+
         # NOTE: Enthalpy flux equation is linear in the respective unknown.
         # So adding the negative residual of the equation will solve the equation
         # exactly.
@@ -242,22 +245,32 @@ class SolutionStrategy(ModelConfig):
 
         isochoric_npc_done = False
 
+        atol = self.params["flash_params"]["solver_params"]["atol_res"]
+
         for sd in self.mdg.subdomains():
             if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
                 v_jump_factor = self.equation_system.evaluate(
                     self.pore_volume_jump([sd])
                 )
                 if np.max(v_jump_factor) > 1.1:
-                    rho = self.equation_system.evaluate(self.fluid.density([sd]))
-                    assert np.all(rho > 0), "Bad density."
+                    if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                        v = self.equation_system.evaluate(
+                            self.fluid_specific_volume([sd])
+                        )
+                    else:
+                        v = self.equation_system.evaluate(
+                            self.fluid.specific_volume([sd])
+                        )
+
+                    assert np.all(v > 0), "Bad specific volume."
                     if isochoric_spec == pf.FlashSpec.vT:
                         equ_spec = pf.IsochoricSpecifications(
-                            v=v_jump_factor / rho,
+                            v=v_jump_factor * v,
                             T=self.equation_system.evaluate(self.temperature([sd])),
                         )
                     elif isochoric_spec == pf.FlashSpec.vu:
                         equ_spec = pf.IsochoricSpecifications(
-                            v=v_jump_factor / rho,
+                            v=v_jump_factor * v,
                             u=self.equation_system.evaluate(
                                 self.fluid.specific_internal_energy([sd])
                             ),
@@ -265,6 +278,7 @@ class SolutionStrategy(ModelConfig):
                     logger.info(
                         f"Performing isochoric preconditioning on grid {sd.id}."
                     )
+                    self.params["flash_params"]["solver_params"]["atol_res"] = 1e-7
                     # Perform full, isochoric flash, including initial guess.
                     self.local_equilibrium(
                         sd,
@@ -273,6 +287,7 @@ class SolutionStrategy(ModelConfig):
                         update_secondary_variables=True,
                     )
                     isochoric_npc_done = True
+                    self.params["flash_params"]["solver_params"]["atol_res"] = atol
 
         if isochoric_npc_done:
             self.update_interface_fluxes()
