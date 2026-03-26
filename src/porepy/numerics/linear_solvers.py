@@ -92,27 +92,19 @@ class LinearSolver:
         model.before_nonlinear_loop()
         model.before_solver_iteration()
 
-        # For linear problems, the tolerance is irrelevant.
-        # FIXME: This assumes a direct solver is applied, but it may also be that
-        # parameters for linear solvers should be a property of the model, not the
-        # solver. This needs clarification at some point.
-
         # Perform a single (Newton) iteration.
         model.assemble_linear_system()
         nonlinear_increment = model.solve_linear_system()
-        # NOTE: The linear solver performs only one iteration.
-        # FIXME: Consider renaming the solver statistics to just "solver statistics".
-        # model.nonlinear_solver_statistics.num_iterations = 1
 
         # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
         # there is something wrong with how the linear and non-linear solvers
         # interact with the models (and it illustrates that the model convention for
-        # the before_nonlinear_* and after_nonlinear_* methods is not ideal). Since
-        # the model's after_nonlinear_convergence may expect that the converged
+        # the before_solver_* and after_solver_* methods is not ideal). Since
+        # the model's after_solver_convergence may expect that the converged
         # solution is already stored as an iterate (this may happen if a model is
         # implemented to be valid for both linear and non-linear problems, as is the
         # case for ContactMechanics and possibly others). Thus, we first call
-        # after_nonlinear_iteration(), and then after_nonlinear_convergence()
+        # after_solver_iteration(), and then after_solver_convergence()
 
         # Update model status.
         model.after_solver_iteration(nonlinear_increment)
