@@ -229,7 +229,6 @@ class AdParser:
                 res = op.parse(equation_system.mdg)  # type:ignore
                 # Profiling indicated that in this case, caching actually pays off, so
                 # we keep it.
-                self._cache[op] = res
                 return res
 
         if isinstance(op, pp.ad.ProjectionList):
