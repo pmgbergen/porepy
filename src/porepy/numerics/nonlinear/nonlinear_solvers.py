@@ -37,6 +37,10 @@ class NewtonSolver(LinearSolver):
     Newton-Raphson method. It manages the iteration process, while convergence
     and divergence criteria are checked at each iteration.
 
+    The inheritance from LinearSolver allows for reuse of the convergence checking
+    framework and parameter handling pattern, but implements its own nonlinear-specific
+    criteria and iteration loop.
+
     Parameters:
         params: Dictionary of parameters for the nonlinear solver. This can include
             - 'nl_convergence_criteria': Custom convergence criteria.
