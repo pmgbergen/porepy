@@ -292,7 +292,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             1,
         ),
         (
-            # Tets permeability for the matrix domain. Should give the matrix
+            # Test permeability for the matrix domain. Should give the matrix
             # permeability. 9 * (nc = 32) entries of isotropic permeability.
             models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
@@ -302,7 +302,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             # Test the permeability for a fracture domain. This should be computed by
             # the cubic law (i.e., aperture squared by 12, an aditional aperture scaling
-            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6)
+            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 10)
             # entries of isotropic permeability.
             models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
@@ -383,6 +383,7 @@ def test_evaluated_values(
         "fracture_indices": [0, 1],
         "times_to_export": [],
         "fractional_flow": True,  # For testing MassWeightedPermeability
+        "cartesian": True,
     }
 
     model = model_class(params)

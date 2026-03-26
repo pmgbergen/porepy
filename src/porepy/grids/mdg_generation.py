@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
-from typing import Callable, Literal, Optional, Union, get_args
+from typing import TYPE_CHECKING, Callable, Literal, Optional, Union, get_args
 from warnings import warn
 
 import numpy as np
@@ -16,13 +16,14 @@ import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
-FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
+FractureNetworkType = Union[FractureNetwork2d, FractureNetwork3d]
 
 
 def _validate_args_types(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
+    file_name: Optional[Path] = None,
 ):
     """Validates argument types.
 
@@ -39,6 +40,7 @@ def _validate_args_types(
             - fracture_network is not an instance of
             :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` or
             :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
+            - ``file_name`` is not ``Path`` if provided.
 
     """
 
@@ -49,13 +51,15 @@ def _validate_args_types(
         raise TypeError("meshing_args must be dict, not %r" % type(meshing_args))
 
     valid_fracture_network: bool = isinstance(
-        fracture_network, get_args(FractureNetwork)
+        fracture_network, get_args(FractureNetworkType)
     )
     if not valid_fracture_network:
         raise TypeError(
             "fracture_network must be FractureNetwork2d or FractureNetwork3d, not %r"
             % type(fracture_network)
         )
+    if file_name is not None and not isinstance(file_name, Path):
+        raise TypeError("file_name must be a Path, not %r" % type(file_name))
 
 
 def _validate_grid_type_value(
@@ -79,7 +83,9 @@ def _validate_grid_type_value(
         )
 
 
-def _validate_simplex_meshing_args_values(meshing_args: dict):
+def _validate_simplex_meshing_args_values(
+    meshing_args: dict, file_name: Optional[Path] = None
+):
     """Validates items in meshing_args for simplex mdg.
 
     Parameters:
@@ -96,12 +102,12 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
             - cell_size_min is not strictly positive
             - cell_size_boundary is not strictly positive
             - cell_size_fracture is not strictly positive
-            - cell_size or cell_size_min are not provided
             - cell_size or cell_size_boundary are not provided
             - cell_size or cell_size_fracture are not provided
+            - file_name is not provided
 
     """
-    # Get expected arguments
+    # Get expected arguments.
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
     cell_size_min: Optional[float] = meshing_args.get("cell_size_min", cell_size)
     cell_size_boundary: Optional[float] = meshing_args.get(
@@ -111,7 +117,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
         "cell_size_fracture", cell_size
     )
 
-    # validate cell_size
+    # Validate cell_size.
     cell_size_q: bool = cell_size is not None
     if cell_size_q:
         if not isinstance(cell_size, float):
@@ -119,19 +125,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
         if not cell_size > 0:
             raise ValueError("cell_size must be strictly positive %r" % cell_size)
 
-    # validate cell_size_min
-    cell_size_min_q: bool = cell_size_min is not None
-    if cell_size_min_q:
-        if not isinstance(cell_size_min, float):
-            raise TypeError("cell_size_min must be float, not %r" % type(cell_size_min))
-        if not cell_size_min > 0:
-            raise ValueError(
-                "cell_size_min must be strictly positive %r" % cell_size_min
-            )
-    else:
-        raise ValueError("cell_size or cell_size_min must be provided.")
-
-    # validate cell_size_boundary
+    # Validate cell_size_boundary.
     cell_size_boundary_q: bool = cell_size_boundary is not None
     if cell_size_boundary_q:
         if not isinstance(cell_size_boundary, float):
@@ -145,7 +139,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
     else:
         raise ValueError("cell_size or cell_size_boundary must be provided.")
 
-    # validate cell_size_fracture
+    # Validate cell_size_fracture.
     cell_size_fracture_q: bool = cell_size_fracture is not None
     if cell_size_fracture_q:
         if not isinstance(cell_size_fracture, float):
@@ -158,6 +152,22 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
             )
     else:
         raise ValueError("cell_size or cell_size_fracture must be provided.")
+
+    # Validate cell_size_min.
+    cell_size_min_q: bool = cell_size_min is not None
+    if cell_size_min_q:
+        if not isinstance(cell_size_min, float):
+            raise TypeError("cell_size_min must be float, not %r" % type(cell_size_min))
+        if not cell_size_min > 0:
+            raise ValueError(
+                "cell_size_min must be strictly positive %r" % cell_size_min
+            )
+    else:
+        # This is okay; a default value based on the other sizes will be used.
+        pass
+
+    if file_name is None:
+        raise ValueError("file_name must be provided for simplex meshing.")
 
 
 def _validate_cartesian_meshing_args_values(dimension: int, meshing_args: dict):
@@ -326,7 +336,7 @@ def _validate_tensor_grid_meshing_args_values(domain: pp.Domain, meshing_args: d
 
 
 def _retrieve_domain_instance(
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
 ) -> Optional[pp.Domain]:
     """Retrieve from fracture_network.
 
@@ -354,7 +364,7 @@ def _retrieve_domain_instance(
         return None
 
 
-def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
+def _infer_dimension_from_network(fracture_network: FractureNetworkType) -> int:
     """Infer dimension from fracture_network type.
 
     Parameters:
@@ -375,7 +385,8 @@ def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
 def _validate_args(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
+    file_name: Optional[Path] = None,
 ):
     """Validates grid_type, meshing_args and fracture_network types and values.
 
@@ -383,14 +394,17 @@ def _validate_args(
         grid_type: Type of grid.
         meshing_args: A ``dict`` with meshing keys depending on each grid_type.
         fracture_network: fracture network specification.
+        file_name: Optional path to the gmsh file.
 
     Raises:
         - ValueError: Raises value error messages if:
             - fracture_network without a domain is provided and grid_type != "simplex"
+        - TypeError: Raises type error messages if:
+            - network contains an elliptic fracture and grid_type != "simplex".
 
     """
 
-    _validate_args_types(grid_type, meshing_args, fracture_network)
+    _validate_args_types(grid_type, meshing_args, fracture_network, file_name)
     _validate_grid_type_value(grid_type)
 
     # DFN case is only supported for unstructured simplex meshes
@@ -400,26 +414,51 @@ def _validate_args(
             " simplex meshes, not for %r" % grid_type
         )
     elif grid_type != "simplex":
-        dim: int = _infer_dimension_from_network(fracture_network)
+        if any(
+            [
+                isinstance(frac, pp.EllipticFracture)
+                for frac in fracture_network.fractures
+            ]
+        ):
+            raise TypeError(
+                "Elliptic fractures should only be used with unstructured simplex"
+                " grids."
+            )
+
         domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
-        if dim == 2:
-            assert isinstance(fracture_network, FractureNetwork2d)
-            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
-        elif dim == 3:
-            assert isinstance(fracture_network, FractureNetwork3d)
-            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
-        # Take note of deleted fractures
-        if (sz := fractures_deleted.size) > 0:
-            # It seems most likely that this is an undesired effect (for a
-            # Cartesian geomtetry it should be possible to make sure the
-            # fractures are within the domain), but we cannot rule out that the
-            # user on purpose use the domain to get rid of some fractures.
-            # Giving a warning seems like a fair compromise between raising an
-            # error and doing nothing.
-            warn(f"Found {sz} fractures outside the domain boundary")
+
+        if domain is not None:
+            # Delete fractures that are completely outside the domain.
+            fractures_deleted = []
+            for f in fracture_network.fractures:
+                # This should have been validated in the above check, but keep it here
+                # to make mypy happy.
+                assert isinstance(f, (pp.fracs.fracture.PointBasedFracture))
+                is_inside = False
+                for p in f.pts.T:
+                    if p in domain:
+                        is_inside = True
+                        break
+                if not is_inside:
+                    fractures_deleted.append(f)
+
+            # Mypy thinks that this risks mixing LineFracture and
+            # PlaneFracture/EllipticFractures. Ignore this warning.
+            fracture_network.fractures = [  # type: ignore
+                f for f in fracture_network.fractures if f not in fractures_deleted
+            ]
+
+            # Take note of deleted fractures
+            if (sz := len(fractures_deleted)) > 0:
+                # It seems most likely that this is an undesired effect (for a Cartesian
+                # geomtetry it should be possible to make sure the fractures are within
+                # the domain), but we cannot rule out that the user on purpose use the
+                # domain to get rid of some fractures. Giving a warning seems like a
+                # fair compromise between raising an error and doing nothing.
+                warn(f"Found {sz} fractures outside the domain boundary")
 
     if grid_type == "simplex":
-        _validate_simplex_meshing_args_values(meshing_args)
+        _validate_simplex_meshing_args_values(meshing_args, file_name)
     elif grid_type == "cartesian":
         dimension = _infer_dimension_from_network(fracture_network)
         _validate_cartesian_meshing_args_values(dimension, meshing_args)
@@ -447,13 +486,8 @@ def _preprocess_simplex_args(
     Returns:
         lower_level_args: An instance of mesh_args which contains arguments passed
         on to mesh size control.
-        extra_args_list: A list with values of the following arguments:
-            - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`, It
-            contains: tol, do_snap, constraints, file_name, dfn, tags_to_transfer,
-                remove_small_fractures, write_geo, finalize_gmsh, and clear_gmsh.
-            - for :class:`~porepy.fracs.fracture_network_2d.FractureNetwork3d`, It
-            contains: dfn, file_name, constraints, write_geo, tags_to_transfer,
-                finalize_gmsh, and clear_gmsh.
+        extra_args_list: A list with values of the following arguments: constraints,
+            file_name, and dfn.
         kwargs: It could contain the item offset: ``float``: Defaults to 0. Parameter
             that quantifies a perturbation to nodes around the faces that are split.
             This is only for visualization purposes.
@@ -471,6 +505,7 @@ def _preprocess_simplex_args(
     # Filter arguments processed in an alternative manner.
     defaults.pop("self")
     defaults.pop("mesh_args")
+    defaults.pop("file_name")
     defaults.pop("kwargs")
 
     # Transfer defaults.
@@ -479,13 +514,6 @@ def _preprocess_simplex_args(
     extra_args_list: list = [
         kwargs.get(key, val.default) for (key, val) in defaults.items()
     ]
-    # Ensure ``file_name`` is a Path object.
-    if "file_name" in defaults:
-        file_name = kwargs.get("file_name", defaults["file_name"].default)
-        # None does not need conversion.
-        if file_name is not None:
-            file_name_index = extra_args_list.index(file_name)
-            extra_args_list[file_name_index] = Path(file_name)
 
     # Remove duplicate keys.
     [kwargs.pop(key) for key in defaults if key in kwargs]
@@ -493,12 +521,32 @@ def _preprocess_simplex_args(
     # Translating quantities to lower level signature.
     lower_level_args: dict = {}
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
-    lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", cell_size)
-    lower_level_args["mesh_size_bound"] = meshing_args.get(
+
+    lower_level_args["mesh_size_boundary"] = meshing_args.get(
         "cell_size_boundary", cell_size
     )
-    lower_level_args["mesh_size_frac"] = meshing_args.get(
+    lower_level_args["mesh_size_fracture"] = meshing_args.get(
         "cell_size_fracture", cell_size
+    )
+    # By default set mesh_size_min to 10% of the minimum of the other sizes.
+    default_min = 0.1 * min(
+        lower_level_args["mesh_size_boundary"], lower_level_args["mesh_size_fracture"]
+    )
+    lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", default_min)
+
+    lower_level_args["refinement_size_multiplier"] = meshing_args.get(
+        "refinement_size_multiplier", 1.0
+    )
+    lower_level_args["refinement_proximity_multiplier"] = meshing_args.get(
+        "refinement_proximity_multiplier", 1.0
+    )
+    background_transition_multiplier = meshing_args.get(
+        "background_transition_multiplier", 10.0
+    )
+    # The background transition should be strictly greater than 1, or else it may not
+    # function as intended (Gmsh may decide not to coarsen the mesh).
+    lower_level_args["background_transition_multiplier"] = max(
+        background_transition_multiplier, 1.01
     )
 
     return (lower_level_args, extra_args_list, kwargs)
@@ -672,7 +720,8 @@ def _preprocess_tensor_grid_args(
 def create_mdg(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
+    file_name: Optional[Path] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Creates a mixed-dimensional grid.
@@ -731,7 +780,7 @@ def create_mdg(
                         fracture. If not provided, cell_size will be used for
                         completeness.
                     cell_size_boundary: ``float``: target mesh size close to the
-                        external boundaries (can be seen as a far-field value). If not
+                        external boundaries (can be seen as a background value). If not
                         provided, cell_size will be used for completeness.
                 if grid_type == "cartesian"
                     cell_size: ``float``: side length of the grid elements (squares in
@@ -758,9 +807,12 @@ def create_mdg(
                         np.min(z_pts), np.max(z_pts) must be on the boundary. If z_pts
                         is provided, it overwrites the information computed from
                         cell_size in the z-direction.
-            fracture_network: fracture network specification. **kwargs: A dictionary
-            with extra meshing keys associated with each grid_type:
-                if grid_type == "simplex" see signature for the `mesh` function in:
+            fracture_network: fracture network specification.
+            file_name: Path to the output Gmsh .msh file. Must be provided if grid_type
+                is "simplex". It is ignored for other grid types.
+            **kwargs: A dictionary with extra meshing keys associated with each
+                grid_type:
+                if grid_type == "simplex":
                     constraints: ``np.ndarray``: Index list of the fractures that should
                         be treated as constraints in meshing, but not added as separate
                         fracture grids (no splitting of nodes etc.). Useful to define
@@ -768,6 +820,15 @@ def create_mdg(
                         properties, etc.).
                     dfn: ``bool``: Defaults to False. Directive for generating a DFN
                         mesh. Providing True activates the directive.
+                    refinement_proximity_multiplier: ``float``: Threshold for refinement
+                        around proximate fractures. See tutorial on mixed-dimensional
+                        grids for details.
+                    background_transition_multiplier: ``float``: Distance from fractures
+                        where the mesh size transitions to the background mesh size. See
+                        tutorial on mixed-dimensional grids for details.
+                    refinement_size_multiplier: ``float``: Size of buffer zone around
+                        fractures where refinement is applied. See tutorial on
+                        mixed-dimensional grids for details.
                 if grid_type == "simplex" or "tensor_grid":
                     offset: ``float``: Defaults to 0. Parameter that quantifies a
                         perturbation to nodes around the faces that are split. NOTE:
@@ -789,8 +850,10 @@ def create_mdg(
             Mixed-dimensional grid object.
 
     """
+    if file_name is None:
+        file_name = Path("gmsh_frac_file.msh")
 
-    _validate_args(grid_type, meshing_args, fracture_network)
+    _validate_args(grid_type, meshing_args, fracture_network, file_name)
 
     mdg: pp.MixedDimensionalGrid
 
@@ -807,30 +870,29 @@ def create_mdg(
             )
 
             # perform the actual meshing
-            mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
+            mdg = fracture_network.mesh(
+                lower_level_args, file_name, *extra_args, **kwargs
+            )
         elif dim == 3:
             # preprocess user's arguments provided in kwargs
             (lower_level_args, extra_args, kwargs) = _preprocess_simplex_args(
                 meshing_args, kwargs, FractureNetwork3d.mesh
             )
             # perform the actual meshing
-            mdg = fracture_network.mesh(lower_level_args, *extra_args, **kwargs)
+            mdg = fracture_network.mesh(
+                lower_level_args, file_name, *extra_args, **kwargs
+            )
 
     # Structured cases
     domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
-    if domain is not None:
-        fractures = [f.pts for f in fracture_network.fractures]
-        if dim == 3:
-            # In 3d the bounding polygons for the fractures are added to the set of
-            # fractures in the network. Since we will feed only the fractures, not
-            # the fracture network, into the structured mesh generator, we need to
-            # filter out those fractures that are tagged as being part of the
-            # boundary.
-            fractures = [
-                f.pts
-                for (fi, f) in enumerate(fracture_network.fractures)
-                if not fracture_network.tags["boundary"][fi]
-            ]
+    if domain is not None and grid_type in ["cartesian", "tensor_grid"]:
+        # Elliptic fractures are already ruled out in the validation step, but we need
+        # to explicitly rule them out here for mypy type checking.
+        fractures = [
+            f.pts
+            for f in fracture_network.fractures
+            if not isinstance(f, pp.EllipticFracture)
+        ]
 
         if grid_type == "cartesian":
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
@@ -845,5 +907,20 @@ def create_mdg(
                 domain, meshing_args, kwargs
             )
             mdg = pp.meshing.tensor_grid(fracs=fractures, x=xs, y=ys, z=zs, **kwargs)
+
+    constraints = kwargs.get("constraints", np.array([]))
+    if (len(mdg.subdomains(dim=dim - 1)) + constraints.size) < len(
+        fracture_network.fractures
+    ):
+        # It seems most likely that this is an undesired effect (for a
+        # Cartesian geometry it should be possible to make sure the
+        # fractures are within the domain), but we cannot rule out that the
+        # user on purpose uses the domain to get rid of some fractures.
+        # Giving a warning seems like a fair compromise between raising an
+        # error and doing nothing.
+        num_missing = len(fracture_network.fractures) - (
+            len(mdg.subdomains(dim=dim - 1)) + constraints.size
+        )
+        warn(f"Found {num_missing} fractures outside the domain boundary")
 
     return mdg

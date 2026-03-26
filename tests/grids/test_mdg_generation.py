@@ -12,6 +12,7 @@ Functionalities being tested:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Union
 
 import numpy as np
@@ -29,7 +30,7 @@ class TestMDGridGeneration:
 
     def cell_size(self) -> float:
         """Common cell_size for all tests"""
-        return 0.5
+        return 2.0
 
     def fracture_2d_data(self) -> List[np.ndarray]:
         """Fracture points for 2d cases"""
@@ -77,9 +78,12 @@ class TestMDGridGeneration:
     def higher_level_extra_args_data_2d(self) -> List[dict]:
         """Admissible keys in pp.create_mdg for 2d cases"""
         simplex_extra_args: dict = {
-            "cell_size_min": 0.5,
-            "cell_size_boundary": 1.0,
-            "cell_size_fracture": 0.5,
+            "cell_size_min": 0.1 * self.cell_size(),
+            "cell_size_boundary": 2 * self.cell_size(),
+            "cell_size_fracture": self.cell_size(),
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
         }
         cartesian_extra_args: dict = {"cell_size_x": 0.5, "cell_size_y": 0.5}
         tensor_grid_extra_args: dict = {
@@ -91,9 +95,12 @@ class TestMDGridGeneration:
     def lower_level_extra_args_data_2d(self) -> List[dict]:
         """Admissible keys for 2d cases"""
         simplex_extra_args: dict = {
-            "mesh_size_min": 0.5,
-            "mesh_size_bound": 1.0,
-            "mesh_size_frac": 0.5,
+            "mesh_size_min": 0.1 * self.cell_size(),
+            "mesh_size_boundary": 2 * self.cell_size(),
+            "mesh_size_fracture": self.cell_size(),
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
         }
         cartesian_extra_args: dict = {"nx": [10, 10], "physdims": [5, 5]}
         tensor_grid_extra_args: dict = {
@@ -105,9 +112,12 @@ class TestMDGridGeneration:
     def higher_level_extra_args_data_3d(self) -> List[dict]:
         """Admissible keys in pp.create_mdg for 3d cases"""
         simplex_extra_args: dict = {
-            "cell_size_min": 0.5,
-            "cell_size_boundary": 1.0,
-            "cell_size_fracture": 0.5,
+            "cell_size_min": 0.1 * self.cell_size(),
+            "cell_size_boundary": 2 * self.cell_size(),
+            "cell_size_fracture": self.cell_size(),
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
         }
         cartesian_extra_args: dict = {
             "cell_size_x": 0.5,
@@ -124,9 +134,12 @@ class TestMDGridGeneration:
     def lower_level_extra_args_data_3d(self) -> List[dict]:
         """Admissible keys for 3d cases"""
         simplex_extra_args: dict = {
-            "mesh_size_min": 0.5,
-            "mesh_size_bound": 1.0,
-            "mesh_size_frac": 0.5,
+            "mesh_size_min": 0.1 * self.cell_size(),
+            "mesh_size_boundary": 1.0,
+            "mesh_size_fracture": 0.5,
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
         }
         cartesian_extra_args: dict = {"nx": [10, 10, 10], "physdims": [5, 5, 5]}
         tensor_grid_extra_args: dict = {
@@ -183,6 +196,8 @@ class TestMDGridGeneration:
         # common mesh argument
         meshing_args: dict = {"cell_size": self.cell_size()}
 
+        file_name = Path("gmsh_frac_file")
+
         # Collect extra arguments for the test
         extra_arg_index: int = self.mdg_types().index(grid_type)
         extra_arguments: Union[dict, None] = None
@@ -194,7 +209,7 @@ class TestMDGridGeneration:
 
         # call high level function
         mdg = pp.create_mdg(
-            grid_type, meshing_args, fracture_network, **extra_arguments
+            grid_type, meshing_args, fracture_network, file_name, **extra_arguments
         )
         return mdg
 
@@ -224,10 +239,14 @@ class TestMDGridGeneration:
             ]
 
         if grid_type == "simplex":
-            lower_level_arguments["mesh_size_frac"] = self.cell_size()
-            lower_level_arguments["mesh_size_bound"] = 2 * self.cell_size()
-            lower_level_arguments["mesh_size_min"] = 1 / 5 * self.cell_size()
-            mdg = fracture_network.mesh(lower_level_arguments)
+            file_name = Path("gmsh_frac_file")
+            lower_level_arguments["mesh_size_fracture"] = self.cell_size()
+            lower_level_arguments["mesh_size_boundary"] = 2 * self.cell_size()
+            lower_level_arguments["mesh_size_min"] = 0.1 * self.cell_size()
+            lower_level_arguments["refinement_proximity_multiplier"] = 1
+            lower_level_arguments["refinement_size_multiplier"] = 1
+            lower_level_arguments["background_transition_multiplier"] = 1.01
+            mdg = fracture_network.mesh(lower_level_arguments, file_name)
             return mdg
 
         elif grid_type == "cartesian":
@@ -367,9 +386,8 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
         assert ref_msg in str(error_message.value)
 
         # testing incompleteness in cell_sizes
-        cell_size_args = ["cell_size_min", "cell_size_boundary", "cell_size_fracture"]
+        cell_size_args = ["cell_size_boundary", "cell_size_fracture"]
         meshing_args: dict = {
-            "cell_size_min": 0.1,
             "cell_size_boundary": 0.1,
             "cell_size_fracture": 0.1,
         }
@@ -581,6 +599,7 @@ class TestMDGridGenerationWithoutDomains:
             grid_type="simplex",
             meshing_args={"cell_size": 0.125},
             fracture_network=fn,
+            file_name=Path("gmsh_frac_file"),
             **{"dfn": True},
         )
         if fracs_idx == 0:  # the case of a single line fracture
@@ -611,11 +630,11 @@ class TestMDGridGenerationWithoutDomains:
 
         """
         fn = pp.create_fracture_network(fractures=plane_fractures[fracs_idx])
-        fn.impose_external_boundary()
         mdg = pp.create_mdg(
             grid_type="simplex",
             meshing_args={"cell_size": 2.0},
             fracture_network=fn,
+            file_name=Path("gmsh_frac_file"),
             **{"dfn": True},
         )
         if fracs_idx == 0:  # the case of a single plane fracture

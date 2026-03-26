@@ -355,6 +355,33 @@ def find_active_indices(
     return active_cells, active_faces
 
 
+def boundary_face_mask(sd: pp.Grid, internal_face_active: bool) -> sps.spmatrix:
+    """Construct a mask to be applied to the discretization matrices, to eliminate
+    contributions from internal faces if these are not active.
+
+    Parameters:
+        sd: Grid to be discretized.
+        internal_face_active: Whether the discretization should include contributions
+            from internal faces. If False, contributions from internal faces will be
+            eliminated by the mask.
+
+    Returns:
+        sps.spmatrix: Mask to be applied to the discretization matrices of shape
+            (sd.num_faces, sd.num_faces).
+
+    """
+
+    if internal_face_active:
+        filter_array = np.ones(sd.num_faces, dtype=bool)
+    else:
+        filter_array = np.zeros(sd.num_faces, dtype=bool)
+        filter_array[sd.get_all_boundary_faces()] = True
+    boundary_face_mask = sps.dia_matrix(
+        (filter_array, 0), shape=(sd.num_faces, sd.num_faces)
+    )
+    return boundary_face_mask
+
+
 def parse_partition_arguments(
     partition_arguments: Optional[dict[str, int]] = None,
 ) -> tuple[int | None, int | None]:

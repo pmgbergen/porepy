@@ -180,9 +180,19 @@ def create_2d_grids(
         # Single grid.
 
         triangles = cells["triangle"].transpose()
-        # Construct grid.
-        g_2d = pp.TriangleGrid(pts.transpose(), triangles)
+        # Construct grid
+        g_2d: pp.Grid = pp.TriangleGrid(pts.transpose(), triangles)
         g_2d = tag_grid(g_2d, phys_names, cell_info)
+
+        # Create mapping to global numbering (will be a unit mapping, but is crucial
+        # for consistency with lower dimensions)
+        g_2d.global_point_ind = np.arange(pts.shape[0])
+
+        # If there is no information on lines, we are done.
+        line = np.sort(cells.get("line", np.array([[]])).T, axis=0)
+        if line.size == 0:
+            return [g_2d]
+
         # We need to add the face tags from gmsh to the current mesh, however,
         # since there is not a cell-face relation from gmsh but only a cell-node
         # relation we need to recover the corresponding face-line map. First find the
@@ -194,7 +204,6 @@ def create_2d_grids(
         # ordering.
         idxf = np.lexsort(faces)
 
-        line = np.sort(cells["line"].T, axis=0)
         idxl = np.lexsort(line)
         IC = np.empty(line.shape[1], dtype=int)
         IC[idxl] = np.arange(line.shape[1])
@@ -229,10 +238,6 @@ def create_2d_grids(
             # Add correct tag.
             faces = line2face[cell_info["line"] == tag]
             g_2d.tags[tag_name][faces] = True
-
-        # Create mapping to global numbering (will be a unit mapping, but is crucial for
-        # consistency with lower dimensions).
-        g_2d.global_point_ind = np.arange(pts.shape[0])
 
         # Convert to list to be consistent with lower dimensions. This may also become
         # useful in the future if we ever implement domain decomposition approaches

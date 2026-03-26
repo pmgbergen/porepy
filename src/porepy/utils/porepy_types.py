@@ -2,11 +2,9 @@
 Defines types commonly used in PorePy.
 """
 
-from typing import Callable, Sequence, Union
+from __future__ import annotations
 
-import porepy as pp
-from porepy.fracs.fracture_network_2d import FractureNetwork2d
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from typing import TYPE_CHECKING, Callable, Sequence, Union
 
 __all__ = [
     "number",
@@ -14,10 +12,12 @@ __all__ = [
     "GridLikeSequence",
     "SubdomainsOrBoundaries",
     "discretization_type",
-    "fracture_network",
+    "FractureNetworkType",
     "DomainFunctionType",
     "ExtendedDomainFunctionType",
 ]
+
+import porepy as pp
 
 GridLike = Union["pp.Grid", "pp.MortarGrid", "pp.BoundaryGrid"]
 """Type for grids and mortar grids."""
@@ -35,9 +35,9 @@ discretization_type = Union[
     "pp.numerics.discretization.InterfaceDiscretization",
 ]
 
-fracture_network = Union[
-    "FractureNetwork2d",
-    "FractureNetwork3d",
+FractureNetworkType = Union[
+    "pp.fracs.fracture_network_2d.FractureNetwork2d",
+    "pp.fracs.fracture_network_3d.FractureNetwork3d",
 ]
 
 DomainFunctionType = Callable[[SubdomainsOrBoundaries], "pp.ad.Operator"]
@@ -49,9 +49,9 @@ defined on some domain and represented as an AD operator.
 
 Notes:
     1. Boundaries are included because the various terms can indeed be called with
-       boundary grids in the advective part.
+    boundary grids in the advective part.
     2. Interfaces (mortar grids) are explicitly excluded, since this is part of the
-       constitutive modelling in mD and requires separate solutions.
+    constitutive modelling in mD and requires separate solutions.
 
 """
 

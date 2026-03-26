@@ -21,10 +21,13 @@ time step the following are tested:
    discretization of the energy convective buoyancy terms.
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.models import add_mixin
 from tests.functional.setups.buoyancy_flow_model import (
     BuoyancyFlowModel2N,
     BuoyancyFlowModel3N,
@@ -37,20 +40,23 @@ from tests.functional.setups.buoyancy_flow_model import (
 
 # Parameterization list for both tests
 Parameterization = [
-    (BuoyancyFlowModel2N, True, 4),
-    (BuoyancyFlowModel2N, False, 4),
-    (BuoyancyFlowModel3N, True, 4),
-    (BuoyancyFlowModel3N, False, 4),
+    (BuoyancyFlowModel2N, 2, 4),
+    (BuoyancyFlowModel2N, 3, 4),
+    (BuoyancyFlowModel3N, 2, 4),
+    (BuoyancyFlowModel3N, 3, 4),
 ]
 
 
 def _run_buoyancy_model(
     model_class: type,
-    mesh_2d_Q: bool,
+    dim: Literal[2, 3],
     expected_order_loss: int,
     md: bool = False,
 ) -> None:
     """Run buoyancy flow simulation for given parameters."""
+
+    # The residual tolerance for Newton should be related to the expected (requested)
+    # order loss.
     residual_tolerance = 10.0 ** (-expected_order_loss)
     day = 86400
     if md:
@@ -78,38 +84,36 @@ def _run_buoyancy_model(
         iter_max=50,
         print_info=True,
     )
-    params = {
+    model_params = {
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
-        "nl_max_iterations": 50,
-        "nl_convergence_inc_atol": np.inf,
-        "nl_convergence_res_atol": residual_tolerance,
         "expected_order_loss": expected_order_loss,
     }
-    # Combine geometry with model class
-    if mesh_2d_Q:
-
-        class Model2D(geometry2d, model_class):
-            pass
-
-        model = Model2D(params)
-    else:
-
-        class Model3D(geometry3d, model_class):
-            pass
-
-        model = Model3D(params)
-    pp.ModelRunner(model, params).run()
+    # Combine geometry with model class.
+    geometry_class = geometry2d if dim == 2 else geometry3d
+    model_class = add_mixin(geometry_class, model_class)
+    model = model_class(model_params)
+    # Use a Lebesgue metric for the residual convergence criterion, since this will
+    # strictly bound the residual error in the mass conservation equations.
+    solver_params = {
+        "nl_convergence_criteria": {
+            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+                tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
+            ),
+        },
+        "nl_divergence_criteria": {
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+        },
+    }
+    pp.ModelRunner(model, solver_params).run()
 
 
 @pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize(
-    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
-)
+@pytest.mark.parametrize("model_class, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
-def test_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md):
+def test_buoyancy_model(model_class, dim: Literal[2, 3], expected_order_loss, md):
     """Test buoyancy-driven flow model (FD)."""
-    _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=md)
+    _run_buoyancy_model(model_class, dim, expected_order_loss, md=md)
