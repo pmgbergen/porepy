@@ -316,34 +316,10 @@ def compute_circumcenters(
     # maximal shift (normalized with length of shift vector).
     shift = np.where(act_shift <= max_shift, np.ones(numc), max_shift / act_shift)
 
-    # Compute new cell center by applying shift to barycenter.
-    nccs: NDArray[np.float64] = bcs + shift * shift_vec
     # Correct shift values in case barycenters and circumcenters coincide.
     shift[act_shift <= tol] = 0.0
-
-    # SANITY CHECK: New cell centers lie strictly in interior (barycentric coordinates
-    # strictly positive).
-
-    # mat_batch = np.moveaxis(At.transpose(1, 0, 2), -1, 0)  # (nc, dim, dim)
-    # rhs = (nccs - n[0]).T  # (nc, dim)
-    # # NOTE: determinants of matrices should be non-zero as per degeneracy check above.
-    # b_r: NDArray[np.float64] = np.linalg.solve(mat_batch, rhs[..., None])[..., 0].T
-    # assert b_r.shape == (dim, numc)
-
-    # # Full barycentric coordinates.
-    # b = np.empty((dim + 1, numc), dtype=np.float64)
-    # b[0, :] = 1.0 - np.sum(b_r, axis=0)
-    # b[1:, :] = b_r
-
-    # # NOTE: Since threshold is never 1, i.e. points strictly interior, the numerics
-    # # should be stable enough such that the bary-coordinates are strictly positive.
-    # assert np.all(b > 0), "New cell centers not strictly in interior."
-    # assert np.allclose(np.sum(b, axis=0), 1.0, atol=tol), (
-    #     "Barycentric weights do not sum to 1."
-    # )
-    # assert np.allclose(np.einsum("ik,ijk->jk", b, n), nccs, rtol=0, atol=tol), (
-    #     "Improper barycentric coordinates."
-    # )
+    # Compute new cell center by applying shift to barycenter.
+    nccs: NDArray[np.float64] = bcs + shift * shift_vec
 
     # Changes as per specificed tolerance.
     changed: NDArray[np.bool_] = np.linalg.norm(nccs - sd.cell_centers, axis=0) > tol
