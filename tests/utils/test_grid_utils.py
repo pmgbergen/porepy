@@ -6,11 +6,151 @@ degenerate triangles, and tetrahedra with circumcenters outside the cell.
 
 """
 
+from __future__ import annotations
+
+from typing import cast
+
 import numpy as np
 import pytest
+from scipy.spatial.transform import Rotation
 
 import porepy as pp
 from porepy.utils.grid_utils import compute_circumcenters
+
+
+@pytest.fixture(scope="module")
+def points_and_triangulation_2d() -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """Nodes and triangulation for a 2D grid embedded in 3D, containing 4 triangles:
+
+    1. right angle
+    2. obtuse angle
+    3. equilateral
+    4. acute
+
+    Used for testing of 2D grids embedded in 3D.
+
+    Returns:
+        A 3-tuple containing
+
+        1. the points as a 2D array
+        2. the triangulation as a 2D array
+        3. the triangle classifications as a list of strings.
+
+    """
+    points = np.array(
+        [
+            [
+                0.0,
+                1.0,
+                0.0,
+                np.cos(np.deg2rad(210.0)),
+                0.0,
+                1.3 * np.cos(np.deg2rad(320.0)),
+            ],
+            [
+                0.0,
+                0.0,
+                1.0,
+                np.sin(np.deg2rad(210.0)),
+                -1.0,
+                1.3 * np.sin(np.deg2rad(320.0)),
+            ],
+            np.zeros(6),
+        ]
+    )
+    tri = np.array([[0, 0, 0, 0], [1, 2, 3, 4], [2, 3, 4, 5]])
+
+    def _triangle_classification(p: np.ndarray) -> str:
+        """Classify a triangle from points of shape (2, 3)."""
+        a2 = np.sum((p[:, 1] - p[:, 2]) ** 2)
+        b2 = np.sum((p[:, 0] - p[:, 2]) ** 2)
+        c2 = np.sum((p[:, 0] - p[:, 1]) ** 2)
+        s = np.sort(np.array([a2, b2, c2]))
+
+        if np.isclose(s[0], s[1]) and np.isclose(s[1], s[2]):
+            return "equilateral"
+        if np.isclose(s[0] + s[1], s[2]):
+            return "right"
+        if s[0] + s[1] < s[2]:
+            return "obtuse"
+        return "acute"
+
+    # Sanity-check the intended triangle types.
+    types = [
+        _triangle_classification(points[:, tri[:, i]]) for i in range(tri.shape[1])
+    ]
+    assert types == ["right", "obtuse", "equilateral", "acute"]
+
+    return points, tri, types
+
+
+@pytest.fixture(scope="module")
+def default_triangle_grid_config(
+    points_and_triangulation_2d: tuple[np.ndarray, np.ndarray, list[str]],
+) -> tuple[pp.TriangleGrid, np.ndarray, np.ndarray, np.ndarray]:
+    """Returns the default triangular grid based on :func:`points_and_triangulation_2d`
+    and the results of applying circumcenter computation.
+
+    Parameters:
+        points_and_triangulation_2d: Fixture containing nodes and triangulation.
+
+    Returns:
+        A 4-tuple containing
+
+        1. the triangle grid.
+        2. the new cell centers after computing circumcenters.
+        3. the shift values returned by the computation.
+        4. the change indicators.
+
+    """
+
+    points, tri, tri_type = points_and_triangulation_2d
+    sd = pp.TriangleGrid(points, tri=tri)
+    sd.compute_geometry()
+    new_cc, shift, changed = compute_circumcenters(sd)
+
+    for t, s, c in zip(tri_type, shift, changed):
+        if t == "right":
+            assert s == 0.95, "Right triangle shift should be equal default threshold."
+            assert c, "Right triangle should indicate change."
+        elif t == "obtuse":
+            assert s < 1.0, "Obtuse triangle shift should be smaller than 1."
+            assert c, "Obtuse triangle should indicate change."
+        elif t == "equilateral":
+            assert s == 0.0, "Equilateral triangle shift should be 0."
+            assert not c, "Equilateral triangle should indicate no change."
+        elif t == "acute":
+            assert s == 1.0, "Acute triangle shift should be 1."
+            assert c, "Acute triangle should indicate change."
+
+    return sd, new_cc, shift, changed
+
+
+@pytest.fixture
+def rotated_triangle_grid(
+    points_and_triangulation_2d: tuple[np.ndarray, np.ndarray],
+    request: pytest.FixtureRequest,
+) -> tuple[pp.TriangleGrid, np.ndarray]:
+    """Grid returned by :func:`default_triangle_grid_config` but with a 3D rotation
+    applied to the points.
+
+    The rotation can be passed as a indirect parametrization of the fixture using 3
+    floats (angles for 3D rotation.)
+
+    Returns:
+        The rotated grid and the rotation as a matrix of shape ``(3,3)``.
+
+    """
+    a, b, c = cast(tuple[float, float, float], request.param)
+
+    points, tri, _ = points_and_triangulation_2d
+
+    rotation = Rotation.from_euler("zyx", [c, b, a], degrees=True)
+    R: np.ndarray = rotation.as_matrix()
+    sd = pp.TriangleGrid(R @ points, tri=tri)
+    sd.compute_geometry()
+
+    return sd, R
 
 
 @pytest.mark.parametrize(
@@ -275,130 +415,48 @@ def test_compute_circumcenters_raises_expected_errors():
             compute_circumcenters(sd, threshold=t)
 
 
-def _rotation_matrix_x(theta: float) -> np.ndarray:
-    c, s = np.cos(theta), np.sin(theta)
-    return np.array(
-        [
-            [1.0, 0.0, 0.0],
-            [0.0, c, -s],
-            [0.0, s, c],
-        ]
+@pytest.mark.parametrize(
+    "rotated_triangle_grid",
+    [
+        # Provide x-y-z axis rotations in degrees.
+        # Testing 90 degrees rotations in various combinations, and some random values.
+        (37.0, 0.0, 0.0),
+        (90.0, 0.0, 0.0),
+        (0.0, -29.0, 0.0),
+        (0.0, 90.0, 0.0),
+        (0.0, 0.0, 61.0),
+        (0.0, 0.0, 90.0),
+        (0.0, 90.0, 90.0),
+        (90.0, 0.0, 90.0),
+        (-37.0, 29.0, -61.0),
+    ],
+    indirect=["rotated_triangle_grid"],
+)
+def test_compute_circumcenters_trianglegrid_rotation_invariant_in_3d(
+    rotated_triangle_grid: tuple[pp.TriangleGrid, np.ndarray],
+    default_triangle_grid_config: tuple[
+        pp.TriangleGrid, np.ndarray, np.ndarray, np.ndarray
+    ],
+):
+    """Tests that the circumcenter computation is invariant under rotation for 2D
+    triangle grids embedded in 3D."""
+
+    sd0, new_cc0, shift0, changed0 = default_triangle_grid_config
+    sd_rot, R = rotated_triangle_grid
+
+    # Sanity check: Original cell centers are barycenters, and rotation applied to
+    # mean of nodes should be mean of rotated nodes.
+    np.testing.assert_allclose(
+        R @ sd0.cell_centers,
+        sd_rot.cell_centers,
+        err_msg="Original and rotated grid mismatch.",
     )
 
+    new_cc_rot, shift_rot, changed_rot = compute_circumcenters(sd_rot)
 
-def _rotation_matrix_y(theta: float) -> np.ndarray:
-    c, s = np.cos(theta), np.sin(theta)
-    return np.array(
-        [
-            [c, 0.0, s],
-            [0.0, 1.0, 0.0],
-            [-s, 0.0, c],
-        ]
-    )
+    # Inverse-rotate only the returned centers.
+    new_cc_back = R.T @ new_cc_rot
 
-
-def _rotation_matrix_z(theta: float) -> np.ndarray:
-    c, s = np.cos(theta), np.sin(theta)
-    return np.array(
-        [
-            [c, -s, 0.0],
-            [s, c, 0.0],
-            [0.0, 0.0, 1.0],
-        ]
-    )
-
-
-def _triangle_type(p: np.ndarray) -> str:
-    """Classify a triangle from points of shape (2, 3)."""
-    a2 = np.sum((p[:, 1] - p[:, 2]) ** 2)
-    b2 = np.sum((p[:, 0] - p[:, 2]) ** 2)
-    c2 = np.sum((p[:, 0] - p[:, 1]) ** 2)
-    s = np.sort(np.array([a2, b2, c2]))
-
-    if np.isclose(s[0], s[1]) and np.isclose(s[1], s[2]):
-        return "equilateral"
-    if np.isclose(s[0] + s[1], s[2]):
-        return "right"
-    if s[0] + s[1] < s[2]:
-        return "obtuse"
-    return "acute"
-
-
-def _make_rotated_triangle_grid(
-    p2d: np.ndarray, tri: np.ndarray, R: np.ndarray
-) -> pp.TriangleGrid:
-    """Create a TriangleGrid and embed/rotate it in 3D."""
-    sd = pp.TriangleGrid(p2d, tri=tri)
-    p3d = np.vstack((p2d, np.zeros(p2d.shape[1])))
-    sd.nodes = R @ p3d
-    sd.compute_geometry()
-    return sd
-
-
-def test_compute_circumcenters_trianglegrid_rotation_invariant_in_3d():
-    """Circumcenter construction should be invariant under rigid 3D rotations.
-
-    The grid consists of four connected triangles in the plane z=0:
-    - one right
-    - one obtuse
-    - one equilateral
-    - one acute non-equilateral
-    We compute the result in the original plane, then rotate the whole grid in 3D,
-    compute again, inverse-rotate only the returned centers, and compare with the
-    original result.
-    """
-    # Connected fan around the origin:
-    # T0 = (0,1,2): right
-    # T1 = (0,2,3): obtuse
-    # T2 = (0,3,4): equilateral
-    # T3 = (0,4,5): acute non-equilateral
-    p2d = np.array(
-        [
-            [
-                0.0,
-                1.0,
-                0.0,
-                np.cos(np.deg2rad(210.0)),
-                0.0,
-                1.3 * np.cos(np.deg2rad(320.0)),
-            ],
-            [
-                0.0,
-                0.0,
-                1.0,
-                np.sin(np.deg2rad(210.0)),
-                -1.0,
-                1.3 * np.sin(np.deg2rad(320.0)),
-            ],
-        ]
-    )
-    tri = np.array([[0, 0, 0, 0], [1, 2, 3, 4], [2, 3, 4, 5]])
-
-    # Sanity-check the intended triangle types.
-    types = [_triangle_type(p2d[:, tri[:, i]]) for i in range(tri.shape[1])]
-    assert types == ["right", "obtuse", "equilateral", "acute"]
-
-    # Base result in the plane z = 0.
-    sd0 = _make_rotated_triangle_grid(p2d, tri, np.eye(3))
-    new_cc0, shift0, changed0 = compute_circumcenters(sd0)
-
-    # Rotations about x, y, z, and one combined rotation.
-    rotations = [
-        _rotation_matrix_x(np.deg2rad(37.0)),
-        _rotation_matrix_y(np.deg2rad(-29.0)),
-        _rotation_matrix_z(np.deg2rad(61.0)),
-        _rotation_matrix_z(np.deg2rad(23.0))
-        @ _rotation_matrix_y(np.deg2rad(-41.0))
-        @ _rotation_matrix_x(np.deg2rad(17.0)),
-    ]
-
-    for R in rotations:
-        sd_rot = _make_rotated_triangle_grid(p2d, tri, R)
-        new_cc_rot, shift_rot, changed_rot = compute_circumcenters(sd_rot)
-
-        # Inverse-rotate only the returned centers.
-        new_cc_back = R.T @ new_cc_rot
-
-        np.testing.assert_allclose(new_cc_back, new_cc0, rtol=0, atol=1e-12)
-        np.testing.assert_allclose(shift_rot, shift0, rtol=0, atol=1e-14)
-        np.testing.assert_array_equal(changed_rot, changed0)
+    np.testing.assert_allclose(new_cc_back, new_cc0, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(shift_rot, shift0, rtol=0, atol=1e-14)
+    np.testing.assert_array_equal(changed_rot, changed0)
