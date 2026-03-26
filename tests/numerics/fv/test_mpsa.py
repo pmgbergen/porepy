@@ -1056,7 +1056,7 @@ class RobinBoundTest:
         network = pp.create_fracture_network(
             [], pp.md_grids.domains.unit_cube_domain(3)
         )
-        mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
+        mesh_args = {"mesh_size_fracture": 3, "mesh_size_min": 3}
         mdg = network.mesh(mesh_args)
         sd = mdg.subdomains(dim=3)[0]
         c = pp.FourthOrderTensor(np.ones(sd.num_cells), np.ones(sd.num_cells))

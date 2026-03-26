@@ -328,6 +328,11 @@ class AbsoluteCriterion:
         self.metric = metric
         """Metric to compute the convergence measure."""
 
+    def __repr__(self) -> str:
+        s = f"{self.__class__.__name__}(tol={self.tol}, "
+        s += f"metric={self.metric.__class__.__name__})"
+        return s
+
 
 class AbsoluteConvergenceCriterion(AbsoluteCriterion, ConvergenceCriterion):
     """Absolute convergence criterion."""
@@ -422,6 +427,15 @@ class RelativeCriterion:
         else:  # float
             if self.reference_value is None and not np.isclose(reference_value, 0.0):
                 self.reference_value = reference_value
+
+    def __repr__(self) -> str:
+        s = f"{self.__class__.__name__}(tol={self.tol}, "
+        s += f"metric={self.metric.__class__.__name__}, "
+        if self.reference_value is not None:
+            s += f"reference_value={self.reference_value})"
+        else:
+            s += "reference_value=None)"
+        return s
 
 
 class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):

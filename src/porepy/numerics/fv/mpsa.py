@@ -155,6 +155,9 @@ class Mpsa(Discretization):
                 'num_subproblems' in ``partition_arguments``). If none are given, the
                 default is to use 1e9 bytes of memory per subproblem. If both are given,
                 the maximal memory use is prioritized.
+            - reconstruct_on_internal_faces (``bool``): Optional. Whether to
+                reconstruct the displacement at internal faces. This is not needed in
+                most cases, but is kept for completeness.
 
         matrix_dictionary will be updated with the following entries:
             - ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
@@ -186,6 +189,9 @@ class Mpsa(Discretization):
 
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
             "inverter", "numba"
+        )
+        reconstruct_on_internal_faces = parameter_dictionary.get(
+            "reconstruct_on_internal_faces", False
         )
 
         # Control of the number of subdomanis.
@@ -309,7 +315,13 @@ class Mpsa(Discretization):
                 loc_bound_displacement_cell,
                 loc_bound_displacement_face,
             ) = self._stress_discretization(
-                sub_g, loc_c, loc_bnd, eta=loc_eta, inverter=inverter, hf_eta=hf_eta
+                sub_g,
+                loc_c,
+                loc_bnd,
+                eta=loc_eta,
+                inverter=inverter,
+                hf_eta=hf_eta,
+                reconstruct_on_internal_faces=reconstruct_on_internal_faces,
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -537,6 +549,7 @@ class Mpsa(Discretization):
         inverter: Optional[Literal["python", "numba"]] = None,
         hf_disp: bool = False,
         hf_eta: Optional[float] = None,
+        reconstruct_on_internal_faces: bool = False,
     ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
         """
         Actual implementation of the MPSA W-method. To calculate the MPSA
@@ -603,6 +616,8 @@ class Mpsa(Discretization):
                 being for legacy reasons.
             hf_eta: If hf_disp is True, this parameter will be used instead of eta to
                 control the continuity of the displacement.
+            reconstruct_on_internal_faces: Whether to reconstruct the displacement on
+                internal faces.
 
         Returns:
             tuple of 4 sps.spmatrix:
@@ -758,7 +773,10 @@ class Mpsa(Discretization):
             hf_eta = eta
         # We obtain the reconstruction of displacments
         dist_grad, cell_centers = self._reconstruct_displacement(
-            sd, subcell_topology, hf_eta
+            sd,
+            subcell_topology,
+            hf_eta,
+            reconstruct_on_internal_faces=reconstruct_on_internal_faces,
         )
 
         hf_cell = dist_grad @ igrad @ rhs_cells + cell_centers
@@ -1189,6 +1207,8 @@ class Mpsa(Discretization):
         sd: pp.Grid,
         subcell_topology: _fvutils.SubcellTopology,
         eta: Optional[float] = None,
+        filter_internal_subfaces: bool = True,
+        reconstruct_on_internal_faces: bool = False,
     ) -> tuple[sps.csr_matrix, sps.csr_matrix]:
         """Function for reconstructing the displacement at the half faces given the
         local gradients.
@@ -1211,6 +1231,10 @@ class Mpsa(Discretization):
                 point at which the displacement is evaluated. If ``eta`` is not given
                 the method will call ``:meth:~pp.numerics.fv._fvutils.determine_eta`` to
                 set it.
+            filter_internal_subfaces: If True, the contribution from internal subfaces
+                to the reconstruction will be filtered away.
+            reconstruct_on_internal_faces: If True, the displacement will be
+                reconstructed at all faces, including internal ones.
 
         Returns:
             ``scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells)``:
@@ -1242,18 +1266,38 @@ class Mpsa(Discretization):
             subcell_topology.subfno, return_inverse=True, return_counts=True
         )
 
+        # We will normally want to construct the displacement only at boundary faces.
+        # Hence we filter away internal sub-faces, unless the user explicitly requested
+        # they be kept.
+        if reconstruct_on_internal_faces:
+            filter_array = np.ones(subcell_topology.num_subfno_unique, dtype=bool)
+        else:
+            face_is_boundary = np.zeros(sd.num_faces, dtype=bool)
+            face_is_boundary[sd.get_all_boundary_faces()] = True
+            filter_array = face_is_boundary[subcell_topology.fno_unique]
+        subface_boundary_mask = sps.dia_matrix(
+            (filter_array, 0),
+            shape=(
+                subcell_topology.num_subfno_unique,
+                subcell_topology.num_subfno_unique,
+            ),
+        )
+
         avg_over_subfaces = sps.coo_matrix(
             (1 / counts[IC], (subcell_topology.subfno, subcell_topology.subhfno))
         )
-        D_g = avg_over_subfaces @ D_g
+        D_g = subface_boundary_mask @ avg_over_subfaces @ D_g
         # expand indices to x-y-z
         D_g = sps.kron(sps.eye(sd.dim), D_g)
         D_g = D_g.tocsr()
 
-        # Get a mapping from cell centers to half-faces
-        D_c = sps.coo_matrix(
-            (1 / counts[IC], (subcell_topology.subfno, subcell_topology.cno))
-        ).tocsr()
+        # Get a mapping from cell centers to half-faces.
+        D_c = (
+            subface_boundary_mask
+            @ sps.coo_matrix(
+                (1 / counts[IC], (subcell_topology.subfno, subcell_topology.cno))
+            ).tocsr()
+        )
         # Expand indices to x-y-z
         D_c = sps.kron(sps.eye(sd.dim), D_c)
         D_c = D_c.tocsc()

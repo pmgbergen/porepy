@@ -605,7 +605,7 @@ class DiffTpfaGridsOfAllDimensions(
         if params["grid_type"] == "cartesian":
             params["meshing_arguments"] = {"cell_size": 0.5}
         else:  # Simplex
-            params["mesh_args"] = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
+            params["mesh_args"] = {"mesh_size_fracture": 0.5, "mesh_size_min": 0.5}
 
         super().__init__(params)
 
@@ -812,6 +812,18 @@ class DiffTpfaFractureTipsInternalBoundaries(
         np.random.seed(42)
         values = np.random.rand(num_dofs)
         self.equation_system.set_variable_values(values, iterate_index=0)
+
+    def meshing_arguments(self) -> dict:
+        """Override parent class mesh size arguments to reduce the computational
+        time."""
+        ls = self.units.convert_units(1, "m")
+
+        mesh_sizes = {
+            "cell_size": 1.0 * ls,
+            "cell_size_fracture": 1.0 * ls,
+            "cell_size_boundary": 1.0 * ls,
+        }
+        return mesh_sizes
 
 
 @pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
