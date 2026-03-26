@@ -184,6 +184,10 @@ def test_geothermal_reservoir():
 
     # The model setup is mostly copied from porepy/examples/geothermal_reservoir.py
 
+    # Initial time step. Note that the tests check near-equality between the final two
+    # time steps of the initialization phase. Hence dt_init, INITIALIZATION_LENGTH and
+    # the TimeManager should be set up such that the system is in equilibrium no later
+    # than the penultimate time step. This is verified below.
     dt_init = 20 * pp.YEAR
     # The initialization phase is run for INITIALIZATION_LENGTH * dt_init. A value of
     # 3.1 * dt_init has been found sufficient for the system to reach a near-equilibrium
@@ -225,7 +229,7 @@ def test_geothermal_reservoir():
             schedule=schedule,
             dt_init=dt_init,
             constant_dt=False,
-            dt_min_max=(10 * pp.SECOND, max(pp.YEAR, dt_init)),
+            dt_min_max=(10 * pp.SECOND, dt_init),
             iter_optimal_range=(6, 10),  # Allow more iterations than default.
             iter_relax_factors=(0.5, 1.8),  # More aggressive relaxation
         ),
@@ -326,12 +330,15 @@ def test_geothermal_reservoir():
                 for well in all_wells
                 if well.tags["parent_well_index"] == inj_well_index
             ]
-            injection_signs = [np.sign(sd.face_normals[2]) for sd in injection_wells]
             production_wells = [
                 well
                 for well in all_wells
                 if well.tags["parent_well_index"] == prod_well_index
             ]
+            # Fluxes are defined along normal vectors. Below, we check whether fluxes
+            # point upwards or downwards along the z axis. Hence, we multiply the flux
+            # values by the sign of the z component of the face normal.
+            injection_signs = [np.sign(sd.face_normals[2]) for sd in injection_wells]
             production_signs = [np.sign(sd.face_normals[2]) for sd in production_wells]
 
             def identify_well_fracture(parent_well_index):
