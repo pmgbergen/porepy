@@ -287,7 +287,7 @@ class ModelRunner:
             if not self.model.time_manager.is_constant:
                 assert isinstance(
                     self.model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-                )
+                )  # For type checking, to ensure the method is available.
                 self.model.time_manager.compute_time_step(
                     iterations=self.model.nonlinear_solver_statistics.num_iterations
                 )
