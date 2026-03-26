@@ -179,18 +179,16 @@ class ConvergenceAnalysis:
         """
         convergence_results: list = []
         for level in range(self.levels):
+            # Create model and run simulation.
             model: pp.PorePyModel = self.model_class(deepcopy(self.model_params[level]))
+            pp.ModelRunner(model, deepcopy(self.model_params[level])).run()
+
+            # Log results.
             if self._is_time_dependent:
-                # Run time-dependent model
-                pp.ModelRunner(model).run()
                 setattr(model.results[-1], "dt", model.time_manager.dt)
-            else:
-                # Run stationary model
-                pp.ModelRunner(model, deepcopy(self.model_params[level])).run()
-
             setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
-
             convergence_results.append(model.results[-1])
+
         return convergence_results
 
     def export_errors_to_txt(
