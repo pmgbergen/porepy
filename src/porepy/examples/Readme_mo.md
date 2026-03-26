@@ -47,8 +47,8 @@ These modules define model classes assembled via PorePy's mixin pattern. They ca
 Implementations of the 2D and 3D single-phase flow benchmarks for fractured porous media.
 
 **References**:
-- Flemisch, B. et al. (2018). Benchmarks for single-phase flow in fractured porous media. *Advances in Water Resources*, 111, 239–258.
-- Berre, I. et al. (2021). Verification benchmarks for single-phase flow in three-dimensional fractured porous media. *Advances in Water Resources*, 147, 103759.
+- Flemisch, B. et al. (2018). Benchmarks for single-phase flow in fractured porous media. *Advances in Water Resources*, 111, 239–258. [link](https://doi.org/10.1016/j.advwatres.2017.10.036)
+- Berre, I. et al. (2021). Verification benchmarks for single-phase flow in three-dimensional fractured porous media. *Advances in Water Resources*, 147, 103759. [link](https://doi.org/10.1016/j.advwatres.2020.103759)
 
 | Module | Case | Description |
 | :--- | :--- | :--- |
