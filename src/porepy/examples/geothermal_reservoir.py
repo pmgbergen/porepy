@@ -354,6 +354,7 @@ if __name__ == "__main__":
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
         "injection_well_temperatures": 300.00,
         "injection_well_pressures": injection_pressures,
+        # The produced fluid is hotter than the injected one.
         "production_well_temperatures": 350.0,
         "production_well_pressures": pp.ATMOSPHERIC_PRESSURE,  # = 1.01325e5 Pa
         "material_constants": {
