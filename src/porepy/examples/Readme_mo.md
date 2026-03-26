@@ -52,6 +52,9 @@ Implementations of the 2D and 3D single-phase flow benchmarks for fractured poro
 
 | Module | Case | Description |
 | :--- | :--- | :--- |
+| [`flow_benchmark_2d_case_1.py`](flow_benchmark_2d_case_1.py) | 2D Case 1 | Two variants are included: Case 1a (conductive fractures) and Case 1b (blocking fractures). Corresponding solid material parameters should be passed to the model using `FractureSolidConstants`. |
+| [`flow_benchmark_2d_case_3.py`](flow_benchmark_2d_case_3.py) | 2D Case 3 | Two variants are included: Case 3a (top-to-bottom flow) and Case 3b (left-to-right flow). The variants are defined by boundary conditions and implemented by separate model classes. |
+| [`flow_benchmark_2d_case_4.py`](flow_benchmark_2d_case_4.py) | 2D Case 4 | 64 fractures grouped in 13 connected fracture networks. Simplex grids are used for meshing. Reference solid material parameters should be passed to the model using `FractureSolidConstants`. |
 | [`flow_benchmark_3d_case_2.py`](flow_benchmark_3d_case_2.py) | 3D Case 2 | Unit cube with 9 fractures and heterogeneous matrix permeability (low-permeability zones). Supports refinement levels 0–2 (~500 to ~32K cells). |
 | [`flow_benchmark_3d_case_3.py`](flow_benchmark_3d_case_3.py) | 3D Case 3 | Unit cube with 6 fractures. Supports refinement levels 0–3 (~30K to ~500K cells). |
 
@@ -63,19 +66,24 @@ Models used to verify PorePy's poromechanics implementation against exact analyt
     - **Problem**: A rectangular poroelastic sample under a vertical load, with lateral drainage.
     - **Verification**: Compares numerical results with an infinite series exact solution. Includes convergence analysis infrastructure.
 
+- **Terzaghi's consolidation ([`terzaghi_biot.py`](terzaghi_biot.py))**
+    - **Physics**: Biot poromechanics (MPFA/MPSA-FV in space, backward Euler in time).
+    - **Problem**: The one-dimensional consolidation problem represented by a 2D domain, where a vertical load is applied on the top boundary. Drainage is permitted only in the vertical direction, with the impermeable bottom.
+    - **Verification**: Compares numerical results with the exact solutions for pressure and degree of consolidation. Includes convergence analysis infrastructure.
+
 ### Contact Mechanics
 
 - **Fracture Damage ([`fracture_damage.py`](fracture_damage.py))**
-    <!-- - **Physics**: Contact mechanics with friction and dilation damage.
-    - **Problem**: Evolution of damage and slip on a fracture surface under time-dependent loading.
-    - **Key Features**: `FrictionDamage`, `DilationDamage`, `ContactMechanics`. Includes exact solutions for isotropic and anisotropic damage formulations. -->
-
+    - **Physics**: Contact mechanics with friction and dilation damage.
+    - **Problem**: Evolution of damage and slip on a fracture surface under time-dependent loading. 
+    - **Key Features**: Provides three model variants: an isotropic fracture damage model, an anisotropic fracture damage model, and a fracture damage momentum balance model. Includes exact solutions for isotropic and anisotropic damage formulations.  
+    - **Verification**: Compares numerical results with exact solution. Includes convergence analysis and data storage infrastructure.
 ---
 
 ## Utilities
 
 - **Example Parameters ([`example_params.py`](example_params.py))**
-    <!-- - A complete reference set of top-level parameters for a PorePy model, including material constants, meshing arguments, convergence criteria, and line search options. Use this as a starting point and copy the relevant parameters for your own problem. -->
+- **Key Features**: A complete reference set of top-level parameters for a PorePy model, including material constants, meshing arguments, convergence criteria, and line search options. Use this as a starting point and copy the relevant parameters for your own problem. 
 
 ---
 
