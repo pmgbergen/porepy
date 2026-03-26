@@ -44,9 +44,9 @@ APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
 
 max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
-newton_tol_res = 1e-5
+newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
-newton_tol_inc = 1e-4
+newton_tol_inc = 1.0
 
 T_END_DAYS = 50
 
@@ -54,8 +54,8 @@ time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 if APERTURE_JUMP_SCHEDULE:
     t_jump = APERTURE_JUMP_SCHEDULE[0][0]
     t = np.array(time_schedule)
-    t_before: list[float] = t[t<t_jump].tolist()
-    t_after: list[float] = t[t>t_jump].tolist()
+    t_before: list[float] = t[t < t_jump].tolist()
+    t_after: list[float] = t[t > t_jump].tolist()
     if t_before[-1] < t_jump - pp.HOUR:
         t_before += [t_jump - pp.HOUR]
     time_schedule = t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
