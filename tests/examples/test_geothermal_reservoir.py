@@ -3,6 +3,8 @@ Test functionalities in the example case of the geomthermal reservoir.
 
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 
@@ -21,7 +23,19 @@ from porepy.examples.geothermal_reservoir import (
 from porepy.numerics.nonlinear import line_search
 
 
-class geothermal_model_neu(
+class FastMeshingMixin:
+    """Helper mixin to enforce a coarse grid without having to set the meshing arguments
+    in each model and test separately."""
+
+    def meshing_arguments(self) -> dict:
+        return {"cell_size": 0.25}
+
+    def grid_type(self) -> Literal["cartesian"]:
+        return "cartesian"
+
+
+class GeothermalModelNeumann(
+    FastMeshingMixin,
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     NeumannWellBCsFirstTimeInterval,
@@ -32,7 +46,7 @@ class geothermal_model_neu(
 
 @pytest.fixture
 def neuBC_model():
-    model = geothermal_model_neu()
+    model = GeothermalModelNeumann()
     model.prepare_simulation()
     return model
 
@@ -63,7 +77,8 @@ class OneVerticalInjectionWell(well_models.OneVerticalWell):
         self.well_network.wells[0].tags["well_name"] = "injection_well"
 
 
-class geothermal_model_well(
+class GeothermalModelWell(
+    FastMeshingMixin,
     OneVerticalInjectionWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     WellBoundaryConditions,
@@ -80,7 +95,7 @@ def well_bc_model():
         "injection_well_pressures": [1e6, 1e6],
         "injection_well_temperatures": [300.00, 300.00],
     }
-    model = geothermal_model_well(params)
+    model = GeothermalModelWell(params)
     model.prepare_simulation()
     return model
 
@@ -119,7 +134,8 @@ def test_well_bcs_temperature(well_bc_model):
     assert np.any(np.isclose(values, expected_value))
 
 
-class geothermal_model_mechanics(
+class GeothermalModelMechanics(
+    FastMeshingMixin,
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     BoundaryConditionsMechanicsNeumann,
@@ -129,17 +145,17 @@ class geothermal_model_mechanics(
 
 
 @pytest.fixture
-def mechcanics_bc_model():
-    model = geothermal_model_mechanics()
+def mechanics_bc_model():
+    model = GeothermalModelMechanics()
     model.prepare_simulation()
     return model
 
 
-def test_mechanics_bcs_neumann(mechcanics_bc_model):
+def test_mechanics_bcs_neumann(mechanics_bc_model):
     """
     Test the boundary conditions of mechanics.
     """
-    model = mechcanics_bc_model
+    model = mechanics_bc_model
     matrix_grids = [sd for sd in model.mdg.subdomains() if sd.dim == model.nd]
     assert len(matrix_grids) == 1
 
