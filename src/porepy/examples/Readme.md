@@ -25,10 +25,9 @@ These scripts include a `__main__` block and can be executed directly from the t
 
 ### 1. Geothermal Reservoir ([`geothermal_reservoir.py`](geothermal_reservoir.py))
 - **Physics**: Coupled thermoporomechanics (momentum balance, fluid mass balance, energy balance).
-- **Problem**: Simulates a geothermal doublet (injection and production wells) in a 3D fractured reservoir with two elliptic fractures.
-- **Key Features**: Well boundary condition protocols, lithostatic/hydrostatic initial and boundary conditions, thermal gradient, cubic law permeability, and the `ConstraintLineSearchNonlinearSolver`.
+- **Problem**: Simulates a geothermal doublet (injection and production wells) in a 3D fractured reservoir.
+- **Key Features**: Well boundary condition protocols, lithostatic/hydrostatic initial and boundary conditions, and the `ConstraintLineSearchNonlinearSolver`.
 - **Output**: VTK files in the `geothermal_reservoir/` directory.
-- **Note**: The default simulation is relatively expensive due to the high number of time steps. Reduce the `schedule_length` variable in the `__main__` block for quicker test runs.
 - **Execution**: `python -m porepy.examples.geothermal_reservoir`
 
 ### 2. Tracer Flow ([`tracer_flow.py`](tracer_flow.py))
@@ -62,12 +61,12 @@ Implementations of the 2D and 3D single-phase flow benchmarks for fractured poro
 Models used to verify PorePy's poromechanics implementation against exact analytical solutions.
 
 - **Mandel's Consolidation ([`mandel_biot.py`](mandel_biot.py))**
-    - **Physics**: Biot poromechanics (MPFA/MPSA-FV in space, backward Euler in time).
+    - **Physics**: Biot poromechanics.
     - **Problem**: A rectangular poroelastic sample under a vertical load, with lateral drainage.
     - **Verification**: Compares numerical results with an infinite series exact solution. Includes convergence analysis infrastructure.
 
 - **Terzaghi's consolidation ([`terzaghi_biot.py`](terzaghi_biot.py))**
-    - **Physics**: Biot poromechanics (MPFA/MPSA-FV in space, backward Euler in time).
+    - **Physics**: Biot poromechanics.
     - **Problem**: The one-dimensional consolidation problem represented by a 2D domain, where a vertical load is applied on the top boundary. Drainage is permitted only in the vertical direction, with impermeable bottom.
     - **Verification**: Compares numerical results with the exact solutions for pressure and degree of consolidation. Includes convergence analysis infrastructure.
 
