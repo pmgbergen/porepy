@@ -295,7 +295,22 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     """
 
 
-if __name__ == "__main__":
+def set_model_params():
+    # Adjust solid values, while using default values for water.
+    solid_values = cast(dict[str, float], pp.solid_values.basalt)
+    solid_values.update(
+        {
+            "dilation_angle": 0.1,  # [rad]
+            # Uncomment next two lines to include elastic fracture deformation, aka
+            # "Barton-Bandis" model for normal fracture deformation.
+            # "fracture_normal_stiffness": 1.1e8,  # [Pa m^-1]
+            # "maximum_elastic_fracture_opening": 1e-3,  # [m]
+            "normal_permeability": 1.0e-10,  # [m^2]
+            "residual_aperture": 1e-3,  # [m]
+            "well_radius": 0.1,  # [m]
+        }
+    )
+
     # Define time schedule for the simulation.
     schedule = np.array([0, pp.HOUR, 10 * pp.HOUR, 100 * pp.DAY])
 
@@ -318,20 +333,6 @@ if __name__ == "__main__":
     schedule = schedule[:schedule_length]
     injection_pressures = injection_pressures[:schedule_length]
 
-    # Adjust solid values, while using default values for water.
-    solid_values = cast(dict[str, float], pp.solid_values.basalt)
-    solid_values.update(
-        {
-            "dilation_angle": 0.1,  # [rad]
-            # Uncomment next two lines to include elastic fracture deformation, aka
-            # "Barton-Bandis" model for normal fracture deformation.
-            # "fracture_normal_stiffness": 1.1e8,  # [Pa m^-1]
-            # "maximum_elastic_fracture_opening": 1e-3,  # [m]
-            "normal_permeability": 1.0e-10,  # [m^2]
-            "residual_aperture": 1e-3,  # [m]
-            "well_radius": 0.1,  # [m]
-        }
-    )
     # Define domain sizes (x, y, z) and fracture size.
     length_scale = 1e3  # [m]
     fracture_size = 0.2  # [-], fraction of length_scale
@@ -384,8 +385,16 @@ if __name__ == "__main__":
         "adaptive_indicator_scaling": 1,
         # Set folder name for results.
         "folder_name": "geothermal_reservoir",
+        # Add the length scale and fracture size here to make it available for
+        # modifications of the parameter dictionary in testing and runscripts.
+        "length_scale": length_scale,
+        "fracture_size": fracture_size,
     }
-    model = GeothermalReservoirWellBCs(model_params)
+    return model_params
+
+
+def set_solver_params():
+    # Define parameters for the non-linear solver.
     solver_params = {
         "prepare_simulation": True,
         "nl_max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
@@ -406,5 +415,9 @@ if __name__ == "__main__":
         # effective for (some versions of) this particular simulation setup.
         "local_line_search": 1,
     }
+    return solver_params
 
-    pp.run_time_dependent_model(model, solver_params)
+
+if __name__ == "__main__":
+    model = GeothermalReservoirWellBCs(set_model_params())
+    pp.run_time_dependent_model(model, set_solver_params())
