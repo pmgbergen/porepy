@@ -1,6 +1,6 @@
 # Examples
 
-The `src/porepy/examples/` folder contains a collection of python modules demonstrating how to set up and run physical models in PorePy. These examples serve both as reusable model setups and as references for extending PorePy through its mixin-based design.
+The `src/porepy/examples/` folder contains a collection of Python modules demonstrating how to set up and run physical models in PorePy. These examples serve both as reusable model setups and as references for extending PorePy through its mixin-based design. Some of examples are used and further illustrated in tutorials. 
 
 ## Overview
 These examples act as:
@@ -68,7 +68,7 @@ Models used to verify PorePy's poromechanics implementation against exact analyt
 
 - **Terzaghi's consolidation ([`terzaghi_biot.py`](terzaghi_biot.py))**
     - **Physics**: Biot poromechanics (MPFA/MPSA-FV in space, backward Euler in time).
-    - **Problem**: The one-dimensional consolidation problem represented by a 2D domain, where a vertical load is applied on the top boundary. Drainage is permitted only in the vertical direction, with the impermeable bottom.
+    - **Problem**: The one-dimensional consolidation problem represented by a 2D domain, where a vertical load is applied on the top boundary. Drainage is permitted only in the vertical direction, with impermeable bottom.
     - **Verification**: Compares numerical results with the exact solutions for pressure and degree of consolidation. Includes convergence analysis infrastructure.
 
 ### Contact Mechanics
@@ -95,6 +95,11 @@ The model definitions follow PorePy's mixin-based design pattern. To adapt an ex
 1. Identify the example closest to your problem.
 2. Create your own mixin classes to override the aspects you want to change (e.g., boundary conditions, material properties, geometry).
 3. Assemble your model class by combining your custom mixins with the existing ones, paying attention to the method resolution order (MRO).
+
+For more guidance, we refer to tutorials that illustrate how models in examples can be adapted:
+- [Benchmark simulation tutorial](../../../tutorials/benchmark_simulation.ipynb)
+- [Tracer flow tutorial](../../../tutorials/tracer_flow.ipynb)
+- [Mandel's problem tutorial](../../../tutorials/mandels_problem.ipynb)
 
 ### Running via Functional Tests
 Many examples are verified in `tests/functional/`:
