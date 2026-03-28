@@ -1,6 +1,6 @@
 """This module contains the implementation of Case 1 from the 2D flow benchmark [1].
 
-We provide the two variants of this benchmark, i.e., Case 1a (conductiv fractures) and
+We provide the two variants of this benchmark, i.e., Case 1a (conductive fractures) and
 Case 1b (blocking fractures). They are specified by passing the material constants
 `solid_constants_conductive_fractures` and `solid_constants_blocking_fractures`,
 respectively.
