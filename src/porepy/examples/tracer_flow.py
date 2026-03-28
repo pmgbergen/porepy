@@ -155,14 +155,14 @@ if __name__ == "__main__":
         "eliminate_reference_phase": True,
         "eliminate_reference_component": True,
         "time_manager": time_manager,
-        "max_iterations": max_iterations,
-        "nl_convergence_tol": newton_tol_increment,
-        "nl_convergence_tol_res": newton_tol,
+        "nl_max_iterations": max_iterations,
+        "nl_convergence_inc_atol": newton_tol_increment,
+        "nl_convergence_res_atol": newton_tol,
         "meshing_arguments": {"cell_size": 0.05},
         "grid_type": "simplex",
     }
 
-    # EK: Ignore a mypy error here: Mypy complains that the model does not implement
+    # Ignore a mypy error here: Mypy complains that the model does not implement
     # abstract methods displacement_jump, plastic_displacement_jump, and
     # elastic_displacement_jump. The likely cause is that mypy believes the methods are
     # decleared (as abstract?) but not implemented, but searching the codebase does not

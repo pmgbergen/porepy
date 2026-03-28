@@ -14,7 +14,7 @@ Two different formulations are available:
     2. A formulation that includes two additional variables, rotation and total
        pressure, and two extra equations, for conservation of angular momentum and solid
        mass. This is compatible with discretizations using the two-point stress
-       approximation (Tpsa), see https://doi.org/10.48550/arXiv.2405.10390 for more
+       approximation (Tpsa), see https://doi.org/10.1016/j.camwa.2025.07.035 for more
        information.
 
 """
@@ -272,14 +272,9 @@ class AngularMomentumEquation:
         )
 
         source = self.source_angular_momentum(subdomains)
+        div = pp.ad.Divergence(subdomains, dim=self.rotation_dimension())
 
-        angular_momentum = self.balance_equation(
-            subdomains,
-            accumulation,
-            total_rotation,
-            source,
-            self.rotation_dimension(),
-        )
+        angular_momentum = accumulation + div @ total_rotation - source
         angular_momentum.set_name("angular_momentum_balance_equation")
 
         return angular_momentum
@@ -366,9 +361,8 @@ class SolidMassEquation:
             subdomains,
             1,
         )
-        solid_mass = self.balance_equation(
-            subdomains, accumulation, mass_flux, source, 1
-        )
+        div = pp.ad.Divergence(subdomains, dim=1)
+        solid_mass = accumulation + div @ mass_flux - source
 
         solid_mass.set_name("solid_mass_equation")
         return solid_mass
@@ -703,7 +697,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == self.nd:
                 pp.initialize_data(
-                    sd,
                     data,
                     self.stress_keyword,
                     {
@@ -1014,6 +1007,28 @@ class TpsaMomentumBalanceMixin(  # type: ignore[misc]
     MomentumBalance class, the resulting objects will apply the three-field
     (displacement, rotation stress, and total pressure) formulation for elasticity,
     discretized by the Tpsa method.
+
+    Important:
+        The TPSA (Two-Point Stress Approximation) discretization is only consistent for
+        grids that fulfill certain alignment properties between face normals and vectors
+        connecting cell centers (for details see the TPSA paper,
+        https://doi.org/10.1016/j.camwa.2025.07.035, see in particular the illustration
+        of admissible grids in Figure 1).
+
+        The class of admissible grids includes:
+            - Cartesian grids (unless the nodes have been perturbed).
+            - Simplex grids where the cell centers are chosen as the circumcenters of
+              the elements *provided that these circumcenters lie within the elements*.
+
+        Code to obtain the circumcenter grid points is available in PorePy as
+        :meth:`porepy.grids.grid_utils.compute_circumcenter_2d` and
+        :meth:`porepy.grids.grid_utils.compute_circumcenter_3d`. If using these
+        functions to move the cell center, make sure that the modified center is still
+        within the cell, or else the discretization may break down.
+
+        For general grids, the inconsistency implies that TPSA will not provide a
+        convergent discretization. The method can still be used, but it is advisable to
+        proceed with caution.
 
     """
 

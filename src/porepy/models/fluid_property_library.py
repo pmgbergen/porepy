@@ -29,7 +29,7 @@ Note:
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Callable, List, Literal, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 
 import numpy as np
 
@@ -47,7 +47,9 @@ __all__ = [
 ]
 
 Scalar = pp.ad.Scalar
-ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
+
+if TYPE_CHECKING:
+    ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class FluidDensityFromPressure(pp.PorePyModel):
@@ -1133,8 +1135,8 @@ class FluidBuoyancy(pp.PorePyModel):
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
-                    pp.initialize_data(sd, data, self.buoyancy_key(gamma, delta))
-                    pp.initialize_data(sd, data, self.buoyancy_key(delta, gamma))
+                    pp.initialize_data(data, self.buoyancy_key(gamma, delta))
+                    pp.initialize_data(data, self.buoyancy_key(delta, gamma))
                     null_vals = np.zeros(sd.num_faces)
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
                         {self.buoyant_flux_array_key(gamma, delta): +null_vals}
@@ -1144,8 +1146,8 @@ class FluidBuoyancy(pp.PorePyModel):
                     )
                 for intf, data in self.mdg.interfaces(return_data=True):
                     null_vals = np.zeros(intf.num_cells)
-                    pp.initialize_data(intf, data, self.buoyancy_intf_key(gamma, delta))
-                    pp.initialize_data(intf, data, self.buoyancy_intf_key(delta, gamma))
+                    pp.initialize_data(data, self.buoyancy_intf_key(gamma, delta))
+                    pp.initialize_data(data, self.buoyancy_intf_key(delta, gamma))
                     data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
                         {self.buoyant_intf_flux_array_key(gamma, delta): +null_vals}
                     )

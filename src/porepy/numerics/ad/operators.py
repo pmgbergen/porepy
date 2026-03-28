@@ -10,6 +10,7 @@ from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Literal,
@@ -27,10 +28,11 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
-from . import _ad_utils
 from .forward_mode import AdArray
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 __all__ = [
     "Operator",
@@ -486,7 +488,7 @@ class Operator:
         unique_discretizations: dict[pp.discretization_type, list[GridLike]] = (
             self._identify_discretizations()
         )
-        _ad_utils.discretize_from_list(unique_discretizations, mdg)
+        pp.ad.discretize_from_list(unique_discretizations, mdg)
 
     def _identify_discretizations(
         self,
@@ -496,7 +498,7 @@ class Operator:
 
         """
         all_discr = self._identify_subtree_discretizations([])
-        return _ad_utils.uniquify_discretization_list(all_discr)
+        return pp.ad.uniquify_discretization_list(all_discr)
 
     def _identify_subtree_discretizations(self, discr: list) -> list:
         """Recursive search in the tree of this operator to identify all discretizations
@@ -507,7 +509,7 @@ class Operator:
             for child in self.children:
                 discr += child._identify_subtree_discretizations([])
 
-        if isinstance(self, _ad_utils.MergedOperator):
+        if isinstance(self, pp.ad.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(self)
 
@@ -666,6 +668,12 @@ class Operator:
             The sum of self and other.
 
         """
+        # When using the sum operator on a list with a single item, Python will call the
+        # addition operator with other == 0. Convert that other to an Ad Scalar with
+        # value 0 to avoid errors in the addition operator.
+        if other == 0:
+            other = Scalar(0)
+
         children = self._parse_other(other)
         return Operator(children=children, operation=Operations.add, name="+ operator")
 
@@ -1163,6 +1171,37 @@ class SparseArray(Operator):
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._mat.data = self._mat.data.astype(float)
+
+        # Making the underlying arrays readonly to avoid invalidation of cached values,
+        # see https://github.com/pmgbergen/porepy/issues/1214
+        if isinstance(
+            mat,
+            (
+                sps.csr_matrix,
+                sps.csr_array,
+                sps.csc_matrix,
+                sps.csc_array,
+                sps.bsr_matrix,
+                sps.bsr_array,
+            ),
+        ):
+            self._mat.data.flags.writeable = False
+            self._mat.indices.flags.writeable = False
+            self._mat.indptr.flags.writeable = False
+        elif isinstance(mat, (sps.coo_matrix, sps.coo_array)):
+            self._mat.data.flags.writeable = False
+            self._mat.coords[0].flags.writeable = False
+            self._mat.coords[1].flags.writeable = False
+        else:
+            # Other options are technically possible, but they are quite exotic. Anyway,
+            # most of them have the "data" array. The only known example that does not
+            # is dok_matrix (dictionary of keys), but there is no easy way to make
+            # existing dictionary immutable.
+            try:
+                self._mat.data.flags.writeable = False
+            except AttributeError:
+                pass
+
         self._shape = mat.shape
         """Shape of the wrapped matrix."""
 
@@ -1291,7 +1330,10 @@ class DenseArray(Operator):
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
 
-        # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
+        # Making the array readonly to avoid invalidation of cached values, see
+        # https://github.com/pmgbergen/porepy/issues/1214
+        self._values.flags.writeable = False
+
         self._hash_value: str = sha256(
             self._values,
             usedforsecurity=False,  # type: ignore[arg-type]

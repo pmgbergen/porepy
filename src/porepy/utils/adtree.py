@@ -425,4 +425,4 @@ class ADTree:
         Returns:
             (float): current portion of the interval according to the level
         """
-        return np.prod(0.5 * np.ones(int(level / dim) + 1, dtype=float))
+        return np.prod(0.5 * np.ones(int(level / dim) + 1)).astype(np.float64)

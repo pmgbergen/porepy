@@ -84,9 +84,9 @@ def setup(
         "solid": FractureDamageSolidConstants(**damage_examples.solid_params),  # type: ignore[arg-type]
     }
     solver_params = {
-        "max_iterations": 50,  # Hard nonlinear problems - expect slow convergence
-        "nl_convergence_tol_res": 1e-8,
-        "nl_convergence_tol": 1e-8,
+        "nl_max_iterations": 50,  # Hard nonlinear problems - expect slow convergence
+        "nl_convergence_res_atol": 1e-8,
+        "nl_convergence_inc_atol": 1e-8,
         "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
         "local_line_search": True,
     }

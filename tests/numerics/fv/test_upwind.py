@@ -223,8 +223,12 @@ class TestUpwind:
             bc_val = np.array([3, 0, 0, 3])
             specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
         else:
-            specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_default_data(sd, {}, "transport", specified_parameters)
+            specified_parameters = {
+                "bc": bc,
+                "darcy_flux": dis,
+                "bc_values": np.zeros(sd.num_faces),
+            }
+        data = pp.initialize_data({}, "transport", specified_parameters)
         upwind_obj.discretize(sd, data)
         return upwind_obj, data
 
@@ -450,9 +454,7 @@ class TestMixedDimensionalUpwind:
             sign = intf.primary_to_mortar_avg() * sign
             darcy_flux_e = sign * (intf.primary_to_mortar_avg() * darcy_flux)
             if pp.PARAMETERS not in data:
-                data[pp.PARAMETERS] = pp.Parameters(
-                    intf, ["transport"], [{"darcy_flux": darcy_flux_e}]
-                )
+                data[pp.PARAMETERS] = {"transport": {"darcy_flux": darcy_flux_e}}
             else:
                 data[pp.PARAMETERS]["transport"]["darcy_flux"] = darcy_flux_e
 
@@ -570,11 +572,13 @@ class TestMixedDimensionalUpwind:
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
             else:
                 bound = pp.BoundaryCondition(sd, np.empty(0), np.empty(0))
-                specified_parameters.update({"bc": bound})
-            pp.initialize_default_data(sd, data, "transport", specified_parameters)
+                specified_parameters.update(
+                    {"bc": bound, "bc_values": np.zeros(sd.num_faces)}
+                )
+            pp.initialize_data(data, "transport", specified_parameters)
 
         for intf, data in mdg.interfaces(return_data=True):
-            pp.initialize_data(intf, data, "transport", {})
+            pp.initialize_data(data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
         lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
@@ -622,10 +626,10 @@ class TestMixedDimensionalUpwind:
             bound = pp.BoundaryCondition(sd, bound_faces, labels)
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_default_data(sd, data, "transport", specified_parameters)
+            pp.initialize_data(data, "transport", specified_parameters)
 
         for intf, data in mdg.interfaces(return_data=True):
-            pp.initialize_data(intf, data, "transport", {})
+            pp.initialize_data(data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
         lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
@@ -660,7 +664,10 @@ class TestMixedDimensionalUpwind:
         a = 1e-2
         for sd, data in mdg.subdomains(return_data=True):
             aperture = np.ones(sd.num_cells) * np.power(a, mdg.dim_max() - sd.dim)
-            specified_parameters = {"aperture": aperture}
+            specified_parameters = {
+                "aperture": aperture,
+                "bc_values": np.zeros(sd.num_faces),
+            }
             bound_faces = sd.tags["domain_boundary_faces"].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = sd.face_centers[:, bound_faces]
@@ -678,10 +685,10 @@ class TestMixedDimensionalUpwind:
                 bound = pp.BoundaryCondition(sd, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_default_data(sd, data, "transport", specified_parameters)
+            pp.initialize_data(data, "transport", specified_parameters)
 
         for intf, data in mdg.interfaces(return_data=True):
-            pp.initialize_data(intf, data, "transport", {})
+            pp.initialize_data(data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
         lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)

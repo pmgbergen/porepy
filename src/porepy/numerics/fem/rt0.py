@@ -101,7 +101,7 @@ class RT0(DualElliptic):
 
         size_HB = sd.dim * (sd.dim + 1)
         HB = np.zeros((size_HB, size_HB))
-        for it in np.arange(0, size_HB, sd.dim):
+        for it in range(0, size_HB, sd.dim):
             HB += np.diagflat(np.ones(size_HB - it), it)
         HB += HB.T
         HB /= sd.dim * sd.dim * (sd.dim + 1) * (sd.dim + 2)

@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import Any, Callable, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence
 
 import matplotlib
 import numpy as np
@@ -15,31 +15,33 @@ from scipy.sparse import csr_matrix, spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
-from porepy import GridLike
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
 
+if TYPE_CHECKING:
+    from porepy import GridLike
+
+    # Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
+    GridGroupingType: TypeAlias = "list[list[GridLike]]"
+    """A type representing the structuring of grouping the diagnostics among the grids.
+
+    """
+    SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
+    """A type representing the diagnostics handler function to be applied to the
+    submatrix.
+
+    """
+    DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
+    """A type representing the diagnostics data for each submatrix in the Jacobian.
+
+    The key represents the pair (row, column) of the block. The value is a dictionary of
+    all diagnostical values collected for this submatrix -- names and values.
+
+    """
+
 logger = logging.getLogger(__name__)
-
-
-# Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
-GridGroupingType: TypeAlias = "list[list[GridLike]]"
-"""A type representing the structuring of grouping the diagnostics among the grids.
-
-"""
-SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
-"""A type representing the diagnostics handler function to be applied to the submatrix.
-
-"""
-DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
-"""A type representing the diagnostics data for each submatrix in the Jacobian.
-
-The key represents the pair (row, column) of the block. The value is a dictionary of all
-diagnostical values collected for this submatrix -- names and values.
-
-"""
 
 
 class DiagnosticsMixin:
@@ -85,7 +87,7 @@ class DiagnosticsMixin:
 
         It is assumed that the full Jacobian matrix is stored in `self.linear_system`,
         and full information about the matrix indices is stored in
-        `self.equation_system._equation_image_space_composition`.
+        `self.equation_system.equation_image_space_composition`.
 
         Note:
             It is assumed that variables with the same name defined on different grids
@@ -310,13 +312,13 @@ class DiagnosticsMixin:
 
         assembled_equation_indices = self.equation_system.assembled_equation_indices
 
-        # `_equation_image_space_composition` has dof indices starting from zero for
+        # `equation_image_space_composition` has dof indices starting from zero for
         # each equation. We need to count the offset to get the global dof indices.
         block_indices = 0
 
         for eq_name, eq_dof_indices in assembled_equation_indices.items():
             equation_image_space = (
-                self.equation_system._equation_image_space_composition[eq_name]
+                self.equation_system.equation_image_space_composition[eq_name]
             )
             # Forming a block from required grids.
             for block_of_grids in grouping:

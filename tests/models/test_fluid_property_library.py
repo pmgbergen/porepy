@@ -63,8 +63,8 @@ def _build_buoyancy_model(
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
-        "nl_convergence_tol": np.inf,
-        "nl_convergence_tol_res": np.inf,
+        "nl_convergence_inc_atol": np.inf,
+        "nl_convergence_res_atol": np.inf,
     }
 
     # Combine geometry with model class

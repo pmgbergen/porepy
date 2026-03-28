@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -44,8 +44,8 @@ except:
 # decided as needed
 
 from porepy.utils.common_constants import *
-from porepy.utils.porepy_types import *
 
+from porepy.utils.porepy_types import *
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
@@ -70,17 +70,9 @@ from porepy.geometry import (
 from porepy.geometry.domain import Domain
 
 # Parameters
-from porepy.params.bc import (
-    BoundaryCondition,
-    BoundaryConditionVectorial,
-    face_on_side,
-)
+from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial, face_on_side
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.data import (
-    Parameters,
-    initialize_data,
-    initialize_default_data,
-)
+from porepy.params.data import initialize_data
 
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
@@ -91,7 +83,7 @@ from porepy.applications.material_values import numerical_values
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.md_grid import MixedDimensionalGrid
-from porepy.grids.mdg_generation import create_mdg
+
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
@@ -108,10 +100,12 @@ from porepy.utils.tangential_normal_projection import (
 )
 
 # Fractures
-from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
+from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.fracture_network import create_fracture_network
+from porepy.fracs.elliptic_fracture import EllipticFracture
+from porepy.fracs.fracture_network_creation import create_fracture_network
 
+from porepy.grids.mdg_generation import create_mdg
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -123,7 +117,6 @@ from porepy.fracs.wells_3d import (
 # Numerics
 
 # Control volume, elliptic
-from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
@@ -165,7 +158,7 @@ from porepy.models.run_models import (
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad._ad_utils import (
+from porepy.numerics.ad.ad_utils import (
     get_solution_values,
     set_solution_values,
     shift_solution_values,
@@ -238,7 +231,12 @@ from porepy.models.compositional_flow import (
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
-from porepy.viz.solver_statistics import SolverStatistics
+from porepy.viz.solver_statistics import (
+    SolverStatistics,
+    NonlinearSolverStatistics,
+    NonlinearSolverAndTimeStatistics,
+    TimeStatistics,
+)
 
 # Modules
 from porepy.fracs import utils as frac_utils
@@ -256,3 +254,36 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
+
+# Metrics for assessing convergence
+from porepy.models.metric import (
+    EuclideanMetric,
+    LebesgueMetric,
+    VariableBasedEuclideanMetric,
+    EquationBasedEuclideanMetric,
+    VariableBasedLebesgueMetric,
+    EquationBasedLebesgueMetric,
+)
+
+# Divergence criteria
+from porepy.numerics.nonlinear.convergence_check import (
+    MaxIterationsCriterion,
+    IncrementBasedNanCriterion,
+    ResidualBasedNanCriterion,
+    IncrementBasedAbsoluteDivergenceCriterion,
+    IncrementBasedRelativeDivergenceCriterion,
+    IncrementBasedCombinedDivergenceCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
+    ResidualBasedRelativeDivergenceCriterion,
+    ResidualBasedCombinedDivergenceCriterion,
+)
+
+# Convergence criteria
+from porepy.numerics.nonlinear.convergence_check import (
+    IncrementBasedAbsoluteCriterion,
+    IncrementBasedRelativeCriterion,
+    IncrementBasedCombinedCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedRelativeCriterion,
+    ResidualBasedCombinedCriterion,
+)

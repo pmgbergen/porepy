@@ -222,9 +222,41 @@ class TestMixedDimensionalGrids:
         ) = pp.mdg_library.seven_fractures_one_L_intersection({"cell_size": 0.2})
         self.domain = network.domain
         self.check_matrix("simplex")
-        self.check_fractures(7, [2, 2, 8, 3, 8, 5, 4])
+        self.check_fractures(7, [2, 2, 8, 3, 12, 7, 5])
         self.check_intersections(1)
         self.check_domain(2, 1)
+
+
+@pytest.mark.parametrize(
+    "refinement_level",
+    [
+        0,
+        pytest.param(1, marks=pytest.mark.skipped),
+        pytest.param(2, marks=pytest.mark.skipped),
+    ],
+)
+def test_benchmark_3d_case_2(refinement_level):
+    """Test the mdg generator for the regular case of the benchmark study.
+
+    By default, verify only that the coarsest grid can be generated, to limit the
+    computational time.
+
+    """
+    mdg, _ = pp.mdg_library.benchmark_3d_case_2(refinement_level)
+
+    # Min/max dimensions
+    assert (mdg.dim_max() == 3) and (mdg.dim_min() == 0)
+
+    # Number of subdomains
+    assert len(mdg.subdomains(dim=3)) == 1
+    assert len(mdg.subdomains(dim=2)) == 9
+    assert len(mdg.subdomains(dim=1)) == 69
+    assert len(mdg.subdomains(dim=0)) == 27
+
+    # Number of interfaces
+    assert len(mdg.interfaces(dim=2)) == 9
+    assert len(mdg.interfaces(dim=1)) == 138
+    assert len(mdg.interfaces(dim=0)) == 123
 
 
 @pytest.mark.parametrize(

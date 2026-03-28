@@ -765,6 +765,141 @@ def test_geometry_triangle_grid(triangle_grid):
     assert np.allclose(triangle_grid.face_normals, fn)
 
 
+@pytest.fixture
+def triangle_grid_four_split():
+    g = simplex.StructuredTriangleGrid(np.array([2, 2]), split_type="four")
+    g.compute_geometry()
+    return g
+
+
+def test_geometry_triangle_grid_four_split(triangle_grid_four_split):
+    """Test the geometry of a structured triangle grid with the 'four' split type.
+
+    Tests the following connectivities:
+        * Given a node, check that the faces touching that node have the expected face
+        centers.
+        * Given a face center, check that the neighboring cells are the expected ones.
+
+    These tests use the known geometry of the structured grid, specifically face-center
+    and cell-center coordinates. This is more robust than relying on implicit
+    assumptions about cell, face, or node ordering.
+
+    """
+    # Gathering the relevant geometry and connectivity information from the grid.
+    face_nodes = triangle_grid_four_split.face_nodes
+    cell_faces = triangle_grid_four_split.cell_faces
+    face_centers = triangle_grid_four_split.face_centers
+    cell_centers = triangle_grid_four_split.cell_centers
+    node_coords = triangle_grid_four_split.nodes
+
+    # Get x and y coordinates of the nodes.
+    x_coords = node_coords[0]
+    y_coords = node_coords[1]
+
+    # Get x and y coordinates of the cell centers.
+    x_center = cell_centers[0]
+    y_center = cell_centers[1]
+
+    def _assert_neighboring_faces(node_idx: int, expected_centers: np.ndarray) -> None:
+        """Checks the faces neighboring a given node.
+
+        This method uses the face-node connectivity to find the faces neighboring a
+        given node, and then checks that the face centers of these faces match the
+        expected face centers. The expected face centers are determined based on the
+        known geometry of the structured grid.
+
+        Parameters:
+            node_idx: The index of the node for which the neighboring faces should be
+                checked.
+            expected_centers: The expected coordinates of the face centers for the
+                faces neighboring the node.
+
+        """
+        face_indices = face_nodes.getrow(node_idx).indices
+        computed_face_centers = face_centers[:, face_indices][:2]
+
+        # Compare face-center coordinates as unordered unique (x, y) pairs. We transpose
+        # to get one point per row, convert rows to tuples, then use sets so the
+        # assertion is independent of face ordering.
+        computed_pairs = set(map(tuple, computed_face_centers.T))
+        expected_pairs = set(map(tuple, expected_centers.T))
+        assert computed_pairs == expected_pairs
+
+    def _assert_neighboring_cells(
+        face_center: tuple[float, float],
+        direction_to_cc: str,
+    ) -> None:
+        """Checks the cells neighboring a given face.
+
+        This method uses the cell-face connectivity to find the cells neighboring a
+        given face, and then checks that the cell centers of these cells match the
+        expected cell centers. The expected cell centers are determined based on the
+        known geometry of the structured grid.
+
+        Parameters:
+            face_center: The coordinates of the face center for which the neighboring
+                cells should be checked.
+            direction_to_cc: The direction along which the cell centers are located
+                (either 'x' or 'y').
+
+        """
+        # Assert that there is exactly one face with the given face center, and get its
+        # index.
+        idx = np.where(
+            np.isclose(face_centers[0], face_center[0])
+            & np.isclose(face_centers[1], face_center[1])
+        )[0]
+        assert idx.size == 1
+
+        neighboring_cells = cell_faces.getrow(idx.item()).indices
+        actual_ccs = cell_centers[:, neighboring_cells][:2]
+
+        # Determine which coordinate (x or y) to adjust based on direction_to_cc, and
+        # construct the corresponding offset vector.
+        coord_idx = 0 if direction_to_cc == "x" else 1
+        offset_vector = np.array([1 / 6, 0] if direction_to_cc == "x" else [0, 1 / 6])
+
+        expected_cc_before = face_center - offset_vector
+        expected_cc_after = face_center + offset_vector
+
+        # Order actual columns by the relevant coordinate
+        order = np.argsort(actual_ccs[coord_idx, :])
+        actual_ccs = actual_ccs[:, order]
+
+        expected_ccs = np.column_stack((expected_cc_before, expected_cc_after))
+        assert np.allclose(actual_ccs, expected_ccs)
+
+    # Check the faces neighboring two nodes: one in the top of the domain and one in the
+    # middle of the domain.
+
+    # First get the indices of the nodes:
+    ind_top_node = np.where(np.isclose(x_coords, 1) & np.isclose(y_coords, 2))[0]
+    ind_middle_node = np.where(np.isclose(x_coords, 1) & np.isclose(y_coords, 1))[0]
+
+    # Then assert that the neighboring faces of these nodes have the expected face
+    # centers.
+    _assert_neighboring_faces(
+        ind_top_node.item(),
+        np.array([[0.5, 0.75, 1.0, 1.25, 1.5], [2.0, 1.75, 1.5, 1.75, 2.0]]),
+    )
+    _assert_neighboring_faces(
+        ind_middle_node.item(),
+        np.array(
+            [
+                [0.5, 0.75, 1.0, 1.25, 1.5, 1.25, 1.0, 0.75],
+                [1.0, 1.25, 1.5, 1.25, 1.0, 0.75, 0.5, 0.75],
+            ]
+        ),
+    )
+
+    # Similar check for faces in the grid: check that the neighboring cells of a face
+    # are the expected ones. We check four internal grid faces.
+    _assert_neighboring_cells(face_center=(1.0, 1.5), direction_to_cc="x")
+    _assert_neighboring_cells(face_center=(0.5, 1.0), direction_to_cc="y")
+    _assert_neighboring_cells(face_center=(1.0, 0.5), direction_to_cc="x")
+    _assert_neighboring_cells(face_center=(1.5, 1.0), direction_to_cc="y")
+
+
 # ----- Tests for a structured tetrahedral grid ----- #
 
 
@@ -901,7 +1036,7 @@ def test_copy_grids():
 
 
 def test_merge_single_grid():
-    """
+    r"""
     Test coupling from one grid to itself. An example setting:
                     |--|--|--| ( grid )
                     0  1  2  3
@@ -929,7 +1064,7 @@ def test_merge_single_grid():
 
 
 def test_merge_two_grids():
-    """
+    r"""
     Test coupling from one grid of three faces to grid of two faces.
     An example setting:
                     0  1  2

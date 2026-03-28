@@ -994,6 +994,9 @@ def _csx_matrix_from_sparse_blocks(
     # Calculate the size of the block matrix.
     num_rows = sum([m.shape[0] for m in blocks])
     num_cols = sum([m.shape[1] for m in blocks])
+    tot_size = sum([m.data.size for m in blocks])
+
+    _safe_data_types_of_index_arrays(blocks, max(num_rows, num_cols), tot_size)
 
     # CSC and CSR matrices are constructed and operated on in a very similar way; the
     # difference is in which dimension the indices represent. We need this to get the
@@ -1016,6 +1019,47 @@ def _csx_matrix_from_sparse_blocks(
         shape=(num_rows, num_cols),
     )
     return block_mat
+
+
+def _safe_data_types_of_index_arrays(
+    blocks: list[sps.spmatrix], max_size: int, tot_size: int
+) -> None:
+    """Helper function to ensure the data types of a set of matrices.
+
+    This is needed to guard against cases where the indices of individual matrices
+    can be represented in reduced precision (int16 or int32), but where the stacked
+    matrix require higher precision.
+
+    Parameters:
+        blocks: List of matrices to be converted. The matrices are modified in place.
+        max_int: Maximum of the number of rows and columns.
+        tot_size: Total number of non-zero elements in the stacked matrix.
+
+    """
+    # Use a small buffer to avoid overflow issues when close to the maximum size.
+    buffer = 10
+
+    # For mypy.
+    dtype_indices: type[np.integer]
+    dtype_indptr: type[np.integer]
+
+    if max_size < np.iinfo(np.int16).max - buffer:
+        dtype_indices = np.int16
+    elif max_size < np.iinfo(np.int32).max - buffer:
+        dtype_indices = np.int32
+    else:
+        dtype_indices = np.int64
+
+    if tot_size < np.iinfo(np.int16).max - buffer:
+        dtype_indptr = np.int16
+    elif tot_size < np.iinfo(np.int32).max - buffer:
+        dtype_indptr = np.int32
+    else:
+        dtype_indptr = np.int64
+
+    for mat in blocks:
+        mat.indices = mat.indices.astype(dtype_indices)
+        mat.indptr = mat.indptr.astype(dtype_indptr)
 
 
 def csr_matrix_from_dense_blocks(
@@ -1505,6 +1549,82 @@ def invert_diagonal_blocks(
     return ia
 
 
+def prune_matrix(A: sps.spmatrix) -> None:
+    """Prune sparse matrix to reduce memory usage.
+
+    Two changes are considered:
+        1. If the matrix does not own its own data, as can happen if scipy has created
+           a view of the matrix, the data array is copied; a byproduct of this is that
+           the data array will not occupy more space than necessary.
+        2. The data types for row and column indices/index pointers are adjusted to the
+           size of the matrix.
+
+    Parameters:
+        A: The matrix to be pruned. Should be of csr or csc format. The matrix is
+           modified in place.
+
+    """
+    MAX_I16 = np.iinfo(np.int16).max
+    MAX_I32 = np.iinfo(np.int32).max
+
+    # A small buffer is used to avoid overflow when the size is close to the limit.
+    buffer = 10
+
+    num_rows, num_cols = A.shape
+    if A.format == "csr" or A.format == "csc":
+        if not A.data.flags.owndata:
+            # We could probably do this with matrix types beyond csr/csc as well, but
+            # there are hardly any practical use of this (except from diagonal matrices,
+            # where the utility of this fix is questionable), and we don't have
+            # sufficient test coverage of those cases to know it is safe. Hence, we
+            # limit to csr/csc.
+            A.data = A.data.copy()
+        if A.format == "csr":
+            if num_cols < MAX_I16:
+                A.indices = A.indices.astype(np.int16)
+            elif num_cols <= MAX_I32:
+                A.indices = A.indices.astype(np.int32)
+        else:  # A.format == 'csc'
+            if num_rows < MAX_I16 - 10:
+                A.indices = A.indices.astype(np.int16)
+            elif num_rows <= MAX_I32 - 10:
+                A.indices = A.indices.astype(np.int32)
+        if A.data.size < MAX_I16 - buffer:
+            A.indptr = A.indptr.astype(np.int16)
+        elif A.data.size <= MAX_I32 - buffer:
+            A.indptr = A.indptr.astype(np.int32)
+
+
+def prune_matrices_in_dict(data: dict[str, sps.spmatrix]) -> None:
+    """Prune all sparse matrices in a dictionary to reduce memory usage.
+
+    Parameters:
+        data: The dictionary containing the matrices to be pruned. The matrices are
+            modified in place. Only matrices of csr or csc format are pruned.
+
+    """
+    for value in data.values():
+        if isinstance(value, sps.spmatrix):
+            prune_matrix(value)
+        elif isinstance(value, dict):
+            prune_matrices_in_dict(value)
+
+
+def prune_discretization_matrices(mdg: pp.MixedDimensionalGrid) -> None:
+    """Prune all discretization matrices of a mixed-dimensional grid.
+
+    Parameters:
+        mdg: Mixed-dimensional grid whose discretization matrices are to be pruned. The
+            matrices are modified in place. Only matrices of csr or csc format are
+            pruned.
+
+    """
+    for _, data in mdg.subdomains(return_data=True):
+        prune_matrices_in_dict(data.get(pp.DISCRETIZATION_MATRICES, {}))
+    for _, data in mdg.interfaces(return_data=True):
+        prune_matrices_in_dict(data.get(pp.DISCRETIZATION_MATRICES, {}))
+
+
 def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
     """Construct block diagonal matrix based on matrix elements and block sizes.
 
@@ -1875,3 +1995,32 @@ def invert_permuted_block_diag_matrix(
     inv_A.eliminate_zeros()
 
     return inv_A
+
+
+def diagonal_scaling_matrix(mat: sps.spmatrix) -> sps.spmatrix:
+    """Helper function to form a diagonal matrix that scales the rows of a matrix.
+
+    Parameters:
+        mat: Matrix to be scaled.
+
+    Returns:
+        Diagonal matrix with the diagonal elements equal to the row-wise sum of the
+        absolute values of the input matrix.
+
+    """
+
+    # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
+    # since we want to manipulate the matrix elements.
+    tmp = mat.copy()
+    # Use an absolute value here. For some of the matrices the row sum will be zero on
+    # interior faces.
+    tmp.data = np.abs(tmp.data)
+    # Take a sum here. Intuitively, an average would be better, but calling tmp.mean()
+    # would take the average over all elements, most of which are zero (this turned out
+    # not to be optimal). We could also find the number of non-zero elements and divide
+    # the sum by this, but a sum seems to be good enough.
+    scalings = tmp.sum(axis=1).A.ravel()
+    # Diagonal scaling matrix
+    full_scaling = sps.dia_matrix((1.0 / scalings, 0), shape=mat.shape)
+
+    return full_scaling

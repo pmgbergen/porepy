@@ -64,6 +64,11 @@ def test_2d_single_fracture(
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
+        "time_manager": pp.TimeManager(
+            schedule=[0, pp.DAY],
+            dt_init=pp.DAY,
+            constant_dt=True,
+        ),  # Non-trivial time manager to avoid masking bugs.
     }
     if model_class == TpsaLinearModel:
         # Tpsa is only consistent on Cartesian grids, so do the test there.
@@ -162,7 +167,7 @@ def test_unit_conversion(units: dict, uy_north: float):
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
-        "cartesian": True,
+        "grid_type": "cartesian",
         "u_north": [0.0, uy_north],
         "material_constants": {"solid": solid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -672,7 +677,8 @@ def test_time_dependent_bc():
         "material_constants": {"solid": solid, "numerical": numerical},
         "fracture_indices": [1],
         "time_manager": pp.TimeManager([0.0, 1.0], 1.0, True),
-        "max_iterations": 30,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": 30,
     }
 
     # Create model and run simulation. The north displacement is [1, -0.5, 1].

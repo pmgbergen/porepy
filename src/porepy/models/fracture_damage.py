@@ -318,8 +318,11 @@ class FrictionDamageEquation(FractureDamageEquations):
         """Update the friction damage equation to include new term."""
         super().before_nonlinear_loop()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
-        self.equation_system._equations[self.friction_damage_equation_name] = (
-            self.friction_damage_equation(fractures)
+        self.equation_system.update_equation(
+            equation_name=self.friction_damage_history_equation_name,
+            new_equation=self.friction_damage_history_equation(fractures),
+            grids=fractures,
+            equations_per_grid_entity={"cells": 1},
         )
 
     def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:

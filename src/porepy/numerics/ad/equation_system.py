@@ -5,16 +5,15 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
 import scipy.sparse as sps
-from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_parser, _ad_utils
+from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -312,6 +311,25 @@ class EquationSystem:
 
         """
         return self._equations
+
+    @property
+    def equation_image_space_composition(
+        self,
+    ) -> dict[str, dict[pp.GridLike, np.ndarray]]:
+        """Dictionary containing image space composition, including subdomains
+        and their block indices in the global system, for every equation
+        set in this EquationSystem.
+
+        """
+        return self._equation_image_space_composition
+
+    @property
+    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
+        """Dictionary containing, for every equation set in this EquationSystem,
+        the number of equations per grid entity.
+
+        """
+        return self._equation_image_size_info
 
     @property
     def variables(self) -> list[Variable]:
@@ -613,7 +631,7 @@ class EquationSystem:
         the order of the argument.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.get_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -681,7 +699,7 @@ class EquationSystem:
             by ``variables`` will raise respective errors by numpy.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.set_solution_values`.
 
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
@@ -746,7 +764,7 @@ class EquationSystem:
         """Method for shifting stored time step values in data sub-dictionary.
 
         For details of the value shifting see the method
-        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+        :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -1236,6 +1254,49 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_equation(
+        self,
+        equation_name: str,
+        new_equation: Operator,
+        grids: Optional[DomainList] = None,
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+    ) -> None:
+        """Updates an existing equation with a new equation operator.
+
+        This method removes the existing equation and sets a new equation under the same
+        name as the old equation.
+
+        Parameters:
+            equation_name: Name of the equation to be updated.
+            new_equation: New equation in AD form.
+            grids: A list of subdomain *or* interface grids on which the equation is
+                defined. The default value is None, and in that case, the grids of the
+                previous equation are used.
+            equations_per_grid_entity: a dictionary describing how many equations
+                ``equation_operator`` provides. This is a temporary work-around until
+                operators are able to provide information on their image space. The
+                dictionary must contain the number of equations per grid entity (cells,
+                faces, nodes) for the operator. The default value is None, and in that
+                case, the equations_per_grid_entity of the previous equation are used.
+
+        """
+        if grids is None:
+            grids = cast(
+                list[pp.Grid] | list[pp.MortarGrid],
+                list(self._equation_image_space_composition[equation_name].keys()),
+            )
+
+        if equations_per_grid_entity is None:
+            equations_per_grid_entity = self._equation_image_size_info[equation_name]
+
+        self.remove_equation(equation_name)
+        new_equation.set_name(equation_name)
+        self.set_equation(
+            equation=new_equation,
+            grids=grids,
+            equations_per_grid_entity=equations_per_grid_entity,
+        )
+
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
@@ -1283,7 +1344,7 @@ class EquationSystem:
             for child in operator.children:
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
-        if isinstance(operator, _ad_utils.MergedOperator):
+        if isinstance(operator, pp.ad.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(operator)
 
@@ -1296,7 +1357,7 @@ class EquationSystem:
 
         The equations will be ordered according to the order in self._equations (which
         is the order in which they were added to the equation system manager and which
-        alsois fixed since iteration of dictionaries is so).
+        also is fixed since iteration of dictionaries is so).
 
         Parameters:
             equations: A list of equations or a dictionary of equation restrictions.
@@ -1306,9 +1367,23 @@ class EquationSystem:
             equation rows) as values. If no restriction is given, the value is None.
 
         """
-        # The default return value is all equations with no grid restrictions.
+
+        # The default return value is all equations defined on non-empty domains
+        # with no grid restriction.
         if equations is None:
-            return dict((name, None) for name in self._equations)
+            # Precompute equations on non-empty domain. This is to avoid
+            # injecting equations with empty-domain into the assembly pipeline.
+            non_empty_equations = [
+                name
+                for name in self._equations
+                if sum(
+                    len(indices)
+                    for indices in self._equation_image_space_composition[name].values()
+                )
+                > 0
+            ]
+
+            return dict((name, None) for name in non_empty_equations)
 
         # We need to parse the input.
         # Storage for requested blocks, unique information per equation name.
@@ -1513,8 +1588,10 @@ class EquationSystem:
             discr += self._recursive_discretization_search(eqn, list())
 
         # Uniquify to save computational time, then discretize.
-        unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.mdg)
+        unique_discr = pp.ad.uniquify_discretization_list(discr)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
+        # Reduce the memory footprint of discretization matrices.
+        pp.matrix_operations.prune_discretization_matrices(self.mdg)
 
     @overload
     def assemble(
@@ -1603,52 +1680,49 @@ class EquationSystem:
         mat: list[sps.spmatrix] = []
         rhs: list[np.ndarray] = []
 
-        # Keep track of DOFs for each equation/block
+        # Keep track of DOFs for each equation/block.
         ind_start = 0
 
-        # Store the indices of the assembled equations only if the Jacobian is
-        # requested.
-        if evaluate_jacobian:
-            self.assembled_equation_indices = dict()
+        # Store the indices of the assembled equations.
+        self.assembled_equation_indices = {}
 
         eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
         rows = list(equ_blocks.values())
 
-        # The evaluation method to use depends on whether the Jacobian is requested.
-        if not evaluate_jacobian:
-            # Evaluate the operator to get the residual vector.
-            values = self.evaluate(eqs, derivative=False, state=state)
-            for row, val in zip(rows, values):
-                # The residual of individual equations can be a scalar or an array.
-                # Forcing to array to ensure consistent handling.
-                val = np.asarray(val)
-                if row is not None:
-                    rhs.append(val[row])
-                else:
-                    rhs.append(val)
-        else:
-            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
-            for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
-                if row is not None:
-                    # If restriction to grid-related row blocks was made, perform row
-                    # slicing based on information we have obtained from parsing.
-                    mat.append(ad.jac.tocsr()[row])
-                    rhs.append(ad.val[row])
-                    block_length = len(rhs[-1])
-                else:
-                    # If no grid-related row restriction was made, append the whole
-                    # thing.
-                    mat.append(ad.jac)
-                    rhs.append(ad.val)
-                    block_length = len(ad.val)
+        # Ignore impenetrable mypy error here, the overloaded signatures are correctly
+        # defined.
+        values = self.evaluate(  # type: ignore[call-overload]
+            eqs,
+            derivative=evaluate_jacobian,
+            state=state,
+        )
 
-                # Create indices range and shift to correct position.
-                block_indices = np.arange(block_length) + ind_start
-                # Extract last index and add 1 to get the starting point for next block
-                # of indices.
-                self.assembled_equation_indices.update({equ_name: block_indices})
-                if block_length > 0:
-                    ind_start = block_indices[-1] + 1
+        for row, equ_name, value in zip(rows, equ_blocks, values):
+            # Extract residual vector and possibly Jacobian matrix.
+            rhs_value = value.val if evaluate_jacobian else value
+            jac = value.jac if evaluate_jacobian else None
+            if row is not None:
+                # If restriction to grid-related row blocks was made, perform row
+                # slicing based on information we have obtained from parsing.
+                rhs.append(rhs_value[row])
+                block_length = len(rhs[-1])
+                if evaluate_jacobian:
+                    assert jac is not None  # mypy
+                    mat.append(jac[row])
+            else:
+                # If no grid-related row restriction was made, append the whole thing.
+                rhs.append(rhs_value)
+                block_length = len(rhs[-1])
+                if evaluate_jacobian:
+                    mat.append(jac)
+
+            # Create indices range and shift to correct position.
+            block_indices = np.arange(block_length) + ind_start
+            self.assembled_equation_indices.update({equ_name: block_indices})
+            # Extract last index and add 1 to get the starting point for next block
+            # of indices.
+            if block_length > 0:
+                ind_start = block_indices[-1] + 1
 
         # Concatenate results equation-wise.
         if len(rhs) > 0:
@@ -1781,7 +1855,7 @@ class EquationSystem:
 
         # Keep track of indices or primary block.
         ind_start = 0
-        assembled_equation_indices = dict()
+        self.assembled_equation_indices = dict()
 
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
@@ -1804,14 +1878,14 @@ class EquationSystem:
                     A_prim.append(A_temp)
                     b_prim.append(b_temp)
 
-                # Track indices of block rows. Only primary equations are included.
-                row_idx = np.arange(b_prim[-1].size, dtype=int)
-                indices = row_idx + ind_start
-                ind_start += row_idx.size
-                assembled_equation_indices.update({name: indices})
-
-        # store the assembled row indices for the primary block only (Schur)
-        self.assembled_equation_indices = assembled_equation_indices
+                block_length = b_prim[-1].size
+                # Create indices range and shift to correct position.
+                block_indices = np.arange(block_length) + ind_start
+                # Extract last index and add 1 to get the starting point for next block
+                # of indices.
+                self.assembled_equation_indices.update({name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
         # We loop again over stored equation to ensure a correct order
         # but process only secondary equations.
@@ -1822,6 +1896,12 @@ class EquationSystem:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
+
+                block_length = b_sec[-1].size
+                block_indices = np.arange(block_length) + ind_start
+                self.assembled_equation_indices.update({name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
         # stack the results
         A_p = sps.vstack(A_prim, format="csr")
@@ -2002,7 +2082,7 @@ class EquationSystem:
         self,
         operator: pp.ad.Operator,
         derivative: Literal[True],
-        state: Optional[np.ndarray],
+        state: np.ndarray | None,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -2010,7 +2090,7 @@ class EquationSystem:
         self,
         operator: list[pp.ad.Operator],
         derivative: Literal[True],
-        state: Optional[np.ndarray],
+        state: np.ndarray | None,
     ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(

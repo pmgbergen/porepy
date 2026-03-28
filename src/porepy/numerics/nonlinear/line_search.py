@@ -8,16 +8,12 @@ Main active classes, combined in the NonlinearSolver class:
 - SplineInterpolationLineSearch - implements a line search using spline interpolation.
 - ConstraintLineSearch - implements a line search based on constraint functions for
     contact mechanics.
+- ConstraintLineSearchNonlinearSolver - a mixer class combining all three approaches
+    listed above.
 
 The functionality is invoked by specifying the solver in the solver parameters, e.g.:
 
     ```python
-    class ConstraintLineSearchNonlinearSolver(
-        ConstraintLineSearch,
-        SplineInterpolationLineSearch,
-        LineSearchNewtonSolver,
-    ):
-        pass
     solver_params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
     Pass 'solver_params' to a solver model, e.g.:
     pp.run_time_dependent_model(model, solver_params)
@@ -142,10 +138,12 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         # step. If so, we can use the update without any relaxation. We normalize by
         # the number of degrees of freedom, meaning that if the residual objective
         # function is the l2 norm of the residual, the relative residual criterion here
-        # is consistent with the relative residual criterion used in check_convergence
-        # in :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+        # is consistent with the absolute residual criterion
+        # in :class:`~porepy.numerics.nonlinear.nonlinear_solvers.check_convergence.`
+        # using a `pp.ResidualBasedAbsoluteCriterion` with a `pp.EuclideanMetric`.
         relative_residual = f_1 / np.linalg.norm(dx.size)
-        if relative_residual < self.params["nl_convergence_tol_res"]:
+        tol_residual = self.params.get("nl_convergence_res_atol", 1e-10)
+        if relative_residual < tol_residual:
             # The objective function is sufficiently small at the full nonlinear step.
             # This means that the nonlinear step is a minimum of the objective function.
             # We can use the update without any relaxation.
@@ -515,9 +513,16 @@ class SplineInterpolationLineSearch:
                 f_pt = f_b
             else:
                 f_pt = f(pt)
-            # Guard against invalid values; signal to shrink to [a, x*] upstream.
+            # Safeguard 2: Check for any non-finite values (NaN or inf)
             if not np.all(np.isfinite(f_pt)):
-                raise NonFiniteSampleError(pt, x[i - 1])
+                logger.warning(
+                    f"Non-finite constraint values at relaxation weight {pt:.6e}. "
+                    "This suggests the Newton update leads to an unphysical state. "
+                    "Truncating line search interval."
+                )
+                # If we get non-finite values, truncate the x vector
+                x = x[: np.where(x == pt)[0][0]]
+                break
             # Collect function values, scalar or vector.
             y_list.append(f_pt)
         if isinstance(y_list[0], np.ndarray):
@@ -786,8 +791,11 @@ class ConstraintLineSearch:
 
 
 class ConstraintLineSearchNonlinearSolver(
+    # The tailoring to contact constraints.
     ConstraintLineSearch,
+    # Technical implementation of the actual search along given update direction.
     SplineInterpolationLineSearch,
+    # General line search.
     LineSearchNewtonSolver,
 ):
-    pass
+    """A mixer class combining all available line search strategies."""

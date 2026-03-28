@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Iterator, Optional
 
+import gmsh
 import numpy as np
 import scipy.sparse as sps
 
@@ -372,6 +373,9 @@ class WellNetwork3d:
             mdg: Mixed-dimensional grid.
 
         """
+        # Bounding planes for the domain, used to identify boundary faces of the well.
+        bounding_planes = self.domain.polytope_from_bounding_box()
+
         # Will be added as g.well_num for the well grids.
         well_num = 0
         for w in self.wells:
@@ -401,18 +405,33 @@ class WellNetwork3d:
 
             for inds_seg, seg in w.segments():
                 tags_seg = [tags_w[i] for i in inds_seg]
-                length = pp.geometry.distances.point_pointset(seg[:, 0], seg[:, 1])
+                length = pp.geometry.distances.point_pointset(seg[:, 0], seg[:, 1])[0]
                 num_pts = int(length / self._mesh_size(w, inds_seg))
                 num_pts = max(num_pts, 2)
                 points_loc = np.linspace(seg[:, 0], seg[:, 1], num_pts).T
                 points_subline = np.hstack((points_subline, points_loc))
 
+                # Flag to tell if this segment ends on the global boundary. This is
+                # needed to identify whether the end point is a tip or on the boundary.
+                segment_ends_on_boundary = False
+
                 # Check if the second end point is a fracture intersection. If not,
                 # proceed to next segment unless we're at the well's second endpoint.
                 if tags_seg[1].size == 0:
                     if inds_seg[1] == w.num_points() - 1:
-                        # We're at the well end, and it corresponds to an internal tip.
-                        endp_tip_tags[1] = True
+                        # We're at an end at the well. Depending on which direction the
+                        # well was traversed, this is either a tip or on the global
+                        # boundary.
+                        for plane in bounding_planes:
+                            dist, _, _ = pp.geometry.distances.points_polygon(
+                                seg[:, -1].reshape(3, 1), plane
+                            )
+                            segment_ends_on_boundary = np.logical_or(
+                                segment_ends_on_boundary, np.isclose(dist, 0)[0]
+                            )
+
+                        endp_tip_tags[1] = not segment_ends_on_boundary
+                        # This is definitely not a fracture intersection.
                         endp_frac_tags[1] = False
                     else:
                         # Remove last point, since it is included in next iteration.
@@ -434,8 +453,8 @@ class WellNetwork3d:
                 well_num += 1
 
                 # Add intersection grid and interfaces if the second segment point is
-                # not a tip.
-                if not endp_tip_tags[1]:
+                # not a tip and not on the global boundary.
+                if not endp_tip_tags[1] and not segment_ends_on_boundary:
                     endp_frac_tags[1] = True
                     sd_isec = _intersection_subdomain(seg[:, 1], mdg)
                     sd_isec.tags["parent_well_index"] = w.index
@@ -461,14 +480,17 @@ class WellNetwork3d:
                     _add_well_2_intersection_interface(sd_w, previous_g_isec, mdg)
 
                 # Finally, update tags for the well's faces (boundary, tip, fracture).
-                bounding_planes = self.domain.polytope_from_bounding_box()
-                boundary = np.zeros(2, dtype=bool)
                 endp_inds = [0, -1]
                 endpts = sd_w.face_centers[:, endp_inds]
+                # Strictly speaking, we already know if the segment ends (index [1]) on
+                # the boundary. However, for code simplicity, we recompute this here.
+                boundary = np.zeros(2, dtype=bool)
                 for plane in bounding_planes:
                     dist, _, _ = pp.geometry.distances.points_polygon(endpts, plane)
                     boundary = np.logical_or(boundary, np.isclose(dist, 0))
 
+                # It was determined earlier whether the second endpoint (index [1]) is a
+                # tip. Set the value for the first endpoint [0] here.
                 endp_tip_tags[0] = np.logical_not(
                     np.logical_or(boundary[0], endp_frac_tags[0])
                 )
@@ -529,6 +551,10 @@ def compute_well_fracture_intersections(
         fracture_network: Three-dimensional fracture network.
 
     """
+    gmsh.initialize()
+    fracture_tags = [f.fracture_to_gmsh() for f in fracture_network.fractures]
+
+    nd = fracture_network.nd
 
     for well in well_network.wells:
         well_pts = np.empty((3, 0))
@@ -540,28 +566,82 @@ def compute_well_fracture_intersections(
             ignore_endpoint_tag = seg_ind[1] < well.num_segments()
             # Keep track of information for this segment
             pts_seg = segment.copy()
-            # Initiate tags for this segment, with empty elements for the endpoints
-            tags_seg = [np.empty(0), np.empty(0)]
-            for fracture, tag in zip(
-                fracture_network.fractures, fracture_network.tags["boundary"]
-            ):
-                if tag:
-                    continue
-                pts_seg, tags_seg = _intersection_segment_fracture(
-                    pts_seg, fracture, tags_seg, ignore_endpoint_tag
+
+            assert pts_seg.shape == (3, 2)
+            pi = [gmsh.model.occ.addPoint(*segment[:, i], 0) for i in range(2)]
+            l = gmsh.model.occ.addLine(pi[0], pi[1])
+            gmsh.model.occ.synchronize()
+
+            # Do a fragmentation to compute intersections.
+            if len(fracture_tags) > 0:
+                _, out_dim_tag_map = gmsh.model.occ.fragment(
+                    [(nd - 2, l)],
+                    [(nd - 1, t) for t in fracture_tags],
+                    removeObject=False,
+                    removeTool=False,
                 )
-            # Sort points of this segment
-            sort_inds, sorted_pts = _argsort_points_along_line_segment(pts_seg)
+            else:
+                # No fractures in the network. Gmsh in this case returns empty output so
+                # we manually set the output to be the input segment.
+                out_dim_tag_map = [[(nd - 2, l)]]
+
+            # The output dimension-tag map contains all output entities, with the first
+            # entry representing the line segment (possibly fragmented into
+            # sub-segments). The other entries represent the fractures, which we do not
+            # need here.
+            gmsh.model.occ.synchronize()
+
+            # EK: This should not happen, but make the assertion to cover any unexpected
+            # (to me) behavior from Gmsh's side.
+            assert len(out_dim_tag_map[0]) > 0, (
+                "Is both the fracture and well list empty?"
+            )
+            # If the first intersected object is not a segment, something is wrong,
+            # likely on a technical (EK's assumptions on Gmsh?) level. Continuing makes
+            # no sense.
+            assert out_dim_tag_map[0][0][0] == nd - 2
+
+            # To get the boundary points of the sub-segments, we extract the boundary of
+            # each sub-segment. Some work is needed to actually extract the point tags.
+            segment_points_dims = [
+                gmsh.model.get_boundary([split_segment], oriented=False)
+                for split_segment in out_dim_tag_map[0]
+            ]
+            segment_points = []
+            for sub_segment in segment_points_dims:
+                for p in sub_segment:
+                    if p[0] == 0:  # point
+                        segment_points.append(p[1])
+            # Uniquify the points of this segment.
+            unique_points = np.asarray(list(set(segment_points)))
+            point_coordinates = []
+            for p_tag in unique_points:
+                x, y, z = gmsh.model.get_bounding_box(0, p_tag)[:3]
+                point_coordinates.append(np.array([[x], [y], [z]]))
+            sort_inds, sorted_pts = _argsort_points_along_line_segment(
+                np.hstack(point_coordinates)
+            )
+            # For all points, find which fractures they are close to and take note.
+            tags_seg = []
+            for p_tag in unique_points[sort_inds]:
+                frac_tag_log = []
+                for fi, f_tag in enumerate(fracture_tags):
+                    dist = gmsh.model.occ.get_distance(0, p_tag, nd - 1, f_tag)[0]
+                    if dist < well_network.tol:
+                        frac_tag_log.append(fracture_network.fractures[fi].index)
+                tags_seg.append(np.array(frac_tag_log, dtype=int))
 
             stop_ind = sort_inds.size - ignore_endpoint_tag
             well_pts = np.hstack((well_pts, sorted_pts[:, :stop_ind]))
             # The last tag might change when it is used for the start point of the
-            # next segment. Store remaining tags in correct order
-            for i in sort_inds[:stop_ind]:
-                well_tags.append(tags_seg[i])
+            # next segment. Store remaining tags.
+            for tag in tags_seg[:stop_ind]:
+                well_tags.append(tag)
         # Overwrite old points and tags for this well
         well.pts = well_pts
         well.tags["intersecting_fractures"] = well_tags
+
+    gmsh.finalize()
 
 
 def compute_well_rock_matrix_intersections(
@@ -732,77 +812,6 @@ def _argsort_points_along_line_segment(
     if seg[dim, 0] > seg[dim, 1]:
         inds = inds[::-1]
     return inds, seg[:, inds]
-
-
-def _intersection_segment_fracture(
-    segment_points: np.ndarray,
-    fracture: pp.PlaneFracture,
-    tags: list[np.ndarray],
-    ignore_endpoint_tag: bool,
-    tol: float = 1e-8,
-) -> tuple[np.ndarray, list[np.ndarray]]:
-    """Compute intersection between a single line segment and fracture.
-
-    If no intersection exists (distance > 0), no updates are done to ``points`` or
-    ``tags``. If the intersection is internal (distance between intersection and both
-    endpoints > 0), the point is appended to ``segment_points`` and a tag appended to
-    ``tags``. If the intersection is on one of the existing points, that point's tag
-    is updated, unless ``ignore_endpoint_tag`` tag is ``True`` (see below).
-
-    Parameters:
-        segment_points: ``shape=(3, num_points)``
-
-            Coordinates of the points on the line segment, sorted as
-            ``[start, end, *any interior points]``.
-        fracture: The plane fracture to be checked for intersections with the line
-            segment.
-        tags: ``len = num_points``
-
-            Identify fractures (by ``fracture.index``) intersecting at each of the
-            points in ``segment_points``.
-        ignore_endpoint_tag: Whether to update the tag of the second endpoint. To be
-            used when looping over a polyline. The last endpoint of this segment will be
-            treated as the first endpoint of the next segment.
-        tol: ``default=1e-8``
-
-            Tolerance used to determine whether there is an intersection between the
-            segment and the fracture.
-
-    Returns:
-        Tuple with two elements.
-
-        :obj:`~numpy.ndarray`: ``shape=(3, num_points)``
-
-            Updated coordinates of the points on the line segment, sorted as
-            ``[start, end, *any interior points]``. Any new points have been appended.
-        :obj:`list`: ``len = num_points``
-
-            Updated tags.
-
-    """
-    distance, isec_pt = pp.geometry.distances.segments_polygon(
-        segment_points[:, 0], segment_points[:, 1], fracture.pts
-    )
-    if distance > tol:
-        # No intersection exists
-        return segment_points, tags
-    dist_endpt_isec = pp.geometry.distances.point_pointset(isec_pt, segment_points)
-    ind_point_at_node = np.isclose(dist_endpt_isec, 0)
-
-    if ignore_endpoint_tag and ind_point_at_node[1]:
-        # No updates wanted, see parameter description of ignore_endpoint_tag
-        return segment_points, tags
-    elif np.any(ind_point_at_node):
-        # The new intersection point already exists on the segment (endpoint or
-        # internal). Point is not added, but tags are updated with the fracture index.
-        ind_loc = ind_point_at_node.nonzero()[0][0]  # type: ignore
-        if fracture.index is not None:
-            tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
-    else:
-        # New (internal) point. Store point and tag
-        segment_points = np.hstack((segment_points, isec_pt))
-        tags.append(np.array(fracture.index))
-    return segment_points, tags
 
 
 def _intersection_subdomain(
