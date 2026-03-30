@@ -223,6 +223,11 @@ class ModelGeometry(pp.PorePyModel):
                 if isinstance(sd, (pp.TriangleGrid, pp.TetrahedralGrid)):
                     new_centers, *_ = compute_circumcenters(sd, threshold)
                     sd.cell_centers = new_centers
+                else:
+                    logger.warning(
+                        f"Moving cell centers to circumcenters omitted on grid {sd.id}"
+                        f" of non-simplextype {type(sd)}."
+                    )
 
     def gmsh_file_name(self) -> Path:
         """Name of the file used to for input and output by gmsh.
