@@ -262,7 +262,7 @@ class AdParser:
             # but expect adjustments here.
             dofs = equation_system.dofs_of([var])
             diag_states.append(state[dofs])
-            ind_diag_vars.append(dofs - dofs[0])
+            ind_diag_vars.append(dofs)
             offsets.append(dofs[0])
 
         # This should give a diagonal representation of the relevant variables.
