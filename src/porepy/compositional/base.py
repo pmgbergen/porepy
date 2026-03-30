@@ -48,7 +48,7 @@ Important:
 
 from __future__ import annotations
 
-from typing import Generator, Generic, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, Generator, Generic, Optional, Sequence, TypeVar
 
 import numpy as np
 
@@ -68,9 +68,9 @@ __all__ = [
     "PhaseLike",
 ]
 
-
-DomainFunctionType = pp.DomainFunctionType
-ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
+if TYPE_CHECKING:
+    DomainFunctionType = pp.DomainFunctionType
+    ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class Component:

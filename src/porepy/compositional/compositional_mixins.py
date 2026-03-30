@@ -21,7 +21,7 @@ Important:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast
+from typing import TYPE_CHECKING, Callable, Sequence, cast
 
 import porepy as pp
 from porepy.models.abstract_equations import EquationMixin
@@ -55,6 +55,9 @@ Important:
     variable using the symbols here.
 
 """
+if TYPE_CHECKING:
+    DomainFunctionType = pp.DomainFunctionType
+    ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 def _no_property_function(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:

@@ -21,17 +21,18 @@ class OneVerticalWell(pp.PorePyModel):
     def meshing_arguments(self) -> dict:
         # Length scale:
         ls = self.units.convert_units(1, "m")
+        # Set default values, then update with any user-provided meshing arguments.
         h = 0.15 * ls
         mesh_sizes = {
             "cell_size_fracture": h,
             "cell_size_boundary": h,
             "cell_size_min": 0.2 * h,
         }
-
+        mesh_sizes.update(self.params.get("meshing_args", {}))
         return mesh_sizes
 
-    def grid_type(self) -> Literal["simplex"]:
-        return "simplex"
+    def grid_type(self) -> Literal["simplex", "cartesian"]:
+        return self.params.get("grid_type", "simplex")
 
 
 class OneSlantedWell(pp.PorePyModel):

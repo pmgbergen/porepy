@@ -24,8 +24,10 @@ In the simulation, cold fluid is injected through an injection well in the top r
 </p>
 
 # How do I get started?
-The best place to start is the [tutorials]( https://github.com/pmgbergen/porepy/tree/develop/tutorials); we suggest looking at the Readme file for guidance on how to approach the tutorials. 
-The tutorials show how to use the code for various common cases and explain key PorePy functionality.
+The best place to start is the [tutorials]( https://github.com/pmgbergen/porepy/tree/develop/tutorials); we suggest looking at the Readme file for guidance on how to approach the tutorials.
+The tutorials show how to use the code for various common cases and explain key PorePy functionality. 
+For additional inspiration, the [examples](https://github.com/pmgbergen/porepy/tree/develop/src/porepy/examples) folder contains a curated collection of simulation setups, including flow and poromechanics benchmarks, which can serve as starting points for your own simulations.
+
 The code can be accessed in several ways:
 *	The most immediate access is running PorePy in your web browser. If you have a GitHub account, use a GitHub codespace for PorePy following [these instructions]( https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository). Note that the building time will be a few minutes.
 *	If you want to run the code on your own machine, you have two options:

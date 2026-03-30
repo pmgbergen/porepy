@@ -106,9 +106,9 @@ def square_with_orthogonal_fractures(
             # ratio.
             for key in [
                 "cell_size",
-                "mesh_size_frac",
+                "mesh_size_fracture",
                 "mesh_size_min",
-                "mesh_size_bound",
+                "mesh_size_boundary",
             ]:
                 if key in meshing_args:
                     meshing_args[key] = meshing_args[key] / interface_refinement_ratio
@@ -201,7 +201,11 @@ def cube_with_orthogonal_fractures(
 
     """
     all_fractures = fracture_sets.orthogonal_fractures_3d(size)
-    fractures = [all_fractures[i] for i in fracture_indices]
+    # To please Mypy, we formally set the type to PlaneFracture or EllipticFracture,
+    # even though we know they are all PlaneFractures.
+    fractures: list[pp.PlaneFracture | pp.EllipticFracture] = [
+        all_fractures[i] for i in fracture_indices
+    ]
     domain = domains.nd_cube_domain(3, size)
 
     # Cast to FractureNetwork3d to avoid ambiguity leading to mypy errors
@@ -257,9 +261,9 @@ def benchmark_regular_2d(
     media.
 
     Parameters:
-        meshing_args: Dictionary containing at least "mesh_size_frac". If the optional
-            values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
-            set by utils.set_mesh_sizes.
+        meshing_args: Dictionary containing at least "mesh_size_fracture". If the
+            optional values of "mesh_size_boundary" and "mesh_size_min" are not
+            provided, these are set by utils.set_mesh_sizes.
         **meshing_kwargs: Keyword arguments for meshing as used by
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 

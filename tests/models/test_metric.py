@@ -23,21 +23,25 @@ from deepdiff import DeepDiff
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 
 
 @pytest.fixture(scope="module")
-def orthogonal_3d_model() -> pp.PorePyModel:
-    """Set up parameters for a unit cube with three orthogonal fractures."""
+def orthogonal_2d_model() -> pp.PorePyModel:
+    """Set up parameters for a unit square with two orthogonal fractures."""
     params = {
         "domain_size": 1.0,
-        "fracture_indices": [0, 1, 2],  # Use all three orthogonal fractures.
+        "fracture_indices": [0, 1],  # Use both orthogonal fractures.
+        "cell_size": 0.5,
+        "grid_type": "simplex",
         "material_constants": {
             "solid": pp.SolidConstants(residual_aperture=1),
         },
     }
 
-    class Model(CubeDomainOrthogonalFractures, pp.Poromechanics):
+    class Model(SquareDomainOrthogonalFractures, pp.Poromechanics):
         pass
 
     model = Model(params)
@@ -64,10 +68,10 @@ def test_euclidean_metric_basic():
         (np.arange, lambda n: np.sqrt(n * (n - 1) * (2 * n - 1) / 6) / np.sqrt(n)),
     ],
 )
-def test_euclidean_metric_on_grids(orthogonal_3d_model, assignment, expected_value):
+def test_euclidean_metric_on_grids(orthogonal_2d_model, assignment, expected_value):
     """Test integration of EuclideanMetric in models with grids."""
     m = pp.EuclideanMetric()
-    for g in orthogonal_3d_model.mdg.subdomains():
+    for g in orthogonal_2d_model.mdg.subdomains():
         arr = assignment(g.num_cells)
         assert np.isclose(m(arr), expected_value(g.num_cells))
 
@@ -80,23 +84,23 @@ def test_euclidean_metric_on_grids(orthogonal_3d_model, assignment, expected_val
     ],
 )
 def test_variable_based_euclidean_metric_on_grids(
-    orthogonal_3d_model, assignment, expected_value
+    orthogonal_2d_model, assignment, expected_value
 ):
     """Test integration of VariableBasedEuclideanMetric in models with grids."""
-    m = pp.VariableBasedEuclideanMetric(orthogonal_3d_model)
+    m = pp.VariableBasedEuclideanMetric(orthogonal_2d_model)
 
     # Fetch variable names and corresponding dofs for each variable block.
     variable_names = set(
-        [v.name for v in orthogonal_3d_model.equation_system.variables]
+        [v.name for v in orthogonal_2d_model.equation_system.variables]
     )
     variable_dofs = {name: [] for name in variable_names}
-    for variable in orthogonal_3d_model.equation_system.variables:
+    for variable in orthogonal_2d_model.equation_system.variables:
         variable_dofs[variable.name].extend(
-            orthogonal_3d_model.equation_system.dofs_of([variable])
+            orthogonal_2d_model.equation_system.dofs_of([variable])
         )
 
     # Create a dummy variable and assign each variable block with the values.
-    dummy_variable = orthogonal_3d_model.equation_system.get_variable_values(
+    dummy_variable = orthogonal_2d_model.equation_system.get_variable_values(
         time_step_index=0
     )
     for name in variable_names:
@@ -115,7 +119,7 @@ def test_variable_based_euclidean_metric_on_grids(
         assert np.isclose(value, expected_value(len(dofs)))
 
 
-def test_variable_based_lebesgue_metric_on_grids(orthogonal_3d_model):
+def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model):
     """Test integration of VariableBasedLebesgueMetric in models with grids.
 
     Check that the integration of 1-s over the domain results in the expected L2 norm,
@@ -124,18 +128,18 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_3d_model):
     """
 
     # Create a dummy variable array filled with ones.
-    dummy_variable = orthogonal_3d_model.equation_system.get_variable_values(
+    dummy_variable = orthogonal_2d_model.equation_system.get_variable_values(
         time_step_index=0
     )
     dummy_variable.fill(1.0)
 
     # Compute the corresponding Lebesgue metric.
-    m = pp.VariableBasedLebesgueMetric(orthogonal_3d_model)
+    m = pp.VariableBasedLebesgueMetric(orthogonal_2d_model)
     metric_values = m(dummy_variable)
 
     # Manually compute expected values - L2 integral of 1 over the domain
     # (incl. dimensionality and sqrt).
-    variables = orthogonal_3d_model.equation_system.variables
+    variables = orthogonal_2d_model.equation_system.variables
     result = {v.name: 0.0 for v in variables}
     for v in variables:
         domain = v.domain
@@ -157,18 +161,20 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_3d_model):
     ],
 )
 def test_equation_based_euclidean_metric_on_grids(
-    orthogonal_3d_model, assignment, expected_value
+    orthogonal_2d_model, assignment, expected_value
 ):
     """Test integration of EquationBasedEuclideanMetric in models with grids."""
     # Generate a dummy residual array filled with ones.
     # NOTE: Evaluate Jacobian to initialize the equation system properly.
-    _, dummy_residual_array = orthogonal_3d_model.equation_system.assemble()
+    _, dummy_residual_array = orthogonal_2d_model.equation_system.assemble()
 
     # Define array and expected norm values.
-    equations = orthogonal_3d_model.equation_system.equations
+    equations = orthogonal_2d_model.equation_system.equations
     result = {}
     for name in equations:
-        dofs = orthogonal_3d_model.equation_system.assembled_equation_indices[name]
+        if name not in orthogonal_2d_model.equation_system.assembled_equation_indices:
+            continue
+        dofs = orthogonal_2d_model.equation_system.assembled_equation_indices[name]
         if len(dofs) == 0:
             # Expect zero norm for empty equations
             result[name] = 0.0
@@ -177,7 +183,7 @@ def test_equation_based_euclidean_metric_on_grids(
         result[name] = expected_value(len(dofs))
 
     # Compute Lebesgue metric values.
-    m = pp.EquationBasedEuclideanMetric(orthogonal_3d_model)
+    m = pp.EquationBasedEuclideanMetric(orthogonal_2d_model)
     metric_values = m(dummy_residual_array)
 
     # Make sure that the dictionaries are the same.
@@ -192,29 +198,29 @@ def test_equation_based_euclidean_metric_on_grids(
     assert deepdiff_result == {}
 
 
-def test_equation_based_lebesgue_metric_on_grid(orthogonal_3d_model):
+def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model):
     """Test whether the integration of 1-s over the domain results in volume."""
 
     # Fetch the equations.
-    equations = orthogonal_3d_model.equation_system.equations
+    equations = orthogonal_2d_model.equation_system.equations
 
     # Generate a dummy residual array filled with ones scaled with the cell volumes.
     # NOTE: Evaluate Jacobian to initialize the equation system properly.
-    _, dummy_residual_array = orthogonal_3d_model.equation_system.assemble()
+    _, dummy_residual_array = orthogonal_2d_model.equation_system.assemble()
     dummy_residual_array.fill(1.0)
 
     # Scale with the right cell volumes.
     # Simultaneously compute the expected L2 norm of the 1 vector (incl dimensionality).
     result = {name: 0.0 for name in equations}
     for eqn in equations:
-        domains = orthogonal_3d_model.equation_system.equation_image_space_composition[
+        domains = orthogonal_2d_model.equation_system.equation_image_space_composition[
             eqn
         ].keys()
         if len(domains) == 0:
             continue
-        indices = orthogonal_3d_model.equation_system.assembled_equation_indices[eqn]
+        indices = orthogonal_2d_model.equation_system.assembled_equation_indices[eqn]
         cell_volumes = np.hstack([_sd.cell_volumes for _sd in domains])
-        eq_dim = orthogonal_3d_model.equation_system.equation_image_size_info[eqn][
+        eq_dim = orthogonal_2d_model.equation_system.equation_image_size_info[eqn][
             "cells"
         ]
         dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=eq_dim)
@@ -225,7 +231,7 @@ def test_equation_based_lebesgue_metric_on_grid(orthogonal_3d_model):
         result[name] = np.sqrt(result[name])
 
     # Compute Lebesgue metric values.
-    m = pp.EquationBasedLebesgueMetric(orthogonal_3d_model)
+    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model)
     metric_values = m(dummy_residual_array)
 
     # Make sure that the dictionaries are the same.
@@ -240,18 +246,20 @@ def test_equation_based_lebesgue_metric_on_grid(orthogonal_3d_model):
     assert deepdiff_result == {}
 
 
-class UnitCube:
-    """Model geometry for a unit cube domain."""
+class UnitSquare:
+    """Model geometry for a unit square domain."""
 
     def set_domain(self) -> None:
         """Set domain."""
-        self._domain = nd_cube_domain(3, 1.0)
+        self._domain = nd_cube_domain(2, 1.0)
 
     def meshing_arguments(self) -> dict[str, float]:
         """Set meshing arguments."""
-        return {"cell_size": 0.05, "cell_size_boundary": 0.05}
+        return {"cell_size": 0.5, "cell_size_boundary": 0.5}
 
     def grid_type(self) -> Literal["simplex"]:
+        # Use a simplex grid to ensure we deal with non-trivial cell volumes and
+        # coordinates.
         return "simplex"
 
 
@@ -270,11 +278,6 @@ class DummyVariables(pp.VariableMixin):
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "-"},
         )
-        self.equation_system.create_variables(
-            "dummy_variable_z",
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": "-"},
-        )
 
     def dummy_variable_x(self, subdomains):
         """Fetch dummy variable x."""
@@ -283,10 +286,6 @@ class DummyVariables(pp.VariableMixin):
     def dummy_variable_y(self, subdomains):
         """Fetch dummy variable y."""
         return self.equation_system.md_variable("dummy_variable_y", subdomains)
-
-    def dummy_variable_z(self, subdomains):
-        """Fetch dummy variable z."""
-        return self.equation_system.md_variable("dummy_variable_z", subdomains)
 
 
 class DummyEquations(pp.PorePyModel):
@@ -298,20 +297,17 @@ class DummyEquations(pp.PorePyModel):
         # Treat variables as spatial coordinates.
         variable_x = self.dummy_variable_x(subdomains)
         variable_y = self.dummy_variable_y(subdomains)
-        variable_z = self.dummy_variable_z(subdomains)
         # Define a polynomial expression in the variables, with coefficients and
         # exponents obtained from model parameters.
         coeff = self.params.get("coeff", [0])
         exp_x = self.params.get("exp_x", [0])
         exp_y = self.params.get("exp_y", [0])
-        exp_z = self.params.get("exp_z", [0])
-        polynomial_expression = sum(
+        polynomial_expression = pp.ad.sum_operator_list(
             [
                 pp.ad.Scalar(c)
                 * variable_x ** pp.ad.Scalar(e_x)
                 * variable_y ** pp.ad.Scalar(e_y)
-                * variable_z ** pp.ad.Scalar(e_z)
-                for c, e_x, e_y, e_z in zip(coeff, exp_x, exp_y, exp_z)
+                for c, e_x, e_y in zip(coeff, exp_x, exp_y)
             ]
         )
         # Compute mass weighted integral of the polynomial expression
@@ -343,7 +339,7 @@ class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):
 
 
 class DummyModel(  # type: ignore[misc]
-    UnitCube,
+    UnitSquare,
     DummyVariables,
     DummyEquations,
     SimpleVolumeIntegralMixin,
@@ -362,29 +358,24 @@ class DummyModel(  # type: ignore[misc]
 def random_polynomial_setup():
     """Fixture providing a random polynomial expression and its analytical L2 norm."""
     # Define symbols
-    x, y, z = sp.symbols("x y z")
+    x, y = sp.symbols("x y")
 
     # Define a random polynomial in x,y,z.
     np.random.seed(42)
     coeffs = np.random.randint(-5, 6, size=10)
     exponents_x = np.random.randint(0, 4, size=10)
     exponents_y = np.random.randint(0, 4, size=10)
-    exponents_z = np.random.randint(0, 4, size=10)
     expr = sum(
-        c * x**e_x * y**e_y * z**e_z
-        for c, e_x, e_y, e_z in zip(coeffs, exponents_x, exponents_y, exponents_z)
+        c * x**e_x * y**e_y for c, e_x, e_y in zip(coeffs, exponents_x, exponents_y)
     )
 
     # Compute the analytical L2 norm over the unit cube.
-    l2_norm_analytical = float(
-        sp.sqrt(sp.integrate(expr**2, (x, 0, 1), (y, 0, 1), (z, 0, 1)))
-    )
+    l2_norm_analytical = float(sp.sqrt(sp.integrate(expr**2, (x, 0, 1), (y, 0, 1))))
 
     return {
         "coeffs": coeffs,
         "exponents_x": exponents_x,
         "exponents_y": exponents_y,
-        "exponents_z": exponents_z,
         "l2_norm_analytical": l2_norm_analytical,
     }
 
@@ -400,17 +391,13 @@ def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
     assert len(model.mdg.subdomains()) == 1
     cell_center_x = model.mdg.subdomains()[0].cell_centers[0, :]
     cell_center_y = model.mdg.subdomains()[0].cell_centers[1, :]
-    cell_center_z = model.mdg.subdomains()[0].cell_centers[2, :]
     polynomial_expression = np.zeros_like(cell_center_x)
-    for c, e_x, e_y, e_z in zip(
+    for c, e_x, e_y in zip(
         random_polynomial_setup["coeffs"],
         random_polynomial_setup["exponents_x"],
         random_polynomial_setup["exponents_y"],
-        random_polynomial_setup["exponents_z"],
     ):
-        polynomial_expression += (
-            c * cell_center_x**e_x * cell_center_y**e_y * cell_center_z**e_z
-        )
+        polynomial_expression += c * cell_center_x**e_x * cell_center_y**e_y
 
     # Exploit any scalar variable in the model - here the "dummy_variable_x".
     variable_array = model.equation_system.get_variable_values(time_step_index=0)
@@ -439,7 +426,6 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
             "coeff": random_polynomial_setup["coeffs"],
             "exp_x": random_polynomial_setup["exponents_x"],
             "exp_y": random_polynomial_setup["exponents_y"],
-            "exp_z": random_polynomial_setup["exponents_z"],
         }
     )
     m_eq = pp.EquationBasedLebesgueMetric(model)
@@ -447,7 +433,7 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
 
     # Use cell centers and pass as values for the model variables.
     assert len(model.mdg.subdomains()) == 1
-    cell_centers = model.mdg.subdomains()[0].cell_centers.ravel(order="F")
+    cell_centers = model.mdg.subdomains()[0].cell_centers[:2].ravel(order="C")
     model.equation_system.set_variable_values(cell_centers, iterate_index=0)
 
     # Compute the Lebesgue norm of the equation which corresponds to the

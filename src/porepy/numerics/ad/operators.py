@@ -10,6 +10,7 @@ from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Literal,
@@ -27,9 +28,11 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from .forward_mode import AdArray
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 __all__ = [
     "Operator",
@@ -665,6 +668,12 @@ class Operator:
             The sum of self and other.
 
         """
+        # When using the sum operator on a list with a single item, Python will call the
+        # addition operator with other == 0. Convert that other to an Ad Scalar with
+        # value 0 to avoid errors in the addition operator.
+        if other == 0:
+            other = Scalar(0)
+
         children = self._parse_other(other)
         return Operator(children=children, operation=Operations.add, name="+ operator")
 
