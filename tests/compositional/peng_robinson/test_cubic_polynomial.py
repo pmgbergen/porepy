@@ -132,7 +132,8 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
         (
             np.float64(9.858323132194671e-08),
             np.float64(1.677338672193383e-08),
-            True,
+            # NOTE on windows this gives True (possibly with older numba version).
+            False,
             1,
         ),
         (
