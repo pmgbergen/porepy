@@ -1507,7 +1507,7 @@ class Scalar(Operator):
 
     def _key(self) -> str:
         if self._cached_key is None:
-            self._cached_key = f"(scalar, name={self.name}, {self._value})"
+            self._cached_key = f"(scalar, {self._value})"
         return self._cached_key
 
     def __repr__(self) -> str:
@@ -1582,6 +1582,11 @@ class TimeDependentScalar(Scalar, TimeDependentOperator):
             op.set_value(-self._history[-(1 + self.time_step_index)])
 
         return op
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            self._cached_key = f"(time-dependent scalar, {self._name}, {self._value})"
+        return self._cached_key
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """See :meth:`Operator.parse`.
