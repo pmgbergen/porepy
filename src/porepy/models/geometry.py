@@ -13,6 +13,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.utils.grid_utils import compute_circumcenters
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,12 @@ class ModelGeometry(pp.PorePyModel):
 
     _domain: pp.Domain
     _fractures: list
+
+    stress_discretization: Callable[
+        [list[pp.Grid]], pp.ad.TpsaAd | pp.ad.MpsaAd | pp.ad.BiotAd
+    ]
+    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.TpfaAd | pp.ad.MpfaAd]
+    darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.TpfaAd | pp.ad.MpfaAd]
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid.
@@ -47,6 +54,9 @@ class ModelGeometry(pp.PorePyModel):
         # Set up well network and add wells to the mixed-dimensional grid.
         self.set_well_network()
         self.add_wells_to_mdg()
+
+        # Move cell centers if requested.
+        self.move_cell_centers()
 
     @property
     def domain(self) -> pp.Domain:
@@ -161,6 +171,63 @@ class ModelGeometry(pp.PorePyModel):
         if meshing_kwargs is None:
             meshing_kwargs = {}
         return meshing_kwargs
+
+    def use_circumcenters(self) -> bool:
+        """Checks whether cell centers in subdomains should be moved to circumcenters
+        (instead of barycenters which is the default).
+
+        The criteria to do that are:
+
+        1. ``params["meshing_kwargs"]["circumcenter_threshold"]`` is a positive float.
+           Defaults to 0.
+        2. TPxA is used for stress, Darcy or Fourier flux discretization (at least one).
+
+        Returns:
+            A bool indicating whether the movement should be performed or not.
+
+        """
+        is_requested = bool(self.meshing_arguments().get("circumcenter_threshold", 0))
+
+        tpfa_for_fourier = False
+        tpfa_for_darcy = False
+        tpsa_for_stress = False
+
+        subdomains = self.mdg.subdomains()
+
+        if hasattr(self, "stress_keyword"):
+            if isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
+                tpsa_for_stress = True
+
+        if hasattr(self, "fourier_keyword"):
+            if isinstance(self.fourier_flux_discretization(subdomains), pp.ad.TpfaAd):
+                tpfa_for_fourier = True
+
+        if hasattr(self, "darcy_keyword"):
+            if isinstance(self.darcy_flux_discretization(subdomains), pp.ad.TpfaAd):
+                tpfa_for_darcy = True
+
+        return is_requested and (tpfa_for_darcy or tpfa_for_fourier or tpsa_for_stress)
+
+    def move_cell_centers(self) -> None:
+        """Sets the cell centers according to specifications.
+
+        See also:
+            :meth:`use_circumcenters` for subdomains.
+
+        """
+
+        if self.use_circumcenters():
+            # NOTE: Moving to circumcenter only performed for simplex grids.
+            threshold = float(self.meshing_arguments()["circumcenter_threshold"])
+            for sd in self.mdg.subdomains():
+                if isinstance(sd, (pp.TriangleGrid, pp.TetrahedralGrid)):
+                    new_centers, *_ = compute_circumcenters(sd, threshold)
+                    sd.cell_centers = new_centers
+                else:
+                    logger.warning(
+                        f"Moving cell centers to circumcenters omitted on grid {sd.id}"
+                        f" of non-simplextype {type(sd)}."
+                    )
 
     def gmsh_file_name(self) -> Path:
         """Name of the file used to for input and output by gmsh.

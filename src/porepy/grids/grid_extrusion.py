@@ -229,8 +229,8 @@ def _extrude_2d(
             faces in the extruded grid that come from face ``i`` in the original grid.
 
     """
-
-    g.compute_geometry()
+    if not hasattr(g, "cell_centers"):
+        g.compute_geometry()
 
     negative_extrusion = np.all(z <= 0)
 
