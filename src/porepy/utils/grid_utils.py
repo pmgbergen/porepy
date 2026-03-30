@@ -254,7 +254,8 @@ def compute_circumcenters(
 
     # The circumcenter is given by c = n_0 + Ab.
     # NOTE Here we use einsum, because it's a batched matrix-vector product. Code
-    # more transparent and faster then moving axes around and doing the product in BLAS.
+    # more transparent and faster then moving axes around and doing the product using
+    # matmul.
     ccs: NDArray[np.float64] = n[0] + np.einsum("dkn,dn->kn", At, b_r)
     assert ccs.shape == (3, numc)
 
