@@ -174,6 +174,12 @@ def test_tested_vs_testable_methods_single_phase_flow(
     #       `testable_methods` with the list of `tested_methods`. Remember to debug
     #       while running all the tests from the module so that you don't incur in (1).
     #
+    missing = [name for name in all_testable_methods if name not in all_tested_methods]
+    # NOTE This extra assertion helps detect missing methods during debugging.
+    assert len(missing) == 0, (
+        f"Some testable methods are not tested: {missing}.\nPlease add them to the "
+        "parametrization of `test_ad_operator_methods_single_phase_flow`."
+    )
     assert all_tested_methods == all_testable_methods
 
 

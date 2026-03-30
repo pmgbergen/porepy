@@ -402,10 +402,8 @@ def test_mixture_member_assignment(
         assert isinstance(
             phase.specific_enthalpy(boundary_grids), pp.ad.TimeDependentDenseArray
         )
-        assert isinstance(
-            phase.specific_internal_energy(boundary_grids),
-            pp.ad.TimeDependentDenseArray,
-        )
+        # NOTE By default, specific internal energy is a dependent quantity, so we
+        # do not test it on the boundary.
         # NOTE Volume is taken as the reciprocal of density, hence a general operator
         assert isinstance(phase.specific_volume(boundary_grids), pp.ad.Operator)
         assert isinstance(
@@ -464,8 +462,13 @@ def test_mixture_member_assignment(
     # The mixture must implement thermodynamic laws, they must not be variables
     assert isinstance(model.fluid.density(subdomains), pp.ad.Operator)
     assert not isinstance(model.fluid.density(subdomains), pp.ad.Variable)
-    assert isinstance(model.fluid.specific_volume(subdomains), pp.ad.Operator)
-    assert not isinstance(model.fluid.specific_volume(subdomains), pp.ad.Variable)
+    if not pc.has_equilibrium_specified(model):
+        # Volume defined using fractions, which are not available without equilibrium.
+        with pytest.raises(pc.CompositionalModellingError):
+            model.fluid.specific_volume(subdomains)
+    else:
+        assert isinstance(model.fluid.specific_volume(subdomains), pp.ad.Operator)
+        assert not isinstance(model.fluid.specific_volume(subdomains), pp.ad.Variable)
     if pc.has_equilibrium_specified(model):
         assert isinstance(model.fluid.specific_enthalpy(subdomains), pp.ad.Operator)
         assert not isinstance(model.fluid.specific_enthalpy(subdomains), pp.ad.Variable)

@@ -2,13 +2,6 @@
 
 from __future__ import annotations
 
-# For debugging tests or runs without compilation.
-# NOTE: Consider making this either default for all tests, and run the tests in pure
-# Python, or somehow parametrize the test suite, which runs the compiled code only
-# during the weekend.
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 from threading import Lock
 from typing import Literal
 
@@ -23,8 +16,9 @@ def calculate_expected_order(
     gaslike: bool,
     tol: float,
     /,
-    smooth_sc: float = 0.0,
-    smooth3: float = 0.0,
+    *,
+    sc_bw: float = 0.0,
+    sm: float = 0.0,
     AB: tuple[float, float] | np.ndarray | None = None,
     pTx: tuple[float, float, np.ndarray] | tuple[float, float] | None = None,
     eos: pr.CompiledPengRobinson | None = None,
@@ -75,7 +69,7 @@ def calculate_expected_order(
 
     # Order loss for super-critical smoothing because derivatives of smoothing weights
     # are not computed.
-    if ec >= 10 and smooth_sc > 0.0:
+    if ec >= 10 and sc_bw > 0.0:
         expected_order = 1
 
     # Order loss for extended super-critical root near the zero-cohesion limit.
@@ -99,7 +93,7 @@ def calculate_expected_order(
     # weights are not computed.
     if (
         pr.get_root_case(pr.c_from_AB(A, B), tol) == 3
-        and smooth3 > 0
+        and sm > 0
         and not pr.is_supercritical(A, B)
     ):
         expected_order = 1

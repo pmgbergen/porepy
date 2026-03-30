@@ -837,14 +837,8 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
 
     def set_materials(self):
-        """Sets the flash class after defining the fluid via super-call.
-
-        By default, the unified flash is used, assuming all phases use the same
-        (compiled) equation of state.
-
-        If ``params['compile']`` is True (default), both flash and EoS are compiled.
-
-        """
+        """Asserts that local equilibrium conditions are specified before setting the
+        flash."""
         super().set_materials()
 
         assert pc.has_equilibrium_specified(self), (
@@ -867,15 +861,23 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         # Import here for runtime reasons of global import (compilation).
         import porepy.compositional.flash as pf
 
-        params = cast(dict, self.params.get("flash_params", {}))
-        assert isinstance(params, dict), "'flash_params' expected to be dictionary."
-        if "initializer" not in params:
-            params["initializer"] = pf.HeuristicVLInitializer
+        # Setting default flash params.
+        if "flash_params" not in self.params:
+            self.params["flash_params"] = {
+                "compile": True,
+                "compile_args": (),
+            }
 
-        self.flash = pf.CompiledPersistentVariableFlash(self.fluid, params=params)
+        assert isinstance(self.params["flash_params"], dict), (
+            "params['flash_params'] expected to be dictionary."
+        )
 
-        if self.params.get("compile", True):
-            self.flash.compile(*self.params.get("flash_compiler_args", tuple()))
+        self.flash = pf.CompiledPersistentVariableFlash(
+            self.fluid, params=self.params["flash_params"]
+        )
+
+        if self.params["flash_params"]["compile"]:
+            self.flash.compile(*self.params["flash_params"]["compile_args"])
 
     def update_derived_quantities(self):
         """Normalizes fractional variables in the case of violation of the bound

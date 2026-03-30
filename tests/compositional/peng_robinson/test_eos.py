@@ -568,8 +568,8 @@ def test_property_derivatives(
     expected_order = calculate_expected_order(
         True if state == pp.compositional.PhysicalState.gas else False,
         tol,
-        smooth_sc=smooth_sc,
-        smooth3=smooth3,
+        sc_bw=smooth_sc,
+        sm=smooth3,
         pTx=(x0[0], x0[1], x0[2:]) if ncomp > 1 else (x0[0], x0[1]),
         eos=pr_eos,
     )
@@ -667,7 +667,7 @@ def test_real_mixture_obeys_reference_state(
     xn = np.zeros((comps_and_phases[0], N))
     xn[0] = 1.0
     # Avoid smoothing since triple point has two stable phases.
-    params = [0.0, 0.0]
+    params = [0.0, 0.0, 0.0, 0.0]
 
     prop_l = pr_eos.compute_phase_properties(
         pp.compositional.PhysicalState.liquid, p, T, xn, params=params

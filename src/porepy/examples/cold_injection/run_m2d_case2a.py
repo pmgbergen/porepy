@@ -103,19 +103,19 @@ model_params["equilibrium_specification"] = (
     "persistent-variables",
 )
 if ISOCHORIC_NPC:
-    model_params["flash_compiler_args"] = (
+    model_params["flash_params"]["compile_args"] = (
         pp.compositional.FlashSpec.pT,
         pp.compositional.FlashSpec.vT,
     )
     model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.vT
 else:
     if model_params["flash_params"]["global_iteration_stride"] < max_iterations:
-        model_params["flash_compiler_args"] = (
+        model_params["flash_params"]["compile_args"] = (
             pp.compositional.FlashSpec.pT,
             pp.compositional.FlashSpec.vT,
         )
     else:
-        model_params["flash_compiler_args"] = (pp.compositional.FlashSpec.pT,)
+        model_params["flash_params"]["compile_args"] = (pp.compositional.FlashSpec.pT,)
     model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
 
 model_params["variable_scaling_linear_rpc"] = {

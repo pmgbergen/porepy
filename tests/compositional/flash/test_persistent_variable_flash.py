@@ -116,15 +116,11 @@ def _get_base_dim(cp: tuple[int, str], spec: pc.FlashSpec) -> int:
     # Phase fractions and partial fractions
     base_dim = ncomp * nphase + nphase - 1
 
-    match spec:
-        case pc.FlashSpec.pT | pc.FlashSpec.vT:
-            pass
-        case pc.FlashSpec.ph:
-            base_dim += 1
-        case pc.FlashSpec.vh | pc.FlashSpec.vu:
-            base_dim += 2 + nphase - 1
-        case _:
-            assert False, "Uncovered flash specification in test."
+    if spec >= pc.FlashSpec.vT:  # Pressure variable.
+        base_dim += 1
+
+    if spec not in (pc.FlashSpec.pT, pc.FlashSpec.vT):  # Temperature variable.
+        base_dim += 1
 
     return base_dim
 
@@ -144,16 +140,12 @@ def _dh_from_cp(
     h_p = np.logspace(3, -3, 7)
     h_T = np.logspace(2, -4, 7)
 
-    h_all: list[np.ndarray]
-    match spec:
-        case pc.FlashSpec.pT | pc.FlashSpec.vT:
-            h_all = [h_fractions] * dim_base
-        case pc.FlashSpec.ph:
-            h_all = [h_T] + [h_fractions] * (dim_base - 1)
-        case pc.FlashSpec.vh | pc.FlashSpec.vu:
-            h_all = [h_p, h_T] + [h_fractions] * (dim_base - 2)
-        case _:
-            assert False, "Uncovered flash specification in test."
+    h_all: list[np.ndarray] = [h_fractions] * (nphase - 1 + ncomp * nphase)
+    if spec not in (pc.FlashSpec.pT, pc.FlashSpec.vT):
+        h_all = [h_T] + h_all
+    if spec >= pc.FlashSpec.vT:
+        h_all = [h_p] + h_all
+
     return [(d, h) for d, h in zip(directions, h_all)]
 
 

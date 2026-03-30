@@ -26,6 +26,7 @@ units = pp.Units()
 
 
 model_params = {
+    "variable_scaling_linear_rpc": None,
     "linear_solver": "pypardiso",
     "units": units,
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
@@ -74,9 +75,15 @@ model_params = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "phase_property_params": None,  # See Phase.compute_properties for details.
+    "has_time_dependent_boundary_values": False,
     # Contact mechanics
     "traction_estimate_p_mean": 5.0,
     "adaptive_indicator_scaling": 1,  # Scale the indicator adaptively for robustness.
+    # Flash calculations
+    "flash_params": {
+        "compile": True,
+        "compile_args": tuple(),
+    },
 }
 
 solver_params = {

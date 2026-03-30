@@ -172,32 +172,25 @@ def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
         assuming no parameters are stored within.
 
     """
-    # Number of independent phases.
-    n_P1m = nphase - 1
 
     # Base dimension is for all the same.
-    # NOTE: Pressure and temperature could be the same as the target state for many
-    # of the state definitions, but this simplifies
     d = (
-        n_P1m  # Number of independent phase fractions.
+        nphase
+        - 1  # Number of independent phase fractions.
         + nphase * ncomp  # Number of partial fractions.
         + ncomp
         - 1  # Independent overall compositions.
-        + 2  # Pressure and temperature.
+        + 2  # Pressure and temperature always given.
     )
     if spec == FlashSpec.none:
         raise ValueError("Dimension not determinable if flash not specified.")
 
-    # If it is isobaric and T is not among the target states, we need 1 more target
-    # state value related to energy
-    if FlashSpec.pT < spec < FlashSpec.vT:
+    # Non-isothermal, energy state function value required.
+    if spec not in (FlashSpec.pT, FlashSpec.vT):
         d += 1
-    # If isochoric specifications, volume values are part of the generic argument.
+
+    # Isochoric, volume state function value required.
     if spec >= FlashSpec.vT:
-        d += 1
-    # If isochoric and not isothermal, we need an additional energy-related state
-    # variable.
-    if spec > FlashSpec.vT:
         d += 1
 
     return d

@@ -560,6 +560,8 @@ if __name__ == "__main__":
             "npipm_slack_decline": 0.45,
         },
         "global_iteration_stride": 3,
+        "compile": True,
+        "compile_args": ("p-T", "p-h"),
     }
     flash_params.update(phase_property_params)
 
@@ -595,8 +597,6 @@ if __name__ == "__main__":
         "time_manager": time_manager,
         "prepare_simulation": False,
         "enable_buoyancy_effects": True if CASE == "vertical" else False,
-        "compile": True,
-        "flash_compiler_args": ("p-T", "p-h"),
     }
 
     if EXPORT_SCHEDULED_TIME_ONLY:

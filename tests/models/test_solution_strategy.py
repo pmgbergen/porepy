@@ -586,7 +586,7 @@ def test_schur_complement_inverter_on_model(
 
     model_params = {
         "apply_schur_complement_reduction": True,
-        "equilibrium_specification": "dummy",
+        "equilibrium_specification": (pp.compositional.FlashSpec.pT,),
         "meshing_arguments": {
             "cell_size": 0.1,
         },

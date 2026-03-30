@@ -12,6 +12,7 @@ from typing import Callable
 import numpy as np
 
 import porepy as pp
+import porepy.compositional.flash as pf
 from porepy.applications.material_values.solid_values import basalt
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfo,
@@ -200,6 +201,12 @@ def get_default_params(
             "max_iterations": 80,
         },
         "global_iteration_stride": 3,
+        "compile": True,
+        "compile_args": (
+            pp.compositional.FlashSpec.pT,
+            pp.compositional.FlashSpec.ph,
+        ),
+        "initializer": pf.HeuristicVLInitializer,
     }
     flash_params.update(phase_property_params)
 
@@ -223,11 +230,6 @@ def get_default_params(
         "fractional_flow": False,
         "material_constants": material_params,
         "enable_buoyancy_effects": False,
-        "compile": True,
-        "flash_compiler_args": (
-            pp.compositional.FlashSpec.pT,
-            pp.compositional.FlashSpec.ph,
-        ),
     }
 
     MODEL_PARAMS.update(phase_property_params)

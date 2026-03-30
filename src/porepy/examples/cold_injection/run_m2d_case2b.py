@@ -90,7 +90,7 @@ model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 
 if ISOCHORIC_NPC:
-    model_params["flash_compiler_args"] = (
+    model_params["flash_params"]["compile_args"] = (
         pp.compositional.FlashSpec.pT,
         pp.compositional.FlashSpec.ph,
         pp.compositional.FlashSpec.vu,

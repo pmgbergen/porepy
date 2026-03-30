@@ -19,7 +19,6 @@ from porepy.compositional.peng_robinson.compressibility_factor import (
     CRITICAL_SLOPE,
     Z_CRIT,
     _smooth_3root_region,
-    _smooth_supercritical_transition,
     c_from_AB,
     dc_from_AB,
     extended_factor,
@@ -42,13 +41,11 @@ def _err_msg(A: float, B: float) -> str:
     return f"(A, B) = ({A}, {B})"
 
 
-def assert_roots_correctly_sized(
-    A: float, B: float, tol: float = 1e-14, smooth3: float = 0.0, smooth_sc: float = 0.0
-) -> None:
+def assert_roots_correctly_sized(A: float, B: float, tol: float = 1e-14) -> None:
     """Asserts that it always holds ``B < Zl <= Zg``."""
 
-    Zg = get_compressibility_factor(A, B, True, tol, smooth3, smooth_sc)
-    Zl = get_compressibility_factor(A, B, False, tol, smooth3, smooth_sc)
+    Zg = get_compressibility_factor(A, B, True, tol)
+    Zl = get_compressibility_factor(A, B, False, tol)
 
     assert Zl <= Zg, f"Liquid root must be smaller or equal gas root. {_err_msg(A, B)}"
     assert B < Zl, (
@@ -75,9 +72,7 @@ def B_range(AB_refinement) -> np.ndarray:
 
 
 @pytest.mark.parametrize("gaslike", [True, False])
-@pytest.mark.parametrize("smooth3", [0.0, 0.1])
-@pytest.mark.parametrize("smooth_sc", [0.0, 0.1])
-def test_critical_point(gaslike: bool, smooth3: float, smooth_sc: float) -> None:
+def test_critical_point(gaslike: bool) -> None:
     """Tests the critical values of cohesion and covolume.
 
     They should lead to a triple root with the value of the critical compressibility
@@ -86,7 +81,7 @@ def test_critical_point(gaslike: bool, smooth3: float, smooth_sc: float) -> None
     """
     tol = 1e-14
 
-    Zval = get_compressibility_factor(A_CRIT, B_CRIT, gaslike, tol, smooth3, smooth_sc)
+    Zval = get_compressibility_factor(A_CRIT, B_CRIT, gaslike, tol)
     c = c_from_AB(A_CRIT, B_CRIT)
 
     np.testing.assert_allclose(Zval, Z_CRIT, rtol=0.0, atol=tol)
@@ -95,11 +90,7 @@ def test_critical_point(gaslike: bool, smooth3: float, smooth_sc: float) -> None
     )
 
 
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
-def test_root_computation_in_AB_space(
-    smooth3: float, smooth_sc: float, A_range: np.ndarray, B_range: np.ndarray
-) -> None:
+def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) -> None:
     """Tests root computation in the cohesion-covolume space and asserts that
     non-extended roots are actual roots."""
 
@@ -111,16 +102,12 @@ def test_root_computation_in_AB_space(
         err_msg = _err_msg(A, B)
         c = c_from_AB(A, B)
 
-        assert_roots_correctly_sized(
-            A, B, tol=tol, smooth3=smooth3, smooth_sc=smooth_sc
-        )
+        assert_roots_correctly_sized(A, B, tol=tol)
 
         # If the gaslike root is not extended, it must be a real root
         if not is_extended_factor(A, B, True, tol):
             assert (
-                get_polynomial_residual(
-                    get_compressibility_factor(A, B, True, tol, smooth3, smooth_sc), c
-                )
+                get_polynomial_residual(get_compressibility_factor(A, B, True, tol), c)
                 < 2 * COVOLUME_LIMIT
                 if B < COVOLUME_LIMIT
                 else tol
@@ -128,9 +115,7 @@ def test_root_computation_in_AB_space(
         # Analogous for liquidlike root.
         if not is_extended_factor(A, B, False, tol):
             assert (
-                get_polynomial_residual(
-                    get_compressibility_factor(A, B, False, tol, smooth3, smooth_sc), c
-                )
+                get_polynomial_residual(get_compressibility_factor(A, B, False, tol), c)
                 < 2 * COVOLUME_LIMIT
                 if B < COVOLUME_LIMIT
                 else tol
@@ -167,11 +152,11 @@ def test_root_computation_in_AB_space(
     ],
 )
 @pytest.mark.parametrize("gaslike", [True, False])
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize("sm", [0.0, 1e-4])
+@pytest.mark.parametrize("sc_bw", [0.0, 1e-3])
 def test_root_derivative_computation(
-    smooth3: float,
-    smooth_sc: float,
+    sm: float,
+    sc_bw: float,
     gaslike: bool,
     d: np.ndarray,
     x0: np.ndarray,
@@ -188,11 +173,11 @@ def test_root_derivative_computation(
     tol = 1e-14
 
     def func(x):
-        return get_compressibility_factor(*x, gaslike, tol, smooth3, smooth_sc)
+        return get_compressibility_factor(*x, gaslike, tol)
 
     def dfunc(x):
         return get_compressibility_factor_derivatives(
-            *x, gaslike, tol, smooth3, smooth_sc
+            *x, gaslike, tol, sm, 1e-5, sc_bw, 1.0
         )
 
     orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
@@ -201,15 +186,13 @@ def test_root_derivative_computation(
     # result in another root case region, hence we ignore the first 2 entries.
     # And in terms of tolerance, treating 1.995 as 2 is fair enough considering the
     # computations involved (considering also that the method uses the average order).
-    expected_order = calculate_expected_order(
-        gaslike, tol, smooth3=smooth3, smooth_sc=smooth_sc, AB=x0
-    )
+    expected_order = calculate_expected_order(gaslike, tol, sm=sm, sc_bw=sc_bw, AB=x0)
     # NOTE For the horizontal B_CRIT there occurs a jump when approximating from below
     # Total loss of order if not smoothed.
-    if smooth_sc == 0.0 and x0[1] == B_CRIT and d[1] < 0:
+    if sc_bw == 0.0 and x0[1] == B_CRIT and d[1] < 0:
         expected_order = 0.0
     assert_order_at_least(
-        orders, expected_order, tol=5e-3, err_msg=_err_msg(*x0), asymptotic=6
+        orders, expected_order, tol=1e-2, err_msg=_err_msg(*x0), asymptotic=6
     )
 
 
@@ -250,11 +233,11 @@ def test_root_derivative_computation(
         (np.array([0.4, B_CRIT]), False),
     ],
 )
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4, 0.25])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize("sm", [0.0, 1e-4, 0.25])
+@pytest.mark.parametrize("sc_bw", [0.0, 1e-3])
 def test_root_derivative_computation_smoothed(
-    smooth3: float,
-    smooth_sc: float,
+    sm: float,
+    sc_bw: float,
     gaslike: bool,
     d: np.ndarray,
     x0: np.ndarray,
@@ -265,17 +248,15 @@ def test_root_derivative_computation_smoothed(
 
     # NOTE we also apply smoothing in the physical 2-phase region/3-root region
     def func(x):
-        return get_compressibility_factor(*x, gaslike, tol, smooth3, smooth_sc)
+        return get_compressibility_factor(*x, gaslike, tol)
 
     def dfunc(x):
         return get_compressibility_factor_derivatives(
-            *x, gaslike, tol, smooth3, smooth_sc
+            *x, gaslike, tol, sm, 1e-4, sc_bw, 1.0
         )
 
     orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
-    expected_order = calculate_expected_order(
-        gaslike, tol, smooth3=smooth3, smooth_sc=smooth_sc, AB=x0
-    )
+    expected_order = calculate_expected_order(gaslike, tol, sm=sm, sc_bw=sc_bw, AB=x0)
     assert_order_at_least(
         orders, expected_order, tol=1e-2, err_msg=_err_msg(*x0), asymptotic=6
     )
@@ -322,59 +303,6 @@ def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> None:
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(0, -10, 11))
     assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
-
-
-@pytest.mark.parametrize("out_format", ["scalar", "array"])
-def test_supercritical_smoothing_function(
-    out_format: Literal["scalar", "array"],
-) -> None:
-    """Tests the smoothing function for the supercritical transition."""
-    if out_format == "scalar":
-        shape = (2,)
-    elif out_format == "array":
-        shape = (2, 4)
-    else:
-        assert False
-
-    out = np.random.random(shape)
-    # For simplicity of value comparison
-    out = np.abs(out)
-    out_before = out.copy()
-
-    B = 0.0
-    T = 1.0
-
-    # If value is to far away, no smoothing
-    _smooth_supercritical_transition(B, T, T, out)
-    # The value towards which it is smoothed must be unchanged
-    assert np.all(out[1] == out_before[1])
-    np.testing.assert_allclose(out[0], out_before[0], rtol=0.0, atol=1e-16)
-    out = out_before.copy()
-
-    # If value is equal to B, than it the result is a complete transition to target.
-    _smooth_supercritical_transition(B, B, T, out)
-    assert np.all(out[1] == out_before[1])
-    np.testing.assert_allclose(out[0], out_before[1], rtol=0.0, atol=1e-16)
-    out = out_before.copy()
-
-    # Values outside of bound [B, T] should raise an assertion error
-    with pytest.raises(AssertionError):
-        _smooth_supercritical_transition(B, T + np.abs(np.random.rand()), T, out)
-    out = out_before.copy()
-
-    # For values between 0 and 1, the result is right between the values to be smoothed.
-    W = np.linspace(0, 1, 101)
-    W = W[1:]
-
-    for w in W:
-        _smooth_supercritical_transition(B, w, T, out)
-        assert np.all(out[1] == out_before[1])
-        # Value must be in between value before and target value
-        assert np.all(
-            ((out[1] >= out[0]) & (out[0] >= out_before[0]))
-            | ((out[1] <= out[0]) & (out[0] <= out_before[0]))
-        )
-        out = out_before.copy()
 
 
 @pytest.mark.parametrize("s", [1e-3, 0.1, 0.25])
@@ -468,11 +396,11 @@ def test_3root_smoothing_function(
     "d", [np.array([1.0, 0.0]), np.array([1.0, 1.0]), np.array([1.0, -1.0])]
 )
 @pytest.mark.parametrize("gaslike", [True, False])
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize("sm", [0.0, 1e-4])
+@pytest.mark.parametrize("sc_bw", [0.0, 1e-3])
 def test_limitcase_zero_cohesion(
-    smooth3: float,
-    smooth_sc: float,
+    sm: float,
+    sc_bw: float,
     gaslike: bool,
     d: np.ndarray,
     B_range: np.ndarray,
@@ -499,11 +427,11 @@ def test_limitcase_zero_cohesion(
 
         # Testing approximation
         def func(x):
-            return get_compressibility_factor(*x, gaslike, tol, smooth3, smooth_sc)
+            return get_compressibility_factor(*x, gaslike, tol)
 
         def dfunc(x):
             return get_compressibility_factor_derivatives(
-                *x, gaslike, tol, smooth3, smooth_sc
+                *x, gaslike, tol, sm, 1e-4, sc_bw, 1.0
             )
 
         assert_roots_correctly_sized(*x0, tol=tol)
@@ -521,7 +449,7 @@ def test_limitcase_zero_cohesion(
 
         orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
         expected_order = calculate_expected_order(
-            gaslike, tol, smooth3=smooth3, smooth_sc=smooth_sc, AB=x0
+            gaslike, tol, sm=sm, sc_bw=sc_bw, AB=x0
         )
         # NOTE In any case, the liquid-like root is approximated when approaching
         # zero cohsion
@@ -536,11 +464,11 @@ def test_limitcase_zero_cohesion(
     "d", [np.array([0.0, 1.0]), np.array([1.0, 1.0]), np.array([-1.0, 1.0])]
 )
 @pytest.mark.parametrize("gaslike", [True, False])
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize("sm", [0.0, 1e-4])
+@pytest.mark.parametrize("sc_bw", [0.0, 1e-3])
 def test_limitcase_zero_covolume(
-    smooth3: float,
-    smooth_sc: float,
+    sm: float,
+    sc_bw: float,
     gaslike: bool,
     d: np.ndarray,
     A_range: np.ndarray,
@@ -582,14 +510,14 @@ def test_limitcase_zero_covolume(
 
         # Testing approximation
         def func(x):
-            return get_compressibility_factor(*x, gaslike, tol, smooth3, smooth_sc)
+            return get_compressibility_factor(*x, gaslike, tol)
 
         def dfunc(x):
             return get_compressibility_factor_derivatives(
-                *x, gaslike, tol, smooth3, smooth_sc
+                *x, gaslike, tol, sm, 1e-4, sc_bw, 1.0
             )
 
-        assert_roots_correctly_sized(*x0, tol=tol, smooth3=smooth3, smooth_sc=smooth_sc)
+        assert_roots_correctly_sized(*x0, tol=tol)
 
         is_extended = is_extended_factor(*x0, gaslike, tol)
 
@@ -608,7 +536,7 @@ def test_limitcase_zero_covolume(
         orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
 
         expected_order = calculate_expected_order(
-            gaslike, tol, smooth3=smooth3, smooth_sc=smooth_sc, AB=x0
+            gaslike, tol, sm=sm, sc_bw=sc_bw, AB=x0
         )
 
         # Order reduction where gas is extended.
@@ -640,11 +568,11 @@ def test_limitcase_zero_covolume(
     ],
 )
 @pytest.mark.parametrize("gaslike", [True, False])
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize("sm", [0.0, 1e-4])
+@pytest.mark.parametrize("sc_bw", [0.0, 1e-3])
 def test_limitcase_zero_covolume_liquid_saturated(
-    smooth3: float,
-    smooth_sc: float,
+    sm: float,
+    sc_bw: float,
     gaslike: bool,
     d: np.ndarray,
 ) -> None:
@@ -671,20 +599,20 @@ def test_limitcase_zero_covolume_liquid_saturated(
     np.testing.assert_allclose(roots, np.array([0.0, 0.5]), rtol=0.0, atol=tol)
     # Gas root should not be modified, since real, but liquid-root should be bound
     # by limit value for covolume.
-    Zg = get_compressibility_factor(*x0, True, tol, smooth3, smooth_sc)
+    Zg = get_compressibility_factor(*x0, True, tol)
     assert Zg == 0.5, "Unexpected value for gas root."
-    Zl = get_compressibility_factor(*x0, False, tol, smooth3, smooth_sc)
+    Zl = get_compressibility_factor(*x0, False, tol)
     assert Zl >= COVOLUME_LIMIT, "Unexpected value for liquid root."
 
     def func(x):
-        return get_compressibility_factor(*x, gaslike, tol, smooth3, smooth_sc)
+        return get_compressibility_factor(*x, gaslike, tol)
 
     def dfunc(x):
         return get_compressibility_factor_derivatives(
-            *x, gaslike, tol, smooth3, smooth_sc
+            *x, gaslike, tol, sm, 1e-4, sc_bw, 1.0
         )
 
-    assert_roots_correctly_sized(*x0, tol=tol, smooth3=smooth3, smooth_sc=smooth_sc)
+    assert_roots_correctly_sized(*x0, tol=tol)
     is_extended = is_extended_factor(*x0, gaslike, tol)
     assert (
         get_polynomial_residual(func(x0), c) <= tol if gaslike else 2 * COVOLUME_LIMIT
@@ -714,11 +642,11 @@ def test_limitcase_zero_covolume_liquid_saturated(
     ],
 )
 @pytest.mark.parametrize("gaslike", [True, False])
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
-@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize("sm", [0.0, 1e-4])
+@pytest.mark.parametrize("sc_bw", [0.0, 1e-3])
 def test_limitcase_zero_cohesion_and_covolume(
-    smooth3: float,
-    smooth_sc: float,
+    sm: float,
+    sc_bw: float,
     gaslike: bool,
     d: np.ndarray,
     expected_liquid_order_loss: bool,
@@ -749,11 +677,11 @@ def test_limitcase_zero_cohesion_and_covolume(
 
     # Testing approximation
     def func(x):
-        return get_compressibility_factor(*x, gaslike, tol, smooth3, smooth_sc)
+        return get_compressibility_factor(*x, gaslike, tol)
 
     def dfunc(x):
         return get_compressibility_factor_derivatives(
-            *x, gaslike, tol, smooth3, smooth_sc
+            *x, gaslike, tol, sm, 1e-4, sc_bw, 1.0
         )
 
     is_extended = is_extended_factor(*x0, gaslike, tol)

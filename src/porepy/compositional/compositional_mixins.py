@@ -1463,7 +1463,6 @@ class FluidMixin(pp.PorePyModel):
         """
 
         def u(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            name = f"phase_{phase.name}_specific_internal_energy"
             op = phase.specific_enthalpy(domains) - self.pressure(
                 domains
             ) * phase.specific_volume(domains)
