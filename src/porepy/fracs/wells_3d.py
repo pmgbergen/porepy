@@ -113,6 +113,21 @@ class Well:
         """
         return self.num_points() - 1
 
+    def to_gmsh(self) -> list[int]:
+        num_points = self.pts.shape[1]
+        point_tags = []
+        for i in range(num_points):
+            point_tag = gmsh.model.occ.addPoint(*self.pts[:, i], 0)
+            point_tags.append(point_tag)
+
+        segment_inds = []
+
+        for seg_ind in range(num_points - 1):
+            si = gmsh.model.occ.addLine(point_tags[seg_ind], point_tags[seg_ind + 1])
+            segment_inds.append(si)
+
+        return segment_inds
+
     def copy(self) -> Well:
         """
         Warning:
@@ -233,6 +248,13 @@ class WellNetwork3d:
         if size is None:
             size = self.parameters["mesh_size"]
         return size
+
+    def to_gmsh(self) -> list[list[int]]:
+        inds = []
+        for w in self.wells:
+            inds.append(w.to_gmsh())
+
+        return inds
 
     def mesh(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Produce grids for the network's wells and add to existing ``mdg``.
@@ -462,8 +484,49 @@ def compute_well_fracture_intersections(
         fracture_network: Three-dimensional fracture network.
 
     """
+    nd = fracture_network.nd
     gmsh.initialize()
-    fracture_tags = [f.fracture_to_gmsh() for f in fracture_network.fractures]
+    fracture_tags = fracture_network.fractures_to_gmsh()
+    segment_inds = well_network.to_gmsh()
+    flattened_segment_inds = [item for sublist in segment_inds for item in sublist]
+
+    domain_tag = fracture_network.domain_to_gmsh()
+
+    gmsh.model.occ.synchronize()
+
+    def process_well(w):
+        segment_inds = w.to_gmsh()
+        isect = well_fracture_intersection(segment_inds)
+
+    def points_of_segments(segment_inds):
+        return [
+            gmsh.model.get_boundary([(nd - 2, t)], oriented=False) for t in segment_inds
+        ]
+
+    def parents_of_point(p_tag):
+        parents = gmsh.model.get_adjacencies(0, p_tag, dim=-1)
+        return parents
+
+    def well_fracture_intersection(segment_inds):
+        _, out_dim_tag_map = gmsh.model.occ.fragment(
+            [(nd - 2, t) for t in segment_inds],
+            [(nd - 1, t) for t in fracture_tags],
+            removeObject=False,
+            removeTool=False,
+        )
+        gmsh.model.occ.synchronize()
+        return out_dim_tag_map[0]
+
+    split_wells = out_dim_tag_map[: len(flattened_segment_inds)]
+
+    breakpoint()
+
+    # NEXT STEPS:
+    # 1) identify intersections, somehow store this information.
+    #    This should be fragment first fractures (to get intersections), then fragment
+    #    wells with fractures to get these intersections. We need a way to tag the
+    #    well-something intersection points, using physical names.
+    # 2) construct grids for the wells.
 
     nd = fracture_network.nd
 
