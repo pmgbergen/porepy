@@ -226,6 +226,9 @@ class EquationSystem:
 
         """
 
+        self._variable_scales: np.ndarray | None = None
+        """Variable scaling for linear-right preconditioning of assembled systems."""
+
     def SubSystem(
         self,
         equation_names: Optional[EquationList] = None,
@@ -1590,6 +1593,8 @@ class EquationSystem:
         # Uniquify to save computational time, then discretize.
         unique_discr = pp.ad.uniquify_discretization_list(discr)
         pp.ad.discretize_from_list(unique_discr, self.mdg)
+        # Reduce the memory footprint of discretization matrices.
+        pp.matrix_operations.prune_discretization_matrices(self.mdg)
 
     @overload
     def assemble(
@@ -1678,52 +1683,49 @@ class EquationSystem:
         mat: list[sps.spmatrix] = []
         rhs: list[np.ndarray] = []
 
-        # Keep track of DOFs for each equation/block
+        # Keep track of DOFs for each equation/block.
         ind_start = 0
 
-        # Store the indices of the assembled equations only if the Jacobian is
-        # requested.
-        if evaluate_jacobian:
-            self.assembled_equation_indices = dict()
+        # Store the indices of the assembled equations.
+        self.assembled_equation_indices = {}
 
         eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
         rows = list(equ_blocks.values())
 
-        # The evaluation method to use depends on whether the Jacobian is requested.
-        if not evaluate_jacobian:
-            # Evaluate the operator to get the residual vector.
-            values = self.evaluate(eqs, derivative=False, state=state)
-            for row, val in zip(rows, values):
-                # The residual of individual equations can be a scalar or an array.
-                # Forcing to array to ensure consistent handling.
-                val = np.asarray(val)
-                if row is not None:
-                    rhs.append(val[row])
-                else:
-                    rhs.append(val)
-        else:
-            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
-            for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
-                if row is not None:
-                    # If restriction to grid-related row blocks was made, perform row
-                    # slicing based on information we have obtained from parsing.
-                    mat.append(ad.jac.tocsr()[row])
-                    rhs.append(ad.val[row])
-                    block_length = len(rhs[-1])
-                else:
-                    # If no grid-related row restriction was made, append the whole
-                    # thing.
-                    mat.append(ad.jac)
-                    rhs.append(ad.val)
-                    block_length = len(ad.val)
+        # Ignore impenetrable mypy error here, the overloaded signatures are correctly
+        # defined.
+        values = self.evaluate(  # type: ignore[call-overload]
+            eqs,
+            derivative=evaluate_jacobian,
+            state=state,
+        )
 
-                # Create indices range and shift to correct position.
-                block_indices = np.arange(block_length) + ind_start
-                # Extract last index and add 1 to get the starting point for next block
-                # of indices.
-                self.assembled_equation_indices.update({equ_name: block_indices})
-                if block_length > 0:
-                    ind_start = block_indices[-1] + 1
+        for row, equ_name, value in zip(rows, equ_blocks, values):
+            # Extract residual vector and possibly Jacobian matrix.
+            rhs_value = value.val if evaluate_jacobian else value
+            jac = value.jac if evaluate_jacobian else None
+            if row is not None:
+                # If restriction to grid-related row blocks was made, perform row
+                # slicing based on information we have obtained from parsing.
+                rhs.append(rhs_value[row])
+                block_length = len(rhs[-1])
+                if evaluate_jacobian:
+                    assert jac is not None  # mypy
+                    mat.append(jac[row])
+            else:
+                # If no grid-related row restriction was made, append the whole thing.
+                rhs.append(rhs_value)
+                block_length = len(rhs[-1])
+                if evaluate_jacobian:
+                    mat.append(jac)
+
+            # Create indices range and shift to correct position.
+            block_indices = np.arange(block_length) + ind_start
+            self.assembled_equation_indices.update({equ_name: block_indices})
+            # Extract last index and add 1 to get the starting point for next block
+            # of indices.
+            if block_length > 0:
+                ind_start = block_indices[-1] + 1
 
         # Concatenate results equation-wise.
         if len(rhs) > 0:
@@ -1751,6 +1753,7 @@ class EquationSystem:
         primary_variables: VariableList,
         inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
+        variable_scaling: dict[str, float] | None = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         r"""Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -1856,7 +1859,14 @@ class EquationSystem:
 
         # Keep track of indices or primary block.
         ind_start = 0
-        assembled_equation_indices = dict()
+        self.assembled_equation_indices = dict()
+
+        if variable_scaling:
+            self._variable_scales = np.ones(self.num_dofs())
+            for k, v in variable_scaling.items():
+                self._variable_scales[self.dofs_of([k])] = v
+        else:
+            self._variable_scales = None
 
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
@@ -1865,6 +1875,14 @@ class EquationSystem:
             if name in primary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
                 idx_p = primary_rows[name]
+                if isinstance(self._variable_scales, np.ndarray):
+                    assert A_temp.shape[1] == self._variable_scales.size
+                    A_temp = A_temp @ sps.diags_array(
+                        [self._variable_scales],
+                        offsets=[0],
+                        shape=(A_temp.shape[1], A_temp.shape[1]),
+                        format="csr",
+                    )
                 # Check if a grid filter was applied for that equation
                 if idx_p is not None:
                     # Append the respective rows.
@@ -1879,14 +1897,14 @@ class EquationSystem:
                     A_prim.append(A_temp)
                     b_prim.append(b_temp)
 
-                # Track indices of block rows. Only primary equations are included.
-                row_idx = np.arange(b_prim[-1].size, dtype=int)
-                indices = row_idx + ind_start
-                ind_start += row_idx.size
-                assembled_equation_indices.update({name: indices})
-
-        # store the assembled row indices for the primary block only (Schur)
-        self.assembled_equation_indices = assembled_equation_indices
+                block_length = b_prim[-1].size
+                # Create indices range and shift to correct position.
+                block_indices = np.arange(block_length) + ind_start
+                # Extract last index and add 1 to get the starting point for next block
+                # of indices.
+                self.assembled_equation_indices.update({name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
         # We loop again over stored equation to ensure a correct order
         # but process only secondary equations.
@@ -1895,8 +1913,22 @@ class EquationSystem:
             # assembled wholesale to the secondary block.
             if name in secondary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
+                if isinstance(self._variable_scales, np.ndarray):
+                    assert A_temp.shape[1] == self._variable_scales.size
+                    A_temp = A_temp @ sps.diags_array(
+                        [self._variable_scales],
+                        offsets=[0],
+                        shape=(A_temp.shape[1], A_temp.shape[1]),
+                        format="csr",
+                    )
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
+
+                block_length = b_sec[-1].size
+                block_indices = np.arange(block_length) + ind_start
+                self.assembled_equation_indices.update({name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
         # stack the results
         A_p = sps.vstack(A_prim, format="csr")
@@ -1982,6 +2014,9 @@ class EquationSystem:
 
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
+        if isinstance(self._variable_scales, np.ndarray):
+            assert self._variable_scales.size == X.size
+            X *= self._variable_scales
         return X
 
     def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:
@@ -2077,7 +2112,7 @@ class EquationSystem:
         self,
         operator: pp.ad.Operator,
         derivative: Literal[True],
-        state: Optional[np.ndarray],
+        state: np.ndarray | None,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -2085,7 +2120,7 @@ class EquationSystem:
         self,
         operator: list[pp.ad.Operator],
         derivative: Literal[True],
-        state: Optional[np.ndarray],
+        state: np.ndarray | None,
     ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(

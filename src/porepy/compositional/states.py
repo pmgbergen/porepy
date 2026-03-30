@@ -23,8 +23,8 @@ from typing import Optional, Sequence, cast
 
 import numpy as np
 
-from ._core import PhysicalState
 from .utils import (
+    PhysicalState,
     chainrule_fractional_derivatives,
     compute_saturations,
     normalize_rows,
@@ -75,6 +75,9 @@ class ExtensiveProperties:
     h: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Specific enthalpy."""
 
+    u: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Specific internal energy."""
+
     rho: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Density."""
 
@@ -107,7 +110,7 @@ class PhaseProperties(ExtensiveProperties):
 
     """
 
-    state: PhysicalState = PhysicalState.liquid
+    state: PhysicalState = PhysicalState.undefined
     """Physical state of the phase. Defaults to liquid-like."""
 
     x: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
@@ -124,6 +127,9 @@ class PhaseProperties(ExtensiveProperties):
 
     dh: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the specific enthalpy."""
+
+    du: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Derivatives of the specific internal energy."""
 
     drho: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the density."""
@@ -196,6 +202,11 @@ class PhaseProperties(ExtensiveProperties):
     def dh_ext(self) -> np.ndarray:
         """See :meth:`drho_ext` for more information."""
         return self._for_extended_fractions(self.dh)
+
+    @property
+    def du_ext(self) -> np.ndarray:
+        """See :meth:`drho_ext` for more information."""
+        return self._for_extended_fractions(self.du)
 
     @property
     def dmu_ext(self) -> np.ndarray:
@@ -287,6 +298,7 @@ class FluidProperties(IntensiveProperties, ExtensiveProperties):
         """
 
         self.h = safe_sum([y * state.h for y, state in zip(self.y, self.phases)])
+        self.u = safe_sum([y * state.u for y, state in zip(self.y, self.phases)])
         rho = cast(
             np.ndarray,
             safe_sum([s * state.rho for s, state in zip(self.sat, self.phases)]),
@@ -321,12 +333,13 @@ def initialize_fluid_properties(
     state.p = np.zeros(n)
     state.T = np.zeros(n)
     state.h = np.zeros(n)
+    state.u = np.zeros(n)
     state.rho = np.zeros(n)
     state.y = np.zeros((nphase, n))
     state.sat = np.zeros((nphase, n))
 
     if phase_states is None:
-        phase_states = [PhysicalState.liquid] * nphase
+        phase_states = [PhysicalState.undefined] * nphase
     if isinstance(ncomp, int):
         ncomp = np.ones(nphase, dtype=int) * ncomp
     else:
@@ -339,6 +352,7 @@ def initialize_fluid_properties(
     for j in range(nphase):
         phase_state = PhaseProperties(
             h=np.zeros(n),
+            u=np.zeros(n),
             rho=np.zeros(n),
             state=phase_states[j],
             x=np.zeros((ncomp[j], n)),
@@ -349,6 +363,7 @@ def initialize_fluid_properties(
 
         if with_derivatives:
             phase_state.dh = np.zeros((2 + ncomp[j], n))
+            phase_state.du = np.zeros((2 + ncomp[j], n))
             phase_state.drho = np.zeros((2 + ncomp[j], n))
             phase_state.dphis = np.zeros((ncomp[j], 2 + ncomp[j], n))
             phase_state.dmu = np.zeros((2 + ncomp[j], n))

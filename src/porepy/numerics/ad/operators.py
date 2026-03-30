@@ -10,6 +10,7 @@ from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Literal,
@@ -27,9 +28,11 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from .forward_mode import AdArray
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 __all__ = [
     "Operator",
@@ -39,6 +42,7 @@ __all__ = [
     "DenseArray",
     "TimeDependentDenseArray",
     "Scalar",
+    "TimeDependentScalar",
     "Variable",
     "MixedDimensionalVariable",
     "Projection",
@@ -664,6 +668,12 @@ class Operator:
             The sum of self and other.
 
         """
+        # When using the sum operator on a list with a single item, Python will call the
+        # addition operator with other == 0. Convert that other to an Ad Scalar with
+        # value 0 to avoid errors in the addition operator.
+        if other == 0:
+            other = Scalar(0)
+
         children = self._parse_other(other)
         return Operator(children=children, operation=Operations.add, name="+ operator")
 
@@ -1547,6 +1557,66 @@ class Scalar(Operator):
             value: The new value.
 
         """
+        self._value = value
+
+
+class TimeDependentScalar(Scalar, TimeDependentOperator):
+    """Time-dependent scalar value, storing history of scalar values locally"""
+
+    def __init__(self, value: float, depth: int, name: str | None = None):
+        super().__init__(value=value, name=name)
+
+        self._history: deque[float] = deque([float(value)], maxlen=int(depth))
+        """Historic values shared accross instances of this object in time.
+        
+        IMPORTANT: Mechanism will likely break if shallow-copy-approach in
+        TimeDependentOperator is changed.
+        """
+
+    def __neg__(self):
+        """Ensures to fetch the correct value in time during negation."""
+        op = super().__neg__()
+
+        if self.is_previous_time:
+            assert isinstance(self.time_step_index, int)
+            op.set_value(-self._history[-(1 + self.time_step_index)])
+
+        return op
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            self._cached_key = f"(time-dependent scalar, {self._name}, {self._value})"
+        return self._cached_key
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
+        """See :meth:`Operator.parse`.
+
+        Returns:
+            The number corresponding to the time step index.
+
+        """
+        if self.is_previous_time:
+            assert isinstance(self.time_step_index, int)
+            value = self._history[-(1 + self.time_step_index)]
+        else:
+            value = self._value
+
+        return value
+
+    def set_value(self, value: float, new_time: bool = True) -> None:
+        """Set the value of this scalar at the current time.
+
+        Parameters:
+            value: The new value in time.
+            new_time: ``default=True``
+
+                If True, the passed value is treated as the new value in time, and the
+                current value is stored as a previous value in time (including shift of
+                other previous values).
+
+        """
+        if new_time:
+            self._history.append(self._value)
         self._value = value
 
 

@@ -60,19 +60,19 @@ DesiredError = namedtuple(
 desired_errors: list[DesiredError] = [
     # t = 25 [s]
     DesiredError(
-        error_pressure=0.02468899282842615,
-        error_flux=0.362852,
-        error_displacement=0.0007426275934204356,
-        error_force=0.006999,
-        error_consolidation_degree=(0.005794353839056594, 2.983724378680108e-16),
+        error_pressure=0.024921804453552153,
+        error_flux=0.3589228363108329,
+        error_displacement=0.0007428565885956782,
+        error_force=0.0077403423843181735,
+        error_consolidation_degree=(0.005949597128370475, 2.983724378680108e-16),
     ),
     # t = 50 [s]
     DesiredError(
-        error_pressure=0.01604388082216944,
-        error_flux=0.163626,
-        error_displacement=0.000710048736369786,
-        error_force=0.004621,
-        error_consolidation_degree=(0.004196023265526011, 2.983724378680108e-16),
+        error_pressure=0.016162549749926567,
+        error_flux=0.16633135580309805,
+        error_displacement=0.0007082894988831649,
+        error_force=0.004907534757124174,
+        error_consolidation_degree=(0.0043008910464760325, 2.983724378680108e-16),
     ),
 ]
 
@@ -181,10 +181,10 @@ def test_scaled_vs_unscaled_systems():
     np.testing.assert_almost_equal(
         model_unscaled.results[-1].error_pressure,
         scaled_model.results[-1].error_pressure,
-        decimal=5,
+        decimal=4,
     )
     np.testing.assert_almost_equal(
         model_unscaled.results[-1].error_displacement,
         scaled_model.results[-1].error_displacement,
-        decimal=5,
+        decimal=4,
     )

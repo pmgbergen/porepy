@@ -39,7 +39,7 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in ModelGeometry."""
 
-        fracture_network: pp.fracture_network
+        fracture_network: pp.FractureNetworkType
         """Representation of fracture network including intersections."""
 
         well_network: pp.WellNetwork3d
@@ -64,7 +64,9 @@ else:
             """Domain of the problem."""
 
         @property
-        def fractures(self) -> list[pp.LineFracture] | list[pp.PlaneFracture]:
+        def fractures(
+            self,
+        ) -> list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]:
             """Fractures of the problem."""
 
         def set_geometry(self) -> None:
@@ -543,6 +545,8 @@ else:
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         ad_time_step: pp.ad.Scalar
         """Time step as an automatic differentiation scalar."""
+        ad_time: pp.ad.TimeDependentScalar
+        """Simulation time as a time-dependent AD scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
         results: list[Any]

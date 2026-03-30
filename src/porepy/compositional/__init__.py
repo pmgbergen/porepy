@@ -19,16 +19,13 @@ modelling framework in the form of model mixins:
     1. The package is built to support the unified formulation of the equilibrium
        problem [1,2].
     2. While thermodynamically consistent, it does not provide full support for any kind
-       of thermodynamic computations. It focues on properties required for
+       of thermodynamic computations. It focuses on properties required for
        flow & transport.
-    3. For the case of more sophisticated thermodynamics, the groundwork is layed by
-       defining a thermodynamic reference state (:mod:`~porepy.compositional._core`)
-       most commonly used in other packages and literature [3].
-    4. Units are standard SI units, and there is in principal no distinguishing between
-       massic or molar quantities. Once the modeller decides what the model represents,
-       massic or molar values must be consistently enforced.
-       The only exception is :data:`~porepy.compositional._core.R_IDEAL_MOL`, which is
-       given as a molar quantity.
+    3. For the case of more sophisticated thermodynamics, the groundwork is laid by
+       defining a thermodynamic reference state
+       (:mod:`~porepy.compositional._global_thermodynamic_reference_state`).
+    4. Units are standard SI units, without scaling to say ``MPa`` or ``kJ``, with the
+       exception of ``kg``.
 
 References:
     [1]: `Lauser et al. (2011) <https://doi.org/10.1016/j.advwatres.2011.04.021>`_
@@ -39,19 +36,16 @@ References:
 
 __all__ = []
 
-from . import _core, base, compositional_mixins, flash, materials, states, utils
-from ._core import *
+from . import _global_thermodynamic_reference_state as THD_REF
+from . import base, compositional_mixins, ideal, materials, states, utils
 from .base import *
 from .compositional_mixins import *
-from .flash import *
 from .materials import *
 from .states import *
 from .utils import *
 
-__all__.extend(_core.__all__)
 __all__.extend(base.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(compositional_mixins.__all__)
-__all__.extend(flash.__all__)
 __all__.extend(states.__all__)
 __all__.extend(materials.__all__)

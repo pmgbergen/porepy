@@ -44,8 +44,8 @@ except:
 # decided as needed
 
 from porepy.utils.common_constants import *
-from porepy.utils.porepy_types import *
 
+from porepy.utils.porepy_types import *
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
@@ -83,7 +83,7 @@ from porepy.applications.material_values import numerical_values
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.md_grid import MixedDimensionalGrid
-from porepy.grids.mdg_generation import create_mdg
+
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
@@ -100,10 +100,12 @@ from porepy.utils.tangential_normal_projection import (
 )
 
 # Fractures
-from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
+from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.fracture_network import create_fracture_network
+from porepy.fracs.elliptic_fracture import EllipticFracture
+from porepy.fracs.fracture_network_creation import create_fracture_network
 
+from porepy.grids.mdg_generation import create_mdg
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -256,6 +258,7 @@ from porepy import applications
 # Metrics for assessing convergence
 from porepy.models.metric import (
     EuclideanMetric,
+    LebesgueMetric,
     VariableBasedEuclideanMetric,
     EquationBasedEuclideanMetric,
     VariableBasedLebesgueMetric,

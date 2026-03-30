@@ -8,6 +8,7 @@ Functions which are relevant also outside tests should go elsewhere.
 from . import (
     arrays,
     common_xpfa_tests,
+    derivative_testing,
     grids,
     models,
     partial_discretization,
@@ -27,4 +28,5 @@ __all__ = [
     "reference_sparse_arrays",
     "reference_arrays_buoyancy_discretization",
     "vtk",
+    "derivative_testing",
 ]

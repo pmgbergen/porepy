@@ -703,10 +703,6 @@ def test_load_geometry_mixin(geometry_class, num_fractures: int, tmp_path) -> No
     params = {
         "num_fractures": num_fractures,
         "fracture_indices": [i for i in range(num_fractures)],
-        "meshing_kwargs": {
-            "file_name": str(folder_path / gmsh_file_name),
-            "csv_file_name": csv_file_name,
-        },
         "grid_type": "simplex",
     }
     model_1 = model_class(params)
