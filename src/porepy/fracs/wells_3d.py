@@ -59,12 +59,6 @@ class Well:
         """``shape = (3, num_points)``
 
         Endpoints of each of the ``num_points - 1`` line segments of the new well."""
-        self.orig_pts: np.ndarray = self.pts.copy()
-        """``shape = (nd, num_points)``
-
-        Original endpoints of the well. Copy kept in case the well geometry is modified.
-
-        """
         self.dim: int = 1
         """Wells modelled as lines have always dimension 1."""
 
@@ -84,29 +78,6 @@ class Well:
 
         self._index: int = -1
         """Private index attribute. To be accessed by the property."""
-
-        # Set well index
-        if index is not None:
-            self.index = index
-
-    @property
-    def index(self) -> int:
-        """
-        Parameters:
-            i: An integer representing the assigned index.
-
-        Returns:
-            The index of the well.
-
-        """
-        return self._index
-
-    @index.setter
-    def index(self, i: Optional[int] = None) -> None:
-        if i is None:
-            self._index = -1
-        else:
-            self._index = i
 
     def segments(self) -> Iterator[tuple[tuple[int, int], np.ndarray]]:
         """Iterate over the segments defined through segment indices and endpoints.
@@ -141,48 +112,6 @@ class Well:
             Number of segments, i.e., ``num_points - 1``.
         """
         return self.num_points() - 1
-
-    def add_point(self, point: np.ndarray, ind: Optional[int] = None) -> None:
-        """Add new point to ``self.pts``.
-
-        Parameters:
-            point: ``shape=(nd, 1)``
-
-                Point to be added.
-            ind: ``default=None``
-
-                Index. If ``ind`` is not specified, the point is appended at the end of
-                ``self.pts``. Otherwise, it is inserted between the old points ``ind``
-                and ``ind + 1``.
-
-        """
-        if ind is None:
-            self.pts = np.hstack((self.pts, point))
-        else:
-            self.pts = np.hstack((self.pts[:, :ind], point, self.pts[:, ind:]))
-
-    def _mesh_size(
-        self, segment_ind: Optional[tuple[int, int]] = None
-    ) -> Optional[float]:
-        """Return the mesh size for a well or one of its segments.
-
-        Note:
-            Can be overwritten to yield well specific, or segment specific values.
-            Meshing of :class:`~WellNetwork` defaults to ``WellNetwork._mesh_size``
-            if ``None`` is returned by this method.
-
-        Parameters:
-            segment_ind: ``default=None``
-
-             Indices defining the segment, i.e., indices of the endpoints of the
-             segment. If ``None``, the mesh size for the entire well is returned.
-
-        Returns:
-            ``None`` if the method is not overridden, otherwise it should return a
-            ``float`` with the corresponding mesh size.
-
-        """
-        return None
 
     def copy(self) -> Well:
         """
