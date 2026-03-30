@@ -205,18 +205,31 @@ class AbstractFunction(Operator):
                 assert jac.shape[1] == values.size, (
                     "Inconsistent shape of values and Jacobian for diagonal AdArray"
                 )
-                # TODO: What to do with offsets here. EK thinks we need external information.
-                # ANSWER: It will be available in args, somehow.
-                base_index = np.arange(values.size)
                 num_derivatives = args[0]._num_derivatives
-                indices = [args[i]._row_indices for i in range(len(args))]
+                primary_indices = [args[i]._row_indices for i in range(len(args))]
+                column_indices = args[0]._col_indices
+                # The Jacobian only contains derivatives with respect to the primary
+                # variables, while the diagonal AdArray must have values and indices
+                # also for derivatives with respect to secondary variables. By
+                # assumption, these derivatives are zero, but they need to be included
+                # in the correct row in the Jacobian.
 
-                all_indices = args[0]._col_indices
+                full_jac = np.zeros((len(column_indices), values.size))
+
+                # Indentify the row of a primary variable in the full Jacobian by
+                # comparing the first row index of the rows and columns.
+                row_starts = [i[0] for i in column_indices]
+
+                for ri, inds in enumerate(primary_indices):
+                    row_ind_in_full = row_starts.index(inds[0])
+                    # Transfer the non-zero entries.
+                    full_jac[row_ind_in_full] = jac[ri]
+
                 return pp.ad.DiagonalAdArray(
                     values,
-                    jac,
+                    full_jac,
                     np.arange(values.size),
-                    indices,
+                    column_indices,
                     num_derivatives,
                 )
 
