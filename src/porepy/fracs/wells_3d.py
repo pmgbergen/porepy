@@ -284,24 +284,6 @@ class WellNetwork3d:
         # Assign an empty tag dictionary
         self.tags: dict[str, list[bool]] = dict()
 
-    def add(self, well: Well) -> None:
-        """Add a well to the network.
-
-        The well will be assigned a new index, higher than the maximum value
-        currently found in the network.
-
-        Parameters:
-            well: Well to be added.
-
-        """
-        ind = np.array([w.index for w in self.wells])
-
-        if ind.size > 0:
-            well.index = np.max(ind) + 1
-        else:
-            well.index = 0
-        self.wells.append(well)
-
     def _mesh_size(
         self, well: Well, segment_ind: Optional[tuple[int, int]] = None
     ) -> float:
