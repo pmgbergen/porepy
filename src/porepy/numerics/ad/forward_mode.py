@@ -87,10 +87,14 @@ class AdArray:
 
         # Enforce float format of all data to limit the number of cases we need to
         # handle and test.
-        self.val: np.ndarray = val.astype(float)
+        self.val: np.ndarray = val
+        if self.val.dtype != float:
+            self.val = self.val.astype(float)
         """The value of the AdArray, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix = jac.astype(float)
+        self.jac: sps.spmatrix = jac
+        if self.jac.data.dtype != float:
+            self.jac.data = self.jac.data.astype(float)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __str__(self) -> str:
