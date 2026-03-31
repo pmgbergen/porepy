@@ -5,6 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
@@ -853,6 +854,8 @@ class EquationSystem:
         self._variable_num_dofs = np.concatenate(
             [self._variable_num_dofs, np.array([num_dofs], dtype=int)]
         )
+        # Clear cache since the global variable dofs have changed.
+        self._global_variable_dofs.cache_clear()
 
     def _cluster_dofs_gridwise(self) -> None:
         """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense
@@ -896,6 +899,8 @@ class EquationSystem:
         # Replace old block order
         self._variable_num_dofs = np.array(new_block_dofs, dtype=int)
         self._variable_numbers = new_variable_numbers
+        # Clear cache since the global variable dofs have changed.
+        self._global_variable_dofs.cache_clear()
 
     def _parse_variable_type(self, variables: Optional[VariableList]) -> list[Variable]:
         """Parse the input argument for the variable type.
@@ -978,7 +983,7 @@ class EquationSystem:
 
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
-        return int(sum(self._variable_num_dofs))  # cast numpy.int64 into Python int
+        return self._global_variable_dofs()[-1]
 
     def projection_to(self, variables: Optional[VariableList] = None) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
@@ -1019,6 +1024,17 @@ class EquationSystem:
         else:
             return sps.csr_matrix((0, num_dofs))
 
+    @lru_cache
+    def _global_variable_dofs(self) -> np.ndarray:
+        """Compute the global DOF indices for each variable block.
+
+        Returns:
+            An array of indices corresponding to the global DOF indices for each
+            variable block.
+
+        """
+        return np.hstack((0, np.cumsum(self._variable_num_dofs)))
+
     def dofs_of(self, variables: VariableList) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variables.
 
@@ -1034,7 +1050,7 @@ class EquationSystem:
 
         """
         variables = self._parse_variable_type(variables)
-        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
+        global_variable_dofs = self._global_variable_dofs()
 
         indices: list[np.ndarray] = []
 
@@ -1081,7 +1097,7 @@ class EquationSystem:
         if not (0 <= dof < num_dofs):  # indices go from 0 to num_dofs - 1
             raise KeyError("Dof index out of range.")
 
-        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
+        global_variable_dofs = self._global_variable_dofs()
         # Find the variable number belonging to this index
         variable_number = np.argmax(global_variable_dofs > dof) - 1
         # Get the variable key from _variable_numbers
@@ -1326,6 +1342,8 @@ class EquationSystem:
 
             # Update local counting
             self._variable_num_dofs[self._variable_numbers[id_]] = num_dofs
+        # Clear cache since the global variable dofs have changed.
+        self._global_variable_dofs.cache_clear()
 
     ### System assembly and discretization ---------------------------------------------
 
