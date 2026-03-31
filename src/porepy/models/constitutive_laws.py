@@ -717,6 +717,7 @@ class MassWeightedPermeability(ConstantPermeability):
             op = super().permeability(subdomains)
         return op
 
+    @pp.ad.cached_method
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """A constitutive law returning the normal permeability as
         :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
