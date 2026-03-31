@@ -56,6 +56,7 @@ class AdParser:
         Efficient use of caching has turned out to be difficult to achieve, and the
         cache is at the moment used sparingly. This will be revisited in the future.
         """
+        self._num_subdomains = len(mdg.subdomains())
 
     def clear_cache(self) -> None:
         """Clear the cache of parsed operators."""
@@ -217,9 +218,8 @@ class AdParser:
                     # For now, we only support diagonal representations of variables defined on subdomains.
                     other_variables.append(op)
                     continue
-                num_subdomains = len(self._mdg.subdomains())
                 domains = op.domains
-                if len(domains) < num_subdomains:
+                if len(domains) < self._num_subdomains:
                     # This variable is not defined on all subdomains, so we cannot readily use a diagonal representation. This can be improved, but does not seem worth the effort at the moment.
                     other_variables.append(op)
                     continue
