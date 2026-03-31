@@ -319,8 +319,8 @@ class FrictionDamageEquation(FractureDamageEquations):
         super().before_nonlinear_loop()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
         self.equation_system.update_equation(
-            equation_name=self.friction_damage_history_equation_name,
-            new_equation=self.friction_damage_history_equation(fractures),
+            equation_name=self.friction_damage_equation_name,
+            new_equation=self.friction_damage_equation(fractures),
             grids=fractures,
             equations_per_grid_entity={"cells": 1},
         )
