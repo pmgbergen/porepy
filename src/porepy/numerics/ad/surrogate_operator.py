@@ -121,6 +121,7 @@ Example:
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Callable, Optional, Sequence, cast
 
 import numpy as np
@@ -597,6 +598,7 @@ class SurrogateFactory:
         )
         return values
 
+    @lru_cache
     def _data_of(self, grid: pp.GridLike) -> dict:
         """Convenience function to get the data dictionary of any grid."""
         if isinstance(grid, pp.Grid):
@@ -616,6 +618,7 @@ class SurrogateFactory:
         This determines the number of required derivative values."""
         return len(self._dependencies)
 
+    @lru_cache
     def num_dofs_on_grid(self, grid: pp.GridLike) -> int:
         """Computes the number of DOFs based on the information provided during
         instantiation.
