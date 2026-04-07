@@ -691,7 +691,7 @@ class MortarProjections:
             # technical implementation. This is however not needed for the current
             # usage of the class, so we raise an error.
             raise ValueError("All interfaces must have the same codimension")
-        if codim[0] not in (1, 2):
+        if codim[0] not in (1, 2, 3):
             # Codimension 0 would correspond to a domain decomposition-type method. This
             # should be fully doable, but is not implemented. Codimension 3 is also not
             # relevant for the current usage of the class.

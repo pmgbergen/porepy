@@ -554,6 +554,8 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
     """
     total_molar_concentration: Callable[[list[pp.Grid]], pp.ad.Operator]
 
+    subdomains_to_well_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
     @staticmethod
     def primary_equation_name() -> str:
         """Returns the string which is used to name the pressure equation on all
@@ -580,13 +582,14 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
         super().set_equations()
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
-        codim_2_interfaces = self.mdg.interfaces(codim=2)
+        #codim_2_interfaces = self.mdg.interfaces(codim=2)
+        well_interfaces = self.subdomains_to_well_interfaces(subdomains)
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        well_eq = self.well_flux_equation(codim_2_interfaces)
+        well_eq = self.well_flux_equation(well_interfaces)
         self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
         self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(well_eq, well_interfaces, {"cells": 1})
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
@@ -821,7 +824,8 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        #well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_interfaces=self.subdomains_to_well_interfaces(subdomains)
         well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         well_projection = pp.ad.MortarProjections(
@@ -1236,7 +1240,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         )
         self.equation_system.create_variables(
             self.well_flux_variable,
-            interfaces=self.mdg.interfaces(codim=2),
+            #interfaces=self.mdg.interfaces(codim=2),
+            interfaces=self.subdomains_to_well_interfaces(self.mdg.subdomains()),
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
@@ -1491,7 +1496,8 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             ]
             update_dicts(vals, data)
 
-        wells = self.mdg.interfaces(codim=2)
+        #wells = self.mdg.interfaces(codim=2)
+        wells=self.subdomains_to_well_interfaces(self.mdg.subdomains())
         well_darcy_flux = self.equation_system.evaluate(self.well_flux(wells))
         well_offsets = np.cumsum([0] + [intf.num_cells for intf in wells])
         for id, intf in enumerate(wells):

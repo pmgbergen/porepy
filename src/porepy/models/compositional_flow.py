@@ -589,6 +589,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
     total_molar_concentration: Callable[[list[pp.Grid]], pp.ad.Operator]
 
+
+    subdomains_to_well_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
         component."""
@@ -908,7 +911,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        #well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_interfaces = self.subdomains_to_well_interfaces(subdomains)
         well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         well_projection = pp.ad.MortarProjections(
@@ -2575,6 +2579,9 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
     has_independent_fluid_fraction: Callable[[pp.Element], bool]
     """Provided by mixin for compositional variables."""
 
+    subdomains_to_well_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
+
     def _element_mass_balance_equation_name(self, element: pp.Element) -> str:
         """Method returning a name to be given to the mass balance equation of an
         element."""
@@ -2873,7 +2880,8 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         # Interdimensional fluxes manifest as source terms in lower-dimensional
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        #well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_interfaces = self.subdomains_to_well_interfaces(subdomains)
         well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         well_projection = pp.ad.MortarProjections(

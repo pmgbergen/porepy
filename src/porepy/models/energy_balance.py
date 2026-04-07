@@ -134,6 +134,8 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
 
     bc_data_enthalpy_flux_key: str
 
+    subdomains_to_well_interfaces: Callable[[pp.Grid], list[pp.MortarGrid]]
+
     @staticmethod
     def primary_equation_name():
         """Returns the name of the energy balance equation introduced by this class,
@@ -151,16 +153,20 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
         codim_2_interfaces = self.mdg.interfaces(codim=2)
+        well_interfaces = self.subdomains_to_well_interfaces(subdomains)
         # Define the equations
         sd_eq = self.energy_balance_equation(subdomains)
         intf_cond = self.interface_fourier_flux_equation(codim_1_interfaces)
         intf_adv = self.interface_enthalpy_flux_equation(codim_1_interfaces)
-        well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
+        #well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
+        well_eq = self.well_enthalpy_flux_equation(well_interfaces)
+    
 
         self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
         self.equation_system.set_equation(intf_cond, codim_1_interfaces, {"cells": 1})
         self.equation_system.set_equation(intf_adv, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        #self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(well_eq, well_interfaces, {"cells": 1})
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy balance equation for subdomains.
@@ -424,7 +430,8 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Interfaces relating to wells, and the associated subdomains.
-        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        #well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
+        well_interfaces = self.subdomains_to_well_interfaces(subdomains)
         well_subdomains = self.interfaces_to_subdomains(well_interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         well_projection = pp.ad.MortarProjections(
@@ -518,7 +525,8 @@ class VariablesEnergyBalance(pp.VariableMixin):
         )
         self.equation_system.create_variables(
             self.well_enthalpy_flux_variable,
-            interfaces=self.mdg.interfaces(codim=2),
+            #interfaces=self.mdg.interfaces(codim=2),
+            interfaces=self.subdomains_to_well_interfaces(self.mdg.subdomains()),
             tags={"si_units": f"W * m^{self.nd - 3}"},
         )
 

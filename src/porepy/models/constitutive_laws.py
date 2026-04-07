@@ -2022,7 +2022,13 @@ class PeacemanWellFlux(pp.PorePyModel):
         # book, p.128, for comments regarding deviated wells). Again, this could be
         # obtained by a volume integral over the mortar cell; however, as 1d-3d
         # couplings have not yet been implemented, we will raise an error in this case.
-        if any([sd.dim == 3 for sd in subdomains]):
+        dims = sorted({sd.dim for sd in subdomains})
+
+        # New branch: 3d matrix coupled to 0d point well.
+        if dims == [0, 3]:
+            point_well_3d = True
+
+        elif dims == [1, 3]:
             raise NotImplementedError(
                 "The 1d-3d coupling has not yet been implemented. "
             )
@@ -2031,10 +2037,26 @@ class PeacemanWellFlux(pp.PorePyModel):
             # not applicable.
             # TODO: Revisit when we implement 1d-3d coupling.
             raise ValueError("The Peaceman model assumes a coupling of codimension 2")
+        else:
+            point_well_3d = False
 
         isotropic_permeability = e_i @ self.permeability(subdomains)
 
-        well_index = self.volume_integral(
+        matrix_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
+        point_well_subdomains = [sd for sd in subdomains if sd.dim == 0]
+
+
+        h_eff = self.effective_point_well_length(matrix_subdomains, interfaces)
+
+        if point_well_3d:
+            well_index = (
+                pp.ad.Scalar(2 * np.pi)
+                * h_eff
+                * projection.primary_to_mortar_avg() 
+                @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+            )
+        else:
+            well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg()
             @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
@@ -2086,8 +2108,9 @@ class PeacemanWellFlux(pp.PorePyModel):
         h_list = []
         for sd in subdomains:
             if sd.dim == 0:
-                # Avoid division by zero for points. The value is not used in calling
-                # method well_flux_equation, as all wells are 1d.
+                # Avoid division by zero for point wells. In 3d-0d coupling, the
+                # equivalent radius should be determined from the matrix side, so this
+                # fallback value should not control the result.
                 h_list.append(np.array([unused_val]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
@@ -2180,6 +2203,44 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         gravity_correction.set_name("gravity_pressure_correction")
         return gravity_correction
+
+    def effective_point_well_length(
+        self, subdomains: list[pp.Grid], interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Effective completion length for a 0d point well in a 3d matrix.
+
+        The point well is treated as a short vertical 1d well segment whose length is
+        taken as the height of the reservoir cell containing the well.
+
+        Parameters:
+            subdomains: Matrix subdomains.
+            interfaces: Well interfaces.
+
+        Returns:
+            Effective well length on the mortar cells [m].
+        """
+        if len(subdomains) == 0:
+            return pp.ad.Scalar(1.0, name="effective_point_well_length")
+
+        heights = []
+        for sd in subdomains:
+            if sd.dim != self.nd:
+                continue
+
+            # Approximate cell height by cell volume^(1/3).
+            #TODO: This is a very crude approximation, and it may be worth implementing a more accurate method. For instance, for structured grids, the cell height could be obtained directly from the grid geometry.
+            h = np.cbrt(sd.cell_volumes)
+            heights.append(h)
+
+        if len(heights) == 0:
+            return pp.ad.Scalar(1.0, name="effective_point_well_length")
+
+        h_all = pp.wrap_as_dense_ad_array(np.concatenate(heights))
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        h_eff = projection.primary_to_mortar_avg() @ h_all
+        h_eff.set_name("effective_point_well_length")
+        return h_eff
+
 
 
 class ThermalExpansion(pp.PorePyModel):
