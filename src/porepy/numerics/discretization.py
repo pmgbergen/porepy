@@ -1,12 +1,15 @@
 """Module contains the abstract superclass for all discretizations."""
 
 import abc
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad._grid_entity import GridEntity
 
 
 class Discretization(abc.ABC):
@@ -119,6 +122,36 @@ class Discretization(abc.ABC):
 
         """
         pass
+
+    def get_row_dof_info(self) -> dict[GridEntity, int]:
+        """Return the DOF information for the rows (range) of discretization matrices.
+
+        This method is used to construct an :class:`~porepy.numerics.ad.OperatorSpace`
+        for the range of the discretization.  The default implementation returns an
+        empty dictionary, meaning the range is unspecified.  Subclasses may override
+        this to provide precise range information.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
+            DOFs per grid entity that occupy the rows of the discretization matrix.
+
+        """
+        return {}
+
+    def get_col_dof_info(self) -> dict[GridEntity, int]:
+        """Return the DOF information for the columns (domain) of discretization matrices.
+
+        This method is used to construct an :class:`~porepy.numerics.ad.OperatorSpace`
+        for the domain of the discretization.  The default implementation returns an
+        empty dictionary, meaning the domain is unspecified.  Subclasses may override
+        this to provide precise domain information.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
+            DOFs per grid entity that occupy the columns of the discretization matrix.
+
+        """
+        return {}
 
 
 class InterfaceDiscretization(abc.ABC):
