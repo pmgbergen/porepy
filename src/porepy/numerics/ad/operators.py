@@ -756,6 +756,11 @@ class Operator:
             ValueError: If both operands have specified spaces that are incompatible.
 
         """
+        # Plain Python scalars (int, float, np.number) may appear as operands,
+        # e.g. `operator ** 2`.  Treat them as the scalar space.
+        if not isinstance(other, Operator):
+            return self.domains, self._operator_domain, self._operator_range
+
         self_is_scalar = isinstance(self, Scalar) or (
             self._operator_domain is not None
             and self._operator_domain.domain_type == DomainType.scalar
@@ -1739,8 +1744,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
         name: str,
         domains: GridLikeSequence,
     ):
-        op_space = OperatorSpace.from_domains(list(domains), {GridEntity.cells: 1})
-        super().__init__(name=name, domains=domains, domain=op_space, range_=op_space)
+        super().__init__(name=name, domains=domains)
 
     def _key(self) -> str:
         if self._cached_key is None:
