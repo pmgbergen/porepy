@@ -261,6 +261,7 @@ def get_default_convergence_criteria(
     atol_res: float,
     atol_inc: float,
     atol_res_isofug: float,
+    atol_div: float = 1e10,
 ) -> dict:
     """Returns the default convergence criteria for the CFLE setup."""
 
@@ -281,7 +282,7 @@ def get_default_convergence_criteria(
             "inc_nan": pp.IncrementBasedNanCriterion(),
             "res_nan": pp.ResidualBasedNanCriterion(),
             "res_div": pp.ResidualBasedAbsoluteDivergenceCriterion(
-                tol=1e10, metric=pp.EquationBasedLebesgueMetric(model)
+                tol=atol_div, metric=pp.EquationBasedLebesgueMetric(model)
             ),
         },
     }

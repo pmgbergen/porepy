@@ -51,7 +51,7 @@ if BUOYANCY_ON:
 else:
     max_iterations = 30
     iter_range = (15, 25)
-max_iterations = 100
+# max_iterations = 100
 
 T_END_DAYS = 50
 
@@ -102,7 +102,7 @@ model_params["_heated_boundary_on"] = False
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = 5
+model_params["flash_params"]["global_iteration_stride"] = 0
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
@@ -131,6 +131,7 @@ model_params["variable_scaling_linear_rpc"] = {
 }
 model_params["use_logp_nonlinear_rpc"] = True
 
+solver_params["do_armijo_line_search"] = True
 solver_params["armijo_line_search_weight"] = 0.9
 solver_params["armijo_line_search_incline"] = 1e-4
 solver_params["armijo_line_search_max_iterations"] = 10
