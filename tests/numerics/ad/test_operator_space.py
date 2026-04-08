@@ -414,3 +414,239 @@ class TestDiscretizationStubs:
         discr = CustomDiscr("test")
         assert discr.get_row_dof_info() == {GridEntity.cells: 1}
         assert discr.get_col_dof_info() == {GridEntity.faces: 2}
+
+
+# ---------------------------------------------------------------------------
+# Stage 3: Grid operator domain/range
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fracture_mdg():
+    """2-D Cartesian mdg with two crossing fractures (3 subdomains, 4 interfaces)."""
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    md_grid = pp.meshing.cart_grid(fracs, np.array([2, 2]))
+    md_grid.compute_geometry()
+    return md_grid
+
+
+class TestSubdomainProjectionSpaces:
+    def test_cell_restriction_all(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
+        op = proj.cell_restriction(sds)
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert op.operator_domain.domain_type == DomainType.subdomains
+        assert op.operator_range.domain_type == DomainType.subdomains
+        assert GridEntity.cells in op.operator_domain.dof_info
+        assert GridEntity.cells in op.operator_range.dof_info
+
+    def test_cell_restriction_subset(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        sub = mdg.subdomains(dim=2)  # only top-dim subdomain
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
+        op = proj.cell_restriction(sub)
+        # domain covers all subdomains, range covers the subset
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert set(op.operator_domain.grids) == set(sds)
+        assert set(op.operator_range.grids) == set(sub)
+
+    def test_cell_restriction_empty(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
+        op = proj.cell_restriction([])
+        # Empty subset -> range_ is None
+        assert op.operator_domain is not None
+        assert op.operator_range is None
+
+    def test_cell_prolongation_spaces(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        sub = mdg.subdomains(dim=2)
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
+        op = proj.cell_prolongation(sub)
+        # domain is the subset, range is all subdomains
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert set(op.operator_domain.grids) == set(sub)
+        assert set(op.operator_range.grids) == set(sds)
+
+    def test_face_restriction_spaces(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        sub = mdg.subdomains(dim=2)
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
+        op = proj.face_restriction(sub)
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.faces in op.operator_domain.dof_info
+        assert GridEntity.faces in op.operator_range.dof_info
+
+    def test_face_prolongation_spaces(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        sub = mdg.subdomains(dim=2)
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
+        op = proj.face_prolongation(sub)
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert set(op.operator_domain.grids) == set(sub)
+        assert set(op.operator_range.grids) == set(sds)
+
+    def test_vector_dim(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        dim = 2
+        proj = pp.ad.SubdomainProjections(subdomains=sds, dim=dim)
+        op = proj.cell_restriction(sds)
+        assert op.operator_domain.dof_info[GridEntity.cells] == dim
+
+
+class TestMortarProjectionSpaces:
+    def test_mortar_to_primary_avg(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        intfs = list(mdg.interfaces())
+        proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
+        op = proj.mortar_to_primary_avg()
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.cells in op.operator_domain.dof_info  # interface cells
+        assert GridEntity.faces in op.operator_range.dof_info  # subdomain faces (codim 1)
+
+    def test_mortar_to_secondary_avg(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        intfs = list(mdg.interfaces())
+        proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
+        op = proj.mortar_to_secondary_avg()
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.cells in op.operator_domain.dof_info  # interface cells
+        assert GridEntity.cells in op.operator_range.dof_info  # subdomain cells (secondary)
+
+    def test_primary_to_mortar_avg(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        intfs = list(mdg.interfaces())
+        proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
+        op = proj.primary_to_mortar_avg()
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.faces in op.operator_domain.dof_info
+        assert GridEntity.cells in op.operator_range.dof_info
+
+    def test_secondary_to_mortar_avg(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        intfs = list(mdg.interfaces())
+        proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
+        op = proj.secondary_to_mortar_avg()
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.cells in op.operator_domain.dof_info
+        assert GridEntity.cells in op.operator_range.dof_info
+
+    def test_sign_of_mortar_sides(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        intfs = list(mdg.interfaces())
+        proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
+        op = proj.sign_of_mortar_sides()
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        # Square: domain == range_
+        assert op.operator_domain == op.operator_range
+        assert GridEntity.cells in op.operator_domain.dof_info
+
+    def test_empty_interfaces(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=[], dim=1)
+        # No interfaces -> domain/range are None
+        op = proj.mortar_to_primary_avg()
+        assert op.operator_domain is None
+        assert op.operator_range is None
+
+
+class TestBoundaryProjectionSpaces:
+    def test_subdomain_to_boundary(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        bp = pp.ad.BoundaryProjection(mdg, sds, dim=1)
+        op = bp.subdomain_to_boundary
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.faces in op.operator_domain.dof_info
+        assert GridEntity.cells in op.operator_range.dof_info
+
+    def test_boundary_to_subdomain(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        bp = pp.ad.BoundaryProjection(mdg, sds, dim=1)
+        op = bp.boundary_to_subdomain
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.cells in op.operator_domain.dof_info
+        assert GridEntity.faces in op.operator_range.dof_info
+
+    def test_transpose_consistency(self, fracture_mdg):
+        """boundary_to_subdomain domain/range are flipped from subdomain_to_boundary."""
+        mdg = fracture_mdg
+        sds = list(mdg.subdomains())
+        bp = pp.ad.BoundaryProjection(mdg, sds, dim=1)
+        s2b = bp.subdomain_to_boundary
+        b2s = bp.boundary_to_subdomain
+        assert s2b.operator_domain == b2s.operator_range
+        assert s2b.operator_range == b2s.operator_domain
+
+
+class TestTraceSpaces:
+    def test_trace_domain_range(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = mdg.subdomains(dim=2)
+        tr = pp.ad.Trace(sds, dim=1)
+        assert tr.trace.operator_domain is not None
+        assert tr.trace.operator_range is not None
+        assert GridEntity.cells in tr.trace.operator_domain.dof_info
+        assert GridEntity.faces in tr.trace.operator_range.dof_info
+
+    def test_trace_grids(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = mdg.subdomains(dim=2)
+        tr = pp.ad.Trace(sds, dim=1)
+        assert set(tr.trace.operator_domain.grids) == set(sds)
+        assert set(tr.trace.operator_range.grids) == set(sds)
+
+    def test_trace_empty(self):
+        tr = pp.ad.Trace([], dim=1)
+        assert tr.trace.operator_domain is None
+        assert tr.trace.operator_range is None
+
+
+class TestDivergenceSpaces:
+    def test_divergence_domain_range(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = mdg.subdomains(dim=2)
+        div = pp.ad.Divergence(sds, dim=1)
+        assert div.operator_domain is not None
+        assert div.operator_range is not None
+        assert GridEntity.faces in div.operator_domain.dof_info
+        assert GridEntity.cells in div.operator_range.dof_info
+
+    def test_divergence_grids(self, fracture_mdg):
+        mdg = fracture_mdg
+        sds = mdg.subdomains(dim=2)
+        div = pp.ad.Divergence(sds, dim=1)
+        assert set(div.operator_domain.grids) == set(sds)
+        assert set(div.operator_range.grids) == set(sds)
+
+    def test_divergence_empty(self):
+        div = pp.ad.Divergence([], dim=1)
+        assert div.operator_domain is None
+        assert div.operator_range is None
