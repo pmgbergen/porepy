@@ -19,11 +19,10 @@ from porepy.numerics.nonlinear.convergence_check import (
     DivergenceCriteria,
     SimulationStatus,
 )
-from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -64,7 +63,6 @@ class NewtonSolver:
 
         self.init_convergence_criteria()
         self.init_divergence_criteria()
-        self.init_solver_progressbar()
 
     def init_convergence_criteria(self) -> None:
         """Parse and initialize convergence criteria.
@@ -271,6 +269,9 @@ class NewtonSolver:
         # Prepare solver for nonlinear loop.
         self.iteration_index = 0
         self.convergence_criteria.reset()
+
+        # Reset solver progressbar.
+        self.init_solver_progressbar()
 
     def nonlinear_loop(
         self, model: SolutionStrategy
@@ -510,9 +511,10 @@ class NewtonSolver:
         # Update progress bar.
         self.solver_progressbar.update(n=1)
         self.solver_progressbar.set_postfix_str(
-            f"""Increment {nonlinear_increment_norm:.2e} """
-            f"""Residual {residual_norm:.2e}"""
+            f"Increment {nonlinear_increment_norm:.2e} Residual {residual_norm:.2e} t_i {model.time_manager.time_index}"
         )
+        if model.time_manager.time_index >= 2:
+            pass
 
     def update_solver_statistics(
         self,
