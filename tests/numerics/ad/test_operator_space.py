@@ -806,3 +806,177 @@ class TestMergedOperatorSpaces:
         )
         assert op.operator_domain is None
         assert op.operator_range is None
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: validate_operands / infer_domain_range
+# ---------------------------------------------------------------------------
+
+
+class TestInferDomainRange:
+    """Tests for Operator.infer_domain_range (Stage 5: validation and inference)."""
+
+    @pytest.fixture
+    def cell_space(self, two_subdomains):
+        g1, g2 = two_subdomains
+        return OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+
+    @pytest.fixture
+    def face_space(self, two_subdomains):
+        g1, g2 = two_subdomains
+        return OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
+
+    @pytest.fixture
+    def cell_op(self, cell_space):
+        """A leaf operator with domain=range_=cell_space."""
+        return DenseArray(np.zeros(3), domain=cell_space, range_=cell_space)
+
+    @pytest.fixture
+    def face_op(self, face_space):
+        """A leaf operator with domain=range_=face_space."""
+        return DenseArray(np.zeros(3), domain=face_space, range_=face_space)
+
+    # --- elementwise: compatible operands ---
+
+    def test_add_compatible(self, cell_op, cell_space):
+        result = cell_op + cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_sub_compatible(self, cell_op, cell_space):
+        result = cell_op - cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_rsub_compatible(self, cell_op, cell_space):
+        """__rsub__ must also propagate domain/range."""
+        result = 0 - cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_mul_compatible(self, cell_op, cell_space):
+        result = cell_op * cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_div_compatible(self, cell_op, cell_space):
+        result = cell_op / cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_pow_compatible(self, cell_op, cell_space):
+        result = cell_op ** cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    # --- elementwise: incompatible operands raise ValueError ---
+
+    def test_add_incompatible_domain(self, cell_op, face_op):
+        with pytest.raises(ValueError, match="domain"):
+            _ = cell_op + face_op
+
+    def test_sub_incompatible_domain(self, cell_op, face_op):
+        with pytest.raises(ValueError, match="domain"):
+            _ = cell_op - face_op
+
+    def test_mul_incompatible_domain(self, cell_op, face_op):
+        with pytest.raises(ValueError, match="domain"):
+            _ = cell_op * face_op
+
+    def test_div_incompatible_domain(self, cell_op, face_op):
+        with pytest.raises(ValueError, match="domain"):
+            _ = cell_op / face_op
+
+    # --- matmul: compatible ---
+
+    def test_matmul_compatible(self, two_subdomains):
+        """A @ B where range(B)==domain(A) is valid."""
+        g1, g2 = two_subdomains
+        cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
+        # A: faces → cells (domain=face_sp, range_=cell_sp)
+        # B: cells → faces (domain=cell_sp, range_=face_sp)
+        # A @ B: range(B)=face_sp == domain(A)=face_sp → valid
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        result = A @ B
+        assert result.operator_domain == cell_sp
+        assert result.operator_range == cell_sp
+
+    def test_matmul_incompatible(self, two_subdomains):
+        """A @ B where range(B) != domain(A) raises ValueError."""
+        g1, g2 = two_subdomains
+        cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
+        # A: faces → cells, B: faces → cells (range(B)=cells != domain(A)=faces)
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        B = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        with pytest.raises(ValueError, match="matrix multiplication"):
+            _ = A @ B
+
+    # --- Scalar: always valid, inherits non-scalar space ---
+
+    def test_add_with_scalar_lhs(self, cell_op, cell_space):
+        sc = Scalar(2.0)
+        result = sc + cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_add_with_scalar_rhs(self, cell_op, cell_space):
+        sc = Scalar(2.0)
+        result = cell_op + sc
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_mul_with_scalar(self, cell_op, cell_space):
+        sc = Scalar(3.0)
+        result = sc * cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_scalar_scalar(self):
+        sc1 = Scalar(1.0)
+        sc2 = Scalar(2.0)
+        result = sc1 + sc2
+        assert result.operator_domain == OperatorSpace.scalar()
+        assert result.operator_range == OperatorSpace.scalar()
+
+    # --- None domain/range: skips validation (backward compat) ---
+
+    def test_none_plus_known_inherits_known(self, cell_space):
+        """Operator with None domain + operator with known domain → inherits known."""
+        unknown = DenseArray(np.zeros(3))  # domain=None
+        known = DenseArray(np.zeros(3), domain=cell_space, range_=cell_space)
+        result = unknown + known
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_both_none_stays_none(self):
+        """Two operators with no domain/range → result also has None."""
+        a = DenseArray(np.zeros(3))
+        b = DenseArray(np.zeros(3))
+        result = a + b
+        assert result.operator_domain is None
+        assert result.operator_range is None
+
+    def test_plain_python_scalar_exponent(self, cell_op, cell_space):
+        """op ** 2 (plain Python int) should preserve domain/range."""
+        result = cell_op ** 2
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    def test_plain_python_scalar_rtruediv(self, cell_op, cell_space):
+        """1 / op should preserve domain/range."""
+        result = 1 / cell_op
+        assert result.operator_domain == cell_space
+        assert result.operator_range == cell_space
+
+    # --- infer_domain_range is public ---
+
+    def test_infer_domain_range_is_public(self, cell_op):
+        """infer_domain_range should be accessible without name-mangling."""
+        assert hasattr(cell_op, "infer_domain_range")
+        from porepy.numerics.ad.operators import Operations
+        new_domains, dom, ran = cell_op.infer_domain_range(cell_op, Operations.add)
+        assert dom is not None
+        assert ran is not None
