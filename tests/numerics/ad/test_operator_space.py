@@ -417,6 +417,43 @@ class TestDiscretizationStubs:
 
 
 # ---------------------------------------------------------------------------
+# Stage 4c: TimeDependentDenseArray optional dof_info
+# ---------------------------------------------------------------------------
+
+
+class TestTimeDependentDenseArraySpaces:
+    def test_no_dof_info_gives_none(self, two_subdomains):
+        g1, g2 = two_subdomains
+        arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
+        assert arr.operator_domain is None
+        assert arr.operator_range is None
+
+    def test_dof_info_cells(self, two_subdomains):
+        g1, g2 = two_subdomains
+        arr = pp.ad.TimeDependentDenseArray(
+            "x", [g1, g2], dof_info={GridEntity.cells: 1}
+        )
+        assert arr.operator_domain is not None
+        assert arr.operator_range is not None
+        assert arr.operator_domain == arr.operator_range
+        assert GridEntity.cells in arr.operator_domain.dof_info
+        assert set(arr.operator_domain.grids) == {g1, g2}
+
+    def test_dof_info_faces(self, two_subdomains):
+        g1, g2 = two_subdomains
+        arr = pp.ad.TimeDependentDenseArray(
+            "x", [g1, g2], dof_info={GridEntity.faces: 2}
+        )
+        assert arr.operator_domain is not None
+        assert arr.operator_domain.dof_info == {GridEntity.faces: 2}
+
+    def test_empty_domains_ignores_dof_info(self):
+        arr = pp.ad.TimeDependentDenseArray("x", [], dof_info={GridEntity.cells: 1})
+        assert arr.operator_domain is None
+        assert arr.operator_range is None
+
+
+# ---------------------------------------------------------------------------
 # Stage 3: Grid operator domain/range
 # ---------------------------------------------------------------------------
 
