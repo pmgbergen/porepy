@@ -687,3 +687,122 @@ class TestDivergenceSpaces:
         div = pp.ad.Divergence([], dim=1)
         assert div.operator_domain is None
         assert div.operator_range is None
+
+
+# ---------------------------------------------------------------------------
+# Stage 4e: MergedOperator domain/range
+# ---------------------------------------------------------------------------
+
+
+class TestMergedOperatorSpaces:
+    """Tests that MergedOperator inherits operator_domain/range from the
+    underlying discretization's get_row/col_dof_info methods."""
+
+    def _make_grid(self):
+        """Return a simple 2D Cartesian grid."""
+        import porepy as pp
+
+        mdg = pp.meshing.cart_grid([], np.array([3, 3]))
+        return list(mdg.subdomains(dim=2))
+
+    def test_default_discr_gives_none(self, two_subdomains):
+        """With stub get_row/col_dof_info (returns {}), operator_domain is None."""
+        import porepy as pp
+        from porepy.numerics.discretization import Discretization
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        class StubDiscr(Discretization):
+            def __init__(self):
+                self.keyword = "mechanics"
+                self.flux_matrix_key = "flux"
+
+            def ndof(self, sd):
+                return sd.num_cells
+
+            def discretize(self, sd, data):
+                pass
+
+            def assemble_matrix_rhs(self, sd, data):
+                pass
+
+        g1, g2 = two_subdomains
+        discr = StubDiscr()
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="flux",
+            physics_key="mechanics",
+            domains=[g1, g2],
+        )
+        # Default stubs return {}, so spaces are not inferred
+        assert op.operator_domain is None
+        assert op.operator_range is None
+
+    def test_custom_dof_info_gives_space(self, two_subdomains):
+        """A discretization that overrides get_row/col_dof_info populates spaces."""
+        import porepy as pp
+        from porepy.numerics.discretization import Discretization
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        class ConcreteDiscr(Discretization):
+            def __init__(self):
+                self.keyword = "flow"
+                self.flux_matrix_key = "flux"
+
+            def ndof(self, sd):
+                return sd.num_cells
+
+            def discretize(self, sd, data):
+                pass
+
+            def assemble_matrix_rhs(self, sd, data):
+                pass
+
+            def get_row_dof_info(self):
+                return {GridEntity.cells: 1}
+
+            def get_col_dof_info(self):
+                return {GridEntity.faces: 1}
+
+        g1, g2 = two_subdomains
+        discr = ConcreteDiscr()
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="flux",
+            physics_key="flow",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert GridEntity.faces in op.operator_domain.dof_info
+        assert GridEntity.cells in op.operator_range.dof_info
+        assert set(op.operator_domain.grids) == {g1, g2}
+        assert set(op.operator_range.grids) == {g1, g2}
+
+    def test_interface_discr_gives_none(self, one_mortar):
+        """InterfaceDiscretization does not have get_row/col_dof_info → None."""
+        from porepy.numerics.discretization import InterfaceDiscretization
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        class MockInterfaceDiscr(InterfaceDiscretization):
+            def __init__(self):
+                self.keyword = "coupling"
+                self.mortar_flux_matrix_key = "mortar_flux"
+
+            def discretize(self, sd_primary, sd_secondary, intf, data_primary,
+                           data_secondary, data_coupling):
+                pass
+
+            def assemble_matrix_rhs(self, sd_primary, sd_secondary, intf,
+                                    data_primary, data_secondary, data_coupling):
+                pass
+
+        intf = one_mortar
+        discr = MockInterfaceDiscr()
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="mortar_flux",
+            physics_key="coupling",
+            domains=[intf],
+        )
+        assert op.operator_domain is None
+        assert op.operator_range is None
