@@ -25,9 +25,9 @@ class AndersonAcceleration:
         # Initialize arrays for iterates.
         self.reset()
         self._fkm1: np.ndarray = self._Fk.copy()
-        """Previous residual (or increment) used for building the Fk matrix."""
+        """Previous residual (or increment) used for building Fk."""
         self._gkm1: np.ndarray = self._Gk.copy()
-        """Previous application of the fixed point iteration used for building the Gk matrix."""
+        """Previous application of the fixed point iteration used for building Gk."""
 
     def reset(self) -> None:
         """Reset the history of Anderson acceleration."""
