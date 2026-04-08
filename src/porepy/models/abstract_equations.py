@@ -284,7 +284,7 @@ class LocalElimination(EquationMixin):
 
         """
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = {"cells": 1}
+            equations_per_grid_entity = {pp.ad.GridEntity.cells: 1}
 
         # Separate these two because Boundary values for independent quantities are
         # stored differently.
