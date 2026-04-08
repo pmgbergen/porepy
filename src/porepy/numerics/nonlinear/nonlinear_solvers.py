@@ -511,10 +511,8 @@ class NewtonSolver:
         # Update progress bar.
         self.solver_progressbar.update(n=1)
         self.solver_progressbar.set_postfix_str(
-            f"Increment {nonlinear_increment_norm:.2e} Residual {residual_norm:.2e} t_i {model.time_manager.time_index}"
+            f"Increment {nonlinear_increment_norm:.2e} Residual {residual_norm:.2e}"
         )
-        if model.time_manager.time_index >= 2:
-            pass
 
     def update_solver_statistics(
         self,
