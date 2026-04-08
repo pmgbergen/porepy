@@ -729,21 +729,31 @@ class Operator:
 
     ### Special methods ----------------------------------------------------------------
 
-    def _infer_domain_range(
+    def infer_domain_range(
         self,
         other: Operator,
         op: Operations,
     ) -> tuple[Any, Optional[OperatorSpace], Optional[OperatorSpace]]:
-        """Infer the legacy ``domains`` list, ``operator_domain``, and ``operator_range``
-        for the compound operator resulting from applying ``op`` to ``self`` and
-        ``other``.
+        """Validate operand spaces and infer the domain/range of the compound operator.
 
-        Validation of compatible :class:`OperatorSpace` values is only performed when
-        both operands have non-``None`` domains/ranges, so the method is backward
-        compatible with operators that have no space information.
+        For elementwise operations (``add``, ``sub``, ``mul``, ``div``, ``pow``), both
+        operands must have the same domain *and* the same range when both are specified.
+        The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space,
+        so operations with a :class:`Scalar` operator are always valid and the result
+        inherits the non-scalar space.
+
+        For matrix multiplication (``matmul``), the range of the *right* operand must
+        equal the domain of the *left* operand (i.e. ``range(other) == domain(self)``
+        for ``self @ other``).  The result's domain is ``other.operator_domain`` and
+        the result's range is ``self.operator_range``.
+
+        Validation is skipped whenever either operand's space is ``None``, so the
+        method is fully backward-compatible with operators that carry no space
+        information.
 
         Parameters:
-            other: The right-hand-side operand.
+            other: The right-hand-side operand.  Plain Python scalars (``int``,
+                ``float``) are treated as the scalar space.
             op: The operation being applied.
 
         Returns:
@@ -770,8 +780,10 @@ class Operator:
             and other._operator_domain.domain_type == DomainType.scalar
         )
 
-        if op in (Operations.matmul, Operations.rmatmul):
-            # range(right) must equal domain(left)
+        new_domains: Any
+
+        if op == Operations.matmul:
+            # self @ other: range(other) must equal domain(self)
             if (
                 self._operator_domain is not None
                 and other._operator_range is not None
@@ -784,8 +796,23 @@ class Operator:
                 )
             result_domain = other._operator_domain
             result_range = self._operator_range
-            # Legacy domains: cannot infer from matmul operands generally
-            new_domains: Any = []
+            new_domains = []
+        elif op == Operations.rmatmul:
+            # other @ self (dispatched as self.__rmatmul__(other)):
+            # range(self) must equal domain(other)
+            if (
+                other._operator_domain is not None
+                and self._operator_range is not None
+                and other._operator_domain != self._operator_range
+            ):
+                raise ValueError(
+                    f"Incompatible matrix multiplication: the range of {self!r} "
+                    f"({self._operator_range}) does not match the domain of "
+                    f"{other!r} ({other._operator_domain})."
+                )
+            result_domain = self._operator_domain
+            result_range = other._operator_range
+            new_domains = []
         else:
             # Elementwise operations
             if self_is_scalar and other_is_scalar:
@@ -845,10 +872,10 @@ class Operator:
     def __check_domains(self, other: Operator, op: Operations) -> Any:
         """Return the legacy domains list for a compound operator.
 
-        This is a thin wrapper around :meth:`_infer_domain_range` kept for backward
-        compatibility.
+        .. deprecated::
+            Use :meth:`infer_domain_range` instead.
         """
-        new_domains, _, _ = self._infer_domain_range(other, op)
+        new_domains, _, _ = self.infer_domain_range(other, op)
         return new_domains
 
     def __str__(self) -> str:
@@ -887,9 +914,8 @@ class Operator:
         if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0)
 
-        new_domains = self.__check_domains(other, Operations.add)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.add)
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.add)
 
         return Operator(
             children=children,
@@ -925,9 +951,8 @@ class Operator:
             The difference of self and other.
 
         """
-        new_domains = self.__check_domains(other, Operations.sub)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.sub)
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.sub)
         return Operator(
             children=children,
             domains=new_domains,
@@ -948,10 +973,18 @@ class Operator:
 
         """
         # consider the expression a-b. right-subtraction means self == b
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.sub)
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(children=children, operation=Operations.sub, name="- operator")
+        return Operator(
+            children=children,
+            domains=new_domains,
+            operation=Operations.sub,
+            name="- operator",
+            domain=dom,
+            range_=ran,
+        )
 
     def __mul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -963,9 +996,8 @@ class Operator:
             The elementwise product of self and other.
 
         """
-        new_domains = self.__check_domains(other, Operations.mul)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.mul)
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.mul)
         return Operator(
             children=children,
             domains=new_domains,
@@ -988,9 +1020,8 @@ class Operator:
             The elementwise product of self and other.
 
         """
-        new_domains = self.__check_domains(other, Operations.mul)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.mul)
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.mul)
         return Operator(
             children=children,
             domains=new_domains,
@@ -1010,10 +1041,9 @@ class Operator:
             The elementwise division of self and other.
 
         """
-        new_domains = self.__check_domains(other, Operations.div)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.div)
 
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.div)
         return Operator(
             children=children,
             domains=new_domains,
@@ -1036,10 +1066,9 @@ class Operator:
             The elementwise division of other and self.
 
         """
-        new_domains = self.__check_domains(other, Operations.div)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.div)
 
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.div)
         return Operator(
             children=children,
             domains=new_domains,
@@ -1086,8 +1115,7 @@ class Operator:
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
         children = self._parse_other(other)
-        new_domains = self.__check_domains(other, Operations.pow)
-        _, dom, ran = self._infer_domain_range(other, Operations.pow)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.pow)
         return Operator(
             children=children,
             domains=new_domains,
@@ -1110,9 +1138,8 @@ class Operator:
             The elementwise exponentiation of other and self.
 
         """
-        new_domains = self.__check_domains(other, Operations.pow)
+        new_domains, dom, ran = self.infer_domain_range(other, Operations.pow)
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.pow)
         return Operator(
             children=children,
             domains=new_domains,
@@ -1133,7 +1160,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.matmul)
+        _, dom, ran = self.infer_domain_range(other, Operations.matmul)
         return Operator(
             children=children,
             operation=Operations.matmul,
@@ -1156,7 +1183,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        _, dom, ran = self._infer_domain_range(other, Operations.rmatmul)
+        _, dom, ran = self.infer_domain_range(other, Operations.rmatmul)
         return Operator(
             children=children,
             operation=Operations.rmatmul,
