@@ -4417,12 +4417,12 @@ class FrictionDamage(pp.PorePyModel):
         d = d_0 + (1 - d_0)  exp⁡(-h)
 
     where :math:`d_0` is the initial friction damage. The damage is used to compute the
-    frictional bound according to
+    friction coefficient according to
 
     .. math::
-        b = d b_0,
+        F = d F_0,
 
-    where :math:`b_0` is the non-damaged friction bound.
+    where :math:`F_0` is the non-damaged friction coefficient.
 
     """
 
@@ -4471,32 +4471,24 @@ class FrictionDamage(pp.PorePyModel):
         """
         return pp.ad.Scalar(self.solid.initial_friction_damage)
 
-    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Frictional bound [-].
-
-        The frictional bound is computed from the frictional damage as
-
-        .. math::
-            b = d b_0,
-
-        where :math:`b_0` is the non-damaged friction bound.
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction coefficient [-].
 
         Parameters:
-            subdomains: List of subdomains where the frictional bound is defined. Should
-                be of co-dimension one, i.e. fractures.
+            subdomains: List of fracture subdomains.
 
         Returns:
-            Operator for nondimensionalized frictional bound.
+            Friction coefficient operator.
 
         """
-        # Check that the super class has a friction bound method. Otherwise, something
-        # has gone wrong in the inheritance.
-        if not hasattr(super(), "friction_bound"):
+        if not hasattr(super(), "friction_coefficient"):
             raise ValueError(
-                "The super class of FrictionDamage must have a friction_bound method."
+                "The super class of FrictionDamage must have a friction_coefficient "
+                "method."
             )
-        # Combine the frictional damage with the non-damaged friction bound.
-        intact_bound = super().friction_bound(subdomains)  # type: ignore[misc]
+        # After the check, we can safely call the super class method to get the
+        # non-damaged friction, ignoring the type checker.
+        intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
         return self.friction_damage(subdomains) * intact_bound
 
 
