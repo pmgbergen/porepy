@@ -16,9 +16,10 @@ from typing_extensions import TypeAlias
 import porepy as pp
 
 from . import _ad_parser
+from ._grid_entity import GridEntity
 from .operators import MixedDimensionalVariable, Operator, Variable
 
-__all__ = ["EquationSystem"]
+__all__ = ["EquationSystem", "GridEntity"]
 
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
@@ -92,12 +93,6 @@ representing a restricted image of the equation by
 # equations and restrictions of equations, but it does not feel like a fully
 # satisfactory solution.
 
-GridEntity = Literal["cells", "faces", "nodes"]
-"""A union type representing a grid entity, either a cell, face or node.
-This is used to define the domain of a variable or an equation,
-i.e. whether it is defined on cells, faces or nodes.
-"""
-
 
 class EquationSystem:
     """Represents an equation system, modelled by AD variables and equations in AD form.
@@ -119,9 +114,11 @@ class EquationSystem:
 
     """
 
-    admissible_dof_types: tuple[
-        Literal["cells"], Literal["faces"], Literal["nodes"]
-    ] = ("cells", "faces", "nodes")
+    admissible_dof_types: tuple[GridEntity, GridEntity, GridEntity] = (
+        GridEntity.cells,
+        GridEntity.faces,
+        GridEntity.nodes,
+    )
     """A set denoting admissible types of local DOFs for variables.
 
     - nodes: DOFs per grid node.
@@ -480,7 +477,7 @@ class EquationSystem:
         # Set default value for dof_info. This is a mutable object, so we need to
         # create a new one each time and not set the default in the signature.
         if dof_info is None:
-            dof_info = {"cells": 1}
+            dof_info = {GridEntity.cells: 1}
 
         # Sanity check for admissible DOF types.
         requested_type = set(dof_info.keys())
