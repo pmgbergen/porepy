@@ -93,7 +93,7 @@ def test_copy_operator_tree():
     assert c.operation == c_deepcopy.operation
 
     # The operator version of scalars and dense arrays calculates the hash based on the
-    # value of the underlying object, henc ethe comparison operator for pp.ad.Operator
+    # value of the underlying object, hence the comparison operator for pp.ad.Operator
     # should evaluate for True for both the copy and the deepcopy. The id of the
     # underlying object should be the same for the copy, but different for the deepcopy.
     for c1, c2 in zip(c.children, c_copy.children):
