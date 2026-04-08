@@ -37,7 +37,7 @@ import porepy as pp
 import porepy.compositional.compiled_eos as ceos
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.examples.cold_injection.solver import NewtonArmijoAndersonSolver
+from porepy.examples.cold_injection.solver import CFLESolver
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -571,14 +571,14 @@ if __name__ == "__main__":
         "nl_convergence_tol_res": newton_tol,
         "apply_schur_complement_reduction": True,
         "linear_solver": "scipy_sparse",
-        "nonlinear_solver": NewtonArmijoAndersonSolver,
-        "armijo_line_search": True,
+        "nonlinear_solver": CFLESolver,
+        "do_armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
         "armijo_line_search_incline": 0.2,
         "armijo_line_search_max_iterations": 10,
         "armijo_stop_after_residual_reaches": 1e0,
-        "appplyard_chop": 0.2,
-        "anderson_acceleration": True,
+        "appleyard_chop": 0.2,
+        "do_anderson_acceleration": False,
         "anderson_acceleration_depth": 3,
         "anderson_acceleration_constrained": False,
         "anderson_acceleration_regularization_parameter": 1e-3,

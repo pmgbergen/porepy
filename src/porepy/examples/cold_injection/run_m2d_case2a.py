@@ -42,11 +42,16 @@ APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
     (25 * pp.DAY, 100),
 ]
 
-max_iterations = 40 if BUOYANCY_ON else 30
-iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
 newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
+if BUOYANCY_ON:
+    max_iterations = 40
+    iter_range = (21, 28)
+else:
+    max_iterations = 30
+    iter_range = (15, 25)
+max_iterations = 100
 
 T_END_DAYS = 50
 
@@ -81,6 +86,7 @@ model_params, solver_params = get_default_params(
     base_permeability=1e-14,
 )
 
+model_params["linear_solver"] = "scipy_sparse"  # scipy_sparse, pypardiso
 model_params["time_manager"] = time_manager
 # model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"]["cell_size"] = 2.0
@@ -96,7 +102,7 @@ model_params["_heated_boundary_on"] = False
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = 0
+model_params["flash_params"]["global_iteration_stride"] = 5
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
@@ -123,14 +129,20 @@ model_params["variable_scaling_linear_rpc"] = {
     "temperature": 647.096,
     "enthalpy": 524641.0735546586,
 }
+model_params["use_logp_nonlinear_rpc"] = True
 
 solver_params["armijo_line_search_weight"] = 0.9
 solver_params["armijo_line_search_incline"] = 1e-4
-solver_params["armijo_line_search_max_iterations"] = 20
+solver_params["armijo_line_search_max_iterations"] = 10
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
+solver_params["armijo_stop_after_potential_reaches"] = 1e-5
 # solver_params["armijo_start_after_residual_reaches"] = 10.0
 solver_params["armijo_least_squares_form"] = False
-solver_params["newton_chop"] = 0.4
+solver_params["newton_chop"] = 1.0
+solver_params["appleyard_chop"] = 0.3
+solver_params["logp_cap"] = np.log(2.0)
+solver_params["do_ntrdc"] = True
+solver_params["atol_objective"] = 1e-5
 
 
 class Case2aMixin:

@@ -883,6 +883,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         """Normalizes fractional variables in the case of violation of the bound
         [0,1], before calling the base method."""
         self.make_fractions_feasible()
+        self.make_statefunctions_feasible()
         super().update_derived_quantities()
 
     def make_fractions_feasible(self) -> None:
@@ -932,6 +933,43 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                         [phase.partial_fraction_of[comp](subdomains)],  # type:ignore[arg-type]
                         iterate_index=0,
                     )
+
+    def make_statefunctions_feasible(self, min_val: float = 1e-7) -> None:
+        """Makes state functions, which must be positive, strictly positive.
+
+        This includes pressure, temperature and specific fluid volume, if they are
+        variables.
+
+        Parameters:
+            min_val: Minimal value for state functions.
+
+        """
+        assert min_val > 0.0, "Minimal value expected to be strictly positive."
+
+        p = self.equation_system.get_variable_values(
+            [self.pressure_variable], iterate_index=0
+        )
+        p = np.maximum(p, min_val)
+        self.equation_system.set_variable_values(
+            p, [self.pressure_variable], iterate_index=0
+        )
+
+        if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+            T = self.equation_system.get_variable_values(
+                [self.temperature_variable], iterate_index=0
+            )
+            T = np.maximum(T, min_val)
+            self.equation_system.set_variable_values(
+                T, [self.temperature_variable], iterate_index=0
+            )
+        if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+            v = self.equation_system.get_variable_values(
+                [self.fluid_volume_variable], iterate_index=0
+            )
+            v = np.maximum(v, min_val)
+            self.equation_system.set_variable_values(
+                v, [self.fluid_volume_variable], iterate_index=0
+            )
 
     def do_flash_preconditioning(self) -> bool:
         """Checks whether the flash should be done for the given iteration as specified
@@ -1000,7 +1038,9 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         """Method to assemble the state of the fluid at the current iterate.
 
         The returned fluid state contains only quantities considered unknowns (fractions
-        and equilibrium state functions), and not fluid properties.
+        and equilibrium state functions), and not fluid properties. It also returns only
+        the intensive state functions pressure and temperature. Energies and volume are
+        not considered as possible variables in the thermodynamic sense.
 
         Intended use for the returned fluid property instance is as the initial guess
         for the flash performed in :meth:`local_equilibrium`.
@@ -1031,6 +1071,9 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         # Used to detect absence of phase (y) and to bind extended fractions away
         # from zero.
         eps_persistent = 1e-8
+        # EPS for (extended) partial fractions to avoid numerical issues.
+        # Must never be zero.
+        eps_machine = 1e-14
 
         z = np.array(
             [
@@ -1092,7 +1135,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             y = pc.normalize_rows(y.T).T
 
             for y_, x_ in zip(y, x):
-                x_[x_ < 0] = 0.0
+                x_[x_ < 0] = eps_machine
                 x_[x_ > 1] = 1.0
                 # NOTE: In persistent-variable form, phase can be absent despite
                 # numerically small fraction. Extended partial fractions do not fulfill
@@ -1122,18 +1165,18 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             self.equation_system.evaluate(self.temperature(subdomains), state=state),
         )
 
-        if isinstance(self, pp.energy_balance.EnthalpyVariable):
-            h = cast(
-                np.ndarray,
-                self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
-            )
-        else:
-            h = cast(
-                np.ndarray,
-                self.equation_system.evaluate(
-                    self.fluid.specific_enthalpy(subdomains), state=state
-                ),
-            )
+        # if isinstance(self, pp.energy_balance.EnthalpyVariable):
+        #     h = cast(
+        #         np.ndarray,
+        #         self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
+        #     )
+        # else:
+        #     h = cast(
+        #         np.ndarray,
+        #         self.equation_system.evaluate(
+        #             self.fluid.specific_enthalpy(subdomains), state=state
+        #         ),
+        #     )
 
         return pc.FluidProperties(
             z=z,
@@ -1141,7 +1184,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             sat=sat,
             p=p,
             T=T,
-            h=h,
+            # h=h,
             phases=[
                 pc.PhaseProperties(state=phase.state, x=x_)
                 for x_, phase in zip(x, self.fluid.phases)

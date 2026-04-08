@@ -355,6 +355,15 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
+@_COMPILER(nb.f8(nb.f8, nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def _rr_equation(y: float, z: np.ndarray, K: np.ndarray) -> float:
+    """Rachford-Rice equation for vapor-liquid equilibria."""
+    K1m = K - 1.0
+    num = z * K1m
+    denom = 1.0 + y * K1m
+    return np.sum(num / denom)
+
+
 @_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.

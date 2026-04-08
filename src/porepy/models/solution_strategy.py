@@ -626,6 +626,16 @@ class SolutionStrategy(pp.PorePyModel):
             nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
+        if self.params.get("use_logp_nonlinear_rpc", False):
+            # If the logp nonlinear RPC is used, the nonlinear increment is a logp
+            # and needs to be transformed back to a pressure increment before being
+            # added to the solution.
+            dofs = self.equation_system.dofs_of(["pressure"])
+            p_k = self.equation_system.get_variable_values(
+                ["pressure"], iterate_index=0
+            )
+            p_k1p = p_k * np.exp(nonlinear_increment[dofs])
+            nonlinear_increment[dofs] = p_k1p - p_k
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
             values=nonlinear_increment, additive=True, iterate_index=0
@@ -757,6 +767,7 @@ class SolutionStrategy(pp.PorePyModel):
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
 
         """
+        use_logp = bool(self.params.get("use_logp_nonlinear_rpc", False))
         t_0 = time.time()
 
         if self._apply_schur_complement_reduction():
@@ -776,9 +787,28 @@ class SolutionStrategy(pp.PorePyModel):
                 variable_scaling=cast(
                     None, self.params.get("variable_scaling_linear_rpc", None)
                 ),
+                use_logp=use_logp,
             )
         else:
             self.linear_system = self.equation_system.assemble()
+            if use_logp:
+                # If the logp nonlinear RPC is used, we need to apply the chain rule to
+                # the Jacobian to get the correct linear system for the logp increment.
+                A, b = self.linear_system
+                logp_t = np.ones(self.equation_system.num_dofs())
+                logp_t[self.equation_system.dofs_of(["pressure"])] = (
+                    self.equation_system.get_variable_values(
+                        ["pressure"], iterate_index=0
+                    )
+                )
+                assert A.shape[1] == logp_t.size
+                A = A @ sps.diags_array(
+                    [logp_t],
+                    offsets=[0],
+                    shape=(A.shape[1], A.shape[1]),
+                    format="csr",
+                )
+                self.linear_system = (A, b)
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")

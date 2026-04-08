@@ -1772,6 +1772,7 @@ class EquationSystem:
         inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
         variable_scaling: dict[str, float] | None = None,
+        use_logp: bool = False,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         r"""Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -1878,13 +1879,24 @@ class EquationSystem:
         # Keep track of indices or primary block.
         ind_start = 0
         self.assembled_equation_indices = dict()
+        ndofs = self.num_dofs()
 
         if variable_scaling:
-            self._variable_scales = np.ones(self.num_dofs())
+            self._variable_scales = np.ones(ndofs)
             for k, v in variable_scaling.items():
+                if k == "pressure" and use_logp:
+                    continue
                 self._variable_scales[self.dofs_of([k])] = v
         else:
             self._variable_scales = None
+
+        if use_logp:
+            logp_t = np.ones(ndofs)
+            logp_t[self.dofs_of(["pressure"])] = self.get_variable_values(
+                ["pressure"], iterate_index=0
+            )
+        else:
+            logp_t = None
 
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
@@ -1897,6 +1909,14 @@ class EquationSystem:
                     assert A_temp.shape[1] == self._variable_scales.size
                     A_temp = A_temp @ sps.diags_array(
                         [self._variable_scales],
+                        offsets=[0],
+                        shape=(A_temp.shape[1], A_temp.shape[1]),
+                        format="csr",
+                    )
+                if isinstance(logp_t, np.ndarray):
+                    assert A_temp.shape[1] == logp_t.size
+                    A_temp = A_temp @ sps.diags_array(
+                        [logp_t],
                         offsets=[0],
                         shape=(A_temp.shape[1], A_temp.shape[1]),
                         format="csr",
@@ -1935,6 +1955,14 @@ class EquationSystem:
                     assert A_temp.shape[1] == self._variable_scales.size
                     A_temp = A_temp @ sps.diags_array(
                         [self._variable_scales],
+                        offsets=[0],
+                        shape=(A_temp.shape[1], A_temp.shape[1]),
+                        format="csr",
+                    )
+                if isinstance(logp_t, np.ndarray):
+                    assert A_temp.shape[1] == logp_t.size
+                    A_temp = A_temp @ sps.diags_array(
+                        [logp_t],
                         offsets=[0],
                         shape=(A_temp.shape[1], A_temp.shape[1]),
                         format="csr",

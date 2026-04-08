@@ -15,8 +15,8 @@ class IC_single_phase_high_pressure(pp.PorePyModel):
         p_outlet = 25.0
         xc = sd.cell_centers.T
         dir_idx = np.argmax(np.max(xc, axis=0))
-        p_linear = (
-            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        p_linear = lambda x: (
+            (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
         )
         p_init = np.array(list(map(p_linear, xc)))
         return p_init
@@ -54,8 +54,8 @@ class IC_single_phase_moderate_pressure(pp.PorePyModel):
         p_outlet = 20.0
         xc = sd.cell_centers.T
         dir_idx = np.argmax(np.max(xc, axis=0))
-        p_linear = (
-            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        p_linear = lambda x: (
+            (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
         )
         p_init = np.array(list(map(p_linear, xc)))
         return p_init
@@ -93,8 +93,8 @@ class IC_single_phase_low_pressure(pp.PorePyModel):
         p_outlet = 1.0
         xc = sd.cell_centers.T
         dir_idx = np.argmax(np.max(xc, axis=0))
-        p_linear = (
-            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        p_linear = lambda x: (
+            (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
         )
         p_init = np.array(list(map(p_linear, xc)))
         return p_init

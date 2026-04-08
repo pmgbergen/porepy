@@ -310,6 +310,15 @@ class SolutionStrategy(ModelConfig):
             op = op.previous_timestep()
         return self.equation_system.evaluate(op)
 
+    def solve_linear_system(self) -> np.ndarray:
+        try:
+            sol = super().solve_linear_system()
+        except Exception as e:
+            logger.warning(f"Error occurred while solving linear system: {e}")
+            sol = np.full_like(self.linear_system[1], np.nan)
+
+        return sol
+
 
 class AdjustedPointWellModel(ModelConfig):
     """Adjustment of a 2D model which has wells modelled as point grids.
@@ -1005,17 +1014,6 @@ class DataCollectionMixin(pp.PorePyModel):
         )
         return sol
 
-    def update_thermodynamic_properties_of_phases(
-        self, state: Optional[np.ndarray] = None
-    ) -> None:
-        start = time.time()
-        out = super().update_thermodynamic_properties_of_phases(state=state)
-        self.nonlinear_solver_statistics.log_custom_data(
-            append=True,
-            flash_clocktime=time.time() - start,
-        )
-        return out
-
     def before_nonlinear_loop(self) -> None:
         self._flash_iter_per_grid.clear()
         return super().before_nonlinear_loop()
@@ -1030,12 +1028,18 @@ class DataCollectionMixin(pp.PorePyModel):
         update_secondary_variables: bool = True,
         state: Optional[np.ndarray] = None,
     ) -> pf.FlashResults:
+        start = time.time()
         state: pf.FlashResults = super().local_equilibrium(
             sd,
             specification=specification,
             initial_guess_from_current_state=initial_guess_from_current_state,
             update_secondary_variables=update_secondary_variables,
             state=state,
+        )
+        clock_time = time.time() - start
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            flash_clocktime=clock_time,
         )
 
         if sd not in self._flash_iter_per_grid:
@@ -1056,29 +1060,13 @@ class DataCollectionMixin(pp.PorePyModel):
         return super().after_nonlinear_convergence()
 
 
-class IsothermalModelTemplate(
-    cf.ConstitutiveLawsCF,
-    pc.PhaseVariablesClosure,
-    pve.VT_PVEEquations,
-    cf.ComponentMassBalanceEquations,
-    pp.fluid_mass_balance.FluidMassBalanceEquations,
-    pc.CompositionalVariables,
-    pp.fluid_mass_balance.FluidVolumeVariable,
-    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
-    cfle.BoundaryConditionsEquilibrium,
-    cf.BoundaryConditionsMulticomponent,
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
-    cfle.InitialConditionsEquilibrium,
-    cf.InitialConditionsFractions,
-    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
-    cfle.SolutionStrategyEquilibrium,
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
-    pp.ModelGeometry,
-    pp.DataSavingMixin,
-):
-    """Isothermal model template for case 2."""
+class AdjustedFluidVolumeModel(pp.PorePyModel):
+    """Model with fluid volume variable, which is used to compute the fluid mass in the
+    system."""
 
-    _T_IN: float
+    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def __init__(self, params=None):
         super().__init__(params)
@@ -1091,6 +1079,32 @@ class IsothermalModelTemplate(
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass_through_volume")
         return mass
+
+    def component_mass(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        mass_density = (
+            self.porosity(subdomains)
+            / self.fluid_specific_volume(subdomains)
+            * component.fraction(subdomains)
+        )
+        mass_density.set_name(f"component_mass_through_volume_{component.name}")
+        return mass_density
+
+    def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+
+        if isinstance(self, pp.energy_balance.EnthalpyVariable):
+            h = self.enthalpy(subdomains)
+        else:
+            h = self.fluid.specific_enthalpy(subdomains)
+
+        energy = (
+            self.porosity(subdomains)
+            / self.fluid_specific_volume(subdomains)
+            * (h - self.pressure(subdomains))
+        )
+        energy.set_name("fluid_internal_energy")
+        return energy
 
     def initial_condition(self) -> None:
         super().initial_condition()
@@ -1106,6 +1120,17 @@ class IsothermalModelTemplate(
             [cast(pp.ad.Variable, self.fluid_specific_volume(subdomains))],
             iterate_index=0,
         )
+
+
+class PseudoIsothermalMixin(pp.PorePyModel):
+    """Mixin to introduce the notion of temperature in a model, without being an
+    actual variable. Used to evaluate phase properties at a given temperature.
+
+    The isothermal value can be set with a class attribute ``_T_IN``.
+
+    """
+
+    _T_IN: float
 
     def temperature(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         nc = sum([sd.num_cells for sd in subdomains])
@@ -1200,3 +1225,28 @@ class IsothermalModelTemplate(
                 use_extended_derivatives=is_persistent,
                 update_fugacities=equilibrium_defined,
             )
+
+
+class IsothermalModelTemplate(
+    PseudoIsothermalMixin,
+    AdjustedFluidVolumeModel,
+    cf.ConstitutiveLawsCF,
+    pc.PhaseVariablesClosure,
+    pve.VT_PVEEquations,
+    cf.ComponentMassBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
+    pc.CompositionalVariables,
+    pp.fluid_mass_balance.FluidVolumeVariable,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    cfle.BoundaryConditionsEquilibrium,
+    cf.BoundaryConditionsMulticomponent,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    cfle.InitialConditionsEquilibrium,
+    cf.InitialConditionsFractions,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    cfle.SolutionStrategyEquilibrium,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
+):
+    """Isothermal model template for case 2."""

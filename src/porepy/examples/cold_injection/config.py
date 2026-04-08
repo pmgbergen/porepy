@@ -19,7 +19,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
 )
 
-from .solver import NewtonArmijoAndersonSolver
+from .solver import CFLESolver
 
 
 class RelaxedCFLEResidualCriterion(pp.ResidualBasedAbsoluteCriterion):
@@ -236,21 +236,20 @@ def get_default_params(
     MODEL_PARAMS.update(meshing_params)
 
     SOLVER_PARAMS = {
-        "nonlinear_solver": NewtonArmijoAndersonSolver,
-        "armijo_line_search": True,
+        "prepare_simulation": False,
+        "nonlinear_solver": CFLESolver,
+        "do_armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
         "armijo_line_search_incline": 0.2,
         "armijo_line_search_max_iterations": 15,
         "armijo_stop_after_residual_reaches": 1e0,
-        "appplyard_chop": 0.3,
+        "appleyard_chop": 0.3,
         "newton_chop": 1.0,
-        "anderson_acceleration": False,
+        "do_anderson_acceleration": False,
         "anderson_acceleration_depth": 3,
         "anderson_acceleration_constrained": False,
         "anderson_acceleration_regularization_parameter": 1e-3,
         "anderson_start_after_residual_reaches": 1e2,
-        "flag_failure_as_diverged": False,
-        "prepare_simulation": False,
     }
 
     return MODEL_PARAMS, SOLVER_PARAMS
@@ -281,5 +280,8 @@ def get_default_convergence_criteria(
             "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
             "inc_nan": pp.IncrementBasedNanCriterion(),
             "res_nan": pp.ResidualBasedNanCriterion(),
+            "res_div": pp.ResidualBasedAbsoluteDivergenceCriterion(
+                tol=1e10, metric=pp.EquationBasedLebesgueMetric(model)
+            ),
         },
     }
