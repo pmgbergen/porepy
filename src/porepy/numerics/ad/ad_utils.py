@@ -324,14 +324,40 @@ class MergedOperator(operators.Operator):
         Parameters:
             discr: Mapping between subdomains, or interfaces, where the discretization
                 is applied, and the actual Discretization objects.
-            key: Keyword that identifies this discretization matrix, e.g. for a class
-                with an attribute foo_matrix_key, the key will be foo.
-            mat_dict_key: Keyword used to access discretization matrices.
+            discretization_matrix_key: Keyword that identifies this discretization
+                matrix, e.g. for a class with an attribute foo_matrix_key, the key
+                will be foo.
+            physics_key: Keyword used to access discretization matrices.
+            inner_physics_key: For nested matrix dicts, the inner key.
             domains: Domains on which the discretization is defined.
 
         """
         name = discr.__class__.__name__
-        super().__init__(name=name, domains=domains)
+
+        # Attempt to infer operator domain (column space) and range (row space) from
+        # the discretization. The default stubs return {} (unspecified), so op_domain
+        # and op_range will be None for most discretizations until Stage 7 fills in
+        # the concrete implementations.
+        op_domain: Optional[operators.OperatorSpace] = None
+        op_range: Optional[operators.OperatorSpace] = None
+        if domains:
+            if isinstance(discr, Discretization):
+                row_dof = discr.get_row_dof_info()
+                col_dof = discr.get_col_dof_info()
+            else:
+                row_dof = {}
+                col_dof = {}
+            if row_dof and col_dof:
+                op_domain = operators.OperatorSpace.from_domains(
+                    list(domains), col_dof
+                )
+                op_range = operators.OperatorSpace.from_domains(
+                    list(domains), row_dof
+                )
+
+        super().__init__(
+            name=name, domains=domains, domain=op_domain, range_=op_range
+        )
 
         self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
