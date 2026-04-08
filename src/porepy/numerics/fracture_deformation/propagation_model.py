@@ -21,8 +21,6 @@ WARNING: This should be considered experimental code and should be used with
 from __future__ import annotations
 
 import abc
-from typing import Literal
-
 import numpy as np
 import scipy.sparse as sps
 
@@ -78,7 +76,7 @@ class FracturePropagation(abc.ABC):
         domain: pp.Grid | pp.MortarGrid,
         d: dict,
         var: str,
-        dofs: dict[Literal["cells", "faces", "nodes"], int],
+        dofs: dict[pp.ad.GridEntity, int],
     ) -> np.ndarray:
         """Initialize a new variable field with the right size for a new variable.
 
@@ -99,7 +97,7 @@ class FracturePropagation(abc.ABC):
 
         """
         # Number of cell dofs for this variable
-        cell_dof = dofs.get("cells")
+        cell_dof = dofs.get(pp.ad.GridEntity.cells)
 
         # Number of new variables is given by the size of the cell map.
         cell_map: sps.spmatrix = d["cell_index_map"]
@@ -169,14 +167,14 @@ class FracturePropagation(abc.ABC):
             # It should not be difficult to handle other types of variables,
             # but the need has not been there.
             dofs = var.dof_info
-            face_dof: int = dofs.get("faces", 0)
-            node_dof: int = dofs.get("nodes", 0)
+            face_dof: int = dofs.get(pp.ad.GridEntity.faces, 0)
+            node_dof: int = dofs.get(pp.ad.GridEntity.nodes, 0)
             if face_dof != 0 or node_dof != 0:
                 raise NotImplementedError(
                     "Have only implemented variable mapping for face dofs"
                 )
 
-            cell_dof: int = dofs["cells"]
+            cell_dof: int = dofs[pp.ad.GridEntity.cells]
 
             # Map old solution
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
@@ -238,7 +236,7 @@ class FracturePropagation(abc.ABC):
 
             # Mapping of old variables.
             dofs = var.dof_info
-            cell_dof = dofs["cells"]
+            cell_dof = dofs[pp.ad.GridEntity.cells]
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
             x_new[self.equation_system.dofs_of([var])] = (
                 mapping * data["old_solution"][var]
