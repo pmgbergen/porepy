@@ -170,12 +170,23 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         name: str,
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
+        dof_info: Optional[dict[GridEntity, int]] = None,
     ) -> None:
+        op_space: Optional[pp.ad.OperatorSpace]
+        if dof_info is not None and len(domains) > 0:
+            op_space = pp.ad.OperatorSpace.from_domains(
+                list(domains), dof_info  # type: ignore[arg-type]
+            )
+        else:
+            op_space = None
+
         super().__init__(
             name=name,
             domains=domains,
             operation=Operations.evaluate,
             children=children,
+            domain=op_space,
+            range_=op_space,
         )
 
         self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
@@ -522,6 +533,7 @@ class SurrogateFactory:
                 name=self.name,
                 domains=domains_,
                 children=children,
+                dof_info=self._dof_info,
             )
 
             # assign the function which extracts the data
