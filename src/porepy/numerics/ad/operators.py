@@ -36,6 +36,7 @@ from ._operator_states import (
     _get_previous_time_or_iterate,
     _get_reference,
 )
+from ._grid_entity import GridEntity
 from .forward_mode import AdArray
 
 if TYPE_CHECKING:
@@ -240,7 +241,9 @@ class Operator:
         return self._domains if self._domain_type == "subdomains" else []
 
     @property
-    def domain_type(self) -> Literal["subdomains", "interfaces", "boundary grids"]:
+    def domain_type(
+        self,
+    ) -> Literal["subdomains", "interfaces", "boundary grids", "scalar"]:
         """Type of domains where the operator is defined."""
         return self._domain_type
 
@@ -1434,7 +1437,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     def __init__(
         self,
         name: str,
-        ndof: dict[Literal["cells", "faces", "nodes"], int],
+        ndof: dict[GridEntity, int],
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:
@@ -1457,9 +1460,9 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
 
         # dofs per
-        self._cells: int = ndof.get("cells", 0)
-        self._faces: int = ndof.get("faces", 0)
-        self._nodes: int = ndof.get("nodes", 0)
+        self._cells: int = ndof.get(GridEntity.cells, 0)
+        self._faces: int = ndof.get(GridEntity.faces, 0)
+        self._nodes: int = ndof.get(GridEntity.nodes, 0)
 
         # tag
         self._tags: dict[str, Any] = tags if tags is not None else {}
@@ -1711,7 +1714,7 @@ class MixedDimensionalVariable(Variable):
         # domain. While formally correct, this should be picked up in other places so we
         # ignore the warning here.
         self._domains = domains  # type: ignore[assignment]
-        self._domain_type = domain_types
+        self._domain_type = domain_types  # type: ignore[assignment]
 
         # If someone attempts to create a prev time or iter md-variable using
         # atomic variables at prev time and iter, we have a missing reference to the

@@ -133,6 +133,7 @@ from porepy.numerics.ad.forward_mode import AdArray
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
 from .operators import Operations, Operator
+from ._grid_entity import GridEntity
 
 __all__ = [
     "SurrogateOperator",
@@ -447,16 +448,16 @@ class SurrogateFactory:
         name: str,
         mdg: pp.MixedDimensionalGrid,
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
-        dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
+        dof_info: Optional[dict[GridEntity, int]] = None,
     ) -> None:
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
 
         if dof_info is None:
-            dof_info = {"cells": 1}
+            dof_info = {GridEntity.cells: 1}
 
         # help mypy with default values
-        dof_info = cast(dict[pp.ad.equation_system.GridEntity, int], dof_info)
+        dof_info = cast(dict[GridEntity, int], dof_info)
 
         self._dependencies: Sequence[
             Callable[[pp.GridLikeSequence], pp.ad.Variable]
@@ -467,7 +468,7 @@ class SurrogateFactory:
         self._name: str = name
         """See :meth:`name`."""
 
-        self._dof_info: dict[pp.ad.equation_system.GridEntity, int] = dof_info
+        self._dof_info: dict[GridEntity, int] = dof_info
         """Passed at insantiation, with default value leading to scalar, cell-wise dofs.
         """
 
@@ -645,14 +646,14 @@ class SurrogateFactory:
         if isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid)):
             # NOTE using default value of 1, because this is the general default value
             # and only cells are supported on boundaries and interfaces
-            return self._dof_info.get("cells", 1) * grid.num_cells
+            return self._dof_info.get(GridEntity.cells, 1) * grid.num_cells
         elif isinstance(grid, pp.Grid):
             # NOTE cannot use default value of scalar, cell-wise, to not mess with
             # cases where the user defines only node- or face-wise dofs.
             return (
-                self._dof_info.get("cells", 0) * grid.num_cells
-                + self._dof_info.get("faces", 0) * grid.num_faces
-                + self._dof_info.get("nodes", 0) * grid.num_nodes
+                self._dof_info.get(GridEntity.cells, 0) * grid.num_cells
+                + self._dof_info.get(GridEntity.faces, 0) * grid.num_faces
+                + self._dof_info.get(GridEntity.nodes, 0) * grid.num_nodes
             )
         else:
             raise TypeError(f"Unsupported type of grid {type(grid)}.")
