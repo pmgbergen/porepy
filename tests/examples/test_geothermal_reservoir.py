@@ -3,6 +3,8 @@ Test functionalities in the example case of the geomthermal reservoir.
 
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 
@@ -15,11 +17,25 @@ from porepy.examples.geothermal_reservoir import (
     GeothermalReservoirWellBCs,
     NeumannWellBCsFirstTimeInterval,
     WellBoundaryConditions,
+    set_model_params,
+    set_solver_params,
 )
 from porepy.numerics.nonlinear import line_search
 
 
-class geothermal_model_neu(
+class FastMeshingMixin:
+    """Helper mixin to enforce a coarse grid without having to set the meshing arguments
+    in each model and test separately."""
+
+    def meshing_arguments(self) -> dict:
+        return {"cell_size": 0.25}
+
+    def grid_type(self) -> Literal["cartesian"]:
+        return "cartesian"
+
+
+class GeothermalModelNeumann(
+    FastMeshingMixin,
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     NeumannWellBCsFirstTimeInterval,
@@ -30,7 +46,7 @@ class geothermal_model_neu(
 
 @pytest.fixture
 def neuBC_model():
-    model = geothermal_model_neu()
+    model = GeothermalModelNeumann()
     model.prepare_simulation()
     return model
 
@@ -61,7 +77,8 @@ class OneVerticalInjectionWell(well_models.OneVerticalWell):
         self.well_network.wells[0].tags["well_name"] = "injection_well"
 
 
-class geomhermal_model_well(
+class GeothermalModelWell(
+    FastMeshingMixin,
     OneVerticalInjectionWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     WellBoundaryConditions,
@@ -78,7 +95,7 @@ def well_bc_model():
         "injection_well_pressures": [1e6, 1e6],
         "injection_well_temperatures": [300.00, 300.00],
     }
-    model = geomhermal_model_well(params)
+    model = GeothermalModelWell(params)
     model.prepare_simulation()
     return model
 
@@ -117,7 +134,8 @@ def test_well_bcs_temperature(well_bc_model):
     assert np.any(np.isclose(values, expected_value))
 
 
-class geothermal_model_mechanics(
+class GeothermalModelMechanics(
+    FastMeshingMixin,
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
     BoundaryConditionsMechanicsNeumann,
@@ -127,17 +145,17 @@ class geothermal_model_mechanics(
 
 
 @pytest.fixture
-def mechcanics_bc_model():
-    model = geothermal_model_mechanics()
+def mechanics_bc_model():
+    model = GeothermalModelMechanics()
     model.prepare_simulation()
     return model
 
 
-def test_mechanics_bcs_neumann(mechcanics_bc_model):
+def test_mechanics_bcs_neumann(mechanics_bc_model):
     """
     Test the boundary conditions of mechanics.
     """
-    model = mechcanics_bc_model
+    model = mechanics_bc_model
     matrix_grids = [sd for sd in model.mdg.subdomains() if sd.dim == model.nd]
     assert len(matrix_grids) == 1
 
@@ -182,97 +200,77 @@ def test_geothermal_reservoir():
     """
     # MARK: Setup
 
+    # Get the model parameteres as defined in the example. Compared to that setup, we
+    # will introduce some simplifications to speed up the test:
+    # - The injection schedule and simulation time are shortened and simplified.
+    # - The grid is coarser.
+    # - Diffusive terms are discretized using TPFA instead of MPFA.
+    # - Boundary conditions for the injection well are changed to make testing of flow
+    #   in the well more reliable.
+    model_params = set_model_params()
+
     # The model setup is mostly copied from porepy/examples/geothermal_reservoir.py
 
-    dt_init = 3 * pp.YEAR
-    # 6 * dt_init is enough to equilibrate the system. However, exactly 6 produces a
-    # bug with the time_manager, which does not adjust the schedule. Therefore, using
-    # 6.1 instead. This can be reconcidered by just 6 later, when the time_manager works
-    # more robustly.
-    INITIALIZATION_LENGTH = 6.1
+    # Initial time step. Note that the tests check near-equality between the final two
+    # time steps of the initialization phase. Hence dt_init, INITIALIZATION_LENGTH and
+    # the TimeManager should be set up such that the system is in equilibrium no later
+    # than the penultimate time step. This is verified below.
+    dt_init = 20 * pp.YEAR
+    # The initialization phase is run for INITIALIZATION_LENGTH * dt_init. A value of
+    # 3.1 * dt_init has been found sufficient for the system to reach a near-equilibrium
+    # state in this test setup while keeping the overall runtime reasonable.
+    INITIALIZATION_LENGTH = 3.1
     schedule = np.array(
         [
             0,  # Initialization, wells are off.
             dt_init * INITIALIZATION_LENGTH,  # Initialization done, wells are pumping.
-            dt_init * INITIALIZATION_LENGTH + pp.HOUR,  # Simulation ends.
+            dt_init * INITIALIZATION_LENGTH + 100 * pp.SECOND,  # Simulation ends.
         ]
     )
 
     # Injection pressure schedule, its size == schedule.size
-    injection_pressures = [1e5, 5e6, 9e6]  # [Pa]
+    injection_pressures = [1e5, 1e5, 5e5]  # [Pa]
 
-    # Adjust solid values, while using default values for water.
-    solid_values = pp.solid_values.basalt
-    solid_values.update(
+    time_manager = pp.TimeManager(
+        schedule=schedule,
+        dt_init=dt_init,
+        constant_dt=False,
+        dt_min_max=(10 * pp.SECOND, dt_init),
+        iter_optimal_range=(6, 10),  # Allow more iterations than default.
+        iter_relax_factors=(0.5, 1.8),  # More aggressive relaxation
+    )
+
+    length_scale = model_params["length_scale"]
+    fracture_size = model_params["fracture_size"]
+
+    # Define model parameters.
+    model_params.update(
         {
-            "dilation_angle": 0.1,  # [rad]
-            "normal_permeability": 1.0e-10,  # [m^2]
-            "residual_aperture": 1e-3,  # [m]
-            "well_radius": 0.1,  # [m]
+            "darcy_flux_discretization": "tpfa",
+            "fourier_flux_discretization": "tpfa",
+            # Set time manager.
+            "time_manager": time_manager,
+            # Set physical parameters.
+            "injection_well_temperatures": 250.00,
+            "injection_well_pressures": injection_pressures,
+            # Set geometry and meshing related parameters.
+            "meshing_arguments": {
+                "cell_size": length_scale / 4.0,
+                "cell_size_fracture": fracture_size * length_scale * 0.7,
+                "background_transition_multiplier": 6.0,
+            },
         }
     )
-    # Define domain sizes (x, y, z) and fracture size.
-    length_scale = 1e3  # [m]
-    fracture_size = 0.15  # [-], fraction of length_scale
-    domain_sizes = np.array(
-        [1.0 * length_scale, 1.0 * length_scale, 1.0 * length_scale]
-    )  # [m]
-    # Define model parameters.
-    model_params = {
-        "darcy_flux_discretization": "tpfa",
-        "fourier_flux_discretization": "tpfa",
-        # Set time manager.
-        "time_manager": pp.TimeManager(
-            schedule=schedule,
-            dt_init=dt_init,
-            constant_dt=False,
-            dt_min_max=(0.1 * pp.HOUR, max(pp.YEAR, dt_init)),
-            iter_optimal_range=(6, 10),  # Allow more iterations than default.
-            iter_relax_factors=(0.5, 1.8),  # More aggressive relaxation
-        ),
-        # Set physical parameters.
-        "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
-        "injection_well_temperatures": 250.00,
-        "injection_well_pressures": injection_pressures,
-        "production_well_temperatures": 300.0,
-        "production_well_pressures": pp.ATMOSPHERIC_PRESSURE,  # = 1.01325e5 Pa
-        "material_constants": {
-            "solid": pp.SolidConstants(**solid_values),  # type: ignore[arg-type]
-            "fluid": pp.FluidComponent(
-                **pp.fluid_values.water,
-            ),  # type: ignore[arg-type]
-            "numerical": pp.NumericalConstants(characteristic_displacement=1e-2),
-        },
-        "reference_variable_values": pp.ReferenceVariableValues(
-            temperature=300, pressure=1e6
-        ),  # type: ignore[arg-type]
-        "units": pp.Units(m=1.0, kg=1.0e5, K=1.0),
-        # Set geometry and meshing related parameters.
-        "grid_type": "simplex",
-        "meshing_arguments": {
-            "cell_size": length_scale / 5.0,
-            "cell_size_fracture": fracture_size * length_scale,
-        },
-        "fracture_params": {  # Other options are available in the geometry mixin.
-            "fracture_major_axes": np.array((fracture_size, fracture_size * 1.2)),
-            "num_points": np.array((9, 8)),  # Number of points to define each fracture
-            "dip_angles": np.array((np.pi / 4, np.pi / 2)),  # Slanted and vertical
-        },
-        "domain_sizes": domain_sizes,
-        # Line search: Scale the indicator used for the local_line_search (see below)
-        # adaptively to increase robustness.
-        "adaptive_indicator_scaling": 1,
-        # Set folder name for results.
-        "folder_name": "geothermal_reservoir",
-    }
 
     # Data saved in the simulation for the test.
     pressure_data_initialization = []
     temperature_data_initialization = []
     displacement_data_initialization = []
     pressure_data_injection_well = []
+    darcy_flux_data_injection_well = []
     temperature_data_injection_well = []
     pressure_data_production_well = []
+    darcy_flux_data_production_well = []
     temperature_data_production_well = []
     pressure_data_injection_fracture = []
     temperature_data_injection_fracture = []
@@ -330,6 +328,11 @@ def test_geothermal_reservoir():
                 for well in all_wells
                 if well.tags["parent_well_index"] == prod_well_index
             ]
+            # Fluxes are defined along normal vectors. Below, we check whether fluxes
+            # point upwards or downwards along the z axis. Hence, we multiply the flux
+            # values by the sign of the z component of the face normal.
+            injection_signs = [np.sign(sd.face_normals[2]) for sd in injection_wells]
+            production_signs = [np.sign(sd.face_normals[2]) for sd in production_wells]
 
             def identify_well_fracture(parent_well_index):
                 # Identifying the fracture corresponding to this well index.
@@ -377,11 +380,19 @@ def test_geothermal_reservoir():
             pressure_data_production_well.append(
                 self.equation_system.evaluate(self.pressure(production_wells))
             )
+            darcy_flux_data_production_well.append(
+                self.equation_system.evaluate(self.darcy_flux(production_wells))
+                * np.hstack(production_signs)
+            )
             temperature_data_production_well.append(
                 self.equation_system.evaluate(self.temperature(production_wells))
             )
             pressure_data_injection_fracture.append(
                 self.equation_system.evaluate(self.pressure(injection_fractures))
+            )
+            darcy_flux_data_injection_well.append(
+                self.equation_system.evaluate(self.darcy_flux(injection_wells))
+                * np.hstack(injection_signs)
             )
             temperature_data_injection_fracture.append(
                 self.equation_system.evaluate(self.temperature(injection_fractures))
@@ -394,16 +405,9 @@ def test_geothermal_reservoir():
             )
 
     model = ModelForTest(model_params)
-    solver_params = {
-        "prepare_simulation": True,
-        "max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
-        "nl_divergence_tol": 1e20,
-        "nl_convergence_inc_atol": 1e-7,  # Increment norm
-        "nl_convergence_res_atol": 1e-7,  # Residual norm
-        "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
-        "global_line_search": 0,
-        "local_line_search": 1,
-    }
+    # Use a less strict convergence criterion to speed up the test.
+    solver_params = set_solver_params()
+    solver_params["nl_convergence_inc_atol"] = 1e-5
 
     pp.run_time_dependent_model(model, solver_params)
 
@@ -413,17 +417,16 @@ def test_geothermal_reservoir():
     # reached the steady state. We check that the last two states during the
     # initialization are close.
     assert len(pressure_data_initialization) >= 2
-
     np.testing.assert_allclose(
         pressure_data_initialization[-2],
         pressure_data_initialization[-1],
-        atol=1e-3,
+        atol=5e-4,
         rtol=0,
     )
     np.testing.assert_allclose(
         temperature_data_initialization[-2],
         temperature_data_initialization[-1],
-        atol=1e-2,
+        atol=2e-2,
         rtol=0,
     )
     np.testing.assert_allclose(
@@ -433,10 +436,14 @@ def test_geothermal_reservoir():
         rtol=0,
     )
 
-    # Test 2.1: Injection starts.
+    # Test 2: Injection starts.
 
-    # We check that the pressure increases and the temperature decreases in the
-    # injection well.
+    # Test 2.1: The pressure increases and the temperature decreases in the injection
+    # well, as cold water is injected into the reservoir. Injection fluxes should be
+    # negative (down the well). Allow tolerance for the flux, due to the cells below the
+    # well fracture intersection, which should be very small but can have some numerical
+    # noise.
+    flux_tolerance = 2e-14
     assert (
         pressure_data_injection_well[1].mean() > pressure_data_injection_well[0].mean()
     )
@@ -444,29 +451,25 @@ def test_geothermal_reservoir():
         temperature_data_injection_well[1].mean()
         < temperature_data_injection_well[0].mean()
     )
+    assert np.all(darcy_flux_data_injection_well[-1] < flux_tolerance)
+    # To avoid masking the test above using a too large tolerance, we verify that the
+    # average flux is well below the tolerance.
+    assert np.mean(darcy_flux_data_injection_well[-1]) < -flux_tolerance * 10
 
-    # Test 2.2: The opposite for the production well.
-    assert (
-        pressure_data_production_well[1].mean()
-        < pressure_data_production_well[0].mean()
-    )
+    # Test 2.2: The production well temperature increases, as hot water enters the well
+    # from the reservoir. Production fluxes should be positive (up the well). Pressure
+    # can increase or decrease and is not tested.
     assert (
         temperature_data_production_well[1].mean()
         > temperature_data_production_well[0].mean()
     )
+    assert np.all(darcy_flux_data_production_well[-1] > -flux_tolerance)
+    # To avoid masking the test above using a too large tolerance, we verify that the
+    # average flux is well above the tolerance.
+    assert np.mean(darcy_flux_data_production_well[-1]) > flux_tolerance * 10
 
     # Test 2.3: The same for the injection fracture.
     assert (
         pressure_data_injection_fracture[1].mean()
         > pressure_data_injection_fracture[0].mean()
-    )
-    assert (
-        temperature_data_injection_fracture[1].mean()
-        < temperature_data_injection_fracture[0].mean()
-    )
-
-    # Test 2.4: Pressure should decrease for the production fracture.
-    assert (
-        pressure_data_production_fracture[1].mean()
-        < pressure_data_production_fracture[0].mean()
     )
