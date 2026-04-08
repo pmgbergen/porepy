@@ -12,7 +12,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .operators import Operator, SparseArray
+from .operators import DomainType, GridEntity, Operator, OperatorSpace, SparseArray
 
 __all__ = [
     "BoundaryProjection",
@@ -114,7 +114,22 @@ class SubdomainProjections:
             # If the grid list is empty, we project from the full set of cells to
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
-        return pp.ad.SparseArray(mat, name="CellRestriction")
+
+        all_sd_space = (
+            OperatorSpace.from_domains(
+                list(self._all_subdomains), {GridEntity.cells: self.dim}
+            )
+            if self._all_subdomains
+            else None
+        )
+        sub_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
+            if subdomains
+            else None
+        )
+        return pp.ad.SparseArray(
+            mat, name="CellRestriction", domain=all_sd_space, range_=sub_space
+        )
 
     def cell_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct prolongation from subdomain to global cell quantities.
@@ -148,7 +163,21 @@ class SubdomainProjections:
             # cells.
             mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
 
-        return pp.ad.SparseArray(mat, name="CellProlongation")
+        all_sd_space = (
+            OperatorSpace.from_domains(
+                list(self._all_subdomains), {GridEntity.cells: self.dim}
+            )
+            if self._all_subdomains
+            else None
+        )
+        sub_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
+            if subdomains
+            else None
+        )
+        return pp.ad.SparseArray(
+            mat, name="CellProlongation", domain=sub_space, range_=all_sd_space
+        )
 
     def face_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain face quantities.
@@ -182,7 +211,22 @@ class SubdomainProjections:
             # If the grid list is empty, we project from the full set of faces to
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
-        return pp.ad.SparseArray(mat, name="FaceRestriction")
+
+        all_sd_space = (
+            OperatorSpace.from_domains(
+                list(self._all_subdomains), {GridEntity.faces: self.dim}
+            )
+            if self._all_subdomains
+            else None
+        )
+        sub_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
+            if subdomains
+            else None
+        )
+        return pp.ad.SparseArray(
+            mat, name="FaceRestriction", domain=all_sd_space, range_=sub_space
+        )
 
     def face_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct prolongation from subdomain to global face quantities.
@@ -215,7 +259,22 @@ class SubdomainProjections:
             # If the grid list is empty, we project from nothing to the full set of
             # faces.
             mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
-        return pp.ad.SparseArray(mat, name="FaceProlongation")
+
+        all_sd_space = (
+            OperatorSpace.from_domains(
+                list(self._all_subdomains), {GridEntity.faces: self.dim}
+            )
+            if self._all_subdomains
+            else None
+        )
+        sub_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
+            if subdomains
+            else None
+        )
+        return pp.ad.SparseArray(
+            mat, name="FaceProlongation", domain=sub_space, range_=all_sd_space
+        )
 
     def __repr__(self) -> str:
         s = (
@@ -356,9 +415,14 @@ class MortarProjections:
                 assert isinstance(intf, pp.MortarGrid)  # Appease mypy
                 mats.append(intf.sign_of_mortar_sides(self.dim))
 
+            intf_space = OperatorSpace.from_domains(
+                list(self._interfaces), {GridEntity.cells: self.dim}
+            )
             block_mat = SparseArray(
                 pp.matrix_operations.sparse_dia_from_sparse_blocks(mats),
                 name="SignOfMortarSides",
+                domain=intf_space,
+                range_=intf_space,
             )
 
         # Store the matrix for later use and return.A
@@ -704,11 +768,13 @@ class MortarProjections:
             # self._subdomains and the set of all faces in the entire mixed-dimensional
             # grid.
             projections = _face_projections(self._subdomains, self.dim)
+            sd_entity = GridEntity.faces
         else:  # This is codim[0] == 2 or projection to or from secondary
             # The mortar grid represents an interface embedded in the cells of the
             # primary grid (codim 2) or the secondary grid. In any case, the mapping
             # from self._subdomains to self.mdg should be a cell projection.
             projections = _cell_projections(self._subdomains, self.dim)
+            sd_entity = GridEntity.cells
 
         proj_mats = []
 
@@ -740,12 +806,38 @@ class MortarProjections:
 
                 proj_mats.append(pp.matrix_operations.optimized_compressed_storage(mat))
 
+        # Compute OperatorSpaces for the result.
+        intf_space = OperatorSpace.from_domains(
+            list(self._interfaces), {GridEntity.cells: self.dim}
+        )
+        sd_space = (
+            OperatorSpace.from_domains(
+                list(self._subdomains), {sd_entity: self.dim}
+            )
+            if self._subdomains
+            else None
+        )
         if to_mortar:
-            return self._bmat([[m] for m in proj_mats], name=name)
+            op_domain: Optional[OperatorSpace] = sd_space
+            op_range: Optional[OperatorSpace] = intf_space
         else:
-            return self._bmat([proj_mats], name=name)
+            op_domain = intf_space
+            op_range = sd_space
 
-    def _bmat(self, matrices, name):
+        if to_mortar:
+            return self._bmat([[m] for m in proj_mats], name=name,
+                              domain=op_domain, range_=op_range)
+        else:
+            return self._bmat([proj_mats], name=name,
+                              domain=op_domain, range_=op_range)
+
+    def _bmat(
+        self,
+        matrices,
+        name,
+        domain: Optional["OperatorSpace"] = None,
+        range_: Optional["OperatorSpace"] = None,
+    ):
         # Create block matrix, convert it to optimized storage format.
         if len(matrices[0]) == 0:
             block_matrix = sps.csr_matrix((0, 0))
@@ -753,7 +845,7 @@ class MortarProjections:
             block_matrix = pp.matrix_operations.optimized_compressed_storage(
                 sps.bmat(matrices)
             )
-        return SparseArray(block_matrix, name=name)
+        return SparseArray(block_matrix, name=name, domain=domain, range_=range_)
 
     def __repr__(self) -> str:
         # EK note: Calling mortar_to_primary and secondary here makes this method rather
@@ -781,12 +873,14 @@ class BoundaryProjection:
         tot_num_faces = np.sum([sd.num_faces for sd in subdomains]) * dim
 
         mat = []
+        boundary_grids: list[pp.BoundaryGrid] = []
         for sd in subdomains:
             if sd.dim > 0:
                 bg = mdg.subdomain_to_boundary_grid(sd)
                 if bg is not None:
                     mat_loc = bg.projection(dim)
                     mat_loc = mat_loc * face_projections[sd].T
+                    boundary_grids.append(bg)
             else:
                 # The subdomain has no faces, so the projection does not exist.
                 mat_loc = sps.csr_matrix((0, tot_num_faces))
@@ -799,15 +893,34 @@ class BoundaryProjection:
         else:
             self._projection = sps.csr_matrix((0, 0))
 
+        sd_list = list(subdomains)
+        self._subdomain_face_space: Optional[OperatorSpace] = (
+            OperatorSpace.from_domains(sd_list, {GridEntity.faces: dim})
+            if sd_list
+            else None
+        )
+        self._boundary_cell_space: Optional[OperatorSpace] = (
+            OperatorSpace.from_domains(boundary_grids, {GridEntity.cells: dim})
+            if boundary_grids
+            else None
+        )
+
     @property
     def subdomain_to_boundary(self) -> Operator:
-        return SparseArray(self._projection, name="subdomains to boundaries projection")
+        return SparseArray(
+            self._projection,
+            name="subdomains to boundaries projection",
+            domain=self._subdomain_face_space,
+            range_=self._boundary_cell_space,
+        )
 
     @property
     def boundary_to_subdomain(self) -> Operator:
         return SparseArray(
             self._projection.transpose().tocsc(),
             name="boundaries to subdomains projection",
+            domain=self._boundary_cell_space,
+            range_=self._subdomain_face_space,
         )
 
 
@@ -864,9 +977,24 @@ class Trace:
                     raise NotImplementedError("kronecker")
         else:
             trace = [sps.csr_matrix((0, 0))]
+
+        cell_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
+            if subdomains
+            else None
+        )
+        face_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
+            if subdomains
+            else None
+        )
         # Stack trace vertically to make them into mappings to global quantities. Wrap
         # the stacked matrices into an AD object.
-        self.trace = SparseArray(sps.bmat([[m] for m in trace]).tocsr())
+        self.trace = SparseArray(
+            sps.bmat([[m] for m in trace]).tocsr(),
+            domain=cell_space,
+            range_=face_space,
+        )
         """ Matrix of trace projections from cells to faces."""
 
     def __repr__(self) -> str:
@@ -913,7 +1041,19 @@ class Divergence(Operator):
             name: Name to be assigned to the operator. Default is None.
 
         """
-        super().__init__(domains=subdomains, name=name)
+        face_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.faces: dim})
+            if subdomains
+            else None
+        )
+        cell_space = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: dim})
+            if subdomains
+            else None
+        )
+        super().__init__(
+            domains=subdomains, name=name, domain=face_space, range_=cell_space
+        )
 
         self.dim: int = dim
 
