@@ -1722,11 +1722,12 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
     Parameters:
         name: Name of the variable. Should correspond to items in
             ``data[pp.TIME_STEP_SOLUTIONS]``.
-        subdomains: Subdomains on which the array is defined. Defaults to None.
-        interfaces: Interfaces on which the array is defined. Defaults to None.
-            Exactly one of subdomains and interfaces must be non-empty.
-        previous_timestep: Flag indicating if the array should be evaluated at the
-            previous time step.
+        domains: Subdomains or interfaces on which the array is defined.
+        dof_info: Optional mapping from :class:`GridEntity` to the number of DOFs per
+            grid entity. When provided, the operator's :attr:`operator_domain` and
+            :attr:`operator_range` are populated with an :class:`OperatorSpace` built
+            from *domains* and *dof_info*. When ``None`` (the default), the domain and
+            range are left unspecified.
 
     Attributes:
         previous_timestep: If True, the array will be evaluated using
@@ -1743,8 +1744,13 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
         self,
         name: str,
         domains: GridLikeSequence,
+        dof_info: Optional[dict[GridEntity, int]] = None,
     ):
-        super().__init__(name=name, domains=domains)
+        if dof_info is not None and domains:
+            space = OperatorSpace.from_domains(list(domains), dof_info)
+            super().__init__(name=name, domains=domains, domain=space, range_=space)
+        else:
+            super().__init__(name=name, domains=domains)
 
     def _key(self) -> str:
         if self._cached_key is None:
