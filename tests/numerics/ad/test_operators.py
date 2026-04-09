@@ -26,6 +26,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.operators import DomainType
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
@@ -304,9 +305,9 @@ def test_time_dependent_array():
     bg_array = pp.ad.TimeDependentDenseArray("foobar", domains=mdg.boundaries())
 
     # Check correct domain types
-    assert sd_array.domain_type == sd_array_top.domain_type == "subdomains"
-    assert intf_array.domain_type == "interfaces"
-    assert bg_array.domain_type == "boundary grids"
+    assert sd_array.domain_type == sd_array_top.domain_type == DomainType.subdomains
+    assert intf_array.domain_type == DomainType.interfaces
+    assert bg_array.domain_type == DomainType.boundary_grids
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)
