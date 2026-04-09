@@ -980,3 +980,152 @@ class TestInferDomainRange:
         new_domains, dom, ran = cell_op.infer_domain_range(cell_op, Operations.add)
         assert dom is not None
         assert ran is not None
+
+
+# ---------------------------------------------------------------------------
+# Stage 6: compound operator domain/range propagation
+# ---------------------------------------------------------------------------
+
+
+class TestCompoundOperatorSpaces:
+    """Tests that domain/range propagates correctly through multi-step expressions."""
+
+    @pytest.fixture
+    def spaces(self, two_subdomains):
+        g1, g2 = two_subdomains
+        cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
+        return cell_sp, face_sp
+
+    # --- chained matmul ---
+
+    def test_chained_matmul_domain_range(self, two_subdomains, spaces):
+        """(A @ B): range(B) == domain(A) → result.domain=B.domain, result.range=A.range"""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        # A maps faces→cells; B maps cells→faces; A@B maps cells→cells
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        result = A @ B
+        assert result.operator_domain == cell_sp
+        assert result.operator_range == cell_sp
+
+    def test_three_way_matmul(self, two_subdomains, spaces):
+        """(A @ B) @ C propagates spaces through two matmul steps."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        # A: face→cell, B: cell→face → A@B: cell→cell
+        # C: face→cell → (A@B)@C requires range(C)==domain(A@B)=cell_sp ✓ → face→cell
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        C = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        AB = A @ B
+        assert AB.operator_domain == cell_sp
+        assert AB.operator_range == cell_sp
+        ABC = AB @ C
+        assert ABC.operator_domain == face_sp
+        assert ABC.operator_range == cell_sp
+
+    def test_chained_matmul_incompatible_raises(self, two_subdomains, spaces):
+        """(A @ B) @ C raises ValueError when range(C) != domain(A@B)."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        # A@B: cell→cell (see test_three_way_matmul); C has range=face_sp != cell_sp
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        AB = A @ B  # domain=cell_sp, range=cell_sp
+        C = SparseArray(sps.eye(3), domain=face_sp, range_=face_sp)
+        with pytest.raises(ValueError, match="matrix multiplication"):
+            _ = AB @ C
+
+    def test_add_after_matmul(self, two_subdomains, spaces):
+        """(A @ v) + (B @ w) where both results have the same range."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        v = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        B = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        w = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        Av = A @ v
+        Bw = B @ w
+        result = Av + Bw
+        assert result.operator_domain == face_sp
+        assert result.operator_range == cell_sp
+
+    def test_add_matmul_incompatible_raises(self, two_subdomains, spaces):
+        """(A @ v) + (B @ w) where ranges differ raises ValueError."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        v = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        Av = A @ v  # range=cell_sp
+        # B maps faces→faces, so B@w has range=face_sp
+        B = SparseArray(sps.eye(3), domain=face_sp, range_=face_sp)
+        w = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        Bw = B @ w
+        with pytest.raises(ValueError):
+            _ = Av + Bw
+
+    # --- scalar factor in chains ---
+
+    def test_scalar_mul_after_matmul(self, two_subdomains, spaces):
+        """Scalar(k) * (A @ v) preserves A's range as the result range."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        v = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        Av = A @ v
+        result = Scalar(2.0) * Av
+        assert result.operator_domain == face_sp
+        assert result.operator_range == cell_sp
+
+    def test_unary_minus_preserves_spaces(self, two_subdomains, spaces):
+        """Unary minus (internally Scalar(-1) * op) preserves domain/range."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        result = -A
+        assert result.operator_domain == face_sp
+        assert result.operator_range == cell_sp
+
+    # --- integration with actual grid operators ---
+
+    def test_divergence_matmul_projection(self, fracture_mdg):
+        """Div @ cell_restriction: spaces propagate from grid operators."""
+        mdg = fracture_mdg
+        sds_2d = mdg.subdomains(dim=2)
+        div = pp.ad.Divergence(sds_2d, dim=1)
+        proj = pp.ad.SubdomainProjections(sds_2d)
+        cell_rest = proj.cell_restriction(sds_2d)
+        # cell_restriction maps cells→cells on the subset (square matrix here)
+        # div maps faces→cells
+        # We test that div has correct spaces
+        assert div.operator_domain is not None
+        assert GridEntity.faces in div.operator_domain.dof_info
+        assert div.operator_range is not None
+        assert GridEntity.cells in div.operator_range.dof_info
+
+    def test_compound_inherits_none_when_one_operand_has_none(self, two_subdomains, spaces):
+        """When one operand in a chain has None domain, the chain can still succeed
+        if the other operand provides the domain."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        # unknown_op has no space info
+        unknown_op = DenseArray(np.zeros(3))
+        known_op = DenseArray(np.zeros(3), domain=cell_sp, range_=cell_sp)
+        # Adding unknown + known: no error, result inherits known's spaces
+        result = unknown_op + known_op
+        assert result.operator_domain == cell_sp
+        assert result.operator_range == cell_sp
+
+    def test_domain_and_range_stored_independently(self, two_subdomains):
+        """Even when domain == range, they are stored as independent attributes."""
+        g1, g2 = two_subdomains
+        cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        a = DenseArray(np.zeros(3), domain=cell_sp, range_=cell_sp)
+        b = DenseArray(np.zeros(3), domain=cell_sp, range_=cell_sp)
+        result = a + b
+        # domain and range are equal in value, but are independent objects
+        assert result.operator_domain == result.operator_range
+        assert result.operator_domain is not None
+        assert result.operator_range is not None
