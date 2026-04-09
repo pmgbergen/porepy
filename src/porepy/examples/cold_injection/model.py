@@ -150,7 +150,7 @@ class SolutionStrategy(ModelConfig):
         do_default_flash = self.do_flash_preconditioning()
 
         for sd in self.mdg.subdomains():
-            if "injection_well" in sd.tags:
+            if "injection_well" in sd.tags and do_default_flash:
                 equ_spec = pf.IsobaricSpecifications(
                     p=self.equation_system.evaluate(self.pressure([sd])),
                     T=self.equation_system.evaluate(self.temperature([sd])),

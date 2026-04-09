@@ -51,7 +51,8 @@ if BUOYANCY_ON:
 else:
     max_iterations = 30
     iter_range = (15, 25)
-# max_iterations = 100
+max_iterations = 70
+iter_range = (30, 50)
 
 T_END_DAYS = 50
 
@@ -129,21 +130,20 @@ model_params["variable_scaling_linear_rpc"] = {
     "temperature": 647.096,
     "enthalpy": 524641.0735546586,
 }
-model_params["use_logp_nonlinear_rpc"] = True
+model_params["use_logp_nonlinear_rpc"] = False
 
-solver_params["do_armijo_line_search"] = True
+solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
 solver_params["armijo_line_search_incline"] = 1e-4
-solver_params["armijo_line_search_max_iterations"] = 10
+solver_params["armijo_line_search_max_iterations"] = 20
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
-solver_params["armijo_stop_after_potential_reaches"] = 1e-5
 # solver_params["armijo_start_after_residual_reaches"] = 10.0
 solver_params["armijo_least_squares_form"] = False
-solver_params["newton_chop"] = 1.0
+solver_params["newton_chop"] = 0.4
 solver_params["appleyard_chop"] = 0.3
-solver_params["logp_cap"] = np.log(2.0)
+solver_params["logp_clip"] = np.log(2.0)
 solver_params["do_ntrdc"] = True
-solver_params["atol_objective"] = 1e-5
+solver_params["atol_objective"] = 1e-2
 
 
 class Case2aMixin:

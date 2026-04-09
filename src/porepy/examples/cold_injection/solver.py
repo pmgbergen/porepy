@@ -19,7 +19,7 @@ class CFSolverParams(TypedDict):
     """Parameters for the compositional flow solver. They are used additionally to the
     parameters of the default Newton solver."""
 
-    logp_cap: float
+    logp_clip: float
     """Capping logarithmic pressure update, if 
     ``model.params["use_logp_nonlinear_rpc"] == True``."""
     newton_chop: float
@@ -210,6 +210,8 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         """Current iterate."""
         self._xk_norm: float | np.floating
         """Current iterate 2-norm."""
+        self._pot: float | np.floating
+        """Current objective function value."""
 
         self._delta0: float
         """Initial trust-region radius set in the first iteration."""
@@ -219,7 +221,7 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
     @staticmethod
     def default_params() -> CFSolverParams:
         return CFSolverParams(
-            logp_cap=np.log(2.0),
+            logp_clip=np.log(2.0),
             newton_chop=1.0,
             appleyard_chop=None,
             atol_objective=1e-5,
@@ -288,18 +290,20 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         if np.any(np.isnan(dx)) or np.any(np.isinf(dx)):
             return np.full_like(dx, np.nan)  # Trigger NanDivergence criterion.
 
-        dx *= self.params["newton_chop"]
-        if isinstance(self.params["appleyard_chop"], float):
-            dx = self.appleyard_chop(model, dx)
+        # dx *= self.params["newton_chop"]
+        # if isinstance(self.params["appleyard_chop"], float):
+        #     dx = self.appleyard_chop(model, dx)
 
         do_armijo = self.params["do_armijo_line_search"]
         do_anderson = self.params["do_anderson_acceleration"]
         do_ntrdc = self.params["do_ntrdc"]
+        do_chops = self.params["newton_chop"] < 1 or isinstance(
+            self.params["appleyard_chop"], float
+        )
         least_squares = self.params["armijo_least_squares_form"]
 
-        if do_armijo or do_anderson or do_ntrdc:
-            self._xk = model.equation_system.get_variable_values(iterate_index=0)
-            self._xk_norm = np.linalg.norm(self._xk)
+        self._xk = model.equation_system.get_variable_values(iterate_index=0)
+        self._xk_norm = np.linalg.norm(self._xk)
 
         if do_ntrdc or (do_armijo and not least_squares):
             A, b = model.equation_system.assemble(evaluate_jacobian=True)
@@ -320,15 +324,20 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
             self._J = A
             self._F = -b
             self._F_norm = np.linalg.norm(self._F)
+            self._pot = self._F_norm**2 * 0.5
             self._grad_pot = self._J.transpose() @ self._F
-        elif do_armijo:
+        elif do_armijo or do_chops:
             self._F = -model.equation_system.assemble(evaluate_jacobian=False)
             self._F_norm = np.linalg.norm(self._F)
+            self._pot = self._F_norm**2 * 0.5
+
+        if do_chops:
+            dx = self.apply_chops(model, dx)
 
         if self.model_uses_logp(model):
             dofs = model.equation_system.dofs_of(["pressure"])
-            cap = self.params["logp_cap"]
-            dx[dofs] = np.clip(dx[dofs], -cap, cap)
+            c = self.params["logp_clip"]
+            dx[dofs] = np.clip(dx[dofs], -c, c)
 
         if do_ntrdc:
             dx = self.ntrdc(model, dx)
@@ -345,6 +354,13 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
 
         return dx
 
+    def apply_chops(self, model: pp.PorePyModel, dx: np.ndarray) -> np.ndarray:
+        if self._pot > self.params["atol_objective"]:
+            dx *= self.params["newton_chop"]
+            if isinstance(self.params["appleyard_chop"], float):
+                dx = self.appleyard_chop(model, dx)
+        return dx
+
     def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
         F_upper = self.params["armijo_start_after_residual_reaches"]
@@ -359,12 +375,11 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         atol = self.params["atol_objective"]
 
         xk = self._xk
+        pot_0 = self._pot
 
         lin_decrease = 0.0
         if not least_squares:
             lin_decrease = float(np.dot(self._grad_pot, dx))
-
-        pot_0 = self._F_norm**2 * 0.5
 
         if pot_0 <= atol:
             logger.info(f"Armijo line search potential below cap. Returning 1.")
@@ -471,7 +486,7 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         grad_pot = self._grad_pot
         delta = delta0
         B = self._J.transpose() @ self._J
-        pot_0 = self._F_norm**2 * 0.5
+        pot_0 = self._pot
         gBg = np.dot(grad_pot, B @ grad_pot)
         grad_pot_norm = np.linalg.norm(grad_pot)
         g_gBg = grad_pot_norm**2 / gBg
