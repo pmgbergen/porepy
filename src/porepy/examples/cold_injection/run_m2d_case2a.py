@@ -89,7 +89,7 @@ model_params, solver_params = get_default_params(
 
 model_params["linear_solver"] = "scipy_sparse"  # scipy_sparse, pypardiso
 model_params["time_manager"] = time_manager
-# model_params["times_to_export"] = time_schedule
+model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"]["cell_size"] = 2.0
 model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 

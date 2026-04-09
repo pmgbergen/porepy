@@ -33,6 +33,7 @@ from porepy.examples.cold_injection.model import (
 )
 from porepy.examples.cold_injection.run_m2d_case2a import Case2aMixin
 
+
 ISOCHORIC_NPC = False
 BUOYANCY_ON = False
 COLLECT_DATA = True

@@ -121,7 +121,11 @@ class GeothermalWaterFlowModel(
         day = 86400
         year = 365 * day
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
+        if isinstance(self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics):
+            print(
+                "Number of iterations: ",
+                self.nonlinear_solver_statistics.num_iterations,
+            )
         print("Time value (year): ", self.time_manager.time / year)
         print("Time index: ", self.time_manager.time_index)
         print("")

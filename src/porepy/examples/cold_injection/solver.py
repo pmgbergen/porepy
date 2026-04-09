@@ -1,18 +1,26 @@
-"""Contains the global solver used in this example."""
+"""Contains the global solver used in this example.
+
+References:
+
+    `NTRDC <https://doi.org/10.1016/j.advwatres.2022.104285>`_
+
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import Optional, TypedDict, cast, Any
+from typing import Any, Optional, TypeAlias, TypedDict, cast
 
 import numpy as np
 import scipy.sparse as sps
 from scipy.linalg import lstsq
 
 import porepy as pp
-import porepy.models.compositional_flow as cf
+import porepy.models.compositional_flow_with_equilibrium as cfle
 
 logger = logging.getLogger(__name__)
+
+CFLEModel: TypeAlias = cfle.EnthalpyBasedCFLETemplate | cfle.EnthalpyBasedCFFLETemplate
 
 
 class CFSolverParams(TypedDict):
@@ -20,7 +28,7 @@ class CFSolverParams(TypedDict):
     parameters of the default Newton solver."""
 
     logp_clip: float
-    """Capping logarithmic pressure update, if 
+    """Clipping logarithmic pressure update, if 
     ``model.params["use_logp_nonlinear_rpc"] == True``."""
     newton_chop: float
     """Global chop for raw Newton update."""
@@ -29,7 +37,9 @@ class CFSolverParams(TypedDict):
     Otherwise it must be a number between 0 and 1."""
 
     atol_objective: float
-    """Absolute tolerance for merit function."""
+    """Absolute tolerance for objective function. If its 2-norm falls below this value,
+    line search or trust region methods abort truncation of iterates considering the
+    solution to be close enough for Newton to safely converge."""
 
     do_armijo_line_search: bool
     """Activate Armijo line search."""
@@ -87,7 +97,7 @@ class CFSolverParams(TypedDict):
     """Scaling factor for increasing trust-region radius."""
 
 
-class AndersonAcceleration:
+class ModAndersonAcceleration:
     """Anderson acceleration as described by Walker and Ni in doi:10.2307/23074353."""
 
     def __init__(
@@ -180,7 +190,7 @@ class AndersonAcceleration:
         return x_k_plus_1
 
 
-class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
+class CFLESolver(pp.NewtonSolver):
     """Numerical methods on top of the raw Newton solver for compositional flow
     problems.
 
@@ -195,8 +205,9 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         default_params: dict[Any, Any] = {}
         default_params.update(self.default_params())
         default_params.update(params)
-        pp.NewtonSolver.__init__(self, params)
-        AndersonAcceleration.__init__(self, params)
+        super().__init__(params)
+
+        self._anderson: ModAndersonAcceleration = ModAndersonAcceleration(params)
 
         self._J: sps.csr_matrix
         """Current Jacobian matrix."""
@@ -250,18 +261,16 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         )
 
     @staticmethod
-    def model_uses_logp(model: pp.PorePyModel) -> bool:
+    def model_uses_logp(model: CFLEModel) -> bool:
         return bool(model.params.get("use_logp_nonlinear_rpc", False))
 
-    def _state(
-        self, model: pp.PorePyModel, x: np.ndarray, dx: np.ndarray
-    ) -> np.ndarray:
+    def _state(self, model: CFLEModel, x: np.ndarray, dx: np.ndarray) -> np.ndarray:
         """Assembles new state considering model parameters."""
         x_new = x + dx
         if self.model_uses_logp(model):
-            dofs = model.equation_system.dofs_of(["pressure"])
+            dofs = model.equation_system.dofs_of([model.pressure_variable])
             p_k = model.equation_system.get_variable_values(
-                ["pressure"], iterate_index=0
+                [model.pressure_variable], iterate_index=0
             )
             p_k1p = p_k * np.exp(dx[dofs])
             x_new[dofs] = p_k1p
@@ -269,30 +278,28 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         return x_new
 
     def _increment(
-        self, model: pp.PorePyModel, x1: np.ndarray, x0: np.ndarray
+        self, model: CFLEModel, x1: np.ndarray, x0: np.ndarray
     ) -> np.ndarray:
         """Calculate increment from x0 to x1 considering model parameters."""
         dx = x1 - x0
         if self.model_uses_logp(model):
-            dofs = model.equation_system.dofs_of(["pressure"])
+            dofs = model.equation_system.dofs_of([model.pressure_variable])
             dx[dofs] = np.log(x1[dofs] / x0[dofs])
         return dx
 
-    def iteration(self, model: pp.PorePyModel) -> np.ndarray:
+    def iteration(self, model: CFLEModel) -> np.ndarray:  # type:ignore[override]
         """An iteration consists of performing the Newton step and obtaining the step
         size from the line search."""
 
         # Raw Newton update.
         dx = super().iteration(model)  # type:ignore[arg-type]
-        dx_norm_raw = np.linalg.norm(dx)
+        dxn_raw = np.linalg.norm(dx)
 
-        # Catch initial bad iterates.
+        # Catch initial bad iterates. Goal is to trigger nan-divergence criterion early
+        # enough if any method failes.
         if np.any(np.isnan(dx)) or np.any(np.isinf(dx)):
             return np.full_like(dx, np.nan)  # Trigger NanDivergence criterion.
-
-        # dx *= self.params["newton_chop"]
-        # if isinstance(self.params["appleyard_chop"], float):
-        #     dx = self.appleyard_chop(model, dx)
+        diverged: bool | np.bool | np.bool_ = False
 
         do_armijo = self.params["do_armijo_line_search"]
         do_anderson = self.params["do_anderson_acceleration"]
@@ -341,27 +348,77 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
 
         if do_ntrdc:
             dx = self.ntrdc(model, dx)
+            diverged = np.any(np.isnan(dx))
 
-        if do_armijo:
+        if do_armijo and not diverged:
             dx *= self.armijo_line_search(model, dx)
+            diverged = np.any(np.isnan(dx))
 
-        if do_anderson:
+        if do_anderson and not diverged:
             dx = self.anderson_acceleration(model, dx)
+            diverged = np.any(np.isnan(dx))
 
-        logger.debug(
-            f"Change in update norm: {dx_norm_raw:.4e} -> ({np.linalg.norm(dx):.4e})"
-        )
+        # NOTE: Reverse the changes of the state which happened during the procedures
+        # here.
+        model.equation_system.set_variable_values(self._xk, iterate_index=0)
+        if diverged:
+            return np.full_like(dx, np.nan)
+        else:
+            logger.debug(
+                f"Delta increment norm: {dxn_raw:.4e} -> ({np.linalg.norm(dx):.4e})"
+            )
+            return dx
 
-        return dx
+    def objective_function(self, model: CFLEModel, state: np.ndarray) -> float:
+        """Objective function for the residual depending on a state vector."""
+        # if isinstance(model, cf.SolutionStrategyPhaseProperties):
+        #     model.update_thermodynamic_properties_of_phases(state=state)
+        # res = model.equation_system.assemble(state=state, evaluate_jacobian=False)
 
-    def apply_chops(self, model: pp.PorePyModel, dx: np.ndarray) -> np.ndarray:
+        model.equation_system.set_variable_values(state, iterate_index=0)
+        model.update_derived_quantities()
+        res = model.equation_system.assemble(evaluate_jacobian=False)
+        return float(np.dot(res, res)) * 0.5
+
+    def apply_chops(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
         if self._pot > self.params["atol_objective"]:
             dx *= self.params["newton_chop"]
             if isinstance(self.params["appleyard_chop"], float):
                 dx = self.appleyard_chop(model, dx)
         return dx
 
-    def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
+    def appleyard_chop(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
+        """ "Simple chopping of updates for saturatons such that their absolute values
+        is not larger than a defined value ``params['appleyard_chop']``.
+
+        By default, no chop is applied.
+
+        """
+        if hasattr(model, "saturation_variables"):
+            chop = cast(float, self.params["appleyard_chop"])
+            dofs = model.equation_system.dofs_of(model.saturation_variables)
+            ds = dx[dofs]
+
+            idx = np.abs(ds) > chop
+            if np.any(idx):
+                logger.info(f"Appleyard chop on saturations in {int(idx.sum())} cells.")
+                ds[idx] = chop * np.sign(ds[idx])
+                dx[dofs] = ds
+
+            if model.phase_fraction_variables:  # type:ignore[attr-defined]
+                dofs = model.equation_system.dofs_of(model.phase_fraction_variables)  # type:ignore[attr-defined]
+                dy = dx[dofs]
+                idx = np.abs(dy) > chop
+                if np.any(idx):
+                    logger.info(
+                        f"Appleyard chop on phase fractions in {int(idx.sum())} cells."
+                    )
+                    dy[idx] = chop * np.sign(dy[idx])
+                    dx[dofs] = dy
+
+        return dx
+
+    def armijo_line_search(self, model: CFLEModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
         F_upper = self.params["armijo_start_after_residual_reaches"]
         F_lower = self.params["armijo_stop_after_residual_reaches"]
@@ -416,45 +473,7 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
 
         return rho
 
-    def objective_function(self, model: pp.PorePyModel, state: np.ndarray) -> float:
-        """Objective function for the residual depending on a state vector."""
-        if isinstance(model, cf.SolutionStrategyPhaseProperties):
-            model.update_thermodynamic_properties_of_phases(state=state)
-        residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
-        return float(np.dot(residual, residual)) * 0.5
-
-    def appleyard_chop(self, model: pp.PorePyModel, dx: np.ndarray) -> np.ndarray:
-        """ "Simple chopping of updates for saturatons such that their absolute values
-        is not larger than a defined value ``params['appleyard_chop']``.
-
-        By default, no chop is applied.
-
-        """
-        if hasattr(model, "saturation_variables"):
-            chop = cast(float, self.params["appleyard_chop"])
-            dofs = model.equation_system.dofs_of(model.saturation_variables)
-            ds = dx[dofs]
-
-            idx = np.abs(ds) > chop
-            if np.any(idx):
-                logger.info(f"Appleyard chop on saturations in {int(idx.sum())} cells.")
-                ds[idx] = chop * np.sign(ds[idx])
-                dx[dofs] = ds
-
-            if model.phase_fraction_variables:  # type:ignore[attr-defined]
-                dofs = model.equation_system.dofs_of(model.phase_fraction_variables)  # type:ignore[attr-defined]
-                dy = dx[dofs]
-                idx = np.abs(dy) > chop
-                if np.any(idx):
-                    logger.info(
-                        f"Appleyard chop on phase fractions in {int(idx.sum())} cells."
-                    )
-                    dy[idx] = chop * np.sign(dy[idx])
-                    dx[dofs] = dy
-
-        return dx
-
-    def ntrdc(self, model: pp.PorePyModel, dx_n: np.ndarray) -> np.ndarray:
+    def ntrdc(self, model: CFLEModel, dx_n: np.ndarray) -> np.ndarray:
         """Newton Trust-Region Dogleg-Cauchy method."""
         if not isinstance(
             model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
@@ -543,9 +562,7 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         dx_new = self._increment(model, xk1p, xk)
         return dx_new
 
-    def anderson_acceleration(
-        self, model: pp.PorePyModel, dx: np.ndarray
-    ) -> np.ndarray:
+    def anderson_acceleration(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
         """Apply the anderson acceleration."""
         assert not self.model_uses_logp(model), (
             "Anderson acceleration is not currently implemented for use with logp "
@@ -566,7 +583,7 @@ class CFLESolver(pp.NewtonSolver, AndersonAcceleration):
         F_lower = self.params["anderson_stop_after_residual_reaches"]
         if F_lower <= self._F_norm <= F_upper:
             logger.debug("Applying Anderson acceleration.")
-            xk1p = self.apply(
+            xk1p = self._anderson.apply(
                 xk + dx, dx, model.nonlinear_solver_statistics.num_iterations
             )
             dx_new = self._increment(model, xk1p, xk)

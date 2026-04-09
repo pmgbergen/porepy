@@ -95,9 +95,9 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         model.time_manager.increase_time_index()
         logger.info(
             f"\nTime step {model.time_manager.time_index} at time"
-            + f" {model.time_manager.time:.1e}"
-            + f" of {model.time_manager.time_final:.1e}"
-            + f" with time step {model.time_manager.dt:.1e}"
+            + f" {model.time_manager.time:.4e}"
+            + f" of {model.time_manager.time_final:.4e}"
+            + f" with time step {model.time_manager.dt:.4e}"
         )
         # Return convergence status s.t. the time loop can determine whether the time
         # step succeeded or failed.
