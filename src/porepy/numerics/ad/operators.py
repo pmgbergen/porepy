@@ -265,17 +265,15 @@ class Operator:
         if domains is None:
             domains = []
         self._domains: GridLikeSequence = domains
-        self._domain_type: Literal[
-            "subdomains", "interfaces", "boundary grids", "scalar"
-        ]
+        self._domain_type: DomainType
         if all([isinstance(d, pp.Grid) for d in domains]):
-            self._domain_type = "subdomains"
+            self._domain_type = DomainType.subdomains
         elif all([isinstance(d, pp.MortarGrid) for d in domains]):
-            self._domain_type = "interfaces"
+            self._domain_type = DomainType.interfaces
         elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
-            self._domain_type = "boundary grids"
+            self._domain_type = DomainType.boundary_grids
         elif len(domains) == 0:
-            self._domain_type = "scalar"
+            self._domain_type = DomainType.scalar
 
         else:
             raise ValueError(
@@ -342,7 +340,7 @@ class Operator:
         Will be empty for operators not associated with specific interfaces.
 
         """
-        return self._domains if self._domain_type == "interfaces" else []
+        return self._domains if self._domain_type == DomainType.interfaces else []
 
     @property
     def subdomains(self):
@@ -351,12 +349,10 @@ class Operator:
         Will be empty for operators not associated with specific subdomains.
 
         """
-        return self._domains if self._domain_type == "subdomains" else []
+        return self._domains if self._domain_type == DomainType.subdomains else []
 
     @property
-    def domain_type(
-        self,
-    ) -> Literal["subdomains", "interfaces", "boundary grids", "scalar"]:
+    def domain_type(self) -> DomainType:
         """Type of domains where the operator is defined."""
         return self._domain_type
 
@@ -1829,13 +1825,13 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             index_kwarg = {"iterate_index": 0}
 
         for grid in self._domains:
-            if self._domain_type == "subdomains":
+            if self._domain_type == DomainType.subdomains:
                 assert isinstance(grid, pp.Grid)
                 data = mdg.subdomain_data(grid)
-            elif self._domain_type == "interfaces":
+            elif self._domain_type == DomainType.interfaces:
                 assert isinstance(grid, pp.MortarGrid)
                 data = mdg.interface_data(grid)
-            elif self._domain_type == "boundary grids":
+            elif self._domain_type == DomainType.boundary_grids:
                 assert isinstance(grid, pp.BoundaryGrid)
                 data = mdg.boundary_grid_data(grid)
             else:
@@ -1857,7 +1853,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
     def __repr__(self) -> str:
         msg = (
             f"Wrapped time-dependent array with name {self._name}.\n"
-            f"Defined on {len(self._domains)} {self._domain_type}.\n"
+            f"Defined on {len(self._domains)} {self._domain_type.value}.\n"
         )
         if self.is_previous_time:
             msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -2224,11 +2220,11 @@ class MixedDimensionalVariable(Variable):
                 "Cannot create md-variable from variables with overlapping domains."
             )
             if all(isinstance(grid, pp.Grid) for grid in domains):
-                domain_types = "subdomains"
+                domain_types = DomainType.subdomains
             elif all(isinstance(grid, pp.MortarGrid) for grid in domains):
-                domain_types = "interfaces"
+                domain_types = DomainType.interfaces
             elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
-                domain_types = "boundary grids"
+                domain_types = DomainType.boundary_grids
             else:
                 raise ValueError("Unknown domain class ")
 
@@ -2238,8 +2234,8 @@ class MixedDimensionalVariable(Variable):
             iter_indices = [None]
             current_iter = [True]
             reference = [False]
-            domain_types = ""
             names = ["empty_md_variable"]
+            domain_types = DomainType.scalar
 
         # NOTE everything below here is redundent with a proper super() call
         # See top comment in constructor
@@ -2270,7 +2266,7 @@ class MixedDimensionalVariable(Variable):
         # domain. While formally correct, this should be picked up in other places so we
         # ignore the warning here.
         self._domains = domains  # type: ignore[assignment]
-        self._domain_type = domain_types  # type: ignore[assignment]
+        self._domain_type = domain_types
 
         # MD variables span multiple grids, so we cannot represent their space as a
         # single OperatorSpace.  Leave them as None (unspecified).
