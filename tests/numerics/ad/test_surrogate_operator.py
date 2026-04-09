@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.applications.md_grids.fracture_sets import orthogonal_fractures_2d
 
 VAR1_NAME = "var1"
@@ -43,9 +44,9 @@ def equation_system() -> pp.ad.EquationSystem:
 
     equation_system = pp.ad.EquationSystem(mdg)
 
-    equation_system.create_variables(VAR1_NAME, {"cells": 1}, subdomains=subdomains)
-    equation_system.create_variables(VAR2_NAME, {"cells": 1}, subdomains=subdomains)
-    equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=interfaces)
+    equation_system.create_variables(VAR1_NAME, {GridEntity.cells: 1}, subdomains=subdomains)
+    equation_system.create_variables(VAR2_NAME, {GridEntity.cells: 1}, subdomains=subdomains)
+    equation_system.create_variables(INTFVAR_NAME, {GridEntity.cells: 1}, interfaces=interfaces)
 
     # set zero values at current iterate to kickstart AD
     equation_system.set_variable_values(
