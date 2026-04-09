@@ -37,6 +37,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
@@ -546,7 +547,7 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
     """
 
     def _initialize_new_variable_values(self, g, d, var, dofs):
-        cell_dof: int = dofs.get("cells")
+        cell_dof: int = dofs.get(GridEntity.cells, 0)
         # Number of new variables is given by the size of the cell map.
         cell_map = d["cell_index_map"]
         n_new = cell_map.shape[0] - cell_map.shape[1]
@@ -879,7 +880,7 @@ class TestVariableMappingInitializationUnderPropagation:
 
             d = mdg.interface_data(intf)
             equation_system.create_variables(
-                self.mv, {"cells": var_sz_mortar}, interfaces=[intf]
+                self.mv, {GridEntity.cells: var_sz_mortar}, interfaces=[intf]
             )
 
             val_sol = cell_val_mortar[g]

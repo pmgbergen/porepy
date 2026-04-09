@@ -31,6 +31,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.applications.md_grids.mdg_library import (
     cube_with_orthogonal_fractures,
     square_with_orthogonal_fractures,
