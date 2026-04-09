@@ -64,6 +64,64 @@ class FVElliptic(Discretization):
         """
         return sd.num_cells
 
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return row DOF info for the named FVElliptic matrix.
+
+        All matrices produced by FVElliptic-based discretizations have one row per
+        face (and one DOF per face).
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"flux"``).
+            nd: Spatial dimension (unused for FVElliptic; all matrices are scalar).
+
+        Returns:
+            ``{GridEntity.faces: 1}`` for all recognised keys, ``{}`` otherwise.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        recognised = {
+            "flux",
+            "bound_flux",
+            "bound_pressure_cell",
+            "bound_pressure_face",
+            "vector_source",
+            "bound_pressure_vector_source",
+        }
+        if matrix_key in recognised:
+            return {GridEntity.faces: 1}
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return column DOF info for the named FVElliptic matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"flux"``).
+            nd: Spatial dimension.  Used only for ``"vector_source"`` and
+                ``"bound_pressure_vector_source"`` which have ``nd`` DOFs per cell
+                (gravity components).
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
+            or ``{}`` for unrecognised keys.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
+            "flux": {GridEntity.cells: 1},
+            "bound_flux": {GridEntity.faces: 1},
+            "bound_pressure_cell": {GridEntity.cells: 1},
+            "bound_pressure_face": {GridEntity.faces: 1},
+            "vector_source": {GridEntity.cells: nd},
+            "bound_pressure_vector_source": {GridEntity.cells: nd},
+        }
+        return mapping.get(matrix_key, {})
+
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
