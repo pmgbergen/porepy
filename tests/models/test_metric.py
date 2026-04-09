@@ -23,6 +23,7 @@ import sympy as sp
 from deepdiff import DeepDiff
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
@@ -369,7 +370,7 @@ class DummyEquations(pp.PorePyModel):
         """Set dummy equations based on the polynomial expression."""
         subdomains = self.mdg.subdomains()
         sd_eq = self.sd_eq(subdomains)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(sd_eq, subdomains, {GridEntity.cells: 1})
 
 
 class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):
