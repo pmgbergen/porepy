@@ -405,7 +405,7 @@ class ResidualExporting:
             for g in operator.domains:
                 # Add number of dofs for each entity in image_info.
                 for entity, num in image_info.items():
-                    dof_end += getattr(g, "num_" + entity) * num
+                    dof_end += getattr(g, "num_" + entity.value) * num
                 # Append residuals for current grid.
                 data.append(
                     (
