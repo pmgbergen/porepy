@@ -226,6 +226,124 @@ class Operations(Enum):
         }
         return strings.get(value, "unknown")
 
+    def infer_domain_range(
+        self,
+        left: Operator,
+        right: Operator | int | float,
+    ) -> tuple[Optional[OperatorSpace], Optional[OperatorSpace]]:
+        """Validate operand spaces and infer the domain/range of the result.
+
+        For elementwise operations (``add``, ``sub``, ``mul``, ``div``, ``pow``), both
+        operands must have the same domain *and* the same range when both are specified.
+        The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space,
+        so operations with a :class:`Scalar` operator are always valid and the result
+        inherits the non-scalar space.
+
+        For matrix multiplication (``matmul``), the range of the *right* operand must
+        equal the domain of the *left* operand (i.e. ``range(right) == domain(left)``
+        for ``left @ right``).  The result's domain is ``right.operator_domain`` and
+        the result's range is ``left.operator_range``.
+
+        Validation is skipped whenever either operand's space is ``None``, so operators
+        that carry no space information are fully supported.
+
+        Parameters:
+            left: The left operand.
+            right: The right-hand-side operand.  Plain Python scalars (``int``,
+                ``float``) are treated as the scalar space.
+
+        Returns:
+            A 2-tuple ``(domain, range_)`` where ``domain`` is the inferred
+            :class:`OperatorSpace` for the domain and ``range_`` is the inferred
+            :class:`OperatorSpace` for the range.  Either may be ``None`` if it cannot
+            be determined.
+
+        Raises:
+            ValueError: If both operands have specified spaces that are incompatible.
+
+        """
+        # Plain Python scalars (int, float, np.number) may appear as operands,
+        # e.g. `operator ** 2`.  Treat them as the scalar space.
+        if not isinstance(right, Operator):
+            return left._operator_domain, left._operator_range
+
+        left_is_scalar = isinstance(left, Scalar) or (
+            left._operator_domain is not None
+            and left._operator_domain.domain_type == DomainType.scalar
+        )
+        right_is_scalar = isinstance(right, Scalar) or (
+            right._operator_domain is not None
+            and right._operator_domain.domain_type == DomainType.scalar
+        )
+
+        if self == Operations.matmul:
+            # left @ right: range(right) must equal domain(left)
+            if (
+                left._operator_domain is not None
+                and right._operator_range is not None
+                and left._operator_domain != right._operator_range
+            ):
+                raise ValueError(
+                    f"Incompatible matrix multiplication: the range of {right!r} "
+                    f"({right._operator_range}) does not match the domain of "
+                    f"{left!r} ({left._operator_domain})."
+                )
+            return right._operator_domain, left._operator_range
+        elif self == Operations.rmatmul:
+            # right @ left (dispatched as left.__rmatmul__(right)):
+            # range(left) must equal domain(right)
+            if (
+                right._operator_domain is not None
+                and left._operator_range is not None
+                and right._operator_domain != left._operator_range
+            ):
+                raise ValueError(
+                    f"Incompatible matrix multiplication: the range of {left!r} "
+                    f"({left._operator_range}) does not match the domain of "
+                    f"{right!r} ({right._operator_domain})."
+                )
+            return left._operator_domain, right._operator_range
+        else:
+            # Elementwise operations
+            if left_is_scalar and right_is_scalar:
+                return OperatorSpace.scalar(), OperatorSpace.scalar()
+            elif left_is_scalar:
+                return right._operator_domain, right._operator_range
+            elif right_is_scalar:
+                return left._operator_domain, left._operator_range
+            else:
+                # Validate OperatorSpace compatibility (only if both are specified)
+                if (
+                    left._operator_domain is not None
+                    and right._operator_domain is not None
+                    and left._operator_domain != right._operator_domain
+                ):
+                    raise ValueError(
+                        f"Incompatible operator domains: {left._operator_domain} "
+                        f"vs {right._operator_domain}."
+                    )
+                if (
+                    left._operator_range is not None
+                    and right._operator_range is not None
+                    and left._operator_range != right._operator_range
+                ):
+                    raise ValueError(
+                        f"Incompatible operator ranges: {left._operator_range} "
+                        f"vs {right._operator_range}."
+                    )
+                # Return the first non-None value; they are equal when both are set
+                result_domain = (
+                    left._operator_domain
+                    if left._operator_domain is not None
+                    else right._operator_domain
+                )
+                result_range = (
+                    left._operator_range
+                    if left._operator_range is not None
+                    else right._operator_range
+                )
+                return result_domain, result_range
+
 
 class Operator:
     """Parent class for all AD operators.
@@ -725,155 +843,6 @@ class Operator:
 
     ### Special methods ----------------------------------------------------------------
 
-    def infer_domain_range(
-        self,
-        other: Operator,
-        op: Operations,
-    ) -> tuple[Any, Optional[OperatorSpace], Optional[OperatorSpace]]:
-        """Validate operand spaces and infer the domain/range of the compound operator.
-
-        For elementwise operations (``add``, ``sub``, ``mul``, ``div``, ``pow``), both
-        operands must have the same domain *and* the same range when both are specified.
-        The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space,
-        so operations with a :class:`Scalar` operator are always valid and the result
-        inherits the non-scalar space.
-
-        For matrix multiplication (``matmul``), the range of the *right* operand must
-        equal the domain of the *left* operand (i.e. ``range(other) == domain(self)``
-        for ``self @ other``).  The result's domain is ``other.operator_domain`` and
-        the result's range is ``self.operator_range``.
-
-        Validation is skipped whenever either operand's space is ``None``, so the
-        method is fully backward-compatible with operators that carry no space
-        information.
-
-        Parameters:
-            other: The right-hand-side operand.  Plain Python scalars (``int``,
-                ``float``) are treated as the scalar space.
-            op: The operation being applied.
-
-        Returns:
-            A 3-tuple ``(new_domains, domain, range_)`` where ``new_domains`` is the
-            legacy grid list, ``domain`` is the inferred :class:`OperatorSpace` for
-            the domain, and ``range_`` is the inferred :class:`OperatorSpace` for the
-            range.  Either space may be ``None`` if it cannot be determined.
-
-        Raises:
-            ValueError: If both operands have specified spaces that are incompatible.
-
-        """
-        # Plain Python scalars (int, float, np.number) may appear as operands,
-        # e.g. `operator ** 2`.  Treat them as the scalar space.
-        if not isinstance(other, Operator):
-            return self.domains, self._operator_domain, self._operator_range
-
-        self_is_scalar = isinstance(self, Scalar) or (
-            self._operator_domain is not None
-            and self._operator_domain.domain_type == DomainType.scalar
-        )
-        other_is_scalar = isinstance(other, Scalar) or (
-            other._operator_domain is not None
-            and other._operator_domain.domain_type == DomainType.scalar
-        )
-
-        new_domains: Any
-
-        if op == Operations.matmul:
-            # self @ other: range(other) must equal domain(self)
-            if (
-                self._operator_domain is not None
-                and other._operator_range is not None
-                and self._operator_domain != other._operator_range
-            ):
-                raise ValueError(
-                    f"Incompatible matrix multiplication: the range of {other!r} "
-                    f"({other._operator_range}) does not match the domain of "
-                    f"{self!r} ({self._operator_domain})."
-                )
-            result_domain = other._operator_domain
-            result_range = self._operator_range
-            new_domains = []
-        elif op == Operations.rmatmul:
-            # other @ self (dispatched as self.__rmatmul__(other)):
-            # range(self) must equal domain(other)
-            if (
-                other._operator_domain is not None
-                and self._operator_range is not None
-                and other._operator_domain != self._operator_range
-            ):
-                raise ValueError(
-                    f"Incompatible matrix multiplication: the range of {self!r} "
-                    f"({self._operator_range}) does not match the domain of "
-                    f"{other!r} ({other._operator_domain})."
-                )
-            result_domain = self._operator_domain
-            result_range = other._operator_range
-            new_domains = []
-        else:
-            # Elementwise operations
-            if self_is_scalar and other_is_scalar:
-                return [], OperatorSpace.scalar(), OperatorSpace.scalar()
-            elif self_is_scalar:
-                result_domain = other._operator_domain
-                result_range = other._operator_range
-                new_domains = other.domains
-            elif other_is_scalar:
-                result_domain = self._operator_domain
-                result_range = self._operator_range
-                new_domains = self.domains
-            else:
-                # Validate OperatorSpace compatibility (only if both are specified)
-                if (
-                    self._operator_domain is not None
-                    and other._operator_domain is not None
-                    and self._operator_domain != other._operator_domain
-                ):
-                    raise ValueError(
-                        f"Incompatible operator domains: {self._operator_domain} "
-                        f"vs {other._operator_domain}."
-                    )
-                if (
-                    self._operator_range is not None
-                    and other._operator_range is not None
-                    and self._operator_range != other._operator_range
-                ):
-                    raise ValueError(
-                        f"Incompatible operator ranges: {self._operator_range} "
-                        f"vs {other._operator_range}."
-                    )
-                # Return the first non-None value; they are equal when both are set
-                result_domain = (
-                    self._operator_domain
-                    if self._operator_domain is not None
-                    else other._operator_domain
-                )
-                result_range = (
-                    self._operator_range
-                    if self._operator_range is not None
-                    else other._operator_range
-                )
-
-                # Legacy domains list
-                if self.domains == []:
-                    new_domains = other.domains
-                elif other.domains == []:
-                    new_domains = self.domains
-                elif self.domains != other.domains:
-                    raise ValueError("Mismatching domains")
-                else:
-                    new_domains = self.domains
-
-        return new_domains, result_domain, result_range
-
-    def __check_domains(self, other: Operator, op: Operations) -> Any:
-        """Return the legacy domains list for a compound operator.
-
-        .. deprecated::
-            Use :meth:`infer_domain_range` instead.
-        """
-        new_domains, _, _ = self.infer_domain_range(other, op)
-        return new_domains
-
     def __str__(self) -> str:
         return self._name if self._name is not None else ""
 
@@ -910,12 +879,11 @@ class Operator:
         if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0)
 
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.add)
+        dom, ran = Operations.add.infer_domain_range(self, other)
         children = self._parse_other(other)
 
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.add,
             name="+ operator",
             domain=dom,
@@ -947,11 +915,10 @@ class Operator:
             The difference of self and other.
 
         """
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.sub)
+        dom, ran = Operations.sub.infer_domain_range(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.sub,
             name="- operator",
             domain=dom,
@@ -969,13 +936,12 @@ class Operator:
 
         """
         # consider the expression a-b. right-subtraction means self == b
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.sub)
+        dom, ran = Operations.sub.infer_domain_range(self, other)
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.sub,
             name="- operator",
             domain=dom,
@@ -992,11 +958,10 @@ class Operator:
             The elementwise product of self and other.
 
         """
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.mul)
+        dom, ran = Operations.mul.infer_domain_range(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.mul,
             name="* operator",
             domain=dom,
@@ -1016,11 +981,10 @@ class Operator:
             The elementwise product of self and other.
 
         """
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.mul)
+        dom, ran = Operations.mul.infer_domain_range(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.rmul,
             name="right * operator",
             domain=dom,
@@ -1037,12 +1001,11 @@ class Operator:
             The elementwise division of self and other.
 
         """
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.div)
+        dom, ran = Operations.div.infer_domain_range(self, other)
 
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.div,
             name="/ operator",
             domain=dom,
@@ -1062,12 +1025,11 @@ class Operator:
             The elementwise division of other and self.
 
         """
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.div)
+        dom, ran = Operations.div.infer_domain_range(self, other)
 
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.rdiv,
             name="right / operator",
             domain=dom,
@@ -1111,10 +1073,9 @@ class Operator:
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
         children = self._parse_other(other)
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.pow)
+        dom, ran = Operations.pow.infer_domain_range(self, other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.pow,
             name="** operator",
             domain=dom,
@@ -1134,11 +1095,10 @@ class Operator:
             The elementwise exponentiation of other and self.
 
         """
-        new_domains, dom, ran = self.infer_domain_range(other, Operations.pow)
+        dom, ran = Operations.pow.infer_domain_range(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
-            domains=new_domains,
             operation=Operations.rpow,
             name="reverse ** operator",
             domain=dom,
@@ -1156,7 +1116,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        _, dom, ran = self.infer_domain_range(other, Operations.matmul)
+        dom, ran = Operations.matmul.infer_domain_range(self, other)
         return Operator(
             children=children,
             operation=Operations.matmul,
@@ -1179,7 +1139,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        _, dom, ran = self.infer_domain_range(other, Operations.rmatmul)
+        dom, ran = Operations.rmatmul.infer_domain_range(self, other)
         return Operator(
             children=children,
             operation=Operations.rmatmul,
