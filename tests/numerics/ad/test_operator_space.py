@@ -389,8 +389,12 @@ class TestDiscretizationStubs:
                 pass
 
         discr = ConcreteDiscr("test")
+        # No matrix_key: default "" always returns {}
         assert discr.get_row_dof_info() == {}
         assert discr.get_col_dof_info() == {}
+        # Explicit key: still {} from base class
+        assert discr.get_row_dof_info("flux") == {}
+        assert discr.get_col_dof_info("flux") == {}
 
     def test_get_row_dof_info_overridable(self):
         from porepy.numerics.discretization import Discretization
@@ -405,15 +409,16 @@ class TestDiscretizationStubs:
             def assemble_matrix_rhs(self, g, data):
                 pass
 
-            def get_row_dof_info(self):
+            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
                 return {GridEntity.cells: 1}
 
-            def get_col_dof_info(self):
-                return {GridEntity.faces: 2}
+            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {GridEntity.faces: nd}
 
         discr = CustomDiscr("test")
         assert discr.get_row_dof_info() == {GridEntity.cells: 1}
-        assert discr.get_col_dof_info() == {GridEntity.faces: 2}
+        assert discr.get_col_dof_info("flux", nd=3) == {GridEntity.faces: 3}
+        assert discr.get_col_dof_info() == {GridEntity.faces: 1}
 
 
 # ---------------------------------------------------------------------------
@@ -757,10 +762,10 @@ class TestMergedOperatorSpaces:
             def assemble_matrix_rhs(self, sd, data):
                 pass
 
-            def get_row_dof_info(self):
+            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
                 return {GridEntity.cells: 1}
 
-            def get_col_dof_info(self):
+            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
                 return {GridEntity.faces: 1}
 
         g1, g2 = two_subdomains
@@ -1129,3 +1134,302 @@ class TestCompoundOperatorSpaces:
         assert result.operator_domain == result.operator_range
         assert result.operator_domain is not None
         assert result.operator_range is not None
+
+
+# ---------------------------------------------------------------------------
+# Stage 7: Concrete get_row/col_dof_info on standard discretizations
+# ---------------------------------------------------------------------------
+
+
+class TestFVEllipticDofInfo:
+    """Tests for FVElliptic.get_row/col_dof_info (covers Mpfa and Tpfa)."""
+
+    def setup_method(self):
+        import porepy as pp
+
+        self.mpfa = pp.Mpfa("flow")
+        self.tpfa = pp.Tpfa("flow")
+
+    def test_flux_rows_faces(self):
+        assert self.mpfa.get_row_dof_info("flux") == {GridEntity.faces: 1}
+        assert self.tpfa.get_row_dof_info("flux") == {GridEntity.faces: 1}
+
+    def test_flux_cols_cells(self):
+        assert self.mpfa.get_col_dof_info("flux") == {GridEntity.cells: 1}
+        assert self.tpfa.get_col_dof_info("flux") == {GridEntity.cells: 1}
+
+    def test_bound_flux_rows_faces(self):
+        assert self.mpfa.get_row_dof_info("bound_flux") == {GridEntity.faces: 1}
+
+    def test_bound_flux_cols_faces(self):
+        assert self.mpfa.get_col_dof_info("bound_flux") == {GridEntity.faces: 1}
+
+    def test_bound_pressure_cell_rows_and_cols(self):
+        assert self.mpfa.get_row_dof_info("bound_pressure_cell") == {GridEntity.faces: 1}
+        assert self.mpfa.get_col_dof_info("bound_pressure_cell") == {GridEntity.cells: 1}
+
+    def test_bound_pressure_face_rows_and_cols(self):
+        assert self.mpfa.get_row_dof_info("bound_pressure_face") == {GridEntity.faces: 1}
+        assert self.mpfa.get_col_dof_info("bound_pressure_face") == {GridEntity.faces: 1}
+
+    def test_vector_source_uses_nd(self):
+        """vector_source cols are nd DOFs per cell (gravity components)."""
+        assert self.mpfa.get_row_dof_info("vector_source", nd=3) == {GridEntity.faces: 1}
+        assert self.mpfa.get_col_dof_info("vector_source", nd=2) == {GridEntity.cells: 2}
+        assert self.mpfa.get_col_dof_info("vector_source", nd=3) == {GridEntity.cells: 3}
+
+    def test_bound_pressure_vector_source_uses_nd(self):
+        assert self.mpfa.get_col_dof_info("bound_pressure_vector_source", nd=2) == {
+            GridEntity.cells: 2
+        }
+
+    def test_unknown_key_returns_empty(self):
+        assert self.mpfa.get_row_dof_info("nonexistent") == {}
+        assert self.mpfa.get_col_dof_info("nonexistent") == {}
+
+    def test_default_empty_key_returns_empty(self):
+        assert self.mpfa.get_row_dof_info() == {}
+        assert self.mpfa.get_col_dof_info() == {}
+
+
+class TestMpsaDofInfo:
+    """Tests for Mpsa.get_row/col_dof_info."""
+
+    def setup_method(self):
+        import porepy as pp
+
+        self.mpsa = pp.Mpsa("mech")
+
+    def test_stress_rows_faces_nd(self):
+        assert self.mpsa.get_row_dof_info("stress", nd=2) == {GridEntity.faces: 2}
+        assert self.mpsa.get_row_dof_info("stress", nd=3) == {GridEntity.faces: 3}
+
+    def test_stress_cols_cells_nd(self):
+        assert self.mpsa.get_col_dof_info("stress", nd=2) == {GridEntity.cells: 2}
+        assert self.mpsa.get_col_dof_info("stress", nd=3) == {GridEntity.cells: 3}
+
+    def test_bound_stress_rows_faces_nd(self):
+        assert self.mpsa.get_row_dof_info("bound_stress", nd=2) == {GridEntity.faces: 2}
+
+    def test_bound_stress_cols_faces_nd(self):
+        assert self.mpsa.get_col_dof_info("bound_stress", nd=2) == {GridEntity.faces: 2}
+
+    def test_bound_displacement_cell(self):
+        assert self.mpsa.get_row_dof_info("bound_displacement_cell", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.mpsa.get_col_dof_info("bound_displacement_cell", nd=2) == {
+            GridEntity.cells: 2
+        }
+
+    def test_bound_displacement_face(self):
+        assert self.mpsa.get_row_dof_info("bound_displacement_face", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.mpsa.get_col_dof_info("bound_displacement_face", nd=2) == {
+            GridEntity.faces: 2
+        }
+
+    def test_unknown_key_returns_empty(self):
+        assert self.mpsa.get_row_dof_info("nonexistent", nd=2) == {}
+        assert self.mpsa.get_col_dof_info("nonexistent", nd=2) == {}
+
+
+class TestBiotDofInfo:
+    """Tests for Biot.get_row/col_dof_info."""
+
+    def setup_method(self):
+        import porepy as pp
+
+        self.biot = pp.Biot("mech")
+
+    def test_displacement_divergence(self):
+        """div(u): rows are cells (1 DOF), cols are cells (nd DOFs)."""
+        assert self.biot.get_row_dof_info("displacement_divergence", nd=2) == {
+            GridEntity.cells: 1
+        }
+        assert self.biot.get_col_dof_info("displacement_divergence", nd=2) == {
+            GridEntity.cells: 2
+        }
+
+    def test_bound_displacement_divergence(self):
+        assert self.biot.get_row_dof_info("bound_displacement_divergence", nd=2) == {
+            GridEntity.cells: 1
+        }
+        assert self.biot.get_col_dof_info("bound_displacement_divergence", nd=2) == {
+            GridEntity.faces: 2
+        }
+
+    def test_scalar_gradient(self):
+        """alpha*grad(p): rows are faces (nd DOFs), cols are cells (1 DOF)."""
+        assert self.biot.get_row_dof_info("scalar_gradient", nd=2) == {GridEntity.faces: 2}
+        assert self.biot.get_col_dof_info("scalar_gradient", nd=2) == {GridEntity.cells: 1}
+
+    def test_consistency(self):
+        assert self.biot.get_row_dof_info("consistency", nd=2) == {GridEntity.cells: 1}
+        assert self.biot.get_col_dof_info("consistency", nd=2) == {GridEntity.cells: 1}
+
+    def test_bound_pressure(self):
+        assert self.biot.get_row_dof_info("bound_pressure", nd=2) == {GridEntity.faces: 2}
+        assert self.biot.get_col_dof_info("bound_pressure", nd=2) == {GridEntity.cells: 1}
+
+    def test_inherited_stress_from_mpsa(self):
+        """Biot inherits stress-matrix info from Mpsa."""
+        assert self.biot.get_row_dof_info("stress", nd=2) == {GridEntity.faces: 2}
+        assert self.biot.get_col_dof_info("stress", nd=2) == {GridEntity.cells: 2}
+        assert self.biot.get_row_dof_info("bound_stress", nd=3) == {GridEntity.faces: 3}
+
+    def test_unknown_key_returns_empty(self):
+        assert self.biot.get_row_dof_info("nonexistent", nd=2) == {}
+        assert self.biot.get_col_dof_info("nonexistent", nd=2) == {}
+
+
+class TestUpwindDofInfo:
+    """Tests for Upwind.get_row/col_dof_info."""
+
+    def setup_method(self):
+        import porepy as pp
+
+        self.upwind = pp.Upwind("flow")
+
+    def test_upwind_rows_faces(self):
+        assert self.upwind.get_row_dof_info("upwind") == {GridEntity.faces: 1}
+
+    def test_upwind_cols_cells(self):
+        assert self.upwind.get_col_dof_info("upwind") == {GridEntity.cells: 1}
+
+    def test_bound_transport_dir(self):
+        assert self.upwind.get_row_dof_info("bound_transport_dir") == {GridEntity.faces: 1}
+        assert self.upwind.get_col_dof_info("bound_transport_dir") == {GridEntity.faces: 1}
+
+    def test_bound_transport_neu(self):
+        assert self.upwind.get_row_dof_info("bound_transport_neu") == {GridEntity.faces: 1}
+        assert self.upwind.get_col_dof_info("bound_transport_neu") == {GridEntity.faces: 1}
+
+    def test_unknown_key_returns_empty(self):
+        assert self.upwind.get_row_dof_info("nonexistent") == {}
+        assert self.upwind.get_col_dof_info("nonexistent") == {}
+
+
+class TestMergedOperatorWithConcreteDiscretization:
+    """Integration tests: MergedOperator infers domain/range from concrete discretizations."""
+
+    def test_mpfa_flux_merged_operator(self, two_subdomains):
+        """MpfaAd.flux() carries face-range / cell-domain spaces."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains
+        discr = pp.Mpfa("flow")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="flux",
+            physics_key="flow",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert set(op.operator_domain.grids) == {g1, g2}
+        assert set(op.operator_range.grids) == {g1, g2}
+
+    def test_mpfa_bound_flux_merged_operator(self, two_subdomains):
+        """bound_flux has face-range and face-domain (maps BC values to fluxes)."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains
+        discr = pp.Mpfa("flow")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="bound_flux",
+            physics_key="flow",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain.dof_info == {GridEntity.faces: 1}
+        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+
+    def test_mpsa_stress_merged_operator_2d(self, two_subdomains):
+        """Mpsa.stress uses nd=2 DOFs per face/cell for 2D grids."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains  # both are 2D
+        discr = pp.Mpsa("mech")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="stress",
+            physics_key="mech",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
+        assert op.operator_range.dof_info == {GridEntity.faces: 2}
+
+    def test_upwind_merged_operator(self, two_subdomains):
+        """Upwind operator has face-range / cell-domain."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains
+        discr = pp.Upwind("flow")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="upwind",
+            physics_key="flow",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+
+    def test_mpfa_via_ad_wrapper(self, two_subdomains):
+        """Using MpfaAd wrapper (wrap_discretization path) produces correct spaces."""
+        import porepy as pp
+
+        g1, g2 = two_subdomains
+        discr = pp.ad.MpfaAd("flow", [g1, g2])
+        flux_op = discr.flux()
+        assert flux_op.operator_domain is not None
+        assert flux_op.operator_range is not None
+        assert flux_op.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert flux_op.operator_range.dof_info == {GridEntity.faces: 1}
+
+    def test_tpfa_via_ad_wrapper(self, two_subdomains):
+        """Using TpfaAd wrapper produces correct spaces for flux."""
+        import porepy as pp
+
+        g1, g2 = two_subdomains
+        discr = pp.ad.TpfaAd("flow", [g1, g2])
+        flux_op = discr.flux()
+        assert flux_op.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert flux_op.operator_range.dof_info == {GridEntity.faces: 1}
+
+    def test_mpfa_bound_flux_ad_wrapper(self, two_subdomains):
+        """MpfaAd.bound_flux() has face-domain and face-range."""
+        import porepy as pp
+
+        g1, g2 = two_subdomains
+        discr = pp.ad.MpfaAd("flow", [g1, g2])
+        op = discr.bound_flux()
+        assert op.operator_domain.dof_info == {GridEntity.faces: 1}
+        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+
+    def test_vector_source_cols_scale_with_nd(self, two_subdomains):
+        """vector_source column DOF count matches grid dimension."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains  # both are 2D (dim=2)
+        discr = pp.Mpfa("flow")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="vector_source",
+            physics_key="flow",
+            domains=[g1, g2],
+        )
+        # For 2D grids nd=2 → cols have 2 DOFs per cell (gravity vector)
+        assert op.operator_domain is not None
+        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
+        assert op.operator_range.dof_info == {GridEntity.faces: 1}
