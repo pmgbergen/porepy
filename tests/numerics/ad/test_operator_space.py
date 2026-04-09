@@ -1433,3 +1433,221 @@ class TestMergedOperatorWithConcreteDiscretization:
         assert op.operator_domain is not None
         assert op.operator_domain.dof_info == {GridEntity.cells: 2}
         assert op.operator_range.dof_info == {GridEntity.faces: 1}
+
+
+class TestTpsaDofInfo:
+    """Tests for Tpsa.get_row/col_dof_info.
+
+    ``nrot = nd*(nd-1)//2`` is the number of rotation DOFs per entity:
+    1 in 2d, 3 in 3d.
+    """
+
+    def setup_method(self):
+        import porepy as pp
+
+        self.tpsa = pp.Tpsa("mech")
+
+    # --- stress_displacement (rows=faces:nd, cols=cells:nd) ---
+
+    def test_stress_displacement_rows(self):
+        assert self.tpsa.get_row_dof_info("stress_displacement", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_row_dof_info("stress_displacement", nd=3) == {
+            GridEntity.faces: 3
+        }
+
+    def test_stress_displacement_cols(self):
+        assert self.tpsa.get_col_dof_info("stress_displacement", nd=2) == {
+            GridEntity.cells: 2
+        }
+        assert self.tpsa.get_col_dof_info("stress_displacement", nd=3) == {
+            GridEntity.cells: 3
+        }
+
+    # --- stress_rotation (rows=faces:nd, cols=cells:nrot) ---
+
+    def test_stress_rotation_rows(self):
+        assert self.tpsa.get_row_dof_info("stress_rotation", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_row_dof_info("stress_rotation", nd=3) == {
+            GridEntity.faces: 3
+        }
+
+    def test_stress_rotation_cols(self):
+        # nrot: 1 in 2d, 3 in 3d
+        assert self.tpsa.get_col_dof_info("stress_rotation", nd=2) == {
+            GridEntity.cells: 1
+        }
+        assert self.tpsa.get_col_dof_info("stress_rotation", nd=3) == {
+            GridEntity.cells: 3
+        }
+
+    # --- stress_total_pressure (rows=faces:nd, cols=cells:1) ---
+
+    def test_stress_total_pressure(self):
+        assert self.tpsa.get_row_dof_info("stress_total_pressure", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_col_dof_info("stress_total_pressure", nd=2) == {
+            GridEntity.cells: 1
+        }
+
+    # --- rotation_displacement (rows=faces:nrot, cols=cells:nd) ---
+
+    def test_rotation_displacement_rows(self):
+        assert self.tpsa.get_row_dof_info("rotation_displacement", nd=2) == {
+            GridEntity.faces: 1
+        }
+        assert self.tpsa.get_row_dof_info("rotation_displacement", nd=3) == {
+            GridEntity.faces: 3
+        }
+
+    def test_rotation_displacement_cols(self):
+        assert self.tpsa.get_col_dof_info("rotation_displacement", nd=2) == {
+            GridEntity.cells: 2
+        }
+        assert self.tpsa.get_col_dof_info("rotation_displacement", nd=3) == {
+            GridEntity.cells: 3
+        }
+
+    # --- rotation_rotation (rows=faces:nrot, cols=cells:nrot) ---
+
+    def test_rotation_rotation_rows(self):
+        assert self.tpsa.get_row_dof_info("rotation_rotation", nd=2) == {
+            GridEntity.faces: 1
+        }
+        assert self.tpsa.get_row_dof_info("rotation_rotation", nd=3) == {
+            GridEntity.faces: 3
+        }
+
+    def test_rotation_rotation_cols(self):
+        assert self.tpsa.get_col_dof_info("rotation_rotation", nd=2) == {
+            GridEntity.cells: 1
+        }
+        assert self.tpsa.get_col_dof_info("rotation_rotation", nd=3) == {
+            GridEntity.cells: 3
+        }
+
+    # --- mass matrices (rows=faces:1) ---
+
+    def test_mass_total_pressure(self):
+        assert self.tpsa.get_row_dof_info("mass_total_pressure", nd=2) == {
+            GridEntity.faces: 1
+        }
+        assert self.tpsa.get_col_dof_info("mass_total_pressure", nd=2) == {
+            GridEntity.cells: 1
+        }
+
+    def test_mass_displacement(self):
+        assert self.tpsa.get_row_dof_info("mass_displacement", nd=2) == {
+            GridEntity.faces: 1
+        }
+        assert self.tpsa.get_col_dof_info("mass_displacement", nd=2) == {
+            GridEntity.cells: 2
+        }
+        assert self.tpsa.get_col_dof_info("mass_displacement", nd=3) == {
+            GridEntity.cells: 3
+        }
+
+    # --- boundary condition matrices ---
+
+    def test_bound_stress(self):
+        assert self.tpsa.get_row_dof_info("bound_stress", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_col_dof_info("bound_stress", nd=2) == {
+            GridEntity.faces: 2
+        }
+
+    def test_bound_rotation_displacement_rows(self):
+        # rows = faces:nrot
+        assert self.tpsa.get_row_dof_info("bound_rotation_displacement", nd=2) == {
+            GridEntity.faces: 1
+        }
+        assert self.tpsa.get_row_dof_info("bound_rotation_displacement", nd=3) == {
+            GridEntity.faces: 3
+        }
+
+    def test_bound_rotation_displacement_cols(self):
+        # cols = faces:nd
+        assert self.tpsa.get_col_dof_info("bound_rotation_displacement", nd=2) == {
+            GridEntity.faces: 2
+        }
+
+    def test_bound_mass_displacement(self):
+        assert self.tpsa.get_row_dof_info("bound_mass_displacement", nd=2) == {
+            GridEntity.faces: 1
+        }
+        assert self.tpsa.get_col_dof_info("bound_mass_displacement", nd=2) == {
+            GridEntity.faces: 2
+        }
+
+    # --- displacement reconstruction matrices ---
+
+    def test_bound_displacement_cell(self):
+        assert self.tpsa.get_row_dof_info("bound_displacement_cell", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_col_dof_info("bound_displacement_cell", nd=2) == {
+            GridEntity.cells: 2
+        }
+
+    def test_bound_displacement_face(self):
+        assert self.tpsa.get_row_dof_info("bound_displacement_face", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_col_dof_info("bound_displacement_face", nd=2) == {
+            GridEntity.faces: 2
+        }
+
+    def test_bound_displacement_rotation_cell_rows(self):
+        # rows = faces:nd
+        assert self.tpsa.get_row_dof_info("bound_displacement_rotation_cell", nd=2) == {
+            GridEntity.faces: 2
+        }
+        assert self.tpsa.get_row_dof_info("bound_displacement_rotation_cell", nd=3) == {
+            GridEntity.faces: 3
+        }
+
+    def test_bound_displacement_rotation_cell_cols(self):
+        # cols = cells:nrot (1 in 2d, 3 in 3d)
+        assert self.tpsa.get_col_dof_info("bound_displacement_rotation_cell", nd=2) == {
+            GridEntity.cells: 1
+        }
+        assert self.tpsa.get_col_dof_info("bound_displacement_rotation_cell", nd=3) == {
+            GridEntity.cells: 3
+        }
+
+    def test_bound_displacement_solid_pressure_cell(self):
+        assert self.tpsa.get_row_dof_info(
+            "bound_displacement_solid_pressure_cell", nd=2
+        ) == {GridEntity.faces: 2}
+        assert self.tpsa.get_col_dof_info(
+            "bound_displacement_solid_pressure_cell", nd=2
+        ) == {GridEntity.cells: 1}
+
+    def test_unknown_key_returns_empty(self):
+        assert self.tpsa.get_row_dof_info("nonexistent", nd=2) == {}
+        assert self.tpsa.get_col_dof_info("nonexistent", nd=2) == {}
+
+    def test_nrot_formula_2d(self):
+        """In 2D: nrot=1 for rotation rows/cols."""
+        nrot_2d = 2 * (2 - 1) // 2  # = 1
+        assert self.tpsa.get_row_dof_info("rotation_displacement", nd=2) == {
+            GridEntity.faces: nrot_2d
+        }
+        assert self.tpsa.get_col_dof_info("stress_rotation", nd=2) == {
+            GridEntity.cells: nrot_2d
+        }
+
+    def test_nrot_formula_3d(self):
+        """In 3D: nrot=3 for rotation rows/cols."""
+        nrot_3d = 3 * (3 - 1) // 2  # = 3
+        assert self.tpsa.get_row_dof_info("rotation_displacement", nd=3) == {
+            GridEntity.faces: nrot_3d
+        }
+        assert self.tpsa.get_col_dof_info("stress_rotation", nd=3) == {
+            GridEntity.cells: nrot_3d
+        }

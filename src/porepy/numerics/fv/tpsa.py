@@ -347,6 +347,99 @@ class Tpsa(Discretization):
         else:
             raise NotImplementedError("Tpsa is only implemented for 2d and 3d grids.")
 
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return row DOF info for the named Tpsa matrix.
+
+        Tpsa produces three kinds of face-row matrices:
+        * Stress rows: ``nd`` DOFs per face (displacement/traction vectors).
+        * Rotation rows: ``nrot = nd*(nd-1)//2`` DOFs per face (scalar in 2d, 3-vector
+          in 3d).
+        * Scalar rows: 1 DOF per face (mass/pressure quantities).
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix
+                (e.g. ``"stress_displacement"``).
+            nd: Spatial dimension; used to derive DOF counts per entity.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
+            or ``{}`` for unrecognised keys.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        nrot = nd * (nd - 1) // 2
+
+        nd_rows = {
+            "stress_displacement",
+            "stress_rotation",
+            "stress_total_pressure",
+            "bound_stress",
+            "bound_displacement_cell",
+            "bound_displacement_face",
+            "bound_displacement_rotation_cell",
+            "bound_displacement_solid_pressure_cell",
+        }
+        nrot_rows = {
+            "rotation_displacement",
+            "rotation_rotation",
+            "bound_rotation_displacement",
+        }
+        scalar_rows = {
+            "mass_total_pressure",
+            "mass_displacement",
+            "bound_mass_displacement",
+        }
+        if matrix_key in nd_rows:
+            return {GridEntity.faces: nd}
+        if matrix_key in nrot_rows:
+            return {GridEntity.faces: nrot}
+        if matrix_key in scalar_rows:
+            return {GridEntity.faces: 1}
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return column DOF info for the named Tpsa matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment identifying the matrix
+                (e.g. ``"stress_displacement"``).
+            nd: Spatial dimension; used to derive DOF counts per entity.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
+            or ``{}`` for unrecognised keys.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        nrot = nd * (nd - 1) // 2
+
+        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
+            # Primary coupling matrices
+            "stress_displacement": {GridEntity.cells: nd},
+            "stress_rotation": {GridEntity.cells: nrot},
+            "stress_total_pressure": {GridEntity.cells: 1},
+            "rotation_displacement": {GridEntity.cells: nd},
+            "rotation_rotation": {GridEntity.cells: nrot},
+            "mass_total_pressure": {GridEntity.cells: 1},
+            "mass_displacement": {GridEntity.cells: nd},
+            # Boundary condition matrices
+            "bound_stress": {GridEntity.faces: nd},
+            "bound_rotation_displacement": {GridEntity.faces: nd},
+            "bound_mass_displacement": {GridEntity.faces: nd},
+            # Displacement reconstruction matrices
+            "bound_displacement_cell": {GridEntity.cells: nd},
+            "bound_displacement_face": {GridEntity.faces: nd},
+            "bound_displacement_rotation_cell": {GridEntity.cells: nrot},
+            "bound_displacement_solid_pressure_cell": {GridEntity.cells: 1},
+        }
+        return mapping.get(matrix_key, {})
+
     def assemble_matrix_rhs(
         self, sd: pp.Grid, sd_data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
