@@ -349,14 +349,16 @@ class FractureNetwork(ABC):
         # having been split into multiple parts.
         domain_entities = gmsh.model.get_entities(self.nd)
         boundary_entities = gmsh.model.get_boundary(
-            [(self.nd, tag) for _, tag in domain_entities]
+            [(self.nd, tag) for _, tag in domain_entities], oriented=False
         )
         # Get hold of the boundary points of the entity to check.
         if target_dim == 0:
             boundary_points = [(target_dim, i) for i in ind]
         else:
             assert len(ind) == 1, "Only single entity indices are supported."
-            boundary_points = gmsh.model.get_boundary([(target_dim, ind[0])])
+            boundary_points = gmsh.model.get_boundary(
+                [(target_dim, ind[0])], oriented=False
+            )
 
         # For each boundary surface of the domain, compute the distance between the
         # entity and all boundary points to check if they are all zero.
@@ -405,7 +407,7 @@ class FractureNetwork(ABC):
         ### Get hold of entities representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(self.nd)
         boundaries = gmsh.model.get_boundary(
-            [(self.nd, tag) for _, tag in domain_entities]
+            [(self.nd, tag) for _, tag in domain_entities], oriented=False
         )
         fractures = [
             f for f in gmsh.model.get_entities(self.nd - 1) if f not in boundaries
@@ -433,7 +435,9 @@ class FractureNetwork(ABC):
         # Take note of the boundary points of all entities, to avoid inserting points
         # there (doing so may confuse Gmsh).
         for ent in entities:
-            bp = gmsh.model.get_boundary([(self.nd - 1, ent)], recursive=True)
+            bp = gmsh.model.get_boundary(
+                [(self.nd - 1, ent)], recursive=True, oriented=False
+            )
             for b in bp:
                 if b[0] != 0:
                     continue
