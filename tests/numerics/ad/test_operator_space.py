@@ -927,7 +927,7 @@ class TestMergedOperatorSpaces:
 
 
 class TestInferDomainRange:
-    """Tests for Operator.infer_domain_range (Stage 5: validation and inference)."""
+    """Tests for Operations.infer_domain_range (Stage 5: validation and inference)."""
 
     @pytest.fixture
     def cell_space(self, two_subdomains):
@@ -1067,9 +1067,9 @@ class TestInferDomainRange:
     # --- infer_domain_range is public ---
 
     def test_infer_domain_range_is_public(self, cell_op):
-        """infer_domain_range should be accessible without name-mangling."""
-        assert hasattr(cell_op, "infer_domain_range")
-        new_domains, dom, ran = cell_op.infer_domain_range(cell_op, Operations.add)
+        """infer_domain_range should be accessible on the Operations enum."""
+        assert hasattr(Operations.add, "infer_domain_range")
+        dom, ran = Operations.add.infer_domain_range(cell_op, cell_op)
         assert dom is not None
         assert ran is not None
 
