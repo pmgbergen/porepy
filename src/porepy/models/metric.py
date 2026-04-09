@@ -12,6 +12,7 @@ from typing import Optional, cast
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad._grid_entity import GridEntity
 from porepy.numerics.ad.operators import DenseArray
 
 
@@ -327,7 +328,9 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
         for name, grids_dofs in self.equation_indexer.group_by_name().items():
             indices = np.concatenate(list(grids_dofs.values()))
             domains = cast(pp.GridLikeSequence, list(grids_dofs.keys()))
-            equation_dim = equation_system.equation_image_size_info[name]["cells"]
+            equation_dim = equation_system.equation_image_size_info[name][
+                GridEntity.cells
+            ]
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
             cell_weights = np.hstack([domain.cell_volumes for domain in domains])
             intensive_equation_values = pp.ad.DenseArray(

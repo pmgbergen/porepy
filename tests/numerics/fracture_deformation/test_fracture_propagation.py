@@ -853,7 +853,7 @@ class TestVariableMappingInitializationUnderPropagation:
         # Initialize the state by the known variable, and the iterate as twice that
         # value (mostly a why not)
         d = mdg.subdomain_data(g_2d)
-        equation_system.create_variables(self.cv2, {"cells": 1}, [g_2d])
+        equation_system.create_variables(self.cv2, {GridEntity.cells: 1}, [g_2d])
 
         val_sol = cell_val_2d
         val_it = 2 * cell_val_2d
@@ -863,7 +863,7 @@ class TestVariableMappingInitializationUnderPropagation:
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
-            equation_system.create_variables(self.cv1, {"cells": var_sz_1d}, [g])
+            equation_system.create_variables(self.cv1, {GridEntity.cells: var_sz_1d}, [g])
 
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]

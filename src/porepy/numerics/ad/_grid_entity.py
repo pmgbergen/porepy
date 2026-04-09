@@ -11,14 +11,11 @@ import enum
 __all__ = ["GridEntity"]
 
 
-class GridEntity(str, enum.Enum):
+class GridEntity(enum.Enum):
     """Enumeration of grid entities (cells, faces, nodes).
 
     This enum is used to identify what kind of grid entity a variable or
-    equation is defined on.  By inheriting from :class:`str`, each member
-    compares equal to its string value and shares the same hash, so existing
-    code that passes plain string keys (``"cells"``, ``"faces"``, ``"nodes"``)
-    to ``dof_info`` dictionaries continues to work without modification.
+    equation is defined on.
 
     Members:
         cells: Degrees of freedom located at cell centres.
