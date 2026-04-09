@@ -1,21 +1,41 @@
 """Tests for Stage 2 of GH discussion #1601: DomainType, OperatorSpace and
 operator_domain/operator_range propagation."""
 
-import pytest
+import operator as _op
+
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad._grid_entity import GridEntity
+from porepy.numerics.ad.ad_utils import MergedOperator
 from porepy.numerics.ad.operators import (
-    DomainType,
-    OperatorSpace,
-    Operator,
-    Scalar,
     DenseArray,
+    DomainType,
+    MixedDimensionalVariable,
+    Operator,
+    OperatorSpace,
+    Operations,
+    Scalar,
     SparseArray,
     Variable,
+    sum_operator_list,
 )
-from porepy.numerics.ad._grid_entity import GridEntity
+from porepy.numerics.ad.surrogate_operator import SurrogateOperator
+from porepy.numerics.discretization import Discretization, InterfaceDiscretization
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
+
+
+def _grid_for_dim(dim: int) -> pp.Grid:
+    """Return a simple Cartesian grid of the given spatial dimension."""
+    g = pp.CartGrid([3, 3] if dim == 2 else [2, 2, 2])
+    g.compute_geometry()
+    return g
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +59,15 @@ def one_mortar():
     g = pp.CartGrid([2])
     g.compute_geometry()
     return pp.MortarGrid(g.dim, {0: g, 1: g})
+
+
+@pytest.fixture
+def fracture_mdg():
+    """2-D Cartesian mdg with two crossing fractures (3 subdomains, 4 interfaces)."""
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    md_grid = pp.meshing.cart_grid(fracs, np.array([2, 2]))
+    md_grid.compute_geometry()
+    return md_grid
 
 
 # ---------------------------------------------------------------------------
@@ -236,22 +265,17 @@ class TestMixedDimensionalVariableSpace:
     """MixedDimensionalVariable spans multiple grids and therefore cannot be
     represented as a single OperatorSpace; its domain/range must be None."""
 
-    def test_md_variable_operator_domain_is_none(self, two_subdomains):
-        from porepy.numerics.ad.operators import MixedDimensionalVariable
-
+    @pytest.fixture
+    def md_var(self, two_subdomains):
         g1, g2 = two_subdomains
         v1 = Variable("p", {GridEntity.cells: 1}, g1)
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
-        md_var = MixedDimensionalVariable([v1, v2])
+        return MixedDimensionalVariable([v1, v2])
+
+    def test_md_variable_operator_domain_is_none(self, md_var):
         assert md_var.operator_domain is None
 
-    def test_md_variable_operator_range_is_none(self, two_subdomains):
-        from porepy.numerics.ad.operators import MixedDimensionalVariable
-
-        g1, g2 = two_subdomains
-        v1 = Variable("p", {GridEntity.cells: 1}, g1)
-        v2 = Variable("p", {GridEntity.cells: 1}, g2)
-        md_var = MixedDimensionalVariable([v1, v2])
+    def test_md_variable_operator_range_is_none(self, md_var):
         assert md_var.operator_range is None
 
 
@@ -261,18 +285,24 @@ class TestSurrogateOperatorSpace:
     @pytest.fixture
     def simple_mdg(self, two_subdomains):
         g1, g2 = two_subdomains
-        mdg = pp.meshing.subdomains_to_mdg([[g1, g2]])
-        return mdg
+        return pp.meshing.subdomains_to_mdg([[g1, g2]])
 
-    def test_surrogate_operator_domain_with_dof_info(self, simple_mdg):
-        """SurrogateFactory with explicit dof_info: the produced operator has a space."""
-        mdg = simple_mdg
-        eq = pp.ad.EquationSystem(mdg)
+    @pytest.fixture
+    def surrogate_setup(self, simple_mdg):
+        """Return (mdg, var) ready for SurrogateFactory construction."""
+        eq = pp.ad.EquationSystem(simple_mdg)
         var = eq.create_variables(
-            "p", dof_info={GridEntity.cells: 1}, subdomains=list(mdg.subdomains())
+            "p",
+            dof_info={GridEntity.cells: 1},
+            subdomains=list(simple_mdg.subdomains()),
         )
+        return simple_mdg, var
+
+    def test_surrogate_operator_domain_with_dof_info(self, surrogate_setup):
+        """SurrogateFactory with explicit dof_info: the produced operator has a space."""
+        mdg, var = surrogate_setup
         factory = pp.ad.SurrogateFactory(
-            name="f_domain",
+            name="f",
             mdg=mdg,
             dependencies=[lambda grids: var],
             dof_info={GridEntity.cells: 1},
@@ -282,15 +312,11 @@ class TestSurrogateOperatorSpace:
         assert op.operator_domain.domain_type == DomainType.subdomains
         assert op.operator_domain.dof_info == {GridEntity.cells: 1}
 
-    def test_surrogate_operator_range_equals_domain(self, simple_mdg):
+    def test_surrogate_operator_range_equals_domain(self, surrogate_setup):
         """For a SurrogateOperator the range_ equals domain (square operator)."""
-        mdg = simple_mdg
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables(
-            "p", dof_info={GridEntity.cells: 1}, subdomains=list(mdg.subdomains())
-        )
+        mdg, var = surrogate_setup
         factory = pp.ad.SurrogateFactory(
-            name="f_range",
+            name="f",
             mdg=mdg,
             dependencies=[lambda grids: var],
             dof_info={GridEntity.cells: 1},
@@ -298,15 +324,11 @@ class TestSurrogateOperatorSpace:
         op = factory(list(mdg.subdomains()))
         assert op.operator_range == op.operator_domain
 
-    def test_surrogate_operator_default_dof_info_gives_space(self, simple_mdg):
+    def test_surrogate_operator_default_dof_info_gives_space(self, surrogate_setup):
         """dof_info=None (default) falls back to cells:1 and still sets a space."""
-        mdg = simple_mdg
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables(
-            "p", dof_info={GridEntity.cells: 1}, subdomains=list(mdg.subdomains())
-        )
+        mdg, var = surrogate_setup
         factory = pp.ad.SurrogateFactory(
-            name="f_default",
+            name="f",
             mdg=mdg,
             dependencies=[lambda grids: var],
         )
@@ -318,8 +340,6 @@ class TestSurrogateOperatorSpace:
         self, two_subdomains
     ):
         """SurrogateOperator instantiated directly with dof_info=None has no space."""
-        from porepy.numerics.ad.surrogate_operator import SurrogateOperator
-
         g1, g2 = two_subdomains
         v1 = Variable("p", {GridEntity.cells: 1}, g1)
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
@@ -490,8 +510,6 @@ class TestDomainRangePropagation:
 
 class TestDiscretizationStubs:
     def test_get_row_dof_info_default(self):
-        from porepy.numerics.discretization import Discretization
-
         class ConcreteDiscr(Discretization):
             def ndof(self, g):
                 return 0
@@ -511,8 +529,6 @@ class TestDiscretizationStubs:
         assert discr.get_col_dof_info("flux") == {}
 
     def test_get_row_dof_info_overridable(self):
-        from porepy.numerics.discretization import Discretization
-
         class CustomDiscr(Discretization):
             def ndof(self, g):
                 return 0
@@ -575,15 +591,6 @@ class TestTimeDependentDenseArraySpaces:
 # ---------------------------------------------------------------------------
 # Stage 3: Grid operator domain/range
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def fracture_mdg():
-    """2-D Cartesian mdg with two crossing fractures (3 subdomains, 4 interfaces)."""
-    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    md_grid = pp.meshing.cart_grid(fracs, np.array([2, 2]))
-    md_grid.compute_geometry()
-    return md_grid
 
 
 class TestSubdomainProjectionSpaces:
@@ -843,19 +850,8 @@ class TestMergedOperatorSpaces:
     """Tests that MergedOperator inherits operator_domain/range from the
     underlying discretization's get_row/col_dof_info methods."""
 
-    def _make_grid(self):
-        """Return a simple 2D Cartesian grid."""
-        import porepy as pp
-
-        mdg = pp.meshing.cart_grid([], np.array([3, 3]))
-        return list(mdg.subdomains(dim=2))
-
     def test_default_discr_gives_none(self, two_subdomains):
         """With stub get_row/col_dof_info (returns {}), operator_domain is None."""
-        import porepy as pp
-        from porepy.numerics.discretization import Discretization
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         class StubDiscr(Discretization):
             def __init__(self):
                 self.keyword = "mechanics"
@@ -884,10 +880,6 @@ class TestMergedOperatorSpaces:
 
     def test_custom_dof_info_gives_space(self, two_subdomains):
         """A discretization that overrides get_row/col_dof_info populates spaces."""
-        import porepy as pp
-        from porepy.numerics.discretization import Discretization
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         class ConcreteDiscr(Discretization):
             def __init__(self):
                 self.keyword = "flow"
@@ -925,9 +917,6 @@ class TestMergedOperatorSpaces:
 
     def test_interface_discr_gives_none(self, one_mortar):
         """InterfaceDiscretization does not have get_row/col_dof_info → None."""
-        from porepy.numerics.discretization import InterfaceDiscretization
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         class MockInterfaceDiscr(InterfaceDiscretization):
             def __init__(self):
                 self.keyword = "coupling"
@@ -1121,7 +1110,6 @@ class TestInferDomainRange:
     def test_infer_domain_range_is_public(self, cell_op):
         """infer_domain_range should be accessible without name-mangling."""
         assert hasattr(cell_op, "infer_domain_range")
-        from porepy.numerics.ad.operators import Operations
         new_domains, dom, ran = cell_op.infer_domain_range(cell_op, Operations.add)
         assert dom is not None
         assert ran is not None
@@ -1465,9 +1453,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_mpfa_flux_merged_operator(self, two_subdomains):
         """MpfaAd.flux() carries face-range / cell-domain spaces."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains
         discr = pp.Mpfa("flow")
         op = MergedOperator(
@@ -1485,9 +1470,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_mpfa_bound_flux_merged_operator(self, two_subdomains):
         """bound_flux has face-range and face-domain (maps BC values to fluxes)."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains
         discr = pp.Mpfa("flow")
         op = MergedOperator(
@@ -1501,9 +1483,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_mpsa_stress_merged_operator_2d(self, two_subdomains):
         """Mpsa.stress uses nd=2 DOFs per face/cell for 2D grids."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains  # both are 2D
         discr = pp.Mpsa("mech")
         op = MergedOperator(
@@ -1519,9 +1498,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_upwind_merged_operator(self, two_subdomains):
         """Upwind operator has face-range / cell-domain."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains
         discr = pp.Upwind("flow")
         op = MergedOperator(
@@ -1535,8 +1511,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_mpfa_via_ad_wrapper(self, two_subdomains):
         """Using MpfaAd wrapper (wrap_discretization path) produces correct spaces."""
-        import porepy as pp
-
         g1, g2 = two_subdomains
         discr = pp.ad.MpfaAd("flow", [g1, g2])
         flux_op = discr.flux()
@@ -1547,8 +1521,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_tpfa_via_ad_wrapper(self, two_subdomains):
         """Using TpfaAd wrapper produces correct spaces for flux."""
-        import porepy as pp
-
         g1, g2 = two_subdomains
         discr = pp.ad.TpfaAd("flow", [g1, g2])
         flux_op = discr.flux()
@@ -1557,8 +1529,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_mpfa_bound_flux_ad_wrapper(self, two_subdomains):
         """MpfaAd.bound_flux() has face-domain and face-range."""
-        import porepy as pp
-
         g1, g2 = two_subdomains
         discr = pp.ad.MpfaAd("flow", [g1, g2])
         op = discr.bound_flux()
@@ -1567,9 +1537,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_vector_source_cols_scale_with_nd(self, two_subdomains):
         """vector_source column DOF count matches grid dimension."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains  # both are 2D (dim=2)
         discr = pp.Mpfa("flow")
         op = MergedOperator(
@@ -1585,9 +1552,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_tpsa_stress_displacement_merged_operator(self, two_subdomains):
         """Tpsa.stress_displacement via MergedOperator gives cells:nd domain and faces:nd range."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains  # both 2D
         discr = pp.Tpsa("mech")
         op = MergedOperator(
@@ -1605,9 +1569,6 @@ class TestMergedOperatorWithConcreteDiscretization:
 
     def test_tpsa_rotation_displacement_merged_operator(self, two_subdomains):
         """Tpsa.rotation_displacement row DOF uses nrot=1 for 2D grids."""
-        import porepy as pp
-        from porepy.numerics.ad.ad_utils import MergedOperator
-
         g1, g2 = two_subdomains  # both 2D; nrot = 2*(2-1)//2 = 1
         discr = pp.Tpsa("mech")
         op = MergedOperator(
@@ -1633,8 +1594,6 @@ class TestSumOperatorListSpace:
 
     def test_sum_two_arrays_propagates_space(self, two_subdomains):
         """sum_operator_list([a, b]) with compatible spaces inherits those spaces."""
-        from porepy.numerics.ad.operators import sum_operator_list
-
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
         a = DenseArray(np.ones(4), domain=space, range_=space)
@@ -1645,8 +1604,6 @@ class TestSumOperatorListSpace:
 
     def test_sum_three_arrays_propagates_space(self, two_subdomains):
         """sum_operator_list([a, b, c]) propagates spaces through the full reduce."""
-        from porepy.numerics.ad.operators import sum_operator_list
-
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
         ops = [DenseArray(np.ones(4), domain=space, range_=space) for _ in range(3)]
@@ -1656,8 +1613,6 @@ class TestSumOperatorListSpace:
 
     def test_sum_incompatible_spaces_raises(self, two_subdomains):
         """sum_operator_list raises ValueError when spaces are incompatible."""
-        from porepy.numerics.ad.operators import sum_operator_list
-
         g1, g2 = two_subdomains
         s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         s2 = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
@@ -1668,8 +1623,6 @@ class TestSumOperatorListSpace:
 
     def test_sum_none_space_inherits_known(self, two_subdomains):
         """sum_operator_list with one operand lacking a space still propagates the other."""
-        from porepy.numerics.ad.operators import sum_operator_list
-
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
         a = DenseArray(np.ones(4), domain=space, range_=space)
