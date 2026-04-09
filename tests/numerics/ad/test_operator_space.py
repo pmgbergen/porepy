@@ -1583,6 +1583,106 @@ class TestMergedOperatorWithConcreteDiscretization:
         assert op.operator_domain.dof_info == {GridEntity.cells: 2}
         assert op.operator_range.dof_info == {GridEntity.faces: 1}
 
+    def test_tpsa_stress_displacement_merged_operator(self, two_subdomains):
+        """Tpsa.stress_displacement via MergedOperator gives cells:nd domain and faces:nd range."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains  # both 2D
+        discr = pp.Tpsa("mech")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="stress_displacement",
+            physics_key="mech",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
+        assert op.operator_range.dof_info == {GridEntity.faces: 2}
+        assert set(op.operator_domain.grids) == {g1, g2}
+        assert set(op.operator_range.grids) == {g1, g2}
+
+    def test_tpsa_rotation_displacement_merged_operator(self, two_subdomains):
+        """Tpsa.rotation_displacement row DOF uses nrot=1 for 2D grids."""
+        import porepy as pp
+        from porepy.numerics.ad.ad_utils import MergedOperator
+
+        g1, g2 = two_subdomains  # both 2D; nrot = 2*(2-1)//2 = 1
+        discr = pp.Tpsa("mech")
+        op = MergedOperator(
+            discr=discr,
+            discretization_matrix_key="rotation_displacement",
+            physics_key="mech",
+            domains=[g1, g2],
+        )
+        assert op.operator_domain is not None
+        assert op.operator_range is not None
+        # 2D: row DOFs are nrot=1 face entries, col DOFs are nd=2 cell entries
+        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
+        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+
+
+# ---------------------------------------------------------------------------
+# sum_operator_list and sum_projection_list space propagation
+# ---------------------------------------------------------------------------
+
+
+class TestSumOperatorListSpace:
+    """sum_operator_list delegates to __add__, so domain/range must propagate."""
+
+    def test_sum_two_arrays_propagates_space(self, two_subdomains):
+        """sum_operator_list([a, b]) with compatible spaces inherits those spaces."""
+        from porepy.numerics.ad.operators import sum_operator_list
+
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        a = DenseArray(np.ones(4), domain=space, range_=space)
+        b = DenseArray(np.ones(4), domain=space, range_=space)
+        result = sum_operator_list([a, b])
+        assert result.operator_domain == space
+        assert result.operator_range == space
+
+    def test_sum_three_arrays_propagates_space(self, two_subdomains):
+        """sum_operator_list([a, b, c]) propagates spaces through the full reduce."""
+        from porepy.numerics.ad.operators import sum_operator_list
+
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        ops = [DenseArray(np.ones(4), domain=space, range_=space) for _ in range(3)]
+        result = sum_operator_list(ops)
+        assert result.operator_domain == space
+        assert result.operator_range == space
+
+    def test_sum_incompatible_spaces_raises(self, two_subdomains):
+        """sum_operator_list raises ValueError when spaces are incompatible."""
+        from porepy.numerics.ad.operators import sum_operator_list
+
+        g1, g2 = two_subdomains
+        s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        s2 = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        a = DenseArray(np.ones(4), domain=s1, range_=s1)
+        b = DenseArray(np.ones(9), domain=s2, range_=s2)
+        with pytest.raises(ValueError):
+            sum_operator_list([a, b])
+
+    def test_sum_none_space_inherits_known(self, two_subdomains):
+        """sum_operator_list with one operand lacking a space still propagates the other."""
+        from porepy.numerics.ad.operators import sum_operator_list
+
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        a = DenseArray(np.ones(4), domain=space, range_=space)
+        b = DenseArray(np.ones(4))  # no space
+        result = sum_operator_list([a, b])
+        assert result.operator_domain == space
+        assert result.operator_range == space
+
+
+# ---------------------------------------------------------------------------
+# Stage 7 continued: Tpsa dof_info
+# ---------------------------------------------------------------------------
+
 
 class TestTpsaDofInfo:
     """Tests for Tpsa.get_row/col_dof_info.
