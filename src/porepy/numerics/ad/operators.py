@@ -1578,7 +1578,12 @@ class SparseArray(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return SparseArray(mat=-self._mat, name=new_name)
+        return SparseArray(
+            mat=-self._mat,
+            name=new_name,
+            domain=self._operator_domain,
+            range_=self._operator_range,
+        )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """See :meth:`Operator.parse`.
@@ -1714,7 +1719,12 @@ class DenseArray(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return DenseArray(values=-self._values, name=new_name)
+        return DenseArray(
+            values=-self._values,
+            name=new_name,
+            domain=self._operator_domain,
+            range_=self._operator_range,
+        )
 
     @property
     def size(self) -> int:
