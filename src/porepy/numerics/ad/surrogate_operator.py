@@ -216,7 +216,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         msg = (
             f"Surrogate operator {self.name}.\n"
-            + f"\nDefined on {len(self._domains)} {self._domain_type}.\n"
+            + f"\nDefined on {len(self._domains)} {self._domain_type.value}.\n"
             + f"Dependent on {len(self.children)} independent variables.\n"
         )
 
