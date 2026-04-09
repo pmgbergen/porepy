@@ -64,6 +64,51 @@ class Upwind(Discretization):
         """
         return sd.num_cells
 
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return row DOF info for the named Upwind matrix.
+
+        All Upwind matrices have one DOF per face in their rows (fluxes on faces).
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind"``).
+            nd: Spatial dimension (unused; Upwind is always scalar).
+
+        Returns:
+            ``{GridEntity.faces: 1}`` for all recognised keys, ``{}`` otherwise.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        recognised = {"upwind", "bound_transport_dir", "bound_transport_neu"}
+        if matrix_key in recognised:
+            return {GridEntity.faces: 1}
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return column DOF info for the named Upwind matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind"``).
+            nd: Spatial dimension (unused; Upwind is always scalar).
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
+            or ``{}`` for unrecognised keys.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
+            "upwind": {GridEntity.cells: 1},
+            "bound_transport_dir": {GridEntity.faces: 1},
+            "bound_transport_neu": {GridEntity.faces: 1},
+        }
+        return mapping.get(matrix_key, {})
+
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
