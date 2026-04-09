@@ -394,39 +394,18 @@ class TestDomainRangePropagation:
     def _cell_space(self, g):
         return OperatorSpace.from_domains([g], {GridEntity.cells: 1})
 
-    def test_add_same_space_propagates(self, two_subdomains):
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv],
+        ids=["add", "sub", "mul", "div"],
+    )
+    def test_elementwise_same_space_propagates(self, two_subdomains, binary_op):
+        """Elementwise ops between equal-space operands preserve domain/range."""
         g, _ = two_subdomains
         space = self._cell_space(g)
         a = DenseArray(np.ones(4), domain=space, range_=space)
         b = DenseArray(np.ones(4), domain=space, range_=space)
-        result = a + b
-        assert result.operator_domain == space
-        assert result.operator_range == space
-
-    def test_sub_same_space_propagates(self, two_subdomains):
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range_=space)
-        b = DenseArray(np.ones(4), domain=space, range_=space)
-        result = a - b
-        assert result.operator_domain == space
-        assert result.operator_range == space
-
-    def test_mul_same_space_propagates(self, two_subdomains):
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range_=space)
-        b = DenseArray(np.ones(4), domain=space, range_=space)
-        result = a * b
-        assert result.operator_domain == space
-        assert result.operator_range == space
-
-    def test_div_same_space_propagates(self, two_subdomains):
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range_=space)
-        b = DenseArray(np.ones(4) + 1, domain=space, range_=space)
-        result = a / b
+        result = binary_op(a, b)
         assert result.operator_domain == space
         assert result.operator_range == space
 
@@ -972,13 +951,14 @@ class TestInferDomainRange:
 
     # --- elementwise: compatible operands ---
 
-    def test_add_compatible(self, cell_op, cell_space):
-        result = cell_op + cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
-
-    def test_sub_compatible(self, cell_op, cell_space):
-        result = cell_op - cell_op
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
+        ids=["add", "sub", "mul", "div", "pow"],
+    )
+    def test_elementwise_compatible(self, cell_op, cell_space, binary_op):
+        """Elementwise ops between same-space operands preserve domain/range."""
+        result = binary_op(cell_op, cell_op)
         assert result.operator_domain == cell_space
         assert result.operator_range == cell_space
 
@@ -988,38 +968,17 @@ class TestInferDomainRange:
         assert result.operator_domain == cell_space
         assert result.operator_range == cell_space
 
-    def test_mul_compatible(self, cell_op, cell_space):
-        result = cell_op * cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
-
-    def test_div_compatible(self, cell_op, cell_space):
-        result = cell_op / cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
-
-    def test_pow_compatible(self, cell_op, cell_space):
-        result = cell_op ** cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
-
     # --- elementwise: incompatible operands raise ValueError ---
 
-    def test_add_incompatible_domain(self, cell_op, face_op):
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv],
+        ids=["add", "sub", "mul", "div"],
+    )
+    def test_elementwise_incompatible_domain(self, cell_op, face_op, binary_op):
+        """Elementwise ops between incompatible operands raise ValueError."""
         with pytest.raises(ValueError, match="domain"):
-            _ = cell_op + face_op
-
-    def test_sub_incompatible_domain(self, cell_op, face_op):
-        with pytest.raises(ValueError, match="domain"):
-            _ = cell_op - face_op
-
-    def test_mul_incompatible_domain(self, cell_op, face_op):
-        with pytest.raises(ValueError, match="domain"):
-            _ = cell_op * face_op
-
-    def test_div_incompatible_domain(self, cell_op, face_op):
-        with pytest.raises(ValueError, match="domain"):
-            _ = cell_op / face_op
+            _ = binary_op(cell_op, face_op)
 
     # --- matmul: compatible ---
 
