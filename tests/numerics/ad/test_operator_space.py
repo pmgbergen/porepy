@@ -219,6 +219,107 @@ class TestVariableSpace:
         assert var.operator_domain.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
 
 
+class TestMixedDimensionalVariableSpace:
+    """MixedDimensionalVariable spans multiple grids and therefore cannot be
+    represented as a single OperatorSpace; its domain/range must be None."""
+
+    def test_md_variable_operator_domain_is_none(self, two_subdomains):
+        from porepy.numerics.ad.operators import MixedDimensionalVariable
+
+        g1, g2 = two_subdomains
+        v1 = Variable("p", {GridEntity.cells: 1}, g1)
+        v2 = Variable("p", {GridEntity.cells: 1}, g2)
+        md_var = MixedDimensionalVariable([v1, v2])
+        assert md_var.operator_domain is None
+
+    def test_md_variable_operator_range_is_none(self, two_subdomains):
+        from porepy.numerics.ad.operators import MixedDimensionalVariable
+
+        g1, g2 = two_subdomains
+        v1 = Variable("p", {GridEntity.cells: 1}, g1)
+        v2 = Variable("p", {GridEntity.cells: 1}, g2)
+        md_var = MixedDimensionalVariable([v1, v2])
+        assert md_var.operator_range is None
+
+
+class TestSurrogateOperatorSpace:
+    """SurrogateOperator carries operator_domain/range derived from its dof_info."""
+
+    @pytest.fixture
+    def simple_mdg(self, two_subdomains):
+        g1, g2 = two_subdomains
+        mdg = pp.meshing.subdomains_to_mdg([[g1, g2]])
+        return mdg
+
+    def test_surrogate_operator_domain_with_dof_info(self, simple_mdg):
+        """SurrogateFactory with explicit dof_info: the produced operator has a space."""
+        mdg = simple_mdg
+        eq = pp.ad.EquationSystem(mdg)
+        var = eq.create_variables(
+            "p", dof_info={GridEntity.cells: 1}, subdomains=list(mdg.subdomains())
+        )
+        factory = pp.ad.SurrogateFactory(
+            name="f_domain",
+            mdg=mdg,
+            dependencies=[lambda grids: var],
+            dof_info={GridEntity.cells: 1},
+        )
+        op = factory(list(mdg.subdomains()))
+        assert op.operator_domain is not None
+        assert op.operator_domain.domain_type == DomainType.subdomains
+        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
+
+    def test_surrogate_operator_range_equals_domain(self, simple_mdg):
+        """For a SurrogateOperator the range_ equals domain (square operator)."""
+        mdg = simple_mdg
+        eq = pp.ad.EquationSystem(mdg)
+        var = eq.create_variables(
+            "p", dof_info={GridEntity.cells: 1}, subdomains=list(mdg.subdomains())
+        )
+        factory = pp.ad.SurrogateFactory(
+            name="f_range",
+            mdg=mdg,
+            dependencies=[lambda grids: var],
+            dof_info={GridEntity.cells: 1},
+        )
+        op = factory(list(mdg.subdomains()))
+        assert op.operator_range == op.operator_domain
+
+    def test_surrogate_operator_default_dof_info_gives_space(self, simple_mdg):
+        """dof_info=None (default) falls back to cells:1 and still sets a space."""
+        mdg = simple_mdg
+        eq = pp.ad.EquationSystem(mdg)
+        var = eq.create_variables(
+            "p", dof_info={GridEntity.cells: 1}, subdomains=list(mdg.subdomains())
+        )
+        factory = pp.ad.SurrogateFactory(
+            name="f_default",
+            mdg=mdg,
+            dependencies=[lambda grids: var],
+        )
+        op = factory(list(mdg.subdomains()))
+        assert op.operator_domain is not None
+        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
+
+    def test_surrogate_operator_direct_no_dof_info_gives_none_space(
+        self, two_subdomains
+    ):
+        """SurrogateOperator instantiated directly with dof_info=None has no space."""
+        from porepy.numerics.ad.surrogate_operator import SurrogateOperator
+
+        g1, g2 = two_subdomains
+        v1 = Variable("p", {GridEntity.cells: 1}, g1)
+        v2 = Variable("p", {GridEntity.cells: 1}, g2)
+        op = SurrogateOperator(
+            name="bare",
+            domains=[g1, g2],
+            children=[v1, v2],
+            dof_info=None,
+        )
+        assert op.operator_domain is None
+        assert op.operator_range is None
+
+
 class TestDenseArraySpace:
     def test_dense_array_no_space_by_default(self):
         arr = DenseArray(np.ones(5))
@@ -1085,12 +1186,21 @@ class TestCompoundOperatorSpaces:
         assert result.operator_range == cell_sp
 
     def test_unary_minus_preserves_spaces(self, two_subdomains, spaces):
-        """Unary minus (internally Scalar(-1) * op) preserves domain/range."""
+        """Unary minus on SparseArray preserves domain/range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
         result = -A
         assert result.operator_domain == face_sp
+        assert result.operator_range == cell_sp
+
+    def test_unary_minus_dense_array_preserves_spaces(self, two_subdomains, spaces):
+        """DenseArray.__neg__ must also preserve domain/range (separate code path)."""
+        g1, g2 = two_subdomains
+        cell_sp, face_sp = spaces
+        arr = DenseArray(np.ones(3), domain=cell_sp, range_=cell_sp)
+        result = -arr
+        assert result.operator_domain == cell_sp
         assert result.operator_range == cell_sp
 
     # --- integration with actual grid operators ---
