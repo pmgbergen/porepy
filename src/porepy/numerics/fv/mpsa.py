@@ -118,6 +118,58 @@ class Mpsa(Discretization):
         """
         return sd.dim * sd.num_cells
 
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return row DOF info for the named Mpsa matrix.
+
+        All Mpsa matrices have ``nd`` DOFs per face in their rows (stress/traction
+        vectors live on faces).
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"stress"``).
+            nd: Spatial dimension; determines the number of DOFs per face.
+
+        Returns:
+            ``{GridEntity.faces: nd}`` for all recognised keys, ``{}`` otherwise.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        recognised = {
+            "stress",
+            "bound_stress",
+            "bound_displacement_cell",
+            "bound_displacement_face",
+        }
+        if matrix_key in recognised:
+            return {GridEntity.faces: nd}
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """Return column DOF info for the named Mpsa matrix.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"stress"``).
+            nd: Spatial dimension.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
+            or ``{}`` for unrecognised keys.
+
+        """
+        from porepy.numerics.ad._grid_entity import GridEntity
+
+        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
+            "stress": {GridEntity.cells: nd},
+            "bound_stress": {GridEntity.faces: nd},
+            "bound_displacement_cell": {GridEntity.cells: nd},
+            "bound_displacement_face": {GridEntity.faces: nd},
+        }
+        return mapping.get(matrix_key, {})
+
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
         Discretize the second order vector elliptic equation using multi-point stress
