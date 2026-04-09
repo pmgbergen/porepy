@@ -218,6 +218,19 @@ class TestVariableSpace:
         assert var.operator_domain is not None
         assert var.operator_domain.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
 
+    def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
+        """Variable on a MortarGrid gets DomainType.interfaces."""
+        var = Variable("lam", {GridEntity.cells: 1}, one_mortar)
+        assert var.operator_domain is not None
+        assert var.operator_domain.domain_type == DomainType.interfaces
+        assert var.operator_domain.grids == (one_mortar,)
+
+    def test_variable_on_mortar_grid_dof_info(self, one_mortar):
+        """dof_info is preserved when Variable is on a mortar grid."""
+        var = Variable("lam", {GridEntity.cells: 2}, one_mortar)
+        assert var.operator_domain is not None
+        assert var.operator_domain.dof_info == {GridEntity.cells: 2}
+
 
 class TestMixedDimensionalVariableSpace:
     """MixedDimensionalVariable spans multiple grids and therefore cannot be
@@ -793,6 +806,32 @@ class TestDivergenceSpaces:
         div = pp.ad.Divergence([], dim=1)
         assert div.operator_domain is None
         assert div.operator_range is None
+
+    @pytest.mark.parametrize("dim", [2, 3])
+    def test_divergence_vector_field_dof_info(self, dim):
+        """Divergence with dim>1 stores dim DOFs per face (domain) and per cell (range)."""
+        if dim == 2:
+            g = pp.CartGrid([3, 3])
+        else:
+            g = pp.CartGrid([2, 2, 2])
+        g.compute_geometry()
+        div = pp.ad.Divergence([g], dim=dim)
+        assert div.operator_domain is not None
+        assert div.operator_range is not None
+        assert div.operator_domain.dof_info == {GridEntity.faces: dim}
+        assert div.operator_range.dof_info == {GridEntity.cells: dim}
+
+    @pytest.mark.parametrize("dim", [2, 3])
+    def test_divergence_vector_field_grids(self, dim):
+        """Divergence with dim>1 still records the correct grid set."""
+        if dim == 2:
+            g = pp.CartGrid([3, 3])
+        else:
+            g = pp.CartGrid([2, 2, 2])
+        g.compute_geometry()
+        div = pp.ad.Divergence([g], dim=dim)
+        assert div.operator_domain.grids == (g,)
+        assert div.operator_range.grids == (g,)
 
 
 # ---------------------------------------------------------------------------
