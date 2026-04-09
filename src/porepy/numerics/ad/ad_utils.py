@@ -348,8 +348,14 @@ class MergedOperator(operators.Operator):
         op_range: Optional[operators.OperatorSpace] = None
         if domains:
             if isinstance(discr, Discretization):
-                row_dof = discr.get_row_dof_info()
-                col_dof = discr.get_col_dof_info()
+                domain_list = list(domains)
+                nd = (
+                    domain_list[0].dim
+                    if domain_list and hasattr(domain_list[0], "dim")
+                    else 1
+                )
+                row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
+                col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
             else:
                 row_dof = {}
                 col_dof = {}
