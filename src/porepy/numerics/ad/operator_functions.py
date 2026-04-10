@@ -66,7 +66,6 @@ class AbstractFunction(Operator):
     def __init__(
         self,
         name: Optional[str] = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         **kwargs,  # Left for inheritance for more complex functions
@@ -76,9 +75,10 @@ class AbstractFunction(Operator):
         # Done for reasons of multiple inheritance.
         super().__init__(
             name=name,
-            domains=domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=children,
+            domain=None,
+            range=None,
         )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
@@ -101,9 +101,10 @@ class AbstractFunction(Operator):
 
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
-            # domains=self.domains,
             operation=pp.ad.operators.Operations.evaluate,
             children=args,
+            domain=None,
+            range=None,
         )
         # Assigning the functional representation by the implementation of this instance
         op.func = self.func  # type: ignore
