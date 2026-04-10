@@ -211,7 +211,7 @@ class TestOperatorProperties:
     def test_set_range_in_init(self, two_subdomains):
         g1, _ = two_subdomains
         space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        op = Operator(name="test", range_=space)
+        op = Operator(name="test", range=space)
         assert op.operator_range == space
 
 
@@ -362,7 +362,7 @@ class TestDenseArraySpace:
     def test_dense_array_with_explicit_space(self, two_subdomains):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        arr = DenseArray(np.ones(5), domain=space, range_=space)
+        arr = DenseArray(np.ones(5), domain=space, range=space)
         assert arr.operator_domain == space
         assert arr.operator_range == space
 
@@ -378,7 +378,7 @@ class TestSparseArraySpace:
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
         mat = sps.eye(4, format="csr")
-        op = SparseArray(mat, domain=space, range_=space)
+        op = SparseArray(mat, domain=space, range=space)
         assert op.operator_domain == space
         assert op.operator_range == space
 
@@ -403,8 +403,8 @@ class TestDomainRangePropagation:
         """Elementwise ops between equal-space operands preserve domain/range."""
         g, _ = two_subdomains
         space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range_=space)
-        b = DenseArray(np.ones(4), domain=space, range_=space)
+        a = DenseArray(np.ones(4), domain=space, range=space)
+        b = DenseArray(np.ones(4), domain=space, range=space)
         result = binary_op(a, b)
         assert result.operator_domain == space
         assert result.operator_range == space
@@ -412,7 +412,7 @@ class TestDomainRangePropagation:
     def test_scalar_inherits_other_space(self, two_subdomains):
         g, _ = two_subdomains
         space = self._cell_space(g)
-        arr = DenseArray(np.ones(4), domain=space, range_=space)
+        arr = DenseArray(np.ones(4), domain=space, range=space)
         s = Scalar(2.0)
         result = s * arr
         assert result.operator_domain == space
@@ -421,7 +421,7 @@ class TestDomainRangePropagation:
     def test_other_inherits_scalar_space(self, two_subdomains):
         g, _ = two_subdomains
         space = self._cell_space(g)
-        arr = DenseArray(np.ones(4), domain=space, range_=space)
+        arr = DenseArray(np.ones(4), domain=space, range=space)
         s = Scalar(2.0)
         result = arr * s
         assert result.operator_domain == space
@@ -437,7 +437,7 @@ class TestDomainRangePropagation:
         """An operand with None space should not block inference from the other."""
         g, _ = two_subdomains
         space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range_=space)
+        a = DenseArray(np.ones(4), domain=space, range=space)
         b = DenseArray(np.ones(4))  # no space
         result = a + b
         assert result.operator_domain == space
@@ -453,8 +453,8 @@ class TestDomainRangePropagation:
         g1, g2 = two_subdomains
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
-        a = DenseArray(np.ones(4), domain=s1, range_=s1)
-        b = DenseArray(np.ones(9), domain=s2, range_=s2)
+        a = DenseArray(np.ones(4), domain=s1, range=s1)
+        b = DenseArray(np.ones(9), domain=s2, range=s2)
         with pytest.raises(ValueError, match="[Ii]ncompat"):
             _ = a + b
 
@@ -464,8 +464,8 @@ class TestDomainRangePropagation:
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
         # A maps s1 -> s2, B maps s2 -> s1
-        A = SparseArray(sps.eye(4, format="csr"), domain=s1, range_=s2)
-        B = SparseArray(sps.eye(4, format="csr"), domain=s2, range_=s1)
+        A = SparseArray(sps.eye(4, format="csr"), domain=s1, range=s2)
+        B = SparseArray(sps.eye(4, format="csr"), domain=s2, range=s1)
         result = A @ B
         assert result.operator_domain == s2
         assert result.operator_range == s2
@@ -476,8 +476,8 @@ class TestDomainRangePropagation:
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
         # A.domain=s1, B.range=s2 -> incompatible
-        A = SparseArray(sps.eye(4, format="csr"), domain=s1, range_=s2)
-        B = SparseArray(sps.eye(4, format="csr"), domain=s1, range_=s2)
+        A = SparseArray(sps.eye(4, format="csr"), domain=s1, range=s2)
+        B = SparseArray(sps.eye(4, format="csr"), domain=s1, range=s2)
         with pytest.raises(ValueError, match="[Ii]ncompat"):
             _ = A @ B
 
@@ -941,13 +941,13 @@ class TestInferDomainRange:
 
     @pytest.fixture
     def cell_op(self, cell_space):
-        """A leaf operator with domain=range_=cell_space."""
-        return DenseArray(np.zeros(3), domain=cell_space, range_=cell_space)
+        """A leaf operator with domain=range=cell_space."""
+        return DenseArray(np.zeros(3), domain=cell_space, range=cell_space)
 
     @pytest.fixture
     def face_op(self, face_space):
-        """A leaf operator with domain=range_=face_space."""
-        return DenseArray(np.zeros(3), domain=face_space, range_=face_space)
+        """A leaf operator with domain=range=face_space."""
+        return DenseArray(np.zeros(3), domain=face_space, range=face_space)
 
     # --- elementwise: compatible operands ---
 
@@ -987,11 +987,11 @@ class TestInferDomainRange:
         g1, g2 = two_subdomains
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
-        # A: faces → cells (domain=face_sp, range_=cell_sp)
-        # B: cells → faces (domain=cell_sp, range_=face_sp)
+        # A: faces → cells (domain=face_sp, range=cell_sp)
+        # B: cells → faces (domain=cell_sp, range=face_sp)
         # A @ B: range(B)=face_sp == domain(A)=face_sp → valid
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
         result = A @ B
         assert result.operator_domain == cell_sp
         assert result.operator_range == cell_sp
@@ -1002,8 +1002,8 @@ class TestInferDomainRange:
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
         # A: faces → cells, B: faces → cells (range(B)=cells != domain(A)=faces)
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        B = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        B = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = A @ B
 
@@ -1039,7 +1039,7 @@ class TestInferDomainRange:
     def test_none_plus_known_inherits_known(self, cell_space):
         """Operator with None domain + operator with known domain → inherits known."""
         unknown = DenseArray(np.zeros(3))  # domain=None
-        known = DenseArray(np.zeros(3), domain=cell_space, range_=cell_space)
+        known = DenseArray(np.zeros(3), domain=cell_space, range=cell_space)
         result = unknown + known
         assert result.operator_domain == cell_space
         assert result.operator_range == cell_space
@@ -1096,8 +1096,8 @@ class TestCompoundOperatorSpaces:
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         # A maps faces→cells; B maps cells→faces; A@B maps cells→cells
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
         result = A @ B
         assert result.operator_domain == cell_sp
         assert result.operator_range == cell_sp
@@ -1108,9 +1108,9 @@ class TestCompoundOperatorSpaces:
         cell_sp, face_sp = spaces
         # A: face→cell, B: cell→face → A@B: cell→cell
         # C: face→cell → (A@B)@C requires range(C)==domain(A@B)=cell_sp ✓ → face→cell
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
-        C = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
+        C = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
         AB = A @ B
         assert AB.operator_domain == cell_sp
         assert AB.operator_range == cell_sp
@@ -1123,10 +1123,10 @@ class TestCompoundOperatorSpaces:
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         # A@B: cell→cell (see test_three_way_matmul); C has range=face_sp != cell_sp
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range_=face_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
         AB = A @ B  # domain=cell_sp, range=cell_sp
-        C = SparseArray(sps.eye(3), domain=face_sp, range_=face_sp)
+        C = SparseArray(sps.eye(3), domain=face_sp, range=face_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = AB @ C
 
@@ -1134,10 +1134,10 @@ class TestCompoundOperatorSpaces:
         """(A @ v) + (B @ w) where both results have the same range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        v = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
-        B = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        w = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        v = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
+        B = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        w = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
         Av = A @ v
         Bw = B @ w
         result = Av + Bw
@@ -1148,12 +1148,12 @@ class TestCompoundOperatorSpaces:
         """(A @ v) + (B @ w) where ranges differ raises ValueError."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        v = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        v = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
         Av = A @ v  # range=cell_sp
         # B maps faces→faces, so B@w has range=face_sp
-        B = SparseArray(sps.eye(3), domain=face_sp, range_=face_sp)
-        w = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        B = SparseArray(sps.eye(3), domain=face_sp, range=face_sp)
+        w = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
         Bw = B @ w
         with pytest.raises(ValueError):
             _ = Av + Bw
@@ -1164,8 +1164,8 @@ class TestCompoundOperatorSpaces:
         """Scalar(k) * (A @ v) preserves A's range as the result range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
-        v = DenseArray(np.zeros(3), domain=face_sp, range_=face_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        v = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
         Av = A @ v
         result = Scalar(2.0) * Av
         assert result.operator_domain == face_sp
@@ -1175,7 +1175,7 @@ class TestCompoundOperatorSpaces:
         """Unary minus on SparseArray preserves domain/range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range_=cell_sp)
+        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
         result = -A
         assert result.operator_domain == face_sp
         assert result.operator_range == cell_sp
@@ -1184,7 +1184,7 @@ class TestCompoundOperatorSpaces:
         """DenseArray.__neg__ must also preserve domain/range (separate code path)."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        arr = DenseArray(np.ones(3), domain=cell_sp, range_=cell_sp)
+        arr = DenseArray(np.ones(3), domain=cell_sp, range=cell_sp)
         result = -arr
         assert result.operator_domain == cell_sp
         assert result.operator_range == cell_sp
@@ -1213,7 +1213,7 @@ class TestCompoundOperatorSpaces:
         cell_sp, face_sp = spaces
         # unknown_op has no space info
         unknown_op = DenseArray(np.zeros(3))
-        known_op = DenseArray(np.zeros(3), domain=cell_sp, range_=cell_sp)
+        known_op = DenseArray(np.zeros(3), domain=cell_sp, range=cell_sp)
         # Adding unknown + known: no error, result inherits known's spaces
         result = unknown_op + known_op
         assert result.operator_domain == cell_sp
@@ -1223,8 +1223,8 @@ class TestCompoundOperatorSpaces:
         """Even when domain == range, they are stored as independent attributes."""
         g1, g2 = two_subdomains
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        a = DenseArray(np.zeros(3), domain=cell_sp, range_=cell_sp)
-        b = DenseArray(np.zeros(3), domain=cell_sp, range_=cell_sp)
+        a = DenseArray(np.zeros(3), domain=cell_sp, range=cell_sp)
+        b = DenseArray(np.zeros(3), domain=cell_sp, range=cell_sp)
         result = a + b
         # domain and range are equal in value, but are independent objects
         assert result.operator_domain == result.operator_range
@@ -1522,8 +1522,8 @@ class TestSumOperatorListSpace:
         """sum_operator_list([a, b]) with compatible spaces inherits those spaces."""
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), domain=space, range_=space)
-        b = DenseArray(np.ones(4), domain=space, range_=space)
+        a = DenseArray(np.ones(4), domain=space, range=space)
+        b = DenseArray(np.ones(4), domain=space, range=space)
         result = sum_operator_list([a, b])
         assert result.operator_domain == space
         assert result.operator_range == space
@@ -1532,7 +1532,7 @@ class TestSumOperatorListSpace:
         """sum_operator_list([a, b, c]) propagates spaces through the full reduce."""
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        ops = [DenseArray(np.ones(4), domain=space, range_=space) for _ in range(3)]
+        ops = [DenseArray(np.ones(4), domain=space, range=space) for _ in range(3)]
         result = sum_operator_list(ops)
         assert result.operator_domain == space
         assert result.operator_range == space
@@ -1542,8 +1542,8 @@ class TestSumOperatorListSpace:
         g1, g2 = two_subdomains
         s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         s2 = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), domain=s1, range_=s1)
-        b = DenseArray(np.ones(9), domain=s2, range_=s2)
+        a = DenseArray(np.ones(4), domain=s1, range=s1)
+        b = DenseArray(np.ones(9), domain=s2, range=s2)
         with pytest.raises(ValueError):
             sum_operator_list([a, b])
 
@@ -1551,7 +1551,7 @@ class TestSumOperatorListSpace:
         """sum_operator_list with one operand lacking a space still propagates the other."""
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), domain=space, range_=space)
+        a = DenseArray(np.ones(4), domain=space, range=space)
         b = DenseArray(np.ones(4))  # no space
         result = sum_operator_list([a, b])
         assert result.operator_domain == space

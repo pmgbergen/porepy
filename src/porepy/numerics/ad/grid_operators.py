@@ -128,7 +128,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="CellRestriction", domain=all_sd_space, range_=sub_space
+            mat, name="CellRestriction", domain=all_sd_space, range=sub_space
         )
 
     def cell_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
@@ -176,7 +176,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="CellProlongation", domain=sub_space, range_=all_sd_space
+            mat, name="CellProlongation", domain=sub_space, range=all_sd_space
         )
 
     def face_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
@@ -225,7 +225,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="FaceRestriction", domain=all_sd_space, range_=sub_space
+            mat, name="FaceRestriction", domain=all_sd_space, range=sub_space
         )
 
     def face_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
@@ -273,7 +273,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="FaceProlongation", domain=sub_space, range_=all_sd_space
+            mat, name="FaceProlongation", domain=sub_space, range=all_sd_space
         )
 
     def __repr__(self) -> str:
@@ -422,7 +422,7 @@ class MortarProjections:
                 pp.matrix_operations.sparse_dia_from_sparse_blocks(mats),
                 name="SignOfMortarSides",
                 domain=intf_space,
-                range_=intf_space,
+                range=intf_space,
             )
 
         # Store the matrix for later use and return.A
@@ -826,17 +826,17 @@ class MortarProjections:
 
         if to_mortar:
             return self._bmat([[m] for m in proj_mats], name=name,
-                              domain=op_domain, range_=op_range)
+                              domain=op_domain, range=op_range)
         else:
             return self._bmat([proj_mats], name=name,
-                              domain=op_domain, range_=op_range)
+                              domain=op_domain, range=op_range)
 
     def _bmat(
         self,
         matrices,
         name,
         domain: Optional["OperatorSpace"] = None,
-        range_: Optional["OperatorSpace"] = None,
+        range: Optional["OperatorSpace"] = None,
     ):
         # Create block matrix, convert it to optimized storage format.
         if len(matrices[0]) == 0:
@@ -845,7 +845,7 @@ class MortarProjections:
             block_matrix = pp.matrix_operations.optimized_compressed_storage(
                 sps.bmat(matrices)
             )
-        return SparseArray(block_matrix, name=name, domain=domain, range_=range_)
+        return SparseArray(block_matrix, name=name, domain=domain, range=range)
 
     def __repr__(self) -> str:
         # EK note: Calling mortar_to_primary and secondary here makes this method rather
@@ -911,7 +911,7 @@ class BoundaryProjection:
             self._projection,
             name="subdomains to boundaries projection",
             domain=self._subdomain_face_space,
-            range_=self._boundary_cell_space,
+            range=self._boundary_cell_space,
         )
 
     @property
@@ -920,7 +920,7 @@ class BoundaryProjection:
             self._projection.transpose().tocsc(),
             name="boundaries to subdomains projection",
             domain=self._boundary_cell_space,
-            range_=self._subdomain_face_space,
+            range=self._subdomain_face_space,
         )
 
 
@@ -993,7 +993,7 @@ class Trace:
         self.trace = SparseArray(
             sps.bmat([[m] for m in trace]).tocsr(),
             domain=cell_space,
-            range_=face_space,
+            range=face_space,
         )
         """ Matrix of trace projections from cells to faces."""
 
@@ -1052,7 +1052,7 @@ class Divergence(Operator):
             else None
         )
         super().__init__(
-            domains=subdomains, name=name, domain=face_space, range_=cell_space
+            domains=subdomains, name=name, domain=face_space, range=cell_space
         )
 
         self.dim: int = dim
