@@ -378,7 +378,7 @@ class Operator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         domain: Optional[OperatorSpace] = None,
-        range_: Optional[OperatorSpace] = None,
+        range: Optional[OperatorSpace] = None,
     ) -> None:
         if domains is None:
             domains = []
@@ -400,7 +400,7 @@ class Operator:
             )
 
         self._operator_domain: Optional[OperatorSpace] = domain
-        self._operator_range: Optional[OperatorSpace] = range_
+        self._operator_range: Optional[OperatorSpace] = range
 
         self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
@@ -887,7 +887,7 @@ class Operator:
             operation=Operations.add,
             name="+ operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __radd__(self, other: Operator) -> Operator:
@@ -922,7 +922,7 @@ class Operator:
             operation=Operations.sub,
             name="- operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __rsub__(self, other: Operator) -> Operator:
@@ -945,7 +945,7 @@ class Operator:
             operation=Operations.sub,
             name="- operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __mul__(self, other: Operator) -> Operator:
@@ -965,7 +965,7 @@ class Operator:
             operation=Operations.mul,
             name="* operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __rmul__(self, other: Operator) -> Operator:
@@ -988,7 +988,7 @@ class Operator:
             operation=Operations.rmul,
             name="right * operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __truediv__(self, other: Operator) -> Operator:
@@ -1009,7 +1009,7 @@ class Operator:
             operation=Operations.div,
             name="/ operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __rtruediv__(self, other: Operator) -> Operator:
@@ -1033,7 +1033,7 @@ class Operator:
             operation=Operations.rdiv,
             name="right / operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __pow__(self, other: Operator) -> Operator:
@@ -1079,7 +1079,7 @@ class Operator:
             operation=Operations.pow,
             name="** operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __rpow__(self, other: Operator) -> Operator:
@@ -1102,7 +1102,7 @@ class Operator:
             operation=Operations.rpow,
             name="reverse ** operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __matmul__(self, other: Operator) -> Operator:
@@ -1122,7 +1122,7 @@ class Operator:
             operation=Operations.matmul,
             name="@ operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __rmatmul__(self, other):
@@ -1145,7 +1145,7 @@ class Operator:
             operation=Operations.rmatmul,
             name="reverse @ operator",
             domain=dom,
-            range_=ran,
+            range=ran,
         )
 
     def __hash__(self):
@@ -1220,7 +1220,7 @@ class TimeDependentOperator(Operator):
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         domain: Optional[OperatorSpace] = None,
-        range_: Optional[OperatorSpace] = None,
+        range: Optional[OperatorSpace] = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -1228,7 +1228,7 @@ class TimeDependentOperator(Operator):
             operation=operation,
             children=children,
             domain=domain,
-            range_=range_,
+            range=range,
         )
 
         self.original_operator: Operator
@@ -1341,7 +1341,7 @@ class IterativeOperator(Operator):
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         domain: Optional[OperatorSpace] = None,
-        range_: Optional[OperatorSpace] = None,
+        range: Optional[OperatorSpace] = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -1349,7 +1349,7 @@ class IterativeOperator(Operator):
             operation=operation,
             children=children,
             domain=domain,
-            range_=range_,
+            range=range,
         )
 
         self.original_operator: Operator
@@ -1465,7 +1465,7 @@ class SparseArray(Operator):
         mat: sps.spmatrix,
         name: Optional[str] = None,
         domain: Optional[OperatorSpace] = None,
-        range_: Optional[OperatorSpace] = None,
+        range: Optional[OperatorSpace] = None,
     ) -> None:
         self._mat = mat
         # Force the data to be float, so that we limit the number of combinations of
@@ -1509,7 +1509,7 @@ class SparseArray(Operator):
         self._hash_value: str = self._compute_spmatrix_hash(mat)
         """String to uniquly identify the contents of the matrix."""
 
-        super().__init__(name=name, domain=domain, range_=range_)
+        super().__init__(name=name, domain=domain, range=range)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1538,7 +1538,7 @@ class SparseArray(Operator):
             mat=-self._mat,
             name=new_name,
             domain=self._operator_domain,
-            range_=self._operator_range,
+            range=self._operator_range,
         )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
@@ -1629,7 +1629,7 @@ class DenseArray(Operator):
         values: np.ndarray,
         name: Optional[str] = None,
         domain: Optional[OperatorSpace] = None,
-        range_: Optional[OperatorSpace] = None,
+        range: Optional[OperatorSpace] = None,
     ) -> None:
         """Construct an Ad representation of a numpy array.
 
@@ -1650,7 +1650,7 @@ class DenseArray(Operator):
             usedforsecurity=False,  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
-        super().__init__(name=name, domain=domain, range_=range_)
+        super().__init__(name=name, domain=domain, range=range)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1679,7 +1679,7 @@ class DenseArray(Operator):
             values=-self._values,
             name=new_name,
             domain=self._operator_domain,
-            range_=self._operator_range,
+            range=self._operator_range,
         )
 
     @property
@@ -1741,7 +1741,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
     ):
         if dof_info is not None and domains:
             space = OperatorSpace.from_domains(list(domains), dof_info)
-            super().__init__(name=name, domains=domains, domain=space, range_=space)
+            super().__init__(name=name, domains=domains, domain=space, range=space)
         else:
             super().__init__(name=name, domains=domains)
 
@@ -1968,7 +1968,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
             name=name,
             domains=[domain],  # type: ignore[arg-type]
             domain=op_space,
-            range_=op_space,
+            range=op_space,
         )
 
         # dofs per
