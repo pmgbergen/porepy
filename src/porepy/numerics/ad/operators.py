@@ -453,32 +453,6 @@ class Operator:
         return self._operator_range
 
     @property
-    def interfaces(self) -> list:
-        """List of interfaces on which the operator is defined.
-
-        Will be empty for operators not associated with specific interfaces.
-
-        """
-        if self._operator_domain is None:
-            return []
-        if self._operator_domain.domain_type != DomainType.interfaces:
-            return []
-        return list(self._operator_domain.grids)
-
-    @property
-    def subdomains(self) -> list:
-        """List of subdomains on which the operator is defined.
-
-        Will be empty for operators not associated with specific subdomains.
-
-        """
-        if self._operator_domain is None:
-            return []
-        if self._operator_domain.domain_type != DomainType.subdomains:
-            return []
-        return list(self._operator_domain.grids)
-
-    @property
     def domain_type(self) -> Optional[DomainType]:
         """Type of domains where the operator is defined."""
         if self._operator_domain is None:

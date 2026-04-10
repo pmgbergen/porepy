@@ -1016,7 +1016,7 @@ class Divergence(Operator):
     """Wrapper class for Ad representations of divergence operators."""
 
     def _key(self) -> str:
-        subdomain_ids = [sd.id for sd in self.subdomains]
+        subdomain_ids = [sd.id for sd in self.domains]
         return f"(divergence, dim={self.dim}, subdomains={subdomain_ids})"
 
     def __init__(
@@ -1060,12 +1060,13 @@ class Divergence(Operator):
     def __repr__(self) -> str:
         s = (
             f"Divergence for vector field of size {self.dim}"
-            f" defined on {len(self.subdomains)} subdomains\n"
+            f" defined on {len(self.domains)} subdomains\n"
         )
 
         num_faces = 0
         num_cells = 0
-        for sd in self.subdomains:
+        for sd in self.domains:
+            assert isinstance(sd, pp.Grid)
             num_faces += sd.num_faces * self.dim
             num_cells += sd.num_cells * self.dim
         s += f"The total size of the matrix is ({num_cells}, {num_faces}).\n"
@@ -1091,7 +1092,7 @@ class Divergence(Operator):
             multiple subdomains.
 
         """
-        mat = [sd.divergence(dim=self.dim) for sd in self.subdomains]
+        mat = [sd.divergence(dim=self.dim) for sd in self.domains]
         matrix = pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)
         return matrix
 
