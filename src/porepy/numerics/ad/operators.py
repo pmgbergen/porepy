@@ -267,6 +267,30 @@ class Operations(Enum):
         if not isinstance(right, Operator):
             return left._operator_domain, left._operator_range
 
+        def _spaces_compatible(a: OperatorSpace, b: OperatorSpace) -> bool:
+            """Return True if a and b are compatible.
+
+            Grids-only spaces (dof_info={}) act as wildcards and are compatible with
+            any space.  Validation only applies when both spaces have actual dof_info.
+            """
+            if not a.dof_info or not b.dof_info:
+                return True
+            if a.grids != b.grids:
+                return False
+            return a.dof_info == b.dof_info
+
+        def _pick_space(
+            a: Optional[OperatorSpace], b: Optional[OperatorSpace]
+        ) -> Optional[OperatorSpace]:
+            """Prefer the space with actual dof_info over a grids-only wildcard."""
+            if a is None:
+                return b
+            if b is None:
+                return a
+            if a.dof_info:
+                return a
+            return b
+
         left_is_scalar = isinstance(left, Scalar) or (
             left._operator_domain is not None
             and left._operator_domain.domain_type == DomainType.scalar
@@ -281,7 +305,7 @@ class Operations(Enum):
             if (
                 left._operator_domain is not None
                 and right._operator_range is not None
-                and left._operator_domain != right._operator_range
+                and not _spaces_compatible(left._operator_domain, right._operator_range)
             ):
                 raise ValueError(
                     f"Incompatible matrix multiplication: the range of {right!r} "
@@ -295,7 +319,7 @@ class Operations(Enum):
             if (
                 right._operator_domain is not None
                 and left._operator_range is not None
-                and right._operator_domain != left._operator_range
+                and not _spaces_compatible(right._operator_domain, left._operator_range)
             ):
                 raise ValueError(
                     f"Incompatible matrix multiplication: the range of {left!r} "
@@ -316,7 +340,9 @@ class Operations(Enum):
                 if (
                     left._operator_domain is not None
                     and right._operator_domain is not None
-                    and left._operator_domain != right._operator_domain
+                    and not _spaces_compatible(
+                        left._operator_domain, right._operator_domain
+                    )
                 ):
                     raise ValueError(
                         f"Incompatible operator domains: {left._operator_domain} "
@@ -325,24 +351,18 @@ class Operations(Enum):
                 if (
                     left._operator_range is not None
                     and right._operator_range is not None
-                    and left._operator_range != right._operator_range
+                    and not _spaces_compatible(
+                        left._operator_range, right._operator_range
+                    )
                 ):
                     raise ValueError(
                         f"Incompatible operator ranges: {left._operator_range} "
                         f"vs {right._operator_range}."
                     )
-                # Return the first non-None value; they are equal when both are set
-                result_domain = (
-                    left._operator_domain
-                    if left._operator_domain is not None
-                    else right._operator_domain
+                return (
+                    _pick_space(left._operator_domain, right._operator_domain),
+                    _pick_space(left._operator_range, right._operator_range),
                 )
-                result_range = (
-                    left._operator_range
-                    if left._operator_range is not None
-                    else right._operator_range
-                )
-                return result_domain, result_range
 
 
 class Operator:
@@ -374,31 +394,12 @@ class Operator:
     def __init__(
         self,
         name: Optional[str] = None,
-        domains: Optional[GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        domain: Optional[OperatorSpace] = None,
-        range: Optional[OperatorSpace] = None,
+        *,
+        domain: Optional[OperatorSpace],
+        range: Optional[OperatorSpace],
     ) -> None:
-        if domains is None:
-            domains = []
-        self._domains: GridLikeSequence = domains
-        self._domain_type: DomainType
-        if all([isinstance(d, pp.Grid) for d in domains]):
-            self._domain_type = DomainType.subdomains
-        elif all([isinstance(d, pp.MortarGrid) for d in domains]):
-            self._domain_type = DomainType.interfaces
-        elif all([isinstance(d, pp.BoundaryGrid) for d in domains]):
-            self._domain_type = DomainType.boundary_grids
-        elif len(domains) == 0:
-            self._domain_type = DomainType.scalar
-
-        else:
-            raise ValueError(
-                "An operator must be associated with either"
-                " interfaces, subdomains or boundary grids."
-            )
-
         self._operator_domain: Optional[OperatorSpace] = domain
         self._operator_range: Optional[OperatorSpace] = range
 
@@ -452,32 +453,44 @@ class Operator:
         return self._operator_range
 
     @property
-    def interfaces(self):
-        """List of interfaces on which the operator is defined, passed at instantiation.
+    def interfaces(self) -> list:
+        """List of interfaces on which the operator is defined.
 
         Will be empty for operators not associated with specific interfaces.
 
         """
-        return self._domains if self._domain_type == DomainType.interfaces else []
+        if self._operator_domain is None:
+            return []
+        if self._operator_domain.domain_type != DomainType.interfaces:
+            return []
+        return list(self._operator_domain.grids)
 
     @property
-    def subdomains(self):
-        """List of subdomains on which the operator is defined, passed at instantiation.
+    def subdomains(self) -> list:
+        """List of subdomains on which the operator is defined.
 
         Will be empty for operators not associated with specific subdomains.
 
         """
-        return self._domains if self._domain_type == DomainType.subdomains else []
+        if self._operator_domain is None:
+            return []
+        if self._operator_domain.domain_type != DomainType.subdomains:
+            return []
+        return list(self._operator_domain.grids)
 
     @property
-    def domain_type(self) -> DomainType:
+    def domain_type(self) -> Optional[DomainType]:
         """Type of domains where the operator is defined."""
-        return self._domain_type
+        if self._operator_domain is None:
+            return None
+        return self._operator_domain.domain_type
 
     @property
-    def domains(self) -> GridLikeSequence:
+    def domains(self) -> list:
         """List of domains where the operator is defined."""
-        return self._domains
+        if self._operator_domain is None:
+            return []
+        return list(self._operator_domain.grids)
 
     @property
     def name(self) -> str:
@@ -1216,7 +1229,6 @@ class TimeDependentOperator(Operator):
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         domain: Optional[OperatorSpace] = None,
@@ -1224,7 +1236,6 @@ class TimeDependentOperator(Operator):
     ) -> None:
         super().__init__(
             name=name,
-            domains=domains,
             operation=operation,
             children=children,
             domain=domain,
@@ -1337,7 +1348,6 @@ class IterativeOperator(Operator):
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         domain: Optional[OperatorSpace] = None,
@@ -1345,7 +1355,6 @@ class IterativeOperator(Operator):
     ) -> None:
         super().__init__(
             name=name,
-            domains=domains,
             operation=operation,
             children=children,
             domain=domain,
@@ -1739,11 +1748,13 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
         domains: GridLikeSequence,
         dof_info: Optional[dict[GridEntity, int]] = None,
     ):
-        if dof_info is not None and domains:
-            space = OperatorSpace.from_domains(list(domains), dof_info)
-            super().__init__(name=name, domains=domains, domain=space, range=space)
+        if domains:
+            space = OperatorSpace.from_domains(
+                list(domains), dof_info if dof_info else {}
+            )
         else:
-            super().__init__(name=name, domains=domains)
+            space = None
+        super().__init__(name=name, domain=space, range=space)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1784,18 +1795,19 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             reference = False
             index_kwarg = {"iterate_index": 0}
 
-        for grid in self._domains:
-            if self._domain_type == DomainType.subdomains:
+        domain_type = self.domain_type
+        for grid in self.domains:
+            if domain_type == DomainType.subdomains:
                 assert isinstance(grid, pp.Grid)
                 data = mdg.subdomain_data(grid)
-            elif self._domain_type == DomainType.interfaces:
+            elif domain_type == DomainType.interfaces:
                 assert isinstance(grid, pp.MortarGrid)
                 data = mdg.interface_data(grid)
-            elif self._domain_type == DomainType.boundary_grids:
+            elif domain_type == DomainType.boundary_grids:
                 assert isinstance(grid, pp.BoundaryGrid)
                 data = mdg.boundary_grid_data(grid)
             else:
-                raise ValueError(f"Unknown grid type: {self._domain_type}.")
+                raise ValueError(f"Unknown grid type: {domain_type}.")
 
             vals.append(
                 pp.get_solution_values(
@@ -1811,9 +1823,13 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
+        domain_type = (
+            self._operator_domain.domain_type if self._operator_domain else None
+        )
+        domain_label = domain_type.value if domain_type is not None else "unknown"
         msg = (
             f"Wrapped time-dependent array with name {self._name}.\n"
-            f"Defined on {len(self._domains)} {self._domain_type.value}.\n"
+            f"Defined on {len(self.domains)} {domain_label}.\n"
         )
         if self.is_previous_time:
             msg += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -1839,9 +1855,7 @@ class Scalar(Operator):
         self._value = float(value)
         # Call the super constructor after setting the value.
         scalar_space = OperatorSpace.scalar()
-        super().__init__(
-            name=name, domains=[], domain=scalar_space, range_=scalar_space
-        )
+        super().__init__(name=name, domain=scalar_space, range=scalar_space)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1966,7 +1980,6 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         # circumvent the warning is not worth it.
         super().__init__(  # type: ignore[arg-type,call-arg]
             name=name,
-            domains=[domain],  # type: ignore[arg-type]
             domain=op_space,
             range=op_space,
         )
@@ -2225,9 +2238,6 @@ class MixedDimensionalVariable(Variable):
         # Mypy complains that we do not know that all variables have the same type of
         # domain. While formally correct, this should be picked up in other places so we
         # ignore the warning here.
-        self._domains = domains  # type: ignore[assignment]
-        self._domain_type = domain_types
-
         # MD variables span multiple grids, so we cannot represent their space as a
         # single OperatorSpace.  Leave them as None (unspecified).
         self._operator_domain: Optional[OperatorSpace] = None
@@ -2308,6 +2318,11 @@ class MixedDimensionalVariable(Variable):
         return [var.domain for var in self.sub_vars]
 
     @property
+    def domains(self) -> list:  # type: ignore[override]
+        """List of all grids on which the atomic sub-variables are defined."""
+        return [var.domain for var in self.sub_vars]
+
+    @property
     def size(self) -> int:
         """Returns the total size of the mixed-dimensional variable
         by summing the sizes of sub-variables."""
@@ -2372,7 +2387,7 @@ class Projection(Operator):
                 domain_size=domain_size,
             )
         )
-        super().__init__(name=name)
+        super().__init__(name=name, domain=None, range=None)
 
     def transpose(self) -> Projection:
         """Return the transpose of the operator."""
@@ -2467,7 +2482,7 @@ class ProjectionList(Operator):
             name: Optional name for the projection list.
 
         """
-        super().__init__(name=name, children=operators)
+        super().__init__(name=name, children=operators, domain=None, range=None)
 
     def _key(self) -> str:
         if self._cached_key is None:

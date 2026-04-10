@@ -52,8 +52,8 @@ def test_elementary_operations(operator):
     The test does not consider evaluation of the numerical values of the operators.
     """
     # Generate two generic operators
-    a = pp.ad.Operator()
-    b = pp.ad.Operator()
+    a = pp.ad.Operator(domain=None, range=None)
+    b = pp.ad.Operator(domain=None, range=None)
 
     # Combine the operators with the provided operation.
     c = eval(f"a {operator[0]} b")
