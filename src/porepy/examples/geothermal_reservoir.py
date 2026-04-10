@@ -153,8 +153,9 @@ class WellBoundaryConditions(pp.PorePyModel):
     def well_protocols(self, well_tag: str, variable: str) -> NDArray[np.float64]:
         """Return the time-dependent protocol array for a given well and variable.
 
-        The value is read from ``self.params`` under the key ``"{well_tag}_{variable}"``.
-        A scalar is broadcast to all schedule times; an array must match schedule length.
+        The value is read from ``self.params`` under the key
+        ``"{well_tag}_{variable}"``. A scalar is broadcast to all schedule times; an
+        array must match schedule length.
 
         Parameters:
             well_tag: Name of the well (e.g. ``"injection_well"``).
