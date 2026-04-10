@@ -841,7 +841,8 @@ class TracerFlowModel_3p(
         """
         return pp.ad.Scalar(
             self.fluid.reference_component.specific_heat_capacity,
-            "fluid_specific_heat_capacity",
+            domains=subdomains,
+            name="fluid_specific_heat_capacity",
         )
 
     def specific_enthalpy_of_phase(

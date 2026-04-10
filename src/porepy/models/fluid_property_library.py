@@ -69,7 +69,9 @@ class FluidDensityFromPressure(pp.PorePyModel):
 
         """
         return Scalar(
-            self.fluid.reference_component.compressibility, "fluid_compressibility"
+            self.fluid.reference_component.compressibility,
+            "fluid_compressibility",
+            domains=subdomains,
         )
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
@@ -93,7 +95,9 @@ class FluidDensityFromPressure(pp.PorePyModel):
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
-                self.fluid.reference_component.density, "reference_fluid_density"
+                self.fluid.reference_component.density,
+                "reference_fluid_density",
+                domains=domains,
             )
             rho_ = rho_ref * self.pressure_exponential(cast(list[pp.Grid], domains))
             rho_.set_name("fluid_density")
@@ -144,7 +148,7 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         """
         val = self.fluid.reference_component.thermal_expansion
-        return Scalar(val, "fluid_thermal_expansion")
+        return Scalar(val, "fluid_thermal_expansion", domains=subdomains)
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """Analogous to :meth:`FluidDensityFromPressure.density_of_phase`, but using
@@ -163,7 +167,9 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
-                self.fluid.reference_component.density, "reference_fluid_density"
+                self.fluid.reference_component.density,
+                "reference_fluid_density",
+                domains=domains,
             )
             rho_ = rho_ref * self.temperature_exponential(cast(list[pp.Grid], domains))
             rho_.set_name("fluid_density")
@@ -218,7 +224,9 @@ class FluidDensityFromPressureAndTemperature(
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
-                self.fluid.reference_component.density, "reference_fluid_density"
+                self.fluid.reference_component.density,
+                "reference_fluid_density",
+                domains=domains,
             )
 
             rho_ = (
@@ -350,7 +358,7 @@ class FluidMobility(pp.PorePyModel):
             )
         else:
             assert phase == self.fluid.reference_phase
-            mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0)
+            mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0, domains=domains)
         mobility.set_name(f"phase_mobility_{phase.name}")
         return mobility
 
@@ -657,7 +665,7 @@ class FluidBuoyancy(pp.PorePyModel):
         """
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2")
-        gravity_field = pp.ad.Scalar(val)
+        gravity_field = pp.ad.Scalar(val, domains=subdomains)
         gravity_field.set_name("gravity_field")
         return gravity_field
 
@@ -704,7 +712,7 @@ class FluidBuoyancy(pp.PorePyModel):
             )
             e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
             overall_gravity_flux = (
-                pp.ad.Scalar(-1)
+                pp.ad.Scalar(-1, domains=subdomains_list)
                 * e_n
                 @ (fractionally_weighted_rho * self.gravity_field(subdomains_list))
             )
@@ -742,7 +750,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         e_n = self.e_i(subdomains_list, i=self.nd - 1, dim=self.nd)
         gravity_flux = (
-            pp.ad.Scalar(-1)
+            pp.ad.Scalar(-1, domains=subdomains_list)
             * e_n
             @ (density_metric * self.gravity_field(subdomains_list))
         )
@@ -781,7 +789,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
         gravity_flux = (
-            pp.ad.Scalar(-1)
+            pp.ad.Scalar(-1, domains=subdomain_neighbors)
             * e_n
             @ (density_metric * self.gravity_field(subdomain_neighbors))
         )
@@ -1044,7 +1052,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         b_fluxes: List[pp.ad.Operator] = []
-        b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
+        b_fluxes.append(
+            self.density_driven_flux(domains, pp.ad.Scalar(0.0, domains=domains))
+        )
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
@@ -1067,7 +1077,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         b_fluxes: List[pp.ad.Operator] = []
-        b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
+        b_fluxes.append(
+            self.density_driven_flux(domains, pp.ad.Scalar(0.0, domains=domains))
+        )
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
@@ -1279,7 +1291,9 @@ class ConstantViscosity(pp.PorePyModel):
         """
 
         def mu(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            return Scalar(self.fluid.reference_component.viscosity, "viscosity")
+            return Scalar(
+                self.fluid.reference_component.viscosity, "viscosity", domains=domains
+            )
 
         return mu
 
@@ -1305,6 +1319,7 @@ class ConstantFluidThermalConductivity(pp.PorePyModel):
             return Scalar(
                 self.fluid.reference_component.thermal_conductivity,
                 "fluid_thermal_conductivity",
+                domains=domains,
             )
 
         return kappa
@@ -1327,7 +1342,7 @@ class ConstantFluidThermalConductivity(pp.PorePyModel):
         # NOTE this is not really a fluid-related const. law, it is more related to
         # mixed-dimensional problems.
         val = self.fluid.reference_component.normal_thermal_conductivity
-        return Scalar(val, "normal_thermal_conductivity")
+        return Scalar(val, "normal_thermal_conductivity", domains=interfaces)
 
 
 class FluidEnthalpyFromTemperature(pp.PorePyModel):
@@ -1353,6 +1368,7 @@ class FluidEnthalpyFromTemperature(pp.PorePyModel):
         return Scalar(
             self.fluid.reference_component.specific_heat_capacity,
             "fluid_specific_heat_capacity",
+            domains=subdomains,
         )
 
     def specific_enthalpy_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
