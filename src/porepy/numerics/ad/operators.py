@@ -291,11 +291,11 @@ class Operations(Enum):
                 return a
             return b
 
-        left_is_scalar = isinstance(left, Scalar) or (
+        left_is_scalar = (
             left._operator_domain is not None
             and left._operator_domain.domain_type == DomainType.scalar
         )
-        right_is_scalar = isinstance(right, Scalar) or (
+        right_is_scalar = (
             right._operator_domain is not None
             and right._operator_domain.domain_type == DomainType.scalar
         )
@@ -848,7 +848,7 @@ class Operator:
             Operator: The negative of the operator.
 
         """
-        return pp.ad.Scalar(-1) * self
+        return pp.ad.Scalar(-1, domains=self.domains) * self
 
     def __add__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -864,7 +864,7 @@ class Operator:
         # addition operator with other == 0. Convert that other to an Ad Scalar with
         # value 0 to avoid errors in the addition operator.
         if isinstance(other, (int, float)) and other == 0:
-            other = Scalar(0)
+            other = Scalar(0, domains=self.domains)
 
         dom, ran = Operations.add.infer_domain_range(self, other)
         children = self._parse_other(other)
@@ -1823,13 +1823,25 @@ class Scalar(Operator):
 
     """
 
-    def __init__(self, value: float, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        value: float,
+        name: Optional[str] = None,
+        *,
+        domains: Optional[Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid]] = None,
+    ) -> None:
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._value = float(value)
+        # Build an OperatorSpace that carries the grid context when provided.
+        # A grids-only space (no dof_info) acts as a wildcard in compatibility checks,
+        # so arithmetic with domain-bearing Scalars never breaks existing validation.
+        if domains:
+            space: OperatorSpace = OperatorSpace.from_domains(domains, {})
+        else:
+            space = OperatorSpace.scalar()
         # Call the super constructor after setting the value.
-        scalar_space = OperatorSpace.scalar()
-        super().__init__(name=name, domain=scalar_space, range=scalar_space)
+        super().__init__(name=name, domain=space, range=space)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1862,7 +1874,13 @@ class Scalar(Operator):
 
         """
         new_name = None if self.name is None else f"minus {self.name}"
-        return Scalar(value=-self._value, name=new_name)
+        # Propagate any grid context attached to this Scalar.
+        doms: Optional[list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid]] = (
+            list(self._operator_domain.grids)
+            if self._operator_domain and self._operator_domain.grids
+            else None
+        )
+        return Scalar(value=-self._value, name=new_name, domains=doms)
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """See :meth:`Operator.parse`.
