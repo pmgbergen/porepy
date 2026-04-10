@@ -226,6 +226,63 @@ class TestScalarSpace:
         assert s.operator_domain == OperatorSpace.scalar()
         assert s.operator_range == OperatorSpace.scalar()
 
+    def test_scalar_with_subdomain_has_subdomain_space(self, two_subdomains):
+        g, _ = two_subdomains
+        s = Scalar(1.0, domains=[g])
+        assert s.operator_domain is not None
+        assert s.operator_domain.domain_type == DomainType.subdomains
+        assert s.operator_domain.grids == (g,)
+        assert s.operator_domain == s.operator_range
+
+    def test_scalar_with_mortar_grid_has_interface_space(self, one_mortar):
+        mg = one_mortar
+        s = Scalar(2.0, domains=[mg])
+        assert s.operator_domain is not None
+        assert s.operator_domain.domain_type == DomainType.interfaces
+        assert s.operator_domain.grids == (mg,)
+
+    def test_scalar_domain_is_grids_only(self, two_subdomains):
+        """Domain-bearing Scalar uses a grids-only (wildcard) space."""
+        g, _ = two_subdomains
+        s = Scalar(1.0, domains=[g])
+        assert s.operator_domain is not None
+        assert s.operator_domain.dof_info == {}
+
+    def test_scalar_neg_propagates_domain(self, two_subdomains):
+        g, _ = two_subdomains
+        s = Scalar(3.0, domains=[g])
+        neg = -s
+        assert neg.operator_domain == s.operator_domain
+        assert neg.operator_range == s.operator_range
+
+    def test_scalar_neg_no_domain(self):
+        """Negating a plain Scalar preserves the scalar wildcard space."""
+        s = Scalar(2.0)
+        neg = -s
+        assert neg.operator_domain == OperatorSpace.scalar()
+
+    def test_scalar_empty_domains_gives_scalar_space(self):
+        """Empty domains list is treated as no-domain (backward compat)."""
+        s = Scalar(1.0, domains=[])
+        assert s.operator_domain == OperatorSpace.scalar()
+
+    def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
+        """domain-bearing Scalar is a wildcard — result inherits the other operand's domain."""
+        g, _ = two_subdomains
+        s = Scalar(2.0, domains=[g])
+        v = Variable("p", {GridEntity.cells: 1}, g)
+        result = s * v
+        # The variable's full space should win over the grids-only Scalar space.
+        assert result.operator_domain == v.operator_domain
+
+    def test_domainless_scalar_combined_with_operator(self, two_subdomains):
+        """Plain Scalar still inherits from the other operand."""
+        g, _ = two_subdomains
+        s = Scalar(2.0)
+        v = Variable("p", {GridEntity.cells: 1}, g)
+        result = s * v
+        assert result.operator_domain == v.operator_domain
+
 
 class TestVariableSpace:
     def test_variable_has_subdomain_space(self, two_subdomains):
