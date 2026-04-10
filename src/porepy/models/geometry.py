@@ -846,9 +846,9 @@ class ModelGeometry(pp.PorePyModel):
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
-            cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
-                interfaces, "cell_volumes", dim=self.nd
-            )
+            cell_volumes_inv = pp.ad.Scalar(
+                1, domains=interfaces
+            ) / self.wrap_grid_attribute(interfaces, "cell_volumes", dim=self.nd)
 
             # Expand cell volumes to nd by multiplying from left by e_i and summing
             # over all dimensions.
