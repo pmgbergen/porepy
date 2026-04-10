@@ -77,7 +77,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         self.equation_system.set_equation(
             matrix_eq, matrix_subdomains, {pp.ad.GridEntity.cells: self.nd}
         )
-        self.equation_system.set_equation(intf_eq, interfaces, {pp.ad.GridEntity.cells: self.nd})
+        self.equation_system.set_equation(
+            intf_eq, interfaces, {pp.ad.GridEntity.cells: self.nd}
+        )
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
@@ -96,7 +98,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # By the convention of positive tensile stress, the balance equation is
         # acceleration - stress = body_force. The balance_equation method will *add* the
         # surface term (stress), so we need to multiply by -1.
-        stress = pp.ad.Scalar(-1) * self.stress(subdomains)
+        stress = pp.ad.Scalar(-1, domains=subdomains) * self.stress(subdomains)
         body_force = self.body_force(subdomains)
 
         equation = self.balance_equation(
@@ -122,7 +124,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             Operator for the inertial term.
 
         """
-        return pp.ad.Scalar(0)
+        return pp.ad.Scalar(0, domains=subdomains)
 
     def interface_force_balance_equation(
         self,
@@ -244,7 +246,9 @@ class AngularMomentumEquation:
 
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
         self.equation_system.set_equation(
-            angular_momentum, matrix_subdomains, {pp.ad.GridEntity.cells: self.rotation_dimension()}
+            angular_momentum,
+            matrix_subdomains,
+            {pp.ad.GridEntity.cells: self.rotation_dimension()},
         )
 
     def angular_momentum_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -264,7 +268,7 @@ class AngularMomentumEquation:
         # The accumulation term is what it is in the three-field formulation, see the
         # Tpsa paper for more information (reference in module-level docstring).
         accumulation = -self.volume_integral(
-            pp.ad.Scalar(1)
+            pp.ad.Scalar(1, domains=subdomains)
             / self.first_lame_parameter(subdomains)
             * self.rotation_stress(subdomains),
             subdomains,
@@ -339,7 +343,9 @@ class SolidMassEquation:
 
         solid_mass = self.solid_mass_equation(matrix_subdomains)
 
-        self.equation_system.set_equation(solid_mass, matrix_subdomains, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(
+            solid_mass, matrix_subdomains, {pp.ad.GridEntity.cells: 1}
+        )
 
     def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the solid mass conservation equation and add it to the EquationSystem.
@@ -355,7 +361,7 @@ class SolidMassEquation:
 
         source = self.solid_mass_source(subdomains)
         accumulation = -self.volume_integral(
-            pp.ad.Scalar(1)
+            pp.ad.Scalar(1, domains=subdomains)
             / self.second_lame_parameter(subdomains)
             * self.total_pressure(subdomains),
             subdomains,

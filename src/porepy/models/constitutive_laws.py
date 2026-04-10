@@ -319,7 +319,9 @@ class DisplacementJumpAperture(DimensionReduction):
             constant for each grid, and is the same for all cells in the grid.
 
         """
-        return Scalar(self.solid.residual_aperture, name="residual_aperture")
+        return Scalar(
+            self.solid.residual_aperture, name="residual_aperture", domains=subdomains
+        )
 
     # NOTE: This method contains a call to self.equation_system.evaluate, signifying
     # that caching may not be a good idea. However, the evaluated quantity is static, it
@@ -632,7 +634,7 @@ class ConstantPermeability(pp.PorePyModel):
             as an Ad operator. The value is picked from the solid constants.
 
         """
-        return Scalar(self.solid.normal_permeability)
+        return Scalar(self.solid.normal_permeability, domains=interfaces)
 
 
 class MassWeightedPermeability(ConstantPermeability):
@@ -1074,7 +1076,7 @@ class DarcysLaw(pp.PorePyModel):
         # distance is :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
-        normal_gradient_length = pp.ad.Scalar(2) * (
+        normal_gradient = pp.ad.Scalar(2, domains=interfaces) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
@@ -1267,7 +1269,7 @@ class AdTpfaFlux(pp.PorePyModel):
         ) = self.__transmissibility_matrix(domains, diffusivity_tensor)
 
         # Treatment of boundary conditions.
-        one = pp.ad.Scalar(1)
+        one = pp.ad.Scalar(1, domains=domains)
         # Obtain filters that lett pass external boundary faces (divided into Dirichlet
         # and Neumann faces), internal boundary faces (faces between subdomains), and
         # tip faces (on immersed tips of domains).
@@ -1408,7 +1410,9 @@ class AdTpfaFlux(pp.PorePyModel):
         # discretization on operator form, and multiply it by zero to avoid it having
         # any real impact on the equation. This is certainly an ugly hack, but it will
         # have to do for now.
-        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
+        flux_p = flux_p + pp.ad.Scalar(
+            0, domains=domains
+        ) * base_discr.flux() @ potential(domains)
 
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
@@ -1450,7 +1454,7 @@ class AdTpfaFlux(pp.PorePyModel):
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
-        one = pp.ad.Scalar(1)
+        one = pp.ad.Scalar(1, domains=subdomains)
 
         # BC filters for Dirichlet and Neumann faces.
         diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
@@ -1509,7 +1513,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # TODO: Do we need this trick here, or is it sufficient to do so in the
         # diffusive flux method?
         boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
-            0
+            0, domains=subdomains
         ) * base_discr.flux() @ potential(subdomains)
 
         pressure_trace = (
@@ -1586,7 +1590,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # Form the full half-face transmissibilities and take its reciprocal, preparing
         # for a harmonic mean between the two half-face transmissibilities on ecah side
         # of a face.
-        one = pp.ad.Scalar(1)
+        one = pp.ad.Scalar(1, domains=subdomains)
         t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
 
         # Compose full-face transmissibilities
@@ -1985,7 +1989,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         isotropic_permeability = e_i @ self.permeability(subdomains)
 
         well_index = self.volume_integral(
-            pp.ad.Scalar(2 * np.pi)
+            pp.ad.Scalar(2 * np.pi, domains=interfaces)
             * projection.primary_to_mortar_avg()
             @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
             interfaces,
@@ -2031,7 +2035,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         # argument of the logarithmic term in the well index is greater than 1.
         unused_val = self.units.convert_units(10, "m")
         if len(subdomains) == 0:
-            return Scalar(unused_val, name="equivalent_well_radius")
+            return Scalar(unused_val, name="equivalent_well_radius", domains=subdomains)
 
         h_list = []
         for sd in subdomains:
@@ -2055,7 +2059,7 @@ class PeacemanWellFlux(pp.PorePyModel):
             Skin factor operator [-].
 
         """
-        skin_factor = pp.ad.Scalar(self.solid.skin_factor)
+        skin_factor = pp.ad.Scalar(self.solid.skin_factor, domains=interfaces)
         skin_factor.set_name("skin_factor")
         return skin_factor
 
@@ -2069,7 +2073,7 @@ class PeacemanWellFlux(pp.PorePyModel):
             Cell-wise well radius operator [m].
 
         """
-        r_w = pp.ad.Scalar(self.solid.well_radius)
+        r_w = pp.ad.Scalar(self.solid.well_radius, domains=subdomains)
         r_w.set_name("well_radius")
         return r_w
 
@@ -2095,7 +2099,9 @@ class PeacemanWellFlux(pp.PorePyModel):
         if len(subdomains) < 2:
             # If there are less than 2 subdomains, there is no interface and no gravity
             # correction. Return a zero operator.
-            return pp.ad.Scalar(0, name="gravity_pressure_correction")
+            return pp.ad.Scalar(
+                0, name="gravity_pressure_correction", domains=subdomains
+            )
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
 
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
@@ -2151,7 +2157,9 @@ class ThermalExpansion(pp.PorePyModel):
             value is constant for all subdomains.
 
         """
-        return Scalar(self.solid.thermal_expansion, "solid_thermal_expansion")
+        return Scalar(
+            self.solid.thermal_expansion, "solid_thermal_expansion", domains=subdomains
+        )
 
     def solid_thermal_expansion_tensor(
         self, subdomains: list[pp.Grid]
@@ -2240,7 +2248,11 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
             an Ad operator, representing the constant thermal conductivity of the fluid.
 
         """
-        return Scalar(self.solid.thermal_conductivity, "solid_thermal_conductivity")
+        return Scalar(
+            self.solid.thermal_conductivity,
+            "solid_thermal_conductivity",
+            domains=subdomains,
+        )
 
     def thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermal conductivity [m^2].
@@ -2482,7 +2494,7 @@ class FouriersLaw(pp.PorePyModel):
 
         # Gradient operator scaling factor in the normal direction. The collapsed
         # distance is :math:`\frac{a}{2}` on either side of the fracture.
-        normal_gradient_length = pp.ad.Scalar(2) * (
+        normal_gradient_length = pp.ad.Scalar(2, domains=interfaces) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
@@ -2822,7 +2834,11 @@ class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
             from the solid constants.
 
         """
-        return Scalar(self.solid.specific_heat_capacity, "solid_specific_heat_capacity")
+        return Scalar(
+            self.solid.specific_heat_capacity,
+            "solid_specific_heat_capacity",
+            domains=subdomains,
+        )
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Solid enthalpy [J*kg^-1*m^-nd].
@@ -2898,7 +2914,7 @@ class GravityForce(pp.PorePyModel):
             phi = self.porosity(grids)
             rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
             rho_s = self.solid_density(grids)
-            rho = phi * rho_f + (pp.ad.Scalar(1.0) - phi) * rho_s
+            rho = phi * rho_f + (pp.ad.Scalar(1.0, domains=grids) - phi) * rho_s
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
@@ -3732,7 +3748,7 @@ class ConstantSolidDensity(pp.PorePyModel):
                 picked from the solid constants.
 
         """
-        return Scalar(self.solid.density, "solid_density")
+        return Scalar(self.solid.density, "solid_density", domains=subdomains)
 
 
 class ElasticModuli(pp.PorePyModel):
@@ -3755,7 +3771,7 @@ class ElasticModuli(pp.PorePyModel):
             constants.
 
         """
-        return Scalar(self.solid.shear_modulus, "shear_modulus")
+        return Scalar(self.solid.shear_modulus, "shear_modulus", domains=subdomains)
 
     def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Lame's first parameter [Pa].
@@ -3768,7 +3784,7 @@ class ElasticModuli(pp.PorePyModel):
                 solid constants.
 
         """
-        return Scalar(self.solid.lame_lambda, "lame_lambda")
+        return Scalar(self.solid.lame_lambda, "lame_lambda", domains=subdomains)
 
     def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Young's modulus [Pa].
@@ -3786,12 +3802,12 @@ class ElasticModuli(pp.PorePyModel):
             * (3 * self.solid.lame_lambda + 2 * self.solid.shear_modulus)
             / (self.solid.lame_lambda + self.solid.shear_modulus)
         )
-        return Scalar(val, "youngs_modulus")
+        return Scalar(val, "youngs_modulus", domains=subdomains)
 
     def bulk_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Bulk modulus [Pa]."""
         val = self.solid.lame_lambda + 2 * self.solid.shear_modulus / 3
-        return Scalar(val, "bulk_modulus")
+        return Scalar(val, "bulk_modulus", domains=subdomains)
 
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
         """Stiffness tensor [Pa].
@@ -3952,7 +3968,9 @@ class CoulombFrictionBound(pp.PorePyModel):
             Friction coefficient operator.
 
         """
-        return Scalar(self.solid.friction_coefficient, "friction_coefficient")
+        return Scalar(
+            self.solid.friction_coefficient, "friction_coefficient", domains=subdomains
+        )
 
 
 class ShearDilation(pp.PorePyModel):
@@ -4001,7 +4019,7 @@ class ShearDilation(pp.PorePyModel):
             Cell-wise dilation angle operator [rad].
 
         """
-        return Scalar(self.solid.dilation_angle, "dilation_angle")
+        return Scalar(self.solid.dilation_angle, "dilation_angle", domains=subdomains)
 
 
 class BartonBandis(pp.PorePyModel):
@@ -4129,7 +4147,9 @@ class BartonBandis(pp.PorePyModel):
 
         """
         max_opening = self.solid.maximum_elastic_fracture_opening
-        return Scalar(max_opening, "maximum_elastic_fracture_opening")
+        return Scalar(
+            max_opening, "maximum_elastic_fracture_opening", domains=subdomains
+        )
 
     def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The normal stiffness of a fracture [Pa*m^-1].
@@ -4145,7 +4165,7 @@ class BartonBandis(pp.PorePyModel):
         """
 
         normal_stiffness = self.solid.fracture_normal_stiffness
-        return Scalar(normal_stiffness, "fracture_normal_stiffness")
+        return Scalar(normal_stiffness, "fracture_normal_stiffness", domains=subdomains)
 
 
 class FractureGap(BartonBandis, ShearDilation):
@@ -4185,7 +4205,9 @@ class FractureGap(BartonBandis, ShearDilation):
             Cell-wise reference fracture gap operator [m].
 
         """
-        return Scalar(self.solid.fracture_gap, "reference_fracture_gap")
+        return Scalar(
+            self.solid.fracture_gap, "reference_fracture_gap", domains=subdomains
+        )
 
 
 class ElasticTangentialFractureDeformation(pp.PorePyModel):
@@ -4222,7 +4244,7 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
 
         """
         stiffness = self.solid.fracture_tangential_stiffness
-        return Scalar(stiffness, "fracture_tangential_stiffness")
+        return Scalar(stiffness, "fracture_tangential_stiffness", domains=subdomains)
 
     def elastic_tangential_fracture_deformation(
         self, subdomains: list[pp.Grid]
@@ -4529,7 +4551,7 @@ class FrictionDamage(pp.PorePyModel):
 
         # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp")
-        one = pp.ad.Scalar(1.0)
+        one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
     def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
@@ -4544,7 +4566,9 @@ class FrictionDamage(pp.PorePyModel):
 
         """
         return pp.ad.Scalar(
-            self.solid.residual_friction_damage, "residual_friction_damage"
+            self.solid.residual_friction_damage,
+            domains=subdomains,
+            name="residual_friction_damage",
         )
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4624,7 +4648,7 @@ class DilationDamage(pp.PorePyModel):
 
         # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp")
-        one = pp.ad.Scalar(1.0)
+        one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
     def residual_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
@@ -4639,7 +4663,9 @@ class DilationDamage(pp.PorePyModel):
 
         """
         return pp.ad.Scalar(
-            self.solid.residual_dilation_damage, "residual_dilation_damage"
+            self.solid.residual_dilation_damage,
+            domains=subdomains,
+            name="residual_dilation_damage",
         )
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4682,7 +4708,9 @@ class BiotCoefficient(pp.PorePyModel):
             Biot coefficient operator, units [-].
 
         """
-        return Scalar(self.solid.biot_coefficient, "biot_coefficient")
+        return Scalar(
+            self.solid.biot_coefficient, "biot_coefficient", domains=subdomains
+        )
 
     def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
         """Second-order tensor representing the force caused by a pressure perturbation
@@ -4724,7 +4752,9 @@ class SpecificStorage(pp.PorePyModel):
             constitutive laws.
 
         """
-        return Scalar(self.solid.specific_storage, "specific_storage")
+        return Scalar(
+            self.solid.specific_storage, "specific_storage", domains=subdomains
+        )
 
 
 class ConstantPorosity(pp.PorePyModel):
@@ -4742,7 +4772,7 @@ class ConstantPorosity(pp.PorePyModel):
             subdomains.
 
         """
-        return Scalar(self.solid.porosity, "porosity")
+        return Scalar(self.solid.porosity, "porosity", domains=subdomains)
 
 
 class PoroMechanicsPorosity(pp.PorePyModel):
@@ -4898,7 +4928,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
             Reference porosity operator.
 
         """
-        return Scalar(self.solid.porosity, "reference_porosity")
+        return Scalar(self.solid.porosity, "reference_porosity", domains=subdomains)
 
     def porosity_change_from_pressure(
         self, subdomains: list[pp.Grid]
