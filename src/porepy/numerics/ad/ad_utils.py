@@ -362,7 +362,7 @@ class MergedOperator(operators.Operator):
                 )
 
         super().__init__(
-            name=name, domains=domains, domain=op_domain, range_=op_range
+            name=name, domains=domains, domain=op_domain, range=op_range
         )
 
         self._discretization_matrix_key = discretization_matrix_key
