@@ -195,23 +195,23 @@ class TestOperatorSpaceEquality:
 
 class TestOperatorProperties:
     def test_operator_domain_none_by_default(self):
-        op = Operator(name="test")
+        op = Operator(name="test", domain=None, range=None)
         assert op.operator_domain is None
 
     def test_operator_range_none_by_default(self):
-        op = Operator(name="test")
+        op = Operator(name="test", domain=None, range=None)
         assert op.operator_range is None
 
     def test_set_domain_in_init(self, two_subdomains):
         g1, _ = two_subdomains
         space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        op = Operator(name="test", domain=space)
+        op = Operator(name="test", domain=space, range=None)
         assert op.operator_domain == space
 
     def test_set_range_in_init(self, two_subdomains):
         g1, _ = two_subdomains
         space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        op = Operator(name="test", range=space)
+        op = Operator(name="test", domain=None, range=space)
         assert op.operator_range == space
 
 
@@ -339,7 +339,7 @@ class TestSurrogateOperatorSpace:
     def test_surrogate_operator_direct_no_dof_info_gives_none_space(
         self, two_subdomains
     ):
-        """SurrogateOperator instantiated directly with dof_info=None has no space."""
+        """SurrogateOperator instantiated directly with dof_info=None gets grids-only space."""
         g1, g2 = two_subdomains
         v1 = Variable("p", {GridEntity.cells: 1}, g1)
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
@@ -349,8 +349,10 @@ class TestSurrogateOperatorSpace:
             children=[v1, v2],
             dof_info=None,
         )
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        assert op.operator_domain is not None
+        assert op.operator_domain.dof_info == {}
+        assert op.operator_range is not None
+        assert op.operator_range.dof_info == {}
 
 
 class TestDenseArraySpace:
@@ -539,8 +541,11 @@ class TestTimeDependentDenseArraySpaces:
     def test_no_dof_info_gives_none(self, two_subdomains):
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
-        assert arr.operator_domain is None
-        assert arr.operator_range is None
+        # When domains are provided but no dof_info, a grids-only space is created
+        assert arr.operator_domain is not None
+        assert arr.operator_domain.dof_info == {}
+        assert arr.operator_range is not None
+        assert arr.operator_range.dof_info == {}
 
     def test_dof_info_cells(self, two_subdomains):
         g1, g2 = two_subdomains
@@ -830,7 +835,7 @@ class TestMergedOperatorSpaces:
     underlying discretization's get_row/col_dof_info methods."""
 
     def test_default_discr_gives_none(self, two_subdomains):
-        """With stub get_row/col_dof_info (returns {}), operator_domain is None."""
+        """With stub get_row/col_dof_info (returns {}), operator gets grids-only space."""
         class StubDiscr(Discretization):
             def __init__(self):
                 self.keyword = "mechanics"
@@ -853,9 +858,11 @@ class TestMergedOperatorSpaces:
             physics_key="mechanics",
             domains=[g1, g2],
         )
-        # Default stubs return {}, so spaces are not inferred
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        # Default stubs return {}, so spaces are grids-only (wildcard)
+        assert op.operator_domain is not None
+        assert op.operator_domain.dof_info == {}
+        assert op.operator_range is not None
+        assert op.operator_range.dof_info == {}
 
     def test_custom_dof_info_gives_space(self, two_subdomains):
         """A discretization that overrides get_row/col_dof_info populates spaces."""
@@ -895,7 +902,7 @@ class TestMergedOperatorSpaces:
         assert set(op.operator_range.grids) == {g1, g2}
 
     def test_interface_discr_gives_none(self, one_mortar):
-        """InterfaceDiscretization does not have get_row/col_dof_info → None."""
+        """InterfaceDiscretization: no get_row/col_dof_info → grids-only space."""
         class MockInterfaceDiscr(InterfaceDiscretization):
             def __init__(self):
                 self.keyword = "coupling"
@@ -917,8 +924,10 @@ class TestMergedOperatorSpaces:
             physics_key="coupling",
             domains=[intf],
         )
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        assert op.operator_domain is not None
+        assert op.operator_domain.dof_info == {}
+        assert op.operator_range is not None
+        assert op.operator_range.dof_info == {}
 
 
 # ---------------------------------------------------------------------------
