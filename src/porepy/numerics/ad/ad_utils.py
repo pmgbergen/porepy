@@ -243,28 +243,25 @@ def uniquify_discretization_list(
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
-            # If this has been encountered before, we add subdomains not earlier
-            # associated with this discretization to the existing list. of subdomains.
+            # If this has been encountered before, we add grids not earlier
+            # associated with this discretization to the existing list.
             # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
-            for g in discr.subdomains:
+            for g in discr.domains:
                 if g not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(g)
-            for e in discr.interfaces:
-                if e not in unique_discr_grids[d]:
-                    unique_discr_grids[d].append(e)
         else:
             # Take note we have now encountered this discretization and parameter
             # keyword.
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
-            # Add new discretization with associated list of subdomains.
-            # Need a copy here to avoid assigning additional subdomains to this
+            # Add new discretization with associated list of grids.
+            # Need a copy here to avoid assigning additional grids to this
             # discretization (if not copy, this may happen if
             # the key-discr combination is encountered a second time and the
             # code enters the if part of this if-else).
-            grid_likes = discr.subdomains.copy() + discr.interfaces.copy()
+            grid_likes = discr.domains.copy()
             unique_discr_grids[discr._discr] = grid_likes
 
     return unique_discr_grids
@@ -375,12 +372,11 @@ class MergedOperator(operators.Operator):
         self._inner_physics_key = inner_physics_key
 
     def __repr__(self) -> str:
-        if len(self.interfaces) == 0:
-            s = f"Operator with key {self._discretization_matrix_key} defined on "
-            s += f"{len(self.subdomains)} subdomains"
-        else:
-            s = f"Operator with key {self._discretization_matrix_key} defined on "
-            s += f"{len(self.interfaces)} edges"
+        domain_label = self.domain_type.value if self.domain_type is not None else "unknown"
+        s = (
+            f"Operator with key {self._discretization_matrix_key} defined on "
+            f"{len(self.domains)} {domain_label}"
+        )
         return s
 
     def __str__(self) -> str:
