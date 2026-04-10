@@ -684,7 +684,7 @@ class FlowModel2N(
         total_volume = sum(
             np.sum(
                 self.equation_system.evaluate(
-                    self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                    self.volume_integral(pp.ad.Scalar(1, domains=[sd]), [sd], dim=1)
                 )
             )
             for sd in subdomains
@@ -1107,7 +1107,7 @@ class FlowModel3N(
         # Total volume for normalization
         total_volume = 0.0
         for sd in self.mdg.subdomains():
-            vol_op = self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+            vol_op = self.volume_integral(pp.ad.Scalar(1, domains=[sd]), [sd], dim=1)
             total_volume += np.sum(self.equation_system.evaluate(vol_op))
 
         # Reference (initial) and numerical integrals
