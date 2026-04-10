@@ -186,7 +186,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             operation=Operations.evaluate,
             children=children,
             domain=op_space,
-            range_=op_space,
+            range=op_space,
         )
 
         self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
