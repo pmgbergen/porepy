@@ -1052,7 +1052,7 @@ class Divergence(Operator):
             else None
         )
         super().__init__(
-            domains=subdomains, name=name, domain=face_space, range=cell_space
+            name=name, domain=face_space, range=cell_space
         )
 
         self.dim: int = dim
