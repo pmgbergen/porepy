@@ -173,16 +173,21 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         dof_info: Optional[dict[GridEntity, int]] = None,
     ) -> None:
         op_space: Optional[pp.ad.OperatorSpace]
-        if dof_info is not None and len(domains) > 0:
-            op_space = pp.ad.OperatorSpace.from_domains(
-                list(domains), dof_info  # type: ignore[arg-type]
-            )
+        if len(domains) > 0:
+            if dof_info is not None:
+                op_space = pp.ad.OperatorSpace.from_domains(
+                    list(domains), dof_info  # type: ignore[arg-type]
+                )
+            else:
+                # Create a grids-only OperatorSpace so self.domains works correctly
+                op_space = pp.ad.OperatorSpace.from_domains(
+                    list(domains), {}  # type: ignore[arg-type]
+                )
         else:
             op_space = None
 
         super().__init__(
             name=name,
-            domains=domains,
             operation=Operations.evaluate,
             children=children,
             domain=op_space,
@@ -214,9 +219,12 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         """String representation giving information on name, time and iterate index, as
         well as domains and dependencies."""
 
+        domain_type = self._operator_domain.domain_type if self._operator_domain else None
+        num_grids = len(self.domains)
+        domain_label = domain_type.value if domain_type is not None else "unknown"
         msg = (
             f"Surrogate operator {self.name}.\n"
-            + f"\nDefined on {len(self._domains)} {self._domain_type.value}.\n"
+            + f"\nDefined on {num_grids} {domain_label}.\n"
             + f"Dependent on {len(self.children)} independent variables.\n"
         )
 

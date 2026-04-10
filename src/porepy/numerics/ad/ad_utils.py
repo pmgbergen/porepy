@@ -360,9 +360,12 @@ class MergedOperator(operators.Operator):
                 op_range = operators.OperatorSpace.from_domains(
                     list(domains), row_dof
                 )
+            else:
+                op_domain = operators.OperatorSpace.from_domains(list(domains), {})
+                op_range = operators.OperatorSpace.from_domains(list(domains), {})
 
         super().__init__(
-            name=name, domains=domains, domain=op_domain, range=op_range
+            name=name, domain=op_domain, range=op_range
         )
 
         self._discretization_matrix_key = discretization_matrix_key
@@ -370,7 +373,6 @@ class MergedOperator(operators.Operator):
 
         self._physics_key = physics_key
         self._inner_physics_key = inner_physics_key
-        self.domain = domains
 
     def __repr__(self) -> str:
         if len(self.interfaces) == 0:
