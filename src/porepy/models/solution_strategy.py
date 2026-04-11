@@ -626,19 +626,11 @@ class SolutionStrategy(pp.PorePyModel):
             nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
-        if self.params.get("use_logp_nonlinear_rpc", False):
-            # If the logp nonlinear RPC is used, the nonlinear increment is a logp
-            # and needs to be transformed back to a pressure increment before being
-            # added to the solution.
-            dofs = self.equation_system.dofs_of(["pressure"])
-            p_k = self.equation_system.get_variable_values(
-                ["pressure"], iterate_index=0
-            )
-            p_k1p = p_k * np.exp(nonlinear_increment[dofs])
-            nonlinear_increment[dofs] = p_k1p - p_k
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
+            values=self._rescale_increment(nonlinear_increment),
+            additive=True,
+            iterate_index=0,
         )
         self.update_derived_quantities()
 
@@ -742,6 +734,67 @@ class SolutionStrategy(pp.PorePyModel):
         if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
             raise ValueError(f"Unknown linear solver {solver}")
 
+    def _uses_logp(self) -> bool:
+        return bool(self.params.get("use_logp_nonlinear_rpc", False))
+
+    def _column_scales(self) -> np.ndarray | None:
+        """Construct multiplicative vector for Jacobian column scaling, which result
+        from right-preconditioning (variable space transforms)."""
+        use_logp = self._uses_logp()
+        scales = cast(dict, self.params.get("variable_scaling_linear_rpc", {}))
+        assert isinstance(scales, dict)
+
+        if use_logp or scales:
+            s = np.ones(self.equation_system.num_dofs())
+            if use_logp and isinstance(
+                self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+            ):
+                # NOTE: Double scaling not supported.
+                scales.pop(self.pressure_variable, None)
+                s[self.equation_system.dofs_of([self.pressure_variable])] = (
+                    self.equation_system.get_variable_values(
+                        [self.pressure_variable], iterate_index=0
+                    )
+                )
+            for k, v in scales.items():
+                s[self.equation_system.dofs_of([k])] = v
+
+            return s
+        else:
+            return None
+
+    def _rescale_increment(self, increment: np.ndarray) -> np.ndarray:
+        """Reverts the scaling applied to the columns by :meht:`_column_scales`
+        on the increment. I.e. transforms the increment back to standard space such
+        that it can be stored for the new state."""
+
+        col_scales = self._column_scales()
+        use_logp = self._uses_logp()
+        dp: np.ndarray | None = None
+        dofs_p: np.ndarray | None = None
+
+        dx = increment.copy()
+
+        if use_logp and isinstance(
+            self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        ):
+            # If the logp nonlinear RPC is used, the nonlinear increment is a logp
+            # and needs to be transformed back to a pressure increment before being
+            # added to the solution.
+            dofs_p = self.equation_system.dofs_of([self.pressure_variable])
+            p_k = self.equation_system.get_variable_values(
+                [self.pressure_variable], iterate_index=0
+            )
+            p_k1p = p_k * np.exp(dx[dofs_p])
+            dp = p_k1p - p_k
+
+        if isinstance(col_scales, np.ndarray):
+            dx *= col_scales
+        if dp is not None and dofs_p is not None:
+            dx[dofs_p] = dp
+
+        return dx
+
     def assemble_linear_system(self) -> None:
         """Assemble the linearized system and store it in :attr:`linear_system`.
 
@@ -767,7 +820,7 @@ class SolutionStrategy(pp.PorePyModel):
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
 
         """
-        use_logp = bool(self.params.get("use_logp_nonlinear_rpc", False))
+        col_scales = self._column_scales()
         t_0 = time.time()
 
         if self._apply_schur_complement_reduction():
@@ -784,34 +837,26 @@ class SolutionStrategy(pp.PorePyModel):
                     Callable[[sps.spmatrix], sps.spmatrix],
                     self.params.get("schur_complement_inverter", None),
                 ),
-                variable_scaling=cast(
-                    None, self.params.get("variable_scaling_linear_rpc", None)
-                ),
-                use_logp=use_logp,
+                col_scales=col_scales,
             )
         else:
             self.linear_system = self.equation_system.assemble()
-            if use_logp:
+            if isinstance(col_scales, np.ndarray):
                 # If the logp nonlinear RPC is used, we need to apply the chain rule to
                 # the Jacobian to get the correct linear system for the logp increment.
                 A, b = self.linear_system
-                logp_t = np.ones(self.equation_system.num_dofs())
-                logp_t[self.equation_system.dofs_of(["pressure"])] = (
-                    self.equation_system.get_variable_values(
-                        ["pressure"], iterate_index=0
-                    )
-                )
-                assert A.shape[1] == logp_t.size
-                A = A @ sps.diags_array(
-                    [logp_t],
-                    offsets=[0],
-                    shape=(A.shape[1], A.shape[1]),
-                    format="csr",
-                )
+                assert A.shape[1] == col_scales.size
+                if not sps.isspmatrix_csr(A):
+                    A = sps.csr_matrix(A)
+                A.data *= col_scales[A.indices]
                 self.linear_system = (A, b)
 
-        t_1 = time.time()
-        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+        ct = time.time() - t_0
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            assembly_clocktime=ct,
+        )
+        logger.debug(f"Assembled linear system in {ct:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
@@ -829,7 +874,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         A, b = self.linear_system
-        t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
             f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
@@ -840,6 +884,8 @@ class SolutionStrategy(pp.PorePyModel):
             x = np.full_like(b, np.nan)
         else:
             solver = self.linear_solver
+            t_0 = time.time()
+
             if solver == "pypardiso":
                 # This is the default option which is invoked unless explicitly
                 # overridden by the user. We need to check if the pypardiso package is
@@ -864,11 +910,16 @@ class SolutionStrategy(pp.PorePyModel):
             else:
                 raise ValueError(f"Unsupported linear solver {solver}.")
 
+            ct = time.time() - t_0
+            self.nonlinear_solver_statistics.log_custom_data(
+                append=True, linsolve_clocktime=ct
+            )
+            logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
+
         x = np.atleast_1d(x)
         if self._apply_schur_complement_reduction():
             x = self.equation_system.expand_schur_complement_solution(x)
 
-        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
         return x
 
     def _apply_schur_complement_reduction(self) -> bool:

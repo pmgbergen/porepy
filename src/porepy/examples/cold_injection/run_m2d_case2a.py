@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 import numpy as np
 
 import porepy as pp
-from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
@@ -24,7 +23,6 @@ from porepy.examples.cold_injection.config import (
 from porepy.examples.cold_injection.geometry import HorizontalFractureAndPointWells2D
 from porepy.examples.cold_injection.model import (
     ColdInjectionMixins,
-    DataCollectionMixin,
     FluidPoreInteraction,
     IsothermalModelTemplate,
     NoFluxRediscretization,
@@ -34,7 +32,6 @@ from porepy.examples.cold_injection.model import (
 P_PRIMARY = False
 ISOCHORIC_NPC = True
 BUOYANCY_ON = False
-COLLECT_DATA = True
 
 assert not BUOYANCY_ON, "Fractional flow not supported for case 2a."
 
@@ -51,8 +48,8 @@ if BUOYANCY_ON:
 else:
     max_iterations = 30
     iter_range = (15, 25)
-max_iterations = 70
-iter_range = (30, 50)
+max_iterations = 100
+iter_range = (30, max_iterations)
 
 T_END_DAYS = 50
 
@@ -80,7 +77,8 @@ time_manager = pp.TimeManager(
     recomp_factor=0.5,
     recomp_max=10,
     print_info=True,
-    rtol=0.0,
+    # rtol=0.0,
+    atol=5e-15,
 )
 
 model_params, solver_params = get_default_params(
@@ -89,7 +87,7 @@ model_params, solver_params = get_default_params(
 
 model_params["linear_solver"] = "scipy_sparse"  # scipy_sparse, pypardiso
 model_params["time_manager"] = time_manager
-model_params["times_to_export"] = time_schedule
+# model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"]["cell_size"] = 2.0
 model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
@@ -129,21 +127,24 @@ model_params["variable_scaling_linear_rpc"] = {
     "pressure": 22064000.0,
     "temperature": 647.096,
     "enthalpy": 524641.0735546586,
+    "fluid_specific_volume": 5.59480372671e-05,
 }
-model_params["use_logp_nonlinear_rpc"] = False
+model_params["use_logp_nonlinear_rpc"] = True
+
+solver_params["newton_chop"] = None
+solver_params["appleyard_chop"] = 0.3
+solver_params["logp_clip"] = (np.log(0.5), np.log(2.0))
 
 solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
 solver_params["armijo_line_search_incline"] = 1e-4
 solver_params["armijo_line_search_max_iterations"] = 20
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
-# solver_params["armijo_start_after_residual_reaches"] = 10.0
-solver_params["armijo_least_squares_form"] = False
-solver_params["newton_chop"] = 0.4
-solver_params["appleyard_chop"] = 0.3
-solver_params["logp_clip"] = np.log(2.0)
-solver_params["do_ntrdc"] = True
+
 solver_params["atol_objective"] = 1e-2
+solver_params["do_ntrdc"] = True
+solver_params["ntrdc_scale_with_inf"] = True
+solver_params["ntrdc_return_nan"] = True
 
 
 class Case2aMixin:
@@ -180,12 +181,6 @@ class ModelClass(  # type:ignore
     pass
 
 
-model_class = ModelClass
-
-if COLLECT_DATA:
-    model_class = add_mixin(DataCollectionMixin, model_class)  # type:ignore
-
-
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
@@ -201,7 +196,13 @@ if __name__ == "__main__":
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
-    model = model_class(model_params)  # type:ignore[abstract]
+    print(f"\nStarting simulation : {sub_folder}\n")
+    print(
+        f"Solver parameters:\n"
+        + pp.compositional.safe_sum([f"{k}: {v}\n" for k, v in solver_params.items()])
+    )
+
+    model = ModelClass(model_params)  # type:ignore[abstract]
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy").setLevel(logging.DEBUG)

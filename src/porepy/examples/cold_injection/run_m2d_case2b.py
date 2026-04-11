@@ -11,13 +11,12 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
@@ -26,17 +25,14 @@ from porepy.examples.cold_injection.geometry import HorizontalFractureAndPointWe
 from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
-    DataCollectionMixin,
     FluidPoreInteraction,
     NoFluxRediscretization,
     set_schur_complement,
 )
 from porepy.examples.cold_injection.run_m2d_case2a import Case2aMixin
 
-
 ISOCHORIC_NPC = False
 BUOYANCY_ON = False
-COLLECT_DATA = True
 
 APERTURE_JUMP_SCHEDULE: list[tuple[float, float]] = [
     # (25 * pp.DAY, 5.0),
@@ -148,12 +144,6 @@ else:
         pass
 
 
-model_class = ModelClass
-
-if COLLECT_DATA:
-    model_class = add_mixin(DataCollectionMixin, model_class)  # type:ignore
-
-
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
@@ -166,7 +156,7 @@ if __name__ == "__main__":
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
-    model = model_class(model_params)  # type:ignore[abstract]
+    model = ModelClass(model_params)  # type:ignore[abstract]
     model._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
     logging.basicConfig(level=logging.INFO)

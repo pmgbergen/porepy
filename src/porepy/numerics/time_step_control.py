@@ -593,7 +593,7 @@ class TimeManager:
             # the next iteration (any decrease in time step will be corrected to dt_min
             # by self.correction_based_on_dt_min() in a subsequent correction step).
             # Thus, to avoid pointless iterations, we raise an error.
-            if self.dt == self.dt_min_max[0]:
+            if self.dt <= self.dt_min_max[0]:
                 msg = (
                     "Recomputation will not have any effect since the time step "
                     f"achieved its minimum admissible value -> dt = dt_min = {self.dt}."
@@ -669,7 +669,7 @@ class TimeManager:
 
         self._is_about_to_hit_schedule = False
 
-        if self.time + self.dt > schedule_time:
+        if self.time + self.dt >= schedule_time:
             self._is_about_to_hit_schedule = True
             self._scheduled_idx += 1  # Increase index to catch next scheduled time.
 
@@ -684,6 +684,13 @@ class TimeManager:
 
             self._dt_before_schedule_correction = self.dt
             self.dt = schedule_time - self.time  # Correcting time step.
+            if np.isclose(
+                self.dt,
+                self._dt_before_schedule_correction,
+                rtol=self.rtol,
+                atol=self.atol,
+            ):
+                self._dt_before_schedule_correction = None
 
             if self._scheduled_idx < len(self.schedule) - 1:
                 if self._print_info:

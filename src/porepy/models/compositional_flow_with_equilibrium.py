@@ -1200,6 +1200,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         initial_guess_from_current_state: bool = True,
         update_secondary_variables: bool = True,
         state: Optional[np.ndarray] = None,
+        cell_mask: Optional[np.ndarray] = None,
     ) -> FlashResults:
         """Performs flash calculations on the given grid and updates the fluid
         properties at the current iterate.
@@ -1238,11 +1239,16 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             state: ``default=None``
 
                 Global state vector to evaluate the equilibrium state functions.
+            cell_mask: ``default=None``
+
+                If a boolean array is given, the flash is only performed on the
+                masked cells. If None, all cells are equilibrated.
 
         """
 
         logger.info(f"Equilibration on grid {sd.id} at t={self.time_manager.time:.3e}.")
-        start = time.time()
+        if cell_mask is None:
+            cell_mask = np.ones(sd.num_cells, dtype=np.bool_)
 
         if specification is None:
             model_specs = pc.get_equilibrium_specifications(self)
@@ -1339,7 +1345,8 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             )
             self._full_equilibrium(results, specification)
 
-        idx = self.postprocess_equilibrium(sd, results, state=state)
+        success_mask = self.postprocess_equilibrium(sd, results, state=state)
+        update_mask = success_mask & cell_mask
         results.postprocess_fractions()
         results.evaluate_saturations()
         results.evaluate_extensive_state()
@@ -1354,7 +1361,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 0,
                 use_extended_derivatives=is_persistent,
                 update_fugacities=True,
-                mask=idx,
+                mask=update_mask,
             )
 
         def update(var: pp.ad.Operator, vals: np.ndarray) -> None:
@@ -1364,7 +1371,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             current_vals = self.equation_system.get_variable_values(
                 [var], iterate_index=0
             )
-            current_vals[idx] = vals[idx]
+            current_vals[update_mask] = vals[update_mask]
             self.equation_system.set_variable_values(
                 current_vals, [var], iterate_index=0
             )
@@ -1413,7 +1420,15 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         logger.debug(
             f"Fluid equilibrated on grid {sd.id}"
-            + " (elapsed time: %.5f (s))." % (time.time() - start)
+            + " (elapsed time: %.5f (s))." % (results.clocktime_solve)
+        )
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            flash_clocktime=results.clocktime_solve + results.clocktime_init,
+        )
+        self.nonlinear_solver_statistics.log_custom_data(
+            append=True,
+            flash_iterations=int(results.num_iter.sum()),
         )
 
         return results
@@ -1442,6 +1457,9 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             cast(Sequence[np.ndarray], results.z[:, failure]),
             params=self.params.get("flash_params", None),  # type:ignore[arg-type]
         )
+
+        results.clocktime_solve += sub_results.clocktime_solve
+        results.clocktime_init += sub_results.clocktime_init
 
         # Update parent state with sub state values.
         results.T[failure] = sub_results.T

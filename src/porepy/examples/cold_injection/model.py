@@ -31,8 +31,13 @@ import porepy.models.persistent_variable_equilibrium as pve
 from porepy.compositional.compiled_eos import ScalarFunction
 
 from .config import ModelConfig
+from .solver import CFLEModel
 
 logger = logging.getLogger(__name__)
+
+# NOTE this is a bunch of mixins, we omitt defining all the mixed-in functions.
+
+# mypy: disable-error-code="attr-defined"
 
 
 class FluidPoreInteraction(ModelConfig):
@@ -53,7 +58,7 @@ class FluidPoreInteraction(ModelConfig):
 
     @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        a = super().aperture(subdomains)
+        a = super().aperture(subdomains)  # type:ignore[safe-super]
 
         jump_factor = pp.ad.Function(self.a_jump, "a_jump")(self.ad_time)
 
@@ -146,6 +151,10 @@ class SolutionStrategy(ModelConfig):
 
     """
 
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
     def nonlinear_flash_preconditioning(self):
         do_default_flash = self.do_flash_preconditioning()
 
@@ -204,7 +213,9 @@ class SolutionStrategy(ModelConfig):
             - self.interface_enthalpy_flux_equation(interfaces)
         )
         self.equation_system.set_variable_values(
-            intf_enthalpy, [self.interface_enthalpy_flux(interfaces)], iterate_index=0
+            cast(np.ndarray, intf_enthalpy),
+            [self.interface_enthalpy_flux(interfaces)],
+            iterate_index=0,
         )
 
         iffe = self.interface_fourier_flux_equation(interfaces)
@@ -234,7 +245,7 @@ class SolutionStrategy(ModelConfig):
         self.rediscretize()
 
     def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()
+        super().before_nonlinear_loop()  # type:ignore[misc]
 
         isochoric_spec: pf.FlashSpec = self.params.get(
             "_do_isochoric_npc", pf.FlashSpec.none
@@ -308,11 +319,11 @@ class SolutionStrategy(ModelConfig):
 
         if prev_time:
             op = op.previous_timestep()
-        return self.equation_system.evaluate(op)
+        return cast(np.ndarray, self.equation_system.evaluate(op))
 
     def solve_linear_system(self) -> np.ndarray:
         try:
-            sol = super().solve_linear_system()
+            sol = super().solve_linear_system()  # type:ignore[safe-super]
         except Exception as e:
             logger.warning(f"Error occurred while solving linear system: {e}")
             sol = np.full_like(self.linear_system[1], np.nan)
@@ -867,7 +878,81 @@ class Permeability(ModelConfig):
         return K
 
 
+class DataCollectionMixin(pp.PorePyModel):
+    """Collects data required for running the plot script."""
+
+    def __init__(self, params: dict | None = None):
+        super().__init__(params)  # type:ignore[safe-super]
+        self._flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
+
+    def data_to_export(self):
+        data: list = super().data_to_export()
+
+        for sd in self.mdg.subdomains():
+            if sd in self._flash_iter_per_grid:
+                n = cast(np.ndarray, sum(self._flash_iter_per_grid[sd]))
+            else:
+                n = np.zeros(sd.num_cells, dtype=int)
+
+            data.append((sd, "flash iterations", n))
+            data.append(
+                (sd, "aperture", self.equation_system.evaluate(self.aperture([sd])))
+            )
+            if not isinstance(
+                self, pp.energy_balance.VariablesEnergyBalance
+            ) and hasattr(self, "temperature"):
+                data.append(
+                    (
+                        sd,
+                        "temperature",
+                        self.equation_system.evaluate(self.temperature([sd])),
+                    )
+                )
+            if not isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                data.append(
+                    (
+                        sd,
+                        "fluid_specific_volume",
+                        self.equation_system.evaluate(self.fluid.specific_volume([sd])),
+                    )
+                )
+
+        return data
+
+    def before_nonlinear_loop(self) -> None:
+        self._flash_iter_per_grid.clear()
+        return super().before_nonlinear_loop()  # type:ignore[misc]
+
+    def local_equilibrium(
+        self,
+        sd: pp.Grid,
+        /,
+        *,
+        specification: Optional[cfle.StateSpecDict] = None,
+        initial_guess_from_current_state: bool = True,
+        update_secondary_variables: bool = True,
+        state: Optional[np.ndarray] = None,
+        cell_mask: Optional[np.ndarray] = None,
+    ) -> pf.FlashResults:
+
+        results: pf.FlashResults = super().local_equilibrium(  # type:ignore[misc]
+            sd,
+            specification=specification,
+            initial_guess_from_current_state=initial_guess_from_current_state,
+            update_secondary_variables=update_secondary_variables,
+            state=state,
+            cell_mask=cell_mask,
+        )
+
+        if sd not in self._flash_iter_per_grid:
+            self._flash_iter_per_grid[sd] = []
+        self._flash_iter_per_grid[sd].append(results.num_iter)
+
+        return results
+
+
 class ColdInjectionMixins(
+    DataCollectionMixin,
     Permeability,
     AdjustedPointWellModel,
     FluidMixture,
@@ -905,7 +990,7 @@ class BuoyancyModel(pp.PorePyModel):
         return gravity_field
 
 
-def set_schur_complement(model: ColdInjectionMixins) -> None:
+def set_schur_complement(model: CFLEModel) -> None:
     """Sets primary and secondary variables for the eliminating the local equilibrium
     DOFs."""
 
@@ -952,112 +1037,6 @@ class QuadraticRelPerm(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Quadratic relative permeability model."""
         return phase.saturation(domains) ** pp.ad.Scalar(2)
-
-
-# mypy: ignore-errors
-class DataCollectionMixin(pp.PorePyModel):
-    """Collects data required for running the plot script."""
-
-    def __init__(self, params: dict | None = None):
-        super().__init__(params)
-        self._flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
-
-    def data_to_export(self):
-        data: list = super().data_to_export()
-
-        for sd in self.mdg.subdomains():
-            if sd in self._flash_iter_per_grid:
-                ni = self._flash_iter_per_grid[sd]
-                n = np.array(sum(ni), dtype=int)
-            else:
-                n = np.zeros(sd.num_cells, dtype=int)
-
-            data.append((sd, "cumulative flash iterations", n))
-            data.append(
-                (sd, "aperture", self.equation_system.evaluate(self.aperture([sd])))
-            )
-            if not isinstance(
-                self, pp.energy_balance.VariablesEnergyBalance
-            ) and hasattr(self, "temperature"):
-                data.append(
-                    (
-                        sd,
-                        "temperature",
-                        self.equation_system.evaluate(self.temperature([sd])),
-                    )
-                )
-            if not isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
-                data.append(
-                    (
-                        sd,
-                        "fluid_specific_volume",
-                        self.equation_system.evaluate(self.fluid.specific_volume([sd])),
-                    )
-                )
-
-        return data
-
-    def assemble_linear_system(self) -> None:
-        start = time.time()
-        super().assemble_linear_system()
-        self.nonlinear_solver_statistics.log_custom_data(
-            append=True,
-            assembly_clocktime=time.time() - start,
-        )
-
-    def solve_linear_system(self) -> np.ndarray:
-        start = time.time()
-        sol = super().solve_linear_system()
-        self.nonlinear_solver_statistics.log_custom_data(
-            append=True,
-            linsolve_clocktime=time.time() - start,
-        )
-        return sol
-
-    def before_nonlinear_loop(self) -> None:
-        self._flash_iter_per_grid.clear()
-        return super().before_nonlinear_loop()
-
-    def local_equilibrium(
-        self,
-        sd: pp.Grid,
-        /,
-        *,
-        specification: Optional[cfle.StateSpecDict] = None,
-        initial_guess_from_current_state: bool = True,
-        update_secondary_variables: bool = True,
-        state: Optional[np.ndarray] = None,
-    ) -> pf.FlashResults:
-        start = time.time()
-        state: pf.FlashResults = super().local_equilibrium(
-            sd,
-            specification=specification,
-            initial_guess_from_current_state=initial_guess_from_current_state,
-            update_secondary_variables=update_secondary_variables,
-            state=state,
-        )
-        clock_time = time.time() - start
-        self.nonlinear_solver_statistics.log_custom_data(
-            append=True,
-            flash_clocktime=clock_time,
-        )
-
-        if sd not in self._flash_iter_per_grid:
-            self._flash_iter_per_grid[sd] = []
-        self._flash_iter_per_grid[sd].append(state.num_iter)
-
-        return state
-
-    def after_nonlinear_convergence(self):
-        flash_iter_per_grid: list[np.ndarray] = [
-            sum(v) for v in self._flash_iter_per_grid.values()
-        ]
-        total_flash_iter = sum([np.sum(v) for v in flash_iter_per_grid])
-        self.nonlinear_solver_statistics.log_custom_data(
-            flash_iterations=total_flash_iter,
-        )
-
-        return super().after_nonlinear_convergence()
 
 
 class AdjustedFluidVolumeModel(pp.PorePyModel):
@@ -1107,7 +1086,7 @@ class AdjustedFluidVolumeModel(pp.PorePyModel):
         return energy
 
     def initial_condition(self) -> None:
-        super().initial_condition()
+        super().initial_condition()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
         rho = self.fluid.density(subdomains)
@@ -1163,7 +1142,7 @@ class PseudoIsothermalMixin(pp.PorePyModel):
             phase.dkappa = phase.dkappa[row_idx, :]
             phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
 
-        return super().postprocess_equilibrium(sd, results, state=state)
+        return super().postprocess_equilibrium(sd, results, state=state)  # type:ignore[misc]
 
     def postprocess_initial_equilibrium(
         self, sd: pp.Grid, results: pf.FlashResults
@@ -1181,7 +1160,7 @@ class PseudoIsothermalMixin(pp.PorePyModel):
             phase.dkappa = phase.dkappa[row_idx, :]
             phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
 
-        super().postprocess_initial_equilibrium(sd, results)
+        super().postprocess_initial_equilibrium(sd, results)  # type:ignore[misc]
 
     def update_thermodynamic_properties_of_phases_on_grid(
         self, grid: pp.Grid, state: Optional[np.ndarray] = None

@@ -227,9 +227,6 @@ class EquationSystem:
 
         """
 
-        self._variable_scales: np.ndarray | None = None
-        """Variable scaling for linear-right preconditioning of assembled systems."""
-
     def SubSystem(
         self,
         equation_names: Optional[EquationList] = None,
@@ -1771,8 +1768,7 @@ class EquationSystem:
         primary_variables: VariableList,
         inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
-        variable_scaling: dict[str, float] | None = None,
-        use_logp: bool = False,
+        col_scales: np.ndarray | None = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         r"""Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -1879,24 +1875,6 @@ class EquationSystem:
         # Keep track of indices or primary block.
         ind_start = 0
         self.assembled_equation_indices = dict()
-        ndofs = self.num_dofs()
-
-        if variable_scaling:
-            self._variable_scales = np.ones(ndofs)
-            for k, v in variable_scaling.items():
-                if k == "pressure" and use_logp:
-                    continue
-                self._variable_scales[self.dofs_of([k])] = v
-        else:
-            self._variable_scales = None
-
-        if use_logp:
-            logp_t = np.ones(ndofs)
-            logp_t[self.dofs_of(["pressure"])] = self.get_variable_values(
-                ["pressure"], iterate_index=0
-            )
-        else:
-            logp_t = None
 
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
@@ -1905,22 +1883,11 @@ class EquationSystem:
             if name in primary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
                 idx_p = primary_rows[name]
-                if isinstance(self._variable_scales, np.ndarray):
-                    assert A_temp.shape[1] == self._variable_scales.size
-                    A_temp = A_temp @ sps.diags_array(
-                        [self._variable_scales],
-                        offsets=[0],
-                        shape=(A_temp.shape[1], A_temp.shape[1]),
-                        format="csr",
-                    )
-                if isinstance(logp_t, np.ndarray):
-                    assert A_temp.shape[1] == logp_t.size
-                    A_temp = A_temp @ sps.diags_array(
-                        [logp_t],
-                        offsets=[0],
-                        shape=(A_temp.shape[1], A_temp.shape[1]),
-                        format="csr",
-                    )
+                if isinstance(col_scales, np.ndarray):
+                    assert col_scales.size == A_temp.shape[1]
+                    if not sps.isspmatrix_csr(A_temp):
+                        A_temp = sps.csr_matrix(A_temp)
+                    A_temp.data *= col_scales[A_temp.indices]
                 # Check if a grid filter was applied for that equation
                 if idx_p is not None:
                     # Append the respective rows.
@@ -1951,22 +1918,11 @@ class EquationSystem:
             # assembled wholesale to the secondary block.
             if name in secondary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
-                if isinstance(self._variable_scales, np.ndarray):
-                    assert A_temp.shape[1] == self._variable_scales.size
-                    A_temp = A_temp @ sps.diags_array(
-                        [self._variable_scales],
-                        offsets=[0],
-                        shape=(A_temp.shape[1], A_temp.shape[1]),
-                        format="csr",
-                    )
-                if isinstance(logp_t, np.ndarray):
-                    assert A_temp.shape[1] == logp_t.size
-                    A_temp = A_temp @ sps.diags_array(
-                        [logp_t],
-                        offsets=[0],
-                        shape=(A_temp.shape[1], A_temp.shape[1]),
-                        format="csr",
-                    )
+                if isinstance(col_scales, np.ndarray):
+                    assert col_scales.size == A_temp.shape[1]
+                    if not sps.isspmatrix_csr(A_temp):
+                        A_temp = sps.csr_matrix(A_temp)
+                    A_temp.data *= col_scales[A_temp.indices]
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
 
@@ -2060,9 +2016,6 @@ class EquationSystem:
 
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
-        if isinstance(self._variable_scales, np.ndarray):
-            assert self._variable_scales.size == X.size
-            X *= self._variable_scales
         return X
 
     def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:

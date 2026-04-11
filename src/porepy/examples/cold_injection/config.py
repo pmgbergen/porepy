@@ -238,19 +238,20 @@ def get_default_params(
     SOLVER_PARAMS = {
         "prepare_simulation": False,
         "nonlinear_solver": CFLESolver,
-        "do_armijo_line_search": True,
-        "armijo_line_search_weight": 0.95,
-        "armijo_line_search_incline": 0.2,
-        "armijo_line_search_max_iterations": 15,
-        "armijo_stop_after_residual_reaches": 1e0,
-        "appleyard_chop": 0.3,
-        "newton_chop": 1.0,
-        "do_anderson_acceleration": False,
-        "anderson_acceleration_depth": 3,
-        "anderson_acceleration_constrained": False,
-        "anderson_acceleration_regularization_parameter": 1e-3,
-        "anderson_start_after_residual_reaches": 1e2,
+        # "do_armijo_line_search": True,
+        # "armijo_line_search_weight": 0.95,
+        # "armijo_line_search_incline": 0.2,
+        # "armijo_line_search_max_iterations": 15,
+        # "armijo_stop_after_residual_reaches": 1e0,
+        # "appleyard_chop": 0.3,
+        # "newton_chop": 1.0,
+        # "do_anderson_acceleration": False,
+        # "anderson_acceleration_depth": 3,
+        # "anderson_acceleration_constrained": False,
+        # "anderson_acceleration_regularization_parameter": 1e-3,
+        # "anderson_start_after_residual_reaches": 1e2,
     }
+    SOLVER_PARAMS.update(CFLESolver.default_params())
 
     return MODEL_PARAMS, SOLVER_PARAMS
 

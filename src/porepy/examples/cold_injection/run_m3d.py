@@ -13,7 +13,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
@@ -21,7 +20,6 @@ from porepy.examples.cold_injection.config import (
 from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
-    DataCollectionMixin,
     ModelConfig,
     NoFluxRediscretization,
     set_schur_complement,
@@ -29,7 +27,6 @@ from porepy.examples.cold_injection.model import (
 from porepy.examples.flow_benchmark_3d_case_4 import Geometry as Geometry3D
 
 BUOYANCY_ON = False
-COLLECT_DATA = False
 
 max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 35) if BUOYANCY_ON else (15, 25)
@@ -119,18 +116,12 @@ else:
         pass
 
 
-model_class = ModelClass
-
-if COLLECT_DATA:
-    model_class = add_mixin(DataCollectionMixin, model_class)  # type:ignore
-
-
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
     sub_folder = f"m3d_{timestamp}_BUOY_{BUOYANCY_ON}"
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
-    model = model_class(model_params)  # type:ignore[abstract]
+    model = ModelClass(model_params)  # type:ignore[abstract]
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy").setLevel(logging.DEBUG)
