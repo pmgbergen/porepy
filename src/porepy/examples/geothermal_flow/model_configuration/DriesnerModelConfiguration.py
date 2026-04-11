@@ -157,8 +157,8 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     def vtk_sampler_ptz(self, vtk_sampler):
         self._vtk_sampler_ptz = vtk_sampler
 
-    def after_simulation(self):
-        self.exporter.write_pvd()
+    # def after_simulation(self):
+    #     self.exporter.write_pvd()
 
     def initial_condition(self):
         super().initial_condition()
@@ -432,48 +432,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # Return only differential equations norm for convergence check
         # Algebraic equations can be reconstructed and don't need to be converged
         return differential_norm
-
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: Optional[np.ndarray],
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        if self._is_nonlinear_problem():
-
-            # nonlinear_increment based norm
-            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                nonlinear_increment
-            )
-
-            # Residual per subsystem
-            # Use unified method to compute residuals by category
-            diff_residuals, alg_residuals, differential_norm, algebraic_norm, _ = \
-                self.compute_residuals_by_category(residual)
-
-            # Check convergence requiring both the increment and residual to be small.
-            converged_inc = (
-                nl_params["nl_convergence_tol"] is np.inf
-                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            )
-            converged_res = (
-                nl_params["nl_convergence_tol_res"] is np.inf
-                or differential_norm < nl_params["nl_convergence_tol_res"]
-            )
-            converged = converged_inc and converged_res
-            diverged = False
-        else:
-            raise ValueError(
-                "Gravitational segregation is nonlinear in its simpler form."
-            )
-        if converged:
-            print("Differential equations residual norm: ", differential_norm)
-            print("Algebraic equations  residual norm: ", algebraic_norm)
-
-        return converged, diverged
-
-
 
     def solve_linear_system(self) -> np.ndarray:
         """
@@ -775,80 +733,221 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         alpha_min: float = 0.01,  # Minimum acceptable step length
     ) -> float:
         """
-        Backtracking line search with Armijo condition.
+        Backtracking line search with Armijo condition (robust, Jacobian-predicted).
 
-        Parameters:
-            delta_x: Newton step (correction)
-            current_residual: Residual at current iterate
-            alpha_init: Initial step length (default: 1.0)
-            rho: Step reduction factor (default: 0.5)
-            c: Armijo parameter (default: 1e-4)
-            max_iterations: Maximum backtracking steps (default: 10)
-            alpha_min: Minimum acceptable step length (default: 0.01)
-
-        Returns:
-            Accepted step length alpha
+        Uses the Jacobian to cheaply predict residuals for candidate alphas and
+        only performs the expensive full residual assembly + postprocessing for
+        promising alphas. If the Jacobian-based prediction rejects many alphas
+        in a row, a full evaluation is forced after a configurable threshold to
+        avoid never confirming a valid step.
         """
 
+        # Basic metrics
         residual_norm_current = np.linalg.norm(current_residual)
+        phi_current = 0.5 * (residual_norm_current ** 2)
+
         alpha = alpha_init
-        best_alpha = alpha_init
+        best_alpha: Optional[float] = None
         best_residual = np.inf
 
-        # Tolerance for accepting step even if residual doesn't decrease
-        # (useful when already near convergence)
-        relative_tolerance = 1.1  # Accept if residual increases by less than 10%
+        # Parameters
+        c_armijo = self.params.get("line_search_armijo", 1e-3)
+        use_jacobian_prediction = self.params.get("line_search_use_jacobian_prediction", True)
+        force_full_after = int(self.params.get("line_search_force_full_after_predicted_rejects", 3))
 
+        # Try to obtain Jacobian and a J @ delta_x product for cheap prediction
+        jacobian_matrix = None
+        Jp_full = None
+        if use_jacobian_prediction:
+            try:
+                jacobian_matrix, _ = self.linear_system
+                # Compute once (may fail for some sparse/delayed matrix types)
+                try:
+                    Jp_full = jacobian_matrix @ delta_x
+                except Exception:
+                    Jp_full = None
+            except Exception:
+                jacobian_matrix = None
+                Jp_full = None
+
+        # Counters and bookkeeping
+        full_evals = 0
+        predicted_rejects = 0
+        tried_alphas: list[float] = []
+
+        # enforce strictly positive alpha_min
+        alpha_min = max(alpha_min, 1e-12)
+
+        # Generate alpha sequence deterministically to avoid floating underflow to zero
         for i in range(max_iterations):
-            # Don't try alphas below the minimum threshold
-            if alpha < alpha_min:
-                print(f"  Line search: alpha={alpha:.4f} below minimum {alpha_min:.4f}, "
-                      f"using best found alpha={best_alpha:.4f}")
-                break
+            # deterministic alpha sequence: alpha_i = alpha_init * rho**i
+            alpha_i = alpha_init * (rho ** i)
+            # clamp to alpha_min if below
+            if alpha_i < alpha_min:
+                alpha = float(alpha_min)
+                last_alpha = True
+            else:
+                alpha = float(alpha_i)
+                last_alpha = False
 
-            # Compute the increment scaled by alpha
+            tried_alphas.append(alpha)
             scaled_increment = alpha * delta_x
 
-            # Evaluate residual at new point using compute_residual_from_increment
-            # restore_state=True so we can try different alphas
-            try:
-                residual_new = self.compute_residual_from_increment(
-                    scaled_increment, restore_state=True
-                )
-                residual_norm_new = np.linalg.norm(residual_new)
-
-                # Track the best alpha found so far
-                if residual_norm_new < best_residual:
-                    best_residual = residual_norm_new
-                    best_alpha = alpha
-
-                # Accept step if:
-                # 1. Residual decreases, OR
-                # 2. Residual increase is negligible (within tolerance)
-                if residual_norm_new < residual_norm_current * relative_tolerance:
-                    # Accept this step length
-                    reduction_factor = residual_norm_new / residual_norm_current
-                    print(f"  Line search iter {i+1}: alpha={alpha:.4f}, "
-                          f"||r||={residual_norm_new:.4e} (accepted, factor: {reduction_factor:.4f})")
-                    return alpha
+            # Jacobian-based cheap prediction
+            predicted_ok = False
+            if (Jp_full is not None) and use_jacobian_prediction:
+                r_pred = current_residual + alpha * Jp_full
+                dphi_pred = float(np.dot(current_residual, Jp_full))
+                if dphi_pred < 0.0:
+                    phi_pred = 0.5 * (np.linalg.norm(r_pred) ** 2)
+                    predicted_ok = phi_pred <= phi_current + c_armijo * alpha * dphi_pred
                 else:
-                    print(f"  Line search iter {i+1}: alpha={alpha:.4f}, "
-                          f"||r||={residual_norm_new:.4e} (rejected, factor: {residual_norm_new/residual_norm_current:.4f})")
+                    predicted_ok = np.linalg.norm(r_pred) < residual_norm_current
+
+            # Decide whether to run a full expensive residual assembly
+            force_full = (predicted_rejects >= force_full_after) and use_jacobian_prediction
+            do_full_eval = (Jp_full is None) or predicted_ok or (not use_jacobian_prediction) or force_full
+
+            if not do_full_eval:
+                predicted_rejects += 1
+                print(f"  Line search iter {i+1}: alpha={alpha:.4f} rejected by Jacobian prediction")
+                # If this was the last allowable alpha, break to finalization
+                if last_alpha:
+                    break
+                continue
+
+            # Full evaluation (may be expensive)
+            try:
+                # Raw residual after applying the scaled increment
+                residual_trial = self.compute_residual_from_increment(scaled_increment, restore_state=True)
+
+                # If residual contains non-finite values, treat as failed eval
+                if not np.all(np.isfinite(residual_trial)):
+                    print(f"  Line search iter {i+1}: non-finite residual from raw eval (alpha={alpha:.4f}), skipping")
+                    predicted_rejects = 0
+                    if last_alpha:
+                        break
+                    continue
+
+                # Category breakdown and per-cell exceedences
+                _, _, diff_norm_trial, alg_norm_trial, alg_exceeds_trial = self.compute_residuals_by_category(
+                    residual_trial
+                )
+
+                # Apply same postprocessing that will be applied to accepted steps
+                trial_increment_post = scaled_increment.copy()
+                try:
+                    self.postprocessing_overshoots(trial_increment_post)
+                except Exception:
+                    pass
+                if diff_norm_trial < alg_norm_trial:
+                    try:
+                        self.postprocessing_thermal_overshoots(trial_increment_post, alg_exceeds_trial)
+                    except Exception:
+                        pass
+
+                # Residual after postprocessing
+                residual_after_post = self.compute_residual_from_increment(trial_increment_post, restore_state=True)
+
+                # If residual after postprocessing contains non-finite values, treat as failed eval
+                if not np.all(np.isfinite(residual_after_post)):
+                    print(f"  Line search iter {i+1}: non-finite residual after postprocessing (alpha={alpha:.4f}), skipping")
+                    predicted_rejects = 0
+                    if last_alpha:
+                        break
+                    continue
+
+                # Norm of the residual after postprocessing
+                residual_norm_new = float(np.linalg.norm(residual_after_post))
+
+                # Update counters and best-known (only accept alphas >= alpha_min)
+                full_evals += 1
+                if (residual_norm_new < best_residual) and (alpha >= alpha_min):
+                    best_residual = residual_norm_new
+                    best_alpha = float(alpha)
+
+                # Compute directional derivative dphi using Jacobian (if available)
+                if Jp_full is not None:
+                    Jp_for_dphi = Jp_full
+                elif jacobian_matrix is not None:
+                    try:
+                        Jp_for_dphi = jacobian_matrix @ delta_x
+                    except Exception:
+                        Jp_for_dphi = None
+                else:
+                    Jp_for_dphi = None
+
+                dphi = float(np.dot(current_residual, Jp_for_dphi)) if (Jp_for_dphi is not None) else 0.0
+                phi_new = 0.5 * (residual_norm_new ** 2)
+
+                # Armijo acceptance
+                accepted = False
+                if (Jp_for_dphi is not None) and (dphi < 0.0):
+                    if phi_new <= phi_current + c_armijo * alpha * dphi:
+                        accepted = True
+                else:
+                    # fallback: require strict residual norm decrease
+                    if residual_norm_new < residual_norm_current:
+                        accepted = True
+
+                if accepted:
+                    reduction_factor = residual_norm_new / residual_norm_current if residual_norm_current > 0 else 0.0
+                    print(
+                        f"  Line search iter {i+1}: alpha={alpha:.4f}, ||r||={residual_norm_new:.4e} (accepted, factor: {reduction_factor:.4f})"
+                    )
+                    return alpha
+
+                print(
+                    f"  Line search iter {i+1}: alpha={alpha:.4f}, ||r||={residual_norm_new:.4e} (rejected, factor: {residual_norm_new/residual_norm_current:.4f})"
+                )
+
+                # reset predicted_rejects if we performed a full eval
+                predicted_rejects = 0
 
             except Exception as e:
-                print(f"  Line search iter {i+1}: failed at alpha={alpha:.4f}: {e}")
+                print(f"  Line search iter {i+1}: full evaluation failed at alpha={alpha:.4f}: {e}")
 
-            # Reduce step length
-            alpha *= rho
+        # End loop: if we never performed any full evals, try a final full eval at the initial alpha
+        if full_evals == 0:
+            final_alpha = tried_alphas[0] if len(tried_alphas) > 0 else alpha_init
+            final_alpha = max(alpha_min, final_alpha)
+            print(f"  Line search: no full evals performed; doing final full eval at alpha={final_alpha:.4e}")
+            try:
+                scaled_increment = final_alpha * delta_x
+                residual_trial = self.compute_residual_from_increment(scaled_increment, restore_state=True)
+                _, _, diff_norm_trial, alg_norm_trial, alg_exceeds_trial = self.compute_residuals_by_category(
+                    residual_trial
+                )
+                trial_increment_post = scaled_increment.copy()
+                try:
+                    self.postprocessing_overshoots(trial_increment_post)
+                except Exception:
+                    pass
+                if diff_norm_trial < alg_norm_trial:
+                    try:
+                        self.postprocessing_thermal_overshoots(trial_increment_post, alg_exceeds_trial)
+                    except Exception:
+                        pass
+                residual_after_post = self.compute_residual_from_increment(trial_increment_post, restore_state=True)
+                residual_norm_new = float(np.linalg.norm(residual_after_post))
+                if residual_norm_new < residual_norm_current:
+                    print(f"  Line search: final eval accepted alpha={final_alpha:.4e}, ||r||={residual_norm_new:.4e}")
+                    return final_alpha
+                else:
+                    print(f"  Line search: final eval rejected; falling back to alpha={alpha_min:.4e}")
+                    return alpha_min
+            except Exception as e:
+                print(f"  Line search: final full eval failed: {e}; falling back to alpha_min={alpha_min:.4e}")
+                return alpha_min
 
-        # If no sufficient decrease found, return the best alpha found (if above minimum)
-        # or a reasonable fallback
-        if best_alpha >= alpha_min:
+        # We have at least one confirmed full evaluation; return best confirmed alpha or fallback
+        print(f"  Line search summary: full_evals={full_evals}, predicted_rejects={predicted_rejects}, tried_alphas={len(tried_alphas)}")
+        if (best_alpha is not None) and np.isfinite(best_residual) and (best_alpha >= alpha_min):
             print(f"  Line search: using best alpha={best_alpha:.4f} with ||r||={best_residual:.4e}")
             return best_alpha
-        else:
-            print(f"  Line search: no good step found, using fallback alpha={alpha_min:.4f}")
-            return alpha_min
+        # No valid best found above alpha_min -> fallback to conservative minimum
+        print(f"  Line search: no good confirmed step found, using fallback alpha={alpha_min:.4f}")
+        return float(alpha_min)
 
     def postprocessing_overshoots(self, delta_x):
 
@@ -970,13 +1069,20 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         if len(alg_exceeds) != 0:
             # correct from enthalpy using  temperature idxs
             idx_temp = alg_exceeds.get('temperature', np.array([], dtype=int))
-            par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
-            self.vtk_sampler.sample_at(par_points)
-            star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
-            delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
+            if len(idx_temp) != 0:
+                par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
+                self.vtk_sampler.sample_at(par_points)
+                star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
+                delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
+                star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
+                delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
 
-            star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
-            delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
+            idx_sat = alg_exceeds.get('saturation', np.array([], dtype=int))
+            if len(idx_sat) !=0:
+                par_points = np.array((new_z[idx_sat], new_h[idx_sat], new_p[idx_sat])).T
+                self.vtk_sampler.sample_at(par_points)
+                star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
+                delta_x[s_dof_idx[idx_sat]] = star_s - s_0[idx_sat]
 
         # if idx_sp.size != 0:
         #     # correct enthalpy from temperature

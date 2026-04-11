@@ -752,6 +752,16 @@ class FlowModelBase(FlowTemplate):
         timestep_number = self.time_manager.time_index
         logger.info(f"Timestep {timestep_number} (t={current_time:.2e}): {current_iterations} Newton iterations")
 
+        print("*" * 60)
+        day_to_second = 86400
+        second_to_year = 1.0 / (365 * day_to_second)
+        super().after_nonlinear_convergence()  # type:ignore[safe-super]
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iterations)
+        print("Time value (year): ", self.time_manager.time * second_to_year)
+        print("Time index: ", self.time_manager.time_index)
+        print("*" * 60)
+        print("")
+
     def write_newton_iterations_to_csv(self, filename="newton_iterations.csv"):
         """Write Newton iteration data to CSV file."""
         with open(filename, 'w', newline='') as csvfile:
