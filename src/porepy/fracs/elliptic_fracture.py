@@ -26,27 +26,27 @@ class EllipticFracture(Fracture):
     spatial orientation given by three rotation angles in radians.
 
     Coordinate convention:
-        The global coordinate system is right-handed in 3D with +x = east, +y = north, 
-        and +z = up. 
+        The global coordinate system is right-handed in 3D with +x = east, +y = north,
+        and +z = up.
 
     Orientation convention:
-        The orientation of the fracture is described using a strike-dip representation. 
+        The orientation of the fracture is described using a strike-dip representation.
 
         The strike angle is defined as the azimuth, i.e., the angle measured clockwise
         from the geographic north (y-axis) in the horizontal plane. This definition is
-        widely adopted in geosciences, although alternative notation conventions also 
-        exist. 
+        widely adopted in geosciences, although alternative notation conventions also
+        exist.
 
-        The strike-dip convention follows the right-hand rule in geology: when moving 
-        along the strike direction, the fracture plane dips downward to the right. 
+        The strike-dip convention follows the right-hand rule in geology: when moving
+        along the strike direction, the fracture plane dips downward to the right.
 
     References:
-        - [1] Fossen, H.: Structural Geology (2016). 
+        - [1] Fossen, H.: Structural Geology (2016).
 
     Example:
-        Fracture centered at ``[0, 1, 0]``, with a ratio of lengths of 2, a rotation 
-        in the xy-plane of 45 degrees, and an incline of 30 degrees rotated around the 
-        y-axis (north), due to the strike angle of 0 radians: 
+        Fracture centered at ``[0, 1, 0]``, with a ratio of lengths of 2, a rotation
+        in the xy-plane of 45 degrees, and an incline of 30 degrees rotated around the
+        y-axis (north), due to the strike angle of 0 radians:
 
 
         >>> import numpy as np
@@ -63,12 +63,12 @@ class EllipticFracture(Fracture):
         center: ``shape=(3, 1)``
             Center coordinates of fracture.
         major_axis: Length of major axis (radius-like, not diameter).
-        minor_axis: Length of minor axis. There are no checks on whether the minor axis 
+        minor_axis: Length of minor axis. There are no checks on whether the minor axis
             is less than or equal to the major axis.
         major_axis_angle: Rotation of the major axis from the x-axis in radians.
             Measured before the strike-dip rotation, see below.
-        strike_angle: Geological strike angle in radians, measured clockwise from the 
-            y-axis (north) in the horizontal plane. 
+        strike_angle: Geological strike angle in radians, measured clockwise from the
+            y-axis (north) in the horizontal plane.
         dip_angle: Dip angle in radians, i.e., rotation around the strike direction.
         index: ``default=None``
             Index to be assigned to the fracture.
