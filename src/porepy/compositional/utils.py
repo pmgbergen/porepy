@@ -3,12 +3,13 @@ exception class :class:`CompositionalModellingError`."""
 
 from __future__ import annotations
 
+from enum import IntEnum
 from typing import Sequence, TypeVar, cast
 
 import numba as nb
 import numpy as np
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
+from ._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
 
 __all__ = [
     "safe_sum",
@@ -16,6 +17,8 @@ __all__ = [
     "chainrule_fractional_derivatives",
     "compute_saturations",
     "CompositionalModellingError",
+    "FlashSpec",
+    "PhysicalState",
 ]
 
 
@@ -25,6 +28,14 @@ _Addable = TypeVar("_Addable")
 Note:
     Used in :func:`safe_sum` to state that the return value type is the same as the
     argument type.
+
+"""
+
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._numba_interface.njit`.
 
 """
 
@@ -42,7 +53,6 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
 
     """
     if len(x) >= 1:
-        # TODO do we need a copy here? Test extensively
         sum_ = x[0]
         for i in range(1, len(x)):
             # Using TypeVar to indicate that return type is same as argument type
@@ -53,7 +63,7 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         return cast(_Addable, 0)
 
 
-@nb.njit(nb.f8[:, :](nb.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:, :](nb.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True)
 def normalize_rows(x: np.ndarray) -> np.ndarray:
     """Takes a 2D array and normalizes it row-wise.
 
@@ -76,7 +86,7 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
     return (x.T / x.sum(axis=1)).T
 
 
-@nb.njit(nb.f8[:](nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for
     :meth:`chainrule_fractional_derivatives` for non-vectorized input."""
@@ -85,14 +95,14 @@ def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.n
     ncomp = x.shape[0]
     # constructing the derivatives of xn_ij = x_ij / (sum_k x_kj)
     x_sum = np.sum(x)
-    dxn = np.eye(ncomp) / x_sum - np.outer(x, np.ones(ncomp)) / (x_sum**2)
+    dxn = np.eye(ncomp) / x_sum - np.outer(x, np.ones(ncomp)) / x_sum**2
     # assuming derivatives w.r.t. normalized fractions are in the last num_comp elements
     df_dx[-ncomp:] = df_dx[-ncomp:].dot(dxn)
 
     return df_dx
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:, :]), cache=NUMBA_CACHE, parallel=NUMBA_PARALLEL
 )
 def _chainrule_fractional_derivatives_parallel(
@@ -155,7 +165,7 @@ def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.nd
     return df_dx
 
 
-@nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for :meth:`compute_saturations` for
     non-vectorized input."""
@@ -210,7 +220,7 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
     return s
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:, :], nb.f8),
     cache=NUMBA_CACHE,
     parallel=NUMBA_PARALLEL,
@@ -226,7 +236,7 @@ def _compute_saturations_parallel(
 
 
 def compute_saturations(
-    y: np.ndarray, rho: np.ndarray, eps: float = 1e-10
+    y: np.ndarray, rho: np.ndarray, eps: float = 1e-7
 ) -> np.ndarray:
     r"""Computes the saturation values by solving the phase mass conservation
 
@@ -292,3 +302,60 @@ class CompositionalModellingError(Exception):
     - violations of unified assumptions in equilibrium problems.
 
     """
+
+
+class FlashSpec(IntEnum):
+    """Flash specifications in terms of state functions, represented by integer
+    codes.
+
+    - Zero is reserved for no flash specifications.
+    - 1 - 9 are reserved for isobaric specifications, with 1 being the isobaric-
+      isothermal specification. Anything above is non-isothermal.
+    - 10 - 19 are reserved for isochoric specifications, with 10 being the isochoric-
+      isothermal specification. Anything above is non-isothermal.
+
+    """
+
+    none = 0
+    """No Equilibrium defined."""
+
+    pT = 1
+    """Equilibrium at fixed pressure and temperature."""
+    ph = 2
+    """Equilibrium at fixed pressure and enthalpy."""
+
+    vT = 10
+    """Equilibrium at fixed volume and temperature."""
+    vh = 11
+    """Equilibrium at fixed volume and enthalpy."""
+    vu = 12
+    """Equilibrium at fixed volume and internal energy."""
+
+
+class PhysicalState(IntEnum):
+    """Integer Enum object for characterizing the physical states of a phase.
+
+    - Zero is reserved for undefined state.
+    - 1 - 9 is reserved for liquid-like states with 1 being the base state.
+    - 10 - 19 is reserved for gas-like states with 10 being the base state.
+
+    """
+
+    undefined = 0
+    """Undefined physical state."""
+
+    liquid = 1
+    """Base liquid-like state."""
+
+    gas = 10
+    """Base gas-like state."""
+
+
+PhysicalState_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(PhysicalState, nb.int_)
+"""Numba type for function signatures which take members of :class:`PhysicalState` as 
+arguments or return values."""
+
+
+FlashSpec_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
+"""Numba type for function signatures which take members of :class:`FlashSpec`
+as arguments or return values."""

@@ -1,0 +1,150 @@
+{
+    "global": {
+        "num_cells": {
+            "2": 100,
+            "1": 10
+        },
+        "num_domains": {
+            "2": 1,
+            "1": 1
+        },
+        "simulation_status_history": [
+            "successful"
+        ],
+        "final_simulation_status": "successful",
+        "num_entries": 1,
+        "final_time_reached": 1,
+        "total_num_time_steps": 1,
+        "total_num_failed_time_steps": 0,
+        "num_iterations_history": [
+            4
+        ],
+        "total_num_iterations": 4,
+        "total_num_waisted_iterations": 0,
+        "final_convergence_status": {
+            "inc_abs": "converged",
+            "res_abs": "converged",
+            "max_iter": "converged",
+            "inc_nan": "converged",
+            "res_nan": "converged"
+        }
+    },
+    "0": {
+        "simulation_status": "successful",
+        "final_time_reached": 1,
+        "time_index": 1,
+        "time": 1,
+        "dt": 1,
+        "num_iterations": 4,
+        "convergence_status": {
+            "inc_abs": [
+                "not_converged",
+                "not_converged",
+                "not_converged",
+                "converged"
+            ],
+            "res_abs": [
+                "not_converged",
+                "converged",
+                "converged",
+                "converged"
+            ],
+            "max_iter": [
+                "converged",
+                "converged",
+                "converged",
+                "converged"
+            ],
+            "inc_nan": [
+                "converged",
+                "converged",
+                "converged",
+                "converged"
+            ],
+            "res_nan": [
+                "converged",
+                "converged",
+                "converged",
+                "converged"
+            ]
+        },
+        "convergence_info": {
+            "inc_abs": {
+                "interface_darcy_flux": [
+                    0.04237975309232104,
+                    0.0016295716262027813,
+                    0.0016935052965016146,
+                    6.931622090088542e-05
+                ],
+                "contact_traction": [
+                    0.7304947831129222,
+                    0.031561345203887134,
+                    0.0003912949272642238,
+                    2.0919817506472213e-05
+                ],
+                "u": [
+                    0.04766609508658914,
+                    0.005500651278104011,
+                    0.00035844082971130836,
+                    1.1190803261134475e-05
+                ],
+                "pressure": [
+                    0.35892491688483247,
+                    0.001220299541368716,
+                    0.012228149839232526,
+                    0.0002944808761471516
+                ],
+                "u_interface": [
+                    0.0779391181232218,
+                    0.010384700577821131,
+                    0.0005222783353066827,
+                    1.58717942342835e-05
+                ]
+            },
+            "res_abs": {
+                "normal_fracture_deformation_equation": [
+                    0.04458661920385513,
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "tangential_fracture_deformation_equation": [
+                    1.4815926820137755e-16,
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "mass_balance_equation": [
+                    2.0268581390692587e-16,
+                    0.0015054612398012841,
+                    6.681987667568276e-05,
+                    2.729938942153323e-06
+                ],
+                "interface_darcy_flux_equation": [
+                    8.100248501919101e-17,
+                    0.0004404608579836629,
+                    2.4738276684504276e-05,
+                    2.8816280069154782e-08
+                ],
+                "well_flux_equation": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "momentum_balance_equation": [
+                    5.113441514000011e-17,
+                    3.0329111484854465e-17,
+                    3.343912042660911e-17,
+                    4.228749380971954e-17
+                ],
+                "interface_force_balance_equation": [
+                    3.0897688840663054e-17,
+                    2.3194446252522738e-17,
+                    2.1052010430985065e-17,
+                    1.9931358878632664e-17
+                ]
+            }
+        }
+    }
+}

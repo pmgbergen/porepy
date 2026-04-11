@@ -24,8 +24,11 @@ from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearS
 # Used for conversion of units.
 units = pp.Units()
 
+# NOTE: When expanding this list, please mark those parameters that are not used by
+# the default models by 'not invoked by default'.
 
 model_params = {
+    "variable_scaling_linear_rpc": None,
     "linear_solver": "pypardiso",
     "units": units,
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
@@ -49,8 +52,14 @@ model_params = {
         "cell_size_fracture": units.convert_units(0.25, "m"),  # For unstructured grids
         "cell_size_boundary": units.convert_units(0.5, "m"),  # For unstructured grids
         "cell_size_min": units.convert_units(0.51, "m"),  # For unstructured grids
+        "circumcenter_threshold": 0,  # Relative distance to move cell centers from
+        # centroids to circumcenters in [0, 1). 0 implies no movement.
     },
     "meshing_kwargs": {},
+    # Used to export the fracture network to enable later reuse. Not invoked by default.
+    "csv_file_name": "fracture_network.csv",
+    # Used to export the gmsh geometry and the created mesh file.
+    "gmsh_file_name": "gmsh_frac_file.msh",
     # Exporting and restarting
     "nonlinear_solver_statistics": pp.SolverStatistics,  # Must be a class, not instance
     "folder_name": "visualization",
@@ -74,9 +83,15 @@ model_params = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "phase_property_params": None,  # See Phase.compute_properties for details.
+    "has_time_dependent_boundary_values": False,
     # Contact mechanics
     "traction_estimate_p_mean": 5.0,
     "adaptive_indicator_scaling": 1,  # Scale the indicator adaptively for robustness.
+    # Flash calculations
+    "flash_params": {
+        "compile": True,
+        "compile_args": tuple(),
+    },
 }
 
 solver_params = {

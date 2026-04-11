@@ -48,14 +48,13 @@ Important:
 
 from __future__ import annotations
 
-from typing import Generator, Generic, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, Generator, Generic, Optional, Sequence, TypeVar
 
 import numpy as np
 
 import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
-from ._core import PhysicalState
 from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
@@ -69,9 +68,9 @@ __all__ = [
     "PhaseLike",
 ]
 
-
-DomainFunctionType = pp.DomainFunctionType
-ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
+if TYPE_CHECKING:
+    DomainFunctionType = pp.DomainFunctionType
+    ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class Component:
@@ -363,15 +362,15 @@ class EquationOfState:
     """
 
     def __init__(self, components: Sequence[ComponentLike]) -> None:
-        self._nc: int = len(components)
+        self.nc: int = len(components)
         """Number of components passed at instantiation."""
 
-        if self._nc == 0:
+        if self.nc == 0:
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
     def compute_phase_properties(
         self,
-        phase_state: PhysicalState,
+        phase_state: pp.compositional.PhysicalState,
         *thermodynamic_input: np.ndarray,
         params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> PhaseProperties:
@@ -480,7 +479,7 @@ class Phase(Generic[ComponentLike]):
 
     def __init__(
         self,
-        state: PhysicalState,
+        state: pp.compositional.PhysicalState,
         name: str,
         eos: Optional[EquationOfState] = None,
     ) -> None:
@@ -502,8 +501,8 @@ class Phase(Generic[ComponentLike]):
         self.eos: Optional[EquationOfState] = eos
         """The EoS passed at instantiation."""
 
-        self.state: PhysicalState = state
-        """Physical state declared at instantiation (see :attr:`PhysicalStates`)."""
+        self.state: pp.compositional.PhysicalState = state
+        """Physical state declared at instantiation."""
 
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
@@ -531,6 +530,16 @@ class Phase(Generic[ComponentLike]):
 
         Scalar field with physical dimensions ``[J / mol K]`` or ``[J / kg K]``.
 
+        """
+
+        self.specific_internal_energy: ExtendedDomainFunctionType
+        """Specific internal energy of this phase.
+        
+        Scalar field with physical dimensions ``[J / mol K]`` or ``[J / kg K]``.
+
+        Note:
+            For thermodynamic consistency, :math:`u = h - \\frac{p}{\\rho}` must hold.
+        
         """
 
         self.viscosity: ExtendedDomainFunctionType
@@ -777,7 +786,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         for phase in phases:
             double_names.append(phase.name)
-            if phase.state == PhysicalState.gas:
+            if phase.state == pp.compositional.PhysicalState.gas:
                 gaslike_phases.append(phase)
             else:
                 other_phases.append(phase)
@@ -988,19 +997,44 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     phase.saturation(domains) * phase.density(domains)
                     for phase in self.phases
                 ],
-                "fluid_density",
             )
 
         else:
             op = self.reference_phase.density(domains)
-            op.set_name("fluid_density")
 
+        op.set_name("fluid_density")
         return op
 
     def specific_volume(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Returns the reciprocal of :attr:`density`."""
+        """Specific volume of the fluid in ``[m^3 / kg]`` or ``[m^3 / mol]``.
 
-        op = self.density(domains) ** pp.ad.Scalar(-1)
+        Its general, thermodynamically consistent representation is
+        :math:`\\sum_j y_j \\y_j`, with :math:`y_j, \\v_j` being the fraction
+        and specific volume of a phase respectively.
+
+        For a single-phase, single-component fluid, it can be reduced to a single term
+        :math:`\\v`.
+
+        Parameters:
+            domains: A sequence of grids.
+
+        Returns:
+            Above expression by calling the phase fractions and specific volumes.
+            In the case of only 1 phase, it returns the reference phase specific volume.
+
+        """
+
+        if self.num_phases > 1:
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.fraction(domains) * phase.specific_volume(domains)
+                    for phase in self.phases
+                ],
+            )
+
+        else:
+            op = self.reference_phase.specific_volume(domains)
+
         op.set_name("fluid_specific_volume")
         return op
 
@@ -1038,12 +1072,44 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     phase.fraction(domains) * phase.specific_enthalpy(domains)
                     for phase in self.phases
                 ],
-                "fluid_specific_enthalpy",
             )
 
         else:
             op = self.reference_phase.specific_enthalpy(domains)
-            op.set_name("fluid_specific_enthalpy")
+
+        op.set_name("fluid_specific_enthalpy")
+        return op
+
+    def specific_internal_energy(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Analogous to :meth:`specific_enthalpy`, but assembled using the
+        specific internal energies of the phases.
+
+        Note:
+            For thermodynamic consistency, :math:`u = h - \\frac{p}{\\rho}` must hold.
+
+        Parameters:
+            domains: A sequence of grids.
+
+        Returns:
+            The sum of internal energies of phases weight with phase fractions..
+            In the case of only 1 phase, it returns the specific internal energy of the
+            reference phase.
+
+        """
+        if self.num_phases > 1:
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.fraction(domains) * phase.specific_internal_energy(domains)
+                    for phase in self.phases
+                ],
+                "fluid_specific_internal_energy",
+            )
+
+        else:
+            op = self.reference_phase.specific_internal_energy(domains)
+            op.set_name("fluid_specific_internal_energy")
 
         return op
 
@@ -1076,11 +1142,10 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     phase.saturation(domains) * phase.thermal_conductivity(domains)
                     for phase in self.phases
                 ],
-                "fluid_thermal_conductivity",
             )
 
         else:
             op = self.reference_phase.thermal_conductivity(domains)
-            op.set_name("fluid_thermal_conductivity")
 
+        op.set_name("fluid_thermal_conductivity")
         return op

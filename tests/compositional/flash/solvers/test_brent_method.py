@@ -5,12 +5,12 @@ from __future__ import annotations
 
 from typing import Callable
 
-import numba
-import numba.typed
+import numba as nb
 import numpy as np
 import pytest
 
-from porepy.compositional.compiled_flash.solvers import DEFAULT_BRENT_PARAMS, brent
+from porepy.compositional._numba_interface import get_empty_numba_dict, njit
+from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
 
 
 @pytest.mark.parametrize(
@@ -27,15 +27,13 @@ def test_brent(test_case: tuple[Callable[[float], float], float, float, float]) 
     """Tests the Brent method with compiled test functions and its default
     parameters."""
 
-    params = numba.typed.Dict.empty(
-        key_type=numba.types.unicode_type, value_type=numba.types.float64
-    )
+    params = get_empty_numba_dict()
     for k, v in DEFAULT_BRENT_PARAMS.items():
         params[str(k)] = float(v)
 
     func, root_target, a, b = test_case
 
-    func_c = numba.njit("f8(f8)")(func)
+    func_c = njit(nb.f8(nb.f8))(func)
     root, converged, iter = brent(func_c, a, b, params)
 
     assert converged == 0

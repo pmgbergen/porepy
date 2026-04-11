@@ -137,7 +137,6 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         while not model.time_manager.final_time_reached():
             time_progressbar.set_description_str(
                 f"Time step {model.time_manager.time_index + 1}"
-                f" (dt={model.time_manager.dt:.2e})"
             )
             status = time_step()
             if status.is_successful():

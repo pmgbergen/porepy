@@ -164,7 +164,7 @@ if __name__ == "__main__":
         "grid_type": "simplex",
     }
 
-    # EK: Ignore a mypy error here: Mypy complains that the model does not implement
+    # Ignore a mypy error here: Mypy complains that the model does not implement
     # abstract methods displacement_jump, plastic_displacement_jump, and
     # elastic_displacement_jump. The likely cause is that mypy believes the methods are
     # decleared (as abstract?) but not implemented, but searching the codebase does not

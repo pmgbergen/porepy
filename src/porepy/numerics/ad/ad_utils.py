@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABCMeta
+from functools import lru_cache
 from typing import Any, Optional
 
 import numpy as np
@@ -308,6 +309,7 @@ def discretize_from_list(
                     pass
 
 
+@lru_cache
 def _validate_indices(
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,

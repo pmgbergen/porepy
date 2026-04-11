@@ -248,10 +248,12 @@ class TwoWells3d(SubsurfaceCuboidDomain):
 
         See below comment for a sketch of the setup.
         """
+        # TODO: Revert to kinked wells once well geometry processing is reworked. The
+        # sketch below is kept for reference.
+
         # With constant y coordinates for both wells, the projection in the x-z plane
         # looks roughly as follows, using double lines to indicate the domain
         # boundaries:
-
         #               w1      w2
         #     ==============================
         #     ||        |        |         ||
@@ -265,19 +267,18 @@ class TwoWells3d(SubsurfaceCuboidDomain):
 
         # Side lengths of the domain:
         dx, dy, dz = self.domain_sizes()
-        # One straight vertical well at (0.35dx, 0.35dy) extending from z=0 to z=-0.8dz.
+        # One straight vertical well at (0.4dx, 0.4dy) extending from z=0 to z=-0.8dz.
         well_1 = pp.Well(
-            np.array([[0.35 * dx, 0.35 * dx], [0.35 * dy, 0.35 * dy], [0, -0.8 * dz]]),
+            np.array([[0.4 * dx, 0.4 * dx], [0.4 * dy, 0.4 * dy], [0, -0.8 * dz]]),
             tags={"well_name": self.well_names[0]},
         )
-        # One kinked well at (0.6dx, 0.65dy), with a kink at z=-0.4dz and terminating at
-        # (0.7dx, 0.65dy, -0.8dz).
+        # One well at (0.6dx, 0.6dy).
         well_2 = pp.Well(
             np.array(
                 [
-                    [0.6 * dx, 0.6 * dx, 0.7 * dx],
-                    [0.65 * dy, 0.65 * dy, 0.65 * dy],
-                    [0, -0.4 * dz, -0.8 * dz],
+                    [0.6 * dx, 0.6 * dx],
+                    [0.6 * dy, 0.6 * dy],
+                    [0, -0.8 * dz],
                 ]
             ),
             tags={"well_name": self.well_names[1]},
@@ -322,7 +323,6 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
             - strike_angles: Strike angles of the fractures (default [pi/4, pi/4])
             - dip_angles: Dip angles of the fractures (default [pi/2, pi/2])
             - major_axis_angles: Major axis angles of the fractures (default [0.0, 0.0])
-            - num_points: Number of points to define each fracture (default [10, 10])
 
         The fracture axes are scaled by the minimum of the domain sizes. For adjusting
         the fracture centers, the user should override the property
@@ -334,7 +334,6 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
         """
         default_params = {
             "num_fractures": 2,
-            "num_points": np.array([10, 10]),
             "fracture_major_axes": np.array([0.2, 0.2]),
             "strike_angles": np.array([np.pi / 4, np.pi / 4]),
             "dip_angles": np.array([np.pi / 2, np.pi / 2]),
@@ -365,8 +364,8 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
     @property
     def fracture_centers(self) -> tuple[np.ndarray, np.ndarray]:
         dx, dy, dz = self.domain_sizes()
-        center_1 = np.array([0.35 * dx, 0.35 * dy, -0.6 * dz])
-        center_2 = np.array([0.65 * dx, 0.65 * dy, -0.6 * dz])
+        center_1 = np.array([0.4 * dx, 0.4 * dy, -0.6 * dz])
+        center_2 = np.array([0.6 * dx, 0.6 * dy, -0.6 * dz])
         return center_1, center_2
 
     def set_fractures(self):
@@ -375,13 +374,12 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
         self._fractures = []
         params = self.fracture_params()
         for i in range(params["num_fractures"]):
-            f = pp.create_elliptic_fracture(
+            f = pp.EllipticFracture(
                 center=self.fracture_centers[i],
                 strike_angle=params["strike_angles"][i],
                 dip_angle=params["dip_angles"][i],
                 major_axis=self.fracture_major_axes[i],
                 minor_axis=self.fracture_minor_axes[i],
                 major_axis_angle=params["major_axis_angles"][i],
-                num_points=params["num_points"][i],
             )
             self._fractures.append(f)

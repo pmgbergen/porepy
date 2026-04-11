@@ -1,0 +1,1296 @@
+"""Module containing the abstract base class for compiling EoS-computations.
+
+It relies heavily on numba and its NJIT compilation using static signatures.
+
+Thermodynamic property functions and their derivatives are expected to have a specific
+numba-signature.
+
+Expensive computations which are shared by all properties are bundled in a
+'pre-argument', which is a one-time computation before property computations, and its
+results are passed as an argument for all property computations.
+
+The pre-argument computations are split into two parts, one for properties and one for
+their derivatives. Property functions are fed only the pre-argument for properties,
+while property derivative functions are fed both the pre-argument for properties and the
+pre-argument for derivative functions.
+
+For more information on the expected signatures see:
+
+- :data:`PREARGUMENT_FUNC_SIGNATURE`
+- :data:`PREARGUMENT_DFUNC_SIGNATURE`,
+- :data:`PROPERTY_FUNC_SIGNATURE`,
+- :data:`PROPERTY_DERIVATIVE_FUNC_SIGNATURE`,
+- :data:`FUGACITY_COEFF_FUNC_SIGNATURE`,
+- :data:`FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE`,
+
+"""
+
+from __future__ import annotations
+
+import abc
+import logging
+from functools import partial
+from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, cast
+
+import numba as nb
+import numpy as np
+
+from ._numba_interface import NUMBA_PARALLEL, cfunc, njit, typeof
+from .base import Component, EquationOfState
+from .states import PhaseProperties
+from .utils import PhysicalState, PhysicalState_NUMBA_TYPE, normalize_rows
+
+__all__ = [
+    "PVTFunction",
+    "ScalarFunction",
+    "VectorFunction",
+    "PropertyFunctionNames",
+    "PropertyFunctionDict",
+    "PREARGUMENT_FUNC_SIGNATURE",
+    "PROPERTY_FUNC_SIGNATURE",
+    "PROPERTY_DERIVATIVE_FUNC_SIGNATURE",
+    "FUGACITY_COEFF_FUNC_SIGNATURE",
+    "FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE",
+    "CompiledEoS",
+]
+
+logger = logging.getLogger(__name__)
+
+
+PVTFunction: TypeAlias = Callable[[float, float, np.ndarray, np.ndarray], float]
+"""Classical representation of an equation of state :math:`p = p(v, T, x)`,
+with :math:`p, v, T` being pressure, specific volume and temperature respectively,
+and :math:`x` a vector of fractions for a multi-component mixture.
+
+As a last argument, the function must accept an array of parameters as well.
+
+"""
+
+
+ScalarFunction: TypeAlias = Callable[..., float]
+"""Type alias for scalar functions returning a float. Used to type scalar thermodynamic
+properties"""
+
+
+VectorFunction: TypeAlias = Callable[..., np.ndarray]
+"""Type alias for vector functions returning a numpy array. Used to type derivative
+functions of thermodynamic properties."""
+
+
+PropertyFunctionNames: TypeAlias = Literal[
+    "prearg_val",
+    "prearg_jac",
+    "phis",
+    "dphis",
+    "h",
+    "dh",
+    "u",
+    "du",
+    "v",
+    "dv",
+    "rho",
+    "drho",
+    "mu",
+    "dmu",
+    "kappa",
+    "dkappa",
+]
+"""Type alias for names/keys of property functions stored in :attr:`CompiledEoS.funcs`
+and :attr:`CompiledEoS.gufuncs`.
+
+See also:
+    :class:`~porepy.compositional.states.PhaseProperties`
+
+"""
+
+
+class PropertyFunctionDict(TypedDict, total=False):
+    """Typed dictionary defining which property functions are expected to be available
+    in :attr:`CompiledEoS.funcs`."""
+
+    prearg_val: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_prearg_for_values`."""
+    prearg_jac: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_prearg_for_derivatives`."""
+    h: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_h_function`."""
+    dh: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_h_function`."""
+    u: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_u_function`."""
+    du: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_u_function`."""
+    rho: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_rho_function`."""
+    drho: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_rho_function`."""
+    v: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_v_function`."""
+    dv: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_v_function`."""
+    mu: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_mu_function`."""
+    dmu: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_mu_function`."""
+    kappa: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_kappa_function`."""
+    dkappa: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_kappa_function`."""
+    phis: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_lnphis_function`."""
+    dphis: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_lnphis_function`."""
+
+
+PREARGUMENT_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    PhysicalState_NUMBA_TYPE, nb.f8, nb.f8, nb.f8[:], nb.f8[:]
+)
+"""Numba signature for pre-argument functions.
+
+The function takes
+
+1. a :class:`~porepy.compositional.states.PhysicalState`,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+5. A 1D float array as parameter values,
+
+and returns a 1D float array.
+
+"""
+
+PREARGUMENT_DFUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    nb.f8[:], nb.f8, nb.f8, nb.f8[:], nb.f8[:]
+)
+"""Numba signature for pre-argument functions for derivatives.
+
+The function takes
+
+1. the result of the first pre-argument function,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+5. A 1D float array as parameter values,
+
+and returns a 1D float array.
+
+"""
+
+
+PROPERTY_FUNC_SIGNATURE: nb.types.Type = nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:])
+"""Numba signature for thermodynamic property functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+
+and returns a float.
+
+"""
+
+
+PROPERTY_DERIVATIVE_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]
+)
+"""Numba signature for thermodynamic property derivatives functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a 1D float array as derivative pre-argument value,
+3. a pressure float value,
+4. a temperature float value,
+5. a 1D float array as partial fraction values,
+
+and returns a 1D float array containing derivatives w.r.t. pressure, temperature and
+each fraction.
+
+"""
+
+
+FUGACITY_COEFF_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    nb.f8[:], nb.f8, nb.f8, nb.f8[:]
+)
+"""Numba signature for fugacity coefficient functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+
+and returns a 1D float array containing fugacity coefficient values the same size as
+the partial fraction values.
+
+"""
+
+
+FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE: nb.types.Type = nb.f8[:, :](
+    nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]
+)
+"""Numba signature for fugacity coefficient derivative functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a 1D float array as derivative pre-argument value,
+3. a pressure float value,
+4. a temperature float value,
+5. a 1D float array as partial fraction values,
+
+and returns a 2D float array containing derivatives w.r.t. pressure, temperature and
+each fraction. The number of rows is inferred from the array containing partial fraction
+values.
+
+"""
+
+
+# NOTE The template functions need some non-trivial body and return value to compile.
+# They are completely meaningless and need to return something corresponding to the
+# annotated return type. They also use every argument somehow, in case mypy ever
+# complains.
+@cfunc(PREARGUMENT_FUNC_SIGNATURE, cache=True)
+def prearg_template_func(
+    phase_state: PhysicalState, p: float, T: float, xn: np.ndarray, params: np.ndarray
+) -> np.ndarray:
+    """Template c-func for the pre-argument, both for property values and derivative
+    values.
+
+    Parameters:
+        phase_State: See :class:`~porepy.compositional.states.PhysicalState`.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array containing normalized fractions.
+        params: 1D array containing parameters stored in the generic argument.
+
+    Returns:
+        Some 1D array.
+
+    """
+    if phase_state > PhysicalState.undefined:
+        return p * T * xn
+    else:
+        return xn
+
+
+@cfunc(PREARGUMENT_DFUNC_SIGNATURE, cache=True)
+def prearg_d_template_func(
+    prearg_val: np.ndarray, p: float, T: float, xn: np.ndarray, params: np.ndarray
+) -> np.ndarray:
+    """Template c-func for the pre-argument, both for property values and derivative
+    values.
+
+    Parameters:
+        prearg_val: Result of :func:`prearg_template_func`.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array containing normalized fractions.
+        params: 1D array containing parameters stored in the generic argument.
+
+    Returns:
+        Some 1D array.
+
+    """
+    return p * T * xn
+
+
+@cfunc(PROPERTY_FUNC_SIGNATURE, cache=True)
+def property_template_func(
+    prearg_val: np.ndarray, p: float, T: float, xn: np.ndarray
+) -> float:
+    """Template c-func for a thermodynamic property.
+
+    Used for numba type infering.
+
+    Parameters:
+        prearg_val: 1D array representing the pre-argument for property values.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array representing normalized partial fractions.
+
+    Returns:
+        Some scalar value.
+
+    """
+    return prearg_val[0] * p * T * xn[0]
+
+
+@cfunc(PROPERTY_DERIVATIVE_FUNC_SIGNATURE, cache=True)
+def property_derivative_template_func(
+    prearg_val: np.ndarray, prearg_jac: np.ndarray, p: float, T: float, xn: np.ndarray
+) -> np.ndarray:
+    """Template c-func for a thermodynamic property derivatives.
+
+    Used for numba type infering.
+
+    Parameters:
+        prearg_val: 1D array representing the pre-argument for property value functions.
+        prearg_jac: 1D array representing the pre-argument for property derivative
+            functions.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array representing normalized partial fractions.
+
+    Returns:
+        Some 1D array containing derivatives w.r.t. p, T and each fraction, i.e.
+        ``(2 + xn.shape[0],)``.
+
+    """
+    return prearg_val[0] * prearg_jac[0] * p * T * xn
+
+
+@cfunc(FUGACITY_COEFF_FUNC_SIGNATURE, cache=True)
+def fugacity_coeff_template_func(
+    prearg_val: np.ndarray, p: float, T: float, xn: np.ndarray
+) -> np.ndarray:
+    """Template c-func for fugacity coefficients.
+
+    Used for numba type infering.
+
+    The difference to :func:`property_template_func` and
+    :func:`property_derivative_template_func` is that while still taking only one
+    pre-argument (for values), it returns a vector (fugacities per component)
+
+    Parameters:
+        prearg_val: 1D array representing the pre-argument for property value functions.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array representing normalized partial fractions.
+
+    Returns:
+        An array with the shape of ``xn``.
+
+    """
+    return prearg_val[0] * p * T * xn
+
+
+@cfunc(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE, cache=True)
+def fugacity_coeff_derivative_template_func(
+    prearg_val: np.ndarray, prearg_jac: np.ndarray, p: float, T: float, xn: np.ndarray
+) -> np.ndarray:
+    """Template c-func for derivatives of fugacity coefficients.
+
+    Used for numba type infering.
+
+    The difference to :func:`property_derivative_template_func` is that this returns
+    derivatives for each fugacity coefficient, hence a 2D array.
+
+    Parameters:
+        prearg_val: 1D array representing the pre-argument for property value functions.
+        prearg_jac: 1D array representing the pre-argument for property derivative
+            functions.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array representing normalized partial fractions.
+
+    Returns:
+        An array with the shape ``(xn.shape[0], 2 + xn.shape[0])``.
+
+    """
+    ncomp = xn.shape[0]
+    return np.zeros((ncomp, 2 + ncomp)) * prearg_val[0] * prearg_jac[0] * p * T
+
+
+# NOTE Every parallelized evaluation requires an own method because of the exact
+# signatures. This ensures maximum efficiency when importing and executing the code
+# continuously.
+@njit(
+    nb.f8[:, :](
+        typeof(prearg_template_func),
+        PhysicalState_NUMBA_TYPE,
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+        nb.f8[:, :],
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_prearg_func(
+    prearg_func: Callable[[int, float, float, np.ndarray, np.ndarray], np.ndarray],
+    phase_state: int,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+    params: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of some pre-argument function.
+
+    Parameters:
+        prearg_func: Some pre-argument function. See :func:`prearg_template_func`.
+        phase_State: See :class:`~porepy.compositional.states.PhysicalState`.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape=(N, num_components)``
+
+            (Normalized) partial fractions.
+        params: ``shape=(N, num_params)``
+
+            Parameters for the pre-argument functions.
+
+    Returns:
+        An array of shape ``(N, M)``, where each row represents an evaluation of
+        ``prearg_func``, evaluated with rows of the parameters.
+
+    """
+    N = p.shape[0]
+    prearg_0 = prearg_func(phase_state, p[0], T[0], xn[0], params[0])
+    prearg = np.empty((N, prearg_0.shape[0]))
+    prearg[0] = prearg_0
+    for i in nb.prange(1, N):
+        prearg[i] = prearg_func(phase_state, p[i], T[i], xn[i], params[i])
+    return prearg
+
+
+@njit(
+    nb.f8[:, :](
+        typeof(prearg_d_template_func),
+        nb.f8[:, :],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+        nb.f8[:, :],
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_prearg_d_func(
+    prearg_d_func: Callable[
+        [np.ndarray, float, float, np.ndarray, np.ndarray], np.ndarray
+    ],
+    prearg_val: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+    params: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of some pre-argument function for derivatives.
+
+    Parameters:
+        prearg_d_func: Some pre-argument function for derivatives.
+            See :func:`prearg_d_template_func`.
+        prearg_val: ``shape=(N, M1)``
+
+            Results of the pre-argument function for properties.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape=(N, num_components)``
+
+            (Normalized) partial fractions.
+        params: ``shape=(N, num_params)``
+
+            Parameters for the pre-argument functions.
+
+    Returns:
+        An array of shape ``(N, M2)``, where each row represents an evaluation of
+        ``prearg_func``, evaluated with rows of the parameters.
+
+    """
+    N = p.shape[0]
+    prearg_0 = prearg_d_func(prearg_val[0], p[0], T[0], xn[0], params[0])
+    prearg_jac = np.empty((N, prearg_0.shape[0]))
+    prearg_jac[0] = prearg_0
+    for i in nb.prange(1, N):
+        prearg_jac[i] = prearg_d_func(prearg_val[i], p[i], T[i], xn[i], params[i])
+    return prearg_jac
+
+
+@njit(
+    nb.f8[:](
+        typeof(property_template_func), nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_property_func(
+    property_func: Callable[[np.ndarray, float, float, np.ndarray], float],
+    prearg: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of a scalar function given by ``property_func``.
+
+    Intended use is for evaluation of thermodynamic properties.
+
+    Parameters:
+        property_func: Property function to be evaluated.
+        prearg: ``shape=(N, M)``
+
+            Matrix containing pre-arguments row-wise.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape(N, num_components)``
+
+            (Normalized) partial fractions.
+
+    Returns:
+        An array of shape ``(N,)``, where each row represents an evaluation of
+        ``property_func``, evaluated with rows of the parameters.
+
+    """
+    N = p.shape[0]
+    vals = np.empty(N)
+    for i in nb.prange(N):
+        vals[i] = property_func(prearg[i], p[i], T[i], xn[i])
+    return vals
+
+
+@njit(
+    nb.f8[:, :](
+        typeof(property_derivative_template_func),
+        nb.f8[:, :],
+        nb.f8[:, :],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_property_derivatives_func(
+    property_diffs_func: Callable[
+        [np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray
+    ],
+    prearg_val: np.ndarray,
+    prearg_jac: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of a vector-valued function ``property_diffs_func``,
+    representing the derivatives of some thermodynamic property..
+
+    Intended use is for evaluation of thermodynamic properties.
+
+    See also:
+        :func:`_evaluate_vectorized_property_func`
+
+    Parameters:
+        property_diffs_func: Property derivative function to be evaluated.
+        prearg_val: ``shape=(N, M1)``
+
+            Matrix containing pre-arguments for the property function row-wise.
+        prearg_jac: ``shape=(N, M2)``
+
+            Matrix containing pre-arguments for the derivative function row-wise.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape(N, num_components)``
+
+            (Normalized) partial fractions.
+
+    Returns:
+        An array of shape ``(N,)``, where each row represents an evaluation of
+        ``property_func``, evaluated with rows of the parameters.
+
+    """
+    N = p.shape[0]
+    num_comp = xn.shape[1]
+    diffs = np.empty((2 + num_comp, N))
+    for i in nb.prange(N):
+        diffs[:, i] = property_diffs_func(
+            prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
+        )
+    return diffs
+
+
+@njit(
+    nb.f8[:, :](
+        typeof(fugacity_coeff_template_func),
+        nb.f8[:, :],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_fug_coeff_func(
+    fug_coeff_func: Callable[[np.ndarray, float, float, np.ndarray], np.ndarray],
+    prearg: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of a vector function given by ``fug_coeff_func``.
+
+    Intended use is for evaluation of fugacity coefficients.
+
+    Parameters:
+        fug_coeff_func: Fugacity coefficient function to be evaluated.
+        prearg: ``shape=(N, M)``
+
+            Matrix containing pre-arguments row-wise.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape(N, num_components)``
+
+            (Normalized) partial fractions.
+
+    Returns:
+        An array of shape ``(num_components, N)``, where each **column** represents an
+        evaluation of ``fug_coeff_func``, evaluated with **rows** of the parameters.
+
+        Note, that it is intended to return the coefficients like this, and not
+        transposed (looping over component means looping over first axis of return
+        value).
+
+    """
+    N, ncomp = xn.shape
+    phis = np.empty((ncomp, N))
+    for i in nb.prange(N):
+        phis[:, i] = fug_coeff_func(prearg[i], p[i], T[i], xn[i])
+    return phis
+
+
+@njit(
+    nb.f8[:, :, :](
+        typeof(fugacity_coeff_derivative_template_func),
+        nb.f8[:, :],
+        nb.f8[:, :],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_fug_coeff_diff_func(
+    fug_coeff_diff_func: Callable[
+        [np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray
+    ],
+    prearg_val: np.ndarray,
+    prearg_jac: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of a matrix-valued function ``fug_coeff_diff_func``,
+    representing the derivatives of the fugacity coefficients per component.
+
+    Intended use is for evaluation of thermodynamic properties.
+
+    See also:
+        :func:`_evaluate_vectorized_fug_coeff_func`
+
+    Parameters:
+        fug_coeff_diff_func: Fugacity coefficient derivative function to be evaluated.
+        prearg_val: ``shape=(N, M1)``
+
+            Matrix containing pre-arguments for the property function row-wise.
+        prearg_jac: ``shape=(N, M2)``
+
+            Matrix containing pre-arguments for the derivative function row-wise.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape(N, num_components)``
+
+            (Normalized) partial fractions.
+
+    Returns:
+        An array of shape ``(num_components, 2 + num_components, N)``, where the first
+        two dimensions represent the derivatives of the coefficients (per component).
+
+    """
+    n, ncomp = xn.shape
+    dphis = np.empty((ncomp, 2 + ncomp, n))
+    for i in nb.prange(n):
+        dphis[:, :, i] = fug_coeff_diff_func(
+            prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
+        )
+    return dphis
+
+
+class CompiledEoS(EquationOfState):
+    """Abstract base class for EoS compilation using numba.
+
+    This class needs functions computing
+
+    - fugacity coefficients
+    - enthalpies
+    - internal energies
+    - densities
+    - the derivatives w.r.t. pressure, temperature and partial fractions (array)
+
+    Respective functions must be assembled and compiled by a child class with a specific
+    EoS. The compiled functions are expected to have a specific signature.
+
+    Note:
+        It is up to the modeler to implement molar or massic values. The base class
+        makes no distinguishing. Consistency is key.
+
+    It also provides an interface for transport properties expected by the remaining
+    PorePy framework:
+
+    - dynamic viscosity
+    - thermal conductivity
+    - their derivatives w.r.t. pressure, temperature and partial fractions (array)
+
+    There are two ``prearg`` computations: One for property values, one for the
+    derivatives.
+
+    The purpose of the pre-argument is efficiency. Many EoS have computions of some
+    co-terms or compressibility factors f.e., which must only be computed once for all
+    remaining thermodynamic properties. The function for the ``prearg`` computation must
+    also have a specific signature.
+
+    The ``prearg`` for the derivatives will be fed to the functions representing
+    derivatives of thermodynamic quantities **additionally** to the ``prearg`` for
+    residuals.
+
+    Important:
+        To keep code simple but still to some degree efficient, the signatures always
+        contain an argument for partial fractions, even for one-component fluids (pure
+        fluids). But the derivatives in that case should only return the p-T derivatives
+        i.e., a 1D array of size 2.
+        Concrete implementations needs to be case-sensitive to the number of components
+        and do not compute derivatives which in practice are zero.
+        The class will pass ones of shape ``(1,)`` in that case to the computations.
+
+    Parameters:
+        components: Sequence of components for which the EoS should be compiled.
+            The class :class:`~porepy.compositional.base.Component` is used as a storage
+            for physical properties, the only relevant information for the EoS.
+
+    """
+
+    def __init__(self, components: Sequence[Component]) -> None:
+        super().__init__(components)
+
+        self.pvT_function: PVTFunction
+        """EoS function returning pressure depending on specific volume temperature
+        and vector of fractions.
+        
+        Created during compilation.
+    
+        """
+
+        self.funcs: PropertyFunctionDict = {}
+        """Dictionary for storing functions which are compiled in various
+        ``get_*`` methods.
+
+        Accessed during :meth:`compile` to create vectorized functions, which
+        in return are stored in :attr:`gufuncs`.
+
+        See documentation of type class for more information.
+
+        """
+
+        self.gufuncs: dict[PropertyFunctionNames, VectorFunction] = {}
+        """Storage of vectorized versions of the functions found in :attr:`funcs`.
+
+        To be used for efficient evaluation of properties after the flash converged.
+
+        """
+
+        self._is_compiled: bool = False
+        """"Boolean to keep track of whether (costly) compilation process has been
+        performed. Should be required only once.
+
+        """
+
+    @property
+    def is_compiled(self) -> bool:
+        """Returns true, if :meth:`compile` has already been called, False otherwise."""
+        return self._is_compiled
+
+    @abc.abstractmethod
+    def get_pvT_function(self) -> PVTFunction:
+        """Abstract factory for the EoS-characteristic function, expressing
+        pressure through specific volume, temperature and a vector of fractions.
+
+        See also:
+            :data:`PVT_FUNC_SIGNATURE`
+
+        """
+
+    # TODO what is more efficient, just one pre-arg having everything?
+    # Or splitting for computations for residuals, since it does not need derivatives?
+    # 1. Armijo line search evaluated often, need only residual
+    # 2. On the other hand, residual pre-arg is evaluated twice, for residual and jac
+    @abc.abstractmethod
+    def get_prearg_for_values(self) -> VectorFunction:
+        """Abstract factory for implementing the compiled computation of the
+        pre-argument for the evaluation of thermodynamic properties.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`prearg_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_prearg_for_derivatives(self) -> VectorFunction:
+        """Abstract factory for implementing the compiled computation of the
+        pre-argument for the evaluation of derivatives of thermodynamic properties.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`prearg_template_func`.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_lnphis_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the fugacity coefficients.
+
+        Note:
+            This method must return the logarithm of the fugacity coefficients.
+            It is up to the modeler to risk applying the exponential and leave the log
+            space.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`fugacity_coeff_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_lnphis_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the derivatives of fugacity
+        coefficients.
+
+        The functions should return the derivative fugacities for each component
+        row-wise in a matrix.
+        It must contain the derivatives w.r.t. to the arguments and each fraction.
+        I.e. the return value must be an array with ``shape=(num_comp, m + num_comp)``.
+
+        Note:
+            This method must return the derivative of the logarithm of the fugacity
+            coefficients, to be consistent with :meth:`get_lnphis_function`.
+            I.e., treat :math:`a = \\log{\\phi}` and return :math:`\\partial a` without
+            actually computing the derivative of the logarithm.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`fugacity_coeff_derivative_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_h_function(self) -> ScalarFunction:
+        """Abstract factory for compiled computations of the specific enthalpy.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_h_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the derivatives of the
+        enthalpy function for a phase.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_u_function(self) -> ScalarFunction:
+        """Abstract factory for compiled computations of the specific internal energy.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_u_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the derivatives of the
+        internal energy function for a phase.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_rho_function(self) -> ScalarFunction:
+        """Abstract factory for compiled computations of the density.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_rho_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the derivatives of the
+        density function for a phase.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_mu_function(self) -> ScalarFunction:
+        """Abstract factory for compiled computations of the dynamic viscosity.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_mu_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the derivatives of the
+        viscosity function for a phase.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_kappa_function(self) -> ScalarFunction:
+        """Abstract factory for compiled computations of the thermal conductivity.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_kappa_function(self) -> VectorFunction:
+        """Abstract factory for compiled computations of the derivatives of the
+        thermal conductivity function for a phase.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        pass
+
+    def get_v_function(self) -> ScalarFunction:
+        """Factory for compiled computations of the specific volume.
+
+        The specific volume is computed as the reciprocal of the return value of
+        :meth:`get_rho_function`.
+
+        Note:
+            This function is compiled faster, if the density function has already been
+            compiled and stored in :attr:`funcs`.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        rho_c = self.funcs.get("rho", None)
+        if rho_c is None:
+            rho_c = self.get_rho_function()
+
+        rho_c = cast(ScalarFunction, rho_c)
+
+        @njit(PROPERTY_FUNC_SIGNATURE)
+        def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            rho = rho_c(prearg, p, T, xn)
+            if rho > 0.0:
+                return 1.0 / rho
+            else:
+                return 0.0
+
+        return v_c
+
+    def get_grad_v_function(self) -> VectorFunction:
+        """Factory for compiled computations of the derivatives of the
+        specific volume for a phase.
+
+        Specific volume is expressed as the reciprocal of density.
+        Hence the computations utilize :meth:`get_rho_function`,
+        :meth:`get_grad_rho_function` and the chain-rule to compute the
+        derivatives.
+
+        Note:
+            This function is compiled faster, if the density function and its
+            derivatives have already been compiled and stored in :attr:`funcs`.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        rho_c = self.funcs.get("rho", None)
+        if rho_c is None:
+            rho_c = self.get_rho_function()
+
+        drho_c = self.funcs.get("drho", None)
+        if drho_c is None:
+            drho_c = self.get_grad_rho_function()
+
+        rho_c = cast(ScalarFunction, rho_c)
+        drho_c = cast(VectorFunction, drho_c)
+
+        @njit(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+        def dv_c(
+            prearg_res: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            rho = rho_c(prearg_res, p, T, xn)
+            drho = drho_c(prearg_res, prearg_jac, p, T, xn)
+            if rho > 0.0:
+                # chain rule: dv = d(1 / rho) = - 1 / rho**2 * drho
+                return -drho / rho**2
+            else:
+                return np.zeros_like(drho)
+
+        return dv_c
+
+    def compile(self) -> None:
+        """Compiles vectorized functions for properties, depending on pre-arguments,
+        pressure, temperature and fractions.
+
+        Accesses :attr:`funcs` to find functions for element-wise computations.
+        If not found, calls various ``get_*`` methods to create them and stores them
+        in :attr:`funcs`.
+
+        Important:
+            This function takes possibly long to complete. It compiles all scalar, and
+            vectorized computations of properties.
+
+            Hence it checks whether it has already been run or not.
+
+        """
+
+        if self.is_compiled:
+            return
+
+        logger.info("Compiling EoS function ..")
+        self.pvT_function = njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8[:]))(
+            self.get_pvT_function()
+        )
+
+        logger.info("Compiling pre-arguments ..")
+        self.funcs["prearg_val"] = njit(PREARGUMENT_FUNC_SIGNATURE)(
+            self.get_prearg_for_values()
+        )
+        self.funcs["prearg_jac"] = njit(PREARGUMENT_DFUNC_SIGNATURE)(
+            self.get_prearg_for_derivatives()
+        )
+
+        logger.info("Compiling real property functions ..")
+
+        self.funcs["phis"] = njit(FUGACITY_COEFF_FUNC_SIGNATURE)(
+            self.get_lnphis_function()
+        )
+        self.funcs["dphis"] = njit(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE)(
+            self.get_grad_lnphis_function()
+        )
+
+        prop_compiler = njit(PROPERTY_FUNC_SIGNATURE)
+        dprop_compiler = njit(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+
+        self.funcs["h"] = prop_compiler(self.get_h_function())
+        self.funcs["u"] = prop_compiler(self.get_u_function())
+        self.funcs["rho"] = prop_compiler(self.get_rho_function())
+        self.funcs["v"] = prop_compiler(self.get_v_function())
+        self.funcs["mu"] = prop_compiler(self.get_mu_function())
+        self.funcs["kappa"] = prop_compiler(self.get_kappa_function())
+
+        self.funcs["dh"] = dprop_compiler(self.get_grad_h_function())
+        self.funcs["du"] = dprop_compiler(self.get_grad_u_function())
+        self.funcs["drho"] = dprop_compiler(self.get_grad_rho_function())
+        self.funcs["dv"] = dprop_compiler(self.get_grad_v_function())
+        self.funcs["dmu"] = dprop_compiler(self.get_grad_mu_function())
+        self.funcs["dkappa"] = dprop_compiler(self.get_grad_kappa_function())
+
+        logger.info("Assembling vectorized functions ..")
+
+        # Constructint vectorized computations for fast evaluation of properties.
+
+        self.gufuncs["prearg_val"] = partial(
+            _evaluate_vectorized_prearg_func, self.funcs["prearg_val"]
+        )
+        self.gufuncs["prearg_jac"] = partial(
+            _evaluate_vectorized_prearg_d_func, self.funcs["prearg_jac"]
+        )
+
+        self.gufuncs["phis"] = partial(
+            _evaluate_vectorized_fug_coeff_func, self.funcs["phis"]
+        )
+        self.gufuncs["dphis"] = partial(
+            _evaluate_vectorized_fug_coeff_diff_func, self.funcs["dphis"]
+        )
+
+        keys: list[PropertyFunctionNames] = ["h", "u", "rho", "v", "mu", "kappa"]
+        for k in keys:
+            self.gufuncs[k] = partial(_evaluate_vectorized_property_func, self.funcs[k])
+            dk = cast(PropertyFunctionNames, f"d{k}")
+            self.gufuncs[dk] = partial(
+                _evaluate_vectorized_property_derivatives_func, self.funcs[dk]
+            )
+
+        self._is_compiled = True
+
+    def compute_phase_properties(
+        self,
+        phase_state: PhysicalState,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
+    ) -> PhaseProperties:
+        """This method must only be called after the vectorized computations have been
+        compiled (see :meth:`compile`).
+
+        Note:
+            The returned derivatives include derivatives w.r.t. (physical) partial
+            fractions, not extended fractions.
+
+        Important:
+            The last element of ``thermodynamic_input`` is expected to be a family of
+            (extended) partial fractions belonging to a phase, i.e. a 2D array.
+            They will be normalized before calling the compiled property functions
+
+        Parameters:
+            phase_State: See :class:`~porepy.compositional.states.PhysicalState`.
+            p: ``shape=(N,)``
+
+                Pressure values.
+            T: ``shape=(N,)``
+
+                Temperature values.
+            x: ``shape=(num_comp, N)``
+
+                Partial fractions per component (row-wise). Note that extended partial
+                fractions must be normalized before passing them as arguments.
+            params: Parameters to be passed to the pre-argument functions. If not
+                provided, a zero array will be passed.
+
+        Returns:
+            A complete datastructure containing values for thermodynamic phase
+            properties and their derivatives.
+
+        """
+
+        # NOTE this first case also covers the single-component case in the unified
+        # setting. The extended fractions are always passed.
+        if len(thermodynamic_input) == 3:
+            x = thermodynamic_input[-1]
+        # Partial fractions are passed individually.
+        elif len(thermodynamic_input) == 2 + self.nc:
+            x = np.array(thermodynamic_input[-self.nc :])
+            thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
+        # If only 1 component
+        elif len(thermodynamic_input) == 2 and self.nc == 1:
+            x = np.ones((1, thermodynamic_input[0].size))
+            thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
+        else:
+            raise ValueError(
+                "Compiled EoS expects input in format (p, T, x_matrix) or "
+                "(p, T, x_1, .., x_n) or (p, T) in case only 1 component."
+            )
+
+        # Reshape to matrix in the single-value or single-component case for
+        # compatibility reasons.
+        if x.ndim == 1 and thermodynamic_input[0].size == 1:
+            x = x.reshape((self.nc, 1))
+        elif x.ndim == 1 and self.nc == 1:
+            x = x.reshape((1, x.size))
+
+        # Assert basic format to avoid unexpected behavior in compiled computations.
+        assert thermodynamic_input[0].shape == thermodynamic_input[1].shape, (
+            "Expecting thermodynamic input to be equally shaped."
+        )
+        assert x.ndim == 2, (
+            "Could not extract partial fractions as 2D array from thermodynamic input."
+        )
+        assert x.shape == (self.nc, thermodynamic_input[0].size), (
+            "Unexpected shape of partial fractions."
+        )
+
+        # NOTE: The vectorized functions expect fractions column-wise, while the
+        # remainig framework expects them row-wise.
+        # This is because the remaining framework iterates usually over components and
+        # the primary axis of 2D arrays is the zero-th (rows).
+        # The parallel evaluation on the other hand, takes all arguments row-wise, hence
+        # the transpose here.
+        # Also, cap from below by tiny number to avoid division by zero or negative
+        # values.
+        x_norm = normalize_rows(np.maximum(x, 1e-14).T)
+
+        thermodynamic_input = tuple([_ for _ in thermodynamic_input[:-1]] + [x_norm])
+
+        # Inferring shape of parameter array.
+        if params is None:
+            # NOTE explicitly set second axis to zero, for the so that the vectorized
+            # evaluation will pass arrays with shape (0,) to the pre-argument functions.
+            # Otherwise a float will be passed, which is not accepted by the signature
+            # of the pre-argument functions.
+            params_array = np.zeros((x_norm.shape[0], 0))
+        else:
+            params_array = np.zeros((x_norm.shape[0], len(params)))
+            for i, param in enumerate(params):
+                params_array[:, i] = param
+
+        prearg_val = self.gufuncs["prearg_val"](
+            phase_state, *thermodynamic_input, params_array
+        )
+        prearg_jac = self.gufuncs["prearg_jac"](
+            prearg_val, *thermodynamic_input, params_array
+        )
+
+        props = {}
+        keys: list[PropertyFunctionNames] = ["h", "u", "rho", "phis", "mu", "kappa"]
+        for k in keys:
+            props[k] = self.gufuncs[k](prearg_val, *thermodynamic_input)
+            dk = cast(PropertyFunctionNames, f"d{k}")
+            props[dk] = self.gufuncs[dk](prearg_val, prearg_jac, *thermodynamic_input)
+
+        return PhaseProperties(
+            state=phase_state, x=x, **cast(dict[str, np.ndarray], props)
+        )

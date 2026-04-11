@@ -1,14 +1,14 @@
-"""This module contains compiled versions of the Peng-Robinson EoS functionalities,
-and related functions.
+"""This module contains compiled versions of the Peng-Robinson equation of state.
 
-The functions provided here are building on lambdified expressions in
-:mod:`~porepy.compositional.peng_robinson.eos_symbolic`.
+It is designed for the persistent-variables formulation, i.e. it provides extended
+fluid properties using extended compressibility factors where a phase is physically
+absent.
 
-Important:
-    Importing this module for the first time triggers numba compilation with static
-    signatures for a multitude of functions.
-
-    This takes a considerable amount of time.
+this implies that in the 1-component case, the derivative w.r.t. to the  single
+(extended) partial fraction is always included, since it is a variable if a phase
+disapears, though its value should always be 1 when passed to the property computation.
+The chain rule for extended fractions should be performed outside of the computations
+performed here.
 
 """
 
@@ -16,1142 +16,761 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Optional, Sequence, TypeVar
+from typing import Optional, Sequence
 
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
-from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
+from .._global_thermodynamic_reference_state import R_U
+from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
+from ..compiled_eos import (
+    CompiledEoS,
+    PropertyFunctionDict,
+    PVTFunction,
+    ScalarFunction,
+    VectorFunction,
+)
+from ..ideal import IdealFluid
+from ..ideal.ideal_fluid import grad_ideal_rho, ideal_rho
 from ..materials import FluidComponent
-from . import eos_symbolic
-
-# Import explicitely to avoid some issues in numba (referencing vars internally).
-from .eos_symbolic import A_CRIT, B_CRIT
-from .utils import thd_function_type
+from ..utils import PhysicalState
+from .compressibility_factor import (
+    A_CRIT,
+    B_CRIT,
+    get_compressibility_factor,
+    get_compressibility_factor_derivatives,
+)
 
 __all__ = [
-    "characteristic_residual",
-    "get_root_case",
-    "is_extended_root",
-    "critical_line",
-    "widom_line",
-    "compressibility_factor",
-    "PengRobinsonCompiler",
+    "compact_dense_symmat",
+    "a_VdW",
+    "grad_a_VdW",
+    "hess_a_VdW",
+    "a_dl",
+    "grad_a_dl",
+    "hess_a_dl",
+    "b_dl",
+    "grad_b_dl",
+    "CompiledPengRobinson",
 ]
 
 
 logger = logging.getLogger(__name__)
 
 
-_NUMBA_STATIC_COMPILE_KWARGS: dict[str, Any] = {
-    "fastmath": NUMBA_FAST_MATH,
-    "cache": NUMBA_CACHE,
-}
-"""Shortcut to frequently used numba-compiler flags."""
-
-
-_T = TypeVar("_T", float, np.ndarray)
-"""Type variable for functions where the operations are analogous for floats and arrays.
-"""
-
-
-_import_msg: str = "(import peng_robinson/eos.py)"
-_import_start = time.time()
-
-logger.info(f"{_import_msg} Compiling Peng-Robinson EoS from symbolic source ..")
-
-
-# region Functions related to the characteristic polynomial and its roots
-
-
-logger.debug(f"{_import_msg} Compiling cubic polynomial ..")
-
-
-coeff_0: Callable[[_T, _T], _T] = nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_symbolic.coeff_0)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.coeff_0`.
-
-Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
-
-"""
-
-
-coeff_1: Callable[[_T, _T], _T] = nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_symbolic.coeff_1)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.coeff_1`.
-
-Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
-
-"""
-
-
-coeff_2: Callable[[_T, _T], _T] = nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_symbolic.coeff_2)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.coeff_2`.
-
-Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
-
-"""
-
-
-# NOTE: Due to internal usage of already compiled function for non-reduced coefficients
-# the formulas for the reduced coefficients must be re-implemented and we cannot
-# directly compile the respective functions.
-@nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def reduced_coeff_0(A: _T, B: _T) -> _T:
-    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
-    reduced_coeff_0`.
-
-    Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
-
-    """
-    c2 = coeff_2(A, B)
-    return c2**3 * (2.0 / 27.0) - c2 * coeff_1(A, B) * (1.0 / 3.0) + coeff_0(A, B)
-
-
-@nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def reduced_coeff_1(A: _T, B: _T) -> _T:
-    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
-    reduced_coeff_1`.
-
-    Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
-
-    """
-    return coeff_1(A, B) - coeff_2(A, B) ** 2 * (1.0 / 3.0)
-
-
-discriminant: Callable[[_T, _T], _T] = nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_symbolic.discriminant)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
-discriminant`.
-
-Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
-
-"""
-
-
-@nb.njit(nb.i1(nb.f8, nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
-def _get_root_case(A: float, B: float, eps: float) -> int:
-    """Internal, scalar function for :data:`get_root_case`.
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def covolume_dep(Z: float, B: float) -> float:
+    r"""Special treatment of departure term to remain well-defined.
 
     Note:
-        Due to logical operations performed, it is easier (for numba) to split the
-        scalar and vector functions into two entities.
+        Consider switching to expression in terms of specific volume and
+        (dimensiona) covolume. Literature says more robust for near-critical
+        applications.
+
+    Parameters:
+        Z: Compressibility factor.
+        B: Dimensionless covolume.
+
+    Returns:
+        :math:`\ln{\frac{Z +  (1 + \sqrt{2}) B}{Z +  (1 + \sqrt{2}) B}}`.
+        If the log-argument goes below ``c``, ``c`` is chosen,
 
     """
-    q = reduced_coeff_0(A, B)
-    r = reduced_coeff_1(A, B)
-    d = discriminant(q, r)
+    tol = 1e-14
+    _s2 = np.sqrt(2)
+    _cn = 1 + _s2
+    _cd = 1 - _s2
+    ZB1 = max((Z + _cn * B) / (Z + _cd * B), tol)
+    return np.log1p(ZB1 - 1.0)
 
-    # if discriminant is positive, the polynomial has one real root
-    if d > eps:
-        return 1
-    # if discriminant is negative, the polynomial has three distinct real roots
-    if d < -eps:
-        return 3
-    # if discrimant is zero, we are in the degenerate case
+
+@njit(nb.f8[:](nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def grad_covolume_dep(Z: float, B: float) -> float:
+    r"""Gradient of :func:`_lnZB1`.
+
+    Parameters:
+        Z: Compressibility factor.
+        B: Dimensionless covolume.
+
+    Returns:
+        Derivatives w.r.t. Z and B.
+
+    """
+    tol = 1e-14
+    _s2 = np.sqrt(2)
+    _cn = 1 + _s2
+    _cd = 1 - _s2
+
+    denom = Z + _cd * B
+    denom2 = denom**2
+    ZB1 = max((Z + _cn * B) / denom, tol)
+
+    dZB1dZ = -2.0 * _s2 * B / denom2
+    dZB1dB = 2.0 * _s2 * Z / denom2
+    return np.array((dZB1dZ, dZB1dB)) / np.abs(ZB1)
+
+
+@njit(
+    [nb.f8[:, :](nb.f8[:]), nb.f8[:](nb.f8[:, :])], fastmath=NUMBA_FAST_MATH, cache=True
+)
+def compact_dense_symmat(mat_arr: np.ndarray) -> np.ndarray:
+    """Compact storage of symmetric, dense, square matrix by storing only (parts of)
+    rows of the upper triangle matrix, concatenated into a 1D array.
+
+    It stores the concatenated rows ``mat[i, i:]`` only.
+
+    Serves also as a reverse operation (expanding 1D to 2D array.)
+
+    Parameters:
+        matt_arr: A 1D or a 2D array with ``shape=(n(n+1)/2,)`` or ``shape=(n,n)``
+            respectively.
+
+    Returns:
+        If ``mat_arr`` is a 1D array, returns a symmetric 2D array.
+        If ``mat_arr`` is a 2D array, returns a 1D array.
+
+    """
+    if mat_arr.ndim == 1:
+        m = mat_arr.size
+        n = (-1 + np.sqrt(1 + 8 * m)) / 2
+        N = int(n)
+        if n != N or N < 0:
+            raise ValueError("Could not determine square shape of original matrix.")
+    elif mat_arr.ndim == 2:
+        N = mat_arr.shape[0]
+        assert mat_arr.shape[1] == N, "Expecting square matrix"
     else:
-        # if first reduced coefficient is zero, the polynomial has a triple root
-        # the critical point is a known triple root
-        if np.abs(r) < eps or (np.abs(A - A_CRIT) < eps and np.abs(B - B_CRIT) < eps):
-            return 0
-        # if first reduced coefficient is not zero, the polynomial has 2 real roots
-        # one with multiplicity 2
-        # the zero point (A=B=0) is one such case.
-        else:
-            return 2
+        raise ValueError("Expecting either 1D or 2D array.")
+
+    ids = np.array([0] + [n * (n + 1) / 2 for n in range(N)]).astype(np.int_)
+
+    if mat_arr.ndim == 2:
+        out = np.zeros((int(N * (N + 1) / 2)))
+        for i in range(N):
+            out[i * N - ids[i] : (i + 1) * N - ids[i + 1]] = mat_arr[i, i:]
+    elif mat_arr.ndim == 1:
+        out = np.zeros((N, N))
+        for i in range(N):
+            out[i, i:] = mat_arr[i * N - ids[i] : (i + 1) * N - ids[i + 1]]
+            # For symmetry.
+            out[i, i] *= 0.5
+        out = out + out.T
+
+    return out
 
 
-@nb.njit(
-    nb.i1[:](nb.f8[:], nb.f8[:], nb.f8),
-    parallel=NUMBA_PARALLEL,
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def get_root_case(A: np.ndarray, B: np.ndarray, eps: float) -> np.ndarray:
-    """A piece-wise constant function dependent on non-dimensional cohesion and
-    covolume, representing the number of roots of the characteristic polynomial.
-
-    Function with signature ``(float64, float64, float64) -> int8``.
-    Can be called with vectorized input for ``A,B``.
-
-    See also:
-
-        `Cardano formula <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_ .
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def bc_component(pc: np.ndarray, Tc: np.ndarray) -> float:
+    """Computes the critical covolume of a component based on critical values.
 
     Parameters:
-        A: Non-dimensional cohesion.
-        B: Non-dimensional covolume.
-        eps: Numerical zero to detect degenerate polynomials (zero discriminant), e.g.
-            ``1e-14``.
+        pc: Critical pressure.
+        Tc: Critical temperature.
 
     Returns:
-        An integer indicating the root case
-
-        - 0 : triple root
-        - 1 : 1 real root, 2 complex-conjugated roots
-        - 2 : 2 real roots, one with multiplicity 2
-        - 3 : 3 distinct real roots
+        :math:`B_c R \\frac{T_c}{p_c}`, with :math:`B_c` being
+        :data:`~porepy.compositional.peng_robinson.compressibility_factor.B_CRIT`.
 
     """
-    assert A.shape == B.shape
-    root_cases = np.empty(A.shape, dtype=np.int8)
-    for i in nb.prange(A.shape[0]):
-        root_cases[i] = _get_root_case(A[i], B[i], eps)
-    return root_cases
+    return B_CRIT * R_U * Tc / pc
 
 
-@nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def characteristic_residual(Z: _T, A: _T, B: _T) -> _T:
-    r"""Computes the residual of the PR cubic polynomial, for a given root ``Z`` and
-    the parametrization in terms of cohesion and co-volume.
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def b_dl(b: float, p: float, T: float) -> float:
+    """Computes the dimensionless covolume.
 
     Parameters:
-        Z: A supposed root.
-        A: Non-dimensional cohesion.
-        B: Non-dimensional covolume.
+        a: Covolume.
+        p: Pressure.
+        T: Temperature.
 
     Returns:
-        The residual of the characteristic polynomial
-        :math:`Z^3 + c_2(A, B) Z^2 + c_1(A, B) Z + c_0(A, B)`.
-
-        If ``Z`` is an actual root, the residual is 0.
+        :math:`\\frac{a p}{R T}`.
 
     """
-    c2 = coeff_2(A, B)
-    c1 = coeff_1(A, B)
-    c0 = coeff_0(A, B)
-
-    return Z**3 + c2 * Z**2 + c1 * Z + c0
+    return b * p / (R_U * T)
 
 
-# endregion
+@njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def grad_b_dl(grad_b: np.ndarray, b: float, p: float, T: float) -> np.ndarray:
+    """Expands the gradient of the cohesion to the gradient to the dimensionless
+    cohesion by chainrule.
 
-
-# region Functions related to the A-B space
-
-
-logger.debug(f"{_import_msg} Compiling A-B space functions ..")
-
-
-@nb.njit(
-    [
-        nb.f8(nb.f8),
-        nb.f8[:](nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def critical_line(A: _T) -> _T:
-    r"""Parametrization of the critical line for the PR EoS in the A-B space.
+    Note:
+        If there is only 1 component, i.e. ``grad_b`` contains only the (constant)
+        cohesion of the component, the resulting gradient is of shape ``(2,)``,
+        containing only pressure- and temperature derivative.
 
     Parameters:
-        A: Non-dimensional cohesion.
+        grad_b: Gradient of covolume. Expecting only derivatives w.r.t. partial
+            fractions.
+        b: Covolume.
+        p: Pressure.
+        T: Temperature.
 
     Returns:
-        The critical line parametrized as ``B(A)``
-
-        .. math::
-
-            \\frac{B_{crit}}{A_{crit}} A
+        A 1D array of size ``2 + grad_b.size``, pre-appending the
+        pressure- and temperature-derivative.
 
     """
-    return (B_CRIT / A_CRIT) * A
+    RT = R_U * T
+    dBdpT = np.array((b / RT, -b * p / (RT * T)))
+    return np.hstack((dBdpT, grad_b * p / RT))
 
 
-@nb.njit(
-    [
-        nb.f8(nb.f8),
-        nb.f8[:](nb.f8[:]),
-    ],
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def widom_line(A: _T) -> _T:
-    r"""Parametrization of the Widom-line for the PR EoS in the A-B space.
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def ac_component(pc: float, Tc: float) -> float:
+    """Computes the critical cohesion of a component based on critical values.
 
     Parameters:
-        A: Non-dimensional cohesion.
+        pc: Critical pressure.
+        Tc: Critical temperature.
 
     Returns:
-        The Widom-line parametrized as ``B(A)`` in the A-B space
-
-        .. math::
-
-            B_{crit} + 0.8 \cdot 0.3381965009398633 \cdot \left(A - A_{crit}\right)
+        :math:`A_c \\frac{(R T_c)^2}{p_c}`, with :math:`A_c` being
+        :data:`~porepy.compositional.peng_robinson.compressibility_factor.A_CRIT`.
 
     """
-    return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
+    RT = R_U * Tc
+    return A_CRIT * RT**2 / pc
 
 
-@nb.njit(
-    [
-        nb.f8(
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-        nb.f8(
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-        ),
-    ],
+@njit(nb.f8(nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def _k_of_omega(omega: float) -> float:
+    """Returns the weight depending on the acentric factor, which is used in
+    :func:`alpha` and its derivatives."""
+    if omega < 0.491:
+        return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
+    else:
+        return 0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
+
+
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def alpha(T: float, Tc: float, omega: float) -> float:
+    """Returns the temperature-dependent weight in the cohesion of a component.
+
+    Note:
+        Modified weight :math:`k(\\omega)` is used according to
+        `Zhu and Okuno (2014) <https://doi.org/10.1016/j.fluid.2014.07.003>`_ .
+
+    Parameters:
+        T: Temperature.
+        Tc: Critical temperature of the component.
+        omega: Acentric factor of the component.
+
+    Returns:
+        :math:`(1 + k(\\omega)(1 - \\sqrt(\\frac{T}{T_c})))^2`
+    """
+    Tr = max(T / Tc, 1e-15)
+    salpha = 1.0 + _k_of_omega(omega) * (1.0 - np.sqrt(Tr))
+    return salpha**2
+
+
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def dalpha_dT(T: float, Tc: float, omega: float) -> float:
+    """Returns the derivative of :func:`alpha` with respect to temperature."""
+    k = _k_of_omega(omega)
+    sqrtTr = np.sqrt(max(T / Tc, 1e-15))
+    return -k / Tc * ((1 + k) / sqrtTr - k)
+
+
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def ddalpha_dTT(T: float, Tc: float, omega: float) -> float:
+    """Returns the second derivative of :func:`alpha` w.r.t. temperature."""
+    k = _k_of_omega(omega)
+    sqrtTr = np.sqrt(max(T / Tc, 1e-15))
+    return k * (k + 1) / (2.0 * Tc**2 * sqrtTr**3)
+
+
+@njit(
+    nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def a_VdW(
+    T: float,
+    xn: np.ndarray,
+    Tcs: np.ndarray,
+    omegas: np.ndarray,
+    acs: np.ndarray,
+    bips: np.ndarray,
+) -> float:
+    """Van der Waals cohesion for fluid mixtures.
+
+    Parameters:
+        T: Temperature.
+        xn: Partial fractions per component.
+        Tcs: Critical temperature per component.
+        omegas: Acentric factor per component.
+        acs: Critical cohesion per component.
+        bip: Symmetric matrix of binary interaction coefficients.
+
+    Returns:
+        :math:`\\sum_i\\sum_j x_i x_j\\sqrt{a_i a_j}(1 - \\delta_ij)`, using
+        :func:`a_component` and :math:`\\delta` denoting binary interaction parameters.
+
+    """
+
+    nc = xn.size
+
+    a = 0.0
+    for i in range(nc):
+        a_i = alpha(T, Tcs[i], omegas[i]) * acs[i]
+        a += xn[i] * xn[i] * a_i
+        for j in range(i + 1, nc):
+            a += 2.0 * (
+                xn[i]
+                * xn[j]
+                * np.sqrt(a_i * alpha(T, Tcs[j], omegas[j]) * acs[j])
+                * (1.0 - bips[i, j])
+            )
+
+    return a
+
+
+@njit(
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def grad_a_VdW(
+    T: float,
+    xn: np.ndarray,
+    Tcs: np.ndarray,
+    omegas: np.ndarray,
+    acs: np.ndarray,
+    bips: np.ndarray,
+) -> np.ndarray:
+    """Gradient of Van der Waals cohesion for fluid mixtures with respect to
+    temperature and partial fractions.
+
+    Parameters:
+        T: Temperature.
+        xn: Partial fractions per component.
+        Tcs: Critical temperature per component.
+        omegas: Acentric factor per component.
+        acs: Critical cohesion per component.
+        bip: Symmetric matrix of binary interaction coefficients.
+
+    Returns:
+        A 1D array of size ``1 + xn`` containing the temperature derivative followed by
+        derivatives with respect to partial fractions.
+
+    """
+    nc = xn.size
+
+    dadT = 0.0
+    da = np.zeros(nc + 1)
+
+    for i in range(nc):
+        dTai = acs[i] * dalpha_dT(T, Tcs[i], omegas[i])
+        ai = acs[i] * alpha(T, Tcs[i], omegas[i])
+
+        for j in range(nc):
+            dTaj = acs[j] * dalpha_dT(T, Tcs[j], omegas[j])
+            aj = acs[j] * alpha(T, Tcs[j], omegas[j])
+
+            dij = 1.0 - bips[i, j]
+            saij = np.sqrt(ai * aj)
+
+            da[i + 1] += xn[j] * saij * dij
+
+            dadT += xn[i] * xn[j] / saij * (ai * dTaj + aj * dTai) * dij
+
+    da *= 2.0
+    da[0] = dadT * 0.5
+    return da
+
+
+@njit(
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def hess_a_VdW(
+    T: float,
+    xn: np.ndarray,
+    Tcs: np.ndarray,
+    omegas: np.ndarray,
+    acs: np.ndarray,
+    bips: np.ndarray,
+) -> np.ndarray:
+    """Hessian of Van der Waals cohesion for fluid mixtures with respect to
+    temperature and partial fractions.
+
+    Parameters:
+        T: Temperature.
+        xn: Partial fractions per component.
+        Tcs: Critical temperature per component.
+        omegas: Acentric factor per component.
+        acs: Critical cohesion per component.
+        bip: Symmetric matrix of binary interaction coefficients.
+
+    Returns:
+        A compact form of the Hessian, consisting of the upper triangle including
+        diagonal (see :func:`compact_dense_symmat`).
+
+    """
+    nc = xn.size
+
+    ii = 1 + nc
+    grad_dTa = np.zeros(ii)
+    Hess_x = np.zeros((nc, nc))
+    for i in range(nc):
+        xi = xn[i]
+        ai = acs[i] * alpha(T, Tcs[i], omegas[i])
+        dTai = acs[i] * dalpha_dT(T, Tcs[i], omegas[i])
+        dTTai = acs[i] * ddalpha_dTT(T, Tcs[i], omegas[i])
+        for j in range(nc):
+            dij = 1 - bips[i, j]
+            xj = xn[j]
+            aj = acs[j] * alpha(T, Tcs[j], omegas[j])
+            dTaj = acs[j] * dalpha_dT(T, Tcs[j], omegas[j])
+            dTTaj = acs[j] * ddalpha_dTT(T, Tcs[j], omegas[j])
+
+            saij = np.sqrt(max(ai * aj, 1e-15))
+            dTaij = ai * dTaj + dTai * aj
+            # Contribution to dTT
+            grad_dTa[0] += (
+                xi
+                * xj
+                * dij
+                * 0.5
+                / saij
+                * (
+                    (2.0 * dTai * dTaj + ai * dTTaj + dTTai * aj)
+                    - 0.5 * (dTaij / saij) ** 2
+                )
+            )
+            # Contribution to dxdT.
+            grad_dTa[i + 1] += xj / saij * dij * dTaij
+            # dxidxj
+            if j >= i:
+                Hess_x[i, j] = 2.0 * saij * dij
+
+    # Hessian is symmetric, return only upper triangle (including diag).
+    hess_arr = np.zeros(int((nc + 2) * (nc + 1) / 2))
+    hess_arr[:ii] = grad_dTa
+    hess_arr[ii:] = compact_dense_symmat(Hess_x)
+    return hess_arr
+
+
+@njit(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def a_dl(a: float, p: float, T: float) -> float:
+    """Computes the dimensionless cohesion.
+
+    Parameters:
+        a: Cohesion.
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        :math:`\\frac{a p}{(R T)^2}`.
+
+    """
+    iR = 1.0 / R_U**2
+    return iR * a * p / T**2
+
+
+@njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def grad_a_dl(grad_a: np.ndarray, a: float, p: float, T: float) -> np.ndarray:
+    """Expands the gradient of the cohesion to the gradient to the dimensionless
+    cohesion by chainrule.
+
+    Parameters:
+        grad_a: Gradient of cohesion. Expecting temperature derivative and possibly
+            derivatives w.r.t. partial fractions.
+        a: cohesion
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        A 1D array of size ``1 + grad_a.size``, pre-appending the
+        pressure-derivative.
+
+    """
+    RT2 = R_U**2 * T**2
+
+    dAdp = a / RT2
+    dAdTx = grad_a * p / RT2
+    dAdTx[0] -= 2.0 * a * p / (RT2 * T)
+    return np.hstack((np.ones(1) * dAdp, dAdTx))
+
+
+@njit(
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def point_to_line_distance(p: np.ndarray, lp1: np.ndarray, lp2: np.ndarray) -> float:
-    """Computes the distance between a 2-D point and a line spanned by two points.
-
-    NJIT-ed function with signature ``(float64[:], float64[:], float64[:]) -> float64``.
-
-    Parameters:
-        p: ``shape=(2,n)``
-
-            Point(s) in 2D space.
-        lp1: ``shape=(2,)``
-
-            First point spanning the line.
-        lp2: ``shape=(2,)``
-
-            Second point spanning the line.
-
-    Returns:
-        Normal distance between ``p`` and the spanned line.
-
-    """
-
-    d = np.sqrt((lp2[0] - lp1[0]) ** 2 + (lp2[1] - lp1[1]) ** 2)
-    n = np.abs(
-        (lp2[0] - lp1[0]) * (lp1[1] - p[1]) - (lp1[0] - p[0]) * (lp2[1] - lp1[1])
-    )
-    return n / d
-
-
-B_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.array([0.0, B_CRIT], dtype=np.float64),
-    np.array([A_CRIT, B_CRIT], dtype=np.float64),
-)
-r"""Two 2D points characterizing the line ``B=B_CRIT`` in the A-B space, namely
-
-.. math::
-
-    (0, B_{crit}),~(A_{crit},B_{crit})
-
-See :data:`B_CRIT`, data:`A_CRIT`.
-
-"""
-
-
-S_CRIT_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.zeros(2, dtype=np.float64),
-    np.array([A_CRIT, B_CRIT], dtype=np.float64),
-)
-r"""Two 2D points characterizing the super-critical line in the A-B space, namely
-
-.. math::
-
-    (0,0),~(A_{crit},B_{crit})
-
-See :data:`B_CRIT`, data:`A_CRIT`.
-
-"""
-
-
-W_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.array([0.0, widom_line(0)], dtype=np.float64),
-    np.array([A_CRIT, widom_line(A_CRIT)], dtype=np.float64),
-)
-r"""Two 2D points characterizing the Widom-line for water.
-
-The points are created by using :func:`widom_line` for :math:`A\in\{0, A_{crit}\}`.
-
-See :data:`~porepy.compositional.peng_robinson.eos.A_CRIT`.
-
-"""
-
-
-# endregion
-
-
-# region Functions related to the compressibility factor
-# NJIT compilation of lambdified expressions
-# TODO sympy.lambdified functions are source-less and cannot be cached
-# find solution for this
-# see https://github.com/sympy/sympy/issues/18432
-# https://github.com/numba/numba/issues/5128
-def _compile_dZ(d_Z_: eos_symbolic.dZ_TYPE) -> Callable[[float, float], np.ndarray]:
-    """Helper function to wrap derivatives of compressibility factors into arrays.
-
-    Parameters:
-        d_Z_: Callable of derivative of root, dependent on two floats
-            (cohesion and covolume).
-
-    Returns:
-        NJIT-compiled function with signature ``(float64, float64) -> float64[:]``.
-
-    """
-    # make internal function, and external which wraps list into array
-    f = nb.njit(d_Z_, cache=False, fastmath=NUMBA_FAST_MATH)
-
-    @nb.njit(nb.f8[:](nb.f8, nb.f8), cache=False, fastmath=NUMBA_FAST_MATH)
-    def inner(a, b):
-        return np.array(f(a, b), dtype=np.float64)
-
-    return inner
-
-
-def _compile_Z(Z_: eos_symbolic.Z_TYPE) -> eos_symbolic.Z_TYPE:
-    """Helper function to compile expressions representing compressibility factors as
-    roots.
-
-    Parameters:
-        Z_: Callable for root calculation, dependent on two floats
-            (cohesion and covolume).
-
-    Returns:
-        NJIT-compiled function with signature ``(float64, float64) -> float64``.
-
-    """
-    return nb.njit(nb.f8(nb.f8, nb.f8), cache=False, fastmath=NUMBA_FAST_MATH)(Z_)
-
-
-logger.debug(f"{_import_msg} Compiling compressibility factors ..")
-
-
-# Standard compressibility factors and their derivatives
-
-Z_triple = _compile_Z(eos_symbolic.Z_triple_f)
-dZ_triple = _compile_dZ(eos_symbolic.dZ_triple_f)
-
-Z_one = _compile_Z(eos_symbolic.Z_one_f)
-dZ_one = _compile_dZ(eos_symbolic.dZ_one_f)
-
-Z_double_g = _compile_Z(eos_symbolic.Z_double_g_f)
-dZ_double_g = _compile_dZ(eos_symbolic.dZ_double_g_f)
-Z_double_l = _compile_Z(eos_symbolic.Z_double_l_f)
-dZ_double_l = _compile_dZ(eos_symbolic.dZ_double_l_f)
-
-Z_three_g = _compile_Z(eos_symbolic.Z_three_g_f)
-dZ_three_g = _compile_dZ(eos_symbolic.dZ_three_g_f)
-Z_three_l = _compile_Z(eos_symbolic.Z_three_l_f)
-dZ_three_l = _compile_dZ(eos_symbolic.dZ_three_l_f)
-Z_three_i = _compile_Z(eos_symbolic.Z_three_i_f)
-dZ_three_i = _compile_dZ(eos_symbolic.dZ_three_i_f)
-
-# extended compressibility factors and their derivatives
-
-
-@nb.njit(nb.f8(nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
-def W_subcrit(Z: float, B: float) -> float:
-    """Extended compressibility factor in the sub-critical area (Ben Gharbia 2021).
-
-    Parameters:
-        Z: The 1 real root.
-        B: Dimensionless co-volume.
-
-    Returns:
-        :math:`\\frac{1 - B - Z}{2}`
-
-    """
-    return (1 - B - Z) * 0.5
-
-
-@nb.njit(nb.f8[:](nb.f8[:]), **_NUMBA_STATIC_COMPILE_KWARGS)
-def dW_subcrit(d_Z: np.ndarray) -> np.ndarray:
-    """
-    Parameters:
-        d_Z: ``shape=(2,)``
-
-            The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-
-    Returns:
-        The derivative of :meth:`W_subcrit` w.r.t. the cohesion and covolume.
-
-    """
-    return -0.5 * np.array([d_Z[0], 1 + d_Z[1]])
-
-
-@nb.njit(nb.f8(nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
-def W_supercrit_l(Z: float, B: float) -> float:
-    """Extended liquid-like compressibility factor in the super-critical region, where
-    the gas-like phase is flagged as present.
-
-    Parameters:
-        Z: Existing, gas-like compressibility factor.
-        B: Dimensionless co-volume.
-
-    Returns:
-        :math:`Z + \\frac{B - Z}{2}`
-
-    """
-
-    return Z + (B - Z) * 0.5
-
-
-@nb.njit(nb.f8[:](nb.f8[:]), **_NUMBA_STATIC_COMPILE_KWARGS)
-def dW_supercrit_l(d_Z: np.ndarray) -> np.ndarray:
-    """
-    Parameters:
-        d_Z: ``shape=(2,)``
-
-            The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-
-    Returns:
-        The derivative of :meth:`W_supercrit_l` w.r.t. the cohesion and covolume.
-
-    """
-    return 0.5 * np.array([d_Z[0], 1 + d_Z[1]])
-
-
-@nb.njit(nb.f8(nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
-def W_supercrit_g(Z: float, B: float) -> float:
-    """Extended gas-like compressibility factor in the super-critical region, where
-    the liquid-like phase is flagged as present.
-
-    Parameters:
-        Z: Existing, liquid-like compressibility factor.
-        B: Dimensionless co-volume.
-
-    Returns:
-        :math:`B + \\frac{1 - B - Z}{2}`
-
-    """
-
-    return B + (1 - B - Z) * 0.5
-
-
-@nb.njit(nb.f8[:](nb.f8[:]), **_NUMBA_STATIC_COMPILE_KWARGS)
-def dW_supercrit_g(d_Z: np.ndarray) -> np.ndarray:
-    """
-    Parameters:
-        d_Z: ``shape=(2,)``
-
-            The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-
-    Returns:
-        The derivative of :meth:`W_supercrit_g` w.r.t. the cohesion and covolume.
-
-    """
-    return -0.5 * np.array([d_Z[0], d_Z[1] - 1])
-
-
-logger.debug(f"{_import_msg} Compiling general compressibility factor ..")
-
-
-@nb.njit(nb.i1(nb.f8, nb.f8, nb.i1, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
-def _is_extended_root(A: float, B: float, gaslike: int, eps: float) -> int:
-    """Internal, scalar function for :data:`is_extended_root`."""
-    nroot = _get_root_case(A, B, eps)
-    # super critical check
-    is_supercritical = B >= critical_line(A) or B >= B_CRIT
-    # below widom -> gas-like root is extended
-    is_below_widom = B < widom_line(A)
-
-    is_extended = 0  # default return value is 0, actual root.
-
-    # Classical extension case where only 1 root is present
-    if nroot == 1:
-        # in the supercritical area, the Water widom line is currently used
-        if is_supercritical:
-            # below the widom line, the gas-like root is asymmetrically extended
-            if is_below_widom and gaslike:
-                is_extended = 1
-            # above the Widom line, the liquid-like root is asymmetrically extended
-            elif not is_below_widom and not gaslike:
-                is_extended = 1
-        # in the sub-critical area, the approach by Ben Gharbia is used
-        # smaller root is liquid-like
-        else:
-            z = Z_one(A, B)
-            w = W_subcrit(z, B)
-            if w < z and not gaslike:
-                is_extended = 1
-            elif w >= z and gaslike:
-                is_extended = 1
-    # special case for 3-root region outside the sub-critical area:
-    # liquid always extended
-    elif nroot == 3:
-        if is_supercritical and not gaslike:
-            is_extended = 1
-
-    return is_extended
-
-
-@nb.njit(
-    nb.i1[:](nb.f8[:], nb.f8[:], nb.i1, nb.f8),
-    parallel=NUMBA_PARALLEL,
-    **_NUMBA_STATIC_COMPILE_KWARGS,
-)
-def is_extended_root(
-    A: np.ndarray, B: np.ndarray, gaslike: int, eps: float
+def hess_a_dl(
+    hess_a: np.ndarray, grad_a: np.ndarray, a: float, p: float, T: float
 ) -> np.ndarray:
-    """Checks if a configuration of gas-like flag, cohesion and covolume would lead to
-    an extended root.
-
-    If True, an extension procedure was applied, i.e. the compressibility factor
-    is not an actual root of the characteristic polynomial.
-
-    Numpy-universal function with signature ``(float64, float64, int8, float64) ->
-    int8``. Can be called with vectorized input for ``A,B``.
-
-    Note:
-        Argument ``gaslike`` must be also vectorized, if ``A`` and ``B`` are vectorized.
-        This is due to some numba-related peculiarities.
-        ``eps`` doesn't have to be vectorized.
+    """Expands the Hessian of the cohesion to the Hessian of the dimensionless
+    cohesion.
 
     Parameters:
-        A: Non-dimensional cohesion.
-        B: Non-dimensional covolume.
-        gaslike: 1 if a gas-like root is assumed, 0 otherwise.
-        eps: Numerical zero, used to determine the root case (see
-            :data:`get_root_case`).
+        hess_a: Hessian of cohesion in compact form.
+        grad_a: Gradient of cohesion.
+        a: cohesion
+        p: Pressure.
+        T: Temperature.
 
     Returns:
-        1, if the root is an extended root of the polynomial, 0 if it is an actual root.
+        A compact form of the Hessian, consisting of the upper triangle including
+        diagonal (see :func:`compact_dense_symmat`).
 
     """
-    assert A.shape == B.shape
-    Z = np.empty(A.shape, dtype=np.int8)
-    for i in nb.prange(A.shape[0]):
-        Z[i] = _is_extended_root(A[i], B[i], gaslike, eps)
-    return Z
+    RT2 = R_U**2 * T**2
+    nc = grad_a.size - 1  # Should contain only 1 derivative if only 1 component.
+
+    # dpp is zero, linear in pressure.
+    dp_gradA = np.zeros(grad_a.size + 1)
+    dp_gradA[1:] = grad_a / RT2
+    dp_gradA[1] -= 2.0 * a / (RT2 * T)
+    # dA / dTdT
+    dTT = (hess_a[0] - 4.0 * grad_a[0] / T + 6.0 * a / T**2) * p / RT2
+
+    # The Hessian of A can be split in d gradA / dp (first row) and the
+    # Hessian of dimensional a, scaled by the factor p/RT2.
+    # The second row, d gradA / dT, needs to account for factor.
+    hess_Tx_A = hess_a * p / RT2
+    hess_Tx_A[0] = dTT
+    hess_Tx_A[1 : 1 + nc] = (hess_a[1 : 1 + nc] - 2.0 * grad_a[1:] / T) * p / RT2
+
+    return np.hstack((dp_gradA, hess_Tx_A))
 
 
-@nb.njit(nb.f8(nb.f8, nb.f8, nb.f8, nb.f8), cache=True)
-def _gas_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
-    """Auxiliary function to compute the weight for convex-combination of gas root
-    and the average of gas and intermediate root in the physical 2-phase region."""
-
-    # proximity:
-    # If close to 1, intermediate root is close to gas root.
-    # If close to 0, intermediate root is close to liquid root.
-    # values bound by [0,1]
-    d = (Z_i - Z_L) / (Z_G - Z_L)
-
-    w = (d - (1 - 2 * s)) / s
-    w = w**2 * (3 - 2 * w)
-    if d >= 1 - s:
-        w = 1.0
-    elif d <= 1 - 2 * s:
-        w = 0.0
-
-    return w
-
-
-@nb.njit(nb.f8(nb.f8, nb.f8, nb.f8, nb.f8), cache=True)
-def _liq_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
-    """Auxiliary function to compute the weight for convex-combination of liquid root
-    and the average of liquid and intermediate root in the physical 2-phase region."""
-    # NOTE See gas smoother for explanation
-    d = (Z_i - Z_L) / (Z_G - Z_L)
-
-    w = (d - s) / s
-    w = -(w**2) * (3 - 2 * w) + 1.0
-    if d <= s:
-        w = 1.0
-    elif d >= 2 * s:
-        w = 0.0
-
-    return w
-
-
-@nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
-    ],
+@njit(
+    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
+    fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def _smooth_asymmetric_liq_extension(
-    W_scl: float | np.ndarray,
-    W_scg: float | np.ndarray,
-    W_sub: float | np.ndarray,
+def lnphis(
     A: float,
     B: float,
-    s: float,
-) -> float | np.ndarray:
-    """Resolves the representation of the asymetrically extended liquid-like root, or
-    its derivatives."""
+    Z: float,
+    dAdx: np.ndarray,
+    Bis: np.ndarray,
+) -> np.ndarray:
+    """Returns the logarithm of the fugacity coefficients per component.
 
-    AB_point = np.array([A, B])
+    Contains some adjustments for numerical stability.
 
-    W = W_scl  # use the assymetric extension by default
+    Parameters:
+        A: Dimensionless cohesion.
+        B: Dimensionless covolume.
+        Z: Compressibility factor.
+        dAdx: Derivative of the cohesion with respect to partial fractions.
+        Bis: Dimensionless covolume per component. Must be of same size as ``dAdx``.
 
-    # computing distance to Widom-line,
-    # which separates gas and liquid in supercrit area
-    d = point_to_line_distance(
-        AB_point,
-        W_LINE_POINTS[0],
-        W_LINE_POINTS[1],
-    )
-    if d < s and B >= B_CRIT:
-        d_n = d / s
-        W = W_scg * (1 - d_n) + W * d_n
+    Returns:
+        A 1D array of size ``Bis`` containing the logarithms of the fugacity
+        coefficients.
 
-    # Computing distance to supercritical line,
-    # which separates sub- and supercritical liquid extension
-    d = point_to_line_distance(
-        AB_point,
-        S_CRIT_LINE_POINTS[0],
-        S_CRIT_LINE_POINTS[1],
-    )
-    if d < s and B < B_CRIT:
-        d_n = d / s
-        W = W_sub * (1 - d_n) + W * d_n
+    """
+    nc = Bis.size
+    Zm = Z - 1.0
+    AB = A / (np.sqrt(8) * B)
+    # Cap numerically for stability.
+    lnZB0 = np.log(max(Z - B, 1e-14))
+    lnZB1 = covolume_dep(Z, B)
 
-    return W
+    out = np.zeros(nc)
+
+    for i in range(nc):
+        out[i] = Bis[i] / B * Zm - lnZB0 - AB * (dAdx[i] / A - Bis[i] / B) * lnZB1
+
+    return out
 
 
-@nb.njit(
-    [
-        nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
-        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
-    ],
+@njit(
+    nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
+    fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def _smooth_asymmetric_gas_extension(
-    W_scg: float | np.ndarray,
-    W_sub: float | np.ndarray,
+def lnphis_jac(
     A: float,
     B: float,
-    s: float,
-) -> float | np.ndarray:
-    """Resolves the representation of the asymetrically extended gas-like root, or
-    its derivatives."""
-    AB_point = np.array([A, B])
+    Z: float,
+    dAdx: np.ndarray,
+    Bis: np.ndarray,
+) -> np.ndarray:
+    """Jacobian of :func:`lnphis` with respect to it's arguments.
 
-    W = W_scg  # use the assymetric extension by default
+    ``Z, A, B`` and especially ``dadx[i]`` are intermediate values per fugacity
+    coefficient depending on the mixing rule and the EoS.
 
-    d = point_to_line_distance(
-        AB_point,
-        B_CRIT_LINE_POINTS[0],
-        B_CRIT_LINE_POINTS[1],
-    )
-    if d < s:
-        d_n = d / s
-        W = W_sub * (1 - d_n) + W * d_n
+    Notes:
+        The derivatives w.r.t. ``dAdx`` are performed only for ``dAdx[i]`` in
+        row ``i`` of the ``lnphis``. Same for ``Bis``.
 
-    return W
+    Parameters:
+        A: Dimensionless cohesion.
+        B: Dimensionless covolume.
+        Z: Compressibility factor.
+        dAdx: Derivative of the cohesion with respect to partial fractions.
+        Bis: Dimensionless covolume per component. Must be of same size as ``dAdx``.
+
+    Returns:
+        A 2D array of size ``(Bis.size, 5)`` containing the derivatives column-wise.
+
+    """
+    nc = Bis.size
+
+    Zm = Z - 1.0
+    # Cap numerically for stability.
+    ZB0 = max(Z - B, 1e-15)
+    dlnZB0 = np.array((1, -1)) / np.abs(ZB0)
+    lnZB1 = covolume_dep(Z, B)
+    dlnZB1 = grad_covolume_dep(Z, B)
+    sB = np.sqrt(8) * B
+    AB = A / sB
+
+    out = np.zeros((nc, 5))
+
+    # Derivative row-wise per dAdxi[i] is the same for all.
+    ddAdx = -AB * lnZB1 / A
+    # Derivative row-wise per Bis[i] is also the same for all.
+    dBis = Zm / B + AB * lnZB1 / B
+
+    for i in range(nc):
+        D = dAdx[i] / A - Bis[i] / B
+        dBi = -Bis[i] / B**2
+        out[i, 0] = (AB * dAdx[i] / A**2 - D / sB) * lnZB1
+        out[i, 1] = (
+            dBi * Zm - dlnZB0[1] - AB * (D * dlnZB1[1] - lnZB1 * dBi - lnZB1 * D / B)
+        )
+        out[i, 2] = Bis[i] / B - dlnZB0[0] - AB * D * dlnZB1[0]
+        out[i, 3] = ddAdx
+        out[i, 4] = dBis
+
+    return out
 
 
-@nb.njit(nb.f8(nb.f8, nb.f8, nb.i1, nb.f8, nb.f8, nb.f8), cache=True)
-def _Z_from_AB(
+@njit(
+    nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def u_dep(
     A: float,
     B: float,
-    gaslike: int,
-    eps: float,
-    smooth_e: float,
-    smooth_3: float,
+    Z: float,
+    T: float,
+    dAdT: float,
 ) -> float:
-    """Internal, scalar function for :func:`compressibility_factor`."""
-
-    # determine number of roots
-    nroot = _get_root_case(A, B, eps)
-    # sub critical area as defined by Ben Gharbia et al. (2021)
-    is_subcritical = (B < B_CRIT) and (B < critical_line(A))
-
-    if nroot == 1:
-        Z_1_real = Z_one(A, B)
-        # Extension procedure according Ben Gharbia et al.
-        if is_subcritical:
-            W = W_subcrit(Z_1_real, B)
-            # gas like roots are always given by the bigger one
-            if gaslike:
-                return W if W >= Z_1_real else Z_1_real
-            else:
-                return W if W < Z_1_real else Z_1_real
-        # Asymetric extension in super-critical area
-        else:
-            # For asymetric extension in supercritical area:
-            # below widom -> gas-like root is extended
-            # NOTE TODO This holds only for water-like mixtures
-            if B < widom_line(A):
-                if gaslike:
-                    W = W_supercrit_g(Z_1_real, B)
-
-                    if smooth_e > 0.0:
-                        W_sub = W_subcrit(Z_1_real, B)
-                        W = _smooth_asymmetric_gas_extension(W, W_sub, A, B, smooth_e)
-
-                    return W
-                else:
-                    return Z_1_real
-            else:
-                if gaslike:
-                    return Z_1_real
-                else:
-                    W = W_supercrit_l(Z_1_real, B)
-
-                    if smooth_e > 0.0:
-                        W_scg = W_supercrit_g(Z_1_real, B)
-                        W_sub = W_subcrit(Z_1_real, B)
-                        W = _smooth_asymmetric_liq_extension(
-                            W, W_scg, W_sub, A, B, smooth_e
-                        )
-
-                return W
-    elif nroot == 2:
-        return Z_double_g(A, B) if gaslike else Z_double_l(A, B)
-    elif nroot == 3:
-        # Physical 2-phase region with 3 roots fulfilling lower bound by B
-        if is_subcritical:
-            # smoothing according Ben Gharbia et al., in physical 2-phase region
-            if smooth_3 > 0.0:
-                Z_l = Z_three_l(A, B)
-                Z_i = Z_three_i(A, B)
-                Z_g = Z_three_g(A, B)
-
-                # gas root smoothing
-                if gaslike:
-                    v_g = _gas_smoother(Z_l, Z_i, Z_g, smooth_3)
-                    return Z_g * (1 - v_g) + (Z_i + Z_g) * 0.5 * v_g
-                # liquid root smoothing
-                else:
-                    v_l = _liq_smoother(Z_l, Z_i, Z_g, smooth_3)
-                    return Z_l * (1 - v_l) + (Z_i + Z_l) * 0.5 * v_l
-            else:
-                return Z_three_g(A, B) if gaslike else Z_three_l(A, B)
-        # There is a super-critical region with 3 roots, where the liquid-like root
-        # violates the lower bound by B -> asymetric extension of liquid-like root
-        else:
-            Z_gas = Z_three_g(A, B)
-            if gaslike:
-                return Z_gas
-            else:
-                W = W_supercrit_l(Z_gas, B)
-
-                if smooth_e > 0.0:
-                    W_scg = W_supercrit_g(Z_gas, B)
-                    W_sub = W_subcrit(Z_gas, B)
-                    W = _smooth_asymmetric_liq_extension(
-                        W, W_scg, W_sub, A, B, smooth_e
-                    )
-
-                return W
-    else:
-        return Z_triple(A, B)
-
-
-@nb.njit(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.i1, nb.f8, nb.f8, nb.f8),
-    parallel=NUMBA_PARALLEL,
-    cache=NUMBA_CACHE,
-)
-def compressibility_factor(
-    A: np.ndarray,
-    B: np.ndarray,
-    phasetype: int,
-    eps: float,
-    smooth_e: float,
-    smooth_3: float,
-) -> np.ndarray:
-    """Root-case insensitive computation of the (extended) compressibility factor
-    depending on A and B.
-
-    It determins the root case, depending on A and B, and applies the correct formula to
-    obtain the root. It also computes the extended root, if it turns out to be required.
-
-    To check if a root is extended, see :func:`is_extended`.
-
-    Numpy-universal function with signature
-    ``(float64, float64, int8, float64, float64, float64) -> float64``.
-    Can be called with vectorized input for ``A,B``.
+    """Computes the departure internal energy.
 
     Parameters:
-        A: Non-dimensional cohesion.
-        B: Non-dimensional covolume.
-        gaslike: 0 if the computation should return the liquid-like root, 1 for the
-            gas-like root.
-        eps: Numerical zero, used to determine the root case
-            (see :func:`get_root_case`).
-        smooth_e: Width of smoothing area around borders between areas of different
-            extension procedures, e.g. ``1e-2``.
-            Set to 0. to turn of this moothing.
-        smooth_3: Width of area in the subcritical 2-phase/ 3-root region for smoothing
-            according Ben Gharbia et al. (2021) (e.g. ``1e-4``).
-            Set to 0. to turn it of.
+        A: Dimensionless cohesion.
+        B: Dimensionless covolume.
+        Z: Compressibility factor.
+        T: Temperature.
+        dAdT: Derivative of dimensionless cohesion with respect to temperature.
 
     Returns:
-        The (extended) compressibility factor.
+        The departure internal energy.
 
     """
-    assert A.shape == B.shape
-    Z = np.empty_like(A)
-    for i in nb.prange(A.shape[0]):
-        Z[i] = _Z_from_AB(A[i], B[i], phasetype, eps, smooth_e, smooth_3)
-    return Z
+    _c = R_U / np.sqrt(8)
+    lnZB1 = covolume_dep(Z, B)
+    iB = 1.0 / B
+    return _c * T * (A + T * dAdT) * lnZB1 * iB
 
 
-@nb.njit(nb.f8[:](nb.f8, nb.f8, nb.i1, nb.f8, nb.f8, nb.f8), cache=True)
-def _dZ_dAB(
+@njit(
+    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def grad_u_dep(
     A: float,
     B: float,
-    gaslike: int,
-    eps: float,
-    smooth_e: float,
-    smooth_3: float,
+    Z: float,
+    T: float,
+    dAdT: float,
 ) -> np.ndarray:
-    """Analogoues to :func:`_Z_from_AB`, only returns the derivatives of the
-    compressibility factor w.r.t. ``A`` and ``B`` in an array."""
+    """Gradient of :func:`u_dep` with respect to its arguments."""
+    _c = R_U / np.sqrt(8)
+    lnZB1 = covolume_dep(Z, B)
+    dlnZB1 = grad_covolume_dep(Z, B)
 
-    # determine number of roots
-    nroot = _get_root_case(A, B, eps)
-    # sub critical area as defined by Ben Gharbia et al. (2021)
-    is_subcritical = (B < B_CRIT) and (B < critical_line(A))
+    cAA = _c * (A + T * dAdT)
+    iB = 1.0 / B
 
-    if nroot == 1:
-        d_Z_1_real = dZ_one(A, B)
-        Z_1_real = Z_one(A, B)
-        # Extension procedure according Ben Gharbia et al.
-        if is_subcritical:
-            d_W = dW_subcrit(d_Z_1_real)
-            W = W_subcrit(Z_1_real, B)
-            # gas like roots are always given by the bigger one
-            if gaslike:
-                return d_W if W >= Z_1_real else d_Z_1_real
-            else:
-                return d_W if W < Z_1_real else d_Z_1_real
-        # Asymetric extension in super-critical area
-        else:
-            # For asymetric extension in supercritical area:
-            # below widom -> gas-like root is extended
-            # NOTE TODO This holds only for water-like mixtures
-            if B < widom_line(A):
-                if gaslike:
-                    d_W = dW_supercrit_g(d_Z_1_real)
+    dA = _c * T * lnZB1 * iB
+    dB = cAA * T * (dlnZB1[1] - lnZB1 * iB) * iB
+    dZ = cAA * T * dlnZB1[0] * iB
+    dT = _c * (A + 2.0 * T * dAdT) * lnZB1 * iB
+    ddAdT = T * dA
 
-                    if smooth_e > 0.0:
-                        d_W_sub = dW_subcrit(d_Z_1_real)
-                        d_W = _smooth_asymmetric_gas_extension(
-                            d_W, d_W_sub, A, B, smooth_e
-                        )
-
-                    return d_W
-                else:
-                    return d_Z_1_real
-            else:
-                if gaslike:
-                    return d_Z_1_real
-                else:
-                    d_W = dW_supercrit_l(d_Z_1_real)
-
-                    if smooth_e > 0.0:
-                        d_W_scg = dW_supercrit_g(d_Z_1_real)
-                        d_W_sub = dW_subcrit(d_Z_1_real)
-                        d_W = _smooth_asymmetric_liq_extension(
-                            d_W, d_W_scg, d_W_sub, A, B, smooth_e
-                        )
-
-                    return d_W
-    elif nroot == 2:
-        return dZ_double_g(A, B) if gaslike else dZ_double_l(A, B)
-    elif nroot == 3:
-        # Physical 2-phase region with 3 roots fulfilling lower bound by B
-        if is_subcritical:
-            # smoothing according Ben Gharbia et al., in physical 2-phase region
-            if smooth_3 > 0.0:
-                Z_l = Z_three_l(A, B)
-                Z_i = Z_three_i(A, B)
-                Z_g = Z_three_g(A, B)
-
-                d_Z_l = dZ_three_l(A, B)
-                d_Z_i = dZ_three_i(A, B)
-                d_Z_g = dZ_three_g(A, B)
-
-                # gas root smoothing
-                if gaslike:
-                    v_g = _gas_smoother(Z_l, Z_i, Z_g, smooth_3)
-                    return d_Z_g * (1 - v_g) + (d_Z_i + d_Z_g) * 0.5 * v_g
-                # liquid root smoothing
-                else:
-                    v_l = _liq_smoother(Z_l, Z_i, Z_g, smooth_3)
-                    return d_Z_l * (1 - v_l) + (d_Z_i + d_Z_l) * 0.5 * v_l
-            else:
-                return dZ_three_g(A, B) if gaslike else dZ_three_l(A, B)
-        # There is a super-critical region with 3 roots, where the liquid-like root
-        # violates the lower bound by B -> asymetric extension of liquid-like root
-        else:
-            d_Z_gas = dZ_three_g(A, B)
-            if gaslike:
-                return d_Z_gas
-            else:
-                d_W = dW_supercrit_l(d_Z_gas)
-
-                if smooth_e > 0.0:
-                    d_W_scg = dW_supercrit_g(d_Z_gas)
-                    d_W_sub = dW_subcrit(d_Z_gas)
-                    d_W = _smooth_asymmetric_liq_extension(
-                        d_W, d_W_scg, d_W_sub, A, B, smooth_e
-                    )
-
-                return d_W
-    else:
-        return dZ_triple(A, B)
+    return np.array((dA, dB, dZ, dT, ddAdT))
 
 
-# endregion
-
-
-def _compile_fugacities(
-    phis: Callable[[float, float, np.ndarray, float, float, float], np.ndarray],
-) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
-    """Helper function to compile the vector of fugacity coefficients.
-
-    It needs an additional reduction of shape from ``(num_comp, 1)`` to ``(num_comp,)``
-    because of the usage of a symbolic, vector-valued function."""
-    f = nb.njit(phis)
-
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
-    def inner(p_, T_, X_, A_, B_, Z_):
-        phi_ = f(p_, T_, X_, A_, B_, Z_)
-        return phi_[:, 0]
-
-    return inner
-
-
-def _compile_thd_function_derivatives(
-    thd_df: Callable[[float, float, np.ndarray], list[float]],
-) -> Callable[[float, float, np.ndarray], np.ndarray]:
-    """Helper function to compile the gradient of a thermodynamic function.
-
-    Functions are supposed to take pressure, temperature and a vector of
-    fractions as arguments.
-
-    This helper function ensures that the return value is wrapped in an array, and not
-    a list (as by default returned when using sympy.lambdify).
-
-    It also enforces a signature ``(float64, float64, float64[:]) -> float64[:]``
-
-    """
-    df = nb.njit(thd_df, fastmath=NUMBA_FAST_MATH)
-
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:]), fastmath=NUMBA_FAST_MATH)
-    def inner(p_, T_, X_):
-        return np.array(df(p_, T_, X_), dtype=np.float64)
-
-    return inner
-
-
-def _compile_extended_thd_function_derivatives(
-    ext_thd_df: Callable[[float, float, np.ndarray, float, float, float], list[float]],
-) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
-    """Helper function to compile the gradient of an extended thermodynamic function.
-
-    Functions are supposed to take pressure, temperature, a vector of
-    fractions, and the EoS specific terms cohesion, covolume and
-    compressibility factor as arguments.
-
-    This helper function ensures that the return value is wrapped in an array, and not
-    a list (as by default returned when using sympy.lambdify).
-
-    It also enforces a signature
-    ``(float64, float64, float64[:], float64, float64, float64) -> float64[:]``
-
-    """
-    df = nb.njit(ext_thd_df)
-
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
-    def inner(p_, T_, X_, A_, B_, Z_):
-        return np.array(df(p_, T_, X_, A_, B_, Z_), dtype=np.float64)
-
-    return inner
-
-
-def _compile_density_derivative(
-    dv: Callable[[float, float, float], list[float]],
-) -> Callable[[float, float, float], np.ndarray]:
-    """Helper function to compile the gradient of the density.
-
-    Required to wrap the result in an array.
-
-    It also enforces a signature ``(float64, float64, float64) -> float64[:]``.
-
-    """
-
-    dv_ = nb.njit(fastmath=NUMBA_FAST_MATH)(dv)
-
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8))
-    def inner(p_, T_, Z_):
-        return np.array(dv_(p_, T_, Z_), dtype=np.float64)
-
-    return inner
-
-
-# NOTE notation: The suffix *_c is used for dynamically compiled function variables to
-# avoid confusion.
-class PengRobinsonCompiler(EoSCompiler):
+class CompiledPengRobinson(CompiledEoS):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
 
-    The parameter array for the pre-argument function can have up to 3 entries
-    (see also :attr:`params`):
+    Important:
+        All properties implemented here are molar quantities.
 
-    1. ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing roots
-       near phase borders
-    2. ``'smoothing_extensions'``: Portion of A-B space around lines bordering different
-       extension procedures.
-    3. ``'eps'``: Numerical tolerance to determine zero (root case computation).
+        The pre-argument computation (compressibility factors) supports several
+        parameters (see :attr:`params`).
+
+        Transport properties are returned as trivial values, enabling this class to be
+        used alone.
 
     Parameters:
-        components: A list of ``num_comp`` component instances.
-        ideal_enthalpies: A list of ``num_comp`` callables representing the ideal
-            enthalpies of individual components in ``components``.
-        bip_matrix: A 2D array containing BIPs for ``components``. Note that only the
-            upper triangle of this matrix is used due to expected symmetry.
+        components: A sequence of ``num_comp`` component instances.
+        ideal_fluids: A sequence of ``num_comp`` of ideal fluids.
+        bip_matrix: A 2D array containing BIPs for ``components``.
+            This must be a symmetric matrix.
 
     """
 
     def __init__(
         self,
         components: Sequence[FluidComponent],
-        ideal_enthalpies: Sequence[thd_function_type],
+        ideal_fluids: Sequence[IdealFluid],
         bip_matrix: np.ndarray,
         params: Optional[dict[str, float]] = None,
     ) -> None:
         super().__init__(components)
 
-        self._cfuncs: dict[str, Callable] = dict()
-        """A collection of internally required, compiled callables"""
+        self.Tcs: np.ndarray = np.array(
+            [c.critical_temperature for c in components]
+        ).astype(np.float64)
+        """Array of critical temperatures per component."""
+
+        self.pcs: np.ndarray = np.array(
+            [c.critical_pressure for c in components]
+        ).astype(np.float64)
+        """Array of critical pressures per component."""
+
+        self.bcs: np.ndarray = np.array(
+            [bc_component(p, T) for p, T in zip(self.pcs, self.Tcs)]
+        )
+        """Critical covolume values per component."""
+
+        self.acs: np.ndarray = np.array(
+            [ac_component(p, T) for p, T in zip(self.pcs, self.Tcs)]
+        )
+        """Critical cohesion values per component."""
+
+        assert np.allclose(bip_matrix, (bip_matrix + bip_matrix.T) * 0.5), (
+            "Expecting BIP matrix to be symmetric."
+        )
+        self.bips = bip_matrix
+        """Symmetric 2D array of binary interaction parameters."""
+
+        self.omegas = np.array([c.acentric_factor for c in components])
+        """Array of acentric factors per component."""
 
         default_params: dict[str, float] = {
-            "smoothing_multiphase": 1e-4,
-            "smoothing_extension": 1e-2,
+            "s_mp": 1e-4,
+            "sc_reg": 1e-2,
+            "sc_bw": 0.0,
+            "sc_ss": 5.0,
             "eps": 1e-14,
         }
         if params is None:
@@ -1165,205 +784,217 @@ class PengRobinsonCompiler(EoSCompiler):
 
         List of parameters:
 
-        - ``'eps'``: Numerical tolerance for zero. Applied in search for roots of the
-          cubic polynomial.
-        - ``'smoothing_factor'``: smoothing factor for compressibility factors when
-          approaching phase transition. If zero, no smoothing is performed.
+        - ``'eps'``: Numerical tolerance to determine zero (root case computation).
+        - ``'s_mp'`` : Portion of 2-phase region used for smoothing
+          root derivatives near phase borders.
+        - ``'sc_reg'`` : Regularization for derivatives of extended,
+          super-critical compressibility factors.
+        - ``'sc_bw'``: Band width around critical lines for smoothing.
+        - ``'sc_ss'``: Smoothing slope for smoothing towards critical lines
+          (logarithmic sigmoid).
+
+        Warning:
+            Choosing a large smoothing factor for the super-critical transitions leads
+            to larger areas, where the derivatives of the compressibility factor loose
+            exactness. The order subsequent approximations may drop by at least.
 
         """
 
-        self.symbolic = eos_symbolic.PengRobinsonSymbolic(
-            components, ideal_enthalpies, bip_matrix
+        assert len(ideal_fluids) == len(components), (
+            "Require as many ideal fluids as components."
         )
-        """Symbolic representation of the EoS, providing expressions and derivatives
-        for properties, which are turned into functions and compiled."""
+        self.ideal_fluids: Sequence[IdealFluid] = ideal_fluids
 
-    # NOTE: The two _get_cohesion* methods are only abstracted for the Soereide
-    # extension because of the varying signature. Abstraction of other compilations of
-    # symbolic functions can be done analogously once required.
-    def _get_cohesion(self) -> ScalarFunction:
-        """Abstraction of compilation of non-dimensional cohesion."""
-        return nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
+        self.ideal_funcs: PropertyFunctionDict = {}
+        """Contains ideal parts for thermodynamic properties."""
 
-    def _get_cohesion_derivatives(self) -> VectorFunction:
-        """Abstraction of compilation of non-dimensional cohesion derivatives."""
-        return _compile_thd_function_derivatives(self.symbolic.grad_pTx_A_func)
+    def get_pvT_function(self) -> PVTFunction:
+        Tcs = self.Tcs
+        bcs = self.bcs
+        acs = self.acs
+        omegas = self.omegas
+        bips = self.bips
 
-    def compile(self) -> None:
-        """Child method compiles essential functions from symbolic part before calling
-        the parent class compiler"""
+        def pvt(v: float, T: float, xn: np.ndarray, params: np.ndarray) -> float:
+            # Create local copies for compilation.
+            _Tcs = Tcs.copy()
+            _acs = acs.copy()
+            _bcs = bcs.copy()
+            _omegas = omegas.copy()
+            _bips = bips.copy()
 
-        logger.info("Compiling symbolic Peng-Robinson EoS ..")
-        start = time.time()
+            a = a_VdW(T, xn, _Tcs, _omegas, _acs, _bips)
+            b = np.sum(xn * _bcs)
 
-        B_c = nb.njit(
-            nb.f8(nb.f8, nb.f8, nb.f8[:]),
-            fastmath=NUMBA_FAST_MATH,
-        )(self.symbolic.B_func)
-        logger.debug("Compiling symbolic functions 1/12")
-        dB_c = _compile_thd_function_derivatives(self.symbolic.grad_pTx_B_func)
-        logger.debug("Compiling symbolic functions 2/12")
+            # Peng-Robinson EoS formula.
+            p = R_U * T / (v - b) - a / (v**2 + 2 * b * v - b**2)
+            return p
 
-        A_c = self._get_cohesion()
-        logger.debug("Compiling symbolic functions 3/12")
-        dA_c = self._get_cohesion_derivatives()
-        logger.debug("Compiling symbolic functions 4/12")
-
-        phi_c = _compile_fugacities(self.symbolic.phis_func)
-        logger.debug("Compiling symbolic functions 5/12")
-        dphi_c = nb.njit(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
-            self.symbolic.jac_phis_func
-        )
-        logger.debug("Compiling symbolic functions 6/12")
-
-        h_dep_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
-            self.symbolic.h_departure_func
-        )
-        logger.debug("Compiling symbolic functions 7/12")
-        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_func)
-        logger.debug("Compiling symbolic functions 8/12")
-        dh_dep_c = _compile_extended_thd_function_derivatives(
-            self.symbolic.grad_pTxABZ_h_departure_func
-        )
-        logger.debug("Compiling symbolic functions 9/12")
-        dh_ideal_c = _compile_thd_function_derivatives(
-            self.symbolic.grad_pTx_h_ideal_func
-        )
-        logger.debug("Compiling symbolic functions 10/12")
-
-        rho_c = nb.njit(
-            nb.f8(nb.f8, nb.f8, nb.f8),
-            fastmath=NUMBA_FAST_MATH,
-        )(self.symbolic.rho_func)
-        logger.debug("Compiling symbolic functions 11/12")
-        drho_c = _compile_density_derivative(self.symbolic.grad_pTZ_rho_func)
-        logger.debug("Compiling symbolic functions 12/12")
-
-        self._cfuncs.update(
-            {
-                "A": A_c,
-                "B": B_c,
-                "dA": dA_c,
-                "dB": dB_c,
-                "phi": phi_c,
-                "dphi": dphi_c,
-                "h_dep": h_dep_c,
-                "h_ideal": h_ideal_c,
-                "dh_dep": dh_dep_c,
-                "dh_ideal": dh_ideal_c,
-                "rho": rho_c,
-                "drho": drho_c,
-            }
-        )
-
-        super().compile()
-
-        logger.info(
-            f"{self._nc}-component Peng-Robinson EoS compiled"
-            + " (elapsed time: %.5f (s))." % (time.time() - start)
-        )
+        return pvt
 
     def get_prearg_for_values(self) -> VectorFunction:
-        A_c = self._cfuncs["A"]
-        B_c = self._cfuncs["B"]
-
         eps = self.params["eps"]
-        s_m = self.params["smoothing_multiphase"]
-        s_e = self.params["smoothing_extension"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        Tcs = self.Tcs
+        bcs = self.bcs
+        acs = self.acs
+        omegas = self.omegas
+        bips = self.bips
+
         def prearg_val_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+            phase_state: PhysicalState,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+            params: np.ndarray,
         ) -> np.ndarray:
-            prearg = np.empty((4,), dtype=np.float64)
-            A = A_c(p, T, xn)
-            B = B_c(p, T, xn)
+            dn = 2 + xn.size
 
             # Choose default parameters, and then parse given parameters.
             # Can only be done this way because params are a sub-array of the generic
             # argument.
-            s_m_ = s_m
-            s_e_ = s_e
-            eps_ = eps
-            if params.size >= 1:
-                s_m_ = params[0]
-            if params.size >= 2:
-                s_e_ = params[1]
-            if params.size >= 3:
-                eps_ = params[2]
+            _eps = eps
+            if params.size >= 5:
+                _eps = params[4]
 
-            prearg[0] = A_c(p, T, xn)
-            prearg[1] = B_c(p, T, xn)
-            prearg[2] = _Z_from_AB(A, B, phasetype, eps_, s_e_, s_m_)
-            prearg[3] = float(phasetype)
+            # Copying turns arrays into function locals, making compilation and
+            # signatures easier.
+            _Tcs = Tcs.copy()
+            _acs = acs.copy()
+            _bcs = bcs.copy()
+            _omegas = omegas.copy()
+            _bips = bips.copy()
+
+            # Computing cohesion, covolume, compressibility factor.
+            a = a_VdW(T, xn, _Tcs, _omegas, _acs, _bips)
+            grad_a = grad_a_VdW(T, xn, _Tcs, _omegas, _acs, _bips)
+            b = np.sum(xn * _bcs)
+
+            A = a_dl(a, p, T)
+            B = b_dl(b, p, T)
+            Z = get_compressibility_factor(
+                A,
+                B,
+                True if phase_state == PhysicalState.gas else False,
+                _eps,
+            )
+            grad_A = grad_a_dl(grad_a, a, p, T)
+
+            prearg = np.zeros(6 + dn, dtype=np.float64)
+
+            prearg[0] = float(phase_state.value)
+            prearg[1] = A
+            prearg[2] = B
+            prearg[3] = Z
+            prearg[4] = a
+            prearg[5] = b
+            prearg[-dn:] = grad_A
 
             return prearg
 
         return prearg_val_c
 
     def get_prearg_for_derivatives(self) -> VectorFunction:
-        A_c = self._cfuncs["A"]
-        B_c = self._cfuncs["B"]
-        dA_c = self._cfuncs["dA"]
-        dB_c = self._cfuncs["dB"]
-        # number of derivatives for A, B, Z (p, T, and per component fraction)
-        d = 2 + self._nc
-
         eps = self.params["eps"]
-        s_m = self.params["smoothing_multiphase"]
-        s_e = self.params["smoothing_extension"]
+        sm = self.params["s_mp"]
+        scr = self.params["sc_reg"]
+        sc_bw = self.params["sc_bw"]
+        sc_ss = self.params["sc_ss"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        Tcs = self.Tcs
+        bcs = self.bcs
+        acs = self.acs
+        omegas = self.omegas
+        bips = self.bips
+
         def prearg_jac_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+            prearg_val: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+            params: np.ndarray,
         ) -> np.ndarray:
-            # the pre-arg for the jacobian contains the derivatives of A, B, Z
-            # w.r.t. p, T, and fractions.
-            prearg = np.empty((3 * d,), dtype=np.float64)
+            dn = 2 + xn.size
 
-            s_m_ = s_m
-            s_e_ = s_e
-            eps_ = eps
+            _sm = sm
+            _eps = eps
+            _scr = scr
+            _sc_bw = sc_bw
+            _sc_ss = sc_ss
             if params.size >= 1:
-                s_m_ = params[0]
+                _sm = params[0]
             if params.size >= 2:
-                s_e_ = params[1]
+                _scr = params[1]
             if params.size >= 3:
-                eps_ = params[2]
+                _sc_bw = params[2]
+            if params.size >= 4:
+                _sc_ss = params[3]
+            if params.size >= 5:
+                _eps = params[4]
 
-            A = A_c(p, T, xn)
-            B = B_c(p, T, xn)
+            _Tcs = Tcs.copy()
+            _acs = acs.copy()
+            _bcs = bcs.copy()
+            _omegas = omegas.copy()
+            _bips = bips.copy()
 
-            dA = dA_c(p, T, xn)
-            dB = dB_c(p, T, xn)
-            dZ_ = _dZ_dAB(A, B, phasetype, eps_, s_e_, s_m_)
-            dZ = dZ_[0] * dA + dZ_[1] * dB
+            phase_state = int(prearg_val[0])
+            A = prearg_val[1]
+            B = prearg_val[2]
+            a = prearg_val[4]
+            b = prearg_val[5]
+            grad_a = grad_a_VdW(T, xn, _Tcs, _omegas, _acs, _bips)
+            hess_a = hess_a_VdW(T, xn, _Tcs, _omegas, _acs, _bips)
+            hess_A = hess_a_dl(hess_a, grad_a, a, p, T)
 
-            prearg[0:d] = dA
-            prearg[d : 2 * d] = dB
-            prearg[2 * d : 3 * d] = dZ
+            grad_A = prearg_val[-dn:]
+            grad_B = grad_b_dl(_bcs, b, p, T)
+            dZ = get_compressibility_factor_derivatives(
+                A,
+                B,
+                True if phase_state == PhysicalState.gas.value else False,
+                _eps,
+                _sm,
+                _scr,
+                _sc_bw,
+                _sc_ss,
+            )
+            grad_Z = dZ[0] * grad_A + dZ[1] * grad_B
 
-            return prearg
+            prearg_jac = np.zeros((2 * dn + hess_A.size,), dtype=np.float64)
+
+            prearg_jac[:dn] = grad_B
+            prearg_jac[dn : 2 * dn] = grad_Z
+            prearg_jac[2 * dn :] = hess_A
+
+            return prearg_jac
 
         return prearg_jac_c
 
-    def get_fugacity_function(self) -> VectorFunction:
-        phi_c = self._cfuncs["phi"]
+    def get_lnphis_function(self) -> VectorFunction:
+        bs = self.bcs
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def phi_mix_c(
+        def phis_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
-            return phi_c(p, T, xn, prearg[0], prearg[1], prearg[2])
+            dn = 2 + xn.size
 
-        return phi_mix_c
+            _bs = bs.copy()
+            Bis = _bs * p / (R_U * T)
 
-    def get_fugacity_derivative_function(self) -> VectorFunction:
-        dphi_c = self._cfuncs["dphi"]
-        # number of derivatives
-        d = 2 + self._nc
+            A = prearg[1]
+            B = prearg[2]
+            Z = prearg[3]
+            grad_A = prearg[-dn:]
+            dAdx = grad_A[2:]
 
-        @nb.njit(nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+            return lnphis(A, B, Z, dAdx, Bis)
+
+        return phis_c
+
+    def get_grad_lnphis_function(self) -> VectorFunction:
+        bs = self.bcs
+
         def dphi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1371,40 +1002,63 @@ class PengRobinsonCompiler(EoSCompiler):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            # computation of phis dependent on A_j, B_j, Z_j
-            d_phis = dphi_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
-            # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
-            dA = prearg_jac[0:d]
-            dB = prearg_jac[d : 2 * d]
-            dZ = prearg_jac[2 * d : 3 * d]
-            # expansion of derivatives (chain rule)
-            return (
-                d_phis[:, :-3]
-                + np.outer(d_phis[:, -3], dA)
-                + np.outer(d_phis[:, -2], dB)
-                + np.outer(d_phis[:, -1], dZ)
-            )
+            dn = xn.size + 2
+
+            _bs = bs.copy()
+            RT = R_U * T
+            Bis = _bs * p / RT
+
+            A = prearg_val[1]
+            B = prearg_val[2]
+            Z = prearg_val[3]
+
+            grad_A = prearg_val[-dn:]
+            grad_B = prearg_jac[:dn]
+            grad_Z = prearg_jac[dn : 2 * dn]
+            dAdx = grad_A[2:]
+            hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
+
+            dphis = np.zeros((xn.size, dn))
+
+            # Raw values, need expansion.
+            dphis_ = lnphis_jac(A, B, Z, dAdx, Bis)
+            for i in range(xn.size):
+                grad_Bi = np.zeros(dn)
+                grad_Bi[0] = _bs[i] / RT
+                grad_Bi[1] = -_bs[i] * p / (RT * T)
+                grad_dAx = hess_A[2 + i]
+
+                dphis[i] = (
+                    dphis_[i, 0] * grad_A
+                    + dphis_[i, 1] * grad_B
+                    + dphis_[i, 2] * grad_Z
+                    + dphis_[i, 3] * grad_dAx
+                    + dphis_[i, 4] * grad_Bi
+                )
+
+            return dphis
 
         return dphi_mix_c
 
-    def get_enthalpy_function(self) -> ScalarFunction:
-        h_dep_c = self._cfuncs["h_dep"]
-        h_ideal_c = self._cfuncs["h_ideal"]
+    def get_h_function(self) -> ScalarFunction:
+        h_id_c = self.ideal_funcs["h"]
 
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
-            return h_ideal_c(p, T, xn) + h_dep_c(
-                p, T, xn, prearg[0], prearg[1], prearg[2]
-            )
+        def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            dn = 2 + xn.size
+            A = prearg[1]
+            B = prearg[2]
+            Z = prearg[3]
+            grad_A = prearg[-dn:]
+
+            RTZ = R_U * T * (Z - 1.0)
+
+            return h_id_c(T, xn) + u_dep(A, B, Z, T, grad_A[1]) + RTZ
 
         return h_c
 
-    def get_enthalpy_derivative_function(self) -> VectorFunction:
-        d = 2 + self._nc
-        dh_dep_c = self._cfuncs["dh_dep"]
-        dh_ideal_c = self._cfuncs["dh_ideal"]
+    def get_grad_h_function(self) -> VectorFunction:
+        dh_id_c = self.ideal_funcs["dh"]
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dh_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1412,34 +1066,94 @@ class PengRobinsonCompiler(EoSCompiler):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            d_h_ideal = dh_ideal_c(p, T, xn)
-            d_h_dep = dh_dep_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
-            # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
-            dA = prearg_jac[0:d]
-            dB = prearg_jac[d : 2 * d]
-            dZ = prearg_jac[2 * d : 3 * d]
-            # expansion of derivatives of departure enthalpy (chain rule)
-            d_h_dep = (
-                d_h_dep[:-3] + d_h_dep[-3] * dA + d_h_dep[-2] * dB + d_h_dep[-1] * dZ
+            dn = 2 + xn.size
+
+            A = prearg_val[1]
+            B = prearg_val[2]
+            Z = prearg_val[3]
+
+            grad_A = prearg_val[-dn:]
+            grad_B = prearg_jac[:dn]
+            grad_Z = prearg_jac[dn : 2 * dn]
+            hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
+
+            du_dep_ = grad_u_dep(A, B, Z, T, grad_A[1])
+            du_dep = (
+                du_dep_[0] * grad_A
+                + du_dep_[1] * grad_B
+                + du_dep_[2] * grad_Z
+                # grad(dAdT)
+                + du_dep_[4] * hess_A[1]
             )
-            return d_h_ideal + d_h_dep
+            du_dep[1] += du_dep_[3]
+            # Contribution of ideal part to derivative w.r.t. T and x
+            du_dep[1:] += dh_id_c(T, xn)
+
+            dRTZ = T * grad_Z
+            dRTZ[1] += Z - 1.0
+            return du_dep + R_U * dRTZ
 
         return dh_c
 
-    def get_density_function(self) -> ScalarFunction:
-        rho_c_ = self._cfuncs["rho"]
+    def get_u_function(self) -> ScalarFunction:
+        u_id_c = self.ideal_funcs["u"]
 
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
-            return rho_c_(p, T, prearg[2])
+        def u_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            dn = 2 + xn.size
+            A = prearg[1]
+            B = prearg[2]
+            Z = prearg[3]
+            grad_A = prearg[-dn:]
+
+            return u_id_c(T, xn) + u_dep(A, B, Z, T, grad_A[1])
+
+        return u_c
+
+    def get_grad_u_function(self) -> VectorFunction:
+        du_id_c = self.ideal_funcs["du"]
+
+        def du_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            dn = 2 + xn.size
+
+            A = prearg_val[1]
+            B = prearg_val[2]
+            Z = prearg_val[3]
+
+            grad_A = prearg_val[-dn:]
+            grad_B = prearg_jac[:dn]
+            grad_Z = prearg_jac[dn : 2 * dn]
+            hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
+
+            du_dep_ = grad_u_dep(A, B, Z, T, grad_A[1])
+            du_dep = (
+                du_dep_[0] * grad_A
+                + du_dep_[1] * grad_B
+                + du_dep_[2] * grad_Z
+                # grad(dAdT)
+                + du_dep_[4] * hess_A[1]
+            )
+            du_dep[1] += du_dep_[3]
+            # Contribution of ideal part to derivative w.r.t. T and x
+            du_dep[1:] += du_id_c(T, xn)
+
+            return du_dep
+
+        return du_c
+
+    def get_rho_function(self) -> ScalarFunction:
+        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            # Real density is ideal density divided by compressibility factor.
+            return ideal_rho(p, T) / prearg[3]
 
         return rho_c
 
-    def get_density_derivative_function(self) -> VectorFunction:
-        d = 2 + self._nc
-        drho_c_ = self._cfuncs["drho"]
-
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+    def get_grad_rho_function(self) -> VectorFunction:
         def drho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1447,19 +1161,192 @@ class PengRobinsonCompiler(EoSCompiler):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            d_rho_ = drho_c_(p, T, prearg_val[2])
-            # derivatives of Z_j w.r.t. p, T, and X_j
-            dZ = prearg_jac[2 * d : 3 * d]
-            # expansion of derivatives (chain rule)
-            d_rho = d_rho_[-1] * dZ
-            d_rho[:2] += d_rho_[:2]  # contribution of p, T derivatives
-            return d_rho
+            dn = 2 + xn.size
+
+            Z = prearg_val[3]
+            # derivative of Z w.r.t. p, T, xn
+            dZ = prearg_jac[dn : 2 * dn]
+            # Chain rule.
+            drho = -ideal_rho(p, T) / Z**2 * dZ
+            # Contribution of ideal pT derivative
+            drho[:2] += grad_ideal_rho(p, T) / Z
+
+            return drho
 
         return drho_c
 
+    def get_v_function(self):
+        """
+        Note:
+            We overwrite the parent method for volume to avoid double division and
+            loss of floating point precision.
 
-logger.info(
-    f"{_import_msg} Done" + " (elapsed time: %.5f (s))." % (time.time() - _import_start)
-)
+        """
 
-del _import_start, _import_msg
+        def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return prearg[3] * (R_U * T) / p
+
+        return v_c
+
+    def get_grad_v_function(self):
+        def dv_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            dn = 2 + xn.size
+
+            Z = prearg_val[3]
+            dZ = prearg_jac[dn : 2 * dn]
+            Rdp = R_U / p
+            dv = Rdp * T * dZ
+            dv[:2] += np.array((-T / p, 1.0)) * Z * Rdp  # Ideal contribution
+            return dv
+
+        return dv_c
+
+    def get_mu_function(self):
+        """Returns the trivial value of 1."""
+
+        def mu(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1.0
+
+        return mu
+
+    def get_grad_mu_function(self):
+        def dmu(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dmu
+
+    def get_kappa_function(self):
+        """Returns the trivial value of 1."""
+
+        def kappa(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1.0
+
+        return kappa
+
+    def get_grad_kappa_function(self):
+        def dkappa(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dkappa
+
+    def compile(self):
+        """Compiles the ideal part of the fluid properties before continuing to parent
+        method."""
+        if self.is_compiled:
+            return
+
+        start = time.time()
+        logger.info("Compiling ideal property functions ..")
+
+        h_ids = []
+        dh_ids = []
+        u_ids = []
+        du_ids = []
+
+        for f in self.ideal_fluids:
+            f.compile()
+            h_ids.append(f.funcs["h"])
+            dh_ids.append(f.funcs["dh"])
+            u_ids.append(f.funcs["u"])
+            du_ids.append(f.funcs["du"])
+
+        NC = self.nc
+
+        compiler_Tx = njit(nb.f8(nb.f8, nb.f8[:]))
+        compiler_gradTx = njit(nb.f8[:](nb.f8, nb.f8[:]))
+
+        logger.info("Compiling ideal mixture property functions ..")
+
+        # region Compiling ideal property functions.
+
+        # NOTE: numba has only experimental support for functions being passed around
+        # in containers. It may break parallelization for example.
+        # We resort temporary to this archaic way of defining the ideal mixture energies
+        # which surpasses ideal energies in containers and directly inserts the
+        # CDU dispatcher objects into the source code, which can than be compiled.
+
+        body = "def h_ideal_(T, xn):\n"
+        body += "    val = 0.0\n"
+        for i in range(NC):
+            body += f"    val += xn[{i}] * fh{i}(T)\n"
+        body += "    return val\n"
+        namespace = dict([(f"fh{i}", h_ids[i]) for i in range(NC)])
+        exec(body, namespace)
+        h_ideal_ = namespace["h_ideal_"]
+        h_ideal = compiler_Tx(h_ideal_)
+
+        body = "def u_ideal_(T, xn):\n"
+        body += "    val = 0.0\n"
+        for i in range(NC):
+            body += f"    val += xn[{i}] * fu{i}(T)\n"
+        body += "    return val\n"
+        namespace = dict([(f"fu{i}", u_ids[i]) for i in range(NC)])
+        exec(body, namespace)
+        u_ideal_ = namespace["u_ideal_"]
+        u_ideal = compiler_Tx(u_ideal_)
+
+        body = "def dh_ideal_(T, xn):\n"
+        body += "    diff = np.zeros(xn.size + 1)\n"
+        for i in range(NC):
+            body += f"    diff[0] += xn[{i}] * dfh{i}(T)\n"
+            body += f"    diff[{i + 1}] = fh{i}(T)\n"
+        body += "    return diff\n"
+        namespace = dict(
+            [("np", np)]
+            + [(f"fh{i}", h_ids[i]) for i in range(NC)]
+            + [(f"dfh{i}", dh_ids[i]) for i in range(NC)]
+        )
+        exec(body, namespace)
+        dh_ideal_ = namespace["dh_ideal_"]
+        dh_ideal = compiler_gradTx(dh_ideal_)
+
+        body = "def du_ideal_(T, xn):\n"
+        body += "    diff = np.zeros(xn.size + 1)\n"
+        for i in range(NC):
+            body += f"    diff[0] += xn[{i}] * dfu{i}(T)\n"
+            body += f"    diff[{i + 1}] = fu{i}(T)\n"
+        body += "    return diff\n"
+        namespace = dict(
+            [("np", np)]
+            + [(f"fu{i}", u_ids[i]) for i in range(NC)]
+            + [(f"dfu{i}", du_ids[i]) for i in range(NC)]
+        )
+        exec(body, namespace)
+        du_ideal_ = namespace["du_ideal_"]
+        du_ideal = compiler_gradTx(du_ideal_)
+
+        # endregion
+
+        self.ideal_funcs = {
+            "h": h_ideal,
+            "dh": dh_ideal,
+            "u": u_ideal,
+            "du": du_ideal,
+            # Ideal density is same for all.
+            "rho": self.ideal_fluids[0].funcs["rho"],
+            "drho": self.ideal_fluids[0].funcs["drho"],
+        }
+        super().compile()
+
+        logger.info(
+            f"{self.nc}-component Peng-Robinson EoS compiled"
+            + " (elapsed time: %.5f (s))." % (time.time() - start)
+        )

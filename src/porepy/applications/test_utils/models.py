@@ -501,7 +501,11 @@ def get_model_methods_returning_ad_operator(model: pp.PorePyModel) -> list[str]:
     ]
     testable_fluid_methods: list[str] = []
     # The basic flow model has no energy-related methods.
-    skip_methods = ["specific_enthalpy", "thermal_conductivity"]
+    skip_methods = [
+        "specific_enthalpy",
+        "thermal_conductivity",
+        "specific_internal_energy",
+    ]
     for method in fluid_methods:
         if method in skip_methods:
             continue

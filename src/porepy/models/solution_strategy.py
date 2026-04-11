@@ -117,6 +117,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
         """Time step as an automatic differentiation scalar."""
+        self.ad_time = pp.ad.TimeDependentScalar(
+            0.0, self.time_step_indices.size, name="time"
+        )
+        """Simulation time as a time-dependent AD scalar."""
         self.results: list[Any] = []
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
@@ -593,6 +597,8 @@ class SolutionStrategy(pp.PorePyModel):
         """
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
+        # Don't override previous time until we are sure that current time converged.
+        self.ad_time.set_value(self.time_manager.time, new_time=False)
         # Empty the log in the statistics object.
         self.nonlinear_solver_statistics.increase_index()
         # Update the boundary conditions to both the time step and iterate solution.
@@ -643,6 +649,8 @@ class SolutionStrategy(pp.PorePyModel):
         solution = self.equation_system.get_variable_values(iterate_index=0)
 
         # Update the time step magnitude if the dynamic scheme is used.
+        # Converged -> override value in time.
+        self.ad_time.set_value(self.time_manager.time, new_time=True)
         if not self.time_manager.is_constant:
             assert isinstance(
                 self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
@@ -673,7 +681,7 @@ class SolutionStrategy(pp.PorePyModel):
                 if serious issues are detected.
 
         """
-        self.save_data_time_step()
+        # self.save_data_time_step()
         if not self._is_nonlinear_problem():
             warn("Failed to solve linear system for the linear problem.")
             return SimulationStatus.STOPPED
@@ -765,6 +773,9 @@ class SolutionStrategy(pp.PorePyModel):
                     Callable[[sps.spmatrix], sps.spmatrix],
                     self.params.get("schur_complement_inverter", None),
                 ),
+                variable_scaling=cast(
+                    None, self.params.get("variable_scaling_linear_rpc", None)
+                ),
             )
         else:
             self.linear_system = self.equation_system.assemble()
@@ -795,31 +806,33 @@ class SolutionStrategy(pp.PorePyModel):
             {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
         )
 
-        solver = self.linear_solver
-        if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overridden
-            # by the user. We need to check if the pypardiso package is available.
-            try:
-                from pypardiso import spsolve as sparse_solver  # type: ignore
-            except ImportError:
-                # Fall back on the standard scipy sparse solver.
-                sparse_solver = sps.linalg.spsolve
-                warnings.warn(
-                    """PyPardiso could not be imported,
-                    falling back on scipy.sparse.linalg.spsolve"""
-                )
-            x = sparse_solver(A, b)
-        elif solver == "umfpack":
-            # Following may be needed:
-            # A.indices = A.indices.astype(np.int64)
-            # A.indptr = A.indptr.astype(np.int64)
-            x = sps.linalg.spsolve(A, b, use_umfpack=True)
-        elif solver == "scipy_sparse":
-            x = sps.linalg.spsolve(A, b)
+        if np.any(np.isnan(b)) or np.any(np.isnan(A.data)):
+            x = np.full_like(b, np.nan)
         else:
-            raise ValueError(
-                f"AbstractModel does not know how to apply the linear solver {solver}"
-            )
+            solver = self.linear_solver
+            if solver == "pypardiso":
+                # This is the default option which is invoked unless explicitly
+                # overridden by the user. We need to check if the pypardiso package is
+                # available.
+                try:
+                    from pypardiso import spsolve as sparse_solver  # type: ignore
+                except ImportError:
+                    # Fall back on the standard scipy sparse solver.
+                    sparse_solver = sps.linalg.spsolve
+                    warnings.warn(
+                        """PyPardiso could not be imported,
+                        falling back on scipy.sparse.linalg.spsolve"""
+                    )
+                x = sparse_solver(A, b)
+            elif solver == "umfpack":
+                # Following may be needed:
+                # A.indices = A.indices.astype(np.int64)
+                # A.indptr = A.indptr.astype(np.int64)
+                x = sps.linalg.spsolve(A, b, use_umfpack=True)
+            elif solver == "scipy_sparse":
+                x = sps.linalg.spsolve(A, b)
+            else:
+                raise ValueError(f"Unsupported linear solver {solver}.")
 
         x = np.atleast_1d(x)
         if self._apply_schur_complement_reduction():

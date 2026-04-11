@@ -34,10 +34,10 @@ import numba as nb
 import numpy as np
 
 import porepy as pp
-import porepy.compositional.compiled_flash.eos_compiler as eosc
+import porepy.compositional.compiled_eos as ceos
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
+from porepy.examples.cold_injection.solver import NewtonArmijoAndersonSolver
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -157,13 +157,12 @@ class Pipe2D(pp.PorePyModel):
 # endregion
 
 
-class WaterEoS(pr.PengRobinsonCompiler):
+class WaterEoS(pr.CompiledPengRobinson):
     """An equation of state for water based on Peng-Robinson, but using IAPWS-97
     correlations to compute the transport properties viscosity and thermal conductivity.
     """
 
-    def get_viscosity_function(self) -> eosc.ScalarFunction:
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+    def get_mu_function(self) -> ceos.ScalarFunction:
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1e-3
             # Liquidlike
@@ -178,8 +177,7 @@ class WaterEoS(pr.PengRobinsonCompiler):
 
         return mu_c
 
-    def get_viscosity_derivative_function(self) -> eosc.VectorFunction:
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+    def get_grad_mu_function(self) -> ceos.VectorFunction:
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -191,8 +189,7 @@ class WaterEoS(pr.PengRobinsonCompiler):
 
         return dmu_c
 
-    def get_conductivity_function(self) -> eosc.ScalarFunction:
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+    def get_kappa_function(self) -> ceos.ScalarFunction:
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1.0
             # Liquidlike
@@ -207,8 +204,7 @@ class WaterEoS(pr.PengRobinsonCompiler):
 
         return kappa_c
 
-    def get_conductivity_derivative_function(self) -> eosc.VectorFunction:
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+    def get_grad_kappa_function(self) -> ceos.VectorFunction:
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -244,9 +240,7 @@ class TwoPhaseWaterFluid(pp.PorePyModel):
     ) -> Sequence[
         tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
-        import porepy.compositional.peng_robinson as pr
-
-        eos = WaterEoS(components, [pr.h_ideal_H2O], np.zeros((1, 1)))
+        eos = WaterEoS(components, [pp.compositional.ideal.IdealH2O], np.zeros((1, 1)))
         return [
             (pp.compositional.PhysicalState.liquid, "L", eos),
             (pp.compositional.PhysicalState.gas, "G", eos),
@@ -359,15 +353,8 @@ class GeothermalWaterModel(  # type:ignore[misc]
         self._residual_norm_history: deque[float] = deque(maxlen=4)
         self._increment_norm_history: deque[float] = deque(maxlen=3)
 
-    def after_nonlinear_convergence(self) -> None:
-        super().after_nonlinear_convergence()
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
-        print("Time value (day): ", self.time_manager.time / pp.DAY)
-        print("Time index: ", self.time_manager.time_index)
-        print("")
-
     def data_to_export(self):
-        data: list = super().data_to_export()
+        data = super().data_to_export()
 
         for sd in self.mdg.subdomains():
             data.append(
@@ -508,23 +495,6 @@ class GeothermalWaterModel(  # type:ignore[misc]
         # eq.set_name(name)
         # return eq
 
-    def volume_stabilization_term(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        volume_stabilization = self.fluid.density(subdomains) * pp.ad.sum_operator_list(
-            [
-                phase.fraction(subdomains) / phase.density(subdomains)
-                for phase in self.fluid.phases
-            ],
-            "fluid_specific_volume",
-        ) - self.porosity(subdomains)
-
-        volume_stabilization = self.volume_integral(
-            volume_stabilization, subdomains, dim=1
-        )
-        volume_stabilization = pp.ad.time_derivatives.dt(
-            volume_stabilization, self.ad_time_step
-        )
-        return volume_stabilization
-
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -581,17 +551,17 @@ if __name__ == "__main__":
         "mode": "sequential",
         "solver": "npipm",
         "solver_params": {
-            "tolerance": 1e-5,
+            "atol_res": 1e-5,
             "max_iterations": 80,
-            "armijo_rho": 0.99,
-            "armijo_kappa": 0.4,
-            "armijo_max_iterations": 30,
-            "npipm_u1": 10,
-            "npipm_u2": 10,
-            "npipm_eta": 0.5,
+            "armijo_step_size": 0.95,
+            "armijo_decline": 0.495,
+            "npipm_penalty_cc": 10,
+            "npipm_penalty_neg": 10,
+            "npipm_slack_decline": 0.45,
         },
         "global_iteration_stride": 3,
-        "fallback_to_iterate": True,
+        "compile": True,
+        "compile_args": ("p-T", "p-h"),
     }
     flash_params.update(phase_property_params)
 
@@ -614,19 +584,19 @@ if __name__ == "__main__":
         "anderson_acceleration_regularization_parameter": 1e-3,
         "anderson_start_after_residual_reaches": 1e2,
         "solver_statistics_file_name": "solver_statistics.json",
-        "flag_failure_as_diverged": True,
     }
 
     model_params = {
-        "equilibrium_condition": "unified-p-h",
+        "equilibrium_specification": (
+            pp.compositional.FlashSpec.ph,
+            "persistent-variables",
+        ),
         "flash_params": flash_params,
         "fractional_flow": True,
         "material_constants": material_params,
         "time_manager": time_manager,
         "prepare_simulation": False,
         "enable_buoyancy_effects": True if CASE == "vertical" else False,
-        "compile": True,
-        "flash_compiler_args": ("p-T", "p-h"),
     }
 
     if EXPORT_SCHEDULED_TIME_ONLY:

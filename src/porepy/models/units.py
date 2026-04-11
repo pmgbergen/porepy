@@ -6,17 +6,16 @@ This is part of a system for setting the units of measurement of a problem.
 
 from __future__ import annotations
 
-from typing import Optional, TypeVar
+from typing import TYPE_CHECKING, Optional, TypeVar
 
 import numpy as np
 
 import porepy as pp
 
-number = pp.number
-
-
-NumericalType = TypeVar("NumericalType", pp.number, np.ndarray)
-"""Numerical type variable, either a number (int, float) or a numpy array."""
+if TYPE_CHECKING:
+    number = pp.number
+    NumericalType = TypeVar("NumericalType", pp.number, np.ndarray)
+    """Numerical type variable, either a number (int, float) or a numpy array."""
 
 
 class Units:

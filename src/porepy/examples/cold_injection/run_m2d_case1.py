@@ -1,0 +1,124 @@
+"""2D Model of cold CO2 injection with randomized fractures."""
+
+from __future__ import annotations
+
+import logging
+import os
+import time
+from datetime import datetime
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+import porepy as pp
+import porepy.models.compositional_flow_with_equilibrium as cfle
+from porepy.applications.test_utils.models import add_mixin
+from porepy.examples.cold_injection.config import (
+    get_default_convergence_criteria,
+    get_default_params,
+)
+from porepy.examples.cold_injection.geometry import RandomFracturesAndPointWells2D
+from porepy.examples.cold_injection.model import (
+    BuoyancyModel,
+    ColdInjectionMixins,
+    DataCollectionMixin,
+    NoFluxRediscretization,
+    set_schur_complement,
+)
+
+BUOYANCY_ON = False
+COLLECT_DATA = False
+
+max_iterations = 40 if BUOYANCY_ON else 30
+iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
+newton_tol_res = 5e-3
+newton_tol_inc = 1e-2
+newton_tol_res_isofug = 1e-2
+
+time_schedule = [i * pp.DAY for i in range(121)] + [
+    i * 30 * pp.DAY for i in range(5, 30 + 1)
+]
+dt_init = 1 * pp.HOUR
+dt_max = 30 * pp.DAY
+
+time_manager = pp.TimeManager(
+    schedule=time_schedule,
+    dt_init=dt_init,
+    dt_min_max=(pp.HOUR, dt_max),
+    iter_max=max_iterations,
+    iter_optimal_range=iter_range,
+    iter_relax_factors=(0.75, 1.5),
+    recomp_factor=0.5,
+    recomp_max=10,
+    print_info=True,
+    rtol=0.0,
+)
+
+model_params, solver_params = get_default_params()
+model_params["time_manager"] = time_manager
+model_params["times_to_export"] = time_schedule
+
+model_params["_num_fractures"] = 8
+model_params["_well_surrounding_permeability"] = 1e-13
+model_params["_impermeable_fracture_permeability"] = 1e-16
+model_params["_fracture_permeability"] = 1e-10
+
+model_params["fractional_flow"] = BUOYANCY_ON
+model_params["enable_buoyancy_effects"] = BUOYANCY_ON
+model_params["armijo_stop_after_residual_reaches"] = 1e-3
+
+
+if BUOYANCY_ON:
+
+    class ModelClass(  # type:ignore
+        BuoyancyModel,
+        RandomFracturesAndPointWells2D,
+        ColdInjectionMixins,
+        cfle.EnthalpyBasedCFFLETemplate,
+    ):
+        pass
+
+else:
+
+    class ModelClass(  # type:ignore
+        NoFluxRediscretization,
+        RandomFracturesAndPointWells2D,
+        ColdInjectionMixins,
+        cfle.EnthalpyBasedCFLETemplate,
+    ):
+        pass
+
+
+model_class = ModelClass
+
+if COLLECT_DATA:
+    model_class = add_mixin(DataCollectionMixin, model_class)  # type:ignore
+
+
+if __name__ == "__main__":
+    timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
+    sub_folder = f"m2d_case1_{timestamp}_BUOY_{BUOYANCY_ON}"
+    model_params["folder_name"] = f"visualization/{sub_folder}"
+
+    model = model_class(model_params)  # type:ignore[abstract]
+
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("porepy").setLevel(logging.DEBUG)
+    t_0 = time.time()
+    model.prepare_simulation()
+    prep_sim_time = time.time() - t_0
+    logging.getLogger("porepy").setLevel(logging.INFO)
+
+    # Defining sub system for Schur complement reduction.
+    set_schur_complement(model)  # type:ignore[arg-type]
+    solver_params.update(
+        get_default_convergence_criteria(
+            model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug
+        )
+    )
+
+    t_0 = time.time()
+    pp.run_time_dependent_model(model, solver_params)
+    sim_time = time.time() - t_0
+
+    print(f"Simulation prepared after {prep_sim_time:.2f} (s).")
+    print(f"Simulation finished after {sim_time / 60.0:.2f} (m).")

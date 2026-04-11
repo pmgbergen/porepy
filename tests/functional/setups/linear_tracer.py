@@ -557,8 +557,8 @@ class TrivialEoS(pp.compositional.EquationOfState):
             drho=d.copy(),
             dmu=d.copy(),
             dkappa=d.copy(),
-            phis=np.zeros((self._nc, nx)),
-            dphis=np.zeros((self._nc, nd, nx)),
+            phis=np.zeros((self.nc, nx)),
+            dphis=np.zeros((self.nc, nd, nx)),
         )
 
 
