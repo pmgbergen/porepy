@@ -6,7 +6,7 @@ from scipy.interpolate import interp1d
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # --- Configuration ---
-figure_type = "horizontal"
+figure_type = "vertical"
 
 
 def extract_cell_data(file_path: str, field_names: list) -> dict:
@@ -147,7 +147,7 @@ print("\nStep 1: Loading data...")
 
 # 1a. Load data from PorePy's VTU output file
 
-vtk_map = {'horizontal': 'fig5_horizontal_time_idx_000200_l0', 'vertical': 'fig5_vertical_time_idx_004000_l0'}
+vtk_map = {'horizontal': 'fig5_horizontal_time_idx_000400_h1_l2', 'vertical': 'fig5_vertical_time_idx_004000_h1_l2'}
 
 vtk_file = "benchmark_figures_data/porepy_vtks/" + vtk_map[figure_type] + ".vtu"
 fields_to_extract = ['pressure', 'temperature', 's_gas', 'enthalpy']
@@ -194,9 +194,9 @@ p_v = df_interpolated['Pressure (MPa)'].values
 s_gas_ref_v = 1.0 - s_liq_ref_v
 
 # 2c. Set up the brine property sampler
-parametric_space_ref_level = 0
+parametric_space_ref_level = 2
 file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
-file_name_phz = f"{file_name_prefix}XHP_l{parametric_space_ref_level}_simplex_iapws.vtk"
+file_name_phz = f"{file_name_prefix}opensowat_xph_l_{parametric_space_ref_level}_grads.vtk"
 brine_sampler_phz = VTKSampler(file_name_phz)
 brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
 
