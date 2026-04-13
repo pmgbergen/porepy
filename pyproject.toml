@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     "deepdiff",
     "future",
-    "gmsh >= 4.15",
+    "gmsh >= 4.15.2",
     "matplotlib < 3.11",
     "meshio",
     "networkx",
