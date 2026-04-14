@@ -367,20 +367,23 @@ class SolutionStrategy(pp.PorePyModel):
         self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self) -> None:
-        """Called before a solver performs an iteration (calling the linear solver)."""
+        """Method to be called at the start of every non-linear iteration.
+
+        The base method only defines the method signature.
+
+        """
 
     def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Called after a solver performed an iteration computing an increment.
+        """Method to be called after every non-linear iteration.
 
         The base method does the following:
 
         1. Shift the existing solutions backwards in the iterative sense.
-        2. Store the ``nonlinear_increment`` to the model state in the current iterate
-           additively.
-        3. Call :meth:`update_derived_quantities` based on the recent iterate values.
+        2. Store the ``nonlinear_increment`` in the current iterate additively.
+        3. Calls :meth:`update_derived_quantities`.
 
         Parameters:
-            nonlinear_increment: The new increment computed by the nonlinear solver.
+            nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
@@ -659,32 +662,6 @@ class SolutionStrategy(pp.PorePyModel):
             - :meth:`add_nonlinear_diffusive_flux_discretization`
 
         """
-
-    def before_nonlinear_iteration(self) -> None:
-        """Method to be called at the start of every non-linear iteration.
-
-        The base method only defines the method signature.
-
-        """
-
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Method to be called after every non-linear iteration.
-
-        The base method does the following:
-
-        1. Shift the existing solutions backwards in the iterative sense.
-        2. Store the ``nonlinear_increment`` in the current iterate additively.
-        3. Calls :meth:`update_derived_quantities`.
-
-        Parameters:
-            nonlinear_increment: The new solution, as computed by the non-linear solver.
-
-        """
-        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
-        self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
-        )
-        self.update_derived_quantities()
 
     def initialize_nonlinear_solution(self) -> None:
         """Set the previous time step solution as the initial guess for the nonlinear
