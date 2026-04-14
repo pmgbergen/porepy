@@ -671,7 +671,7 @@ class SolutionStrategy(pp.PorePyModel):
         prev_solution = self.equation_system.get_variable_values(time_step_index=0)
         self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
-    def update_time_step_solution(self, solution: np.ndarray) -> None:
+    def update_time_step_solution(self) -> None:
         """Shifts the solution per time step index and sets the provided solution
         as the recent time step solution.
 
@@ -682,6 +682,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
