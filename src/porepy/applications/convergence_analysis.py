@@ -179,7 +179,9 @@ class ConvergenceAnalysis:
         """
         convergence_results: list = []
         for level in range(self.levels):
-            model: pp.PorePyModel = self.model_class(deepcopy(self.model_params[level]))
+            model: pp.SolutionStrategy = self.model_class(
+                deepcopy(self.model_params[level])
+            )
             if model._is_time_dependent():
                 # Run time-dependent model
                 pp.ModelRunner(model).run()

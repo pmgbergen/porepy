@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from porepy.models.model_runner import ModelInstance
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
@@ -57,7 +56,7 @@ class LinearSolver:
         )
         """Divergence criterion used in the convergence check."""
 
-    def solve(self, model: ModelInstance) -> SimulationStatus:
+    def solve(self, model: SolutionStrategy) -> SimulationStatus:
         """Solve a linear problem defined by the current state of the model.
 
         The linear solver performs only one iteration and checks whether it converged.
