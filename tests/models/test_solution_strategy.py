@@ -620,7 +620,7 @@ def test_schur_complement_inverter_on_model(
 
     model.before_time_step()
     model.before_nonlinear_loop()
-    model.before_solver_iteration()
+    model.before_nonlinear_iteration()
     model.assemble_linear_system()
     inv_A_ss = model.equation_system._Schur_complement[0]
 

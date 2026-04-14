@@ -480,7 +480,7 @@ class BaseFlowModel(
         super().set_nonlinear_discretizations()
         self.set_nonlinear_buoyancy_discretization()
 
-    def before_solver_iteration(self) -> None:
+    def before_nonlinear_iteration(self) -> None:
         """Update buoyancy fluxes."""
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
@@ -665,9 +665,9 @@ class InitialConditions2N(pp.PorePyModel):
 class FlowModel2N(
     BaseFlowModel,
 ):
-    def after_solver_convergence(self) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        super().after_solver_convergence()
+        super().after_nonlinear_convergence()
 
         subdomains = self.mdg.subdomains()
         phases = list(self.fluid.phases)
@@ -1086,9 +1086,9 @@ class InitialConditions3N(pp.PorePyModel):
 class FlowModel3N(
     BaseFlowModel,
 ):
-    def after_solver_convergence(self) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        super().after_solver_convergence()
+        super().after_nonlinear_convergence()
 
         phases = list(self.fluid.phases)  # water, oil, gas
         components = list(self.fluid.components)  # H2O (ref), C5H12, CH4

@@ -797,8 +797,8 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         self.num_nonlinear_iters = 0
         self.time_step_history.append(self.time_manager.dt)
 
-    def before_solver_iteration(self):
-        super().before_solver_iteration()
+    def before_nonlinear_iteration(self):
+        super().before_nonlinear_iteration()
 
         # The AD time step should not change throughout the Newton iterations.
         assert (

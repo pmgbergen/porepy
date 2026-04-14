@@ -323,7 +323,7 @@ class IterationExporting(pp.PorePyModel):
     def save_data_iteration(self):
         """Export current solution to vtu files.
 
-        This method is typically called by after_solver_iteration.
+        This method is typically called by after_nonlinear_iteration.
         """
         # To make sure the nonlinear iteration index does not interfere with the time
         # part, we multiply the latter by the next power of ten above the maximum number
@@ -338,7 +338,7 @@ class IterationExporting(pp.PorePyModel):
             + 10**r * self.time_manager.time_index,
         )
 
-    def after_solver_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
         """Integrate iteration export into simulation workflow.
 
         Order of operations is important, super call distributes the solution to

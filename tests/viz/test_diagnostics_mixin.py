@@ -21,7 +21,7 @@ def model() -> PoromechanicsWithDiagnostics:
     # Common preprocessing is done to assemble the linear system.
     model.prepare_simulation()
     model.before_nonlinear_loop()
-    model.before_solver_iteration()
+    model.before_nonlinear_iteration()
     model.assemble_linear_system()
     return model
 

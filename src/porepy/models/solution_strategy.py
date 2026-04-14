@@ -886,7 +886,7 @@ class SolutionStrategy(pp.PorePyModel):
            (see :meth:`rediscretize`).
 
         For a consistent evaluation of the system, this method is called in
-        :meth:`after_solver_iteration` (after the global state vector changes) and in
+        :meth:`after_nonlinear_iteration` (after the global state vector changes) and in
         :meth:`before_nonlinear_loop` (after the boundary conditions and other
         time-dependent quantities change).
 
