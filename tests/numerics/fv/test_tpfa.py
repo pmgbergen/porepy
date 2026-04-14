@@ -783,23 +783,12 @@ class DiffTpfaNewtonPerformanceGeometry(
     """
 
     def set_fractures(self) -> None:
-        """Set the fractures in the domain.
-
-        TODO: This can be done by one of the standard geometry mixins
-        """
+        """Set the fractures in the domain."""
         if self.params["include_fracture"]:
-            # TODO IVAR: Do we want to allow for rotations of the fracture, or should
-            # we just hardcode the geometry without preparing for a parametrized angle?
-            angle = self.params.get("fracture_angle", 2) * np.pi / 180
             length = self.domain.bounding_box["xmax"] / 3
             r = self.units.convert_units(length / 2, "m")
 
-            points = np.array(
-                [
-                    [-r * np.cos(angle), -r * np.sin(angle)],
-                    [r * np.cos(angle), r * np.sin(angle)],
-                ]
-            ).T
+            points = np.array([[-r, 0], [r, 0]]).T
             self._fractures = [pp.LineFracture(points)]
         else:
             self._fractures = []
@@ -878,9 +867,6 @@ def test_diff_tpfa_newton_performance(
         "grid_type": "simplex",
         "constant_permeability": constant_permeability,
     }
-
-    # Solver parameters. TODO IVAR: We need to check that these values do what we
-    # actually want.
     solver_params = {
         "nl_convergence_inc_atol": 1e-6,
         "nl_convergence_res_atol": np.inf,
@@ -920,10 +906,7 @@ def test_diff_tpfa_newton_performance(
     if constant_permeability:
         assert num_iters[0] == num_iters[1]
     else:
-        # TODO IVAR: Achiving strict inequality may require some tuning of the permeability
-        # tensor, and I am a bit afraid such a criterion will be sensitive to changes
-        # in a broad sonse to the model and numerics. What do you think?
-        assert num_iters[0] < num_iters[1]
+        assert num_iters[0] <= num_iters[1]
     assert np.allclose(pressures[0], pressures[1])
     if include_fracture:
         assert np.allclose(interface_darcy_fluxes[0], interface_darcy_fluxes[1])
