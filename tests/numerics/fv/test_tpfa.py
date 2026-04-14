@@ -6,11 +6,12 @@ The tests fall into two categories:
 
 """
 
+from copy import deepcopy
 from typing import Literal
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
-from copy import deepcopy
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
