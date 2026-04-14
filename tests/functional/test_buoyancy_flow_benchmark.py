@@ -414,8 +414,8 @@ def slow_test_buoyancy_flow_benchmark(
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
-        def after_solver_convergence(self) -> None:
-            super().after_solver_convergence()
+        def after_nonlinear_convergence(self) -> None:
+            super().after_nonlinear_convergence()
             print(
                 "\nNumber of iterations: ",
                 self.nonlinear_solver_statistics.num_iterations,
@@ -432,7 +432,7 @@ def slow_test_buoyancy_flow_benchmark(
             super().set_nonlinear_discretizations()
             self.set_nonlinear_buoyancy_discretization()
 
-        def before_solver_iteration(self) -> None:
+        def before_nonlinear_iteration(self) -> None:
             self.update_buoyancy_driven_fluxes()
             self.rediscretize()
 
