@@ -9,12 +9,12 @@ from typing import Optional, TypeVar
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 
 __all__ = ["ModelRunner", "ModelInstance"]
 
