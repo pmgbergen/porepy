@@ -10,8 +10,9 @@ from typing import cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models.model_runner import ModelInstance
+from porepy.models.solution_strategy import SolutionStrategy
+from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
@@ -19,8 +20,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     DivergenceCriteria,
     SimulationStatus,
 )
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
-from porepy.numerics.linear_solvers import LinearSolver
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )

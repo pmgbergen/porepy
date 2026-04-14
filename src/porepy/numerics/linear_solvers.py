@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from porepy.models.model_runners import ModelInstance
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
@@ -21,7 +22,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     SimulationStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
-from porepy.models.model_runners import ModelInstance
 
 
 class LinearSolver:
