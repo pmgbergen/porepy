@@ -845,7 +845,7 @@ def test_diff_tpfa_newton_performance(
 ):
     """Verify that the solutions computed with and without diff-tpfa are consistent,
     and that inclusion of the diffenetiable tpfa does not increase the number of
-    Newton iteration.
+    Newton iterations.
 
     Parameters:
         base_scheme: Spatial discretization scheme for diffusive equations.
