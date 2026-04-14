@@ -14,6 +14,7 @@ from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 
 __all__ = ["ModelRunner", "ModelInstance"]
 
@@ -95,7 +96,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
 class ModelRunner:
     """Class for running PorePy models according to their configurations.
 
-    Sets the outer solver, linear or nonlinear, depending on `model.is_nonlinear`. In
+    Sets the outer solver, linear or nonlinear, depending on `model._is_nonlinear`. In
     the nonlinear case the solver can be customized by providing a solver type as
     ``params["nonlinear_solver"]``.
 
@@ -113,7 +114,7 @@ class ModelRunner:
 
     """
 
-    def __init__(self, model: ModelInstance, params: dict | None = None) -> None:
+    def __init__(self, model: pp.SolutionStrategy, params: dict | None = None) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
 
@@ -126,10 +127,10 @@ class ModelRunner:
         if self.params.get("prepare_simulation", True):
             self.model.prepare_simulation()
 
-        self._is_nonlinear = self.model.is_nonlinear_problem()
+        self._is_nonlinear = self.model._is_nonlinear_problem()
         """Flag indicating whether the problem is nonlinear, set at initialization."""
 
-        self._is_time_dependent = self.model.is_time_dependent()
+        self._is_time_dependent = self.model._is_time_dependent()
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
 
@@ -222,17 +223,16 @@ class ModelRunner:
                 # Time loop.
                 while not self.model.time_manager.final_time_reached():
                     self.before_time_step()
-                    time_step_converged = self.solver.solve(self.model)
-                    self.after_time_step(time_step_converged)
+                    solver_status = self.solver.solve(self.model)
+                    simulation_status = self.after_time_step(solver_status)
+                    if (
+                        simulation_status.is_successful()
+                        or simulation_status.is_stopped()
+                    ):
+                        break
         else:
-            converged = self.solver.solve(self.model)
-            if converged:
-                # NOTE: time_step_convergence can be considered a misnomer.
-                # But technically this is the only time we solve for. Thus we reuse the
-                # method to set the solution and save data.
-                self.model.after_time_step_convergence()
-            else:
-                raise RuntimeError("Stationary model did not converge.")
+            solver_status = self.solver.solve(self.model)
+            simulation_status = self.after_stationary_solve(solver_status)
 
         self.model.after_simulation()
 
@@ -261,28 +261,115 @@ class ModelRunner:
             f"Time step {self.model.time_manager.time_index}"
         )
 
-    def after_time_step(self, time_step_converged: bool) -> None:
-        if time_step_converged:
+    def after_time_step(self, solver_status: SimulationStatus) -> SimulationStatus:
+        """Method to be executed at the end of each time step.
+
+        React to solver status, updates the time step size and logs the progress.
+
+        Parameters:
+            solver_status: Status of the time step, as returned by the solver.
+
+        Returns:
+            pp.SimulationStatus: Status of the time step, which can be used to determine
+                whether to continue the simulation or not.
+
+        """
+        if solver_status.is_successful():
+            # Conclude simulation status if final time reached.
+            simulation_status = (
+                SimulationStatus.SUCCESSFUL
+                if self.model.time_manager.final_time_reached()
+                else SimulationStatus.IN_PROGRESS
+            )
+            self.model.after_time_step_convergence()
+
+            # Need to log before updating the time step size.
+            self.logging(simulation_status)
+
             # Update the time step magnitude if the dynamic scheme is used.
             if not self.model.time_manager.is_constant:
+                assert isinstance(
+                    self.model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+                )  # For type checking, to ensure the method is available.
                 self.model.time_manager.compute_time_step(
-                    iterations=self.model.nonlinear_solver_statistics.num_iteration
+                    iterations=self.model.nonlinear_solver_statistics.num_iterations
                 )
-            self.model.after_time_step_convergence()
 
             # Update progressbar length.
             self.time_progressbar.update(n=self.model.time_manager.dt / self._dt_0)
-        else:
+
+        elif solver_status.is_failed() or solver_status.is_stopped():
             if self.model.time_manager.is_constant:
-                raise pp.TimeSteppingError(
-                    "Solver failed to converge but time step size is constant and"
-                    " cannot be reduced."
+                logger.warning(
+                    """Solver failed to converge but time step size is constant and """
+                    """cannot be reduced."""
                 )
+                simulation_status = SimulationStatus.STOPPED
+                self.logging(simulation_status)
+
             else:
                 # This calls
                 # ``time_manager._adaptation_based_on_recomputation``, which substracts
                 # the current ``dt`` from the simulation time, computes a shorter
                 # ``dt``, and adds the updated ``dt`` to the simulation time again.
-                # It will also raise a ValueError if the minimal time step is reached.
-                self.model.time_manager.compute_time_step(recompute_solution=True)
-                self.model.after_time_step_failure()
+                # It will also raise a TimeSteppingError if the minimal time step
+                # is reached.
+                try:
+                    simulation_status = SimulationStatus.FAILED
+                    self.model.after_time_step_failure()
+                    # Need to log before updating the time step size.
+                    self.logging(simulation_status)
+                    # Update the time step size for the next attempt.
+                    self.model.time_manager.compute_time_step(recompute_solution=True)
+                except Exception as e:
+                    # Redirect the exception as a warning, and give the control to
+                    # the ModelRunner to stop the simulation.
+                    logger.warning(str(e))
+                    simulation_status = SimulationStatus.STOPPED
+                    self.logging(simulation_status)
+
+        else:
+            raise ValueError("Unrecognized time step status.")
+
+        return simulation_status
+
+    def after_stationary_solve(
+        self, solver_status: SimulationStatus
+    ) -> SimulationStatus:
+        """Method to be executed at the end of a stationary solve.
+
+        React to solver status and logs the progress.
+
+        Parameters:
+            solver_status: Status of the solve, as returned by the solver.
+
+        Returns:
+            pp.SimulationStatus: Status of the solve, which can be used to determine
+                whether the simulation was successful or not.
+
+        """
+        if solver_status.is_successful():
+            # NOTE: time_step_convergence can be considered a misnomer.
+            # But technically this is the only time we solve for. Thus we reuse the
+            # method to set the solution and save data.
+            self.model.after_time_step_convergence()
+            simulation_status = SimulationStatus.SUCCESSFUL
+        else:
+            self.model.after_time_step_failure()
+            simulation_status = SimulationStatus.STOPPED
+
+        return simulation_status
+
+    def logging(self, simulation_status: SimulationStatus) -> None:
+        self.model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+        self.model.nonlinear_solver_statistics.log_mesh_information(
+            self.model.mdg.subdomains()
+        )
+        if self._is_time_dependent:
+            assert isinstance(self.model.nonlinear_solver_statistics, pp.TimeStatistics)
+            self.model.nonlinear_solver_statistics.log_time_information(
+                self.model.time_manager.time_index,
+                self.model.time_manager.time,
+                self.model.time_manager.dt,
+                self.model.time_manager.final_time_reached(),
+            )
