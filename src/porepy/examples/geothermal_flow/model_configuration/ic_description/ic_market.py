@@ -177,3 +177,23 @@ class IC_two_phase_low_pressure(IC_Base):
         t_init = 353.15
         return np.ones(sd.num_cells) * t_init
 
+class IC_two_phase_Figure_8_left_panel(IC_Base):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        p_inlet = 5.0
+        p_outlet = 1.0 #1  atm = 0.101325 MPa
+        xc = sd.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        p_linear = (
+            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        )
+        p_init = np.array(list(map(p_linear, xc)))
+        return np.ones(sd.num_cells) * p_outlet
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        t_init = 283.15
+        return np.ones(sd.num_cells) * t_init
+

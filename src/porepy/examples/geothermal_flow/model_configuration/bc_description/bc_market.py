@@ -172,3 +172,40 @@ class BC_two_phase_low_pressure(BCBase):
         T[inlet_idx] = t_inlet
         T[outlet_idx] = t_outlet
         return T
+
+class BC_two_phase_Figure_8_left_panel(BCBase):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # inlet_idx, outlet_idx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, np.concatenate(self.get_inlet_outlet_sides(sd)), "dir")
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_idx, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_outlet = 1.0
+        return np.ones(boundary_grid.num_cells) * p_outlet
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_outlet = 283.15
+        T =  t_outlet * np.ones(boundary_grid.num_cells)
+        t_inlet = 673.15
+        T[inlet_idx] = t_inlet
+        return T
+
+    # def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    #     inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+    #     flux_inlet = 1000.0
+    #     flux = np.zeros(boundary_grid.num_cells)
+    #     flux[inlet_idx] = flux_inlet
+    #     return flux
+    #
+    # def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    #     inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+    #     h_inlet = 1.000001 # 1 W = J/second
+    #     h = np.zeros(boundary_grid.num_cells)
+    #     h[inlet_idx] = h_inlet
+    #     return h

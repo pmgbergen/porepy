@@ -250,12 +250,12 @@ class SimpleGeometryVertical(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 2.5
-    _inlet_centre: np.ndarray = np.array([2.5, 0.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([2.5, 2000.0, 0.0])
+    _dist_from_ref_point: float = 5.0
+    _inlet_centre: np.ndarray = np.array([5.0, 0.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([5.0, 2000.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(2.5, "m")
+        x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(2000.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
@@ -264,7 +264,7 @@ class SimpleGeometryVertical(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(5.0, "m")
+        cell_size = self.units.convert_units(10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -397,3 +397,66 @@ class SimpleGeometryHayekVertical2D(Geometry):
         inlet_facets = find_facets(self._inlet_centre)
         outlet_facets = find_facets(self._outlet_centre)
         return inlet_facets, outlet_facets
+
+class Figure8Geometry2D(Geometry):
+
+    _inlet_dist_from_ref_point: float = 500.0
+    _outlet_dist_from_ref_point: float = 4500.0
+    _inlet_centre: np.ndarray = np.array([4500.0, 0.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([4500.0, 3000.0, 0.0])
+
+    def set_domain(self) -> None:
+        x_length = self.units.convert_units(9000.0, "m")
+        y_length = self.units.convert_units(3000.0, "m")
+        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
+        self._domain = pp.Domain(box)
+
+    # def set_fractures(self) -> None:
+    #     points = (
+    #             np.array(
+    #                 [
+    #                     [0.0, 2.0],
+    #                     [1.0, 4.0],
+    #                 ]
+    #             ).T
+    #     )
+    #     fracs = np.array([[0, 1]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "cartesian")
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.units.convert_units(100.0, "m")
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+        }
+        return mesh_args
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+        if isinstance(sd, pp.Grid):
+            face_centers = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            face_centers = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        boundary_faces = self.domain_boundary_sides(sd)
+        bf_indices = boundary_faces.all_bf
+
+        def find_facets_top(center: np.ndarray, distant_from_ref_point: np.ndarray) -> np.ndarray:
+            filtered_idx = np.where(face_centers[bf_indices][:, 1] > 2999.0)
+            logical = Geometry.harvest_sphere_members(
+                center, distant_from_ref_point, face_centers[bf_indices][filtered_idx]
+            )
+            return bf_indices[filtered_idx][logical]
+
+        def find_facets_bottom(center: np.ndarray, distant_from_ref_point: np.ndarray) -> np.ndarray:
+            logical = Geometry.harvest_sphere_members(
+                center, distant_from_ref_point, face_centers[bf_indices]
+            )
+            return bf_indices[logical]
+
+        inlet_facets = find_facets_bottom(self._inlet_centre, self._inlet_dist_from_ref_point)
+        outlet_facets = find_facets_top(self._outlet_centre, self._outlet_dist_from_ref_point)
+        return inlet_facets, outlet_facets
+
