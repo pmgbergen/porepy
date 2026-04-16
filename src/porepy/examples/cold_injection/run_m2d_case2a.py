@@ -141,7 +141,7 @@ solver_params["armijo_line_search_incline"] = 1e-4
 solver_params["armijo_line_search_max_iterations"] = 20
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
 
-solver_params["atol_objective"] = 1e-2
+solver_params["atol_objective"] = 1e-5
 solver_params["do_ntrdc"] = True
 solver_params["ntrdc_scale_with_inf"] = True
 solver_params["ntrdc_return_nan"] = True

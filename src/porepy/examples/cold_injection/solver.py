@@ -260,6 +260,9 @@ class CFLESolver(pp.NewtonSolver):
         """Initial trust-region radius set in the first iteration."""
         self._delta_max: float
         """Maximal trust-region radius, set in the first iteration."""
+        self._delta_min: float
+        """Minimal trust-region radius, set in the first iteration. The algorithm is
+        aborted if the trust-region radius falls below this value."""
 
         self.params = cast(CFSolverParams, default_params)
 
@@ -287,7 +290,7 @@ class CFLESolver(pp.NewtonSolver):
             anderson_stop_after_residual_reaches=0.0,
             do_ntrdc=False,
             ntrdc_delta_0=0.2,
-            ntrdc_delta_tol=1e-4,
+            ntrdc_delta_tol=1e-12,
             ntrdc_eta_1=1e-3,
             ntrdc_eta_2=0.25,
             ntrdc_eta_3=0.75,
@@ -508,10 +511,12 @@ class CFLESolver(pp.NewtonSolver):
         B = sps.csr_matrix(self._J.transpose() @ self._J)
         # Calculate delta in first iteration based on initial iterate for Newton.
         # NOTE: Iteration counter is increased after Newton iteration.
-        if model.nonlinear_solver_statistics.num_iterations == 0:
+        # if model.nonlinear_solver_statistics.num_iterations == 0:
+        if self.iteration_index == 1:
             delta = delta_0 * max(1.0, self._xk_norm)
             self._delta = delta
             self._delta_max = max(1.0, self._xk_norm)
+            self._delta_min = delta_tol * max(1.0, self._xk_norm)
         else:
             delta = self._delta
 
@@ -592,7 +597,7 @@ class CFLESolver(pp.NewtonSolver):
             # NOTE: Store delta for next iteration.
             self._delta = delta
             k += 1
-            if delta < delta_tol:  # Failure condition.
+            if delta < self._delta_min:  # Failure condition.
                 if self.params["ntrdc_return_nan"]:
                     msg = "NTRDC reached minimal trust-region radius. Returning nans."
                     dx_k = np.full_like(dx_n, np.nan)
