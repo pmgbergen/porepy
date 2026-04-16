@@ -10,7 +10,6 @@ from typing import cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.model_runner import ModelInstance
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (

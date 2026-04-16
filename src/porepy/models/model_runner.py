@@ -16,13 +16,10 @@ from porepy.utils.ui_and_logging import (
 )
 from porepy.utils.ui_and_logging import progressbar_class
 
-__all__ = ["ModelRunner", "ModelInstance"]
+__all__ = ["ModelRunner"]
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-
-ModelInstance = TypeVar("ModelInstance", bound=pp.PorePyModel)
-"""Type variable for objects inheriting from the PorePy model protocol."""
 
 
 def run_stationary_model(model, params: dict) -> None:
