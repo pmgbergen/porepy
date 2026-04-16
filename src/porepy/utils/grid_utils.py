@@ -9,12 +9,12 @@ import numpy as np
 import scipy.sparse as sps
 from numpy.typing import NDArray
 
+import porepy as pp
 from porepy.geometry.half_space import half_space_interior_point
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 if TYPE_CHECKING:  # Avoid importing heavyish modules at runtime purely for typing.
     from porepy.grids.grid import Grid
-    from porepy.grids.simplex import TriangleGrid
 
 logger = logging.getLogger(__name__)
 
@@ -121,241 +121,228 @@ def star_shape_cell_centers(g: Grid, as_nan: bool = False) -> NDArray[np.float64
     )
 
 
-def compute_circumcenter_2d(
-    sd: TriangleGrid, threshold_angle: float = np.pi * 0.45
-) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
-    """Compute circumcenters of triangular cells in 2D grid.
+def compute_circumcenters(
+    sd: pp.TriangleGrid | pp.TetrahedralGrid,
+    threshold: float = 0.95,
+    tol: float = 1e-14,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.bool_]]:
+    """Compute circumcenters for simplicial grids in 2 and 3 dimensions.
 
-    Parameters:
-        sd: A 2D structured or unstructured triangular grid.
-        threshold_angle: Threshold angle (in radians). The circumcenter will replace the
-            cell center only in those triangles where all angles in the triangle are
-            below this threshold.
+    If the circumcenter lies outside of the cell, or too close to the boundary, a
+    partial movement from barycenter towards circumcenter is applied.
+    The movement is such that it goes at most as far as ``threshold`` times
+    distance from barycenter to face between barycenter and circumcenter
+    (exit distance).
+    I.e., the new center is not the barycenter and not the circumcenter, but a point
+    on the line between them, which is sufficiently far in the interior of the domain.
 
-            Note that if the threshold is set larger than 0.5 * pi, cells with
-            circumcenters outside the cell will have their cell centers replaced.
+    For simplices with right or almost right angles, the circumcenter lies exactly or
+    almost on a face. I.e., the shift from barycenter to circumcenter is capped by
+    ``threshold`` times the exit distance.
 
-    Returns:
-        Tuple with:
-        - New cell centers where circumcenters have replaced original centers for cells
-            with all angles below minimum_angle.
-        - A boolean array indicating which cells had their centers replaced.
+    For simplices with obtuse angles, the circumcenter lies outside the simplex.
+    The shift is capped analogously.
 
-    Raises:
-        ValueError: If degenerate triangles with zero area are encountered.
-        ValueError: If computed angles do not sum to pi.
-    """
-    # Extract node coordinates for all cells.
-    cn = sd.cell_nodes().tocsc()
-    ni = cn.indices.reshape((3, sd.num_cells), order="F")
-    cc = sd.cell_centers.copy()
-    x = sd.nodes[0]
-    y = sd.nodes[1]
-    x0 = x[ni[0]]
-    y0 = y[ni[0]]
-    x1 = x[ni[1]]
-    y1 = y[ni[1]]
-    x2 = x[ni[2]]
-    y2 = y[ni[2]]
-    # Compute circumcenters. First compute determinant D.
-    D = 2 * (x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1))
-    if not np.all(D != 0):
-        raise ValueError("Degenerate triangle with zero area encountered.")
-    # Compute circumcenter coordinates.
-    xc = (
-        (x0**2 + y0**2) * (y1 - y2)
-        + (x1**2 + y1**2) * (y2 - y0)
-        + (x2**2 + y2**2) * (y0 - y1)
-    ) / D
-    yc = (
-        -(
-            (x0**2 + y0**2) * (x1 - x2)
-            + (x1**2 + y1**2) * (x2 - x0)
-            + (x2**2 + y2**2) * (x0 - x1)
-        )
-        / D
-    )
-    # Compute angles at each node using the law of cosines.
-    # Construct vectors between nodes to compute angles.
-    d_01 = np.sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
-    d_12 = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-    d_20 = np.sqrt((x2 - x0) ** 2 + (y2 - y0) ** 2)
+    All cases, where the circumcenter would violate the threshold, are logged as bad
+    cells.
 
-    dot_0 = (x1 - x0) * (x2 - x0) + (y1 - y0) * (y2 - y0)
-    dot_1 = (x0 - x1) * (x2 - x1) + (y0 - y1) * (y2 - y1)
-    dot_2 = (x0 - x2) * (x1 - x2) + (y0 - y2) * (y1 - y2)
+    Paremters:
+        sd: A simplex grid.
+        threshold: ``default=0.95``
 
-    # Guard against tiny numerical drift in the acos argument by clipping to [-1, 1]
-    # to avoid NaNs for nearly-degenerate or floating-point perturbed inputs. Ignoring
-    # invalid value warnings since we handle them via clipping.
-    with np.errstate(invalid="ignore"):
-        cos0 = np.clip(dot_0 / (d_01 * d_20), -1.0, 1.0)
-        cos1 = np.clip(dot_1 / (d_01 * d_12), -1.0, 1.0)
-        cos2 = np.clip(dot_2 / (d_12 * d_20), -1.0, 1.0)
-    angle_0 = np.arccos(cos0)
-    angle_1 = np.arccos(cos1)
-    angle_2 = np.arccos(cos2)
-    # Verify that angles sum to pi.
-    if not np.allclose(angle_0 + angle_1 + angle_2, np.pi):
-        raise ValueError("Computed angles do not sum to pi.")
-    # Replace cell centers with circumcenters for cells with all angles below
-    # threshold_angle.
-    replace = np.logical_and.reduce(
-        [
-            angle_0 < threshold_angle,
-            angle_1 < threshold_angle,
-            angle_2 < threshold_angle,
-        ]
-    )
-    cc[0, replace] = xc[replace]
-    cc[1, replace] = yc[replace]
+            Fraction of distance between barycenter and exit face, denoting the maximal
+            admissible shift. Must be in ``(0,1)`` for the computed cell center to be
+            strictly in the interior.
 
-    return cc, replace
+        tol: ``default=1e-14``
 
-
-def compute_circumcenter_3d(
-    sd: Grid, threshold_angle: float = np.pi * 0.45
-) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
-    """Compute circumcenters of tetrahedral cells in 3D grid.
-
-    Parameters:
-        sd: A 3D structured or unstructured grid.
-        threshold_angle: Threshold angle (in radians). The circumcenter will replace the
-            cell center only in those tetrahedra where all dihedral angles, i.e., the
-            angles between faces, are below this threshold.
-    Returns:
-        Tuple with:
-        - New cell centers where circumcenters have replaced original centers for cells
-            where all dihedral angles are below ``threshold_angle`` (analogous to the 2D
-            version's triangle angles).
-        - A boolean array indicating which cells had their centers replaced.
+            Absolute tolerance to detect degenerate cells and exactness of computations.
 
     Raises:
-        ValueError: If circumcenters are not equidistant from all nodes.
+        ValueError: If the threshold is not strictly in ``(0,1)``.
+        ValueError: If the grid is not a simplex of dimension 2 or 3.
+        ValueError: If any cell is degenerate.
+
+    Returns:
+        A 3-tuple containing
+
+        1. the new cell centers of shape ``sd.cell_centers.shape``.
+        2. Shift values of shape ``(sd.num_cells,)``.
+        3. a boolean array of shape ``(sd.num_cells,)`` indicating where numerically
+           relevant changes in cell centers occurred.
+
+        The shift values contain the scale of the vector going from barycenter
+        to new cell center per cell. A value of 1 indicates the circumcenter is strictly
+        in the interior of the triangle and within the threshold. Values below that
+        indicate that the real circumcenter would violate the threshold distance, i.e.
+        the returned, new cell center is not the actual circumcenter.
 
     """
-    # Extract node coordinates for all cells.
-    cn = sd.cell_nodes().tocsc()
-    ni = cn.indices.reshape((sd.dim + 1, sd.num_cells), order="F")
+    if not (0 < threshold < 1):
+        raise ValueError(f"Threshold must be in (0, 1), got {threshold}.")
+
+    dim = sd.dim
+    numc = sd.num_cells
+    dim1p = dim + 1
+
+    if (type(sd), dim) not in [(pp.TriangleGrid, 2), (pp.TetrahedralGrid, 3)]:
+        raise ValueError(f"Unsupported grid type {type(sd)} of dimension {dim}.")
+
+    # Extract nodes.
+    c2n = sd.cell_nodes().tocsc()
+    n_idx = c2n.indices.reshape((dim1p, numc), order="F")
     x, y, z = sd.nodes[0], sd.nodes[1], sd.nodes[2]
-    x0 = x[ni[0]]
-    y0 = y[ni[0]]
-    z0 = z[ni[0]]
-    x1 = x[ni[1]]
-    y1 = y[ni[1]]
-    z1 = z[ni[1]]
-    x2 = x[ni[2]]
-    y2 = y[ni[2]]
-    z2 = z[ni[2]]
-    x3 = x[ni[3]]
-    y3 = y[ni[3]]
-    z3 = z[ni[3]]
 
-    # Compute matrix A and its inverse for each cell, based on the tetrahedron vertices
-    # as described in:
-    # https://en.wikipedia.org/wiki/Tetrahedron
-    # https://rodolphe-vaillant.fr/entry/127/find-a-tetrahedron-circumcenter
-    A = np.array(
-        [
-            [x1 - x0, y1 - y0, z1 - z0],
-            [x2 - x0, y2 - y0, z2 - z0],
-            [x3 - x0, y3 - y0, z3 - z0],
-        ]
+    # Let A be the matrix of edges (columnwise) pointing away from node n_0. It has
+    # shape (3, dim) per cell. The barycentric coordinates with respect to n_0 are given
+    # by a vector b of shape (dim,), and it holds that the circumcenter c = n_0 + Ab.
+    # For the circumcenter it holds that ||c - n_i||^2 = ||c - n_0||^2, i = 1..dim, i.e.
+    # it is equidistant to all nodes. Plugging in the barycentric representation we get
+    # ||Ab + n_0 - n_i||^2 = ||Ab||^2, i = 1 ..dim, a dim x dim system of nonlinear
+    # equations. Let e_i = n_i - n_0 be the i-th edge. Then we can expand the above
+    # system to
+    # ||Ab - e_i||^2 = ||Ab||^2
+    # (Ab)T (Ab) - 2 (Ab)T e_i + ||e_i||^2 = (Ab)T (Ab)
+    # (Ab)T e_i = ||e_i||^2 / 2
+    # Stacking the dim equations for edges e_i, i=1..dim gives
+    # (A)T Ab = v / 2,
+    # with v being the array of ||e_i||^2.
+    # Hence the barycentric coordinates are given by b = 1 / 2 ((A)T A)^-1 v.
+    # This formula holds for all simplices, 2D, 3D and for 2D embedded in 3D.
+    # The matrix M = (A)T A is positive definite and invertible, if the simplex is
+    # not degenerate, or vice versa if its determinant is zero, the simplex is
+    # degenerate.
+
+    # For batched computations, we stack the matrices A and the rhs v/2 along a new
+    # axis, and let numpy solve it efficiently. The vectorized computations are
+    # triggered for the first axis, hence we move the per-cell axis to 0.
+
+    # nodes (dim + 1, 3, nc)
+    n = np.array([(x[n_idx[i]], y[n_idx[i]], z[n_idx[i]]) for i in range(dim1p)])
+    # row-wise edges (dim, 3, nc) -  matrix (A)T
+    At: NDArray[np.float64] = n[1:] - n[0][None, :, :]
+    # Edge norms squared (dim, nc) - rhs v / 2
+    v: NDArray[np.float64] = 0.5 * np.sum(At**2, axis=1)
+    # Matrix product of edge matrices (dim, dim, nc) - Gram matrix M = (A)T A
+    # NOTE with modern numpy and BLAS, matmul is significantly faster then einsum for
+    # more than 100k cells.
+    # M: NDArray[np.float64] = np.einsum("ikn,jkn->ijn", At, At)
+    At_batch = np.moveaxis(At, -1, 0)
+    M: NDArray[np.float64] = np.moveaxis(
+        np.matmul(At_batch, At_batch.transpose(0, 2, 1)),
+        0,
+        -1,
+    )
+    assert M.shape == (dim, dim, numc)
+    assert v.shape == (dim, numc)
+
+    # Solving system to get barycentric coordinates. Moving batch axis (cells) to the
+    # front to trigger numpy's vectorization.
+    M_batch = np.moveaxis(M, -1, 0)
+    v_batch = v.T
+
+    det: NDArray[np.float64] = np.linalg.det(M_batch)
+    assert det.shape == (numc,)
+    # Degeneracy check. M should be positive definite if simplices are not degenerate.
+    if not np.all(det > tol):
+        raise ValueError("Degenerate simplex with near-zero volume encountered.")
+
+    # Solve system and obtain barycentric coordinates.
+    # Move batch axis (cells) again to the back
+    b_r = np.linalg.solve(M_batch, v_batch[..., None])[..., 0].T
+    assert b_r.shape == (dim, numc)
+
+    # The circumcenter is given by c = n_0 + Ab.
+    # NOTE Here we use einsum, because it's a batched matrix-vector product. Code
+    # more transparent and faster then moving axes around and doing the product using
+    # matmul.
+    ccs: NDArray[np.float64] = n[0] + np.einsum("dkn,dn->kn", At, b_r)
+    assert ccs.shape == (3, numc)
+
+    # SANITY CHECK: Circumcenter equidistant to nodes.
+    dist = np.array([np.linalg.norm(ccs - n[i, :, :], axis=0) for i in range(dim1p)])
+    max_dist = np.maximum.reduce(dist, axis=0)
+    min_dist = np.minimum.reduce(dist, axis=0)
+    assert np.max(np.abs(max_dist - min_dist)) <= tol, (
+        "Circumcenters not equidistant from all nodes."
     )
 
-    # Construct right-hand side vector B.
-    B = 0.5 * np.array(
-        [
-            (x1**2 + y1**2 + z1**2) - (x0**2 + y0**2 + z0**2),
-            (x2**2 + y2**2 + z2**2) - (x0**2 + y0**2 + z0**2),
-            (x3**2 + y3**2 + z3**2) - (x0**2 + y0**2 + z0**2),
-        ]
+    # Starting point for movement: barycenters (3, nc)
+    bcs = np.mean(n, axis=0)
+    # Full shift vector from barycenters to circumcenters.
+    shift_vec = ccs - bcs
+
+    # Catching cases where the circumcenter is close to boundary or outside of triangle.
+    # The exit face is the face passed when going from barycenter in direction
+    # circumcenter. It is the one face where the dot product of outwards normal and
+    # shift vector is the largest. The exit point is the intersection of the respective
+    # face with line spanned by barycenter and circumcenter.
+    # The distance between barycenter and exitpoint, scaled with threshold, is the
+    # maximal admissible movement along the bary-to-circum ray.
+
+    # Cell-face connectivity.
+    c2f = sd.cell_faces.tocsc()
+    face_idx = c2f.indices.reshape((dim1p, numc), order="F")  # (dim + 1, nc)
+    face_sgn = c2f.data.reshape((dim1p, numc), order="F")  # (dim + 1, nc)
+
+    # Normalized outwards face normals (3, dim + 1, nc).
+    fn_out = sd.face_normals[:, face_idx] * face_sgn[None, :, :]
+    fn_out = fn_out / np.linalg.norm(fn_out, axis=0, keepdims=True)
+
+    F = sd.face_centers[:, face_idx]  # Face centers (3, dim + 1, nc).
+
+    # Dot products of all face outwards normals with the shift vector (dim + 1, nc).
+    dots: NDArray[np.float64] = np.einsum("ijk,ik->jk", fn_out, shift_vec)
+    assert dots.shape == (dim + 1, numc), (
+        "Inconsistent dot products of shift vector with normals."
     )
-    # Compute circumcenters by solving A c = B for each cell (avoid explicit inverse).
-    center: NDArray[np.float64] = np.empty((A.shape[2], 3), dtype=float)
-    for i in range(A.shape[2]):
-        center[i, :] = np.linalg.solve(A[:, :, i], B[:, i])
+    face_id = np.argmax(dots, axis=0)  # (nc,)
 
-    # Check that the circumcenter is equidistant from all nodes.
-    distance_node_center = []
-    for ind in ni:
-        dist = np.sqrt(np.sum((sd.nodes[:, ind] - center.T) ** 2, axis=0))
-        distance_node_center.append(dist)
+    idx = np.arange(numc)
+    fn = fn_out[:, face_id, idx]  # (3, nc)
+    pof = F[:, face_id, idx]  # point on face (3, nc)
 
-    max_distance = np.max(np.abs(distance_node_center), axis=0)
-    min_distance = np.min(np.abs(distance_node_center), axis=0)
-    # Use a relative tolerance scaled by the radius to avoid false negatives on
-    # large/small cells.
-    radius = 0.5 * (max_distance + min_distance) + 1e-15
-    if np.max((max_distance - min_distance) / radius) >= 1e-10:
-        raise ValueError("Circumcenter not equidistant from all nodes.")
+    # Plane (face) and line intersection.
+    denom = np.maximum(np.einsum("jk,jk->k", shift_vec, fn), tol)  # avoid /0 zero.
+    num = np.einsum("jk,jk->k", pof - bcs, fn)
+    t = num / denom
 
-    # Decide replacement using a dihedral-angle criterion analogous to 2D.
-    # For each cell, construct outward unit normals for its four faces, then compute
-    # the six internal dihedral angles and require all to be below the threshold.
-    cf_csc = sd.cell_faces.tocsc()
-    faces_idx = cf_csc.indices
-    faces_data = cf_csc.data
-    faces_ptr = cf_csc.indptr
+    epts = bcs + t * shift_vec  # exit points (3, nc)
 
-    replace = np.zeros(sd.num_cells, dtype=bool)
-    for c in range(sd.num_cells):
-        loc = slice(faces_ptr[c], faces_ptr[c + 1])
-        f_loc = faces_idx[loc]
-        # Orientation sign per face relative to cell.
-        sgn = np.sign(faces_data[loc])
-        # Outward unit normals per face.
-        n = (sd.face_normals[:, f_loc] / sd.face_areas[f_loc]) * sgn
-        # Normalize to guard against numerical drift.
-        n = n / (np.linalg.norm(n, axis=0) + 1e-15)
+    # Maximally allowed shift: distance barycenter to exitpoint times threshold.
+    max_shift = np.linalg.norm(epts - bcs, axis=0) * threshold
+    # Actual shift: distance barycenter to calculated circumcenter.
+    act_shift = np.maximum(np.linalg.norm(shift_vec, axis=0), tol)
+    # Shift fully, where potential shift does not violate maximal shift, or apply
+    # maximal shift (normalized with length of shift vector).
+    shift = np.where(act_shift <= max_shift, np.ones(numc), max_shift / act_shift)
 
-        # Compute all six dihedral angles between face pairs: θ = arccos( - n_i · n_j ).
-        # Pairs (0,1), (0,2), (0,3), (1,2), (1,3), (2,3).
-        angles_list: list[float] = []
-        for i in range(4):
-            for j in range(i + 1, 4):
-                dot = np.dot(n[:, i], n[:, j])
-                dot = float(np.clip(dot, -1.0, 1.0))
-                angles_list.append(float(np.arccos(-dot)))
-        dihedral_angles = np.array(angles_list, dtype=float)
-        # Replace iff all dihedral angles are below threshold.
-        replace[c] = bool(np.all(dihedral_angles < threshold_angle))
+    # Correct shift values in case barycenters and circumcenters coincide.
+    shift[act_shift <= tol] = 0.0
+    # Compute new cell center by applying shift to barycenter.
+    nccs: NDArray[np.float64] = bcs + shift * shift_vec
 
-    new_centers = sd.cell_centers.copy()
-    if np.any(replace):
-        new_centers[:, replace] = center.T[:, replace]
+    # Changes as per specificed tolerance.
+    changed: NDArray[np.bool_] = np.linalg.norm(nccs - sd.cell_centers, axis=0) > tol
 
+    # Log total change.
     logger.info(
-        "Replaced %d out of %d cell centers.", int(replace.sum()), int(sd.num_cells)
+        "Replaced %d out of %d cell centers on grid %d.",
+        int(changed.sum()),
+        numc,
+        sd.id,
     )
-    # Additional verification: For internal faces between two cells that had their
-    # centers replaced, the vector between the two circumcenters should be parallel to
-    # the face normal for those faces.
-    fc = sd.cell_faces_as_dense()
-    # Note: fc = -1 (boundary faces) will not be found in replace. Thus, we only
-    # consider internal faces here.
-    internal_replaced = np.all(np.isin(fc, np.where(replace)[0]), axis=0)
-    # Verify that the circumcenter-to-circumcenter vector across internal faces is
-    # parallel to the face normal for replaced cells.
-    cc_vec = (
-        new_centers[:, fc[0, internal_replaced]]
-        - new_centers[:, fc[1, internal_replaced]]
+    # Log changes where circumcenter not within threshold.
+    logger.info(
+        "Circumcenter not in threshold in %d out of %d cells on grid %d (bad cells).",
+        int(np.sum(shift < 1)),
+        numc,
+        sd.id,
     )
-    normal = sd.face_normals[:, internal_replaced]
-    # Compute cross product between cc_vec and normal.
-    cc_vec_cross_normal = np.vstack(
-        (
-            cc_vec[1] * normal[2] - cc_vec[2] * normal[1],
-            cc_vec[2] * normal[0] - cc_vec[0] * normal[2],
-            cc_vec[0] * normal[1] - cc_vec[1] * normal[0],
-        )
+    assert nccs.shape == sd.cell_centers.shape, (
+        "Inconsistent shape for new cell centers."
     )
-    # Relative colinearity check: ||a x b|| <= tol * ||a|| ||b|| for all internal faces
-    if cc_vec_cross_normal.size:
-        cross_norm = np.linalg.norm(cc_vec_cross_normal, axis=0)
-        denom = np.linalg.norm(cc_vec, axis=0) * np.linalg.norm(normal, axis=0) + 1e-15
-        if np.max(cross_norm / denom) >= 1e-10:
-            raise ValueError(
-                "Circumcenter not aligned with face normals for replaced cells."
-            )
-    return new_centers, replace
+    assert shift.shape == (numc,), "Inconsistent shape for shift values."
+    assert changed.shape == (numc,), "Inconsistent shape for change indicators."
+
+    return nccs, shift, changed

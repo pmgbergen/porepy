@@ -81,7 +81,6 @@ class WellBoundaryConditions(pp.PorePyModel):
         if self.is_well_grid(sd):
             well = self.well_network.wells[sd.tags["parent_well_index"]]
             well_tag = well.tags["well_name"]
-            protocol = self.well_protocols()[well_tag]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
             # The top of the domain is '.top' in 3d, '.north' in 2d.
@@ -89,7 +88,7 @@ class WellBoundaryConditions(pp.PorePyModel):
             # Set pressure values according to the well protocol.
             values[inds] = self.units.convert_units(
                 self.get_well_value(
-                    protocol["pressures"],
+                    self.well_protocols(well_tag, "pressures"),
                     self.time_manager.schedule,
                     self.time_manager.time,
                 ),
@@ -109,16 +108,14 @@ class WellBoundaryConditions(pp.PorePyModel):
         sd = bg.parent
         values = super().bc_values_temperature(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
-            # Retrieve well protocol.
             well_tag = self.well_names[sd.tags["parent_well_index"]]
-            protocol = self.well_protocols()[well_tag]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
             # Set temperature values according to the well protocol.
             values[inds] = self.units.convert_units(
                 self.get_well_value(
-                    protocol["temperatures"],
+                    self.well_protocols(well_tag, "temperatures"),
                     self.time_manager.schedule,
                     self.time_manager.time,
                 ),
@@ -153,45 +150,32 @@ class WellBoundaryConditions(pp.PorePyModel):
         else:
             return float(np.interp(current_time, times, values))
 
-    def well_protocols(self) -> dict[str, dict[str, NDArray[np.float64]]]:
-        """Dictionary mapping well tags to well protocols.
+    def well_protocols(self, well_tag: str, variable: str) -> NDArray[np.float64]:
+        """Return the time-dependent protocol array for a given well and variable.
+
+        The value is read from ``self.params`` under the key
+        ``"{well_tag}_{variable}"``. A scalar is broadcast to all schedule times; an
+        array must match schedule length.
+
+        Parameters:
+            well_tag: Name of the well (e.g. ``"injection_well"``).
+            variable: Protocol variable name (e.g. ``"pressures"``, ``"temperatures"``,
+                ``"mass_rates"``).
 
         Returns:
-            Dictionary with well protocols, each containing a dictionary with
-            time-dependent temperatures and pressures, with each value being an array of
-            size equal to the number of scheduled times in the time manager.
+            Array of protocol values, one entry per scheduled time point.
         """
         num_times = self.time_manager.schedule.size
-        protocols: dict[str, dict[str, NDArray[np.float64]]] = {}
-        # Construct protocols for each well.
-        for well_tag in self.well_names:
-            # Initialize protocol dictionary for the well.
-            protocols[well_tag] = {}
-            # Set values for temperatures and pressures.
-            for variable in ["temperatures", "pressures"]:
-                input_values = self.params.get(f"{well_tag}_{variable}", 0.0)
-                if isinstance(input_values, (float, int)):
-                    # Broadcast single value to all time steps for convenient user
-                    # definition of well protocols.
-                    values = np.full(num_times, input_values, dtype=float)
-
-                elif isinstance(input_values, (list, np.ndarray)):
-                    # Enforce array of float values.
-                    values = np.array(input_values, dtype=float)
-                    if values.size != num_times:
-                        raise ValueError(
-                            f"Well protocol for {well_tag} {variable} has size "
-                            f"{values.size}, expected {num_times}."
-                        )
-                else:
-                    raise TypeError(
-                        f"Well protocol for {well_tag} {variable} has unsupported "
-                        f"type {type(input_values)}."
-                    )
-                # Populate well dictionary for the current variable.
-                protocols[well_tag][variable] = values
-
-        return protocols
+        raw = self.params.get(f"{well_tag}_{variable}", 0.0)
+        if isinstance(raw, (int, float)):
+            return np.full(num_times, float(raw))
+        values = np.asarray(raw, dtype=float)
+        if values.size != num_times:
+            raise ValueError(
+                f"Protocol '{well_tag}_{variable}' has {values.size} entries, "
+                f"expected {num_times} (one per schedule point)."
+            )
+        return values
 
 
 class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
@@ -295,7 +279,22 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     """
 
 
-if __name__ == "__main__":
+def set_model_params():
+    # Adjust solid values, while using default values for water.
+    solid_values = cast(dict[str, float], pp.solid_values.basalt)
+    solid_values.update(
+        {
+            "dilation_angle": 0.1,  # [rad]
+            # Uncomment next two lines to include elastic fracture deformation, aka
+            # "Barton-Bandis" model for normal fracture deformation.
+            # "fracture_normal_stiffness": 1.1e8,  # [Pa m^-1]
+            # "maximum_elastic_fracture_opening": 1e-3,  # [m]
+            "normal_permeability": 1.0e-10,  # [m^2]
+            "residual_aperture": 1e-3,  # [m]
+            "well_radius": 0.1,  # [m]
+        }
+    )
+
     # Define time schedule for the simulation.
     schedule = np.array([0, pp.HOUR, 10 * pp.HOUR, 100 * pp.DAY])
 
@@ -318,23 +317,9 @@ if __name__ == "__main__":
     schedule = schedule[:schedule_length]
     injection_pressures = injection_pressures[:schedule_length]
 
-    # Adjust solid values, while using default values for water.
-    solid_values = cast(dict[str, float], pp.solid_values.basalt)
-    solid_values.update(
-        {
-            "dilation_angle": 0.1,  # [rad]
-            # Uncomment next two lines to include elastic fracture deformation, aka
-            # "Barton-Bandis" model for normal fracture deformation.
-            # "fracture_normal_stiffness": 1.1e8,  # [Pa m^-1]
-            # "maximum_elastic_fracture_opening": 1e-3,  # [m]
-            "normal_permeability": 1.0e-10,  # [m^2]
-            "residual_aperture": 1e-3,  # [m]
-            "well_radius": 0.1,  # [m]
-        }
-    )
     # Define domain sizes (x, y, z) and fracture size.
     length_scale = 1e3  # [m]
-    fracture_size = 0.15  # [-], fraction of length_scale
+    fracture_size = 0.2  # [-], fraction of length_scale
     domain_sizes = np.array(
         [1.0 * length_scale, 1.0 * length_scale, 1.0 * length_scale]
     )  # [m]
@@ -354,7 +339,8 @@ if __name__ == "__main__":
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
         "injection_well_temperatures": 300.00,
         "injection_well_pressures": injection_pressures,
-        "production_well_temperatures": 300.0,
+        # The produced fluid is hotter than the injected one.
+        "production_well_temperatures": 350.0,
         "production_well_pressures": pp.ATMOSPHERIC_PRESSURE,  # = 1.01325e5 Pa
         "material_constants": {
             "solid": pp.SolidConstants(**solid_values),  # type: ignore[arg-type]
@@ -372,9 +358,10 @@ if __name__ == "__main__":
             "cell_size_fracture": fracture_size * length_scale / 2.5,
         },
         "fracture_params": {  # Other options are available in the geometry mixin.
-            "fracture_major_axes": np.array((fracture_size, fracture_size * 1.2)),
-            "num_points": np.array((9, 8)),  # Number of points to define each fracture
-            "dip_angles": np.array((np.pi / 4, np.pi / 2)),  # Slanted and vertical
+            "fracture_major_axes": np.array(
+                (fracture_size, fracture_size)
+            ),  # dimensionless, scaled by domain size
+            "dip_angles": np.array((np.pi / 4, -np.pi / 4)),  # [rad]
         },
         "domain_sizes": domain_sizes,
         # Line search: Scale the indicator used for the local_line_search (see below)
@@ -382,15 +369,23 @@ if __name__ == "__main__":
         "adaptive_indicator_scaling": 1,
         # Set folder name for results.
         "folder_name": "geothermal_reservoir",
+        # Add the length scale and fracture size here to make it available for
+        # modifications of the parameter dictionary in testing and runscripts.
+        "length_scale": length_scale,
+        "fracture_size": fracture_size,
     }
-    model = GeothermalReservoirWellBCs(model_params)
+    return model_params
+
+
+def set_solver_params():
+    # Define parameters for the non-linear solver.
     solver_params = {
         "prepare_simulation": True,
         "nl_max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
         "nl_convergence_inc_atol": 1e-7,  # Increment norm
         "nl_convergence_res_atol": 1e-7,  # Residual norm
-        "nl_divergence_inc_atol": 1e20,
-        "nl_divergence_res_atol": 1e20,
+        "nl_divergence_inc_atol": 1e12,
+        "nl_divergence_res_atol": 1e12,
         # Line search / Solution Strategies. These are considered "advanced" options,
         # improving the robustness of the nonlinear solver at the cost of some
         # additional computational overhead. Delete/comment the following lines for the
@@ -404,5 +399,9 @@ if __name__ == "__main__":
         # effective for (some versions of) this particular simulation setup.
         "local_line_search": 1,
     }
+    return solver_params
 
-    pp.run_time_dependent_model(model, solver_params)
+
+if __name__ == "__main__":
+    model = GeothermalReservoirWellBCs(set_model_params())
+    pp.run_time_dependent_model(model, set_solver_params())

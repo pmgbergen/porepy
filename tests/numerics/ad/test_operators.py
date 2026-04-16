@@ -59,8 +59,11 @@ def test_elementary_operations(operator):
     # Check that the combined operator has the expected structure.
     assert c.operation == operator[1]
 
-    assert c.children[0] == a
-    assert c.children[1] == b
+    # Need to check the id of the objects since the equality of pp.ad.Operator (or
+    # rather the _key method which is called by eq) does not allow for generic void
+    # operators like a and b.
+    assert id(c.children[0]) == id(a)
+    assert id(c.children[1]) == id(b)
 
 
 def test_copy_operator_tree():
@@ -89,17 +92,16 @@ def test_copy_operator_tree():
     assert c.operation == c_copy.operation
     assert c.operation == c_deepcopy.operation
 
-    # The deep copy should have made a new list of children.
-    # The shallow copy should have the same list.
-    assert c.children == c_copy.children
-    assert not c.children == c_deepcopy.children
-
-    # Check that the shallow copy also has the same children, while
-    # the deep copy has copied these as well.
+    # The operator version of scalars and dense arrays calculates the hash based on the
+    # value of the underlying object, hence the comparison operator for pp.ad.Operator
+    # should evaluate for True for both the copy and the deepcopy. The id of the
+    # underlying object should be the same for the copy, but different for the deepcopy.
     for c1, c2 in zip(c.children, c_copy.children):
         assert c1 == c2
+        assert id(c1) == id(c2)
     for c1, c2 in zip(c.children, c_deepcopy.children):
-        assert not c1 == c2
+        assert c1 == c2
+        assert id(c1) != id(c2)
 
     # As a second test, also validate that the operators are parsed correctly.
     # This should not be strictly necessary - the above test should be sufficient,

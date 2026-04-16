@@ -6,6 +6,9 @@ The tests fall into two categories:
 
 """
 
+from copy import deepcopy
+from typing import Literal
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -16,6 +19,7 @@ from porepy.applications.md_grids import model_geometries
 from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
+from porepy.applications.test_utils.models import add_mixin
 
 """Local utility functions."""
 
@@ -693,7 +697,8 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 class WithoutDiffTpfa(
     FluxDiscretization,
-    pp.MassAndEnergyBalance,
+    # pp.MassAndEnergyBalance,
+    pp.SinglePhaseFlow,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -768,6 +773,146 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
     assert np.allclose(vector[0], vector[1])
 
 
+class DiffTpfaNewtonPerformanceGeometry(
+    FluxDiscretization,
+    pp.applications.boundary_conditions.model_boundary_conditions.HydrostaticBoundaryPressureValues,
+    pp.SinglePhaseFlow,
+):
+    """Model class to test the performance of Newton's method with and without the
+    differentiable tpfa mixin.
+
+    """
+
+    def set_fractures(self) -> None:
+        """Set the fractures in the domain."""
+        if self.params["include_fracture"]:
+            length = self.domain.bounding_box["xmax"] / 3
+            r = self.units.convert_units(length / 2, "m")
+
+            points = np.array([[-r, 0], [r, 0]]).T
+            self._fractures = [pp.LineFracture(points)]
+        else:
+            self._fractures = []
+
+    def domain_size(self) -> float:
+        """Return the size of the domain."""
+        return 2
+
+    def set_domain(self) -> None:
+        """Set the cube domain."""
+        sz = self.domain_size() / 2
+        bounding_box = {
+            "xmin": self.units.convert_units(-sz, "m"),
+            "xmax": self.units.convert_units(sz, "m"),
+            "ymin": self.units.convert_units(-sz, "m"),
+            "ymax": self.units.convert_units(sz, "m"),
+        }
+        self._domain = pp.Domain(bounding_box)
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        if self.params["constant_permeability"]:
+            return super().permeability(subdomains)
+        else:
+            f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+            permeability = pp.ad.Scalar(self.solid.permeability) * f_max(
+                self.pressure(subdomains), pp.ad.Scalar(1e-5)
+            )
+            return self.isotropic_second_order_tensor(subdomains, permeability)
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Poromechanics rely by default on Darcy flux re-discretization.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        )
+
+
+# @pytest.mark.skipped  # reason: slow
+@pytest.mark.parametrize("base_scheme", ["tpfa", "mpfa"])
+@pytest.mark.parametrize("gravity", [True, False])
+@pytest.mark.parametrize("include_fracture", [True, False])
+@pytest.mark.parametrize("constant_permeability", [True, False])
+def test_diff_tpfa_newton_performance(
+    base_scheme: Literal["mpfa", "tpfa"],
+    gravity: bool,
+    include_fracture: bool,
+    constant_permeability: bool,
+):
+    """Verify that the solutions computed with and without diff-tpfa are consistent,
+    and that inclusion of the diffenetiable tpfa does not increase the number of
+    Newton iterations.
+
+    Parameters:
+        base_scheme: Spatial discretization scheme for diffusive equations.
+        gravity: Whether to include gravity.
+        include_fracture: If True, a single fracture will be included in the domain.
+        constant_permeability: If False, a non-linearity will be included in the
+            permeability tensor.
+
+    """
+    model_params = {
+        "time_manager": pp.TimeManager(
+            schedule=[0, pp.DAY],
+            dt_init=pp.DAY,
+            constant_dt=True,
+        ),
+        "include_fracture": include_fracture,
+        "meshing_arguments": {"cell_size": 0.3},
+        "darcy_flux_discretization": base_scheme,
+        "grid_type": "simplex",
+        "constant_permeability": constant_permeability,
+    }
+    solver_params = {
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_convergence_res_atol": np.inf,
+        "nl_max_iterations": 25,
+    }
+
+    models = []
+    num_iters = []
+    pressures = []
+
+    if include_fracture:
+        interface_darcy_fluxes = []
+
+    # Solve problem with and without differentiable tpfa, gather statistics.
+    for differentiable in [True, False]:
+        model_class = DiffTpfaNewtonPerformanceGeometry
+        if gravity:
+            model_class = add_mixin(pp.constitutive_laws.GravityForce, model_class)
+        if differentiable:
+            model_class = add_mixin(pp.constitutive_laws.DarcysLawAd, model_class)
+
+        m = model_class(deepcopy(model_params))
+        pp.run_time_dependent_model(m, solver_params)
+        num_iters.append(m.nonlinear_solver_statistics.num_iterations)
+
+        sds = m.mdg.subdomains()
+        intfs = m.mdg.interfaces()
+
+        equation_system = m.equation_system
+        pressures.append(equation_system.evaluate(m.pressure(sds)))
+
+        if include_fracture:
+            interface_darcy_fluxes.append(
+                equation_system.evaluate(m.interface_darcy_flux(intfs))
+            )
+
+    if constant_permeability:
+        assert num_iters[0] == num_iters[1]
+    else:
+        assert num_iters[0] <= num_iters[1]
+    assert np.allclose(pressures[0], pressures[1])
+    if include_fracture:
+        assert np.allclose(interface_darcy_fluxes[0], interface_darcy_fluxes[1])
+
+
 class DiffTpfaFractureTipsInternalBoundaries(
     model_geometries.CubeDomainOrthogonalFractures,
     well_models.OneVerticalWell,
@@ -822,12 +967,13 @@ class DiffTpfaFractureTipsInternalBoundaries(
             "cell_size": 1.0 * ls,
             "cell_size_fracture": 1.0 * ls,
             "cell_size_boundary": 1.0 * ls,
+            "refinement_proximity_multiplier": 1e-6,
+            "refinement_size_multiplier": 1.0,
         }
         return mesh_sizes
 
 
-@pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
-def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
+def test_flux_potential_trace_on_tips_and_internal_boundaries():
     """Test that the flux and potential trace can be computed on fracture tips and
     internal boundaries.
 
@@ -838,11 +984,25 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
     assigned a Neumann boundary condition). On tips we also test that the potential
     trace is equal to the pressure in the adjacent cell.
 
+    Note for posterity: The test is only performed with Tpfa as a base discretization,
+    since the tested properties will not hold for Mpfa in general. Specifically:
+    - The flux expression for a Neumann face will depend on the pressures (and
+      permeabilties) in multiple nearby cells, and hence pick up non-zero terms in the
+      Jacobian matrix. The only constraint Mpfa puts on these dependencies is that, for
+      a solution computed with Mpfa, the flux contributions from these cells will cancel
+      out, but save from this, they can be non-zero (and so can the derivatives of the
+      permability). This is in contrast with the tpfa discretization, where a single
+      interior cell contributes to the flux over the Neumann face, hence this must be
+      zero for the flux to be dependent on the given boundary condition only.
+    - The potential trace on a tip or internal boundary will in general depend on the
+      pressures in multiple nearby cells, and hence not be equal to the pressure in the
+      adjacent cell.
+
     """
     model = DiffTpfaFractureTipsInternalBoundaries(
         {
-            "darcy_flux_discretization": base_discr,
-            "fourier_flux_discretization": base_discr,
+            "darcy_flux_discretization": "tpfa",
+            "fourier_flux_discretization": "tpfa",
             "times_to_export": [],
         }
     )
@@ -860,55 +1020,49 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
             model.darcy_flux([sd]), derivative=True
         )
         assert np.allclose(darcy_flux.jac[bc_darcy.is_neu].data, 0)
-
         bc_fourier = data[pp.PARAMETERS][model.fourier_keyword]["bc"]
         fourier_flux = model.equation_system.evaluate(
             model.fourier_flux([sd]), derivative=True
         )
         assert np.allclose(fourier_flux.jac[bc_fourier.is_neu].data, 0)
 
-        if base_discr == "tpfa":
-            # On immersed fracture tips, we know that the flux is zero (homogeneous
-            # Neumann condition). For TPFA, we can thus verify that the reconstructed
-            # potential trace is equal to the pressure in the adjacent cell, since this
-            # is the only way to get zero flux with that scheme. We cannot do a similar
-            # test for MPFA, since the potential trace reconstruction involves other
-            # cells and boundary conditions on other faces - meaning that the potential
-            # trace on the tip face is not necessarily equal to the pressure in the
-            # adjacent cell.
+        # On immersed fracture tips, we know that the flux is zero (homogeneous Neumann
+        # condition). For TPFA, we can thus verify that the reconstructed potential
+        # trace is equal to the pressure in the adjacent cell, since this is the only
+        # way to get zero flux with that scheme.
 
-            # Get the indices of the fracture tip faces and that of the adjacent cell.
-            tip_faces = np.where(
-                np.logical_and(
-                    sd.tags["tip_faces"],
-                    np.logical_not(sd.tags["domain_boundary_faces"]),
-                )
-            )[0]
-            _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
+        # Get the indices of the fracture tip faces and that of the adjacent cell.
+        tip_faces = np.where(
+            np.logical_and(
+                sd.tags["tip_faces"],
+                np.logical_not(sd.tags["domain_boundary_faces"]),
+            )
+        )[0]
+        _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
 
-            # Check that the pressure trace is equal to the pressure in the adjacent
-            # cell.
-            pressure_trace = model.equation_system.evaluate(
-                model.potential_trace(
-                    [sd],
-                    model.pressure,
-                    model.permeability,
-                    model.combine_boundary_operators_darcy_flux,
-                    "darcy_flux",
-                )
+        # Check that the pressure trace is equal to the pressure in the adjacent
+        # cell.
+        pressure_trace = model.equation_system.evaluate(
+            model.potential_trace(
+                [sd],
+                model.pressure,
+                model.permeability,
+                model.combine_boundary_operators_darcy_flux,
+                "darcy_flux",
             )
-            p = model.equation_system.evaluate(model.pressure([sd]))
-            assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
-            # Check that the temperature trace is equal to the temperature in the
-            # adjacent cell.
-            temperature_trace = model.equation_system.evaluate(
-                model.potential_trace(
-                    [sd],
-                    model.temperature,
-                    model.thermal_conductivity,
-                    model.combine_boundary_operators_fourier_flux,
-                    "fourier_flux",
-                )
+        )
+        p = model.equation_system.evaluate(model.pressure([sd]))
+        assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
+        # Check that the temperature trace is equal to the temperature in the
+        # adjacent cell.
+        temperature_trace = model.equation_system.evaluate(
+            model.potential_trace(
+                [sd],
+                model.temperature,
+                model.thermal_conductivity,
+                model.combine_boundary_operators_fourier_flux,
+                "fourier_flux",
             )
-            T = model.equation_system.evaluate(model.temperature([sd]))
-            assert np.allclose(temperature_trace[tip_faces], T[tip_cells])
+        )
+        T = model.equation_system.evaluate(model.temperature([sd]))
+        assert np.allclose(temperature_trace[tip_faces], T[tip_cells])

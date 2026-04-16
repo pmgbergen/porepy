@@ -419,10 +419,10 @@ class FractureNetwork3d(FractureNetwork):
             num_orig_subfrac.append(len(frac))
 
             for sfi, sub_frac in enumerate(frac):
-                bounding_lines = gmsh.model.get_boundary([sub_frac])
+                bounding_lines = gmsh.model.get_boundary([sub_frac], oriented=False)
                 bounding_points = []
                 for line in bounding_lines:
-                    bounding_points += gmsh.model.get_boundary([line])
+                    bounding_points += gmsh.model.get_boundary([line], oriented=False)
 
                 if len(bounding_points) == 0:
                     # This is most likely a disc fracture, which has no bounding
@@ -636,7 +636,7 @@ class FractureNetwork3d(FractureNetwork):
                 # At most one of the parents was not a constraint. This line should not
                 # produce a point.
                 continue
-            for bp in gmsh.model.get_boundary([(1, line)]):
+            for bp in gmsh.model.get_boundary([(1, line)], oriented=False):
                 points_of_intersection_lines.append(bp[1])
 
         num_point_occ = np.bincount(points_of_intersection_lines)
@@ -736,7 +736,9 @@ class FractureNetwork3d(FractureNetwork):
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(nd)
         # Get the boundaries.
-        boundaries = gmsh.model.get_boundary([(nd, tag) for _, tag in domain_entities])
+        boundaries = gmsh.model.get_boundary(
+            [(nd, tag) for _, tag in domain_entities], oriented=False
+        )
 
         surface_tags = set(tag for _, tag in gmsh.model.get_entities(nd - 1))
         boundary_tags = set(tag for _, tag in boundaries)
