@@ -48,7 +48,7 @@ development = [
     "traitlets"
 ]
 testing = [
-    "pytest >= 4.6",
+    "pytest",
     "pytest-cov",
     "pytest-runner"
 ]
