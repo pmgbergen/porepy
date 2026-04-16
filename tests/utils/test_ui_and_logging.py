@@ -7,7 +7,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 
-logger = logging.getLogger()
+mock_logger = logging.getLogger(__name__)
 
 
 class MockEquationSystem:
@@ -25,23 +25,20 @@ class MockMDG:
 
 
 class MockModel:
-    """Mock model to test the progressbars interface in :mod:`~porepy.models.run_models`
-    and :mod:`~porepy.numerics.nonlinear.nonlinear_solvers`.
+    """Mock model to test the progressbars and logging interface in
+    :mod:`~porepy.models.run_models` and
+    :mod:`~porepy.numerics.nonlinear.nonlinear_solvers`.
 
-    Does nothing but expose dummy hooks to
+
+    Exposes mock hooks to
     :func:`~porepy.models.run_models.run_time_dependent_model` and
-    :func:`~porepy.numerics.nonlinear.nonlinear_solvers.NewtonSolver`.
+    :func:`~porepy.numerics.nonlinear.nonlinear_solvers.NewtonSolver` and writes mock
+    logging messages of all levels.
 
     Nonlinear convergence is fully controlled by the size of the nonlinear increment as
     the mock residual value is always below tolerance, cf.
     :meth:`~MockEquationSystem.assemble`.
 
-    Does nothing but expose :attr:`time_manager` and :attr:`nonlinear_solver_statistics`
-    to relevant progressbar methods in
-    :func:`~porepy.models.run_models.run_time_dependent_model` and
-    :func:`~porepy.numerics.nonlinear.nonlinear_solvers.NewtonSolver` to ensure the
-    progressbars are updated correctly as the time and nonlinear loop progress,
-    respectively.
 
     """
 
@@ -70,7 +67,14 @@ class MockModel:
         self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self) -> None:
-        pass
+        # Implementation NOTE: Write logging messages of all levels. This way we can
+        # test in test_logging_and_progressbars that
+        # pp.utils.ui_and_logging.logging_redirect_tqdm_with_level correctly redirects
+        # messages of all levels through tqdm.
+        mock_logger.debug(f"Starting Newton step")
+        mock_logger.info(f"Starting Newton step")
+        mock_logger.warning(f"Starting Newton step")
+        mock_logger.error(f"Starting Newton step")
 
     def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         self.nonlinear_solver_statistics.num_iterations += 1
@@ -107,27 +111,31 @@ def num_nl_iterations() -> int:
     return 3
 
 
-@pytest.fixture
-def setup_model(num_time_steps: int, num_nl_iterations: int) -> MockModel:
-    return MockModel(num_time_steps, num_nl_iterations)
-
-
 @pytest.mark.parametrize("progressbars", [True, False])
-@pytest.mark.parametrize("logging_level", [logging.DEBUG, logging.CRITICAL])
-def test_line_count(
-    setup_model: MockModel,
+@pytest.mark.parametrize("logging_level", [logging.DEBUG, logging.ERROR])
+def test_logging_and_progressbars(
     progressbars: bool,
     logging_level: bool,
     num_time_steps: int,
     num_nl_iterations: int,
     capsys,
+    caplog,
 ) -> None:
-    # Fix progressbars and logging params.
+    """Test that progressbars and logging through tqdm work correctly."""
+    # Implementation NOTE: The test function is long and does two different things. It
+    # would be cleaner to run the model and capture output in a fixture and then
+    # individual tests for logging and progressbars. However, the capsys and caplog
+    # fixtures are function-scoped, so for the sake of only having to run the model
+    # once, we combine everything into one test.
+
+    # Initialize logging capture of the correct levels.
+    caplog.set_level(logging_level)
+
+    model = MockModel(num_time_steps, num_nl_iterations)
     params = {"progressbars": progressbars}
-    logging.basicConfig(level=logging_level)
+    pp.run_time_dependent_model(model, params)
 
-    pp.run_time_dependent_model(setup_model, params)
-
+    # 1. Check that progressbars were displayed correctly. These are written to stderr.
     captured_stderr = capsys.readouterr().err
     captured_stderr_carr_returns = captured_stderr.split("\r")
 
@@ -184,4 +192,40 @@ def test_line_count(
     assert num_time_progressbar_updates >= min_expected_time_progressbar_updates
     assert num_newton_progressbar_updates >= min_expected_newton_progressbar_updates
 
-    # TODO Implement logging check. These are not written to stdout?
+    # 2. Check that logging messages of all requested levels were redirected through
+    #    tqdm and displayed. Messages are written to stdlog.
+
+    # Count the number of "Starting Newton step" messages originating from
+    # MockModel.before_nonlinear_iteration of each level.
+    num_before_newton_step_debug_records: int = 0
+    num_before_newton_step_info_records: int = 0
+    num_before_newton_step_warning_records: int = 0
+    num_before_newton_step_error_records: int = 0
+
+    captured_logging_records = caplog.records
+    for record in captured_logging_records:
+        if record.msg == "Starting Newton step":
+            if record.levelno == logging.DEBUG:
+                num_before_newton_step_debug_records += 1
+            elif record.levelno == logging.INFO:
+                num_before_newton_step_info_records += 1
+            elif record.levelno == logging.WARNING:
+                num_before_newton_step_warning_records += 1
+            elif record.levelno == logging.ERROR:
+                num_before_newton_step_error_records += 1
+
+    total_num_nl_iterations = num_nl_iterations * num_time_steps
+
+    # Debug, info, and warning messages are logged if logging_level == logging.DEBUG.
+    if logging_level <= logging.DEBUG:
+        assert num_before_newton_step_debug_records == total_num_nl_iterations
+        assert num_before_newton_step_info_records == total_num_nl_iterations
+        assert num_before_newton_step_warning_records == total_num_nl_iterations
+    else:
+        assert num_before_newton_step_debug_records == 0
+        assert num_before_newton_step_info_records == 0
+        assert num_before_newton_step_warning_records == 0
+
+    # Error messages are logged for both logging_level == logging.DEBUG and
+    # logging_level == logging.ERROR.
+    assert num_before_newton_step_error_records == total_num_nl_iterations
