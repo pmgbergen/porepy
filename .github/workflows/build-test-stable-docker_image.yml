@@ -3,10 +3,9 @@
 # but does not push the image to Docker Hub. It also runs only on pull requests to main,
 # whereas push-stable-docker-image.yml runs on pushes (PRs accepted) to main.
 #
-# NOTE: For now, this workflow does not run as intended, since it will run on the branch
-# defined by the stable Dockerfile, which is main. What is needed is to reconfigure
-# the dockerfile and GH workflow to build from the PR branch instead. This should be
-# revisited later.
+# The stable Dockerfile accepts a POREPY_BRANCH build argument that controls which
+# branch is checked out inside the container. Here we pass the PR's head branch so
+# that the image is built and tested against the PR changes rather than main.
 name: Build a Docker image for main branch PRs
 
 on:
@@ -17,25 +16,22 @@ on:
       - main
 
 jobs:
-  push_to_registry:
-    name: Push Docker image to Docker Hub
+  build_and_test:
+    name: Build Docker image (no push)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
-      
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      - name: Build and push stable
+      - name: Build stable
         uses: docker/build-push-action@v3
         with:
           context: ./
           file: ./dockerfiles/stable/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: false
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/stable:latest
+          tags: porepy/stable:pr-test
+          build-args: POREPY_BRANCH=${{ github.head_ref || github.ref_name }}
 

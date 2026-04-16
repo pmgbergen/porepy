@@ -33,4 +33,5 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/stable:latest
+          build-args: POREPY_BRANCH=main
 

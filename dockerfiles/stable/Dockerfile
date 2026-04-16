@@ -19,11 +19,15 @@
 # Use the base PorePy image; most of the heavy lifting is done from there.
 FROM porepy/base
 
+# Branch to check out. Defaults to main. Can be overridden at build time, e.g.,
+# to build from a PR branch using --build-arg POREPY_BRANCH=<branch_name>.
+ARG POREPY_BRANCH=main
+
 ## Download PorePy from github
 # Make sure we are in the home directory
 WORKDIR ${POREPY_HOME}
-# Make sure we're on the main branch
-RUN git checkout main && git pull
+# Check out the specified branch (default: main)
+RUN git checkout ${POREPY_BRANCH} && git pull
 
 # Run tests to check that everything works.
 # NOTE: When run as a GH action (presumably after a PR to the develop branch
