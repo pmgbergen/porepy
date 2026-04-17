@@ -80,10 +80,10 @@ class ModelConfig(pp.PorePyModel):
     _DOMAIN_DIMENSIONS: list[float] = [100.0, 20.0, 100.0]
     """Domain dimensions in meters."""
 
-    _INJECTION_POINTS: list[np.ndarray] = [np.array([15.0, 10.0])]
+    _INJECTION_POINTS: list[np.ndarray] = [np.array([10.0, 10.0])]
     """Coordinates of injection wells in meters."""
 
-    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([85.0, 10.0])]
+    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([90.0, 10.0])]
     """Coordinates of production wells in meters."""
 
     _APERTURE_FACTOR_AFTER_TIME: list[tuple[float, pp.number]] = []
@@ -262,7 +262,7 @@ def get_default_convergence_criteria(
     atol_res: float,
     atol_inc: float,
     atol_res_isofug: float,
-    atol_div: float = 1e10,
+    atol_div: float = 1e8,
 ) -> dict:
     """Returns the default convergence criteria for the CFLE setup."""
 

@@ -14,7 +14,7 @@ Note:
 from __future__ import annotations
 
 import logging
-import time
+from pathlib import Path
 from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
@@ -159,7 +159,8 @@ class SolutionStrategy(ModelConfig):
         do_default_flash = self.do_flash_preconditioning()
 
         for sd in self.mdg.subdomains():
-            if "injection_well" in sd.tags and do_default_flash:
+            # if "injection_well" in sd.tags and do_default_flash:
+            if "injection_well" in sd.tags:
                 equ_spec = pf.IsobaricSpecifications(
                     p=self.equation_system.evaluate(self.pressure([sd])),
                     T=self.equation_system.evaluate(self.temperature([sd])),
@@ -289,18 +290,31 @@ class SolutionStrategy(ModelConfig):
                     logger.info(
                         f"Performing isochoric preconditioning on grid {sd.id}."
                     )
-                    self.params["flash_params"]["solver_params"]["atol_res"] = 1e-7
-                    # Perform full, isochoric flash, including initial guess.
-                    self.local_equilibrium(
-                        sd,
-                        specification=equ_spec,
-                        initial_guess_from_current_state=False,
-                        update_secondary_variables=True,
+                    self.params["flash_params"]["solver_params"]["atol_res"] = min(
+                        1e-8, atol
                     )
+                    # Perform full, isochoric flash, including initial guess.
+                    res: tuple[pf.FlashResults, NDArray[np.bool_]] = (
+                        self.local_equilibrium(
+                            sd,
+                            specification=equ_spec,
+                            initial_guess_from_current_state=False,
+                            update_secondary_variables=True,
+                        )
+                    )
+                    if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                        self.equation_system.set_variable_values(
+                            res[0].v,
+                            [self.fluid_specific_volume([sd])],  # type:ignore[arg-type]
+                            iterate_index=0,
+                        )
                     isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
 
         if isochoric_npc_done:
+            self.update_derived_quantities()
+            self.update_interface_fluxes()
+            self.iterate_pT()
             self.update_interface_fluxes()
 
     def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
@@ -329,6 +343,94 @@ class SolutionStrategy(ModelConfig):
             sol = np.full_like(self.linear_system[1], np.nan)
 
         return sol
+
+    def iterate_pT(self) -> None:
+        """Additional iterations over p and T using mass and energy balance to update
+        elliptic part."""
+
+        eqs = []
+        vars = []
+        subdomains = self.mdg.subdomains()
+        codim_1_interfaces = self.mdg.interfaces(codim=1)
+        codim_2_interfaces = self.mdg.interfaces(codim=2)
+
+        if isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+            vars += [
+                self.pressure(subdomains),
+                # self.interface_darcy_flux(codim_1_interfaces),
+                # self.well_flux(codim_2_interfaces),
+            ]
+            eqs += [
+                pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name(),
+                # "interface_darcy_flux_equation",
+                # "well_flux_equation",
+            ]
+            if "production_pressure_constraint" in self.equation_system.equations:
+                eqs += ["production_pressure_constraint"]
+        if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+            vars += [
+                self.temperature(subdomains),
+                self.interface_enthalpy_flux(codim_1_interfaces),
+                self.interface_fourier_flux(codim_1_interfaces),
+                self.well_enthalpy_flux(codim_2_interfaces),
+            ]
+            eqs += [
+                pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
+                "interface_fourier_flux_equation",
+                "interface_enthalpy_flux_equation",
+                "well_enthalpy_flux_equation",
+            ]
+            if "injection_temperature_constraint" in self.equation_system.equations:
+                eqs += ["injection_temperature_constraint"]
+
+        # if (
+        #     isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable)
+        #     and "local_fluid_volume_constraint" in self.equation_system.equations
+        # ):
+        #     vars += [self.fluid_specific_volume(subdomains)]
+        #     eqs += ["local_fluid_volume_constraint"]
+        # if (
+        #     isinstance(self, pp.energy_balance.EnthalpyVariable)
+        #     and "local_fluid_enthalpy_constraint" in self.equation_system.equations
+        # ):
+        #     vars += [self.enthalpy(subdomains)]
+        #     eqs += ["local_fluid_enthalpy_constraint"]
+
+        ndofs = self.equation_system.num_dofs()
+        dofs = self.equation_system.dofs_of(vars)  # type:ignore[arg-type]
+        pdofs = self.equation_system.dofs_of([self.pressure(subdomains)])  # type:ignore[arg-type]
+        col_scales = self._column_scales()
+        chop = 1.0
+        projection = self.equation_system.projection_to(
+            self.equation_system._parse_variable_type(vars)  # type:ignore[arg-type]
+        )
+
+        for i in range(50):
+            A, b = self.equation_system.assemble(
+                evaluate_jacobian=True,
+                equations=eqs,  # variables=vars
+            )
+
+            norm = np.linalg.norm(b)
+            if norm < 1e-5:
+                break
+
+            if not sps.isspmatrix_csr(A):
+                A = sps.csr_matrix(A)
+            A.data *= col_scales[A.indices]
+            A = A * projection.transpose()
+
+            dx = sps.linalg.spsolve(A, b) * chop
+            dx_full = np.zeros(ndofs)
+            dx_full[dofs] = dx
+            dx_full = self._rescale_increment(dx_full)
+            dx_full[pdofs] = np.minimum(dx_full[pdofs], 1e4)
+            self.equation_system.set_variable_values(
+                dx_full,
+                iterate_index=0,
+                additive=True,
+            )
+            self.update_derived_quantities()
 
 
 class AdjustedPointWellModel(ModelConfig):
@@ -933,9 +1035,9 @@ class DataCollectionMixin(pp.PorePyModel):
         update_secondary_variables: bool = True,
         state: Optional[np.ndarray] = None,
         cell_mask: Optional[np.ndarray] = None,
-    ) -> pf.FlashResults:
+    ) -> tuple[pf.FlashResults, NDArray[np.bool_]]:
 
-        results: pf.FlashResults = super().local_equilibrium(  # type:ignore[misc]
+        results: tuple[pf.FlashResults, NDArray[np.bool_]] = super().local_equilibrium(  # type:ignore[misc]
             sd,
             specification=specification,
             initial_guess_from_current_state=initial_guess_from_current_state,
@@ -946,9 +1048,39 @@ class DataCollectionMixin(pp.PorePyModel):
 
         if sd not in self._flash_iter_per_grid:
             self._flash_iter_per_grid[sd] = []
-        self._flash_iter_per_grid[sd].append(results.num_iter)
+        self._flash_iter_per_grid[sd].append(results[0].num_iter)
 
         return results
+
+    def plot_from_vec(
+        self, vec: np.ndarray, name: str, is_update: bool, suffix: str = ""
+    ) -> None:
+        i = self.nonlinear_solver_statistics.num_iterations + 1
+        xn = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(vec, time_step_index=0)
+        plot_name = f"{name}_iter_{i}"
+        title = f"{name}, iteration {i}"
+        if suffix:
+            plot_name += f"_{suffix}"
+            title += f" ({suffix})"
+        if is_update:
+            plot_name = "delta_" + plot_name
+            title = "Update " + title
+        plot_name += ".png"
+
+        pp.save_img(
+            name=Path(f"{self.params['folder_name']}/{plot_name}"),
+            grid=self.mdg,
+            cell_value=name,
+            fracturewidth_1d=10,
+            pointsize=20,
+            fig_size=(10, 5),
+            plot_2d=True,
+            linewidth=0.1,
+            title=title,
+        )
+
+        self.equation_system.set_variable_values(xn, time_step_index=0)
 
 
 class ColdInjectionMixins(

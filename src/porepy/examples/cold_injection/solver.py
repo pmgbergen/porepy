@@ -256,11 +256,11 @@ class CFLESolver(pp.NewtonSolver):
         self._pot: float | np.floating
         """Current objective function value."""
 
-        self._delta: float
+        self._delta: float | np.floating
         """Initial trust-region radius set in the first iteration."""
-        self._delta_max: float
+        self._delta_max: float | np.floating
         """Maximal trust-region radius, set in the first iteration."""
-        self._delta_min: float
+        self._delta_min: float | np.floating
         """Minimal trust-region radius, set in the first iteration. The algorithm is
         aborted if the trust-region radius falls below this value."""
 
@@ -272,8 +272,8 @@ class CFLESolver(pp.NewtonSolver):
             logp_clip=None,
             newton_chop=None,
             appleyard_chop=None,
-            atol_objective=1e-5,
-            atol_inc=1e-12,
+            atol_objective=1e-8,
+            atol_inc=1e-10,
             do_armijo_line_search=True,
             armijo_line_search_weight=0.9,
             armijo_line_search_incline=1e-4,
@@ -290,7 +290,7 @@ class CFLESolver(pp.NewtonSolver):
             anderson_stop_after_residual_reaches=0.0,
             do_ntrdc=False,
             ntrdc_delta_0=0.2,
-            ntrdc_delta_tol=1e-12,
+            ntrdc_delta_tol=1e-10,
             ntrdc_eta_1=1e-3,
             ntrdc_eta_2=0.25,
             ntrdc_eta_3=0.75,
@@ -299,6 +299,45 @@ class CFLESolver(pp.NewtonSolver):
             ntrdc_scale_with_inf=True,
             ntrdc_return_nan=True,
         )
+
+    def _plot(
+        self, model: CFLEModel, dx: np.ndarray | None = None, suffix: str = ""
+    ) -> None:
+        """Plotting function for debugging purposes."""
+
+        is_update = False
+        if dx is not None:
+            is_update = True
+            # NOTE Rescale separately, because wrong values are stored in state.
+            col_scales = model._column_scales()
+            use_logp = model._uses_logp()
+            dp: np.ndarray | None = None
+            dofs_p: np.ndarray | None = None
+
+            vec = dx.copy()
+
+            if use_logp and isinstance(
+                model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+            ):
+                # If the logp nonlinear RPC is used, the nonlinear increment is a logp
+                # and needs to be transformed back to a pressure increment before being
+                # added to the solution.
+                dofs_p = model.equation_system.dofs_of([model.pressure_variable])
+                p_k = self._xk[dofs_p]
+                p_k1p = p_k * np.exp(vec[dofs_p])
+                dp = p_k1p - p_k
+
+            if isinstance(col_scales, np.ndarray):
+                vec *= col_scales
+            if dp is not None and dofs_p is not None:
+                vec[dofs_p] = dp
+        else:
+            vec = self._xk
+
+        model.plot_from_vec(vec, "pressure", is_update, suffix)  # type:ignore
+        model.plot_from_vec(vec, "fluid_specific_volume", is_update, suffix)  # type:ignore
+        model.plot_from_vec(vec, "s_G", is_update, suffix)  # type:ignore
+        # model.plot_from_vec(vec, "y_G", is_update, suffix)
 
     def iteration(self, model: CFLEModel) -> np.ndarray:  # type:ignore[override]
         """An iteration consists of performing the Newton step and obtaining the step
@@ -320,11 +359,24 @@ class CFLESolver(pp.NewtonSolver):
         least_squares = self.params["armijo_least_squares_form"]
 
         self._xk = model.equation_system.get_variable_values(iterate_index=0)
-        self._xk_norm = np.linalg.norm(self._xk)
+        col_scales = model._column_scales()
+        # Calcualate norm of current iterate in scaled space.
+        pk = None
+        if model._uses_logp():
+            pk = model.equation_system.get_variable_values(
+                [model.pressure_variable], iterate_index=0
+            )
+        xk = self._xk.copy()
+        if isinstance(col_scales, np.ndarray):
+            xk /= col_scales
+            if pk is not None:
+                dofsp = model.equation_system.dofs_of([model.pressure_variable])
+                xk[dofsp] = np.log(pk)
+
+        self._xk_norm = np.linalg.norm(xk)
 
         if do_ntrdc or (do_armijo and not least_squares):
             A, b = model.equation_system.assemble(evaluate_jacobian=True)
-            col_scales = model._column_scales()
             if isinstance(col_scales, np.ndarray):
                 assert A.shape[1] == col_scales.size
                 if not sps.isspmatrix_csr(A):
@@ -335,16 +387,23 @@ class CFLESolver(pp.NewtonSolver):
             self._F_norm = np.linalg.norm(self._F)
             self._pot = self._F_norm**2 * 0.5
             self._grad_pot = self._J.transpose() @ self._F
-        elif do_armijo:
+        else:
             self._F = -model.equation_system.assemble(evaluate_jacobian=False)
             self._F_norm = np.linalg.norm(self._F)
             self._pot = self._F_norm**2 * 0.5
 
+        # if model.time_manager.time_index == 28:
+        #     self._plot(model, None)
+        #     self._plot(model, dx, "raw")
         dx = self.apply_chops(model, dx)
+        # if model.time_manager.time_index == 28:
+        #     self._plot(model, dx, "after chops")
 
         if do_ntrdc:
             dx = self.ntrdc(model, dx)
             diverged = np.any(np.isnan(dx))
+            # if model.time_manager.time_index == 28:
+            #     self._plot(model, dx, "after TR")
 
         if do_armijo and not diverged:
             dx *= self.armijo_line_search(model, dx)
@@ -374,8 +433,8 @@ class CFLESolver(pp.NewtonSolver):
         self, model: CFLEModel, trial_increment: np.ndarray
     ) -> float:
         """Objective function for the residual depending on a state vector."""
-        state = self._xk + model._rescale_increment(trial_increment)
-        model.equation_system.set_variable_values(state, iterate_index=0)
+        xk1p = self._xk + model._rescale_increment(trial_increment)
+        model.equation_system.set_variable_values(xk1p, iterate_index=0)
         model.update_derived_quantities()
         res = model.equation_system.assemble(evaluate_jacobian=False)
         return float(np.dot(res, res)) * 0.5
@@ -386,11 +445,11 @@ class CFLESolver(pp.NewtonSolver):
         if self.params["appleyard_chop"] is not None:
             dx = self.appleyard_chop(model, dx)
         if model._uses_logp():
-            dofs = model.equation_system.dofs_of([model.pressure_variable])
             c = self.params["logp_clip"]
             if c is not None:
                 assert c[0] < 0, "Log-p lower clip must be smaller than 0."
                 assert c[1] > 0, "Log-p upper clip must be greater than 1."
+                dofs = model.equation_system.dofs_of([model.pressure_variable])
                 dx[dofs] = np.clip(dx[dofs], c[0], c[1])
         return dx
 
@@ -438,13 +497,15 @@ class CFLESolver(pp.NewtonSolver):
         least_squares = self.params["armijo_least_squares_form"]
         atol = self.params["atol_objective"]
 
+        tol_pot = max(np.finfo(np.float64).eps, atol**2 / 2)
+
         pot_0 = self._pot
 
         lin_decrease = 0.0
         if not least_squares:
             lin_decrease = float(np.dot(self._grad_pot, dx))
 
-        if pot_0 <= atol:
+        if pot_0 <= tol_pot:
             logger.info(f"Armijo line search potential below cap. Returning 1.")
             return 1.0
         rho = rho_0
@@ -466,7 +527,7 @@ class CFLESolver(pp.NewtonSolver):
             else:
                 break_condition = pot_i <= pot_0 + kappa * rho * lin_decrease
 
-            if break_condition or pot_i <= atol:
+            if break_condition or pot_i <= tol_pot:
                 break
 
         model.nonlinear_solver_statistics.log_custom_data(
@@ -485,13 +546,8 @@ class CFLESolver(pp.NewtonSolver):
 
     def ntrdc(self, model: CFLEModel, dx_n: np.ndarray) -> np.ndarray:
         """Newton Trust-Region Dogleg-Cauchy method."""
-        if not isinstance(
-            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-        ):
-            logger.warning(
-                "Skipping NTRDC. Model does not track nonlinear solver statistics."
-            )
-            return dx_n
+
+        eps = np.finfo(np.float64).eps
 
         # Extract parameters.
         delta_tol = self.params["ntrdc_delta_tol"]
@@ -505,20 +561,14 @@ class CFLESolver(pp.NewtonSolver):
         atol_inc = self.params["atol_inc"]
         do_scale = self.params["ntrdc_scale_with_inf"]
 
+        atol_pot = max(eps, atol**2 / 2)
+        rtol_inc = np.sqrt(eps)
+        eps_noise = 100.0 * eps
+
         pot_0 = self._pot
         dx_ns = dx_n.copy()
-        grad_pot = self._grad_pot
+        g = self._grad_pot
         B = sps.csr_matrix(self._J.transpose() @ self._J)
-        # Calculate delta in first iteration based on initial iterate for Newton.
-        # NOTE: Iteration counter is increased after Newton iteration.
-        # if model.nonlinear_solver_statistics.num_iterations == 0:
-        if self.iteration_index == 1:
-            delta = delta_0 * max(1.0, self._xk_norm)
-            self._delta = delta
-            self._delta_max = max(1.0, self._xk_norm)
-            self._delta_min = delta_tol * max(1.0, self._xk_norm)
-        else:
-            delta = self._delta
 
         scales = np.ones(model.equation_system.num_dofs())
         if do_scale:
@@ -539,26 +589,47 @@ class CFLESolver(pp.NewtonSolver):
                 apply_scale(model.enthalpy_variable)
 
             dx_ns /= scales
-            grad_pot = self._grad_pot * scales
+            g = self._grad_pot * scales
             # Column and row scaling (J D)T (J D) = D (JT J) D
             B.data *= scales[B.indices]
             B.data *= scales[np.repeat(np.arange(B.shape[0]), np.diff(B.indptr))]
 
-        dx_k = dx_ns
-        gBg = np.dot(grad_pot, B @ grad_pot)
-        grad_pot_norm = np.linalg.norm(grad_pot)
-        g_gBg = grad_pot_norm**2 / gBg
+        # Initialize trust-region radius based on initial values.
+        # Update minimal trust-region radius based on current solution.
+        # Then fetch current delta from self._delta.
+        # NOTE: Iteration counter is increased before Newton iteration. Likewise the
+        # time step index.
+        if self.iteration_index == 1:
+            rel_tol = max(1.0, self._xk_norm)
+            self._delta_min = delta_tol * rel_tol
+            if model.time_manager.time_index == 1:
+                self._delta = delta_0 * rel_tol
+                self._delta_max = rel_tol
+                logger.info(
+                    f"NTRDC initial trust-region radius: {self._delta:.4e}. "
+                    # f"maximal trust-region radius: {self._delta_max:.4e}. "
+                )
+            logger.info(
+                "NTRDC minimal trust-region radius for time step "
+                f"{model.time_manager.time_index}: {self._delta_min:.4e}."
+            )
+
+        delta = self._delta
+        dx_ks = dx_ns
+        gBg = np.dot(g, B @ g)
+        g_norm = np.linalg.norm(g)
+        g_gBg = g_norm**2 / gBg
         k = 0
         start = time.time()
 
         while True:
             if np.linalg.norm(dx_ns) <= delta:
-                dx_k = dx_ns
+                dx_ks = dx_ns
             else:
-                alpha = min(delta / grad_pot_norm, g_gBg)
-                dx_c = -alpha * grad_pot
+                alpha = min(delta / g_norm, g_gBg)
+                dx_c = -alpha * g
                 if np.linalg.norm(dx_c) >= delta:
-                    dx_k = dx_c
+                    dx_ks = dx_c
                 else:
                     dx_ = dx_ns - dx_c
                     a = np.dot(dx_, dx_)
@@ -567,23 +638,29 @@ class CFLESolver(pp.NewtonSolver):
                     d = np.sqrt(b**2 - 4 * a * c)
                     n = 1.0 / (2 * a)
                     tau = max((-b + d) * n, (-b - d) * n)
-                    dx_k = dx_c + tau * dx_
+                    dx_ks = dx_c + tau * dx_
 
-            pot_k = self.objective_function(model, dx_k * scales if do_scale else dx_k)
-            m_k = pot_0 + np.dot(grad_pot, dx_k) + 0.5 * np.dot(dx_k, B @ dx_k)
+            dx_k = dx_ks * scales if do_scale else dx_ks
+            pot_k = self.objective_function(model, dx_k)
+            m_k = pot_0 + np.dot(g, dx_ks) + 0.5 * np.dot(dx_ks, B @ dx_ks)
 
-            # Approximate improvement.
-            rho = (pot_0 - pot_k) / (pot_0 - m_k)
-
-            # NOTE: If objective function (norm of residual squared) is small enough,
-            # m_k indicates that the quadratic model is a good approximation and we
-            # accept the step. If m_k is very small, rho can be numerically misleading.
-            if rho > eta_1 or abs(m_k) <= atol:  # Success condition.
+            if (
+                pot_0 <= atol_pot
+                and np.linalg.norm(dx_k) <= rtol_inc * (1 + self._xk_norm)
+                and pot_k <= pot_0 + eps_noise * (1 + pot_0)
+            ):
                 logger.info(
-                    f"NTRDC accepted step with radius {delta:.4e} ({k})"
-                    f" and improvement {rho:.3e}."
+                    "NTRDC stopping criterion reached: potential and step below "
+                    "noise level. Returning current step."
                 )
                 break
+
+            # Approximate improvement.
+            dpot = pot_0 - pot_k
+            dm = pot_0 - m_k
+            rho = dpot / dm
+            if dpot < 0 and dm < 0:
+                rho *= -1.0
 
             # Adaption of trust-region radius.
             # If quadratic model is a bad approximation (rho << 1), decrease radius.
@@ -591,67 +668,56 @@ class CFLESolver(pp.NewtonSolver):
                 delta *= t_1
             # If quadratic model is a good approximation (rho ~/> 1), increase radius.
             elif rho > eta_3:
-                # delta *= t_2
-                delta = min(self._delta_max, t_2 * delta)
+                delta *= t_2
+                # delta = min(self._delta_max, t_2 * delta)
 
-            # NOTE: Store delta for next iteration.
-            self._delta = delta
+            if rho > eta_1:  # Success condition.
+                logger.info(f"NTRDC accepted step with improvement {rho:.3e}.")
+                break
+
             k += 1
             if delta < self._delta_min:  # Failure condition.
+                msg = f"NTRDC reached minimal trust-region radius {delta:.4e}."
                 if self.params["ntrdc_return_nan"]:
-                    msg = "NTRDC reached minimal trust-region radius. Returning nans."
+                    msg += " Returning nans."
                     dx_k = np.full_like(dx_n, np.nan)
-                else:
-                    msg = f"NTRDC reached minimal trust-region radius {delta:.4e} ({k})"
                 logger.warning(msg)
                 break
 
+        # NOTE: Store delta for next iterations and time steps. Ensure it is not smaller
+        # than minimum.
         model.nonlinear_solver_statistics.log_custom_data(
             append=True, ntrdc_clocktime=time.time() - start
         )
+        logger.info(f"NTRDC change in delta: {self._delta:.4e} -> {delta:.4e} ({k})")
+        self._delta = max(delta, self._delta_min)
         model.nonlinear_solver_statistics.log_custom_data(
             append=True, ntrdc_iterations=k
         )
-        return dx_k * scales if do_scale else dx_k
+        return dx_k
 
     def anderson_acceleration(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
         """Apply the anderson acceleration."""
-        assert not model._uses_logp(), (
-            "Anderson acceleration is not currently implemented for use with logp "
-            "nonlinear RPC."
-        )
-        if not isinstance(
-            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-        ):
-            logger.warning(
-                "Skipping Anderson acceleration. Model does not track nonlinear "
-                "solver statistics."
-            )
-            return dx
 
         F_upper = self.params["anderson_start_after_residual_reaches"]
         F_lower = self.params["anderson_stop_after_residual_reaches"]
         if F_lower <= self._F_norm <= F_upper:
-            logger.debug("Applying Anderson acceleration.")
+            logger.info("Applying Anderson acceleration.")
 
             xk = self._xk.copy()
             pk = None
+            dofsp = None
             uses_logp = model._uses_logp()
             if uses_logp:
-                pk = np.log(
-                    model.equation_system.get_variable_values(
-                        [model.pressure_variable], iterate_index=0
-                    )
-                )
+                dofsp = model.equation_system.dofs_of([model.pressure_variable])
+                pk = np.log(xk[dofsp])
             col_scales = model._column_scales()
             if isinstance(col_scales, np.ndarray):
                 xk /= col_scales
-            if uses_logp and pk:
-                xk[model.equation_system.dofs_of([model.pressure_variable])] = pk
+            if isinstance(pk, np.ndarray):
+                xk[dofsp] = pk
 
-            xk1p = self._anderson.apply(
-                xk + dx, dx, model.nonlinear_solver_statistics.num_iterations
-            )
+            xk1p = self._anderson.apply(xk + dx, dx, self.iteration_index)
             return xk1p - xk
         else:
             return dx

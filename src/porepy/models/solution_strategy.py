@@ -735,7 +735,9 @@ class SolutionStrategy(pp.PorePyModel):
             raise ValueError(f"Unknown linear solver {solver}")
 
     def _uses_logp(self) -> bool:
-        return bool(self.params.get("use_logp_nonlinear_rpc", False))
+        return bool(self.params.get("use_logp_nonlinear_rpc", False)) and isinstance(
+            self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        )
 
     def _column_scales(self) -> np.ndarray | None:
         """Construct multiplicative vector for Jacobian column scaling, which result

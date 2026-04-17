@@ -1201,7 +1201,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         update_secondary_variables: bool = True,
         state: Optional[np.ndarray] = None,
         cell_mask: Optional[np.ndarray] = None,
-    ) -> FlashResults:
+    ) -> tuple[FlashResults, NDArray[np.bool_]]:
         """Performs flash calculations on the given grid and updates the fluid
         properties at the current iterate.
 
@@ -1243,6 +1243,12 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
                 If a boolean array is given, the flash is only performed on the
                 masked cells. If None, all cells are equilibrated.
+
+        Returns:
+            A 2-tuple containing the flash results and a boolean array indicating where
+            the results were used to update the state of the system and values of fluid
+            properties. The latter depends on ``cell_mask`` as well as the success of
+            the flash and the results of :meth:`postprocess_equilibrium`.
 
         """
 
@@ -1431,7 +1437,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             flash_iterations=int(results.num_iter.sum()),
         )
 
-        return results
+        return results, update_mask
 
     def _full_equilibrium(
         self,

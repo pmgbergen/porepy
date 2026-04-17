@@ -44,12 +44,10 @@ newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
 if BUOYANCY_ON:
     max_iterations = 40
-    iter_range = (21, 28)
 else:
     max_iterations = 30
-    iter_range = (15, 25)
-max_iterations = 100
-iter_range = (30, max_iterations)
+max_iterations = 70
+iter_range = (20, max_iterations)
 
 T_END_DAYS = 50
 
@@ -87,9 +85,22 @@ model_params, solver_params = get_default_params(
 
 model_params["linear_solver"] = "scipy_sparse"  # scipy_sparse, pypardiso
 model_params["time_manager"] = time_manager
-# model_params["times_to_export"] = time_schedule
-model_params["meshing_arguments"]["cell_size"] = 2.0
-model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
+model_params["times_to_export"] = time_schedule
+model_params["meshing_arguments"] = {
+    "cell_size": 5.0,
+    "cell_size_boundary": 5.0,
+    "cell_size_fracture": 1.0,
+    "refinement_proximity_multiplier": 1.0,
+    "refinement_size_multiplier": 1.0,
+    "background_transition_multiplier": 15,
+}
+# model_params["grid_type"] = "cartesian"
+# model_params["meshing_arguments"] = {
+#     "cell_size": 1.0,
+#     "cell_size_fracture": 1.0,
+# }
+# model_params["meshing_arguments"]["cell_size"] = 2.0
+# model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
 model_params["_well_surrounding_permeability"] = 1e-12
 model_params["_fracture_permeability"] = 1e-10
@@ -101,7 +112,7 @@ model_params["_heated_boundary_on"] = False
 model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = 0
+model_params["flash_params"]["global_iteration_stride"] = 5
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
@@ -124,16 +135,18 @@ else:
     model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
 
 model_params["variable_scaling_linear_rpc"] = {
-    "pressure": 22064000.0,
+    # "pressure": 22064000.0,
+    "pressure": 10e6,
     "temperature": 647.096,
     "enthalpy": 524641.0735546586,
     "fluid_specific_volume": 5.59480372671e-05,
 }
-model_params["use_logp_nonlinear_rpc"] = True
+model_params["use_logp_nonlinear_rpc"] = False
 
+solver_params["atol_objective"] = newton_tol_res
 solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
-solver_params["logp_clip"] = (np.log(0.5), np.log(2.0))
+solver_params["logp_clip"] = (np.log(0.8), np.log(1.2))
 
 solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
@@ -141,10 +154,11 @@ solver_params["armijo_line_search_incline"] = 1e-4
 solver_params["armijo_line_search_max_iterations"] = 20
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
 
-solver_params["atol_objective"] = 1e-5
 solver_params["do_ntrdc"] = True
-solver_params["ntrdc_scale_with_inf"] = True
+solver_params["ntrdc_scale_with_inf"] = False
 solver_params["ntrdc_return_nan"] = True
+solver_params["ntrdc_eta_3"] = 0.5
+solver_params["ntrdc_eta_2"] = 0.1
 
 
 class Case2aMixin:

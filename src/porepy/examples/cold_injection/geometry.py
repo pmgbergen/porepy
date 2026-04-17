@@ -150,7 +150,7 @@ class HorizontalFractureAndPointWells2D(PointWells):
     with length equal to half the domain length in x-direction."""
 
     def set_fractures(self) -> None:
-        x_min, y_min = 0.0, 0.9
+        x_min, y_min = 0.0, 0.0
         x_max = self._DOMAIN_DIMENSIONS[0]
         y_max = self._DOMAIN_DIMENSIONS[1]
         domain_width = x_max - x_min
@@ -159,7 +159,7 @@ class HorizontalFractureAndPointWells2D(PointWells):
         x_center = x_min + domain_width * 0.5
         y_center = y_min + domain_height * 0.5
 
-        frac_width = domain_width * 0.5
+        frac_width = domain_width * 0.6
 
         self._fractures = [
             pp.LineFracture(
