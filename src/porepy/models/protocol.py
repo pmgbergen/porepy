@@ -39,7 +39,7 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in ModelGeometry."""
 
-        fracture_network: pp.fracture_network
+        fracture_network: pp.FractureNetworkType
         """Representation of fracture network including intersections."""
 
         well_network: pp.WellNetwork3d
@@ -64,7 +64,9 @@ else:
             """Domain of the problem."""
 
         @property
-        def fractures(self) -> list[pp.LineFracture] | list[pp.PlaneFracture]:
+        def fractures(
+            self,
+        ) -> list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]:
             """Fractures of the problem."""
 
         def set_geometry(self) -> None:
@@ -79,7 +81,10 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
-        def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        def add_wells_to_mdg(self) -> None:
+            """Add wells to the mixed-dimensional grid."""
+
+        def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 
             Parameters:
@@ -112,6 +117,17 @@ else:
 
             Returns:
                 Keyword arguments compatible with pp.create_mdg() method.
+
+            """
+
+        def depth(self, coords: np.ndarray) -> np.ndarray:
+            """Compute depth of points.
+
+            Parameters:
+                coords: Array of points where depth is to be calculated.
+
+            Returns:
+                Depth of points.
 
             """
 
@@ -430,9 +446,7 @@ else:
 
             """
 
-        def specific_volume(
-            self, grids: list[pp.Grid] | list[pp.MortarGrid]
-        ) -> pp.ad.Operator:
+        def specific_volume(self, grids: pp.GridLikeSequence) -> pp.ad.Operator:
             """Specific volume [m^(nd-d)].
 
             For subdomains, the specific volume is the cross-sectional area/volume of
@@ -443,7 +457,7 @@ else:
                 :meth:aperture.
 
             Parameters:
-                subdomains: List of subdomain or interface grids.
+                grids: List of subdomain, interface or boundary grids.
 
             Returns:
                 Specific volume for each cell.
@@ -487,9 +501,6 @@ else:
     class SolutionStrategyProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in SolutionStrategy."""
-
-        convergence_status: bool
-        """Whether the non-linear iteration has converged."""
 
         equation_system: pp.ad.EquationSystem
         """Equation system manager.
@@ -846,7 +857,7 @@ else:
         def volume_integral(
             self,
             integrand: pp.ad.Operator,
-            grids: list[pp.Grid] | list[pp.MortarGrid],
+            grids: pp.GridLikeSequence,
             dim: int,
         ) -> pp.ad.Operator:
             """Numerical volume integral over subdomain or interface cells.
@@ -856,7 +867,8 @@ else:
             Parameters:
                 integrand: Operator for the integrand. Assumed to be a cell-wise scalar
                     or vector quantity, cf. :code:`dim` argument.
-                grids: List of subdomains or interfaces to be integrated over.
+                grids: List of subdomains, interfaces or boundary grids to be integrated
+                    over.
                 dim: Spatial dimension of the integrand. dim = 1 for scalar problems,
                     dim > 1 for vector problems.
 

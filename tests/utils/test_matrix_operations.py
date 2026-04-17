@@ -680,25 +680,97 @@ def test_diagonal_matrix_from_sparse_blocks():
     assert np.all(known == value.toarray())
 
 
-@pytest.mark.parametrize(
-    "mat", [np.arange(6).reshape((3, 2)), np.arange(6).reshape((2, 3))]
-)
-def test_optimized_storage(mat):
-    """Check that the optimized sparse storage chooses format according to whether the
-    matrix has more columns or rows or opposite.
+class TestOptimizedStorage:
+    """Class to test various aspects of the optimized storage of sparse matrices."""
 
-    Convert input matrix to sparse storage. For the moment, the matrix format is chosen
-    according to the number of rows and columns only, thus the lack of true sparsity
-    does not matter.
-    """
-    A = sps.csc_matrix(mat)
+    @pytest.mark.parametrize(
+        "mat", [np.arange(6).reshape((3, 2)), np.arange(6).reshape((2, 3))]
+    )
+    def test_csr_csc_selection(self, mat):
+        """Check that the optimized sparse storage chooses format according to whether
+        the matrix has more columns or rows or opposite.
 
-    optimized = matrix_operations.optimized_compressed_storage(A)
+        Convert input matrix to sparse storage. For the moment, the matrix format is
+        chosen according to the number of rows and columns only, thus the lack of true
+        sparsity does not matter.
+        """
+        A = sps.csc_matrix(mat)
 
-    if A.shape[0] > A.shape[1]:
-        assert optimized.getformat() == "csc"
-    else:
-        assert optimized.getformat() == "csr"
+        optimized = matrix_operations.optimized_compressed_storage(A)
+
+        if A.shape[0] > A.shape[1]:
+            assert optimized.getformat() == "csc"
+        else:
+            assert optimized.getformat() == "csr"
+
+    def mat(self):
+        """Helper method to construct a sparse matrix with specific properties."""
+        mat = sps.csr_matrix(np.array([[1.1, 0], [3, 2]]))
+        mat.indices = mat.indices.astype(np.int64)
+        mat.indptr = mat.indptr.astype(np.int64)
+        # Do some slicing and modification to make scipy take ownnership of mat.data
+        # away from the original array.
+        mat.data[:] = mat.data[:] + 2.0
+        assert not mat.data.flags.owndata  # Need this for the test to be meaningful.
+        return mat
+
+    def dictionary(self):
+        """Helper method to construct a dictionary of matrices."""
+        return {"mat_1": self.mat().copy(), "mat_2": self.mat().copy()}
+
+    def mdg(self):
+        """Helper method to construct an MDG with discretization matrices in the
+        subdomain and interface data."""
+        # Generate a grid with a single fracture, hence one interface grid.
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            grid_type="cartesian", meshing_args={"cell_size": 0.5}, fracture_indices=[0]
+        )
+        for _, data in mdg.subdomains(return_data=True):
+            data[pp.DISCRETIZATION_MATRICES] = self.dictionary()
+        for _, data in mdg.interfaces(return_data=True):
+            # For the interface we add a second layer to check the recursive pruning of
+            # the discretization matrices.
+            data[pp.DISCRETIZATION_MATRICES] = {"foo": self.dictionary()}
+        return mdg
+
+    def check_matrix_after_pruning(self, A):
+        """Helper method to check that a matrix has the expected properties after
+        pruning."""
+        assert A.data.size == 3
+        assert A.data.dtype == float
+        assert A.data.flags.owndata == True
+        assert np.allclose(A.data, [3.1, 5, 4])
+
+        # We only consider small matrices which can be represented by int16. Testing
+        # larger matrices is possible, but not considered worthwhile.
+        assert A.indptr.dtype == np.int16
+        assert np.allclose(A.indptr, [0, 1, 3])
+        assert A.indices.dtype == np.int16
+        assert np.allclose(A.indices, [0, 0, 1])
+
+    def test_matrix_pruning(self):
+        """Test the pruning of a single sparse matrix."""
+        mat = self.mat()
+        pp.matrix_operations.prune_matrix(mat)
+        self.check_matrix_after_pruning(mat)
+
+    def test_matrix_pruning_in_dictionary(self):
+        """Test the pruning of matrices in a dictionary."""
+        d = self.dictionary()
+        pp.matrix_operations.prune_matrices_in_dict(d)
+        for A in d.values():
+            self.check_matrix_after_pruning(A)
+
+    def test_matrix_pruning_in_mdg(self):
+        """Test the pruning of matrices in a mixed-dimensional grid."""
+        m = self.mdg()
+        pp.matrix_operations.prune_discretization_matrices(m)
+        for _, data in m.subdomains(return_data=True):
+            for A in data[pp.DISCRETIZATION_MATRICES].values():
+                self.check_matrix_after_pruning(A)
+        for _, data in m.interfaces(return_data=True):
+            for A in data[pp.DISCRETIZATION_MATRICES]["foo"].values():
+                self.check_matrix_after_pruning(A)
 
 
 # ------------------ Test inverting matrices -----------------------

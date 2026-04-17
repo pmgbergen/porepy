@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.fracs import structured
+from porepy.fracs import _structured
 
 
 @pytest.mark.parametrize(
@@ -131,17 +131,17 @@ def test_structured_meshing(data: dict, cart_grid: bool, perturb: bool):
         # The physical dimensions are set to 5 in each direction.
         if dim == 2:
             physdims = [5, 5]
-            grids = structured._cart_grid_2d(f_set, physdims, physdims=physdims)
+            grids = _structured.cart_grid_2d(f_set, physdims, physdims=physdims)
         else:
             physdims = [5, 5, 5]
-            grids = structured._cart_grid_3d(f_set, physdims, physdims=physdims)
+            grids = _structured.cart_grid_3d(f_set, physdims, physdims=physdims)
     else:
         # Still generate a Cartesian grid, but use the tensor grid function.
         grid_lines = np.linspace(0, 5, 6)
         if dim == 2:
-            grids = structured._tensor_grid_2d(f_set, grid_lines, grid_lines)
+            grids = _structured.tensor_grid_2d(f_set, grid_lines, grid_lines)
         else:
-            grids = structured._tensor_grid_3d(
+            grids = _structured.tensor_grid_3d(
                 f_set, grid_lines, grid_lines, grid_lines
             )
 

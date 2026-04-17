@@ -10,7 +10,7 @@ import porepy as pp
 class OneVerticalWell(pp.PorePyModel):
     def set_well_network(self) -> None:
         """Assign well network class."""
-        points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
+        points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1.0]])
         mesh_size = self.units.convert_units(1 / 10.0, "m")
         self.well_network = pp.WellNetwork3d(
             domain=self.domain,
@@ -21,17 +21,37 @@ class OneVerticalWell(pp.PorePyModel):
     def meshing_arguments(self) -> dict:
         # Length scale:
         ls = self.units.convert_units(1, "m")
+        # Set default values, then update with any user-provided meshing arguments.
         h = 0.15 * ls
         mesh_sizes = {
             "cell_size_fracture": h,
             "cell_size_boundary": h,
             "cell_size_min": 0.2 * h,
         }
-
+        mesh_sizes.update(self.params.get("meshing_args", {}))
         return mesh_sizes
 
-    def grid_type(self) -> Literal["simplex"]:
-        return "simplex"
+    def grid_type(self) -> Literal["simplex", "cartesian"]:
+        return self.params.get("grid_type", "simplex")
+
+
+class OneSlantedWell(pp.PorePyModel):
+    """Model with one slanted well.
+
+    If used with a unit cube domain, the well starts at the top at x=0.25 and ends
+    almost at the bottom at x=0.75. The y coordinate is constant at 0.3.
+
+    """
+
+    def set_well_network(self) -> None:
+        """Assign well network class."""
+        points = np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]])
+        mesh_size = self.units.convert_units(1 / 10.0, "m")
+        self.well_network = pp.WellNetwork3d(
+            domain=self.domain,
+            wells=[pp.Well(points)],
+            parameters={"mesh_size": mesh_size},
+        )
 
 
 class BoundaryConditionsWellSetup(pp.PorePyModel):

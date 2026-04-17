@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -44,8 +44,8 @@ except:
 # decided as needed
 
 from porepy.utils.common_constants import *
-from porepy.utils.porepy_types import *
 
+from porepy.utils.porepy_types import *
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
@@ -83,7 +83,7 @@ from porepy.applications.material_values import numerical_values
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.md_grid import MixedDimensionalGrid
-from porepy.grids.mdg_generation import create_mdg
+
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
@@ -100,10 +100,12 @@ from porepy.utils.tangential_normal_projection import (
 )
 
 # Fractures
-from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
+from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.fracs.line_fracture import LineFracture
-from porepy.fracs.fracture_network import create_fracture_network
+from porepy.fracs.elliptic_fracture import EllipticFracture
+from porepy.fracs.fracture_network_creation import create_fracture_network
 
+from porepy.grids.mdg_generation import create_mdg
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -229,7 +231,12 @@ from porepy.models.compositional_flow import (
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
-from porepy.viz.solver_statistics import SolverStatistics
+from porepy.viz.solver_statistics import (
+    SolverStatistics,
+    NonlinearSolverStatistics,
+    NonlinearSolverAndTimeStatistics,
+    TimeStatistics,
+)
 
 # Modules
 from porepy.fracs import utils as frac_utils
@@ -247,3 +254,36 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
+
+# Metrics for assessing convergence
+from porepy.models.metric import (
+    EuclideanMetric,
+    LebesgueMetric,
+    VariableBasedEuclideanMetric,
+    EquationBasedEuclideanMetric,
+    VariableBasedLebesgueMetric,
+    EquationBasedLebesgueMetric,
+)
+
+# Divergence criteria
+from porepy.numerics.nonlinear.convergence_check import (
+    MaxIterationsCriterion,
+    IncrementBasedNanCriterion,
+    ResidualBasedNanCriterion,
+    IncrementBasedAbsoluteDivergenceCriterion,
+    IncrementBasedRelativeDivergenceCriterion,
+    IncrementBasedCombinedDivergenceCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
+    ResidualBasedRelativeDivergenceCriterion,
+    ResidualBasedCombinedDivergenceCriterion,
+)
+
+# Convergence criteria
+from porepy.numerics.nonlinear.convergence_check import (
+    IncrementBasedAbsoluteCriterion,
+    IncrementBasedRelativeCriterion,
+    IncrementBasedCombinedCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedRelativeCriterion,
+    ResidualBasedCombinedCriterion,
+)

@@ -24,7 +24,7 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Callable, Optional, cast
+from typing import Callable, Optional, cast
 
 import numpy as np
 import pytest
@@ -39,6 +39,12 @@ from porepy.applications.md_grids.mdg_library import (
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
+from porepy.models.metric import EuclideanMetric
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceCriteria,
+    ConvergenceStatus,
+    DivergenceCriteria,
+)
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
@@ -205,14 +211,6 @@ class RediscretizationTest(pp.PorePyModel):
 
     """
 
-    def check_convergence(self, *args, **kwargs):
-        if self.nonlinear_solver_statistics.num_iteration > 1:
-            return True, False
-        else:
-            # Call to super is okay here, since the full model used in the tests is
-            # known to have a method of this name.
-            return super().check_convergence(*args, **kwargs)
-
     def rediscretize(self):
         if self.params["full_rediscretization"]:
             return super().discretize()
@@ -276,18 +274,23 @@ def test_targeted_rediscretization(model_class):
         "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
         "times_to_export": [],
     }
+    solver_params = {
+        "nl_convergence_inc_atol": 0,
+        "nl_convergence_res_atol": 0,
+        "nl_max_iterations": 2,
+    }
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
     full_model: pp.PorePyModel = rediscretization_model_class(model_params)
-    pp.run_time_dependent_model(full_model)
+    pp.run_time_dependent_model(full_model, solver_params)
 
     # A model object with targeted rediscretization.
     targeted_model_params = model_params.copy()
     targeted_model_params["full_rediscretization"] = False
     # Set up the model.
     targeted_model = rediscretization_model_class(targeted_model_params)
-    pp.run_time_dependent_model(targeted_model)
+    pp.run_time_dependent_model(targeted_model, solver_params)
 
     # Check that the linear systems are the same.
     assert len(full_model.stored_linear_system) == 2
@@ -419,15 +422,15 @@ def check_convergence_test_model() -> CheckConvergenceTest:
     "nonlinear_increment,residual,expected",
     [
         # Case 1: Both increment and residual are below tolerance.
-        (np.array([1e-6, 1e-6]), np.array([1e-6]), (True, False)),
+        (np.array([1e-6, 1e-6]), np.array([1e-6]), ConvergenceStatus.CONVERGED),
         # Case 2: Increment is above tolerance.
-        (np.array([1e-6, 1]), np.array([1e-6]), (False, False)),
+        (np.array([1e-6, 1]), np.array([1e-6]), ConvergenceStatus.NOT_CONVERGED),
         # Case 3: Residual is above tolerance.
-        (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
+        (np.array([1e-6, 1e-6]), np.array([1]), ConvergenceStatus.NOT_CONVERGED),
         # Case 4: Increment is nan.
-        (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+        (np.array([np.nan, 0.1]), np.array([1e-6]), ConvergenceStatus.DIVERGED),
         # Case 5: Residual is above divergence tolerance.
-        (np.array([1e-6, 1e-6]), np.array([2e4]), (False, True)),
+        (np.array([1e-6, 1e-6]), np.array([2e4]), ConvergenceStatus.DIVERGED),
     ],
 )
 def test_check_convergence(
@@ -440,17 +443,38 @@ def test_check_convergence(
     diverged/converged values.
 
     """
-    # ``reference_residual`` is not used by ``check_convergence``. We pass a zero
-    # arrray.
-    nl_params: dict[str, Any] = {
-        "nl_convergence_tol": 1e-5,
-        "nl_convergence_tol_res": 1e-5,
-        "nl_divergence_tol": 1e4,
-    }
-    converged, diverged = check_convergence_test_model.check_convergence(
-        nonlinear_increment, residual, np.zeros(1), nl_params
+    # Standard setup of a convergence absolute convergence criterion - typically
+    # orchestrated by a nonlinear solver.
+    metric = EuclideanMetric()
+    convergence_criteria = ConvergenceCriteria(
+        {
+            "inc_abs": pp.IncrementBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+            "res_abs": pp.ResidualBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+        }
     )
-    assert (converged, diverged) == expected
+    divergence_criteria = DivergenceCriteria(
+        {
+            "inc_nan": pp.IncrementBasedNanCriterion(),
+            "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+                tol=1e4, metric=metric
+            ),
+        }
+    )
+    # Check convergence.
+    convergence_status, _ = convergence_criteria.check(
+        increment=nonlinear_increment, residual=residual
+    )
+    divergence_status = divergence_criteria.check(
+        increment=nonlinear_increment, residual=residual
+    )
+    # Condense the two statuses into one.
+    status = convergence_status.union(divergence_status)
+    if expected == ConvergenceStatus.CONVERGED:
+        assert status.is_converged()
+    elif expected == ConvergenceStatus.NOT_CONVERGED:
+        assert status.is_not_converged()
+    elif expected == ConvergenceStatus.DIVERGED:
+        assert status.is_diverged()
 
 
 @pytest.mark.parametrize(

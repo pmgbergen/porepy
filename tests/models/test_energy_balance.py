@@ -280,7 +280,7 @@ def test_unit_conversion(units):
 
 class MassAndEnergyWellModel(
     well_models.OneVerticalWell,
-    models.OrthogonalFractures3d,
+    models.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
     pp.MassAndEnergyBalance,
@@ -314,10 +314,11 @@ def test_energy_conservation():
                 normal_thermal_conductivity=1e-6,
             ),
         },
-        # Use only the horizontal fracture of OrthogonalFractures3d
+        # Use only the horizontal fracture of CubeDomainOrthogonalFractures
         "fracture_indices": [2],
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
         "grid_type": "cartesian",
+        "meshing_args": {"cell_size": 0.25},
         "times_to_export": [],  # Suppress output for tests
     }
 

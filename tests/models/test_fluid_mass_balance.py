@@ -24,6 +24,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.applications.initial_conditions.model_initial_conditions import (
+    InitialConditionHydrostaticPressureValues,
+)
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
@@ -261,7 +264,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         (
             "equivalent_well_radius",
-            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2]),
+            np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 2.0]),
             None,
         ),
         ("fluid_compressibility", water_values["compressibility"], None),
@@ -600,8 +603,8 @@ def test_unit_conversion(units, grid_class):
         "reference_variable_values": reference_values,
     }
     solver_params = {
-        "nl_convergence_tol_res": 1e-12,
-        "nl_convergence_tol": 1,
+        "nl_convergence_inc_atol": 1,
+        "nl_convergence_res_atol": 1e-12,
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
@@ -631,10 +634,20 @@ def test_unit_conversion(units, grid_class):
 
 class WellModel(
     well_models.OneVerticalWell,
-    models.OrthogonalFractures3d,
+    models.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
     pp.SinglePhaseFlow,
+):
+    pass
+
+
+class WellWithGravity(
+    CubeDomainOrthogonalFractures,
+    well_models.OneSlantedWell,
+    InitialConditionHydrostaticPressureValues,
+    pp.constitutive_laws.GravityForce,
+    SinglePhaseFlow,
 ):
     pass
 
@@ -651,7 +664,7 @@ def test_well_incompressible_pressure_values():
         "material_constants": {
             "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
         },
-        # Use only the horizontal fracture of OrthogonalFractures3d
+        # Use only the horizontal fracture of CubeDomainOrthogonalFractures
         "fracture_indices": [2],
         "times_to_export": [],
     }
@@ -946,13 +959,22 @@ class TestMixedDimGravity:
         )
         assert np.allclose(np.abs(flux), u_known, rtol=1e-3, atol=1e-3)
 
-    def verify_hydrostatic(self, angle=0, a=1e-1):
+    def verify_hydrostatic(self, angle: float = 0.0, a: float = 1e-1) -> None:
         """Check that the pressure profile is hydrostatic, with the adjustment
         for the fracture.
+
         Without the fracture, the profile is expected to be linear within each
         subdomain, with a small additional jump of aperture at the fracture.
-        The full range is
-        0 (bottom) to -1- aperture (top).
+        The full range is [0 (bottom), -1-aperture (top)].
+
+        Parameters:
+            angle: Angle of gravity with respect to vertical.
+            a: Fracture aperture.
+
+        Asserts:
+            That the pressure profile is as expected within a tolerance for both
+            the matrix and fracture subdomains.
+            That the flux in the fracture is zero.
         """
         mdg = self.model.mdg
         sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
@@ -961,7 +983,7 @@ class TestMixedDimGravity:
             name="pressure", data=data_primary, time_step_index=0
         )
 
-        # The cells above the fracture
+        # The cells above the fracture.
         vertical_dim = self.model.nd - 1
         h = sd_primary.cell_centers[vertical_dim]
         ind = h > 0.5
@@ -973,7 +995,7 @@ class TestMixedDimGravity:
             name="pressure", data=data_secondary, time_step_index=0
         )
 
-        # Half the additional jump is added to the fracture pressure
+        # Half the additional jump is added to the fracture pressure.
         h = sd_secondary.cell_centers[vertical_dim]
         p_known = -(a / 2 + h) * np.cos(angle)
 
@@ -988,12 +1010,21 @@ class TestMixedDimGravity:
         gravity_parameter_combinations,
     )
     def test_no_flow_neumann(
-        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        grid_type: Literal["cartesian", "simplex"],
+        num_nodes_mortar: int,
+        num_nodes_1d: int,
     ):
-        """Use homogeneous Neumann boundary conditions on top Dirichlet
-        on bottom.
+        """Use homogeneous Neumann boundary conditions on top and Dirichlet on bottom.
 
         The pressure distribution should be hydrostatic.
+
+        Parameters:
+            discretization: Discretization method.
+            grid_type: Type of grid (cartesian or simplex).
+            num_nodes_mortar: Number of nodes in the mortar grid.
+            num_nodes_1d: Number of nodes in the 1d fracture grid.
 
         """
 
@@ -1012,7 +1043,7 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize(
         "discretization,num_nodes_mortar",
@@ -1026,13 +1057,23 @@ class TestMixedDimGravity:
         "angle",
         [0, np.pi / 2, np.pi],
     )
-    def test_no_flow_rotate_gravity(self, discretization, num_nodes_mortar, angle):
+    def test_no_flow_rotate_gravity(
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        num_nodes_mortar: int,
+        angle: float,
+    ) -> None:
         """Rotate the angle of gravity. Neumann boundaries except Dirichlet on bottom.
 
         There should be no flow.
 
         This test is only run for cartesian grids, as the simplex grids violate
         assumptions on number of cells in the 2d grid.
+
+        Parameters:
+            discretization: Discretization method.
+            num_nodes_mortar: Number of nodes in the mortar grid.
+            angle: Angle of gravity with respect to vertical.
 
         """
         # The angle pi/2 requires nx = 1 for there not to be flow
@@ -1056,7 +1097,7 @@ class TestMixedDimGravity:
             self.verify_pressure()
         else:
             self.verify_hydrostatic(angle)
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize(
         "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
@@ -1087,14 +1128,18 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize(
         "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
         gravity_parameter_combinations,
     )
     def test_inflow_top(
-        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        grid_type: Literal["cartesian", "simplex"],
+        num_nodes_mortar: int,
+        num_nodes_1d: int,
     ):
         """
         Prescribed inflow at the top. Strength of the flow counteracts gravity, so that
@@ -1124,7 +1169,11 @@ class TestMixedDimGravity:
         gravity_parameter_combinations,
     )
     def test_uniform_pressure(
-        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        grid_type: Literal["cartesian", "simplex"],
+        num_nodes_mortar: int,
+        num_nodes_1d: int,
     ):
         """
         Prescribed pressure at the top. Strength of the flow counteracts gravity, so
@@ -1159,10 +1208,12 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize("discretization", discretizations)
-    def test_one_fracture_3d_no_flow_dirichlet(self, discretization):
+    def test_one_fracture_3d_no_flow_dirichlet(
+        self, discretization: Literal["mpfa", "tpfa"]
+    ):
         self.model = model_setup_gravity(
             3,
             {"grid_type": "cartesian"},
@@ -1171,4 +1222,32 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
+
+    def test_one_fracture_one_well_3d_hydrostatic_zero_flux(self):
+        """This test is designed to check that the well flux correctly accounts for
+        gravity."""
+        # The well points are  np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]]), so the
+        # well intersects the fracture at the point (0.5, 0.3, 0.6).  This is above the
+        # cell center of the fracture cell, which is at (0.5, 0.25, 0.25), so the well
+        # flux would be nonzero except for the gravity correction term.
+        m = WellWithGravity(
+            {
+                "times_to_export": [],
+                "fracture_indices": [0],  # x=0.5 plane
+                "grid_type": "cartesian",
+                "meshing_arguments": {"cell_size": 0.5},
+                "material_constants": {"solid": pp.SolidConstants(well_radius=0.01)},
+            }
+        )
+        m.prepare_simulation()
+        self.model = m
+
+        # The flux should be initialized to zero. Assert that is the case. Provided it
+        # is, we can check the other terms of the well flux equation by comparing it
+        # to zero as well, which should follow from the combination of the hydrostatic
+        #  pressure distribution and the gravity term of the well flux equation.
+        flux = m.well_flux(m.mdg.interfaces(codim=2)).value(m.equation_system)
+        eq = m.well_flux_equation(m.mdg.interfaces(codim=2)).value(m.equation_system)
+        assert np.allclose(flux, 0, atol=1e-10)
+        assert np.allclose(eq, 0, atol=1e-10)

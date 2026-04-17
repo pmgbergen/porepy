@@ -76,9 +76,14 @@ def create_fractured_model(
     default = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "max_iterations": 20,
+        "nl_max_iterations": 20,
+        "nl_convergence_inc_atol": 1e-6,
     }
     default.update(params)
+    if issubclass(model_class, TailoredThermoporomechanicsTpsa):
+        # Tpsa is only consistent with Cartesian grids.
+        default["cartesian"] = True
+
     model = model_class(default)
     return model
 
@@ -275,7 +280,7 @@ def test_push_north_zero_opening(model_class: type):
 )
 def test_positive_p_frac_positive_opening(model_class):
     model = create_fractured_model(
-        {}, {}, {"fracture_source_value": 0.001}, model_class
+        {}, {}, {"fracture_source_value": 0.004}, model_class
     )
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
@@ -294,9 +299,22 @@ def test_positive_p_frac_positive_opening(model_class):
     # NB: This assumes the contact force is expressed in local coordinates.
     assert np.all(np.abs(traction) < 1e-7)
 
+    # EK: The original reference values are for mesh with 4 fracture cells. Since the
+    # fracture source is set constant per fracture cell, effectively acting as an
+    # intensive quantity, the total source term and hence the fracture pressure scales
+    # with the number of fracture cells. We do a (perhaps somewhat rough) correction
+    # here by scaling with the ratio between number of fracture cells in the current
+    # model and the original number of fracture cells (4). For the temperature we also
+    # need to increase the tolerance to account for the non-linear relation between
+    # the pressure and temperature.
+    mean_pressure = 4.8e-4
+    pressure_deviation = 2e-5
+    mean_temperature = 8.3e-6
+    temperature_deviation = 1e-6
+
     # Fracture pressure and temperature are both positive.
-    assert np.allclose(p_frac, 4.8e-4, atol=1e-5)
-    assert np.allclose(t_frac, 8.3e-6, atol=1e-7)
+    assert np.allclose(p_frac, mean_pressure, atol=pressure_deviation)
+    assert np.allclose(t_frac, mean_temperature, atol=temperature_deviation)
 
 
 def test_robin_boundary_flux():
@@ -439,7 +457,7 @@ def test_unit_conversion(units: dict, model_class: type):
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0],
-        "cartesian": True,
+        "grid_type": "cartesian",
         "u_north": [0.0, -1e-5],
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -483,14 +501,14 @@ def test_unit_conversion(units: dict, model_class: type):
 
 class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
-    model_geometries.OrthogonalFractures3d,
+    model_geometries.CubeDomainOrthogonalFractures,
     well_models.BoundaryConditionsWellSetup,
     pp.Thermoporomechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
         ls = self.units.convert_units(1, "m")
-        h = 0.5 * ls
+        h = 1.0 * ls
         mesh_sizes = {
             "cell_size": h,
         }
