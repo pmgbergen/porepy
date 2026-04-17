@@ -384,7 +384,10 @@ class FractureNetwork2d(FractureNetwork):
             boundary_tags = []
         else:
             boundary_tags = [
-                t for _, t in gmsh.model.get_boundary([(self.nd, domain_tag)])
+                t
+                for _, t in gmsh.model.get_boundary(
+                    [(self.nd, domain_tag)], oriented=False
+                )
             ]
 
         # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
@@ -441,7 +444,7 @@ class FractureNetwork2d(FractureNetwork):
                     updated_mesh_size_points[segment[1]] = mesh_size_points[
                         old_gmsh_tag
                     ]
-                pt_index = gmsh.model.get_boundary([segment])
+                pt_index = gmsh.model.get_boundary([segment], oriented=False)
 
                 if fi not in constraints:
                     # If this is not a constraint, collect the boundary points for
@@ -507,7 +510,7 @@ class FractureNetwork2d(FractureNetwork):
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
         boundaries = gmsh.model.get_boundary(
-            [(self.nd, tag) for _, tag in domain_entities]
+            [(self.nd, tag) for _, tag in domain_entities], oriented=False
         )
 
         line_tags = set(tag for _, tag in gmsh.model.getEntities(self.nd - 1))
@@ -540,7 +543,9 @@ class FractureNetwork2d(FractureNetwork):
             end_points = np.array(
                 [
                     gmsh.model.occ.get_bounding_box(0, p[1])[:3]
-                    for p in gmsh.model.get_boundary([(1, line)], combined=False)
+                    for p in gmsh.model.get_boundary(
+                        [(1, line)], combined=False, oriented=False
+                    )
                 ]
             ).T
             length = np.linalg.norm(end_points[:, 1] - end_points[:, 0])

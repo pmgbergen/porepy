@@ -883,6 +883,11 @@ class Operator:
     def __hash__(self):
         return hash(self._key())
 
+    def __eq__(self, other):
+        if not isinstance(other, Operator):
+            return False
+        return self._key() == other._key()
+
     def _key(self) -> str:
         """String representation for hashing.
 
@@ -1016,6 +1021,9 @@ class TimeDependentOperator(Operator):
         assert steps > 0, "Number of steps backwards must be strictly positive."
         # TODO copy or deepcopy? Is this enough for every operator class?
         op = copy.copy(self)
+        # Delete the cached key, so that this must be regenerated for the new operator,
+        # which is different from the original one.
+        op._cached_key = None
 
         # NOTE Use private time step index, because it is always an integer
         # The public time step index is NONE for current time
@@ -1135,6 +1143,9 @@ class IterativeOperator(Operator):
         assert steps > 0, "Number of steps backwards must be strictly positive."
         # See TODO in TimeDependentOperator.previous_timestep
         op = copy.copy(self)
+        # Delete the cached key, so that this must be regenerated for the new operator,
+        # which is different from the original one.
+        op._cached_key = None
         op._iterate_index = self._iterate_index + int(steps)
 
         # keeping track to the very first one
@@ -1423,9 +1434,12 @@ class TimeDependentDenseArray(TimeDependentOperator):
     def _key(self) -> str:
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
-            self._cached_key = (
-                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+            key = (
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids} "
+                f"previous_time={self.is_previous_time},"
+                f"time_step_index={self.time_step_index})"
             )
+            self._cached_key = key
         return self._cached_key
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
