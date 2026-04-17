@@ -27,7 +27,7 @@ ARG POREPY_BRANCH=main
 # Make sure we are in the home directory
 WORKDIR ${POREPY_HOME}
 # Check out the specified branch (default: main)
-RUN git checkout ${POREPY_BRANCH} && git pull
+RUN git fetch && git checkout ${POREPY_BRANCH} && git pull
 
 # Run tests to check that everything works.
 # NOTE: When run as a GH action (presumably after a PR to the develop branch
