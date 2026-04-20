@@ -1165,18 +1165,20 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             self.equation_system.evaluate(self.temperature(subdomains), state=state),
         )
 
-        # if isinstance(self, pp.energy_balance.EnthalpyVariable):
-        #     h = cast(
-        #         np.ndarray,
-        #         self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
-        #     )
-        # else:
-        #     h = cast(
-        #         np.ndarray,
-        #         self.equation_system.evaluate(
-        #             self.fluid.specific_enthalpy(subdomains), state=state
-        #         ),
-        #     )
+        h = np.zeros(0)
+        v = np.zeros(0)
+        if isinstance(self, pp.energy_balance.EnthalpyVariable):
+            h = cast(
+                np.ndarray,
+                self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
+            )
+        if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+            v = cast(
+                np.ndarray,
+                self.equation_system.evaluate(
+                    self.fluid_specific_volume(subdomains), state=state
+                ),
+            )
 
         return pc.FluidProperties(
             z=z,
@@ -1184,7 +1186,8 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             sat=sat,
             p=p,
             T=T,
-            # h=h,
+            h=h,
+            rho=1 / v if v.size > 0 else np.zeros_like(p),
             phases=[
                 pc.PhaseProperties(state=phase.state, x=x_)
                 for x_, phase in zip(x, self.fluid.phases)

@@ -15,6 +15,7 @@ from typing import Any, Optional, TypeAlias, TypedDict, cast
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as sla
+from numpy.typing import NDArray
 from scipy.linalg import lstsq
 
 import porepy as pp
@@ -263,6 +264,11 @@ class CFLESolver(pp.NewtonSolver):
         self._delta_min: float | np.floating
         """Minimal trust-region radius, set in the first iteration. The algorithm is
         aborted if the trust-region radius falls below this value."""
+
+        self._state_changes: dict[pp.Grid, NDArray[np.bool_]] = {}
+        """Boolean indicators per cell for each grid whether a state change in phase
+        configuration is detected or not. Empty dictionary indiciates no state
+        change."""
 
         self.params = cast(CFSolverParams, default_params)
 
@@ -721,3 +727,12 @@ class CFLESolver(pp.NewtonSolver):
             return xk1p - xk
         else:
             return dx
+
+    def get_equilibrated_trial_step(
+        self, mode: CFLEModel, dx: np.ndarray
+    ) -> np.ndarray:
+        """Returns a modified update step ``dx_mod`` such that ``x_k + dx_mod`` is a
+        solution to the equilibrium system, i.e. the sub-residual of the equilibrium
+        equations is zero."""
+
+        raise NotImplementedError("")

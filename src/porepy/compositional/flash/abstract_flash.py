@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import abc
 import logging
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     NotRequired,
@@ -25,6 +26,9 @@ from numpy.typing import NDArray
 import porepy as pp
 
 from ..utils import FlashSpec, normalize_rows
+
+if TYPE_CHECKING:
+    from ..states import ExtensivePropertiesType, IntensivePropertiesType, StateKeyType
 
 __all__ = [
     "IsobaricSpecifications",
@@ -145,6 +149,52 @@ class FlashResults(pp.compositional.FluidProperties):
         default_factory=lambda: np.zeros(0, dtype=np.int_)
     )
     """Number of iterations performed in the flash algorithm."""
+
+    def __getitem__(self, key: StateKeyType) -> FlashResults:
+        base: pp.compositional.FluidProperties = super().__getitem__(key)
+        codes = np.atleast_1d(self.exitcode[key])
+        return FlashResults(
+            **asdict(base),
+            specification=self.specification,
+            dofs=self.dofs,
+            clocktime_solve=self.clocktime_solve,
+            clocktime_init=self.clocktime_init,
+            size=codes.size,
+            exitcode=codes,
+            num_iter=np.atleast_1d(self.num_iter[key]),
+        )
+
+    def __setitem__(
+        self,
+        key: StateKeyType,
+        value: IntensivePropertiesType
+        | ExtensivePropertiesType
+        | pp.compositional.FluidProperties
+        | FlashResults,
+    ) -> None:
+        if isinstance(
+            value,
+            (
+                pp.compositional.FluidProperties,
+                pp.compositional.IntensiveProperties,
+                pp.compositional.ExtensiveProperties,
+            ),
+        ):
+            if isinstance(value, pp.compositional.FluidProperties):
+                pp.compositional.FluidProperties.__setitem__(self, key, value)
+            else:
+                if isinstance(value, pp.compositional.IntensiveProperties):
+                    pp.compositional.IntensiveProperties.__setitem__(self, key, value)
+                if isinstance(value, pp.compositional.ExtensiveProperties):
+                    pp.compositional.ExtensiveProperties.__setitem__(self, key, value)
+
+            if isinstance(value, FlashResults):
+                self.exitcode[key] = value.exitcode
+        else:
+            raise TypeError(
+                "Value must be of type Flashresults, FluidProperties, "
+                f"IntensiveProperties, or ExtensiveProperties, got {type(value)}."
+            )
 
     @property
     def converged(self) -> NDArray[np.bool_]:

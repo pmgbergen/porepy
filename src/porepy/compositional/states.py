@@ -18,10 +18,11 @@ Note:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional, Sequence, cast
+from dataclasses import asdict, dataclass, field
+from typing import Optional, Sequence, SupportsIndex, TypeVar, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 from .utils import (
     PhysicalState,
@@ -38,6 +39,10 @@ __all__ = [
     "FluidProperties",
     "initialize_fluid_properties",
 ]
+
+
+StateKeyType = SupportsIndex | slice | int | NDArray[np.bool_] | NDArray[np.int_]
+"""Supported keys for accessing and setting subsets of states and propertties."""
 
 
 @dataclass
@@ -60,6 +65,20 @@ class IntensiveProperties:
     z: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Overall molar fractions (feed fractions) per component, stored in a 2D array
     with row-wise values per component."""
+
+    def __getitem__(self, key: StateKeyType) -> IntensiveProperties:
+        p = np.atleast_1d(self.p[key])
+        T = np.atleast_1d(self.T[key])
+        z = self.z[:, key]
+        if z.ndim == 1:
+            z = z.reshape(-1, 1)
+        assert z.ndim == 2, "Unexpected shape of attribute z."
+        return IntensiveProperties(p=p, T=T, z=z)
+
+    def __setitem__(self, key: StateKeyType, value: IntensiveProperties) -> None:
+        self.p[key] = value.p
+        self.T[key] = value.T
+        self.z[:, key] = value.z
 
 
 @dataclass
@@ -93,6 +112,25 @@ class ExtensiveProperties:
         idx = self.rho > 0.0
         v[idx] = 1.0 / self.rho[idx]
         return v
+
+    def __getitem__(self, key: StateKeyType) -> ExtensiveProperties:
+        h = np.atleast_1d(self.h[key])
+        u = np.atleast_1d(self.u[key])
+        rho = np.atleast_1d(self.rho[key])
+        return ExtensiveProperties(h=h, u=u, rho=rho)
+
+    def __setitem__(self, key: StateKeyType, value: ExtensiveProperties) -> None:
+        self.h[key] = value.h
+        self.u[key] = value.u
+        self.rho[key] = value.rho
+
+
+IntensivePropertiesType = TypeVar("IntensivePropertiesType", bound=IntensiveProperties)
+"""Type variable for intensive properties and child classes."""
+
+
+ExtensivePropertiesType = TypeVar("ExtensivePropertiesType", bound=ExtensiveProperties)
+"""Type variable for extensive properties and child classes."""
 
 
 @dataclass
@@ -237,6 +275,57 @@ class PhaseProperties(ExtensiveProperties):
         # the physical derivatives are the consequences
         return chainrule_fractional_derivatives(df_dx, self.x)
 
+    def __getitem__(self, key: StateKeyType) -> PhaseProperties:
+        base: ExtensiveProperties = super().__getitem__(key)
+
+        mu = np.atleast_1d(self.mu[key])
+        kappa = np.atleast_1d(self.kappa[key])
+
+        vals = {"mu": mu, "kappa": kappa}
+
+        for k in ["x", "phis", "dh", "du", "drho", "dmu", "dkappa"]:
+            v: np.ndarray = getattr(self, k)[:, key]
+            if v.ndim == 1:
+                v = v.reshape(-1, 1)
+            assert v.ndim == 2, f"Unexpected shape of attribute {k}."
+            vals[k] = v
+
+        dphis = self.dphis[:, :, key]
+        if dphis.ndim == 2:  # Can happen if key is an integer for example.
+            dphis = dphis[:, :, np.newaxis]
+        assert dphis.ndim == 3, "Indexing error for fugacitiy derivatives."
+        vals["dphis"] = dphis
+
+        return PhaseProperties(
+            **asdict(base),
+            state=self.state,
+            **vals,
+        )
+
+    def __setitem__(
+        self,
+        key: StateKeyType,
+        value: ExtensivePropertiesType | PhaseProperties,
+    ) -> None:
+        if isinstance(value, ExtensiveProperties):
+            ExtensiveProperties.__setitem__(self, key, value)
+            if isinstance(value, PhaseProperties):
+                self.x[:, key] = value.x
+                self.phis[:, key] = value.phis
+                self.dh[:, key] = value.dh
+                self.du[:, key] = value.du
+                self.drho[:, key] = value.drho
+                self.dphis[:, :, key] = value.dphis
+                self.mu[key] = value.mu
+                self.dmu[:, key] = value.dmu
+                self.kappa[key] = value.kappa
+                self.dkappa[:, key] = value.dkappa
+        else:
+            raise TypeError(
+                "Value must be of type PhaseProperties or Extensiveproperties, "
+                f"got {type(value)}."
+            )
+
 
 @dataclass
 class FluidProperties(IntensiveProperties, ExtensiveProperties):
@@ -262,6 +351,52 @@ class FluidProperties(IntensiveProperties, ExtensiveProperties):
 
     phases: Sequence[PhaseProperties] = field(default_factory=lambda: list())
     """A collection of phase state descriptions per phase in the fluid mixture."""
+
+    def __getitem__(self, key: StateKeyType) -> FluidProperties:
+        base1 = IntensiveProperties.__getitem__(self, key)
+        base2 = ExtensiveProperties.__getitem__(self, key)
+        y = self.y[:, key]
+        if y.ndim == 1:
+            y = y.reshape(-1, 1)
+        assert y.ndim == 2, "Unexpected shape of attribute y."
+        sat = self.sat[:, key]
+        if sat.ndim == 1:
+            sat = sat.reshape(-1, 1)
+        assert sat.ndim == 2, "Unexpected shape of attribute sat."
+        return FluidProperties(
+            **asdict(base1),
+            **asdict(base2),
+            y=y,
+            sat=sat,
+            phases=[phase[key] for phase in self.phases],
+        )
+
+    def __setitem__(
+        self,
+        key: StateKeyType,
+        value: IntensivePropertiesType | ExtensivePropertiesType | FluidProperties,
+    ) -> None:
+
+        if isinstance(value, (IntensiveProperties, ExtensiveProperties)):
+            if isinstance(value, IntensiveProperties):
+                IntensiveProperties.__setitem__(self, key, value)
+            if isinstance(value, ExtensiveProperties):
+                ExtensiveProperties.__setitem__(self, key, value)
+            if isinstance(value, FluidProperties):
+                self.y[:, key] = value.y
+                self.sat[:, key] = value.sat
+                if len(self.phases) != len(value.phases):
+                    raise ValueError(
+                        f"Number of phases in value ({len(value.phases)}) does not"
+                        f" match number of phases in self ({len(self.phases)})."
+                    )
+                for phase, value_phase in zip(self.phases, value.phases):
+                    phase[key] = value_phase
+        else:
+            raise TypeError(
+                "Value must be of type FluidProperties, IntensiveProperties, or "
+                f"ExtensiveProperties, got {type(value)}."
+            )
 
     def evaluate_saturations(self, eps: float = 1e-10) -> None:
         """Calculates the values for volumetric phase fractions from stored
