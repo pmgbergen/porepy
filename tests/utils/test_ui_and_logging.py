@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pytest
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.nonlinear.convergence_check import SimulationStatus
@@ -67,7 +66,7 @@ class MockModel:
         self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self) -> None:
-        # Implementation NOTE: Write logging messages of all levels. This way we can
+        # IMPLEMENTATION NOTE Write logging messages of all levels. This way we can
         # test in test_logging_and_progressbars that
         # pp.utils.ui_and_logging.logging_redirect_tqdm_with_level correctly redirects
         # messages of all levels through tqdm.
@@ -93,7 +92,7 @@ class MockModel:
 
     def solve_linear_system(self) -> np.ndarray:
         # Artificially fail/satisfy Newton update norm convergence criterion.
-        # Implementation NOTE: nonlinear_solver_statistics.num_iterations lags behind
+        # IMPLEMENTATION NOTE nonlinear_solver_statistics.num_iterations lags behind
         # one iteration at this point in the solver step.
         if self.nonlinear_solver_statistics.num_iterations < self.num_nl_iterations - 1:
             return np.array([1.0])
@@ -121,12 +120,20 @@ def test_logging_and_progressbars(
     capsys,
     caplog,
 ) -> None:
-    """Test that progressbars and logging through tqdm work correctly."""
-    # Implementation NOTE: The test function is long and does two different things. It
-    # would be cleaner to run the model and capture output in a fixture and then
-    # individual tests for logging and progressbars. However, the capsys and caplog
-    # fixtures are function-scoped, so for the sake of only having to run the model
-    # once, we combine everything into one test.
+    """Test that progressbars and logging through tqdm work correctly.
+
+    :func:`~porepy.utils.ui_and_logging.logging_redirect_tqdm_with_level` ensures that
+    the level of logging messages is kept when redirect through tqdm. Test that this
+    works for different levels.
+
+    """
+    # IMPLEMENTATION NOTE This test is long and test both progressbar and logging
+    # functionality. A cleaner approach would be to have a fixture run the model,
+    # capture stdout/stdlog, and then pass the result to separate tests for logging and
+    # progressbars.
+    # However, the capsys and caplog fixtures are function-scoped, so the model would
+    # have to be run once for each test. For the sake of efficiency, we combine
+    # everything into one test.
 
     # Initialize logging capture of the correct levels.
     caplog.set_level(logging_level)
@@ -139,19 +146,13 @@ def test_logging_and_progressbars(
     captured_stderr = capsys.readouterr().err
     captured_stderr_carr_returns = captured_stderr.split("\r")
 
-    # NOTE: Some explanation on the inner workings of tqdm: Progressbars are updated by
-    # moving the cursor to the start of the line with "\r" and overwriting the previous
-    # output. For nested time/Newton progressbars, the cursor is moved to the upper
-    # level and down again with "\x1bA[" + "\n" before its moved to the beginning of the
-    # inner loop.
-
-    # IMPLEMENTATION NOTE: `captured_stderr` is hard to read for humans, as tqdm
+    # IMPLEMENTATION NOTE `captured_stderr` is hard to read for humans, as tqdm
     # combines "\r" (carriage return), "\n" (new line), and "\x1bA[" (move cursor up one
     # line) to overwrite (and therefore update) progressbars and navigate between nested
     # bars.
     # Instead of explicitly checking the entire logic, we separate by "\r" to get every
     # occurence where a progressbar was written or updated. Then, we check that the
-    # number of lines that start with "Time loop"/"Newton loop" match the expected
+    # number of lines that start with "Time loop"/"Newton loop" matches the expected
     # number of time steps/Newton steps.
 
     num_time_progressbar_updates: int = 0
@@ -162,9 +163,9 @@ def test_logging_and_progressbars(
         elif line.startswith("Newton loop"):
             num_newton_progressbar_updates += 1
 
-    # NOTE: Whenever a tqdm bar is updated multiple times in short succession and
-    # without any other writes to stdout inbetween, all updates are combined in a single
-    # write to stdout.
+    # NOTE tqdm bars are refreshed at most every tqdm.mininterval (default = 0.1)
+    # seconds. If a progressbar is updated multiple times in short succession, the
+    # updates are compressed into a single refresh, i.e., into a single write to stdout.
     # E.g., self.solver_progressbar.update and self.solver_progressbar.set_postfix_str
     # in NewtonSolver.logging may be simultaneously written to stdout.
     # On the other hand, time_progressbar.set_postfix_str and time_progressbar.update in
@@ -174,8 +175,9 @@ def test_logging_and_progressbars(
     # time_progressbar.set_postfix_str from the current time step may be written
     # simultaneously.
 
-    # This behavior seems to be not entirely deterministic, so we just check the number
-    # of progressbar updates against lower bounds.
+    # The amount of writes to stdout during a time/Newton loop is therefore not
+    # deterministic. We just check the number of progressbar updates against lower
+    # bounds.
 
     if progressbars:
         # Progressbar updates during time loop: 1 for initialization + 1 for all but the
@@ -185,12 +187,11 @@ def test_logging_and_progressbars(
         min_expected_newton_progressbar_updates = (
             num_nl_iterations + 1
         ) * num_time_steps
+        assert num_time_progressbar_updates >= min_expected_time_progressbar_updates
+        assert num_newton_progressbar_updates >= min_expected_newton_progressbar_updates
     else:
-        min_expected_time_progressbar_updates = 0
-        min_expected_newton_progressbar_updates = 0
-
-    assert num_time_progressbar_updates >= min_expected_time_progressbar_updates
-    assert num_newton_progressbar_updates >= min_expected_newton_progressbar_updates
+        assert num_time_progressbar_updates == 0
+        assert num_newton_progressbar_updates == 0
 
     # 2. Check that logging messages of all requested levels were redirected through
     #    tqdm and displayed. Messages are written to stdlog.
@@ -216,12 +217,14 @@ def test_logging_and_progressbars(
 
     total_num_nl_iterations = num_nl_iterations * num_time_steps
 
-    # Debug, info, and warning messages are logged if logging_level == logging.DEBUG.
     if logging_level <= logging.DEBUG:
+        # If logging_level == logging.DEBUG, debug, info, and warning messages are
+        # logged.
         assert num_before_newton_step_debug_records == total_num_nl_iterations
         assert num_before_newton_step_info_records == total_num_nl_iterations
         assert num_before_newton_step_warning_records == total_num_nl_iterations
     else:
+        # If logging_level == logging.ERROR, only error messages are logged.
         assert num_before_newton_step_debug_records == 0
         assert num_before_newton_step_info_records == 0
         assert num_before_newton_step_warning_records == 0
