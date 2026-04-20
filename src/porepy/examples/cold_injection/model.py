@@ -158,21 +158,21 @@ class SolutionStrategy(ModelConfig):
     def nonlinear_flash_preconditioning(self):
         do_default_flash = self.do_flash_preconditioning()
 
-        for sd in self.mdg.subdomains():
+        for grid in self.mdg.subdomains():
             # if "injection_well" in sd.tags and do_default_flash:
-            if "injection_well" in sd.tags:
+            if "injection_well" in grid.tags:
                 equ_spec = pf.IsobaricSpecifications(
-                    p=self.equation_system.evaluate(self.pressure([sd])),
-                    T=self.equation_system.evaluate(self.temperature([sd])),
+                    p=self.equation_system.evaluate(self.pressure([grid])),
+                    T=self.equation_system.evaluate(self.temperature([grid])),
                 )
 
                 self.local_equilibrium(
-                    sd,
+                    grid,
                     specification=equ_spec,
                 )
 
             elif do_default_flash:
-                self.local_equilibrium(sd)
+                self.local_equilibrium(grid)
 
     def update_interface_fluxes(self) -> None:
         interfaces = self.mdg.interfaces(codim=1)
@@ -259,36 +259,36 @@ class SolutionStrategy(ModelConfig):
 
         atol = self.params["flash_params"]["solver_params"]["atol_res"]
 
-        for sd in self.mdg.subdomains():
-            if 0 < sd.dim < self.nd and isinstance(self, FluidPoreInteraction):
+        for grid in self.mdg.subdomains():
+            if 0 < grid.dim < self.nd and isinstance(self, FluidPoreInteraction):
                 v_jump_factor = self.equation_system.evaluate(
-                    self.pore_volume_jump([sd])
+                    self.pore_volume_jump([grid])
                 )
                 if np.max(v_jump_factor) > 1.1:
                     if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
                         v = self.equation_system.evaluate(
-                            self.fluid_specific_volume([sd])
+                            self.fluid_specific_volume([grid])
                         )
                     else:
                         v = self.equation_system.evaluate(
-                            self.fluid.specific_volume([sd])
+                            self.fluid.specific_volume([grid])
                         )
 
                     assert np.all(v > 0), "Bad specific volume."
                     if isochoric_spec == pf.FlashSpec.vT:
                         equ_spec = pf.IsochoricSpecifications(
                             v=v_jump_factor * v,
-                            T=self.equation_system.evaluate(self.temperature([sd])),
+                            T=self.equation_system.evaluate(self.temperature([grid])),
                         )
                     elif isochoric_spec == pf.FlashSpec.vu:
                         equ_spec = pf.IsochoricSpecifications(
                             v=v_jump_factor * v,
                             u=self.equation_system.evaluate(
-                                self.fluid.specific_internal_energy([sd])
+                                self.fluid.specific_internal_energy([grid])
                             ),
                         )
                     logger.info(
-                        f"Performing isochoric preconditioning on grid {sd.id}."
+                        f"Performing isochoric preconditioning on grid {grid.id}."
                     )
                     self.params["flash_params"]["solver_params"]["atol_res"] = min(
                         1e-8, atol
@@ -296,16 +296,16 @@ class SolutionStrategy(ModelConfig):
                     # Perform full, isochoric flash, including initial guess.
                     res: tuple[pf.FlashResults, NDArray[np.bool_]] = (
                         self.local_equilibrium(
-                            sd,
+                            grid,
                             specification=equ_spec,
                             initial_guess_from_current_state=False,
-                            update_secondary_variables=True,
+                            update_secondary_quantities=True,
                         )
                     )
                     if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
                         self.equation_system.set_variable_values(
                             res[0].v,
-                            [self.fluid_specific_volume([sd])],  # type:ignore[arg-type]
+                            [self.fluid_specific_volume([grid])],  # type:ignore[arg-type]
                             iterate_index=0,
                         )
                     isochoric_npc_done = True
@@ -1027,28 +1027,28 @@ class DataCollectionMixin(pp.PorePyModel):
 
     def local_equilibrium(
         self,
-        sd: pp.Grid,
+        grid: pp.Grid,
         /,
         *,
         specification: Optional[cfle.StateSpecDict] = None,
         initial_guess_from_current_state: bool = True,
-        update_secondary_variables: bool = True,
+        update_secondary_quantities: bool = True,
         state: Optional[np.ndarray] = None,
         cell_mask: Optional[np.ndarray] = None,
     ) -> tuple[pf.FlashResults, NDArray[np.bool_]]:
 
         results: tuple[pf.FlashResults, NDArray[np.bool_]] = super().local_equilibrium(  # type:ignore[misc]
-            sd,
+            grid,
             specification=specification,
             initial_guess_from_current_state=initial_guess_from_current_state,
-            update_secondary_variables=update_secondary_variables,
+            update_secondary_quantities=update_secondary_quantities,
             state=state,
             cell_mask=cell_mask,
         )
 
-        if sd not in self._flash_iter_per_grid:
-            self._flash_iter_per_grid[sd] = []
-        self._flash_iter_per_grid[sd].append(results[0].num_iter)
+        if grid not in self._flash_iter_per_grid:
+            self._flash_iter_per_grid[grid] = []
+        self._flash_iter_per_grid[grid].append(results[0].num_iter)
 
         return results
 
@@ -1255,7 +1255,7 @@ class PseudoIsothermalMixin(pp.PorePyModel):
 
     def postprocess_equilibrium(
         self,
-        sd: pp.Grid,
+        grid: pp.Grid,
         results: pf.FlashResults,
         /,
         *,
@@ -1274,7 +1274,7 @@ class PseudoIsothermalMixin(pp.PorePyModel):
             phase.dkappa = phase.dkappa[row_idx, :]
             phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
 
-        return super().postprocess_equilibrium(sd, results, state=state)  # type:ignore[misc]
+        return super().postprocess_equilibrium(grid, results, state=state)  # type:ignore[misc]
 
     def postprocess_initial_equilibrium(
         self, sd: pp.Grid, results: pf.FlashResults

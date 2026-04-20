@@ -1025,8 +1025,8 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         """
 
         if self.do_flash_preconditioning():
-            for sd in self.mdg.subdomains():
-                self.local_equilibrium(sd)
+            for grid in self.mdg.subdomains():
+                self.local_equilibrium(grid)
 
     def current_fluid_state(
         self,
@@ -1196,12 +1196,12 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
     def local_equilibrium(
         self,
-        sd: pp.Grid,
+        grid: pp.Grid,
         /,
         *,
         specification: Optional[StateSpecDict] = None,
         initial_guess_from_current_state: bool = True,
-        update_secondary_variables: bool = True,
+        update_secondary_quantities: bool = True,
         state: Optional[np.ndarray] = None,
         cell_mask: Optional[np.ndarray] = None,
     ) -> tuple[FlashResults, NDArray[np.bool_]]:
@@ -1218,7 +1218,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             :meth:`current_fluid_state`
 
         Parameters:
-            sd: A subdomain in the md-grid.
+            grid: A subdomain in the md-grid.
             specification: ``default=None``
 
                 Definition of the equilibrium condition in terms of state functions and
@@ -1230,7 +1230,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 If True, the initial fluid state for the flash is evaluated from the
                 current solution values at iterate 0.
 
-            update_secondary_variables: ``default=True``
+            update_secondary_quantities: ``default=True``
 
                 If True, the flash results are used to update the values of variables
                 of the equilibrium problem at iterate 0, additionally to the fluid
@@ -1255,9 +1255,11 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         """
 
-        logger.info(f"Equilibration on grid {sd.id} at t={self.time_manager.time:.3e}.")
+        logger.info(
+            f"Equilibration on grid {grid.id} at t={self.time_manager.time:.3e}."
+        )
         if cell_mask is None:
-            cell_mask = np.ones(sd.num_cells, dtype=np.bool_)
+            cell_mask = np.ones(grid.num_cells, dtype=np.bool_)
 
         if specification is None:
             model_specs = pc.get_equilibrium_specifications(self)
@@ -1267,21 +1269,21 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
             if flash_spec < pc.FlashSpec.vT:
                 spec["p"] = self.equation_system.evaluate(
-                    self.pressure([sd]), state=state
+                    self.pressure([grid]), state=state
                 )
 
                 if flash_spec == pc.FlashSpec.pT:
                     spec["T"] = self.equation_system.evaluate(
-                        self.temperature([sd]), state=state
+                        self.temperature([grid]), state=state
                     )
                 elif flash_spec == pc.FlashSpec.ph:
                     if isinstance(self, pp.energy_balance.EnthalpyVariable):
                         spec["h"] = self.equation_system.evaluate(
-                            self.enthalpy([sd]), state=state
+                            self.enthalpy([grid]), state=state
                         )
                     else:
                         spec["h"] = self.equation_system.evaluate(
-                            self.fluid.specific_enthalpy([sd]), state=state
+                            self.fluid.specific_enthalpy([grid]), state=state
                         )
                 else:
                     raise NotImplementedError(
@@ -1290,29 +1292,29 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             else:
                 if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
                     spec["v"] = self.equation_system.evaluate(
-                        self.fluid_specific_volume([sd]), state=state
+                        self.fluid_specific_volume([grid]), state=state
                     )
                 else:
                     spec["v"] = self.equation_system.evaluate(
-                        self.fluid.specific_volume([sd]), state=state
+                        self.fluid.specific_volume([grid]), state=state
                     )
 
                 if flash_spec == pc.FlashSpec.vT:
                     spec["T"] = self.equation_system.evaluate(
-                        self.temperature([sd]), state=state
+                        self.temperature([grid]), state=state
                     )
                 elif flash_spec == pc.FlashSpec.vh:
                     if isinstance(self, pp.energy_balance.EnthalpyVariable):
                         spec["h"] = self.equation_system.evaluate(
-                            self.enthalpy([sd]), state=state
+                            self.enthalpy([grid]), state=state
                         )
                     else:
                         spec["h"] = self.equation_system.evaluate(
-                            self.fluid.specific_enthalpy([sd]), state=state
+                            self.fluid.specific_enthalpy([grid]), state=state
                         )
                 elif flash_spec == pc.FlashSpec.vu:
                     spec["u"] = self.equation_system.evaluate(
-                        self.fluid.specific_internal_energy([sd]), state=state
+                        self.fluid.specific_internal_energy([grid]), state=state
                     )
                 else:
                     raise NotImplementedError(
@@ -1325,13 +1327,13 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         feed: np.ndarray
 
         if initial_guess_from_current_state:
-            initial_state = self.current_fluid_state(sd, state=state)
+            initial_state = self.current_fluid_state(grid, state=state)
             feed = initial_state.z
         else:
             initial_state = None
             feed = np.array(
                 [
-                    self.equation_system.evaluate(comp.fraction([sd]), state=state)
+                    self.equation_system.evaluate(comp.fraction([grid]), state=state)
                     for comp in self.fluid.components
                 ]
             )
@@ -1350,85 +1352,23 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         if np.any(not_converged) and initial_guess_from_current_state:
             logger.info(
                 f"Flash from iterate state failed in {not_converged.sum()} cells on"
-                + f" grid {sd.id}. Performing full flash."
+                + f" grid {grid.id}. Performing full flash."
             )
             self._full_equilibrium(results, specification)
 
-        success_mask = self.postprocess_equilibrium(sd, results, state=state)
+        success_mask = self.postprocess_equilibrium(grid, results, state=state)
         update_mask = success_mask & cell_mask
         results.postprocess_fractions()
         results.evaluate_saturations()
         results.evaluate_extensive_state()
 
-        # Updating fluid properties.
-        is_persistent = pc.is_persistent_variable_form(self)
-        for phase, phase_state in zip(self.fluid.phases, results.phases):
-            cf.update_phase_properties(
-                sd,
-                phase,
-                phase_state,
-                0,
-                use_extended_derivatives=is_persistent,
-                update_fugacities=True,
-                mask=update_mask,
+        if update_secondary_quantities:
+            self.update_secondary_quantities_from_flash_result(
+                [grid], results, update_mask
             )
-
-        def update(var: pp.ad.Operator, vals: np.ndarray) -> None:
-            assert isinstance(var, (pp.ad.MixedDimensionalVariable, pp.ad.Variable)), (
-                f"Operator {var.name} not independent variable."
-            )
-            current_vals = self.equation_system.get_variable_values(
-                [var], iterate_index=0
-            )
-            current_vals[update_mask] = vals[update_mask]
-            self.equation_system.set_variable_values(
-                current_vals, [var], iterate_index=0
-            )
-
-        # Updating variables which are also unknowns in the equilibrium problem.
-        if update_secondary_variables:
-            for j, phase in enumerate(self.fluid.phases):
-                if self.has_independent_fraction(phase):
-                    update(phase.fraction([sd]), results.y[j])
-
-                if self.has_independent_saturation(phase):
-                    update(phase.saturation([sd]), results.sat[j])
-
-                for i, comp in enumerate(phase.components):
-                    if self.has_independent_extended_fraction(comp, phase):
-                        var = phase.extended_fraction_of[comp]([sd])
-                    elif self.has_independent_partial_fraction(comp, phase):
-                        var = phase.partial_fraction_of[comp]([sd])
-                    else:
-                        continue
-
-                    update(var, results.phases[j].x[i])
-
-            # Updating state variables. If isochoric, update pressure which is
-            # assumed to be always a variable. If isobaric, update fluid volume if it is
-            # a variable.
-            if results.specification >= pc.FlashSpec.vT:
-                update(self.pressure([sd]), results.p)
-            elif isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
-                update(self.fluid_specific_volume([sd]), results.v)
-
-            # Update energy-related variables if applicable.
-            # Nonisothermal -> update temperature.
-            if results.specification not in [
-                pc.FlashSpec.pT,
-                pc.FlashSpec.vT,
-            ] and isinstance(self, pp.energy_balance.VariablesEnergyBalance):
-                update(self.temperature([sd]), results.T)
-
-            # Enthalpy specified -> update variable if present.
-            if results.specification not in [
-                pc.FlashSpec.ph,
-                pc.FlashSpec.vh,
-            ] and isinstance(self, pp.energy_balance.EnthalpyVariable):
-                update(self.enthalpy([sd]), results.h)
 
         logger.debug(
-            f"Fluid equilibrated on grid {sd.id}"
+            f"Fluid equilibrated on grid {grid.id}"
             + " (elapsed time: %.5f (s))." % (results.clocktime_solve)
         )
         self.nonlinear_solver_statistics.log_custom_data(
@@ -1469,45 +1409,14 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         results.clocktime_solve += sub_results.clocktime_solve
         results.clocktime_init += sub_results.clocktime_init
-
-        # Update parent state with sub state values.
-        results.T[failure] = sub_results.T
-        results.h[failure] = sub_results.h
-        results.rho[failure] = sub_results.rho
-        results.u[failure] = sub_results.u
-
         # We count the full flash iterations in addition to the previous ones.
         results.num_iter[failure] += sub_results.num_iter
-
-        # We treat max iter reached as success, and hope for the best globally.
-        # sub_results.exitcode[sub_results.exitcode == 1] = 0
-        results.exitcode[failure] = sub_results.exitcode
-
-        # Update phase properties.
-        for j in range(len(results.phases)):
-            results.sat[j][failure] = sub_results.sat[j]
-            results.y[j][failure] = sub_results.y[j]
-
-            results.phases[j].x[:, failure] = sub_results.phases[j].x
-
-            results.phases[j].rho[failure] = sub_results.phases[j].rho
-            results.phases[j].h[failure] = sub_results.phases[j].h
-            results.phases[j].u[failure] = sub_results.phases[j].u
-            results.phases[j].mu[failure] = sub_results.phases[j].mu
-            results.phases[j].kappa[failure] = sub_results.phases[j].kappa
-
-            results.phases[j].drho[:, failure] = sub_results.phases[j].drho
-            results.phases[j].dh[:, failure] = sub_results.phases[j].dh
-            results.phases[j].du[:, failure] = sub_results.phases[j].du
-            results.phases[j].dmu[:, failure] = sub_results.phases[j].dmu
-            results.phases[j].dkappa[:, failure] = sub_results.phases[j].dkappa
-
-            results.phases[j].phis[:, failure] = sub_results.phases[j].phis
-            results.phases[j].dphis[:, :, failure] = sub_results.phases[j].dphis
+        # NOTE: setitem overwrites exitcodes only.
+        results[failure] = sub_results
 
     def postprocess_equilibrium(
         self,
-        sd: pp.Grid,
+        grid: pp.Grid,
         results: FlashResults,
         /,
         *,
@@ -1519,7 +1428,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         The base method returns True where the flash converged.
 
         Parameters:
-            sd: The grid on which the flash was performed.
+            grid: The subdomain on which the flash was performed.
             results: The resulting fluid properties and success flags from
                 the call to :meth:`local_equilibrium`.
             state: A global state vector from which the state variables were evaluated
@@ -1536,9 +1445,108 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         if n > 0:
             logger.warning(
                 f"{results.specification.name}-flash failed in {n} cells on grid"
-                f" {sd.id}."
+                f" {grid.id}."
             )
         return results.converged
+
+    def update_secondary_quantities_from_flash_result(
+        self,
+        subdomains: list[pp.Grid],
+        results: FlashResults,
+        cell_mask: NDArray[np.bool_] | None = None,
+    ) -> None:
+        """Updates values for secondary quantities stored in subdomain data
+        dictionaries.
+
+        Secondary quantities include all phase properties and their derivatives, as well
+        as fluid state functions which are mathematical variables in the PorePy model
+        but not fixed by the flash specification stored in ``results``.
+
+        Parameters:
+            subdomains: A sequence of domains for which data is contained in
+                ``results``.
+            results: Flash results data structure containing cell-wise data for all
+                subdomains.
+            cell_mask: ``default=None``
+
+                If given, the update is only performed on respective cells.
+
+        """
+        nc = int(sum([grid.num_cells for grid in subdomains]))
+        if cell_mask is None:
+            cell_mask = np.ones(nc, dtype=np.bool_)
+
+        # Updating fluid properties.
+        n = 0
+        is_persistent = pc.is_persistent_variable_form(self)
+        for grid in subdomains:
+            n1p = n + grid.num_cells
+            idx = np.zeros(nc, dtype=np.bool_)
+            idx[n:n1p] = True
+            for phase, phase_state in zip(self.fluid.phases, results.phases):
+                cf.update_phase_properties(
+                    grid,
+                    phase,
+                    phase_state[idx],
+                    0,
+                    use_extended_derivatives=is_persistent,
+                    update_fugacities=True,
+                    mask=cell_mask[idx],
+                )
+            n = n1p
+
+        def update(var: pp.ad.Operator, vals: np.ndarray) -> None:
+            assert isinstance(var, (pp.ad.MixedDimensionalVariable, pp.ad.Variable)), (
+                f"Operator {var.name} not independent variable."
+            )
+            current_vals = self.equation_system.get_variable_values(
+                [var], iterate_index=0
+            )
+            current_vals[cell_mask] = vals[cell_mask]
+            self.equation_system.set_variable_values(
+                current_vals, [var], iterate_index=0
+            )
+
+        # Updating variables which are also unknowns in the equilibrium problem.
+        for j, phase in enumerate(self.fluid.phases):
+            if self.has_independent_fraction(phase):
+                update(phase.fraction(subdomains), results.y[j])
+
+            if self.has_independent_saturation(phase):
+                update(phase.saturation(subdomains), results.sat[j])
+
+            for i, comp in enumerate(phase.components):
+                if self.has_independent_extended_fraction(comp, phase):
+                    var = phase.extended_fraction_of[comp](subdomains)
+                elif self.has_independent_partial_fraction(comp, phase):
+                    var = phase.partial_fraction_of[comp](subdomains)
+                else:
+                    continue
+
+                update(var, results.phases[j].x[i])
+
+        # Updating state variables. If isochoric, update pressure which is
+        # assumed to be always a variable. If isobaric, update fluid volume if it is
+        # a variable.
+        if results.specification >= pc.FlashSpec.vT:
+            update(self.pressure(subdomains), results.p)
+        elif isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+            update(self.fluid_specific_volume(subdomains), results.v)
+
+        # Update energy-related variables if applicable.
+        # Nonisothermal -> update temperature.
+        if results.specification not in [
+            pc.FlashSpec.pT,
+            pc.FlashSpec.vT,
+        ] and isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+            update(self.temperature(subdomains), results.T)
+
+        # Enthalpy specified -> update variable if present.
+        if results.specification not in [
+            pc.FlashSpec.ph,
+            pc.FlashSpec.vh,
+        ] and isinstance(self, pp.energy_balance.EnthalpyVariable):
+            update(self.enthalpy(subdomains), results.h)
 
 
 class SolutionStrategyCFLE(
