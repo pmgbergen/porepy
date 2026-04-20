@@ -18,7 +18,6 @@ properties are obtained by the flash.
 from __future__ import annotations
 
 import logging
-import time
 from functools import cached_property, partial
 from typing import TYPE_CHECKING, Callable, Optional, Sequence, cast
 
@@ -828,9 +827,6 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-    pressure_variable: str
-    temperature_variable: str
-
     has_independent_saturation: Callable[[pp.Phase], bool]
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
@@ -946,13 +942,14 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         """
         assert min_val > 0.0, "Minimal value expected to be strictly positive."
 
-        p = self.equation_system.get_variable_values(
-            [self.pressure_variable], iterate_index=0
-        )
-        p = np.maximum(p, min_val)
-        self.equation_system.set_variable_values(
-            p, [self.pressure_variable], iterate_index=0
-        )
+        if isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+            p = self.equation_system.get_variable_values(
+                [self.pressure_variable], iterate_index=0
+            )
+            p = np.maximum(p, min_val)
+            self.equation_system.set_variable_values(
+                p, [self.pressure_variable], iterate_index=0
+            )
 
         if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
             T = self.equation_system.get_variable_values(
@@ -1215,7 +1212,8 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         See also:
             :meth:`~porepy.compositional.flash.abstract_flash.AbstractFlash.flash`,
-            :meth:`current_fluid_state`
+            :meth:`update_secondary_quantities_from_flash_result`,
+            :meth:`current_fluid_state`,
 
         Parameters:
             grid: A subdomain in the md-grid.
@@ -1343,7 +1341,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             specification,
             [z for z in feed],
             initial_state=initial_state,
-            params=self.params.get("flash_params", None),  # type:ignore[arg-type]
+            params=cast(dict | None, self.params.get("flash_params", None)),
         )
 
         # Perform the full flash where the initial guess from the current state caused
@@ -1399,12 +1397,11 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         """
         failure = ~results.converged
-        spec: StateSpecDict = dict([(k, v[failure]) for k, v in flash_spec.items()])  # type:ignore
 
         sub_results = self.flash.flash(
-            spec,
+            cast(StateSpecDict, dict([(k, v[failure]) for k, v in flash_spec.items()])),  # type:ignore[index]
             cast(Sequence[np.ndarray], results.z[:, failure]),
-            params=self.params.get("flash_params", None),  # type:ignore[arg-type]
+            params=cast(dict | None, self.params.get("flash_params", None)),
         )
 
         results.clocktime_solve += sub_results.clocktime_solve
@@ -1507,7 +1504,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 current_vals, [var], iterate_index=0
             )
 
-        # Updating variables which are also unknowns in the equilibrium problem.
+        # Updating variables which are always unknowns in the equilibrium problem.
         for j, phase in enumerate(self.fluid.phases):
             if self.has_independent_fraction(phase):
                 update(phase.fraction(subdomains), results.y[j])
@@ -1525,10 +1522,11 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
                 update(var, results.phases[j].x[i])
 
-        # Updating state variables. If isochoric, update pressure which is
-        # assumed to be always a variable. If isobaric, update fluid volume if it is
-        # a variable.
-        if results.specification >= pc.FlashSpec.vT:
+        # Updating state variables. If isochoric, update pressure. If isobaric, update
+        # fluid volume.
+        if results.specification >= pc.FlashSpec.vT and isinstance(
+            self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        ):
             update(self.pressure(subdomains), results.p)
         elif isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
             update(self.fluid_specific_volume(subdomains), results.v)
