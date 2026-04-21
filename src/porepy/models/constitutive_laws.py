@@ -902,21 +902,16 @@ class LayerSpecificPermeability(ConstantPermeability):
 
                 k = np.empty(sd.num_cells, dtype=float)
 
-                # Overburden
-                m = (depth >= 0.0) & (depth < 1650.0)
-                k[m] = 1.0e-15
+                layers=self.resolve_layers()
 
-                # Muschelkalk
-                m = (depth >= 1650.0) & (depth < 1800.0)
-                k[m] = 2.82e-15
+                for layer in layers:
+                    m = (depth >= layer.top_depth) & (depth < layer.bottom_depth)
+                    if layer.permeability is None:
+                        k[m]=self.solid.permeability
+                    else:
+                        k[m] = layer.permeability
 
-                # Buntsandstein + Permian
-                m = (depth >= 1800.0) & (depth < 2150.0)
-                k[m] = 7.24e-15
 
-                # Crystalline basement
-                m = depth >= 2150.0
-                k[m] = 1.82e-16
 
                 k_all.append(k)
             elif sd.dim==self.nd-1:
@@ -5104,6 +5099,7 @@ class ReactiveTransportPorosity(pp.PorePyModel):
 
 
 class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
+
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity changes due to mineral dissolution and dissipation [-].
 
@@ -5139,21 +5135,14 @@ class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
 
                 k = np.empty(sd.num_cells, dtype=float)
 
-                # Overburden
-                m = (depth >= 0.0) & (depth < 1650.0)
-                k[m] = 0.137
+                layers=self.resolve_layers()
 
-                # Muschelkalk
-                m = (depth >= 1650.0) & (depth < 1800.0)
-                k[m] = 0.145
-
-                # Buntsandstein + Permian
-                m = (depth >= 1800.0) & (depth < 2150.0)
-                k[m] = 0.05
-
-                # Crystalline basement
-                m = depth >= 2150.0
-                k[m] = 0.036
+                for layer in layers:
+                    m = (depth >= layer.top_depth) & (depth < layer.bottom_depth)
+                    if layer.porosity is None:
+                        k[m]=self.solid.total_porosity
+                    else:
+                        k[m] = layer.porosity
 
                 k_all.append(k)
             elif sd.dim==self.nd-1:

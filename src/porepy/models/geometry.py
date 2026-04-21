@@ -15,6 +15,8 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from dataclasses import dataclass,field
 import math
+from porepy.fracs.wells_3d import _add_interface
+
 logger = logging.getLogger(__name__)
 
 
@@ -172,8 +174,9 @@ class ModelGeometry(pp.PorePyModel):
             Depth values for the provided points.
 
         """
+        top_depth = self.params.get("stratigraphy", {}).get("top_depth", 0.0)
         key = "zmax" if self.nd == 3 else "ymax"
-        return self.domain.bounding_box[key] - points[self.nd - 1, :]
+        return top_depth + self.domain.bounding_box[key] - points[self.nd - 1, :]
 
     @pp.ad.cached_method
     def subdomains_to_interfaces(
@@ -956,6 +959,8 @@ class ResolvedLayer:
     name: str
     top_depth: float
     bottom_depth: float
+    porosity: float
+    permeability: float
 
     @property
     def thickness(self) -> float:
@@ -1317,11 +1322,15 @@ class ReservoirGeometry(pp.PorePyModel):
                     f"which must be deeper than top_depth={current_top}."
                 )
 
+            porosity = layer.get("porosity")
+            permeability = layer.get("permeability")
             resolved.append(
                 ResolvedLayer(
                     name=name,
                     top_depth=current_top,
                     bottom_depth=bottom_depth,
+                    porosity=porosity,
+                    permeability=permeability,
                 )
             )
 
@@ -1346,6 +1355,28 @@ class ReservoirGeometry(pp.PorePyModel):
         meshing_spec = self.build_meshing_spec()
 
         layers= self.resolve_layers()
+
+        # ---- consistency check: layer thickness vs domain thickness ----
+        if layers:
+            total_layer_thickness = layers[-1].bottom_depth - layers[0].top_depth
+
+            key_max = "zmax"
+            key_min = "zmin"
+
+            domain_thickness = (
+                self.domain.bounding_box[key_max]
+                - self.domain.bounding_box[key_min]
+            )
+
+            assert np.isclose(
+                total_layer_thickness, domain_thickness
+            ), (
+                f"Layer thickness ({total_layer_thickness}) does not match "
+                f"domain thickness ({domain_thickness})."
+            )
+
+
+
         z_layers = layers_to_positive_z(layers)
 
         z_pts = make_z_coordinates(z_layers, meshing_spec)
@@ -1376,3 +1407,60 @@ class ReservoirGeometry(pp.PorePyModel):
         return "tensor_grid"
 
 
+
+class PointWellGeometry(pp.PorePyModel):
+    def set_geometry(self):
+        super().set_geometry()
+
+        injection_point = np.array(self.params.get("injection_coordinates"), dtype=float)
+        production_point = np.array(self.params.get("production_coordinates"), dtype=float)
+
+        self._add_well(injection_point, 0, "injection")
+        self._add_well(production_point, 0, "production")
+
+    def _add_well(
+        self,
+        point: np.ndarray,
+        well_index: int,
+        well_type: Literal["injection", "production"],
+    ) -> None:
+        """Helper method to construct a well in 3D as a PointGrid and add respective
+        interface.
+
+        Parameters:
+            point: Point in space representing well.
+            well_index: Assigned number for well of type ``well_type``.
+            well_type: Label to add a tag to the point grid labelng as injector or
+            producer.
+
+        """
+        matrix = self.mdg.subdomains(dim=self.nd)[0]
+        assert isinstance(point, np.ndarray)
+        p: np.ndarray
+        if point.shape == (2,):
+            p = np.zeros(3)
+            p[:2] = point
+        elif point.shape == (3,):
+            p = point
+        else:
+            raise ValueError(
+                f"Point for well {(well_type, well_index)} must be 1D array of length "
+                + "2 or 3."
+            )
+
+        sd_0d = pp.PointGrid(self.units.convert_units(p, "m"))
+        # Tag for processing of equations.
+        sd_0d.tags[f"{well_type}_well"] = well_index
+        sd_0d.compute_geometry()
+
+        self.mdg.add_subdomains(sd_0d)
+
+        # Motivated by wells_3d.py#L828
+        cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
+        cell_well = np.array([0], dtype=int)
+        cell_cell_map = sps.coo_matrix(
+            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
+            shape=(sd_0d.num_cells, matrix.num_cells),
+        )
+
+        _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
