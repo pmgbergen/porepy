@@ -1110,29 +1110,24 @@ def layers_to_positive_z(
 
 
 
-def make_layer_z_points(z_bottom: float, z_top: float, dz: float) -> np.ndarray:
-    """Create node coordinates for one layer.
+def make_interval_points(start: float, end: float, d: float) -> np.ndarray:
+    """Create coordinates for one interval, including both endpoints.
 
     Parameters:
-        z_bottom: Lower z-coordinate of the layer.
-        z_top: Upper z-coordinate of the layer.
-        dz: Target cell size.
+        start: Interval start.
+        end: Interval end.
+        d: Target spacing.
 
     Returns:
-        1D array of node coordinates from z_bottom to z_top, inclusive.
+        1D array of coordinates from start to end, inclusive.
     """
-    if dz <= 0:
-        raise ValueError(f"dz must be positive, got {dz}.")
-    if z_top <= z_bottom:
-        raise ValueError(
-            f"Expected z_top > z_bottom, got z_top={z_top}, z_bottom={z_bottom}."
-        )
+    if end <= start:
+        raise ValueError(f"Expected end > start, got start={start}, end={end}.")
+    if d <= 0:
+        raise ValueError(f"Expected positive spacing, got d={d}.")
 
-    thickness = z_top - z_bottom
-    nz = math.ceil(thickness / dz)
-
-    return np.linspace(z_bottom, z_top, nz + 1)
-
+    n = math.ceil((end - start) / d)
+    return np.linspace(start, end, n + 1)
 
 
 def make_z_coordinates(
@@ -1153,10 +1148,10 @@ def make_z_coordinates(
         # reversed(z_layers): bottom layer first, top layer last
         dz = refinement.dz_for_layer(layer.name)
 
-        layer_points = make_layer_z_points(
-            z_bottom=layer.z_bottom,
-            z_top=layer.z_top,
-            dz=dz,
+        layer_points = make_interval_points(
+            start=layer.z_bottom,
+            end=layer.z_top,
+            d=dz,
         )
 
         if i > 0:
@@ -1168,6 +1163,169 @@ def make_z_coordinates(
     z_pts = np.concatenate(z_arrays)
 
     return z_pts
+
+
+def make_axis_coordinates(
+    start: float,
+    end: float,
+    default_d: float,
+    refinements: tuple[AxisRefinement, ...] = (),
+) -> np.ndarray:
+    """Build coordinates on one axis with optional local refinement."""
+    if end <= start:
+        raise ValueError(f"Expected end > start, got start={start}, end={end}.")
+    if default_d <= 0:
+        raise ValueError(f"Expected positive default_d, got {default_d}.")
+
+    clipped_refinements: list[AxisRefinement] = []
+    for ref in refinements:
+        clipped_start = max(start, ref.start)
+        clipped_end = min(end, ref.end)
+
+        if clipped_end <= clipped_start:
+            continue
+
+        clipped_refinements.append(
+            AxisRefinement(
+                start=clipped_start,
+                end=clipped_end,
+                d=ref.d,
+            )
+        )
+
+    breakpoints = {start, end}
+    for ref in clipped_refinements:
+        breakpoints.add(ref.start)
+        breakpoints.add(ref.end)
+
+    sorted_points = sorted(breakpoints)
+
+    segments: list[np.ndarray] = []
+
+    for i in range(len(sorted_points) - 1):
+        seg_start = sorted_points[i]
+        seg_end = sorted_points[i + 1]
+
+        segment_d = default_d
+        covering_ds = [
+            ref.d
+            for ref in clipped_refinements
+            if ref.start <= seg_start and seg_end <= ref.end
+        ]
+        if covering_ds:
+            segment_d = min(covering_ds)
+
+        seg_points = make_interval_points(
+            start=seg_start,
+            end=seg_end,
+            d=segment_d,
+        )
+
+        if i > 0:
+            seg_points = seg_points[1:]
+
+        segments.append(seg_points)
+
+    return np.concatenate(segments)
+
+
+def x_refinements_from_rectangles(
+    fine_rectangles: tuple[FineRectangle, ...],
+) -> tuple[AxisRefinement, ...]:
+    """Project rectangular refinements onto the x-axis."""
+    return tuple(
+        AxisRefinement(
+            start=rect.xmin,
+            end=rect.xmax,
+            d=rect.dx,
+        )
+        for rect in fine_rectangles
+    )
+
+def y_refinements_from_rectangles(
+    fine_rectangles: tuple[FineRectangle, ...],
+) -> tuple[AxisRefinement, ...]:
+    """Project rectangular refinements onto the y-axis."""
+    return tuple(
+        AxisRefinement(
+            start=rect.ymin,
+            end=rect.ymax,
+            d=rect.dy,
+        )
+        for rect in fine_rectangles
+    )
+
+def make_x_coordinates(box: dict[str, float], meshing: MeshingSpec) -> np.ndarray:
+    """Build x-coordinates from meshing settings."""
+    return make_axis_coordinates(
+        start=box["xmin"],
+        end=box["xmax"],
+        default_d=meshing.global_cell_size.dx,
+        refinements=x_refinements_from_rectangles(meshing.fine_rectangles),
+    )
+
+def make_y_coordinates(box: dict[str, float], meshing: MeshingSpec) -> np.ndarray:
+    """Build y-coordinates from meshing settings."""
+    return make_axis_coordinates(
+        start=box["ymin"],
+        end=box["ymax"],
+        default_d=meshing.global_cell_size.dy,
+        refinements=y_refinements_from_rectangles(meshing.fine_rectangles),
+    )
+
+
+
+
+class ReservoirGeometry(pp.PorePyModel):
+    def set_domain(self) -> None:
+        ls = self.units.convert_units(1, "m")
+
+        phys_dims = np.array([5000, 5000,1400]) * ls
+
+        box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]
+               , "zmin": 0, "zmax": phys_dims[2]}
+        self._domain = pp.Domain(box)
+
+
+    def meshing_arguments(self) -> dict:
+        # Divide by length scale:
+        ls = self.units.convert_units(1, "m")
+
+        cell_sizes = [500, 500, 50]
+        dx, dy, dz = [size * ls for size in cell_sizes]
+        # getting the node coordinates of each dimension:
+        box = self.domain.bounding_box
+        lx = box["xmax"] - box["xmin"]
+        ly = box["ymax"] - box["ymin"]
+        lz = box["zmax"] - box["zmin"]
+
+        # Number of cells in each direction
+        nx = math.ceil(lx / dx)
+        ny = math.ceil(ly / dy)
+        nz = math.ceil(lz / dz)
+
+
+        x_coords = np.linspace(box["xmin"], box["xmax"], nx+1)
+        y_coords = np.linspace(box["ymin"], box["ymax"], ny+1)
+        z_coords = np.linspace(box["zmin"], box["zmax"], nz+1)
+
+        mesh_sizes = {
+            # Cartesian: 2 by 8 cells.
+            "x_pts": x_coords,
+            "y_pts": y_coords,
+            "z_pts": z_coords,
+        }
+        print("Mesh sizes:", mesh_sizes)
+        return mesh_sizes
+
+    def grid_type(self) -> str:
+        """Grid type for the mixed-dimensional grid.
+
+        Returns:
+            Grid type for the mixed-dimensional grid.
+
+        """
+        return "tensor_grid"
 
 
 if __name__ == "__main__":
