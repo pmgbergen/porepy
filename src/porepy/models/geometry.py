@@ -13,7 +13,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-
+from dataclasses import dataclass,field
+import math
 logger = logging.getLogger(__name__)
 
 
@@ -746,6 +747,43 @@ class ModelGeometry(pp.PorePyModel):
 
         return outwards_normals
 
+    @pp.ad.cached_method
+    def subdomains_to_well_interfaces(
+        self,
+        subdomains: list[pp.Grid],
+        well_types: tuple[str, ...] = ("injection_well", "production_well"),
+    ) -> list[pp.MortarGrid]:
+        """Return interfaces connected to tagged well subdomains.
+
+        This helper is intended for models where wells are represented by tagged
+        subdomains, possibly with non-standard geometric codimension such as 3D-0D.
+        Unlike ``subdomains_to_interfaces(..., codims=[...])``, this function does
+        not filter by codimension, but instead identifies wells explicitly from
+        subdomain tags.
+
+        Parameters:
+            subdomains: Subdomains for which to find neighbouring well interfaces.
+            well_types: Tags identifying well subdomains.
+
+        Returns:
+            Unique list of all interfaces neighbouring tagged well subdomains.
+            Interfaces are sorted according to their index in the mixed-dimensional grid.
+        """
+        interfaces: list[pp.MortarGrid] = []
+
+        for sd in subdomains:
+            if not any(tag in sd.tags for tag in well_types):
+                continue
+
+            for intf in self.mdg.subdomain_to_interfaces(sd):
+                if intf not in interfaces:
+                    interfaces.append(intf)
+
+        return self.mdg.sort_interfaces(interfaces)
+
+
+
+
 
 class LoadGeometryMixin(pp.PorePyModel):
     """Provide functionality to store and load the full model geometry from files.
@@ -896,3 +934,276 @@ class LoadGeometryMixin(pp.PorePyModel):
         default_meshing_kwargs.update(meshing_kwargs)
 
         return default_meshing_kwargs
+
+
+
+
+@dataclass(frozen=True)
+class LayerDepthSpec:
+    """User-facing geological layer definition.
+
+    Depth is positive downward.
+    Only the bottom depth is specified for each layer.
+    """
+    name: str
+    bottom_depth: float
+
+@dataclass(frozen=True)
+class StratigraphyDepthSpec:
+    """Ordered stratigraphy from top to bottom."""
+    
+    top_depth: float
+    layers: tuple[LayerDepthSpec, ...]
+
+@dataclass(frozen=True)
+class ResolvedLayer:
+    """Layer with explicit top and bottom depths."""
+
+    name: str
+    top_depth: float
+    bottom_depth: float
+
+    @property
+    def thickness(self) -> float:
+        return self.bottom_depth - self.top_depth
+    
+@dataclass(frozen=True)
+class ZLayer:
+
+    # Vertical coordinate convention:
+    # z = deepest_bottom_depth - depth
+    # Hence z = 0 at the bottom of the stratigraphy, and z increases upward.
+    name: str
+    z_top: float
+    z_bottom: float
+
+    @property
+    def thickness(self) -> float:
+        return self.z_top - self.z_bottom
+    
+
+
+
+
+@dataclass(frozen=True)
+class GlobalCellSize:
+    dx: float
+    dy: float
+    dz: float
+
+    def __post_init__(self) -> None:
+        for name, value in (("dx", self.dx), ("dy", self.dy), ("dz", self.dz)):
+            if value <= 0:
+                raise ValueError(f"{name} must be positive, got {value}.")
+
+
+
+@dataclass(frozen=True)
+class FineRectangle:
+    xmin: float
+    xmax: float
+    ymin: float
+    ymax: float
+    dx: float
+    dy: float
+
+    def __post_init__(self) -> None:
+        if self.xmax <= self.xmin:
+            raise ValueError("xmax must be greater than xmin.")
+        if self.ymax <= self.ymin:
+            raise ValueError("ymax must be greater than ymin.")
+        if self.dx <= 0 or self.dy <= 0:
+            raise ValueError("Rectangle dx and dy must be positive.")
+
+
+
+@dataclass(frozen=True)
+class MeshingSpec:
+    global_cell_size: GlobalCellSize
+    fine_rectangles: tuple[FineRectangle, ...] = ()
+    layer_dz: dict[str, float] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for layer_name, dz in self.layer_dz.items():
+            if dz <= 0:
+                raise ValueError(
+                    f"dz for layer '{layer_name}' must be positive, got {dz}."
+                )
+
+    def dz_for_layer(self, layer_name: str) -> float:
+        return self.layer_dz.get(layer_name, self.global_cell_size.dz)
+
+
+
+@dataclass(frozen=True)
+class AxisRefinement:
+    """Local refinement interval on one axis."""
+
+    start: float
+    end: float
+    d: float
+
+    def __post_init__(self) -> None:
+        if self.end <= self.start:
+            raise ValueError(
+                f"Expected end > start, got start={self.start}, end={self.end}."
+            )
+        if self.d <= 0:
+            raise ValueError(f"Expected positive spacing, got d={self.d}.")
+
+
+
+
+def resolve_layers(spec: StratigraphyDepthSpec) -> tuple[ResolvedLayer, ...]:
+    if not spec.layers:
+        raise ValueError("No layers provided.")
+
+    resolved: list[ResolvedLayer] = []
+    current_top = spec.top_depth
+    seen_names: set[str] = set()
+
+    for layer in spec.layers:
+        if layer.name in seen_names:
+            raise ValueError(f"Duplicate layer name: {layer.name}")
+        seen_names.add(layer.name)
+
+        if layer.bottom_depth <= current_top:
+            raise ValueError(
+                f"Layer '{layer.name}' has bottom_depth={layer.bottom_depth}, "
+                f"which must be deeper than top_depth={current_top}."
+            )
+
+        resolved.append(
+            ResolvedLayer(
+                name=layer.name,
+                top_depth=current_top,
+                bottom_depth=layer.bottom_depth,
+            )
+        )
+        current_top = layer.bottom_depth
+
+    return tuple(resolved)
+
+
+def layers_to_positive_z(
+    resolved_layers: tuple[ResolvedLayer, ...],
+) -> tuple[ZLayer, ...]:
+    if not resolved_layers:
+        raise ValueError("No resolved layers provided.")
+
+    deepest_bottom = resolved_layers[-1].bottom_depth
+
+    z_layers: list[ZLayer] = []
+    for layer in resolved_layers:
+        z_top = deepest_bottom - layer.top_depth
+        z_bottom = deepest_bottom - layer.bottom_depth
+
+        z_layers.append(
+            ZLayer(
+                name=layer.name,
+                z_top=z_top,
+                z_bottom=z_bottom,
+            )
+        )
+
+    return tuple(z_layers)
+
+
+
+def make_layer_z_points(z_bottom: float, z_top: float, dz: float) -> np.ndarray:
+    """Create node coordinates for one layer.
+
+    Parameters:
+        z_bottom: Lower z-coordinate of the layer.
+        z_top: Upper z-coordinate of the layer.
+        dz: Target cell size.
+
+    Returns:
+        1D array of node coordinates from z_bottom to z_top, inclusive.
+    """
+    if dz <= 0:
+        raise ValueError(f"dz must be positive, got {dz}.")
+    if z_top <= z_bottom:
+        raise ValueError(
+            f"Expected z_top > z_bottom, got z_top={z_top}, z_bottom={z_bottom}."
+        )
+
+    thickness = z_top - z_bottom
+    nz = math.ceil(thickness / dz)
+
+    return np.linspace(z_bottom, z_top, nz + 1)
+
+
+
+def make_z_coordinates(
+    z_layers: tuple[ZLayer, ...],
+    refinement: MeshingSpec,
+) -> np.ndarray:
+    """Build full vertical TensorGrid coordinates from all layers.
+
+    Layers are meshed one by one and then concatenated.
+    Shared interface points are included only once.
+    """
+    if not z_layers:
+        raise ValueError("No z-layers provided.")
+
+    z_arrays: list[np.ndarray] = []
+
+    for i, layer in enumerate(reversed(z_layers)):
+        # reversed(z_layers): bottom layer first, top layer last
+        dz = refinement.dz_for_layer(layer.name)
+
+        layer_points = make_layer_z_points(
+            z_bottom=layer.z_bottom,
+            z_top=layer.z_top,
+            dz=dz,
+        )
+
+        if i > 0:
+            # Drop first point to avoid duplicating the shared interface
+            layer_points = layer_points[1:]
+
+        z_arrays.append(layer_points)
+
+    z_pts = np.concatenate(z_arrays)
+
+    return z_pts
+
+
+if __name__ == "__main__":
+
+
+    stratigraphy = StratigraphyDepthSpec(
+        top_depth=1450.0,
+        layers=(
+            LayerDepthSpec("Keuper", bottom_depth=1650.0),
+            LayerDepthSpec("Muschelkalk", bottom_depth=1800.0),
+            LayerDepthSpec("Buntsandstein", bottom_depth=2150.0),
+            LayerDepthSpec("Granite", bottom_depth=2850.0),
+        ),
+    )
+
+    resolved = resolve_layers(stratigraphy)
+    z_layers = layers_to_positive_z(resolved)
+
+    refinement = MeshingSpec(
+        global_cell_size=GlobalCellSize(dx=100.0, dy=100.0, dz=100.0),
+        layer_dz={
+            "Buntsandstein": 50.0,
+        },
+    )
+
+    z_pts = make_z_coordinates(z_layers, refinement)
+
+    print("Resolved layers:")
+    for layer in resolved:
+        print(layer)
+
+    print("\nZ layers:")
+    for layer in z_layers:
+        print(layer)
+
+    print("\nz_pts:")
+    print(z_pts)
+
+    print("\nNumber of vertical cells:", len(z_pts) - 1)
