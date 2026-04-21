@@ -948,12 +948,6 @@ class LayerDepthSpec:
     name: str
     bottom_depth: float
 
-@dataclass(frozen=True)
-class StratigraphyDepthSpec:
-    """Ordered stratigraphy from top to bottom."""
-    
-    top_depth: float
-    layers: tuple[LayerDepthSpec, ...]
 
 @dataclass(frozen=True)
 class ResolvedLayer:
@@ -1054,35 +1048,6 @@ class AxisRefinement:
 
 
 
-def resolve_layers(spec: StratigraphyDepthSpec) -> tuple[ResolvedLayer, ...]:
-    if not spec.layers:
-        raise ValueError("No layers provided.")
-
-    resolved: list[ResolvedLayer] = []
-    current_top = spec.top_depth
-    seen_names: set[str] = set()
-
-    for layer in spec.layers:
-        if layer.name in seen_names:
-            raise ValueError(f"Duplicate layer name: {layer.name}")
-        seen_names.add(layer.name)
-
-        if layer.bottom_depth <= current_top:
-            raise ValueError(
-                f"Layer '{layer.name}' has bottom_depth={layer.bottom_depth}, "
-                f"which must be deeper than top_depth={current_top}."
-            )
-
-        resolved.append(
-            ResolvedLayer(
-                name=layer.name,
-                top_depth=current_top,
-                bottom_depth=layer.bottom_depth,
-            )
-        )
-        current_top = layer.bottom_depth
-
-    return tuple(resolved)
 
 
 def layers_to_positive_z(
@@ -1277,43 +1242,126 @@ def make_y_coordinates(box: dict[str, float], meshing: MeshingSpec) -> np.ndarra
 
 
 class ReservoirGeometry(pp.PorePyModel):
+
+    def build_meshing_spec(self) -> MeshingSpec:
+        """Parse self.params into internal MeshingSpec."""
+
+        meshing_args = self.params.get("meshing_config", {})
+
+        # ---- global sizes ----
+        dx = meshing_args.get("cell_size_x", meshing_args.get("cell_size"))
+        dy = meshing_args.get("cell_size_y", meshing_args.get("cell_size"))
+        dz = meshing_args.get("cell_size_z", meshing_args.get("cell_size"))
+
+        if dx is None or dy is None or dz is None:
+            raise ValueError("Missing global cell size (cell_size or cell_size_x/y/z).")
+
+        global_cell_size = GlobalCellSize(dx=dx, dy=dy, dz=dz)
+
+        # ---- layer dz ----
+        layer_dz = meshing_args.get("layer_cell_size_z", {})
+
+        # ---- rectangles ----
+        rectangles_input = meshing_args.get("fine_rectangles", [])
+
+        fine_rectangles = tuple(
+            FineRectangle(
+                xmin=rect["xmin"],
+                xmax=rect["xmax"],
+                ymin=rect["ymin"],
+                ymax=rect["ymax"],
+                dx=rect.get("cell_size_x", dx),
+                dy=rect.get("cell_size_y", dy),
+            )
+            for rect in rectangles_input
+        )
+
+        return MeshingSpec(
+            global_cell_size=global_cell_size,
+            fine_rectangles=fine_rectangles,
+            layer_dz=layer_dz,
+        )
+
+
+
+    def resolve_layers(self) -> tuple[ResolvedLayer, ...]:
+        """Resolve layer definitions from self.params."""
+
+        stratigraphy = self.params.get("stratigraphy")
+        if stratigraphy is None:
+            raise ValueError("Missing 'stratigraphy' in params.")
+
+        layers = stratigraphy.get("layers", [])
+        if not layers:
+            raise ValueError("No layers provided.")
+
+        if "top_depth" not in stratigraphy:
+            raise ValueError("Missing 'top_depth' in stratigraphy.")
+
+        current_top = stratigraphy["top_depth"]
+
+        resolved: list[ResolvedLayer] = []
+        seen_names: set[str] = set()
+
+        for layer in layers:
+            name = layer["name"]
+            bottom_depth = layer["bottom_depth"]
+
+            if name in seen_names:
+                raise ValueError(f"Duplicate layer name: {name}")
+            seen_names.add(name)
+
+            if bottom_depth <= current_top:
+                raise ValueError(
+                    f"Layer '{name}' has bottom_depth={bottom_depth}, "
+                    f"which must be deeper than top_depth={current_top}."
+                )
+
+            resolved.append(
+                ResolvedLayer(
+                    name=name,
+                    top_depth=current_top,
+                    bottom_depth=bottom_depth,
+                )
+            )
+
+            current_top = bottom_depth
+
+        return tuple(resolved)
+
+
+
+
     def set_domain(self) -> None:
-        ls = self.units.convert_units(1, "m")
 
-        phys_dims = np.array([5000, 5000,1400]) * ls
+        ls = self.units.convert_units(1, "m")  # length scaling
+        a, b, c = self.params.get("domain_size", (10, 10, 10))  # [m]
+        domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls, "zmin": 0.0, "zmax": c * ls})
+        self._domain = domain
 
-        box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]
-               , "zmin": 0, "zmax": phys_dims[2]}
-        self._domain = pp.Domain(box)
 
 
     def meshing_arguments(self) -> dict:
-        # Divide by length scale:
-        ls = self.units.convert_units(1, "m")
 
-        cell_sizes = [500, 500, 50]
-        dx, dy, dz = [size * ls for size in cell_sizes]
-        # getting the node coordinates of each dimension:
+        meshing_spec = self.build_meshing_spec()
+
+        layers= self.resolve_layers()
+        z_layers = layers_to_positive_z(layers)
+
+        z_pts = make_z_coordinates(z_layers, meshing_spec)
+
         box = self.domain.bounding_box
-        lx = box["xmax"] - box["xmin"]
-        ly = box["ymax"] - box["ymin"]
-        lz = box["zmax"] - box["zmin"]
+        x_pts = make_x_coordinates(box, meshing_spec)
+        y_pts = make_y_coordinates(box, meshing_spec)
 
-        # Number of cells in each direction
-        nx = math.ceil(lx / dx)
-        ny = math.ceil(ly / dy)
-        nz = math.ceil(lz / dz)
+        ls = self.units.convert_units(1, "m")  # length scaling
 
-
-        x_coords = np.linspace(box["xmin"], box["xmax"], nx+1)
-        y_coords = np.linspace(box["ymin"], box["ymax"], ny+1)
-        z_coords = np.linspace(box["zmin"], box["zmax"], nz+1)
 
         mesh_sizes = {
             # Cartesian: 2 by 8 cells.
-            "x_pts": x_coords,
-            "y_pts": y_coords,
-            "z_pts": z_coords,
+            "x_pts": x_pts*ls,
+            "y_pts": y_pts*ls,
+            "z_pts": z_pts*ls,
         }
         print("Mesh sizes:", mesh_sizes)
         return mesh_sizes
@@ -1328,40 +1376,3 @@ class ReservoirGeometry(pp.PorePyModel):
         return "tensor_grid"
 
 
-if __name__ == "__main__":
-
-
-    stratigraphy = StratigraphyDepthSpec(
-        top_depth=1450.0,
-        layers=(
-            LayerDepthSpec("Keuper", bottom_depth=1650.0),
-            LayerDepthSpec("Muschelkalk", bottom_depth=1800.0),
-            LayerDepthSpec("Buntsandstein", bottom_depth=2150.0),
-            LayerDepthSpec("Granite", bottom_depth=2850.0),
-        ),
-    )
-
-    resolved = resolve_layers(stratigraphy)
-    z_layers = layers_to_positive_z(resolved)
-
-    refinement = MeshingSpec(
-        global_cell_size=GlobalCellSize(dx=100.0, dy=100.0, dz=100.0),
-        layer_dz={
-            "Buntsandstein": 50.0,
-        },
-    )
-
-    z_pts = make_z_coordinates(z_layers, refinement)
-
-    print("Resolved layers:")
-    for layer in resolved:
-        print(layer)
-
-    print("\nZ layers:")
-    for layer in z_layers:
-        print(layer)
-
-    print("\nz_pts:")
-    print(z_pts)
-
-    print("\nNumber of vertical cells:", len(z_pts) - 1)
