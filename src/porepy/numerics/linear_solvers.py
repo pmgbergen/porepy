@@ -82,23 +82,14 @@ class LinearSolver:
         model.before_nonlinear_iteration()
         model.assemble_linear_system()
         nonlinear_increment = model.solve_linear_system()
+
+        # Update model status (iterate) before checking convergence, so that the
+        # convergence check uses the updated state. Also, after_nonlinear_convergence
+        # may expect the converged solution to already be stored as an iterate.
         model.after_nonlinear_iteration(nonlinear_increment)
 
         # Monitor convergence.
         status, _ = self.check_convergence(model, nonlinear_increment)
-
-        # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
-        # there is something wrong with how the linear and non-linear solvers
-        # interact with the models (and it illustrates that the model convention for
-        # the before_nonlinear_* and after_nonlinear_* methods is not ideal). Since
-        # the model's after_nonlinear_convergence may expect that the converged
-        # solution is already stored as an iterate (this may happen if a model is
-        # implemented to be valid for both linear and non-linear problems, as is the
-        # case for ContactMechanics and possibly others). Thus, we first call
-        # after_nonlinear_iteration(), and then after_nonlinear_convergence()
-
-        # Update model status.
-        model.after_nonlinear_iteration(nonlinear_increment)
 
         # React to convergence status.
         if status.is_converged():
