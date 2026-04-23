@@ -165,20 +165,21 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
 
 # If executed as main, run simulation. 
 if __name__ == "__main__": 
-    solid_cases = {
-        "conductive fractures": solid_constants_conductive_fractures,
-        "blocking fractures": solid_constants_blocking_fractures,
-    }
-    for case_name, solid_constants in solid_cases.items():
-        params = {
-            "material_constants": {
-                "solid": solid_constants, 
-            },
-        "meshing_arguments": {"cell_size": 0.125}
+    solid_constants = [solid_constants_blocking_fractures, solid_constants_conductive_fractures]
+    for solid_constants, grid, discr in zip(solid_constants, ["cartesian", "simplex"], ["tpfa", "mpfa"]):
+        # We use default fluid parameters but tailored solid parameters.
+        # Note that the cell size needs to match the fracture geometry for the cartesian grid.
+        model_params = {
+            "material_constants": {"solid": solid_constants},
+            "grid_type": grid,
+            "meshing_arguments": {"cell_size": 0.125},
+            "flux_discretization": discr,
+            "darcy_flux_discretization": discr,
         }
-        model = FlowBenchmark2dCase1Model(params)
+        # Empty because we assumed to use the default param values inherently related the solver
+        model = FlowBenchmark2dCase1Model(model_params)
         pp.run_time_dependent_model(model)
-        title = case_name + " - Pressure"
+        title = f"Pressure distribution. \nFracture permeability {solid_constants.fracture_permeability:.0e}, {grid} grid, {discr} discretization."
         pp.plot_grid(
             model.mdg,
             model.pressure_variable,
@@ -188,4 +189,4 @@ if __name__ == "__main__":
             pointsize=20,
             fracturewidth_1d=3,
             linewidth=0.5
-        )                
+        )

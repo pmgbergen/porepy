@@ -164,6 +164,8 @@ if __name__ == "__main__":
             "material_constants": {"solid": solid_constants},
             "grid_type": "simplex",
             "meshing_arguments": {"cell_size": 0.3},
+            "flux_discretization": "mpfa",
+            "darcy_flux_discretization": "mpfa"
         }
     for model_class, direction in zip([FlowBenchmark2dCase3aModel, FlowBenchmark2dCase3bModel], ["x", "y"]):
         model = model_class(model_params)
