@@ -162,7 +162,7 @@ if __name__ == "__main__":
     proj = x0[:, None] + e[:, None] * s[None, :]
     dist = np.linalg.norm(cc - proj, axis=0)
 
-    # Only consider cell centers within a certain distance from the vertical
+    # Only consider cell centers within a small distance from the vertical
     # line by setting a tolerance.
     tol = 0.03
     idx = np.argsort(s[dist < tol])

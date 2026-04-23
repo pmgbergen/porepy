@@ -291,7 +291,7 @@ if __name__ == "__main__":
         proj = x0[:, None] + e[:, None] * s[None, :]
         dist = np.linalg.norm(cc - proj, axis=0)
 
-        # Only consider cell centers within a certain small distance from the
+        # Only consider cell centers within a small distance from the
         # diagonal, by setting a tolerance.
         tol = 0.1
         idx = np.argsort(s[dist < tol])
