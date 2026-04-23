@@ -711,3 +711,27 @@ class TerzaghiModel(  # type: ignore[misc]
             - viscosity
 
     """
+
+# If executed as a script, run the verification
+if __name__ == "__main__":
+
+    # Run Terzaghi model with full poromechanics model
+    model_params_poromech = {
+        "material_constants": {
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
+        },
+        "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
+    }
+    model_biot = TerzaghiModel(model_params_poromech)
+    pp.run_time_dependent_model(model=model_biot)
+
+    p_biot = model_biot.results[0].approx_pressure
+    u_biot = model_biot.results[0].approx_consolidation_degree
+
+    #plt.plot(p_biot, label="Pressure")
+    #plt.plot(u_biot, label="Consolidation degree")
+    #plt.xlabel("Time [s]")
+    #plt.legend()
+    #plt.show()  
