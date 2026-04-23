@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from typing import Callable, cast
 
@@ -11,6 +12,11 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.test_utils.models import ContactMechanicsTester
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
+from porepy.applications.test_utils.models import add_mixin
+from porepy.compositional.materials import FractureDamageSolidConstants
 
 
 class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
@@ -486,3 +492,97 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
     Also contains specifics defining a test case in terms of the boundary conditions.
 
     """
+
+
+def common_params(time_steps: int, regime: str) -> dict:
+    """Build common parameters used for three different fracture damage models.
+
+    Parameters:
+        time_steps: Number of time steps to run the model for.
+        regime: Damage regime, which can be "dilation", "friction", or "both". This
+            determines the additional parameters to be added to the solid parameters,
+            and thus which damage mechanism(s) are active.
+
+    Returns:
+        Dictionary of parameters to be passed on model initialization.
+    """
+    additional_solid_params = {
+        "dilation": {
+            "initial_friction_damage": 1.0,
+            "initial_dilation_damage": 2.0,
+        },
+        "friction": {
+            "initial_friction_damage": 1.5,
+            "initial_dilation_damage": 1.0,
+        },
+        "both": {
+            "initial_friction_damage": 1.1,
+            "initial_dilation_damage": 1.1,
+        },
+    }
+
+    params_local = copy.deepcopy(model_params)
+    solid_params_local = {**solid_params, **additional_solid_params[regime]}
+    params_local.update(
+        {
+            "material_constants": {
+                "solid": FractureDamageSolidConstants(**solid_params_local)
+            },
+            "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
+        }
+    )
+
+    return params_local
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    # The model type can be "isotropic", "anisotropic", or "momentum_balance".
+    model_type = "momentum_balance"
+    dim = 2  # 2D case
+    time_steps = 7
+
+    # The damage regime can be "dilation", "friction", or "both".
+    regime = "both"
+
+    params_local = common_params(time_steps, regime)
+
+    if model_type == "isotropic":
+        params_local["exact_solution"] = ExactSolutionIsotropic
+        params_local["interface_displacement_parameter_values"] = params_local[
+            "interface_displacement_parameter_values"
+        ][:dim]
+        model_class = add_mixin(
+            SquareDomainOrthogonalFractures,
+            IsotropicFractureDamage,
+        )
+
+    elif model_type == "anisotropic":
+        params_local["exact_solution"] = ExactSolutionAnisotropic
+        params_local["interface_displacement_parameter_values"] = params_local[
+            "interface_displacement_parameter_values"
+        ][:dim]
+        model_class = add_mixin(
+            SquareDomainOrthogonalFractures,
+            AnisotropicFractureDamage,
+        )
+
+    elif model_type == "momentum_balance":
+        params_local["exact_solution"] = ExactSolutionIsotropic
+        params_local["north_displacements"] = params_local["north_displacements"][:dim]
+        model_class = add_mixin(
+            SquareDomainOrthogonalFractures,
+            FractureDamageMomentumBalance,
+        )
+
+    else:
+        raise ValueError(f"Invalid model type: {model_type}")
+
+    model = model_class(params_local)
+    if model_type == "momentum_balance":
+        pp.run_time_dependent_model(
+            model,
+            {"nl_convergence_inc_atol": 1e-6, "nl_max_iterations": 25},
+        )
+    else:
+        pp.run_time_dependent_model(model)

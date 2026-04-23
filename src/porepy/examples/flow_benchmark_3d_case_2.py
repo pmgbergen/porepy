@@ -252,10 +252,12 @@ class FlowBenchmark3dCase2Model(  # type:ignore[misc]
 ):
     """Mixer class for Case 2: Regular Network from the 3D flow benchmark."""
 
-# If executed as main, run simulation. 
-if __name__ == "__main__": 
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    # Run the model for both cases. 
+
+    # Run the model for both cases.
     solid_cases = {
         "conductive fractures": solid_constants_conductive,
         "blocking fractures": solid_constants_blocking,
@@ -265,19 +267,19 @@ if __name__ == "__main__":
     for case_name, solid_constants in solid_cases.items():
         params = {
             "material_constants": {
-                "solid": solid_constants, 
+                "solid": solid_constants,
             },
-            "refinement_level": 0,   # 0, 1, or 2 for different mesh refinement levels
+            "refinement_level": 0,  # 0, 1, or 2 for different mesh refinement levels
         }
 
-        model = FlowBenchmark3dCase2Model(params)  
+        model = FlowBenchmark3dCase2Model(params)
         pp.run_time_dependent_model(model, params)
-        
-        sd_matrix  = model.mdg.subdomains(dim=3)[0]
+
+        sd_matrix = model.mdg.subdomains(dim=3)[0]
         cc = sd_matrix.cell_centers
         pressure = model.equation_system.evaluate(model.pressure([sd_matrix]))
-        
-        # Plot pressure solution along the diagonal of the domain.
+
+        # Collect pressure solution along the diagonal of the domain.
         x0 = np.array([0.0, 0.0, 0.0])
         x1 = np.array([1.0, 1.0, 1.0])
 
@@ -289,29 +291,22 @@ if __name__ == "__main__":
         proj = x0[:, None] + e[:, None] * s[None, :]
         dist = np.linalg.norm(cc - proj, axis=0)
 
-        # Only consider cell centers within a certain distance from the diagonal, 
-        # by setting a tolerance. 
+        # Only consider cell centers within a certain small distance from the
+        # diagonal, by setting a tolerance.
         tol = 0.1
         idx = np.argsort(s[dist < tol])
         s_line = s[dist < tol][idx]
         pressure_line = pressure[dist < tol][idx]
 
         plt.plot(
-            s_line, 
-            pressure_line, 
-            'o-', 
+            s_line,
+            pressure_line,
+            "-",
             linewidth=2.5,
-            markersize=4,
-            label = case_name,
+            label=case_name,
         )
-    
+
     plt.xlabel("Distance along the diagonal")
     plt.ylabel("Pressure")
     plt.title("Pressure distribution along the diagonal")
-
     plt.legend()
-    plt.grid(True)
-
-    plt.savefig("Case2_pressure_along_diagonal.png")
-    plt.close()
-    
