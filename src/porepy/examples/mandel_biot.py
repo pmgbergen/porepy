@@ -1444,3 +1444,50 @@ class MandelModel(  # type: ignore[misc]
             - viscosity
 
     """
+
+# If executed as a script, run the verification
+if __name__ == "__main__":
+    # Initial time step -------.
+    dt_init = 0.01*pp.MINUTE
+    # Simulation end time -----.
+    t_end = 1 * pp.MINUTE
+    # min max time step size is --- and ---, respectively.
+    dt_min_max = (1e-4 * dt_init, 1 * pp.MINUTE)
+    # parameter for Newton sovler
+    max_iterations = 100
+    newton_tol = 1e-6
+    newton_tol_increment = newton_tol
+
+    # Set material constants
+    material_constants = {
+        "solid": pp.SolidConstants(**mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+    }
+
+    # Set scaling
+    scaling = {"m": 1e-3}
+    units = pp.Units(**scaling)
+
+    # Create time manager
+    time_manager = pp.TimeManager(
+        schedule=[0, 1e2, 1e3, 5e3, 1e4],  # [s]
+        dt_init=100,  # [s]
+        constant_dt=True,  # [s]
+    )
+
+    # Set mesh size.
+    ls = 1 / units.m  # length scaling
+    mesh_arguments = {"cell_size": 5.0 * ls}
+
+    # Create model params
+    model_params = {
+        "material_constants": material_constants,
+        "meshing_arguments": mesh_arguments,
+        "time_manager": time_manager,
+        "plot_results": False,
+        "units": units,
+        }
+
+    model = MandelModel(params=model_params)
+    pp.run_time_dependent_model(model=model)
+
