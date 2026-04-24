@@ -47,8 +47,8 @@ if BUOYANCY_ON:
     max_iterations = 40
 else:
     max_iterations = 30
-max_iterations = 70
-iter_range = (20, max_iterations)
+max_iterations = 25
+iter_range = (15, max_iterations)
 
 T_END_DAYS = 50
 
@@ -76,7 +76,6 @@ time_manager = pp.TimeManager(
     recomp_factor=0.5,
     recomp_max=10,
     print_info=True,
-    # rtol=0.0,
     atol=5e-15,
 )
 
@@ -100,8 +99,6 @@ model_params["meshing_arguments"] = {
 #     "cell_size": 10.0,
 #     "cell_size_fracture": 10.0,
 # }
-# model_params["meshing_arguments"]["cell_size"] = 2.0
-# model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
 model_params["_well_surrounding_permeability"] = 1e-12
 model_params["_fracture_permeability"] = 1e-10
@@ -116,7 +113,8 @@ model_params["flash_params"]["gen_arg_params"] = eos_params
 model_params["flash_params"]["phase_property_params"] = eos_params
 model_params["phase_property_params"] = eos_params
 model_params["flash_params"]["global_iteration_stride"] = None
-model_params["flash_params"]["solver_params"]["atol_res"] = 1e-8
+model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
+model_params["flash_params"]["solver_params"]["max_iterations"] = 25
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
@@ -164,7 +162,7 @@ solver_params["ntrdc_scale_with_inf"] = True
 solver_params["ntrdc_return_nan"] = False
 solver_params["ntrdc_eta_3"] = 0.5
 solver_params["ntrdc_eta_2"] = 0.1
-solver_params["ntrdc_delta_tol"] = 1e-6
+solver_params["ntrdc_delta_tol"] = 1e-10
 
 
 class Case2aMixin:

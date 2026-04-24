@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Callable, Literal, Optional, Sequence, cast
+from typing import Callable, Literal, Optional, Sequence, cast, TYPE_CHECKING
 
 import numpy as np
 import scipy.sparse as sps
@@ -31,7 +31,9 @@ import porepy.models.persistent_variable_equilibrium as pve
 from porepy.compositional.compiled_eos import ScalarFunction
 
 from .config import ModelConfig
-from .solver import CFLEModel
+
+if TYPE_CHECKING:
+    from .solver import CFLEModel
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +257,7 @@ class SolutionStrategy(ModelConfig):
         if isochoric_spec == pf.FlashSpec.none:
             return
 
-        isochoric_npc_done = False
+        self.isochoric_npc_done = False
 
         atol = self.params["flash_params"]["solver_params"]["atol_res"]
 
@@ -308,14 +310,14 @@ class SolutionStrategy(ModelConfig):
                             [self.fluid_specific_volume([grid])],  # type:ignore[arg-type]
                             iterate_index=0,
                         )
-                    isochoric_npc_done = True
+                    self.isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
 
-        if isochoric_npc_done:
-            self.update_derived_quantities()
-            self.update_interface_fluxes()
-            # self.iterate_pT()
-            # self.update_interface_fluxes()
+        # if self.isochoric_npc_done:
+        #     self.update_derived_quantities()
+        #     self.update_interface_fluxes()
+        #     self.iterate_pT()
+        #     self.update_interface_fluxes()
 
     def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
         subdomains = [sd]
@@ -409,8 +411,10 @@ class SolutionStrategy(ModelConfig):
             )
 
             norm = np.linalg.norm(b)
-            if norm < 1e-5:
+            if norm < 1e-10:
                 break
+            elif norm < 1e-2:
+                chop = 1
 
             A = self.params["linear_right_preconditioner"]([A])[0]
             A = A * pT

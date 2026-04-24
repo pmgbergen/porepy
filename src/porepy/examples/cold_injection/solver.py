@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional, TypeAlias, TypedDict, cast
+from typing import Any, Optional, TypeAlias, TypedDict, cast, no_type_check
 
 import numpy as np
 import scipy.sparse as sps
@@ -20,7 +20,6 @@ from scipy.linalg import lstsq
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.compositional.utils import FlashSpec
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +76,12 @@ class CFSolverParams(TypedDict):
 
     atol_inc: float
     """Absolute tolerance for increment. Values below this are treated as noise."""
+
+    in_physical_space: bool
+    """If True, all additional methods after the linear solver are performed on
+    the iterate and nonlinear increment in the physical space (as it is stored in the
+    grid data dictionaries). If False, the scaling introduced by linear
+    right-preconditioning is kept until the increment is stored."""
 
     do_armijo_line_search: bool
     """Activate Armijo line search."""
@@ -285,6 +290,7 @@ class CFLESolver(pp.NewtonSolver):
             appleyard_chop=None,
             atol_objective=1e-8,
             atol_inc=1e-10,
+            in_physical_space=False,
             do_armijo_line_search=True,
             armijo_line_search_weight=0.9,
             armijo_line_search_incline=1e-4,
@@ -311,6 +317,7 @@ class CFLESolver(pp.NewtonSolver):
             ntrdc_return_nan=True,
         )
 
+    @no_type_check
     def _plot(
         self,
         model: CFLEModel,
@@ -337,6 +344,7 @@ class CFLESolver(pp.NewtonSolver):
         model.plot_from_vec(vec, "s_G", is_update, suffix)  # type:ignore
         # model.plot_from_vec(vec, "y_G", is_update, suffix)
 
+    @no_type_check
     def _print_cond_p_block(self, model: CFLEModel):
 
         print("Total")
@@ -438,8 +446,12 @@ class CFLESolver(pp.NewtonSolver):
         """An iteration consists of performing the Newton step and obtaining the step
         size from the line search."""
 
+        in_physical_space = self.params["in_physical_space"]
         # Raw Newton update.
         dx = super().iteration(model)  # type:ignore[arg-type]
+        if in_physical_space:
+            dx = model._scale_back_state(dx, is_increment=True)
+            model.current_column_scales = None
         dxn_raw = np.linalg.norm(dx)
 
         # Catch initial bad iterates. Goal is to trigger nan-divergence criterion early
@@ -458,7 +470,8 @@ class CFLESolver(pp.NewtonSolver):
 
         if do_ntrdc or (do_armijo and not least_squares):
             A, b = model.equation_system.assemble(evaluate_jacobian=True)
-            A = model.params.get("linear_right_preconditioner", lambda x: x)([A])[0]  # type:ignore
+            if not in_physical_space:
+                A = model.params.get("linear_right_preconditioner", lambda x: x)([A])[0]  # type:ignore
 
             self._J = A
             self._F = -b
@@ -471,6 +484,9 @@ class CFLESolver(pp.NewtonSolver):
             self._pot = self._F_norm**2 * 0.5
 
         self.apply_chops(model, dx)
+
+        dx = self.get_equilibrated_trial_step(model, dx)
+        self.resolve_md_flux_update(model, dx)
 
         if do_ntrdc:
             dx = self.ntrdc(model, dx)
@@ -498,7 +514,7 @@ class CFLESolver(pp.NewtonSolver):
             logger.debug(
                 f"Delta increment norm: {dxn_raw:.4e} -> ({np.linalg.norm(dx):.4e})"
             )
-            return dx
+            return model._scale_back_state(dx, is_increment=True)
 
     def objective_function(
         self, model: CFLEModel, trial_increment: np.ndarray
@@ -635,8 +651,8 @@ class CFLESolver(pp.NewtonSolver):
         for i in range(N):
             rho = rho_0**i
 
-            dx_i = self.get_equilibrated_trial_step(model, rho * dx)
             try:
+                dx_i = self.get_equilibrated_trial_step(model, rho * dx)
                 pot_i = self.objective_function(model, dx_i)
             except:
                 # In case this was the last evaluation and it failed, return nan to flag
@@ -799,9 +815,9 @@ class CFLESolver(pp.NewtonSolver):
                 delta *= t_1
             # If quadratic model is exact approximation (rho ~ 1), increase radius
             # aggressively.
-            elif rho > 0.95:
-                # delta *= max(10.0, t_2)
-                delta = self._delta_max
+            elif rho > 0.999:
+                delta *= max(10.0, t_2)
+                # delta = self._delta_max
             # If quadratic model is a good approximation, increase radius.
             elif rho > eta_3:
                 delta *= t_2
@@ -856,10 +872,14 @@ class CFLESolver(pp.NewtonSolver):
         xk1p = self._xk + dxs
         xk1p_e = xk1p.copy()  # equilibrated state.
 
+        initial_from_current = True
+        if hasattr(model, "isochoric_npc_done"):
+            initial_from_current = not bool(model.isochoric_npc_done)
+
         for grid in model.mdg.subdomains():
             results, mask = model.local_equilibrium(
                 grid,
-                initial_guess_from_current_state=True,
+                initial_guess_from_current_state=initial_from_current,
                 update_secondary_quantities=False,
                 state=xk1p,
             )
@@ -958,24 +978,120 @@ class CFLESolver(pp.NewtonSolver):
 
         # Updating state variables. If isochoric, update pressure. If isobaric, update
         # fluid volume.
-        if results.specification >= FlashSpec.vT and isinstance(
-            model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
-        ):
-            update(model.pressure(subdomains), results.p)
-        elif isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
-            update(model.fluid_specific_volume(subdomains), results.v)
+        # if results.specification >= FlashSpec.vT and isinstance(
+        #     model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        # ):
+        #     update(model.pressure(subdomains), results.p)
+        # elif isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
+        #     update(model.fluid_specific_volume(subdomains), results.v)
 
-        # Update energy-related variables if applicable.
-        # Nonisothermal -> update temperature.
-        if results.specification not in [
-            FlashSpec.pT,
-            FlashSpec.vT,
-        ] and isinstance(model, pp.energy_balance.VariablesEnergyBalance):
-            update(model.temperature(subdomains), results.T)
+        # # Update energy-related variables if applicable.
+        # # Nonisothermal -> update temperature.
+        # if results.specification not in [
+        #     FlashSpec.pT,
+        #     FlashSpec.vT,
+        # ] and isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+        #     update(model.temperature(subdomains), results.T)
 
-        # Enthalpy specified -> update variable if present.
-        if results.specification not in [
-            FlashSpec.ph,
-            FlashSpec.vh,
-        ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
-            update(model.enthalpy(subdomains), results.h)
+        # # Enthalpy specified -> update variable if present.
+        # if results.specification not in [
+        #     FlashSpec.ph,
+        #     FlashSpec.vh,
+        # ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
+        #     update(model.enthalpy(subdomains), results.h)
+
+    def resolve_md_flux_update(self, model: CFLEModel, dx: np.ndarray) -> None:
+        """Modifies the update for interface and well fluxes such that the
+        interface equations, which are linear in the respective variables, are
+        fullfilled exactly.
+
+        This is critical if any intensive state variable update was modified, or rapid
+        changes in the rock occur.
+
+        """
+        if hasattr(model, "isochoric_npc_done"):
+            if not model.isochoric_npc_done:
+                return
+
+        # Set intermediate state and update secondary quantities like properties and
+        # upwind discretizations.
+        rpc = model.params.get("linear_right_preconditioner", lambda x: x)
+        dx_f = np.zeros_like(dx)
+        xk1p = self._xk + model._scale_back_state(dx, is_increment=True)
+        model.equation_system.set_variable_values(xk1p, iterate_index=0)
+        model.update_derived_quantities()
+
+        codim_1_interfaces = model.mdg.interfaces(codim=1)
+        codim_2_interfaces = model.mdg.interfaces(codim=2)
+
+        vars: list[pp.ad.MixedDimensionalVariable] = []
+        advals: list[pp.ad.AdArray] = []
+
+        # Interface Darcy Flux
+
+        vars.append(model.interface_darcy_flux(codim_1_interfaces))
+        advals.append(
+            model.equation_system.evaluate(
+                model.interface_darcy_flux_equation(codim_1_interfaces),
+                derivative=True,
+                state=None,
+            )
+        )
+
+        # Well flux
+
+        vars.append(model.well_flux(codim_2_interfaces))
+        advals.append(
+            model.equation_system.evaluate(
+                model.well_flux_equation(codim_2_interfaces),
+                derivative=True,
+                state=None,
+            )
+        )
+
+        if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+            # Fourier flux
+
+            vars.append(model.interface_fourier_flux(codim_1_interfaces))
+            advals.append(
+                model.equation_system.evaluate(
+                    model.interface_fourier_flux_equation(codim_1_interfaces),
+                    derivative=True,
+                    state=None,
+                )
+            )
+
+            # Interface enthalpy Flux
+
+            vars.append(model.interface_enthalpy_flux(codim_1_interfaces))
+            advals.append(
+                model.equation_system.evaluate(
+                    model.interface_enthalpy_flux_equation(codim_1_interfaces),
+                    derivative=True,
+                    state=None,
+                )
+            )
+
+            # Well enthalpy Flux
+
+            vars.append(model.well_enthalpy_flux(codim_2_interfaces))
+            advals.append(
+                model.equation_system.evaluate(
+                    model.well_enthalpy_flux_equation(codim_2_interfaces),
+                    derivative=True,
+                    state=None,
+                )
+            )
+
+        # Preconditioning Jacobians.
+
+        res = [v.val for v in advals]
+        Jacs = [v.jac for v in advals]
+        if not self.params["in_physical_space"]:
+            Jacs = rpc(Jacs)  # type:ignore[operator]
+
+        for v, r, J in zip(vars, res, Jacs):
+            P = model.equation_system.projection_to([v]).transpose()
+            dx_f = -(J * P).transpose() @ r
+            dofs = model.equation_system.dofs_of([v])
+            dx[dofs] = dx_f

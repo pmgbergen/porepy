@@ -636,9 +636,7 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=self._scale_back_state(nonlinear_increment, is_increment=True),
-            additive=True,
-            iterate_index=0,
+            values=nonlinear_increment, additive=True, iterate_index=0
         )
         self.update_derived_quantities()
 
@@ -750,8 +748,13 @@ class SolutionStrategy(pp.PorePyModel):
     def _scale_back_state(
         self, x: np.ndarray, is_increment: bool = False
     ) -> np.ndarray:
-        """Reverts the scaling applied to the columns by :meht:`_column_scales`
-        on a global state vector.
+        """Reverts the scaling applied to the Jacobian columns by
+        :attr:`current_column_scales`. I.e., returns to physical space, the values
+        supposed to be stored.
+
+        Important:
+            Works only if :attr:`current_column_scales` is a numpy array.
+            Otherwise only a copy is returned.
 
         Parameters:
             x: Global vector of unknowns
@@ -764,36 +767,38 @@ class SolutionStrategy(pp.PorePyModel):
             A re-scaled copy of the vector ``x``.
 
         """
+        x_new = x
 
-        xp: np.ndarray | None = None
-        dofs_p: np.ndarray | None = None
-
-        x_new = x.copy()
         if isinstance(self.current_column_scales, np.ndarray):
+            x_new = x.copy()
             x_new *= self.current_column_scales
 
-        if self._uses_logp():
-            self.pressure_variable = cast(str, self.pressure_variable)  # type:ignore
-            # If the logp nonlinear RPC is used, the nonlinear increment is a logp
-            # and needs to be transformed back to a pressure increment before being
-            # added to the solution.
-            dofs_p = self.equation_system.dofs_of([self.pressure_variable])
-            if is_increment:
-                p_k = self.equation_system.get_variable_values(
-                    [self.pressure_variable], iterate_index=0
-                )
-                p_k1p = p_k * np.exp(x_new[dofs_p])
-                xp = p_k1p - p_k
-            else:
-                xp = np.exp(x_new[dofs_p])
+            if self._uses_logp():
+                self.pressure_variable = cast(str, self.pressure_variable)  # type:ignore
+                # If the logp nonlinear RPC is used, the nonlinear increment is a logp
+                # and needs to be transformed back to a pressure increment before being
+                # added to the solution.
+                dofs_p = self.equation_system.dofs_of([self.pressure_variable])
+                if is_increment:
+                    p_k = self.equation_system.get_variable_values(
+                        [self.pressure_variable], iterate_index=0
+                    )
+                    p_k1p = p_k * np.exp(x_new[dofs_p])
+                    xp = p_k1p - p_k
+                else:
+                    xp = np.exp(x_new[dofs_p])
 
-            x_new[dofs_p] = xp
+                x_new[dofs_p] = xp
 
         return x_new
 
     def _scale_state(self, x: np.ndarray, is_increment: bool = False) -> np.ndarray:
-        """Applies the scaling defined by :meth:`_column_scales` to a global vector of
-        unknowns.
+        """Applies the scaling defined by :attr:`current_column_scales` to a global
+        vector of unknowns.
+
+        Important:
+            Works only if :attr:`current_column_scales` is a numpy array.
+            Otherwise only a copy is returned.
 
         Parameters:
             x: Global vector of unknowns
@@ -806,30 +811,28 @@ class SolutionStrategy(pp.PorePyModel):
             A scaled copy of the vector ``x``.
 
         """
+        x_new = x
 
-        xp: np.ndarray | None = None
-        dofs_p: np.ndarray | None = None
-
-        x_new = x.copy()
         if isinstance(self.current_column_scales, np.ndarray):
+            x_new = x.copy()
             x_new /= self.current_column_scales
 
-        if self._uses_logp():
-            self.pressure_variable = cast(str, self.pressure_variable)
-            # If the logp nonlinear RPC is used, the nonlinear increment is a logp
-            # and needs to be transformed back to a pressure increment before being
-            # added to the solution.
-            dofs_p = self.equation_system.dofs_of([self.pressure_variable])
-            if is_increment:
-                p_k = self.equation_system.get_variable_values(
-                    [self.pressure_variable], iterate_index=0
-                )
-                p_k1p = p_k + x_new[dofs_p]
-                xp = np.log(p_k1p / p_k)
-            else:
-                xp = np.log(x_new[dofs_p])
+            if self._uses_logp():
+                self.pressure_variable = cast(str, self.pressure_variable)
+                # If the logp nonlinear RPC is used, the nonlinear increment is a logp
+                # and needs to be transformed back to a pressure increment before being
+                # added to the solution.
+                dofs_p = self.equation_system.dofs_of([self.pressure_variable])
+                if is_increment:
+                    p_k = self.equation_system.get_variable_values(
+                        [self.pressure_variable], iterate_index=0
+                    )
+                    p_k1p = p_k + x_new[dofs_p]
+                    xp = np.log(p_k1p / p_k)
+                else:
+                    xp = np.log(x_new[dofs_p])
 
-            x_new[dofs_p] = xp
+                x_new[dofs_p] = xp
 
         return x_new
 
