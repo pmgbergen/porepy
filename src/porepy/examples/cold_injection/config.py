@@ -129,6 +129,10 @@ class ModelConfig(pp.PorePyModel):
     """Specification of isochoric flash equilibrium for nonlinear preconditioning in
     case of an aperture jump."""
 
+    _FLASH_PT_INJECTION: bool = True
+    """If True, the pT flash is always run in the injection well. Otherwise if falls
+    back to the default schedule."""
+
     ### Fluid components.
 
     _COMPONENT_NAMES: list[str]

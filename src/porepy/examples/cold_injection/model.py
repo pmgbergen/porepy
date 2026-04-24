@@ -159,7 +159,9 @@ class SolutionStrategy(ModelConfig):
 
         for grid in self.mdg.subdomains():
             # if "injection_well" in sd.tags and do_default_flash:
-            if "injection_well" in grid.tags:
+            if "injection_well" in grid.tags and (
+                self._FLASH_PT_INJECTION or do_default_flash
+            ):
                 equ_spec = pf.IsobaricSpecifications(
                     p=self.equation_system.evaluate(self.pressure([grid])),
                     T=self.equation_system.evaluate(self.temperature([grid])),
