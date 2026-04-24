@@ -1,4 +1,8 @@
-"""2D model for injection cold water-CO2 mixture into hot domain."""
+"""2D model for injection cold water-CO2 mixture into hot domain.
+
+No fractures and no Buoyancy. Injection/production model achieved using point grids.
+
+"""
 
 from __future__ import annotations
 
@@ -14,13 +18,13 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
+    set_schur_complement,
 )
 from porepy.examples.cold_injection.geometry import PointWells
 from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
     NoFluxRediscretization,
-    set_schur_complement,
 )
 
 BUOYANCY_ON = False
@@ -56,11 +60,24 @@ model_params, solver_params = get_default_params(
 model_params["time_manager"] = time_manager
 model_params["times_to_export"] = time_schedule
 
-model_params["_well_surrounding_permeability"] = 1e-13
-
-model_params["fractional_flow"] = BUOYANCY_ON
-model_params["enable_buoyancy_effects"] = BUOYANCY_ON
-
+model_params["equilibrium_specification"] = (
+    pp.compositional.FlashSpec.ph,
+    "persistent-variables",
+)
+model_params["flash_params"]["compile_args"] = (
+    pp.compositional.FlashSpec.pT,
+    pp.compositional.FlashSpec.ph,
+)
+solver_params.update(
+    {
+        "do_armijo_line_search": True,
+        "armijo_line_search_weight": 0.95,
+        "armijo_line_search_incline": 0.2,
+        "armijo_line_search_max_iterations": 15,
+        "armijo_least_squares_form": True,
+        "armijo_stop_after_residual_reaches": 1e0,
+    }
+)
 
 if BUOYANCY_ON:
 
@@ -83,9 +100,27 @@ else:
         pass
 
 
+ModelClass._PERM_AROUND_WELLS = 1e-13
+ModelClass._HEATED_BOUNDARY_ON = True
+ModelClass._COMPONENT_NAMES = ["H2O", "CO2"]
+ModelClass._IDEAL_COMPONENTS = [
+    pp.compositional.ideal.IdealH2O,
+    pp.compositional.ideal.IdealCO2,
+]
+# NOTE density of injected mixture under T_IN p_OUT conditions
+ModelClass._TOTAL_INJECTED_MASS = 10 * 27430.998956110157 / (60 * 60)
+ModelClass._p_INIT = 20e6
+ModelClass._p_OUT = 19e6
+ModelClass._p_BC = 19e6
+ModelClass._T_INIT = 450.0
+ModelClass._T_IN = 300.0
+ModelClass._T_BC = 640.0
+ModelClass._z_INIT = {"H2O": 0.995, "CO2": 0.005}
+ModelClass._z_IN = {"H2O": 0.9, "CO2": 0.1}
+
 if __name__ == "__main__":
-    timestamp = datetime.today().strftime("%d%B%Y_%I-%M-%S")
-    sub_folder = f"f2d_{timestamp}_BUOY_{BUOYANCY_ON}"
+    timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
+    sub_folder = f"CI_CASE1/{timestamp}"
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
     model = ModelClass(model_params)  # type:ignore[abstract]

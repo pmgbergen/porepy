@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Callable, Literal, Optional, Sequence, cast, TYPE_CHECKING
+from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -31,9 +31,6 @@ import porepy.models.persistent_variable_equilibrium as pve
 from porepy.compositional.compiled_eos import ScalarFunction
 
 from .config import ModelConfig
-
-if TYPE_CHECKING:
-    from .solver import CFLEModel
 
 logger = logging.getLogger(__name__)
 
@@ -250,11 +247,7 @@ class SolutionStrategy(ModelConfig):
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # type:ignore[misc]
 
-        isochoric_spec: pf.FlashSpec = self.params.get(
-            "_do_isochoric_npc", pf.FlashSpec.none
-        )
-
-        if isochoric_spec == pf.FlashSpec.none:
+        if self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.none:
             return
 
         self.isochoric_npc_done = False
@@ -277,12 +270,12 @@ class SolutionStrategy(ModelConfig):
                         )
 
                     assert np.all(v > 0), "Bad specific volume."
-                    if isochoric_spec == pf.FlashSpec.vT:
+                    if self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vT:
                         equ_spec = pf.IsochoricSpecifications(
                             v=v_jump_factor * v,
                             T=self.equation_system.evaluate(self.temperature([grid])),
                         )
-                    elif isochoric_spec == pf.FlashSpec.vu:
+                    elif self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vu:
                         equ_spec = pf.IsochoricSpecifications(
                             v=v_jump_factor * v,
                             u=self.equation_system.evaluate(
@@ -770,45 +763,8 @@ class BoundaryConditions(ModelConfig):
     """No flow BC, with the exception of a stripe on the bottom boundary where
     temperature Dirichlet-BC are given."""
 
-    def _central_stripe(self, sd: pp.Grid) -> tuple[float, float]:
-        """Returns the left and right boundary of the central, vertical stripe of the
-        matrix, which represents roughly a third of the area.
-
-        The x-axis is used to determin what is a third.
-
-        """
-
-        x_min = float(sd.cell_centers[0].min())
-        x_max = float(sd.cell_centers[0].max())
-
-        c = (x_min + x_max) / 2.0
-        s = (x_max - x_min) / 6.0
-
-        return c - s, c + s
-
-    def _dirichlet_faces_pressure(self, sd: pp.Grid) -> np.ndarray:
-        """Defines the top boundary faces as the faces where pressure is fixed."""
-        sides = self.domain_boundary_sides(sd)
-
-        d = np.zeros(sd.num_faces, dtype=bool)
-        d[sides.north] = True
-
-        return d
-
-    def _heated_boundary_faces(self, sd: pp.Grid) -> np.ndarray:
-        """Define heated boundary with D-type conditions for conductive flux."""
-        sides = self.domain_boundary_sides(sd)
-
-        heated = np.zeros(sd.num_faces, dtype=bool)
-        heated[sides.south] = True
-        left, right = self._central_stripe(sd)
-        heated &= sd.face_centers[0] >= left
-        heated &= sd.face_centers[0] <= right
-
-        return heated
-
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if sd.dim == self.nd and self.params.get("_heated_boundary_on", True):
+        if sd.dim == self.nd and self._HEATED_BOUNDARY_ON:
             heated = self._heated_boundary_faces(sd)
             return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC
@@ -816,7 +772,7 @@ class BoundaryConditions(ModelConfig):
             return pp.BoundaryCondition(sd)
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if sd.dim == self.nd and self.params.get("_use_top_dirichlet", False):
+        if sd.dim == self.nd and self._PRESSURE_BOUNDARY_ON:
             d = self._dirichlet_faces_pressure(sd)
             return pp.BoundaryCondition(sd, d, "dir")
         else:
@@ -904,9 +860,7 @@ class Permeability(ModelConfig):
     """Custom permeability with a higher absolute permability around the wells and a
     constant permeability of 1 in the wells.
 
-    It is also possible to define the permeability in fractures via the model parameters
-    where ``'impermeable_fracture_permeability'`` and ``'fracture_permeability'`` define
-    a low and high permeability alternatingly in fractures and are used alternatingly.
+    Introduces also alternating conductive and blocking fractures, if any.
 
     """
 
@@ -928,11 +882,11 @@ class Permeability(ModelConfig):
 
         K_vals: list[np.ndarray] = [np.zeros((0,))]
         K_base = self.solid.permeability
-        K_w = float(self.params.get("_well_surrounding_permeability", K_base))
+        K_w = self._PERM_AROUND_WELLS
 
         for sd in subdomains:
             k = np.ones(sd.num_cells) * K_base
-            l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
+            l, r = self._central_stripe(sd)
             k[sd.cell_centers[0] < l] = K_w
             k[sd.cell_centers[0] > r] = K_w
             self.exporter.add_constant_data([(sd, "absolute_permeability", k)])
@@ -962,8 +916,8 @@ class Permeability(ModelConfig):
 
         K_vals: list[np.ndarray] = [np.zeros((0,))]
 
-        K_low = float(self.params.get("_impermeable_fracture_permeability", K_val))
-        K_high = float(self.params.get("_fracture_permeability", K_val))
+        K_low = self._BLOCKING_FRACTURE_PERM
+        K_high = self._CONDUCTIVE_FRACTURE_PERM
 
         is_impermable = False
 
@@ -1149,28 +1103,6 @@ class BuoyancyModel(pp.PorePyModel):
         gravity_field = pp.ad.Scalar(val)
         gravity_field.set_name("gravity_field")
         return gravity_field
-
-
-def set_schur_complement(model: CFLEModel) -> None:
-    """Sets primary and secondary variables for the eliminating the local equilibrium
-    DOFs."""
-
-    primary_equations = cf.get_primary_equations_cf(model)
-    primary_equations += [
-        eq for eq in model.equation_system.equations.keys() if "flux" in eq
-    ]
-    if "production_pressure_constraint" in model.equation_system.equations:
-        primary_equations += ["production_pressure_constraint"]
-    if "injection_temperature_constraint" in model.equation_system.equations:
-        primary_equations += ["injection_temperature_constraint"]
-
-    primary_variables = cf.get_primary_variables_cf(model)
-    primary_variables += list(
-        set([v.name for v in model.equation_system.variables if "flux" in v.name])
-    )
-
-    model.schur_complement_primary_equations = primary_equations
-    model.schur_complement_primary_variables = primary_variables
 
 
 class NoFluxRediscretization:

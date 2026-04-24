@@ -10,12 +10,14 @@ Individual configurations are possible in ``config.py``.
 
 from __future__ import annotations
 
-from typing import Literal
+from pathlib import Path
+from typing import Literal, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.wells_3d import _add_interface
 
 from .config import ModelConfig
@@ -102,8 +104,6 @@ class RandomFracturesAndPointWells2D(PointWells):
     """2D matrix with point grids as injection and production points, and a random
     distribution of fractures.
 
-    The number of fractures can be defined via a model parameter ``'_num_fractures'``.
-
     Alternative for the ``WellNetwork3d`` in 2d.
 
     """
@@ -117,10 +117,9 @@ class RandomFracturesAndPointWells2D(PointWells):
         min_length = domain_height
         max_length = domain_width * 0.8
 
-        num_fracs = int(self.params.get("_num_fractures", 0))
         fractures = []
-        _set_random_seed(num_fracs)
-        for _ in range(num_fracs):
+        _set_random_seed(self._NUM_FRACTURES)
+        for _ in range(self._NUM_FRACTURES):
             # Random center within bounds
             x_center = np.random.uniform(
                 x_min + 0.1 * domain_width, x_max - 0.1 * domain_width
@@ -171,3 +170,78 @@ class HorizontalFractureAndPointWells2D(PointWells):
                 )
             )
         ]
+
+
+class GeometryBenchmark3d_case4(pp.PorePyModel):
+    """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
+
+    def set_geometry(self) -> None:
+        """Create mixed-dimensional grid and fracture network."""
+
+        # Create mixed-dimensional grid and fracture network.
+        self.mdg, self.fracture_network = benchmark_3d_case_4()
+        self.nd: int = self.mdg.dim_max()
+
+        # Obtain domain and fracture list directly from the fracture network.
+        self._domain = cast(pp.Domain, self.fracture_network.domain)
+        self._fractures = self.fracture_network.fractures
+
+        # Create projections between local and global coordinates for fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
+
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            # Compute intersections.
+            assert isinstance(self.fracture_network, FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
+
+
+def benchmark_3d_case_4() -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
+    """
+    Create a mixed-dimensional grid for the geometry of case 4 from [1].
+
+    Note:
+        The mixed-dimensional grid is created by reading a `geo` file, so there is no
+        direct way of prescribing meshing arguments.
+
+    Reference:
+        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D.,
+        Keilegavlen, E., ... & Zulian, P. (2021). Verification benchmarks for
+        single-phase flow in three-dimensional fractured porous media. Advances in Water
+        Resources, 147, 103759.
+
+    Returns:
+        Tuple containing a:
+
+            :obj:`~pp.MixedDimensionalGrid`:
+                The grid for the specified refinement level.
+
+            :obj:`~pp.FractureNetwork3d`:
+                The fracture network.
+
+    """
+    # Get directory pointing to the `geo` file
+    abs_path = Path(__file__)
+    benchmark_path = abs_path.parent / "gmsh_file_library/benchmark_3d_case_4"
+    full_path = benchmark_path / "gmsh_frac_file.geo"
+    # Set file permissions. This turned out to be important for GH actions.
+    full_path.chmod(777)
+
+    # Create mixed-dimensional grid
+    mdg = pp.fracture_importer.dfm_from_gmsh(full_path, dim=3)
+
+    # Also import fracture network
+    fracture_network_path = benchmark_path / "fracture_network.csv"
+    # Set file permissions. This turned out to be important for GH actions.
+    fracture_network_path.chmod(777)
+
+    network = pp.fracture_importer.network_from_csv(
+        fracture_network_path, check_convexity=False
+    )
+
+    return mdg, cast(FractureNetwork3d, network)

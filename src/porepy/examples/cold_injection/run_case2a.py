@@ -1,4 +1,5 @@
-"""2D, 2-phase water flow through single fracture domain with temporal aperture jump.
+"""2D, 2-phase water flow through horizontal fracture domain with temporal aperture
+jump.
 
 Isothermal model with nonlinear preconditioning using the vT flash.
 
@@ -14,12 +15,13 @@ from datetime import datetime, timedelta
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
+    get_rpc,
+    set_schur_complement,
 )
 from porepy.examples.cold_injection.geometry import HorizontalFractureAndPointWells2D
 from porepy.examples.cold_injection.model import (
@@ -27,14 +29,10 @@ from porepy.examples.cold_injection.model import (
     FluidPoreInteraction,
     IsothermalModelTemplate,
     NoFluxRediscretization,
-    set_schur_complement,
 )
 
 P_PRIMARY = False
 ISOCHORIC_NPC = True
-BUOYANCY_ON = False
-
-assert not BUOYANCY_ON, "Fractional flow not supported for case 2a."
 
 APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
     (25 * pp.DAY, 100),
@@ -43,10 +41,6 @@ APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
 newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
-if BUOYANCY_ON:
-    max_iterations = 40
-else:
-    max_iterations = 30
 max_iterations = 25
 iter_range = (15, max_iterations)
 
@@ -83,7 +77,7 @@ model_params, solver_params = get_default_params(
     base_permeability=1e-14,
 )
 
-model_params["linear_solver"] = "scipy_sparse"  # scipy_sparse, pypardiso
+# model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
 model_params["time_manager"] = time_manager
 model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"] = {
@@ -100,13 +94,6 @@ model_params["meshing_arguments"] = {
 #     "cell_size_fracture": 10.0,
 # }
 
-model_params["_well_surrounding_permeability"] = 1e-12
-model_params["_fracture_permeability"] = 1e-10
-
-model_params["fractional_flow"] = BUOYANCY_ON
-model_params["enable_buoyancy_effects"] = BUOYANCY_ON
-model_params["_heated_boundary_on"] = False
-model_params["_use_top_dirichlet"] = False
 
 eos_params = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["gen_arg_params"] = eos_params
@@ -120,21 +107,10 @@ model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
     "persistent-variables",
 )
-if ISOCHORIC_NPC:
-    model_params["flash_params"]["compile_args"] = (
-        pp.compositional.FlashSpec.pT,
-        pp.compositional.FlashSpec.vT,
-    )
-    model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.vT
-else:
-    if model_params["flash_params"]["global_iteration_stride"] < max_iterations:
-        model_params["flash_params"]["compile_args"] = (
-            pp.compositional.FlashSpec.pT,
-            pp.compositional.FlashSpec.vT,
-        )
-    else:
-        model_params["flash_params"]["compile_args"] = (pp.compositional.FlashSpec.pT,)
-    model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
+model_params["flash_params"]["compile_args"] = (
+    pp.compositional.FlashSpec.pT,
+    pp.compositional.FlashSpec.vT,
+)
 
 model_params["use_logp_nonlinear_rpc"] = False
 
@@ -165,32 +141,7 @@ solver_params["ntrdc_eta_2"] = 0.1
 solver_params["ntrdc_delta_tol"] = 1e-10
 
 
-class Case2aMixin:
-    """Model configuration for case 1e: 2-phase water flow."""
-
-    _COMPONENT_NAMES: list[str] = ["H2O"]
-
-    _IDEAL_COMPONENTS: list[pp.compositional.ideal.IdealFluid] = [
-        pp.compositional.ideal.IdealH2O,
-    ]
-
-    # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
-    _TOTAL_INJECTED_MASS: float = 10 * 47134.59273520758 / (60 * 60)
-
-    _p_INIT: float = 10e6
-    _T_INIT: float = 450.0
-
-    _p_OUT: float = 10e6
-    _T_IN: float = 450.0
-
-    _T_BC: float = 450.0
-    _p_BC: float = 10e6  # roughly hydrostatic pressure of water at depth of 1 km.
-
-    _APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
-
-
 class ModelClass(  # type:ignore
-    Case2aMixin,
     FluidPoreInteraction,
     NoFluxRediscretization,
     HorizontalFractureAndPointWells2D,
@@ -200,14 +151,32 @@ class ModelClass(  # type:ignore
     pass
 
 
+# ModelClass._PRESSURE_BOUNDARY_ON = False
+ModelClass._COMPONENT_NAMES = ["H2O"]
+ModelClass._IDEAL_COMPONENTS = [pp.compositional.ideal.IdealH2O]
+# NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
+ModelClass._TOTAL_INJECTED_MASS = 10 * 47134.59273520758 / (60 * 60)
+ModelClass._p_INIT = 10e6
+ModelClass._p_OUT = 10e6
+ModelClass._p_BC = 10e6
+ModelClass._T_INIT = 450.0
+ModelClass._T_IN = 450.0
+ModelClass._T_BC = 450.0
+ModelClass._z_INIT = {"H2O": 1.0}
+ModelClass._z_IN = {"H2O": 1.0}
+ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
+
+if ISOCHORIC_NPC:
+    ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT
+
+
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
     _stride = model_params["flash_params"]["global_iteration_stride"]
     sub_folder = (
-        "m2d_case2a/"
+        "CI_CASE2A/"
         f"{timestamp}"
-        f"_BUOY_{BUOYANCY_ON}"
         f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
         f"_PPRIM_{bool(P_PRIMARY)}"
@@ -230,76 +199,7 @@ if __name__ == "__main__":
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
 
-    frac_vars = (
-        model.overall_fraction_variables
-        + model.saturation_variables
-        + model.phase_fraction_variables
-        + model.fraction_in_phase_variables
-    )
-
-    def rpc(mats: list[sps.csr_matrix]) -> list[sps.csr_matrix]:
-        ref_vals = {
-            # "pressure": 22064000.0,
-            "pressure": 10e6,
-            "temperature": 647.096,
-            "enthalpy": 524641.0735546586,
-            "fluid_specific_volume": 5.59480372671e-05,
-            "well_flux": 1e-4,  # 1e-5
-            "interface_darcy_flux": 1e-6,  # 1e-5
-        }
-
-        ncol = model.equation_system.num_dofs()
-        shape = (ncol,)
-
-        s: np.ndarray  # Column scaling vector.
-
-        # # Scaling with reference value
-        s = np.ones(ncol)
-        for k, v in ref_vals.items():
-            s[model.equation_system.dofs_of([k])] = v
-
-        # Scaling with column-inf norm of matrices
-        # c_inf_norms = np.array([sps.linalg.norm(m, np.inf, axis=0) for m in mats])
-        # d = np.maximum.reduce(c_inf_norms, axis=0)
-        # frac_dofs = model.equation_system.dofs_of(frac_vars)
-        # d[frac_dofs] = np.maximum(1.0, d[frac_dofs])
-        # for k, v in ref_vals.items():
-        #     dofs_k = model.equation_system.dofs_of([k])
-        #     d[dofs_k] = np.maximum(v, d[dofs_k])
-
-        # # NOTE careful, CF solver makes nother call to this, without switiching
-        # # iterations.
-        # # if isinstance(model.current_column_scales, np.ndarray):
-        # #     damped_scaling = 0.7  # (0.3, 0.7)
-        # #     s = (
-        # #         damped_scaling * 1.0 / d
-        # #         + (1 - damped_scaling) / model.current_column_scales
-        # #     )
-        # # else:
-        # s = 1.0 / d
-
-        # Nonlinear log-p scaling.
-        if model._uses_logp():
-            s[model.equation_system.dofs_of([model.pressure_variable])] = (
-                model.equation_system.get_variable_values(
-                    [model.pressure_variable], iterate_index=0
-                )
-            )
-
-        assert s.shape == (ncol,), (
-            f"Inconsistent shape for column scales: Got {s.shape}, expected {shape}"
-        )
-        for m in mats:
-            assert m.shape[1] == ncol, (
-                f"Inconsistent shape of matrix for RPC: Got {m.shape[1]} columns, "
-                f"expected {ncol}"
-            )
-            m.data *= s[m.indices]
-        model.current_column_scales = s
-
-        return mats
-
-    model.params["linear_right_preconditioner"] = rpc  # type:ignore[assignment]
+    model.params["linear_right_preconditioner"] = get_rpc(model)  # type:ignore
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]

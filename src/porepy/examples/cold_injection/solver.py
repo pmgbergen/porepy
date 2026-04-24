@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional, TypeAlias, TypedDict, cast, no_type_check
+from typing import TYPE_CHECKING, Any, Optional, TypedDict, cast, no_type_check
 
 import numpy as np
 import scipy.sparse as sps
@@ -21,9 +21,10 @@ from scipy.linalg import lstsq
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from .config import CIModel
 
-CFLEModel: TypeAlias = cfle.EnthalpyBasedCFLETemplate | cfle.EnthalpyBasedCFFLETemplate
+logger = logging.getLogger(__name__)
 
 
 def condest(A: sps.csr_matrix) -> float:
@@ -320,7 +321,7 @@ class CFLESolver(pp.NewtonSolver):
     @no_type_check
     def _plot(
         self,
-        model: CFLEModel,
+        model: CIModel,
         dx: np.ndarray | None = None,
         suffix: str = "",
         log_pv: bool = False,
@@ -345,7 +346,7 @@ class CFLESolver(pp.NewtonSolver):
         # model.plot_from_vec(vec, "y_G", is_update, suffix)
 
     @no_type_check
-    def _print_cond_p_block(self, model: CFLEModel):
+    def _print_cond_p_block(self, model: CIModel):
 
         print("Total")
         print(f"Cond: {np.linalg.cond(self._J.todense()):.5e}")
@@ -442,7 +443,7 @@ class CFLESolver(pp.NewtonSolver):
         svd = np.linalg.svdvals(A1.todense())
         print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
 
-    def iteration(self, model: CFLEModel) -> np.ndarray:  # type:ignore[override]
+    def iteration(self, model: CIModel) -> np.ndarray:  # type:ignore[override]
         """An iteration consists of performing the Newton step and obtaining the step
         size from the line search."""
 
@@ -516,9 +517,7 @@ class CFLESolver(pp.NewtonSolver):
             )
             return model._scale_back_state(dx, is_increment=True)
 
-    def objective_function(
-        self, model: CFLEModel, trial_increment: np.ndarray
-    ) -> float:
+    def objective_function(self, model: CIModel, trial_increment: np.ndarray) -> float:
         """Objective function for the residual depending on a state vector."""
         xk1p = self._xk + model._scale_back_state(trial_increment, is_increment=True)
         model.equation_system.set_variable_values(xk1p, iterate_index=0)
@@ -526,7 +525,7 @@ class CFLESolver(pp.NewtonSolver):
         res = model.equation_system.assemble(evaluate_jacobian=False)
         return float(np.dot(res, res)) * 0.5
 
-    def apply_chops(self, model: CFLEModel, dx: np.ndarray) -> None:
+    def apply_chops(self, model: CIModel, dx: np.ndarray) -> None:
         """Applies chops to the raw Newton update.
 
         This includes:
@@ -549,7 +548,7 @@ class CFLESolver(pp.NewtonSolver):
         if self.params["volume_clip"] is not None:
             self.volume_clip(model, dx)
 
-    def appleyard_chop(self, model: CFLEModel, dx: np.ndarray) -> None:
+    def appleyard_chop(self, model: CIModel, dx: np.ndarray) -> None:
         """Simple chopping of updates for saturatons and phase fractions such that their
         absolute values is not larger than a defined value ``params['appleyard_chop']``.
 
@@ -580,7 +579,7 @@ class CFLESolver(pp.NewtonSolver):
                     dy[idx] = chop * np.sign(dy[idx])
                     dx[dofs] = dy
 
-    def pressure_clip(self, model: CFLEModel, dx: np.ndarray) -> None:
+    def pressure_clip(self, model: CIModel, dx: np.ndarray) -> None:
         """Applies the pressure clip.
 
         Parameters:
@@ -602,7 +601,7 @@ class CFLESolver(pp.NewtonSolver):
             dxs[dofs] = np.clip(dxs[dofs], (c[0] - 1) * p_k, (c[1] - 1) * p_k)
             dx[dofs] = model._scale_state(dxs, is_increment=True)[dofs]
 
-    def volume_clip(self, model: CFLEModel, dx: np.ndarray) -> None:
+    def volume_clip(self, model: CIModel, dx: np.ndarray) -> None:
         """Applies the volume clip.
 
         Parameters:
@@ -621,7 +620,7 @@ class CFLESolver(pp.NewtonSolver):
         dxs[dofs] = np.clip(dxs[dofs], (c[0] - 1) * v_k, (c[1] - 1) * v_k)
         dx[dofs] = model._scale_state(dxs, is_increment=True)[dofs]
 
-    def armijo_line_search(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
+    def armijo_line_search(self, model: CIModel, dx: np.ndarray) -> np.ndarray:
         """Performs the Armijo line search."""
         F_upper = self.params["armijo_start_after_residual_reaches"]
         F_lower = self.params["armijo_stop_after_residual_reaches"]
@@ -683,7 +682,7 @@ class CFLESolver(pp.NewtonSolver):
 
         return dx_i
 
-    def ntrdc(self, model: CFLEModel, dx_n: np.ndarray) -> np.ndarray:
+    def ntrdc(self, model: CIModel, dx_n: np.ndarray) -> np.ndarray:
         """Newton Trust-Region Dogleg-Cauchy method."""
 
         eps = np.finfo(np.float64).eps
@@ -848,7 +847,7 @@ class CFLESolver(pp.NewtonSolver):
         )
         return dx_k
 
-    def anderson_acceleration(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
+    def anderson_acceleration(self, model: CIModel, dx: np.ndarray) -> np.ndarray:
         """Apply the anderson acceleration."""
 
         F_upper = self.params["anderson_start_after_residual_reaches"]
@@ -861,9 +860,7 @@ class CFLESolver(pp.NewtonSolver):
         else:
             return dx
 
-    def get_equilibrated_trial_step(
-        self, model: CFLEModel, dx: np.ndarray
-    ) -> np.ndarray:
+    def get_equilibrated_trial_step(self, model: CIModel, dx: np.ndarray) -> np.ndarray:
         """Returns a modified update step ``dx_mod`` such that ``x_k + dx_mod`` is a
         solution to the equilibrium system, i.e. the sub-residual of the equilibrium
         equations is zero."""
@@ -891,7 +888,7 @@ class CFLESolver(pp.NewtonSolver):
         return model._scale_state(dxs, is_increment=True)
 
     def primary_secondary_thermodynamic_variable_names(
-        self, model: CFLEModel
+        self, model: CIModel
     ) -> tuple[list[str], list[str]]:
         """Returns the primary and secondary variables in the thermodynamic sense,
         based on how the Schur-complement system is defined.
@@ -938,7 +935,7 @@ class CFLESolver(pp.NewtonSolver):
 
     def populate_state_with_flash_results(
         self,
-        model: CFLEModel,
+        model: CIModel,
         x: np.ndarray,
         results: cfle.FlashResults,
         subdomains: list[pp.Grid],
@@ -1000,7 +997,7 @@ class CFLESolver(pp.NewtonSolver):
         # ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
         #     update(model.enthalpy(subdomains), results.h)
 
-    def resolve_md_flux_update(self, model: CFLEModel, dx: np.ndarray) -> None:
+    def resolve_md_flux_update(self, model: CIModel, dx: np.ndarray) -> None:
         """Modifies the update for interface and well fluxes such that the
         interface equations, which are linear in the respective variables, are
         fullfilled exactly.

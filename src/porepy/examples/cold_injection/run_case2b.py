@@ -1,4 +1,5 @@
-"""2D, 2-phase water flow through single fracture domain with temporal aperture jump.
+"""2D, 2-phase water flow through horizontal fracture domain with temporal aperture
+jump.
 
 Non-isothermal model with nonlinear preconditioning using the uv flash.
 
@@ -20,16 +21,15 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
+    get_rpc,
+    set_schur_complement,
 )
 from porepy.examples.cold_injection.geometry import HorizontalFractureAndPointWells2D
 from porepy.examples.cold_injection.model import (
-    BuoyancyModel,
     ColdInjectionMixins,
     FluidPoreInteraction,
     NoFluxRediscretization,
-    set_schur_complement,
 )
-from porepy.examples.cold_injection.run_m2d_case2a import Case2aMixin
 
 ISOCHORIC_NPC = False
 BUOYANCY_ON = False
@@ -75,26 +75,19 @@ model_params["time_manager"] = time_manager
 model_params["meshing_arguments"]["cell_size"] = 2.0
 model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
 
-model_params["_well_surrounding_permeability"] = 1e-12
-model_params["_fracture_permeability"] = 1e-10
+eos_params = [1e-4, 1e-2, 1e-3, 10.0]
+model_params["flash_params"]["gen_arg_params"] = eos_params
+model_params["flash_params"]["phase_property_params"] = eos_params
+model_params["phase_property_params"] = eos_params
 
-model_params["fractional_flow"] = BUOYANCY_ON
-model_params["enable_buoyancy_effects"] = BUOYANCY_ON
-model_params["_heated_boundary_on"] = False
-
-model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-
-if ISOCHORIC_NPC:
-    model_params["flash_params"]["compile_args"] = (
-        pp.compositional.FlashSpec.pT,
-        pp.compositional.FlashSpec.ph,
-        pp.compositional.FlashSpec.vu,
-    )
-    model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.vu
-else:
-    model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
+model_params["equilibrium_specification"] = (
+    pp.compositional.FlashSpec.ph,
+    "persistent-variables",
+)
+model_params["flash_params"]["compile_args"] = (
+    pp.compositional.FlashSpec.pT,
+    pp.compositional.FlashSpec.ph,
+)
 
 
 solver_params["armijo_line_search_weight"] = 0.9
@@ -105,49 +98,43 @@ solver_params["armijo_least_squares_form"] = False
 solver_params["newton_chop"] = 0.4
 
 
-class Case2bMixin(Case2aMixin):
-    _T_INIT: float = 450.0
-    _T_BC: float = 300.0  # 640.0
-    _T_IN: float = 300.0
+class ModelClass(  # type:ignore
+    FluidPoreInteraction,
+    NoFluxRediscretization,
+    HorizontalFractureAndPointWells2D,
+    ColdInjectionMixins,
+    cfle.EnthalpyBasedCFLETemplate,
+):
+    pass
 
-    _APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
-
-if BUOYANCY_ON:
-
-    class ModelClass(  # type:ignore
-        Case2bMixin,
-        FluidPoreInteraction,
-        BuoyancyModel,
-        HorizontalFractureAndPointWells2D,
-        ColdInjectionMixins,
-        cfle.EnthalpyBasedCFFLETemplate,
-    ):
-        pass
-
-else:
-
-    class ModelClass(  # type:ignore
-        Case2bMixin,
-        FluidPoreInteraction,
-        NoFluxRediscretization,
-        HorizontalFractureAndPointWells2D,
-        ColdInjectionMixins,
-        cfle.EnthalpyBasedCFLETemplate,
-    ):
-        pass
+ModelClass._HEATED_BOUNDARY_ON = True
+ModelClass._COMPONENT_NAMES = ["H2O"]
+ModelClass._IDEAL_COMPONENTS = [pp.compositional.ideal.IdealH2O]
+# NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
+ModelClass._TOTAL_INJECTED_MASS = 10 * 47134.59273520758 / (60 * 60)
+ModelClass._p_INIT = 10e6
+ModelClass._p_OUT = 10e6
+ModelClass._p_BC = 10e6
+ModelClass._T_INIT = 450.0
+ModelClass._T_IN = 300.0
+ModelClass._T_BC = 450.0  # 640.
+ModelClass._z_INIT = {"H2O": 1.0}
+ModelClass._z_IN = {"H2O": 1.0}
+ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
+if ISOCHORIC_NPC:
+    ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
+    model_params["flash_params"]["compile_args"] = (
+        pp.compositional.FlashSpec.pT,
+        pp.compositional.FlashSpec.ph,
+        pp.compositional.FlashSpec.vu,
+    )
 
 
 if __name__ == "__main__":
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
-    sub_folder = (
-        "m2d_case2b/"
-        f"{timestamp}"
-        f"_BUOY_{BUOYANCY_ON}"
-        f"_AJUMP_{_ajump}"
-        f"_ICHOR_{bool(ISOCHORIC_NPC)}"
-    )
+    sub_folder = f"CI_CASE2B/{timestamp}_AJUMP_{_ajump}_ICHOR_{bool(ISOCHORIC_NPC)}"
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
     model = ModelClass(model_params)  # type:ignore[abstract]
@@ -159,6 +146,8 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
+
+    model.params["linear_right_preconditioner"] = get_rpc(model)  # type:ignore
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]
