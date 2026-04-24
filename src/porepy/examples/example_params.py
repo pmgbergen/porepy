@@ -28,7 +28,7 @@ units = pp.Units()
 # the default models by 'not invoked by default'.
 
 model_params = {
-    "variable_scaling_linear_rpc": None,
+    "linear_right_preconditioner": None,
     "linear_solver": "pypardiso",
     "units": units,
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),

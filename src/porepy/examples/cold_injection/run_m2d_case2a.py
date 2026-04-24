@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.examples.cold_injection.config import (
@@ -96,8 +97,8 @@ model_params["meshing_arguments"] = {
 }
 # model_params["grid_type"] = "cartesian"
 # model_params["meshing_arguments"] = {
-#     "cell_size": 1.0,
-#     "cell_size_fracture": 1.0,
+#     "cell_size": 10.0,
+#     "cell_size_fracture": 10.0,
 # }
 # model_params["meshing_arguments"]["cell_size"] = 2.0
 # model_params["meshing_arguments"]["cell_size_fracture"] = 1.0
@@ -108,11 +109,14 @@ model_params["_fracture_permeability"] = 1e-10
 model_params["fractional_flow"] = BUOYANCY_ON
 model_params["enable_buoyancy_effects"] = BUOYANCY_ON
 model_params["_heated_boundary_on"] = False
+model_params["_use_top_dirichlet"] = False
 
-model_params["flash_params"]["gen_arg_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["phase_property_params"] = [1e-4, 1e-2, 1e-3, 10.0]
-model_params["flash_params"]["global_iteration_stride"] = 5
+eos_params = [1e-4, 1e-2, 1e-3, 10.0]
+model_params["flash_params"]["gen_arg_params"] = eos_params
+model_params["flash_params"]["phase_property_params"] = eos_params
+model_params["phase_property_params"] = eos_params
+model_params["flash_params"]["global_iteration_stride"] = None
+model_params["flash_params"]["solver_params"]["atol_res"] = 1e-8
 
 model_params["equilibrium_specification"] = (
     pp.compositional.FlashSpec.vT,
@@ -134,19 +138,20 @@ else:
         model_params["flash_params"]["compile_args"] = (pp.compositional.FlashSpec.pT,)
     model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
 
-model_params["variable_scaling_linear_rpc"] = {
-    # "pressure": 22064000.0,
-    "pressure": 10e6,
-    "temperature": 647.096,
-    "enthalpy": 524641.0735546586,
-    "fluid_specific_volume": 5.59480372671e-05,
-}
 model_params["use_logp_nonlinear_rpc"] = False
 
 solver_params["atol_objective"] = newton_tol_res
 solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
-solver_params["logp_clip"] = (np.log(0.8), np.log(1.2))
+solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
+solver_params["volume_clip"] = (0.9, 1.1)  # (0.8, 1.2)
+if (
+    model_params["use_logp_nonlinear_rpc"]
+    and solver_params["pressure_clip"] is not None
+):
+    solver_params["pressure_clip"] = tuple(
+        [np.log(c) for c in solver_params["pressure_clip"]]
+    )
 
 solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
@@ -155,10 +160,11 @@ solver_params["armijo_line_search_max_iterations"] = 20
 solver_params["armijo_stop_after_residual_reaches"] = 1e-5
 
 solver_params["do_ntrdc"] = True
-solver_params["ntrdc_scale_with_inf"] = False
-solver_params["ntrdc_return_nan"] = True
+solver_params["ntrdc_scale_with_inf"] = True
+solver_params["ntrdc_return_nan"] = False
 solver_params["ntrdc_eta_3"] = 0.5
 solver_params["ntrdc_eta_2"] = 0.1
+solver_params["ntrdc_delta_tol"] = 1e-6
 
 
 class Case2aMixin:
@@ -176,10 +182,11 @@ class Case2aMixin:
     _p_INIT: float = 10e6
     _T_INIT: float = 450.0
 
-    _p_OUT: float = 10e6  # roughly hydrostatic pressure of water at depth of 1 km.
+    _p_OUT: float = 10e6
     _T_IN: float = 450.0
 
     _T_BC: float = 450.0
+    _p_BC: float = 10e6  # roughly hydrostatic pressure of water at depth of 1 km.
 
     _APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
@@ -206,7 +213,7 @@ if __name__ == "__main__":
         f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
         f"_PPRIM_{bool(P_PRIMARY)}"
-        f"_STRIDE_{int(_stride)}"
+        f"_STRIDE_{_stride}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
@@ -224,6 +231,77 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
+
+    frac_vars = (
+        model.overall_fraction_variables
+        + model.saturation_variables
+        + model.phase_fraction_variables
+        + model.fraction_in_phase_variables
+    )
+
+    def rpc(mats: list[sps.csr_matrix]) -> list[sps.csr_matrix]:
+        ref_vals = {
+            # "pressure": 22064000.0,
+            "pressure": 10e6,
+            "temperature": 647.096,
+            "enthalpy": 524641.0735546586,
+            "fluid_specific_volume": 5.59480372671e-05,
+            "well_flux": 1e-4,  # 1e-5
+            "interface_darcy_flux": 1e-6,  # 1e-5
+        }
+
+        ncol = model.equation_system.num_dofs()
+        shape = (ncol,)
+
+        s: np.ndarray  # Column scaling vector.
+
+        # # Scaling with reference value
+        s = np.ones(ncol)
+        for k, v in ref_vals.items():
+            s[model.equation_system.dofs_of([k])] = v
+
+        # Scaling with column-inf norm of matrices
+        # c_inf_norms = np.array([sps.linalg.norm(m, np.inf, axis=0) for m in mats])
+        # d = np.maximum.reduce(c_inf_norms, axis=0)
+        # frac_dofs = model.equation_system.dofs_of(frac_vars)
+        # d[frac_dofs] = np.maximum(1.0, d[frac_dofs])
+        # for k, v in ref_vals.items():
+        #     dofs_k = model.equation_system.dofs_of([k])
+        #     d[dofs_k] = np.maximum(v, d[dofs_k])
+
+        # # NOTE careful, CF solver makes nother call to this, without switiching
+        # # iterations.
+        # # if isinstance(model.current_column_scales, np.ndarray):
+        # #     damped_scaling = 0.7  # (0.3, 0.7)
+        # #     s = (
+        # #         damped_scaling * 1.0 / d
+        # #         + (1 - damped_scaling) / model.current_column_scales
+        # #     )
+        # # else:
+        # s = 1.0 / d
+
+        # Nonlinear log-p scaling.
+        if model._uses_logp():
+            s[model.equation_system.dofs_of([model.pressure_variable])] = (
+                model.equation_system.get_variable_values(
+                    [model.pressure_variable], iterate_index=0
+                )
+            )
+
+        assert s.shape == (ncol,), (
+            f"Inconsistent shape for column scales: Got {s.shape}, expected {shape}"
+        )
+        for m in mats:
+            assert m.shape[1] == ncol, (
+                f"Inconsistent shape of matrix for RPC: Got {m.shape[1]} columns, "
+                f"expected {ncol}"
+            )
+            m.data *= s[m.indices]
+        model.current_column_scales = s
+
+        return mats
+
+    model.params["linear_right_preconditioner"] = rpc  # type:ignore[assignment]
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]

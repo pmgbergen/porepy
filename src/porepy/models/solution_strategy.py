@@ -142,6 +142,14 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_equations: list[str] = []
         """See :meth:`schur_complement_primary_equations`."""
 
+        self.current_column_scales: np.ndarray | None = None
+        """Current multiplicative column scaling (linear right preconditioning).
+        Multiply result of linear solve with this vector to get the unscaled update.
+        
+        Must be set if ``params["linear_right_preconditioner"]`` does something.
+    
+        """
+
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
@@ -628,7 +636,7 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=self._rescale_increment(nonlinear_increment),
+            values=self._scale_back_state(nonlinear_increment, is_increment=True),
             additive=True,
             iterate_index=0,
         )
@@ -739,63 +747,91 @@ class SolutionStrategy(pp.PorePyModel):
             self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
         )
 
-    def _column_scales(self) -> np.ndarray | None:
-        """Construct multiplicative vector for Jacobian column scaling, which result
-        from right-preconditioning (variable space transforms)."""
-        use_logp = self._uses_logp()
-        scales = cast(dict, self.params.get("variable_scaling_linear_rpc", {}))
-        assert isinstance(scales, dict)
-
-        if use_logp or scales:
-            s = np.ones(self.equation_system.num_dofs())
-            if use_logp and isinstance(
-                self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
-            ):
-                # NOTE: Double scaling not supported.
-                scales.pop(self.pressure_variable, None)
-                s[self.equation_system.dofs_of([self.pressure_variable])] = (
-                    self.equation_system.get_variable_values(
-                        [self.pressure_variable], iterate_index=0
-                    )
-                )
-            for k, v in scales.items():
-                s[self.equation_system.dofs_of([k])] = v
-
-            return s
-        else:
-            return None
-
-    def _rescale_increment(self, increment: np.ndarray) -> np.ndarray:
+    def _scale_back_state(
+        self, x: np.ndarray, is_increment: bool = False
+    ) -> np.ndarray:
         """Reverts the scaling applied to the columns by :meht:`_column_scales`
-        on the increment. I.e. transforms the increment back to standard space such
-        that it can be stored for the new state."""
+        on a global state vector.
 
-        col_scales = self._column_scales()
-        use_logp = self._uses_logp()
-        dp: np.ndarray | None = None
+        Parameters:
+            x: Global vector of unknowns
+            is_increment: ``default=False``
+
+                If True, treats ``x`` as a vector of nonlinear increments. This effects
+                how logarithmic scaling is applied.
+
+        Returns:
+            A re-scaled copy of the vector ``x``.
+
+        """
+
+        xp: np.ndarray | None = None
         dofs_p: np.ndarray | None = None
 
-        dx = increment.copy()
+        x_new = x.copy()
+        if isinstance(self.current_column_scales, np.ndarray):
+            x_new *= self.current_column_scales
 
-        if use_logp and isinstance(
-            self, pp.fluid_mass_balance.VariablesSinglePhaseFlow
-        ):
+        if self._uses_logp():
+            self.pressure_variable = cast(str, self.pressure_variable)  # type:ignore
             # If the logp nonlinear RPC is used, the nonlinear increment is a logp
             # and needs to be transformed back to a pressure increment before being
             # added to the solution.
             dofs_p = self.equation_system.dofs_of([self.pressure_variable])
-            p_k = self.equation_system.get_variable_values(
-                [self.pressure_variable], iterate_index=0
-            )
-            p_k1p = p_k * np.exp(dx[dofs_p])
-            dp = p_k1p - p_k
+            if is_increment:
+                p_k = self.equation_system.get_variable_values(
+                    [self.pressure_variable], iterate_index=0
+                )
+                p_k1p = p_k * np.exp(x_new[dofs_p])
+                xp = p_k1p - p_k
+            else:
+                xp = np.exp(x_new[dofs_p])
 
-        if isinstance(col_scales, np.ndarray):
-            dx *= col_scales
-        if dp is not None and dofs_p is not None:
-            dx[dofs_p] = dp
+            x_new[dofs_p] = xp
 
-        return dx
+        return x_new
+
+    def _scale_state(self, x: np.ndarray, is_increment: bool = False) -> np.ndarray:
+        """Applies the scaling defined by :meth:`_column_scales` to a global vector of
+        unknowns.
+
+        Parameters:
+            x: Global vector of unknowns
+            is_increment: ``default=False``
+
+                If True, treats ``x`` as a vector of nonlinear increments. This effects
+                how logarithmic scaling is applied.
+
+        Returns:
+            A scaled copy of the vector ``x``.
+
+        """
+
+        xp: np.ndarray | None = None
+        dofs_p: np.ndarray | None = None
+
+        x_new = x.copy()
+        if isinstance(self.current_column_scales, np.ndarray):
+            x_new /= self.current_column_scales
+
+        if self._uses_logp():
+            self.pressure_variable = cast(str, self.pressure_variable)
+            # If the logp nonlinear RPC is used, the nonlinear increment is a logp
+            # and needs to be transformed back to a pressure increment before being
+            # added to the solution.
+            dofs_p = self.equation_system.dofs_of([self.pressure_variable])
+            if is_increment:
+                p_k = self.equation_system.get_variable_values(
+                    [self.pressure_variable], iterate_index=0
+                )
+                p_k1p = p_k + x_new[dofs_p]
+                xp = np.log(p_k1p / p_k)
+            else:
+                xp = np.log(x_new[dofs_p])
+
+            x_new[dofs_p] = xp
+
+        return x_new
 
     def assemble_linear_system(self) -> None:
         """Assemble the linearized system and store it in :attr:`linear_system`.
@@ -822,7 +858,9 @@ class SolutionStrategy(pp.PorePyModel):
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
 
         """
-        col_scales = self._column_scales()
+
+        rpc = self.params.get("linear_right_preconditioner", None)
+
         t_0 = time.time()
 
         if self._apply_schur_complement_reduction():
@@ -839,19 +877,18 @@ class SolutionStrategy(pp.PorePyModel):
                     Callable[[sps.spmatrix], sps.spmatrix],
                     self.params.get("schur_complement_inverter", None),
                 ),
-                col_scales=col_scales,
+                linear_right_preconditioner=cast(
+                    Callable[[list[sps.csr_matrix]], list[sps.csr_matrix]],
+                    rpc,
+                ),
             )
         else:
             self.linear_system = self.equation_system.assemble()
-            if isinstance(col_scales, np.ndarray):
-                # If the logp nonlinear RPC is used, we need to apply the chain rule to
-                # the Jacobian to get the correct linear system for the logp increment.
-                A, b = self.linear_system
-                assert A.shape[1] == col_scales.size
-                if not sps.isspmatrix_csr(A):
-                    A = sps.csr_matrix(A)
-                A.data *= col_scales[A.indices]
-                self.linear_system = (A, b)
+            if rpc is not None:
+                self.linear_system = (
+                    cast(sps.csr_matrix, rpc([self.linear_system[0]])[0]),  # type:ignore[operator]
+                    self.linear_system[1],
+                )
 
         ct = time.time() - t_0
         self.nonlinear_solver_statistics.log_custom_data(

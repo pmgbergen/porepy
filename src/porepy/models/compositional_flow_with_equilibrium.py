@@ -826,6 +826,8 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     # Provided by respective variable mixins.
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     has_independent_saturation: Callable[[pp.Phase], bool]
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
@@ -1063,6 +1065,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             subdomains = [subdomains]
 
         is_persistent = pc.is_persistent_variable_form(self)
+        nc = sum([sd.num_cells for sd in subdomains])
 
         # EPS for fractions of absent phases in persistent form.
         # Used to detect absence of phase (y) and to bind extended fractions away
@@ -1072,17 +1075,18 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
         # Must never be zero.
         eps_machine = 1e-14
 
-        z = np.array(
-            [
-                # NOTE: In the case of 1 component, z is implemented as the scalar 1.
-                np.atleast_1d(
+        # NOTE: In the case of 1 component, z is implemented as the scalar 1.
+        if self.fluid.num_components == 1:
+            z = np.ones((1, nc))
+        else:
+            z = np.array(
+                [
                     self.equation_system.evaluate(
                         component.fraction(subdomains), state=state
                     )
-                )
-                for component in self.fluid.components
-            ]
-        )
+                    for component in self.fluid.components
+                ]
+            )
 
         y = np.array(
             [
@@ -1153,29 +1157,43 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 if np.any(idx):
                     x_[:, idx] = pc.normalize_rows(x_[:, idx].T).T
 
-        p = cast(
-            np.ndarray,
-            self.equation_system.evaluate(self.pressure(subdomains), state=state),
-        )
-        T = cast(
-            np.ndarray,
-            self.equation_system.evaluate(self.temperature(subdomains), state=state),
-        )
+        if hasattr(self, "pressure"):
+            p = cast(
+                np.ndarray,
+                self.equation_system.evaluate(self.pressure(subdomains), state=state),
+            )
+        else:
+            p = np.zeros(nc)
 
-        h = np.zeros(0)
-        v = np.zeros(0)
-        if isinstance(self, pp.energy_balance.EnthalpyVariable):
+        if hasattr(self, "temperature"):
+            T = cast(
+                np.ndarray,
+                self.equation_system.evaluate(
+                    self.temperature(subdomains), state=state
+                ),
+            )
+        else:
+            T = np.zeros(nc)
+
+        if hasattr(self, "enthalpy"):
             h = cast(
                 np.ndarray,
                 self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
             )
-        if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+        else:
+            h = np.zeros(nc)
+
+        if hasattr(self, "fluid_specific_volume"):
             v = cast(
                 np.ndarray,
                 self.equation_system.evaluate(
                     self.fluid_specific_volume(subdomains), state=state
                 ),
             )
+        else:
+            v = np.zeros(nc)
+
+        rho = np.where(v > eps, 1 / v, np.zeros(nc))
 
         return pc.FluidProperties(
             z=z,
@@ -1184,7 +1202,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             p=p,
             T=T,
             h=h,
-            rho=1 / v if v.size > 0 else np.zeros_like(p),
+            rho=rho,
             phases=[
                 pc.PhaseProperties(state=phase.state, x=x_)
                 for x_, phase in zip(x, self.fluid.phases)
@@ -1253,7 +1271,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         """
 
-        logger.info(
+        logger.debug(
             f"Equilibration on grid {grid.id} at t={self.time_manager.time:.3e}."
         )
         if cell_mask is None:
@@ -1397,9 +1415,10 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         """
         failure = ~results.converged
+        spec: StateSpecDict = dict([(k, v[failure]) for k, v in flash_spec.items()])  # type:ignore
 
         sub_results = self.flash.flash(
-            cast(StateSpecDict, dict([(k, v[failure]) for k, v in flash_spec.items()])),  # type:ignore[index]
+            spec,
             cast(Sequence[np.ndarray], results.z[:, failure]),
             params=cast(dict | None, self.params.get("flash_params", None)),
         )

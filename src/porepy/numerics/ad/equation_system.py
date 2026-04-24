@@ -1768,7 +1768,10 @@ class EquationSystem:
         primary_variables: VariableList,
         inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
-        col_scales: np.ndarray | None = None,
+        linear_right_preconditioner: Callable[
+            [list[sps.csr_matrix]], list[sps.csr_matrix]
+        ]
+        | None = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         r"""Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -1883,11 +1886,6 @@ class EquationSystem:
             if name in primary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
                 idx_p = primary_rows[name]
-                if isinstance(col_scales, np.ndarray):
-                    assert col_scales.size == A_temp.shape[1]
-                    if not sps.isspmatrix_csr(A_temp):
-                        A_temp = sps.csr_matrix(A_temp)
-                    A_temp.data *= col_scales[A_temp.indices]
                 # Check if a grid filter was applied for that equation
                 if idx_p is not None:
                     # Append the respective rows.
@@ -1918,11 +1916,6 @@ class EquationSystem:
             # assembled wholesale to the secondary block.
             if name in secondary_equation_names:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
-                if isinstance(col_scales, np.ndarray):
-                    assert col_scales.size == A_temp.shape[1]
-                    if not sps.isspmatrix_csr(A_temp):
-                        A_temp = sps.csr_matrix(A_temp)
-                    A_temp.data *= col_scales[A_temp.indices]
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
 
@@ -1933,10 +1926,13 @@ class EquationSystem:
                     ind_start = block_indices[-1] + 1
 
         # stack the results
-        A_p = sps.vstack(A_prim, format="csr")
+        A_p = cast(sps.csr_matrix, sps.vstack(A_prim, format="csr"))
         b_p = np.concatenate(b_prim)
-        A_s = sps.vstack(A_sec, format="csr")
+        A_s = cast(sps.csr_matrix, sps.vstack(A_sec, format="csr"))
         b_s = np.concatenate(b_sec)
+
+        if linear_right_preconditioner is not None:
+            A_p, A_s = linear_right_preconditioner([A_p, A_s])
 
         # turn the projections into prolongations
         primary_projection = primary_projection.transpose()

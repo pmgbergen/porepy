@@ -185,7 +185,7 @@ class SolutionStrategy(ModelConfig):
                 evaluate_jacobian=True, equations=[idfe], variables=[idf]
             )
             norm = np.linalg.norm(b)
-            if norm < 1e-1:
+            if norm < 1e-5:
                 break
             delta_idf = sps.linalg.spsolve(A, b)
             self.equation_system.set_variable_values(
@@ -314,8 +314,8 @@ class SolutionStrategy(ModelConfig):
         if isochoric_npc_done:
             self.update_derived_quantities()
             self.update_interface_fluxes()
-            self.iterate_pT()
-            self.update_interface_fluxes()
+            # self.iterate_pT()
+            # self.update_interface_fluxes()
 
     def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
         subdomains = [sd]
@@ -357,13 +357,13 @@ class SolutionStrategy(ModelConfig):
         if isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
             vars += [
                 self.pressure(subdomains),
-                # self.interface_darcy_flux(codim_1_interfaces),
-                # self.well_flux(codim_2_interfaces),
+                self.interface_darcy_flux(codim_1_interfaces),
+                self.well_flux(codim_2_interfaces),
             ]
             eqs += [
                 pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name(),
-                # "interface_darcy_flux_equation",
-                # "well_flux_equation",
+                "interface_darcy_flux_equation",
+                "well_flux_equation",
             ]
             if "production_pressure_constraint" in self.equation_system.equations:
                 eqs += ["production_pressure_constraint"]
@@ -396,14 +396,11 @@ class SolutionStrategy(ModelConfig):
         #     vars += [self.enthalpy(subdomains)]
         #     eqs += ["local_fluid_enthalpy_constraint"]
 
-        ndofs = self.equation_system.num_dofs()
-        dofs = self.equation_system.dofs_of(vars)  # type:ignore[arg-type]
-        pdofs = self.equation_system.dofs_of([self.pressure(subdomains)])  # type:ignore[arg-type]
-        col_scales = self._column_scales()
-        chop = 1.0
+        chop = 0.4
         projection = self.equation_system.projection_to(
             self.equation_system._parse_variable_type(vars)  # type:ignore[arg-type]
         )
+        pT = projection.transpose()
 
         for i in range(50):
             A, b = self.equation_system.assemble(
@@ -415,16 +412,11 @@ class SolutionStrategy(ModelConfig):
             if norm < 1e-5:
                 break
 
-            if not sps.isspmatrix_csr(A):
-                A = sps.csr_matrix(A)
-            A.data *= col_scales[A.indices]
-            A = A * projection.transpose()
+            A = self.params["linear_right_preconditioner"]([A])[0]
+            A = A * pT
 
             dx = sps.linalg.spsolve(A, b) * chop
-            dx_full = np.zeros(ndofs)
-            dx_full[dofs] = dx
-            dx_full = self._rescale_increment(dx_full)
-            dx_full[pdofs] = np.minimum(dx_full[pdofs], 1e4)
+            dx_full = self._scale_back_state(pT @ dx, is_increment=True)
             self.equation_system.set_variable_values(
                 dx_full,
                 iterate_index=0,
@@ -790,6 +782,15 @@ class BoundaryConditions(ModelConfig):
 
         return c - s, c + s
 
+    def _dirichlet_faces_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Defines the top boundary faces as the faces where pressure is fixed."""
+        sides = self.domain_boundary_sides(sd)
+
+        d = np.zeros(sd.num_faces, dtype=bool)
+        d[sides.north] = True
+
+        return d
+
     def _heated_boundary_faces(self, sd: pp.Grid) -> np.ndarray:
         """Define heated boundary with D-type conditions for conductive flux."""
         sides = self.domain_boundary_sides(sd)
@@ -811,7 +812,11 @@ class BoundaryConditions(ModelConfig):
             return pp.BoundaryCondition(sd)
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd)
+        if sd.dim == self.nd and self.params.get("_use_top_dirichlet", False):
+            d = self._dirichlet_faces_pressure(sd)
+            return pp.BoundaryCondition(sd, d, "dir")
+        else:
+            return pp.BoundaryCondition(sd)
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self.bc_type_darcy_flux(sd)
@@ -829,19 +834,34 @@ class BoundaryConditions(ModelConfig):
                 return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Sets pressure on the heated boundary in order for the boundary flash to
-        work."""
+        """Sets pressure on the dirichlet boundary (top faces) and on the heated
+        boundary on the bottom faces.
+
+        The top values are set using ``_p_BC``.
+        The bottom values are approximated using domain height and an estimate that
+        pressure increases by 1e6 Pa per hundred meters depth.
+        This is added to ``_p_BC`` and set at the bottom boundary.
+
+        """
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
         if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
-            vals[heated_faces] = self._p_INIT
+            vals[heated_faces] = self._p_BC + self._DOMAIN_DIMENSIONS[1] / 100.0 * 1e6
+            dir_faces = self._dirichlet_faces_pressure(sd)[sides.all_bf]
+            vals[dir_faces] = self._p_BC
 
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Sets the boundary values for temperature on the heated bottom faces.
+
+        Sets also T values on the pressure-dirichlet faces equal to ``_T_INIT``. This
+        is require for the BC flash, which is required for the advection weights.
+
+        """
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
@@ -849,24 +869,29 @@ class BoundaryConditions(ModelConfig):
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._T_BC
+            dir_faces = self._dirichlet_faces_pressure(sd)[sides.all_bf]
+            vals[dir_faces] = self._T_INIT
 
         return vals
 
     def bc_values_overall_fraction(
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        """Sets BC for fractions on the heated boundary in order for the boundary flash
-        to work."""
+        """Sets BC for fractions on the heated and the dirichlet boundary in order for
+        the boundary flash to work."""
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
         if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
+            dir_faces = self._dirichlet_faces_pressure(sd)[sides.all_bf]
             if self.fluid.num_components == 1:
                 vals[heated_faces] = 1.0
+                vals[dir_faces] = 1.0
             else:
                 vals[heated_faces] = self._z_INIT[component.name]
+                vals[dir_faces] = self._z_INIT[component.name]
 
         return vals
 

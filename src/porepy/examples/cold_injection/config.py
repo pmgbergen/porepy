@@ -140,6 +140,8 @@ class ModelConfig(pp.PorePyModel):
     ### Boundary conditions.
     _T_BC: float = 640.0
     """Temperature at the heated boundary in Kelvin."""
+    _p_BC: float = 10e6
+    """Top boundary pressure in Pa. Approximate hydrostatic pressure at depth."""
 
     @property
     def _INJECTED_MASS(self) -> dict[str, dict[int, float]]:

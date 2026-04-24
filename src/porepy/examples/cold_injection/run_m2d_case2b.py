@@ -97,12 +97,6 @@ else:
     model_params["_do_isochoric_npc"] = pp.compositional.FlashSpec.none
 
 
-model_params["variable_scaling_linear_rpc"] = {
-    "pressure": 22064000.0,
-    "temperature": 647.096,
-    "enthalpy": 524641.0735546586,
-}
-
 solver_params["armijo_line_search_weight"] = 0.9
 solver_params["armijo_line_search_incline"] = 1e-4
 solver_params["armijo_line_search_max_iterations"] = 20

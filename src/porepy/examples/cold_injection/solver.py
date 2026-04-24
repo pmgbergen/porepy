@@ -20,6 +20,7 @@ from scipy.linalg import lstsq
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
+from porepy.compositional.utils import FlashSpec
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +52,18 @@ class CFSolverParams(TypedDict):
     """Parameters for the compositional flow solver. They are used additionally to the
     parameters of the default Newton solver."""
 
-    logp_clip: tuple[float, float] | None
-    """Clipping logarithmic pressure update, if 
-    ``model.params["use_logp_nonlinear_rpc"] == True``."""
+    pressure_clip: tuple[float, float] | None
+    """Clipping pressure update fractionally with respect to last pressure value
+    ``p_k``.
+    
+    The first value clips the pressure update from below to ``(c - 1)*p_k``, the second
+    value clips it from above.
+    
+    Example:
+        ``(0.8, 1.2)`` - pressure can vary at most 20% up and down from current iterate
+        value.
+    
+    """
     newton_chop: float | None
     """Global chop for raw Newton update."""
     appleyard_chop: float | None
@@ -252,8 +262,8 @@ class CFLESolver(pp.NewtonSolver):
         """Current residual 2-norm."""
         self._xk: np.ndarray
         """Current iterate."""
-        self._xk_norm: float | np.floating
-        """Current iterate 2-norm."""
+        self._xks_norm: float | np.floating
+        """Current iterate 2-norm in scaled space."""
         self._pot: float | np.floating
         """Current objective function value."""
 
@@ -265,17 +275,12 @@ class CFLESolver(pp.NewtonSolver):
         """Minimal trust-region radius, set in the first iteration. The algorithm is
         aborted if the trust-region radius falls below this value."""
 
-        self._state_changes: dict[pp.Grid, NDArray[np.bool_]] = {}
-        """Boolean indicators per cell for each grid whether a state change in phase
-        configuration is detected or not. Empty dictionary indiciates no state
-        change."""
-
         self.params = cast(CFSolverParams, default_params)
 
     @staticmethod
     def default_params() -> CFSolverParams:
         return CFSolverParams(
-            logp_clip=None,
+            pressure_clip=None,
             newton_chop=None,
             appleyard_chop=None,
             atol_objective=1e-8,
@@ -307,43 +312,127 @@ class CFLESolver(pp.NewtonSolver):
         )
 
     def _plot(
-        self, model: CFLEModel, dx: np.ndarray | None = None, suffix: str = ""
+        self,
+        model: CFLEModel,
+        dx: np.ndarray | None = None,
+        suffix: str = "",
+        log_pv: bool = False,
     ) -> None:
         """Plotting function for debugging purposes."""
 
         is_update = False
         if dx is not None:
             is_update = True
-            # NOTE Rescale separately, because wrong values are stored in state.
-            col_scales = model._column_scales()
-            use_logp = model._uses_logp()
-            dp: np.ndarray | None = None
-            dofs_p: np.ndarray | None = None
-
-            vec = dx.copy()
-
-            if use_logp and isinstance(
-                model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
-            ):
-                # If the logp nonlinear RPC is used, the nonlinear increment is a logp
-                # and needs to be transformed back to a pressure increment before being
-                # added to the solution.
-                dofs_p = model.equation_system.dofs_of([model.pressure_variable])
-                p_k = self._xk[dofs_p]
-                p_k1p = p_k * np.exp(vec[dofs_p])
-                dp = p_k1p - p_k
-
-            if isinstance(col_scales, np.ndarray):
-                vec *= col_scales
-            if dp is not None and dofs_p is not None:
-                vec[dofs_p] = dp
+            vec = model._scale_back_state(dx, is_increment=True)
         else:
-            vec = self._xk
+            vec = self._xk.copy()
+            if log_pv:
+                dofsp = model.equation_system.dofs_of(["pressure"])
+                vec[dofsp] = np.log(vec[dofsp])
+                # dofsv = model.equation_system.dofs_of(["fluid_specific_volume"])
+                # vec[dofsv] = np.log(vec[dofsv])
 
         model.plot_from_vec(vec, "pressure", is_update, suffix)  # type:ignore
         model.plot_from_vec(vec, "fluid_specific_volume", is_update, suffix)  # type:ignore
         model.plot_from_vec(vec, "s_G", is_update, suffix)  # type:ignore
         # model.plot_from_vec(vec, "y_G", is_update, suffix)
+
+    def _print_cond_p_block(self, model: CFLEModel):
+
+        print("Total")
+        print(f"Cond: {np.linalg.cond(self._J.todense()):.5e}")
+        svd = np.linalg.svdvals(self._J.todense())
+        print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
+
+        print("Whole p-block")
+        sds = model.mdg.subdomains()
+        p = model.pressure(sds)
+        v = model.fluid_specific_volume(sds)
+        dofs = model.equation_system.dofs_of([p, v])
+        A0, _ = model.equation_system.assemble(
+            True,
+            [
+                "mass_balance_equation",
+                "production_pressure_constraint",
+                "local_fluid_volume_constraint",
+            ],
+        )
+        A1 = A0[:, dofs]
+        print(f"Cond: {np.linalg.cond(A1.todense()):.5e}")
+        svd = np.linalg.svdvals(A1.todense())
+        print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
+
+        print("Rock")
+        sds = model.mdg.subdomains(dim=2)
+        p = model.pressure(sds)
+        v = model.fluid_specific_volume(sds)
+        dofs = model.equation_system.dofs_of([p, v])
+        As = model.equation_system.evaluate(
+            [
+                model.mass_balance_equation(sds),
+                model.local_fluid_volume_constraint(sds),
+            ],
+            derivative=True,
+        )
+        A0 = sps.vstack([A.jac for A in As])
+        A1 = A0[:, dofs]
+        print(f"Cond: {np.linalg.cond(A1.todense()):.5e}")
+        svd = np.linalg.svdvals(A1.todense())
+        print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
+
+        print("Fracture")
+        sds = model.mdg.subdomains(dim=1)
+        p = model.pressure(sds)
+        v = model.fluid_specific_volume(sds)
+        dofs = model.equation_system.dofs_of([p, v])
+        As = model.equation_system.evaluate(
+            [
+                model.mass_balance_equation(sds),
+                model.local_fluid_volume_constraint(sds),
+            ],
+            derivative=True,
+        )
+        A0 = sps.vstack([A.jac for A in As])
+        A1 = A0[:, dofs]
+        print(f"Cond: {np.linalg.cond(A1.todense()):.5e}")
+        svd = np.linalg.svdvals(A1.todense())
+        print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
+
+        print("Injector")
+        sds = [sd for sd in model.mdg.subdomains(dim=0) if "injection_well" in sd.tags]
+        p = model.pressure(sds)
+        v = model.fluid_specific_volume(sds)
+        dofs = model.equation_system.dofs_of([p, v])
+        As = model.equation_system.evaluate(
+            [
+                model.mass_balance_equation(sds),
+                model.local_fluid_volume_constraint(sds),
+            ],
+            derivative=True,
+        )
+        A0 = sps.vstack([A.jac for A in As])
+        A1 = A0[:, dofs]
+        print(f"Cond: {np.linalg.cond(A1.todense()):.5e}")
+        svd = np.linalg.svdvals(A1.todense())
+        print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
+
+        print("Producer")
+        sds = [sd for sd in model.mdg.subdomains(dim=0) if "production_well" in sd.tags]
+        p = model.pressure(sds)
+        v = model.fluid_specific_volume(sds)
+        dofs = model.equation_system.dofs_of([p, v])
+        As = model.equation_system.evaluate(
+            [
+                model.pressure_constraint_at_production_wells(sds),
+                model.local_fluid_volume_constraint(sds),
+            ],
+            derivative=True,
+        )
+        A0 = sps.vstack([A.jac for A in As])
+        A1 = A0[:, dofs]
+        print(f"Cond: {np.linalg.cond(A1.todense()):.5e}")
+        svd = np.linalg.svdvals(A1.todense())
+        print(f"SVs min max: {svd.min():.5e} {svd.max():.5e}")
 
     def iteration(self, model: CFLEModel) -> np.ndarray:  # type:ignore[override]
         """An iteration consists of performing the Newton step and obtaining the step
@@ -365,29 +454,12 @@ class CFLESolver(pp.NewtonSolver):
         least_squares = self.params["armijo_least_squares_form"]
 
         self._xk = model.equation_system.get_variable_values(iterate_index=0)
-        col_scales = model._column_scales()
-        # Calcualate norm of current iterate in scaled space.
-        pk = None
-        if model._uses_logp():
-            pk = model.equation_system.get_variable_values(
-                [model.pressure_variable], iterate_index=0
-            )
-        xk = self._xk.copy()
-        if isinstance(col_scales, np.ndarray):
-            xk /= col_scales
-            if pk is not None:
-                dofsp = model.equation_system.dofs_of([model.pressure_variable])
-                xk[dofsp] = np.log(pk)
-
-        self._xk_norm = np.linalg.norm(xk)
+        self._xks_norm = np.linalg.norm(model._scale_state(self._xk))
 
         if do_ntrdc or (do_armijo and not least_squares):
             A, b = model.equation_system.assemble(evaluate_jacobian=True)
-            if isinstance(col_scales, np.ndarray):
-                assert A.shape[1] == col_scales.size
-                if not sps.isspmatrix_csr(A):
-                    A = sps.csr_matrix(A)
-                A.data *= col_scales[A.indices]
+            A = model.params.get("linear_right_preconditioner", lambda x: x)([A])[0]  # type:ignore
+
             self._J = A
             self._F = -b
             self._F_norm = np.linalg.norm(self._F)
@@ -398,21 +470,14 @@ class CFLESolver(pp.NewtonSolver):
             self._F_norm = np.linalg.norm(self._F)
             self._pot = self._F_norm**2 * 0.5
 
-        # if model.time_manager.time_index == 28:
-        #     self._plot(model, None)
-        #     self._plot(model, dx, "raw")
-        dx = self.apply_chops(model, dx)
-        # if model.time_manager.time_index == 28:
-        #     self._plot(model, dx, "after chops")
+        self.apply_chops(model, dx)
 
         if do_ntrdc:
             dx = self.ntrdc(model, dx)
             diverged = np.any(np.isnan(dx))
-            # if model.time_manager.time_index == 28:
-            #     self._plot(model, dx, "after TR")
 
         if do_armijo and not diverged:
-            dx *= self.armijo_line_search(model, dx)
+            dx = self.armijo_line_search(model, dx)
             diverged = np.any(np.isnan(dx))
 
         # Manuel dereferencing for clean-up
@@ -439,31 +504,42 @@ class CFLESolver(pp.NewtonSolver):
         self, model: CFLEModel, trial_increment: np.ndarray
     ) -> float:
         """Objective function for the residual depending on a state vector."""
-        xk1p = self._xk + model._rescale_increment(trial_increment)
+        xk1p = self._xk + model._scale_back_state(trial_increment, is_increment=True)
         model.equation_system.set_variable_values(xk1p, iterate_index=0)
         model.update_derived_quantities()
         res = model.equation_system.assemble(evaluate_jacobian=False)
         return float(np.dot(res, res)) * 0.5
 
-    def apply_chops(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
+    def apply_chops(self, model: CFLEModel, dx: np.ndarray) -> None:
+        """Applies chops to the raw Newton update.
+
+        This includes:
+
+        - Global Newton chop
+        - Appleyard chop
+        - Pressure clip
+
+        Parameters:
+            model: A CFLE model.
+            dx: Global nonlinear increment.
+
+        """
         if self.params["newton_chop"] is not None:
             dx *= self.params["newton_chop"]
         if self.params["appleyard_chop"] is not None:
-            dx = self.appleyard_chop(model, dx)
-        if model._uses_logp():
-            c = self.params["logp_clip"]
-            if c is not None:
-                assert c[0] < 0, "Log-p lower clip must be smaller than 0."
-                assert c[1] > 0, "Log-p upper clip must be greater than 1."
-                dofs = model.equation_system.dofs_of([model.pressure_variable])
-                dx[dofs] = np.clip(dx[dofs], c[0], c[1])
-        return dx
+            self.appleyard_chop(model, dx)
+        if self.params["pressure_clip"] is not None:
+            self.pressure_clip(model, dx)
+        if self.params["volume_clip"] is not None:
+            self.volume_clip(model, dx)
 
-    def appleyard_chop(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
-        """ "Simple chopping of updates for saturatons such that their absolute values
-        is not larger than a defined value ``params['appleyard_chop']``.
+    def appleyard_chop(self, model: CFLEModel, dx: np.ndarray) -> None:
+        """Simple chopping of updates for saturatons and phase fractions such that their
+        absolute values is not larger than a defined value ``params['appleyard_chop']``.
 
-        By default, no chop is applied.
+        Parameters:
+            model: A CFLE model.
+            dx: Global nonlinear increment.
 
         """
         if hasattr(model, "saturation_variables"):
@@ -488,14 +564,53 @@ class CFLESolver(pp.NewtonSolver):
                     dy[idx] = chop * np.sign(dy[idx])
                     dx[dofs] = dy
 
-        return dx
+    def pressure_clip(self, model: CFLEModel, dx: np.ndarray) -> None:
+        """Applies the pressure clip.
 
-    def armijo_line_search(self, model: CFLEModel, dx: np.ndarray) -> float:
+        Parameters:
+            model: A CFLE model.
+            dx: Global nonlinear increment.
+
+        """
+        c = cast(tuple[float, float], self.params["pressure_clip"])
+        assert 0 < c[0] < 1, "Lower p-clip must be in (0, 1)."
+        assert 1 < c[1], "Upper p-clip must be greater than 1."
+
+        dofs = model.equation_system.dofs_of([model.pressure_variable])
+
+        if model._uses_logp():
+            dx[dofs] = np.clip(dx[dofs], c[0], c[1])
+        else:
+            p_k = self._xk[dofs]
+            dxs = model._scale_back_state(dx, is_increment=True)
+            dxs[dofs] = np.clip(dxs[dofs], (c[0] - 1) * p_k, (c[1] - 1) * p_k)
+            dx[dofs] = model._scale_state(dxs, is_increment=True)[dofs]
+
+    def volume_clip(self, model: CFLEModel, dx: np.ndarray) -> None:
+        """Applies the volume clip.
+
+        Parameters:
+            model: A CFLE model.
+            dx: Global nonlinear increment.
+
+        """
+        c = cast(tuple[float, float], self.params["volume_clip"])
+        assert 0 < c[0] < 1, "Lower v-clip must be in (0, 1)."
+        assert 1 < c[1], "Upper v-clip must be greater than 1."
+
+        dofs = model.equation_system.dofs_of([model.fluid_volume_variable])  # type:ignore
+
+        v_k = self._xk[dofs]
+        dxs = model._scale_back_state(dx, is_increment=True)
+        dxs[dofs] = np.clip(dxs[dofs], (c[0] - 1) * v_k, (c[1] - 1) * v_k)
+        dx[dofs] = model._scale_state(dxs, is_increment=True)[dofs]
+
+    def armijo_line_search(self, model: CFLEModel, dx: np.ndarray) -> np.ndarray:
         """Performs the Armijo line search."""
         F_upper = self.params["armijo_start_after_residual_reaches"]
         F_lower = self.params["armijo_stop_after_residual_reaches"]
         if not (F_lower <= self._F_norm <= F_upper):
-            return 1.0
+            return dx
 
         rho_0 = self.params["armijo_line_search_weight"]
         kappa = self.params["armijo_line_search_incline"]
@@ -513,15 +628,16 @@ class CFLESolver(pp.NewtonSolver):
 
         if pot_0 <= tol_pot:
             logger.info(f"Armijo line search potential below cap. Returning 1.")
-            return 1.0
+            return dx
         rho = rho_0
-
+        dx_i = dx.copy()
         start = time.time()
         for i in range(N):
             rho = rho_0**i
 
+            dx_i = self.get_equilibrated_trial_step(model, rho * dx)
             try:
-                pot_i = self.objective_function(model, rho * dx)
+                pot_i = self.objective_function(model, dx_i)
             except:
                 # In case this was the last evaluation and it failed, return nan to flag
                 # divergence. Avoid errors downstream.
@@ -545,10 +661,11 @@ class CFLESolver(pp.NewtonSolver):
 
         if np.isnan(rho):
             logger.warning("Armijo line search failed. Returning nan.")
+            dx_i = np.full_like(dx, np.nan)
         else:
             logger.info(f"Armijo line search determined weight: {rho:.4f} ({i})")
 
-        return rho
+        return dx_i
 
     def ntrdc(self, model: CFLEModel, dx_n: np.ndarray) -> np.ndarray:
         """Newton Trust-Region Dogleg-Cauchy method."""
@@ -578,19 +695,25 @@ class CFLESolver(pp.NewtonSolver):
 
         scales = np.ones(model.equation_system.num_dofs())
         if do_scale:
+            xks = model._scale_state(self._xk)
 
             def apply_scale(name: str) -> None:
                 idx = model.equation_system.dofs_of([name])
-                s = np.linalg.norm(dx_n[idx], ord=np.inf)
+                s = np.linalg.norm(xks[idx], ord=np.inf)
                 scales[idx] = 1.0 if s <= atol_inc else s
 
             # Apply scaling for variables with physical dimensions.
             if isinstance(model, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
                 apply_scale(model.pressure_variable)
+                apply_scale(model.interface_darcy_flux_variable)
+                apply_scale(model.well_flux_variable)
             if isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
                 apply_scale(model.fluid_volume_variable)
             if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
                 apply_scale(model.temperature_variable)
+                apply_scale(model.interface_enthalpy_flux_variable)
+                apply_scale(model.well_enthalpy_flux_variable)
+                apply_scale(model.interface_fourier_flux_variable)
             if isinstance(model, pp.energy_balance.EnthalpyVariable):
                 apply_scale(model.enthalpy_variable)
 
@@ -606,15 +729,15 @@ class CFLESolver(pp.NewtonSolver):
         # NOTE: Iteration counter is increased before Newton iteration. Likewise the
         # time step index.
         if self.iteration_index == 1:
-            rel_tol = max(1.0, self._xk_norm)
+            rel_tol = max(1.0, self._xks_norm)
             self._delta_min = delta_tol * rel_tol
-            if model.time_manager.time_index == 1:
-                self._delta = delta_0 * rel_tol
-                self._delta_max = rel_tol
-                logger.info(
-                    f"NTRDC initial trust-region radius: {self._delta:.4e}. "
-                    # f"maximal trust-region radius: {self._delta_max:.4e}. "
-                )
+            # if model.time_manager.time_index == 1:
+            self._delta = delta_0 * rel_tol
+            self._delta_max = delta_0 * rel_tol
+            logger.info(
+                f"NTRDC initial trust-region radius: {self._delta:.4e}. "
+                # f"maximal trust-region radius: {self._delta_max:.4e}. "
+            )
             logger.info(
                 "NTRDC minimal trust-region radius for time step "
                 f"{model.time_manager.time_index}: {self._delta_min:.4e}."
@@ -647,12 +770,14 @@ class CFLESolver(pp.NewtonSolver):
                     dx_ks = dx_c + tau * dx_
 
             dx_k = dx_ks * scales if do_scale else dx_ks
+            dx_k = self.get_equilibrated_trial_step(model, dx_k)
+            dx_ks = dx_k / scales if do_scale else dx_k
             pot_k = self.objective_function(model, dx_k)
             m_k = pot_0 + np.dot(g, dx_ks) + 0.5 * np.dot(dx_ks, B @ dx_ks)
 
             if (
                 pot_0 <= atol_pot
-                and np.linalg.norm(dx_k) <= rtol_inc * (1 + self._xk_norm)
+                and np.linalg.norm(dx_k) <= rtol_inc * (1 + self._xks_norm)
                 and pot_k <= pot_0 + eps_noise * (1 + pot_0)
             ):
                 logger.info(
@@ -672,7 +797,12 @@ class CFLESolver(pp.NewtonSolver):
             # If quadratic model is a bad approximation (rho << 1), decrease radius.
             if rho < eta_2:
                 delta *= t_1
-            # If quadratic model is a good approximation (rho ~/> 1), increase radius.
+            # If quadratic model is exact approximation (rho ~ 1), increase radius
+            # aggressively.
+            elif rho > 0.95:
+                # delta *= max(10.0, t_2)
+                delta = self._delta_max
+            # If quadratic model is a good approximation, increase radius.
             elif rho > eta_3:
                 delta *= t_2
                 # delta = min(self._delta_max, t_2 * delta)
@@ -709,30 +839,143 @@ class CFLESolver(pp.NewtonSolver):
         F_lower = self.params["anderson_stop_after_residual_reaches"]
         if F_lower <= self._F_norm <= F_upper:
             logger.info("Applying Anderson acceleration.")
-
-            xk = self._xk.copy()
-            pk = None
-            dofsp = None
-            uses_logp = model._uses_logp()
-            if uses_logp:
-                dofsp = model.equation_system.dofs_of([model.pressure_variable])
-                pk = np.log(xk[dofsp])
-            col_scales = model._column_scales()
-            if isinstance(col_scales, np.ndarray):
-                xk /= col_scales
-            if isinstance(pk, np.ndarray):
-                xk[dofsp] = pk
-
+            xk = model._scale_state(self._xk)
             xk1p = self._anderson.apply(xk + dx, dx, self.iteration_index)
             return xk1p - xk
         else:
             return dx
 
     def get_equilibrated_trial_step(
-        self, mode: CFLEModel, dx: np.ndarray
+        self, model: CFLEModel, dx: np.ndarray
     ) -> np.ndarray:
         """Returns a modified update step ``dx_mod`` such that ``x_k + dx_mod`` is a
         solution to the equilibrium system, i.e. the sub-residual of the equilibrium
         equations is zero."""
 
-        raise NotImplementedError("")
+        dxs = model._scale_back_state(dx, is_increment=True)
+        xk1p = self._xk + dxs
+        xk1p_e = xk1p.copy()  # equilibrated state.
+
+        for grid in model.mdg.subdomains():
+            results, mask = model.local_equilibrium(
+                grid,
+                initial_guess_from_current_state=True,
+                update_secondary_quantities=False,
+                state=xk1p,
+            )
+            self.populate_state_with_flash_results(model, xk1p_e, results, [grid], mask)
+
+        _, sec_vars = self.primary_secondary_thermodynamic_variable_names(model)
+        sec_dofs = model.equation_system.dofs_of(sec_vars)
+        dxs[sec_dofs] = xk1p_e[sec_dofs] - self._xk[sec_dofs]
+        return model._scale_state(dxs, is_increment=True)
+
+    def primary_secondary_thermodynamic_variable_names(
+        self, model: CFLEModel
+    ) -> tuple[list[str], list[str]]:
+        """Returns the primary and secondary variables in the thermodynamic sense,
+        based on how the Schur-complement system is defined.
+
+        Parameters:
+            model: A CFLE model.
+
+        Returns:
+            The lists of thermodynamic primary and secondary variable names.
+
+        """
+        assert model._apply_schur_complement_reduction(), (
+            "Cannot determine primary vars if Schur complement not defined."
+        )
+        prim_vars: list[str] = []
+        if isinstance(model, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+            if model.pressure_variable in model.schur_complement_primary_variables:
+                prim_vars.append(model.pressure_variable)
+        if isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
+            if model.fluid_volume_variable in model.schur_complement_primary_variables:
+                prim_vars.append(model.fluid_volume_variable)
+        assert len(prim_vars) == 1, "Expecting either p or v as primary, got both."
+
+        if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
+            if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+                if (
+                    model.temperature_variable
+                    in model.schur_complement_primary_variables
+                ):
+                    prim_vars.append(model.temperature_variable)
+            if isinstance(model, pp.energy_balance.EnthalpyVariable):
+                if model.enthalpy_variable in model.schur_complement_primary_variables:
+                    prim_vars.append(model.enthalpy_variable)
+            assert len(prim_vars) == 2, "Expecting either T or h as primary, got both."
+
+        for comp in model.fluid.components:
+            if model.has_independent_fraction(comp):
+                prim_vars.append(model._overall_fraction_variable(comp))
+
+        sec_vars = set(
+            [var.name for var in model.equation_system.variables]
+        ).difference(prim_vars)
+        return prim_vars, list(sec_vars)
+
+    def populate_state_with_flash_results(
+        self,
+        model: CFLEModel,
+        x: np.ndarray,
+        results: cfle.FlashResults,
+        subdomains: list[pp.Grid],
+        cell_mask: NDArray[np.bool_],
+    ) -> None:
+        """"""
+
+        def update(var: pp.ad.Operator, new_val: np.ndarray) -> None:
+            assert isinstance(var, (pp.ad.MixedDimensionalVariable, pp.ad.Variable)), (
+                f"Operator {var.name} not independent variable."
+            )
+            dofs = model.equation_system.dofs_of([var])
+            x[dofs[cell_mask]] = new_val[cell_mask]
+            # omit update where not sucessful.
+            # TODO do not cancel, but damp update!!!!!!!!!!!!!!!!!!!! Or average over stencil
+
+            cancel = ~cell_mask
+            x[dofs[cancel]] = self._xk[dofs[cancel]]
+
+        # Updating variables which are always unknowns in the equilibrium problem.
+        for j, phase in enumerate(model.fluid.phases):
+            if model.has_independent_fraction(phase):
+                update(phase.fraction(subdomains), results.y[j])
+
+            if model.has_independent_saturation(phase):
+                update(phase.saturation(subdomains), results.sat[j])
+
+            for i, comp in enumerate(phase.components):
+                if model.has_independent_extended_fraction(comp, phase):
+                    var = phase.extended_fraction_of[comp](subdomains)
+                elif model.has_independent_partial_fraction(comp, phase):
+                    var = phase.partial_fraction_of[comp](subdomains)
+                else:
+                    continue
+
+                update(var, results.phases[j].x[i])
+
+        # Updating state variables. If isochoric, update pressure. If isobaric, update
+        # fluid volume.
+        if results.specification >= FlashSpec.vT and isinstance(
+            model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        ):
+            update(model.pressure(subdomains), results.p)
+        elif isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
+            update(model.fluid_specific_volume(subdomains), results.v)
+
+        # Update energy-related variables if applicable.
+        # Nonisothermal -> update temperature.
+        if results.specification not in [
+            FlashSpec.pT,
+            FlashSpec.vT,
+        ] and isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+            update(model.temperature(subdomains), results.T)
+
+        # Enthalpy specified -> update variable if present.
+        if results.specification not in [
+            FlashSpec.ph,
+            FlashSpec.vh,
+        ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
+            update(model.enthalpy(subdomains), results.h)
