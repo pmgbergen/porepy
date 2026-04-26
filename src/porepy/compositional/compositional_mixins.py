@@ -737,9 +737,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         self.fluid.element_density_ratio = self.element_density_ratio
 
-        if self.reactions:
-            self.set_kinetic_reaction_rates(self.reactions)
+        reactions = getattr(self, "reactions", None)
 
+        if reactions:
+            self.set_kinetic_reaction_rates(reactions)
 
     def overall_fraction(
         self,
