@@ -193,7 +193,8 @@ def make_well_3d(
         well_index: int
             Index to assign to the created well.
         points: list of tuples
-            Each tuple is a (x, y, z) coordinate of a point along the well path, in order.
+            Each tuple is a (x, y, z) coordinate of a point along the well
+            path, in order.
     """
 
     return pp.Well(np.array(points).T, well_index)
@@ -428,7 +429,8 @@ def test_intersect_well_fractures_basic_geometries(
 )
 @requires_implementation
 def test_well_intersects_no_fractures(case_name, well, fractures) -> None:
-    """Test that verify that a well with no geometric intersection returns an empty result."""
+    """Test that verify that a well with no geometric intersection returns
+    an empty result."""
 
     result = intersect_well_fractures([well], fractures)
 
