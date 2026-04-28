@@ -3423,7 +3423,7 @@ class PointWellModel:
                 injected_mass.append(
                     np.ones(sd.num_cells)
                     * self.injection_and_production_rates("injection")
-                    * self.ic_values_species_concentration(component, sd) / self.solid.total_porosity / self.fluid.reference_component.molar_density
+                    * self.inj_species_concentration(component, sd) / self.fluid.reference_component.molar_density
                 )
 
         if injected_mass:
@@ -3801,3 +3801,31 @@ class PointWellModel:
         rho_ = rho_ref * self.pressure_exponential(grids) * temperature_factor
         rho_.set_name(f"injection_{density_type}_density")
         return rho_
+
+    def inj_solute_concentration(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        # the bulk concentration of species equals concentration*porosity
+        # here we give the solute concentration in mol/m3
+        return np.zeros(sd.num_cells, dtype=np.float64)
+    
+
+    def inj_species_concentration(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        # minerals are immobile
+        if component in self.fluid.solid_components:
+            ic = np.zeros(sd.num_cells, dtype=np.float64)
+        elif component.name != "H2O":
+            ic= self.inj_solute_concentration(component, sd)
+        elif component.name == "H2O":
+            solute_conc = np.zeros(sd.num_cells)
+            for comp in self.fluid.components:
+                if comp.name != "H2O" and comp not in self.fluid.solid_components:
+                    solute_conc += self.inj_solute_concentration(comp, sd)
+
+            fluid_density = self.fluid.reference_component.molar_density * np.ones(
+                sd.num_cells
+            )
+            ic = fluid_density - solute_conc
+        return ic

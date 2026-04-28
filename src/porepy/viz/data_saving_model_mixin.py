@@ -290,6 +290,35 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
+    def evaluate_and_scale_compositional(
+        self,
+        grids: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+        method_name: str,
+        units: str,
+        component: pp.Component,
+    ) -> np.ndarray:
+        """Evaluate a method for a derived quantity and scale the result to SI units.
+
+        Parameters:
+            grids: Sequence of grids or mortar grids for which the method should be
+                evaluated.
+            method_name: Name of the method to be evaluated.
+            units: Units of the quantity returned by the method. Should be parsable by
+                :meth:`porepy.models.units.Units.convert_units`.
+
+        Returns:
+            Array of values for the quantity, scaled to SI units.
+
+        """
+        vals_scaled = cast(
+            np.ndarray,
+            self.equation_system.evaluate(getattr(self, method_name)(component,grids)),
+        )
+        vals = self.units.convert_units(vals_scaled, units, to_si=True)
+        return vals
+
+
+
 
 class IterationExporting(pp.PorePyModel):
     if TYPE_CHECKING:
@@ -547,4 +576,19 @@ class ExportingTemperatureAnomaly:
             temperature=self.evaluate_and_scale([subdomain],"temperature","K")
             initial_temperature = self.ic_values_temperature(subdomain)
             data.append((subdomain,"temperature_anomaly",temperature- initial_temperature))
+        return data
+    
+
+class ExportingSpeciesConcentration:
+    def data_to_export(self) -> list[DataInput]:
+        data=super().data_to_export()
+        #sds=self.mdg.subdomains(dim=self.nd)
+        sds=self.mdg.subdomains()
+        
+        for comp in self.fluid.components:
+            if comp.name== "Li+":
+                for subdomain in sds:
+                    concentration=self.evaluate_and_scale_compositional([subdomain],"molar_bulk_concentration", "", component=comp)
+                    initial_concentration = self.ic_values_species_concentration(comp, subdomain)
+                    data.append((subdomain,"species_concentration_anomaly",concentration- initial_concentration))
         return data
