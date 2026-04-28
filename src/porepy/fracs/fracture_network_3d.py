@@ -510,10 +510,12 @@ class FractureNetwork3d(FractureNetwork):
             num_orig_subfrac.append(len(frac))
 
             for sfi, sub_frac in enumerate(frac):
-                bounding_lines = gmsh.model.get_boundary([sub_frac], oriented=False)
-                bounding_points = []
-                for line in bounding_lines:
-                    bounding_points += gmsh.model.get_boundary([line], oriented=False)
+                bounding_points = [
+                    pt
+                    for line in gmsh.model.get_boundary([sub_frac], oriented=False)
+                    if line[0] == 1
+                    for pt in gmsh.model.get_boundary([line], oriented=False)
+                ]
 
                 if len(bounding_points) == 0:
                     _elliptic_fracture_outside_domain(
