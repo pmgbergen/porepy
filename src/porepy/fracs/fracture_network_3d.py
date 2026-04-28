@@ -371,6 +371,30 @@ class FractureNetwork3d(FractureNetwork):
             -   Updated mapping from gmsh fracture tags to input fracture indices.
 
         """
+
+        def _update_constraints_after_deletions(
+            constraints: np.ndarray, part_of_fracture_deleted: list[int]
+        ) -> tuple[np.ndarray, dict[int, int]]:
+            updated_constraints = []
+            num_frac_deleted = 0
+            for c in constraints:
+                num_deleted_subfrac = part_of_fracture_deleted.count(c)
+                if num_orig_subfrac[c] == num_deleted_subfrac:
+                    # The full fracture has been removed. It is not among the surviving
+                    # constraints, but we need to adjust the indices of the following
+                    # ones.
+                    num_frac_deleted += 1
+                else:
+                    # The fracture is still present, add it to the new constraints,
+                    # adjusting the index accordingly. Constraints are known to be
+                    # sorted.
+                    updated_constraints.append(int(c) - num_frac_deleted)
+
+                    for key, value in updated_fracture_tag_map.items():
+                        if value == c:
+                            updated_fracture_tag_map[key] = int(c) - num_frac_deleted
+            return np.asarray(updated_constraints), updated_fracture_tag_map
+
         nd = self.nd
         dim_fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
 
@@ -489,28 +513,9 @@ class FractureNetwork3d(FractureNetwork):
         # outside the domain.
         isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
 
-        # Update the constraint indices to account for fully removed fractures.
-        updated_constraints = []
-        # If a fracture has been fully removed, we need to decrement the indices of
-        # all following constraints.
-        num_frac_deleted = 0
-        for c in constraints:
-            num_deleted_subfrac = part_of_fracture_deleted.count(c)
-            if num_orig_subfrac[c] == num_deleted_subfrac:
-                # The full fracture has been removed. It is not among the surviving
-                # constraints, but we need to adjust the indices of the following ones.
-                num_frac_deleted += 1
-            else:
-                # The fracture is still present, add it to the new constraints,
-                # adjusting the index accordingly. Constraints are known to be sorted.
-                updated_constraints.append(int(c) - num_frac_deleted)
-
-                for key, value in updated_fracture_tag_map.items():
-                    if value == c:
-                        updated_fracture_tag_map[key] = int(c) - num_frac_deleted
-
-        constraints = np.asarray(updated_constraints)
-        gmsh_to_porepy_fracture_ind_map = updated_fracture_tag_map
+        constraints, gmsh_to_porepy_fracture_ind_map = (
+            _update_constraints_after_deletions(constraints, part_of_fracture_deleted)
+        )
 
         # Count the number of fracture objects that survived both the fragmentation and
         # the distance-based domain trimming.
