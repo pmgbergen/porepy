@@ -308,11 +308,11 @@ class SolutionStrategy(ModelConfig):
                     self.isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
 
-        # if self.isochoric_npc_done:
-        #     self.update_derived_quantities()
-        #     self.update_interface_fluxes()
-        #     self.iterate_pT()
-        #     self.update_interface_fluxes()
+        if self.isochoric_npc_done:
+            self.update_derived_quantities()
+            self.update_interface_fluxes()
+            # self.iterate_pT()
+            # self.update_interface_fluxes()
 
     def get_internal_energy(self, sd: pp.Grid, prev_time: bool) -> np.ndarray:
         subdomains = [sd]

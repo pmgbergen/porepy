@@ -1271,9 +1271,6 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
 
         """
 
-        logger.debug(
-            f"Equilibration on grid {grid.id} at t={self.time_manager.time:.3e}."
-        )
         if cell_mask is None:
             cell_mask = np.ones(grid.num_cells, dtype=np.bool_)
 
@@ -1383,8 +1380,10 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
                 [grid], results, update_mask
             )
 
-        logger.debug(
+        logger.info(
             f"Fluid equilibrated on grid {grid.id}"
+            + f" at time {self.time_manager.time:.3e}"
+            + f" and iteration {self.nonlinear_solver_statistics.num_iterations}"
             + " (elapsed time: %.5f (s))." % (results.clocktime_solve)
         )
         self.nonlinear_solver_statistics.log_custom_data(

@@ -21,6 +21,8 @@ from scipy.linalg import lstsq
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 
+from porepy.compositional import FlashSpec
+
 if TYPE_CHECKING:
     from .config import CIModel
 
@@ -289,8 +291,8 @@ class CFLESolver(pp.NewtonSolver):
             pressure_clip=None,
             newton_chop=None,
             appleyard_chop=None,
-            atol_objective=1e-8,
-            atol_inc=1e-10,
+            atol_objective=1e-7,
+            atol_inc=1e-8,
             in_physical_space=False,
             do_armijo_line_search=True,
             armijo_line_search_weight=0.9,
@@ -487,7 +489,7 @@ class CFLESolver(pp.NewtonSolver):
         self.apply_chops(model, dx)
 
         dx = self.get_equilibrated_trial_step(model, dx)
-        self.resolve_md_flux_update(model, dx)
+        # self.resolve_md_flux_update(model, dx)
 
         if do_ntrdc:
             dx = self.ntrdc(model, dx)
@@ -633,15 +635,13 @@ class CFLESolver(pp.NewtonSolver):
         least_squares = self.params["armijo_least_squares_form"]
         atol = self.params["atol_objective"]
 
-        tol_pot = max(np.finfo(np.float64).eps, atol**2 / 2)
-
         pot_0 = self._pot
 
         lin_decrease = 0.0
         if not least_squares:
             lin_decrease = float(np.dot(self._grad_pot, dx))
 
-        if pot_0 <= tol_pot:
+        if pot_0 <= atol:
             logger.info(f"Armijo line search potential below cap. Returning 1.")
             return dx
         rho = rho_0
@@ -651,7 +651,7 @@ class CFLESolver(pp.NewtonSolver):
             rho = rho_0**i
 
             try:
-                dx_i = self.get_equilibrated_trial_step(model, rho * dx)
+                # dx_i = self.get_equilibrated_trial_step(model, rho * dx)
                 pot_i = self.objective_function(model, dx_i)
             except:
                 # In case this was the last evaluation and it failed, return nan to flag
@@ -664,7 +664,7 @@ class CFLESolver(pp.NewtonSolver):
             else:
                 break_condition = pot_i <= pot_0 + kappa * rho * lin_decrease
 
-            if break_condition or pot_i <= tol_pot:
+            if break_condition or pot_i <= atol:
                 break
 
         model.nonlinear_solver_statistics.log_custom_data(
@@ -785,16 +785,17 @@ class CFLESolver(pp.NewtonSolver):
                     dx_ks = dx_c + tau * dx_
 
             dx_k = dx_ks * scales if do_scale else dx_ks
-            dx_k = self.get_equilibrated_trial_step(model, dx_k)
-            dx_ks = dx_k / scales if do_scale else dx_k
+            # dx_k = self.get_equilibrated_trial_step(model, dx_k)
+            # dx_ks = dx_k / scales if do_scale else dx_k
             pot_k = self.objective_function(model, dx_k)
             m_k = pot_0 + np.dot(g, dx_ks) + 0.5 * np.dot(dx_ks, B @ dx_ks)
 
-            if (
-                pot_0 <= atol_pot
-                and np.linalg.norm(dx_k) <= rtol_inc * (1 + self._xks_norm)
-                and pot_k <= pot_0 + eps_noise * (1 + pot_0)
-            ):
+            # if (
+            #     pot_0 <= atol_pot
+            #     and np.linalg.norm(dx_k) <= rtol_inc * (1 + self._xks_norm)
+            #     and pot_k <= pot_0 + eps_noise * (1 + pot_0)
+            # ):
+            if pot_k < atol:
                 logger.info(
                     "NTRDC stopping criterion reached: potential and step below "
                     "noise level. Returning current step."
@@ -869,14 +870,9 @@ class CFLESolver(pp.NewtonSolver):
         xk1p = self._xk + dxs
         xk1p_e = xk1p.copy()  # equilibrated state.
 
-        initial_from_current = True
-        if hasattr(model, "isochoric_npc_done"):
-            initial_from_current = not bool(model.isochoric_npc_done)
-
         for grid in model.mdg.subdomains():
             results, mask = model.local_equilibrium(
                 grid,
-                initial_guess_from_current_state=initial_from_current,
                 update_secondary_quantities=False,
                 state=xk1p,
             )
@@ -891,47 +887,50 @@ class CFLESolver(pp.NewtonSolver):
         self, model: CIModel
     ) -> tuple[list[str], list[str]]:
         """Returns the primary and secondary variables in the thermodynamic sense,
-        based on how the Schur-complement system is defined.
+        based on how the local equilibrium is specified.
 
         Parameters:
             model: A CFLE model.
 
         Returns:
             The lists of thermodynamic primary and secondary variable names.
+            The secondary variables are all unknowns of the thermodynamic subproblems.
+            This includes all fractional quantities (except overall fractions),
+            temperature if non-isothermal and local equilibrium is not
+            temperature-based, and pressure if isochoric local equilibrium.
+
+            The primary variables are the set-difference with all other variables.
+            Most notably, they include also the flux variables.
 
         """
-        assert model._apply_schur_complement_reduction(), (
-            "Cannot determine primary vars if Schur complement not defined."
+        sec_vars = (
+            model.phase_fraction_variables
+            + model.fraction_in_phase_variables
+            + model.saturation_variables
         )
-        prim_vars: list[str] = []
-        if isinstance(model, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
-            if model.pressure_variable in model.schur_complement_primary_variables:
-                prim_vars.append(model.pressure_variable)
-        if isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
-            if model.fluid_volume_variable in model.schur_complement_primary_variables:
-                prim_vars.append(model.fluid_volume_variable)
-        assert len(prim_vars) == 1, "Expecting either p or v as primary, got both."
 
-        if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
-            if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
-                if (
-                    model.temperature_variable
-                    in model.schur_complement_primary_variables
-                ):
-                    prim_vars.append(model.temperature_variable)
-            if isinstance(model, pp.energy_balance.EnthalpyVariable):
-                if model.enthalpy_variable in model.schur_complement_primary_variables:
-                    prim_vars.append(model.enthalpy_variable)
-            assert len(prim_vars) == 2, "Expecting either T or h as primary, got both."
+        flash_spec = [
+            x
+            for x in pp.compositional.get_equilibrium_specifications(model)
+            if isinstance(x, FlashSpec)
+        ][0]
 
-        for comp in model.fluid.components:
-            if model.has_independent_fraction(comp):
-                prim_vars.append(model._overall_fraction_variable(comp))
+        if (flash_spec not in [FlashSpec.pT, FlashSpec.vT]) and isinstance(
+            model, pp.energy_balance.VariablesEnergyBalance
+        ):
+            sec_vars.append(model.temperature_variable)
 
-        sec_vars = set(
-            [var.name for var in model.equation_system.variables]
-        ).difference(prim_vars)
-        return prim_vars, list(sec_vars)
+        if flash_spec >= FlashSpec.vT and isinstance(
+            model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        ):
+            sec_vars.append(model.pressure_variable)
+
+        prim_vars = list(
+            set([var.name for var in model.equation_system.variables]).difference(
+                sec_vars
+            )
+        )
+        return prim_vars, sec_vars
 
     def populate_state_with_flash_results(
         self,
@@ -975,27 +974,27 @@ class CFLESolver(pp.NewtonSolver):
 
         # Updating state variables. If isochoric, update pressure. If isobaric, update
         # fluid volume.
-        # if results.specification >= FlashSpec.vT and isinstance(
-        #     model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
-        # ):
-        #     update(model.pressure(subdomains), results.p)
-        # elif isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
-        #     update(model.fluid_specific_volume(subdomains), results.v)
+        if results.specification >= FlashSpec.vT and isinstance(
+            model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
+        ):
+            update(model.pressure(subdomains), results.p)
+        elif isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
+            update(model.fluid_specific_volume(subdomains), results.v)
 
-        # # Update energy-related variables if applicable.
-        # # Nonisothermal -> update temperature.
-        # if results.specification not in [
-        #     FlashSpec.pT,
-        #     FlashSpec.vT,
-        # ] and isinstance(model, pp.energy_balance.VariablesEnergyBalance):
-        #     update(model.temperature(subdomains), results.T)
+        # Update energy-related variables if applicable.
+        # Nonisothermal -> update temperature.
+        if results.specification not in [
+            FlashSpec.pT,
+            FlashSpec.vT,
+        ] and isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+            update(model.temperature(subdomains), results.T)
 
-        # # Enthalpy specified -> update variable if present.
-        # if results.specification not in [
-        #     FlashSpec.ph,
-        #     FlashSpec.vh,
-        # ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
-        #     update(model.enthalpy(subdomains), results.h)
+        # Enthalpy specified -> update variable if present.
+        if results.specification not in [
+            FlashSpec.ph,
+            FlashSpec.vh,
+        ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
+            update(model.enthalpy(subdomains), results.h)
 
     def resolve_md_flux_update(self, model: CIModel, dx: np.ndarray) -> None:
         """Modifies the update for interface and well fluxes such that the

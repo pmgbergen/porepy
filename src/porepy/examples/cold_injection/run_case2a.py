@@ -31,7 +31,7 @@ from porepy.examples.cold_injection.model import (
     NoFluxRediscretization,
 )
 
-P_PRIMARY = False
+V_PRIMARY = True
 ISOCHORIC_NPC = True
 
 APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
@@ -135,10 +135,12 @@ solver_params["armijo_stop_after_residual_reaches"] = 1e-5
 
 solver_params["do_ntrdc"] = True
 solver_params["ntrdc_scale_with_inf"] = True
-solver_params["ntrdc_return_nan"] = False
+solver_params["ntrdc_return_nan"] = True
 solver_params["ntrdc_eta_3"] = 0.5
 solver_params["ntrdc_eta_2"] = 0.1
 solver_params["ntrdc_delta_tol"] = 1e-10
+
+solver_params["in_physical_space"] = True
 
 
 class ModelClass(  # type:ignore
@@ -179,7 +181,7 @@ if __name__ == "__main__":
         f"{timestamp}"
         f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
-        f"_PPRIM_{bool(P_PRIMARY)}"
+        f"_VPRIM_{bool(V_PRIMARY)}"
         f"_STRIDE_{_stride}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
@@ -203,7 +205,7 @@ if __name__ == "__main__":
 
     # Defining sub system for Schur complement reduction.
     set_schur_complement(model)  # type:ignore[arg-type]
-    if not P_PRIMARY:
+    if V_PRIMARY:
         model.schur_complement_primary_variables.remove("pressure")
         model.schur_complement_primary_variables.append("fluid_specific_volume")
     solver_params.update(
