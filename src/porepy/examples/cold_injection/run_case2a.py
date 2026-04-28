@@ -135,10 +135,10 @@ solver_params["armijo_stop_after_residual_reaches"] = 1e-5
 
 solver_params["do_ntrdc"] = True
 solver_params["ntrdc_scale_with_inf"] = True
-solver_params["ntrdc_return_nan"] = True
+solver_params["ntrdc_return_nan"] = False
 solver_params["ntrdc_eta_3"] = 0.5
 solver_params["ntrdc_eta_2"] = 0.1
-solver_params["ntrdc_delta_tol"] = 1e-10
+solver_params["ntrdc_delta_tol"] = 1e-7
 
 solver_params["in_physical_space"] = True
 
