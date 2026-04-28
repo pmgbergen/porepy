@@ -98,8 +98,12 @@ def _verify_1d_grid_geometry(sd: pp.Grid, frac: pp.LineFracture) -> None:
         ([-0.5, 0.2], [False, False]),
         # One fracture inside, one outside, both constraints.
         ([0.2, -0.5], [True, True]),
+        ([-0.5, 0.2], [True, True]),
         # One fracture inside, one outside. Constraint first on the list.
         ([-0.5, 0.2], [True, False]),
+        ([-0.5, 0.2], [False, True]),
+        ([0.2, -0.5], [True, False]),
+        ([0.2, -0.5], [False, True]),
     ],
 )
 def test_meshing_no_intersections(
