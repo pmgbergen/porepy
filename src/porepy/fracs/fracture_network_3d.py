@@ -504,6 +504,11 @@ class FractureNetwork3d(FractureNetwork):
                 # The fracture is still present, add it to the new constraints,
                 # adjusting the index accordingly. Constraints are known to be sorted.
                 updated_constraints.append(int(c) - num_frac_deleted)
+
+                for key, value in updated_fracture_tag_map.items():
+                    if value == c:
+                        updated_fracture_tag_map[key] = int(c) - num_frac_deleted
+
         constraints = np.asarray(updated_constraints)
         gmsh_to_porepy_fracture_ind_map = updated_fracture_tag_map
 
