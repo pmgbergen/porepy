@@ -59,6 +59,12 @@ class MockModel:
     def prepare_simulation(self) -> None:
         pass
 
+    def before_time_step(self) -> None:
+        pass
+
+    def after_time_step_convergence(self) -> None:
+        pass
+
     def after_simulation(self) -> None:
         pass
 
@@ -140,7 +146,9 @@ def test_logging_and_progressbars(
 
     model = MockModel(num_time_steps, num_nl_iterations)
     params = {"progressbars": progressbars}
-    pp.run_time_dependent_model(model, params)
+
+    # MockModel has the wrong type. Ignore mypy.
+    pp.ModelRunner(model, params).run()  # type: ignore
 
     # 1. Check that progressbars were displayed correctly. These are written to stderr.
     captured_stderr = capsys.readouterr().err
