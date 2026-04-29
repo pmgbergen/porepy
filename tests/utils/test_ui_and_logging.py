@@ -135,7 +135,7 @@ def test_logging_and_progressbars(
 
     :func:`~porepy.utils.ui_and_logging.logging_redirect_tqdm_with_level` ensures that
     the level of logging messages is kept when redirect through tqdm. The second part of
-    the test checks that this logging messages keep their models when passed through.
+    the test checks this behavior.
 
     """
     # IMPLEMENTATION NOTE This test is long and test both progressbar and logging
