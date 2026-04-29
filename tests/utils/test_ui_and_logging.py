@@ -128,9 +128,14 @@ def test_logging_and_progressbars(
 ) -> None:
     """Test that progressbars and logging through tqdm work correctly.
 
+    :class:`~porepy.models.model_runner.ModelRunner` and
+    :class:`~porepy.numerics.nonlinear.nonlinear_solvers.NewtonSolver` can employ `tqdm`
+    progressbars to display simulation and solver progress, respectively. The first part
+    of the test checks that the nested progressbars are displayed and updated correctly.
+
     :func:`~porepy.utils.ui_and_logging.logging_redirect_tqdm_with_level` ensures that
-    the level of logging messages is kept when redirect through tqdm. Test that this
-    works for different levels.
+    the level of logging messages is kept when redirect through tqdm. The second part of
+    the test checks that this logging messages keep their models when passed through.
 
     """
     # IMPLEMENTATION NOTE This test is long and test both progressbar and logging
