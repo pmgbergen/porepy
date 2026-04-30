@@ -9,13 +9,12 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
     BoundaryConditionsMechanicsDirNorthSouth,
 )
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.applications.test_utils.models import ContactMechanicsTester
-from porepy.compositional.materials import FractureDamageSolidConstants
-from porepy.models import fracture_damage as damage
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.test_utils.models import add_mixin
+from porepy.applications.test_utils.models import ContactMechanicsTester, add_mixin
+from porepy.compositional.materials import FractureDamageSolidConstants
+from porepy.models import fracture_damage as damage
 
 
 class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
