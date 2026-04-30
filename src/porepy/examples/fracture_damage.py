@@ -578,7 +578,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"Invalid model type: {model_type}")
 
-    model = model_class(params_local)
+    model = model_class(params_local)  # type: ignore[abstract]
     if model_type == "momentum_balance":
         pp.run_time_dependent_model(
             model,

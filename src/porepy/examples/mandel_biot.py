@@ -1489,5 +1489,5 @@ if __name__ == "__main__":
         "units": units,
     }
 
-    model = MandelModel(params=model_params)
+    model = MandelModel(params=model_params)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model)

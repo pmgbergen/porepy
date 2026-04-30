@@ -724,7 +724,7 @@ if __name__ == "__main__":
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
     }
-    model_biot = TerzaghiModel(model_params_poromech)
+    model_biot = TerzaghiModel(model_params_poromech)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model_biot)
 
     p_biot = model_biot.results[0].approx_pressure

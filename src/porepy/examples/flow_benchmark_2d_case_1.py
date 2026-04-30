@@ -177,7 +177,7 @@ if __name__ == "__main__":
             "grid_type": "cartesian",
             "meshing_arguments": {"cell_size": 0.125},
         }
-        model = FlowBenchmark2dCase1Model(model_params)
+        model = FlowBenchmark2dCase1Model(model_params)  # type: ignore[abstract]
         solver_parameters = {
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }

@@ -272,7 +272,7 @@ if __name__ == "__main__":
             "refinement_level": 0,  # 0, 1, or 2 for different mesh refinement levels
         }
 
-        model = FlowBenchmark3dCase2Model(params)
+        model = FlowBenchmark3dCase2Model(params)  # type: ignore[abstract]
         pp.run_time_dependent_model(model, params)
 
         sd_matrix = model.mdg.subdomains(dim=3)[0]

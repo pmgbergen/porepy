@@ -167,7 +167,7 @@ if __name__ == "__main__":
             "grid_type": "simplex",
             "meshing_arguments": {"cell_size": 0.3},
         }
-        model = model_class(model_params)
+        model = model_class(model_params)  # type: ignore[abstract]
         solver_parameters = {
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
