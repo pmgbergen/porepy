@@ -305,7 +305,7 @@ def test_2d_single_fracture(
     model = create_model_with_fracture(
         solid_vals, {}, {}, north_displacement, model_class
     )
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # Create model and run simulation
@@ -368,7 +368,7 @@ def test_poromechanics_model_no_modification():
     Failure of this test would signify rather fundamental problems in the model.
     """
     model = pp.Poromechanics({"times_to_export": []})
-    pp.run_stationary_model(model, {})
+    pp.ModelRunner(model).run()
 
 
 @pytest.mark.parametrize("biot_coefficient", [0.0, 0.5])
@@ -386,7 +386,7 @@ def test_without_fracture(biot_coefficient, model_class):
         "times_to_export": [],
     }
     model = model_class(params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
     sd = model.mdg.subdomains(dim=model.nd)
     u = model.equation_system.evaluate(model.displacement(sd)).reshape(
@@ -415,7 +415,7 @@ def test_without_fracture(biot_coefficient, model_class):
 def test_pull_north_positive_opening(model_class: type):
     """Check solution for a pull on the north side with one horizontal fracture."""
     model = create_model_with_fracture({}, {}, {}, 0.001, model_class)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     _, _s, p_frac, jump, traction = get_variables(model)
 
     # All components should be open in the normal direction
@@ -447,7 +447,7 @@ def test_pull_south_positive_opening(model_class):
 
     model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
     model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # All components should be open in the normal direction
@@ -470,7 +470,7 @@ def test_pull_south_positive_opening(model_class):
 
 def test_push_north_zero_opening():
     model = create_model_with_fracture({}, {}, {}, -0.001, TailoredPoromechanics)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # All components should be closed in the normal direction
@@ -489,7 +489,7 @@ def test_push_north_zero_opening():
 def test_positive_p_frac_positive_opening(model_class):
     model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
     model.params["fracture_source_value"] = 0.004
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     _, _, p_frac, jump, traction = get_variables(model)
 
     # All components should be open in the normal direction
@@ -516,7 +516,7 @@ def test_pull_south_positive_reference_pressure():
     reference_model = create_model_with_fracture({}, {}, {}, 0.0, TailoredPoromechanics)
     reference_model.subtract_p_frac = False
     reference_model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
     u_vals_ref, p_vals_ref, p_frac_ref, jump_ref, traction_ref = get_variables(
         reference_model
     )
@@ -526,7 +526,7 @@ def test_pull_south_positive_reference_pressure():
     )
     model.subtract_p_frac = False
     model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     assert np.allclose(jump, jump_ref)
@@ -574,12 +574,12 @@ def test_unit_conversion(units, model_class):
 
     # Create model and run simulation
     reference_model = model_class(model_reference_params)
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
 
     model_params["units"] = pp.Units(**units)
     model = model_class(model_params)
 
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     variables = [
         model.pressure_variable,
         model.interface_darcy_flux_variable,
@@ -623,7 +623,7 @@ def test_poromechanics_well():
         "times_to_export": [],
     }
     model = PoromechanicsWell(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
 
 @pytest.mark.parametrize(

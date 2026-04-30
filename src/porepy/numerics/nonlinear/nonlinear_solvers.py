@@ -11,8 +11,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-
-# from porepy.numerics.linear_solvers import LinearSolver
+from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
@@ -204,7 +203,7 @@ class NewtonSolver:
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The solver"
-                + " will run without progress bars."
+                " will run without progress bars."
             )
 
         # Check if the user wants a progress bar. Initialize an instance of the

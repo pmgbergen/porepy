@@ -24,22 +24,19 @@ from porepy.viz.solver_statistics import TimeStatistics
 
 
 class LinearSolver:
-    """Wrapper around models that solves linear problems, and calls the methods in the
-    model class before and after solving the problem.
+    """Base solver class for PorePy models, assuming the model is linear and performing
+    only a single linear solve.
+
+    Parameters:
+        params: ``default=None``
+
+            Solver parameters. Defaults to empty dictionary.
+
     """
 
-    def __init__(self, params: Optional[dict] = None) -> None:
-        """Define linear solver.
-
-        Parameters:
-            params (dict): Parameters for the linear solver. Will be passed on to the
-                model class. Thus the contect should be adapted to whatever needed for
-                the problem at hand.
-
-        """
-        if params is None:
-            params = {}
-        self.params = params
+    def __init__(self, params: dict | None = None) -> None:
+        self.params = params if isinstance(params, dict) else {}
+        """Parameters passed during instantiation."""
 
         # Default parameters for convergence and divergence criteria
         if "nl_convergence_criteria" not in self.params:
@@ -62,6 +59,10 @@ class LinearSolver:
     def solve(self, model: SolutionStrategy) -> SimulationStatus:
         """Solve a linear problem defined by the current state of the model.
 
+        The linear solver performs only one iteration and checks whether it converged.
+        Based on that, the methods ``after_nonlinear_convergence`` or
+        ``after_nonlinear_failure`` are called on the model.
+
         Parameters:
             model: Model to be solved.
 
@@ -78,24 +79,17 @@ class LinearSolver:
         # solver. This needs clarification at some point.
 
         # Perform a single (Newton) iteration.
+        model.before_nonlinear_iteration()
         model.assemble_linear_system()
         nonlinear_increment = model.solve_linear_system()
 
-        # Monitor convergence.
-        status, info = self.check_convergence(model, nonlinear_increment)
-
-        # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
-        # there is something wrong with how the linear and non-linear solvers
-        # interact with the models (and it illustrates that the model convention for
-        # the before_nonlinear_* and after_nonlinear_* methods is not ideal). Since
-        # the model's after_nonlinear_convergence may expect that the converged
-        # solution is already stored as an iterate (this may happen if a model is
-        # implemented to be valid for both linear and non-linear problems, as is the
-        # case for ContactMechanics and possibly others). Thus, we first call
-        # after_nonlinear_iteration(), and then after_nonlinear_convergence()
-
-        # Update model status.
+        # Update model status (iterate) before checking convergence, so that the
+        # convergence check uses the updated state. Also, after_nonlinear_convergence
+        # may expect the converged solution to already be stored as an iterate.
         model.after_nonlinear_iteration(nonlinear_increment)
+
+        # Monitor convergence.
+        status, _ = self.check_convergence(model, nonlinear_increment)
 
         # React to convergence status.
         if status.is_converged():

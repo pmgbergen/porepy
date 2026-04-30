@@ -173,7 +173,8 @@ if __name__ == "__main__":
     # @pp.ad.cached_method, however, removing this decorator does not resolve the issue.
 
     model = TracerFlowModel(params)  # type: ignore[abstract]
-    pp.run_time_dependent_model(model, params)
+    runner = pp.ModelRunner(model, params)
+    runner.run()
     pp.plot_grid(
         model.mdg,
         "pressure",

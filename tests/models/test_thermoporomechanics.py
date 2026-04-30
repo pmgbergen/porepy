@@ -131,7 +131,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float, model_class: type
     model = create_fractured_model(
         solid_vals, {}, {"u_north": [0.0, uy_north]}, model_class
     )
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
     # Check that the pressure is linear
     sd = model.mdg.subdomains(dim=model.nd)[0]
@@ -201,7 +201,7 @@ def test_thermoporomechanics_model_no_modification():
 
     """
     model = pp.Thermoporomechanics({"times_to_export": []})
-    pp.run_stationary_model(model, {})
+    pp.ModelRunner(model).run()
 
 
 @pytest.mark.parametrize(
@@ -209,7 +209,7 @@ def test_thermoporomechanics_model_no_modification():
 )
 def test_pull_north_positive_opening(model_class: type):
     model = create_fractured_model({}, {}, {"u_north": [0.0, 0.001]}, model_class)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
     # All components should be open in the normal direction
@@ -236,7 +236,7 @@ def test_pull_south_positive_opening():
     model = create_fractured_model(
         {}, {}, {"u_south": [0.0, -0.001]}, TailoredThermoporomechanics
     )
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
     # All components should be open in the normal direction
@@ -261,7 +261,7 @@ def test_pull_south_positive_opening():
 )
 def test_push_north_zero_opening(model_class: type):
     model = create_fractured_model({}, {}, {"u_north": [0.0, -0.001]}, model_class)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
 
     # All components should be closed in the normal direction
@@ -282,7 +282,7 @@ def test_positive_p_frac_positive_opening(model_class):
     model = create_fractured_model(
         {}, {}, {"fracture_source_value": 0.004}, model_class
     )
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
 
     # All components should be open in the normal direction.
@@ -358,7 +358,7 @@ def test_robin_boundary_flux():
     }
 
     model = TailoredPoromechanicsRobin(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
     sd = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
 
@@ -466,12 +466,12 @@ def test_unit_conversion(units: dict, model_class: type):
 
     # Create model and run simulation
     reference_model = model_class(model_params_ref)
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
 
     model_params["units"] = pp.Units(**units)
     model = model_class(model_params)
 
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     variables = [
         model.pressure_variable,
         model.interface_darcy_flux_variable,
@@ -524,4 +524,4 @@ def test_thermoporomechanics_well():
         "times_to_export": [],
     }
     model = ThermoporomechanicsWell(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
