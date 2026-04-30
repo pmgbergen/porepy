@@ -1448,21 +1448,11 @@ class MandelModel(  # type: ignore[misc]
 
 # If executed as a script, run the verification
 if __name__ == "__main__":
-    # Initial time step -------.
-    dt_init = 0.01 * pp.MINUTE
-    # Simulation end time -----.
-    t_end = 1 * pp.MINUTE
-    # min max time step size is --- and ---, respectively.
-    dt_min_max = (1e-4 * dt_init, 1 * pp.MINUTE)
-    # parameter for Newton sovler
-    max_iterations = 100
-    newton_tol = 1e-6
-    newton_tol_increment = newton_tol
 
     # Set material constants
     material_constants = {
-        "solid": pp.SolidConstants(**mandel_solid_constants),
-        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),    # type: ignore[arg-type]
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),    # type: ignore[arg-type]
     }
 
     # Set scaling
