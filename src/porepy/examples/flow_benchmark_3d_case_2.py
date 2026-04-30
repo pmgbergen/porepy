@@ -277,7 +277,9 @@ if __name__ == "__main__":
 
         sd_matrix = model.mdg.subdomains(dim=3)[0]
         cc = sd_matrix.cell_centers
-        pressure = model.equation_system.evaluate(model.pressure([sd_matrix]))
+        pressure = cast(
+            np.ndarray, model.equation_system.evaluate(model.pressure([sd_matrix]))
+        )
 
         # Collect pressure solution along the diagonal of the domain.
         x0 = np.array([0.0, 0.0, 0.0])
