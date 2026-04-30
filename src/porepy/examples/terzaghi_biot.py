@@ -718,8 +718,8 @@ if __name__ == "__main__":
     # Run Terzaghi model with full poromechanics model
     model_params_poromech = {
         "material_constants": {
-            "solid": pp.SolidConstants(**terzaghi_solid_constants),   # type: ignore[arg-type]
-            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),   # type: ignore[arg-type]
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),  # type: ignore[arg-type]
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),  # type: ignore[arg-type]
         },
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
