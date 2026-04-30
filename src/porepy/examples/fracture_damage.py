@@ -526,7 +526,7 @@ def common_params(time_steps: int, regime: str) -> dict:
     params_local.update(
         {
             "material_constants": {
-                "solid": FractureDamageSolidConstants(**solid_params_local)
+                "solid": FractureDamageSolidConstants(**solid_params_local)  # type: ignore[arg-type]
             },
             "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
         }
@@ -553,8 +553,8 @@ if __name__ == "__main__":
             "interface_displacement_parameter_values"
         ][:dim]
         model_class = add_mixin(
-            SquareDomainOrthogonalFractures,
-            IsotropicFractureDamage,
+            SquareDomainOrthogonalFractures,  # type: ignore[type-abstract]
+            IsotropicFractureDamage,  # type: ignore[type-abstract]
         )
 
     elif model_type == "anisotropic":
@@ -563,16 +563,16 @@ if __name__ == "__main__":
             "interface_displacement_parameter_values"
         ][:dim]
         model_class = add_mixin(
-            SquareDomainOrthogonalFractures,
-            AnisotropicFractureDamage,
+            SquareDomainOrthogonalFractures,  # type: ignore[type-abstract]
+            AnisotropicFractureDamage,  # type: ignore[type-abstract]
         )
 
     elif model_type == "momentum_balance":
         params_local["exact_solution"] = ExactSolutionIsotropic
         params_local["north_displacements"] = params_local["north_displacements"][:dim]
         model_class = add_mixin(
-            SquareDomainOrthogonalFractures,
-            FractureDamageMomentumBalance,
+            SquareDomainOrthogonalFractures,  # type: ignore[type-abstract]
+            FractureDamageMomentumBalance,  # type: ignore[type-abstract]
         )
 
     else:
