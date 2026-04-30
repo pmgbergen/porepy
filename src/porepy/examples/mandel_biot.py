@@ -1448,11 +1448,10 @@ class MandelModel(  # type: ignore[misc]
 
 # If executed as a script, run the verification
 if __name__ == "__main__":
-
     # Set material constants
     material_constants = {
-        "solid": pp.SolidConstants(**mandel_solid_constants),    # type: ignore[arg-type]
-        "fluid": pp.FluidComponent(**mandel_fluid_constants),    # type: ignore[arg-type]
+        "solid": pp.SolidConstants(**mandel_solid_constants),  # type: ignore[arg-type]
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),  # type: ignore[arg-type]
     }
 
     # Set scaling
