@@ -163,23 +163,26 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
 ):
     """Complete model class for case 1 from the 2d flow benchmark."""
 
-# If executed as main, run simulation. 
-if __name__ == "__main__": 
-    solid_constants = [solid_constants_blocking_fractures, solid_constants_conductive_fractures]
-    for solid_constants, grid, discr in zip(solid_constants, ["cartesian", "simplex"], ["tpfa", "mpfa"]):
-        # We use default fluid parameters but tailored solid parameters.
-        # Note that the cell size needs to match the fracture geometry for the cartesian grid.
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    # We run both the conductive and blocking fracture cases.
+    solid_constants = [
+        solid_constants_blocking_fractures,
+        solid_constants_conductive_fractures,
+    ]
+    for solid_constant in solid_constants:
         model_params = {
-            "material_constants": {"solid": solid_constants},
-            "grid_type": grid,
+            "material_constants": {"solid": solid_constant},
+            "grid_type": "cartesian",
             "meshing_arguments": {"cell_size": 0.125},
-            "flux_discretization": discr,
-            "darcy_flux_discretization": discr,
         }
-        # Empty because we assumed to use the default param values inherently related the solver
         model = FlowBenchmark2dCase1Model(model_params)
-        pp.run_time_dependent_model(model)
-        title = f"Pressure distribution. \nFracture permeability {solid_constants.fracture_permeability:.0e}, {grid} grid, {discr} discretization."
+        solver_parameters = {
+            "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+        }
+        pp.run_time_dependent_model(model, solver_parameters)
+        title = f"Pressure distribution. \nFracture permeability {solid_constant.fracture_permeability:.0e}."
         pp.plot_grid(
             model.mdg,
             model.pressure_variable,
@@ -188,5 +191,5 @@ if __name__ == "__main__":
             title=title,
             pointsize=20,
             fracturewidth_1d=3,
-            linewidth=0.5
+            linewidth=0.5,
         )

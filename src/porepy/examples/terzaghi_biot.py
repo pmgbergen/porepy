@@ -712,9 +712,9 @@ class TerzaghiModel(  # type: ignore[misc]
 
     """
 
+
 # If executed as a script, run the verification
 if __name__ == "__main__":
-
     # Run Terzaghi model with full poromechanics model
     model_params_poromech = {
         "material_constants": {
@@ -729,9 +729,3 @@ if __name__ == "__main__":
 
     p_biot = model_biot.results[0].approx_pressure
     u_biot = model_biot.results[0].approx_consolidation_degree
-
-    #plt.plot(p_biot, label="Pressure")
-    #plt.plot(u_biot, label="Consolidation degree")
-    #plt.xlabel("Time [s]")
-    #plt.legend()
-    #plt.show()  

@@ -1445,10 +1445,11 @@ class MandelModel(  # type: ignore[misc]
 
     """
 
+
 # If executed as a script, run the verification
 if __name__ == "__main__":
     # Initial time step -------.
-    dt_init = 0.01*pp.MINUTE
+    dt_init = 0.01 * pp.MINUTE
     # Simulation end time -----.
     t_end = 1 * pp.MINUTE
     # min max time step size is --- and ---, respectively.
@@ -1486,8 +1487,7 @@ if __name__ == "__main__":
         "time_manager": time_manager,
         "plot_results": False,
         "units": units,
-        }
+    }
 
     model = MandelModel(params=model_params)
     pp.run_time_dependent_model(model=model)
-
