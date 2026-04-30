@@ -16,7 +16,6 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import add_mixin
-from porepy.compositional.materials import FractureDamageSolidConstants
 
 
 class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):

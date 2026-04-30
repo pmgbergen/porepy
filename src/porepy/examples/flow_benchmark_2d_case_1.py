@@ -171,6 +171,7 @@ if __name__ == "__main__":
         solid_constants_blocking_fractures,
         solid_constants_conductive_fractures,
     ]
+
     for solid_constant in solid_constants:
         model_params = {
             "material_constants": {"solid": solid_constant},
@@ -182,7 +183,10 @@ if __name__ == "__main__":
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
         pp.run_time_dependent_model(model, solver_parameters)
-        title = f"Pressure distribution. \nFracture permeability {solid_constant.fracture_permeability:.0e}."
+        title = (
+            "Pressure distribution.\n"
+            f"Fracture permeability {solid_constant.fracture_permeability:.0e}."
+        )
         pp.plot_grid(
             model.mdg,
             model.pressure_variable,
