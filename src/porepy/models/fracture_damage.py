@@ -1,3 +1,34 @@
+r"""Fracture damage models.
+
+The formulation used here is described in Stefansson et al. in preparation. It includes
+friction for both dilation and friction damage, and the damage can be anisotropic or
+isotropic.
+
+The main components are the following:
+    1. History variables.
+    2. Equations for the history variables, which are convolution integrals over the
+       history of the plastic displacement jump. The equations contain a damage
+       intensity coefficient as well as a function describing the length of shear,
+       respectively c and l in the paper.
+        .. math::
+
+            \Lambda^{\alpha} = \int_0^t c^{\alpha} l dt,
+
+        where :math:`\alpha` is either friction or dilation damage. The damage intensity
+        coefficient is specified in constitutive_laws.py.
+    3. Constitutive laws that compute the damage from the history variables and modify
+       the friction and dilation according to the damage. c depends on type of damage
+       (friction or dilation) and l depends on the damage being anisotropic or
+       isotropic. The modification of the friction and dilation is done by multiplying
+       the non-damaged quantity by the factor
+
+        .. math::
+
+            d^{\alpha} = d_0^{\alpha} + (1 - d_0^{\alpha}) \exp(-\Lambda^{\alpha}),
+
+        where :math:`d_0^{\alpha}` is the initial damage for type :math:`\alpha`.
+"""
+
 from functools import partial
 from typing import Callable, cast
 
@@ -356,8 +387,8 @@ class FrictionDamageEquation(FractureDamageEquations):
 class AnisotropicFractureDamageLength(pp.PorePyModel):
     """Anisotropic damage equations for both friction and dilation.
 
-    When combined with both ``class:FrictionDamageEquation`` and
-    ``class:DilationDamageEquation``, the use of a single damage length method implies a
+    When combined with both :class:`FrictionDamageEquation` and
+    :class:`DilationDamageEquation`, the use of a single damage length method implies a
     unified treatment of damage in both friction and dilation.
     """
 
@@ -473,8 +504,8 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
 class IsotropicFractureDamageLength(pp.PorePyModel):
     """Isotropic damage equations for both friction and dilation.
 
-    When combined with both ``class:FrictionDamageEquation`` and
-    ``class:DilationDamageEquation``, the use of a single damage length method
+    When combined with both :class:`FrictionDamageEquation` and
+    :class:`DilationDamageEquation`, the use of a single damage length method
     implies a unified treatment of damage in both friction and dilation.
     """
 
@@ -488,12 +519,9 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Integrand for the isotropic damage equation.
 
-
-
         Parameters:
-            time_step_index: Index of the time step.
             subdomains: List of subdomains where the damage is defined.
-            degradation: Function to compute the degradation factor.
+            time_step_index: Index of the time step.
 
         Returns:
             Tuple containing the contribution to the equation and the displacement

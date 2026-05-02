@@ -4272,7 +4272,17 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
 
 
 class FractureDamageCoefficients(pp.PorePyModel):
-    """Fracture damage coefficients according to Gao et al. (2024)."""
+    r"""Fracture damage coefficients according to Gao et al. (2024). These are used for
+    computing the history variables according to
+
+    ... math::
+        \Lambda^{\alpha} = \int_0^t c^{\alpha} l dt
+
+    where :math:`c^{\alpha}` is the damage coefficient for damage type :math:`\alpha` (
+    friction or dilation) and :math:`l` is a length function defined in
+    :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
+    :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength`.
+    """
 
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the characteristic contact traction of the fracture."""
@@ -4421,21 +4431,29 @@ class FractureDamageCoefficients(pp.PorePyModel):
 
 
 class FrictionDamage(pp.PorePyModel):
-    """Frictional damage relations.
+    r"""Frictional damage relations.
 
-    The frictional damage is computed from the history variable h, according to J. White
-    (2014) https://doi.org/10.1002/nag.2247, as
+    This class implements
+        1. the computation of the friction coefficient from the frictional damage,
+        2. the computation of the friction damage from the history variable.
 
-    .. math::
-        d = d_0 + (1 - d_0)  exp⁡(-h)
 
-    where :math:`d_0` is the initial friction damage. The damage is used to compute the
-    friction coefficient according to
+    The friction damage is the factor by which the friction coefficient is modified
+    compared to the non-damaged case:
 
     .. math::
         F = d F_0,
 
-    where :math:`F_0` is the non-damaged friction coefficient.
+    where :math:`F_0` is the non-damaged friction coefficient. d is dimensionless and
+    takes values between 0 and 1, where 0 means no friction and 1 means intact friction.
+    The damage coefficient is computed from the history variable :math:`\Lambda`,
+    according to J. White (2014) https://doi.org/10.1002/nag.2247 and Stefansson in
+    preparation, as
+
+    .. math::
+        d = d_0 + (1 - d_0) \exp(-\Lambda)
+
+    where :math:`d_0` is the initial friction damage.
 
     """
 
@@ -4506,22 +4524,26 @@ class FrictionDamage(pp.PorePyModel):
 
 
 class DilationDamage(pp.PorePyModel):
-    """Dilation damage relations.
+    r"""Dilation damage relations.
 
+    This class implements
+        1. the computation of the shear dilation gap from the dilation damage.
+        2. the computation of the dilation damage from the history variable.
 
-    The dilation damage is computed from the history variable h according to J. White
-    (2014) https://doi.org/10.1002/nag.2247, as
-
-    .. math::
-        d = d_0 + (1 - d_0)  exp⁡(-h)
-
-    where :math:`d_0` is the initial dilation  damage. The damage is used to compute the
-    shear dilation gap according to
+    The dilation damage is the factor by which shear dilation is modified compared to
+    the non-damaged case:
 
     .. math::
         g = d g_0,
 
-    where :math:`g_0` is the non-damaged dilation gap.
+    where :math:`g_0` is the non-damaged dilation gap. The dilation damage is computed
+    from the history variable :math:`\Lambda` according to J. White (2014)
+    https://doi.org/10.1002/nag.2247, as
+
+    .. math::
+        d = d_0 + (1 - d_0)  \exp⁡(-\Lambda)
+
+    where :math:`d_0` is the initial dilation  damage.
 
     """
 

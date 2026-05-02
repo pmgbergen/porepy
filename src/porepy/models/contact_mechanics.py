@@ -429,8 +429,9 @@ class InitialConditionsContactTraction(pp.InitialConditionMixin):
             sd: A subdomain in the md-grid.
 
         Returns:
-            The initial displacement values on the matrix with
-            ``shape=(sd.num_cells * nd,)``. Defaults to zero array.
+            The initial traction values on the matrix with
+            ``shape=(sd.num_cells * nd,)``. Defaults to zero in tangential direction and
+            -1 in normal direction.
 
         """
         # Contact as initial guess. Ensure traction is consistent with zero jump, which
