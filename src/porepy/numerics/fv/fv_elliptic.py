@@ -92,7 +92,9 @@ class FVElliptic(Discretization):
         }
         if matrix_key in recognised:
             return {GridEntity.faces: 1}
-        return {}
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
+        )
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
@@ -120,7 +122,11 @@ class FVElliptic(Discretization):
             "vector_source": {GridEntity.cells: nd},
             "bound_pressure_vector_source": {GridEntity.cells: nd},
         }
-        return mapping.get(matrix_key, {})
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
+        )
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict

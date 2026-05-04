@@ -354,8 +354,8 @@ class Tpsa(Discretization):
 
         Tpsa produces three kinds of face-row matrices:
         * Stress rows: ``nd`` DOFs per face (displacement/traction vectors).
-        * Rotation rows: ``nrot = nd*(nd-1)//2`` DOFs per face (scalar in 2d, 3-vector
-          in 3d).
+        * Rotation rows: ``nrot = 3 if nd == 3 else 1`` DOFs per face (scalar in 2d,
+          3-vector in 3d).
         * Scalar rows: 1 DOF per face (mass/pressure quantities).
 
         Parameters:
@@ -370,7 +370,7 @@ class Tpsa(Discretization):
         """
         from porepy.numerics.ad._grid_entity import GridEntity
 
-        nrot = nd * (nd - 1) // 2
+        nrot = 3 if nd == 3 else 1
 
         nd_rows = {
             "stress_displacement",
@@ -398,7 +398,9 @@ class Tpsa(Discretization):
             return {GridEntity.faces: nrot}
         if matrix_key in scalar_rows:
             return {GridEntity.faces: 1}
-        return {}
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
+        )
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
@@ -417,7 +419,7 @@ class Tpsa(Discretization):
         """
         from porepy.numerics.ad._grid_entity import GridEntity
 
-        nrot = nd * (nd - 1) // 2
+        nrot = 3 if nd == 3 else 1
 
         mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
             # Primary coupling matrices
@@ -438,7 +440,11 @@ class Tpsa(Discretization):
             "bound_displacement_rotation_cell": {GridEntity.cells: nrot},
             "bound_displacement_solid_pressure_cell": {GridEntity.cells: 1},
         }
-        return mapping.get(matrix_key, {})
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
+        )
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, sd_data: dict
