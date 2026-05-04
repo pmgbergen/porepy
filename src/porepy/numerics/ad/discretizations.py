@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from porepy.utils.porepy_types import discretization_type
 
 __all__ = [
-    "Discretization",
+    "DiscretizationAd",
     "BiotAd",
     "MpsaAd",
     "TpsaAd",
@@ -43,7 +43,7 @@ __all__ = [
 ]
 
 
-class Discretization(abc.ABC):
+class DiscretizationAd(abc.ABC):
     """General/utility methods for AD discretization classes.
 
     The init of the children classes below typically calls wrap_discretization
@@ -86,7 +86,7 @@ class Discretization(abc.ABC):
 # Mechanics related discretizations
 
 
-class BiotAd(Discretization):
+class BiotAd(DiscretizationAd):
     """Ad wrapper around the Biot discretization class.
 
     For description of the method, we refer to the standard Biot class.
@@ -133,7 +133,7 @@ class BiotAd(Discretization):
         )
 
 
-class MpsaAd(Discretization):
+class MpsaAd(DiscretizationAd):
     def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Mpsa(keyword)
@@ -152,7 +152,7 @@ class MpsaAd(Discretization):
         pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
-class TpsaAd(Discretization):
+class TpsaAd(DiscretizationAd):
     def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Tpsa(keyword)
@@ -191,7 +191,7 @@ class TpsaAd(Discretization):
 ## Flow related
 
 
-class MpfaAd(Discretization):
+class MpfaAd(DiscretizationAd):
     def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Mpfa(keyword)
@@ -208,7 +208,7 @@ class MpfaAd(Discretization):
         pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
-class TpfaAd(Discretization):
+class TpfaAd(DiscretizationAd):
     def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Tpfa(keyword)
@@ -225,7 +225,7 @@ class TpfaAd(Discretization):
         pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
-class UpwindAd(Discretization):
+class UpwindAd(DiscretizationAd):
     def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
         self.subdomains = subdomains
         self._discretization = pp.Upwind(keyword)
@@ -238,7 +238,7 @@ class UpwindAd(Discretization):
         pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
-class UpwindCouplingAd(Discretization):
+class UpwindCouplingAd(DiscretizationAd):
     def __init__(self, keyword: str, interfaces: list[pp.MortarGrid]) -> None:
         self.interfaces = interfaces
         self._discretization = pp.UpwindCoupling(keyword)

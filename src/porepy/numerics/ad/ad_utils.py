@@ -64,7 +64,7 @@ def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
 
 
 def wrap_discretization(
-    obj: pp.ad.Discretization,
+    obj: pp.ad.DiscretizationAd,
     discr: Discretization | InterfaceDiscretization,
     subdomains: Optional[list[pp.Grid]] = None,
     interfaces: Optional[list[pp.MortarGrid]] = None,
