@@ -372,15 +372,17 @@ class FractureNetwork3d(FractureNetwork):
 
         """
 
-        def _elliptic_fracture_outside_domain(
+        def _check_elliptic_fracture_outside_domain(
             loc_keep: np.ndarray,
             frac_ind: int,
+            sub_frac: tuple[int, int],
             partly_deleted: list[int],
             updated_map: dict[int, int],
         ) -> None:
-            # This is most likely a disc fracture, which has no bounding lines/points.
-            # Simply do a distance check between the fracture and the domain.
+            """Helper function to check if an elliptic fracture is outside the domain.
 
+            Updates to the fracture bookkeeping system are done in-place.
+            """
             # If this assertion fails, this indicates that we have produced a
             # non-disc domain without boundary lines/points. This case must be
             # handled if it ever arises.
@@ -401,13 +403,18 @@ class FractureNetwork3d(FractureNetwork):
                     frac_ind
                 ]
 
-        def _polygon_fracture_outside_domain(
+        def _check_polygon_fracture_outside_domain(
             loc_keep: np.ndarray,
             frac_ind: int,
+            sub_frac: tuple[int, int],
             part_of_fracture_deleted: list[int],
             updated_fracture_tag_map: dict[int, int],
             bounding_points: list[tuple[int, int]],
         ) -> None:
+            """Helper function to check if a polygonal fracture is outside the domain.
+
+            Updates to the fracture bookkeeping system are done in-place.
+            """
             # For each bounding point, compute the minimum distance to the different
             # parts of the domain (the domain may have been split in multiple parts
             # during fragmentation). Note to self: We cannot check the sub-surface
@@ -442,24 +449,27 @@ class FractureNetwork3d(FractureNetwork):
         def _update_constraints_after_deletions(
             constraints: np.ndarray, part_of_fracture_deleted: list[int]
         ) -> tuple[np.ndarray, dict[int, int]]:
+            """Helper function to update constraints and mapping between gmsh and porepy
+            fracture indices after deletion of fractures that are outside the domain.
+            """
             updated_constraints = []
-            num_frac_deleted = 0
+            num_fracs_deleted = 0
             for c in constraints:
                 num_deleted_subfrac = part_of_fracture_deleted.count(c)
                 if num_orig_subfrac[c] == num_deleted_subfrac:
                     # The full fracture has been removed. It is not among the surviving
                     # constraints, but we need to adjust the indices of the following
                     # ones.
-                    num_frac_deleted += 1
+                    num_fracs_deleted += 1
                 else:
                     # The fracture is still present, add it to the new constraints,
                     # adjusting the index accordingly. Constraints are known to be
                     # sorted.
-                    updated_constraints.append(int(c) - num_frac_deleted)
+                    updated_constraints.append(int(c) - num_fracs_deleted)
 
                     for key, value in updated_fracture_tag_map.items():
                         if value == c:
-                            updated_fracture_tag_map[key] = int(c) - num_frac_deleted
+                            updated_fracture_tag_map[key] = int(c) - num_fracs_deleted
             return np.asarray(updated_constraints), updated_fracture_tag_map
 
         nd = self.nd
@@ -518,16 +528,18 @@ class FractureNetwork3d(FractureNetwork):
                 ]
 
                 if len(bounding_points) == 0:
-                    _elliptic_fracture_outside_domain(
+                    _check_elliptic_fracture_outside_domain(
                         loc_keep,
                         frac_ind,
+                        sub_frac,
                         part_of_fracture_deleted,
                         updated_fracture_tag_map,
                     )
                 else:
-                    _polygon_fracture_outside_domain(
+                    _check_polygon_fracture_outside_domain(
                         loc_keep,
                         frac_ind,
+                        sub_frac,
                         part_of_fracture_deleted,
                         updated_fracture_tag_map,
                         bounding_points,
