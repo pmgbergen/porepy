@@ -510,8 +510,8 @@ if __name__ == "__main__":
 
     # The contact mechanics models (isotropic and anisotropic) are configured using the
     # parameter dictionary with the key "interface_displacement_parameter_values",
-    # while the momentum balance model uses the key "north_displacements" to provide time-
-    # dependent displacement boundary conditions.
+    # while the momentum balance model uses the key "north_displacements" to provide
+    # time-dependent displacement boundary conditions.
 
     # The default example is set to the "isotropic" type of model with a "dilation"
     # damage regime in 2D.
@@ -520,10 +520,10 @@ if __name__ == "__main__":
         """Build common parameters used for three different fracture damage models.
 
         Parameters:
-        time_steps: Number of time steps to run the model for.
-        regime: Damage regime, which can be "dilation", "friction", or "both". This
-            determines the additional parameters to be added to the solid parameters,
-            and thus which damage mechanism(s) are active.
+            time_steps: Number of time steps to run the model for.
+            regime: Damage regime, which can be "dilation", "friction", or "both". This
+                determines the additional parameters to be added to the solid parameters,
+                and thus which damage mechanism(s) are active.
 
         Returns:
             Dictionary of parameters to be passed on model initialization.
@@ -549,8 +549,8 @@ if __name__ == "__main__":
             {
                 "material_constants": {
                     "solid": FractureDamageSolidConstants(
-                        **solid_params_local
-                    )  # type: ignore[arg-type]
+                        **solid_params_local  # type: ignore[arg-type]
+                    )
                 },
                 "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
             }
