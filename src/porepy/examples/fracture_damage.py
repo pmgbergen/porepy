@@ -521,9 +521,9 @@ if __name__ == "__main__":
 
         Parameters:
             time_steps: Number of time steps to run the model for.
-            regime: Damage regime, which can be "dilation", "friction", or "both". This
-                determines the additional parameters to be added to the solid parameters,
-                and thus which damage mechanism(s) are active.
+            regime: Damage regime, which can be "dilation", "friction", or "both".
+                This determines the additional parameters to be added to the solid
+                parameters, and thus which damage mechanism(s) are active.
 
         Returns:
             Dictionary of parameters to be passed on model initialization.
