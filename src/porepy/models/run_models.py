@@ -173,7 +173,7 @@ def _run_iterative_model(model, params: dict) -> None:
             )
             time_progressbar = progressbar_class(
                 range(expected_time_steps),
-                desc="time loop",
+                desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
             )
@@ -183,8 +183,8 @@ def _run_iterative_model(model, params: dict) -> None:
 
         # Time loop.
         while not model.time_manager.final_time_reached():
-            time_progressbar.set_description_str(
-                f"Time step {model.time_manager.time_index + 1}"
+            time_progressbar.set_postfix_str(
+                f"Time step size {model.time_manager.dt:.2e}"
             )
             time_step()
             # Update progressbar length. Currently, there is no convergence check

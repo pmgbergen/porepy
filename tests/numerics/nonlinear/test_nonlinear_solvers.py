@@ -16,6 +16,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusCollection,
     SimulationStatus,
 )
+from porepy.utils.ui_and_logging import DummyProgressBar
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
 
@@ -917,6 +918,10 @@ def test_after_nonlinear_loop(
     model = MockModel()
     solver = default_newton_solver
 
+    # Mock the solver progressbar. Usually it is initialized in
+    # NewtonSolver.before_nonlinear_loop, which is never called in this test.
+    solver.solver_progressbar = DummyProgressBar()
+
     # Minimal mimicking of loop.
     model.nonlinear_solver_statistics.simulation_status_history = [
         SimulationStatus.SUCCESSFUL
@@ -935,6 +940,10 @@ def test_before_nonlinear_iteration(default_newton_solver):
     # Init model and solver.
     model = MockModel(nonlinear_increment_history=[2.0], residual_history=[1.0])
     solver = default_newton_solver
+
+    # Mock the solver progressbar. Usually it is initialized in
+    # NewtonSolver.before_nonlinear_loop, which is never called in this test.
+    solver.solver_progressbar = DummyProgressBar()
 
     # Check initial iteration index.
     assert solver.iteration_index == 0
@@ -968,6 +977,10 @@ def test_after_nonlinear_iteration(
     # Init model and solver.
     model = MockModel()
     solver = default_newton_solver
+
+    # Mock the solver progressbar. Usually it is initialized in
+    # NewtonSolver.before_nonlinear_loop, which is never called in this test.
+    solver.solver_progressbar = DummyProgressBar()
 
     # Mock the nonlinear increment and residual for the last iteration.
     model.nonlinear_increment = np.array([inc])
