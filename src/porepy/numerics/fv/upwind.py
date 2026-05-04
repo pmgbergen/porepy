@@ -6,6 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad._grid_entity import GridEntity
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
@@ -474,6 +475,70 @@ class UpwindCoupling(InterfaceDiscretization):
 
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells
+
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """UpwindCoupling matrices have one Dof per cell in their rows.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind_primary"``).
+            nd: Spatial dimension (unused; all matrices are scalar).
+
+        Raises:
+            ValueError: If the matrix key is not recognized.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+
+        """
+        # Recall that cells and faces will apply to different grids, though that is not
+        # reflected in the dof_info.
+        mapping = {
+            "upwind_primary": {GridEntity.cells: 1},
+            "upwind_secondary": {GridEntity.cells: 1},
+            "flux": {GridEntity.cells: 1},
+            "mortar_discr": {GridEntity.cells: 1},
+            "trace_primary": {GridEntity.faces: 1},
+            "inv_trace_primary": {GridEntity.cells: 1},
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+
+        s = f"Unrecognized matrix key '{matrix_key}' for UpwindCoupling discretization."
+        raise ValueError(s)
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict[pp.ad.GridEntity, int]:
+        """UpwindCoupling matrices have one Dof per cell in their columns.
+
+        Parameters:
+            matrix_key: Attribute-name fragment (e.g. ``"upwind_primary"``).
+            nd: Spatial dimension (unused; all matrices are scalar).
+
+        Raises:
+            ValueError: If the matrix key is not recognized.
+
+        Returns:
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
+
+        """
+        # Recall that cells and faces will apply to different grids, though that is not
+        # reflected in the dof_info.
+        mapping = {
+            "upwind_primary": {GridEntity.cells: 1},
+            "upwind_secondary": {GridEntity.cells: 1},
+            "flux": {GridEntity.cells: 1},
+            "mortar_discr": {GridEntity.cells: 1},
+            "trace_primary": {GridEntity.cells: 1},
+            "inv_trace_primary": {GridEntity.faces: 1},
+        }
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+
+        s = f"Unrecognized matrix key '{matrix_key}' for UpwindCoupling discretization."
+        raise ValueError(s)
 
     def discretize(
         self,
