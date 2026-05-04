@@ -331,39 +331,24 @@ class MergedOperator(operators.Operator):
         """
         name = discr.__class__.__name__
 
-        # Attempt to infer operator domain (column space) and range (row space) from
-        # the discretization. The default stubs return {} (unspecified), so op_domain
-        # and op_range will be None for most discretizations until Stage 7 fills in
-        # the concrete implementations.
+        # Infer operator domain (column space) and range (row space) from the
+        # discretization.
         op_domain: Optional[operators.OperatorSpace] = None
         op_range: Optional[operators.OperatorSpace] = None
         if domains:
-            if isinstance(discr, Discretization):
-                domain_list = list(domains)
-                nd = (
-                    domain_list[0].dim
-                    if domain_list and hasattr(domain_list[0], "dim")
-                    else 1
-                )
-                row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
-                col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
-            else:
-                row_dof = {}
-                col_dof = {}
-            if row_dof and col_dof:
-                op_domain = operators.OperatorSpace.from_domains(
-                    list(domains), col_dof
-                )
-                op_range = operators.OperatorSpace.from_domains(
-                    list(domains), row_dof
-                )
-            else:
-                op_domain = operators.OperatorSpace.from_domains(list(domains), {})
-                op_range = operators.OperatorSpace.from_domains(list(domains), {})
+            domain_list = list(domains)
+            nd = (
+                domain_list[0].dim
+                if domain_list and hasattr(domain_list[0], "dim")
+                else 1
+            )
+            row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
+            col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
 
-        super().__init__(
-            name=name, domain=op_domain, range=op_range
-        )
+            op_domain = operators.OperatorSpace.from_domains(list(domains), col_dof)
+            op_range = operators.OperatorSpace.from_domains(list(domains), row_dof)
+
+        super().__init__(name=name, domain=op_domain, range=op_range)
 
         self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
@@ -372,7 +357,9 @@ class MergedOperator(operators.Operator):
         self._inner_physics_key = inner_physics_key
 
     def __repr__(self) -> str:
-        domain_label = self.domain_type.value if self.domain_type is not None else "unknown"
+        domain_label = (
+            self.domain_type.value if self.domain_type is not None else "unknown"
+        )
         s = (
             f"Operator with key {self._discretization_matrix_key} defined on "
             f"{len(self.domains)} {domain_label}"
