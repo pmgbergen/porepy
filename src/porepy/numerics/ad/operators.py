@@ -196,76 +196,76 @@ class Operations(Enum):
             return b
 
         left_is_scalar = (
-            left._operator_domain is not None
-            and left._operator_domain.domain_type == DomainType.scalar
+            left.operator_domain is not None
+            and left.operator_domain.domain_type == DomainType.scalar
         )
         right_is_scalar = (
-            right._operator_domain is not None
-            and right._operator_domain.domain_type == DomainType.scalar
+            right.operator_domain is not None
+            and right.operator_domain.domain_type == DomainType.scalar
         )
 
         if self == Operations.matmul:
             # left @ right: range(right) must equal domain(left)
             if (
-                left._operator_domain is not None
-                and right._operator_range is not None
-                and not _spaces_compatible(left._operator_domain, right._operator_range)
+                left.operator_domain is not None
+                and right.operator_range is not None
+                and not _spaces_compatible(left.operator_domain, right.operator_range)
             ):
                 raise ValueError(
                     f"Incompatible matrix multiplication: the range of {right!r} "
-                    f"({right._operator_range}) does not match the domain of "
-                    f"{left!r} ({left._operator_domain})."
+                    f"({right.operator_range}) does not match the domain of "
+                    f"{left!r} ({left.operator_domain})."
                 )
-            return right._operator_domain, left._operator_range
+            return right.operator_domain, left.operator_range
         elif self == Operations.rmatmul:
             # right @ left (dispatched as left.__rmatmul__(right)):
             # range(left) must equal domain(right)
             if (
-                right._operator_domain is not None
-                and left._operator_range is not None
-                and not _spaces_compatible(right._operator_domain, left._operator_range)
+                right.operator_domain is not None
+                and left.operator_range is not None
+                and not _spaces_compatible(right.operator_domain, left.operator_range)
             ):
                 raise ValueError(
                     f"Incompatible matrix multiplication: the range of {left!r} "
-                    f"({left._operator_range}) does not match the domain of "
-                    f"{right!r} ({right._operator_domain})."
+                    f"({left.operator_range}) does not match the domain of "
+                    f"{right!r} ({right.operator_domain})."
                 )
-            return left._operator_domain, right._operator_range
+            return left.operator_domain, right.operator_range
         else:
             # Elementwise operations
             if left_is_scalar and right_is_scalar:
                 return OperatorSpace.scalar(), OperatorSpace.scalar()
             elif left_is_scalar:
-                return right._operator_domain, right._operator_range
+                return right.operator_domain, right.operator_range
             elif right_is_scalar:
-                return left._operator_domain, left._operator_range
+                return left.operator_domain, left.operator_range
             else:
                 # Validate OperatorSpace compatibility (only if both are specified)
                 if (
-                    left._operator_domain is not None
-                    and right._operator_domain is not None
+                    left.operator_domain is not None
+                    and right.operator_domain is not None
                     and not _spaces_compatible(
-                        left._operator_domain, right._operator_domain
+                        left.operator_domain, right.operator_domain
                     )
                 ):
                     raise ValueError(
-                        f"Incompatible operator domains: {left._operator_domain} "
-                        f"vs {right._operator_domain}."
+                        f"Incompatible operator domains: {left.operator_domain} "
+                        f"vs {right.operator_domain}."
                     )
                 if (
-                    left._operator_range is not None
-                    and right._operator_range is not None
+                    left.operator_range is not None
+                    and right.operator_range is not None
                     and not _spaces_compatible(
-                        left._operator_range, right._operator_range
+                        left.operator_range, right.operator_range
                     )
                 ):
                     raise ValueError(
-                        f"Incompatible operator ranges: {left._operator_range} "
-                        f"vs {right._operator_range}."
+                        f"Incompatible operator ranges: {left.operator_range} "
+                        f"vs {right.operator_range}."
                     )
                 return (
-                    _pick_space(left._operator_domain, right._operator_domain),
-                    _pick_space(left._operator_range, right._operator_range),
+                    _pick_space(left.operator_domain, right.operator_domain),
+                    _pick_space(left.operator_range, right.operator_range),
                 )
 
 
