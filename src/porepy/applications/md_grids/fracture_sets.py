@@ -153,7 +153,7 @@ def benchmark_2d_case_4() -> list[pp.LineFracture]:
         FractureNetwork2d,
         pp.fracture_importer.network_from_csv(
             fracture_network_path,
-            has_domain=True,
+            has_domain=False,
         ),
     )
     # We return only the fractures to stay consistent with the other functions' API from
