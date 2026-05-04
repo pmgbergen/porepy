@@ -1446,30 +1446,30 @@ class MandelModel(  # type: ignore[misc]
     """
 
 
-# If executed as a script, run the verification
+# If executed as main, run simulation.
 if __name__ == "__main__":
-    # Set material constants
+    # Set material constants.
     material_constants = {
         "solid": pp.SolidConstants(**mandel_solid_constants),  # type: ignore[arg-type]
         "fluid": pp.FluidComponent(**mandel_fluid_constants),  # type: ignore[arg-type]
     }
 
-    # Set scaling
+    # Set scaling.
     scaling = {"m": 1e-3}
     units = pp.Units(**scaling)
 
-    # Create time manager
+    # Create time manager.
     time_manager = pp.TimeManager(
         schedule=[0, 1e2, 1e3, 5e3, 1e4],  # [s]
         dt_init=100,  # [s]
         constant_dt=True,  # [s]
     )
 
-    # Set mesh size.
-    ls = 1 / units.m  # length scaling
+    # Set length scaling and mesh size.
+    ls = 1 / units.m
     mesh_arguments = {"cell_size": 5.0 * ls}
 
-    # Create model params
+    # Collect model parameters.
     model_params = {
         "material_constants": material_constants,
         "meshing_arguments": mesh_arguments,
