@@ -138,7 +138,7 @@ def run_model_and_save_output(
     num_nl_iterations: int,
     capsys,
     caplog,
-) -> tuple[str, str]:
+) -> tuple[str, list[logging.LogRecord]]:
     # Initialize logging capture of the correct levels.
     caplog.set_level(logging_level)
 
@@ -164,7 +164,7 @@ def test_progressbars(
     logging_level: int,
     num_time_steps: int,
     num_nl_iterations: int,
-    run_model_and_save_output: tuple[str, Any],
+    run_model_and_save_output: tuple[str, list[logging.LogRecord]],
 ) -> None:
     """Test that nested progressbars are displayed correctly and work with logging.
 
