@@ -144,7 +144,9 @@ class Mpsa(Discretization):
         }
         if matrix_key in recognised:
             return {GridEntity.faces: nd}
-        return {}
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Mpsa discretization."
+        )
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
@@ -168,7 +170,11 @@ class Mpsa(Discretization):
             "bound_displacement_cell": {GridEntity.cells: nd},
             "bound_displacement_face": {GridEntity.faces: nd},
         }
-        return mapping.get(matrix_key, {})
+        if matrix_key in mapping:
+            return mapping[matrix_key]
+        raise ValueError(
+            f"Unrecognized matrix key '{matrix_key}' for Mpsa discretization."
+        )
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
