@@ -713,9 +713,9 @@ class TerzaghiModel(  # type: ignore[misc]
     """
 
 
-# If executed as a script, run the verification
+# If executed as main, run simulation.
 if __name__ == "__main__":
-    # Run Terzaghi model with full poromechanics model
+    # Run Terzaghi model with the full poromechanics model.
     model_params_poromech = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),  # type: ignore[arg-type]
@@ -726,6 +726,3 @@ if __name__ == "__main__":
     }
     model_biot = TerzaghiModel(model_params_poromech)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model_biot)
-
-    p_biot = model_biot.results[0].approx_pressure
-    u_biot = model_biot.results[0].approx_consolidation_degree
