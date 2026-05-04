@@ -144,7 +144,10 @@ if __name__ == "__main__":
     }
 
     model = FlowBenchmark3dCase3Model(params)  # type: ignore[abstract]
-    pp.run_time_dependent_model(model, params)
+    solver_parameters = {
+        "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+    }
+    pp.run_time_dependent_model(model, solver_parameters)
 
     sd_matrix = model.mdg.subdomains(dim=3)[0]
     cc = sd_matrix.cell_centers
