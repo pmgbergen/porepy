@@ -137,28 +137,28 @@ class Operations(Enum):
     ) -> tuple[Optional[OperatorSpace], Optional[OperatorSpace]]:
         """Validate operand spaces and infer the domain/range of the result.
 
-        For elementwise operations (``add``, ``sub``, ``mul``, ``div``, ``pow``), both
-        operands must have the same domain *and* the same range when both are specified.
-        The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space,
-        so operations with a :class:`Scalar` operator are always valid and the result
-        inherits the non-scalar space.
-
         For matrix multiplication (``matmul``), the range of the *right* operand must
         equal the domain of the *left* operand (i.e. ``range(right) == domain(left)``
-        for ``left @ right``).  The result's domain is ``right.operator_domain`` and
-        the result's range is ``left.operator_range``.
+        for ``left @ right``).  The result's domain is ``right.operator_domain`` and the
+        result's range is ``left.operator_range``.
+
+        For elementwise operations (``add``, ``sub``, ``mul``, ``div``, ``pow``), both
+        operands must have the same domain *and* the same range when both are specified.
+
+        The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space, so
+        operations with a :class:`Scalar` operator are always valid and the result
+        inherits the non-scalar space. Plain Python scalars (``int``, ``float``) are
+        treated as the scalar space.
 
         Validation is skipped whenever either operand's space is ``None``, so operators
         that carry no space information are fully supported.
 
         Parameters:
-            left: The left operand.
-            right: The right-hand-side operand.  Plain Python scalars (``int``,
-                ``float``) are treated as the scalar space.
+            left: The left operand. right: The right-hand-side operand.
 
         Returns:
-            A 2-tuple ``(domain, range_)`` where ``domain`` is the inferred
-            :class:`OperatorSpace` for the domain and ``range_`` is the inferred
+            A 2-tuple ``(domain, range)`` where ``domain`` is the inferred
+            :class:`OperatorSpace` for the domain and ``range`` is the inferred
             :class:`OperatorSpace` for the range.  Either may be ``None`` if it cannot
             be determined.
 
@@ -167,7 +167,7 @@ class Operations(Enum):
 
         """
         # Plain Python scalars (int, float, np.number) may appear as operands,
-        # e.g. `operator ** 2`.  Treat them as the scalar space.
+        # e.g. `operator ** 2`. Treat them as the scalar space.
         if not isinstance(right, Operator):
             return left._operator_domain, left._operator_range
 
