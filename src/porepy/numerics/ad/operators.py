@@ -39,6 +39,7 @@ from ._operator_states import (
 )
 from ._grid_entity import GridEntity
 from .forward_mode import AdArray
+from .operator_space import DomainType, OperatorSpace
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
@@ -51,8 +52,6 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "DomainType",
-    "OperatorSpace",
     "Operator",
     "SparseArray",
     "DenseArray",
@@ -66,101 +65,6 @@ __all__ = [
     "sum_projection_list",
     "cached_method",
 ]
-
-
-class DomainType(Enum):
-    """Type of a function space domain or range.
-
-    Describes whether the grids associated with an :class:`OperatorSpace` are
-    subdomains, interfaces, boundary grids, or the trivial (scalar) space.
-    """
-
-    subdomains = "subdomains"
-    interfaces = "interfaces"
-    boundary_grids = "boundary_grids"
-    scalar = "scalar"
-
-
-@dataclasses.dataclass(eq=False)
-class OperatorSpace:
-    """Represents the mathematical domain or range of an AD operator.
-
-    An ``OperatorSpace`` is characterized by:
-
-    - A :class:`DomainType` indicating the kind of grids.
-    - A tuple of grids over which the space is defined.
-    - A ``dof_info`` dictionary mapping each :class:`~porepy.numerics.ad.GridEntity`
-      to the number of degrees of freedom *per grid entity*.  For example,
-      ``{GridEntity.cells: 1}`` means one DOF per cell.
-
-    Use the class methods :meth:`scalar` and :meth:`from_domains` to construct
-    instances instead of calling the constructor directly.
-
-    """
-
-    domain_type: DomainType
-    """The type of the space (subdomains, interfaces, boundary_grids, or scalar)."""
-
-    grids: tuple[pp.Grid | pp.MortarGrid | pp.BoundaryGrid, ...]
-    """Grids that define the space."""
-
-    dof_info: dict[GridEntity, int]
-    """Number of DOFs per grid entity for each entity type present in the space."""
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, OperatorSpace):
-            return NotImplemented
-        return (
-            self.domain_type == other.domain_type
-            and self.grids == other.grids
-            and self.dof_info == other.dof_info
-        )
-
-    def __hash__(self) -> int:
-        return hash((self.domain_type, self.grids, frozenset(self.dof_info.items())))
-
-    @classmethod
-    def scalar(cls) -> OperatorSpace:
-        """Return the trivial (scalar / zero-dimensional) operator space."""
-        return cls(DomainType.scalar, (), {})
-
-    @classmethod
-    def from_domains(
-        cls,
-        domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        dof_info: dict[GridEntity, int],
-    ) -> OperatorSpace:
-        """Construct an :class:`OperatorSpace` from a sequence of grids.
-
-        Parameters:
-            domains: Sequence of grid objects.  All grids must be of the same
-                type (all :class:`~porepy.Grid`, all :class:`~porepy.MortarGrid`,
-                or all :class:`~porepy.BoundaryGrid`).
-            dof_info: Mapping from :class:`~porepy.numerics.ad.GridEntity` to
-                the number of DOFs per entity.
-
-        Returns:
-            A new :class:`OperatorSpace`.
-
-        Raises:
-            ValueError: If ``domains`` contains a mix of grid types.
-
-        """
-        if len(domains) == 0:
-            return cls.scalar()
-        grids = tuple(domains)
-        if all(isinstance(g, pp.Grid) for g in grids):
-            domain_type = DomainType.subdomains
-        elif all(isinstance(g, pp.MortarGrid) for g in grids):
-            domain_type = DomainType.interfaces
-        elif all(isinstance(g, pp.BoundaryGrid) for g in grids):
-            domain_type = DomainType.boundary_grids
-        else:
-            raise ValueError(
-                "All grids in `domains` must have the same type (pp.Grid, "
-                "pp.MortarGrid, or pp.BoundaryGrid)."
-            )
-        return cls(domain_type, grids, dict(dof_info))
 
 
 class Operations(Enum):
