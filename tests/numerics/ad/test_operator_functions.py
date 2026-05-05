@@ -11,6 +11,7 @@ import pytest
 
 import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.operators import OperatorSpace
 
 
 def test_ad_function():
