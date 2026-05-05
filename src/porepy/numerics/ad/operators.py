@@ -240,18 +240,9 @@ class Operations(Enum):
             elif right_is_scalar:
                 return left.operator_domain, left.operator_range
             else:
-                # Validate OperatorSpace compatibility (only if both are specified)
-                if (
-                    left.operator_domain is not None
-                    and right.operator_domain is not None
-                    and not _spaces_compatible(
-                        left.operator_domain, right.operator_domain
-                    )
-                ):
-                    raise ValueError(
-                        f"Incompatible operator domains: {left.operator_domain} "
-                        f"vs {right.operator_domain}."
-                    )
+                # We need compatibility between the ranges (since this is where the
+                # quantity of interest lives), but the domains can be different (e.g.,
+                # when a projection operator is involved).
                 if (
                     left.operator_range is not None
                     and right.operator_range is not None
