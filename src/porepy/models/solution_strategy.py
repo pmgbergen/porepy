@@ -973,12 +973,27 @@ class ContactIndicators(pp.PorePyModel):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        domain = (
+            pp.ad.OperatorSpace.from_domains(subdomains, {pp.ad.GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            pp.ad.OperatorSpace.from_domains(subdomains, {pp.ad.GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+        )
         # Heaviside function. The 0 as the second argument to partial() implies
         # f_heaviside(0)=0, a choice that is not expected to affect the result in this
         # context.
-        f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
+        f_heaviside = pp.ad.Function(
+            partial(pp.ad.heaviside, 0), "heaviside_function", domain, range_
+        )
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
@@ -1019,7 +1034,19 @@ class ContactIndicators(pp.PorePyModel):
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd), "norm_function")
+        domain = (
+            pp.ad.OperatorSpace.from_domains(subdomains, {pp.ad.GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            pp.ad.OperatorSpace.from_domains(subdomains, {pp.ad.GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd), "norm_function", domain, range_
+        )
         return f_norm(t) + f_norm(c_num * u)
 
     def compute_traction_norm(self, val: np.ndarray) -> float:
