@@ -73,6 +73,8 @@ class AbstractFunction(Operator):
         # NOTE Constructor is overwritten to have a consistent signature
         # But the operation is always overwritten to point to evaluate.
         # Done for reasons of multiple inheritance.
+        # Space intentionally unspecified: function wrappers do not know the grid/dof
+        # context of their future arguments at construction time.
         super().__init__(
             name=name,
             operation=pp.ad.operators.Operations.evaluate,
@@ -99,6 +101,8 @@ class AbstractFunction(Operator):
             "Operator functions must be called with at least 1 argument."
         )
 
+        # Space intentionally unspecified: the function application node only stores the
+        # evaluation structure, and does not infer result spaces from arbitrary callables.
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
             operation=pp.ad.operators.Operations.evaluate,
