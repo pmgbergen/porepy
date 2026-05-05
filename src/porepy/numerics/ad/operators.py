@@ -281,17 +281,15 @@ class Operator:
     Provides overload functions for basic arithmetic operations.
 
     Parameters:
-        name: Name of this operator. Used for string representations
-        subdomains (optional): List of subdomains on which the operator is defined.
-            Will be empty for operators not associated with any subdomains.
-            Defaults to None (converted to empty list).
-        interfaces (optional): List of interfaces in the mixed-dimensional grid on which
-            the operator is defined. Will be empty for operators not associated with any
-            interface. Defaults to None (converted to empty list).
+        name: Name of this operator. Used for string representations.
         operation (optional): Arithmetic or other operation represented by this
             operator. Defaults to void operation.
         children (optional): List of children, other AD operators. Defaults to empty
             list.
+        domain: Mathematical domain of this operator. Pass ``None`` explicitly if the
+            space is intentionally unspecified.
+        range: Mathematical range of this operator. Pass ``None`` explicitly if the
+            space is intentionally unspecified.
 
     """
 
@@ -1109,8 +1107,9 @@ class TimeDependentOperator(Operator):
         name: str | None = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        domain: Optional[OperatorSpace] = None,
-        range: Optional[OperatorSpace] = None,
+        *,
+        domain: Optional[OperatorSpace],
+        range: Optional[OperatorSpace],
     ) -> None:
         super().__init__(
             name=name,
@@ -1228,8 +1227,9 @@ class IterativeOperator(Operator):
         name: str | None = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        domain: Optional[OperatorSpace] = None,
-        range: Optional[OperatorSpace] = None,
+        *,
+        domain: Optional[OperatorSpace],
+        range: Optional[OperatorSpace],
     ) -> None:
         super().__init__(
             name=name,
@@ -2283,6 +2283,8 @@ class Projection(Operator):
                 domain_size=domain_size,
             )
         )
+        # Space intentionally unspecified: the projection only knows local index sizes,
+        # not the grid/dof metadata needed to form an OperatorSpace.
         super().__init__(name=name, domain=None, range=None)
 
     def transpose(self) -> Projection:
@@ -2378,6 +2380,8 @@ class ProjectionList(Operator):
             name: Optional name for the projection list.
 
         """
+        # Space intentionally unspecified: this wrapper only aggregates projections and
+        # does not know the underlying grid/dof metadata.
         super().__init__(name=name, children=operators, domain=None, range=None)
 
     def _key(self) -> str:
