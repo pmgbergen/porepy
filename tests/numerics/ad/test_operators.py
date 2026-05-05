@@ -1012,13 +1012,13 @@ def test_ad_discretization_class():
     sub_discr = _MockDiscretization(sub_key)
 
     # Ad wrappers
-    # This mimics the old init of Discretization, before it was decided to
-    # make that class semi-ABC. Still checks the wrap method
-    discr_ad = pp.ad.Discretization()
+    # This mimics the old generic AD discretization wrapper and still checks the
+    # wrap_discretization utility directly.
+    discr_ad = pp.ad.DiscretizationAd()
     discr_ad.subdomains = subdomains
     discr_ad._discretization = discr
     pp.ad.wrap_discretization(discr_ad, discr, subdomains)
-    sub_discr_ad = pp.ad.Discretization()
+    sub_discr_ad = pp.ad.DiscretizationAd()
     sub_discr_ad.subdomains = sub_list
     sub_discr_ad._discretization = sub_discr
     pp.ad.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
@@ -1053,6 +1053,12 @@ class _MockDiscretization:
         self.not_matrix_keys = "failed"
 
         self.keyword = key
+
+    def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+        return {}
+
+    def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+        return {}
 
 
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
