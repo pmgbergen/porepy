@@ -5,7 +5,7 @@ variational formulation.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from warnings import warn
 
 import numpy as np
@@ -14,6 +14,9 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.discretization import Discretization
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad._grid_entity import GridEntity
 
 
 def project_flux(
@@ -108,6 +111,16 @@ class DualElliptic(Discretization):
 
         """
         return sd.num_cells + sd.num_faces
+
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        return {}
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict

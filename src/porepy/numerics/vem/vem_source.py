@@ -10,9 +10,13 @@ from __future__ import annotations
 
 import numpy as np
 import scipy.sparse as sps
+from typing import TYPE_CHECKING
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad._grid_entity import GridEntity
 
 
 class DualScalarSource(Discretization):
@@ -40,6 +44,16 @@ class DualScalarSource(Discretization):
 
         """
         return sd.num_faces + sd.num_cells
+
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        return {}
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict

@@ -14,6 +14,7 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad._grid_entity import GridEntity
 from porepy.numerics.ad.operators import DenseArray
+from porepy.numerics.ad.operator_space import OperatorSpace
 
 
 class EuclideanMetric:
@@ -183,7 +184,13 @@ class LebesgueMetric:
             float: measure of values
 
         """
-        l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
+        domain = (
+            OperatorSpace.from_domains(grids, {GridEntity.cells: 1}) if grids else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(grids, {GridEntity.cells: 1}) if grids else None
+        )
+        l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm", domain, range_)
         return np.sqrt(
             np.sum(
                 self.model.equation_system.evaluate(
@@ -333,8 +340,13 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
             ]
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
             cell_weights = np.hstack([domain.cell_volumes for domain in domains])
+            space = OperatorSpace.from_domains(
+                domains, {GridEntity.cells: equation_dim}
+            )
             intensive_equation_values = pp.ad.DenseArray(
-                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
+                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights,
+                space,
+                space,
             )
             norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, domains)
 
