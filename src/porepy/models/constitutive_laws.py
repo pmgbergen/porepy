@@ -19,6 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.compositional.materials import FractureDamageSolidConstants
+from porepy.numerics.ad import OperatorSpace, GridEntity
 
 from .fluid_property_library import *  # noqa: F403, F401
 from .fluid_property_library import (
@@ -377,7 +378,18 @@ class DisplacementJumpAperture(DimensionReduction):
                 # non-positive values) may give significant trouble in the aperture.
                 # Insert safeguard by taking maximum of the jump and a residual
                 # aperture.
-                f_max = Function(pp.ad.maximum, "maximum_function")
+                domain = (
+                    OperatorSpace.from_domains(subdomains_of_dim, {GridEntity.cells: 1})
+                    if subdomains_of_dim
+                    else None
+                )
+                range_ = (
+                    OperatorSpace.from_domains(subdomains_of_dim, {GridEntity.cells: 1})
+                    if subdomains_of_dim
+                    else None
+                )
+
+                f_max = Function(pp.ad.maximum, "maximum_function", domain, range_)
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
                 apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
@@ -1378,6 +1390,16 @@ class AdTpfaFlux(pp.PorePyModel):
 
             # Define the Ad function for the flux, including the impact of boundary
             # conditions internal and external.
+            domain = (
+                OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
+                if domains
+                else None
+            )
+            range_ = (
+                OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
+                if domains
+                else None
+            )
             flux_p = pp.ad.Function(
                 # Mypy raises an error here since functool.partial returns a 'partial',
                 # while pp.ad.Function expects a Callable. partial.__call__ is a
@@ -1387,6 +1409,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_flux_discretization, base_discr
                 ),
                 "differentiable_mpfa",
+                domain,
+                range_,
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
             vector_source_d = Function(
@@ -1394,6 +1418,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_vector_source_discretization, base_discr
                 ),
                 "differentiable_mpfa_vector_source",
+                domain,
+                range_,
             )(t_f, vector_source_difference, vector_source_cells)
 
         else:
@@ -1481,6 +1507,16 @@ class AdTpfaFlux(pp.PorePyModel):
         if isinstance(base_discr, pp.ad.MpfaAd):
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
+            domain = (
+                OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+                if subdomains
+                else None
+            )
+            range_ = (
+                OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+                if subdomains
+                else None
+            )
             boundary_value_contribution = Function(
                 # See comment in diffusive_flux method for explanation why the type
                 # ignore is needed.
@@ -1488,6 +1524,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_bound_pressure_discretization, base_discr
                 ),
                 "differentiable_mpfa",
+                domain,
+                range_,
             )(
                 bound_pressure_face_discr,
                 projected_internal_flux,
@@ -1962,7 +2000,18 @@ class PeacemanWellFlux(pp.PorePyModel):
         skin_factor = self.skin_factor(interfaces)
         r_e = self.equivalent_well_radius(subdomains)
 
-        f_log = Function(pp.ad.functions.log, "log_function_Piecmann")
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
+        f_log = Function(pp.ad.functions.log, "log_function_Piecmann", domain, range_)
 
         # We assume isotropic permeability and extract xx component.
         e_i = self.e_i(subdomains, i=0, dim=9).T
@@ -3985,11 +4034,25 @@ class ShearDilation(pp.PorePyModel):
             Cell-wise shear dilation.
 
         """
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
         f_norm = Function(
-            partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
+            partial(pp.ad.functions.l2_norm, self.nd - 1),
+            "norm_function",
+            domain,
+            range_,
         )
-        f_tan = Function(pp.ad.functions.tan, "tan_function")
+        f_tan = Function(pp.ad.functions.tan, "tan_function", domain, range_)
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
             self.tangential_component(subdomains)
             @ self.plastic_displacement_jump(subdomains)
@@ -4535,8 +4598,19 @@ class FrictionDamage(pp.PorePyModel):
         # Get the material parameter.
         d0 = self.residual_friction_damage(subdomains)
 
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
         # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp")
+        f_exp = Function(pp.ad.functions.exp, "exp", domain, range_)
         one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
@@ -4631,9 +4705,20 @@ class DilationDamage(pp.PorePyModel):
 
         # Get the material parameter.
         d0 = self.residual_dilation_damage(subdomains)
+        c = self.dilation_damage_decay(subdomains)
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
 
         # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp")
+        f_exp = Function(pp.ad.functions.exp, "exp", domain, range_)
         one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
