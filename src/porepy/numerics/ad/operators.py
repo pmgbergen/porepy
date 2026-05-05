@@ -2057,6 +2057,7 @@ class MixedDimensionalVariable(Variable):
         reference = []
         names = []
         domains = []
+        dof_infos: list[dict[GridEntity, int]] = []
 
         for var in variables:
             time_indices.append(var.time_step_index)
@@ -2065,6 +2066,8 @@ class MixedDimensionalVariable(Variable):
             reference.append(var.is_reference)
             names.append(var.name)
             domains.append(var.domain)
+            if var.operator_domain is not None:
+                dof_infos.append(var.operator_domain.dof_info)
 
         # check assumptions
         if len(variables) > 0:
@@ -2088,14 +2091,19 @@ class MixedDimensionalVariable(Variable):
             assert len(set(domains)) == len(domains), (
                 "Cannot create md-variable from variables with overlapping domains."
             )
-            if all(isinstance(grid, pp.Grid) for grid in domains):
-                domain_types = DomainType.subdomains
-            elif all(isinstance(grid, pp.MortarGrid) for grid in domains):
-                domain_types = DomainType.interfaces
-            elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
-                domain_types = DomainType.boundary_grids
-            else:
-                raise ValueError("Unknown domain class ")
+            dof_sets = {frozenset(dof_info.items()) for dof_info in dof_infos}
+            all_same_grid_class = (
+                all(isinstance(grid, pp.Grid) for grid in domains)
+                or all(isinstance(grid, pp.MortarGrid) for grid in domains)
+                or all(isinstance(grid, pp.BoundaryGrid) for grid in domains)
+            )
+            op_space = None
+            if (
+                len(dof_sets) == 1
+                and all_same_grid_class
+                and len(dof_infos) == len(variables)
+            ):
+                op_space = OperatorSpace.from_domains(domains, dof_infos[0])
 
         # Default values for empty md variable
         else:
@@ -2104,7 +2112,7 @@ class MixedDimensionalVariable(Variable):
             current_iter = [True]
             reference = [False]
             names = ["empty_md_variable"]
-            domain_types = DomainType.scalar
+            op_space = OperatorSpace.scalar()
 
         # NOTE everything below here is redundent with a proper super() call
         # See top comment in constructor
@@ -2131,13 +2139,8 @@ class MixedDimensionalVariable(Variable):
 
         self._name = names[0]
 
-        # Mypy complains that we do not know that all variables have the same type of
-        # domain. While formally correct, this should be picked up in other places so we
-        # ignore the warning here.
-        # MD variables span multiple grids, so we cannot represent their space as a
-        # single OperatorSpace.  Leave them as None (unspecified).
-        self._operator_domain: Optional[OperatorSpace] = None
-        self._operator_range: Optional[OperatorSpace] = None
+        self._operator_domain: Optional[OperatorSpace] = op_space
+        self._operator_range: Optional[OperatorSpace] = op_space
 
         # If someone attempts to create a prev time or iter md-variable using
         # atomic variables at prev time and iter, we have a missing reference to the
