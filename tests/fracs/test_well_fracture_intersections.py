@@ -40,7 +40,7 @@ import porepy as pp
 # on it are therefore skipped so that the test file can be collected cleanly
 # even before the function is available.
 try:
-    from porepy.geometry.intersections import intersect_well_fractures
+    from porepy.fracs.wells_3d import intersect_well_fractures
 
     _FUNCTION_AVAILABLE = True
 except ImportError:
