@@ -148,8 +148,8 @@ class Well:
         Returns:
             A string representation of the well.
         """
-        s = f"Well consisting of {self.num_segments()} segments.\n"
-        s += f"Well index: {self.index}"
+        s = f"Well \n"  #  consisting of {self.num_segments()} segments.\n"
+        # s += f"Well index: {self.index}"
         return s
 
     def __repr__(self) -> str:
@@ -159,8 +159,8 @@ class Well:
             A string representation of the well properties.
 
         """
-        s = f"Well consisting of {self.num_segments()} segments.\n"
-        s += f"Well index: {self.index}\n"
+        s = f"Well \n"  #  consisting of {self.num_segments()} segments.\n"
+        # s += f"Well index: {self.index}\n"
 
         # If the well consists of only a few segments (5 here is somewhat randomly
         # chosen), list all the coordinates. If not, we limit the representation to
@@ -460,6 +460,24 @@ class WellNetwork3d:
         return s
 
 
+def intersect_well_fractures(wells, fractures, nd=3):
+    gmsh.initialize()
+
+    fracture_tags = [fracture.fracture_to_gmsh() for fracture in fractures]
+    gmsh.model.occ.synchronize()
+    segment_inds = [well.to_gmsh() for well in wells]
+    flattened_segment_inds = [item for sublist in segment_inds for item in sublist]
+    gmsh.model.occ.synchronize()
+
+    _, out_dim_tag_map = gmsh.model.occ.fragment(
+        [(nd - 2, t) for t in flattened_segment_inds],
+        [(nd - 1, t) for t in fracture_tags],
+        removeObject=False,
+        removeTool=False,
+    )
+    return out_dim_tag_map[0]
+
+
 def compute_well_fracture_intersections(
     well_network: WellNetwork3d, fracture_network: FractureNetwork3d
 ) -> None:
@@ -506,16 +524,6 @@ def compute_well_fracture_intersections(
     def parents_of_point(p_tag):
         parents = gmsh.model.get_adjacencies(0, p_tag, dim=-1)
         return parents
-
-    def well_fracture_intersection(segment_inds):
-        _, out_dim_tag_map = gmsh.model.occ.fragment(
-            [(nd - 2, t) for t in segment_inds],
-            [(nd - 1, t) for t in fracture_tags],
-            removeObject=False,
-            removeTool=False,
-        )
-        gmsh.model.occ.synchronize()
-        return out_dim_tag_map[0]
 
     split_wells = out_dim_tag_map[: len(flattened_segment_inds)]
 
