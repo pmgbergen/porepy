@@ -194,11 +194,15 @@ class TestOperatorSpaceEquality:
 
 
 class TestOperatorProperties:
-    def test_operator_domain_none_by_default(self):
+    def test_operator_requires_explicit_domain_and_range(self):
+        with pytest.raises(TypeError):
+            Operator(name="test")
+
+    def test_operator_domain_accepts_explicit_none(self):
         op = Operator(name="test", domain=None, range=None)
         assert op.operator_domain is None
 
-    def test_operator_range_none_by_default(self):
+    def test_operator_range_accepts_explicit_none(self):
         op = Operator(name="test", domain=None, range=None)
         assert op.operator_range is None
 
@@ -549,6 +553,12 @@ class TestDomainRangePropagation:
 class TestDiscretizationStubs:
     def test_get_row_dof_info_default(self):
         class ConcreteDiscr(Discretization):
+            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {}
+
+            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {}
+
             def ndof(self, g):
                 return 0
 
@@ -898,6 +908,12 @@ class TestMergedOperatorSpaces:
                 self.keyword = "mechanics"
                 self.flux_matrix_key = "flux"
 
+            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {}
+
+            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {}
+
             def ndof(self, sd):
                 return sd.num_cells
 
@@ -964,6 +980,12 @@ class TestMergedOperatorSpaces:
             def __init__(self):
                 self.keyword = "coupling"
                 self.mortar_flux_matrix_key = "mortar_flux"
+
+            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {}
+
+            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
+                return {}
 
             def discretize(self, sd_primary, sd_secondary, intf, data_primary,
                            data_secondary, data_coupling):
@@ -1340,13 +1362,12 @@ class TestFVEllipticDofInfo:
             GridEntity.cells: 2
         }
 
-    def test_unknown_key_returns_empty(self):
-        assert self.mpfa.get_row_dof_info("nonexistent") == {}
-        assert self.mpfa.get_col_dof_info("nonexistent") == {}
-
-    def test_default_empty_key_returns_empty(self):
-        assert self.mpfa.get_row_dof_info() == {}
-        assert self.mpfa.get_col_dof_info() == {}
+    @pytest.mark.parametrize("matrix_key", ["nonexistent", ""])
+    def test_unknown_key_raises(self, matrix_key):
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.mpfa.get_row_dof_info(matrix_key)
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.mpfa.get_col_dof_info(matrix_key)
 
 
 class TestMpsaDofInfo:
@@ -1383,9 +1404,11 @@ class TestMpsaDofInfo:
             GridEntity.faces: 2
         }
 
-    def test_unknown_key_returns_empty(self):
-        assert self.mpsa.get_row_dof_info("nonexistent", nd=2) == {}
-        assert self.mpsa.get_col_dof_info("nonexistent", nd=2) == {}
+    def test_unknown_key_raises(self):
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.mpsa.get_row_dof_info("nonexistent", nd=2)
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.mpsa.get_col_dof_info("nonexistent", nd=2)
 
 
 class TestBiotDofInfo:
@@ -1412,9 +1435,11 @@ class TestBiotDofInfo:
         assert self.biot.get_row_dof_info(matrix_key, nd=nd) == expected_row
         assert self.biot.get_col_dof_info(matrix_key, nd=nd) == expected_col
 
-    def test_unknown_key_returns_empty(self):
-        assert self.biot.get_row_dof_info("nonexistent", nd=2) == {}
-        assert self.biot.get_col_dof_info("nonexistent", nd=2) == {}
+    def test_unknown_key_raises(self):
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.biot.get_row_dof_info("nonexistent", nd=2)
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.biot.get_col_dof_info("nonexistent", nd=2)
 
 
 class TestUpwindDofInfo:
@@ -1435,9 +1460,11 @@ class TestUpwindDofInfo:
         assert self.upwind.get_row_dof_info("bound_transport_neu") == {GridEntity.faces: 1}
         assert self.upwind.get_col_dof_info("bound_transport_neu") == {GridEntity.faces: 1}
 
-    def test_unknown_key_returns_empty(self):
-        assert self.upwind.get_row_dof_info("nonexistent") == {}
-        assert self.upwind.get_col_dof_info("nonexistent") == {}
+    def test_unknown_key_raises(self):
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.upwind.get_row_dof_info("nonexistent")
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.upwind.get_col_dof_info("nonexistent")
 
 
 class TestMergedOperatorWithConcreteDiscretization:
@@ -1682,9 +1709,11 @@ class TestTpsaDofInfo:
         assert self.tpsa.get_row_dof_info(matrix_key, nd=nd) == expected_row
         assert self.tpsa.get_col_dof_info(matrix_key, nd=nd) == expected_col
 
-    def test_unknown_key_returns_empty(self):
-        assert self.tpsa.get_row_dof_info("nonexistent", nd=2) == {}
-        assert self.tpsa.get_col_dof_info("nonexistent", nd=2) == {}
+    def test_unknown_key_raises(self):
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.tpsa.get_row_dof_info("nonexistent", nd=2)
+        with pytest.raises(ValueError, match="Unrecognized matrix key"):
+            self.tpsa.get_col_dof_info("nonexistent", nd=2)
 
     @pytest.mark.parametrize("nd", [2, 3])
     def test_nrot_formula(self, nd):
