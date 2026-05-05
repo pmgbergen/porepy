@@ -323,8 +323,7 @@ class TestVariableSpace:
 
 
 class TestMixedDimensionalVariableSpace:
-    """MixedDimensionalVariable spans multiple grids and therefore cannot be
-    represented as a single OperatorSpace; its domain/range must be None."""
+    """MixedDimensionalVariable carries the union space of its sub-variables."""
 
     @pytest.fixture
     def md_var(self, two_subdomains):
@@ -333,10 +332,23 @@ class TestMixedDimensionalVariableSpace:
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
         return MixedDimensionalVariable([v1, v2])
 
-    def test_md_variable_operator_domain_is_none(self, md_var):
-        assert md_var.operator_domain is None
+    def test_md_variable_operator_domain_is_union(self, md_var, two_subdomains):
+        g1, g2 = two_subdomains
+        expected = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        assert md_var.operator_domain == expected
 
-    def test_md_variable_operator_range_is_none(self, md_var):
+    def test_md_variable_operator_range_is_union(self, md_var, two_subdomains):
+        g1, g2 = two_subdomains
+        expected = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+        assert md_var.operator_range == expected
+
+    def test_md_variable_with_mixed_dof_info_has_unspecified_space(self, fracture_mdg):
+        subdomains = fracture_mdg.subdomains()
+        v1 = Variable("p", {GridEntity.cells: 1}, subdomains[0])
+        v2 = Variable("p", {GridEntity.cells: 2}, subdomains[1])
+        md_var = MixedDimensionalVariable([v1, v2])
+
+        assert md_var.operator_domain is None
         assert md_var.operator_range is None
 
 
@@ -1067,6 +1079,20 @@ class TestInferDomainRange:
         """Elementwise ops between incompatible operands raise ValueError."""
         with pytest.raises(ValueError, match="domain"):
             _ = binary_op(cell_op, face_op)
+
+    def test_elementwise_uses_union_of_dependency_domains(self, two_subdomains):
+        """Elementwise ops keep the shared range but union compatible input domains."""
+        g1, g2 = two_subdomains
+        top_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        union_space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+
+        local = DenseArray(np.zeros(3), domain=top_space, range=top_space)
+        projected = DenseArray(np.zeros(3), domain=union_space, range=top_space)
+
+        result = local * projected
+
+        assert result.operator_domain == union_space
+        assert result.operator_range == top_space
 
     # --- matmul: compatible ---
 
