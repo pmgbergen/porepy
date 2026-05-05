@@ -26,8 +26,9 @@ def test_ad_function():
     """
 
     func = lambda x: x  # identity
+    domain = OperatorSpace.scalar()
 
-    F = pp.ad.Function(func, "identity")
+    F = pp.ad.Function(func, "identity", domain, domain)
 
     grid = pp.CartGrid(np.array([3, 2]))
     mdg = pp.meshing.subdomains_to_mdg([grid])

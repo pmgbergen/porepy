@@ -32,7 +32,7 @@ from itertools import combinations
 from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 
 import numpy as np
-
+from porepy.numerics.ad import OperatorSpace, GridEntity
 import porepy as pp
 
 __all__ = [
@@ -120,7 +120,23 @@ class FluidDensityFromPressure(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
+        exp = pp.ad.Function(
+            pp.ad.exp,
+            "density_exponential",
+            domain=domain,
+            range=range_,
+        )
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
@@ -192,7 +208,19 @@ class FluidDensityFromTemperature(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        exp = pp.ad.Function(
+            pp.ad.exp, "density_exponential", domain=domain, range=range_
+        )
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
