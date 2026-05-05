@@ -1055,7 +1055,7 @@ class AxisRefinement:
 
 
 
-def layers_to_positive_z(
+def layers_to_negative_z(
     resolved_layers: tuple[ResolvedLayer, ...],
 ) -> tuple[ZLayer, ...]:
     if not resolved_layers:
@@ -1065,8 +1065,8 @@ def layers_to_positive_z(
 
     z_layers: list[ZLayer] = []
     for layer in resolved_layers:
-        z_top = deepest_bottom - layer.top_depth
-        z_bottom = deepest_bottom - layer.bottom_depth
+        z_top = -layer.top_depth
+        z_bottom = -layer.bottom_depth
 
         z_layers.append(
             ZLayer(
@@ -1345,7 +1345,13 @@ class ReservoirGeometry(pp.PorePyModel):
 
         ls = self.units.convert_units(1, "m")  # length scaling
         a, b, c = self.params.get("domain_size", (10, 10, 10))  # [m]
-        domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls, "zmin": 0.0, "zmax": c * ls})
+        stratigraphy = self.params.get("stratigraphy", {})
+        top_depth = stratigraphy.get("top_depth", 0.0)
+        bottom_depth = top_depth + c
+
+
+
+        domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls, "zmin": -bottom_depth, "zmax": -top_depth})
         self._domain = domain
 
 
@@ -1377,7 +1383,7 @@ class ReservoirGeometry(pp.PorePyModel):
 
 
 
-        z_layers = layers_to_positive_z(layers)
+        z_layers = layers_to_negative_z(layers)
 
         z_pts = make_z_coordinates(z_layers, meshing_spec)
 
