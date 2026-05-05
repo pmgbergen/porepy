@@ -7,10 +7,14 @@
 import numpy as np
 import scipy.sparse as sps
 from numpy.linalg import solve
+from typing import TYPE_CHECKING
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.numerics.vem.dual_elliptic import DualElliptic
+
+if TYPE_CHECKING:
+    from porepy.numerics.ad._grid_entity import GridEntity
 
 
 class HybridDualVEM:
@@ -41,6 +45,16 @@ class HybridDualVEM:
 
         """
         return g.num_faces
+
+    def get_row_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        return {}
+
+    def get_col_dof_info(
+        self, matrix_key: str = "", nd: int = 1
+    ) -> dict["GridEntity", int]:
+        return {}
 
     def matrix_rhs(self, g, data):
         """

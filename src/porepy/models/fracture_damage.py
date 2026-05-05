@@ -35,6 +35,7 @@ from typing import Callable, cast
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad import OperatorSpace, GridEntity
 
 
 class FractureDamageVariables(pp.VariableMixin):
@@ -480,6 +481,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         )
 
         # Get variables.
+
         u_t: pp.ad.Operator = self.tangential_component(
             subdomains
         ) @ self.plastic_displacement_jump(subdomains)
@@ -490,7 +492,17 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         u_t_0 = u_t.previous_timestep(time_step_index)
 
         # Length is evaluated using the ramp function max(x, 0)
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
         zero = pp.ad.Scalar(0.0)
         max_0 = f_max(
             tangential_to_scalar @ (m_t * u_t_0),
@@ -528,8 +540,20 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         # Compute the tangential plastic displacement jump.
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
 
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
         # Define the functions for the norm and zero-division-safe power.
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+        )
         zero_tol = 1e-10 * cast(
             float,
             self.equation_system.evaluate(self.characteristic_displacement(subdomains)),
@@ -537,6 +561,8 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         f_power = pp.ad.Function(
             partial(pp.ad.safe_power, -1, 1 / np.sqrt(self.nd - 1), zero_tol),
             "safe power",
+            domain,
+            range_,
         )
         # Compute normalized tangential displacement. First, compute the norm of the
         # displacement jump.

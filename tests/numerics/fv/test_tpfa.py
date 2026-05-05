@@ -20,6 +20,7 @@ from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFr
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
 from porepy.applications.test_utils.models import add_mixin
+from porepy.numerics.ad import OperatorSpace, GridEntity
 
 """Local utility functions."""
 
@@ -813,7 +814,10 @@ class DiffTpfaNewtonPerformanceGeometry(
         if self.params["constant_permeability"]:
             return super().permeability(subdomains)
         else:
-            f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+            domain = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            range_ = OperatorSpace.from_domains(subdomains, {GridEntity.faces: 1})
+
+            f_max = pp.ad.Function(pp.ad.maximum, "maximum_function", domain, range_)
             permeability = pp.ad.Scalar(self.solid.permeability) * f_max(
                 self.pressure(subdomains), pp.ad.Scalar(1e-5)
             )

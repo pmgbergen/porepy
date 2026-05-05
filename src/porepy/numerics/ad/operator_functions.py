@@ -26,6 +26,7 @@ from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
 from .operators import Operations, Operator
+from .operator_space import OperatorSpace
 
 __all__ = [
     "AbstractFunction",
@@ -68,6 +69,8 @@ class AbstractFunction(Operator):
         name: Optional[str] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        domain: Optional[OperatorSpace] = None,
+        range: Optional[OperatorSpace] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
@@ -305,11 +308,19 @@ class Function(AbstractFunction):
     Paramters:
         func: A callable returning a numpy array for numpy array arguments, and an
             Ad array for arguments containing Ad arrays.
+        domain: The domain of the function.
+        range: The range of the function.
 
     """
 
-    def __init__(self, func: Callable[..., FloatType], name: str) -> None:
-        super().__init__(name=name)
+    def __init__(
+        self,
+        func: Callable[..., FloatType],
+        name: str,
+        domain: OperatorSpace | None,
+        range: OperatorSpace | None,
+    ) -> None:
+        super().__init__(name=name, domain=domain, range=range)
 
         self._func: Callable[..., float | np.ndarray | AdArray] = func
         """Reference to the callable passed at instantiation."""
