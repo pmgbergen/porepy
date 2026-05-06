@@ -357,7 +357,10 @@ class NewtonSolver:
                 )
                 solver_status = SimulationStatus.STOPPED
         else:
-            raise ValueError(f"Invalid convergence status: {convergence_status}")
+            raise ValueError(
+                "Invalid convergence status: "
+                f"{convergence_status.union(divergence_status)}"
+            )
 
         return solver_status
 
@@ -423,7 +426,9 @@ class NewtonSolver:
                 Convergence and divergence status.
 
         """
-        # Update model status.
+        # Update model status (iterate) before checking convergence, so that the
+        # convergence check uses the updated state. Also, after_nonlinear_convergence
+        # may expect the converged solution to already be stored as an iterate.
         model.after_nonlinear_iteration(nonlinear_increment)
 
         # Monitor convergence.
