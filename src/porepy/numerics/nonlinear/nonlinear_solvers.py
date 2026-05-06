@@ -321,10 +321,10 @@ class NewtonSolver:
 
         NOTE: Convergence status takes precedence over divergence status.
 
-        Args:
+        Parameters:
             model: The model instance specifying the problem to be solved.
-            convergence_status (ConvergenceStatusCollection): Convergence statuses.
-            divergence_status (ConvergenceStatusCollection): Divergence statuses.
+            convergence_status: Convergence statuses.
+            divergence_status: Divergence statuses.
 
         Returns:
             SimulationStatus: The overall status of the nonlinear solver.
