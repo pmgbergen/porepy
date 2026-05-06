@@ -111,6 +111,9 @@ class MockModel:
     def _is_time_dependent(self):
         return False
 
+    def _is_nonlinear_problem(self):
+        return True
+
 
 class TimeDependentMockModel(MockModel):
     """Use nested lists for convergence history and adapted statistics."""
@@ -147,6 +150,9 @@ class TimeDependentMockModel(MockModel):
         self.residuals = self.residuals[1:]
 
     def _is_time_dependent(self):
+        return True
+
+    def _is_nonlinear_problem(self):
         return True
 
 
