@@ -8,7 +8,7 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
-from typing import Optional
+from warnings import warn
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
@@ -96,7 +96,9 @@ class LinearSolver:
             simulation_status = SimulationStatus.SUCCESSFUL
             model.after_nonlinear_convergence()
         elif status.is_diverged():
-            simulation_status = model.after_nonlinear_failure()
+            simulation_status = SimulationStatus.FAILED
+            model.after_nonlinear_failure()
+            warn("Failed to solve the (non)linear problem.", UserWarning)
         else:
             raise ValueError(f"Unknown convergence status: {status}")
 

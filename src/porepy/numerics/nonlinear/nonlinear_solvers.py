@@ -6,6 +6,7 @@ Implemented classes
 
 import logging
 from typing import cast
+from warnings import warn
 
 import numpy as np
 
@@ -333,11 +334,22 @@ class NewtonSolver:
         elif divergence_status.is_diverged():
             simulation_status = SimulationStatus.FAILED
             self.update_solver_statistics(model, simulation_status=simulation_status)
-            # TODO: Get back to this when reimplementing time stepping.
-            # NOTE: Currently, if a simulation fully stopps, this is not logged in
-            # SolverStatistics. For this, better coordination between solver and time
-            # stepping is needed.
-            simulation_status = model.after_nonlinear_failure()
+            if model._is_nonlinear_problem():
+                warn("Failed to solve the nonlinear problem.", UserWarning)
+            else:
+                # Declare total failure which shall result in stopping the simulation.
+                # TODO: Get back to this when reimplementing time stepping.
+                # NOTE: Currently, if a simulation fully stopps, this is not logged in
+                # SolverStatistics. For this, better coordination between solver and time
+                # stepping is needed.
+                # NOTE: Should possible be handled on the level above the solver,
+                # as a reaction to the FAILED solver status.
+                warn(
+                    "Failed to solve linear system for the linear problem. "
+                    "Stopping the simulation.",
+                    UserWarning,
+                )
+                simulation_status = SimulationStatus.STOPPED
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
 
