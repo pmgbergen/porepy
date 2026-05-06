@@ -100,7 +100,6 @@ class MockModel:
 
     def after_nonlinear_failure(self):
         self.nonlinear_solver_statistics.save()
-        return SimulationStatus.FAILED
 
     def assemble_linear_system(self):
         pass
@@ -933,7 +932,9 @@ def test_summarize_solver_status(
         SimulationStatus.SUCCESSFUL
     ]
 
-    solver_status = solver.summarize_solver_status(model, convergence_status, divergence_status)
+    solver_status = solver.summarize_solver_status(
+        model, convergence_status, divergence_status
+    )
 
     # Check that the returned simulation status matches expected value.
     assert solver_status == expected_solver_status
