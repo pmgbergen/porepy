@@ -263,10 +263,10 @@ def test_solve_convergence(default_newton_solver):
     solver = default_newton_solver
 
     # Call solve.
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert simulation_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SimulationStatus.SUCCESSFUL
 
 
 def test_solve_convergence_statistics(default_newton_solver):
@@ -352,18 +352,18 @@ def test_solve_convergence_time_dependent(default_newton_solver):
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert simulation_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SimulationStatus.SUCCESSFUL
 
     # Second time step.
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert simulation_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SimulationStatus.SUCCESSFUL
 
 
 def test_solve_convergence_time_dependent_statistics(default_newton_solver):
@@ -509,10 +509,10 @@ def test_solve_failure(default_newton_solver):
         residual_history=[1.0, np.nan],
     )
     solver = default_newton_solver
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert simulation_status == SimulationStatus.FAILED
+    assert solver_status == SimulationStatus.FAILED
 
 
 def test_solve_failure_statistics(default_newton_solver):
@@ -527,10 +527,10 @@ def test_solve_failure_statistics(default_newton_solver):
         path=Path("solver_statistics.json"),
     )
     solver = default_newton_solver
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert simulation_status == SimulationStatus.FAILED
+    assert solver_status == SimulationStatus.FAILED
 
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
@@ -598,27 +598,27 @@ def test_solve_failure_time_dependent(default_newton_solver):
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
     assert not model.time_manager.final_time_reached()
-    assert simulation_status == SimulationStatus.FAILED
+    assert solver_status == SimulationStatus.FAILED
 
     # Retry time step, so do not increase time.
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
     assert not model.time_manager.final_time_reached()
-    assert simulation_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SimulationStatus.SUCCESSFUL
 
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
-    simulation_status = solver.solve(model)
+    solver_status = solver.solve(model)
 
     # Check simulation status.
     assert model.time_manager.final_time_reached()
-    assert simulation_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SimulationStatus.SUCCESSFUL
 
 
 def test_solve_failure_time_dependent_statistics(default_newton_solver):
@@ -894,7 +894,7 @@ def test_nonlinear_loop(
 
 
 @pytest.mark.parametrize(
-    "convergence_status, divergence_status, expected_simulation_status",
+    "convergence_status, divergence_status, expected_solver_status",
     [
         (
             ConvergenceStatus.CONVERGED,
@@ -913,13 +913,13 @@ def test_nonlinear_loop(
         ),
     ],
 )
-def test_after_nonlinear_loop(
+def test_summarize_solver_status(
     convergence_status,
     divergence_status,
-    expected_simulation_status,
+    expected_solver_status,
     default_newton_solver,
 ):
-    """Unit test for the after_nonlinear_loop method of the Newton solver."""
+    """Unit test for the summarize_solver_status method of the Newton solver."""
     # Init model and solver.
     model = MockModel()
     solver = default_newton_solver
@@ -933,12 +933,10 @@ def test_after_nonlinear_loop(
         SimulationStatus.SUCCESSFUL
     ]
 
-    simulation_status = solver.after_nonlinear_loop(
-        model, convergence_status, divergence_status
-    )
+    solver_status = solver.summarize_solver_status(model, convergence_status, divergence_status)
 
     # Check that the returned simulation status matches expected value.
-    assert simulation_status == expected_simulation_status
+    assert solver_status == expected_solver_status
 
 
 def test_before_nonlinear_iteration(default_newton_solver):
