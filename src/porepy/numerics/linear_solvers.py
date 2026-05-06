@@ -93,19 +93,19 @@ class LinearSolver:
 
         # React to convergence status.
         if status.is_converged():
-            simulation_status = SimulationStatus.SUCCESSFUL
+            solver_status = SimulationStatus.SUCCESSFUL
             model.after_nonlinear_convergence()
         elif status.is_diverged():
-            simulation_status = SimulationStatus.FAILED
+            solver_status = SimulationStatus.FAILED
             model.after_nonlinear_failure()
             warn("Failed to solve the (non)linear problem.", UserWarning)
         else:
             raise ValueError(f"Unknown convergence status: {status}")
 
         # Update (global) solver statistics.
-        self.update_solver_statistics(model, simulation_status)
+        self.update_solver_statistics(model, solver_status)
 
-        return simulation_status
+        return solver_status
 
     def check_convergence(
         self, model: SolutionStrategy, nonlinear_increment
@@ -145,18 +145,18 @@ class LinearSolver:
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        simulation_status: SimulationStatus,
+        solver_status: SimulationStatus,
     ) -> None:
         """Update the solver statistics in the model.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            simulation_status: Simulation status of the solver.
+            solver_status: Simulation status of the solver.
             info: Dictionary containing norms and other information.
 
         """
         # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+        model.nonlinear_solver_statistics.log_simulation_status(solver_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
             assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
