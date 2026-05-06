@@ -70,6 +70,13 @@ class LinearSolver:
             SimulationStatus: The status of the simulation.
 
         """
+        # Make sure the model is nonlinear.
+        if not model._is_nonlinear_problem():
+            raise ValueError(
+                "The linear solver is only applicable to linear problems. "
+                "Please use a nonlinear solver for nonlinear problems."
+            )
+
         # Prepare model for solving.
         model.before_nonlinear_loop()
 
