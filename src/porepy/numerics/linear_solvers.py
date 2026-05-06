@@ -100,7 +100,7 @@ class LinearSolver:
 
         """
         # Make sure the model is nonlinear.
-        if not model._is_nonlinear_problem():
+        if model._is_nonlinear_problem():
             raise ValueError(
                 "The linear solver is only applicable to linear problems. "
                 "Please use a nonlinear solver for nonlinear problems."
