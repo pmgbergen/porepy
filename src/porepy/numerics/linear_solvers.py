@@ -8,6 +8,7 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from warnings import warn
 
 from porepy.models.solution_strategy import SolutionStrategy
@@ -21,6 +22,9 @@ from porepy.numerics.nonlinear.convergence_check import (
     SimulationStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class LinearSolver:
@@ -115,10 +119,10 @@ class LinearSolver:
 
         Returns:
             Tuple containing:
-            - ConvergenceStatusCollection: Convergence status collection at the end of the
-              nonlinear iteration.
-            - ConvergenceStatusCollection: Divergence status collection at the end of the
-              nonlinear iteration.
+            - ConvergenceStatusCollection: Convergence status collection at the end of
+                the nonlinear iteration.
+            - ConvergenceStatusCollection: Divergence status collection at the end of
+                the nonlinear iteration.
 
         """
         # Combines "before, actual and after" iteration steps.
@@ -209,12 +213,12 @@ class LinearSolver:
         Returns:
             Tuple containing:
 
-            - ConvergenceStatusCollection: Convergence status collection at the end of the
-              nonlinear iteration.
-            - ConvergenceStatusCollection: Divergence status collection at the end of the
-              nonlinear iteration.
-            - ConvergenceInfoCollection: Convergence information collection at the end of
-              the nonlinear iteration.
+            - ConvergenceStatusCollection: Convergence status collection at the end of
+                the nonlinear iteration.
+            - ConvergenceStatusCollection: Divergence status collection at the end of
+                the nonlinear iteration.
+            - ConvergenceInfoCollection: Convergence information collection at the end
+                of the nonlinear iteration.
 
         """
         # Fetch the residual.
