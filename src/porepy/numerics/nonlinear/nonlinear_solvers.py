@@ -351,7 +351,7 @@ class NewtonSolver:
 
                 # Declare total failure which shall result in stopping the simulation.
                 warn(
-                    "Failed to solve linear system for the linear problem. "
+                    "Failed to solve linear system for the nonlinear problem. "
                     "Stopping the simulation.",
                     UserWarning,
                 )
