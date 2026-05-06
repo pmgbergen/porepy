@@ -330,26 +330,24 @@ class NewtonSolver:
             SimulationStatus: The overall status of the nonlinear solver.
 
         """
-
-        # Conclude on the overall solver status.
         if convergence_status.is_converged():
             solver_status = SimulationStatus.SUCCESSFUL
             self.update_solver_statistics(model, solver_status=solver_status)
             model.after_nonlinear_convergence()
         elif divergence_status.is_diverged():
+            # NOTE: While FAILED on solver level, IN_PROGRESS on simulation level.
             solver_status = SimulationStatus.FAILED
             self.update_solver_statistics(model, solver_status=solver_status)
             model.after_nonlinear_failure()
-            if model._is_nonlinear_problem():
-                # NOTE: While FAILED on solver level, IN_PROGRESS on simulation level.
-                warn("Failed to solve the nonlinear problem.", UserWarning)
-            else:
+            warn("Failed to solve the nonlinear problem.", UserWarning)
+
+            if not model._is_nonlinear_problem():
                 # NOTE: FAILED on solver level, and FAILED on simulation level.
-                # TODO: Get back to this when reimplementing time stepping.
+                # Should possible be handled on the level above the solver.
                 # NOTE: Currently, if a simulation fully stops, this is not logged in
                 # SolverStatistics. For this, better coordination between solver and time
-                # stepping is needed. Should possible be handled on the level above the
-                # solver, as a reaction to the FAILED solver status.
+                # stepping is needed.
+                # TODO: Get back to this when reimplementing time stepping.
 
                 # Declare total failure which shall result in stopping the simulation.
                 warn(
