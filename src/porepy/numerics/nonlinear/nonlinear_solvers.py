@@ -345,8 +345,8 @@ class NewtonSolver:
                 # NOTE: FAILED on solver level, and FAILED on simulation level.
                 # Should possible be handled on the level above the solver.
                 # NOTE: Currently, if a simulation fully stops, this is not logged in
-                # SolverStatistics. For this, better coordination between solver and time
-                # stepping is needed.
+                # SolverStatistics. For this, better coordination between solver and
+                # time stepping is needed.
                 # TODO: Get back to this when reimplementing time stepping.
 
                 # Declare total failure which shall result in stopping the simulation.
