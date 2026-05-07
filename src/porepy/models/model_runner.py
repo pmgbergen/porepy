@@ -4,22 +4,57 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Optional, TypeVar
+from enum import StrEnum
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
 
-__all__ = ["ModelRunner"]
+if TYPE_CHECKING:
+    from porepy.numerics.nonlinear.convergence_check import SolverStatus
+
+__all__ = ["SimulationStatus", "ModelRunner"]
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+
+
+class SimulationStatus(StrEnum):
+    """Enumeration of potential simulation statuses."""
+
+    IN_PROGRESS = "in_progress"
+    """Simulation is currently in progress and in a nominal state."""
+    SUCCESSFUL = "successful"
+    """Simulation completed with success."""
+    FAILED = "failed"
+    """Simulation is currently in progress and in a failed state."""
+    STOPPED = "stopped"
+    """Simulation was stopped due to an error."""
+
+    def __str__(self):
+        return self.value
+
+    def is_in_progress(self) -> bool:
+        """Check if the status indicates an ongoing simulation."""
+        return self == SimulationStatus.IN_PROGRESS
+
+    def is_successful(self) -> bool:
+        """Check if the status indicates a successful simulation."""
+        return self == SimulationStatus.SUCCESSFUL
+
+    def is_failed(self) -> bool:
+        """Check if the status indicates a failed simulation."""
+        return self == SimulationStatus.FAILED
+
+    def is_stopped(self) -> bool:
+        """Check if the status indicates a stopped simulation."""
+        return self == SimulationStatus.STOPPED
 
 
 def run_stationary_model(model, params: dict) -> None:
@@ -258,7 +293,7 @@ class ModelRunner:
             f"Time step size {self.model.time_manager.dt:.2e}"
         )
 
-    def after_time_step(self, solver_status: SimulationStatus) -> SimulationStatus:
+    def after_time_step(self, solver_status: SolverStatus) -> SimulationStatus:
         """Method to be executed at the end of each time step.
 
         React to solver status, updates the time step size and logs the progress.
@@ -267,10 +302,12 @@ class ModelRunner:
             solver_status: Status of the time step, as returned by the solver.
 
         Returns:
-            pp.SimulationStatus: Status of the time step, which can be used to determine
-                whether to continue the simulation or not.
+            A simulation-status object of the time step, which can be used to determine
+            whether to continue the simulation or not.
 
         """
+        simulation_status: SimulationStatus
+
         if solver_status.is_successful():
             # Conclude simulation status if final time reached.
             simulation_status = (
@@ -330,9 +367,7 @@ class ModelRunner:
 
         return simulation_status
 
-    def after_stationary_solve(
-        self, solver_status: SimulationStatus
-    ) -> SimulationStatus:
+    def after_stationary_solve(self, solver_status: SolverStatus) -> SimulationStatus:
         """Method to be executed at the end of a stationary solve.
 
         React to solver status and logs the progress.
@@ -341,8 +376,8 @@ class ModelRunner:
             solver_status: Status of the solve, as returned by the solver.
 
         Returns:
-            pp.SimulationStatus: Status of the solve, which can be used to determine
-                whether the simulation was successful or not.
+            A simulation-status enum which can be used to determine whether the
+            simulation was successful or not.
 
         """
         if solver_status.is_successful():

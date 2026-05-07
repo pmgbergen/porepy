@@ -13,7 +13,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
-    SimulationStatus,
+    SolverStatus,
 )
 from porepy.viz.solver_statistics import (
     NonlinearSolverAndTimeStatistics,
@@ -55,15 +55,15 @@ def reference_solver_statistics_dict() -> dict:
             "num_cells": {"0": 6, "1": 5, "2": 4},
             "num_domains": {"0": 1, "1": 1, "2": 1},
             "simulation_status_history": [
-                SimulationStatus.FAILED,
-                SimulationStatus.SUCCESSFUL,
+                SolverStatus.FAILED,
+                SolverStatus.SUCCESSFUL,
             ],
-            "final_simulation_status": SimulationStatus.SUCCESSFUL,
+            "final_simulation_status": SolverStatus.SUCCESSFUL,
             "num_entries": 2,
         },
         # Custom data from SolverStatistics
-        "0": {"foo": ["bar1", "bar2"], "simulation_status": SimulationStatus.FAILED},
-        "1": {"foo": ["bar3"], "simulation_status": SimulationStatus.SUCCESSFUL},
+        "0": {"foo": ["bar1", "bar2"], "simulation_status": SolverStatus.FAILED},
+        "1": {"foo": ["bar3"], "simulation_status": SolverStatus.SUCCESSFUL},
     }
 
 
@@ -89,7 +89,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
         {
             # NonlinearSolverStatistics data for first outer iteration
             "num_iterations": 2,
-            "simulation_status": SimulationStatus.FAILED,
+            "simulation_status": SolverStatus.FAILED,
             "convergence_status": {
                 "crit1": [
                     ConvergenceStatus.NOT_CONVERGED,
@@ -110,7 +110,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
         {
             # NonlinearSolverStatistics data for second outer iteration
             "num_iterations": 1,
-            "simulation_status": SimulationStatus.SUCCESSFUL,
+            "simulation_status": SolverStatus.SUCCESSFUL,
             "convergence_status": {
                 "crit1": [ConvergenceStatus.CONVERGED],
                 "crit2": [ConvergenceStatus.CONVERGED],
@@ -135,8 +135,8 @@ def reference_time_statistics_dict() -> dict:
     reference_dict["global"].update(
         {
             "simulation_status_history": [
-                SimulationStatus.SUCCESSFUL,
-                SimulationStatus.SUCCESSFUL,
+                SolverStatus.SUCCESSFUL,
+                SolverStatus.SUCCESSFUL,
             ],
             "final_time_reached": True,
             "total_num_time_steps": 2,
@@ -146,7 +146,7 @@ def reference_time_statistics_dict() -> dict:
     # Add TimeStatistics data to each iteration
     reference_dict["0"].update(
         {
-            "simulation_status": SimulationStatus.SUCCESSFUL,
+            "simulation_status": SolverStatus.SUCCESSFUL,
             "time_index": 0,
             "time": 2.0,
             "dt": 2.0,
@@ -214,7 +214,7 @@ def test_solver_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == SimulationStatus.IN_PROGRESS
+    assert stats.simulation_status == SolverStatus.IN_PROGRESS
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -268,12 +268,13 @@ def test_log_mesh_information(subdomains, expected_num_cells, expected_num_domai
 @pytest.mark.parametrize(
     "statuses",
     [
-        [SimulationStatus.IN_PROGRESS, SimulationStatus.SUCCESSFUL],
+        [SolverStatus.IN_PROGRESS, SolverStatus.SUCCESSFUL],
         [
-            SimulationStatus.FAILED,
-            SimulationStatus.SUCCESSFUL,
-            SimulationStatus.IN_PROGRESS,
+            SolverStatus.FAILED,
+            SolverStatus.SUCCESSFUL,
+            SolverStatus.IN_PROGRESS,
         ],
+        # TODO add simulation status and mixed status updates.
     ],
 )
 def test_log_simulation_status(statuses):
@@ -341,7 +342,7 @@ def test_solver_statistics_append_global_data():
     # Mimic 1. iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
 
     # Append global data.
     out = stats.append_global_data(data)
@@ -349,7 +350,7 @@ def test_solver_statistics_append_global_data():
     # Mimic 2. iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
 
     # Append global data.
     out = stats.append_global_data(data)
@@ -409,13 +410,13 @@ def test_solver_statistics_append_iterative_data():
     """Test that append_iterative_data essentially just passes a dictionary."""
     stats = SolverStatistics()
     stats.increase_index()
-    stats.simulation_status = SimulationStatus.FAILED
+    stats.simulation_status = SolverStatus.FAILED
     data = {"0": {}}
     out = stats.append_iterative_data(data)
     assert (
         DeepDiff(
             out,
-            {"0": {"simulation_status": SimulationStatus.FAILED}},
+            {"0": {"simulation_status": SolverStatus.FAILED}},
             ignore_string_type_changes=True,
         )
         == {}
@@ -436,7 +437,7 @@ def test_solver_statistics_append_data_solver_statistics():
     # Mimick 1. iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
     stats.log_custom_data(**{"foo": "bar1"})
     stats.log_custom_data(append=True, **{"foo": "bar2"})
 
@@ -446,7 +447,7 @@ def test_solver_statistics_append_data_solver_statistics():
     # Mimick 2. iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
 
     # Summarize.
@@ -481,7 +482,7 @@ def test_solver_statistics_save():
     # Mimick 1. iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
     stats.log_custom_data(**{"foo": "bar1"})
     stats.log_custom_data(append=True, **{"foo": "bar2"})
 
@@ -491,7 +492,7 @@ def test_solver_statistics_save():
     # Mimick 2. iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
 
     # Save to file.
@@ -568,7 +569,7 @@ def test_nonlinear_solver_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == SimulationStatus.IN_PROGRESS
+    assert stats.simulation_status == SolverStatus.IN_PROGRESS
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -686,8 +687,8 @@ def test_nonlinear_solver_statistics_increase_index():
     stats.increase_index()
     stats.num_iterations = 2
     stats.convergence_status = {
-        "crit1": [SimulationStatus.SUCCESSFUL, SimulationStatus.FAILED],
-        "crit2": [SimulationStatus.FAILED, SimulationStatus.SUCCESSFUL],
+        "crit1": [SolverStatus.SUCCESSFUL, SolverStatus.FAILED],
+        "crit2": [SolverStatus.FAILED, SolverStatus.SUCCESSFUL],
     }
     stats.convergence_info = {
         "crit1": [1.0, 0.5],
@@ -708,8 +709,8 @@ def test_nonlinear_solver_statistics_append_global_data():
     stats.num_cells = {"0": 6, "1": 5, "2": 4}
     stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
-        SimulationStatus.FAILED,
-        SimulationStatus.SUCCESSFUL,
+        SolverStatus.FAILED,
+        SolverStatus.SUCCESSFUL,
     ]
     stats.num_iterations_history = [2, 1]
     stats.index = 1
@@ -744,7 +745,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     stats.increase_index()
     stats.num_iterations = 2
     stats.simulation_status_history = [
-        SimulationStatus.FAILED,
+        SolverStatus.FAILED,
     ]
     stats.convergence_status = ConvergenceStatusHistory(
         {
@@ -791,7 +792,7 @@ def test_nonlinear_solver_statistics_append_data():
     # 1. sub-iteration of FAILED iteration
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.IN_PROGRESS)
+    stats.log_simulation_status(SolverStatus.IN_PROGRESS)
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -805,7 +806,7 @@ def test_nonlinear_solver_statistics_append_data():
 
     # 2. sub-iteration of FAILED iteration
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -826,7 +827,7 @@ def test_nonlinear_solver_statistics_append_data():
     # 1. sub-iteration of FAILED iteration
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -865,8 +866,8 @@ def test_nonlinear_solver_statistics_save():
     stats.num_cells = {"0": 6, "1": 5, "2": 4}
     stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
-        SimulationStatus.FAILED,
-        SimulationStatus.SUCCESSFUL,
+        SolverStatus.FAILED,
+        SolverStatus.SUCCESSFUL,
     ]
     stats.index = 1
     stats.num_iterations_history = [2, 1]
@@ -924,7 +925,7 @@ def test_nonlinear_solver_statistics_integration():
     # 1. sub-iteration of FAILED iteration
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.IN_PROGRESS)
+    stats.log_simulation_status(SolverStatus.IN_PROGRESS)
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -938,7 +939,7 @@ def test_nonlinear_solver_statistics_integration():
 
     # 2. sub-iteration of FAILED iteration
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -958,7 +959,7 @@ def test_nonlinear_solver_statistics_integration():
     # 1. sub-iteration of SUCCESSFUL iteration
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -1003,7 +1004,7 @@ def test_time_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == SimulationStatus.IN_PROGRESS
+    assert stats.simulation_status == SolverStatus.IN_PROGRESS
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -1087,8 +1088,8 @@ def test_time_statistics_append_global_data():
     stats.num_cells = {"0": 6, "1": 5, "2": 4}
     stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
-        SimulationStatus.SUCCESSFUL,
-        SimulationStatus.SUCCESSFUL,
+        SolverStatus.SUCCESSFUL,
+        SolverStatus.SUCCESSFUL,
     ]
     stats.index = 1
 
@@ -1118,7 +1119,7 @@ def test_time_statistics_append_iterative_data():
 
     # Define reference statistics after 1. time step.
     stats.index = 1
-    stats.simulation_status = SimulationStatus.SUCCESSFUL
+    stats.simulation_status = SolverStatus.SUCCESSFUL
     stats.time_index = 1
     stats.time = 2.5
     stats.dt = 0.5
@@ -1163,7 +1164,7 @@ def test_time_statistics_append_data():
     # 1. Mimick first time step.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_time_information(0, 2.0, 2.0, False)
@@ -1175,7 +1176,7 @@ def test_time_statistics_append_data():
     # 2. Mimick second time step
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_time_information(1, 2.5, 0.5, True)
 
@@ -1207,10 +1208,10 @@ def test_time_statistics_save():
     stats.num_cells = {"0": 6, "1": 5, "2": 4}
     stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
-        SimulationStatus.SUCCESSFUL,
-        SimulationStatus.SUCCESSFUL,
+        SolverStatus.SUCCESSFUL,
+        SolverStatus.SUCCESSFUL,
     ]
-    stats.simulation_status = SimulationStatus.SUCCESSFUL
+    stats.simulation_status = SolverStatus.SUCCESSFUL
     stats.index = 1
     stats.time_index = 1
     stats.time = 2.5
@@ -1261,7 +1262,7 @@ def test_time_statistics_integration():
     # 1. Mimick first time step.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_time_information(0, 2.0, 2.0, False)
@@ -1272,7 +1273,7 @@ def test_time_statistics_integration():
     # 2. Mimick second time step
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_time_information(1, 2.5, 0.5, True)
 
@@ -1312,7 +1313,7 @@ def test_nonlinear_solver_and_time_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == SimulationStatus.IN_PROGRESS
+    assert stats.simulation_status == SolverStatus.IN_PROGRESS
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -1379,7 +1380,7 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     # 1. iteration of FAILED time step.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.IN_PROGRESS)
+    stats.log_simulation_status(SolverStatus.IN_PROGRESS)
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -1394,7 +1395,7 @@ def test_nonlinear_solver_and_time_statistics_append_data():
 
     # 2. iteration of FAILED time step
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -1414,7 +1415,7 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     # 2. Mimick second time step using 1 iteration of SUCCESSFUL iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -1454,10 +1455,10 @@ def test_nonlinear_solver_and_time_statistics_save():
     # test_nonlinear_solver_and_time_statistics_append_data).
     stats.num_cells = {"0": 6, "1": 5, "2": 4}
     stats.num_domains = {"0": 1, "1": 1, "2": 1}
-    stats.simulation_status = SimulationStatus.SUCCESSFUL
+    stats.simulation_status = SolverStatus.SUCCESSFUL
     stats.simulation_status_history = [
-        SimulationStatus.FAILED,
-        SimulationStatus.SUCCESSFUL,
+        SolverStatus.FAILED,
+        SolverStatus.SUCCESSFUL,
     ]
     stats.index = 1
     stats.num_iterations_history = [2, 1]
@@ -1522,7 +1523,7 @@ def test_nonlinear_solver_and_time_statistics_integration():
     # 1. iteration of FAILED time step.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.IN_PROGRESS)
+    stats.log_simulation_status(SolverStatus.IN_PROGRESS)
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -1537,7 +1538,7 @@ def test_nonlinear_solver_and_time_statistics_integration():
 
     # 2. iteration of FAILED time step
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.FAILED)
+    stats.log_simulation_status(SolverStatus.FAILED)
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(
@@ -1556,7 +1557,7 @@ def test_nonlinear_solver_and_time_statistics_integration():
     # 2. Mimick second time step using 1 iteration of SUCCESSFUL iteration.
     stats.increase_index()
     stats.log_mesh_information(subdomains)
-    stats.log_simulation_status(SimulationStatus.SUCCESSFUL)
+    stats.log_simulation_status(SolverStatus.SUCCESSFUL)
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
         ConvergenceStatusCollection(

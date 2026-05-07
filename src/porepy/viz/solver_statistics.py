@@ -10,12 +10,13 @@ from typing import Any, Optional, Type
 
 import numpy as np
 
+from porepy.models.model_runner import SimulationStatus
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
-    SimulationStatus,
+    SolverStatus,
     _recursive_append,
 )
 
@@ -63,9 +64,13 @@ class SolverStatistics:
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
     simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
-    """Overall simulation status."""
+    """Last logged simulation status."""
     simulation_status_history: list[SimulationStatus] = field(default_factory=list)
-    """Overall simulation status history."""
+    """Simulation status history."""
+    solver_status: SolverStatus = field(default=SolverStatus.IN_PROGRESS)
+    """Last logged solver status."""
+    solver_status_history: list[SolverStatus] = field(default_factory=list)
+    """Solver status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
@@ -100,10 +105,10 @@ class SolverStatistics:
     def log_simulation_status(
         self, simulation_status: SimulationStatus, **kwargs
     ) -> None:
-        """Log overall simulation status.
+        """Log the status of the simulation.
 
         Parameters:
-            simulation_status: Overall simulation status.
+            status: A status enum.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
@@ -113,6 +118,21 @@ class SolverStatistics:
                 self.simulation_status_history.append(self.simulation_status)
             else:
                 self.simulation_status_history[-1] = self.simulation_status
+
+    def log_solver_status(self, solver_status: SolverStatus, **kwargs) -> None:
+        """Log the status of the solver.
+
+        Parameters:
+            status: A status enum.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        if solver_status is not None:
+            self.solver_status = solver_status
+            if len(self.solver_status_history) <= self.index:
+                self.solver_status_history.append(self.solver_status)
+            else:
+                self.solver_status_history[-1] = self.solver_status
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -189,6 +209,7 @@ class SolverStatistics:
         data[str(self.index)].update(
             {
                 "simulation_status": str(self.simulation_status),
+                "solver_status": str(self.solver_status),
             }
         )
         return data
@@ -296,6 +317,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iterations = 0
         self.convergence_status.clear()
         self.convergence_info.clear()
+        self.solver_status_history.clear()
 
     def log_convergence_status(
         self, convergence_status: ConvergenceStatusCollection, **kwargs
@@ -355,7 +377,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
         ):
-            if simulation_status != SimulationStatus.SUCCESSFUL:
+            if simulation_status != SolverStatus.SUCCESSFUL:
                 total_num_waisted_iterations += num_iterations
 
         # Update global data.
@@ -372,6 +394,13 @@ class NonlinearSolverStatistics(SolverStatistics):
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary at current index."""
 
+        str_solver_status_history = [str(s) for s in self.solver_status_history]
+        final_str_solver_status = (
+            None
+            if len(self.solver_status_history) == 0
+            else str_solver_status_history[-1]
+        )
+
         data = super().append_iterative_data(data)
         data[str(self.index)].update(
             {
@@ -381,6 +410,8 @@ class NonlinearSolverStatistics(SolverStatistics):
                     if len(self.simulation_status_history) == 0
                     else self.simulation_status_history[-1]
                 ),
+                "solver_status": str_solver_status_history,
+                "final_solver_status": final_str_solver_status,
                 "convergence_status": self.convergence_status.to_str().copy(),
                 "convergence_info": self.convergence_info.copy(),
             }
@@ -451,7 +482,7 @@ class TimeStatistics(SolverStatistics):
         total_num_failed_time_steps = 0
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if simulation_status != SimulationStatus.SUCCESSFUL:
+            if simulation_status != SolverStatus.SUCCESSFUL:
                 total_num_failed_time_steps += 1
 
         # Update global data.

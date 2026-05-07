@@ -14,7 +14,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
-    SimulationStatus,
+    SolverStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 
@@ -265,7 +265,7 @@ def test_solve_convergence(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
 
 def test_solve_convergence_statistics(default_newton_solver):
@@ -354,7 +354,7 @@ def test_solve_convergence_time_dependent(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
     # Second time step.
     model.time_manager.increase_time()
@@ -362,7 +362,7 @@ def test_solve_convergence_time_dependent(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
 
 def test_solve_convergence_time_dependent_statistics(default_newton_solver):
@@ -511,7 +511,7 @@ def test_solve_failure(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.FAILED
+    assert solver_status == SolverStatus.FAILED
 
 
 def test_solve_failure_statistics(default_newton_solver):
@@ -529,7 +529,7 @@ def test_solve_failure_statistics(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.FAILED
+    assert solver_status == SolverStatus.FAILED
 
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
@@ -601,14 +601,14 @@ def test_solve_failure_time_dependent(default_newton_solver):
 
     # Check simulation status.
     assert not model.time_manager.final_time_reached()
-    assert solver_status == SimulationStatus.FAILED
+    assert solver_status == SolverStatus.FAILED
 
     # Retry time step, so do not increase time.
     solver_status = solver.solve(model)
 
     # Check simulation status.
     assert not model.time_manager.final_time_reached()
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
@@ -617,7 +617,7 @@ def test_solve_failure_time_dependent(default_newton_solver):
 
     # Check simulation status.
     assert model.time_manager.final_time_reached()
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
 
 def test_solve_failure_time_dependent_statistics(default_newton_solver):
@@ -898,17 +898,17 @@ def test_nonlinear_loop(
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
-            SimulationStatus.SUCCESSFUL,
+            SolverStatus.SUCCESSFUL,
         ),
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.DIVERGED,
-            SimulationStatus.SUCCESSFUL,  # Convergence trumps divergence
+            SolverStatus.SUCCESSFUL,  # Convergence trumps divergence
         ),
         (
             ConvergenceStatus.NOT_CONVERGED,
             ConvergenceStatus.DIVERGED,
-            SimulationStatus.FAILED,
+            SolverStatus.FAILED,
         ),
     ],
 )
@@ -929,7 +929,7 @@ def test_summarize_solver_status(
 
     # Minimal mimicking of loop.
     model.nonlinear_solver_statistics.simulation_status_history = [
-        SimulationStatus.SUCCESSFUL
+        SolverStatus.SUCCESSFUL
     ]
 
     solver_status = solver.summarize_solver_status(
@@ -1077,7 +1077,7 @@ def test_update_solver_statistics(default_newton_solver):
 
     # Set some inputs for the update_solver_statistics method.
     # Here, we simulate one iteration with not converged status.
-    simulation_status = SimulationStatus.IN_PROGRESS
+    simulation_status = SolverStatus.IN_PROGRESS
     convergence_status = ConvergenceStatusCollection(
         {
             "inc_abs": ConvergenceStatus.NOT_CONVERGED,
