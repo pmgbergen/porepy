@@ -133,9 +133,6 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
 
 # If executed as main, run simulation.
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    plt.figure(figsize=(6, 4))
     params = {
         "material_constants": {
             "solid": solid_constants,
@@ -148,39 +145,3 @@ if __name__ == "__main__":
         "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
     }
     pp.run_time_dependent_model(model, solver_parameters)
-
-    sd_matrix = model.mdg.subdomains(dim=3)[0]
-    cc = sd_matrix.cell_centers
-    pressure = cast(
-        np.ndarray, model.equation_system.evaluate(model.pressure([sd_matrix]))
-    )
-
-    # Collect pressure solution along the vertical line of the domain.
-    x0 = np.array([0.5, 1.1, 0.0])
-    x1 = np.array([0.5, 1.1, 1.0])
-
-    d = x1 - x0
-    L = np.linalg.norm(d)
-    e = d / L
-
-    s = np.dot(e, (cc - x0[:, None]))
-    proj = x0[:, None] + e[:, None] * s[None, :]
-    dist = np.linalg.norm(cc - proj, axis=0)
-
-    # Only consider cell centers within a small distance from the vertical
-    # line by setting a tolerance.
-    tol = 0.03
-    idx = np.argsort(s[dist < tol])
-    s_line = s[dist < tol][idx]
-    pressure_line = pressure[dist < tol][idx]
-
-    plt.plot(
-        s_line,
-        pressure_line,
-        "-",
-        linewidth=2.5,
-    )
-
-    plt.xlabel("Distance along the vertical line")
-    plt.ylabel("Pressure")
-    plt.title("Pressure distribution along the vertical line")
