@@ -155,3 +155,31 @@ class FlowBenchmark2dCase3bModel(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3b (left-to-right flow) from the 2d flow benchmark."""
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    for model_class, direction in zip(
+        [FlowBenchmark2dCase3aModel, FlowBenchmark2dCase3bModel], ["x", "y"]
+    ):
+        model_params = {
+            "material_constants": {"solid": solid_constants},
+            "grid_type": "simplex",
+            "meshing_arguments": {"cell_size": 0.3},
+        }
+        model = model_class(model_params)  # type: ignore[abstract]
+        solver_parameters = {
+            "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+        }
+        pp.run_time_dependent_model(model, solver_parameters)
+        title = f"Pressure distribution. \n Flow in {direction}-direction."
+        pp.plot_grid(
+            model.mdg,
+            model.pressure_variable,
+            figsize=(12, 10),
+            plot_2d=True,
+            title=title,
+            pointsize=20,
+            fracturewidth_1d=3,
+            linewidth=0.2,
+        )
