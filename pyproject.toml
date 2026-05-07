@@ -50,7 +50,8 @@ development = [
 testing = [
     "pytest",
     "pytest-cov",
-    "pytest-runner"
+    "pytest-runner",
+    "tqdm"
 ]
 
 # Information for the build system.

@@ -204,7 +204,7 @@ class ModelRunner:
             # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
                 range(expected_time_steps),
-                desc="time loop",
+                desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
             )
@@ -254,8 +254,8 @@ class ModelRunner:
             + f" of {self.model.time_manager.time_final:.1e}"
             + f" with time step {self.model.time_manager.dt:.1e}"
         )
-        self.time_progressbar.set_description_str(
-            f"Time step {self.model.time_manager.time_index}"
+        self.time_progressbar.set_postfix_str(
+            f"Time step size {self.model.time_manager.dt:.2e}"
         )
 
     def after_time_step(self, solver_status: SimulationStatus) -> SimulationStatus:

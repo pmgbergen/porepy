@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Optional, cast
@@ -19,7 +18,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -395,14 +393,8 @@ class SolutionStrategy(pp.PorePyModel):
     def after_nonlinear_convergence(self) -> None:
         """Called after the solver converges."""
 
-    def after_nonlinear_failure(self) -> SimulationStatus:
+    def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
-        if self._is_nonlinear_problem():
-            warn("Failed to solve the nonlinear problem.")
-            return SimulationStatus.FAILED
-        else:
-            warn("Failed to solve linear system for the linear problem.")
-            return SimulationStatus.STOPPED
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
@@ -792,7 +784,7 @@ class SolutionStrategy(pp.PorePyModel):
             except ImportError:
                 # Fall back on the standard scipy sparse solver.
                 sparse_solver = sps.linalg.spsolve
-                warnings.warn(
+                warn(
                     """PyPardiso could not be imported,
                     falling back on scipy.sparse.linalg.spsolve"""
                 )
