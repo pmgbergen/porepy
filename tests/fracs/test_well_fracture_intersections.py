@@ -60,6 +60,14 @@ requires_implementation = pytest.mark.skipif(
 TOL = 1e-10
 
 
+def _infer_dimension_from_fractures(fractures: list[pp.Fracture]) -> int:
+    if len(fractures) == 0:
+        # Default to 3d if no fractures provided. The value given should not impact the
+        # test results in this case.
+        return 3
+    return 2 if isinstance(fractures[0], pp.LineFracture) else 3
+
+
 # 3D fractures factories (PlaneFracture for ambient dim = 3)
 def make_fracture_horizontal_at_z(
     fracture_index: int, z: float, half_size: float = 2.0
@@ -378,8 +386,8 @@ def test_intersect_well_fractures_basic_geometries(
         Coordinates are compared using a numerical tolerance.
 
     """
-
-    result = intersect_well_fractures([well], fractures)
+    nd = _infer_dimension_from_fractures(fractures)
+    result = intersect_well_fractures([well], fractures, nd)
 
     assert len(result) == len(expected), (
         f"Case '{case_name}': expected {len(expected)} intersections, "
@@ -434,7 +442,8 @@ def test_well_intersects_no_fractures(case_name, well, fractures) -> None:
 
     """
 
-    result = intersect_well_fractures([well], fractures)
+    nd = _infer_dimension_from_fractures(fractures)
+    result = intersect_well_fractures([well], fractures, nd)
 
     assert len(result) == 0, (
         f"Case '{case_name}': expected no intersections, got {result}."
@@ -499,7 +508,8 @@ def test_single_fracture_intersected_by_multiple_wells(
 
     """
 
-    result = intersect_well_fractures(wells, fractures)
+    nd = _infer_dimension_from_fractures(fractures)
+    result = intersect_well_fractures(wells, fractures, nd)
 
     assert len(result) == len(expected), (
         f"Case '{case_name}': expected {len(expected)} intersections, "
@@ -594,7 +604,8 @@ def test_well_intersects_shared_fracture_intersection_in_3d(
 
     """
 
-    result = intersect_well_fractures([well], fractures)
+    nd = _infer_dimension_from_fractures(fractures)
+    result = intersect_well_fractures([well], fractures, nd)
 
     assert len(result) == 1, (
         f"Case '{case_name}': expected exactly one same-point multi-fracture "
@@ -629,7 +640,8 @@ def test_2d_multiple_fractures_same_point():
         make_fracture_vertical_at_x(1, 1.0),
     ]
 
-    result = intersect_well_fractures([well], fractures)
+    nd = _infer_dimension_from_fractures(fractures)
+    result = intersect_well_fractures([well], fractures, nd)
 
     assert len(result) == 1
 
