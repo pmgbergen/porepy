@@ -219,7 +219,7 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         energy = (
             self.solid_density(subdomains)
             * self.solid_enthalpy(subdomains)
-            * (pp.ad.Scalar(1, domains=subdomains) - self.porosity(subdomains))
+            * (pp.ad.Scalar(1) - self.porosity(subdomains))
         )
         energy.set_name("solid_internal_energy")
         return energy

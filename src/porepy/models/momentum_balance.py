@@ -98,7 +98,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # By the convention of positive tensile stress, the balance equation is
         # acceleration - stress = body_force. The balance_equation method will *add* the
         # surface term (stress), so we need to multiply by -1.
-        stress = pp.ad.Scalar(-1, domains=subdomains) * self.stress(subdomains)
+        stress = pp.ad.Scalar(-1) * self.stress(subdomains)
         body_force = self.body_force(subdomains)
 
         equation = self.balance_equation(
@@ -124,7 +124,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             Operator for the inertial term.
 
         """
-        return pp.ad.Scalar(0, domains=subdomains)
+        return pp.ad.Scalar(0)
 
     def interface_force_balance_equation(
         self,
@@ -261,7 +261,7 @@ class AngularMomentumEquation(pp.PorePyModel):
         # The accumulation term is what it is in the three-field formulation, see the
         # Tpsa paper for more information (reference in module-level docstring).
         accumulation = -self.volume_integral(
-            pp.ad.Scalar(1, domains=subdomains)
+            pp.ad.Scalar(1)
             / self.first_lame_parameter(subdomains)
             * self.rotation_stress(subdomains),
             subdomains,
@@ -346,7 +346,7 @@ class SolidMassEquation(pp.PorePyModel):
 
         source = self.solid_mass_source(subdomains)
         accumulation = -self.volume_integral(
-            pp.ad.Scalar(1, domains=subdomains)
+            pp.ad.Scalar(1)
             / self.second_lame_parameter(subdomains)
             * self.total_pressure(subdomains),
             subdomains,

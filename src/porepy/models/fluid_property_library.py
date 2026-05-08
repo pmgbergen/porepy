@@ -386,7 +386,7 @@ class FluidMobility(pp.PorePyModel):
             )
         else:
             assert phase == self.fluid.reference_phase
-            mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0, domains=domains)
+            mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0)
         mobility.set_name(f"phase_mobility_{phase.name}")
         return mobility
 
@@ -740,7 +740,7 @@ class FluidBuoyancy(pp.PorePyModel):
             )
             e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
             overall_gravity_flux = (
-                pp.ad.Scalar(-1, domains=subdomains_list)
+                pp.ad.Scalar(-1)
                 * e_n
                 @ (fractionally_weighted_rho * self.gravity_field(subdomains_list))
             )
@@ -778,7 +778,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         e_n = self.e_i(subdomains_list, i=self.nd - 1, dim=self.nd)
         gravity_flux = (
-            pp.ad.Scalar(-1, domains=subdomains_list)
+            pp.ad.Scalar(-1)
             * e_n
             @ (density_metric * self.gravity_field(subdomains_list))
         )
@@ -817,7 +817,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
         gravity_flux = (
-            pp.ad.Scalar(-1, domains=subdomain_neighbors)
+            pp.ad.Scalar(-1)
             * e_n
             @ (density_metric * self.gravity_field(subdomain_neighbors))
         )
@@ -1081,7 +1081,7 @@ class FluidBuoyancy(pp.PorePyModel):
         """
         b_fluxes: List[pp.ad.Operator] = []
         b_fluxes.append(
-            self.density_driven_flux(domains, pp.ad.Scalar(0.0, domains=domains))
+            self.density_driven_flux(domains, pp.ad.Scalar(0.0))
         )
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
@@ -1106,7 +1106,7 @@ class FluidBuoyancy(pp.PorePyModel):
         """
         b_fluxes: List[pp.ad.Operator] = []
         b_fluxes.append(
-            self.density_driven_flux(domains, pp.ad.Scalar(0.0, domains=domains))
+            self.density_driven_flux(domains, pp.ad.Scalar(0.0))
         )
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
