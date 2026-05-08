@@ -761,7 +761,7 @@ class Operator:
             Operator: The negative of the operator.
 
         """
-        return pp.ad.Scalar(-1, domains=self.domains) * self
+        return pp.ad.Scalar(-1) * self
 
     def __add__(self, other: Operator) -> Operator:
         """Add two operators.

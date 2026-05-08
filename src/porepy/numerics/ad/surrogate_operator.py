@@ -174,15 +174,10 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
     ) -> None:
         op_space: Optional[pp.ad.OperatorSpace]
         if len(domains) > 0:
-            if dof_info is not None:
-                op_space = pp.ad.OperatorSpace.from_domains(
-                    list(domains), dof_info  # type: ignore[arg-type]
-                )
-            else:
-                # Create a grids-only OperatorSpace so self.domains works correctly
-                op_space = pp.ad.OperatorSpace.from_domains(
-                    list(domains), {}  # type: ignore[arg-type]
-                )
+            op_space = pp.ad.OperatorSpace.from_domains(
+                list(domains),
+                dof_info if dof_info is not None else {GridEntity.cells: 1},
+            )
         else:
             op_space = None
 
