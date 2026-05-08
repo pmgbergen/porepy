@@ -1068,20 +1068,26 @@ class TestInferDomainRange:
         assert result.operator_domain == cell_space
         assert result.operator_range == cell_space
 
-    # --- elementwise: incompatible operands raise ValueError ---
+    # --- elementwise: incompatible domains become unclear ---
 
     @pytest.mark.parametrize(
         "binary_op",
-        [_op.add, _op.sub, _op.mul, _op.truediv],
-        ids=["add", "sub", "mul", "div"],
+        [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
+        ids=["add", "sub", "mul", "div", "pow"],
     )
-    def test_elementwise_incompatible_domain(self, cell_op, face_op, binary_op):
-        """Elementwise ops between incompatible operands raise ValueError."""
-        with pytest.raises(ValueError, match="domain"):
-            _ = binary_op(cell_op, face_op)
+    def test_elementwise_incompatible_domain_becomes_unclear(
+        self, cell_op, face_op, binary_op
+    ):
+        """Elementwise ops with different domains get the unclear-domain sentinel."""
+        projected = DenseArray(
+            np.zeros(3), domain=face_op.operator_domain, range=cell_op.operator_range
+        )
+        result = binary_op(cell_op, projected)
+        assert result.operator_domain == OperatorSpace.unclear()
+        assert result.operator_range == cell_op.operator_range
 
     def test_elementwise_uses_union_of_dependency_domains(self, two_subdomains):
-        """Elementwise ops keep the shared range but union compatible input domains."""
+        """Different but compatible-looking domains still become unclear."""
         g1, g2 = two_subdomains
         top_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         union_space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
@@ -1091,8 +1097,20 @@ class TestInferDomainRange:
 
         result = local * projected
 
-        assert result.operator_domain == union_space
+        assert result.operator_domain == OperatorSpace.unclear()
         assert result.operator_range == top_space
+
+    def test_elementwise_unclear_domain_propagates(self, cell_space, face_space):
+        """Once unclear, the elementwise result remains unclear."""
+        unclear = DenseArray(
+            np.zeros(3), domain=OperatorSpace.unclear(), range=cell_space
+        )
+        known = DenseArray(np.zeros(3), domain=face_space, range=cell_space)
+
+        result = unclear + known
+
+        assert result.operator_domain == OperatorSpace.unclear()
+        assert result.operator_range == cell_space
 
     # --- matmul: compatible ---
 
@@ -1120,6 +1138,16 @@ class TestInferDomainRange:
         B = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = A @ B
+
+    def test_matmul_with_unclear_left_domain_raises(self, cell_space, face_space):
+        """A left operand with unclear domain cannot be used in matmul."""
+        unclear = SparseArray(
+            sps.eye(3), domain=OperatorSpace.unclear(), range=cell_space
+        )
+        rhs = DenseArray(np.zeros(3), domain=face_space, range=face_space)
+
+        with pytest.raises(ValueError, match="left operand.*domain is unclear"):
+            _ = unclear @ rhs
 
     # --- Scalar: always valid, inherits non-scalar space ---
 
