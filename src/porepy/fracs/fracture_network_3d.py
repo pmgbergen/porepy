@@ -417,9 +417,7 @@ class FractureNetwork3d(FractureNetwork):
             """
             # For each bounding point, compute the minimum distance to the different
             # parts of the domain (the domain may have been split in multiple parts
-            # during fragmentation). Note to self: We cannot check the sub-surface
-            # itself, since for fractures partially inside the domain, the
-            # sub-surface that should be excluded will still be inside the domain.
+            # during fragmentation).
             distances = np.zeros(len(bounding_points))
             if domain_tag > 0:
                 # Only do this if we have a domain. If not, all distances are zero,
