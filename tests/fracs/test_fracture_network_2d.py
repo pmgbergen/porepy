@@ -99,7 +99,8 @@ def _verify_1d_grid_geometry(sd: pp.Grid, frac: pp.LineFracture) -> None:
         # One fracture inside, one outside, both constraints.
         ([0.2, -0.5], [True, True]),
         ([-0.5, 0.2], [True, True]),
-        # One fracture inside, one outside. Constraint first on the list.
+        # One fracture inside, one outside. Constraint first on the list. Similar logic
+        # on the next three cases.
         ([-0.5, 0.2], [True, False]),
         ([-0.5, 0.2], [False, True]),
         ([0.2, -0.5], [True, False]),
