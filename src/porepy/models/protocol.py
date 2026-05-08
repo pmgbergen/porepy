@@ -937,7 +937,7 @@ else:
         """
 
         def create_boundary_operator(
-            self, name: str, domains: Sequence[pp.BoundaryGrid]
+            self, name: str, domains: Sequence[pp.BoundaryGrid], dim: int = 1
         ) -> pp.ad.TimeDependentDenseArray:
             """Creates an operator on boundary grids.
 
