@@ -309,7 +309,9 @@ class InterfaceDisplacementArray(pp.PorePyModel):
 
         """
         return pp.ad.TimeDependentDenseArray(
-            self.interface_displacement_parameter_key, interfaces
+            self.interface_displacement_parameter_key,
+            interfaces,
+            dof_info={pp.ad.GridEntity.cells: self.nd},
         )
 
     def interface_displacement_parameter_values(
