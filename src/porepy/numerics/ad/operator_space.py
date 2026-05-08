@@ -20,14 +20,15 @@ __all__ = [
 class DomainType(Enum):
     """Type of a function space domain or range.
 
-    Describes whether the grids associated with an :class:`OperatorSpace` are
-    subdomains, interfaces, boundary grids, or the trivial (scalar) space.
+    Describes whether the grids associated with an :class:`OperatorSpace`.
     """
 
     subdomains = "subdomains"
     interfaces = "interfaces"
     boundary_grids = "boundary_grids"
     scalar = "scalar"
+    unclear = "unclear"
+    """Used for composits formed by operators with different domains."""
 
 
 @dataclasses.dataclass(eq=False)
@@ -72,6 +73,11 @@ class OperatorSpace:
     def scalar(cls) -> OperatorSpace:
         """Return the trivial (scalar / zero-dimensional) operator space."""
         return cls(DomainType.scalar, (), {})
+
+    @classmethod
+    def unclear(cls) -> OperatorSpace:
+        """Return a sentinel space for operators with no clear mathematical domain."""
+        return cls(DomainType.unclear, (), {})
 
     @classmethod
     def from_domains(
