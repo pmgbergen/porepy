@@ -183,7 +183,7 @@ class Operations(Enum):
                 return False
             return a.dof_info == b.dof_info
 
-        def _pick_space(
+        def _pick_space_from_compatible(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
         ) -> Optional[OperatorSpace]:
             """Prefer the space with actual dof_info over a grids-only wildcard."""
@@ -195,6 +195,29 @@ class Operations(Enum):
                 return a
             return b
 
+        def _pick_domain(
+            a: Optional[OperatorSpace], b: Optional[OperatorSpace]
+        ) -> Optional[OperatorSpace]:
+            if a is None or b is None:
+                # No domain, handle by standard method.
+                return _pick_space_from_compatible(a, b)
+            if (
+                a.domain_type == DomainType.unclear
+                or b.domain_type == DomainType.unclear
+            ):
+                # A component has unclear domain, so the result is unclear.
+                return OperatorSpace.unclear()
+            if not a.dof_info and not b.dof_info:
+                # A non-empty domain with no dof_info has
+                return a if a == b else OperatorSpace.unclear()
+            if not a.dof_info:
+                return b
+            if not b.dof_info:
+                return a
+            if a != b:
+                return OperatorSpace.unclear()
+            return a
+
         left_is_scalar = (
             left.operator_domain is not None
             and left.operator_domain.domain_type == DomainType.scalar
@@ -204,8 +227,33 @@ class Operations(Enum):
             and right.operator_domain.domain_type == DomainType.scalar
         )
 
+        if (
+            left.operator_domain is not None
+            and left.operator_range == OperatorSpace.unclear()
+        ):
+            raise ValueError(
+                f"Cannot perform {self.to_str(self)} with {left!r} as the right operand: "
+                "its range is unclear."
+            )
+        if (
+            right.operator_domain is not None
+            and right.operator_range == OperatorSpace.unclear()
+        ):
+            raise ValueError(
+                f"Cannot perform {self.to_str(self)} with {right!r} as the left operand: "
+                "its range is unclear."
+            )
+
         if self == Operations.matmul:
             # left @ right: range(right) must equal domain(left)
+            if (
+                left.operator_domain is not None
+                and left.operator_domain.domain_type == DomainType.unclear
+            ):
+                raise ValueError(
+                    f"Cannot matrix multiply with {left!r} as the left operand: "
+                    "its domain is unclear."
+                )
             if (
                 left.operator_domain is not None
                 and right.operator_range is not None
@@ -241,8 +289,7 @@ class Operations(Enum):
                 return left.operator_domain, left.operator_range
             else:
                 # We need compatibility between the ranges (since this is where the
-                # quantity of interest lives), but the domains can be different (e.g.,
-                # when a projection operator is involved).
+                # quantity of interest lives), but the domains can be different.
                 if (
                     left.operator_range is not None
                     and right.operator_range is not None
@@ -255,8 +302,10 @@ class Operations(Enum):
                         f"vs {right.operator_range}."
                     )
                 return (
-                    _pick_space(left.operator_domain, right.operator_domain),
-                    _pick_space(left.operator_range, right.operator_range),
+                    _pick_domain(left.operator_domain, right.operator_domain),
+                    _pick_space_from_compatible(
+                        left.operator_range, right.operator_range
+                    ),
                 )
 
 
