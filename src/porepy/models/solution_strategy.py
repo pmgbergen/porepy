@@ -923,7 +923,7 @@ class ContactIndicators(pp.PorePyModel):
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)
-        max_arg_1 = pp.ad.Scalar(-1.0, domains=subdomains) * t_n
+        max_arg_1 = pp.ad.Scalar(-1.0) * t_n
         max_arg_2 = c_num * (u_n - self.fracture_gap(subdomains))
         ind = max_arg_1 - max_arg_2
         if self.params.get("adaptive_indicator_scaling", False):
@@ -934,7 +934,7 @@ class ContactIndicators(pp.PorePyModel):
             scale = self.compute_traction_norm(
                 cast(np.ndarray, self.equation_system.evaluate(scale_op))
             )
-            ind = ind / pp.ad.Scalar(scale, domains=subdomains)
+            ind = ind / pp.ad.Scalar(scale)
         return ind
 
     def sliding_indicator(
@@ -1016,7 +1016,7 @@ class ContactIndicators(pp.PorePyModel):
             scale = self.compute_traction_norm(
                 cast(np.ndarray, self.equation_system.evaluate(scale_op))
             )
-            ind = ind / pp.ad.Scalar(scale, domains=subdomains)
+            ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
     def contact_traction_estimate(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
