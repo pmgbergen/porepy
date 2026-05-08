@@ -134,7 +134,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
 
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
-            pp.ad.Scalar(-1.0, domains=subdomains) * t_n
+            pp.ad.Scalar(-1.0) * t_n
             - self.contact_mechanics_numerical_constant(subdomains)
             * (u_n - self.fracture_gap(subdomains)),
             zeros_frac,
