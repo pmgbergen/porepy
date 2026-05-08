@@ -83,8 +83,12 @@ class TestDomainType:
         assert DomainType.scalar.value == "scalar"
 
     def test_distinct(self):
-        types = [DomainType.subdomains, DomainType.interfaces,
-                 DomainType.boundary_grids, DomainType.scalar]
+        types = [
+            DomainType.subdomains,
+            DomainType.interfaces,
+            DomainType.boundary_grids,
+            DomainType.scalar,
+        ]
         assert len(set(types)) == 4
 
 
@@ -245,12 +249,12 @@ class TestScalarSpace:
         assert s.operator_domain.domain_type == DomainType.interfaces
         assert s.operator_domain.grids == (mg,)
 
-    def test_scalar_domain_is_grids_only(self, two_subdomains):
-        """Domain-bearing Scalar uses a grids-only (wildcard) space."""
+    def test_scalar_domain_is_cellwise(self, two_subdomains):
+        """Domain-bearing Scalar uses the natural cell-based space on its grids."""
         g, _ = two_subdomains
         s = Scalar(1.0, domains=[g])
         assert s.operator_domain is not None
-        assert s.operator_domain.dof_info == {}
+        assert s.operator_domain.dof_info == {GridEntity.cells: 1}
 
     def test_scalar_neg_propagates_domain(self, two_subdomains):
         g, _ = two_subdomains
@@ -271,13 +275,13 @@ class TestScalarSpace:
         assert s.operator_domain == OperatorSpace.scalar()
 
     def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
-        """domain-bearing Scalar is a wildcard — result inherits the other operand's domain."""
+        """A domain-bearing scalar uses the ordinary cell-based space on its grids."""
         g, _ = two_subdomains
         s = Scalar(2.0, domains=[g])
         v = Variable("p", {GridEntity.cells: 1}, g)
         result = s * v
-        # The variable's full space should win over the grids-only Scalar space.
         assert result.operator_domain == v.operator_domain
+        assert result.operator_range == v.operator_range
 
     def test_domainless_scalar_combined_with_operator(self, two_subdomains):
         """Plain Scalar still inherits from the other operand."""
@@ -306,7 +310,10 @@ class TestVariableSpace:
         g, _ = two_subdomains
         var = Variable("u", {GridEntity.cells: 2, GridEntity.faces: 1}, g)
         assert var.operator_domain is not None
-        assert var.operator_domain.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
+        assert var.operator_domain.dof_info == {
+            GridEntity.cells: 2,
+            GridEntity.faces: 1,
+        }
 
     def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
         """Variable on a MortarGrid gets DomainType.interfaces."""
@@ -412,7 +419,7 @@ class TestSurrogateOperatorSpace:
     def test_surrogate_operator_direct_no_dof_info_gives_none_space(
         self, two_subdomains
     ):
-        """SurrogateOperator instantiated directly with dof_info=None gets grids-only space."""
+        """SurrogateOperator instantiated directly with dof_info=None gets cells:1."""
         g1, g2 = two_subdomains
         v1 = Variable("p", {GridEntity.cells: 1}, g1)
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
@@ -423,9 +430,9 @@ class TestSurrogateOperatorSpace:
             dof_info=None,
         )
         assert op.operator_domain is not None
-        assert op.operator_domain.dof_info == {}
+        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
         assert op.operator_range is not None
-        assert op.operator_range.dof_info == {}
+        assert op.operator_range.dof_info == {GridEntity.cells: 1}
 
 
 class TestDenseArraySpace:
@@ -620,11 +627,11 @@ class TestTimeDependentDenseArraySpaces:
     def test_no_dof_info_gives_none(self, two_subdomains):
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
-        # When domains are provided but no dof_info, a grids-only space is created
+        # When domains are provided but no dof_info, cells:1 is assumed.
         assert arr.operator_domain is not None
-        assert arr.operator_domain.dof_info == {}
+        assert arr.operator_domain.dof_info == {GridEntity.cells: 1}
         assert arr.operator_range is not None
-        assert arr.operator_range.dof_info == {}
+        assert arr.operator_range.dof_info == {GridEntity.cells: 1}
 
     def test_dof_info_cells(self, two_subdomains):
         g1, g2 = two_subdomains
@@ -743,7 +750,9 @@ class TestMortarProjectionSpaces:
         assert op.operator_domain is not None
         assert op.operator_range is not None
         assert GridEntity.cells in op.operator_domain.dof_info  # interface cells
-        assert GridEntity.faces in op.operator_range.dof_info  # subdomain faces (codim 1)
+        assert (
+            GridEntity.faces in op.operator_range.dof_info
+        )  # subdomain faces (codim 1)
 
     def test_mortar_to_secondary_avg(self, fracture_mdg):
         mdg = fracture_mdg
@@ -754,7 +763,9 @@ class TestMortarProjectionSpaces:
         assert op.operator_domain is not None
         assert op.operator_range is not None
         assert GridEntity.cells in op.operator_domain.dof_info  # interface cells
-        assert GridEntity.cells in op.operator_range.dof_info  # subdomain cells (secondary)
+        assert (
+            GridEntity.cells in op.operator_range.dof_info
+        )  # subdomain cells (secondary)
 
     def test_primary_to_mortar_avg(self, fracture_mdg):
         mdg = fracture_mdg
@@ -914,7 +925,9 @@ class TestMergedOperatorSpaces:
     underlying discretization's get_row/col_dof_info methods."""
 
     def test_default_discr_gives_none(self, two_subdomains):
-        """With stub get_row/col_dof_info (returns {}), operator gets grids-only space."""
+        """With stub get_row/col_dof_info (returns {}), operator spaces stay
+        unspecified."""
+
         class StubDiscr(Discretization):
             def __init__(self):
                 self.keyword = "mechanics"
@@ -943,14 +956,12 @@ class TestMergedOperatorSpaces:
             physics_key="mechanics",
             domains=[g1, g2],
         )
-        # Default stubs return {}, so spaces are grids-only (wildcard)
-        assert op.operator_domain is not None
-        assert op.operator_domain.dof_info == {}
-        assert op.operator_range is not None
-        assert op.operator_range.dof_info == {}
+        assert op.operator_domain is None
+        assert op.operator_range is None
 
     def test_custom_dof_info_gives_space(self, two_subdomains):
         """A discretization that overrides get_row/col_dof_info populates spaces."""
+
         class ConcreteDiscr(Discretization):
             def __init__(self):
                 self.keyword = "flow"
@@ -987,7 +998,9 @@ class TestMergedOperatorSpaces:
         assert set(op.operator_range.grids) == {g1, g2}
 
     def test_interface_discr_gives_none(self, one_mortar):
-        """InterfaceDiscretization: no get_row/col_dof_info → grids-only space."""
+        """InterfaceDiscretization: no get_row/col_dof_info leaves spaces
+        unspecified."""
+
         class MockInterfaceDiscr(InterfaceDiscretization):
             def __init__(self):
                 self.keyword = "coupling"
@@ -999,12 +1012,26 @@ class TestMergedOperatorSpaces:
             def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
                 return {}
 
-            def discretize(self, sd_primary, sd_secondary, intf, data_primary,
-                           data_secondary, data_coupling):
+            def discretize(
+                self,
+                sd_primary,
+                sd_secondary,
+                intf,
+                data_primary,
+                data_secondary,
+                data_coupling,
+            ):
                 pass
 
-            def assemble_matrix_rhs(self, sd_primary, sd_secondary, intf,
-                                    data_primary, data_secondary, data_coupling):
+            def assemble_matrix_rhs(
+                self,
+                sd_primary,
+                sd_secondary,
+                intf,
+                data_primary,
+                data_secondary,
+                data_coupling,
+            ):
                 pass
 
         intf = one_mortar
@@ -1015,10 +1042,8 @@ class TestMergedOperatorSpaces:
             physics_key="coupling",
             domains=[intf],
         )
-        assert op.operator_domain is not None
-        assert op.operator_domain.dof_info == {}
-        assert op.operator_range is not None
-        assert op.operator_range.dof_info == {}
+        assert op.operator_domain is None
+        assert op.operator_range is None
 
 
 # ---------------------------------------------------------------------------
@@ -1100,6 +1125,19 @@ class TestInferDomainRange:
         assert result.operator_domain == OperatorSpace.unclear()
         assert result.operator_range == top_space
 
+    def test_elementwise_different_grids_becomes_unclear(self, two_subdomains):
+        """Different grids are enough to make the inferred domain unclear."""
+        g1, g2 = two_subdomains
+        left_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        right_space = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        left = DenseArray(np.zeros(3), domain=left_space, range=left_space)
+        right = DenseArray(np.zeros(3), domain=right_space, range=left_space)
+
+        result = left + right
+
+        assert result.operator_domain == OperatorSpace.unclear()
+        assert result.operator_range == left_space
+
     def test_elementwise_unclear_domain_propagates(self, cell_space, face_space):
         """Once unclear, the elementwise result remains unclear."""
         unclear = DenseArray(
@@ -1139,6 +1177,19 @@ class TestInferDomainRange:
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = A @ B
 
+    def test_matmul_different_grids_incompatible(self, two_subdomains):
+        """Matrix multiplication requires exact space equality, including grids."""
+        g1, g2 = two_subdomains
+        left_domain = OperatorSpace.from_domains([g1], {GridEntity.faces: 1})
+        right_range = OperatorSpace.from_domains([g2], {GridEntity.faces: 1})
+        left_range = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        right_domain = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
+        left = SparseArray(sps.eye(3), domain=left_domain, range=left_range)
+        right = SparseArray(sps.eye(3), domain=right_domain, range=right_range)
+
+        with pytest.raises(ValueError, match="matrix multiplication"):
+            _ = left @ right
+
     def test_matmul_with_unclear_left_domain_raises(self, cell_space, face_space):
         """A left operand with unclear domain cannot be used in matmul."""
         unclear = SparseArray(
@@ -1148,6 +1199,16 @@ class TestInferDomainRange:
 
         with pytest.raises(ValueError, match="left operand.*domain is unclear"):
             _ = unclear @ rhs
+
+    def test_rmatmul_with_unclear_right_operand_raises(self, cell_space, face_space):
+        """The operator on the right-hand side of rmatmul cannot have unclear domain."""
+        unclear = SparseArray(
+            sps.eye(3), domain=OperatorSpace.unclear(), range=cell_space
+        )
+        lhs = SparseArray(sps.eye(3), domain=face_space, range=face_space)
+
+        with pytest.raises(ValueError, match="right operand.*domain is unclear"):
+            _ = unclear.__rmatmul__(lhs)
 
     # --- Scalar: always valid, inherits non-scalar space ---
 
@@ -1196,7 +1257,7 @@ class TestInferDomainRange:
 
     def test_plain_python_scalar_exponent(self, cell_op, cell_space):
         """op ** 2 (plain Python int) should preserve domain/range."""
-        result = cell_op ** 2
+        result = cell_op**2
         assert result.operator_domain == cell_space
         assert result.operator_range == cell_space
 
@@ -1348,7 +1409,9 @@ class TestCompoundOperatorSpaces:
         assert div.operator_range is not None
         assert GridEntity.cells in div.operator_range.dof_info
 
-    def test_compound_inherits_none_when_one_operand_has_none(self, two_subdomains, spaces):
+    def test_compound_inherits_none_when_one_operand_has_none(
+        self, two_subdomains, spaces
+    ):
         """When one operand in a chain has None domain, the chain can still succeed
         if the other operand provides the domain."""
         g1, g2 = two_subdomains
@@ -1398,18 +1461,32 @@ class TestFVEllipticDofInfo:
         assert self.mpfa.get_col_dof_info("bound_flux") == {GridEntity.faces: 1}
 
     def test_bound_pressure_cell_dof_info(self):
-        assert self.mpfa.get_row_dof_info("bound_pressure_cell") == {GridEntity.faces: 1}
-        assert self.mpfa.get_col_dof_info("bound_pressure_cell") == {GridEntity.cells: 1}
+        assert self.mpfa.get_row_dof_info("bound_pressure_cell") == {
+            GridEntity.faces: 1
+        }
+        assert self.mpfa.get_col_dof_info("bound_pressure_cell") == {
+            GridEntity.cells: 1
+        }
 
     def test_bound_pressure_face_dof_info(self):
-        assert self.mpfa.get_row_dof_info("bound_pressure_face") == {GridEntity.faces: 1}
-        assert self.mpfa.get_col_dof_info("bound_pressure_face") == {GridEntity.faces: 1}
+        assert self.mpfa.get_row_dof_info("bound_pressure_face") == {
+            GridEntity.faces: 1
+        }
+        assert self.mpfa.get_col_dof_info("bound_pressure_face") == {
+            GridEntity.faces: 1
+        }
 
     def test_vector_source_uses_nd(self):
         """vector_source cols are nd DOFs per cell (gravity components)."""
-        assert self.mpfa.get_row_dof_info("vector_source", nd=3) == {GridEntity.faces: 1}
-        assert self.mpfa.get_col_dof_info("vector_source", nd=2) == {GridEntity.cells: 2}
-        assert self.mpfa.get_col_dof_info("vector_source", nd=3) == {GridEntity.cells: 3}
+        assert self.mpfa.get_row_dof_info("vector_source", nd=3) == {
+            GridEntity.faces: 1
+        }
+        assert self.mpfa.get_col_dof_info("vector_source", nd=2) == {
+            GridEntity.cells: 2
+        }
+        assert self.mpfa.get_col_dof_info("vector_source", nd=3) == {
+            GridEntity.cells: 3
+        }
 
     def test_bound_pressure_vector_source_uses_nd(self):
         assert self.mpfa.get_col_dof_info("bound_pressure_vector_source", nd=2) == {
@@ -1439,8 +1516,12 @@ class TestMpsaDofInfo:
     @pytest.mark.parametrize("nd", [2, 3])
     def test_bound_stress_dof_info(self, nd):
         """bound_stress maps faces:nd → faces:nd."""
-        assert self.mpsa.get_row_dof_info("bound_stress", nd=nd) == {GridEntity.faces: nd}
-        assert self.mpsa.get_col_dof_info("bound_stress", nd=nd) == {GridEntity.faces: nd}
+        assert self.mpsa.get_row_dof_info("bound_stress", nd=nd) == {
+            GridEntity.faces: nd
+        }
+        assert self.mpsa.get_col_dof_info("bound_stress", nd=nd) == {
+            GridEntity.faces: nd
+        }
 
     def test_bound_displacement_cell_dof_info(self):
         assert self.mpsa.get_row_dof_info("bound_displacement_cell", nd=2) == {
@@ -1474,8 +1555,18 @@ class TestBiotDofInfo:
     @pytest.mark.parametrize(
         "matrix_key, nd, expected_row, expected_col",
         [
-            ("displacement_divergence", 2, {GridEntity.cells: 1}, {GridEntity.cells: 2}),
-            ("bound_displacement_divergence", 2, {GridEntity.cells: 1}, {GridEntity.faces: 2}),
+            (
+                "displacement_divergence",
+                2,
+                {GridEntity.cells: 1},
+                {GridEntity.cells: 2},
+            ),
+            (
+                "bound_displacement_divergence",
+                2,
+                {GridEntity.cells: 1},
+                {GridEntity.faces: 2},
+            ),
             ("scalar_gradient", 2, {GridEntity.faces: 2}, {GridEntity.cells: 1}),
             ("consistency", 2, {GridEntity.cells: 1}, {GridEntity.cells: 1}),
             ("bound_pressure", 2, {GridEntity.faces: 2}, {GridEntity.cells: 1}),
@@ -1507,12 +1598,20 @@ class TestUpwindDofInfo:
         assert self.upwind.get_col_dof_info("upwind") == {GridEntity.cells: 1}
 
     def test_bound_transport_dir_dof_info(self):
-        assert self.upwind.get_row_dof_info("bound_transport_dir") == {GridEntity.faces: 1}
-        assert self.upwind.get_col_dof_info("bound_transport_dir") == {GridEntity.faces: 1}
+        assert self.upwind.get_row_dof_info("bound_transport_dir") == {
+            GridEntity.faces: 1
+        }
+        assert self.upwind.get_col_dof_info("bound_transport_dir") == {
+            GridEntity.faces: 1
+        }
 
     def test_bound_transport_neu_dof_info(self):
-        assert self.upwind.get_row_dof_info("bound_transport_neu") == {GridEntity.faces: 1}
-        assert self.upwind.get_col_dof_info("bound_transport_neu") == {GridEntity.faces: 1}
+        assert self.upwind.get_row_dof_info("bound_transport_neu") == {
+            GridEntity.faces: 1
+        }
+        assert self.upwind.get_col_dof_info("bound_transport_neu") == {
+            GridEntity.faces: 1
+        }
 
     def test_unknown_key_raises(self):
         with pytest.raises(ValueError, match="Unrecognized matrix key"):
@@ -1743,14 +1842,49 @@ class TestTpsaDofInfo:
             ("mass_displacement", 3, {GridEntity.faces: 1}, {GridEntity.cells: 3}),
             # boundary condition matrices
             ("bound_stress", 2, {GridEntity.faces: 2}, {GridEntity.faces: 2}),
-            ("bound_rotation_displacement", 2, {GridEntity.faces: 1}, {GridEntity.faces: 2}),
-            ("bound_rotation_displacement", 3, {GridEntity.faces: 3}, {GridEntity.faces: 3}),
-            ("bound_mass_displacement", 2, {GridEntity.faces: 1}, {GridEntity.faces: 2}),
+            (
+                "bound_rotation_displacement",
+                2,
+                {GridEntity.faces: 1},
+                {GridEntity.faces: 2},
+            ),
+            (
+                "bound_rotation_displacement",
+                3,
+                {GridEntity.faces: 3},
+                {GridEntity.faces: 3},
+            ),
+            (
+                "bound_mass_displacement",
+                2,
+                {GridEntity.faces: 1},
+                {GridEntity.faces: 2},
+            ),
             # displacement reconstruction matrices
-            ("bound_displacement_cell", 2, {GridEntity.faces: 2}, {GridEntity.cells: 2}),
-            ("bound_displacement_face", 2, {GridEntity.faces: 2}, {GridEntity.faces: 2}),
-            ("bound_displacement_rotation_cell", 2, {GridEntity.faces: 2}, {GridEntity.cells: 1}),
-            ("bound_displacement_rotation_cell", 3, {GridEntity.faces: 3}, {GridEntity.cells: 3}),
+            (
+                "bound_displacement_cell",
+                2,
+                {GridEntity.faces: 2},
+                {GridEntity.cells: 2},
+            ),
+            (
+                "bound_displacement_face",
+                2,
+                {GridEntity.faces: 2},
+                {GridEntity.faces: 2},
+            ),
+            (
+                "bound_displacement_rotation_cell",
+                2,
+                {GridEntity.faces: 2},
+                {GridEntity.cells: 1},
+            ),
+            (
+                "bound_displacement_rotation_cell",
+                3,
+                {GridEntity.faces: 3},
+                {GridEntity.cells: 3},
+            ),
             (
                 "bound_displacement_solid_pressure_cell",
                 2,
