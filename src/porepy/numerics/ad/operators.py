@@ -172,48 +172,30 @@ class Operations(Enum):
             return left._operator_domain, left._operator_range
 
         def _spaces_compatible(a: OperatorSpace, b: OperatorSpace) -> bool:
-            """Return True if a and b are compatible.
+            """Return True if a and b are exactly the same operator space."""
+            return a == b
 
-            Grids-only spaces (dof_info={}) act as wildcards and are compatible with
-            any space.  Validation only applies when both spaces have actual dof_info.
-            """
-            if not a.dof_info or not b.dof_info:
-                return True
-            if a.grids != b.grids:
-                return False
-            return a.dof_info == b.dof_info
-
-        def _pick_space_from_compatible(
+        def _pick_range(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
         ) -> Optional[OperatorSpace]:
-            """Prefer the space with actual dof_info over a grids-only wildcard."""
+            """Return the known space when one side is unspecified."""
             if a is None:
                 return b
             if b is None:
                 return a
-            if a.dof_info:
-                return a
-            return b
+            return a
 
         def _pick_domain(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
         ) -> Optional[OperatorSpace]:
             if a is None or b is None:
-                # No domain, handle by standard method.
-                return _pick_space_from_compatible(a, b)
+                # Piggyback on the range picking logic.
+                return _pick_range(a, b)
             if (
                 a.domain_type == DomainType.unclear
                 or b.domain_type == DomainType.unclear
             ):
-                # A component has unclear domain, so the result is unclear.
                 return OperatorSpace.unclear()
-            if not a.dof_info and not b.dof_info:
-                # A non-empty domain with no dof_info has
-                return a if a == b else OperatorSpace.unclear()
-            if not a.dof_info:
-                return b
-            if not b.dof_info:
-                return a
             if a != b:
                 return OperatorSpace.unclear()
             return a
@@ -226,23 +208,6 @@ class Operations(Enum):
             right.operator_domain is not None
             and right.operator_domain.domain_type == DomainType.scalar
         )
-
-        if (
-            left.operator_domain is not None
-            and left.operator_range == OperatorSpace.unclear()
-        ):
-            raise ValueError(
-                f"Cannot perform {self.to_str(self)} with {left!r} as the right operand: "
-                "its range is unclear."
-            )
-        if (
-            right.operator_domain is not None
-            and right.operator_range == OperatorSpace.unclear()
-        ):
-            raise ValueError(
-                f"Cannot perform {self.to_str(self)} with {right!r} as the left operand: "
-                "its range is unclear."
-            )
 
         if self == Operations.matmul:
             # left @ right: range(right) must equal domain(left)
@@ -268,6 +233,14 @@ class Operations(Enum):
         elif self == Operations.rmatmul:
             # right @ left (dispatched as left.__rmatmul__(right)):
             # range(left) must equal domain(right)
+            if (
+                left.operator_domain is not None
+                and left.operator_domain.domain_type == DomainType.unclear
+            ):
+                raise ValueError(
+                    f"Cannot matrix multiply with {left!r} as the right operand: "
+                    "its domain is unclear."
+                )
             if (
                 right.operator_domain is not None
                 and left.operator_range is not None
@@ -303,9 +276,7 @@ class Operations(Enum):
                     )
                 return (
                     _pick_domain(left.operator_domain, right.operator_domain),
-                    _pick_space_from_compatible(
-                        left.operator_range, right.operator_range
-                    ),
+                    _pick_range(left.operator_range, right.operator_range),
                 )
 
 
@@ -1668,7 +1639,8 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
     ):
         if domains:
             space = OperatorSpace.from_domains(
-                list(domains), dof_info if dof_info else {}
+                list(domains),
+                dof_info if dof_info is not None else {GridEntity.cells: 1},
             )
         else:
             space = None
@@ -1777,11 +1749,9 @@ class Scalar(Operator):
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._value = float(value)
-        # Build an OperatorSpace that carries the grid context when provided.
-        # A grids-only space (no dof_info) acts as a wildcard in compatibility checks,
-        # so arithmetic with domain-bearing Scalars never breaks existing validation.
+        # Domain-bearing scalars are cell-wise quantities on the provided grids.
         if domains:
-            space: OperatorSpace = OperatorSpace.from_domains(domains, {})
+            space = OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
         else:
             space = OperatorSpace.scalar()
         # Call the super constructor after setting the value.
