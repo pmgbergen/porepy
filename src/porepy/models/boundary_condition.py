@@ -155,7 +155,9 @@ class BoundaryConditionMixin(pp.PorePyModel):
         """
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
             raise ValueError("Domains must consist entirely of the boundary grids.")
-        return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
+        return pp.ad.TimeDependentDenseArray(
+            name=name, domains=domains, dof_info={pp.ad.GridEntity.cells: dim}
+        )
 
     def _combine_boundary_operators(
         self,

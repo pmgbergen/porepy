@@ -994,6 +994,7 @@ class SourceTerms:
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
             domains=self.mdg.subdomains(),
+            dof_info={pp.ad.GridEntity.cells: self.nd},
         ).previous_timestep()
 
         return external_sources
