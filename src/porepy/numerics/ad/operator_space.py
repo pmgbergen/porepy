@@ -57,6 +57,50 @@ class OperatorSpace:
     dof_info: dict[GridEntity, int]
     """Number of DOFs per grid entity for each entity type present in the space."""
 
+    def __post_init__(self) -> None:
+        self.grids = tuple(self.grids)
+
+        if self.domain_type in (DomainType.scalar, DomainType.unclear):
+            if self.grids:
+                raise ValueError(
+                    f"{self.domain_type.value.capitalize()} spaces cannot have grids."
+                )
+            if self.dof_info:
+                s = (
+                    f"{self.domain_type.value.capitalize()} spaces cannot have"
+                    " dof_info."
+                )
+                raise ValueError(s)
+            self.dof_info = {}
+            return
+
+        if not self.grids:
+            raise ValueError(
+                f"{self.domain_type.value.capitalize()} spaces must define grids."
+            )
+        if not self.dof_info:
+            raise ValueError(
+                f"{self.domain_type.value.capitalize()} spaces must define dof_info."
+            )
+        self.dof_info = dict(self.dof_info)
+
+        if self.domain_type == DomainType.subdomains and not all(
+            isinstance(g, pp.Grid) for g in self.grids
+        ):
+            raise ValueError("Subdomain spaces must be defined on pp.Grid objects.")
+        if self.domain_type == DomainType.interfaces and not all(
+            isinstance(g, pp.MortarGrid) for g in self.grids
+        ):
+            raise ValueError(
+                "Interface spaces must be defined on pp.MortarGrid objects."
+            )
+        if self.domain_type == DomainType.boundary_grids and not all(
+            isinstance(g, pp.BoundaryGrid) for g in self.grids
+        ):
+            raise ValueError(
+                "Boundary-grid spaces must be defined on pp.BoundaryGrid objects."
+            )
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, OperatorSpace):
             return NotImplemented
