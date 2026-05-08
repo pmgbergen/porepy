@@ -10,7 +10,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils import models as test_models
-from porepy.numerics.ad.operators import DomainType, OperatorSpace, Scalar
+from porepy.numerics.ad.operators import DomainType, GridEntity, OperatorSpace, Scalar
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,9 @@ def _assert_scalar_has_subdomain_domain(
     assert dom is not None, "Scalar should have a non-None domain"
     assert dom.domain_type == DomainType.subdomains
     assert set(dom.grids) == set(expected_grids)
-    assert dom.dof_info == {}, "Material-property Scalar should be grids-only"
+    assert dom.dof_info == {
+        GridEntity.cells: 1
+    }, "Domain-bearing Scalar should be cell-wise"
     assert scalar.operator_domain == scalar.operator_range
 
 
@@ -63,7 +65,7 @@ def _assert_scalar_has_interface_domain(
     assert dom is not None
     assert dom.domain_type == DomainType.interfaces
     assert set(dom.grids) == set(expected_grids)
-    assert dom.dof_info == {}
+    assert dom.dof_info == {GridEntity.cells: 1}
     assert scalar.operator_domain == scalar.operator_range
 
 
@@ -132,7 +134,7 @@ class TestFluidPropertyScalarDomains:
 
 class TestScalarDomainArithmetic:
     """Domain-bearing Scalars must remain compatible in arithmetic with operators
-    defined on the same or unrelated grids (grids-only spaces are wildcards)."""
+    defined on the same grids and compose to unclear domains on mismatched grids."""
 
     def test_scalar_times_scalar_result_carries_domain(self, mass_balance_model):
         m = mass_balance_model
