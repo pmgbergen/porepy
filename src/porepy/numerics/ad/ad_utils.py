@@ -330,6 +330,7 @@ class MergedOperator(operators.Operator):
 
         """
         name = discr.__class__.__name__
+        self._merged_domains: list[pp.GridLike] = list(domains) if domains else []
 
         # Infer operator domain (column space) and range (row space) from the
         # discretization.
@@ -345,8 +346,10 @@ class MergedOperator(operators.Operator):
             row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
             col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
 
-            op_domain = operators.OperatorSpace.from_domains(list(domains), col_dof)
-            op_range = operators.OperatorSpace.from_domains(list(domains), row_dof)
+            if col_dof:
+                op_domain = operators.OperatorSpace.from_domains(list(domains), col_dof)
+            if row_dof:
+                op_range = operators.OperatorSpace.from_domains(list(domains), row_dof)
 
         super().__init__(name=name, domain=op_domain, range=op_range)
 
@@ -355,6 +358,10 @@ class MergedOperator(operators.Operator):
 
         self._physics_key = physics_key
         self._inner_physics_key = inner_physics_key
+
+    @property
+    def domains(self) -> list[pp.GridLike]:
+        return list(self._merged_domains)
 
     def __repr__(self) -> str:
         domain_label = (
