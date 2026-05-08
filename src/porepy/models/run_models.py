@@ -84,6 +84,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     # bar for the ``NewtonSolver`` is passed. The keyword is assumed to be not touched
     # by the user, and thus indicated as private.
     params.update({"_nl_progress_bar_position": 1})
+    performance_logger = getattr(model, "performance_logger", None)
 
     # Assign a solver
     solver = _choose_solver(model, params)
@@ -138,7 +139,37 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
             time_progressbar.set_description_str(
                 f"Time step {model.time_manager.time_index + 1}"
             )
-            status = time_step()
+
+            time_step_index = model.time_manager.time_index
+            time = model.time_manager.time
+            dt = model.time_manager.dt
+
+
+            if performance_logger is not None:
+                with performance_logger.timer(
+                    "time_step_total",
+                    time_step_index=time_step_index,
+                    time=time,
+                    dt=dt,
+                ):
+                    status = time_step()
+            else:
+                status = time_step()
+
+            if performance_logger is not None:
+                performance_logger.log(
+                    "time_step_status",
+                    time_step_index=time_step_index,
+                    time=time,
+                    dt=dt,
+                    successful=status.is_successful(),
+                    failed=status.is_failed(),
+                    stopped=status.is_stopped(),
+                )
+
+
+
+
             if status.is_successful():
                 # Update progressbar length.
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)

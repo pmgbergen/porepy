@@ -328,6 +328,16 @@ class NewtonSolver:
         if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
             self.update_solver_statistics(model, simulation_status=simulation_status)
+
+            performance_logger = getattr(model, "performance_logger", None)
+            if performance_logger is not None:
+                performance_logger.log(
+                    "nonlinear_convergence",
+                    time_step_index=model.time_manager.time_index,
+                    time=model.time_manager.time,
+                    dt=model.time_manager.dt,
+                    nonlinear_iterations=self.iteration_index,
+                )
             model.after_nonlinear_convergence()
         elif divergence_status.is_diverged():
             simulation_status = SimulationStatus.FAILED
@@ -384,8 +394,36 @@ class NewtonSolver:
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
-        model.assemble_linear_system()
-        nonlinear_increment = model.solve_linear_system()
+        performance_logger = getattr(model, "performance_logger", None)
+        if performance_logger is not None:
+            with performance_logger.timer(
+                "nonlinear_iteration_total",
+                time_step_index=model.time_manager.time_index,
+                time=model.time_manager.time,
+                dt=model.time_manager.dt,
+                nonlinear_iteration=self.iteration_index,
+            ):
+                with performance_logger.timer(
+                    "assemble_linear_system",
+                    time_step_index=model.time_manager.time_index,
+                    time=model.time_manager.time,
+                    dt=model.time_manager.dt,
+                    nonlinear_iteration=self.iteration_index,
+                ):
+                    model.assemble_linear_system()
+
+                with performance_logger.timer(
+                    "solve_linear_system",
+                    time_step_index=model.time_manager.time_index,
+                    time=model.time_manager.time,
+                    dt=model.time_manager.dt,
+                    nonlinear_iteration=self.iteration_index,
+                ):
+                    nonlinear_increment = model.solve_linear_system()
+        else:
+            model.assemble_linear_system()
+            nonlinear_increment = model.solve_linear_system()
+
         return nonlinear_increment
 
     def after_nonlinear_iteration(

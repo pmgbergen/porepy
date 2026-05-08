@@ -289,3 +289,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ResidualBasedRelativeCriterion,
     ResidualBasedCombinedCriterion,
 )
+
+
+from porepy.utils.performance_logger import PerformanceLogger

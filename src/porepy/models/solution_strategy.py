@@ -792,12 +792,12 @@ class SolutionStrategy(pp.PorePyModel):
         """
         A, b = self.linear_system
 
-        folder="linear_system_debug"
-        os.makedirs(folder, exist_ok=True)
+        # folder="linear_system_debug"
+        # os.makedirs(folder, exist_ok=True)
 
-        np.savetxt(f"{folder}/data.txt", A.data, fmt="%.16e")
-        np.savetxt(f"{folder}/indices.txt", A.indices, fmt="%d")
-        np.savetxt(f"{folder}/indptr.txt", A.indptr, fmt="%d")
+        # np.savetxt(f"{folder}/data.txt", A.data, fmt="%.16e")
+        # np.savetxt(f"{folder}/indices.txt", A.indices, fmt="%d")
+        # np.savetxt(f"{folder}/indptr.txt", A.indptr, fmt="%d")
 
         t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
