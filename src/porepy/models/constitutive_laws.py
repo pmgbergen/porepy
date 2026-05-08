@@ -1088,7 +1088,7 @@ class DarcysLaw(pp.PorePyModel):
         # distance is :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
-        normal_gradient = pp.ad.Scalar(2, domains=interfaces) * (
+        normal_gradient = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
@@ -1281,7 +1281,7 @@ class AdTpfaFlux(pp.PorePyModel):
         ) = self.__transmissibility_matrix(domains, diffusivity_tensor)
 
         # Treatment of boundary conditions.
-        one = pp.ad.Scalar(1, domains=domains)
+        one = pp.ad.Scalar(1)
         # Obtain filters that lett pass external boundary faces (divided into Dirichlet
         # and Neumann faces), internal boundary faces (faces between subdomains), and
         # tip faces (on immersed tips of domains).
@@ -1436,9 +1436,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # discretization on operator form, and multiply it by zero to avoid it having
         # any real impact on the equation. This is certainly an ugly hack, but it will
         # have to do for now.
-        flux_p = flux_p + pp.ad.Scalar(
-            0, domains=domains
-        ) * base_discr.flux() @ potential(domains)
+        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
@@ -1480,7 +1478,7 @@ class AdTpfaFlux(pp.PorePyModel):
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
-        one = pp.ad.Scalar(1, domains=subdomains)
+        one = pp.ad.Scalar(1)
 
         # BC filters for Dirichlet and Neumann faces.
         diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
@@ -1551,7 +1549,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # TODO: Do we need this trick here, or is it sufficient to do so in the
         # diffusive flux method?
         boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
-            0, domains=subdomains
+            0
         ) * base_discr.flux() @ potential(subdomains)
 
         pressure_trace = (
@@ -1628,7 +1626,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # Form the full half-face transmissibilities and take its reciprocal, preparing
         # for a harmonic mean between the two half-face transmissibilities on ecah side
         # of a face.
-        one = pp.ad.Scalar(1, domains=subdomains)
+        one = pp.ad.Scalar(1)
         t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
 
         # Compose full-face transmissibilities
@@ -2038,7 +2036,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         isotropic_permeability = e_i @ self.permeability(subdomains)
 
         well_index = self.volume_integral(
-            pp.ad.Scalar(2 * np.pi, domains=interfaces)
+            pp.ad.Scalar(2 * np.pi)
             * projection.primary_to_mortar_avg()
             @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
             interfaces,
@@ -2108,7 +2106,7 @@ class PeacemanWellFlux(pp.PorePyModel):
             Skin factor operator [-].
 
         """
-        skin_factor = pp.ad.Scalar(self.solid.skin_factor, domains=interfaces)
+        skin_factor = pp.ad.Scalar(self.solid.skin_factor)
         skin_factor.set_name("skin_factor")
         return skin_factor
 
@@ -2963,7 +2961,7 @@ class GravityForce(pp.PorePyModel):
             phi = self.porosity(grids)
             rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
             rho_s = self.solid_density(grids)
-            rho = phi * rho_f + (pp.ad.Scalar(1.0, domains=grids) - phi) * rho_s
+            rho = phi * rho_f + (pp.ad.Scalar(1.0) - phi) * rho_s
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
@@ -3070,7 +3068,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             domains = cast(Sequence[pp.BoundaryGrid], domains)
             return self.create_boundary_operator(
-                name=self.stress_keyword, domains=domains
+                name=self.stress_keyword, domains=domains, dim=self.nd
             )
 
         # Check that the subdomains are grids.
@@ -3263,6 +3261,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
                 domains=cast(  # type: ignore[call-arg]
                     Sequence[pp.BoundaryGrid], domains
                 ),
+                dim=self.nd,
             )
 
         # Check that the subdomains are grids.
@@ -3336,6 +3335,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
                 domains=cast(  # type: ignore[call-arg]
                     Sequence[pp.BoundaryGrid], domains
                 ),
+                dim=self.nd,
             )
 
         # Check that the subdomains are grids.
@@ -3392,6 +3392,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
                 domains=cast(  # type: ignore[call-arg]
                     Sequence[pp.BoundaryGrid], domains
                 ),
+                dim=self.nd,
             )
 
         # Check that the subdomains are grids.
