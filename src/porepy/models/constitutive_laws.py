@@ -3176,16 +3176,20 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # subdomains (the domain of definition for the mortar projections), projecting
         # to the interface, and switching the sign of the traction depending on the sign
         # of the mortar sides.
-        nondim_traction = (
+        # Expand the cell-wise scalar characteristic traction to an nd-vector before
+        # scaling the local fracture traction.
+        scalar_to_nd = pp.ad.sum_projection_list(
+            self.basis(fracture_subdomains, dim=self.nd)
+        )
+        scaled_traction = (
+            scalar_to_nd @ self.characteristic_contact_traction(fracture_subdomains)
+        ) * self.contact_traction(fracture_subdomains)
+        traction = (
             mortar_projection.sign_of_mortar_sides()
             @ mortar_projection.secondary_to_mortar_int()
             @ subdomain_projection.cell_prolongation(fracture_subdomains)
             @ self.local_coordinates(fracture_subdomains).transpose()
-            @ self.contact_traction(fracture_subdomains)
-        )
-        # Rescale to physical units from the scaled contact traction.
-        traction = nondim_traction * self.characteristic_contact_traction(
-            fracture_subdomains
+            @ scaled_traction
         )
         traction.set_name("mechanical_fracture_stress")
         return traction
