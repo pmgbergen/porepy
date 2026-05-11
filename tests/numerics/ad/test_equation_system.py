@@ -117,7 +117,10 @@ def test_variable_creation():
     # Define the number of variables per grid item. Faces are included just to test that
     # this also works.
     num_dof_per_cell, num_dof_per_face = 1, 2
-    dof_info_sd = {GridEntity.cells: num_dof_per_cell, GridEntity.faces: num_dof_per_face}
+    dof_info_sd = {
+        GridEntity.cells: num_dof_per_cell,
+        GridEntity.faces: num_dof_per_face,
+    }
     dof_info_intf = {GridEntity.cells: num_dof_per_cell}
 
     # Create variables on subdomain and interface.
@@ -158,7 +161,7 @@ def test_variable_creation():
     assert len(single_subdomain_variable_fetched.sub_vars) == 1
     assert (
         single_subdomain_variable_fetched.sub_vars[0].name == "var_1"
-        and single_subdomain_variable_fetched.domain[0] == single_subdomain[0]
+        and single_subdomain_variable_fetched.domains[0] == single_subdomain[0]
     )
 
     # Check that the variables are created correctly
@@ -216,7 +219,10 @@ def test_remove_variables(variable_to_be_removed):
     # Define the number of variables per grid item. Faces are included just to test that
     # # this also works.
     num_dof_per_cell, num_dof_per_face = 1, 2
-    dof_info_sd = {GridEntity.cells: num_dof_per_cell, GridEntity.faces: num_dof_per_face}
+    dof_info_sd = {
+        GridEntity.cells: num_dof_per_cell,
+        GridEntity.faces: num_dof_per_face,
+    }
     dof_info_intf = {GridEntity.cells: num_dof_per_cell}
 
     # Create variables on subdomain and interface.
@@ -422,7 +428,9 @@ class EquationSystemMockModel:
         # in the testing of assembly.
         self.name_intf_variable = "y"
         self.intf_variable = equation_system.create_variables(
-            self.name_intf_variable, dof_info={GridEntity.cells: 2}, interfaces=interfaces
+            self.name_intf_variable,
+            dof_info={GridEntity.cells: 2},
+            interfaces=interfaces,
         )
 
         self.name_sd_top_variable = "z"
@@ -432,7 +440,9 @@ class EquationSystemMockModel:
 
         self.name_intf_top_variable = "w"
         self.intf_top_variable = equation_system.create_variables(
-            self.name_intf_top_variable, dof_info={GridEntity.cells: 2}, interfaces=[intf_top]
+            self.name_intf_top_variable,
+            dof_info={GridEntity.cells: 2},
+            interfaces=[intf_top],
         )
 
         # Set the time step and iterate solution values for the variables.
