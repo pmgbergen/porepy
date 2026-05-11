@@ -366,13 +366,6 @@ class Operator:
         return self._operator_range
 
     @property
-    def domain_type(self) -> Optional[DomainType]:
-        """Type of domains where the operator is defined."""
-        if self._operator_domain is None:
-            return None
-        return self._operator_domain.domain_type
-
-    @property
     def domains(self) -> list:
         """List of domains where the operator is defined."""
         if self._operator_domain is None:
@@ -1685,7 +1678,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             reference = False
             index_kwarg = {"iterate_index": 0}
 
-        domain_type = self.domain_type
+        domain_type = self.operator_range.domain_type if self.operator_range else None
         for grid in self.domains:
             if domain_type == DomainType.subdomains:
                 assert isinstance(grid, pp.Grid)
