@@ -69,8 +69,8 @@ class AbstractFunction(Operator):
         name: Optional[str] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        domain: Optional[OperatorSpace] = None,
-        range: Optional[OperatorSpace] = None,
+        source: Optional[OperatorSpace] = None,
+        target: Optional[OperatorSpace] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
@@ -82,8 +82,8 @@ class AbstractFunction(Operator):
             name=name,
             operation=pp.ad.operators.Operations.evaluate,
             children=children,
-            domain=None,
-            range=None,
+            source=None,
+            target=None,
         )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
@@ -110,8 +110,8 @@ class AbstractFunction(Operator):
             name=f"{self.name}{[a.name for a in args]}",
             operation=pp.ad.operators.Operations.evaluate,
             children=args,
-            domain=None,
-            range=None,
+            source=None,
+            target=None,
         )
         # Assigning the functional representation by the implementation of this instance
         op.func = self.func  # type: ignore
@@ -308,8 +308,8 @@ class Function(AbstractFunction):
     Paramters:
         func: A callable returning a numpy array for numpy array arguments, and an
             Ad array for arguments containing Ad arrays.
-        domain: The domain of the function.
-        range: The range of the function.
+        source: The source of the function.
+        target: The target of the function.
 
     """
 
@@ -317,10 +317,10 @@ class Function(AbstractFunction):
         self,
         func: Callable[..., FloatType],
         name: str,
-        domain: OperatorSpace | None,
-        range: OperatorSpace | None,
+        source: OperatorSpace | None,
+        target: OperatorSpace | None,
     ) -> None:
-        super().__init__(name=name, domain=domain, range=range)
+        super().__init__(name=name, source=source, target=target)
 
         self._func: Callable[..., float | np.ndarray | AdArray] = func
         """Reference to the callable passed at instantiation."""
