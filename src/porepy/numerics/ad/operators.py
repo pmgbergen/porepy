@@ -2148,7 +2148,7 @@ class MixedDimensionalVariable(Variable):
         """
 
         self._initialize_children()
-        self.copy_common_sub_tags()
+        self._copy_common_sub_tags()
         self._cached_key: Optional[str] = None
 
     def __repr__(self) -> str:
@@ -2171,7 +2171,7 @@ class MixedDimensionalVariable(Variable):
 
         return s
 
-    def copy_common_sub_tags(self) -> None:
+    def _copy_common_sub_tags(self) -> None:
         """Copy any shared tags from the sub-variables to this variable.
 
         Only tags with identical values are copied. Thus, the md variable can "trust"
