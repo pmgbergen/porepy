@@ -478,10 +478,16 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return self.reference_variable_values.pressure * np.ones(bg.num_cells)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """**Volumetric** Darcy flux values for the Neumann boundary condition.
+        """Mobility-free Darcy flux values for the Neumann boundary condition.
 
-        These values are used on the boundaries where Neumann data for the
-        volumetric Darcy :math:`\\mathbf{K}\\nabla p` flux are required.
+        The returned values represent the integrated quantity
+        :math:`\\int_\\sigma \\mathbf{K}\\nabla p \\cdot \\mathbf{n}\\, dA` on each
+        boundary face :math:`\\sigma`, with SI unit
+        :math:`\\mathrm{m}^{n_d} \\cdot \\mathrm{Pa} \\cdot \\mathrm{s}^{-1}` where
+        :math:`n_d` is the ambient dimension. The mobility :math:`1/\\mu` is
+        *not* included; it is applied downstream by the upwind scheme. To
+        convert to a true volumetric flux (:math:`\\mathrm{m}^{n_d}/\\mathrm{s}`),
+        multiply by the appropriate mobility.
 
         Important:
             Override this method to provide custom Neumann data for the flux,
@@ -491,7 +497,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the volumetric Darcy flux
+            An array with ``shape=(bg.num_cells,)`` containing the mobility-free Darcy flux
             values on the provided boundary grid.
 
         """
