@@ -2107,6 +2107,14 @@ class PeacemanWellFlux(pp.PorePyModel):
                 # equivalent radius should be determined from the matrix side, so this
                 # fallback value should not control the result.
                 h_list.append(np.array([unused_val]))
+            elif sd.dim==3:
+                dx, dy = self.horizontal_cell_extents(sd)
+
+                # Isotropic Cartesian Peaceman radius.
+                # For dx = dy = h, this gives 0.71 * sqrt(2) * h ≈ h.
+                r_e = 0.71 * np.sqrt(dx**2 + dy**2)
+
+                h_list.append(r_e)
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
         r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
@@ -2222,9 +2230,16 @@ class PeacemanWellFlux(pp.PorePyModel):
             if sd.dim != self.nd:
                 continue
 
-            # Approximate cell height by cell volume^(1/3).
-            #TODO: This is a very crude approximation, and it may be worth implementing a more accurate method. For instance, for structured grids, the cell height could be obtained directly from the grid geometry.
-            h = np.cbrt(sd.cell_volumes)
+            cell_nodes = sd.cell_nodes().tocsc()
+            z = sd.nodes[2]  # vertical coordinate
+
+            h = np.zeros(sd.num_cells)
+            for c in range(sd.num_cells):
+                nodes = cell_nodes.indices[
+                    cell_nodes.indptr[c] : cell_nodes.indptr[c + 1]
+                ]
+                h[c] = np.max(z[nodes]) - np.min(z[nodes])
+
             heights.append(h)
 
         if len(heights) == 0:
@@ -2236,6 +2251,26 @@ class PeacemanWellFlux(pp.PorePyModel):
         h_eff.set_name("effective_point_well_length")
         return h_eff
 
+    def horizontal_cell_extents(self,sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
+        """Return horizontal bounding-box sizes dx and dy for each cell."""
+        cell_nodes = sd.cell_nodes().tocsc()
+
+        x = sd.nodes[0]
+        y = sd.nodes[1]
+
+        dx = np.zeros(sd.num_cells)
+        dy = np.zeros(sd.num_cells)
+
+        for c in range(sd.num_cells):
+            nodes = cell_nodes.indices[
+               cell_nodes.indptr[c] : cell_nodes.indptr[c + 1]
+           ]
+
+
+            dx[c] = np.max(x[nodes]) - np.min(x[nodes])
+            dy[c] = np.max(y[nodes]) - np.min(y[nodes])
+
+        return dx, dy
 
 
 class ThermalExpansion(pp.PorePyModel):
