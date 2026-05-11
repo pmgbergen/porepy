@@ -1888,11 +1888,6 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
             range=op_space,
         )
 
-        # dofs per
-        self._cells: int = ndof.get(GridEntity.cells, 0)
-        self._faces: int = ndof.get(GridEntity.faces, 0)
-        self._nodes: int = ndof.get(GridEntity.nodes, 0)
-
         # tag
         self._tags: dict[str, Any] = tags if tags is not None else {}
 
@@ -1940,14 +1935,15 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     @property
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
+        dof_info = self.operator_range.dof_info
         if isinstance(self.domain, pp.MortarGrid):
             # This is a mortar grid. Assume that there are only cell dofs
-            return self.domain.num_cells * self._cells
+            return self.domain.num_cells * dof_info.get(GridEntity.cells, 0)
         if isinstance(self.domain, pp.Grid):
             return (
-                self.domain.num_cells * self._cells
-                + self.domain.num_faces * self._faces
-                + self.domain.num_nodes * self._nodes
+                self.domain.num_cells * dof_info.get(GridEntity.cells, 0)
+                + self.domain.num_faces * dof_info.get(GridEntity.faces, 0)
+                + self.domain.num_nodes * dof_info.get(GridEntity.nodes, 0)
             )
         raise ValueError()
 
@@ -1995,9 +1991,12 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
             s += f" on interface {self.domain.id}\n"
         else:
             s += f" on grid {self.domain.id}\n"
+
+        dof_info = self.operator_range.dof_info
         s += (
-            f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
-            f"nodes ({self._nodes})\n"
+            f"Degrees of freedom: cells ({dof_info.get(GridEntity.cells, 0)}), "
+            f"faces ({dof_info.get(GridEntity.faces, 0)}), "
+            f"nodes ({dof_info.get(GridEntity.nodes, 0)})\n"
         )
         if self.is_reference:
             s += f"Evaluated at the reference solution.\n"

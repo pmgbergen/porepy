@@ -256,7 +256,12 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
 
         # Sanity check: Ensure that variables are defined on cells.
         for variable in variable_indexer.indices:
-            if not variable._faces == 0 and variable._nodes == 0:
+            dof_info = variable.operator_range.dof_info
+
+            if (
+                not dof_info.get(GridEntity.faces, 0) == 0
+                and dof_info.get(GridEntity.nodes, 0) == 0
+            ):
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
