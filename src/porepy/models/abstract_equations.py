@@ -396,7 +396,7 @@ class LocalElimination(EquationMixin):
             # Update value of the variable which was eliminated.
             self.equation_system.set_variable_values(
                 val,
-                [v for v in independent_operator.sub_vars if v.domain == grid],
+                [v for v in independent_operator.sub_vars if v.domains[0] == grid],
                 iterate_index=0,
             )
 
