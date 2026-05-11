@@ -1873,8 +1873,6 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
 
         self._id: int = next(Variable._ids)
         """See :meth:`id`."""
-        self._grid: GridLike = domain
-        """See :meth:`domain`"""
 
         # Construct the OperatorSpace for this variable's domain/range.
         op_space = OperatorSpace.from_domains([domain], ndof)  # type: ignore[arg-type]
@@ -1931,11 +1929,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
             This is for inheritance reasons, since :class:`Variable` inherits from
             :class:`Operator`.
 
-            TODO: Clean up.
-
-
         """
-        return self._grid
+        return self.domains[0]
 
     @property
     def tags(self) -> dict[str, Any]:
@@ -1979,10 +1974,10 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self._grid, pp.Grid):
-            data = mdg.subdomain_data(self._grid)
-        elif isinstance(self._grid, pp.MortarGrid):
-            data = mdg.interface_data(self._grid)
+        if isinstance(self.domain, pp.Grid):
+            data = mdg.subdomain_data(self.domain)
+        elif isinstance(self.domain, pp.MortarGrid):
+            data = mdg.interface_data(self.domain)
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa
