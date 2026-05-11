@@ -2222,16 +2222,6 @@ class MixedDimensionalVariable(Variable):
                 self.tags[key] = values.pop()
 
     @property
-    def domain(self) -> list[GridLike]:  # type: ignore[override]
-        """A tuple of all domains on which the atomic sub-variables are defined."""
-        return [var.domain for var in self.sub_vars]
-
-    @property
-    def domains(self) -> list:  # type: ignore[override]
-        """List of all grids on which the atomic sub-variables are defined."""
-        return [var.domain for var in self.sub_vars]
-
-    @property
     def size(self) -> int:
         """Returns the total size of the mixed-dimensional variable
         by summing the sizes of sub-variables."""
