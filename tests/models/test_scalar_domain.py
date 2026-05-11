@@ -1,7 +1,7 @@
 """Integration tests verifying that material-property Scalars carry grid domain info.
 
 After implementing Scalar domain support, methods such as `solid_density(subdomains)`
-should return a Scalar whose `operator_domain` reflects the provided grids.
+should return a Scalar whose `source` reflects the provided grids.
 """
 
 from __future__ import annotations
@@ -46,14 +46,14 @@ def _assert_scalar_has_subdomain_domain(
 ) -> None:
     """Assert that *scalar* carries subdomain domain info matching *expected_grids*."""
     assert isinstance(scalar, Scalar)
-    dom = scalar.operator_domain
+    dom = scalar.source
     assert dom is not None, "Scalar should have a non-None domain"
     assert dom.domain_type == DomainType.subdomains
     assert set(dom.grids) == set(expected_grids)
     assert dom.dof_info == {
         GridEntity.cells: 1
     }, "Domain-bearing Scalar should be cell-wise"
-    assert scalar.operator_domain == scalar.operator_range
+    assert scalar.source == scalar.target
 
 
 def _assert_scalar_has_interface_domain(
@@ -61,12 +61,12 @@ def _assert_scalar_has_interface_domain(
 ) -> None:
     """Assert that *scalar* carries interface domain info matching *expected_grids*."""
     assert isinstance(scalar, Scalar)
-    dom = scalar.operator_domain
+    dom = scalar.source
     assert dom is not None
     assert dom.domain_type == DomainType.interfaces
     assert set(dom.grids) == set(expected_grids)
     assert dom.dof_info == {GridEntity.cells: 1}
-    assert scalar.operator_domain == scalar.operator_range
+    assert scalar.source == scalar.target
 
 
 # ---------------------------------------------------------------------------
@@ -143,8 +143,8 @@ class TestScalarDomainArithmetic:
         phi = m.porosity(subdomains)
         s = Scalar(2.0, domains=subdomains)
         result = s * phi
-        assert result.operator_domain is not None
-        assert result.operator_domain.domain_type == DomainType.subdomains
+        assert result.source is not None
+        assert result.source.domain_type == DomainType.subdomains
 
     def test_plain_scalar_times_domain_scalar_inherits_domain(
         self, mass_balance_model
@@ -154,4 +154,4 @@ class TestScalarDomainArithmetic:
         phi = m.porosity(subdomains)
         s = Scalar(2.0)  # plain scalar (no domain)
         result = s * phi
-        assert result.operator_domain is not None
+        assert result.source is not None
