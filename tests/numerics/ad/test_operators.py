@@ -52,8 +52,8 @@ def test_elementary_operations(operator):
     The test does not consider evaluation of the numerical values of the operators.
     """
     # Generate two generic operators
-    a = pp.ad.Operator(domain=None, range=None)
-    b = pp.ad.Operator(domain=None, range=None)
+    a = pp.ad.Operator(source=None, target=None)
+    b = pp.ad.Operator(source=None, target=None)
 
     # Combine the operators with the provided operation.
     c = eval(f"a {operator[0]} b")
@@ -306,12 +306,12 @@ def test_time_dependent_array():
 
     # Check correct domain types
     assert (
-        sd_array.operator_range.domain_type
-        == sd_array_top.operator_range.domain_type
+        sd_array.target.domain_type
+        == sd_array_top.target.domain_type
         == DomainType.subdomains
     )
-    assert intf_array.operator_range.domain_type == DomainType.interfaces
-    assert bg_array.operator_range.domain_type == DomainType.boundary_grids
+    assert intf_array.target.domain_type == DomainType.interfaces
+    assert bg_array.target.domain_type == DomainType.boundary_grids
 
     # Evaluate each of the Ad objects, verify that they have the expected values.
     sd_array_top_eval = sd_array_top.parse(mdg)

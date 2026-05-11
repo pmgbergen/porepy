@@ -198,7 +198,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
 def test_darcy_flux_domain_is_unclear(model: pp.PorePyModel) -> None:
     """Darcy flux depends on both subdomain and interface quantities."""
     op = model.darcy_flux(model.mdg.subdomains())
-    assert op.operator_domain == pp.ad.OperatorSpace.unclear()
+    assert op.source == pp.ad.OperatorSpace.unclear()
 
 
 # NOTE: The tests for darcy_flux, fluid_flux, fluid_flux, fluid_source,

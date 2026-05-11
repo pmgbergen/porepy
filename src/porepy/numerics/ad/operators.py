@@ -130,20 +130,21 @@ class Operations(Enum):
         }
         return strings.get(value, "unknown")
 
-    def infer_domain_range(
+    def infer_source_target(
         self,
         left: Operator,
         right: Operator | int | float,
     ) -> tuple[Optional[OperatorSpace], Optional[OperatorSpace]]:
-        """Validate operand spaces and infer the domain/range of the result.
+        """Validate operand spaces and infer the source/target of the result.
 
-        For matrix multiplication (``matmul``), the range of the *right* operand must
-        equal the domain of the *left* operand (i.e. ``range(right) == domain(left)``
-        for ``left @ right``).  The result's domain is ``right.operator_domain`` and the
-        result's range is ``left.operator_range``.
+        For matrix multiplication (``matmul``), the target of the *right* operand must
+        equal the source of the *left* operand (i.e.
+        ``target(right) == source(left)`` for ``left @ right``). The result's source is
+        ``right.source`` and the result's target is ``left.target``.
 
         For elementwise operations (``add``, ``sub``, ``mul``, ``div``, ``pow``), both
-        operands must have the same domain *and* the same range when both are specified.
+        operands must have the same source *and* the same target when both are
+        specified.
 
         The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space, so
         operations with a :class:`Scalar` operator are always valid and the result
@@ -157,9 +158,9 @@ class Operations(Enum):
             left: The left operand. right: The right-hand-side operand.
 
         Returns:
-            A 2-tuple ``(domain, range)`` where ``domain`` is the inferred
-            :class:`OperatorSpace` for the domain and ``range`` is the inferred
-            :class:`OperatorSpace` for the range.  Either may be ``None`` if it cannot
+            A 2-tuple ``(source, target)`` where ``source`` is the inferred
+            :class:`OperatorSpace` for the source and ``target`` is the inferred
+            :class:`OperatorSpace` for the target. Either may be ``None`` if it cannot
             be determined.
 
         Raises:
@@ -169,13 +170,13 @@ class Operations(Enum):
         # Plain Python scalars (int, float, np.number) may appear as operands,
         # e.g. `operator ** 2`. Treat them as the scalar space.
         if not isinstance(right, Operator):
-            return left._operator_domain, left._operator_range
+            return left._source, left._target
 
         def _spaces_compatible(a: OperatorSpace, b: OperatorSpace) -> bool:
             """Return True if a and b are exactly the same operator space."""
             return a == b
 
-        def _pick_range(
+        def _pick_target(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
         ) -> Optional[OperatorSpace]:
             """Return the known space when one side is unspecified."""
@@ -185,12 +186,12 @@ class Operations(Enum):
                 return a
             return a
 
-        def _pick_domain(
+        def _pick_source(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
         ) -> Optional[OperatorSpace]:
             if a is None or b is None:
-                # Piggyback on the range picking logic.
-                return _pick_range(a, b)
+                # Piggyback on the target picking logic.
+                return _pick_target(a, b)
             if (
                 a.domain_type == DomainType.unclear
                 or b.domain_type == DomainType.unclear
@@ -200,83 +201,70 @@ class Operations(Enum):
                 return OperatorSpace.unclear()
             return a
 
-        left_is_scalar = (
-            left.operator_domain is not None
-            and left.operator_domain.domain_type == DomainType.scalar
-        )
+        left_is_scalar = left.source is not None and left.source.domain_type == DomainType.scalar
         right_is_scalar = (
-            right.operator_domain is not None
-            and right.operator_domain.domain_type == DomainType.scalar
+            right.source is not None and right.source.domain_type == DomainType.scalar
         )
 
         if self == Operations.matmul:
-            # left @ right: range(right) must equal domain(left)
-            if (
-                left.operator_domain is not None
-                and left.operator_domain.domain_type == DomainType.unclear
-            ):
+            # left @ right: target(right) must equal source(left)
+            if left.source is not None and left.source.domain_type == DomainType.unclear:
                 raise ValueError(
                     f"Cannot matrix multiply with {left!r} as the left operand: "
-                    "its domain is unclear."
+                    "its source is unclear."
                 )
             if (
-                left.operator_domain is not None
-                and right.operator_range is not None
-                and not _spaces_compatible(left.operator_domain, right.operator_range)
+                left.source is not None
+                and right.target is not None
+                and not _spaces_compatible(left.source, right.target)
             ):
                 raise ValueError(
-                    f"Incompatible matrix multiplication: the range of {right!r} "
-                    f"({right.operator_range}) does not match the domain of "
-                    f"{left!r} ({left.operator_domain})."
+                    f"Incompatible matrix multiplication: the target of {right!r} "
+                    f"({right.target}) does not match the source of {left!r} "
+                    f"({left.source})."
                 )
-            return right.operator_domain, left.operator_range
+            return right.source, left.target
         elif self == Operations.rmatmul:
             # right @ left (dispatched as left.__rmatmul__(right)):
-            # range(left) must equal domain(right)
-            if (
-                left.operator_domain is not None
-                and left.operator_domain.domain_type == DomainType.unclear
-            ):
+            # target(left) must equal source(right)
+            if left.source is not None and left.source.domain_type == DomainType.unclear:
                 raise ValueError(
                     f"Cannot matrix multiply with {left!r} as the right operand: "
-                    "its domain is unclear."
+                    "its source is unclear."
                 )
             if (
-                right.operator_domain is not None
-                and left.operator_range is not None
-                and not _spaces_compatible(right.operator_domain, left.operator_range)
+                right.source is not None
+                and left.target is not None
+                and not _spaces_compatible(right.source, left.target)
             ):
                 raise ValueError(
-                    f"Incompatible matrix multiplication: the range of {left!r} "
-                    f"({left.operator_range}) does not match the domain of "
-                    f"{right!r} ({right.operator_domain})."
+                    f"Incompatible matrix multiplication: the target of {left!r} "
+                    f"({left.target}) does not match the source of {right!r} "
+                    f"({right.source})."
                 )
-            return left.operator_domain, right.operator_range
+            return left.source, right.target
         else:
             # Elementwise operations
             if left_is_scalar and right_is_scalar:
                 return OperatorSpace.scalar(), OperatorSpace.scalar()
             elif left_is_scalar:
-                return right.operator_domain, right.operator_range
+                return right.source, right.target
             elif right_is_scalar:
-                return left.operator_domain, left.operator_range
+                return left.source, left.target
             else:
-                # We need compatibility between the ranges (since this is where the
-                # quantity of interest lives), but the domains can be different.
+                # We need compatibility between the targets (since this is where the
+                # quantity of interest lives), but the sources can be different.
                 if (
-                    left.operator_range is not None
-                    and right.operator_range is not None
-                    and not _spaces_compatible(
-                        left.operator_range, right.operator_range
-                    )
+                    left.target is not None
+                    and right.target is not None
+                    and not _spaces_compatible(left.target, right.target)
                 ):
                     raise ValueError(
-                        f"Incompatible operator ranges: {left.operator_range} "
-                        f"vs {right.operator_range}."
+                        f"Incompatible operator targets: {left.target} vs {right.target}."
                     )
                 return (
-                    _pick_domain(left.operator_domain, right.operator_domain),
-                    _pick_range(left.operator_range, right.operator_range),
+                    _pick_source(left.source, right.source),
+                    _pick_target(left.target, right.target),
                 )
 
 
@@ -297,9 +285,9 @@ class Operator:
             operator. Defaults to void operation.
         children (optional): List of children, other AD operators. Defaults to empty
             list.
-        domain: Mathematical domain of this operator. Pass ``None`` explicitly if the
+        source: Algebraic source space of this operator. Pass ``None`` explicitly if the
             space is intentionally unspecified.
-        range: Mathematical range of this operator. Pass ``None`` explicitly if the
+        target: Algebraic target space of this operator. Pass ``None`` explicitly if the
             space is intentionally unspecified.
 
     """
@@ -310,11 +298,11 @@ class Operator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         *,
-        domain: Optional[OperatorSpace],
-        range: Optional[OperatorSpace],
+        source: Optional[OperatorSpace],
+        target: Optional[OperatorSpace],
     ) -> None:
-        self._operator_domain: Optional[OperatorSpace] = domain
-        self._operator_range: Optional[OperatorSpace] = range
+        self._source: Optional[OperatorSpace] = source
+        self._target: Optional[OperatorSpace] = target
 
         self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
@@ -356,21 +344,21 @@ class Operator:
         self._cached_key: Optional[str] = None
 
     @property
-    def operator_domain(self) -> Optional[OperatorSpace]:
-        """The mathematical domain of this operator, or ``None`` if unspecified."""
-        return self._operator_domain
+    def source(self) -> Optional[OperatorSpace]:
+        """The algebraic source space of this operator, or ``None`` if unspecified."""
+        return self._source
 
     @property
-    def operator_range(self) -> Optional[OperatorSpace]:
-        """The mathematical range of this operator, or ``None`` if unspecified."""
-        return self._operator_range
+    def target(self) -> Optional[OperatorSpace]:
+        """The algebraic target space of this operator, or ``None`` if unspecified."""
+        return self._target
 
     @property
     def domains(self) -> list:
         """List of domains where the operator is defined."""
-        if self._operator_domain is None:
+        if self._source is None:
             return []
-        return list(self._operator_domain.grids)
+        return list(self._source.grids)
 
     @property
     def name(self) -> str:
@@ -772,15 +760,15 @@ class Operator:
         if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0, domains=self.domains)
 
-        dom, ran = Operations.add.infer_domain_range(self, other)
+        source, target = Operations.add.infer_source_target(self, other)
         children = self._parse_other(other)
 
         return Operator(
             children=children,
             operation=Operations.add,
             name="+ operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __radd__(self, other: Operator) -> Operator:
@@ -808,14 +796,14 @@ class Operator:
             The difference of self and other.
 
         """
-        dom, ran = Operations.sub.infer_domain_range(self, other)
+        source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.sub,
             name="- operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __rsub__(self, other: Operator) -> Operator:
@@ -829,7 +817,7 @@ class Operator:
 
         """
         # consider the expression a-b. right-subtraction means self == b
-        dom, ran = Operations.sub.infer_domain_range(self, other)
+        source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
@@ -837,8 +825,8 @@ class Operator:
             children=children,
             operation=Operations.sub,
             name="- operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __mul__(self, other: Operator) -> Operator:
@@ -851,14 +839,14 @@ class Operator:
             The elementwise product of self and other.
 
         """
-        dom, ran = Operations.mul.infer_domain_range(self, other)
+        source, target = Operations.mul.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.mul,
             name="* operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __rmul__(self, other: Operator) -> Operator:
@@ -874,14 +862,14 @@ class Operator:
             The elementwise product of self and other.
 
         """
-        dom, ran = Operations.mul.infer_domain_range(self, other)
+        source, target = Operations.mul.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.rmul,
             name="right * operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __truediv__(self, other: Operator) -> Operator:
@@ -894,15 +882,15 @@ class Operator:
             The elementwise division of self and other.
 
         """
-        dom, ran = Operations.div.infer_domain_range(self, other)
+        source, target = Operations.div.infer_source_target(self, other)
 
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.div,
             name="/ operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __rtruediv__(self, other: Operator) -> Operator:
@@ -918,15 +906,15 @@ class Operator:
             The elementwise division of other and self.
 
         """
-        dom, ran = Operations.div.infer_domain_range(self, other)
+        source, target = Operations.div.infer_source_target(self, other)
 
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.rdiv,
             name="right / operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __pow__(self, other: Operator) -> Operator:
@@ -966,13 +954,13 @@ class Operator:
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
         children = self._parse_other(other)
-        dom, ran = Operations.pow.infer_domain_range(self, other)
+        source, target = Operations.pow.infer_source_target(self, other)
         return Operator(
             children=children,
             operation=Operations.pow,
             name="** operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __rpow__(self, other: Operator) -> Operator:
@@ -988,14 +976,14 @@ class Operator:
             The elementwise exponentiation of other and self.
 
         """
-        dom, ran = Operations.pow.infer_domain_range(self, other)
+        source, target = Operations.pow.infer_source_target(self, other)
         children = self._parse_other(other)
         return Operator(
             children=children,
             operation=Operations.rpow,
             name="reverse ** operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __matmul__(self, other: Operator) -> Operator:
@@ -1009,13 +997,13 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        dom, ran = Operations.matmul.infer_domain_range(self, other)
+        source, target = Operations.matmul.infer_source_target(self, other)
         return Operator(
             children=children,
             operation=Operations.matmul,
             name="@ operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __rmatmul__(self, other):
@@ -1032,13 +1020,13 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        dom, ran = Operations.rmatmul.infer_domain_range(self, other)
+        source, target = Operations.rmatmul.infer_source_target(self, other)
         return Operator(
             children=children,
             operation=Operations.rmatmul,
             name="reverse @ operator",
-            domain=dom,
-            range=ran,
+            source=source,
+            target=target,
         )
 
     def __hash__(self):
@@ -1112,15 +1100,15 @@ class TimeDependentOperator(Operator):
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         *,
-        domain: Optional[OperatorSpace],
-        range: Optional[OperatorSpace],
+        source: Optional[OperatorSpace],
+        target: Optional[OperatorSpace],
     ) -> None:
         super().__init__(
             name=name,
             operation=operation,
             children=children,
-            domain=domain,
-            range=range,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
@@ -1232,15 +1220,15 @@ class IterativeOperator(Operator):
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         *,
-        domain: Optional[OperatorSpace],
-        range: Optional[OperatorSpace],
+        source: Optional[OperatorSpace],
+        target: Optional[OperatorSpace],
     ) -> None:
         super().__init__(
             name=name,
             operation=operation,
             children=children,
-            domain=domain,
-            range=range,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
@@ -1355,8 +1343,8 @@ class SparseArray(Operator):
         self,
         mat: sps.spmatrix,
         name: Optional[str] = None,
-        domain: Optional[OperatorSpace] = None,
-        range: Optional[OperatorSpace] = None,
+        source: Optional[OperatorSpace] = None,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
         self._mat = mat
         # Force the data to be float, so that we limit the number of combinations of
@@ -1400,7 +1388,7 @@ class SparseArray(Operator):
         self._hash_value: str = self._compute_spmatrix_hash(mat)
         """String to uniquly identify the contents of the matrix."""
 
-        super().__init__(name=name, domain=domain, range=range)
+        super().__init__(name=name, source=source, target=target)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1428,8 +1416,8 @@ class SparseArray(Operator):
         return SparseArray(
             mat=-self._mat,
             name=new_name,
-            domain=self._operator_domain,
-            range=self._operator_range,
+            source=self._source,
+            target=self._target,
         )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
@@ -1519,8 +1507,8 @@ class DenseArray(Operator):
         self,
         values: np.ndarray,
         name: Optional[str] = None,
-        domain: Optional[OperatorSpace] = None,
-        range: Optional[OperatorSpace] = None,
+        source: Optional[OperatorSpace] = None,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
         """Construct an Ad representation of a numpy array.
 
@@ -1541,7 +1529,7 @@ class DenseArray(Operator):
             usedforsecurity=False,  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
-        super().__init__(name=name, domain=domain, range=range)
+        super().__init__(name=name, source=source, target=target)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1569,8 +1557,8 @@ class DenseArray(Operator):
         return DenseArray(
             values=-self._values,
             name=new_name,
-            domain=self._operator_domain,
-            range=self._operator_range,
+            source=self._source,
+            target=self._target,
         )
 
     @property
@@ -1608,10 +1596,10 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             ``data[pp.TIME_STEP_SOLUTIONS]``.
         domains: Subdomains or interfaces on which the array is defined.
         dof_info: Optional mapping from :class:`GridEntity` to the number of DOFs per
-            grid entity. When provided, the operator's :attr:`operator_domain` and
-            :attr:`operator_range` are populated with an :class:`OperatorSpace` built
-            from *domains* and *dof_info*. When ``None`` (the default), the domain and
-            range are left unspecified.
+            grid entity. When provided, the operator's :attr:`source` and
+            :attr:`target` are populated with an :class:`OperatorSpace` built from
+            *domains* and *dof_info*. When ``None`` (the default), the source and target
+            are left unspecified.
 
     Attributes:
         previous_timestep: If True, the array will be evaluated using
@@ -1637,7 +1625,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             )
         else:
             space = None
-        super().__init__(name=name, domain=space, range=space)
+        super().__init__(name=name, source=space, target=space)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1678,7 +1666,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             reference = False
             index_kwarg = {"iterate_index": 0}
 
-        domain_type = self.operator_range.domain_type if self.operator_range else None
+        domain_type = self.target.domain_type if self.target else None
         for grid in self.domains:
             if domain_type == DomainType.subdomains:
                 assert isinstance(grid, pp.Grid)
@@ -1707,7 +1695,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
 
     def __repr__(self) -> str:
         domain_type = (
-            self._operator_domain.domain_type if self._operator_domain else None
+            self._source.domain_type if self._source else None
         )
         domain_label = domain_type.value if domain_type is not None else "unknown"
         msg = (
@@ -1748,7 +1736,7 @@ class Scalar(Operator):
         else:
             space = OperatorSpace.scalar()
         # Call the super constructor after setting the value.
-        super().__init__(name=name, domain=space, range=space)
+        super().__init__(name=name, source=space, target=space)
 
     def _key(self) -> str:
         if self._cached_key is None:
@@ -1783,8 +1771,8 @@ class Scalar(Operator):
         new_name = None if self.name is None else f"minus {self.name}"
         # Propagate any grid context attached to this Scalar.
         doms: Optional[list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid]] = (
-            list(self._operator_domain.grids)
-            if self._operator_domain and self._operator_domain.grids
+            list(self._source.grids)
+            if self._source and self._source.grids
             else None
         )
         return Scalar(value=-self._value, name=new_name, domains=doms)
@@ -1867,7 +1855,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         self._id: int = next(Variable._ids)
         """See :meth:`id`."""
 
-        # Construct the OperatorSpace for this variable's domain/range.
+        # Construct the OperatorSpace for this variable's source/target.
         op_space = OperatorSpace.from_domains([domain], ndof)  # type: ignore[arg-type]
 
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
@@ -1877,8 +1865,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         # circumvent the warning is not worth it.
         super().__init__(  # type: ignore[arg-type,call-arg]
             name=name,
-            domain=op_space,
-            range=op_space,
+            source=op_space,
+            target=op_space,
         )
 
         # tag
@@ -1916,7 +1904,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     @property
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
-        dof_info = self.operator_range.dof_info
+        assert self.target is not None
+        dof_info = self.target.dof_info
         if isinstance(self.domains[0], pp.MortarGrid):
             # This is a mortar grid. Assume that there are only cell dofs
             return self.domains[0].num_cells * dof_info.get(GridEntity.cells, 0)
@@ -1973,7 +1962,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         else:
             s += f" on grid {self.domains[0].id}\n"
 
-        dof_info = self.operator_range.dof_info
+        assert self.target is not None
+        dof_info = self.target.dof_info
         s += (
             f"Degrees of freedom: cells ({dof_info.get(GridEntity.cells, 0)}), "
             f"faces ({dof_info.get(GridEntity.faces, 0)}), "
@@ -2051,8 +2041,8 @@ class MixedDimensionalVariable(Variable):
             reference.append(var.is_reference)
             names.append(var.name)
             domains.append(var.domains[0])
-            if var.operator_domain is not None:
-                dof_infos.append(var.operator_domain.dof_info)
+            if var.source is not None:
+                dof_infos.append(var.source.dof_info)
 
         # check assumptions
         if len(variables) > 0:
@@ -2124,8 +2114,8 @@ class MixedDimensionalVariable(Variable):
 
         self._name = names[0]
 
-        self._operator_domain: Optional[OperatorSpace] = op_space
-        self._operator_range: Optional[OperatorSpace] = op_space
+        self._source: Optional[OperatorSpace] = op_space
+        self._target: Optional[OperatorSpace] = op_space
 
         # If someone attempts to create a prev time or iter md-variable using
         # atomic variables at prev time and iter, we have a missing reference to the
@@ -2263,7 +2253,7 @@ class Projection(Operator):
         )
         # Space intentionally unspecified: the projection only knows local index sizes,
         # not the grid/dof metadata needed to form an OperatorSpace.
-        super().__init__(name=name, domain=None, range=None)
+        super().__init__(name=name, source=None, target=None)
 
     def transpose(self) -> Projection:
         """Return the transpose of the operator."""
@@ -2360,7 +2350,7 @@ class ProjectionList(Operator):
         """
         # Space intentionally unspecified: this wrapper only aggregates projections and
         # does not know the underlying grid/dof metadata.
-        super().__init__(name=name, children=operators, domain=None, range=None)
+        super().__init__(name=name, children=operators, source=None, target=None)
 
     def _key(self) -> str:
         if self._cached_key is None:
