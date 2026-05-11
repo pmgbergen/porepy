@@ -558,7 +558,7 @@ def test_ad_variable_evaluation():
     double_iterate = np.zeros(equation_system.num_dofs())
 
     for v in equation_system.variables:
-        g = v.domain
+        g = v.domains[0]
         inds = equation_system.dofs_of([v])
         if v.name == var2:
             true_state[inds] = state_map_2[g]
@@ -810,7 +810,7 @@ def test_variable_combinations(grids, variables):
     for sd in grids:
         data = mdg.subdomain_data(sd)
         for var in ad_vars:
-            if sd == var.domain:
+            if sd == var.domains[0]:
                 expr = var.value_and_jacobian(equation_system)
                 # Check that the size of the variable is correct
                 values = pp.get_solution_values(
@@ -825,7 +825,7 @@ def test_variable_combinations(grids, variables):
         expr = var.value_and_jacobian(equation_system)
         vals = []
         for sub_var in var.sub_vars:
-            data = mdg.subdomain_data(sub_var.domain)
+            data = mdg.subdomain_data(sub_var.domains[0])
             values = pp.get_solution_values(
                 name=sub_var.name, data=data, time_step_index=0
             )
@@ -848,8 +848,8 @@ def test_variable_combinations(grids, variables):
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
                 sv_size = np.array([sv.size for sv in mv.sub_vars])
-                mv_grids = [sv.domain for sv in mv.sub_vars]
-                ind = mv_grids.index(var.domain)
+                mv_grids = [sv.domains[0] for sv in mv.sub_vars]
+                ind = mv_grids.index(var.domains[0])
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
                 P = pp.ad.SparseArray(

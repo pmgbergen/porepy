@@ -357,7 +357,7 @@ def test_variable_tags():
     # Filter on grids.
     retrieved_var_3 = equation_system.get_variables(grids=single_subdomain)
     assert len(retrieved_var_3) == 2
-    assert all([var.domain == single_subdomain[0] for var in retrieved_var_3])
+    assert all([var.domains[0] == single_subdomain[0] for var in retrieved_var_3])
 
     # Filter on combination of grid and variable
     retrieved_var_4 = equation_system.get_variables(
@@ -389,7 +389,7 @@ def test_variable_tags():
     # Filter on tag_3, which takes boolean values. This should give only var_2
     retrieved_var_10 = equation_system.get_variables(tag_name="tag_3", tag_value=True)
     assert len(retrieved_var_10) == 1
-    assert retrieved_var_10[0].domain == single_subdomain[0]
+    assert retrieved_var_10[0].domains[0] == single_subdomain[0]
 
 
 class EquationSystemMockModel:

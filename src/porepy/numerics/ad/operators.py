@@ -1886,7 +1886,9 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
 
     def _key(self):
         if self._cached_key is None:
-            self._cached_key = f"(var, name={self.name}, domain={str(self.domain.id)})"
+            self._cached_key = (
+                f"(var, name={self.name}, domain={str(self.domains[0].id)})"
+            )
         return self._cached_key
 
     @property
@@ -1907,20 +1909,6 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         return self._id
 
     @property
-    def domain(self) -> GridLike:
-        """The grid or mortar grid on which this variable is defined.
-
-        Note:
-            Not to be confused with :meth:`domains`, which has the grid in a sequence
-            of length 1.
-
-            This is for inheritance reasons, since :class:`Variable` inherits from
-            :class:`Operator`.
-
-        """
-        return self.domains[0]
-
-    @property
     def tags(self) -> dict[str, Any]:
         """A dictionary of tags associated with this variable."""
         return self._tags
@@ -1929,14 +1917,14 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
         dof_info = self.operator_range.dof_info
-        if isinstance(self.domain, pp.MortarGrid):
+        if isinstance(self.domains[0], pp.MortarGrid):
             # This is a mortar grid. Assume that there are only cell dofs
-            return self.domain.num_cells * dof_info.get(GridEntity.cells, 0)
-        if isinstance(self.domain, pp.Grid):
+            return self.domains[0].num_cells * dof_info.get(GridEntity.cells, 0)
+        if isinstance(self.domains[0], pp.Grid):
             return (
-                self.domain.num_cells * dof_info.get(GridEntity.cells, 0)
-                + self.domain.num_faces * dof_info.get(GridEntity.faces, 0)
-                + self.domain.num_nodes * dof_info.get(GridEntity.nodes, 0)
+                self.domains[0].num_cells * dof_info.get(GridEntity.cells, 0)
+                + self.domains[0].num_faces * dof_info.get(GridEntity.faces, 0)
+                + self.domains[0].num_nodes * dof_info.get(GridEntity.nodes, 0)
             )
         raise ValueError()
 
@@ -1963,10 +1951,10 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self.domain, pp.Grid):
-            data = mdg.subdomain_data(self.domain)
-        elif isinstance(self.domain, pp.MortarGrid):
-            data = mdg.interface_data(self.domain)
+        if isinstance(self.domains[0], pp.Grid):
+            data = mdg.subdomain_data(self.domains[0])
+        elif isinstance(self.domains[0], pp.MortarGrid):
+            data = mdg.interface_data(self.domains[0])
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa
@@ -1980,10 +1968,10 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
 
     def __repr__(self) -> str:
         s = f"Variable {self.name} with id {self.id}"
-        if isinstance(self.domain, pp.MortarGrid):
-            s += f" on interface {self.domain.id}\n"
+        if isinstance(self.domains[0], pp.MortarGrid):
+            s += f" on interface {self.domains[0].id}\n"
         else:
-            s += f" on grid {self.domain.id}\n"
+            s += f" on grid {self.domains[0].id}\n"
 
         dof_info = self.operator_range.dof_info
         s += (
@@ -2062,7 +2050,7 @@ class MixedDimensionalVariable(Variable):
             current_iter.append(var.is_current_iterate)
             reference.append(var.is_reference)
             names.append(var.name)
-            domains.append(var.domain)
+            domains.append(var.domains[0])
             if var.operator_domain is not None:
                 dof_infos.append(var.operator_domain.dof_info)
 
