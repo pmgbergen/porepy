@@ -1,5 +1,5 @@
 """Tests for Stage 2 of GH discussion #1601: DomainType, OperatorSpace and
-operator_domain/operator_range propagation."""
+source/target propagation."""
 
 import operator as _op
 
@@ -193,34 +193,34 @@ class TestOperatorSpaceEquality:
 
 
 # ---------------------------------------------------------------------------
-# Operator.operator_domain and operator_range properties
+# Operator.source and target properties
 # ---------------------------------------------------------------------------
 
 
 class TestOperatorProperties:
-    def test_operator_requires_explicit_domain_and_range(self):
+    def test_operator_requires_explicit_source_and_target(self):
         with pytest.raises(TypeError):
             Operator(name="test")
 
-    def test_operator_domain_accepts_explicit_none(self):
-        op = Operator(name="test", domain=None, range=None)
-        assert op.operator_domain is None
+    def test_source_accepts_explicit_none(self):
+        op = Operator(name="test", source=None, target=None)
+        assert op.source is None
 
-    def test_operator_range_accepts_explicit_none(self):
-        op = Operator(name="test", domain=None, range=None)
-        assert op.operator_range is None
+    def test_target_accepts_explicit_none(self):
+        op = Operator(name="test", source=None, target=None)
+        assert op.target is None
 
-    def test_set_domain_in_init(self, two_subdomains):
+    def test_set_source_in_init(self, two_subdomains):
         g1, _ = two_subdomains
         space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        op = Operator(name="test", domain=space, range=None)
-        assert op.operator_domain == space
+        op = Operator(name="test", source=space, target=None)
+        assert op.source == space
 
-    def test_set_range_in_init(self, two_subdomains):
+    def test_set_target_in_init(self, two_subdomains):
         g1, _ = two_subdomains
         space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        op = Operator(name="test", domain=None, range=space)
-        assert op.operator_range == space
+        op = Operator(name="test", source=None, target=space)
+        assert op.target == space
 
 
 # ---------------------------------------------------------------------------
@@ -231,48 +231,48 @@ class TestOperatorProperties:
 class TestScalarSpace:
     def test_scalar_has_scalar_space(self):
         s = Scalar(3.14)
-        assert s.operator_domain == OperatorSpace.scalar()
-        assert s.operator_range == OperatorSpace.scalar()
+        assert s.source == OperatorSpace.scalar()
+        assert s.target == OperatorSpace.scalar()
 
     def test_scalar_with_subdomain_has_subdomain_space(self, two_subdomains):
         g, _ = two_subdomains
         s = Scalar(1.0, domains=[g])
-        assert s.operator_domain is not None
-        assert s.operator_domain.domain_type == DomainType.subdomains
-        assert s.operator_domain.grids == (g,)
-        assert s.operator_domain == s.operator_range
+        assert s.source is not None
+        assert s.source.domain_type == DomainType.subdomains
+        assert s.source.grids == (g,)
+        assert s.source == s.target
 
     def test_scalar_with_mortar_grid_has_interface_space(self, one_mortar):
         mg = one_mortar
         s = Scalar(2.0, domains=[mg])
-        assert s.operator_domain is not None
-        assert s.operator_domain.domain_type == DomainType.interfaces
-        assert s.operator_domain.grids == (mg,)
+        assert s.source is not None
+        assert s.source.domain_type == DomainType.interfaces
+        assert s.source.grids == (mg,)
 
     def test_scalar_domain_is_cellwise(self, two_subdomains):
         """Domain-bearing Scalar uses the natural cell-based space on its grids."""
         g, _ = two_subdomains
         s = Scalar(1.0, domains=[g])
-        assert s.operator_domain is not None
-        assert s.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert s.source is not None
+        assert s.source.dof_info == {GridEntity.cells: 1}
 
-    def test_scalar_neg_propagates_domain(self, two_subdomains):
+    def test_scalar_neg_propagates_source(self, two_subdomains):
         g, _ = two_subdomains
         s = Scalar(3.0, domains=[g])
         neg = -s
-        assert neg.operator_domain == s.operator_domain
-        assert neg.operator_range == s.operator_range
+        assert neg.source == s.source
+        assert neg.target == s.target
 
-    def test_scalar_neg_no_domain(self):
+    def test_scalar_neg_no_source(self):
         """Negating a plain Scalar preserves the scalar wildcard space."""
         s = Scalar(2.0)
         neg = -s
-        assert neg.operator_domain == OperatorSpace.scalar()
+        assert neg.source == OperatorSpace.scalar()
 
     def test_scalar_empty_domains_gives_scalar_space(self):
         """Empty domains list is treated as no-domain (backward compat)."""
         s = Scalar(1.0, domains=[])
-        assert s.operator_domain == OperatorSpace.scalar()
+        assert s.source == OperatorSpace.scalar()
 
     def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
         """A domain-bearing scalar uses the ordinary cell-based space on its grids."""
@@ -280,8 +280,8 @@ class TestScalarSpace:
         s = Scalar(2.0, domains=[g])
         v = Variable("p", {GridEntity.cells: 1}, g)
         result = s * v
-        assert result.operator_domain == v.operator_domain
-        assert result.operator_range == v.operator_range
+        assert result.source == v.source
+        assert result.target == v.target
 
     def test_domainless_scalar_combined_with_operator(self, two_subdomains):
         """Plain Scalar still inherits from the other operand."""
@@ -289,28 +289,28 @@ class TestScalarSpace:
         s = Scalar(2.0)
         v = Variable("p", {GridEntity.cells: 1}, g)
         result = s * v
-        assert result.operator_domain == v.operator_domain
+        assert result.source == v.source
 
 
 class TestVariableSpace:
     def test_variable_has_subdomain_space(self, two_subdomains):
         g, _ = two_subdomains
         var = Variable("p", {GridEntity.cells: 1}, g)
-        assert var.operator_domain is not None
-        assert var.operator_domain.domain_type == DomainType.subdomains
-        assert var.operator_domain == var.operator_range
+        assert var.source is not None
+        assert var.source.domain_type == DomainType.subdomains
+        assert var.source == var.target
 
     def test_variable_space_contains_correct_grid(self, two_subdomains):
         g, _ = two_subdomains
         var = Variable("p", {GridEntity.cells: 1}, g)
-        assert var.operator_domain is not None
-        assert var.operator_domain.grids == (g,)
+        assert var.source is not None
+        assert var.source.grids == (g,)
 
     def test_variable_space_dof_info(self, two_subdomains):
         g, _ = two_subdomains
         var = Variable("u", {GridEntity.cells: 2, GridEntity.faces: 1}, g)
-        assert var.operator_domain is not None
-        assert var.operator_domain.dof_info == {
+        assert var.source is not None
+        assert var.source.dof_info == {
             GridEntity.cells: 2,
             GridEntity.faces: 1,
         }
@@ -318,15 +318,15 @@ class TestVariableSpace:
     def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
         """Variable on a MortarGrid gets DomainType.interfaces."""
         var = Variable("lam", {GridEntity.cells: 1}, one_mortar)
-        assert var.operator_domain is not None
-        assert var.operator_domain.domain_type == DomainType.interfaces
-        assert var.operator_domain.grids == (one_mortar,)
+        assert var.source is not None
+        assert var.source.domain_type == DomainType.interfaces
+        assert var.source.grids == (one_mortar,)
 
     def test_variable_on_mortar_grid_dof_info(self, one_mortar):
         """dof_info is preserved when Variable is on a mortar grid."""
         var = Variable("lam", {GridEntity.cells: 2}, one_mortar)
-        assert var.operator_domain is not None
-        assert var.operator_domain.dof_info == {GridEntity.cells: 2}
+        assert var.source is not None
+        assert var.source.dof_info == {GridEntity.cells: 2}
 
 
 class TestMixedDimensionalVariableSpace:
@@ -339,15 +339,15 @@ class TestMixedDimensionalVariableSpace:
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
         return MixedDimensionalVariable([v1, v2])
 
-    def test_md_variable_operator_domain_is_union(self, md_var, two_subdomains):
+    def test_md_variable_source_is_union(self, md_var, two_subdomains):
         g1, g2 = two_subdomains
         expected = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        assert md_var.operator_domain == expected
+        assert md_var.source == expected
 
-    def test_md_variable_operator_range_is_union(self, md_var, two_subdomains):
+    def test_md_variable_target_is_union(self, md_var, two_subdomains):
         g1, g2 = two_subdomains
         expected = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        assert md_var.operator_range == expected
+        assert md_var.target == expected
 
     def test_md_variable_with_mixed_dof_info_has_unspecified_space(self, fracture_mdg):
         subdomains = fracture_mdg.subdomains()
@@ -355,12 +355,12 @@ class TestMixedDimensionalVariableSpace:
         v2 = Variable("p", {GridEntity.cells: 2}, subdomains[1])
         md_var = MixedDimensionalVariable([v1, v2])
 
-        assert md_var.operator_domain is None
-        assert md_var.operator_range is None
+        assert md_var.source is None
+        assert md_var.target is None
 
 
 class TestSurrogateOperatorSpace:
-    """SurrogateOperator carries operator_domain/range derived from its dof_info."""
+    """SurrogateOperator carries source/range derived from its dof_info."""
 
     @pytest.fixture
     def simple_mdg(self, two_subdomains):
@@ -378,7 +378,7 @@ class TestSurrogateOperatorSpace:
         )
         return simple_mdg, var
 
-    def test_surrogate_operator_domain_with_dof_info(self, surrogate_setup):
+    def test_surrogate_source_with_dof_info(self, surrogate_setup):
         """SurrogateFactory with explicit dof_info: the produced operator has a space."""
         mdg, var = surrogate_setup
         factory = pp.ad.SurrogateFactory(
@@ -388,12 +388,12 @@ class TestSurrogateOperatorSpace:
             dof_info={GridEntity.cells: 1},
         )
         op = factory(list(mdg.subdomains()))
-        assert op.operator_domain is not None
-        assert op.operator_domain.domain_type == DomainType.subdomains
-        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert op.source is not None
+        assert op.source.domain_type == DomainType.subdomains
+        assert op.source.dof_info == {GridEntity.cells: 1}
 
-    def test_surrogate_operator_range_equals_domain(self, surrogate_setup):
-        """For a SurrogateOperator the range_ equals domain (square operator)."""
+    def test_surrogate_target_equals_source(self, surrogate_setup):
+        """For a SurrogateOperator the target equals the source (square operator)."""
         mdg, var = surrogate_setup
         factory = pp.ad.SurrogateFactory(
             name="f",
@@ -402,7 +402,7 @@ class TestSurrogateOperatorSpace:
             dof_info={GridEntity.cells: 1},
         )
         op = factory(list(mdg.subdomains()))
-        assert op.operator_range == op.operator_domain
+        assert op.target == op.source
 
     def test_surrogate_operator_default_dof_info_gives_space(self, surrogate_setup):
         """dof_info=None (default) falls back to cells:1 and still sets a space."""
@@ -413,8 +413,8 @@ class TestSurrogateOperatorSpace:
             dependencies=[lambda grids: var],
         )
         op = factory(list(mdg.subdomains()))
-        assert op.operator_domain is not None
-        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
+        assert op.source is not None
+        assert op.source.dof_info == {GridEntity.cells: 1}
 
     def test_surrogate_operator_direct_no_dof_info_gives_none_space(
         self, two_subdomains
@@ -429,40 +429,40 @@ class TestSurrogateOperatorSpace:
             children=[v1, v2],
             dof_info=None,
         )
-        assert op.operator_domain is not None
-        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
-        assert op.operator_range is not None
-        assert op.operator_range.dof_info == {GridEntity.cells: 1}
+        assert op.source is not None
+        assert op.source.dof_info == {GridEntity.cells: 1}
+        assert op.target is not None
+        assert op.target.dof_info == {GridEntity.cells: 1}
 
 
 class TestDenseArraySpace:
     def test_dense_array_no_space_by_default(self):
         arr = DenseArray(np.ones(5))
-        assert arr.operator_domain is None
-        assert arr.operator_range is None
+        assert arr.source is None
+        assert arr.target is None
 
     def test_dense_array_with_explicit_space(self, two_subdomains):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        arr = DenseArray(np.ones(5), domain=space, range=space)
-        assert arr.operator_domain == space
-        assert arr.operator_range == space
+        arr = DenseArray(np.ones(5), source=space, target=space)
+        assert arr.source == space
+        assert arr.target == space
 
 
 class TestSparseArraySpace:
     def test_sparse_array_no_space_by_default(self):
         mat = sps.eye(4, format="csr")
         op = SparseArray(mat)
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        assert op.source is None
+        assert op.target is None
 
     def test_sparse_array_with_explicit_space(self, two_subdomains):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
         mat = sps.eye(4, format="csr")
-        op = SparseArray(mat, domain=space, range=space)
-        assert op.operator_domain == space
-        assert op.operator_range == space
+        op = SparseArray(mat, source=space, target=space)
+        assert op.source == space
+        assert op.target == space
 
 
 # ---------------------------------------------------------------------------
@@ -471,7 +471,7 @@ class TestSparseArraySpace:
 
 
 class TestDomainRangePropagation:
-    """Test that binary operations propagate operator_domain and operator_range."""
+    """Test that binary operations propagate source and target."""
 
     def _cell_space(self, g):
         return OperatorSpace.from_domains([g], {GridEntity.cells: 1})
@@ -482,84 +482,84 @@ class TestDomainRangePropagation:
         ids=["add", "sub", "mul", "div"],
     )
     def test_elementwise_same_space_propagates(self, two_subdomains, binary_op):
-        """Elementwise ops between equal-space operands preserve domain/range."""
+        """Elementwise ops between equal-space operands preserve source/target."""
         g, _ = two_subdomains
         space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range=space)
-        b = DenseArray(np.ones(4), domain=space, range=space)
+        a = DenseArray(np.ones(4), source=space, target=space)
+        b = DenseArray(np.ones(4), source=space, target=space)
         result = binary_op(a, b)
-        assert result.operator_domain == space
-        assert result.operator_range == space
+        assert result.source == space
+        assert result.target == space
 
     def test_scalar_inherits_other_space(self, two_subdomains):
         g, _ = two_subdomains
         space = self._cell_space(g)
-        arr = DenseArray(np.ones(4), domain=space, range=space)
+        arr = DenseArray(np.ones(4), source=space, target=space)
         s = Scalar(2.0)
         result = s * arr
-        assert result.operator_domain == space
-        assert result.operator_range == space
+        assert result.source == space
+        assert result.target == space
 
     def test_other_inherits_scalar_space(self, two_subdomains):
         g, _ = two_subdomains
         space = self._cell_space(g)
-        arr = DenseArray(np.ones(4), domain=space, range=space)
+        arr = DenseArray(np.ones(4), source=space, target=space)
         s = Scalar(2.0)
         result = arr * s
-        assert result.operator_domain == space
+        assert result.source == space
 
     def test_scalar_scalar_gives_scalar_space(self):
         s1 = Scalar(1.0)
         s2 = Scalar(2.0)
         result = s1 + s2
-        assert result.operator_domain == OperatorSpace.scalar()
-        assert result.operator_range == OperatorSpace.scalar()
+        assert result.source == OperatorSpace.scalar()
+        assert result.target == OperatorSpace.scalar()
 
     def test_none_space_propagates_other(self, two_subdomains):
         """An operand with None space should not block inference from the other."""
         g, _ = two_subdomains
         space = self._cell_space(g)
-        a = DenseArray(np.ones(4), domain=space, range=space)
+        a = DenseArray(np.ones(4), source=space, target=space)
         b = DenseArray(np.ones(4))  # no space
         result = a + b
-        assert result.operator_domain == space
+        assert result.source == space
 
     def test_both_none_gives_none(self):
         a = DenseArray(np.ones(4))
         b = DenseArray(np.ones(4))
         result = a + b
-        assert result.operator_domain is None
-        assert result.operator_range is None
+        assert result.source is None
+        assert result.target is None
 
     def test_incompatible_domains_raises(self, two_subdomains):
         g1, g2 = two_subdomains
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
-        a = DenseArray(np.ones(4), domain=s1, range=s1)
-        b = DenseArray(np.ones(9), domain=s2, range=s2)
+        a = DenseArray(np.ones(4), source=s1, target=s1)
+        b = DenseArray(np.ones(9), source=s2, target=s2)
         with pytest.raises(ValueError, match="[Ii]ncompat"):
             _ = a + b
 
     def test_matmul_propagates_outer_spaces(self, two_subdomains):
-        """For A @ B: result.domain = B.domain, result.range = A.range."""
+        """For A @ B: result.source = B.source, result.target = A.target."""
         g1, g2 = two_subdomains
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
         # A maps s1 -> s2, B maps s2 -> s1
-        A = SparseArray(sps.eye(4, format="csr"), domain=s1, range=s2)
-        B = SparseArray(sps.eye(4, format="csr"), domain=s2, range=s1)
+        A = SparseArray(sps.eye(4, format="csr"), source=s1, target=s2)
+        B = SparseArray(sps.eye(4, format="csr"), source=s2, target=s1)
         result = A @ B
-        assert result.operator_domain == s2
-        assert result.operator_range == s2
+        assert result.source == s2
+        assert result.target == s2
 
-    def test_matmul_incompatible_range_domain_raises(self, two_subdomains):
-        """A @ B raises if A.domain != B.range."""
+    def test_matmul_incompatible_target_source_raises(self, two_subdomains):
+        """A @ B raises if A.source != B.target."""
         g1, g2 = two_subdomains
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
-        # A.domain=s1, B.range=s2 -> incompatible
-        A = SparseArray(sps.eye(4, format="csr"), domain=s1, range=s2)
-        B = SparseArray(sps.eye(4, format="csr"), domain=s1, range=s2)
+        # A.source=s1, B.target=s2 -> incompatible
+        A = SparseArray(sps.eye(4, format="csr"), source=s1, target=s2)
+        B = SparseArray(sps.eye(4, format="csr"), source=s1, target=s2)
         with pytest.raises(ValueError, match="[Ii]ncompat"):
             _ = A @ B
 
@@ -628,38 +628,38 @@ class TestTimeDependentDenseArraySpaces:
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
         # When domains are provided but no dof_info, cells:1 is assumed.
-        assert arr.operator_domain is not None
-        assert arr.operator_domain.dof_info == {GridEntity.cells: 1}
-        assert arr.operator_range is not None
-        assert arr.operator_range.dof_info == {GridEntity.cells: 1}
+        assert arr.source is not None
+        assert arr.source.dof_info == {GridEntity.cells: 1}
+        assert arr.target is not None
+        assert arr.target.dof_info == {GridEntity.cells: 1}
 
     def test_dof_info_cells(self, two_subdomains):
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray(
             "x", [g1, g2], dof_info={GridEntity.cells: 1}
         )
-        assert arr.operator_domain is not None
-        assert arr.operator_range is not None
-        assert arr.operator_domain == arr.operator_range
-        assert GridEntity.cells in arr.operator_domain.dof_info
-        assert set(arr.operator_domain.grids) == {g1, g2}
+        assert arr.source is not None
+        assert arr.target is not None
+        assert arr.source == arr.target
+        assert GridEntity.cells in arr.source.dof_info
+        assert set(arr.source.grids) == {g1, g2}
 
     def test_dof_info_faces(self, two_subdomains):
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray(
             "x", [g1, g2], dof_info={GridEntity.faces: 2}
         )
-        assert arr.operator_domain is not None
-        assert arr.operator_domain.dof_info == {GridEntity.faces: 2}
+        assert arr.source is not None
+        assert arr.source.dof_info == {GridEntity.faces: 2}
 
     def test_empty_domains_ignores_dof_info(self):
         arr = pp.ad.TimeDependentDenseArray("x", [], dof_info={GridEntity.cells: 1})
-        assert arr.operator_domain is None
-        assert arr.operator_range is None
+        assert arr.source is None
+        assert arr.target is None
 
 
 # ---------------------------------------------------------------------------
-# Stage 3: Grid operator domain/range
+# Stage 3: Grid operator source/target
 # ---------------------------------------------------------------------------
 
 
@@ -669,12 +669,12 @@ class TestSubdomainProjectionSpaces:
         sds = list(mdg.subdomains())
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
         op = proj.cell_restriction(sds)
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert op.operator_domain.domain_type == DomainType.subdomains
-        assert op.operator_range.domain_type == DomainType.subdomains
-        assert GridEntity.cells in op.operator_domain.dof_info
-        assert GridEntity.cells in op.operator_range.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        assert op.source.domain_type == DomainType.subdomains
+        assert op.target.domain_type == DomainType.subdomains
+        assert GridEntity.cells in op.source.dof_info
+        assert GridEntity.cells in op.target.dof_info
 
     def test_cell_restriction_subset(self, fracture_mdg):
         mdg = fracture_mdg
@@ -683,19 +683,19 @@ class TestSubdomainProjectionSpaces:
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
         op = proj.cell_restriction(sub)
         # domain covers all subdomains, range covers the subset
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert set(op.operator_domain.grids) == set(sds)
-        assert set(op.operator_range.grids) == set(sub)
+        assert op.source is not None
+        assert op.target is not None
+        assert set(op.source.grids) == set(sds)
+        assert set(op.target.grids) == set(sub)
 
     def test_cell_restriction_empty(self, fracture_mdg):
         mdg = fracture_mdg
         sds = list(mdg.subdomains())
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
         op = proj.cell_restriction([])
-        # Empty subset -> range_ is None
-        assert op.operator_domain is not None
-        assert op.operator_range is None
+        # Empty subset -> target is None
+        assert op.source is not None
+        assert op.target is None
 
     def test_cell_prolongation_spaces(self, fracture_mdg):
         mdg = fracture_mdg
@@ -704,10 +704,10 @@ class TestSubdomainProjectionSpaces:
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
         op = proj.cell_prolongation(sub)
         # domain is the subset, range is all subdomains
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert set(op.operator_domain.grids) == set(sub)
-        assert set(op.operator_range.grids) == set(sds)
+        assert op.source is not None
+        assert op.target is not None
+        assert set(op.source.grids) == set(sub)
+        assert set(op.target.grids) == set(sds)
 
     def test_face_restriction_spaces(self, fracture_mdg):
         mdg = fracture_mdg
@@ -715,10 +715,10 @@ class TestSubdomainProjectionSpaces:
         sub = mdg.subdomains(dim=2)
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
         op = proj.face_restriction(sub)
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.faces in op.operator_domain.dof_info
-        assert GridEntity.faces in op.operator_range.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.faces in op.source.dof_info
+        assert GridEntity.faces in op.target.dof_info
 
     def test_face_prolongation_spaces(self, fracture_mdg):
         mdg = fracture_mdg
@@ -726,10 +726,10 @@ class TestSubdomainProjectionSpaces:
         sub = mdg.subdomains(dim=2)
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=1)
         op = proj.face_prolongation(sub)
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert set(op.operator_domain.grids) == set(sub)
-        assert set(op.operator_range.grids) == set(sds)
+        assert op.source is not None
+        assert op.target is not None
+        assert set(op.source.grids) == set(sub)
+        assert set(op.target.grids) == set(sds)
 
     def test_vector_dim(self, fracture_mdg):
         mdg = fracture_mdg
@@ -737,7 +737,7 @@ class TestSubdomainProjectionSpaces:
         dim = 2
         proj = pp.ad.SubdomainProjections(subdomains=sds, dim=dim)
         op = proj.cell_restriction(sds)
-        assert op.operator_domain.dof_info[GridEntity.cells] == dim
+        assert op.source.dof_info[GridEntity.cells] == dim
 
 
 class TestMortarProjectionSpaces:
@@ -747,11 +747,11 @@ class TestMortarProjectionSpaces:
         intfs = list(mdg.interfaces())
         proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
         op = proj.mortar_to_primary_avg()
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.cells in op.operator_domain.dof_info  # interface cells
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.cells in op.source.dof_info  # interface cells
         assert (
-            GridEntity.faces in op.operator_range.dof_info
+            GridEntity.faces in op.target.dof_info
         )  # subdomain faces (codim 1)
 
     def test_mortar_to_secondary_avg(self, fracture_mdg):
@@ -760,11 +760,11 @@ class TestMortarProjectionSpaces:
         intfs = list(mdg.interfaces())
         proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
         op = proj.mortar_to_secondary_avg()
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.cells in op.operator_domain.dof_info  # interface cells
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.cells in op.source.dof_info  # interface cells
         assert (
-            GridEntity.cells in op.operator_range.dof_info
+            GridEntity.cells in op.target.dof_info
         )  # subdomain cells (secondary)
 
     def test_primary_to_mortar_avg(self, fracture_mdg):
@@ -773,10 +773,10 @@ class TestMortarProjectionSpaces:
         intfs = list(mdg.interfaces())
         proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
         op = proj.primary_to_mortar_avg()
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.faces in op.operator_domain.dof_info
-        assert GridEntity.cells in op.operator_range.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.faces in op.source.dof_info
+        assert GridEntity.cells in op.target.dof_info
 
     def test_secondary_to_mortar_avg(self, fracture_mdg):
         mdg = fracture_mdg
@@ -784,10 +784,10 @@ class TestMortarProjectionSpaces:
         intfs = list(mdg.interfaces())
         proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
         op = proj.secondary_to_mortar_avg()
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.cells in op.operator_domain.dof_info
-        assert GridEntity.cells in op.operator_range.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.cells in op.source.dof_info
+        assert GridEntity.cells in op.target.dof_info
 
     def test_sign_of_mortar_sides(self, fracture_mdg):
         mdg = fracture_mdg
@@ -795,20 +795,20 @@ class TestMortarProjectionSpaces:
         intfs = list(mdg.interfaces())
         proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=intfs, dim=1)
         op = proj.sign_of_mortar_sides()
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        # Square: domain == range_
-        assert op.operator_domain == op.operator_range
-        assert GridEntity.cells in op.operator_domain.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        # Square: source == target
+        assert op.source == op.target
+        assert GridEntity.cells in op.source.dof_info
 
     def test_empty_interfaces(self, fracture_mdg):
         mdg = fracture_mdg
         sds = list(mdg.subdomains())
         proj = pp.ad.MortarProjections(mdg=mdg, subdomains=sds, interfaces=[], dim=1)
-        # No interfaces -> domain/range are None
+        # No interfaces -> source/target are None
         op = proj.mortar_to_primary_avg()
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        assert op.source is None
+        assert op.target is None
 
 
 class TestBoundaryProjectionSpaces:
@@ -817,76 +817,76 @@ class TestBoundaryProjectionSpaces:
         sds = list(mdg.subdomains())
         bp = pp.ad.BoundaryProjection(mdg, sds, dim=1)
         op = bp.subdomain_to_boundary
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.faces in op.operator_domain.dof_info
-        assert GridEntity.cells in op.operator_range.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.faces in op.source.dof_info
+        assert GridEntity.cells in op.target.dof_info
 
     def test_boundary_to_subdomain(self, fracture_mdg):
         mdg = fracture_mdg
         sds = list(mdg.subdomains())
         bp = pp.ad.BoundaryProjection(mdg, sds, dim=1)
         op = bp.boundary_to_subdomain
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.cells in op.operator_domain.dof_info
-        assert GridEntity.faces in op.operator_range.dof_info
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.cells in op.source.dof_info
+        assert GridEntity.faces in op.target.dof_info
 
     def test_transpose_consistency(self, fracture_mdg):
-        """boundary_to_subdomain domain/range are flipped from subdomain_to_boundary."""
+        """boundary_to_subdomain source/target are flipped from subdomain_to_boundary."""
         mdg = fracture_mdg
         sds = list(mdg.subdomains())
         bp = pp.ad.BoundaryProjection(mdg, sds, dim=1)
         s2b = bp.subdomain_to_boundary
         b2s = bp.boundary_to_subdomain
-        assert s2b.operator_domain == b2s.operator_range
-        assert s2b.operator_range == b2s.operator_domain
+        assert s2b.source == b2s.target
+        assert s2b.target == b2s.source
 
 
 class TestTraceSpaces:
-    def test_trace_domain_range(self, fracture_mdg):
+    def test_trace_source_target(self, fracture_mdg):
         mdg = fracture_mdg
         sds = mdg.subdomains(dim=2)
         tr = pp.ad.Trace(sds, dim=1)
-        assert tr.trace.operator_domain is not None
-        assert tr.trace.operator_range is not None
-        assert GridEntity.cells in tr.trace.operator_domain.dof_info
-        assert GridEntity.faces in tr.trace.operator_range.dof_info
+        assert tr.trace.source is not None
+        assert tr.trace.target is not None
+        assert GridEntity.cells in tr.trace.source.dof_info
+        assert GridEntity.faces in tr.trace.target.dof_info
 
     def test_trace_grids(self, fracture_mdg):
         mdg = fracture_mdg
         sds = mdg.subdomains(dim=2)
         tr = pp.ad.Trace(sds, dim=1)
-        assert set(tr.trace.operator_domain.grids) == set(sds)
-        assert set(tr.trace.operator_range.grids) == set(sds)
+        assert set(tr.trace.source.grids) == set(sds)
+        assert set(tr.trace.target.grids) == set(sds)
 
     def test_trace_empty(self):
         tr = pp.ad.Trace([], dim=1)
-        assert tr.trace.operator_domain is None
-        assert tr.trace.operator_range is None
+        assert tr.trace.source is None
+        assert tr.trace.target is None
 
 
 class TestDivergenceSpaces:
-    def test_divergence_domain_range(self, fracture_mdg):
+    def test_divergence_source_target(self, fracture_mdg):
         mdg = fracture_mdg
         sds = mdg.subdomains(dim=2)
         div = pp.ad.Divergence(sds, dim=1)
-        assert div.operator_domain is not None
-        assert div.operator_range is not None
-        assert GridEntity.faces in div.operator_domain.dof_info
-        assert GridEntity.cells in div.operator_range.dof_info
+        assert div.source is not None
+        assert div.target is not None
+        assert GridEntity.faces in div.source.dof_info
+        assert GridEntity.cells in div.target.dof_info
 
     def test_divergence_grids(self, fracture_mdg):
         mdg = fracture_mdg
         sds = mdg.subdomains(dim=2)
         div = pp.ad.Divergence(sds, dim=1)
-        assert set(div.operator_domain.grids) == set(sds)
-        assert set(div.operator_range.grids) == set(sds)
+        assert set(div.source.grids) == set(sds)
+        assert set(div.target.grids) == set(sds)
 
     def test_divergence_empty(self):
         div = pp.ad.Divergence([], dim=1)
-        assert div.operator_domain is None
-        assert div.operator_range is None
+        assert div.source is None
+        assert div.target is None
 
     @pytest.mark.parametrize("dim", [2, 3])
     def test_divergence_vector_field_dof_info(self, dim):
@@ -897,10 +897,10 @@ class TestDivergenceSpaces:
             g = pp.CartGrid([2, 2, 2])
         g.compute_geometry()
         div = pp.ad.Divergence([g], dim=dim)
-        assert div.operator_domain is not None
-        assert div.operator_range is not None
-        assert div.operator_domain.dof_info == {GridEntity.faces: dim}
-        assert div.operator_range.dof_info == {GridEntity.cells: dim}
+        assert div.source is not None
+        assert div.target is not None
+        assert div.source.dof_info == {GridEntity.faces: dim}
+        assert div.target.dof_info == {GridEntity.cells: dim}
 
     @pytest.mark.parametrize("dim", [2, 3])
     def test_divergence_vector_field_grids(self, dim):
@@ -911,17 +911,17 @@ class TestDivergenceSpaces:
             g = pp.CartGrid([2, 2, 2])
         g.compute_geometry()
         div = pp.ad.Divergence([g], dim=dim)
-        assert div.operator_domain.grids == (g,)
-        assert div.operator_range.grids == (g,)
+        assert div.source.grids == (g,)
+        assert div.target.grids == (g,)
 
 
 # ---------------------------------------------------------------------------
-# Stage 4e: MergedOperator domain/range
+# Stage 4e: MergedOperator source/target
 # ---------------------------------------------------------------------------
 
 
 class TestMergedOperatorSpaces:
-    """Tests that MergedOperator inherits operator_domain/range from the
+    """Tests that MergedOperator inherits source/range from the
     underlying discretization's get_row/col_dof_info methods."""
 
     def test_default_discr_gives_none(self, two_subdomains):
@@ -956,8 +956,8 @@ class TestMergedOperatorSpaces:
             physics_key="mechanics",
             domains=[g1, g2],
         )
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        assert op.source is None
+        assert op.target is None
 
     def test_custom_dof_info_gives_space(self, two_subdomains):
         """A discretization that overrides get_row/col_dof_info populates spaces."""
@@ -990,12 +990,12 @@ class TestMergedOperatorSpaces:
             physics_key="flow",
             domains=[g1, g2],
         )
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert GridEntity.faces in op.operator_domain.dof_info
-        assert GridEntity.cells in op.operator_range.dof_info
-        assert set(op.operator_domain.grids) == {g1, g2}
-        assert set(op.operator_range.grids) == {g1, g2}
+        assert op.source is not None
+        assert op.target is not None
+        assert GridEntity.faces in op.source.dof_info
+        assert GridEntity.cells in op.target.dof_info
+        assert set(op.source.grids) == {g1, g2}
+        assert set(op.target.grids) == {g1, g2}
 
     def test_interface_discr_gives_none(self, one_mortar):
         """InterfaceDiscretization: no get_row/col_dof_info leaves spaces
@@ -1042,17 +1042,17 @@ class TestMergedOperatorSpaces:
             physics_key="coupling",
             domains=[intf],
         )
-        assert op.operator_domain is None
-        assert op.operator_range is None
+        assert op.source is None
+        assert op.target is None
 
 
 # ---------------------------------------------------------------------------
-# Stage 5: validate_operands / infer_domain_range
+# Stage 5: validate_operands / infer_source_target
 # ---------------------------------------------------------------------------
 
 
 class TestInferDomainRange:
-    """Tests for Operations.infer_domain_range (Stage 5: validation and inference)."""
+    """Tests for Operations.infer_source_target (Stage 5: validation and inference)."""
 
     @pytest.fixture
     def cell_space(self, two_subdomains):
@@ -1066,13 +1066,13 @@ class TestInferDomainRange:
 
     @pytest.fixture
     def cell_op(self, cell_space):
-        """A leaf operator with domain=range=cell_space."""
-        return DenseArray(np.zeros(3), domain=cell_space, range=cell_space)
+        """A leaf operator with source=target=cell_space."""
+        return DenseArray(np.zeros(3), source=cell_space, target=cell_space)
 
     @pytest.fixture
     def face_op(self, face_space):
-        """A leaf operator with domain=range=face_space."""
-        return DenseArray(np.zeros(3), domain=face_space, range=face_space)
+        """A leaf operator with source=target=face_space."""
+        return DenseArray(np.zeros(3), source=face_space, target=face_space)
 
     # --- elementwise: compatible operands ---
 
@@ -1082,16 +1082,16 @@ class TestInferDomainRange:
         ids=["add", "sub", "mul", "div", "pow"],
     )
     def test_elementwise_compatible(self, cell_op, cell_space, binary_op):
-        """Elementwise ops between same-space operands preserve domain/range."""
+        """Elementwise ops between same-space operands preserve source/target."""
         result = binary_op(cell_op, cell_op)
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_rsub_compatible(self, cell_op, cell_space):
-        """__rsub__ must also propagate domain/range."""
+        """__rsub__ must also propagate source/target."""
         result = 0 - cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     # --- elementwise: incompatible domains become unclear ---
 
@@ -1105,11 +1105,11 @@ class TestInferDomainRange:
     ):
         """Elementwise ops with different domains get the unclear-domain sentinel."""
         projected = DenseArray(
-            np.zeros(3), domain=face_op.operator_domain, range=cell_op.operator_range
+            np.zeros(3), source=face_op.source, target=cell_op.target
         )
         result = binary_op(cell_op, projected)
-        assert result.operator_domain == OperatorSpace.unclear()
-        assert result.operator_range == cell_op.operator_range
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == cell_op.target
 
     def test_elementwise_uses_union_of_dependency_domains(self, two_subdomains):
         """Different but compatible-looking domains still become unclear."""
@@ -1117,63 +1117,63 @@ class TestInferDomainRange:
         top_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         union_space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
 
-        local = DenseArray(np.zeros(3), domain=top_space, range=top_space)
-        projected = DenseArray(np.zeros(3), domain=union_space, range=top_space)
+        local = DenseArray(np.zeros(3), source=top_space, target=top_space)
+        projected = DenseArray(np.zeros(3), source=union_space, target=top_space)
 
         result = local * projected
 
-        assert result.operator_domain == OperatorSpace.unclear()
-        assert result.operator_range == top_space
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == top_space
 
     def test_elementwise_different_grids_becomes_unclear(self, two_subdomains):
         """Different grids are enough to make the inferred domain unclear."""
         g1, g2 = two_subdomains
         left_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         right_space = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
-        left = DenseArray(np.zeros(3), domain=left_space, range=left_space)
-        right = DenseArray(np.zeros(3), domain=right_space, range=left_space)
+        left = DenseArray(np.zeros(3), source=left_space, target=left_space)
+        right = DenseArray(np.zeros(3), source=right_space, target=left_space)
 
         result = left + right
 
-        assert result.operator_domain == OperatorSpace.unclear()
-        assert result.operator_range == left_space
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == left_space
 
     def test_elementwise_unclear_domain_propagates(self, cell_space, face_space):
         """Once unclear, the elementwise result remains unclear."""
         unclear = DenseArray(
-            np.zeros(3), domain=OperatorSpace.unclear(), range=cell_space
+            np.zeros(3), source=OperatorSpace.unclear(), target=cell_space
         )
-        known = DenseArray(np.zeros(3), domain=face_space, range=cell_space)
+        known = DenseArray(np.zeros(3), source=face_space, target=cell_space)
 
         result = unclear + known
 
-        assert result.operator_domain == OperatorSpace.unclear()
-        assert result.operator_range == cell_space
+        assert result.source == OperatorSpace.unclear()
+        assert result.target == cell_space
 
     # --- matmul: compatible ---
 
     def test_matmul_compatible(self, two_subdomains):
-        """A @ B where range(B)==domain(A) is valid."""
+        """A @ B where target(B) == source(A) is valid."""
         g1, g2 = two_subdomains
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
-        # A: faces → cells (domain=face_sp, range=cell_sp)
-        # B: cells → faces (domain=cell_sp, range=face_sp)
-        # A @ B: range(B)=face_sp == domain(A)=face_sp → valid
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
+        # A: faces → cells (source=face_sp, target=cell_sp)
+        # B: cells → faces (source=cell_sp, target=face_sp)
+        # A @ B: target(B)=face_sp == source(A)=face_sp → valid
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
         result = A @ B
-        assert result.operator_domain == cell_sp
-        assert result.operator_range == cell_sp
+        assert result.source == cell_sp
+        assert result.target == cell_sp
 
     def test_matmul_incompatible(self, two_subdomains):
-        """A @ B where range(B) != domain(A) raises ValueError."""
+        """A @ B where target(B) != source(A) raises ValueError."""
         g1, g2 = two_subdomains
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
-        # A: faces → cells, B: faces → cells (range(B)=cells != domain(A)=faces)
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        B = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        # A: faces → cells, B: faces → cells (target(B)=cells != source(A)=faces)
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        B = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = A @ B
 
@@ -1184,30 +1184,30 @@ class TestInferDomainRange:
         right_range = OperatorSpace.from_domains([g2], {GridEntity.faces: 1})
         left_range = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         right_domain = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
-        left = SparseArray(sps.eye(3), domain=left_domain, range=left_range)
-        right = SparseArray(sps.eye(3), domain=right_domain, range=right_range)
+        left = SparseArray(sps.eye(3), source=left_domain, target=left_range)
+        right = SparseArray(sps.eye(3), source=right_domain, target=right_range)
 
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = left @ right
 
-    def test_matmul_with_unclear_left_domain_raises(self, cell_space, face_space):
-        """A left operand with unclear domain cannot be used in matmul."""
+    def test_matmul_with_unclear_left_source_raises(self, cell_space, face_space):
+        """A left operand with unclear source cannot be used in matmul."""
         unclear = SparseArray(
-            sps.eye(3), domain=OperatorSpace.unclear(), range=cell_space
+            sps.eye(3), source=OperatorSpace.unclear(), target=cell_space
         )
-        rhs = DenseArray(np.zeros(3), domain=face_space, range=face_space)
+        rhs = DenseArray(np.zeros(3), source=face_space, target=face_space)
 
-        with pytest.raises(ValueError, match="left operand.*domain is unclear"):
+        with pytest.raises(ValueError, match="left operand.*source is unclear"):
             _ = unclear @ rhs
 
     def test_rmatmul_with_unclear_right_operand_raises(self, cell_space, face_space):
-        """The operator on the right-hand side of rmatmul cannot have unclear domain."""
+        """The operator on the right-hand side of rmatmul cannot have unclear source."""
         unclear = SparseArray(
-            sps.eye(3), domain=OperatorSpace.unclear(), range=cell_space
+            sps.eye(3), source=OperatorSpace.unclear(), target=cell_space
         )
-        lhs = SparseArray(sps.eye(3), domain=face_space, range=face_space)
+        lhs = SparseArray(sps.eye(3), source=face_space, target=face_space)
 
-        with pytest.raises(ValueError, match="right operand.*domain is unclear"):
+        with pytest.raises(ValueError, match="right operand.*source is unclear"):
             _ = unclear.__rmatmul__(lhs)
 
     # --- Scalar: always valid, inherits non-scalar space ---
@@ -1215,75 +1215,75 @@ class TestInferDomainRange:
     def test_add_with_scalar_lhs(self, cell_op, cell_space):
         sc = Scalar(2.0)
         result = sc + cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_add_with_scalar_rhs(self, cell_op, cell_space):
         sc = Scalar(2.0)
         result = cell_op + sc
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_mul_with_scalar(self, cell_op, cell_space):
         sc = Scalar(3.0)
         result = sc * cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_scalar_scalar(self):
         sc1 = Scalar(1.0)
         sc2 = Scalar(2.0)
         result = sc1 + sc2
-        assert result.operator_domain == OperatorSpace.scalar()
-        assert result.operator_range == OperatorSpace.scalar()
+        assert result.source == OperatorSpace.scalar()
+        assert result.target == OperatorSpace.scalar()
 
-    # --- None domain/range: skips validation (backward compat) ---
+    # --- None source/target: skips validation (backward compat) ---
 
     def test_none_plus_known_inherits_known(self, cell_space):
         """Operator with None domain + operator with known domain → inherits known."""
-        unknown = DenseArray(np.zeros(3))  # domain=None
-        known = DenseArray(np.zeros(3), domain=cell_space, range=cell_space)
+        unknown = DenseArray(np.zeros(3))  # source=None
+        known = DenseArray(np.zeros(3), source=cell_space, target=cell_space)
         result = unknown + known
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_both_none_stays_none(self):
-        """Two operators with no domain/range → result also has None."""
+        """Two operators with no source/target → result also has None."""
         a = DenseArray(np.zeros(3))
         b = DenseArray(np.zeros(3))
         result = a + b
-        assert result.operator_domain is None
-        assert result.operator_range is None
+        assert result.source is None
+        assert result.target is None
 
     def test_plain_python_scalar_exponent(self, cell_op, cell_space):
-        """op ** 2 (plain Python int) should preserve domain/range."""
+        """op ** 2 (plain Python int) should preserve source/target."""
         result = cell_op**2
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
     def test_plain_python_scalar_rtruediv(self, cell_op, cell_space):
-        """1 / op should preserve domain/range."""
+        """1 / op should preserve source/target."""
         result = 1 / cell_op
-        assert result.operator_domain == cell_space
-        assert result.operator_range == cell_space
+        assert result.source == cell_space
+        assert result.target == cell_space
 
-    # --- infer_domain_range is public ---
+    # --- infer_source_target is public ---
 
-    def test_infer_domain_range_is_public(self, cell_op):
-        """infer_domain_range should be accessible on the Operations enum."""
-        assert hasattr(Operations.add, "infer_domain_range")
-        dom, ran = Operations.add.infer_domain_range(cell_op, cell_op)
+    def test_infer_source_target_is_public(self, cell_op):
+        """infer_source_target should be accessible on the Operations enum."""
+        assert hasattr(Operations.add, "infer_source_target")
+        dom, ran = Operations.add.infer_source_target(cell_op, cell_op)
         assert dom is not None
         assert ran is not None
 
 
 # ---------------------------------------------------------------------------
-# Stage 6: compound operator domain/range propagation
+# Stage 6: compound operator source/target propagation
 # ---------------------------------------------------------------------------
 
 
 class TestCompoundOperatorSpaces:
-    """Tests that domain/range propagates correctly through multi-step expressions."""
+    """Tests that source/target propagates correctly through multi-step expressions."""
 
     @pytest.fixture
     def spaces(self, two_subdomains):
@@ -1294,42 +1294,42 @@ class TestCompoundOperatorSpaces:
 
     # --- chained matmul ---
 
-    def test_chained_matmul_domain_range(self, two_subdomains, spaces):
-        """(A @ B): range(B) == domain(A) → result.domain=B.domain, result.range=A.range"""
+    def test_chained_matmul_source_target(self, two_subdomains, spaces):
+        """(A @ B): target(B) == source(A) → result.source=B.source, result.target=A.target"""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         # A maps faces→cells; B maps cells→faces; A@B maps cells→cells
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
         result = A @ B
-        assert result.operator_domain == cell_sp
-        assert result.operator_range == cell_sp
+        assert result.source == cell_sp
+        assert result.target == cell_sp
 
     def test_three_way_matmul(self, two_subdomains, spaces):
         """(A @ B) @ C propagates spaces through two matmul steps."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         # A: face→cell, B: cell→face → A@B: cell→cell
-        # C: face→cell → (A@B)@C requires range(C)==domain(A@B)=cell_sp ✓ → face→cell
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
-        C = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        # C: face→cell → (A@B)@C requires target(C)==source(A@B)=cell_sp ✓ → face→cell
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
+        C = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
         AB = A @ B
-        assert AB.operator_domain == cell_sp
-        assert AB.operator_range == cell_sp
+        assert AB.source == cell_sp
+        assert AB.target == cell_sp
         ABC = AB @ C
-        assert ABC.operator_domain == face_sp
-        assert ABC.operator_range == cell_sp
+        assert ABC.source == face_sp
+        assert ABC.target == cell_sp
 
     def test_chained_matmul_incompatible_raises(self, two_subdomains, spaces):
-        """(A @ B) @ C raises ValueError when range(C) != domain(A@B)."""
+        """(A @ B) @ C raises ValueError when target(C) != source(A@B)."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        # A@B: cell→cell (see test_three_way_matmul); C has range=face_sp != cell_sp
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        B = SparseArray(sps.eye(3), domain=cell_sp, range=face_sp)
-        AB = A @ B  # domain=cell_sp, range=cell_sp
-        C = SparseArray(sps.eye(3), domain=face_sp, range=face_sp)
+        # A@B: cell→cell (see test_three_way_matmul); C has target=face_sp != cell_sp
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
+        AB = A @ B  # source=cell_sp, target=cell_sp
+        C = SparseArray(sps.eye(3), source=face_sp, target=face_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = AB @ C
 
@@ -1337,26 +1337,26 @@ class TestCompoundOperatorSpaces:
         """(A @ v) + (B @ w) where both results have the same range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        v = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
-        B = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        w = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        v = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
+        B = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        w = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
         Av = A @ v
         Bw = B @ w
         result = Av + Bw
-        assert result.operator_domain == face_sp
-        assert result.operator_range == cell_sp
+        assert result.source == face_sp
+        assert result.target == cell_sp
 
     def test_add_matmul_incompatible_raises(self, two_subdomains, spaces):
         """(A @ v) + (B @ w) where ranges differ raises ValueError."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        v = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
-        Av = A @ v  # range=cell_sp
-        # B maps faces→faces, so B@w has range=face_sp
-        B = SparseArray(sps.eye(3), domain=face_sp, range=face_sp)
-        w = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        v = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
+        Av = A @ v  # target=cell_sp
+        # B maps faces→faces, so B@w has target=face_sp
+        B = SparseArray(sps.eye(3), source=face_sp, target=face_sp)
+        w = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
         Bw = B @ w
         with pytest.raises(ValueError):
             _ = Av + Bw
@@ -1367,30 +1367,30 @@ class TestCompoundOperatorSpaces:
         """Scalar(k) * (A @ v) preserves A's range as the result range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
-        v = DenseArray(np.zeros(3), domain=face_sp, range=face_sp)
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        v = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
         Av = A @ v
         result = Scalar(2.0) * Av
-        assert result.operator_domain == face_sp
-        assert result.operator_range == cell_sp
+        assert result.source == face_sp
+        assert result.target == cell_sp
 
     def test_unary_minus_preserves_spaces(self, two_subdomains, spaces):
-        """Unary minus on SparseArray preserves domain/range."""
+        """Unary minus on SparseArray preserves source/target."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), domain=face_sp, range=cell_sp)
+        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
         result = -A
-        assert result.operator_domain == face_sp
-        assert result.operator_range == cell_sp
+        assert result.source == face_sp
+        assert result.target == cell_sp
 
     def test_unary_minus_dense_array_preserves_spaces(self, two_subdomains, spaces):
-        """DenseArray.__neg__ must also preserve domain/range (separate code path)."""
+        """DenseArray.__neg__ must also preserve source/target (separate code path)."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        arr = DenseArray(np.ones(3), domain=cell_sp, range=cell_sp)
+        arr = DenseArray(np.ones(3), source=cell_sp, target=cell_sp)
         result = -arr
-        assert result.operator_domain == cell_sp
-        assert result.operator_range == cell_sp
+        assert result.source == cell_sp
+        assert result.target == cell_sp
 
     # --- integration with actual grid operators ---
 
@@ -1404,10 +1404,10 @@ class TestCompoundOperatorSpaces:
         # cell_restriction maps cells→cells on the subset (square matrix here)
         # div maps faces→cells
         # We test that div has correct spaces
-        assert div.operator_domain is not None
-        assert GridEntity.faces in div.operator_domain.dof_info
-        assert div.operator_range is not None
-        assert GridEntity.cells in div.operator_range.dof_info
+        assert div.source is not None
+        assert GridEntity.faces in div.source.dof_info
+        assert div.target is not None
+        assert GridEntity.cells in div.target.dof_info
 
     def test_compound_inherits_none_when_one_operand_has_none(
         self, two_subdomains, spaces
@@ -1418,23 +1418,23 @@ class TestCompoundOperatorSpaces:
         cell_sp, face_sp = spaces
         # unknown_op has no space info
         unknown_op = DenseArray(np.zeros(3))
-        known_op = DenseArray(np.zeros(3), domain=cell_sp, range=cell_sp)
+        known_op = DenseArray(np.zeros(3), source=cell_sp, target=cell_sp)
         # Adding unknown + known: no error, result inherits known's spaces
         result = unknown_op + known_op
-        assert result.operator_domain == cell_sp
-        assert result.operator_range == cell_sp
+        assert result.source == cell_sp
+        assert result.target == cell_sp
 
-    def test_domain_and_range_stored_independently(self, two_subdomains):
+    def test_source_and_target_stored_independently(self, two_subdomains):
         """Even when domain == range, they are stored as independent attributes."""
         g1, g2 = two_subdomains
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        a = DenseArray(np.zeros(3), domain=cell_sp, range=cell_sp)
-        b = DenseArray(np.zeros(3), domain=cell_sp, range=cell_sp)
+        a = DenseArray(np.zeros(3), source=cell_sp, target=cell_sp)
+        b = DenseArray(np.zeros(3), source=cell_sp, target=cell_sp)
         result = a + b
-        # domain and range are equal in value, but are independent objects
-        assert result.operator_domain == result.operator_range
-        assert result.operator_domain is not None
-        assert result.operator_range is not None
+        # source and target are equal in value, but are independent objects
+        assert result.source == result.target
+        assert result.source is not None
+        assert result.target is not None
 
 
 # ---------------------------------------------------------------------------
@@ -1621,7 +1621,7 @@ class TestUpwindDofInfo:
 
 
 class TestMergedOperatorWithConcreteDiscretization:
-    """Integration tests: MergedOperator infers domain/range from concrete discretizations."""
+    """Integration tests: MergedOperator infers source/target from concrete discretizations."""
 
     def test_mpfa_flux_merged_operator(self, two_subdomains):
         """MpfaAd.flux() carries face-range / cell-domain spaces."""
@@ -1633,12 +1633,12 @@ class TestMergedOperatorWithConcreteDiscretization:
             physics_key="flow",
             domains=[g1, g2],
         )
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
-        assert op.operator_range.dof_info == {GridEntity.faces: 1}
-        assert set(op.operator_domain.grids) == {g1, g2}
-        assert set(op.operator_range.grids) == {g1, g2}
+        assert op.source is not None
+        assert op.target is not None
+        assert op.source.dof_info == {GridEntity.cells: 1}
+        assert op.target.dof_info == {GridEntity.faces: 1}
+        assert set(op.source.grids) == {g1, g2}
+        assert set(op.target.grids) == {g1, g2}
 
     def test_mpfa_bound_flux_merged_operator(self, two_subdomains):
         """bound_flux has face-range and face-domain (maps BC values to fluxes)."""
@@ -1650,8 +1650,8 @@ class TestMergedOperatorWithConcreteDiscretization:
             physics_key="flow",
             domains=[g1, g2],
         )
-        assert op.operator_domain.dof_info == {GridEntity.faces: 1}
-        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert op.source.dof_info == {GridEntity.faces: 1}
+        assert op.target.dof_info == {GridEntity.faces: 1}
 
     def test_mpsa_stress_merged_operator_2d(self, two_subdomains):
         """Mpsa.stress uses nd=2 DOFs per face/cell for 2D grids."""
@@ -1663,10 +1663,10 @@ class TestMergedOperatorWithConcreteDiscretization:
             physics_key="mech",
             domains=[g1, g2],
         )
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
-        assert op.operator_range.dof_info == {GridEntity.faces: 2}
+        assert op.source is not None
+        assert op.target is not None
+        assert op.source.dof_info == {GridEntity.cells: 2}
+        assert op.target.dof_info == {GridEntity.faces: 2}
 
     def test_upwind_merged_operator(self, two_subdomains):
         """Upwind operator has face-range / cell-domain."""
@@ -1678,34 +1678,34 @@ class TestMergedOperatorWithConcreteDiscretization:
             physics_key="flow",
             domains=[g1, g2],
         )
-        assert op.operator_domain.dof_info == {GridEntity.cells: 1}
-        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert op.source.dof_info == {GridEntity.cells: 1}
+        assert op.target.dof_info == {GridEntity.faces: 1}
 
     def test_mpfa_via_ad_wrapper(self, two_subdomains):
         """Using MpfaAd wrapper (wrap_discretization path) produces correct spaces."""
         g1, g2 = two_subdomains
         discr = pp.ad.MpfaAd("flow", [g1, g2])
         flux_op = discr.flux()
-        assert flux_op.operator_domain is not None
-        assert flux_op.operator_range is not None
-        assert flux_op.operator_domain.dof_info == {GridEntity.cells: 1}
-        assert flux_op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert flux_op.source is not None
+        assert flux_op.target is not None
+        assert flux_op.source.dof_info == {GridEntity.cells: 1}
+        assert flux_op.target.dof_info == {GridEntity.faces: 1}
 
     def test_tpfa_via_ad_wrapper(self, two_subdomains):
         """Using TpfaAd wrapper produces correct spaces for flux."""
         g1, g2 = two_subdomains
         discr = pp.ad.TpfaAd("flow", [g1, g2])
         flux_op = discr.flux()
-        assert flux_op.operator_domain.dof_info == {GridEntity.cells: 1}
-        assert flux_op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert flux_op.source.dof_info == {GridEntity.cells: 1}
+        assert flux_op.target.dof_info == {GridEntity.faces: 1}
 
     def test_mpfa_bound_flux_ad_wrapper(self, two_subdomains):
         """MpfaAd.bound_flux() has face-domain and face-range."""
         g1, g2 = two_subdomains
         discr = pp.ad.MpfaAd("flow", [g1, g2])
         op = discr.bound_flux()
-        assert op.operator_domain.dof_info == {GridEntity.faces: 1}
-        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert op.source.dof_info == {GridEntity.faces: 1}
+        assert op.target.dof_info == {GridEntity.faces: 1}
 
     def test_vector_source_cols_scale_with_nd(self, two_subdomains):
         """vector_source column DOF count matches grid dimension."""
@@ -1718,9 +1718,9 @@ class TestMergedOperatorWithConcreteDiscretization:
             domains=[g1, g2],
         )
         # For 2D grids nd=2 → cols have 2 DOFs per cell (gravity vector)
-        assert op.operator_domain is not None
-        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
-        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert op.source is not None
+        assert op.source.dof_info == {GridEntity.cells: 2}
+        assert op.target.dof_info == {GridEntity.faces: 1}
 
     def test_tpsa_stress_displacement_merged_operator(self, two_subdomains):
         """Tpsa.stress_displacement via MergedOperator gives cells:nd domain and faces:nd range."""
@@ -1732,12 +1732,12 @@ class TestMergedOperatorWithConcreteDiscretization:
             physics_key="mech",
             domains=[g1, g2],
         )
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
-        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
-        assert op.operator_range.dof_info == {GridEntity.faces: 2}
-        assert set(op.operator_domain.grids) == {g1, g2}
-        assert set(op.operator_range.grids) == {g1, g2}
+        assert op.source is not None
+        assert op.target is not None
+        assert op.source.dof_info == {GridEntity.cells: 2}
+        assert op.target.dof_info == {GridEntity.faces: 2}
+        assert set(op.source.grids) == {g1, g2}
+        assert set(op.target.grids) == {g1, g2}
 
     def test_tpsa_rotation_displacement_merged_operator(self, two_subdomains):
         """Tpsa.rotation_displacement row DOF uses nrot=1 for 2D grids."""
@@ -1749,11 +1749,11 @@ class TestMergedOperatorWithConcreteDiscretization:
             physics_key="mech",
             domains=[g1, g2],
         )
-        assert op.operator_domain is not None
-        assert op.operator_range is not None
+        assert op.source is not None
+        assert op.target is not None
         # 2D: row DOFs are nrot=1 face entries, col DOFs are nd=2 cell entries
-        assert op.operator_domain.dof_info == {GridEntity.cells: 2}
-        assert op.operator_range.dof_info == {GridEntity.faces: 1}
+        assert op.source.dof_info == {GridEntity.cells: 2}
+        assert op.target.dof_info == {GridEntity.faces: 1}
 
 
 # ---------------------------------------------------------------------------
@@ -1762,34 +1762,34 @@ class TestMergedOperatorWithConcreteDiscretization:
 
 
 class TestSumOperatorListSpace:
-    """sum_operator_list delegates to __add__, so domain/range must propagate."""
+    """sum_operator_list delegates to __add__, so source/target must propagate."""
 
     def test_sum_two_arrays_propagates_space(self, two_subdomains):
         """sum_operator_list([a, b]) with compatible spaces inherits those spaces."""
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), domain=space, range=space)
-        b = DenseArray(np.ones(4), domain=space, range=space)
+        a = DenseArray(np.ones(4), source=space, target=space)
+        b = DenseArray(np.ones(4), source=space, target=space)
         result = sum_operator_list([a, b])
-        assert result.operator_domain == space
-        assert result.operator_range == space
+        assert result.source == space
+        assert result.target == space
 
     def test_sum_three_arrays_propagates_space(self, two_subdomains):
         """sum_operator_list([a, b, c]) propagates spaces through the full reduce."""
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        ops = [DenseArray(np.ones(4), domain=space, range=space) for _ in range(3)]
+        ops = [DenseArray(np.ones(4), source=space, target=space) for _ in range(3)]
         result = sum_operator_list(ops)
-        assert result.operator_domain == space
-        assert result.operator_range == space
+        assert result.source == space
+        assert result.target == space
 
     def test_sum_incompatible_spaces_raises(self, two_subdomains):
         """sum_operator_list raises ValueError when spaces are incompatible."""
         g1, g2 = two_subdomains
         s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         s2 = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), domain=s1, range=s1)
-        b = DenseArray(np.ones(9), domain=s2, range=s2)
+        a = DenseArray(np.ones(4), source=s1, target=s1)
+        b = DenseArray(np.ones(9), source=s2, target=s2)
         with pytest.raises(ValueError):
             sum_operator_list([a, b])
 
@@ -1797,11 +1797,11 @@ class TestSumOperatorListSpace:
         """sum_operator_list with one operand lacking a space still propagates the other."""
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), domain=space, range=space)
+        a = DenseArray(np.ones(4), source=space, target=space)
         b = DenseArray(np.ones(4))  # no space
         result = sum_operator_list([a, b])
-        assert result.operator_domain == space
-        assert result.operator_range == space
+        assert result.source == space
+        assert result.target == space
 
 
 # ---------------------------------------------------------------------------

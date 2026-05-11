@@ -128,7 +128,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="CellRestriction", domain=all_sd_space, range=sub_space
+            mat, name="CellRestriction", source=all_sd_space, target=sub_space
         )
 
     def cell_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
@@ -176,7 +176,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="CellProlongation", domain=sub_space, range=all_sd_space
+            mat, name="CellProlongation", source=sub_space, target=all_sd_space
         )
 
     def face_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
@@ -225,7 +225,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="FaceRestriction", domain=all_sd_space, range=sub_space
+            mat, name="FaceRestriction", source=all_sd_space, target=sub_space
         )
 
     def face_prolongation(self, subdomains: list[pp.Grid]) -> SparseArray:
@@ -273,7 +273,7 @@ class SubdomainProjections:
             else None
         )
         return pp.ad.SparseArray(
-            mat, name="FaceProlongation", domain=sub_space, range=all_sd_space
+            mat, name="FaceProlongation", source=sub_space, target=all_sd_space
         )
 
     def __repr__(self) -> str:
@@ -421,8 +421,8 @@ class MortarProjections:
             block_mat = SparseArray(
                 pp.matrix_operations.sparse_dia_from_sparse_blocks(mats),
                 name="SignOfMortarSides",
-                domain=intf_space,
-                range=intf_space,
+                source=intf_space,
+                target=intf_space,
             )
 
         # Store the matrix for later use and return.A
@@ -818,25 +818,33 @@ class MortarProjections:
             else None
         )
         if to_mortar:
-            op_domain: Optional[OperatorSpace] = sd_space
-            op_range: Optional[OperatorSpace] = intf_space
+            op_source: Optional[OperatorSpace] = sd_space
+            op_target: Optional[OperatorSpace] = intf_space
         else:
-            op_domain = intf_space
-            op_range = sd_space
+            op_source = intf_space
+            op_target = sd_space
 
         if to_mortar:
-            return self._bmat([[m] for m in proj_mats], name=name,
-                              domain=op_domain, range=op_range)
+            return self._bmat(
+                [[m] for m in proj_mats],
+                name=name,
+                source=op_source,
+                target=op_target,
+            )
         else:
-            return self._bmat([proj_mats], name=name,
-                              domain=op_domain, range=op_range)
+            return self._bmat(
+                [proj_mats],
+                name=name,
+                source=op_source,
+                target=op_target,
+            )
 
     def _bmat(
         self,
         matrices,
         name,
-        domain: Optional["OperatorSpace"] = None,
-        range: Optional["OperatorSpace"] = None,
+        source: Optional["OperatorSpace"] = None,
+        target: Optional["OperatorSpace"] = None,
     ):
         # Create block matrix, convert it to optimized storage format.
         if len(matrices[0]) == 0:
@@ -845,7 +853,7 @@ class MortarProjections:
             block_matrix = pp.matrix_operations.optimized_compressed_storage(
                 sps.bmat(matrices)
             )
-        return SparseArray(block_matrix, name=name, domain=domain, range=range)
+        return SparseArray(block_matrix, name=name, source=source, target=target)
 
     def __repr__(self) -> str:
         # EK note: Calling mortar_to_primary and secondary here makes this method rather
@@ -910,8 +918,8 @@ class BoundaryProjection:
         return SparseArray(
             self._projection,
             name="subdomains to boundaries projection",
-            domain=self._subdomain_face_space,
-            range=self._boundary_cell_space,
+            source=self._subdomain_face_space,
+            target=self._boundary_cell_space,
         )
 
     @property
@@ -919,8 +927,8 @@ class BoundaryProjection:
         return SparseArray(
             self._projection.transpose().tocsc(),
             name="boundaries to subdomains projection",
-            domain=self._boundary_cell_space,
-            range=self._subdomain_face_space,
+            source=self._boundary_cell_space,
+            target=self._subdomain_face_space,
         )
 
 
@@ -992,8 +1000,8 @@ class Trace:
         # the stacked matrices into an AD object.
         self.trace = SparseArray(
             sps.bmat([[m] for m in trace]).tocsr(),
-            domain=cell_space,
-            range=face_space,
+            source=cell_space,
+            target=face_space,
         )
         """ Matrix of trace projections from cells to faces."""
 
@@ -1051,9 +1059,7 @@ class Divergence(Operator):
             if subdomains
             else None
         )
-        super().__init__(
-            name=name, domain=face_space, range=cell_space
-        )
+        super().__init__(name=name, source=face_space, target=cell_space)
 
         self.dim: int = dim
 

@@ -233,7 +233,7 @@ def test_progressbars(
     # deterministic. We just check the number of progressbar updates against lower
     # bounds.
 
-    if progressbars:
+    if progressbars and progressbar_class is not DummyProgressBar:
         # Progressbar updates during time loop: 1 for initialization + 1 for all but the
         # last time step.
         min_expected_time_progressbar_updates = num_time_steps

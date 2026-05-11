@@ -120,12 +120,12 @@ class FluidDensityFromPressure(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        domain = (
+        source = (
             OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
             if subdomains
             else None
         )
-        range_ = (
+        target = (
             OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
             if subdomains
             else None
@@ -134,8 +134,8 @@ class FluidDensityFromPressure(pp.PorePyModel):
         exp = pp.ad.Function(
             pp.ad.exp,
             "density_exponential",
-            domain=domain,
-            range=range_,
+            source=source,
+            target=target,
         )
 
         # Reference variables are defined in a variables class which is assumed to be
@@ -208,18 +208,18 @@ class FluidDensityFromTemperature(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        domain = (
+        source = (
             OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
             if subdomains
             else None
         )
-        range_ = (
+        target = (
             OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
             if subdomains
             else None
         )
         exp = pp.ad.Function(
-            pp.ad.exp, "density_exponential", domain=domain, range=range_
+            pp.ad.exp, "density_exponential", source=source, target=target
         )
 
         # Reference variables are defined in a variables class which is assumed to be
