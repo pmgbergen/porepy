@@ -138,7 +138,7 @@ class FracturePropagation(abc.ABC):
         # Make temporary storage for old solution.
 
         for var in self.equation_system.get_variables():
-            domain = var.domain
+            domain = var.domains[0]
             if isinstance(domain, pp.Grid):
                 # Subdomain
                 data = self.mdg.subdomain_data(domain)
@@ -210,7 +210,7 @@ class FracturePropagation(abc.ABC):
         x_new = np.zeros(self.equation_system.num_dofs())
         # For each variable, map old solution and initialize for new DOFs.
         for var in self.equation_system.get_variables():
-            domain = var.domain
+            domain = var.domains[0]
             if isinstance(domain, pp.Grid):
                 # Subdomain
                 data = self.mdg.subdomain_data(domain)
