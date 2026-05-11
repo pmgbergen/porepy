@@ -844,8 +844,8 @@ def test_variable_combinations(grids, variables):
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
                 sv_size = np.array([sv.size for sv in mv.sub_vars])
-                mv_grids = [sv._grid for sv in mv.sub_vars]
-                ind = mv_grids.index(var._grid)
+                mv_grids = [sv.domain for sv in mv.sub_vars]
+                ind = mv_grids.index(var.domain)
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
                 P = pp.ad.SparseArray(
