@@ -277,7 +277,7 @@ class EquationSystem:
         """List containing all domains where at least one variable is defined."""
         domains = set()
         for var in self.variables:
-            domains.add(var.domain)
+            domains.add(var.domains[0])
         return list(domains)
 
     ### Indexers -----------------------------------------------------------------------
@@ -408,13 +408,13 @@ class EquationSystem:
             # We don't allow combinations of variables with different domain types
             # in a md variable.
             heterogeneous_domain = False
-            if isinstance(variables[0].domain, pp.Grid):
+            if isinstance(variables[0].domains[0], pp.Grid):
                 heterogeneous_domain = any(
-                    [isinstance(var.domain, pp.MortarGrid) for var in variables]
+                    [isinstance(var.domains[0], pp.MortarGrid) for var in variables]
                 )
-            elif isinstance(variables[0].domain, pp.MortarGrid):
+            elif isinstance(variables[0].domains[0], pp.MortarGrid):
                 heterogeneous_domain = any(
-                    [isinstance(var.domain, pp.Grid) for var in variables]
+                    [isinstance(var.domains[0], pp.Grid) for var in variables]
                 )
             else:
                 raise ValueError("Unknown domain type for variable")
@@ -426,7 +426,7 @@ class EquationSystem:
             variables = [
                 var
                 for var in self.variables
-                if var.name == name and var.domain in domains
+                if var.name == name and var.domains[0] in domains
             ]
         return MixedDimensionalVariable(variables)
 
@@ -505,8 +505,8 @@ class EquationSystem:
 
         # Check if a md variable was already defined under that name on any of grids.
         for var in self.variables:
-            if var.name == name and var.domain in grids:
-                raise KeyError(f"Variable {name} already defined on {var.domain}.")
+            if var.name == name and var.domains[0] in grids:
+                raise KeyError(f"Variable {name} already defined on {var.domains[0]}.")
 
         for grid in grids:
             if subdomains:
@@ -637,7 +637,7 @@ class EquationSystem:
         # Using the ordering of the input list.
         variables = self._parse_variable_type(variables, ordered=False)
         for var in variables:
-            if var.domain in grids:
+            if var.domains[0] in grids:
                 # Add variable if tag_name is not specified or if the variable has the
                 # tag and the tag value matches the requested value.
                 if tag_name is None:
@@ -799,7 +799,10 @@ class EquationSystem:
         """
         for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
-                var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
+                var.name,
+                self._get_data(var.domains[0]),
+                pp.TIME_STEP_SOLUTIONS,
+                max_index,
             )
 
     def shift_iterate_values(
@@ -811,7 +814,10 @@ class EquationSystem:
         (unknown) time step."""
         for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
-                var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS, max_index
+                var.name,
+                self._get_data(var.domains[0]),
+                pp.ITERATE_SOLUTIONS,
+                max_index,
             )
 
     def _get_data(
@@ -1664,7 +1670,7 @@ class EquationSystem:
         all_variables: set[str] = set([var.name for var in self.variables])
         variable_grid: dict[str, list[pp.GridLike]] = {var: [] for var in all_variables}
         for var in self.variables:
-            variable_grid[var.name].append(var.domain)
+            variable_grid[var.name].append(var.domains[0])
 
         s += (
             f"There are in total {len(all_variables)} variables,"

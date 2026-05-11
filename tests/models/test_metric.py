@@ -144,7 +144,7 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model: pp.PorePyM
     variables = orthogonal_2d_model.equation_system.variables
     result = {v.name: 0.0 for v in variables}
     for v in variables:
-        domain = v.domain
+        domain = v.domains[0]
         volume = domain.cell_volumes.sum()
         dimensionality = v.operator_range.dof_info.get(GridEntity.cells, 0)
         result[v.name] += volume * dimensionality
