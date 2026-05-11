@@ -169,29 +169,29 @@ def __init__(
 ```
 
 Internal storage — two independent attributes:
-- `self._operator_domain: OperatorSpace`
-- `self._operator_range: OperatorSpace`
+- `self._source: OperatorSpace`
+- `self._target: OperatorSpace`
 
 Constructor logic:
-1. `self._operator_domain = domain` (always set; no fallback or default).
-2. `self._operator_range = range_` (always set separately; no fallback or default).
+1. `self._source = domain` (always set; no fallback or default).
+2. `self._target = range_` (always set separately; no fallback or default).
 3. Both must be provided by every subclass and every compound-operator construction site.
 
 Add two public read-only properties:
 ```python
 @property
-def operator_domain(self) -> OperatorSpace: ...
+def source(self) -> OperatorSpace: ...
 
 @property
-def operator_range(self) -> OperatorSpace: ...
+def target(self) -> OperatorSpace: ...
 ```
 
 Since `domain` is now mandatory, the following subclasses must be updated **before**
 this change is merged (see Step 4). The compound-operator construction path (arithmetic
-dunders) must also pass the inferred domain/range (see Step 6).
+dunders) must also pass the inferred source/target (see Step 6).
 
 Keep the existing `domains`, `subdomains`, `interfaces`, and `domain_type` properties
-working by reading from `_operator_domain` where possible.
+working by reading from `_source` where possible.
 
 ---
 
@@ -211,7 +211,7 @@ information is statically known, set sensible defaults.
 - Currently no domains. Add optional `domain` and `range_` parameters.
 - Users wrapping a cell-centred array would write:
   ```python
-  pp.ad.DenseArray(values, domain=OperatorSpace.from_domains(subdomains, {"cells": 1}))
+  pp.ad.DenseArray(values, source=OperatorSpace.from_domains(subdomains, {"cells": 1}))
   ```
 - No default is enforced (these arrays are general-purpose); `None` means "unspecified".
 - **Note:** `SparseArray` is frequently used to wrap matrices that are effectively
@@ -285,32 +285,32 @@ Validation rules:
 - **`matmul` (`@`)**:
   - The `range_` of the *right* operand (other) must equal the `domain` of the *left*
     operand (self). In standard matrix notation: `(A @ B)` requires `range(B) == domain(A)`.
-  - Result `domain = other.operator_domain`, `range_ = self.operator_range` (two
+  - Result `domain = other.source`, `range_ = self.target` (two
     distinct attributes on the new operator).
 - Raise a descriptive `ValueError` on mismatch (including the operator names and
-  domain/range values for debugging).
+  source/target values for debugging).
 
 Update all `__add__`, `__sub__`, `__mul__`, `__rmul__`, `__truediv__`, `__rtruediv__`,
 `__pow__`, `__rpow__`, `__matmul__`, and `__rmatmul__` methods to:
-1. Call `validate_operands` (or the new `infer_domain_range` — see Step 6).
-2. Pass the inferred domain/range to the resulting compound `Operator`.
+1. Call `validate_operands` (or the new `infer_source_target` — see Step 6).
+2. Pass the inferred source/target to the resulting compound `Operator`.
 
 ---
 
-### Step 6 — Infer `domain` and `range_` for compound operators
+### Step 6 — Infer `source` and `target` for compound operators
 
-Add a method `infer_domain_range(self, other: Operator, op: Operations) -> tuple[OperatorSpace, OperatorSpace]` on `Operator`. This is called after (or combined with) validation to compute the **separate** domain and range of the result:
+Add a method `infer_source_target(self, other: Operator, op: Operations) -> tuple[OperatorSpace, OperatorSpace]` on `Operator`. This is called after (or combined with) validation to compute the **separate** source and target of the result:
 
-- `add`, `sub`, `mul`, `div`, `pow`: result's `domain` = common domain of operands;
-  result's `range_` = common range_ of operands. The two are stored as independent
+- `add`, `sub`, `mul`, `div`, `pow`: result's `source` = common source of operands;
+  result's `target` = common target of operands. The two are stored as independent
   attributes even if equal.
-- `matmul`: result's `domain = other.operator_domain`; result's `range_ = self.operator_range`.
+- `matmul`: result's `source = other.source`; result's `target = self.target`.
   These are guaranteed to be different in all non-trivial cases.
 - When one operand is a `Scalar` (void space), the result inherits the other operand's
-  domain and range (separately).
+  source and target (separately).
 
-Pass the pair `(domain, range_)` to the compound `Operator` constructor, both as separate
-keyword arguments (`domain=...`, `range_=...`).
+Pass the pair `(source, target)` to the compound `Operator` constructor as separate
+keyword arguments (`source=...`, `target=...`).
 
 ---
 
@@ -343,7 +343,7 @@ placeholder.
 | File | Change |
 |---|---|
 | `src/porepy/numerics/ad/equation_system.py` | Convert `GridEntity` to enum; update all usages |
-| `src/porepy/numerics/ad/operators.py` | Add `OperatorSpace`, `DomainType`; update `Operator.__init__`; update all leaf subclasses; update `validate_operands`/`infer_domain_range`; update arithmetic dunder methods |
+| `src/porepy/numerics/ad/operators.py` | Add `OperatorSpace`, `DomainType`; update `Operator.__init__`; update all leaf subclasses; update `validate_operands`/`infer_source_target`; update arithmetic dunder methods |
 | `src/porepy/numerics/ad/ad_utils.py` | Update `MergedOperator.__init__` to accept and pass `domain`/`range_` |
 | `src/porepy/numerics/ad/grid_operators.py` | Assign `domain`/`range_` to `SparseArray` objects returned by `SubdomainProjections`, `MortarProjections`, `Divergence`, `Trace`, `BoundaryProjection` |
 | `src/porepy/numerics/ad/surrogate_operator.py` | Construct `OperatorSpace` from existing `_dof_info` |
@@ -369,14 +369,14 @@ Tests should be placed in `tests/numerics/ad/` alongside existing tests.
 - `GridEntity.cells`, `.faces`, `.nodes`, `.void` have the expected values.
 - String-to-enum conversion works (for backward compatibility path in `create_variables`).
 
-### Unit tests for `validate_operands` / `infer_domain_range`
+### Unit tests for `validate_operands` / `infer_source_target`
 
-- Compatible add/sub/mul/div: no error, result has correct domain/range.
+- Compatible add/sub/mul/div: no error, result has correct source/target.
 - Incompatible add: mismatching domains raises `ValueError`.
-- Compatible matmul: `range_(right) == domain(left)` passes; result domain/range correct.
+- Compatible matmul: `range_(right) == domain(left)` passes; result source/target correct.
 - Incompatible matmul: raises `ValueError`.
 - Operations involving a `Scalar`: always valid; result inherits non-scalar space.
-- Operations with `None` domain/range: skips validation (backward-compatible).
+- Operations with `None` source/target: skips validation (backward-compatible).
 
 ### Integration / regression tests
 
@@ -384,14 +384,14 @@ Tests should be placed in `tests/numerics/ad/` alongside existing tests.
 - Run model-level tests (e.g., `test_example_params.py`, tutorial tests) to catch
   regressions introduced by the domain propagation logic.
 - Optionally add a test that constructs a simple flow model, checks that the final
-  equation operator's `operator_domain` and `operator_range` are consistent, and that
+  equation operator's `source` and `target` are consistent, and that
   an intentional domain mismatch raises a `ValueError`.
 
 ---
 
 ## Assumptions and Open Questions
 
-1. **Gradual roll-out:** Many existing operator constructions do not supply domain/range.
+1. **Gradual roll-out:** Many existing operator constructions do not supply source/target.
    The plan uses `None` as "unspecified" to avoid breaking the codebase, then enforces
    the constraint once all leaf operators are updated.
 
@@ -400,21 +400,21 @@ Tests should be placed in `tests/numerics/ad/` alongside existing tests.
    discretizations implement it, `MergedOperator` may have `domain = None`.
 
 3. **`__rsub__` and `__rtruediv__`:** These currently do not call `__check_domains` for
-   the domain of the result. They should be updated to use `infer_domain_range`.
+   the domain of the result. They should be updated to use `infer_source_target`.
 
 4. **Vector quantities:** The discussion notes that vector (multi-component) quantities
    should be handled. For now, `dof_info` already supports `{"cells": Nd}`, so
    vector quantities are naturally accommodated.
 
 5. **`MixedDimensionalVariable`:** This class bypasses the `Operator.__init__` entirely.
-   Its `_domains`, `_domain_type` etc. are set manually. When adding `_operator_domain`
-   and `_operator_range`, ensure they are also set in `MixedDimensionalVariable.__init__`.
+   Its `_domains`, `_domain_type` etc. are set manually. When adding `_source`
+   and `_target`, ensure they are also set in `MixedDimensionalVariable.__init__`.
 
 6. **`sum_operator_list` and `sum_projection_list`:** These utility functions create
-   compound operators without explicit domain/range propagation. They should benefit
+   compound operators without explicit source/target propagation. They should benefit
    automatically from the updated arithmetic operators.
 
 7. **Backward compatibility:** The existing `domains` parameter in `Operator.__init__`
    is kept. The internal `_domains` / `_domain_type` attributes can continue to be
-   derived from `_operator_domain` during the transition, ensuring `subdomains` and
+   derived from `_source` during the transition, ensuring `subdomains` and
    `interfaces` properties still work.
