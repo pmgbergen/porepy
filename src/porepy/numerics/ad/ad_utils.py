@@ -365,7 +365,9 @@ class MergedOperator(operators.Operator):
 
     def __repr__(self) -> str:
         domain_label = (
-            self.domain_type.value if self.domain_type is not None else "unknown"
+            self.operator_range.domain_type.value
+            if self.operator_range and self.operator_range.domain_type
+            else "unknown"
         )
         s = (
             f"Operator with key {self._discretization_matrix_key} defined on "
