@@ -2,7 +2,7 @@
 
 ## Background
 
-`Operator` currently exposes four properties derived from `_operator_domain`:
+`Operator` currently exposes four properties derived from `_source`:
 
 | Property | Returns |
 |---|---|
@@ -37,7 +37,7 @@ Used moderately:
 - `surrogate_operator.py` – `__repr__` (line 224)
 - `tests/numerics/ad/test_operators.py` – Asserts `sd_array.domain_type`, `intf_array.domain_type`, `bg_array.domain_type`
 
-Without this property, callers would write `self._operator_domain.domain_type if self._operator_domain else None` — verbose and error-prone (forgetting the `None` guard is a real bug risk). The property is a clean shortcut.
+Without this property, callers would write `self._source.domain_type if self._source else None` — verbose and error-prone (forgetting the `None` guard is a real bug risk). The property is a clean shortcut.
 
 **Verdict: Keep.** Its value is clear and it prevents repetitive None-guard boilerplate.
 

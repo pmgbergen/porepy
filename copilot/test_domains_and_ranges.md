@@ -1,7 +1,7 @@
 # Test Coverage Audit: AD Operator Domains and Ranges
 
 **Branch:** `operators_have_domains`  
-**Reference plan:** `copilot/ad_operator_domains_and_ranges.md`  
+**Reference plan:** `copilot/ad_sources_and_ranges.md`  
 **Test files introduced:**
 - `tests/numerics/ad/test_grid_entity.py` (274 lines, ~30 tests)
 - `tests/numerics/ad/test_operator_space.py` (1653 lines, ~163 tests)
@@ -21,26 +21,26 @@ exercise the real implementations they were anticipating.
 
 ### 1a. `MixedDimensionalVariable` — not tested
 
-`MixedDimensionalVariable.__init__` explicitly sets `_operator_domain = None` and
-`_operator_range = None` (see `operators.py` ~line 2272), because an MD variable spans
+`MixedDimensionalVariable.__init__` explicitly sets `_source = None` and
+`_target = None` (see `operators.py` ~line 2272), because an MD variable spans
 multiple grids that cannot be summarised as a single `OperatorSpace`. There is no test
 asserting this.
 
 **Recommendation:** Add a test that constructs a `MixedDimensionalVariable` from two
-`Variable` instances and asserts `operator_domain is None` and `operator_range is None`.
+`Variable` instances and asserts `source is None` and `target is None`.
 
-### 1b. `SurrogateOperator` / `SurrogateFactory` `operator_domain` — not tested
+### 1b. `SurrogateOperator` / `SurrogateFactory` `source` — not tested
 
-`SurrogateOperator.__init__` calls `super().__init__(..., domain=op_space,
+`SurrogateOperator.__init__` calls `super().__init__(..., source=op_space,
 range_=op_space)`, correctly propagating a `dof_info`-derived space when one is
 provided. The `test_grid_entity.py` tests for `SurrogateFactory` only verify that the
 object can be *created* without error; they do not assert that the resulting
-`SurrogateOperator` carries the expected `operator_domain` and `operator_range`.
+`SurrogateOperator` carries the expected `source` and `target`.
 
 **Recommendation:** Add tests that:
 1. Create a `SurrogateFactory` with `dof_info={GridEntity.cells: 1}` and sample one of
-   the produced `SurrogateOperator` instances, asserting its `operator_domain` is set.
-2. Assert that `dof_info=None` (the default) leaves `operator_domain` as `None`.
+   the produced `SurrogateOperator` instances, asserting its `source` is set.
+2. Assert that `dof_info=None` (the default) leaves `source` as `None`.
 
 ### 1c. `Variable` on interfaces and boundary grids — not tested
 
@@ -68,14 +68,14 @@ and `Upwind` (via `MergedOperator` and the AD wrappers). `Tpsa` has no correspon
 integration test — only direct unit tests on `get_row/col_dof_info`.
 
 **Recommendation:** Add at least one `MergedOperator`-level test for a `Tpsa` matrix
-(e.g. `stress_displacement`), verifying that `operator_domain` and `operator_range` are
+(e.g. `stress_displacement`), verifying that `source` and `target` are
 populated when 2D grids are supplied.
 
 ### 1f. `DenseArray.__neg__` — not tested explicitly
 
 `SparseArray.__neg__` and `DenseArray.__neg__` are separate overrides, both added in the
 Stage 6 regression fixes. The `test_unary_minus_preserves_spaces` test uses `SparseArray`
-exclusively. The bug that triggered the fix (unary minus dropping domain/range) was
+exclusively. The bug that triggered the fix (unary minus dropping source/target) was
 identified for both classes, but only one is exercised by the current tests.
 
 **Recommendation:** Add `test_unary_minus_dense_array_preserves_spaces` mirroring the
@@ -85,8 +85,8 @@ existing `SparseArray` test.
 
 The implementation plan (§ Assumptions #6) notes that these utility functions should
 benefit automatically from the updated arithmetic operators. There is no test verifying
-that the result of `sum_operator_list([op1, op2, ...])` carries correct `operator_domain`
-and `operator_range`.
+that the result of `sum_operator_list([op1, op2, ...])` carries correct `source`
+and `target`.
 
 **Recommendation:** Add a basic test that sums two `SparseArray` instances with
 compatible spaces and asserts that the result propagates those spaces.
@@ -94,14 +94,14 @@ compatible spaces and asserts that the result propagates those spaces.
 ### 1h. Model-level integration test — not implemented
 
 The plan mentions (§ Integration/regression tests) an optional test that constructs a
-simple model, checks the assembled equation operator for consistent `operator_domain`/
-`operator_range`, and raises `ValueError` on an intentional mismatch. This was flagged
+simple model, checks the assembled equation operator for consistent `source`/
+`target`, and raises `ValueError` on an intentional mismatch. This was flagged
 as optional and has not been added. Given the maturity of the implementation, this would
 now be a valuable regression guard.
 
 **Recommendation:** Add at least one integration test that uses a small
 `FluidMassBalance`-like model and verifies that a well-typed equation's operator chain
-has non-`None` `operator_domain`/`operator_range` end-to-end.
+has non-`None` `source`/`target` end-to-end.
 
 ---
 
@@ -166,9 +166,9 @@ The two tests (`test_string_dof_info`, `test_enum_dof_info`) in `test_grid_entit
 check that `SurrogateFactory` can be *instantiated* with either key type. They were
 written for Stage 1 (backwards compat of `GridEntity`) and correctly test that legacy
 string keys are still accepted. However, as noted in §1b, they do not verify the
-resulting operator's `operator_domain`.
+resulting operator's `source`.
 
-**Status:** Extend with an assertion on `operator_domain` (see §1b).
+**Status:** Extend with an assertion on `source` (see §1b).
 
 ---
 
@@ -186,7 +186,7 @@ The following plan requirements have thorough test coverage:
 | All 5 grid operator classes | `TestSubdomainProjectionSpaces`, `TestMortarProjectionSpaces`, `TestBoundaryProjectionSpaces`, `TestTraceSpaces`, `TestDivergenceSpaces` |
 | `Discretization` base-class stubs | `TestDiscretizationStubs` |
 | `MergedOperator` + `InterfaceDiscretization` guard | `TestMergedOperatorSpaces` |
-| `infer_domain_range` (all ops, scalar, None) | `TestInferDomainRange` |
+| `infer_source_target` (all ops, scalar, None) | `TestInferDomainRange` |
 | Multi-step compound operator chains | `TestCompoundOperatorSpaces` |
 | `FVElliptic` (`Mpfa`/`Tpfa`) dof_info | `TestFVEllipticDofInfo` |
 | `Mpsa` dof_info | `TestMpsaDofInfo` |
@@ -203,9 +203,9 @@ The following plan requirements have thorough test coverage:
 | Priority | Gap / Issue |
 |---|---|
 | High | §1f — `DenseArray.__neg__` untested (a real bug was fixed there) |
-| High | §1b — `SurrogateOperator` `operator_domain` unverified |
+| High | §1b — `SurrogateOperator` `source` unverified |
 | High | §1e — `Tpsa` has no `MergedOperator` integration test |
-| Medium | §1a — `MixedDimensionalVariable` `operator_domain is None` not asserted |
+| Medium | §1a — `MixedDimensionalVariable` `source is None` not asserted |
 | Medium | §1d — `Divergence`/`Trace` `dim > 1` not tested |
 | Low | §1c — `Variable` on mortar/boundary grids |
 | Low | §1g — `sum_operator_list` space propagation |
