@@ -1,6 +1,11 @@
-"""This file is testing the functionality of `pp.BoundaryConditionMixin`."""
+"""This file is testing the functionality of `pp.BoundaryConditionMixin`.
 
-from typing import Sequence
+It also contains tests verifying that `bc_values_*` methods return arrays with
+their documented SI units.
+"""
+
+from dataclasses import dataclass, field
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pytest
@@ -451,3 +456,138 @@ def test_robin_limit_case(
         np.allclose(rob_results[key], reference_results[key], atol=1e-7)
         for key in rob_results.keys()
     )
+
+
+"""Tests that ``bc_values_*`` methods return arrays with their documented SI
+units, by exploiting :class:`porepy.Units` non-dimensionalization: a correctly
+unit-tagged BC produces a solution that, recovered to SI, is invariant under
+any choice of internal unit system.
+
+"""
+
+
+# Helpers for unit-invariance tests
+@dataclass(frozen=True)
+class _BCUnitInvarianceSpec:
+    """Specification for a single BC unit-invariance test."""
+
+    probe_model_class: type[pp.PorePyModel]
+    probe_label: str
+    primary_variable_accessor: Callable[[pp.PorePyModel, pp.Grid], np.ndarray]
+    primary_variable_si_unit: str
+    declared_bc_unit: str
+    extraction_subdomain_dim: int = 2
+
+
+#: Unit scalings probing each axis of the BC's SI dimensions.
+_DEFAULT_UNIT_SCALINGS: list[pp.Units] = [
+    pp.Units(m=10.0),
+    pp.Units(kg=0.01),
+    pp.Units(m=100.0),
+    pp.Units(m=10.0, kg=0.01, K=10.0),
+]
+
+
+def _unit_scaling_label(units: pp.Units) -> str:
+    """Readable pytest parametrize-id for a :class:`pp.Units` instance."""
+
+    return f"m={units.m:g}_kg={units.kg:g}_K={units.K:g}"
+
+
+def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.ndarray:
+    """Run the probe model under `units`; return primary variable in SI."""
+
+    params: dict[str, Any] = {
+        "units": units,
+        "fracture_indices": [],
+        "meshing_arguments": {"cell_size": 0.5},
+        "times_to_export": [],
+    }
+    model = spec.probe_model_class(params)
+    pp.ModelRunner(model).run()
+    sd = model.mdg.subdomains(dim=spec.extraction_subdomain_dim)[0]
+    var_internal = spec.primary_variable_accessor(model, sd)
+    var_si: np.ndarray = units.convert_units(
+        var_internal, spec.primary_variable_si_unit, to_si=True
+    )
+    return var_si
+
+
+def _assert_bc_unit_invariance(
+    spec: _BCUnitInvarianceSpec, units: pp.Units, rtol: float = 1e-10
+) -> None:
+    """Recovered SI solution must be invariant under unit rescaling."""
+
+    baseline = _run_and_recover_in_si(spec, pp.Units())
+    scaled = _run_and_recover_in_si(spec, units)
+    np.testing.assert_allclose(
+        scaled,
+        baseline,
+        rtol=rtol,
+        atol=0.0,
+        err_msg=(
+            f"BC unit-invariance violated for '{spec.probe_label}' under "
+            f"scaling {_unit_scaling_label(units)}. Declared BC unit: "
+            f"'{spec.declared_bc_unit}'."
+        ),
+    )
+
+
+def _assert_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
+    """Guard against trivially-passing tests (zero/NaN/symmetric solution)."""
+    baseline = _run_and_recover_in_si(spec, pp.Units())
+    assert np.all(
+        np.isfinite(baseline)
+    ), f"Baseline for '{spec.probe_label}' contains non-finite values."
+    assert (
+        np.max(np.abs(baseline)) > 0.0
+    ), f"Baseline for '{spec.probe_label}' is identically zero."
+
+
+# Empirically verified: integrated Darcy flux in porepy is K*grad(p)*area,
+# unit m^nd * Pa * s^-1 (nd = ambient dim).
+_DARCY_FLUX_UNIT: str = "m^2*Pa*s^-1"
+_DARCY_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _DarcyFluxBCProbe(SquareDomainOrthogonalFractures, MassBalance_):
+    """Single-phase flow: Dirichlet p=0 on west, Neumann Darcy flux on east."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _DARCY_FLUX_VALUE_SI, _DARCY_FLUX_UNIT
+        )
+        return vals
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_darcy_flux: probe model, primary variable
+# accessor (pressure on the matrix subdomain), and the declared BC unit.
+_DARCY_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_DarcyFluxBCProbe,
+    probe_label="darcy_flux",
+    primary_variable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.pressure([sd])
+    ),
+    primary_variable_si_unit="Pa",
+    declared_bc_unit=_DARCY_FLUX_UNIT,
+)
+
+
+@pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
+def test_bc_values_darcy_flux_unit_invariance(units: pp.Units) -> None:
+    """Recovered SI pressure is invariant under unit rescaling."""
+    _assert_bc_unit_invariance(_DARCY_FLUX_SPEC, units)
+
+
+def test_bc_values_darcy_flux_baseline_well_posed() -> None:
+    """Sanity check: SI baseline is finite and non-degenerate."""
+    _assert_baseline_well_posed(_DARCY_FLUX_SPEC)
