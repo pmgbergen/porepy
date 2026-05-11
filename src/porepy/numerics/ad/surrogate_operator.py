@@ -185,8 +185,8 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             name=name,
             operation=Operations.evaluate,
             children=children,
-            domain=op_space,
-            range=op_space,
+            source=op_space,
+            target=op_space,
         )
 
         self._fetch_data: Callable[[SurrogateOperator, pp.GridLike, bool], np.ndarray]
@@ -214,7 +214,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         """String representation giving information on name, time and iterate index, as
         well as domains and dependencies."""
 
-        domain_type = self._operator_domain.domain_type if self._operator_domain else None
+        domain_type = self._source.domain_type if self._source else None
         num_grids = len(self.domains)
         domain_label = domain_type.value if domain_type is not None else "unknown"
         msg = (

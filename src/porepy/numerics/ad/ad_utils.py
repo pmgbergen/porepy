@@ -332,10 +332,10 @@ class MergedOperator(operators.Operator):
         name = discr.__class__.__name__
         self._merged_domains: list[pp.GridLike] = list(domains) if domains else []
 
-        # Infer operator domain (column space) and range (row space) from the
+        # Infer operator source (column space) and target (row space) from the
         # discretization.
-        op_domain: Optional[operators.OperatorSpace] = None
-        op_range: Optional[operators.OperatorSpace] = None
+        op_source: Optional[operators.OperatorSpace] = None
+        op_target: Optional[operators.OperatorSpace] = None
         if domains:
             domain_list = list(domains)
             nd = (
@@ -347,11 +347,11 @@ class MergedOperator(operators.Operator):
             col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
 
             if col_dof:
-                op_domain = operators.OperatorSpace.from_domains(list(domains), col_dof)
+                op_source = operators.OperatorSpace.from_domains(list(domains), col_dof)
             if row_dof:
-                op_range = operators.OperatorSpace.from_domains(list(domains), row_dof)
+                op_target = operators.OperatorSpace.from_domains(list(domains), row_dof)
 
-        super().__init__(name=name, domain=op_domain, range=op_range)
+        super().__init__(name=name, source=op_source, target=op_target)
 
         self._discretization_matrix_key = discretization_matrix_key
         self._discr = discr
@@ -365,8 +365,8 @@ class MergedOperator(operators.Operator):
 
     def __repr__(self) -> str:
         domain_label = (
-            self.operator_range.domain_type.value
-            if self.operator_range and self.operator_range.domain_type
+            self.target.domain_type.value
+            if self.target and self.target.domain_type
             else "unknown"
         )
         s = (
