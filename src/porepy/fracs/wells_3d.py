@@ -491,9 +491,7 @@ def _points_on_fractures(split_fractures, nd):
     if nd == 2:
         return _points_on_fractures_2d(split_fractures)
     else:
-        raise NotImplementedError(
-            "Extraction of points on fractures is only implemented for 2D fractures."
-        )
+        return _points_on_fractures_3d(split_fractures)
 
 
 def _points_on_fractures_2d(split_fractures):
@@ -504,6 +502,18 @@ def _points_on_fractures_2d(split_fractures):
             _, adjacent_points = gmsh.model.get_adjacencies(1, split_fracture[1])
             all_fracture_points.extend(adjacent_points)
             fracture_inds += [i] * len(adjacent_points)
+    all_fracture_points = np.hstack(all_fracture_points)
+    return all_fracture_points, fracture_inds
+
+
+def _points_on_fractures_3d(split_fractures):
+    fracture_inds = []
+    all_fracture_points = []
+    for i, fracture in enumerate(split_fractures):
+        for sub_frac in fracture:
+            for point in gmsh.model.mesh.get_embedded(*sub_frac):
+                all_fracture_points.extend([point[1]])
+                fracture_inds += [i]
     all_fracture_points = np.hstack(all_fracture_points)
     return all_fracture_points, fracture_inds
 
