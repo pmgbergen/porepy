@@ -484,6 +484,11 @@ def _points_on_wells(split_wells, segment_to_wells):
             all_well_points.extend(adjacent_points)
             well_inds += [segment_to_wells[i]] * len(adjacent_points)
     all_well_points = np.hstack(all_well_points)
+    if len(all_well_points) > 0:
+        all_well_points = np.hstack(all_well_points)
+    else:
+        all_well_points = np.array([], dtype=int)
+
     return all_well_points, well_inds
 
 
@@ -502,7 +507,10 @@ def _points_on_fractures_2d(split_fractures):
             _, adjacent_points = gmsh.model.get_adjacencies(1, split_fracture[1])
             all_fracture_points.extend(adjacent_points)
             fracture_inds += [i] * len(adjacent_points)
-    all_fracture_points = np.hstack(all_fracture_points)
+    if len(all_fracture_points) > 0:
+        all_fracture_points = np.hstack(all_fracture_points)
+    else:
+        all_fracture_points = np.array([], dtype=int)
     return all_fracture_points, fracture_inds
 
 
@@ -514,7 +522,11 @@ def _points_on_fractures_3d(split_fractures):
             for point in gmsh.model.mesh.get_embedded(*sub_frac):
                 all_fracture_points.extend([point[1]])
                 fracture_inds += [i]
-    all_fracture_points = np.hstack(all_fracture_points)
+    if len(all_fracture_points) > 0:
+        all_fracture_points = np.hstack(all_fracture_points)
+    else:
+        all_fracture_points = np.array([], dtype=int)
+
     return all_fracture_points, fracture_inds
 
 
