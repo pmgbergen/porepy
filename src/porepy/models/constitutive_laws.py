@@ -4344,7 +4344,10 @@ class FractureDamageCoefficients(pp.PorePyModel):
         K_ad = f_log(
             dimensionless_strength / self._positive_normal_traction(subdomains)
         )
-        coefficient = self._common_factor_damage_coefficients(subdomains) * K_ad
+        coefficient = K_ad * (
+            self.normalized_traction_for_damage(subdomains)
+            / self.characteristic_fracture_roughness(subdomains)
+        )
         coefficient.set_name("dilation_damage_coefficient")
         return coefficient
 
@@ -4399,34 +4402,40 @@ class FractureDamageCoefficients(pp.PorePyModel):
             Operator for the friction damage coefficient.
         """
         # The damage coefficient is, according to Gao et al (2024), a purely geometric
-        # factor which may be set to 3. TODO: Add as solid constant?
-        coefficient = self._common_factor_damage_coefficients(subdomains) * Scalar(3.0)
+        # factor which may be set to 3.
+        characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
+
+        coefficient = Scalar(3.0) * (
+            self.normalized_traction_for_damage(subdomains) / characteristic_roughness
+        )
         coefficient.set_name("friction_damage_coefficient")
         return coefficient
 
-    def _common_factor_damage_coefficients(
+    def normalized_traction_for_damage(
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Utility method used for the common part of the two damage coefficients.
+        """Utility method used for the normalized traction in damage calculations.
+
+        The traction is normalized by the transitional normal strength. We use the
+        positive normal traction to helper method to avoid upstream issues if the
+        traction is passed to a logarithm function, as in the dilation damage
+        coefficient.
 
         Parameters:
-            subdomains: List of subdomains where the damage coefficient is defined.
+            subdomains: List of subdomains where the traction is defined.
 
             Returns:
-                Operator for the damage coefficient.
+                Operator for the normalized traction.
         """
         # Nondimensionalize the characteristic contact traction, since the contact
-        # traction is nondimensionalized.
+        # traction is nondimensional.
         strength = self.transitional_normal_strength(
             subdomains
         ) / self.characteristic_contact_traction(subdomains)
-        characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
 
-        coefficient = self._positive_normal_traction(subdomains) / (
-            strength * characteristic_roughness
-        )
-        coefficient.set_name("_damage_degradation")
+        coefficient = self._positive_normal_traction(subdomains) / strength
+        coefficient.set_name("normalized_traction_for_damage")
         return coefficient
 
 
