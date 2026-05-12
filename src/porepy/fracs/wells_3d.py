@@ -16,7 +16,8 @@ mixed-dimensional grid by
 from __future__ import annotations
 
 import logging
-from typing import Iterator, Optional
+from typing import Iterator, Optional, NamedTuple
+
 
 import gmsh
 import numpy as np
@@ -460,22 +461,87 @@ class WellNetwork3d:
         return s
 
 
-def intersect_well_fractures(wells, fractures, nd=3):
+def _export_wells_to_gmsh(wells: list[Well]) -> tuple[list[int], list[int]]:
+    segment_inds = [well.to_gmsh() for well in wells]
+    gmsh.model.occ.synchronize()
+
+    unified_segments = []
+    segment_to_wells = []
+    for i, segments in enumerate(segment_inds):
+        for segment in segments:
+            unified_segments.append(segment)
+            segment_to_wells.append(i)
+
+    return unified_segments, segment_to_wells
+
+
+class IntersectionInfo(NamedTuple):
+    coord: np.ndarray
+    well_index: int
+    fracture_index: list[int]
+
+
+def intersect_well_fractures(wells, fractures, nd):
+
+    if len(fractures) == 0 or len(wells) == 0:
+        return {}
     gmsh.initialize()
 
     fracture_tags = [fracture.fracture_to_gmsh() for fracture in fractures]
     gmsh.model.occ.synchronize()
-    segment_inds = [well.to_gmsh() for well in wells]
-    flattened_segment_inds = [item for sublist in segment_inds for item in sublist]
+
+    segment_inds, segment_to_wells = _export_wells_to_gmsh(wells)
+
+    _, split_objects = gmsh.model.occ.fragment(
+        [(nd - 1, t) for t in fracture_tags],
+        [(1, t) for t in segment_inds],
+        removeObject=True,
+        removeTool=True,
+    )
     gmsh.model.occ.synchronize()
 
-    _, out_dim_tag_map = gmsh.model.occ.fragment(
-        [(nd - 2, t) for t in flattened_segment_inds],
-        [(nd - 1, t) for t in fracture_tags],
-        removeObject=False,
-        removeTool=False,
-    )
-    return out_dim_tag_map[0]
+    # Find the segments after intersection.
+    split_fractures = split_objects[: len(fracture_tags)]
+    split_wells = split_objects[len(fracture_tags) :]
+
+    well_inds = []
+    all_well_points = []
+    for i, well_segment in enumerate(split_wells):
+        for si, split_segment in enumerate(well_segment):
+            _, adjacent_points = gmsh.model.get_adjacencies(1, split_segment[1])
+            all_well_points.extend(adjacent_points)
+            well_inds += [segment_to_wells[i]] * len(adjacent_points)
+    all_well_points = np.hstack(all_well_points)
+
+    fracture_inds = []
+
+    all_fracture_points = []
+    for i, fracture in enumerate(split_fractures):
+        for fi, split_fracture in enumerate(fracture):
+            _, adjacent_points = gmsh.model.get_adjacencies(1, split_fracture[1])
+            all_fracture_points.extend(adjacent_points)
+            fracture_inds += [i] * len(adjacent_points)
+    all_fracture_points = np.hstack(all_fracture_points)
+
+    intersections: list[IntersectionInfo] = []
+
+    addressed_well_points = set()
+
+    for wi, point_on_well in zip(well_inds, all_well_points):
+        if (
+            point_on_well not in addressed_well_points
+            and point_on_well in all_fracture_points
+        ):
+            addressed_well_points.add(point_on_well)
+
+            # This will break if multiple fractures intersect the well at the same point
+            hit = np.where(all_fracture_points == point_on_well)[0]
+            fractures = list(set([fracture_inds[i] for i in hit]))
+
+            coord = gmsh.model.get_bounding_box(0, point_on_well)[:3]
+            intersections.append(IntersectionInfo(coord, wi, fractures))
+
+    return intersections
 
 
 def compute_well_fracture_intersections(
