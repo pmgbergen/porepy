@@ -2155,6 +2155,17 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
     ) -> np.ndarray:
         return np.zeros(sd.num_cells)
 
+    def ic_minerals_bulk_concentration_wrap(self,comp:pp.Component,subdomains:list[pp.Grid])->np.ndarray:
+
+        ic_subdomains=[]
+        for sd in subdomains:
+            ic=self.ic_mineral_bulk_concentration(comp, sd)
+            ic_subdomains.append(ic)
+
+        return np.hstack(ic_subdomains)
+
+
+
 class SolutionStrategyPhaseProperties(pp.PorePyModel):
     """A mixin solution strategy for CF models which use surrogate operators for phase
     properties (as is the default in the fluid mixin).

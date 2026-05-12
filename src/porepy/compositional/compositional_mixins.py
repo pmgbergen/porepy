@@ -2893,7 +2893,7 @@ class ReactionRatesKineticFromExperiment:
                         )
                     for comp in reactive_species:
                         if comp in self.fluid.solid_components:
-                            s_Li0_bulk=pp.ad.Scalar(0.1)
+                            s_Li0_bulk=self.ic_minerals_bulk_concentration_wrap(comp, domains)
                             s_Li_bulk=comp.mineral_saturation(domains)* self.solid.total_porosity/comp.molar_volume
                         elif comp.name=="Li+":
                             c_Li_bulk=self.molar_bulk_concentration(comp,domains)
@@ -2903,8 +2903,9 @@ class ReactionRatesKineticFromExperiment:
 
 
                     driving_force= f_max(pp.ad.Scalar(0.0), phi * pp.ad.Scalar(Ceq) - c_Li_bulk)
-
-                    r = pp.ad.Scalar(k_0) * driving_force * s_Li_bulk / s_Li0_bulk
+                    mineral_mask = (s_Li0_bulk > 0.0).astype(float)
+                    s_Li0_safe = np.where(s_Li0_bulk > 0.0, s_Li0_bulk, 1.0)
+                    r = pp.ad.Scalar(k_0) * driving_force * s_Li_bulk / s_Li0_safe * mineral_mask
                     return r
 
                 reaction.reaction_rate = rr
