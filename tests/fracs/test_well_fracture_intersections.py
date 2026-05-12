@@ -261,7 +261,7 @@ def _find_intersection(
                 [(0.0, 3.0), (0.0, -3.0)],
             ),
             [make_fracture_horizontal_at_y(0, 0.0, x_min=-1.0, x_max=1.0)],
-            [(np.array([0.0, 0.0]), 0, [0])],
+            [(np.array([0.0, 0.0, 0.0]), 0, [0])],
         ),
         (
             "2d_two_segment_kink",
@@ -270,7 +270,7 @@ def _find_intersection(
                 [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)],
             ),
             [make_fracture_horizontal_at_y(0, 0.0, x_min=-1.0, x_max=1.0)],
-            [(np.array([0.5, 0.0]), 0, [0])],
+            [(np.array([0.5, 0.0, 0.0]), 0, [0])],
         ),
         (
             "2d_two_segment_bottom",
@@ -279,7 +279,7 @@ def _find_intersection(
                 [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)],
             ),
             [make_fracture_horizontal_at_y(0, -1.0, x_min=-1.0, x_max=1.0)],
-            [(np.array([1.0, -1.0]), 0, [0])],
+            [(np.array([1.0, -1.0, 0.0]), 0, [0])],
         ),
         (
             "2d_multi_segment_multiple_intersections",
@@ -292,8 +292,8 @@ def _find_intersection(
                 make_fracture_horizontal_at_y(1, 0.0, x_min=-1.0, x_max=1.0),
             ],
             [
-                (np.array([0.0, 1.0]), 0, [0]),
-                (np.array([0.5, 0.0]), 0, [1]),
+                (np.array([0.0, 1.0, 0.0]), 0, [0]),
+                (np.array([0.5, 0.0, 0.0]), 0, [1]),
             ],
         ),
         (
@@ -386,8 +386,9 @@ def test_intersect_well_fractures_basic_geometries(
         Coordinates are compared using a numerical tolerance.
 
     """
-    nd = _infer_dimension_from_fractures(fractures)
-    result = intersect_well_fractures([well], fractures, nd)
+    result = intersect_well_fractures(
+        [well], fractures, _infer_dimension_from_fractures(fractures)
+    )
 
     assert len(result) == len(expected), (
         f"Case '{case_name}': expected {len(expected)} intersections, "
@@ -461,8 +462,8 @@ def test_well_intersects_no_fractures(case_name, well, fractures) -> None:
             ],
             [make_fracture_horizontal_at_y(0, 1.0, x_min=-1.0, x_max=3.0)],
             [
-                (np.array([1.0, 1.0]), 0, [0]),
-                (np.array([1.0, 1.0]), 1, [0]),
+                (np.array([1.0, 1.0, 0.0]), 0, [0]),
+                (np.array([1.0, 1.0, 0.0]), 1, [0]),
             ],
         ),
         (
@@ -489,7 +490,7 @@ def test_well_intersects_no_fractures(case_name, well, fractures) -> None:
             [make_fracture_horizontal_at_z(0, -1.0, half_size=3.0)],
             [
                 (np.array([0.0, 0.0, -1.0]), 0, [0]),
-                (np.array([1.5, 0.0, -1.0]), 1, [0]),
+                (np.array([5 / 3, 0.0, -1.0]), 1, [0]),
                 (np.array([0.0, 1.0, -1.0]), 2, [0]),
             ],
         ),
@@ -508,8 +509,9 @@ def test_single_fracture_intersected_by_multiple_wells(
 
     """
 
-    nd = _infer_dimension_from_fractures(fractures)
-    result = intersect_well_fractures(wells, fractures, nd)
+    result = intersect_well_fractures(
+        wells, fractures, _infer_dimension_from_fractures(fractures)
+    )
 
     assert len(result) == len(expected), (
         f"Case '{case_name}': expected {len(expected)} intersections, "
@@ -604,8 +606,9 @@ def test_well_intersects_shared_fracture_intersection_in_3d(
 
     """
 
-    nd = _infer_dimension_from_fractures(fractures)
-    result = intersect_well_fractures([well], fractures, nd)
+    result = intersect_well_fractures(
+        [well], fractures, _infer_dimension_from_fractures(fractures)
+    )
 
     assert len(result) == 1, (
         f"Case '{case_name}': expected exactly one same-point multi-fracture "
@@ -632,20 +635,19 @@ def test_2d_multiple_fractures_same_point():
     returns a single record with both fracture indices.
 
     """
-
-    well = make_well_2d(0, [(1.0, 2.0), (1.0, -2.0)])
+    well = make_well_2d(0, [(0.0, 2.0), (2.0, 0.0)])
 
     fractures = [
         make_fracture_horizontal_at_y(0, 1.0),
         make_fracture_vertical_at_x(1, 1.0),
     ]
 
-    nd = _infer_dimension_from_fractures(fractures)
-    result = intersect_well_fractures([well], fractures, nd)
+    result = intersect_well_fractures(
+        [well], fractures, _infer_dimension_from_fractures(fractures)
+    )
 
     assert len(result) == 1
 
     coord = _find_intersection(result, 0, {0, 1})
     assert coord is not None
-
-    np.testing.assert_allclose(coord, np.array([1.0, 1.0]), atol=TOL)
+    np.testing.assert_allclose(coord, np.array([1.0, 1.0, 0.0]), atol=TOL)
