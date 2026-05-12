@@ -2785,6 +2785,151 @@ class ReactionRatesKineticFirstOrder:
         return C0 * overlap / (xR - xL)
 
 
+class ReactionRatesKineticFromExperiment:
+    def set_kinetic_reaction_rates(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> Sequence[pp.Reaction]:
+        """Sets the reaction rates for kinetic reactions.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        This needs to be overridden to provide actual reaction rates.
+        """
+        S = self.fluid.stoichiometric_matrix
+        reaction_formulas = self.reaction_formulas
+        for reaction in reactions:
+            if reaction.is_kinetic:
+                k_0 = self.rate_constant(reaction)  # unit: 1/s
+                Abar = 6.0  # unit: m2/m3
+                Ceq = self.equilibrium_lithium_concentration(reaction)  # unit: mol/m3 water
+                rxn_index = reaction_formulas.index(reaction.formula)
+
+                nu = S[rxn_index, :]
+                reactive_species = []
+                reactive_coeffs = []
+                for comp in self.fluid.components:
+                    if comp.name in self.species_names:
+                        sp_index = self.species_names.index(comp.name)
+                        if nu[sp_index] != 0:
+                            # Build subarrays for reactive species and their coefficients in this reaction
+                            reactive_species.append(comp)
+                            reactive_coeffs.append(nu[sp_index])
+                reactive_activities = {}
+                # finding the activities of the reactive species
+                for phase in self.fluid.phases:
+                    if phase.state == PhysicalState.solid:
+                        mineral_count = 0
+                    for comp in reactive_species:
+                        if comp in phase.components:
+                            if phase.state == PhysicalState.solid:
+                                mineral_count += 1
+                            reactive_activities[comp.name] = phase.activity_of[comp]
+                if mineral_count > 1:
+                    raise NotImplementedError(
+                        "Multiple minerals in one reaction not implemented yet."
+                    )
+
+                def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    """
+                    Compute the apparent kinetic Li release rate from a reactive solid inventory.
+
+                    This function implements a minimal first-order, solubility-limited Li release
+                    term using bulk-volume concentrations:
+
+                        r_Li = k_rel * max(0, phi * C_Li_eq - c_Li_bulk) * (s_Li_bulk / s_Li0_bulk)
+
+                    where Li release is driven by the difference between the apparent equilibrium
+                    aqueous Li concentration and the current aqueous Li stored per fixed bulk
+                    volume. The inventory factor limits release as the finite releasable solid Li
+                    pool is depleted.
+
+                    Parameters
+                    ----------
+                    c_Li_bulk : float
+                        Current mobile aqueous Li amount per fixed bulk volume
+                        [mol Li m^-3 bulk].
+
+                    s_Li_bulk : float
+                        Remaining releasable Li inventory in the solid per fixed bulk volume
+                        [mol Li m^-3 bulk].
+
+                    s_Li0_bulk : float
+                        Initial releasable Li inventory in the solid per fixed bulk volume
+                        [mol Li m^-3 bulk]. Must be positive.
+
+                    phi : float
+                        Current porosity [-]. Used to convert the apparent aqueous equilibrium
+                        concentration to a bulk-volume concentration.
+
+                    C_Li_eq : float
+                        Apparent equilibrium aqueous Li concentration [mol Li m^-3 water].
+                        Note: 1 mol m^-3 water = 1 mmol L^-1.
+
+                    k_rel : float
+                        Apparent first-order Li release rate constant [s^-1].
+
+                    Returns
+                    -------
+                    float
+                        Li release rate into the mobile aqueous phase [mol Li m^-3 bulk s^-1].
+                        A positive value represents transfer from the solid inventory to the
+                        aqueous phase.
+
+                    Notes
+                    -----
+                    This is a simple kinetic surrogate, not a mineral-specific dissolution law.
+                    It assumes Li release approaches an apparent equilibrium concentration, is
+                    limited by a finite releasable solid inventory, and does not allow reverse
+                    precipitation or uptake when c_Li_bulk exceeds phi * C_Li_eq.
+                    """
+
+
+
+                    for i, comp in enumerate(reactive_species):
+                        if i == 0:
+                            Q = pp.ad.Scalar(1.0)
+                        Q = Q * reactive_activities[comp.name](domains) ** pp.ad.Scalar(
+                            reactive_coeffs[i]
+                        )
+                    for comp in reactive_species:
+                        if comp in self.fluid.solid_components:
+                            s_Li0_bulk=pp.ad.Scalar(0.1)
+                            s_Li_bulk=comp.mineral_saturation(domains)* self.solid.total_porosity/comp.molar_volume
+                        elif comp.name=="Li+":
+                            c_Li_bulk=self.molar_bulk_concentration(comp,domains)
+                    phi=self.porosity(domains)
+
+                    f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+
+
+                    driving_force= f_max(pp.ad.Scalar(0.0), phi * pp.ad.Scalar(Ceq) - c_Li_bulk)
+
+                    r = pp.ad.Scalar(k_0) * driving_force * s_Li_bulk / s_Li0_bulk
+                    return r
+
+                reaction.reaction_rate = rr
+            else:
+
+                def rr_eq(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(0.0, "equilibrium_reaction_rate")
+
+                reaction.reaction_rate = rr_eq
+
+        return reactions
+
+    def rate_constant(self, reaction: pp.Reaction):
+        return 2.8e-5
+        # set a fake rate constant
+
+    def equilibrium_lithium_concentration(self, reaction: pp.Reaction):
+        """
+        Obtained from Schmidt et al.(2025), Goldschmidt Abstracts Abstr. 29287.
+        units: mmol L^-1 = mol m^-3 water
+        """
+        return 0.25
+        # set the equilibrium lithium concentration
+
+
 
 class ModifiedSourceAsWells:
 

@@ -592,3 +592,25 @@ class ExportingSpeciesConcentration:
                     initial_concentration = self.ic_values_species_concentration(comp, subdomain)
                     data.append((subdomain,"species_concentration_anomaly",concentration- initial_concentration))
         return data
+    
+
+class ExportingDataForMineralDissolution:
+    def data_to_export(self) -> list[DataInput]:
+        data=super().data_to_export()
+        #sds=self.mdg.subdomains(dim=self.nd)
+        sds=self.mdg.subdomains()
+
+
+        
+        for subdomain in sds:
+            porosity=self.evaluate_and_scale([subdomain],"porosity","-")
+            data.append((subdomain,"porosity",porosity))
+
+            for comp in self.fluid.components:
+                concentration=self.evaluate_and_scale_compositional([subdomain],"molar_bulk_concentration", "", component=comp)
+                data.append((subdomain,"bulk_concentration_"+comp.name,concentration))
+                if comp.name== "Li+":
+                    lithium_concentration = concentration / porosity
+                    data.append((subdomain,"lithium_concentration",lithium_concentration))
+
+        return data
