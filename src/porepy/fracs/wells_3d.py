@@ -517,11 +517,24 @@ def _points_on_fractures_2d(split_fractures):
 def _points_on_fractures_3d(split_fractures):
     fracture_inds = []
     all_fracture_points = []
+
+    # Find embedded points
     for i, fracture in enumerate(split_fractures):
         for sub_frac in fracture:
             for point in gmsh.model.mesh.get_embedded(*sub_frac):
                 all_fracture_points.extend([point[1]])
                 fracture_inds += [i]
+
+    # Find intersections on the fracture boundary
+    for i, fracture in enumerate(split_fractures):
+        boundary_lines = gmsh.model.get_boundary(fracture, oriented=False)
+        boundary_points = []
+        for line in boundary_lines:
+            boundary_points.extend(gmsh.model.get_boundary([line], oriented=False))
+            fracture_inds += [i] * len(boundary_points)
+
+    all_fracture_points.extend([p[1] for p in boundary_points])
+
     if len(all_fracture_points) > 0:
         all_fracture_points = np.hstack(all_fracture_points)
     else:
