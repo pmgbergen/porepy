@@ -497,10 +497,14 @@ def _unit_scaling_label(units: pp.Units) -> str:
 def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.ndarray:
     """Run the probe model under `units`; return primary variable in SI."""
 
+    # Convert cell_size to internal so the resolved mesh is invariant under units.
+    cell_size_si = 0.5
+    cell_size_internal = units.convert_units(cell_size_si, "m")
+
     params: dict[str, Any] = {
         "units": units,
         "fracture_indices": [],
-        "meshing_arguments": {"cell_size": 0.5},
+        "meshing_arguments": {"cell_size": cell_size_internal},
         "times_to_export": [],
     }
     model = spec.probe_model_class(params)
@@ -546,8 +550,8 @@ def _assert_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
 
 
 # Empirically verified unit for bc_values_darcy_flux in 2D: integrated Darcy flux
-# in porepy is K*grad(p)*area, unit m^nd * Pa (nd = ambient dim).
-
+# is K*grad(p)*face_area, SI unit m^nd * Pa where nd is the ambient dimension.
+# In 2D, this gives m^2*Pa.
 _DARCY_FLUX_UNIT: str = "m^2*Pa"
 _DARCY_FLUX_VALUE_SI: float = 1.0e-3
 
@@ -593,3 +597,64 @@ def test_bc_values_darcy_flux_unit_invariance(units: pp.Units) -> None:
 def test_bc_values_darcy_flux_baseline_well_posed() -> None:
     """Sanity check: SI baseline is finite and non-degenerate."""
     _assert_baseline_well_posed(_DARCY_FLUX_SPEC)
+
+
+# Empirically verified unit for bc_values_fourier_flux in 2D: integrated conducted
+# heat flux lambda * grad(T)* face_area, SI unit W * m^(nd-3) where nd is the
+# ambient dimension. In 2D this gives W * m^-1.
+_FOURIER_FLUX_UNIT: str = "W*m^-1"
+_FOURIER_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _FourierFluxBCProbe(SquareDomainOrthogonalFractures, pp.MassAndEnergyBalance):
+    """Mass + energy transport: Dirichlet p=0 and T=0 on west, Neumann zero flow
+    everywhere; Neumann Fourier flux on east. Pressure is pinned to
+    isolate Fourier conduction as the only driver of the temperature field.
+
+    """
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _FOURIER_FLUX_VALUE_SI, _FOURIER_FLUX_UNIT
+        )
+        return vals
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_fourier_flux: probe model, primary variable
+# accessor (temperature on the matrix subdomain), and the declared BC unit.
+_FOURIER_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_FourierFluxBCProbe,
+    probe_label="fourier_flux",
+    primary_variable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.temperature([sd])
+    ),
+    primary_variable_si_unit="K",
+    declared_bc_unit=_FOURIER_FLUX_UNIT,
+)
+
+
+@pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
+def test_bc_values_fourier_flux_unit_invariance(units: pp.Units) -> None:
+    """Recovered SI temperature is invariant under unit rescaling."""
+    _assert_bc_unit_invariance(_FOURIER_FLUX_SPEC, units)
+
+
+def test_bc_values_fourier_flux_baseline_well_posed() -> None:
+    """Sanity check: SI baseline is finite and non-degenerate."""
+    _assert_baseline_well_posed(_FOURIER_FLUX_SPEC)
