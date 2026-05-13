@@ -239,7 +239,7 @@ class Mpsa(Discretization):
         # active, extracted_faces = arange(sd.num_faces) and this is a no-op.
         if isinstance(eta, np.ndarray):
             eta = _fvutils.adjust_eta_length(
-                eta=eta, sub_sd=active_grid, l2g_faces=extracted_faces, sd=sd
+                eta=eta, l2g_faces=extracted_faces, parent_grid=sd
             )
 
         # Bookkeeping.
@@ -310,7 +310,7 @@ class Mpsa(Discretization):
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
                 loc_eta = _fvutils.adjust_eta_length(
-                    eta=eta, sub_sd=sub_g, l2g_faces=l2g_faces, sd=active_grid
+                    eta=eta, l2g_faces=l2g_faces, parent_grid=active_grid
                 )
 
             # Non-array eta suggests eta is scalar. Thus no changes happen to eta.

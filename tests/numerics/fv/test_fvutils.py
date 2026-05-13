@@ -317,7 +317,7 @@ def test_adjust_eta_length_uniform_faces():
     l2g_faces = np.array([0, 2])
 
     # Call with a trivial sub_sd (not used in the new implementation).
-    loc_eta = _fvutils.adjust_eta_length(eta=eta, sub_sd=sd, l2g_faces=l2g_faces, sd=sd)
+    loc_eta = _fvutils.adjust_eta_length(eta=eta, l2g_faces=l2g_faces, parent_grid=sd)
 
     # Face 0 occupies slots 0-1, face 2 occupies slots 4-5 in the indptr
     # (each face has 2 nodes, so face f starts at slot 2*f).
@@ -369,7 +369,7 @@ def test_adjust_eta_length_mixed_nodes_per_face():
     # Request f0 (triangle, 3 nodes) and f2 (quad, 4 nodes).
     l2g_faces = np.array([0, 2])
 
-    loc_eta = _fvutils.adjust_eta_length(eta=eta, sub_sd=sd, l2g_faces=l2g_faces, sd=sd)
+    loc_eta = _fvutils.adjust_eta_length(eta=eta, l2g_faces=l2g_faces, parent_grid=sd)
 
     # fn_indptr = [0, 3, 6, 10, 14, 18], so:
     #   f0 (triangle) occupies slots 0-2  -> eta values [0, 1, 2]

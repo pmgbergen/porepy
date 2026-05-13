@@ -212,7 +212,7 @@ class Mpfa(pp.FVElliptic):
         # indexes eta correctly.
         if isinstance(eta, np.ndarray) and active_cells.size < sd.num_cells:
             eta = _fvutils.adjust_eta_length(
-                eta=eta, sub_sd=active_grid, l2g_faces=extracted_faces, sd=sd
+                eta=eta, l2g_faces=extracted_faces, parent_grid=sd
             )
 
         # Bookkeeping.
@@ -293,7 +293,7 @@ class Mpfa(pp.FVElliptic):
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
                 loc_eta = _fvutils.adjust_eta_length(
-                    eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces, sd=active_grid
+                    eta=eta, l2g_faces=l2g_faces, parent_grid=active_grid
                 )
 
             # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
