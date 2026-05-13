@@ -756,9 +756,10 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.
 
-        The values are used on the boundary for :math:`c \\nabla T` where Neumann data
-        is required for the whole expression
-        (``c`` being the conductivity on the boundary).
+        The values represent the boundary contribution of :math:`c \\nabla T`
+        integrated over each boundary face, with SI unit
+        :math:`\\mathrm{W} \\cdot \\mathrm{m}^{n_d - 3}` where :math:`n_d` is the
+        ambient dimension and ``c`` is the conductivity.
 
         Important:
             Override this method to provide custom Neumann boundary data for
