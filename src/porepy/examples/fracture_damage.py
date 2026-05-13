@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from typing import Any, Callable, cast
 
@@ -7,6 +8,11 @@ import porepy as pp
 from porepy.applications.boundary_conditions.model_boundary_conditions import (
     BoundaryConditionsMechanicsDirNorthSouth,
 )
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
+from porepy.applications.test_utils.models import ContactMechanicsTester, add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
 
@@ -600,3 +606,178 @@ model_params = {
     "interface_displacement_parameter_values": north_displacements_3d,
     "times_to_export": [],  # Suppress export of data for testing.
 }
+
+
+class IsotropicFractureDamage(  # type: ignore[misc]
+    damage.IsotropicHistoryEquation,
+    DamageDataSaving,
+    ContactMechanicsTester,
+    FractureDamageContactMechanics,
+):
+    """Isotropic fracture damage model.
+
+    The equations are fracture damage and contact mechanics. Variables are contact
+    traction and damage history. The model is isotropic, i.e., the damage history is
+    independent of the loading direction.
+
+    Also contains specifics defining a test case.
+
+    """
+
+
+class AnisotropicFractureDamage(  # type: ignore[misc]
+    damage.AnisotropicHistoryEquation,
+    DamageDataSaving,
+    ContactMechanicsTester,
+    FractureDamageContactMechanics,
+):
+    """Anisotropic fracture damage model.
+
+    The equations are fracture damage and contact mechanics. Variables are contact
+    traction and damage history. The model is anisotropic, i.e., the damage history is
+    dependent on the loading direction.
+
+    Also contains specifics defining a test case.
+    """
+
+
+class FractureDamageMomentumBalance(  # type: ignore[misc]
+    damage.IsotropicHistoryEquation,
+    DamageDataSaving,
+    DamageBase,
+    TimeDependentDamageBCs,
+    pp.MomentumBalance,
+):
+    """Fracture damage momentum balance model.
+
+    This model combines fracture damage mechanics with momentum balance and force
+    balance across interfaces. Variables are matrix and interface displacements, contact
+    traction, and damage history. The model is isotropic, i.e., the damage history is
+    independent of the loading direction.
+
+    Also contains specifics defining a test case in terms of the boundary conditions.
+
+    """
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    # Run a selected fracture damage example.
+
+    # This executable block provides a lightweight demonstration of running a fracture
+    # damage model.
+
+    # Three model variants are available by setting the parameter `model_type`:
+    #     - "isotropic": the contact mechanics model with isotropic damage history.
+    #     - "anisotropic": the contact mechanics model with anisotropic damage history.
+    #     - "momentum_balance": the momentum balance model of fracture damage with
+    #     time-dependent displacement boundary conditions.
+
+    # The parameter `regime` controls which mechanisms will be activated. Three regimes
+    # are available: "dilation", "friction", or "both".
+
+    # The contact mechanics models (isotropic and anisotropic) are configured using the
+    # parameter dictionary with the key "interface_displacement_parameter_values",
+    # while the momentum balance model uses the key "north_displacements" to provide
+    # time-dependent displacement boundary conditions.
+
+    # The default example is set to the "isotropic" type of model with a "dilation"
+    # damage regime in 2D.
+
+    def common_params(time_steps: int, regime: str) -> dict:
+        """Build common parameters used for three different fracture damage models.
+
+        Parameters:
+            time_steps: Number of time steps to run the model for.
+            regime: Damage regime, which can be "dilation", "friction", or "both".
+                This determines the additional parameters to be added to the solid
+                parameters, and thus which damage mechanism(s) are active.
+
+        Returns:
+            Dictionary of parameters to be passed on model initialization.
+        """
+        additional_solid_params = {
+            "dilation": {
+                "initial_friction_damage": 1.0,
+                "initial_dilation_damage": 2.0,
+            },
+            "friction": {
+                "initial_friction_damage": 1.5,
+                "initial_dilation_damage": 1.0,
+            },
+            "both": {
+                "initial_friction_damage": 1.1,
+                "initial_dilation_damage": 1.1,
+            },
+        }
+
+        params_local = copy.deepcopy(model_params)
+        solid_params_local = {**solid_params, **additional_solid_params[regime]}
+        params_local.update(
+            {
+                "material_constants": {
+                    "solid": FractureDamageSolidConstants(
+                        **solid_params_local  # type: ignore[arg-type]
+                    )
+                },
+                "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
+            }
+        )
+
+        return params_local
+
+    # Choose a model type: "isotropic", "anisotropic", or "momentum_balance".
+    model_type = "isotropic"
+    dim = 2  # 2D case
+    time_steps = 7
+
+    # Choose a damage regime: "dilation", "friction", or "both".
+    regime = "dilation"
+
+    params_local = common_params(time_steps, regime)
+
+    if model_type == "isotropic":
+        # Parameter setup for the contact mechanics model.
+        params_local["exact_solution"] = ExactSolutionIsotropic
+        params_local["interface_displacement_parameter_values"] = params_local[
+            "interface_displacement_parameter_values"
+        ][:dim]
+        model_class = add_mixin(
+            SquareDomainOrthogonalFractures,  # type: ignore[type-abstract]
+            IsotropicFractureDamage,  # type: ignore[type-abstract]
+        )
+
+    elif model_type == "anisotropic":
+        # Parameter setup for the contact mechanics model.
+        params_local["exact_solution"] = ExactSolutionAnisotropic
+        params_local["interface_displacement_parameter_values"] = params_local[
+            "interface_displacement_parameter_values"
+        ][:dim]
+        model_class = add_mixin(
+            SquareDomainOrthogonalFractures,  # type: ignore[type-abstract]
+            AnisotropicFractureDamage,  # type: ignore[type-abstract]
+        )
+
+    elif model_type == "momentum_balance":
+        # Parameter setup for the momentum balance model.
+        params_local["exact_solution"] = ExactSolutionIsotropic
+        params_local["north_displacements"] = params_local["north_displacements"][:dim]
+        model_class = add_mixin(
+            SquareDomainOrthogonalFractures,  # type: ignore[type-abstract]
+            FractureDamageMomentumBalance,  # type: ignore[type-abstract]
+        )
+
+    else:
+        raise ValueError(f"Invalid model type: {model_type}")
+
+    model = model_class(params_local)  # type: ignore[abstract]
+    if model_type == "momentum_balance":
+        # In some cases, the momentum balance model cannot converge with the default
+        # solver settings. A relaxed nonlinear solver setting is used for the executable
+        # example.
+        pp.run_time_dependent_model(
+            model,
+            {"nl_convergence_inc_atol": 1e-6, "nl_max_iterations": 25},
+        )
+    else:
+        pp.run_time_dependent_model(model)

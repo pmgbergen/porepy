@@ -109,7 +109,7 @@ def _run_buoyancy_model(
         },
     }
 
-    pp.run_time_dependent_model(model, solver_params)
+    pp.ModelRunner(model, solver_params).run()
 
 
 @pytest.mark.skipped  # reason: slow

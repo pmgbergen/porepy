@@ -46,7 +46,7 @@ def setup(
         forward steps. For a single forward step, pass 2.
 
     Returns:
-        A configured model instance ready to be run with pp.run_time_dependent_model.
+        A configured model instance ready to be run with pp.ModelRunner.
     """
     params_local = copy.deepcopy(damage_examples.model_params)
     model_class = damage_examples.FractureDamageMomentumBalance
@@ -130,7 +130,7 @@ def run_displacement_controlled_setup(
         **solid_params
     )  # type: ignore[arg-type]
     m = cls(model_params)
-    pp.run_time_dependent_model(m, solver_params)
+    pp.ModelRunner(m, solver_params).run()
 
     return m.results, m
 
@@ -382,7 +382,7 @@ def test_damage(
         isotropic=isotropic, dim=dim, damages=damages, time_steps=time_steps
     )
     m = cls(model_params)
-    pp.run_time_dependent_model(m, solver_params)
+    pp.ModelRunner(m, solver_params).run()
     # Initial time step is not included in VerificationDataSaving.
     for t in np.arange(time_steps - 1):
         # Retrieve stored results for time step t + 1. Test against exact solution for

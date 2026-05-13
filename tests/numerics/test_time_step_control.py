@@ -386,7 +386,7 @@ class TestParameterInputs:
         }
 
         model = SinglePhaseFlow(model_params)
-        pp.run_time_dependent_model(model)
+        pp.ModelRunner(model).run()
         performed_time_steps = model.time_manager.time_index
 
         assert performed_time_steps == num_time_steps
@@ -942,14 +942,10 @@ def test_model_time_step_control(params: dict):
             "times_to_export": [],  # Suspends export
         },
     )
-
-    pp.run_time_dependent_model(
-        model,
-        {
-            "nonlinear_solver": DynamicNewtonSolver,
-            "nl_convergence_inc_atol": 1e-6,
-            "nl_max_iterations": MAX_NONLINEAR_ITER,
-        },
-    )
-
+    solver_params = {
+        "nonlinear_solver": DynamicNewtonSolver,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": MAX_NONLINEAR_ITER,
+    }
+    pp.ModelRunner(model, solver_params).run()
     assert np.allclose(model.time_step_history, exported_dt_expected)

@@ -51,7 +51,7 @@ class FractureDamageVariables(pp.VariableMixin):
     contact_traction_variable: str
     """Contact traction variable."""
 
-    def update_solution(self, solution: np.ndarray) -> None:
+    def update_time_step_solution(self, solution: np.ndarray) -> None:
         """Update the solution with the damage variables.
 
         Parameters:
@@ -74,11 +74,11 @@ class FractureDamageVariables(pp.VariableMixin):
             if cls is pp.SolutionStrategy:
                 continue
             # Check if the class has its own implementation of update_solution.
-            update_solution_method = cls.__dict__.get("update_solution", None)
+            update_solution_method = cls.__dict__.get("update_time_step_solution", None)
             if update_solution_method is not None:
                 raise AssertionError(
-                    f"""The class {cls.__name__} implements update_solution, but the
-                    FractureDamageHistoryVariables class assumes only
+                    f"""The class {cls.__name__} implements update_time_step_solution,
+                    but the FractureDamageHistoryVariables class assumes only
                     pp.SolutionStrategy implements this method."""
                 )
 
