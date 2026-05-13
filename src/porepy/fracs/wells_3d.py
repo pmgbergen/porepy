@@ -544,24 +544,31 @@ def _points_on_fractures_3d(split_fractures):
 
 
 def _find_intersections(well_inds, all_well_points, all_fracture_points, fracture_inds):
-    intersections: list[IntersectionInfo] = []
-    addressed_well_points = set()
 
-    for wi, point_on_well in zip(well_inds, all_well_points):
-        if (
-            point_on_well not in addressed_well_points
-            and point_on_well in all_fracture_points
-        ):
-            addressed_well_points.add(point_on_well)
+    intersections: dict[tuple[int, int], set[int]] = {}
+    visited_point_fracture_combo = set()
 
-            # This will break if multiple fractures intersect the well at the same point
-            hit = np.where(all_fracture_points == point_on_well)[0]
-            fractures = list(set([fracture_inds[i] for i in hit]))
+    for wi, pi in zip(well_inds, all_well_points):
+        if pi in all_fracture_points:
+            in_fracture_inds = np.where(all_fracture_points == pi)[0]
+            for fi in list(set([fracture_inds[i] for i in in_fracture_inds])):
+                if (pi, wi, fi) in visited_point_fracture_combo:
+                    continue
+                visited_point_fracture_combo.add((pi, wi, fi))
+                val = intersections.get((pi, wi), set())
+                val.add(fi)
+                intersections[(pi, wi)] = val
 
-            coord = gmsh.model.get_bounding_box(0, point_on_well)[:3]
-            intersections.append(IntersectionInfo(coord, wi, fractures))
+    # Combine intersections with the same point and well indices - these will correspond
+    # to intersections between the well and a fracture intersection line or point.
+    merged_intersections: list[IntersectionInfo] = []
+    for (pi, wi), fi_set in intersections.items():
+        coord = gmsh.model.get_bounding_box(0, pi)[:3]
+        merged_intersections.append(
+            IntersectionInfo(coord=coord, well_index=wi, fracture_index=list(fi_set))
+        )
 
-    return intersections
+    return merged_intersections
 
 
 class IntersectionInfo(NamedTuple):
