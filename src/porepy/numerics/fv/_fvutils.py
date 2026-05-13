@@ -606,7 +606,8 @@ def adjust_eta_length(
         l2g_faces: Indices (in the global grid) of all faces in the subgrid. Represented
             as a numpy array, so that element i gives the global index of the i-th face
             in the subgrid.
-        parent_grid: The global (parent) grid. Used to determine global subface offsets per face.
+        parent_grid: The global (parent) grid. Used to determine global subface offsets
+            per face.
 
     Returns:
         An array of eta values corresponding to a grid that arises from from domain
