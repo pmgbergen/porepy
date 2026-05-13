@@ -298,3 +298,80 @@ def test_bound_exclusion():
     dir_ind = dir_ind[is_dir_nd[dir_ind]]
 
     assert np.all(dir_ind == reference["dir_inds"])
+
+
+def test_adjust_eta_length_uniform_faces():
+    """Check that adjust_eta_length correctly extracts subface eta values when all faces
+    have the same number of nodes (standard 2d Cartesian grid).
+    """
+    # 2x1 Cartesian grid: 3 vertical faces (2 nodes each) + 4 horizontal faces
+    # (2 nodes each) = 7 faces, 14 entries in the global face_nodes CSC indptr.
+    sd = pp.CartGrid([2, 1])
+    sd.compute_geometry()
+
+    # Build a global eta vector: one distinct value per subface slot.
+    n_global_subfaces = sd.face_nodes.tocsc().indptr[-1]
+    eta = np.arange(n_global_subfaces, dtype=float)
+
+    # Select a subset of faces (e.g. face 0 and face 2).
+    l2g_faces = np.array([0, 2])
+
+    # Call with a trivial sub_sd (not used in the new implementation).
+    loc_eta = _fvutils.adjust_eta_length(eta=eta, sub_sd=sd, l2g_faces=l2g_faces, sd=sd)
+
+    # Face 0 occupies slots 0-1, face 2 occupies slots 4-5 in the indptr
+    # (each face has 2 nodes, so face f starts at slot 2*f).
+    assert np.array_equal(loc_eta, np.array([0.0, 1.0, 4.0, 5.0]))
+
+
+def test_adjust_eta_length_mixed_nodes_per_face():
+    """adjust_eta_length works correctly when faces have different numbers of nodes.
+
+    In 3D, faces can be e.g. triangles (3 nodes) or quadrilaterals (4 nodes). This test
+    uses a triangular prism, which has 2 triangular faces and 3 quadrilateral faces (as
+    would be the result of a grid extrusion type 3d grid).
+
+    This test verifies that adjust_eta_length correctly gathers the subface eta values
+    for a subset of faces, even when the faces have different numbers of nodes (and thus
+    different numbers of subface slots in the global eta vector).
+    """
+    # Triangular prism: 6 nodes, 5 faces, 1 cell.
+    #   Bottom triangle: nodes 0, 1, 2
+    #   Top triangle:    nodes 3, 4, 5
+    nodes = np.array(
+        [[0, 1, 0.5, 0, 1, 0.5], [0, 0, 1, 0, 0, 1], [0, 0, 0, 1, 1, 1]],
+        dtype=float,
+    )
+
+    # face_nodes (CSC, 6 nodes x 5 faces):
+    #   f0 (bottom triangle): nodes [0, 1, 2]    -> 3 entries
+    #   f1 (top triangle):    nodes [3, 4, 5]    -> 3 entries
+    #   f2 (front quad):      nodes [0, 1, 3, 4] -> 4 entries
+    #   f3 (right quad):      nodes [1, 2, 4, 5] -> 4 entries
+    #   f4 (left quad):       nodes [0, 2, 3, 5] -> 4 entries
+    fn_indptr = np.array([0, 3, 6, 10, 14, 18])
+    fn_indices = np.array([0, 1, 2, 3, 4, 5, 0, 1, 3, 4, 1, 2, 4, 5, 0, 2, 3, 5])
+    face_nodes = sps.csc_matrix(
+        (np.ones(18, dtype=bool), fn_indices, fn_indptr), shape=(6, 5)
+    )
+
+    # cell_faces: all 5 faces belong to the single cell.
+    cell_faces = sps.csc_matrix(
+        (np.ones(5), (np.arange(5), np.zeros(5, dtype=int))), shape=(5, 1)
+    )
+
+    sd = pp.Grid(3, nodes, face_nodes, cell_faces, "prism")
+
+    # Assign a distinct eta value per global subface (node-face incidence).
+    # Total: 3 + 3 + 4 + 4 + 4 = 18 entries.
+    eta = np.arange(18, dtype=float)
+
+    # Request f0 (triangle, 3 nodes) and f2 (quad, 4 nodes).
+    l2g_faces = np.array([0, 2])
+
+    loc_eta = _fvutils.adjust_eta_length(eta=eta, sub_sd=sd, l2g_faces=l2g_faces, sd=sd)
+
+    # fn_indptr = [0, 3, 6, 10, 14, 18], so:
+    #   f0 (triangle) occupies slots 0-2  -> eta values [0, 1, 2]
+    #   f2 (quad)     occupies slots 6-9  -> eta values [6, 7, 8, 9]
+    assert np.array_equal(loc_eta, np.array([0.0, 1.0, 2.0, 6.0, 7.0, 8.0, 9.0]))
