@@ -480,14 +480,15 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Mobility-free Darcy flux values for the Neumann boundary condition.
 
-        The returned values represent the integrated quantity
-        :math:`\\int_\\sigma \\mathbf{K}\\nabla p \\cdot \\mathbf{n}\\, dA` on each
-        boundary face :math:`\\sigma`, with SI unit
-        :math:`\\mathrm{m}^{n_d} \\cdot \\mathrm{Pa} \\cdot \\mathrm{s}^{-1}` where
-        :math:`n_d` is the ambient dimension. The mobility :math:`1/\\mu` is
-        *not* included; it is applied downstream by the upwind scheme. To
-        convert to a true volumetric flux (:math:`\\mathrm{m}^{n_d}/\\mathrm{s}`),
-        multiply by the appropriate mobility.
+        The values correspond to the integrated quantity
+        :math:`\int_\sigma \mathbf{K}\nabla p \cdot \mathbf{n}\, dA` on each
+        boundary face :math:`\sigma`, with SI unit
+        :math:`\mathrm{m}^{n_d}\,\mathrm{Pa}`, where :math:`n_d`
+        is the ambient dimension.
+
+        The mobility term :math:`1/\mu` is *not* included. To convert to a true
+        volumetric flux (:math:`\mathrm{m}^{n_d}/\mathrm{s}`), multiply by the
+        appropriate mobility.
 
         Important:
             Override this method to provide custom Neumann data for the flux,
