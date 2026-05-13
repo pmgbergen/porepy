@@ -775,7 +775,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 z = (
                     component.mineral_saturation(domains)
-                    * pp.ad.Scalar(self.solid.total_porosity / component.molar_volume)
+                    * self.total_porosity(domains) / pp.ad.Scalar(component.molar_volume)
                     / self.total_molar_concentration(domains)
                 )
                 z.set_name(f"mineral_overall_fraction_{component.name}")
@@ -1279,7 +1279,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             solid_molar_concentration = pp.ad.sum_operator_list(
                 [
                     comp.mineral_saturation(domains)
-                    * pp.ad.Scalar(self.solid.total_porosity)
+                    * self.total_porosity(domains)
                     / pp.ad.Scalar(comp.molar_volume)
                     for comp in self.fluid.solid_components
                 ]
@@ -1337,9 +1337,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         rho_s = pp.ad.sum_operator_list(
             [
                 comp.mineral_saturation(domains)
-                * pp.ad.Scalar(self.solid.total_porosity)
+                * self.total_porosity(domains)
                 / pp.ad.Scalar(comp.molar_volume)
-                / (pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains))
+                / (self.total_porosity(domains) - self.porosity(domains))
                 for comp in self.fluid.solid_components
             ]
         )
@@ -2653,8 +2653,8 @@ class ReactionRatesKineticArrhenius:
                     for comp in reactive_species:
                         if comp in self.fluid.solid_components:
                             A = comp.mineral_saturation(domains) * pp.ad.Scalar(
-                                self.solid.total_porosity * Abar
-                            )
+                                Abar
+                            ) * self.total_porosity(domains)
                     r = pp.ad.Scalar(k_0) * A * (pp.ad.Scalar(1.0) - Omega)
                     return r
 
@@ -2894,7 +2894,7 @@ class ReactionRatesKineticFromExperiment:
                     for comp in reactive_species:
                         if comp in self.fluid.solid_components:
                             s_Li0_bulk=self.ic_minerals_bulk_concentration_wrap(comp, domains)
-                            s_Li_bulk=comp.mineral_saturation(domains)* self.solid.total_porosity/comp.molar_volume
+                            s_Li_bulk=comp.mineral_saturation(domains)* self.total_porosity(domains)/pp.ad.Scalar(comp.molar_volume)
                         elif comp.name=="Li+":
                             c_Li_bulk=self.molar_bulk_concentration(comp,domains)
                     phi=self.porosity(domains)
@@ -3008,7 +3008,7 @@ class ModifiedSourceAsWells:
                     values=np.zeros(subdomain.num_cells, dtype=np.float64)
                     # Define injection and production cells
                     injection_mask, production_mask = self.well_masks_from_coordinates(subdomain)
-                    injected_fraction = self.ic_values_species_concentration(component, subdomain) / self.solid.total_porosity / self.fluid.reference_component.molar_density
+                    injected_fraction = self.ic_values_species_concentration(component, subdomain) / self.total_porosity([subdomain]) / self.fluid.reference_component.molar_density
                     values[injection_mask] = self.injection_and_production_rates("injection") * injected_fraction[injection_mask]  # Injection rate (positive)
                     injection_terms.append(values)
             else:

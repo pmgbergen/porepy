@@ -5106,6 +5106,23 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
 
 
 class ReactiveTransportPorosity(pp.PorePyModel):
+
+    def total_porosity(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Total porosity for different layers.
+
+        Parameters:
+            subdomains: List of subdomains where the total porosity is defined.
+
+        Returns:
+            The total porosity represented as an Ad operator.
+
+        """
+
+        total_porosity = pp.ad.Scalar(self.solid.total_porosity)
+
+        return total_porosity
+
+
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity changes due to mineral dissolution and dissipation [-].
 
@@ -5119,15 +5136,14 @@ class ReactiveTransportPorosity(pp.PorePyModel):
         if len(self.fluid.solid_components) > 0:
             sum0 = pp.ad.sum_operator_list(
                 [
-                    pp.ad.Scalar(self.solid.total_porosity)
+                    self.total_porosity(subdomains)
                     * comp.mineral_saturation(subdomains)
                     for comp in self.fluid.solid_components
                 ]
             )
         else:
             sum0 = pp.ad.Scalar(0.0)
-        phi = pp.ad.Scalar(self.solid.total_porosity) - sum0
-        phi.set_name("reactive_transport_porosity")
+        phi = self.total_porosity(subdomains) - sum0
         return phi
 
 
@@ -5135,33 +5151,18 @@ class ReactiveTransportPorosity(pp.PorePyModel):
 
 class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
 
-    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Porosity changes due to mineral dissolution and dissipation [-].
+    def total_porosity(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Total porosity for different layers.
 
         Parameters:
-            subdomains: List of subdomains where the porosity is defined.
+            subdomains: List of subdomains where the total porosity is defined.
 
-        Depth intervals (m) and porosity values:
-
-        - Overburden (0–1650 m):                    0.137
-        - Muschelkalk (1650–1800 m):                0.145
-        - Buntsandstein + Permian (1800–2150 m):    0.05
-        - Crystalline basement (>=2150 m):          0.036
-
-        Reference:
-            "Thermo-hydraulic modeling of the northern Upper Rhine Graben using OpenGeoSys.
-            In: Proceedings of the Geothermiekongress DGK 2025, 18–20 November 2025, Germany."
-            
         Returns:
-            The porosity represented as an Ad operator.
+            The total porosity represented as an Ad operator.
 
         """
-        k_all = []
 
-        size=sum(sd.num_cells for sd in subdomains)
-        if size == 0:
-            porosity= pp.wrap_as_dense_ad_array(0, size=0)
-            return porosity
+        k_all = []
 
 
         for sd in subdomains:
@@ -5185,12 +5186,42 @@ class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
             else:
                 k_all.append(np.ones(sd.num_cells))
 
-        k_all = np.concatenate(k_all)
+        total_porosity = pp.wrap_as_dense_ad_array(np.hstack(k_all))
 
-        total_porosity = pp.wrap_as_dense_ad_array(
-            k_all, k_all.size, name="porosity"
-        )
 
+        return total_porosity
+
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity changes due to mineral dissolution and dissipation [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Depth intervals (m) and porosity values:
+
+        - Overburden (0–1650 m):                    0.137
+        - Muschelkalk (1650–1800 m):                0.145
+        - Buntsandstein + Permian (1800–2150 m):    0.05
+        - Crystalline basement (>=2150 m):          0.036
+
+        Reference:
+            "Thermo-hydraulic modeling of the northern Upper Rhine Graben using OpenGeoSys.
+            In: Proceedings of the Geothermiekongress DGK 2025, 18–20 November 2025, Germany."
+            
+        Returns:
+            The porosity represented as an Ad operator.
+
+        """
+
+        size=sum(sd.num_cells for sd in subdomains)
+        if size == 0:
+            porosity= pp.wrap_as_dense_ad_array(0, size=0)
+            return porosity
+
+
+
+        total_porosity = self.total_porosity(subdomains)
 
 
 
@@ -5205,5 +5236,4 @@ class LayerSpecificReactiveTransportPorosity(pp.PorePyModel):
         else:
             sum0 = pp.ad.Scalar(0.0)
         phi = total_porosity - sum0
-        phi.set_name("reactive_transport_porosity")
         return phi

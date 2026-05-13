@@ -676,7 +676,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         if component in self.fluid.solid_components:
             mass_density = (
                 component.mineral_saturation(subdomains)
-                * pp.ad.Scalar(self.solid.total_porosity)
+                * self.total_porosity(subdomains)
                 / pp.ad.Scalar(component.molar_volume)
             )
         else:
@@ -1987,7 +1987,7 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             # Some initial mineral saturation.
         initial_conc = self.ic_mineral_bulk_concentration(component, sd)
 
-        return component.molar_volume * initial_conc / self.solid.total_porosity
+        return component.molar_volume * initial_conc / self.total_porosity([sd])
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for fractions at iterate index 0.
@@ -2092,7 +2092,7 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
         for comp in self.fluid.solid_components:
             ms += self.ic_values_mineral_saturation(comp, sd)
 
-        porosity = self.solid.total_porosity * (np.ones(sd.num_cells) - ms)
+        porosity = self.total_porosity([sd])._values * (np.ones(sd.num_cells) - ms)
         if component in self.fluid.solid_components:
             ic = self.ic_mineral_bulk_concentration(component, sd)
         elif component.name != "H2O":
@@ -2142,7 +2142,7 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             to zero array.
 
         """
-        total_conc = np.zeros(sd.num_cells, dtype=np.float64)
+        total_conc = np.zeros(sd.num_cells)
         for comp in self.fluid.components:
             total_conc += self.ic_values_species_concentration(comp, sd)
 
