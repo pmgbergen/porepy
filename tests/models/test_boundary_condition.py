@@ -535,19 +535,20 @@ def _assert_bc_unit_invariance(
 
 def _assert_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
     """Guard against trivially-passing tests (zero/NaN/symmetric solution)."""
-    
+
     baseline = _run_and_recover_in_si(spec, pp.Units())
-    assert np.all(
-        np.isfinite(baseline)
-    ), f"Baseline for '{spec.probe_label}' contains non-finite values."
-    assert (
-        np.max(np.abs(baseline)) > 0.0
-    ), f"Baseline for '{spec.probe_label}' is identically zero."
+    assert np.all(np.isfinite(baseline)), (
+        f"Baseline for '{spec.probe_label}' contains non-finite values."
+    )
+    assert np.max(np.abs(baseline)) > 0.0, (
+        f"Baseline for '{spec.probe_label}' is identically zero."
+    )
 
 
-# Empirically verified unit for bc_values_darcy_flux in 2D: integrated Darcy flux 
-# in porepy is K*grad(p)*area, unit m^nd * Pa * s^-1 (nd = ambient dim).
-_DARCY_FLUX_UNIT: str = "m^2*Pa*s^-1"
+# Empirically verified unit for bc_values_darcy_flux in 2D: integrated Darcy flux
+# in porepy is K*grad(p)*area, unit m^nd * Pa (nd = ambient dim).
+
+_DARCY_FLUX_UNIT: str = "m^2*Pa"
 _DARCY_FLUX_VALUE_SI: float = 1.0e-3
 
 
