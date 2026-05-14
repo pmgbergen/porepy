@@ -310,8 +310,7 @@ def match_grids_along_1d_mortar(
         sort_ind = pp.sort_points.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
         unique_nodes, _, _ = pp.array_operations.uniquify_point_set(n, tol=tol)
-        g = TensorGrid(np.arange(unique_nodes.shape[1]))
-        g.nodes = unique_nodes
+        g = pp.fracs.msh_2_grid.create_embedded_line_grid(unique_nodes, sort=False)
         g.compute_geometry()
         return g, sort_ind
 
