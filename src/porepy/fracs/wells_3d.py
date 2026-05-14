@@ -540,10 +540,14 @@ def _points_on_fractures_3d(split_fractures):
     return merged_fracture_points, fracture_inds
 
 
-def _find_intersections(well_inds, all_well_points, all_fracture_points, fracture_inds):
+def _match_well_and_fracture_points(
+    well_inds, all_well_points, all_fracture_points, fracture_inds
+):
+    # Find the points that are shared between wells and fractures. These correspond
+    # to intersections.
+
     intersections: dict[tuple[int, int], set[int]] = {}
     visited_point_fracture_combo = set()
-
     for wi, pi in zip(well_inds, all_well_points):
         if pi in all_fracture_points:
             in_fracture_inds = np.where(all_fracture_points == pi)[0]
@@ -555,10 +559,19 @@ def _find_intersections(well_inds, all_well_points, all_fracture_points, fractur
                 val.add(fi)
                 intersections[(pi, wi)] = val
 
+    return intersections
+
+
+def _find_intersections(well_inds, all_well_points, all_fracture_points, fracture_inds):
     # Combine intersections with the same point and well indices - these will correspond
     # to intersections between the well and a fracture intersection line or point.
+
+    common_points = _match_well_and_fracture_points(
+        well_inds, all_well_points, all_fracture_points, fracture_inds
+    )
+
     merged_intersections: list[IntersectionInfo] = []
-    for (pi, wi), fi_set in intersections.items():
+    for (pi, wi), fi_set in common_points.items():
         coord = gmsh.model.get_bounding_box(0, pi)[:3]
         merged_intersections.append(
             IntersectionInfo(coord=coord, well_index=wi, fracture_index=list(fi_set))
