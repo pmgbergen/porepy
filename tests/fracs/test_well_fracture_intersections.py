@@ -34,27 +34,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
-# Helper - import the function under test.
-# This import will fail until the function is implemented; all tests that depend
-# on it are therefore skipped so that the test file can be collected cleanly
-# even before the function is available.
-try:
-    from porepy.fracs.wells_3d import intersect_well_fractures
-
-    _FUNCTION_AVAILABLE = True
-except ImportError:
-    _FUNCTION_AVAILABLE = False
-
-
-# Decorator applied to every test that calls the target function.
-requires_implementation = pytest.mark.skipif(
-    not _FUNCTION_AVAILABLE,
-    reason=(
-        "The function 'intersect_well_fractures' is not yet implemented (issue #1635)."
-    ),
-)
-
+from porepy.fracs.wells_3d import intersect_well_fractures
 
 # Tolerance used throughout for coordinate comparisons.
 TOL = 1e-10
@@ -346,7 +326,6 @@ def _find_intersection(
     ],
     ids=lambda x: x if isinstance(x, str) else None,
 )
-@requires_implementation
 def test_intersect_well_fractures_basic_geometries(
     case_name: str,
     well: pp.Well,
@@ -436,7 +415,6 @@ def test_intersect_well_fractures_basic_geometries(
     ],
     ids=lambda x: x if isinstance(x, str) else None,
 )
-@requires_implementation
 def test_well_intersects_no_fractures(case_name, well, fractures) -> None:
     """Test that verify that a well with no geometric intersection returns
     an empty result.
@@ -497,7 +475,6 @@ def test_well_intersects_no_fractures(case_name, well, fractures) -> None:
     ],
     ids=lambda x: x if isinstance(x, str) else None,
 )
-@requires_implementation
 def test_single_fracture_intersected_by_multiple_wells(
     case_name,
     wells,
@@ -591,7 +568,6 @@ def test_single_fracture_intersected_by_multiple_wells(
     ],
     ids=lambda x: x if isinstance(x, str) else None,
 )
-@requires_implementation
 def test_well_intersects_shared_fracture_intersection_in_3d(
     case_name,
     well,
@@ -628,7 +604,6 @@ def test_well_intersects_shared_fracture_intersection_in_3d(
     np.testing.assert_allclose(coord, expected_coord, atol=TOL)
 
 
-@requires_implementation
 def test_2d_multiple_fractures_same_point():
     """
     Test verify that a well intersecting the intersection point of two 2D fractures
