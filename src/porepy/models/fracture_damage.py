@@ -51,7 +51,7 @@ class FractureDamageVariables(pp.VariableMixin):
     contact_traction_variable: str
     """Contact traction variable."""
 
-    def update_time_step_solution(self, solution: np.ndarray) -> None:
+    def update_time_step_solution(self) -> None:
         """Update the solution with the damage variables.
 
         Parameters:
@@ -96,7 +96,8 @@ class FractureDamageVariables(pp.VariableMixin):
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices), variables=other_vars
         )
-
+        # Finally, update the solution with the new time step values for all variables.
+        solution = self.equation_system.get_variable_values(iterate_index=0)
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
