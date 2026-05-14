@@ -457,41 +457,38 @@ def create_0d_grids(
 
 
 def create_embedded_line_grid(
-    loc_coord: np.ndarray, glob_id: np.ndarray, tol: float = 1e-4
+    loc_coord: np.ndarray,
+    glob_id: np.ndarray | None = None,
+    sort: bool = True,
+    tol: float = 1e-4,
 ) -> pp.Grid:
     """Create a 1d grid embedded in a higher dimensional space.
 
     Parameters:
         loc_coord: Coordinates of points to be used in the grid.
         glob_id : Global indexes of the points. Typically refers to a global mesh, where
-            the points of this grid is a subset.
+            the points of this grid is a subset. If provided, the returned grid will
+            have an attribute ``global_point_ind`` that maps from local to global point
+            numbering.
+        sort: Whether to sort the points. The sorting assumes the points are colinear.
         tol: Tolerance used for check of collinearity of the points.
 
     Returns:
         g: 1d grid.
 
     """
-    loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-    (
-        sorted_coord,
-        rot,
-        active_dimension,
-        sort_ind,
-    ) = pp.map_geometry.project_points_to_line(loc_coord, tol)
-    g = pp.TensorGrid(sorted_coord)
+    if sort:
+        *_, sort_ind = pp.map_geometry.project_points_to_line(loc_coord, tol=tol)
+        loc_coord = loc_coord[:, sort_ind]
+    else:
+        sort_ind = np.arange(loc_coord.shape[1])
 
-    # Project back to active dimension.
-    nodes = np.zeros(g.nodes.shape)
-    nodes[active_dimension] = g.nodes[0]
-    g.nodes = nodes
-
-    # Project back again to 3d coordinates.
-    irot = rot.transpose()
-    g.nodes = irot.dot(g.nodes)
-    g.nodes += loc_center
+    g = pp.TensorGrid(np.arange(loc_coord.shape[1]))
+    g.nodes = loc_coord
 
     # Add mapping to global point numbers.
-    g.global_point_ind = glob_id[sort_ind]
+    if glob_id is not None:
+        g.global_point_ind = glob_id[sort_ind]
     return g
 
 
