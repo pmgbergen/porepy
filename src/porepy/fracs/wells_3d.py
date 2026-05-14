@@ -502,54 +502,67 @@ def _points_on_fractures(split_fractures, nd):
 
 
 def _points_on_fractures_2d(split_fractures):
-    fracture_inds = []
-    all_fracture_points = []
-    for i, fracture in enumerate(split_fractures):
-        for fi, split_fracture in enumerate(fracture):
-            _, adjacent_points = gmsh.model.get_adjacencies(1, split_fracture[1])
-            all_fracture_points.extend(adjacent_points)
-            fracture_inds += [i] * len(adjacent_points)
-    merged_fracture_points = _merge_arrays(all_fracture_points)
-    return merged_fracture_points, fracture_inds
+    # Identify points on fractures in 2d, that is, line fractures.
+    points, inds = [], []
+    for fi, fracture in enumerate(split_fractures):
+        for sub_frac in fracture:
+            _, adjacent_points = gmsh.model.get_adjacencies(1, sub_frac[1])
+            points.extend(adjacent_points)
+            inds += [fi] * len(adjacent_points)
+    return _merge_arrays(points), inds
 
 
 def _points_on_fractures_3d(split_fractures):
-    fracture_inds = []
-    all_fracture_points = []
+    # Identify points on the fracture, both embedded and on the boundary.
+    def _find_embedded_points():
+        # Find points that are embedded in the fracture - that is, not on the boundary.
+        points, inds = [], []
+        for fi, fracture in enumerate(split_fractures):
+            for sub_frac in fracture:
+                for point in gmsh.model.mesh.get_embedded(*sub_frac):
+                    if point[0] == 0:
+                        points.extend([point[1]])
+                        inds += [fi]
+        return points, inds
 
-    # Find embedded points
-    for fi, fracture in enumerate(split_fractures):
-        for sub_frac in fracture:
-            for point in gmsh.model.mesh.get_embedded(*sub_frac):
-                all_fracture_points.extend([point[1]])
-                fracture_inds += [fi]
+    def _find_boundary_points():
+        # Find intersections on the fracture boundary
+        points, inds = [], []
+        for fi, fracture in enumerate(split_fractures):
+            for sub_frac in fracture:
+                boundary_lines = gmsh.model.get_boundary([sub_frac], oriented=False)
+                for line in boundary_lines:
+                    loc_points = gmsh.model.get_boundary([line], oriented=False)
+                    points.extend([p[1] for p in loc_points])
+                    inds += [fi] * len(loc_points)
+        return points, inds
 
-    # Find intersections on the fracture boundary
-    boundary_points = []
-    for fi, fracture in enumerate(split_fractures):
-        for sub_frac in fracture:
-            boundary_lines = gmsh.model.get_boundary([sub_frac], oriented=False)
-            for line in boundary_lines:
-                loc_points = gmsh.model.get_boundary([line], oriented=False)
-                boundary_points.extend([p[1] for p in loc_points])
-                fracture_inds += [fi] * len(loc_points)
+    embedded_points, fracture_inds_embedded = _find_embedded_points()
+    boundary_points, fracture_inds_boundary = _find_boundary_points()
 
-    all_fracture_points += boundary_points
-    merged_fracture_points = _merge_arrays(all_fracture_points)
-
-    return merged_fracture_points, fracture_inds
+    return _merge_arrays(
+        embedded_points + boundary_points
+    ), fracture_inds_embedded + fracture_inds_boundary
 
 
 def _match_well_and_fracture_points(
-    well_inds, all_well_points, all_fracture_points, fracture_inds
-):
+    well_inds: list[int],
+    all_well_points: np.ndarray,
+    all_fracture_points: np.ndarray,
+    fracture_inds: list[int],
+) -> dict[tuple[int, int], set[int]]:
     # Find the points that are shared between wells and fractures. These correspond
     # to intersections.
 
+    # Dictionary that maps (point index, well index) to a set of fracture indices.
     intersections: dict[tuple[int, int], set[int]] = {}
+    # Only register each point-well-fracture combination once.
     visited_point_fracture_combo = set()
+
     for wi, pi in zip(well_inds, all_well_points):
         if pi in all_fracture_points:
+            # Find all fractures that contain this point, loop over a unique set of
+            # these.
             in_fracture_inds = np.where(all_fracture_points == pi)[0]
             for fi in list(set([fracture_inds[i] for i in in_fracture_inds])):
                 if (pi, wi, fi) in visited_point_fracture_combo:
@@ -562,7 +575,12 @@ def _match_well_and_fracture_points(
     return intersections
 
 
-def _find_intersections(well_inds, all_well_points, all_fracture_points, fracture_inds):
+def _find_intersections(
+    well_inds: list[int],
+    all_well_points: np.ndarray,
+    all_fracture_points: np.ndarray,
+    fracture_inds: list[int],
+) -> list[IntersectionInfo]:
     # Combine intersections with the same point and well indices - these will correspond
     # to intersections between the well and a fracture intersection line or point.
 
@@ -604,12 +622,12 @@ def intersect_well_fractures(wells, fractures, nd):
     )
     gmsh.model.occ.synchronize()
 
-    # Find the segments after intersection.
-    split_fractures = split_objects[: len(fracture_tags)]
-    split_wells = split_objects[len(fracture_tags) :]
-
-    all_well_points, well_inds = _points_on_wells(split_wells, segment_to_wells)
-    all_fracture_points, fracture_inds = _points_on_fractures(split_fractures, nd)
+    all_well_points, well_inds = _points_on_wells(
+        split_objects[len(fracture_tags) :], segment_to_wells
+    )
+    all_fracture_points, fracture_inds = _points_on_fractures(
+        split_objects[: len(fracture_tags)], nd
+    )
 
     return _find_intersections(
         well_inds, all_well_points, all_fracture_points, fracture_inds
