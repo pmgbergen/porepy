@@ -475,6 +475,13 @@ def _export_wells_to_gmsh(wells: list[Well]) -> tuple[list[int], list[int]]:
     return unified_segments, segment_to_wells
 
 
+def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
+    if len(arrays) > 0:
+        return np.hstack(arrays)
+    else:
+        return np.array([], dtype=int)
+
+
 def _points_on_wells(split_wells, segment_to_wells):
     well_inds = []
     all_well_points = []
@@ -483,12 +490,7 @@ def _points_on_wells(split_wells, segment_to_wells):
             _, adjacent_points = gmsh.model.get_adjacencies(1, split_segment[1])
             all_well_points.extend(adjacent_points)
             well_inds += [segment_to_wells[i]] * len(adjacent_points)
-    all_well_points = np.hstack(all_well_points)
-    if len(all_well_points) > 0:
-        all_well_points = np.hstack(all_well_points)
-    else:
-        all_well_points = np.array([], dtype=int)
-
+    all_well_points = _merge_arrays(all_well_points)
     return all_well_points, well_inds
 
 
@@ -507,11 +509,8 @@ def _points_on_fractures_2d(split_fractures):
             _, adjacent_points = gmsh.model.get_adjacencies(1, split_fracture[1])
             all_fracture_points.extend(adjacent_points)
             fracture_inds += [i] * len(adjacent_points)
-    if len(all_fracture_points) > 0:
-        all_fracture_points = np.hstack(all_fracture_points)
-    else:
-        all_fracture_points = np.array([], dtype=int)
-    return all_fracture_points, fracture_inds
+    merged_fracture_points = _merge_arrays(all_fracture_points)
+    return merged_fracture_points, fracture_inds
 
 
 def _points_on_fractures_3d(split_fractures):
@@ -536,17 +535,12 @@ def _points_on_fractures_3d(split_fractures):
                 fracture_inds += [fi] * len(loc_points)
 
     all_fracture_points += boundary_points
+    merged_fracture_points = _merge_arrays(all_fracture_points)
 
-    if len(all_fracture_points) > 0:
-        all_fracture_points = np.hstack(all_fracture_points)
-    else:
-        all_fracture_points = np.array([], dtype=int)
-
-    return all_fracture_points, fracture_inds
+    return merged_fracture_points, fracture_inds
 
 
 def _find_intersections(well_inds, all_well_points, all_fracture_points, fracture_inds):
-
     intersections: dict[tuple[int, int], set[int]] = {}
     visited_point_fracture_combo = set()
 
@@ -580,7 +574,6 @@ class IntersectionInfo(NamedTuple):
 
 
 def intersect_well_fractures(wells, fractures, nd):
-
     if len(fractures) == 0 or len(wells) == 0:
         return {}
     gmsh.initialize()
