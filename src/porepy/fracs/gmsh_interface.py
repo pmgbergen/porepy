@@ -88,3 +88,9 @@ class PhysicalNames(Enum):
     Requires at least 2 fractures in 2D, and at least 3 fractures in 3D.
 
     """
+
+    WELL = "WELL_"
+    """Name tag for wells."""
+
+    WELL_FRACTURE_INTERSECTION_POINT = "WELL_FRACTURE_INTERSECTION_POINT_"
+    """Name tag for points at the intersection between wells and fractures."""
