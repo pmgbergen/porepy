@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Iterator, Optional, NamedTuple
 
+from dataclasses import dataclass
 
 import gmsh
 import numpy as np
@@ -482,16 +483,16 @@ def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
         return np.array([], dtype=int)
 
 
-def _points_on_wells(split_wells, segment_to_wells):
-    well_inds = []
-    all_well_points = []
-    for i, well_segment in enumerate(split_wells):
-        for si, split_segment in enumerate(well_segment):
-            _, adjacent_points = gmsh.model.get_adjacencies(1, split_segment[1])
-            all_well_points.extend(adjacent_points)
-            well_inds += [segment_to_wells[i]] * len(adjacent_points)
-    all_well_points = _merge_arrays(all_well_points)
-    return all_well_points, well_inds
+def _points_on_wells(wells):
+    inds = []
+    points = []
+    for well in wells:
+        for tag in well.tags:
+            _, adjacent_points = gmsh.model.get_adjacencies(well.dim, tag)
+            points.extend(adjacent_points)
+            inds += [well.index] * len(adjacent_points)
+    points = _merge_arrays(points)
+    return points, inds
 
 
 def _points_on_fractures(split_fractures, nd):
@@ -501,40 +502,42 @@ def _points_on_fractures(split_fractures, nd):
         return _points_on_fractures_3d(split_fractures)
 
 
-def _points_on_fractures_2d(split_fractures):
+def _points_on_fractures_2d(fractures):
     # Identify points on fractures in 2d, that is, line fractures.
     points, inds = [], []
-    for fi, fracture in enumerate(split_fractures):
-        for sub_frac in fracture:
-            _, adjacent_points = gmsh.model.get_adjacencies(1, sub_frac[1])
+    for frac in fractures:
+        for tag in frac.tags:
+            _, adjacent_points = gmsh.model.get_adjacencies(1, tag)
             points.extend(adjacent_points)
-            inds += [fi] * len(adjacent_points)
+            inds += [frac.index] * len(adjacent_points)
     return _merge_arrays(points), inds
 
 
-def _points_on_fractures_3d(split_fractures):
+def _points_on_fractures_3d(fractures):
     # Identify points on the fracture, both embedded and on the boundary.
     def _find_embedded_points():
         # Find points that are embedded in the fracture - that is, not on the boundary.
         points, inds = [], []
-        for fi, fracture in enumerate(split_fractures):
-            for sub_frac in fracture:
-                for point in gmsh.model.mesh.get_embedded(*sub_frac):
+        for fracture in fractures:
+            for tag in fracture.tags:
+                for point in gmsh.model.mesh.get_embedded(fracture.dim, tag):
                     if point[0] == 0:
                         points.extend([point[1]])
-                        inds += [fi]
+                        inds += [fracture.index]
         return points, inds
 
     def _find_boundary_points():
         # Find intersections on the fracture boundary
         points, inds = [], []
-        for fi, fracture in enumerate(split_fractures):
-            for sub_frac in fracture:
-                boundary_lines = gmsh.model.get_boundary([sub_frac], oriented=False)
+        for fracture in fractures:
+            for tag in fracture.tags:
+                boundary_lines = gmsh.model.get_boundary(
+                    [(fracture.dim, tag)], oriented=False
+                )
                 for line in boundary_lines:
                     loc_points = gmsh.model.get_boundary([line], oriented=False)
                     points.extend([p[1] for p in loc_points])
-                    inds += [fi] * len(loc_points)
+                    inds += [fracture.index] * len(loc_points)
         return points, inds
 
     embedded_points, fracture_inds_embedded = _find_embedded_points()
@@ -604,6 +607,39 @@ class IntersectionInfo(NamedTuple):
     fracture_index: list[int]
 
 
+@dataclass
+class Entity:
+    """Representation of a single geometric entity, in terms of gmsh tags.
+
+    The object may have been fragmented into multiple sub-entities.
+    """
+
+    index: int
+    dim: int
+    tags: list[int]
+
+
+def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
+    _, split_objects = gmsh.model.occ.fragment(
+        [(nd - 1, t) for t in fracture_tags],
+        [(1, t) for t in well_tags],
+        removeObject=True,
+        removeTool=True,
+    )
+    gmsh.model.occ.synchronize()
+    fractures = []
+    for fi, fracture in enumerate(split_objects[: len(fracture_tags)]):
+        gmsh_inds = [t[1] for t in fracture]
+        fractures.append(Entity(index=fi, dim=nd - 1, tags=gmsh_inds))
+
+    wells = []
+    for wi, well in enumerate(split_objects[len(fracture_tags) :]):
+        gmsh_inds = [t[1] for t in well]
+        wells.append(Entity(index=segment_to_wells[wi], dim=1, tags=gmsh_inds))
+
+    return fractures, wells
+
+
 def intersect_well_fractures(wells, fractures, nd):
     if len(fractures) == 0 or len(wells) == 0:
         return {}
@@ -614,20 +650,12 @@ def intersect_well_fractures(wells, fractures, nd):
 
     segment_inds, segment_to_wells = _export_wells_to_gmsh(wells)
 
-    _, split_objects = gmsh.model.occ.fragment(
-        [(nd - 1, t) for t in fracture_tags],
-        [(1, t) for t in segment_inds],
-        removeObject=True,
-        removeTool=True,
-    )
     gmsh.model.occ.synchronize()
-
-    all_well_points, well_inds = _points_on_wells(
-        split_objects[len(fracture_tags) :], segment_to_wells
+    fracture_entities, well_entities = _fragment_wells_fractures(
+        segment_inds, fracture_tags, nd, segment_to_wells
     )
-    all_fracture_points, fracture_inds = _points_on_fractures(
-        split_objects[: len(fracture_tags)], nd
-    )
+    all_well_points, well_inds = _points_on_wells(well_entities)
+    all_fracture_points, fracture_inds = _points_on_fractures(fracture_entities, nd)
 
     return _find_intersections(
         well_inds, all_well_points, all_fracture_points, fracture_inds
