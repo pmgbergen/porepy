@@ -242,7 +242,7 @@ def _find_intersection(
 def _run_case(case: IntersectionCase) -> tuple:
     return intersect_well_fractures(
         case.wells, case.fractures, _infer_dimension_from_fractures(case.fractures)
-    )
+    )[0]
 
 
 def _assert_case_result(
@@ -448,6 +448,20 @@ SHARED_INTERSECTION_EXPECTED = {
 }
 
 
+MULTIPLE_FRACTURES_SAME_POINT_2D_CASES = IntersectionCase(
+    "multiple_fractures_same_point_2d",
+    [make_well_2d(0, [(0.0, 2.0), (2.0, 0.0)])],
+    [
+        make_fracture_horizontal_at_y(0, 1.0),
+        make_fracture_vertical_at_x(1, 1.0),
+    ],
+)
+
+MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED = {
+    "multiple_fractures_same_point_2d": (np.array([1.0, 1.0, 0.0]), {0, 1}),
+}
+
+
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
 def test_intersect_well_fractures_basic_geometries(case: IntersectionCase) -> None:
     """
@@ -550,19 +564,13 @@ def test_2d_multiple_fractures_same_point():
     returns a single record with both fracture indices.
 
     """
-    well = make_well_2d(0, [(0.0, 2.0), (2.0, 0.0)])
-
-    fractures = [
-        make_fracture_horizontal_at_y(0, 1.0),
-        make_fracture_vertical_at_x(1, 1.0),
-    ]
-
-    result = intersect_well_fractures(
-        [well], fractures, _infer_dimension_from_fractures(fractures)
-    )
+    case = MULTIPLE_FRACTURES_SAME_POINT_2D_CASES
+    result = _run_case(case)
 
     assert len(result) == 1
-
-    coord = _find_intersection(result, 0, {0, 1})
+    expected_coord, expected_fracture_indices = (
+        MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED[case.name]
+    )
+    coord = _find_intersection(result, 0, expected_fracture_indices)
     assert coord is not None
-    np.testing.assert_allclose(coord, np.array([1.0, 1.0, 0.0]), atol=TOL)
+    np.testing.assert_allclose(coord, expected_coord, atol=TOL)

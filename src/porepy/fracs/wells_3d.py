@@ -657,8 +657,12 @@ def intersect_well_fractures(wells, fractures, nd):
     all_well_points, well_inds = _points_on_wells(well_entities)
     all_fracture_points, fracture_inds = _points_on_fractures(fracture_entities, nd)
 
-    return _find_intersections(
-        well_inds, all_well_points, all_fracture_points, fracture_inds
+    return (
+        _find_intersections(
+            well_inds, all_well_points, all_fracture_points, fracture_inds
+        ),
+        well_entities,
+        fracture_entities,
     )
 
 
