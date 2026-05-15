@@ -476,6 +476,10 @@ def _export_wells_to_gmsh(wells: list[Well]) -> tuple[list[int], list[int]]:
     return unified_segments, segment_to_wells
 
 
+def _export_fractures_to_gmsh(fractures: list[pp.Fracture]) -> list[int]:
+    return [fracture.fracture_to_gmsh() for fracture in fractures]
+
+
 def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
     if len(arrays) > 0:
         return np.hstack(arrays)
@@ -653,7 +657,7 @@ def intersect_well_fractures(wells, fractures, nd):
         return {}
     gmsh.initialize()
 
-    fracture_tags = [fracture.fracture_to_gmsh() for fracture in fractures]
+    fracture_tags = _export_fractures_to_gmsh(fractures)
     gmsh.model.occ.synchronize()
 
     segment_inds, segment_to_wells = _export_wells_to_gmsh(wells)
