@@ -19,7 +19,7 @@ import logging
 from typing import Iterator, Optional, NamedTuple
 
 from dataclasses import dataclass
-
+from pathlib import Path
 import gmsh
 import numpy as np
 import scipy.sparse as sps
@@ -27,6 +27,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+
+from .gmsh_interface import PhysicalNames
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -676,6 +678,58 @@ def intersect_well_fractures(wells, fractures, nd):
         well_entities,
         fracture_entities,
     )
+
+
+def mesh(
+    well_network: WellNetwork3d,
+    fracture_network: FractureNetwork3d,
+    mdg: pp.MixedDimensionalGrid,
+) -> None:
+    """Mesh the well network and add to the mixed-dimensional grid.
+
+    Parameters:
+        well_network: Network of wells. Dimension 2 or 3 must match that of the
+            fracture network.
+        fracture_network: Three-dimensional fracture network.
+        mdg: Mixed-dimensional grid to which the well grids will be added.
+
+    """
+    # Export to gmsh.
+    intersections, wells, fractures = intersect_well_fractures(
+        well_network.wells, fracture_network.fractures, fracture_network.nd
+    )
+    _set_physical_names(intersections, wells)
+    _set_mesh_size(wells, 1.0)
+    gmsh.model.mesh.generate(1)
+    file_name = Path("well_mesh.msh")
+    gmsh.write(file_name.as_posix())
+
+    subdomains = pp.fracs.simplex.line_grid_from_gmsh(
+        file_name,
+        physical_name_stem_1d=PhysicalNames.WELL.value,
+        physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
+    )
+
+    debug = []
+
+
+def _set_physical_names(intersections, wells):
+    for isect in intersections:
+        gmsh.model.addPhysicalGroup(
+            0,
+            [isect.gmsh_index],
+            -1,
+            f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.index}",
+        )
+
+    for well in wells:
+        gmsh.model.addPhysicalGroup(
+            1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
+        )
+
+
+def _set_mesh_size(wells, cell_size):
+    gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
 
 
 def compute_well_fracture_intersections(
