@@ -233,7 +233,7 @@ def _find_intersection(
 
     """
 
-    for coord, well_idx, frac_idxs in result:
+    for coord, _, well_idx, frac_idxs, _ in result:
         if well_idx == well_index and set(frac_idxs) == fracture_indices:
             return coord
     return None

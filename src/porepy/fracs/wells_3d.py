@@ -592,10 +592,16 @@ def _find_intersections(
     )
 
     merged_intersections: list[IntersectionInfo] = []
-    for (pi, wi), fi_set in common_points.items():
+    for ind, ((pi, wi), fi_set) in enumerate(common_points.items()):
         coord = gmsh.model.get_bounding_box(0, pi)[:3]
         merged_intersections.append(
-            IntersectionInfo(coord=coord, well_index=wi, fracture_index=list(fi_set))
+            IntersectionInfo(
+                coord=coord,
+                index=ind,
+                well_index=wi,
+                fracture_index=list(fi_set),
+                gmsh_index=pi,
+            )
         )
 
     return merged_intersections
@@ -603,8 +609,10 @@ def _find_intersections(
 
 class IntersectionInfo(NamedTuple):
     coord: np.ndarray
+    index: int
     well_index: int
     fracture_index: list[int]
+    gmsh_index: int
 
 
 @dataclass
