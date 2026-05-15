@@ -574,3 +574,18 @@ def test_2d_multiple_fractures_same_point():
     coord = _find_intersection(result, 0, expected_fracture_indices)
     assert coord is not None
     np.testing.assert_allclose(coord, expected_coord, atol=TOL)
+
+
+@pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
+def test_basic_geometry_meshing(case: IntersectionCase) -> None:
+    """Test basic geometry meshing for well-fracture intersections."""
+
+    fracture_network = pp.create_fracture_network(case.fractures)
+    well_network = pp.WellNetwork3d(None, case.wells)
+
+    mdg = pp.create_mdg(
+        "simplex", {"cell_size": 5.0}, fracture_network=fracture_network, dfn=True
+    )
+    from porepy.fracs.wells_3d import mesh
+
+    mesh(well_network, fracture_network, mdg)
