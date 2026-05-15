@@ -41,6 +41,23 @@ from porepy.fracs.wells_3d import intersect_well_fractures
 TOL = 1e-10
 
 
+@pytest.fixture(autouse=True)
+def finalize_gmsh():
+    """Fixture to ensure gmsh is finalized after each test.
+
+    This is to avoid tests failing because gmsh was not cleared after a previously
+    breaking test.
+    """
+    yield  # This is where the test runs
+    try:
+        # Try to clear and finalize gmsh after each test. This will raise an error
+        # if gmsh was not initialized in the test, but we can ignore that.
+        gmsh.clear()
+        gmsh.finalize()
+    except Exception:
+        pass
+
+
 @dataclass(frozen=True)
 class IntersectionCase:
     name: str
@@ -579,7 +596,7 @@ def test_2d_multiple_fractures_same_point():
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
 def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     """Test basic geometry meshing for well-fracture intersections."""
-
+    breakpoint()
     fracture_network = pp.create_fracture_network(case.fractures)
     well_network = pp.WellNetwork3d(None, case.wells)
 
