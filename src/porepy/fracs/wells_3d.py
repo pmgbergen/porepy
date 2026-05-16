@@ -657,7 +657,8 @@ def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
 def intersect_well_fractures(wells, fractures, nd):
     if len(fractures) == 0 or len(wells) == 0:
         return {}
-    gmsh.initialize()
+    if not gmsh.is_initialized():
+        gmsh.initialize()
 
     fracture_tags = _export_fractures_to_gmsh(fractures)
     gmsh.model.occ.synchronize()
