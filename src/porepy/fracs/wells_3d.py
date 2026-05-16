@@ -715,8 +715,37 @@ def mesh(
         physical_name_stem_1d=PhysicalNames.WELL.value,
         physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
     )
+    well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
+    well_mdg.compute_geometry()
 
-    debug = []
+    mdg.add_subdomains(well_mdg.subdomains())
+
+    for isect in intersections:
+        g_0d = well_mdg.subdomains(dim=0)[isect.index]
+        assert np.allclose(g_0d.cell_centers[:, 0], isect.coord)
+
+        frac_inds = isect.fracture_index
+
+        # Intersection at a fracture intersection. This is in principle possible, but it
+        #  will create a non-conforming coupling of
+        # codimension 1, which the constitutive laws are probably not ready for.
+        # On the other hand, this should also be equivalent to a 1d fracture for nd=2,
+        # so perhaps it will not be an issue.
+        assert len(frac_inds) == 1, (
+            """Multiple fractures intersecting at the same point is not implemented."""
+        )
+        g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
+        assert g_frac.frac_num == frac_inds[0]
+
+        embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
+
+        proj = sps.coo_matrix(
+            (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
+            shape=(1, g_frac.num_cells),
+        ).tocsr()
+        _add_interface(0, g_frac, g_0d, mdg, proj)
+
+    return mdg
 
 
 def _set_physical_names(intersections, wells):
