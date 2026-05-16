@@ -718,6 +718,9 @@ def mesh(
     well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
     well_mdg.compute_geometry()
 
+    for wg in well_mdg.subdomains(dim=1):
+        _update_well_grid_tags(wg, domain)
+
     mdg.add_subdomains(well_mdg.subdomains())
 
     for isect in intersections:
@@ -746,6 +749,17 @@ def mesh(
         _add_interface(0, g_frac, g_0d, mdg, proj)
 
     return mdg
+
+
+def _update_well_grid_tags(g, domain):
+    # Update the tags for the well grid, to identify boundary faces and tips.
+    bounding_planes = domain.polytope_from_bounding_box()
+    on_boundary = np.zeros(g.num_faces, dtype=bool)
+    for plane in bounding_planes:
+        dist, _, _ = pp.geometry.distances.points_polygon(g.face_centers, plane)
+        on_boundary = np.logical_or(on_boundary, np.isclose(dist, 0))
+    g.tags["tip_faces"] = g.tags["domain_boundary_faces"] & np.logical_not(on_boundary)
+    g.tags["domain_boundary_faces"] = on_boundary
 
 
 def _set_physical_names(intersections, wells):
