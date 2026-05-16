@@ -596,13 +596,53 @@ def test_2d_multiple_fractures_same_point():
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
 def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     """Test basic geometry meshing for well-fracture intersections."""
-    breakpoint()
-    fracture_network = pp.create_fracture_network(case.fractures)
+
+    nd = _infer_dimension_from_fractures(case.fractures)
+
+    box = {
+        "xmin": -5.0,
+        "xmax": 5.0,
+        "ymin": -5.0,
+        "ymax": 5.0,
+    }
+    if nd == 3:
+        box["zmin"] = -5.0
+        box["zmax"] = 5.0
+
+    domain = pp.Domain(box)
+    fracture_network = pp.create_fracture_network(case.fractures, domain=domain)
     well_network = pp.WellNetwork3d(None, case.wells)
 
-    mdg = pp.create_mdg(
-        "simplex", {"cell_size": 5.0}, fracture_network=fracture_network, dfn=True
+    tmp_mdg = pp.create_mdg(
+        "simplex", {"cell_size": 5.0}, fracture_network=fracture_network
     )
+
+    num_frac_subdomains = len(tmp_mdg.subdomains(dim=nd - 1))
+    num_fracture_intersections = len(tmp_mdg.subdomains(dim=nd - 2))
+    if nd == 3:
+        num_fracture_intersection_points = len(tmp_mdg.subdomains(dim=0))
+    else:
+        num_fracture_intersection_points = 0
+
     from porepy.fracs.wells_3d import mesh
 
-    mesh(well_network, fracture_network, mdg)
+    mdg = mesh(well_network, fracture_network, tmp_mdg)
+
+    expected = BASIC_GEOMETRY_EXPECTED[case.name]
+    num_intersections = len(expected)
+
+    assert len(mdg.subdomains(dim=nd)) == 1
+    if nd == 3:
+        assert len(mdg.subdomains(dim=2)) == len(case.fractures)
+        assert (
+            len(mdg.subdomains(dim=1)) == len(case.wells) + num_fracture_intersections
+        )
+        assert (
+            len(mdg.subdomains(dim=0))
+            == num_intersections + num_fracture_intersection_points
+        )
+    if nd == 2:
+        assert len(mdg.subdomains(dim=1)) == len(case.fractures) + len(case.wells)
+        assert (
+            len(mdg.subdomains(dim=0)) == num_intersections + num_fracture_intersections
+        )
