@@ -647,9 +647,14 @@ def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
         fractures.append(Entity(index=fi, dim=nd - 1, tags=gmsh_inds))
 
     wells = []
-    for wi, well in enumerate(split_objects[len(fracture_tags) :]):
-        gmsh_inds = [t[1] for t in well]
-        wells.append(Entity(index=segment_to_wells[wi], dim=1, tags=gmsh_inds))
+    for wi in np.unique(segment_to_wells):
+        ind_in_object = (
+            len(fracture_tags) + np.where(np.array(segment_to_wells) == wi)[0]
+        )
+        gmsh_tags = []
+        for si in ind_in_object:
+            gmsh_tags.extend([t[1] for t in split_objects[si]])
+        wells.append(Entity(index=wi, dim=1, tags=gmsh_tags))
 
     return fractures, wells
 
