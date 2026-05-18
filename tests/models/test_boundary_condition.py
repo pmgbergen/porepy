@@ -599,6 +599,56 @@ def test_bc_values_darcy_flux_baseline_well_posed() -> None:
     _assert_baseline_well_posed(_DARCY_FLUX_SPEC)
 
 
+# Empirically verified unit for bc_values_fluid_flux in 2D: integrated fluid mass
+# flux is rho/mu*K*grad(p)*face_area, SI unit kg*m^(nd-3)*s^-1 where nd is the
+# ambient dimension. In 2D, this gives kg*m^-1*s^-1.
+_FLUID_FLUX_UNIT: str = "kg*m^-1*s^-1"
+_FLUID_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _FluidFluxBCProbe(SquareDomainOrthogonalFractures, MassBalance_):
+    """Single-phase flow: Dirichlet p=0 on west, Neumann fluid flux on east."""
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_fluid_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _FLUID_FLUX_VALUE_SI, _FLUID_FLUX_UNIT
+        )
+        return vals
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_fluid_flux: probe model, primary variable
+# accessor (pressure on the matrix subdomain), and the declared BC unit.
+_FLUID_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_FluidFluxBCProbe,
+    probe_label="fluid_flux",
+    primary_variable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.pressure([sd])
+    ),
+    primary_variable_si_unit="Pa",
+    declared_bc_unit=_FLUID_FLUX_UNIT,
+)
+
+
+@pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
+def test_bc_values_fluid_flux_unit_invariance(units: pp.Units) -> None:
+    """Recovered SI pressure is invariant under unit rescaling."""
+    _assert_bc_unit_invariance(_FLUID_FLUX_SPEC, units)
+
+
+def test_bc_values_fluid_flux_baseline_well_posed() -> None:
+    """Sanity check: SI baseline is finite and non-degenerate."""
+    _assert_baseline_well_posed(_FLUID_FLUX_SPEC)
+
+
 # Empirically verified unit for bc_values_fourier_flux in 2D: integrated conducted
 # heat flux lambda * grad(T)* face_area, SI unit W * m^(nd-3) where nd is the
 # ambient dimension. In 2D this gives W * m^-1.
