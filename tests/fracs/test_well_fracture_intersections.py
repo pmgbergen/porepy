@@ -35,7 +35,7 @@ import pytest
 from dataclasses import dataclass
 
 import porepy as pp
-from porepy.fracs.wells_3d import intersect_well_fractures
+from porepy.fracs.well_network import WellNetwork3d
 
 # Tolerance used throughout for coordinate comparisons.
 TOL = 1e-10
@@ -227,6 +227,7 @@ def make_well_2d(
             Each tuple is a (x, y) coordinate of a point along the well path, in order.
 
     """
+    points = [(*pt, 0.0) for pt in points]  # Add z=0 for 2D wells to fit 3D interface
 
     return pp.Well(np.array(points).T, well_index)
 
@@ -257,8 +258,12 @@ def _find_intersection(
 
 
 def _run_case(case: IntersectionCase) -> tuple:
-    return intersect_well_fractures(
-        case.wells, case.fractures, _infer_dimension_from_fractures(case.fractures)
+
+    well_network = WellNetwork3d(case.wells, None)
+    fracture_network = pp.create_fracture_network(case.fractures, domain=None)
+
+    return well_network.intersect_well_fractures(
+        fracture_network.fractures, fracture_network.nd
     )[0]
 
 
@@ -611,7 +616,7 @@ def test_basic_geometry_meshing(case: IntersectionCase) -> None:
 
     domain = pp.Domain(box)
     fracture_network = pp.create_fracture_network(case.fractures, domain=domain)
-    well_network = pp.WellNetwork3d(None, case.wells)
+    well_network = pp.WellNetwork3d(case.wells, domain)
 
     tmp_mdg = pp.create_mdg(
         "simplex", {"cell_size": 5.0}, fracture_network=fracture_network
@@ -624,9 +629,7 @@ def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     else:
         num_fracture_intersection_points = 0
 
-    from porepy.fracs.wells_3d import mesh
-
-    mdg = mesh(well_network, fracture_network, tmp_mdg)
+    mdg = well_network.mesh(fracture_network, tmp_mdg)
 
     expected = BASIC_GEOMETRY_EXPECTED[case.name]
     num_intersections = len(expected)

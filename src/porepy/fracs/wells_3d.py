@@ -567,33 +567,3 @@ def _add_well_2_intersection_interface(
         shape=(sd_secondary.num_cells, sd_primary.num_faces),
     )
     _add_interface(0, sd_primary, sd_secondary, mdg, face_cell_map)
-
-
-def _add_interface(
-    dim: int,
-    sd_primary: pp.Grid,
-    sd_secondary: pp.Grid,
-    mdg: pp.MixedDimensionalGrid,
-    primary_secondary_map: sps.coo_matrix,
-) -> None:
-    """Utility method to add an interface to the mdg.
-
-    Both grids should already be present in the mixed-dimensional grid.
-
-    Parameters:
-        sd_primary: Primary subdomain grid. In the context of this module, it represents
-            a fracture or well.
-        sd_secondary: Secondary subdomain grid. In the context of this module, it
-            typically represents an intersection point.
-        mdg: MixedDimensionalGrid to which the interface will be added.
-        primary_secondary_map: Map between ``cells_l`` and either ``faces_h`` (codim=1)
-            or ``cells_h`` (codim=2).
-
-    """
-    codim = sd_primary.dim - sd_secondary.dim
-    subdomain_pair = (sd_primary, sd_secondary)
-    side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_secondary.copy()}
-    mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
-    mg._primary_to_mortar_int = primary_secondary_map
-    mg.compute_geometry()
-    mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
