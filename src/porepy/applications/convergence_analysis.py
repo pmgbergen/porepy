@@ -487,6 +487,7 @@ class ConvergenceAnalysis:
         p: pp.number = 2,
         relative: bool = False,
         parameter_weight: Optional[np.ndarray] = None,
+        nd_error_computation: bool = True,
     ) -> pp.number:
         """Computes the discrete :math:`L_p`-error as given in [1].
 
@@ -518,11 +519,20 @@ class ConvergenceAnalysis:
             parameter_weight: Array containing the parameter weight, producing a
                 weighted norm. If given, the array size must equal the number of faces
                 or cells in the grid.
+            nd_error_computation: Boolean flag to indicate whether the error
+                computation should be performed using the dimension of the passed grid
+                or the dimension of the passed arrays. This is relevant for vector
+                quantities defined on grids of different dimension than themselves
+                (e.g. fracture contact traction in two dimensions: a 2D vector defined
+                on a 1D grid). If ``False`` the error is computed using the grid
+                dimension.
 
         Raises:
             NotImplementedError: If a mortar grid is given and is_cc is False.
             ZeroDivisionError: If the denominator in the relative error is zero.
             ValueError: If the parameter weight has an invalid size.
+            ValueError: If the dimension of the passed arrays does not match the choice
+                of ``nd_error_computation``.
 
         Returns:
             (Discrete) :math:`L_p`-error between the true and approximated arrays.
@@ -538,6 +548,11 @@ class ConvergenceAnalysis:
         if is_cc:
             num_faces_or_cells = grid.num_cells
             meas = grid.cell_volumes
+
+            # If the quantity is a cell-centered vector, we may need to repeat the
+            # measure according to the dimension of the vector. For a cell-centered
+            # quantity:
+            repetitions = int(len(true_array) / grid.num_cells)
         else:
             assert isinstance(grid, pp.Grid)  # to please mypy
             num_faces_or_cells = grid.num_faces
@@ -558,14 +573,28 @@ class ConvergenceAnalysis:
             # by the grid dimension. This corresponds to the volume of a n-dimensional
             # pyramid, see https://en.wikipedia.org/wiki/Hyperpyramid.
             meas = dist_cc_cc / grid.dim
+
+            # If the quantity is a face-centered vector, we may need to repeat the
+            # measure according to the dimension of the vector. For a face-centered
+            # quantity:
+            repetitions = int(len(true_array) / grid.num_faces)
         if parameter_weight is not None:
             # The parameter weight is denoted by \gamma in Eq. A1.12 from [1].
             if parameter_weight.size != num_faces_or_cells:
                 raise ValueError("Invalid size of parameter weight.")
             meas *= parameter_weight
         if not is_scalar:
-            meas = meas.repeat(grid.dim)
-
+            if not nd_error_computation:
+                # If the error computation is to be performed using the dimension of the
+                # passed grid, we need to re-define the repetitions variable to be
+                # grid.dim.
+                repetitions = grid.dim
+            meas = meas.repeat(repetitions)
+            if len(meas) != len(true_array):
+                raise ValueError(
+                    f"Incompatible sizes for error computation. "
+                    f"nd_error_computation may be wrongly set."
+                )
         # Obtain numerator and denominator to determine the error.
         numerator = ConvergenceAnalysis.lp_norm(
             true_array - approx_array,

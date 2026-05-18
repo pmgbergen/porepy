@@ -811,6 +811,7 @@ def face_error(
     is_scalar: bool,
     relative: bool = False,
     parameter_weight: np.ndarray | None = None,
+    nd_error_computation: int = None,
 ) -> pp.number:
     """Compute the L2-error for face-centered quantities.
 
@@ -853,7 +854,10 @@ def face_error(
     if parameter_weight is not None:
         meas *= parameter_weight
     if not is_scalar:
-        meas = meas.repeat(sd.dim)
+        if not nd_error_computation:
+            meas = meas.repeat(sd.dim)
+        else:
+            meas = meas.repeat(int(len(true_array) / sd.num_faces))
 
     # Obtain numerator and denominator to determine the error.
     numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
@@ -861,37 +865,54 @@ def face_error(
 
     return numerator / denominator
 
-
 @pytest.mark.parametrize("is_relative", [False, True])
 @pytest.mark.parametrize(
-    "is_sd, is_cc, is_scalar, parameter_weight",
+    (
+        "is_sd",
+        "is_cc",
+        "is_scalar",
+        "parameter_weight",
+        "nd_error_computation",
+    ),
     [
-        (True, True, True, False),
-        (True, False, True, False),
-        (True, True, False, False),
-        (True, False, False, False),
-        (False, True, True, False),
-        (False, True, False, True),
+        (True, True, True, False, False),
+        (True, False, True, False, False),
+        (True, True, False, False, False),
+        (True, False, False, False, False),
+        (False, True, True, False, False),
+        (False, True, False, True, False),
+        (True, True, False, True, True),
+        (True, True, False, True, False),
+        (True, False, False, True, False),
+        (True, False, False, False, True),
+        (True, False, False, True, True),
     ],
 )
 @pytest.mark.parametrize(
-    "grid_fixture", ["grids", "grids_3d"]
-)  # Use both 2D and 3D grid fixtures
+    "grid_fixture",
+    ["grids", "grids_3d"],
+)
 def test_l2_error(
     is_sd: bool,
     is_cc: bool,
     is_scalar: bool,
     is_relative: bool,
     parameter_weight: bool,
+    nd_error_computation: bool,
     grid_fixture: str,
     request: pytest.FixtureRequest,
 ) -> None:
     """Test whether the discrete L2-error is computed correctly.
 
-    The test sets arrays of ones as for the true array, and arrays of zeros for the
-    approximate arrays. The absolute l2-error is thus the square root of the sum of the
-    measure of each element (cell_volume when is_cc=True and face_area when is_cc=False)
-    in each grid. The relative l2-error is always 1.0 in all cases.
+    The test compares the output of ``ConvergenceAnalysis.lp_error`` against a
+    manually computed reference value for several combinations of:
+    * subdomain and interface grids,
+    * cell-centered and face-centered quantities,
+    * scalar and vector quantities,
+    * absolute and relative errors,
+    * weighted and unweighted norms.
+
+    Both 2D and 3D grid fixtures are tested.
 
     Parameters:
         is_sd: Whether the error should be evaluated in a subdomain grid. False
@@ -901,7 +922,8 @@ def test_l2_error(
         is_scalar: Whether the array is corresponds to a scalar quantity. False
             implies a vector quantity.
         parameter_weight: Whether a parameter weight should be used.
-        grid_fixture: Name of the fixture that provides the list of grids.
+        nd_error_computation: Whether the dimension of the array should be used for the 
+            error computation, or the dimension of the passed grid.
 
     """
     # Retrieve grid list from the fixture.
@@ -914,7 +936,14 @@ def test_l2_error(
         grid = grid_list[1]  # interface grid
 
     # Define true and approximated values.
-    vec = 1 if is_scalar else grid.dim
+    if nd_error_computation:
+        # Adding 1 to vec will later give true and approximated arrays of one dimension
+        # higher than the grid.
+        vec = grid.dim + 1
+        is_scalar = False
+    else:
+        vec = 1 if is_scalar else grid.dim
+
     num_dof = grid.num_cells if is_cc else grid.num_faces
     np.random.seed(42)
     true_array = np.random.random(num_dof * vec)
@@ -924,7 +953,8 @@ def test_l2_error(
         _weight = np.random.random(num_dof)
     else:
         _weight = np.ones(num_dof)
-    # Retrieve number of degrees of freedom and set the true array.
+
+    # Compute reference error.
     if is_cc:
         meas = np.repeat(grid.cell_volumes * _weight, vec)
         true_l2_error = np.sqrt(np.sum(meas * diff**2))
@@ -933,12 +963,18 @@ def test_l2_error(
             true_l2_error /= np.sqrt(np.sum(meas * true_array**2))
     else:
         true_l2_error = face_error(
-            grid, true_array, approx_array, is_scalar, is_relative, _weight
+            grid,
+            true_array,
+            approx_array,
+            is_scalar,
+            is_relative,
+            _weight,
+            vec if nd_error_computation else None,
         )
 
     # Compute actual error.
-    # Use the parameter_weight if provided, otherwise set it to None.
     parameter_weight = _weight if parameter_weight else None
+
     actual_l2_error = ConvergenceAnalysis.lp_error(
         grid=grid,
         true_array=true_array,
@@ -947,11 +983,11 @@ def test_l2_error(
         is_scalar=is_scalar,
         relative=is_relative,
         parameter_weight=parameter_weight,
+        nd_error_computation=nd_error_computation,
     )
 
     # Compare
     assert np.isclose(actual_l2_error, true_l2_error)
-
 
 def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) -> None:
     """Test whether a division by zero error is raised.
