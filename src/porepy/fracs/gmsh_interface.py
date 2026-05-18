@@ -120,4 +120,44 @@ class GmshLine(GmshEntity):
         for tag in self.tags:
             _, adjacent_points = gmsh.model.get_adjacencies(self.dim, tag)
             points.extend(adjacent_points)
-        return points
+        indices = [self.index] * len(points)
+        return points, indices
+
+
+class GmshSurface(GmshEntity):
+    """Representation of a surface entity in terms of gmsh tags."""
+
+    def __init__(self, index: int, tags: list[int]):
+        super().__init__(index=index, dim=2, tags=tags)
+
+    def embedded_points(self):
+        embedded_points, fracture_inds_embedded = self._find_embedded_points()
+        boundary_points, fracture_inds_boundary = self._find_boundary_points()
+
+        if len(embedded_points) + len(boundary_points) == 0:
+            merged = np.array([], dtype=int)
+        else:
+            merged = np.hstack((embedded_points, boundary_points))
+
+        return merged, fracture_inds_embedded + fracture_inds_boundary
+
+    def _find_embedded_points(self):
+        # Find points that are embedded in the fracture - that is, not on the boundary.
+        points, inds = [], []
+        for tag in self.tags:
+            for point in gmsh.model.mesh.get_embedded(self.dim, tag):
+                if point[0] == 0:
+                    points.extend([point[1]])
+                    inds += [self.index]
+        return points, inds
+
+    def _find_boundary_points(self):
+        # Find intersections on the fracture boundary
+        points, inds = [], []
+        for tag in self.tags:
+            boundary_lines = gmsh.model.get_boundary([(self.dim, tag)], oriented=False)
+            for line in boundary_lines:
+                loc_points = gmsh.model.get_boundary([line], oriented=False)
+                points.extend([p[1] for p in loc_points])
+                inds += [self.index] * len(loc_points)
+        return points, inds

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, NamedTuple
 
 from .wells_3d import Well
-from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine
+from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, GmshSurface
 from scipy import sparse as sps
 
 
@@ -252,24 +252,26 @@ class _PointDetector:
     def points_on_wells(self, wells):
         points, inds = [], []
         for well in wells:
-            loc_points = well.embedded_points()
-            inds += [well.index] * len(loc_points)
-            points.append(loc_points)
+            loc_points, loc_inds = well.embedded_points()
+            points.extend(loc_points)
+            inds.extend(loc_inds)
         return _merge_arrays(points), inds
 
     def points_on_fractures(self, fractures, nd):
-        if nd == 2:
-            return self._points_on_fractures_2d(fractures)
-        else:
-            return self._points_on_fractures_3d(fractures)
+        points, inds = [], []
+        for fracture in fractures:
+            loc_points, loc_inds = fracture.embedded_points()
+            points.extend(loc_points)
+            inds.extend(loc_inds)
+        return _merge_arrays(points), inds
 
     def _points_on_fractures_2d(self, fractures):
         # Identify points on fractures in 2d, that is, line fractures.
         points, inds = [], []
         for frac in fractures:
-            loc_points = frac.embedded_points()
+            loc_points, loc_inds = frac.embedded_points()
             points.extend(loc_points)
-            inds += [frac.index] * len(loc_points)
+            inds.extend(loc_inds)
         return _merge_arrays(points), inds
 
     def _points_on_fractures_3d(self, fractures):
@@ -378,7 +380,7 @@ def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
     for fi, fracture in enumerate(split_objects[: len(fracture_tags)]):
         gmsh_inds = [t[1] for t in fracture]
         if nd == 3:
-            fractures.append(GmshEntity(index=fi, dim=nd - 1, tags=gmsh_inds))
+            fractures.append(GmshSurface(index=fi, tags=gmsh_inds))
         else:
             fractures.append(GmshLine(index=fi, tags=gmsh_inds))
 
