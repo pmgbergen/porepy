@@ -107,3 +107,17 @@ class GmshEntity:
     index: int
     dim: int
     tags: list[int]
+
+
+class GmshLine(GmshEntity):
+    """Representation of a line entity in terms of gmsh tags."""
+
+    def __init__(self, index: int, tags: list[int]):
+        super().__init__(index=index, dim=1, tags=tags)
+
+    def embedded_points(self):
+        points = []
+        for tag in self.tags:
+            _, adjacent_points = gmsh.model.get_adjacencies(self.dim, tag)
+            points.extend(adjacent_points)
+        return points
