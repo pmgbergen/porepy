@@ -544,8 +544,8 @@ model_params = {
     # "times_to_export": [],  # Suppress export of data for testing.
     "material_constants": {
         "solid": FractureDamageSolidConstants(**solid_params),  # type: ignore[arg-type]
+        "numerical": pp.NumericalConstants(characteristic_displacement=1e-2),
     },
-    "numerical": pp.NumericalConstants(characteristic_displacement=1e-2),
 }
 
 
