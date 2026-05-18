@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
+from dataclasses import dataclass
 
 import gmsh
 import numpy as np
@@ -94,3 +95,15 @@ class PhysicalNames(Enum):
 
     WELL_FRACTURE_INTERSECTION_POINT = "WELL_FRACTURE_INTERSECTION_POINT_"
     """Name tag for points at the intersection between wells and fractures."""
+
+
+@dataclass
+class GmshEntity:
+    """Representation of a single geometric entity, in terms of gmsh tags.
+
+    The object may have been fragmented into multiple sub-entities.
+    """
+
+    index: int
+    dim: int
+    tags: list[int]

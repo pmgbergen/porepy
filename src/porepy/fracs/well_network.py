@@ -3,10 +3,20 @@ import porepy as pp
 import gmsh
 from pathlib import Path
 from typing import Optional, NamedTuple
-from dataclasses import dataclass
+
 from .wells_3d import Well
-from .gmsh_interface import PhysicalNames
+from .gmsh_interface import PhysicalNames, GmshEntity
 from scipy import sparse as sps
+
+
+class WellFractureIntersection(NamedTuple):
+    """Container class to store representation between a well and a fracture."""
+
+    coord: np.ndarray
+    index: int
+    well_index: int
+    fracture_index: list[int]
+    gmsh_index: int
 
 
 class WellNetwork3d:
@@ -312,7 +322,7 @@ def _find_intersections(
     all_well_points: np.ndarray,
     all_fracture_points: np.ndarray,
     fracture_inds: list[int],
-) -> list[IntersectionInfo]:
+) -> list[WellFractureIntersection]:
     # Combine intersections with the same point and well indices - these will correspond
     # to intersections between the well and a fracture intersection line or point.
 
@@ -320,11 +330,11 @@ def _find_intersections(
         well_inds, all_well_points, all_fracture_points, fracture_inds
     )
 
-    merged_intersections: list[IntersectionInfo] = []
+    merged_intersections: list[WellFractureIntersection] = []
     for ind, ((pi, wi), fi_set) in enumerate(common_points.items()):
         coord = gmsh.model.get_bounding_box(0, pi)[:3]
         merged_intersections.append(
-            IntersectionInfo(
+            WellFractureIntersection(
                 coord=coord,
                 index=ind,
                 well_index=wi,
@@ -334,26 +344,6 @@ def _find_intersections(
         )
 
     return merged_intersections
-
-
-class IntersectionInfo(NamedTuple):
-    coord: np.ndarray
-    index: int
-    well_index: int
-    fracture_index: list[int]
-    gmsh_index: int
-
-
-@dataclass
-class Entity:
-    """Representation of a single geometric entity, in terms of gmsh tags.
-
-    The object may have been fragmented into multiple sub-entities.
-    """
-
-    index: int
-    dim: int
-    tags: list[int]
 
 
 def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
@@ -367,7 +357,7 @@ def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
     fractures = []
     for fi, fracture in enumerate(split_objects[: len(fracture_tags)]):
         gmsh_inds = [t[1] for t in fracture]
-        fractures.append(Entity(index=fi, dim=nd - 1, tags=gmsh_inds))
+        fractures.append(GmshEntity(index=fi, dim=nd - 1, tags=gmsh_inds))
 
     wells = []
     for wi in np.unique(segment_to_wells):
@@ -377,7 +367,7 @@ def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
         gmsh_tags = []
         for si in ind_in_object:
             gmsh_tags.extend([t[1] for t in split_objects[si]])
-        wells.append(Entity(index=wi, dim=1, tags=gmsh_tags))
+        wells.append(GmshEntity(index=wi, dim=1, tags=gmsh_tags))
 
     return fractures, wells
 
