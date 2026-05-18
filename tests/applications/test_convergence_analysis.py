@@ -865,6 +865,7 @@ def face_error(
 
     return numerator / denominator
 
+
 @pytest.mark.parametrize("is_relative", [False, True])
 @pytest.mark.parametrize(
     (
@@ -922,7 +923,7 @@ def test_l2_error(
         is_scalar: Whether the array is corresponds to a scalar quantity. False
             implies a vector quantity.
         parameter_weight: Whether a parameter weight should be used.
-        nd_error_computation: Whether the dimension of the array should be used for the 
+        nd_error_computation: Whether the dimension of the array should be used for the
             error computation, or the dimension of the passed grid.
 
     """
@@ -988,6 +989,7 @@ def test_l2_error(
 
     # Compare
     assert np.isclose(actual_l2_error, true_l2_error)
+
 
 def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) -> None:
     """Test whether a division by zero error is raised.
