@@ -151,8 +151,13 @@ class WellNetwork3d:
         fracture_entities, well_entities = _fragment_wells_fractures(
             segment_inds, fracture_tags, nd, segment_to_wells
         )
-        all_well_points, well_inds = _points_on_wells(well_entities)
-        all_fracture_points, fracture_inds = _points_on_fractures(fracture_entities, nd)
+
+        point_finder = _PointDetector()
+
+        all_well_points, well_inds = point_finder.points_on_wells(well_entities)
+        all_fracture_points, fracture_inds = point_finder.points_on_fractures(
+            fracture_entities, nd
+        )
 
         return (
             _find_intersections(
@@ -235,39 +240,49 @@ def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
         return np.array([], dtype=int)
 
 
-def _points_on_wells(wells):
-    inds = []
-    points = []
-    for well in wells:
-        for tag in well.tags:
-            _, adjacent_points = gmsh.model.get_adjacencies(well.dim, tag)
-            points.extend(adjacent_points)
-            inds += [well.index] * len(adjacent_points)
-    points = _merge_arrays(points)
-    return points, inds
+class _PointDetector:
+    """Helper class to detect intersection points between wells and fractures.
 
+    Mainly used as a namespace.
+    """
 
-def _points_on_fractures(split_fractures, nd):
-    if nd == 2:
-        return _points_on_fractures_2d(split_fractures)
-    else:
-        return _points_on_fractures_3d(split_fractures)
+    def points_on_wells(self, wells):
+        inds = []
+        points = []
+        for well in wells:
+            for tag in well.tags:
+                _, adjacent_points = gmsh.model.get_adjacencies(well.dim, tag)
+                points.extend(adjacent_points)
+                inds += [well.index] * len(adjacent_points)
+        points = _merge_arrays(points)
+        return points, inds
 
+    def points_on_fractures(self, fractures, nd):
+        if nd == 2:
+            return self._points_on_fractures_2d(fractures)
+        else:
+            return self._points_on_fractures_3d(fractures)
 
-def _points_on_fractures_2d(fractures):
-    # Identify points on fractures in 2d, that is, line fractures.
-    points, inds = [], []
-    for frac in fractures:
-        for tag in frac.tags:
-            _, adjacent_points = gmsh.model.get_adjacencies(1, tag)
-            points.extend(adjacent_points)
-            inds += [frac.index] * len(adjacent_points)
-    return _merge_arrays(points), inds
+    def _points_on_fractures_2d(self, fractures):
+        # Identify points on fractures in 2d, that is, line fractures.
+        points, inds = [], []
+        for frac in fractures:
+            for tag in frac.tags:
+                _, adjacent_points = gmsh.model.get_adjacencies(1, tag)
+                points.extend(adjacent_points)
+                inds += [frac.index] * len(adjacent_points)
+        return _merge_arrays(points), inds
 
+    def _points_on_fractures_3d(self, fractures):
+        # Identify points on the fracture, both embedded and on the boundary.
+        embedded_points, fracture_inds_embedded = self._find_embedded_points(fractures)
+        boundary_points, fracture_inds_boundary = self._find_boundary_points(fractures)
 
-def _points_on_fractures_3d(fractures):
-    # Identify points on the fracture, both embedded and on the boundary.
-    def _find_embedded_points():
+        return _merge_arrays(
+            embedded_points + boundary_points
+        ), fracture_inds_embedded + fracture_inds_boundary
+
+    def _find_embedded_points(self, fractures):
         # Find points that are embedded in the fracture - that is, not on the boundary.
         points, inds = [], []
         for fracture in fractures:
@@ -278,7 +293,7 @@ def _points_on_fractures_3d(fractures):
                         inds += [fracture.index]
         return points, inds
 
-    def _find_boundary_points():
+    def _find_boundary_points(self, fractures):
         # Find intersections on the fracture boundary
         points, inds = [], []
         for fracture in fractures:
@@ -291,13 +306,6 @@ def _points_on_fractures_3d(fractures):
                     points.extend([p[1] for p in loc_points])
                     inds += [fracture.index] * len(loc_points)
         return points, inds
-
-    embedded_points, fracture_inds_embedded = _find_embedded_points()
-    boundary_points, fracture_inds_boundary = _find_boundary_points()
-
-    return _merge_arrays(
-        embedded_points + boundary_points
-    ), fracture_inds_embedded + fracture_inds_boundary
 
 
 def _match_well_and_fracture_points(
