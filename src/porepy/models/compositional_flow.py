@@ -1987,7 +1987,16 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             # Some initial mineral saturation.
         initial_conc = self.ic_mineral_bulk_concentration(component, sd)
 
-        return component.molar_volume * initial_conc / self.total_porosity([sd])
+
+        total_porosity=self.total_porosity([sd])
+        if isinstance(total_porosity, np.ndarray):
+            total_porosity_values=total_porosity._values
+        elif isinstance(total_porosity, pp.ad.Scalar):
+            total_porosity_values=total_porosity._value
+
+        ic_mineral_saturation = component.molar_volume * initial_conc / total_porosity_values
+
+        return ic_mineral_saturation
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for fractions at iterate index 0.
@@ -2092,7 +2101,13 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
         for comp in self.fluid.solid_components:
             ms += self.ic_values_mineral_saturation(comp, sd)
 
-        porosity = self.total_porosity([sd])._values * (np.ones(sd.num_cells) - ms)
+        total_porosity=self.total_porosity([sd])
+        if isinstance(total_porosity, np.ndarray):
+            total_porosity_values=total_porosity._values
+        elif isinstance(total_porosity, pp.ad.Scalar):
+            total_porosity_values=total_porosity._value
+
+        porosity = total_porosity_values * (np.ones(sd.num_cells) - ms)
         if component in self.fluid.solid_components:
             ic = self.ic_mineral_bulk_concentration(component, sd)
         elif component.name != "H2O":
