@@ -19,10 +19,6 @@ geometry_mixins = {
     "2": SquareDomainOrthogonalFractures,
     "3": CubeDomainOrthogonalFractures,
 }
-damage_types = {
-    "dilation": damage_examples.DilationDamageMomentumBalance,
-    "friction": damage_examples.FrictionDamageMomentumBalance,
-}
 
 # Methods to compare will be provided later by the user. Example names could be
 # ["friction_damage", "dilation_damage"]. Leave empty to skip comparisons.
@@ -65,7 +61,7 @@ def setup(
 
     # Add requested damage equations and variables.
     for name in damages:
-        model_class = add_mixin(damage_types[name], model_class)
+        model_class = add_mixin(damage_examples.damage_types[name], model_class)
 
     # Add geometry mixin for the target dimension.
     model_class = add_mixin(geometry_mixins[str(dim)], model_class)
