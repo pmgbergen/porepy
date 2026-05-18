@@ -145,7 +145,7 @@ class WellNetwork3d:
         fracture_tags = _export_fractures_to_gmsh(fractures)
         gmsh.model.occ.synchronize()
 
-        segment_inds, segment_to_wells = _export_wells_to_gmsh(wells)
+        segment_inds, segment_to_wells = self._to_gmsh()
 
         gmsh.model.occ.synchronize()
         fracture_entities, well_entities = _fragment_wells_fractures(
@@ -161,6 +161,33 @@ class WellNetwork3d:
             well_entities,
             fracture_entities,
         )
+
+    def _to_gmsh(self) -> tuple[list[int], list[int]]:
+        segment_inds = [well.to_gmsh() for well in self.wells]
+        gmsh.model.occ.synchronize()
+
+        unified_segments = []
+        segment_to_wells = []
+        for i, segments in enumerate(segment_inds):
+            for segment in segments:
+                unified_segments.append(segment)
+                segment_to_wells.append(i)
+
+        return unified_segments, segment_to_wells
+
+    def _set_physical_names(self, intersections, wells):
+        for isect in intersections:
+            gmsh.model.addPhysicalGroup(
+                0,
+                [isect.gmsh_index],
+                -1,
+                f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.index}",
+            )
+
+        for well in wells:
+            gmsh.model.addPhysicalGroup(
+                1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
+            )
 
     def _mesh_size(
         self, well: Well, segment_ind: Optional[tuple[int, int]] = None
@@ -195,20 +222,6 @@ class WellNetwork3d:
         # __str__ will be forwarded to __repr__).
         s = f"Well network consisting of {len(self.wells)} wells.\n"
         return s
-
-
-def _export_wells_to_gmsh(wells) -> tuple[list[int], list[int]]:
-    segment_inds = [well.to_gmsh() for well in wells]
-    gmsh.model.occ.synchronize()
-
-    unified_segments = []
-    segment_to_wells = []
-    for i, segments in enumerate(segment_inds):
-        for segment in segments:
-            unified_segments.append(segment)
-            segment_to_wells.append(i)
-
-    return unified_segments, segment_to_wells
 
 
 def _export_fractures_to_gmsh(fractures: list[pp.Fracture]) -> list[int]:
@@ -388,21 +401,6 @@ def _update_well_grid_tags(g, domain):
         on_boundary = np.logical_or(on_boundary, np.isclose(dist, 0))
     g.tags["tip_faces"] = g.tags["domain_boundary_faces"] & np.logical_not(on_boundary)
     g.tags["domain_boundary_faces"] = on_boundary
-
-
-def _set_physical_names(intersections, wells):
-    for isect in intersections:
-        gmsh.model.addPhysicalGroup(
-            0,
-            [isect.gmsh_index],
-            -1,
-            f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.index}",
-        )
-
-    for well in wells:
-        gmsh.model.addPhysicalGroup(
-            1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
-        )
 
 
 def _set_mesh_size(wells, cell_size):
