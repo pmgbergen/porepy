@@ -478,7 +478,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return self.reference_variable_values.pressure * np.ones(bg.num_cells)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Mobility-free Darcy flux values for the Neumann boundary condition.
+        r"""Mobility-free Darcy flux values for the Neumann boundary condition.
 
         The values correspond to the integrated quantity
         :math:`\int_\sigma \mathbf{K}\nabla p \cdot \mathbf{n}\, dA` on each
@@ -507,12 +507,14 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     def bc_values_fluid_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         r"""**Mass** flux values on the Neumann boundary.
 
-        These values are used on the boundaries where `self.bc_type_fluid_flux` is
-        Neumann.
+        The values correspond to the integrated quantity
+        :math:`\int_\sigma \frac{\rho}{\mu} \mathbf{K} \nabla p \cdot \mathbf{n}\, dA` on
+        each boundary face: math:`\sigma`, with SI unit
+        :math:`\mathrm{kg}\,\mathrm{m}^{n_d-3}\,\mathrm{s}^{-1}`,
+        where :math:`n_d` is the ambient dimension.
 
-        These values are used on the boundary for
-        :math:`\frac{\rho}{\mu} \mathbf{K} \nabla p` where Neumann data is required for
-        the whole expression.
+        The mobility term :math:`\frac{\rho}{\mu}` is included, so the values correspond
+        to a mass flux.
 
         Important:
             Override this method to provide custom Neumann data for the flux,
