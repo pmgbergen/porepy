@@ -90,7 +90,7 @@ class WellNetwork3d:
         intersections, wells, fractures = self.intersect_well_fractures(
             fracture_network.fractures, fracture_network.nd
         )
-        _set_physical_names(intersections, wells)
+        self._set_physical_names(intersections, wells)
         self._set_mesh_size(wells, mesh_args.get("cell_size"))
         gmsh.model.mesh.generate(1)
         file_name = Path("well_mesh.msh")
@@ -105,7 +105,7 @@ class WellNetwork3d:
         well_mdg.compute_geometry()
 
         for wg in well_mdg.subdomains(dim=1):
-            _update_well_grid_tags(wg, self.domain)
+            self._update_well_grid_tags(wg, self.domain)
 
         mdg.add_subdomains(well_mdg.subdomains())
 
@@ -132,7 +132,7 @@ class WellNetwork3d:
                 (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
                 shape=(1, g_frac.num_cells),
             ).tocsr()
-            _add_interface(0, g_frac, g_0d, mdg, proj)
+            self._add_interface(0, g_frac, g_0d, mdg, proj)
 
         return mdg
 
@@ -169,9 +169,12 @@ class WellNetwork3d:
         common_points = self._match_well_and_fracture_points(
             well_points, fracture_points
         )
+        well_points = self._well_kink_points(well_points, common_points)
+
+        all_points = common_points | well_points
 
         merged_intersections: list[WellFractureIntersection] = []
-        for ind, ((pi, wi), fi_set) in enumerate(common_points.items()):
+        for ind, ((pi, wi), fi_set) in enumerate(all_points.items()):
             coord = gmsh.model.get_bounding_box(0, pi)[:3]
             merged_intersections.append(
                 WellFractureIntersection(
@@ -184,6 +187,30 @@ class WellNetwork3d:
             )
 
         return merged_intersections
+
+    def _well_kink_points(
+        self,
+        well_points: _PointsOnEntities,
+        well_fracture_comment: dict[tuple[int, int], set[int]],
+    ) -> dict[tuple[int, int], set[int]]:
+        # Find points that are shared between wells. These correspond to kinks in the
+        # well geometry.
+
+        # Dictionary that maps (point index, well index) to a set of fracture indices.
+        kinks: dict[tuple[int, int], set[int]] = {}
+
+        for wi in np.unique(well_points.inds):
+            ind_in_well = np.where(well_points.inds == wi)[0]
+            loc_points = well_points.points[ind_in_well]
+            duplicate_indices = np.where(np.bincount(loc_points) > 1)[0]
+            for p in duplicate_indices:
+                if (p, wi) in well_fracture_comment:
+                    # This is an intersection point, so we do not want to register it as
+                    # a kink.
+                    continue
+                kinks[(p, wi)] = set()
+
+        return kinks
 
     def _match_well_and_fracture_points(
         self, well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
