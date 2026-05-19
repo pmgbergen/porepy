@@ -18,14 +18,21 @@ from porepy.models import fracture_damage as damage
 from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
 
-class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
+class TimeDependentDamageBCs:
+    """Model mixin for time-dependent boundary conditions for fracture damage models.
+
+    Defines time-dependent displacement values on all faces satisfying x[1] > 0.5. The
+    time dependence is defined by the parameter "north_displacements" passed on model
+    initialization.
+    """
+
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
-        Values for the north boundary are retrieved from the parameter dictionary passed
-        on model initialization. The values are time dependent and are retrieved from
-        the parameter dictionary using the key "north_displacements" and indexed in the
-        second dimension by the current time index.
+        Values for the north boundaries are retrieved from the parameter dictionary
+        passed on model initialization. The values are time dependent and are retrieved
+        from the parameter dictionary using the key "north_displacements" and indexed in
+        the second dimension by the current time index.
 
         Parameters:
             bg: Boundary grid for which boundary values are to be returned.
@@ -35,7 +42,6 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
                 domain, for each face in the subdomain.
 
         """
-        sides = self.domain_boundary_sides(bg)
         values = np.zeros((self.nd, bg.num_cells))
         if bg.dim < self.nd - 1:
             # No displacement is implemented on grids of co-dimension >= 2.
@@ -45,54 +51,8 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         # list. Then tile for correct broadcasting below.
         u_north = self.params["north_displacements"][:, self.time_manager.time_index]
         u_n = np.tile(u_north, (bg.num_cells, 1)).T
-        values[:, sides.north] = self.units.convert_units(u_n, "m")[:, sides.north]
-        return values.ravel("F")
-
-
-class MixedNorthMechanicsBCs(pp.PorePyModel):
-    """Boundary conditions for the mechanics problem with mixed north boundary."""
-
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Return the type of the mechanics boundary condition."""
-        domain_sides = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(
-            sd, domain_sides.north + domain_sides.south, "dir"
-        )
-        if sd.dim < self.nd:
-            return bc  # No displacement bcs needed.
-        bc.internal_to_dirichlet(sd)
-        if "north_stress" in self.params:
-            # Override north boundary condition to Neumann if stress BCs are defined.
-            bc.is_neu[1, domain_sides.north] = True
-            bc.is_dir[1, domain_sides.north] = False
-        return bc
-
-    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Boundary values for the stress problem as a numpy array.
-
-        The stress boundary conditions are set to zero.
-
-        Parameters:
-            bg: Boundary grid for which boundary values are to be returned.
-
-        Returns:
-            Array of boundary values, with one value for each dimension of the
-                domain, for each face in the subdomain.
-
-        """
-        domain_sides = self.domain_boundary_sides(bg)
-        values = np.zeros((self.nd, bg.num_cells))
-        if bg.dim < self.nd - 1 or "north_stress" not in self.params:
-            # No displacement is implemented on grids of co-dimension > 1.
-            return values.ravel("F")
-
-        # Wrap as array for convert_units. Thus, the passed values can be scalar or
-        # list. Then tile for correct broadcasting below.
-        sigma_north = self.params["north_stress"][self.time_manager.time_index]
-        values[1, domain_sides.north] = (
-            self.units.convert_units(sigma_north, "Pa")
-            * bg.cell_volumes[domain_sides.north]
-        )
+        north_sides = bg.cell_centers[1] > 0.5
+        values[:, north_sides] = self.units.convert_units(u_n, "m")[:, north_sides]
         return values.ravel("F")
 
 
@@ -193,7 +153,6 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
     pp.models.solution_strategy.ContactIndicators,
     DamageDataSaving,
     pp.constitutive_laws.FractureDamageCoefficients,
-    MixedNorthMechanicsBCs,
     TimeDependentDamageBCs,
     pp.MomentumBalance,
 ):
@@ -300,10 +259,7 @@ class ExactSolution:
             defined in the model parameters.
 
         """
-        if "north_stress" in self.model.params:
-            return np.full(sd.num_cells, self.model.params["north_stress"][n])
-        else:
-            return np.zeros(sd.num_cells)
+        return np.zeros(sd.num_cells)
 
     def displacement_jump(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -515,15 +471,18 @@ north_displacements_3d[0] = np.array([0.0, -2.0, -2.0, 2.0, 1.0])
 north_displacements_3d[2] = np.array([0.0, 1.0, 1.0, -1.0, 1.0])
 north_displacements_3d *= 1.0e-4
 
-north_stress = -1e5 * np.ones(num_time_steps)
 solid_params = pp.solid_values.extended_granite_values_for_testing.copy()
 solid_params.update(
     {
         "friction_coefficient": 0.01,  # Low friction => slip \approx bc displacement
         "uniaxial_compressive_strength": 1e8,
-        "characteristic_fracture_roughness": 1e-4,
+        "characteristic_fracture_roughness": 1e-4,  # Same order as bc displacements.
         "initial_friction_damage": 0.3,
         "initial_dilation_damage": 0.6,
+        "dilation_angle": 0.01,  # [rad] # Low but nonzero dilation angle to get some
+        # dilation damage without incurring too much normal opening and stress.
+        "maximum_elastic_fracture_opening": 0.0,  # [m] Simplify by assuming no elastic
+        # opening.
     }
 )
 # Increase shear modulus to suppress shear displacements relative to normal ones.
@@ -539,7 +498,6 @@ model_params = {
     # Set the schedule using arange to save data from all time steps.
     "time_manager": pp.TimeManager(np.arange(0, num_time_steps), 1, True),
     "north_displacements": north_displacements_3d,
-    "north_stress": north_stress,
     "interface_displacement_parameter_values": north_displacements_3d,
     # "times_to_export": [],  # Suppress export of data for testing.
     "material_constants": {
@@ -562,7 +520,7 @@ if __name__ == "__main__":
     # are available: "dilation", "friction", or both, set to "dilation" below.
 
     dim = 2  # 2D case
-    time_steps = 7
+    time_steps = 5
     # Choose damage regimes: "dilation", "friction", or both. Set to "dilation" for the
     # executable example.
     regimes = ["dilation"]
