@@ -8,16 +8,16 @@ The main components are the following:
     1. History variables.
     2. Equations for the history variables, which are convolution integrals over the
        history of the plastic displacement jump. The equations contain a damage
-       intensity coefficient as well as a function describing the length of shear,
-       respectively c and l in the paper.
+       evolution coefficient as well as a function describing the length of shear,
+       respectively k and l in the paper.
         .. math::
 
-            \Lambda^{\alpha} = \int_0^t c^{\alpha} l dt,
+            \Lambda^{\alpha} = \int_0^t k^{\alpha} l dt,
 
-        where :math:`\alpha` is either friction or dilation damage. The damage intensity
+        where :math:`\alpha` is either friction or dilation damage. The damage evolution
         coefficient is specified in constitutive_laws.py.
     3. Constitutive laws that compute the damage from the history variables and modify
-       the friction and dilation according to the damage. c depends on type of damage
+       the friction and dilation according to the damage. k depends on type of damage
        (friction or dilation) and l depends on the damage being anisotropic or
        isotropic. The modification of the friction and dilation is done by multiplying
        the non-damaged quantity by the factor
@@ -279,7 +279,7 @@ class DilationDamageEquation(FractureDamageEquations):
     dilation_damage_equation_name = "dilation_damage_equation"
     dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
     """Method returning the dilation damage variable."""
-    dilation_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    dilation_damage_evolution_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the damage coefficient for dilation damage."""
 
     def set_equations(self):
@@ -317,7 +317,7 @@ class DilationDamageEquation(FractureDamageEquations):
             (pp.ad.Scalar(1.0) - characteristic)
             * self.damage_convolution_integral(
                 self.damage_length,
-                self.dilation_damage_coefficient,
+                self.dilation_damage_evolution_coefficient,
                 subdomains=subdomains,
             )
             - self.dilation_damage_history(subdomains)
@@ -334,7 +334,7 @@ class FrictionDamageEquation(FractureDamageEquations):
     friction_damage_equation_name = "friction_damage_equation"
     friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
     """Method returning the friction damage variable."""
-    friction_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    friction_damage_evolution_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the damage coefficient for friction damage."""
 
     def set_equations(self):
@@ -374,7 +374,7 @@ class FrictionDamageEquation(FractureDamageEquations):
             (pp.ad.Scalar(1.0) - characteristic)
             * self.damage_convolution_integral(
                 self.damage_length,
-                self.friction_damage_coefficient,
+                self.friction_damage_evolution_coefficient,
                 subdomains=subdomains,
             )
             - self.friction_damage_history(subdomains)

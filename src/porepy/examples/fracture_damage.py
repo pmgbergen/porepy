@@ -59,11 +59,11 @@ class TimeDependentDamageBCs:
 DATA_SAVING_METHOD_NAMES = [
     "normalized_traction_for_damage",
     "damage_length",
-    "dilation_damage",
-    "dilation_damage_coefficient",
+    "dilation_damage_state",
+    "dilation_damage_evolution_coefficient",
     "dilation_damage_history",
-    "friction_damage",
-    "friction_damage_coefficient",
+    "friction_damage_state",
+    "friction_damage_evolution_coefficient",
     "friction_damage_history",
 ]
 
@@ -89,11 +89,11 @@ class DamageDataSaving(pp.PorePyModel):
 
     damage_length: Callable[[list[pp.Grid], int], tuple[pp.ad.Operator, pp.ad.Operator]]
     """Damage length operator."""
-    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    dilation_damage_state: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Dilation damage operator."""
     dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
     """Dilation damage history."""
-    friction_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    friction_damage_state: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction damage operator."""
     friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
     """Friction damage history."""
@@ -152,7 +152,7 @@ class DamageDataSaving(pp.PorePyModel):
 class FractureDamageMomentumBalance(  # type: ignore[misc]
     pp.models.solution_strategy.ContactIndicators,
     DamageDataSaving,
-    pp.constitutive_laws.FractureDamageCoefficients,
+    pp.constitutive_laws.FractureDamageEvolutionCoefficients,
     TimeDependentDamageBCs,
     pp.MomentumBalance,
 ):
@@ -289,7 +289,7 @@ class ExactSolution:
         # Both should be (nd-1, num_cells)
         return disp_n - disp_prev
 
-    def friction_damage(self, sd: pp.Grid, n: int):
+    def friction_damage_state(self, sd: pp.Grid, n: int):
         """Return the exact solution at time step n.
 
         Parameters:
@@ -315,9 +315,9 @@ class ExactSolution:
             Array of friction damage history for the given time step.
 
         """
-        return self.convolution(sd, n, self.friction_damage_coefficient)
+        return self.convolution(sd, n, self.friction_damage_evolution_coefficient)
 
-    def dilation_damage(self, sd: pp.Grid, n: int) -> np.ndarray:
+    def dilation_damage_state(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
 
         Parameters:
@@ -343,7 +343,7 @@ class ExactSolution:
             Array of dilation damage history for the given time step.
 
         """
-        return self.convolution(sd, n, self.dilation_damage_coefficient)
+        return self.convolution(sd, n, self.dilation_damage_evolution_coefficient)
 
     def convolution(self, sd: pp.Grid, n: int, coefficient_function) -> np.ndarray:
         """Return the convolution of the displacement increment with the damage kernel.
@@ -379,7 +379,7 @@ class ExactSolution:
         transitional_strength = 0.2 * self.model.solid.uniaxial_compressive_strength
         return -t / (transitional_strength)
 
-    def dilation_damage_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+    def dilation_damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the dilation damage coefficient at time step n.
 
         Parameters:
@@ -398,7 +398,7 @@ class ExactSolution:
 
         return self.normalized_traction_for_damage(sd, n) * K_ad / roughness
 
-    def friction_damage_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+    def friction_damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the friction damage coefficient at time step n.
 
         Parameters:
