@@ -277,7 +277,15 @@ def _assert_case_result(
         f"got {len(result)}."
     )
 
-    for expected_coord, expected_well_idx, expected_frac_idxs in expected:
+    empty_fracture_list = []
+
+    for ind, (expected_coord, expected_well_idx, expected_frac_idxs) in enumerate(
+        expected
+    ):
+        if len(expected_frac_idxs) == 0:
+            # Special treatment of multiwell kinks.
+            empty_fracture_list.append(ind)
+            continue
         coord = _find_intersection(
             result,
             well_index=expected_well_idx,
@@ -288,6 +296,21 @@ def _assert_case_result(
             f"{expected_well_idx} and fractures {expected_frac_idxs}."
         )
         np.testing.assert_allclose(coord, expected_coord, atol=TOL, err_msg=case.name)
+
+    covered = []
+    for ind in empty_fracture_list:
+        coord = expected[ind][0]
+        for res_coord, _, well_idx, frac_idxs, _ in result:
+            if set(frac_idxs) == set() and np.allclose(res_coord, coord, atol=TOL):
+                assert well_idx == expected[ind][1], (
+                    f"Case '{case.name}': unexpected well index for intersection at {coord}."
+                )
+                covered.append(ind)
+                break
+    assert len(covered) == len(empty_fracture_list), (
+        f"Case '{case.name}': expected {len(empty_fracture_list)} intersections with no fractures, "
+        f"got {len(covered)}."
+    )
 
 
 BASIC_GEOMETRY_CASES = (
@@ -351,18 +374,29 @@ BASIC_GEOMETRY_CASES = (
 
 BASIC_GEOMETRY_EXPECTED = {
     "2d_single_segment_middle": [(np.array([0.0, 0.0, 0.0]), 0, [0])],
-    "2d_two_segment_kink": [(np.array([0.5, 0.0, 0.0]), 0, [0])],
-    "2d_two_segment_bottom": [(np.array([1.0, -1.0, 0.0]), 0, [0])],
+    "2d_two_segment_kink": [
+        (np.array([0.5, 0.0, 0.0]), 0, [0]),
+        (np.array([0.0, 1.0, 0.0]), 0, []),
+    ],
+    "2d_two_segment_bottom": [
+        (np.array([0.0, 1.0, 0.0]), 0, []),
+        (np.array([1.0, -1.0, 0.0]), 0, [0]),
+    ],
     "2d_multi_segment_multiple_intersections": [
         (np.array([0.0, 1.0, 0.0]), 0, [0]),
         (np.array([0.5, 0.0, 0.0]), 0, [1]),
     ],
     "3d_single_segment_middle": [(np.array([0.0, 0.0, 1.0]), 0, [0])],
     "3d_two_segment_kink": [(np.array([0.0, 0.0, 0.0]), 0, [0])],
-    "3d_two_segment_bottom": [(np.array([1.0, 0.0, -3.0]), 0, [0])],
+    "3d_two_segment_bottom": [
+        (np.array([0.0, 0.0, 0.0]), 0, []),
+        (np.array([1.0, 0.0, -3.0]), 0, [0]),
+    ],
     "3d_multi_segment_multiple_intersections": [
         (np.array([0.5, 0.0, -0.75]), 0, [0]),
         (np.array([1.5, 0.0, -2.25]), 0, [1]),
+        (np.array([0.0, 0.0, 0.0]), 0, []),
+        (np.array([1.0, 0.0, -1.5]), 0, []),
     ],
 }
 
@@ -422,6 +456,9 @@ MULTI_WELL_EXPECTED = {
         (np.array([0.0, 0.0, -1.0]), 0, [0]),
         (np.array([5 / 3, 0.0, -1.0]), 1, [0]),
         (np.array([0.0, 1.0, -1.0]), 2, [0]),
+        (np.array([1.0, 0.0, 1.0]), 1, []),
+        (np.array([-1.0, 1.0, 1.0]), 2, []),
+        (np.array([-0.5, 1.0, 0.0]), 2, []),
     ],
 }
 
@@ -629,7 +666,7 @@ def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     else:
         num_fracture_intersection_points = 0
 
-    mdg = well_network.mesh(fracture_network, tmp_mdg)
+    mdg = well_network.mesh(fracture_network, tmp_mdg, {"cell_size": 5.0})
 
     expected = BASIC_GEOMETRY_EXPECTED[case.name]
     num_intersections = len(expected)
