@@ -150,14 +150,67 @@ class WellNetwork3d:
         gmsh.model.occ.synchronize()
         fracture_entities, well_entities = fragment(fractures, segments)
 
-        well_points = PointsOnEntities(well_entities)
-        fracture_points = PointsOnEntities(fracture_entities)
-
         return (
-            _find_intersections(well_points, fracture_points),
+            self._intersections_from_points(
+                _PointsOnEntities(well_entities), _PointsOnEntities(fracture_entities)
+            ),
             well_entities,
             fracture_entities,
         )
+
+    def _intersections_from_points(
+        self, well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
+    ) -> list[WellFractureIntersection]:
+        # Combine intersections with the same point and well indices - these will
+        # correspond to intersections between the well and a fracture intersection line
+        # or point.
+
+        common_points = self._match_well_and_fracture_points(
+            well_points, fracture_points
+        )
+
+        merged_intersections: list[WellFractureIntersection] = []
+        for ind, ((pi, wi), fi_set) in enumerate(common_points.items()):
+            coord = gmsh.model.get_bounding_box(0, pi)[:3]
+            merged_intersections.append(
+                WellFractureIntersection(
+                    coord=coord,
+                    index=ind,
+                    well_index=wi,
+                    fracture_index=list(fi_set),
+                    gmsh_index=pi,
+                )
+            )
+
+        return merged_intersections
+
+    def _match_well_and_fracture_points(
+        self, well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
+    ) -> dict[tuple[int, int], set[int]]:
+        # Find the points that are shared between wells and fractures. These correspond
+        # to intersections.
+
+        # Dictionary that maps (point index, well index) to a set of fracture indices.
+        intersections: dict[tuple[int, int], set[int]] = {}
+        # Only register each point-well-fracture combination once.
+        visited_point_fracture_combo = set()
+
+        for wi, pi in zip(well_points.inds, well_points.points):
+            if pi in fracture_points.points:
+                # Find all fractures that contain this point, loop over a unique set of
+                # these.
+                in_fracture_inds = np.where(fracture_points.points == pi)[0]
+                for fi in list(
+                    set([fracture_points.inds[i] for i in in_fracture_inds])
+                ):
+                    if (pi, wi, fi) in visited_point_fracture_combo:
+                        continue
+                    visited_point_fracture_combo.add((pi, wi, fi))
+                    val = intersections.get((pi, wi), set())
+                    val.add(fi)
+                    intersections[(pi, wi)] = val
+
+        return intersections
 
     def _to_gmsh(self) -> tuple[list[int], list[int]]:
         segment_inds = [well.to_gmsh() for well in self.wells]
@@ -184,6 +237,55 @@ class WellNetwork3d:
             gmsh.model.addPhysicalGroup(
                 1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
             )
+
+    def _update_well_grid_tags(self, g, domain):
+        # Update the tags for the well grid, to identify boundary faces and tips.
+        bounding_planes = domain.polytope_from_bounding_box()
+        on_boundary = np.zeros(g.num_faces, dtype=bool)
+        for plane in bounding_planes:
+            if domain.dim == 2:
+                plane = np.vstack((plane, np.zeros(plane.shape[1])))
+                dist, *_ = pp.geometry.distances.points_segments(
+                    g.face_centers, plane[:, 0], plane[:, 1]
+                )
+            else:
+                dist, _, _ = pp.geometry.distances.points_polygon(g.face_centers, plane)
+
+            on_boundary = np.logical_or(on_boundary, np.isclose(dist, 0))
+        g.tags["tip_faces"] = g.tags["domain_boundary_faces"] & np.logical_not(
+            on_boundary
+        )
+        g.tags["domain_boundary_faces"] = on_boundary
+
+    def _add_interface(
+        self,
+        dim: int,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        mdg: pp.MixedDimensionalGrid,
+        primary_secondary_map: sps.coo_matrix,
+    ) -> None:
+        """Utility method to add an interface to the mdg.
+
+        Both grids should already be present in the mixed-dimensional grid.
+
+        Parameters:
+            sd_primary: Primary subdomain grid. In the context of this module, it represents
+                a fracture or well.
+            sd_secondary: Secondary subdomain grid. In the context of this module, it
+                typically represents an intersection point.
+            mdg: MixedDimensionalGrid to which the interface will be added.
+            primary_secondary_map: Map between ``cells_l`` and either ``faces_h`` (codim=1)
+                or ``cells_h`` (codim=2).
+
+        """
+        codim = sd_primary.dim - sd_secondary.dim
+        subdomain_pair = (sd_primary, sd_secondary)
+        side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_secondary.copy()}
+        mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
+        mg._primary_to_mortar_int = primary_secondary_map
+        mg.compute_geometry()
+        mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
 
     def _mesh_size(
         self, well: Well, segment_ind: Optional[tuple[int, int]] = None
@@ -236,7 +338,7 @@ def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
         return np.array([], dtype=int)
 
 
-class PointsOnEntities:
+class _PointsOnEntities:
     def __init__(self, entities: list[GmshEntity]):
         points, inds = [], []
         for entity in entities:
@@ -247,104 +349,5 @@ class PointsOnEntities:
         self.inds = inds
 
 
-def _match_well_and_fracture_points(
-    well_points: PointsOnEntities, fracture_points: PointsOnEntities
-) -> dict[tuple[int, int], set[int]]:
-    # Find the points that are shared between wells and fractures. These correspond
-    # to intersections.
-
-    # Dictionary that maps (point index, well index) to a set of fracture indices.
-    intersections: dict[tuple[int, int], set[int]] = {}
-    # Only register each point-well-fracture combination once.
-    visited_point_fracture_combo = set()
-
-    for wi, pi in zip(well_points.inds, well_points.points):
-        if pi in fracture_points.points:
-            # Find all fractures that contain this point, loop over a unique set of
-            # these.
-            in_fracture_inds = np.where(fracture_points.points == pi)[0]
-            for fi in list(set([fracture_points.inds[i] for i in in_fracture_inds])):
-                if (pi, wi, fi) in visited_point_fracture_combo:
-                    continue
-                visited_point_fracture_combo.add((pi, wi, fi))
-                val = intersections.get((pi, wi), set())
-                val.add(fi)
-                intersections[(pi, wi)] = val
-
-    return intersections
-
-
-def _find_intersections(
-    well_points: PointsOnEntities, fracture_points: PointsOnEntities
-) -> list[WellFractureIntersection]:
-    # Combine intersections with the same point and well indices - these will correspond
-    # to intersections between the well and a fracture intersection line or point.
-
-    common_points = _match_well_and_fracture_points(well_points, fracture_points)
-
-    merged_intersections: list[WellFractureIntersection] = []
-    for ind, ((pi, wi), fi_set) in enumerate(common_points.items()):
-        coord = gmsh.model.get_bounding_box(0, pi)[:3]
-        merged_intersections.append(
-            WellFractureIntersection(
-                coord=coord,
-                index=ind,
-                well_index=wi,
-                fracture_index=list(fi_set),
-                gmsh_index=pi,
-            )
-        )
-
-    return merged_intersections
-
-
-def _update_well_grid_tags(g, domain):
-    # Update the tags for the well grid, to identify boundary faces and tips.
-    bounding_planes = domain.polytope_from_bounding_box()
-    on_boundary = np.zeros(g.num_faces, dtype=bool)
-    for plane in bounding_planes:
-        if domain.dim == 2:
-            plane = np.vstack((plane, np.zeros(plane.shape[1])))
-            dist, *_ = pp.geometry.distances.points_segments(
-                g.face_centers, plane[:, 0], plane[:, 1]
-            )
-        else:
-            dist, _, _ = pp.geometry.distances.points_polygon(g.face_centers, plane)
-
-        on_boundary = np.logical_or(on_boundary, np.isclose(dist, 0))
-    g.tags["tip_faces"] = g.tags["domain_boundary_faces"] & np.logical_not(on_boundary)
-    g.tags["domain_boundary_faces"] = on_boundary
-
-
 def _set_mesh_size(wells, cell_size):
     gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
-
-
-def _add_interface(
-    dim: int,
-    sd_primary: pp.Grid,
-    sd_secondary: pp.Grid,
-    mdg: pp.MixedDimensionalGrid,
-    primary_secondary_map: sps.coo_matrix,
-) -> None:
-    """Utility method to add an interface to the mdg.
-
-    Both grids should already be present in the mixed-dimensional grid.
-
-    Parameters:
-        sd_primary: Primary subdomain grid. In the context of this module, it represents
-            a fracture or well.
-        sd_secondary: Secondary subdomain grid. In the context of this module, it
-            typically represents an intersection point.
-        mdg: MixedDimensionalGrid to which the interface will be added.
-        primary_secondary_map: Map between ``cells_l`` and either ``faces_h`` (codim=1)
-            or ``cells_h`` (codim=2).
-
-    """
-    codim = sd_primary.dim - sd_secondary.dim
-    subdomain_pair = (sd_primary, sd_secondary)
-    side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_secondary.copy()}
-    mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
-    mg._primary_to_mortar_int = primary_secondary_map
-    mg.compute_geometry()
-    mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
