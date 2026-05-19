@@ -623,7 +623,7 @@ class TestDamageLength:
         "isotropic", [True, False], ids=["isotropic", "anisotropic"]
     )
     def test_length_zero_for_zero_increment(self, isotropic: bool):
-        """No net slip → zero damage length for both isotropic and anisotropic models."""
+        """No net slip → zero damage length for both isotropic and anisotropic."""
         model = _prepared_model(isotropic=isotropic, damages=["dilation"])
         fractures = self._fractures(model)
         nc = sum(sd.num_cells for sd in fractures)
