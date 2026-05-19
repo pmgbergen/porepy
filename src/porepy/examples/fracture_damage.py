@@ -26,6 +26,11 @@ class TimeDependentDamageBCs:
     initialization.
     """
 
+    nd: int
+    params: dict
+    time_manager: pp.TimeManager
+    units: pp.Units
+
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
@@ -534,7 +539,7 @@ if __name__ == "__main__":
 
     # Build the model class by adding the requested damage mechanisms as mixins to the
     # momentum balance model and the geometry mixin for the target dimension.
-    class _Model(
+    class _Model(  # type: ignore[misc]
         SquareDomainOrthogonalFractures,
         # Can be replaced by AnisotropicFractureDamageLength if desired:
         damage.IsotropicFractureDamageLength,
@@ -545,13 +550,13 @@ if __name__ == "__main__":
     for regime in regimes:
         model_class = add_mixin(
             damage_types[regime],  # type: ignore[type-abstract]
-            _Model,
+            _Model,  # type: ignore[type-abstract]
         )
 
     # Parameter setup for the momentum balance model.
     model_params["exact_solution"] = ExactSolutionIsotropic
     # Only pass active dimensions.
-    model_params["north_displacements"] = model_params["north_displacements"][:dim]
+    model_params["north_displacements"] = model_params["north_displacements"][:dim]  # type: ignore[index]
 
     model = model_class(model_params)  # type: ignore[abstract]
     # In some cases, the momentum balance model cannot converge with the default solver
