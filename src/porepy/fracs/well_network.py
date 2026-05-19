@@ -75,6 +75,7 @@ class WellNetwork3d:
         self,
         fracture_network: FractureNetwork3d,
         mdg: pp.MixedDimensionalGrid,
+        mesh_args: dict,
     ) -> None:
         """Mesh the well network and add to the mixed-dimensional grid.
 
@@ -90,7 +91,7 @@ class WellNetwork3d:
             fracture_network.fractures, fracture_network.nd
         )
         _set_physical_names(intersections, wells)
-        _set_mesh_size(wells, 1.0)
+        self._set_mesh_size(wells, mesh_args.get("cell_size"))
         gmsh.model.mesh.generate(1)
         file_name = Path("well_mesh.msh")
         gmsh.write(file_name.as_posix())
@@ -287,26 +288,8 @@ class WellNetwork3d:
         mg.compute_geometry()
         mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
 
-    def _mesh_size(
-        self, well: Well, segment_ind: Optional[tuple[int, int]] = None
-    ) -> float:
-        """Return the mesh size for a well or one of its segments.
-
-        Parameters:
-            well: Well for which to access mesh size.
-            segment_ind: ``default=None``
-
-                Indices defining the segment, i.e., indices of the endpoints of the
-                segment. If ``None``, the mesh size for the entire well is returned.
-
-        Returns:
-            Mesh size for the :attr:`well` or one of its segments.
-
-        """
-        size = well._mesh_size(segment_ind)
-        if size is None:
-            size = self.parameters["mesh_size"]
-        return size
+    def _set_mesh_size(self, wells, cell_size):
+        gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
 
     def __repr__(self) -> str:
         """Return a string representation of the well network.
@@ -347,7 +330,3 @@ class _PointsOnEntities:
             inds.extend(loc_inds)
         self.points = _merge_arrays(points)
         self.inds = inds
-
-
-def _set_mesh_size(wells, cell_size):
-    gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
