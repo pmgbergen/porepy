@@ -600,7 +600,7 @@ def test_bc_values_darcy_flux_baseline_well_posed() -> None:
 
 
 # Empirically verified unit for bc_values_fluid_flux in 2D: integrated fluid mass
-# flux is rho/mu*K*grad(p)*face_area, and SI unit is kg*m^(nd-3)*s^-1, where nd 
+# flux is rho/mu*K*grad(p)*face_area, and SI unit is kg*m^(nd-3)*s^-1, where nd
 # is the ambient dimension. In 2D, this gives kg*m^-1*s^-1.
 _FLUID_FLUX_UNIT: str = "kg*m^-1*s^-1"
 _FLUID_FLUX_VALUE_SI: float = 1.0e-3
@@ -650,14 +650,14 @@ def test_bc_values_fluid_flux_baseline_well_posed() -> None:
 
 
 # Empirically verified unit for bc_values_stress in 2D: traction integrated over
-# the boundary face, and SI unit is Pa*m^(nd-1), where nd is the ambient dimension. 
+# the boundary face, and SI unit is Pa*m^(nd-1), where nd is the ambient dimension.
 # In 2D, this gives Pa*m.
 _STRESS_UNIT: str = "Pa*m"
 _STRESS_VALUE_SI: float = 1.0e-3
 
 
 class _StressBCProbe(CommonMomentumBalance):
-    """Linear elasticity: Dirichlet displacement on west and south, 
+    """Linear elasticity: Dirichlet displacement on west and south,
     Neumann stress on east.
     """
 
@@ -672,9 +672,7 @@ class _StressBCProbe(CommonMomentumBalance):
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
         vals = np.zeros((self.nd, bg.num_cells))
         sides = self.domain_boundary_sides(bg)
-        vals[0, sides.east] = self.units.convert_units(
-            _STRESS_VALUE_SI, _STRESS_UNIT
-        )
+        vals[0, sides.east] = self.units.convert_units(_STRESS_VALUE_SI, _STRESS_UNIT)
         return vals.ravel("F")
 
 
@@ -695,6 +693,7 @@ _STRESS_SPEC = _BCUnitInvarianceSpec(
 def test_bc_values_stress_unit_invariance(units: pp.Units) -> None:
     """Recovered SI displacement is invariant under unit rescaling."""
     _assert_bc_unit_invariance(_STRESS_SPEC, units)
+
 
 def test_bc_values_stress_baseline_well_posed() -> None:
     """Sanity check: SI baseline is finite and non-degenerate."""
