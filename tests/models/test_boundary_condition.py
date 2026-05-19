@@ -759,3 +759,68 @@ def test_bc_values_fourier_flux_unit_invariance(units: pp.Units) -> None:
 def test_bc_values_fourier_flux_baseline_well_posed() -> None:
     """Sanity check: SI baseline is finite and non-degenerate."""
     _assert_baseline_well_posed(_FOURIER_FLUX_SPEC)
+
+
+# Empirically verified unit for bc_values_enthalpy_flux in 2D: integrated enthalpy
+# flux rho * enthalpy * volumetric_flux * face_area, SI unit W * m^(nd-3) where nd is the
+# ambient dimension. In 2D this gives W * m^-1.
+_ENTHALPY_FLUX_UNIT: str = "W*m^-1"
+_ENTHALPY_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _EnthalpyFluxBCProbe(SquareDomainOrthogonalFractures, pp.MassAndEnergyBalance):
+    """Mass + energy transport: Dirichlet T=0 on west, Neumann enthalpy flux on east.
+    Pressure pinned to zero everywhere so the Darcy flow that advects
+    enthalpy is driven only by the enthalpy BC's coupling, not by
+    independent pressure forcing.
+
+    """
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_enthalpy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _ENTHALPY_FLUX_VALUE_SI, _ENTHALPY_FLUX_UNIT
+        )
+        return vals
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_values_enthalpy(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_enthalpy_flux: probe model, primary variable
+# accessor (temperature on the matrix subdomain), and the declared BC unit.
+_ENTHALPY_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_EnthalpyFluxBCProbe,
+    probe_label="enthalpy_flux",
+    primary_variable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.temperature([sd])
+    ),
+    primary_variable_si_unit="K",
+    declared_bc_unit=_ENTHALPY_FLUX_UNIT,
+)
+
+
+@pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
+def test_bc_values_enthalpy_flux_unit_invariance(units: pp.Units) -> None:
+    """Recovered SI temperature is invariant under unit rescaling."""
+    _assert_bc_unit_invariance(_ENTHALPY_FLUX_SPEC, units)
+
+
+def test_bc_values_enthalpy_flux_baseline_well_posed() -> None:
+    """Sanity check: SI baseline is finite and non-degenerate."""
+    _assert_baseline_well_posed(_ENTHALPY_FLUX_SPEC)
