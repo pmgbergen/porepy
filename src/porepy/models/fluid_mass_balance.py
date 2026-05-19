@@ -509,22 +509,22 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
 
         The values correspond to the integrated quantity
         :math:`\int_\sigma \frac{\rho}{\mu} \mathbf{K} \nabla p \cdot \mathbf{n}\, dA` on
-        each boundary face: math:`\sigma`, with SI unit
+        each boundary face :math:`\sigma`, with SI unit
         :math:`\mathrm{kg}\,\mathrm{m}^{n_d-3}\,\mathrm{s}^{-1}`,
         where :math:`n_d` is the ambient dimension.
 
-        The mobility term :math:`\frac{\rho}{\mu}` is included, so the values correspond
-        to a mass flux.
+        The density-weighted mobility term :math:`\frac{\rho}{\mu}` is included, so the
+        values correspond to a mass flux.
 
         Important:
-            Override this method to provide custom Neumann data for the flux,
-            per boundary grid as a numpy array with numerical values.
+            Override this method to provide custom Neumann data for the integrated fluid
+            mass flux, per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the mass fluid flux
+            An array with ``shape=(bg.num_cells,)`` containing the integrated fluid mass flux
             values on the provided boundary grid.
 
         """
