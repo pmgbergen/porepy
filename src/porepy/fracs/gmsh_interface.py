@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, NamedTuple
 from dataclasses import dataclass
 
 import gmsh
@@ -161,3 +161,39 @@ class GmshSurface(GmshEntity):
                 points.extend([p[1] for p in loc_points])
                 inds += [self.index] * len(loc_points)
         return points, inds
+
+
+def fragment(first, second):
+
+    first_tags = [t for f in first for t in f.tags]
+    second_tags = [t for s in second for t in s.tags]
+    first_dim = first[0].dim if len(first) > 0 else None
+    second_dim = second[0].dim if len(second) > 0 else None
+
+    _, split_objects = gmsh.model.occ.fragment(
+        [(first_dim, t) for t in first_tags],
+        [(second_dim, t) for t in second_tags],
+        removeObject=True,
+        removeTool=True,
+    )
+    gmsh.model.occ.synchronize()
+
+    def gather(before, after):
+        merged = []
+
+        indices_before = np.concatenate([np.full(len(b.tags), b.index) for b in before])
+
+        for i in np.unique(indices_before):
+            ind_in_before = np.where(indices_before == i)[0]
+            tags = []
+            for j in ind_in_before:
+                tags.extend([a[1] for a in after[j]])
+            if before[i].dim == 2:
+                merged.append(GmshSurface(index=i, tags=tags))
+            else:
+                merged.append(GmshLine(index=i, tags=tags))
+        return merged
+
+    return gather(first, split_objects[: len(first_tags)]), gather(
+        second, split_objects[len(first_tags) :]
+    )

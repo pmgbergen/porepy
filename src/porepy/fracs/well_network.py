@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, NamedTuple
 
 from .wells_3d import Well
-from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, GmshSurface
+from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, GmshSurface, fragment
 from scipy import sparse as sps
 
 
@@ -142,15 +142,13 @@ class WellNetwork3d:
         if not gmsh.is_initialized():
             gmsh.initialize()
 
-        fracture_tags = _export_fractures_to_gmsh(fractures)
+        fractures = _export_fractures_to_gmsh(fractures)
         gmsh.model.occ.synchronize()
 
-        segment_inds, segment_to_wells = self._to_gmsh()
+        segments = self._to_gmsh()
 
         gmsh.model.occ.synchronize()
-        fracture_entities, well_entities = _fragment_wells_fractures(
-            segment_inds, fracture_tags, nd, segment_to_wells
-        )
+        fracture_entities, well_entities = fragment(fractures, segments)
 
         well_points = PointsOnEntities(well_entities)
         fracture_points = PointsOnEntities(fracture_entities)
@@ -165,14 +163,13 @@ class WellNetwork3d:
         segment_inds = [well.to_gmsh() for well in self.wells]
         gmsh.model.occ.synchronize()
 
-        unified_segments = []
-        segment_to_wells = []
-        for i, segments in enumerate(segment_inds):
-            for segment in segments:
-                unified_segments.append(segment)
-                segment_to_wells.append(i)
+        entities = []
 
-        return unified_segments, segment_to_wells
+        for i, segments in enumerate(segment_inds):
+            indices = [s for s in segments]
+            entities += [GmshLine(index=i, tags=indices)]
+
+        return entities
 
     def _set_physical_names(self, intersections, wells):
         for isect in intersections:
@@ -224,7 +221,12 @@ class WellNetwork3d:
 
 
 def _export_fractures_to_gmsh(fractures: list[pp.Fracture]) -> list[int]:
-    return [fracture.fracture_to_gmsh() for fracture in fractures]
+    entities = []
+    dim = 1 if isinstance(fractures[0], pp.LineFracture) else 2
+    for fracture in fractures:
+        tag = fracture.fracture_to_gmsh()
+        entities += [GmshEntity(index=fracture.index, tags=[tag], dim=dim)]
+    return entities
 
 
 def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
@@ -294,35 +296,6 @@ def _find_intersections(
         )
 
     return merged_intersections
-
-
-def _fragment_wells_fractures(well_tags, fracture_tags, nd, segment_to_wells):
-    _, split_objects = gmsh.model.occ.fragment(
-        [(nd - 1, t) for t in fracture_tags],
-        [(1, t) for t in well_tags],
-        removeObject=True,
-        removeTool=True,
-    )
-    gmsh.model.occ.synchronize()
-    fractures = []
-    for fi, fracture in enumerate(split_objects[: len(fracture_tags)]):
-        gmsh_inds = [t[1] for t in fracture]
-        if nd == 3:
-            fractures.append(GmshSurface(index=fi, tags=gmsh_inds))
-        else:
-            fractures.append(GmshLine(index=fi, tags=gmsh_inds))
-
-    wells = []
-    for wi in np.unique(segment_to_wells):
-        ind_in_object = (
-            len(fracture_tags) + np.where(np.array(segment_to_wells) == wi)[0]
-        )
-        gmsh_tags = []
-        for si in ind_in_object:
-            gmsh_tags.extend([t[1] for t in split_objects[si]])
-        wells.append(GmshLine(index=wi, tags=gmsh_tags))
-
-    return fractures, wells
 
 
 def _update_well_grid_tags(g, domain):
