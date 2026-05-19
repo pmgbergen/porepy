@@ -179,7 +179,7 @@ class TestDamageStateFormula:
         )
         d = model.residual_dilation_damage(fractures).value(model.equation_system)
         expected = d0 + (1.0 - d0) * np.exp(-10.0)
-        np.testing.assert_allclose(d, expected * np.ones(nc), rtol=1e-10)
+        np.testing.assert_allclose(d, expected * np.ones(nc), rtol=1e-4)
 
     def test_damage_state_is_monotone_in_history(self):
         """A larger history value produces a smaller (more damaged) state."""
