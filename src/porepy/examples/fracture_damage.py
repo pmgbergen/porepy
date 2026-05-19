@@ -504,6 +504,7 @@ model_params = {
         "solid": FractureDamageSolidConstants(**solid_params),  # type: ignore[arg-type]
         "numerical": pp.NumericalConstants(characteristic_displacement=1e-2),
     },
+    "adaptive_indicator_scaling": True,  # Needed for nonlinear convergence.
 }
 
 
@@ -528,7 +529,6 @@ if __name__ == "__main__":
     model_params.update(
         {
             "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
-            "adaptive_indicator_scaling": True,  # Needed for nonlinear convergence.
         }
     )
 

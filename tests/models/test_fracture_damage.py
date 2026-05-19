@@ -71,7 +71,6 @@ def run_displacement_controlled_setup(
         {
             "time_manager": pp.TimeManager(np.arange(0, 5), 1, True),
             "north_displacements": params["north_displacements"][:dim],
-            "adaptive_indicator_scaling": True,
         }
     )
     params["material_constants"] = {
