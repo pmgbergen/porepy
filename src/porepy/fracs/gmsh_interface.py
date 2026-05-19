@@ -33,76 +33,8 @@ import gmsh
 import numpy as np
 
 __all__ = [
-    "GmshData",
-    "GmshData1d",
-    "GmshData2d",
-    "GmshData3d",
-    "Tags",
     "PhysicalNames",
-    "GmshWriter",
 ]
-
-
-class Tags(Enum):
-    """Numerical tags used to identify special objects in a mixed-dimensional geometry.
-
-    These may be mapped to the string-based tag system used in Gmsh (see
-    :class:`PhysicalNames`).
-
-    Used internally in porepy.
-
-    """
-
-    NEUTRAL = 0
-    """A neutral tag. Objects with this tag will not be accounted for in any
-    particular way in grid and geometry processing. """
-
-    DOMAIN_BOUNDARY_POINT = 1
-    """Tag to identify points on the domain boundary."""
-    DOMAIN_BOUNDARY_LINE = 2
-    """Tag to identify lines on the domain boundary."""
-    DOMAIN_BOUNDARY_SURFACE = 3
-    """Tag to identify surfaces on the domain boundary."""
-
-    FRACTURE = 10
-    """Tag for fractures (grids with dimensions lower than the ambient dimension)."""
-
-    AUXILIARY_LINE = 11
-    """Tag for auxiliary lines which represent constraints."""
-    AUXILIARY_PLANE = 12
-    """Tag for auxiliary panes which represent constraints."""
-
-    FRACTURE_TIP = 20
-    """Tag for fracture tips. Can be a point or a line."""
-
-    FRACTURE_INTERSECTION_LINE = 21
-    """Tag to identify a line resulting from at least two intersecting fractures.
-
-    Ambient dimension must be 3 in this case.
-
-    """
-
-    FRACTURE_BOUNDARY_LINE = 22
-    """Tag to identify lines which are both in a fracture and on the domain boundary."""
-
-    FRACTURE_INTERSECTION_POINT = 30
-    """Tag to identify points resulting from intersecting fractures.
-
-    Requires at least 2 fractures in 2D, and at least 3 fractures in 3D.
-
-    """
-
-    FRACTURE_CONSTRAINT_INTERSECTION_POINT = 31
-    """Tag to identify points at the intersection between fractures and constraints or
-    auxiliary lines/planes.
-
-    Ambient dimension must be 3 in this case.
-
-    """
-
-    FRACTURE_BOUNDARY_POINT = 32
-    """Tag for points lying on the intersection between a fracture and the domain
-    boundary."""
 
 
 class PhysicalNames(Enum):
@@ -140,18 +72,8 @@ class PhysicalNames(Enum):
     AUXILIARY_PLANE = "AUXILIARY_PLANE_"
     """Name tag for auxiliary planes."""
 
-    DOMAIN_BOUNDARY_POINT = "DOMAIN_BOUNDARY_POINT_"
-    """Name tag for points on the domain boundary."""
-    DOMAIN_BOUNDARY_LINE = "DOMAIN_BOUNDARY_LINE_"
-    """Name tag for lines on the domain boundary."""
-    DOMAIN_BOUNDARY_SURFACE = "DOMAIN_BOUNDARY_SURFACE_"
-    """Name tag for surfaces on the domain boundary."""
-
     FRACTURE_TIP = "FRACTURE_TIP_"
     """Name tag for fracture tips, which can be points or lines."""
-
-    FRACTURE_BOUNDARY_LINE = "FRACTURE_BOUNDARY_LINE_"
-    """Name tag for lines which are both in a fracture and on the domain boundary."""
 
     FRACTURE_INTERSECTION_LINE = "FRACTURE_INTERSECTION_LINE_"
     """Name tag for lines resulting from at least two intersecting fractures.
@@ -164,17 +86,5 @@ class PhysicalNames(Enum):
     """Name tag for points resulting from intersecting fractures.
 
     Requires at least 2 fractures in 2D, and at least 3 fractures in 3D.
-
-    """
-
-    FRACTURE_BOUNDARY_POINT = "FRACTURE_BOUNDARY_POINT_"
-    """Name tag for points lying on the intersection between a fracture and the domain
-    boundary."""
-
-    FRACTURE_CONSTRAINT_INTERSECTION_POINT = "FRACTURE_CONSTRAINT_INTERSECTION_POINT_"
-    """Name tag to identify points at the intersection between fractures and constraints
-    or auxiliary lines/planes.
-
-    Ambient dimension must be 3 in this case.
 
     """

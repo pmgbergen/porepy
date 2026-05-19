@@ -579,7 +579,7 @@ def tag_grid(
 
             # If an item in PhysicalNames is a prefix of tag_name, we skip it. This
             # avoids creating tags for physical names that are mesh processing specific
-            # (e.g., domain_boundary_line etc.).
+            # (e.g., auxiliary_line etc.).
             if any(
                 tag_name.lower().startswith(prefix.lower())
                 for prefix in PhysicalNames._member_map_
