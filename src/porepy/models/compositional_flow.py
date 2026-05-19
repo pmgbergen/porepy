@@ -1989,7 +1989,7 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
 
 
         total_porosity=self.total_porosity([sd])
-        if isinstance(total_porosity, np.ndarray):
+        if isinstance(total_porosity, pp.numerics.ad.operators.DenseArray):
             total_porosity_values=total_porosity._values
         elif isinstance(total_porosity, pp.ad.Scalar):
             total_porosity_values=total_porosity._value
@@ -2102,10 +2102,10 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             ms += self.ic_values_mineral_saturation(comp, sd)
 
         total_porosity=self.total_porosity([sd])
-        if isinstance(total_porosity, np.ndarray):
-            total_porosity_values=total_porosity._values
+        if isinstance(total_porosity, pp.numerics.ad.operators.DenseArray):
+            total_porosity_values = total_porosity._values
         elif isinstance(total_porosity, pp.ad.Scalar):
-            total_porosity_values=total_porosity._value
+            total_porosity_values = total_porosity._value
 
         porosity = total_porosity_values * (np.ones(sd.num_cells) - ms)
         if component in self.fluid.solid_components:

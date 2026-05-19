@@ -1260,7 +1260,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         if len(self.fluid.solid_components) > 0:
             op = (
                 self.porosity(domains)
-                * self.fluid.density(domains)
+                * self.fluid.molar_density(domains)
                 / self.total_molar_concentration(domains)
             )
 
