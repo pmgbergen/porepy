@@ -4491,25 +4491,25 @@ class FrictionDamage(pp.PorePyModel):
         history = f_clip(self.friction_damage_history(subdomains))
 
         # Get the material parameter.
-        d0 = self.initial_friction_damage(subdomains)
+        d0 = self.residual_friction_damage(subdomains)
 
         # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp")
         one = pp.ad.Scalar(1.0)
         return d0 + (one - d0) * f_exp(-history)
 
-    def initial_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Initial damage [-].
+    def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Residual friction damage [-].
 
         Parameters:
-            subdomains: List of subdomains where the initial damage is defined. Should
+            subdomains: List of subdomains where the residual damage is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Scalar for nondimensionalized initial damage.
+            Scalar for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(self.solid.initial_friction_damage)
+        return pp.ad.Scalar(self.solid.residual_friction_damage)
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient [-].
@@ -4581,25 +4581,25 @@ class DilationDamage(pp.PorePyModel):
         history = f_clip(self.dilation_damage_history(subdomains))
 
         # Get the material parameter.
-        d0 = self.initial_dilation_damage(subdomains)
+        d0 = self.residual_dilation_damage(subdomains)
 
         # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp")
         one = pp.ad.Scalar(1.0)
         return d0 + (one - d0) * f_exp(-history)
 
-    def initial_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Initial damage [-].
+    def residual_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Residual dilation damage [-].
 
         Parameters:
-            subdomains: List of subdomains where the initial damage is defined. Should
+            subdomains: List of subdomains where the residual damage is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Scalar for nondimensionalized initial damage.
+            Scalar for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(self.solid.initial_dilation_damage)
+        return pp.ad.Scalar(self.solid.residual_dilation_damage)
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear dilation gap [m].

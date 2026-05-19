@@ -301,7 +301,7 @@ class ExactSolution:
 
         """
         h = self.friction_damage_history(sd, n)
-        d0 = self.model.solid.initial_friction_damage
+        d0 = self.model.solid.residual_friction_damage
         return d0 + (1 - d0) * np.exp(-h)
 
     def friction_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
@@ -329,7 +329,7 @@ class ExactSolution:
 
         """
         h = self.dilation_damage_history(sd, n)
-        d0 = self.model.solid.initial_dilation_damage
+        d0 = self.model.solid.residual_dilation_damage
         return d0 + (1 - d0) * np.exp(-h)
 
     def dilation_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
@@ -477,8 +477,8 @@ solid_params.update(
         "friction_coefficient": 0.01,  # Low friction => slip \approx bc displacement
         "uniaxial_compressive_strength": 1e8,
         "characteristic_fracture_roughness": 1e-4,  # Same order as bc displacements.
-        "initial_friction_damage": 0.3,
-        "initial_dilation_damage": 0.6,
+        "residual_friction_damage": 0.3,
+        "residual_dilation_damage": 0.6,
         "dilation_angle": 0.01,  # [rad] # Low but nonzero dilation angle to get some
         # dilation damage without incurring too much normal opening and stress.
         "maximum_elastic_fracture_opening": 0.0,  # [m] Simplify by assuming no elastic

@@ -431,8 +431,8 @@ class FractureDamageSolidConstants(SolidConstants):
     SI_units: ClassVar[dict[str, str]] = dict(**SolidConstants.SI_units)
     SI_units.update(
         {
-            "initial_dilation_damage": "-",
-            "initial_friction_damage": "-",
+            "residual_dilation_damage": "-",
+            "residual_friction_damage": "-",
             "dilation_damage_decay": "-",
             "friction_damage_decay": "-",
             "characteristic_fracture_roughness": "m",
@@ -441,9 +441,9 @@ class FractureDamageSolidConstants(SolidConstants):
     )
     # Initial value 1 implies no frictional damage, 0.0 implies no damage at all.
     # Consider renaming to `friction_damage_weight`.
-    initial_friction_damage: float = 1.0
+    residual_friction_damage: float = 1.0
     friction_damage_decay: float = 0.0
-    initial_dilation_damage: float = 1.0
+    residual_dilation_damage: float = 1.0
     dilation_damage_decay: float = 0.0
     characteristic_fracture_roughness: float = 1.0
     uniaxial_compressive_strength: float = 1.0
