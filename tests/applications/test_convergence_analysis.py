@@ -873,21 +873,18 @@ def face_error(
         "is_cc",
         "is_scalar",
         "parameter_weight",
-        "nd_error_computation",
     ),
     [
-        (True, True, True, False, False),
-        (True, False, True, False, False),
-        (True, True, False, False, False),
-        (True, False, False, False, False),
-        (False, True, True, False, False),
-        (False, True, False, True, False),
-        (True, True, False, True, True),
-        (True, True, False, True, False),
-        (True, False, False, True, False),
-        (True, False, False, False, True),
-        (True, False, False, True, True),
+        (True, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+        (True, False, False, False),
+        (False, True, True, False),
+        (False, True, False, True),
     ],
+)
+@pytest.mark.parametrize(
+    "nd_error_computation",    [False, True],
 )
 @pytest.mark.parametrize(
     "grid_fixture",
