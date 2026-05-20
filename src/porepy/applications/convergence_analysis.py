@@ -482,12 +482,10 @@ class ConvergenceAnalysis:
         grid: pp.GridLike,
         true_array: np.ndarray,
         approx_array: np.ndarray,
-        is_scalar: bool,
         is_cc: bool,
         p: pp.number = 2,
         relative: bool = False,
         parameter_weight: Optional[np.ndarray] = None,
-        nd_error_computation: bool = True,
     ) -> pp.number:
         """Computes the discrete :math:`L_p`-error as given in [1].
 
@@ -501,11 +499,14 @@ class ConvergenceAnalysis:
 
         Parameters:
             grid: Either a subdomain grid or a mortar grid.
-            true_array: Array containing the true values of a given variable.
-            approx_array: Array containing the approximate values of a given variable.
-            is_scalar: Whether the variable is a scalar quantity. Use ``False`` for
-                vector quantities. For example, ``is_scalar=True`` for pressure, whereas
-                ``is_scalar=False`` for displacement.
+            true_array: Array containing the true values of a given variable. The
+                values should be ordered as follows: For a solution of dimension N, the
+                first N values in the array should correspond to all components of the
+                solution in the first cell/face in the grid. For example, for vector
+                quantities in 2d, the first two values should correspond to the x- and
+                y-components of the solution in the first cell/face, and so on.
+            approx_array: Array containing the approximate values of a given variable. 
+                The values should be ordered in the same way as ``true_array``.
             is_cc: Whether the variable is associated to cell centers. Use ``False``
                 for variables associated to face centers. For example, ``is_cc=True``
                 for pressures, whereas ``is_cc=False`` for subdomain fluxes.
@@ -519,28 +520,31 @@ class ConvergenceAnalysis:
             parameter_weight: Array containing the parameter weight, producing a
                 weighted norm. If given, the array size must equal the number of faces
                 or cells in the grid.
-            nd_error_computation: Boolean flag to indicate whether the error
-                computation should be performed using the dimension of the passed grid
-                or the dimension of the passed arrays. This is relevant for vector
-                quantities defined on grids of different dimension than themselves
-                (e.g. fracture contact traction in two dimensions: a 2D vector defined
-                on a 1D grid). If ``False`` the error is computed using the grid
-                dimension.
 
         Raises:
             NotImplementedError: If a mortar grid is given and is_cc is False.
+            ValueError: If the passed arrays have invalid dimensions and/or different
+                size.
             ZeroDivisionError: If the denominator in the relative error is zero.
             ValueError: If the parameter weight has an invalid size.
-            ValueError: If the dimension of the passed arrays does not match the choice
-                of ``nd_error_computation``.
+            ValueError: If the array size does not match the expected size based on the
+                grid and the number of components per face/cell.
 
         Returns:
             (Discrete) :math:`L_p`-error between the true and approximated arrays.
 
         """
-        # Sanity check.
+        # Sanity checks
         if isinstance(grid, pp.MortarGrid) and not is_cc:
             raise NotImplementedError("Interface variables can only be cell-centered.")
+        if (
+            true_array.size != approx_array.size
+            or true_array.ndim != 1
+            or approx_array.ndim != 1
+        ):
+            raise ValueError(
+                "true_array and approx_array must be 1d and have the same size."
+            )
 
         # Obtain proper measure, e.g., cell volumes for cell-centered quantities and the
         # volume of the pyramids spanned by the face and its neighboring cell centers
@@ -548,11 +552,6 @@ class ConvergenceAnalysis:
         if is_cc:
             num_faces_or_cells = grid.num_cells
             meas = grid.cell_volumes
-
-            # If the quantity is a cell-centered vector, we may need to repeat the
-            # measure according to the dimension of the vector. For a cell-centered
-            # quantity:
-            repetitions = int(len(true_array) / grid.num_cells)
         else:
             assert isinstance(grid, pp.Grid)  # to please mypy
             num_faces_or_cells = grid.num_faces
@@ -574,27 +573,32 @@ class ConvergenceAnalysis:
             # pyramid, see https://en.wikipedia.org/wiki/Hyperpyramid.
             meas = dist_cc_cc / grid.dim
 
-            # If the quantity is a face-centered vector, we may need to repeat the
-            # measure according to the dimension of the vector. For a face-centered
-            # quantity:
-            repetitions = int(len(true_array) / grid.num_faces)
         if parameter_weight is not None:
             # The parameter weight is denoted by \gamma in Eq. A1.12 from [1].
             if parameter_weight.size != num_faces_or_cells:
                 raise ValueError("Invalid size of parameter weight.")
             meas *= parameter_weight
-        if not is_scalar:
-            if not nd_error_computation:
-                # If the error computation is to be performed using the dimension of the
-                # passed grid, we need to re-define the repetitions variable to be
-                # grid.dim.
-                repetitions = grid.dim
-            meas = meas.repeat(repetitions)
-            if len(meas) != len(true_array):
-                raise ValueError(
-                    f"Incompatible sizes for error computation. "
-                    f"nd_error_computation may be wrongly set."
-                )
+
+        # In case the arrays represent vector quantities, we need to repeat the measure
+        # for each component of the vector. For example, if we have meas = [m1, m2] and
+        # repetitions = 3, then meas.repeat(repetitions) will give [m1, m1, m1, m2, m2,
+        # m2].
+        repetitions = int(true_array.size / num_faces_or_cells)
+
+        # Ensure array size matches num_faces_or_cells * repetitions. This check will
+        # fail if true_array does not have an integer number of components per
+        # face/cell.
+        if true_array.size != num_faces_or_cells * repetitions:
+            raise ValueError(
+                f"Array size must equal num_faces_or_cells times repetitions."
+            )
+
+        meas = meas.repeat(repetitions)
+        if meas.size != true_array.size:
+            raise ValueError(
+                f"Incompatible sizes for error computation. "
+                f"nd_error_computation may be wrongly set."
+            )
         # Obtain numerator and denominator to determine the error.
         numerator = ConvergenceAnalysis.lp_norm(
             true_array - approx_array,
