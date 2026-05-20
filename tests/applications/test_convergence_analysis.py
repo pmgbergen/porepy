@@ -808,10 +808,8 @@ def face_error(
     sd: pp.GridLike,
     true_array: np.ndarray,
     approx_array: np.ndarray,
-    is_scalar: bool,
     relative: bool = False,
     parameter_weight: np.ndarray | None = None,
-    nd_error_computation: int = None,
 ) -> pp.number:
     """Compute the L2-error for face-centered quantities.
 
@@ -853,11 +851,8 @@ def face_error(
 
     if parameter_weight is not None:
         meas *= parameter_weight
-    if not is_scalar:
-        if not nd_error_computation:
-            meas = meas.repeat(sd.dim)
-        else:
-            meas = meas.repeat(int(len(true_array) / sd.num_faces))
+
+    meas = meas.repeat(int(len(true_array) / sd.num_faces))
 
     # Obtain numerator and denominator to determine the error.
     numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
@@ -871,21 +866,16 @@ def face_error(
     (
         "is_sd",
         "is_cc",
-        "is_scalar",
-        "parameter_weight",
+        "use_weight",
     ),
     [
-        (True, True, True, False),
-        (True, False, True, False),
-        (True, True, False, False),
-        (True, False, False, False),
-        (False, True, True, False),
-        (False, True, False, True),
+        (True, True, False),
+        (True, False, False),
+        (False, True, False),
+        (False, True, True),
     ],
 )
-@pytest.mark.parametrize(
-    "nd_error_computation",    [False, True],
-)
+@pytest.mark.parametrize("vector_problem", [False, True])
 @pytest.mark.parametrize(
     "grid_fixture",
     ["grids", "grids_3d"],
@@ -893,10 +883,9 @@ def face_error(
 def test_l2_error(
     is_sd: bool,
     is_cc: bool,
-    is_scalar: bool,
+    use_weight: bool,
+    vector_problem: bool,
     is_relative: bool,
-    parameter_weight: bool,
-    nd_error_computation: bool,
     grid_fixture: str,
     request: pytest.FixtureRequest,
 ) -> None:
@@ -917,44 +906,34 @@ def test_l2_error(
             implies evaluation in an interface grid.
         is_cc: Whether the array is a cell-centered quantity. False implies a
             face-centered quantity.
-        is_scalar: Whether the array is corresponds to a scalar quantity. False
-            implies a vector quantity.
-        parameter_weight: Whether a parameter weight should be used.
-        nd_error_computation: Whether the dimension of the array should be used for the
-            error computation, or the dimension of the passed grid.
+        use_weight: Whether a parameter weight should be used.
+        vector_problem: Whether the array represents vector quantities.
+        is_relative: Whether to compute relative or absolute error.
 
     """
     # Retrieve grid list from the fixture.
     grid_list = request.getfixturevalue(grid_fixture)
 
     # Retrieve grid.
-    if is_sd:
-        grid = grid_list[0]  # subdomain grid
-    else:
-        grid = grid_list[1]  # interface grid
+    grid = grid_list[0] if is_sd else grid_list[1]
 
     # Define true and approximated values.
-    if nd_error_computation:
-        # Adding 1 to vec will later give true and approximated arrays of one dimension
-        # higher than the grid.
-        vec = grid.dim + 1
-        is_scalar = False
-    else:
-        vec = 1 if is_scalar else grid.dim
-
     num_dof = grid.num_cells if is_cc else grid.num_faces
+    vec_size = grid.dim + 1 if vector_problem else 1
+
     np.random.seed(42)
-    true_array = np.random.random(num_dof * vec)
-    approx_array = np.random.random(num_dof * vec)
+    true_array = np.random.random(num_dof * vec_size)
+    approx_array = np.random.random(num_dof * vec_size)
     diff = true_array - approx_array
-    if parameter_weight:
-        _weight = np.random.random(num_dof)
+
+    if use_weight:
+        weight = np.random.random(num_dof)
     else:
-        _weight = np.ones(num_dof)
+        weight = np.ones(num_dof)
 
     # Compute reference error.
     if is_cc:
-        meas = np.repeat(grid.cell_volumes * _weight, vec)
+        meas = np.repeat(grid.cell_volumes * weight, vec_size)
         true_l2_error = np.sqrt(np.sum(meas * diff**2))
 
         if is_relative:
@@ -964,28 +943,73 @@ def test_l2_error(
             grid,
             true_array,
             approx_array,
-            is_scalar,
-            is_relative,
-            _weight,
-            vec if nd_error_computation else None,
+            relative=is_relative,
+            parameter_weight=weight,
         )
 
     # Compute actual error.
-    parameter_weight = _weight if parameter_weight else None
+    parameter_weight = weight if use_weight else None
 
     actual_l2_error = ConvergenceAnalysis.lp_error(
         grid=grid,
         true_array=true_array,
         approx_array=approx_array,
         is_cc=is_cc,
-        is_scalar=is_scalar,
         relative=is_relative,
         parameter_weight=parameter_weight,
-        nd_error_computation=nd_error_computation,
     )
 
     # Compare
     assert np.isclose(actual_l2_error, true_l2_error)
+
+
+@pytest.mark.parametrize(
+    ("true_array", "approx_array"),
+    [
+        (np.array([1.0, 5.0]), np.array([1.0, 5.0, 2.0, 3.0, 1.0])),
+        (np.array([[1.0, 5.0], [2.0, 3.0]]), np.array([1.0, 5.0, 2.0, 3.0])),
+        (np.array([1.0, 5.0, 2.0]), np.array([1.0, 8.0, 2.0])),
+    ],
+)
+@pytest.mark.parametrize(
+    "grid_fixture",
+    ["grids", "grids_3d"],
+)
+def test_l2_error_with_invalid_arrays(
+    true_array: np.ndarray,
+    approx_array: np.ndarray,
+    grid_fixture: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    """Test that only arrays of same size are accepted in lp_error().
+
+    Verifies that the expected errors are raised for different invalid true_array and
+    approx_array.
+
+    Parameters:
+        true_array: True array for error computation.
+        approx_array: Approximated array for error computation.
+
+    """
+    # Retrieve grid list from the fixture.
+    grid_list = request.getfixturevalue(grid_fixture)
+
+    # Retrieve grid.
+    grid = grid_list[0]
+
+    with pytest.raises(ValueError) as excinfo:
+        ConvergenceAnalysis.lp_error(
+            grid=grid,
+            true_array=true_array,
+            approx_array=approx_array,
+            is_cc=True,
+            relative=True,
+        )
+    error_msg = str(excinfo.value)
+    assert (
+        "must be 1d and have the same size" in error_msg
+        or "Array size must equal num_faces_or_cells times repetitions" in error_msg
+    )
 
 
 def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) -> None:
@@ -1007,7 +1031,6 @@ def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) ->
             true_array=np.zeros(4),
             approx_array=np.random.random(4),
             is_cc=True,
-            is_scalar=True,
             relative=True,
         )
     assert msg in str(excinfo.value)
@@ -1032,7 +1055,6 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
             true_array=np.ones(6),
             approx_array=np.random.random(6),
             is_cc=False,
-            is_scalar=True,
         )
     assert msg in str(excinfo.value)
 
