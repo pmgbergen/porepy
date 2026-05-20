@@ -159,6 +159,7 @@ class ManuIncompDataSaving(pp.PorePyModel):
         error_frac_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
+            approx_array=approx_frac_pressure,
             is_cc=True,
             relative=True,
         )
