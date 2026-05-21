@@ -371,6 +371,105 @@ class FractureNetwork3d(FractureNetwork):
             -   Updated mapping from gmsh fracture tags to input fracture indices.
 
         """
+
+        def _check_elliptic_fracture_outside_domain(
+            loc_keep: np.ndarray,
+            frac_ind: int,
+            sub_frac: tuple[int, int],
+            partly_deleted: list[int],
+            updated_map: dict[int, int],
+        ) -> None:
+            """Helper function to check if an elliptic fracture is outside the domain.
+
+            Updates to the fracture bookkeeping system are done in-place.
+            """
+            # If this assertion fails, this indicates that we have produced a
+            # non-disc domain without boundary lines/points. This case must be
+            # handled if it ever arises.
+            assert len(frac) == 1
+            distances = np.array(
+                [
+                    gmsh.model.occ.get_distance(*sub_frac, self.nd, dtag)[0]
+                    for dtag in domain_tags
+                ]
+            )
+            if np.all(distances > self._tol):
+                loc_keep[sfi] = False
+                part_of_fracture_deleted.append(
+                    gmsh_to_porepy_fracture_ind_map[frac_ind]
+                )
+            else:
+                updated_fracture_tag_map[sub_frac[1]] = gmsh_to_porepy_fracture_ind_map[
+                    frac_ind
+                ]
+
+        def _check_polygon_fracture_outside_domain(
+            loc_keep: np.ndarray,
+            frac_ind: int,
+            sub_frac: tuple[int, int],
+            part_of_fracture_deleted: list[int],
+            updated_fracture_tag_map: dict[int, int],
+            bounding_points: list[tuple[int, int]],
+        ) -> None:
+            """Helper function to check if a polygonal fracture is outside the domain.
+
+            Updates to the fracture bookkeeping system are done in-place.
+            """
+            # For each bounding point, compute the minimum distance to the different
+            # parts of the domain (the domain may have been split in multiple parts
+            # during fragmentation).
+            distances = np.zeros(len(bounding_points))
+            if domain_tag > 0:
+                # Only do this if we have a domain. If not, all distances are zero,
+                # and the above if statement will not trigger.
+                for i, pt in enumerate(bounding_points):
+                    distances[i] = min(
+                        gmsh.model.occ.get_distance(*pt, nd, dtag)[0]
+                        for dtag in domain_tags
+                    )
+            # If any bounding point is outside all parts of the domain, we drop this
+            # sub-fracture.
+            if np.any(distances > self._tol) or self._entity_on_domain_boundary(
+                0, [bp[1] for bp in bounding_points]
+            ):
+                loc_keep[sfi] = False
+                # Take note that part of this fracture (mapping back to the input
+                # fracture index system) has been deleted.
+                part_of_fracture_deleted.append(
+                    gmsh_to_porepy_fracture_ind_map[frac_ind]
+                )
+            else:
+                if frac_ind in gmsh_to_porepy_fracture_ind_map:
+                    updated_fracture_tag_map[sub_frac[1]] = (
+                        gmsh_to_porepy_fracture_ind_map[frac_ind]
+                    )
+
+        def _update_constraints_after_deletions(
+            constraints: np.ndarray, part_of_fracture_deleted: list[int]
+        ) -> tuple[np.ndarray, dict[int, int]]:
+            """Helper function to update constraints and mapping between gmsh and porepy
+            fracture indices after deletion of fractures that are outside the domain.
+            """
+            updated_constraints = []
+            num_fracs_deleted = 0
+            for c in constraints:
+                num_deleted_subfrac = part_of_fracture_deleted.count(c)
+                if num_orig_subfrac[c] == num_deleted_subfrac:
+                    # The full fracture has been removed. It is not among the surviving
+                    # constraints, but we need to adjust the indices of the following
+                    # ones.
+                    num_fracs_deleted += 1
+                else:
+                    # The fracture is still present, add it to the new constraints,
+                    # adjusting the index accordingly. Constraints are known to be
+                    # sorted.
+                    updated_constraints.append(int(c) - num_fracs_deleted)
+
+                    for key, value in updated_fracture_tag_map.items():
+                        if value == c:
+                            updated_fracture_tag_map[key] = int(c) - num_fracs_deleted
+            return np.asarray(updated_constraints), updated_fracture_tag_map
+
         nd = self.nd
         dim_fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
 
@@ -394,7 +493,7 @@ class FractureNetwork3d(FractureNetwork):
         keep = np.ones(len(isect_mapping), dtype=bool)
         # Keep track of which fractures have had parts deleted. If all parts of a
         # fracture have been deleted, we need to update the constraint indices.
-        part_of_fracture_deleted = []
+        part_of_fracture_deleted: list[int] = []
         # Count the number of sub-fractures each fracture has been split into. Used to
         # figure out if the full fracture has been deleted as outside the domain, or
         # only parts of it; which again is used to update the constraint indices.
@@ -419,67 +518,31 @@ class FractureNetwork3d(FractureNetwork):
             num_orig_subfrac.append(len(frac))
 
             for sfi, sub_frac in enumerate(frac):
-                bounding_lines = gmsh.model.get_boundary([sub_frac], oriented=False)
-                bounding_points = []
-                for line in bounding_lines:
-                    bounding_points += gmsh.model.get_boundary([line], oriented=False)
+                bounding_points = [
+                    pt
+                    for line in gmsh.model.get_boundary([sub_frac], oriented=False)
+                    if line[0] == 1
+                    for pt in gmsh.model.get_boundary([line], oriented=False)
+                ]
 
                 if len(bounding_points) == 0:
-                    # This is most likely a disc fracture, which has no bounding
-                    # lines/points. Simply do a distance check between the fracture and
-                    # the domain.
-                    #
-                    # If this assertion fails, this indicates that we have produced a
-                    # non-disc domain without boundary lines/points. This case must be
-                    # handled if it ever arises.
-                    assert len(frac) == 1
-                    distances = np.array(
-                        [
-                            gmsh.model.occ.get_distance(*sub_frac, self.nd, dtag)[0]
-                            for dtag in domain_tags
-                        ]
-                    )
-                    if np.all(distances > self._tol):
-                        loc_keep[sfi] = False
-                        part_of_fracture_deleted.append(
-                            gmsh_to_porepy_fracture_ind_map[frac_ind]
-                        )
-                    else:
-                        updated_fracture_tag_map[sub_frac[1]] = (
-                            gmsh_to_porepy_fracture_ind_map[frac_ind]
-                        )
-                    continue
-
-                # For each bounding point, compute the minimum distance to the different
-                # parts of the domain (the domain may have been split in multiple parts
-                # during fragmentation). Note to self: We cannot check the sub-surface
-                # itself, since for fractures partially inside the domain, the
-                # sub-surface that should be excluded will still be inside the domain.
-                distances = np.zeros(len(bounding_points))
-                if domain_tag > 0:
-                    # Only do this if we have a domain. If not, all distances are zero,
-                    # and the above if statement will not trigger.
-                    for i, pt in enumerate(bounding_points):
-                        distances[i] = min(
-                            gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
-                            for domain_tag in domain_tags
-                        )
-                # If any bounding point is outside all parts of the domain, we drop this
-                # sub-fracture.
-                if np.any(distances > self._tol) or self._entity_on_domain_boundary(
-                    0, [bp[1] for bp in bounding_points]
-                ):
-                    loc_keep[sfi] = False
-                    # Take note that part of this fracture (mapping back to the input
-                    # fracture index system) has been deleted.
-                    part_of_fracture_deleted.append(
-                        gmsh_to_porepy_fracture_ind_map[frac_ind]
+                    _check_elliptic_fracture_outside_domain(
+                        loc_keep,
+                        frac_ind,
+                        sub_frac,
+                        part_of_fracture_deleted,
+                        updated_fracture_tag_map,
                     )
                 else:
-                    if frac_ind in gmsh_to_porepy_fracture_ind_map:
-                        updated_fracture_tag_map[sub_frac[1]] = (
-                            gmsh_to_porepy_fracture_ind_map[frac_ind]
-                        )
+                    _check_polygon_fracture_outside_domain(
+                        loc_keep,
+                        frac_ind,
+                        sub_frac,
+                        part_of_fracture_deleted,
+                        updated_fracture_tag_map,
+                        bounding_points,
+                    )
+
             # Keep only the sub-fractures that are within the domain.
             isect_mapping[fi] = [frac[i] for i in range(len(frac)) if loc_keep[i]]
             # If any sub-fracture is kept, we keep the fracture.
@@ -489,23 +552,9 @@ class FractureNetwork3d(FractureNetwork):
         # outside the domain.
         isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
 
-        # Update the constraint indices to account for fully removed fractures.
-        updated_constraints = []
-        # If a fracture has been fully removed, we need to decrement the indices of
-        # all following constraints.
-        num_frac_deleted = 0
-        for c in constraints:
-            num_deleted_subfrac = part_of_fracture_deleted.count(c)
-            if num_orig_subfrac[c] == num_deleted_subfrac:
-                # The full fracture has been removed. It is not among the surviving
-                # constraints, but we need to adjust the indices of the following ones.
-                num_frac_deleted += 1
-            else:
-                # The fracture is still present, add it to the new constraints,
-                # adjusting the index accordingly. Constraints are known to be sorted.
-                updated_constraints.append(int(c) - num_frac_deleted)
-        constraints = np.asarray(updated_constraints)
-        gmsh_to_porepy_fracture_ind_map = updated_fracture_tag_map
+        constraints, gmsh_to_porepy_fracture_ind_map = (
+            _update_constraints_after_deletions(constraints, part_of_fracture_deleted)
+        )
 
         # Count the number of fracture objects that survived both the fragmentation and
         # the distance-based domain trimming.

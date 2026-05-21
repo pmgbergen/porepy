@@ -711,3 +711,18 @@ class TerzaghiModel(  # type: ignore[misc]
             - viscosity
 
     """
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    # Run Terzaghi model with the full poromechanics model.
+    model_params_poromech = {
+        "material_constants": {
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),  # type: ignore[arg-type]
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),  # type: ignore[arg-type]
+        },
+        "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
+    }
+    model_biot = TerzaghiModel(model_params_poromech)  # type: ignore[abstract]
+    pp.run_time_dependent_model(model=model_biot)

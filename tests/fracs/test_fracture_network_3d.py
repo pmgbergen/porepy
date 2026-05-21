@@ -129,8 +129,13 @@ def _find_intersection_line(mdg, frac_num_0, frac_num_1):
         ([-0.5, 0.2], [False, False]),
         # One fracture inside, one outside, both constraints.
         ([0.2, -0.5], [True, True]),
+        ([-0.5, 0.2], [True, True]),
         # One fracture inside, one outside. Constraint first on the list.
         ([-0.5, 0.2], [True, False]),
+        # One fracture on the outside, one inside. Both constraints.
+        ([-0.5, 0.2], [False, True]),
+        ([0.2, -0.5], [True, False]),
+        ([0.2, -0.5], [False, True]),
     ],
 )
 def test_meshing_no_intersections(
