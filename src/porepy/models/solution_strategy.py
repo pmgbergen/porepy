@@ -1186,3 +1186,106 @@ class ContactIndicators(pp.PorePyModel):
         p = self.params.get("traction_estimate_p_mean", 5.0)
         p_mean = np.mean(val**p, axis=0) ** (1 / p)
         return float(p_mean)
+
+
+
+class SolutionStrategyReactiveTransport(pp.PorePyModel):
+    def after_nonlinear_convergence(self) -> None:
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+
+        if not self.time_manager.is_constant:
+            assert isinstance(
+                self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+            )
+
+            dt_rt = self.reaction_transport_dt_limit()
+
+            self.time_manager.compute_time_step(
+                iterations=self.nonlinear_solver_statistics.num_iterations,
+                dt_max_external=dt_rt,
+            )
+
+        self.update_solution(solution)
+        self.save_data_time_step()    
+
+    def reaction_transport_dt_limit(self) -> float:
+        subdomains = self.mdg.subdomains()
+
+
+        """
+        Suggest next timestep based on mineral depletion.
+
+        The limiter enforces approximately:
+
+            r_Li * dt <= f_s * s_Li_bulk
+
+        so that each timestep consumes at most a fraction f_s of the
+        remaining reactive mineral inventory.
+
+        Parameters
+        ----------
+        dt_current : float
+            Current timestep [s].
+
+        r_Li : np.ndarray
+            Current Li release rate [mol/m3_bulk/s].
+            Must be numeric, not an AD Operator.
+
+        s_Li_bulk : np.ndarray
+            Remaining reactive Li inventory [mol/m3_bulk].
+            Must be numeric, not an AD Operator.
+
+
+        f_s : float
+            Maximum allowed mineral consumption fraction per timestep.
+
+
+        Returns
+        -------
+        dt_next : float
+            Suggested next timestep [s].
+
+        """
+        if hasattr(self, "reactions"):
+            reactions = self.reactions
+            #assert there is only one reaction
+            assert len(reactions) == 1, "Currently only single reactions are supported."
+            for reaction in reactions:
+                rr = reaction.reaction_rate(subdomains)
+            
+            assert len(self.fluid.solid_components) == 1, "Currently only single solid components are supported."
+
+            for comp in self.fluid.solid_components:
+                s_Li_bulk=comp.mineral_saturation(subdomains)* self.total_porosity(subdomains)/pp.ad.Scalar(comp.molar_volume)
+            
+        else:
+            return np.inf
+
+        reaction_rate=np.asarray(self.equation_system.evaluate(rr), dtype=float)
+        mineral_bulk_concentration = np.asarray(self.equation_system.evaluate(s_Li_bulk), dtype=float)
+
+        dt_local = np.full_like(mineral_bulk_concentration, 1e99, dtype=float)
+
+        active = (
+            np.isfinite(reaction_rate)
+            & np.isfinite(mineral_bulk_concentration)
+            & (reaction_rate > 0)
+            & (mineral_bulk_concentration > 0)
+        )
+
+        np.divide(
+            mineral_bulk_concentration,
+            reaction_rate,
+            out=dt_local,
+            where=active,
+        )
+
+
+        dt_local = dt_local[np.isfinite(dt_local) & (dt_local > 0)]
+        if dt_local.size == 0:
+            return np.inf
+
+        safety = self.params.get("reaction_transport_dt_safety", 0.5)
+        return float(safety * np.min(dt_local))
+    
+

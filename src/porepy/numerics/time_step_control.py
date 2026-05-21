@@ -440,7 +440,8 @@ class TimeManager:
         )
 
     def compute_time_step(
-        self, iterations: Optional[int] = None, recompute_solution: bool = False
+        self, iterations: Optional[int] = None, recompute_solution: bool = False,
+        dt_max_external: Optional[float] = None,
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
@@ -493,6 +494,8 @@ class TimeManager:
         # Correct time step
         self._correction_based_on_dt_min()
         self._correction_based_on_dt_max()
+        self._correction_based_on_external_dt_max(dt_max_external)
+
         self._correction_based_on_schedule()
 
         return self.dt
@@ -784,3 +787,23 @@ class TimeManager:
 
         self.exported_times = self.exported_times[:time_index]
         self.exported_dt = self.exported_dt[:time_index]
+
+
+    def _correction_based_on_external_dt_max(
+        self, dt_max_external: Optional[float]
+    ) -> None:
+        if dt_max_external is None or np.isinf(dt_max_external):
+            return
+
+        if not np.isfinite(dt_max_external) or dt_max_external <= 0:
+            raise ValueError("External time step limit must be positive and finite.")
+
+        if dt_max_external < self.dt_min_max[0]:
+            warnings.warn(
+                "External time step limit is smaller than dt_min. "
+                f"Using dt_min = {self.dt_min_max[0]} instead."
+            )
+            dt_max_external = self.dt_min_max[0]
+
+        if self.dt > dt_max_external:
+            self.dt = dt_max_external
