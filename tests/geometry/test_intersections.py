@@ -126,7 +126,7 @@ class TestLinesIntersect:
         pi = intersections.segments_2d(s0, e0, s1, e1)
         assert pi is None or len(pi) == 0
 
-    def test_parallel_not_colinear(self):
+    def test_parallel_not_collinear(self):
         s0 = np.array([0, 0])
         e0 = np.array([1, 0])
         s1 = np.array([0, 1])
@@ -135,7 +135,7 @@ class TestLinesIntersect:
         pi = intersections.segments_2d(s0, e0, s1, e1)
         assert pi is None
 
-    def test_colinear_not_intersecting(self):
+    def test_collinear_not_intersecting(self):
         s0 = np.array([0, 0])
         e0 = np.array([1, 0])
         s1 = np.array([2, 0])

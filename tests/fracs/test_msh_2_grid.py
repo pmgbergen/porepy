@@ -379,7 +379,7 @@ def test_create_1d_grid_from_nodes(
 
     Parameters:
         nodes: The nodes to be used in the grid. Should be of shape (3, num_nodes).
-        is_linear: Whether the points are colinear.
+        is_linear: Whether the points are collinear.
         shuffle: Whether to shuffle the order of the points.
 
     """
