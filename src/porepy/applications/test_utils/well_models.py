@@ -123,7 +123,7 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
 
         """
         value = self.units.convert_units(
-            self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
+            self.params.get("well_flux", -1), "Pa * m"
         )
         return self._bc_values(bg, value)
 
