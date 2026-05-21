@@ -145,18 +145,18 @@ def project_points_to_line(
     int,
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
-    """Project a set of colinear points onto a line.
+    """Project a set of collinear points onto a line.
 
-    The points should be co-linear such that a 1d description is meaningful.
+    The points should be collinear such that a 1d description is meaningful.
 
     Parameters:
         p: ``shape=(nd, np)``
 
-            An array representation of coordinates of the points. Should be co-linear,
+            An array representation of coordinates of the points. Should be collinear,
             but can have random ordering along the common line.
         tol: ``default=1e-4``
 
-            Tolerance used for testing of co-linearity.
+            Tolerance used for testing of collinearity.
 
     Raises:
         ValueError: If the points are not aligned on a line.
@@ -189,7 +189,7 @@ def project_points_to_line(
 
     # Check that the points indeed form a line
     if not pp.geometry_property_checks.points_are_collinear(p, tol):
-        raise ValueError("Elements are not colinear")
+        raise ValueError("Elements are not collinear")
     # Find the tangent of the line
     tangent = compute_tangent(p)
     # Projection matrix

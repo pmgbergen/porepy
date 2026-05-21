@@ -337,8 +337,7 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: float = 1e-6) -> pp.Grid:
     ] * (1.0 - theta)
 
     # Create the new grid, and assign nodes.
-    g = TensorGrid(nodes[0, :])
-    g.nodes = nodes
+    g = pp.fracs.msh_2_grid.create_embedded_line_grid(nodes, sort=False)
     g.compute_geometry()
 
     # Map the tags from the old grid to the new one

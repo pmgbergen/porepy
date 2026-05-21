@@ -138,7 +138,6 @@ class ManuIncompDataSaving(pp.PorePyModel):
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
             approx_array=approx_matrix_pressure,
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )
@@ -150,7 +149,6 @@ class ManuIncompDataSaving(pp.PorePyModel):
             grid=sd_matrix,
             true_array=exact_matrix_flux,
             approx_array=approx_matrix_flux,
-            is_scalar=True,
             is_cc=False,
             relative=True,
         )
@@ -162,7 +160,6 @@ class ManuIncompDataSaving(pp.PorePyModel):
             grid=sd_frac,
             true_array=exact_frac_pressure,
             approx_array=approx_frac_pressure,
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )
@@ -174,7 +171,6 @@ class ManuIncompDataSaving(pp.PorePyModel):
             grid=sd_frac,
             true_array=exact_frac_flux,
             approx_array=approx_frac_flux,
-            is_scalar=True,
             is_cc=False,
             relative=True,
         )
@@ -186,7 +182,6 @@ class ManuIncompDataSaving(pp.PorePyModel):
             grid=intf,
             true_array=exact_intf_flux,
             approx_array=approx_intf_flux,
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )

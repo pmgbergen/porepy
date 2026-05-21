@@ -336,7 +336,6 @@ class DamageDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_damage,
             approx_array=cast(np.ndarray, approx_damage),
-            is_scalar=True,
             is_cc=True,
         )
         friction_damage = self.exact_sol.friction_damage(sd, n)
@@ -361,7 +360,6 @@ class DamageDataSaving(pp.PorePyModel):
                 grid=sd,
                 true_array=friction_damage,
                 approx_array=approx_friction_damage,
-                is_scalar=True,
                 is_cc=True,
             )
         dilation_damage = self.exact_sol.dilation_damage(sd, n)
@@ -380,7 +378,6 @@ class DamageDataSaving(pp.PorePyModel):
                 grid=sd,
                 true_array=dilation_damage,
                 approx_array=approx_dilation_damage,
-                is_scalar=True,
                 is_cc=True,
             )
         collected_data = DamageSaveData(

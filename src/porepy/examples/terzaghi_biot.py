@@ -157,7 +157,6 @@ class TerzaghiDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )

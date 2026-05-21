@@ -106,13 +106,13 @@ def segments_2d(
     # Check if lines are parallel.
     # The tolerance should be relative to the length of d_1 and d_2
     if np.abs(discr) < tol * length_1 * length_2:
-        # The lines are parallel, and will only cross if they are also colinear
+        # The lines are parallel, and will only cross if they are also collinear
         logger.debug("The segments are parallel")
         # Cross product between line 1 and line between start points on line
         start_cross_line = d_s[0] * d_1[1] - d_s[1] * d_1[0]
         if np.abs(start_cross_line) < tol * max(length_1, length_2):
-            logger.debug("Lines are colinear")
-            # The lines are co-linear
+            logger.debug("Lines are collinear")
+            # The lines are collinear.
 
             # Write l1 on the form start_1 + t * d_1, find the parameter value needed
             # for equality with start_2 and end_2
@@ -140,17 +140,17 @@ def segments_2d(
                 # It seems this can only happen if they are also equal to 0 or 1, that
                 # is, the lines share a single point
                 p_1 = start_1 + d_1 * t_min
-                logger.debug("Colinear lines share a single point")
+                logger.debug("Collinear lines share a single point")
                 return p_1.reshape((-1, 1))
 
-            logger.debug("Colinear lines intersect along segment")
+            logger.debug("Collinear lines intersect along segment")
             p_1 = start_1 + d_1 * t_min
             p_2 = start_1 + d_1 * t_max
             return np.array([[p_1[0], p_2[0]], [p_1[1], p_2[1]]])
 
         else:
-            logger.debug("Lines are not colinear")
-            # Lines are parallel, but not colinear
+            logger.debug("Lines are not collinear")
+            # Lines are parallel, but not collinear
             return None
     else:
         # Solve linear system using Cramer's rule

@@ -165,7 +165,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )
@@ -177,7 +176,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_displacement,
             approx_array=cast(np.ndarray, approx_displacement),
-            is_scalar=False,
             is_cc=True,
             relative=True,
         )
@@ -190,7 +188,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_flux,
             approx_array=cast(np.ndarray, approx_flux),
-            is_scalar=True,
             is_cc=False,
             relative=True,
         )
@@ -202,7 +199,6 @@ class MandelDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_force,
             approx_array=cast(np.ndarray, approx_force),
-            is_scalar=False,
             is_cc=False,
             relative=True,
         )
