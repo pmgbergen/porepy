@@ -122,9 +122,7 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
             Boundary condition values array.
 
         """
-        value = self.units.convert_units(
-            self.params.get("well_flux", -1), "Pa * m"
-        )
+        value = self.units.convert_units(self.params.get("well_flux", -1), "Pa * m")
         return self._bc_values(bg, value)
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
