@@ -963,53 +963,104 @@ def test_l2_error(
     assert np.isclose(actual_l2_error, true_l2_error)
 
 
-@pytest.mark.parametrize(
-    ("true_array", "approx_array"),
-    [
-        (np.array([1.0, 5.0]), np.array([1.0, 5.0, 2.0, 3.0, 1.0])),
-        (np.array([[1.0, 5.0], [2.0, 3.0]]), np.array([1.0, 5.0, 2.0, 3.0])),
-        (np.array([1.0, 5.0, 2.0]), np.array([1.0, 8.0, 2.0])),
-    ],
-)
-@pytest.mark.parametrize(
-    "grid_fixture",
-    ["grids", "grids_3d"],
-)
-def test_l2_error_with_invalid_arrays(
-    true_array: np.ndarray,
-    approx_array: np.ndarray,
-    grid_fixture: str,
-    request: pytest.FixtureRequest,
-) -> None:
-    """Test that only arrays of same size are accepted in lp_error().
+class TestL2ErrorWithInvalidArrays:
+    """Collection of tests to verify that lp_error() rejects invalid array inputs."""
 
-    Verifies that the expected errors are raised for different invalid true_array and
-    approx_array.
+    @staticmethod
+    def _assert_lp_error_raises(
+        grid: pp.GridLike,
+        true_array: np.ndarray,
+        approx_array: np.ndarray,
+        expected_error_message: str,
+    ) -> None:
+        """Helper method to assert that lp_error raises ValueError for invalid arrays.
 
-    Parameters:
-        true_array: True array for error computation.
-        approx_array: Approximated array for error computation.
+        Parameters:
+            grid: The grid where the error is to be computed.
+            true_array: True array for error computation.
+            approx_array: Approximated array for error computation.
+            expected_error_msg: The expected error message to be raised.
 
-    """
-    # Retrieve grid list from the fixture.
-    grid_list = request.getfixturevalue(grid_fixture)
+        """
+        with pytest.raises(ValueError) as excinfo:
+            ConvergenceAnalysis.lp_error(
+                grid=grid,
+                true_array=true_array,
+                approx_array=approx_array,
+                is_cc=True,
+            )
+        assert expected_error_message in str(excinfo.value)
 
-    # Retrieve grid.
-    grid = grid_list[0]
+    def test_l2_error_mismatched_sizes(
+        self,
+        grids: list[pp.Grid, pp.MortarGrid],
+    ) -> None:
+        """Test that arrays with different sizes are rejected.
 
-    with pytest.raises(ValueError) as excinfo:
-        ConvergenceAnalysis.lp_error(
-            grid=grid,
-            true_array=true_array,
-            approx_array=approx_array,
-            is_cc=True,
-            relative=True,
+        This case tests that even though true_array and approx_array have the correct
+        dimension, they are rejected due to their different sizes.
+
+        Parameters:
+            grids: List of grids containing a subdomain grid and an interface grid.
+
+        """
+        grid = grids[0]
+        np.random.seed(24)
+        true_array = np.random.random(grid.num_cells * 2)
+        approx_array = np.random.random(grid.num_cells)
+
+        expected_error_message = "true_array and approx_array must have the same size."
+
+        self._assert_lp_error_raises(
+            grid, true_array, approx_array, expected_error_message
         )
-    error_msg = str(excinfo.value)
-    assert (
-        "must be 1d and have the same size" in error_msg
-        or "Array size must equal num_faces_or_cells times repetitions" in error_msg
-    )
+
+    def test_l2_error_non_flattened_array(
+        self,
+        grids: list[pp.Grid, pp.MortarGrid],
+    ) -> None:
+        """Test that 2D arrays are rejected.
+
+        This case tests when true_array is passed as a 2D array instead of a
+        flattened 1D array.
+
+        Parameters:
+            grids: List of grids containing a subdomain grid and an interface grid.
+
+        """
+        grid = grids[0]
+        np.random.seed(42)
+        true_array = np.random.random((2, grid.num_cells))
+        approx_array = np.random.random(grid.num_cells * 2)
+
+        expected_error_message = "true_array and approx_array must be 1-dimensional."
+
+        self._assert_lp_error_raises(
+            grid, true_array, approx_array, expected_error_message
+        )
+
+    def test_l2_error_array_incompatible_with_grid(
+        self,
+        grids: list[pp.Grid, pp.MortarGrid],
+    ) -> None:
+        """Test that arrays of same length but invalid for grid are rejected.
+
+        This case tests when true_array and approx_array have the same length but
+        do not match the expected number of DOFs for the grid.
+
+        Parameters:
+            grids: List of grids containing a subdomain grid and an interface grid.
+
+        """
+        grid = grids[0]
+        np.random.seed(42)
+        true_array = np.random.random(grid.num_cells + 1)
+        approx_array = np.random.random(grid.num_cells + 1)
+
+        expected_error_message = "Array size is not divisible by number of cells/faces."
+        self._assert_lp_error_raises(
+            grid, true_array, approx_array, expected_error_message
+        )
 
 
 def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) -> None:
