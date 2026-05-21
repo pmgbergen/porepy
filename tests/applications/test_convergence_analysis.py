@@ -1005,9 +1005,8 @@ class TestL2ErrorWithInvalidArrays:
 
         """
         grid = grids[0]
-        np.random.seed(24)
-        true_array = np.random.random(grid.num_cells * 2)
-        approx_array = np.random.random(grid.num_cells)
+        true_array = np.ones(grid.num_cells * 2)
+        approx_array = np.ones(grid.num_cells)
 
         expected_error_message = "true_array and approx_array must have the same size."
 
@@ -1029,9 +1028,8 @@ class TestL2ErrorWithInvalidArrays:
 
         """
         grid = grids[0]
-        np.random.seed(42)
-        true_array = np.random.random((2, grid.num_cells))
-        approx_array = np.random.random(grid.num_cells * 2)
+        true_array = np.ones((2, grid.num_cells))
+        approx_array = np.ones(grid.num_cells * 2)
 
         expected_error_message = "true_array and approx_array must be 1-dimensional."
 
@@ -1053,9 +1051,8 @@ class TestL2ErrorWithInvalidArrays:
 
         """
         grid = grids[0]
-        np.random.seed(42)
-        true_array = np.random.random(grid.num_cells + 1)
-        approx_array = np.random.random(grid.num_cells + 1)
+        true_array = np.ones(grid.num_cells + 1)
+        approx_array = np.ones(grid.num_cells + 1)
 
         expected_error_message = "Array size is not divisible by number of cells/faces."
         self._assert_lp_error_raises(
