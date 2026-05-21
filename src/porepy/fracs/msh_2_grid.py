@@ -470,7 +470,7 @@ def create_embedded_line_grid(
             the points of this grid is a subset. If provided, the returned grid will
             have an attribute ``global_point_ind`` that maps from local to global point
             numbering.
-        sort: Whether to sort the points. The sorting assumes the points are colinear.
+        sort: Whether to sort the points. The sorting assumes the points are collinear.
         tol: Tolerance used for check of collinearity of the points.
 
     Returns:
