@@ -116,9 +116,22 @@ class WellNetwork3d:
             sd_primary, sd_secondary = well_mdg.neighboring_subdomains(intf)
             mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
 
+        cell_center_0d = np.vstack(
+            [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
+        ).T
+
         for isect in intersections:
-            g_0d = well_mdg.subdomains(dim=0)[isect.index]
-            assert np.allclose(g_0d.cell_centers[:, 0], isect.coord)
+            if len(isect.fracture_index) == 0:
+                # This is a kink in the well. Continue.
+                continue
+
+            ind_0d = np.argmin(
+                np.linalg.norm(
+                    cell_center_0d - np.reshape(isect.coord, (-1, 1)), axis=0
+                )
+            )
+
+            g_0d = well_mdg.subdomains(dim=0)[ind_0d]
 
             frac_inds = isect.fracture_index
 
