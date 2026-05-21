@@ -102,6 +102,7 @@ class WellNetwork3d:
             file_name,
             physical_name_stem_1d=PhysicalNames.WELL.value,
             physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
+            sort_1d_nodes=False,
         )
         well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
         well_mdg.compute_geometry()

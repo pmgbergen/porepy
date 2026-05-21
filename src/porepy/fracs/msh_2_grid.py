@@ -254,6 +254,7 @@ def create_1d_grids(
     tol: float = 1e-4,
     constraints: Optional[np.ndarray] = None,
     return_fracture_tips: bool = True,
+    sort_1d_nodes: bool = True,
 ) -> tuple[list[pp.Grid], np.ndarray] | list[pp.Grid]:
     """Create 1D grids for lines of a specified type from a gmsh tesselation.
 
@@ -363,7 +364,9 @@ def create_1d_grids(
         elif line_type == line_tag[:-1]:
             loc_pts_1d = np.unique(loc_line_pts)
             loc_coord = pts[loc_pts_1d, :].transpose()
-            g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
+            g = create_embedded_line_grid(
+                loc_coord, loc_pts_1d, tol=tol, sort=sort_1d_nodes
+            )
             g = tag_grid(g, phys_names, cell_info)
             g.frac_num = int(frac_num)
             g_1d.append(g)

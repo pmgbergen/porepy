@@ -182,6 +182,7 @@ def line_grid_from_gmsh(
         "physical_name_stem_0d",
         PhysicalNames.FRACTURE_INTERSECTION_POINT.value,
     )
+    sort_1d_nodes = kwargs.pop("sort_1d_nodes", True)
 
     start_time = time.time()
 
@@ -197,6 +198,7 @@ def line_grid_from_gmsh(
         cell_info,
         line_tag=phys_name_stem_1d,
         constraints=constraints,
+        sort_1d_nodes=sort_1d_nodes,
         **kwargs,
     )
     g_0d = msh_2_grid.create_0d_grids(
