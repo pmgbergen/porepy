@@ -129,10 +129,7 @@ class SolverStatistics:
         """
         if solver_status is not None:
             self.solver_status = solver_status
-            if len(self.solver_status_history) <= self.index:
-                self.solver_status_history.append(self.solver_status)
-            else:
-                self.solver_status_history[-1] = self.solver_status
+            self.solver_status_history.append(self.solver_status)
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
