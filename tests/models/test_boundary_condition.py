@@ -16,7 +16,7 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
 from porepy.models.momentum_balance import MomentumBalance
-
+from tests.functional.setups.linear_tracer import TracerFlowModel_1p
 
 class CustomBoundaryCondition(pp.PorePyModel):
     """We define a custom dummy boundary condition.
@@ -824,3 +824,65 @@ def test_bc_values_enthalpy_flux_unit_invariance(units: pp.Units) -> None:
 def test_bc_values_enthalpy_flux_baseline_well_posed() -> None:
     """Sanity check: SI baseline is finite and non-degenerate."""
     _assert_baseline_well_posed(_ENTHALPY_FLUX_SPEC)
+
+
+
+# Empirically verified unit for bc_values_component_flux in 2D: integrated component mass
+# flux rho*omega*u*face_area, SI unit kg * m^(nd-3) * s^-1 where nd is the
+# ambient dimension. In 2D this gives kg * m^-1 * s^-1.
+_COMPONENT_FLUX_UNIT: str = "kg * m^-1 * s^-1"
+_COMPONENT_FLUX_VALUE_SI: float = 1.0e-3
+
+class _ComponentFluxBCProbe(TracerFlowModel_1p):
+    """Compositional flow probe: pressure pinned to zero everywhere (no Darcy flow),
+    tracer fraction anchored to zero on west, Neumann component flux on east for tracer.
+    Isolates the component-flux BC as the only driver of the tracer field.
+    """
+
+    pipe_length: float = 1.0
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # Pin pressure on all boundaries to suppress Darcy flow.
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        # Anchor tracer fraction to zero everywhere on Dirichlet boundaries.
+        return np.zeros(bg.num_cells)
+
+    def bc_values_component_flux(
+        self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        if component.name != "tracer":
+            return vals
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _COMPONENT_FLUX_VALUE_SI, _COMPONENT_FLUX_UNIT
+        )
+        return vals
+    
+_COMPONENT_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_ComponentFluxBCProbe,
+    probe_label="component_flux",
+    primary_variable_accessor=lambda model, sd: model.equation_system.evaluate(
+        # tracer is the second component; access its overall fraction
+        model.fluid.components[1].fraction([sd])
+    ),
+    primary_variable_si_unit=" ", # overall mass of tracer is dimensionless
+    declared_bc_unit=_COMPONENT_FLUX_UNIT,
+)
+
+@pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
+def test_bc_values_component_flux_unit_invariance(units: pp.Units) -> None:
+    """Recovered SI tracer fraction is invariant under unit rescaling."""
+    _assert_bc_unit_invariance(_COMPONENT_FLUX_SPEC, units)
+
+def test_bc_values_component_flux_baseline_well_posed() -> None:
+    """Sanity check: SI baseline tracer fraction is finite and non-degenerate."""
+    _assert_baseline_well_posed(_COMPONENT_FLUX_SPEC)
