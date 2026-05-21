@@ -18,6 +18,7 @@ from porepy.applications.test_utils.models import MassBalance as MassBalance_
 from porepy.models.momentum_balance import MomentumBalance
 from tests.functional.setups.linear_tracer import TracerFlowModel_1p
 
+
 class CustomBoundaryCondition(pp.PorePyModel):
     """We define a custom dummy boundary condition.
 
@@ -826,12 +827,12 @@ def test_bc_values_enthalpy_flux_baseline_well_posed() -> None:
     _assert_baseline_well_posed(_ENTHALPY_FLUX_SPEC)
 
 
-
 # Empirically verified unit for bc_values_component_flux in 2D: integrated component mass
 # flux rho*omega*u*face_area, SI unit kg * m^(nd-3) * s^-1 where nd is the
 # ambient dimension. In 2D this gives kg * m^-1 * s^-1.
 _COMPONENT_FLUX_UNIT: str = "kg * m^-1 * s^-1"
 _COMPONENT_FLUX_VALUE_SI: float = 1.0e-3
+
 
 class _ComponentFluxBCProbe(TracerFlowModel_1p):
     """Compositional flow probe: pressure pinned to zero everywhere (no Darcy flow),
@@ -866,7 +867,8 @@ class _ComponentFluxBCProbe(TracerFlowModel_1p):
             _COMPONENT_FLUX_VALUE_SI, _COMPONENT_FLUX_UNIT
         )
         return vals
-    
+
+
 _COMPONENT_FLUX_SPEC = _BCUnitInvarianceSpec(
     probe_model_class=_ComponentFluxBCProbe,
     probe_label="component_flux",
@@ -874,14 +876,16 @@ _COMPONENT_FLUX_SPEC = _BCUnitInvarianceSpec(
         # tracer is the second component; access its overall fraction
         model.fluid.components[1].fraction([sd])
     ),
-    primary_variable_si_unit=" ", # overall mass of tracer is dimensionless
+    primary_variable_si_unit=" ",  # overall mass of tracer is dimensionless
     declared_bc_unit=_COMPONENT_FLUX_UNIT,
 )
+
 
 @pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
 def test_bc_values_component_flux_unit_invariance(units: pp.Units) -> None:
     """Recovered SI tracer fraction is invariant under unit rescaling."""
     _assert_bc_unit_invariance(_COMPONENT_FLUX_SPEC, units)
+
 
 def test_bc_values_component_flux_baseline_well_posed() -> None:
     """Sanity check: SI baseline tracer fraction is finite and non-degenerate."""
