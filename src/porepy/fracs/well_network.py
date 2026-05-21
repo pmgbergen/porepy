@@ -112,6 +112,10 @@ class WellNetwork3d:
 
         mdg.add_subdomains(well_mdg.subdomains())
 
+        for intf, data in well_mdg.interfaces(return_data=True):
+            sd_primary, sd_secondary = well_mdg.neighboring_subdomains(intf)
+            mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
+
         for isect in intersections:
             g_0d = well_mdg.subdomains(dim=0)[isect.index]
             assert np.allclose(g_0d.cell_centers[:, 0], isect.coord)
