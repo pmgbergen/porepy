@@ -21,17 +21,17 @@ VECTOR_VARIABLE_FACE = "vector_face"
     params=[
         pp.mdg_library.square_with_orthogonal_fractures(
             "cartesian",
-            {"cell_size": 0.2},
+            {"cell_size": 0.5},
             fracture_indices=[1],  # Horizontal fracture
         ),
         pp.mdg_library.square_with_orthogonal_fractures(
             "cartesian",
-            {"cell_size": 0.2},
+            {"cell_size": 0.5},
             fracture_indices=[0],  # Vertical fracture
         ),
         pp.mdg_library.cube_with_orthogonal_fractures(
             "cartesian",
-            {"cell_size": 1 / 3},
+            {"cell_size": 0.5},
             fracture_indices=[2],  # Horizontal (constant z) fracture
         ),
     ],

@@ -299,7 +299,7 @@ class InterfaceDisplacementArray(pp.PorePyModel):
 
     def update_time_dependent_ad_arrays(self) -> None:
         """Update values of external sources and boundary conditions."""
-        super().update_time_dependent_ad_arrays()  # type: ignore[misc]
+        super().update_time_dependent_ad_arrays()  # type: ignore[safe-super]
         self.update_interface_displacement_parameter()
 
     def update_interface_displacement_parameter(self) -> None:

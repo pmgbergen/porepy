@@ -121,6 +121,7 @@ Example:
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Callable, Optional, Sequence, cast
 
 import numpy as np
@@ -565,13 +566,10 @@ class SurrogateFactory:
 
         """
         # arguments for utility function
-        kwargs: dict[Any, Any] = dict()
-        if get_derivatives:
-            kwargs["name"] = self._name_derivatives
-        else:
-            kwargs["name"] = self.name
 
-        kwargs["data"] = self._data_of(grid)
+        name = self._name_derivatives if get_derivatives else self.name
+
+        data = self._data_of(grid)
 
         if (op.is_previous_iterate or op.is_previous_time) and get_derivatives:
             raise ValueError(
@@ -580,11 +578,13 @@ class SurrogateFactory:
             )
 
         if op.is_previous_time:
-            kwargs["time_step_index"] = op.time_step_index
+            values = pp.get_solution_values(
+                name=name, data=data, time_step_index=op.time_step_index
+            )
         else:
-            kwargs["iterate_index"] = op.iterate_index
-
-        values = pp.get_solution_values(**kwargs)
+            values = pp.get_solution_values(
+                name=name, data=data, iterate_index=op.iterate_index
+            )
 
         # last check before parsing that it returns what it should
         target_shape: tuple[int, ...]
@@ -592,11 +592,17 @@ class SurrogateFactory:
             target_shape = (self.num_dependencies, self.num_dofs_on_grid(grid))
         else:
             target_shape = (self.num_dofs_on_grid(grid),)
-        _check_expected_values(
-            values, target_shape, grid, op.iterate_index, op.time_step_index
+        assert isinstance(values, np.ndarray), (
+            f"Expected to fetch a numpy array, but got type {type(values)}."
         )
+        assert values.shape == target_shape, (
+            f"Expected to fetch array of shape {target_shape}, but got shape"
+            f" {values.shape}."
+        )
+
         return values
 
+    @lru_cache
     def _data_of(self, grid: pp.GridLike) -> dict:
         """Convenience function to get the data dictionary of any grid."""
         if isinstance(grid, pp.Grid):
@@ -616,6 +622,7 @@ class SurrogateFactory:
         This determines the number of required derivative values."""
         return len(self._dependencies)
 
+    @lru_cache
     def num_dofs_on_grid(self, grid: pp.GridLike) -> int:
         """Computes the number of DOFs based on the information provided during
         instantiation.

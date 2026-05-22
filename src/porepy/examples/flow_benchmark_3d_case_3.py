@@ -129,3 +129,19 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    params = {
+        "material_constants": {
+            "solid": solid_constants,
+        },
+        "refinement_level": 0,  # 0, 1, 2, or 3 for different mesh refinement levels
+    }
+
+    model = FlowBenchmark3dCase3Model(params)  # type: ignore[abstract]
+    solver_parameters = {
+        "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+    }
+    pp.run_time_dependent_model(model, solver_parameters)

@@ -355,6 +355,33 @@ def find_active_indices(
     return active_cells, active_faces
 
 
+def boundary_face_mask(sd: pp.Grid, internal_face_active: bool) -> sps.spmatrix:
+    """Construct a mask to be applied to the discretization matrices, to eliminate
+    contributions from internal faces if these are not active.
+
+    Parameters:
+        sd: Grid to be discretized.
+        internal_face_active: Whether the discretization should include contributions
+            from internal faces. If False, contributions from internal faces will be
+            eliminated by the mask.
+
+    Returns:
+        sps.spmatrix: Mask to be applied to the discretization matrices of shape
+            (sd.num_faces, sd.num_faces).
+
+    """
+
+    if internal_face_active:
+        filter_array = np.ones(sd.num_faces, dtype=bool)
+    else:
+        filter_array = np.zeros(sd.num_faces, dtype=bool)
+        filter_array[sd.get_all_boundary_faces()] = True
+    boundary_face_mask = sps.dia_matrix(
+        (filter_array, 0), shape=(sd.num_faces, sd.num_faces)
+    )
+    return boundary_face_mask
+
+
 def parse_partition_arguments(
     partition_arguments: Optional[dict[str, int]] = None,
 ) -> tuple[int | None, int | None]:
@@ -565,7 +592,7 @@ def remove_nonlocal_contribution(
 
 
 def adjust_eta_length(
-    eta: np.ndarray, sub_sd: pp.Grid, l2g_faces: np.ndarray
+    eta: np.ndarray, l2g_faces: np.ndarray, parent_grid: pp.Grid
 ) -> np.ndarray:
     """Adjusts length of vector valued eta for problems partitioned into subproblems.
 
@@ -576,25 +603,25 @@ def adjust_eta_length(
 
     Parameters:
         eta: MPFA/MPSA-eta.
-        sub_sd: A subgrid of the domain. Eta is adjusted according to the subfaces in
-            sub_sd.
         l2g_faces: Indices (in the global grid) of all faces in the subgrid. Represented
             as a numpy array, so that element i gives the global index of the i-th face
             in the subgrid.
+        parent_grid: The global (parent) grid. Used to determine global subface offsets
+            per face.
 
     Returns:
         An array of eta values corresponding to a grid that arises from from domain
         partitioning.
 
     """
-    # Use information in the sparse formatting to find the number of nodes per face
-    num_nodes_per_face = np.diff(sub_sd.face_nodes.tocsc().indptr)
-    # Verify that all faces have equally many nodes
-    assert np.unique(num_nodes_per_face).size == 1
-    expansion_index = num_nodes_per_face[0]
-
-    indices = pp.array_operations.expand_indices_nd(l2g_faces, expansion_index)
-    loc_eta = np.array([eta[i] for i in indices])
+    # Use the global grid's face_nodes indptr to look up, for each face in l2g_faces,
+    # the range of global subface indices belonging to that face. This correctly handles
+    # grids where faces have different numbers of nodes.
+    global_indptr = parent_grid.face_nodes.tocsc().indptr
+    indices = np.concatenate(
+        [np.arange(global_indptr[f], global_indptr[f + 1]) for f in l2g_faces]
+    )
+    loc_eta = eta[indices]
     return loc_eta
 
 

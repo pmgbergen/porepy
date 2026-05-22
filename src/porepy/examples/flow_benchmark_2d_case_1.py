@@ -1,6 +1,6 @@
 """This module contains the implementation of Case 1 from the 2D flow benchmark [1].
 
-We provide the two variants of this benchmark, i.e., Case 1a (conductiv fractures) and
+We provide the two variants of this benchmark, i.e., Case 1a (conductive fractures) and
 Case 1b (blocking fractures). They are specified by passing the material constants
 `solid_constants_conductive_fractures` and `solid_constants_blocking_fractures`,
 respectively.
@@ -11,6 +11,8 @@ References:
       media. Advances in Water Resources, 111, 239-258.
 
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable, ClassVar, Union
@@ -160,3 +162,38 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Complete model class for case 1 from the 2d flow benchmark."""
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    # We run both the conductive and blocking fracture cases.
+    solid_constants = [
+        solid_constants_blocking_fractures,
+        solid_constants_conductive_fractures,
+    ]
+
+    for solid_constant in solid_constants:
+        model_params = {
+            "material_constants": {"solid": solid_constant},
+            "grid_type": "cartesian",
+            "meshing_arguments": {"cell_size": 0.125},
+        }
+        model = FlowBenchmark2dCase1Model(model_params)  # type: ignore[abstract]
+        solver_parameters = {
+            "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+        }
+        pp.run_time_dependent_model(model, solver_parameters)
+        title = (
+            "Pressure distribution.\n"
+            f"Fracture permeability {solid_constant.fracture_permeability:.0e}."
+        )
+        pp.plot_grid(
+            model.mdg,
+            model.pressure_variable,
+            figsize=(12, 10),
+            plot_2d=True,
+            title=title,
+            pointsize=20,
+            fracturewidth_1d=3,
+            linewidth=0.5,
+        )

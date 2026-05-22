@@ -81,8 +81,8 @@ def test_damage(
         }
     )
 
-    m = model_class(params_local)
-    pp.run_time_dependent_model(m)
+    model = model_class(params_local)
+    pp.ModelRunner(model).run()
     # Initialize test names for assertions
     test_names = [
         "friction_damage",
@@ -92,7 +92,7 @@ def test_damage(
     # Initial time step is not included in VerificationDataSaving
     for t in np.arange(time_steps - 1):
         # Retrieve stored results for time step t + 1
-        results = m.results[t]
+        results = model.results[t]
         for name in test_names:
             # Retrieve the normalized error for the current time step and the current
             # variable.
@@ -145,15 +145,14 @@ def test_momentum_balance_with_damage(dim: int):
         }
     )
 
-    m = model_class(params_local)
+    model = model_class(params_local)
     # Some simulations do not converge in the default number of iterations. Only
     # slightly increase the number of iterations, thus capturing any future
     # deterioration in the convergence and avoiding excessive run times.
 
-    pp.run_time_dependent_model(
-        m,
-        {"nl_convergence_inc_atol": 1e-6, "nl_max_iterations": 25},
-    )
+    pp.ModelRunner(
+        model, {"nl_convergence_inc_atol": 1e-6, "nl_max_iterations": 25}
+    ).run()
     test_names = [
         "friction_damage",
         "dilation_damage",
@@ -162,7 +161,7 @@ def test_momentum_balance_with_damage(dim: int):
     # Initial time step is not included in VerificationDataSaving
     for t in np.arange(time_steps - 1):
         # Retrieve stored results for time step t + 1
-        results = m.results[t]
+        results = model.results[t]
         for name in test_names:
             # Retrieve the normalized error for the current time step and the current
             # variable.

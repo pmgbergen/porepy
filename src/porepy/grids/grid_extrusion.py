@@ -229,8 +229,8 @@ def _extrude_2d(
             faces in the extruded grid that come from face ``i`` in the original grid.
 
     """
-
-    g.compute_geometry()
+    if not hasattr(g, "cell_centers"):
+        g.compute_geometry()
 
     negative_extrusion = np.all(z <= 0)
 
@@ -683,22 +683,21 @@ def _extrude_0d(
     # Number of nodes
     num_pt = z.size
 
-    # x and y coordinates of the right size
-    x = g.cell_centers[0, 0] * np.ones(num_pt)
-    y = g.cell_centers[1, 0] * np.ones(num_pt)
-
-    # Initial 1d grid. Coordinates are wrong, but this we will fix later. There is no
-    # need to do anything special with tags here; the tags of a 0d grid are trivial, and
-    # the 1d extrusion can be based on this.
-    name = f"{g.name} extruded 0d->1d"
-    g_new = pp.TensorGrid(x, name=name)
-
-    g_info = g.history.copy()
-    g_info.append("Extruded 0d->1d")
-    g_new.history = g_info
-
+    g_new = pp.fracs.msh_2_grid.create_embedded_line_grid(
+        np.vstack(
+            (
+                g.cell_centers[0, 0] * np.ones(num_pt),
+                g.cell_centers[1, 0] * np.ones(num_pt),
+                z,
+            )
+        ),
+        sort=False,
+    )
+    g_new.name = f"{g.name} extruded 0d->1d"
     # Update coordinates
-    g_new.nodes = np.vstack((x, y, z))
+    history = g.history.copy()
+    history.append("Updated node coordinates for extrusion")
+    g_new.history = history
 
     g_new.compute_geometry()
 

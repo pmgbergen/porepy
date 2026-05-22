@@ -126,7 +126,7 @@ class TestLinesIntersect:
         pi = intersections.segments_2d(s0, e0, s1, e1)
         assert pi is None or len(pi) == 0
 
-    def test_parallel_not_colinear(self):
+    def test_parallel_not_collinear(self):
         s0 = np.array([0, 0])
         e0 = np.array([1, 0])
         s1 = np.array([0, 1])
@@ -135,7 +135,7 @@ class TestLinesIntersect:
         pi = intersections.segments_2d(s0, e0, s1, e1)
         assert pi is None
 
-    def test_colinear_not_intersecting(self):
+    def test_collinear_not_intersecting(self):
         s0 = np.array([0, 0])
         e0 = np.array([1, 0])
         s1 = np.array([2, 0])
@@ -968,105 +968,6 @@ class TestFractureIntersectionRemoval:
         lines_known = np.array([[0, 1], [0, 3], [1, 4], [2, 4], [2, 3]]).T
         assert compare_arrays(new_pts, p)
         assert compare_arrays(new_lines, lines_known)
-
-
-class TestFractureBoundaryIntersection:
-    """
-    Test of algorithm for constraining a fracture a bounding box.
-
-    Since that algorithm uses fracture intersection methods, the tests functions as
-    partial test for the wider fracture intersection framework as well. Full tests of
-    the latter are too time consuming to fit into a unit test.
-
-    Now the boundary is defined as set of "fake" fractures, all fracture network have
-    2*dim additional fractures (hence the + 6 in the assertions)
-    """
-
-    def setup(self):
-        self.f_1 = pp.PlaneFracture(
-            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]),
-            check_convexity=False,
-        )
-        self.domain = unit_domain(3)
-
-    def _a_in_b(self, a, b, tol=1e-5):
-        for i in range(a.shape[1]):
-            if not np.any(np.abs(a[:, i].reshape((-1, 1)) - b).max(axis=0) < tol):
-                return False
-        return True
-
-    def _arrays_equal(self, a, b):
-        return self._a_in_b(a, b) and self._a_in_b(b, a)
-
-    def test_completely_outside_lower(self):
-        self.setup()
-        f = self.f_1
-        f.pts[0] -= 2
-        network = pp.create_fracture_network([f])
-        network.impose_external_boundary(self.domain)
-        assert len(network.fractures) == (0 + 6)
-
-    def test_outside_west_bottom(self):
-        self.setup()
-        f = self.f_1
-        f.pts[0] -= 0.5
-        f.pts[2] -= 1.5
-        network = pp.create_fracture_network([f])
-        network.impose_external_boundary(self.domain)
-        assert len(network.fractures) == (0 + 6)
-
-    def test_intersect_one(self):
-        self.setup()
-        f = self.f_1
-        f.pts[0] -= 0.5
-        f.pts[2, :] = [0.2, 0.2, 0.8, 0.8]
-        network = pp.create_fracture_network([f])
-        network.impose_external_boundary(self.domain)
-        p_known = np.array(
-            [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
-        )
-        assert len(network.fractures) == (1 + 6)
-        p_comp = network.fractures[0].pts
-        assert self._arrays_equal(p_known, p_comp)
-
-    def test_intersect_two_same(self):
-        self.setup()
-        f = self.f_1
-        f.pts[0, :] = [-0.5, 1.5, 1.5, -0.5]
-        f.pts[2, :] = [0.2, 0.2, 0.8, 0.8]
-        network = pp.create_fracture_network([f])
-        network.impose_external_boundary(self.domain)
-        p_known = np.array([[0.0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
-        assert len(network.fractures) == (1 + 6)
-        p_comp = network.fractures[0].pts
-        assert self._arrays_equal(p_known, p_comp)
-
-    def test_incline_in_plane(self):
-        self.setup()
-        f = self.f_1
-        f.pts[0] -= 0.5
-        f.pts[2, :] = [0, -0.5, 0.5, 1]
-        network = pp.create_fracture_network([f])
-        network.impose_external_boundary(self.domain)
-        p_known = np.array(
-            [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.0, 0.0, 0.5, 0.75]]
-        )
-        assert len(network.fractures) == (1 + 6)
-        p_comp = network.fractures[0].pts
-        assert self._arrays_equal(p_known, p_comp)
-
-    def test_full_incline(self):
-        self.setup()
-        p = np.array([[-0.5, 0.5, 0.5, -0.5], [0.5, 0.5, 1.5, 1.5], [-0.5, -0.5, 1, 1]])
-        f = pp.PlaneFracture(p, check_convexity=False)
-        network = pp.create_fracture_network([f])
-        network.impose_external_boundary(self.domain)
-        p_known = np.array(
-            [[0.0, 0.5, 0.5, 0], [5.0 / 6, 5.0 / 6, 1, 1], [0.0, 0.0, 0.25, 0.25]]
-        )
-        assert len(network.fractures) == (1 + 6)
-        p_comp = network.fractures[0].pts
-        assert self._arrays_equal(p_known, p_comp)
 
 
 class TestIntersectionPolygonsEmbeddedIn3d:

@@ -96,6 +96,9 @@ class Mpfa(pp.FVElliptic):
                 'num_subproblems' in ``partition_arguments``). If none are given, the
                 default is to use 1e9 bytes of memory per subproblem. If both are given,
                 the maximal memory use is prioritized.
+            - reconstruct_on_internal_faces (``bool``): Optional. Whether to
+                reconstruct the pressure at internal faces. This is not needed in
+                most cases, but is kept for completeness.
 
         matrix_dictionary will be updated with the following entries:
             - ``flux: sps.csc_matrix (sd.num_faces, sd.num_cells)``
@@ -155,6 +158,9 @@ class Mpfa(pp.FVElliptic):
         inverter: Literal["numba", "python"] = parameter_dictionary.get(
             "mpfa_inverter", "numba"
         )
+        reconstruct_on_internal_faces = parameter_dictionary.get(
+            "reconstruct_on_internal_faces", False
+        )
 
         # Control of the number of subdomanis.
         max_memory, num_subproblems = _fvutils.parse_partition_arguments(
@@ -199,6 +205,15 @@ class Mpfa(pp.FVElliptic):
             extracted_faces = active_faces
             active_k = k
             active_bound = bnd
+
+        # If eta is a vector it is indexed over the subfaces of sd. When active_grid is
+        # a proper subgrid of sd, restrict eta to the subfaces of active_grid so that
+        # the inner subproblems loop (which uses active_grid's local face numbering)
+        # indexes eta correctly.
+        if isinstance(eta, np.ndarray) and active_cells.size < sd.num_cells:
+            eta = _fvutils.adjust_eta_length(
+                eta=eta, l2g_faces=extracted_faces, parent_grid=sd
+            )
 
         # Bookkeeping.
         nf = active_grid.num_faces
@@ -278,7 +293,7 @@ class Mpfa(pp.FVElliptic):
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
                 loc_eta = _fvutils.adjust_eta_length(
-                    eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
+                    eta=eta, l2g_faces=l2g_faces, parent_grid=active_grid
                 )
 
             # Non-array eta suggests eta is scalar. Thus no changes happen to eta.
@@ -293,6 +308,7 @@ class Mpfa(pp.FVElliptic):
                 eta=loc_eta,
                 inverter=inverter,
                 ambient_dimension=vector_source_dim,
+                reconstruct_on_internal_faces=reconstruct_on_internal_faces,
             )
 
             # Eliminate contribution from faces already discretized (the dual grids /
@@ -597,6 +613,7 @@ class Mpfa(pp.FVElliptic):
         inverter: Optional[Literal["python", "numba"]] = None,
         ambient_dimension: Optional[int] = None,
         eta: Optional[float] = None,
+        reconstruct_on_internal_faces: bool = False,
     ) -> tuple[
         sps.spmatrix,
         sps.spmatrix,
@@ -1124,6 +1141,21 @@ class Mpfa(pp.FVElliptic):
             pressure_trace_bound = area_mat * pressure_trace_bound * hf2f.T
             pressure_trace_cell = area_mat * pressure_trace_cell
 
+            boundary_face_mask = _fvutils.boundary_face_mask(
+                sd, reconstruct_on_internal_faces
+            )
+
+            pressure_trace_bound = boundary_face_mask @ pressure_trace_bound
+            pressure_trace_cell = boundary_face_mask @ pressure_trace_cell
+        else:
+            if reconstruct_on_internal_faces:
+                # It should not be difficult to do this, but since we hardly ever set
+                # subface_rhs=True, we simply raise an error for now.
+                raise NotImplementedError(
+                    "Internal face reconstruction not implemented for subface rhs."
+                )
+            boundary_face_mask = sps.eye(sd.num_faces)
+
         # Also discretize vector source terms for Darcy's law. discr_div_vector_source
         # is the discretised vector source, which is interpreted as a force on a subface
         # due to imbalance in cell-center vector sources. This term is computed on a
@@ -1146,13 +1178,17 @@ class Mpfa(pp.FVElliptic):
         vector_source = hf2f * discr_vector_source * sc2c
         bound_pressure_vector_source = area_mat * vector_source_bound * sc2c
 
+        filtered_bound_pressure_vector_source = (
+            boundary_face_mask @ bound_pressure_vector_source
+        )
+
         return (
             flux,
             bound_flux,
             pressure_trace_cell,
             pressure_trace_bound,
             vector_source,
-            bound_pressure_vector_source,
+            filtered_bound_pressure_vector_source,
         )
 
     def _discretize_vector_source(

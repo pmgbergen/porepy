@@ -80,6 +80,7 @@ $RECYCLE.BIN/
 *.msh
 *.geo
 *.geo_unrolled
+*.xao
 
 # Restart-related time step monitoring files
 times.json

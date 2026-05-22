@@ -812,7 +812,13 @@ class TestMpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
         return discr_instance
 
     def test_linear_flow_simplex_grid(self):
-        mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
+        mesh_size = {
+            "mesh_size_fracture": 0.3,
+            "mesh_size_boundary": 0.3,
+            "refinement_proximity_multiplier": 1,
+            "refinement_size_multiplier": 1,
+            "background_transition_multiplier": 1.01,
+        }
         network = pp.create_fracture_network(
             None, pp.domains.unit_cube_domain(dimension=2)
         )
@@ -968,7 +974,13 @@ class TestMpfaPressureReconstructionMatrices:
         P_f = p_t_cell * P + p_t_bound * p_b
 
         assert np.all(np.abs(P - np.sum(g.cell_centers, axis=0) - p0) < 1e-10)
-        assert np.all(np.abs(P_f - np.sum(g.face_centers, axis=0) - p0) < 1e-10)
+        # Check that the reconstructed face pressures are correct at the boundary.
+        assert np.all(
+            np.abs(
+                (P_f - np.sum(g.face_centers, axis=0))[g.get_all_boundary_faces()] - p0
+            )
+            < 1e-10
+        )
 
     def test_simplex_3d_boundary(self):
         """

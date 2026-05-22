@@ -36,13 +36,21 @@ def get_mdg():
 
         """
 
-        # Three horizontal fractures
-        fracture_coords = [
-            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5]]),
-            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.2, 0.2, 0.2, 0.2]]),
-            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]]),
+        # Three horizontal fractures. The middle one is elliptic, just for the sake of
+        # it.
+        all_fractures = [
+            pp.PlaneFracture(
+                np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5]])
+            ),
+            pp.EllipticFracture(
+                np.array([[0.5], [0.5], [0.2]]), 0.5, 0.5, 0, np.pi / 2, 0
+            ),
+            pp.PlaneFracture(
+                np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]])
+            ),
         ]
-        fractures = [pp.PlaneFracture(fracture_coords[i]) for i in fracture_indices]
+        # Use these fractures.
+        fractures = [all_fractures[i] for i in fracture_indices]
         fracture_network = pp.create_fracture_network(fractures, unit_domain(3))
 
         # Vertical well extending from 0.1 (frac 2) to upper boundary and
@@ -56,7 +64,16 @@ def get_mdg():
             unit_domain(3), wells, parameters={"mesh_size": 1}
         )
 
-        mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
+        mdg = fracture_network.mesh(
+            mesh_args={
+                "mesh_size_fracture": 1,
+                "mesh_size_boundary": 1,
+                "mesh_size_min": 1,
+                "refinement_proximity_multiplier": 1,
+                "refinement_size_multiplier": 1,
+                "background_transition_multiplier": 1.01,
+            }
+        )
 
         # Compute intersections
         pp.fracs.wells_3d.compute_well_fracture_intersections(
@@ -122,23 +139,33 @@ def test_add_one_well(
         )
 
 
-# Single fracture: internal to well 0 and tip for well 1.
-# First two well grids (first dimension below) correspond to well 0, the last grid to
-# well 1.
-f_tags_0 = [[0, 1], [1, 0], [0, 1]]
-t_tags_0 = [[0, 0], [0, 1], [0, 0]]
-b_tags_0 = [[1, 0], [0, 0], [1, 0]]
+# Single fracture: internal to well 0 and tip for well 1. The outer dictionaries map
+# well number (0 or 1) to inner dictionaries. The inner dictionaries map z-coordinates
+# to expected face tags. To see the logic of the tags, see the coordinate definitions
+# (of both fractures and wells) in the get_mdg fixture.
+f_tags_0 = {0: {0.1: False, 0.2: True, 1: False}, 1: {0.2: True, 1: False}}
+t_tags_0 = {0: {0.1: True, 0.2: False, 1: False}, 1: {0.2: False, 1: False}}
+b_tags_0 = {0: {0.1: False, 0.2: False, 1: True}, 1: {0.2: False, 1: True}}
+
 # Number of grids and intersections, numbers in sums sorted by descending dimension.
 # Grids: One 3d, 1 fracture, 2 + 1 well grids and 1 + 1 intersections.
 # Interfaces: 1 3d-2d, 2+1 well-fracture 1+1 fracture-intersection
 mdg_data_0 = [1 + 1 + 3 + 2, 1 + 3 + 2]
 
 # All three fractures. frac 2 only intersects well 0
-# First three well grids (first dimension below) correspond to well 0,
-# the last three grids to well 1
-f_tags_1 = [[0, 1], [1, 1], [1, 1], [0, 1], [1, 1]]
-t_tags_1 = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]
-b_tags_1 = [[1, 0], [0, 0], [0, 0], [1, 0], [0, 0]]
+f_tags_1 = {
+    0: {0.1: True, 0.2: True, 0.5: True, 1: False},
+    1: {0.2: True, 0.5: True, 1: False},
+}
+t_tags_1 = {
+    0: {0.1: False, 0.2: False, 0.5: False, 1: False},
+    1: {0.2: False, 0.5: False, 1: False},
+}
+b_tags_1 = {
+    0: {0.1: False, 0.2: False, 0.5: False, 1: True},
+    1: {0.2: False, 0.5: False, 1: True},
+}
+
 # Number of grids and intersections, numbers in sums sorted by descending dimension.
 # Grids: One 3d, 3 fracture, 3 + 2 well grids and 3 + 2 intersections.
 # Interfaces: 3 3d-2d, 3+2 well-fracture and 5+3 fracture-intersection
@@ -178,13 +205,31 @@ def test_add_two_wells(
     assert np.isclose(mdg.num_subdomains(), mdg_data[0])
     assert np.isclose(mdg.num_interfaces(), mdg_data[1])
 
-    # Only the first well grid should be on the global boundary
-    for ind, well_grid in enumerate(mdg.subdomains(dim=1)):
-        assert np.all(np.isclose(well_grid.tags["fracture_faces"], fracture_faces[ind]))
-        assert np.all(np.isclose(well_grid.tags["tip_faces"], tip_faces[ind]))
-        assert np.all(
-            np.isclose(well_grid.tags["domain_boundary_faces"], boundary_faces[ind])
-        )
+    for well_grid in mdg.subdomains(dim=1):
+        well_num = well_grid.tags["parent_well_index"]
+        # Loop over the two endpoints of the well grid, fetch the z-coordinate to
+        # identify which known endpoint (either fracture intersection or end of the full
+        # well). Use this to index into the expected tags.
+        for fi, z_ind in enumerate([0, -1]):
+            z_coord = round(float(well_grid.nodes[2, z_ind]), ndigits=1)
+            assert z_coord in fracture_faces[well_num]
+            assert np.all(
+                np.isclose(
+                    well_grid.tags["fracture_faces"][fi],
+                    fracture_faces[well_num][z_coord],
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    well_grid.tags["tip_faces"][fi], tip_faces[well_num][z_coord]
+                )
+            )
+            assert np.all(
+                np.isclose(
+                    well_grid.tags["domain_boundary_faces"][fi],
+                    boundary_faces[well_num][z_coord],
+                )
+            )
 
 
 def test_add_one_well_with_matrix(get_mdg) -> None:

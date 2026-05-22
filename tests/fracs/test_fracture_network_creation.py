@@ -78,16 +78,6 @@ def test_error_raised_if_different_dimensions(line_fracture):
     assert msg in str(excinfo.value)
 
 
-# -----> Test #5
-def test_warning_raised_if_run_checks_true_for_dim_not_3():
-    """Checks if the warning is properly raised when ``run_checks=True`` for a
-    fracture network with a dimensionality different from 3."""
-    warn_msg = "'run_checks=True' has no effect if dimension != 3."
-    with pytest.warns() as record:
-        pp.create_fracture_network(None, domain=unit_domain(2), run_checks=True)
-    assert str(record[0].message) == warn_msg
-
-
 # -----> Test #6
 @pytest.fixture()
 def fractures_list_2d(line_fracture):

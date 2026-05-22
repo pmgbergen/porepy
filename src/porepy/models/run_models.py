@@ -1,14 +1,22 @@
-"""This module contains functions to run stationary and time-dependent models."""
+"""This module contains functions to run stationary and time-dependent models.
+
+.. deprecated::
+    This module is deprecated in favor of
+    :mod:`~porepy.models.model_runner` and will be removed in a future version.
+    Use :class:`~porepy.models.model_runner.ModelRunner` directly instead.
+
+"""
 
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Optional, Union
 
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+from porepy.models.model_runner import ModelRunner
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -21,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 def run_stationary_model(model, params: dict) -> None:
     """Run a stationary model.
+
+    .. deprecated::
+        Use :class:`~porepy.models.model_runner.ModelRunner` directly instead.
+        This function will be removed in a future version.
 
     Note:
         If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
@@ -38,17 +50,22 @@ def run_stationary_model(model, params: dict) -> None:
         params: Parameters related to the solution procedure.
 
     """
-    model.prepare_simulation()
-
-    solver = _choose_solver(model, params)
-
-    solver.solve(model)
-
-    model.after_simulation()
+    warnings.warn(
+        "run_stationary_model is deprecated and will be removed in a future version. "
+        "Use ModelRunner directly instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    runner = ModelRunner(model, params)
+    runner.run()
 
 
 def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     """Run a time dependent model.
+
+    .. deprecated::
+        Use :class:`~porepy.models.model_runner.ModelRunner` directly instead.
+        This function will be removed in a future version.
 
     Note:
         If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
@@ -66,91 +83,14 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         params: Parameters related to the solution procedure.
 
     """
-    params = params or {}
-    # Assign parameters, variables and discretizations. Discretize time-indepedent terms
-    if params.get("prepare_simulation", True):
-        model.prepare_simulation()
-
-    if params.get("progressbars", False) and progressbar_class is DummyProgressBar:
-        logger.warning(
-            "Progress bars are requested, but `tqdm` is not installed. The time loop"
-            + " will run without progress bars."
-        )
-    # When multiple nested ``tqdm`` bars are used, their position needs to be specified
-    # such that they are displayed in the correct order. The orders are increasing, i.e.
-    # 0 specifies the lowest level, 1 the next-lowest etc.
-    # When the ``NewtonSolver`` is called inside ``run_time_dependent_model``, the
-    # ``_nl_progress_bar_position`` parameter with the updated position of the progress
-    # bar for the ``NewtonSolver`` is passed. The keyword is assumed to be not touched
-    # by the user, and thus indicated as private.
-    params.update({"_nl_progress_bar_position": 1})
-
-    # Assign a solver
-    solver = _choose_solver(model, params)
-
-    # Define a function that does all the work during one time step, except
-    # for everything ``tqdm`` related.
-    def time_step() -> SimulationStatus:
-        model.time_manager.increase_time()
-        model.time_manager.increase_time_index()
-        logger.info(
-            f"\nTime step {model.time_manager.time_index} at time"
-            + f" {model.time_manager.time:.1e}"
-            + f" of {model.time_manager.time_final:.1e}"
-            + f" with time step {model.time_manager.dt:.1e}"
-        )
-        # Return convergence status s.t. the time loop can determine whether the time
-        # step succeeded or failed.
-        return solver.solve(model)
-
-    # Redirect the root logger, s.t. no logger interferes with with the
-    # progressbars.
-    with logging_redirect_tqdm([logging.root]):
-        initial_time_step: float = model.time_manager.dt
-
-        # Check if the user wants a progress bar. Initialize an instance of the
-        # progressbar_class, which is either :class:`~tqdm.trange` or
-        # :class:`~DummyProgressbar` in case `tqdm` is not installed.
-        if params.get("progressbars", False):
-            # Create a time bar. The length is estimated as the time_steps predetermined
-            # by the schedule and initial time step size.
-            # NOTE: If, e.g., adaptive time stepping results in more time steps, the
-            # time bar will increase with partial steps corresponding to the ratio of
-            # the modified time step size to the initial time step size.
-            expected_time_steps: int = int(
-                np.round(
-                    (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
-                    / initial_time_step
-                )
-            )
-            time_progressbar = progressbar_class(
-                range(expected_time_steps),
-                desc="time loop",
-                position=0,
-                dynamic_ncols=True,
-            )
-        # Otherwise, use a dummy progress bar.
-        else:
-            time_progressbar = DummyProgressBar()
-
-        # Time loop.
-        while not model.time_manager.final_time_reached():
-            time_progressbar.set_description_str(
-                f"Time step {model.time_manager.time_index + 1}"
-            )
-            status = time_step()
-            if status.is_successful():
-                # Update progressbar length.
-                time_progressbar.update(n=model.time_manager.dt / initial_time_step)
-            elif status.is_failed():
-                # Retry if not explicitly stopped.
-                pass
-            elif status.is_stopped():
-                # Stop simulation.
-                logging.info("Aborting simulation due to convergence issues.")
-                break
-
-    model.after_simulation()
+    warnings.warn(
+        "run_time_dependent_model is deprecated and will be removed in a future "
+        "version. Use ModelRunner directly instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    runner = ModelRunner(model, params)
+    runner.run()
 
 
 def _run_iterative_model(model, params: dict) -> None:
@@ -233,7 +173,7 @@ def _run_iterative_model(model, params: dict) -> None:
             )
             time_progressbar = progressbar_class(
                 range(expected_time_steps),
-                desc="time loop",
+                desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
             )
@@ -243,8 +183,8 @@ def _run_iterative_model(model, params: dict) -> None:
 
         # Time loop.
         while not model.time_manager.final_time_reached():
-            time_progressbar.set_description_str(
-                f"Time step {model.time_manager.time_index + 1}"
+            time_progressbar.set_postfix_str(
+                f"Time step size {model.time_manager.dt:.2e}"
             )
             time_step()
             # Update progressbar length. Currently, there is no convergence check

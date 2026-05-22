@@ -12,7 +12,7 @@ class DummyProgressBar:
 
     All methods of :class:`~tqdm.trange` that may be called in
     :mod:`~porepy.numerics.nonlinearnonlinear_solvers`
-    and :mod:`~porepy.models.run_models` are replaced with empty methods.
+    and :mod:`~porepy.models.model_runner` are replaced with empty methods.
 
     """
 

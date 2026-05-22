@@ -3,9 +3,6 @@
 - network_3d_from_csv
 - elliptic_network_3d_from_csv
 
-Created on Wed Dec 12 09:05:31 2018
-
-@author: eke001
 """
 
 from pathlib import Path
@@ -16,6 +13,9 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
+from porepy.applications.test_utils.fracture_properties import (
+    distance_from_points_to_fracture_plane,
+)
 from porepy.fracs import fracture_importer
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
@@ -43,7 +43,7 @@ def fractures(nd: Literal[2, 3]) -> list[np.ndarray]:
             [[0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8], [0.5, 0.5, 0.5, 0.5]]
         )
         # Elliptic fracture.
-        f_1 = np.array([[0.5, 0.5, 0.6, 0.4, 0.2, np.pi / 6, np.pi / 3, np.pi / 4, 16]])
+        f_1 = np.array([[0.5, 0.5, 0.6, 0.4, 0.2, np.pi / 6, np.pi / 3, np.pi / 4]])
         # Plane fracture with normal in y direction, and five points.
         f_2 = np.array(
             [
@@ -124,8 +124,53 @@ def test_fracture_importer(
             f_imported = network.fractures[fi].pts
             assert compare_arrays(f_known.reshape((nd, -1), order="F"), f_imported)
         else:  # nd == 3 and fi == 1 (elliptic fracture)
-            # TODO: When the meshing rework is done, we will have a new implementation
-            # of the elliptic fracture, and, as part of the reworked test suite,
-            # functionality to verify that an elliptic fracture has the correct
-            # geometry.
-            pass
+            # We have to generate points on the elliptic fracture to compare: One is the
+            # center, two others will be half the distance from the center in the
+            # direction of the major and minor axis, respectively. If the distance
+            # between the fracture and each of these points is zero, the fracture must
+            # be in the right plane, which is the main property we want to test.
+            f_known = f_known.ravel()
+            center = f_known[:3].ravel()
+
+            # Length of major and minor axis.
+            major_axis = f_known[3]
+            minor_axis = f_known[4]
+            major_axis_angle = f_known[5]
+            # Vectors along the minor and major axis before strike-dip rotation, i.e.,
+            # in the xy-plane.
+            vec_major_xy = np.array(
+                [np.cos(major_axis_angle), np.sin(major_axis_angle), 0]
+            )
+            vec_minor_xy = np.array(
+                [-np.sin(major_axis_angle), np.cos(major_axis_angle), 0]
+            )
+
+            strike_angle = f_known[6]
+            dip_angle = f_known[7]
+            # The strike gives a rotation in the xy-plane:
+            rot_strike = np.array(
+                [
+                    [np.cos(strike_angle), -np.sin(strike_angle), 0],
+                    [np.sin(strike_angle), np.cos(strike_angle), 0],
+                    [0, 0, 1],
+                ]
+            )
+            # Use Rodrigues' rotation formula (implemented in the called function) to
+            # get the rotation matrix for the dip.
+            rot_dip = pp.map_geometry.rotation_matrix(
+                dip_angle,
+                vect=np.array([np.cos(strike_angle), np.sin(strike_angle), 0]),
+            )
+            # Apply first strike rotation, then dip rotation around the rotated major
+            # axis.
+            major_axis_rotated = rot_dip @ rot_strike @ vec_major_xy
+            minor_axis_rotated = rot_dip @ rot_strike @ vec_minor_xy
+            # Control points.
+            point_major = center + 0.5 * major_axis * major_axis_rotated
+            point_minor = center + 0.5 * minor_axis * minor_axis_rotated
+
+            for point in [center, point_major, point_minor]:
+                dis = distance_from_points_to_fracture_plane(
+                    point, center, strike_angle, dip_angle
+                )
+                assert np.abs(dis).max() <= 1e-6

@@ -146,7 +146,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
 
     # Create model and run simulation
     model = EnergyBalanceTailoredBCs(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
 
     if solid_vals["thermal_conductivity"] > 1:
         # Diffusion dominated case.
@@ -253,12 +253,12 @@ def test_unit_conversion(units):
     model_reference_params = copy.deepcopy(model_params)
     model_reference_params["file_name"] = "unit_conversion_reference"
     reference_model = LocalModel(model_reference_params)
-    pp.run_time_dependent_model(reference_model)
+    pp.ModelRunner(reference_model).run()
 
     model_params["units"] = pp.Units(**units)
     model = LocalModel(model_params)
 
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     variable_names = [
         model.temperature_variable,
         model.pressure_variable,
@@ -318,11 +318,12 @@ def test_energy_conservation():
         "fracture_indices": [2],
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
         "grid_type": "cartesian",
+        "meshing_args": {"cell_size": 0.25},
         "times_to_export": [],  # Suppress output for tests
     }
 
     model = MassAndEnergyWellModel(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     # Check that the total enthalpy equals the injected one.
     in_val = 1e7
     u_expected = in_val * dt

@@ -29,7 +29,7 @@ Note:
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Callable, List, Literal, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 
 import numpy as np
 
@@ -47,7 +47,9 @@ __all__ = [
 ]
 
 Scalar = pp.ad.Scalar
-ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
+
+if TYPE_CHECKING:
+    ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class FluidDensityFromPressure(pp.PorePyModel):
@@ -767,8 +769,8 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
-
         subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
+
         projection = pp.ad.MortarProjections(
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
@@ -795,6 +797,7 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
+    @pp.ad.cached_method
     def __entity_buoyancy_flux(
         self,
         advected_gamma_quantity: pp.ad.Operator,
@@ -901,6 +904,7 @@ class FluidBuoyancy(pp.PorePyModel):
             b_fluxes.append(b_intf_flux_gamma_delta)
         return b_fluxes
 
+    @pp.ad.cached_method
     def __entity_buoyancy_jump(
         self,
         advected_gamma_quantity: pp.ad.Operator,

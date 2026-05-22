@@ -6,13 +6,12 @@ Implemented classes
 
 import logging
 from typing import cast
+from warnings import warn
 
 import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-
-# from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
@@ -65,7 +64,6 @@ class NewtonSolver:
 
         self.init_convergence_criteria()
         self.init_divergence_criteria()
-        self.init_solver_progressbar()
 
     def init_convergence_criteria(self) -> None:
         """Parse and initialize convergence criteria.
@@ -204,7 +202,7 @@ class NewtonSolver:
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The solver"
-                + " will run without progress bars."
+                " will run without progress bars."
             )
 
         # Check if the user wants a progress bar. Initialize an instance of the
@@ -252,12 +250,15 @@ class NewtonSolver:
         # Actual Newton loop.
         convergence_status, divergence_status = self.nonlinear_loop(model)
 
-        # Finalize the nonlinear loop.
-        simulation_status = self.after_nonlinear_loop(
+        # Conclude on the solver status.
+        solver_status = self.summarize_solver_status(
             model, convergence_status, divergence_status
         )
 
-        return simulation_status
+        # Finalize the nonlinear loop.
+        self.after_nonlinear_loop()
+
+        return solver_status
 
     def before_nonlinear_loop(self, model: SolutionStrategy) -> None:
         """Prepare for the nonlinear loop.
@@ -272,6 +273,9 @@ class NewtonSolver:
         # Prepare solver for nonlinear loop.
         self.iteration_index = 0
         self.convergence_criteria.reset()
+
+        # Reset solver progressbar.
+        self.init_solver_progressbar()
 
     def nonlinear_loop(
         self, model: SolutionStrategy
@@ -297,8 +301,8 @@ class NewtonSolver:
                 nonlinear_increment = self.nonlinear_iteration(model)
 
                 # Finalize nonlinear iteration and determine status.
-                (convergence_status, divergence_status) = (
-                    self.after_nonlinear_iteration(model, nonlinear_increment)
+                convergence_status, divergence_status = self.after_nonlinear_iteration(
+                    model, nonlinear_increment
                 )
 
                 # Exit the Newton loop.
@@ -307,43 +311,63 @@ class NewtonSolver:
 
         return convergence_status, divergence_status
 
-    def after_nonlinear_loop(
+    def summarize_solver_status(
         self,
         model: SolutionStrategy,
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
     ) -> SimulationStatus:
-        """Finalize the nonlinear loop.
+        """Conclude on the overall solver status.
+
+        NOTE: Convergence status takes precedence over divergence status.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            convergence_status: The convergence status collection.
-            divergence_status: The divergence status collection.
+            convergence_status: Convergence statuses.
+            divergence_status: Divergence statuses.
 
         Returns:
-            SimulationStatus: The status of the nonlinear solver.
+            SimulationStatus: The overall status of the nonlinear solver.
 
         """
-        # React to convergence status. Let convergence trump divergence.
         if convergence_status.is_converged():
-            simulation_status = SimulationStatus.SUCCESSFUL
-            self.update_solver_statistics(model, simulation_status=simulation_status)
+            solver_status = SimulationStatus.SUCCESSFUL
+            self.update_solver_statistics(model, solver_status=solver_status)
             model.after_nonlinear_convergence()
         elif divergence_status.is_diverged():
-            simulation_status = SimulationStatus.FAILED
-            self.update_solver_statistics(model, simulation_status=simulation_status)
-            # TODO: Get back to this when reimplementing time stepping.
-            # NOTE: Currently, if a simulation fully stopps, this is not logged in
-            # SolverStatistics. For this, better coordination between solver and time
-            # stepping is needed.
-            simulation_status = model.after_nonlinear_failure()
-        else:
-            raise ValueError(f"Unknown convergence status: {convergence_status}")
+            # NOTE: While FAILED on solver level, IN_PROGRESS on simulation level.
+            solver_status = SimulationStatus.FAILED
+            self.update_solver_statistics(model, solver_status=solver_status)
+            model.after_nonlinear_failure()
+            warn("Failed to solve the nonlinear problem.", UserWarning)
 
+            if not model._is_nonlinear_problem():
+                # NOTE: FAILED on solver level, and FAILED on simulation level.
+                # Should possible be handled on the level above the solver.
+                # NOTE: Currently, if a simulation fully stops, this is not logged in
+                # SolverStatistics. For this, better coordination between solver and
+                # time stepping is needed.
+                # TODO: Get back to this when reimplementing time stepping.
+
+                # Declare total failure which shall result in stopping the simulation.
+                warn(
+                    "Failed to solve linear system for the nonlinear problem. "
+                    "Stopping the simulation.",
+                    UserWarning,
+                )
+                solver_status = SimulationStatus.STOPPED
+        else:
+            raise ValueError(
+                "Invalid convergence status: "
+                f"{convergence_status.union(divergence_status)}"
+            )
+
+        return solver_status
+
+    def after_nonlinear_loop(self) -> None:
+        """Finalize the nonlinear loop."""
         # Close the progress bar.
         self.solver_progressbar.close()
-
-        return simulation_status
 
     def before_nonlinear_iteration(self, model: SolutionStrategy) -> None:
         """Prepare for a nonlinear iteration.
@@ -398,13 +422,13 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            tuple[
-                ConvergenceStatusCollection,
-                ConvergenceStatusCollection,
-            ]: Convergence and divergence status.
+            tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+                Convergence and divergence status.
 
         """
-        # Update model status.
+        # Update model status (iterate) before checking convergence, so that the
+        # convergence check uses the updated state. Also, after_nonlinear_convergence
+        # may expect the converged solution to already be stored as an iterate.
         model.after_nonlinear_iteration(nonlinear_increment)
 
         # Monitor convergence.
@@ -441,9 +465,11 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            tuple[ConvergenceStatusCollection, ConvergenceStatusCollection,
-            ConvergenceInfoCollection]: Status and
-                info about convergence and divergence.
+            Tuple containing:
+                - ConvergenceStatusCollection: Status and info about convergence.
+                - ConvergenceStatusCollection: Status and info about divergence.
+                - ConvergenceInfoCollection: Detailed information about the
+                    convergence process.
 
         """
         # Fetch the residual and current iterate.
@@ -511,14 +537,13 @@ class NewtonSolver:
         # Update progress bar.
         self.solver_progressbar.update(n=1)
         self.solver_progressbar.set_postfix_str(
-            f"""Increment {nonlinear_increment_norm:.2e} """
-            f"""Residual {residual_norm:.2e}"""
+            f"Increment {nonlinear_increment_norm:.2e} Residual {residual_norm:.2e}"
         )
 
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        simulation_status: SimulationStatus | None = None,
+        solver_status: SimulationStatus | None = None,
         convergence_status: ConvergenceStatusCollection | None = None,
         convergence_info: ConvergenceInfoCollection | None = None,
     ) -> None:
@@ -526,7 +551,7 @@ class NewtonSolver:
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            simulation_status: Simulation status of the solver.
+            solver_status: Status of the solver.
             convergence_status: Convergence (and divergence) status of the solver.
             convergence_info: Dictionary containing norms and other information.
 
@@ -541,7 +566,7 @@ class NewtonSolver:
             model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
 
         # Basic discretization-related information and overall simulation status.
-        if simulation_status is not None:
+        if solver_status is not None:
             pp.LinearSolver.update_solver_statistics(
-                cast(pp.LinearSolver, self), model, simulation_status
+                cast(pp.LinearSolver, self), model, solver_status
             )
