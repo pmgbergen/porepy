@@ -1193,9 +1193,13 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
         r"""**Massic** component flux values on the boundary flagged as ``'neu'`` by
         :meth:`bc_type_fluid_flux`.
 
-        The value of the component flux is given by :math:`\mathbf{f}\cdot\mathbf{n}`,
-        where :math:`\mathbf{f} = a\mathbf{d}`. I.e. the massic component flux is
-        given by the Darcy flux and an additional advection weight.
+        The values represent the boundary contribution of the component mass
+        flux :math:`\mathbf{f}\cdot\mathbf{n} = (a\mathbf{d})\cdot\mathbf{n}`
+        integrated over each boundary face, with SI unit
+        :math:`\mathrm{kg} \cdot \mathrm{m}^{n_d - 3} \cdot \mathrm{s}^{-1}`
+        where :math:`n_d` is the ambient dimension. Here :math:`\mathbf{d}` is
+        the Darcy flux and :math:`a` is the advection weight; the massic
+        component flux combines the two.
 
         Important:
             The component flux must be given for **each** component on the boundary,
