@@ -3434,7 +3434,6 @@ class PointWellModel:
         wells = [sd for sd in subdomains if sd.dim == 0 and tag in sd.tags]
         other_sds = [sd for sd in subdomains if sd not in wells]
 
-        mask_inj, mask_prod = self.global_well_masks_from_coordinates(subdomains)
 
         return wells, other_sds
 
@@ -3486,10 +3485,13 @@ class PointWellModel:
         injection_wells, _ = self._filter_wells(subdomains, "injection")
         production_wells, _ = self._filter_wells(subdomains, "production")
 
-        p_constraint = self.pressure_constraint_at_production_wells(production_wells)
-        self.equation_system.set_equation(p_constraint, production_wells, {"cells": 1})
-        T_constraint = self.temperature_constraint_at_injection_wells(injection_wells)
-        self.equation_system.set_equation(T_constraint, injection_wells, {"cells": 1})
+        if injection_wells:
+            T_constraint = self.temperature_constraint_at_injection_wells(injection_wells)
+            self.equation_system.set_equation(T_constraint, injection_wells, {"cells": 1})
+        if production_wells:
+            p_constraint = self.pressure_constraint_at_production_wells(production_wells)
+            self.equation_system.set_equation(p_constraint, production_wells, {"cells": 1})
+
 
     def pressure_constraint_at_production_wells(
         self, subdomains: list[pp.Grid]

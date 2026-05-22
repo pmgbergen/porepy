@@ -1415,14 +1415,29 @@ class ReservoirGeometry(pp.PorePyModel):
 
 
 class PointWellGeometry(pp.PorePyModel):
+
     def set_geometry(self):
         super().set_geometry()
 
-        injection_point = np.array(self.params.get("injection_coordinates"), dtype=float)
-        production_point = np.array(self.params.get("production_coordinates"), dtype=float)
+        def add_well_if_given(param_name, well_name):
+            coordinates = self.params.get(param_name)
 
-        self._add_well(injection_point, 0, "injection")
-        self._add_well(production_point, 0, "production")
+            if coordinates is None:
+                return
+
+            point = np.array(coordinates, dtype=float)
+
+            if point.size == 0:
+                return
+
+            self._add_well(point, 0, well_name)
+
+        add_well_if_given("injection_coordinates", "injection")
+        add_well_if_given("production_coordinates", "production")
+
+
+
+
 
     def _add_well(
         self,
