@@ -3434,6 +3434,10 @@ class PointWellModel:
         wells = [sd for sd in subdomains if sd.dim == 0 and tag in sd.tags]
         other_sds = [sd for sd in subdomains if sd not in wells]
 
+        #assign well centers
+        if wells:
+            mask_inj, mask_prod = self.global_well_masks_from_coordinates(subdomains)
+
 
         return wells, other_sds
 
