@@ -1221,7 +1221,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         self.add_nonlinear_discretization(
             self.interface_enthalpy_discretization(self.mdg.interfaces()).flux(),
         )
-
+        
         self.add_nonlinear_fourier_flux_discretization()
 
     def add_nonlinear_fourier_flux_discretization(self) -> None:
