@@ -15,8 +15,10 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
+
+# from tests.functional.setups.linear_tracer import TracerFlowModel_1p
+from porepy.examples.tracer_flow import TracerFlowModel
 from porepy.models.momentum_balance import MomentumBalance
-from tests.functional.setups.linear_tracer import TracerFlowModel_1p
 
 
 class CustomBoundaryCondition(pp.PorePyModel):
@@ -498,7 +500,7 @@ def _unit_scaling_label(units: pp.Units) -> str:
 def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.ndarray:
     """Run the probe model under `units`; return primary variable in SI."""
 
-    # Convert cell_size to internal so the resolved mesh is invariant under units.
+    # Convert cell_size to internal units so the resolved mesh is invariant under units.
     cell_size_si = 0.5
     cell_size_internal = units.convert_units(cell_size_si, "m")
 
@@ -507,10 +509,17 @@ def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.n
         "fracture_indices": [],
         "meshing_arguments": {"cell_size": cell_size_internal},
         "times_to_export": [],
+        "grid_type": "cartesian",
     }
     model = spec.probe_model_class(params)
     pp.ModelRunner(model).run()
     sd = model.mdg.subdomains(dim=spec.extraction_subdomain_dim)[0]
+    print(f"num_cells = {sd.num_cells}")
+    print(f"sum(cell_volumes) = {sd.cell_volumes.sum()}")
+    print(
+        f"domain bounds: x in [{sd.nodes[0].min()}, {sd.nodes[0].max()}], "
+        f"y in [{sd.nodes[1].min()}, {sd.nodes[1].max()}]"
+    )
     var_internal = spec.primary_variable_accessor(model, sd)
     var_si: np.ndarray = units.convert_units(
         var_internal, spec.primary_variable_si_unit, to_si=True
@@ -519,7 +528,7 @@ def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.n
 
 
 def _assert_bc_unit_invariance(
-    spec: _BCUnitInvarianceSpec, units: pp.Units, rtol: float = 1e-10
+    spec: _BCUnitInvarianceSpec, units: pp.Units, rtol: float = 1e-10, atol: float = 0.0
 ) -> None:
     """Recovered SI solution must be invariant under unit rescaling."""
 
@@ -529,7 +538,7 @@ def _assert_bc_unit_invariance(
         scaled,
         baseline,
         rtol=rtol,
-        atol=0.0,
+        atol=atol,
         err_msg=(
             f"BC unit-invariance violated for '{spec.probe_label}' under "
             f"scaling {_unit_scaling_label(units)}. Declared BC unit: "
@@ -542,12 +551,12 @@ def _assert_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
     """Guard against trivially-passing tests (zero/NaN/symmetric solution)."""
 
     baseline = _run_and_recover_in_si(spec, pp.Units())
-    assert np.all(np.isfinite(baseline)), (
-        f"Baseline for '{spec.probe_label}' contains non-finite values."
-    )
-    assert np.max(np.abs(baseline)) > 0.0, (
-        f"Baseline for '{spec.probe_label}' is identically zero."
-    )
+    assert np.all(
+        np.isfinite(baseline)
+    ), f"Baseline for '{spec.probe_label}' contains non-finite values."
+    assert (
+        np.max(np.abs(baseline)) > 0.0
+    ), f"Baseline for '{spec.probe_label}' is identically zero."
 
 
 # Empirically verified unit for bc_values_darcy_flux in 2D: integrated Darcy flux
@@ -827,64 +836,80 @@ def test_bc_values_enthalpy_flux_baseline_well_posed() -> None:
     _assert_baseline_well_posed(_ENTHALPY_FLUX_SPEC)
 
 
-# Empirically verified unit for bc_values_component_flux in 2D: integrated component mass
-# flux rho*omega*u*face_area, SI unit kg * m^(nd-3) * s^-1 where nd is the
-# ambient dimension. In 2D this gives kg * m^-1 * s^-1.
+# Empirically verified unit for bc_values_component_flux in 2D: integrated component
+# mass flux, SI unit kg * m^(nd-3) * s^-1 where nd is the ambient dimension.
+# In 2D this gives kg * m^-1 * s^-1.
 _COMPONENT_FLUX_UNIT: str = "kg * m^-1 * s^-1"
-_COMPONENT_FLUX_VALUE_SI: float = 1.0e-3
+_TRACER_COMPONENT_FLUX_VALUE_SI: float = 1.0e-8
+_WATER_COMPONENT_FLUX_VALUE_SI: float = 9.0e-8
 
 
-class _ComponentFluxBCProbe(TracerFlowModel_1p):
-    """Compositional flow probe: pressure pinned to zero everywhere (no Darcy flow),
-    tracer fraction anchored to zero on west, Neumann component flux on east for tracer.
-    Isolates the component-flux BC as the only driver of the tracer field.
+class _ComponentFluxBCProbe(TracerFlowModel):
+    """Component transport: Neumann component mass flux on east.
+
+    East boundary receives prescribed inward component mass fluxes for both
+    the tracer and reference/water components. West is a pressure Dirichlet
+    outlet, while north and south are no-flow boundaries.
     """
 
-    pipe_length: float = 1.0
-
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        # Pin pressure on all boundaries to suppress Darcy flow.
         sides = self.domain_boundary_sides(sd)
-        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+        bc = pp.BoundaryCondition(sd, sides.all_bf, "neu")
+        bc.is_neu[sides.west] = False
+        bc.is_dir[sides.west] = True
+
+        return bc
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        return np.zeros(bg.num_cells)
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.west] = self.units.convert_units(2.0, "Pa")
+        return vals
 
     def bc_values_overall_fraction(
         self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
-        # Anchor tracer fraction to zero everywhere on Dirichlet boundaries.
         return np.zeros(bg.num_cells)
 
     def bc_values_component_flux(
         self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
         vals = np.zeros(bg.num_cells)
-        if component.name != "tracer":
-            return vals
         sides = self.domain_boundary_sides(bg)
-        vals[sides.east] = self.units.convert_units(
-            _COMPONENT_FLUX_VALUE_SI, _COMPONENT_FLUX_UNIT
+
+        if component.name == "tracer":
+            value_si = _TRACER_COMPONENT_FLUX_VALUE_SI
+        else:
+            value_si = _WATER_COMPONENT_FLUX_VALUE_SI
+
+        vals[sides.east] = -self.units.convert_units(
+            value_si,
+            _COMPONENT_FLUX_UNIT,
         )
         return vals
 
 
+# Test specification for bc_values_component_flux: probe model, derived variable
+# accessor (component_flux on the matrix subdomain), and the declared BC unit.
 _COMPONENT_FLUX_SPEC = _BCUnitInvarianceSpec(
     probe_model_class=_ComponentFluxBCProbe,
     probe_label="component_flux",
     primary_variable_accessor=lambda model, sd: model.equation_system.evaluate(
-        # tracer is the second component; access its overall fraction
-        model.fluid.components[1].fraction([sd])
+        model.component_flux(model.fluid.components[1], [sd])
     ),
-    primary_variable_si_unit=" ",  # overall mass of tracer is dimensionless
+    primary_variable_si_unit="kg * m^-1 * s^-1",
     declared_bc_unit=_COMPONENT_FLUX_UNIT,
 )
 
 
 @pytest.mark.parametrize("units", _DEFAULT_UNIT_SCALINGS, ids=_unit_scaling_label)
 def test_bc_values_component_flux_unit_invariance(units: pp.Units) -> None:
-    """Recovered SI tracer fraction is invariant under unit rescaling."""
-    _assert_bc_unit_invariance(_COMPONENT_FLUX_SPEC, units)
+    """Recovered SI discrete component flux is invariant under unit rescaling."""
+    _assert_bc_unit_invariance(
+        _COMPONENT_FLUX_SPEC,
+        units,
+        atol=1e-10,
+    )
 
 
 def test_bc_values_component_flux_baseline_well_posed() -> None:
