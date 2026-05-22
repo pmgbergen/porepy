@@ -98,9 +98,6 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
 
         mask_matrix = sps.diags(mask_diag)
         jac = mask_matrix @ var.jac
-        # Ensure jac is a sparse matrix
-        if not isinstance(jac, sps.spmatrix):
-            jac = sps.csr_matrix(jac)
         return AdArray(val, jac)
     elif isinstance(var, np.ndarray):
         return np.clip(var, min_val, max_val)
