@@ -514,12 +514,6 @@ def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.n
     model = spec.probe_model_class(params)
     pp.ModelRunner(model).run()
     sd = model.mdg.subdomains(dim=spec.extraction_subdomain_dim)[0]
-    print(f"num_cells = {sd.num_cells}")
-    print(f"sum(cell_volumes) = {sd.cell_volumes.sum()}")
-    print(
-        f"domain bounds: x in [{sd.nodes[0].min()}, {sd.nodes[0].max()}], "
-        f"y in [{sd.nodes[1].min()}, {sd.nodes[1].max()}]"
-    )
     var_internal = spec.primary_variable_accessor(model, sd)
     var_si: np.ndarray = units.convert_units(
         var_internal, spec.primary_variable_si_unit, to_si=True
@@ -551,12 +545,12 @@ def _assert_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
     """Guard against trivially-passing tests (zero/NaN/symmetric solution)."""
 
     baseline = _run_and_recover_in_si(spec, pp.Units())
-    assert np.all(
-        np.isfinite(baseline)
-    ), f"Baseline for '{spec.probe_label}' contains non-finite values."
-    assert (
-        np.max(np.abs(baseline)) > 0.0
-    ), f"Baseline for '{spec.probe_label}' is identically zero."
+    assert np.all(np.isfinite(baseline)), (
+        f"Baseline for '{spec.probe_label}' contains non-finite values."
+    )
+    assert np.max(np.abs(baseline)) > 0.0, (
+        f"Baseline for '{spec.probe_label}' is identically zero."
+    )
 
 
 # Empirically verified unit for bc_values_darcy_flux in 2D: integrated Darcy flux
@@ -913,5 +907,5 @@ def test_bc_values_component_flux_unit_invariance(units: pp.Units) -> None:
 
 
 def test_bc_values_component_flux_baseline_well_posed() -> None:
-    """Sanity check: SI baseline tracer fraction is finite and non-degenerate."""
+    """Sanity check: SI baseline component flux is finite and non-degenerate."""
     _assert_baseline_well_posed(_COMPONENT_FLUX_SPEC)
