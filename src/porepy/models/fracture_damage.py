@@ -383,6 +383,50 @@ class FrictionDamageEquation(FractureDamageEquations):
         return eq
 
 
+class IsotropicFractureDamageLength(pp.PorePyModel):
+    """Isotropic damage equations for both friction and dilation.
+
+    When combined with both :class:`FrictionDamageEquation` and
+    :class:`DilationDamageEquation`, the use of a single damage length method
+    implies a unified treatment of damage in both friction and dilation.
+    """
+
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the plastic displacement jump variable."""
+
+    def damage_length(
+        self,
+        subdomains: list[pp.Grid],
+        time_step_index: int,
+    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
+        """Integrand for the isotropic damage equation.
+
+        Parameters:
+            subdomains: List of subdomains where the damage is defined.
+            time_step_index: Index of the time step.
+
+        Returns:
+            Tuple containing the contribution to the equation and the displacement
+            increment at the specified time step. If the displacement increment is zero,
+            the full contribution is also zero.
+        """
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_to_scalar = pp.ad.sum_projection_list(
+            [e_i.T for e_i in tangential_basis]
+        )
+        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
+        u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
+            time_step_index + 1
+        )
+
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+
+        contribution = f_norm(u_t_increment)
+
+        return contribution, tangential_to_scalar @ u_t_increment
+
+
 class AnisotropicFractureDamageLength(pp.PorePyModel):
     """Anisotropic damage equations for both friction and dilation.
 
@@ -498,47 +542,3 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         # safe power is used to handle division by zero.
         m_t = f_power(norm_u_t) * u_t
         return m_t
-
-
-class IsotropicFractureDamageLength(pp.PorePyModel):
-    """Isotropic damage equations for both friction and dilation.
-
-    When combined with both :class:`FrictionDamageEquation` and
-    :class:`DilationDamageEquation`, the use of a single damage length method
-    implies a unified treatment of damage in both friction and dilation.
-    """
-
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method returning the plastic displacement jump variable."""
-
-    def damage_length(
-        self,
-        subdomains: list[pp.Grid],
-        time_step_index: int,
-    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-        """Integrand for the isotropic damage equation.
-
-        Parameters:
-            subdomains: List of subdomains where the damage is defined.
-            time_step_index: Index of the time step.
-
-        Returns:
-            Tuple containing the contribution to the equation and the displacement
-            increment at the specified time step. If the displacement increment is zero,
-            the full contribution is also zero.
-        """
-        nd_vec_to_tangential = self.tangential_component(subdomains)
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-        tangential_to_scalar = pp.ad.sum_projection_list(
-            [e_i.T for e_i in tangential_basis]
-        )
-        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
-        u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
-            time_step_index + 1
-        )
-
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-
-        contribution = f_norm(u_t_increment)
-
-        return contribution, tangential_to_scalar @ u_t_increment
