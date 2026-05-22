@@ -222,8 +222,6 @@ class FractureDamageEquations(pp.PorePyModel):
     """Method to compute the open/closed state characteristic for contact mechanics."""
     damage_length: Callable[[list[pp.Grid], int], tuple[pp.ad.Operator, pp.ad.Operator]]
     """Method returning the damage length operator."""
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Function to compute the plastic displacement jump on fractures."""
 
     def damage_convolution_integral(
         self,
@@ -324,7 +322,7 @@ class DilationDamageEquation(FractureDamageEquations):
             + characteristic
             * self.dilation_damage_history(subdomains).previous_timestep(1)
         )
-        eq.set_name("dilation_damage_equation")
+        eq.set_name(self.dilation_damage_equation_name)
         return eq
 
 
@@ -381,7 +379,7 @@ class FrictionDamageEquation(FractureDamageEquations):
             + characteristic
             * self.friction_damage_history(subdomains).previous_timestep(1)
         )
-        eq.set_name("friction_damage_equation")
+        eq.set_name(self.friction_damage_equation_name)
         return eq
 
 

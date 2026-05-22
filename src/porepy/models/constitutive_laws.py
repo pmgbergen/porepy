@@ -4279,7 +4279,7 @@ class FractureDamageEvolutionCoefficients:
         \Lambda^{\alpha} = \int_0^t k^{\alpha} l dt
 
     where :math:`k^{\alpha}` is the damage evolution coefficient for damage type
-    :math:`\alpha` ( friction or dilation) and :math:`l` is a length function defined in
+    :math:`\alpha` (friction or dilation) and :math:`l` is a length function defined in
     :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
     :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength`.
     """
@@ -4308,7 +4308,10 @@ class FractureDamageEvolutionCoefficients:
         Returns:
             Operator for the characteristic roughness.
         """
-        return Scalar(self.solid.characteristic_fracture_roughness)
+        return Scalar(
+            self.solid.characteristic_fracture_roughness,
+            "characteristic_fracture_roughness",
+        )
 
     def transitional_normal_strength(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Transitional normal strength for fractures [Pa].
@@ -4378,7 +4381,9 @@ class FractureDamageEvolutionCoefficients:
         t = self.normal_component(subdomains) @ f_clip(
             self.contact_traction(subdomains)
         )
-        return Scalar(-1) * t
+        op = Scalar(-1, "sign_inverter") * t
+        op.set_name("positive_normal_traction")
+        return op
 
     def uniaxial_compressive_strength(
         self, subdomains: list[pp.Grid]
@@ -4516,7 +4521,9 @@ class FrictionDamage(pp.PorePyModel):
             Scalar for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(self.solid.residual_friction_damage)
+        return pp.ad.Scalar(
+            self.solid.residual_friction_damage, "residual_friction_damage"
+        )
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient [-].
@@ -4536,7 +4543,10 @@ class FrictionDamage(pp.PorePyModel):
         # After the check, we can safely call the super class method to get the
         # non-damaged friction, ignoring the type checker.
         intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
-        return self.friction_damage_state(subdomains) * intact_bound
+        intact_bound.set_name("intact_friction_coefficient")
+        op = self.friction_damage_state(subdomains) * intact_bound
+        op.set_name("damaged_friction_coefficient")
+        return op
 
 
 class DilationDamage(pp.PorePyModel):
@@ -4606,7 +4616,9 @@ class DilationDamage(pp.PorePyModel):
             Scalar for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(self.solid.residual_dilation_damage)
+        return pp.ad.Scalar(
+            self.solid.residual_dilation_damage, "residual_dilation_damage"
+        )
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear dilation gap [m].
@@ -4628,7 +4640,10 @@ class DilationDamage(pp.PorePyModel):
             )
         # Combine the dilation damage with the non-damaged dilation gap.
         intact_gap = super().shear_dilation_gap(subdomains)  # type: ignore[misc]
-        return self.dilation_damage_state(subdomains) * intact_gap
+        intact_gap.set_name("intact_shear_dilation")
+        op = self.dilation_damage_state(subdomains) * intact_gap
+        op.set_name("damaged_shear_dilation")
+        return op
 
 
 class BiotCoefficient(pp.PorePyModel):
