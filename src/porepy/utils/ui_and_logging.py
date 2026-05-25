@@ -38,6 +38,10 @@ class DummyProgressBar:
     def close(self):
         pass
 
+    @property
+    def total(self):
+        return 0
+
 
 # ``tqdm`` is not a dependency. Up to the user to install it.
 try:
