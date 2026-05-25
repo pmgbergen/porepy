@@ -466,10 +466,12 @@ class TimeManager:
         self._iters = iterations
 
         # First, check if we reach final simulation time with a valid solution
+        # TODO: rm?
         if not recompute_solution and self.final_time_reached():
             return None
 
         # If the time step is constant, always return that value
+        # TODO: rm? who is responsible for asking for compute_dt?
         if self.is_constant:
             # Some sanity checks
             if self._iters is not None:
@@ -600,10 +602,13 @@ class TimeManager:
             # in the sense that we are not limiting the recomputation criteria to _only_
             # reaching the maximum number of iterations, even though that is the primary
             # intended usage.
-            self.time -= self.dt  # (S1)
-            self.time_index -= 1  # (S2)
+            # TODO: Suggestion to remove. S1 and S2.
+            # self.time -= self.dt  # (S1)
+            # self.time_index -= 1  # (S2)
             self.dt *= self.recomp_factor  # (S3)
-            self._recomp_num += 1  # (S4)
+            # TODO: Suggestion to remove. S4.
+            # self._recomp_num += 1  # (S4)
+            # TODO: This can be made less complex and more robust, when not using indices.
             if self._is_about_to_hit_schedule:  # (S5)
                 self._scheduled_idx -= 1
 
@@ -644,6 +649,11 @@ class TimeManager:
 
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
+        # TODO: We could make this more efficient and more robust
+        # by keeping track of the next scheduled time, instead of the index
+        # and updating it every time we hit the schedule. This way, we would also avoid any
+        # issues related to the index, e.g., out of bounds, and we would not need to
+        # step back in the schedule if we expected to hit it but did not due to recomputation.
         schedule_time = self.schedule[self._scheduled_idx]
 
         self._is_about_to_hit_schedule = False
@@ -661,6 +671,9 @@ class TimeManager:
                     )
                 return
 
+            # TODO: Keep track of previous dt, and return to that value if we expected to hit the schedule.
+            # There is no reason to start increasing the dt from scratch. Use a reset of previous dt to avoid
+            # oscillations and ensure a stable time step adaptation in combination with the relaxation factors.
             self.dt = schedule_time - self.time  # Correcting time step.
 
             if self._scheduled_idx < len(self.schedule) - 1:
