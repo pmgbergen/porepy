@@ -4282,6 +4282,24 @@ class FractureDamageEvolutionCoefficients:
     :math:`\alpha` (friction or dilation) and :math:`l` is a length function defined in
     :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
     :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength`.
+
+    The damage evolution coefficients are computed as functions of the contact traction,
+    the characteristic fracture roughness, and the uniaxial compressive strength of the
+    solid. For dilation, we have
+
+    .. math::
+        k^{dilation} = K_ad \frac{t_n,p}{t_trans \cdot u_char},
+
+    where :math:`K_ad=log(UCS/t_n,p)` is the logarithm of the ratio of the uniaxial
+    compressive strength and the positive normal traction, :math:`t_n,p`, t_trans is the
+    transitional normal strength, and :math:`u_char` is the characteristic fracture
+    roughness.
+
+    For friction damage, we have
+
+    .. math::
+        k^{friction} = 3 \frac{t_n,p}{t_trans \cdot u_char}.
+
     """
 
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
