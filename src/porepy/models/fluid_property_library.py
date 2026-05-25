@@ -651,6 +651,56 @@ class FluidMobilityReactiveTransport(FluidMobility):
 
 
 
+    def total_element_mass_mobility(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        total_op = pp.ad.sum_operator_list(
+            [self.element_mass_mobility(ele, domains) for ele in self.fluid.elements]
+        )
+        total_op.set_name("total_element_mass_mobility")
+        return total_op
+
+
+    def fractional_component_mass_mobility(
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        r"""Returns the :meth:`component_mass_mobility` divided by the
+        :meth:`total_mass_mobility` for a component :math:`\eta`.
+
+        To be used in component mass balance equations in a fractional flow model, where
+        the total mobility is part of the non-linear diffusive tensor in the Darcy flux.
+
+        .. math::
+
+            - \nabla \cdot \left(f_{\eta} D(x) \nabla p\right),
+
+        where the tensor :math:`D(x)` contains the total mobility.
+
+        Parameters:
+            component: A component in the fluid mixture.
+            domains: A sequence of subdomains or boundary grids.
+
+        Returns:
+            The term :math:`f_{\eta}` in above expession in operator form.
+
+        """
+        frac_mob = self.component_mass_mobility(
+            component, domains
+        ) / self.total_element_mass_mobility(domains)
+        frac_mob.set_name(f"fractional_component_mass_mobility_{component.name}")
+        return frac_mob
+
+
+    def fractional_element_mass_mobility(
+        self, element: pp.Element, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        r"""Returns the :meth:`element_mass_mobility` divided by the
+        :meth:`total_element_mass_mobility` for an element :math:`E`.
+        """
+        frac_mob = self.element_mass_mobility(
+            element, domains
+        ) / self.total_element_mass_mobility(domains)
+        frac_mob.set_name(f"fractional_element_mass_mobility_{element.name}")
+        return frac_mob
+
 
 class FluidBuoyancy(pp.PorePyModel):
     """

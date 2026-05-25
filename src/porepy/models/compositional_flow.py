@@ -1681,6 +1681,13 @@ class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
         of a component's mass balance equation"""
         return f"bc_data_fractional_flow_{component.name}"
 
+
+    def bc_data_fractional_flow_element_key(self, element: pp.Element) -> str:
+        """Key to store the BC values of the non-linear weight in the advective flux
+        of an element's mass balance equation"""
+        return f"bc_data_fractional_flow_{element.name}"
+
+
     def update_boundary_values_fractional_flow(self) -> None:
         """Evaluates user provided data for non-linear terms in advective fluxes on the
         boundary and stores them.
@@ -1722,6 +1729,16 @@ class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
             function=self.bc_values_fractional_flow_energy,
         )
 
+
+        for ele in self.fluid.elements:
+            self.update_boundary_condition(
+                name=self.bc_data_fractional_flow_element_key(ele),
+                function=cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_fractional_flow_element, ele),
+                ),
+            )
+
     def bc_values_fractional_flow_component(
         self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
@@ -1752,6 +1769,69 @@ class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
 
         """
         return np.zeros(bg.num_cells)
+
+
+    def bc_values_fractional_flow_element(
+        self, element: pp.Element, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        r"""**Massic** element flux values on the boundary flagged as ``'neu'`` by
+        :meth:`bc_type_fluid_flux`.
+
+        The value of the element flux is given by :math:`\mathbf{f}\cdot\mathbf{n}`,
+        where :math:`\mathbf{f} = a\mathbf{d}`. I.e. the massic element flux is
+        given by the Darcy flux and an additional advection weight.
+
+        Important:
+            The element flux must be given for **each** element on the boundary,
+            also for the (dependent) reference element. Otherwise the total advective
+            flux on the boundary cannot be consistently computed.
+
+        See also:
+            :class:`ComponentMassBalance`
+
+        Parameters:
+            element: An element in the :attr:`fluid`.
+            bg: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the mass
+            element flux values on the provided boundary grid.
+            Defaults to a zero array.
+
+        """
+        # return np.zeros(bg.num_cells)
+
+        # the element flux is computed as a weighted sum of component fluxes
+        W = self.fluid.fluid_formula_matrix  # shape (E, C)
+        species_names = self.fluid.fluid_species_names
+        components = self.fluid.components
+
+        # Map species name -> AD function
+        z_funcs = {
+            comp.name: self.bc_values_fractional_flow_component(comp, bg) for comp in components
+        }
+
+        # Evaluate z_ξ(subdomains) to get a list of Operators
+        try:
+            z_ops = [z_funcs[name] for name in species_names]  # shape (C,)
+        except KeyError as e:
+            raise KeyError(f"Species name '{e.args[0]}' not found in fluid components.")
+
+        # Extract row for the element
+        # find the row index according to element name
+        try:
+            element_index = self.fluid.element_names.index(element.name)
+        except ValueError as e:
+            raise ValueError(f"Element name '{e.args[0]}' not found in fluid elements.")
+        W_row = W[element_index, :]  # shape (C,)
+        # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
+
+        element_flux = np.zeros(bg.num_cells)
+        for w, z in zip(W_row, z_ops):
+            element_flux += w * z
+
+        return element_flux
+
 
 
 class BoundaryConditionsCF(
@@ -2583,6 +2663,11 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
+    fractional_element_mass_mobility: Callable[
+        [pp.Element, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
@@ -2596,6 +2681,10 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
+
+    bc_data_fractional_flow_element_key: Callable[[pp.Element], str]
+    """See :class:`BoundaryConditionsFractionalFlow`."""
+
     bc_data_element_flux_key: Callable[[pp.Element], str]
     """See :class:`BoundaryConditionsMulticomponent`."""
 
@@ -2717,8 +2806,15 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self):
-            raise NotImplementedError("Not implemented!")
+        if is_fractional_flow(self) and all(
+            [isinstance(g, pp.BoundaryGrid) for g in domains]
+        ):
+            op = self.create_boundary_operator(
+                self.bc_data_fractional_flow_element_key(element),
+                cast(Sequence[pp.BoundaryGrid], domains),
+            )
+        elif is_fractional_flow(self):
+            op = self.fractional_element_mass_mobility(element, domains)
         else:
             op = self.element_mass_mobility(element, domains)
 
@@ -2749,7 +2845,9 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             if is_fractional_flow(self):
-                raise NotImplementedError("Not implemented!")
+                return self.advection_weight_element_mass_balance(
+                    element, domains
+                ) * self.darcy_flux(domains)
             else:
                 return self.create_boundary_operator(
                     self.bc_data_element_flux_key(element),

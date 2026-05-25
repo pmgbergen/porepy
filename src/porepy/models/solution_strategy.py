@@ -1289,3 +1289,10 @@ class SolutionStrategyReactiveTransport(pp.PorePyModel):
         return float(safety * np.min(dt_local))
     
 
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """If the fractional flow formulation is used, the nonlinear Darcy flux
+        discretization is added by default for all subdomains to the update routine."""
+        if pp.compositional_flow.is_fractional_flow(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+            )

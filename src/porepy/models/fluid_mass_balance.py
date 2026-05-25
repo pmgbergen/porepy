@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 from typing import Callable, Optional, Sequence, cast
-
 import numpy as np
 
 import porepy as pp
@@ -692,6 +691,10 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
             Operator representing the fluid flux.
 
         """
+        if pp.compositional_flow.is_fractional_flow(self):
+            return self.darcy_flux(domains)
+
+
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
@@ -775,6 +778,10 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
             Operator representing the interface fluid flux.
 
         """
+        if pp.compositional_flow.is_fractional_flow(self):
+            return self.interface_darcy_flux(interfaces)
+
+
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
         mob_rho = self.advection_weight_mass_balance(subdomains)
@@ -793,6 +800,9 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
             Operator representing the interface fluid flux [kg * s^-1].
 
         """
+        if pp.compositional_flow.is_fractional_flow(self):
+            return self.well_flux(interfaces)
+
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
         mob_rho = self.advection_weight_mass_balance(subdomains)

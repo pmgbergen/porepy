@@ -863,6 +863,8 @@ class CubicLawPermeability(DimensionDependentPermeability):
 class LayerSpecificPermeability(ConstantPermeability):
     """A spatially heterogeneous permeability field."""
 
+    total_element_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2], assigned by depth-dependent geological layers.
@@ -888,20 +890,49 @@ class LayerSpecificPermeability(ConstantPermeability):
             Cell-wise isotropic permeability tensor as an Ad operator.
         """
 
+        permeability= self.layer_specific_permeability(subdomains)
+        return self.isotropic_second_order_tensor(subdomains, permeability)
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """A constitutive law returning the normal permeability as
+        :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
+
+        Parameters:
+            interfaces: A list of mortar grids.
+
+        Returns:
+            The product of total mobility and permeability of the lower-dimensional.
+
+        """
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        normal_permeability = (
+            projection.secondary_to_mortar_avg()
+            @ self.layer_specific_permeability(subdomains)
+        )
+        normal_permeability.set_name("normal_permeability")
+        return normal_permeability
+
+
+
+    def layer_specific_permeability(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         k_all = []
 
         size=sum(sd.num_cells for sd in subdomains)
         if size == 0:
-            permeability= pp.wrap_as_dense_ad_array(0, size=0)
-            return self.isotropic_second_order_tensor(subdomains, permeability)
+            permeability= pp.wrap_as_dense_ad_array(np.zeros(0),)
+            return permeability
 
 
         for sd in subdomains:
             if sd.dim==self.nd:
                 depth = np.asarray(self.depth(sd.cell_centers), dtype=float)
 
-                k = np.empty(sd.num_cells, dtype=float)
-
+                k = np.full(sd.num_cells, np.nan, dtype=float)
                 layers=self.resolve_layers()
 
                 for layer in layers:
@@ -911,6 +942,8 @@ class LayerSpecificPermeability(ConstantPermeability):
                     else:
                         k[m] = layer.permeability
 
+                if np.any(np.isnan(k)):
+                    raise ValueError("Some cells were not assigned a permeability.")
 
 
                 k_all.append(k)
@@ -925,7 +958,13 @@ class LayerSpecificPermeability(ConstantPermeability):
             k_all, k_all.size, name="permeability"
         )
 
-        return self.isotropic_second_order_tensor(subdomains, permeability)
+        if pp.compositional_flow.is_fractional_flow(self):
+
+            op = self.total_element_mass_mobility(subdomains) * permeability
+            op.set_name("layer_specific_permeability")
+            return op
+
+        return permeability
 
 
 
@@ -2043,18 +2082,21 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         h_eff = self.effective_point_well_length(matrix_subdomains, interfaces)
 
+
+        k_over_log = isotropic_permeability / (f_log(r_e / r_w) + skin_factor)
+        k_over_log_mortar = projection.primary_to_mortar_avg() @ k_over_log
+
+
         if point_well_3d:
             well_index = (
                 pp.ad.Scalar(2 * np.pi)
                 * h_eff
-                * projection.primary_to_mortar_avg() 
-                @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+                * k_over_log_mortar
             )
         else:
             well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
-            * projection.primary_to_mortar_avg()
-            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
+            * k_over_log_mortar,
             interfaces,
             1,
         )
