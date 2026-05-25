@@ -419,21 +419,28 @@ class SplineInterpolationLineSearch:
                     f_b=f_b,
                 )
             except NonFiniteSampleError as err:
-                # Non-finite found at x*=err.x_bad.
+                # Non-finite found at x*=err.x_bad. We assume that the minimum lies in
+                # [a, x_bad] and disect this interval.
                 x_bad = err.x_bad
                 x_good = err.x_good
-                if np.isclose(x_good, a) or x_good < a:
-                    # If x_good is at or before a, we can use [a, x_bad] as the new
-                    # interval.
+
+                # Case 1: The bad point is the first sample; use [a, x_bad] as the new
+                # interval and continue the recursion. We will encounter the error again
+                # in the next iteration, but we will have shrunk the interval to [a,
+                # x_bad] from [a, b].
+                if np.isclose(x_good, a):
                     b = x_bad
                     f_b = None
                     # In case the new interval satisfies the termination criterion, we
                     # will set alpha to b.
                     alpha = b
                     counter += 1
-                    continue
-                # Check whether alpha is in [a, x_good]. We do not catch the error here,
-                # since by assumption all values in the interval [a, x_good] are valid.
+                    continue  # To next recursion iteration.
+
+                # By now, there are two posssibilities for the location of the minimum:
+                # either in [a, x_good) or in [x_good, x_bad]. We start by searching for
+                # alpha in [a, x_good]. We do not catch the error here, since by
+                # assumption all values in the interval [a, x_good] are valid.
                 alpha, x, y = self.optimum_from_spline(
                     function,
                     a,
@@ -441,21 +448,27 @@ class SplineInterpolationLineSearch:
                     num_pts,
                     f_a=f_a,
                 )
-                # 1) If alpha is in [a, x_good]:
+
+                # Case 2: If alpha is not in [a, x_good): The minimum is at or beyond
+                # x_good. This should imply that alpha is in the interval [x_good,
+                # x_bad], which will be our updated interval. While we expect to incur
+                # the error in the next iteration, we have shrunk the interval to
+                # [x_good, x_bad] from [a, b], since the alpha, x, y last computed are
+                # all non-degenerate.
                 if np.isclose(alpha, x_good) or alpha > x_good:
-                    # The minimum is at or beyond x_good. We assume that the minimum
-                    # lies in the interval [x_good, x_bad].
+                    # Update both ends
                     a = x_good
                     f_a = y[-1]
                     b = x_bad
                     f_b = None
-                    # While this will incur the error in the next iteration, we have
-                    # shrunk the interval to [x_good, x_bad] from [a, b], since the
-                    # alpha, x, y last computed are all non-degenerate.
+
                     counter += 1
-                    continue
-                # 2) If it is, we may proceed with the search in [a, x_good]. The below
-                # code (standard, non-error case) handles that case.
+                    continue  # To next recursion iteration.
+                # 2) Alpha is in [a, x_good): narrow the search interval to [a, x_good]
+                # so the fall-through code below operates on the same grid as the x, y
+                # already computed above.
+                b = x_good
+                f_b = y[-1]
 
             x = np.linspace(a, b, num_pts)
             # Find the indices on either side of alpha. We know that alpha is int, since
@@ -476,7 +489,10 @@ class SplineInterpolationLineSearch:
                 f_a = y[ind - 1]
                 f_b = y[ind]
             counter += 1
+            # Continue recursion.
 
+        # Recursion is terminated. Return the last computed alpha and the final
+        # interval.
         return alpha, a, b
 
     def optimum_from_spline(
@@ -513,29 +529,24 @@ class SplineInterpolationLineSearch:
                 f_pt = f_b
             else:
                 f_pt = f(pt)
-            # Safeguard 2: Check for any non-finite values (NaN or inf)
+            # Check for any non-finite values (NaN or inf). Raise NonFiniteSampleError
+            # so the caller (recursive_spline_interpolation) can shrink the interval
+            # and retry. x_good is the last successfully sampled point (or a if this
+            # is the very first sample).
             if not np.all(np.isfinite(f_pt)):
                 logger.warning(
                     f"Non-finite constraint values at relaxation weight {pt:.6e}. "
                     "This suggests the Newton update leads to an unphysical state. "
                     "Truncating line search interval."
                 )
-                # If we get non-finite values, truncate the x vector
-                x = x[: np.where(x == pt)[0][0]]
-                break
+                x_good = x[i - 1] if i > 0 else a
+                raise NonFiniteSampleError(x_bad=pt, x_good=x_good)
             # Collect function values, scalar or vector.
             y_list.append(f_pt)
         if isinstance(y_list[0], np.ndarray):
             y = np.vstack(y_list)
         else:
             y = np.array(y_list)
-
-        # Additional safety: ensure all y values are finite before constructing splines.
-        if isinstance(y, np.ndarray):
-            if not np.all(np.isfinite(y)):
-                raise FloatingPointError(
-                    "Non-finite values in sampled data for spline interpolation"
-                )
 
         def compute_minimum_from_spline(poly, a: float, b: float) -> float:
             """Compute the minimum of one spline and postprocess the result.
