@@ -1,0 +1,27 @@
+# Example 3: connected fracture chain with strongest halite-aperture feedback.
+# Paper case: φ = 2.0, a0 = 1e-2 m, 3x injection, 60 days.
+
+case_name: example3
+geometry: connected
+
+physics:
+  clogging_exponent: 2.0
+  reference_aperture: 1.0e-2
+  injection_fraction: 3.0
+
+vtk:
+  phz_file: XHP_l2_original.vtk
+
+time:
+  end: 5184000.0        # 60 days [s]
+  dt_init: 120.0        # 2 minutes [s]
+  dt_min: 1.0           # [s]
+  dt_max: 600.0         # 10 minutes [s]
+  iter_optimal: [20, 25]
+  iter_relax: [0.75, 2.0]
+
+solver:
+  use_line_search: true
+  use_anderson: false
+  anderson_acceleration_constrained: false
+  use_appleyard_chop: true

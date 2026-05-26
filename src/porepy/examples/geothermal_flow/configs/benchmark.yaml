@@ -1,0 +1,73 @@
+case_name: benchmark
+
+model:
+  kind: benchmark_1d
+
+geometry: benchmark_horizontal
+
+time:
+  end: 6.3072e10          # 2000 years in seconds
+  dt_init: 3.1536e7      # 1 year in seconds
+  dt_min: 3.1536e7
+  dt_max: 3.1536e7
+  constant_dt: true
+  max_iterations: 100
+  print_info: true
+  rtol: 0.0
+
+material:
+  permeability: 1.0e-15
+  porosity: 0.1
+  thermal_conductivity: 2.0
+  density: 2700.0
+  specific_heat_capacity: 880.0
+
+boundary_conditions:
+  pressure:
+    inlet: 4.0e6
+    outlet: 1.0e6
+  temperature:
+    inlet: 573.15
+    outlet: 423.15
+  z_nacl:
+    inlet: 0.0
+    outlet_target_halite_saturation: 0.1
+    search_bounds: [0.3, 0.42]
+
+initial_conditions:
+  pressure:
+    inlet: 4.0e6
+    outlet: 1.0e6
+  temperature: 423.15
+  z_nacl:
+    target_halite_saturation: 0.1
+    search_bounds: [0.3, 0.42]
+
+relative_permeability:
+  residual_liquid_saturation: 0.3
+  residual_vapor_saturation: 0.0
+
+solver:
+  use_preconditioner: false
+  use_schur_complement: false
+  use_line_search: false
+  use_anderson: false
+  anderson_acceleration_depth: 3
+  anderson_acceleration_constrained: false
+  anderson_acceleration_regularization_parameter: 1.0e-3
+  use_appleyard_chop: false
+  appleyard_chop_value: 0.2
+  nonlinear_tolerance: 1.0e-5
+  max_iterations: 100
+  linear_solver: pypardiso
+  flag_failure_as_diverged: true
+  solver_statistics_file_name: solver_statistics_benchmark.json
+
+vtk:
+  directory: model_configuration/constitutive_description/driesner_vtk_files
+  phz_file: XHP_l2_original_salt_new.vtk
+  ptz_file: XTP_l2_original_salt_new.vtk
+
+visualization:
+  root: visualization
+  write_pvd: true

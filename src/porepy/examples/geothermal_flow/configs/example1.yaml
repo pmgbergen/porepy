@@ -1,0 +1,27 @@
+# Example 1: disconnected fracture network with mild halite-aperture feedback.
+# Paper case: φ = 0.1, a0 = 1e-3 m, 74 days.
+
+case_name: example1
+geometry: disconnected
+
+physics:
+  clogging_exponent: 0.1
+  reference_aperture: 1.0e-3
+  injection_fraction: 1.0
+
+vtk:
+  phz_file: XHP_l2_original_salt_new.vtk
+
+time:
+  end: 6393600.0        # 74 days [s]
+  dt_init: 360.0        # 6 minutes [s]
+  dt_min: 0.1           # [s]
+  dt_max: 360.0         # 6 minutes [s]
+  iter_optimal: [5, 15]
+  iter_relax: [0.75, 1.5]
+
+solver:
+  use_line_search: false
+  use_anderson: true
+  anderson_acceleration_constrained: true
+  use_appleyard_chop: false

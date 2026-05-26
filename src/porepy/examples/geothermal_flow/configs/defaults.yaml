@@ -1,0 +1,77 @@
+# Common configuration shared by examples 1--3.
+# Keep only values here when they are identical for all cases.
+
+material:
+  residual_aperture: 1.0e-1
+  permeability: 1.0e-15
+  normal_permeability: 1.0e-13
+  fracture_permeability: 1.0e-13
+  porosity: 0.1
+  thermal_conductivity: 2.0
+  density: 2700.0
+  specific_heat_capacity: 880.0
+
+well:
+  p_init: 10.5e6
+  t_init: 586.651
+  z_init:
+    H2O: 0.6
+    NaCl: 0.4
+  t_inj: 300.651
+  z_inj:
+    H2O: 0.9999
+    NaCl: 1.0e-4
+  p_out: 7.0e6
+  well_radius: 0.1
+
+physics:
+  minimum_aperture: 1.0e-4
+
+vtk:
+  directory: model_configuration/constitutive_description/driesner_vtk_files
+  ptz_file: XTP_l2_original_salt_new.vtk
+  phz_conversion_factors: [1.0, 1.0e-3, 1.0e-5]
+  ptz_conversion_factors: [1.0, 1.0, 1.0e-5]
+  ptz_translation_factors: [0.0, -273.15, 0.0]
+
+time:
+  max_iterations: 100
+  recompute_factor: 0.5
+  recompute_max: 10
+  constant_dt: false
+  print_info: true
+  rtol: 0.0
+
+solver:
+  nonlinear_tolerance: 1.0e-3
+  use_schur_complement: false
+  use_preconditioner: false
+  linear_solver: pypardiso
+  solver_statistics_file_name: solver_statistics.json
+  print_nonlinear_statistics: true
+  print_residual_blocks: true
+  flag_failure_as_diverged: true
+
+  # Anderson/line-search defaults used unless overridden by a case.
+  use_line_search: false
+  armijo_weight: 0.8
+  armijo_incline: 1.0e-2
+  armijo_max_iterations: 10
+  use_anderson: true
+  anderson_acceleration_depth: 3
+  anderson_acceleration_constrained: false
+  anderson_acceleration_regularization_parameter: 1.0e-3
+  use_appleyard_chop: false
+  appleyard_chop_value: 0.2
+
+  # Optional iterative solver settings, used only when use_preconditioner is true.
+  gmres_max_it: 300
+  gmres_restart: 100
+  ilu_level: 3
+  ilu_maxiter: 10
+  amg_strong_threshold: 0.25
+
+visualization:
+  root: visualization
+  write_pvd: true
+  write_vtu_before_run: false
