@@ -105,7 +105,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     for model_class in [ManuPoroMechModel2d, ManuPoroMechModel3d]:
         # Make deep copy of params to avoid nasty bugs.
         model: pp.PorePyModel = model_class(deepcopy(model_params))
-        pp.run_time_dependent_model(model)
+        pp.ModelRunner(model).run()
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
         for result in model.results:
@@ -278,8 +278,6 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
 
 
 # ----> Set desired order of convergence
-# Skip this test since it is a subset of the test for thermoporomechanics.
-@pytest.mark.skipped
 @pytest.fixture(scope="module")
 def desired_ooc() -> list[list[dict[str, float]]]:
     """Set desired order of convergence.

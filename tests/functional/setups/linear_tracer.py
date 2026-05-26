@@ -292,7 +292,6 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
                 subdomains[0],
                 exact_z_tracer,
                 approx_z_tracer,
-                is_scalar=True,
                 is_cc=True,
                 p=1,
             ),
@@ -300,14 +299,12 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
                 subdomains[0],
                 exact_p,
                 approx_p,
-                is_scalar=True,
                 is_cc=True,
             ),
             error_diffused_z_tracer=ConvergenceAnalysis.lp_error(
                 subdomains[0],
                 diffused_z_tracer,
                 approx_z_tracer,
-                is_scalar=True,
                 is_cc=True,
                 p=1,
             ),
@@ -585,14 +582,12 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
             subdomains[0],
             exact_h,
             approx_h,
-            is_scalar=True,
             is_cc=True,
         )
         data.error_T = ConvergenceAnalysis.lp_error(
             subdomains[0],
             exact_T,
             approx_T,
-            is_scalar=True,
             is_cc=True,
         )
 
@@ -611,7 +606,6 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
                     subdomains[0],
                     exact_sy,
                     approx_s,
-                    is_scalar=True,
                     is_cc=True,
                 )
             )
@@ -620,7 +614,6 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
                     subdomains[0],
                     exact_sy,
                     approx_y,
-                    is_scalar=True,
                     is_cc=True,
                 )
             )
@@ -635,7 +628,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
                 exact_x = component.fraction(subdomains).value(self.equation_system)
                 errors_x[-1].append(
                     ConvergenceAnalysis.lp_error(
-                        subdomains[0], exact_x, approx_x, is_scalar=True, is_cc=True
+                        subdomains[0], exact_x, approx_x, is_cc=True
                     )
                 )
 

@@ -31,16 +31,14 @@ For the more experienced user, some more specific tutorials are also available. 
 11. [Mandel's problem](./mandels_problem.ipynb) shows how to set up and run the Mandel's consolidation problem based on the Biot equations of poroelasticity.
 12. [Linear Tracer Flow](./tracer_flow.ipynb) describes the setup of a linear single-phase, 2-component model based on tutorial #6, and showcases a simulation of tracer transport through a fractured domain.
 13. [Fluid modeling](./fluid_modeling.ipynb) explains how to set up multicomponent, multiphase fluids in a model, and various approaches to modeling fluid properties.
-14. [Cubic EoS](./cubic_eos.ipynb) gives an introduction to cubic equation of state modeling and how to use the compiled version of the Peng-Robinson EoS.
-15. [Flash](./flash.ipynb) explains the flash framework, its elements like the generic flash argument and flash solvers, and how to extended it. It also demonstrates its usage to solve large quantities of flash problems using flash specifications relevant for non-isothermal settings in the subsurface.
 
 Also, see the [reference parameter dictionaries](../src/porepy/examples/example_params.py) for PorePy models. They can be used as a starting point for a PorePy user to copy the relevant parameters for your own problem.
 
 ## Technical tutorials
-These are tutorials that cover technical aspects of the code, 
+These are tutorials that cover technical aspects of the code.
 
-16. [Grids](./grids.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
-17. [Grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
-18. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation.
-19. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #16, which arises in the linear elastisity equations.
-20. [Equations](./equations.ipynb) briefly covers some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
+14. [Grids](./grid_class.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
+15. [Grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
+16. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation.
+17. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #16, which arises in the linear elastisity equations.
+18. [Equations](./equations.ipynb) briefly covers some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
