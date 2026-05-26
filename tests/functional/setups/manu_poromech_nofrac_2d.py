@@ -156,7 +156,6 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
-            is_scalar=True,
             is_cc=True,
             relative=True,
         )
@@ -168,7 +167,6 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_displacement,
             approx_array=approx_displacement,
-            is_scalar=False,
             is_cc=True,
             relative=True,
         )
@@ -180,7 +178,6 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_flux,
             approx_array=approx_flux,
-            is_scalar=True,
             is_cc=False,
             relative=True,
         )
@@ -192,7 +189,6 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
             grid=sd,
             true_array=exact_force,
             approx_array=approx_force,
-            is_scalar=False,
             is_cc=False,
             relative=True,
         )

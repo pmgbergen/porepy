@@ -251,3 +251,26 @@ class FlowBenchmark3dCase2Model(  # type:ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """Mixer class for Case 2: Regular Network from the 3D flow benchmark."""
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    # Run the model for both cases.
+    solid_cases = {
+        "conductive fractures": solid_constants_conductive,
+        "blocking fractures": solid_constants_blocking,
+    }
+
+    for case_name, solid_constants in solid_cases.items():
+        params = {
+            "material_constants": {
+                "solid": solid_constants,
+            },
+            "refinement_level": 0,  # 0, 1, or 2 for different mesh refinement levels
+        }
+
+        model = FlowBenchmark3dCase2Model(params)  # type: ignore[abstract]
+        solver_parameters = {
+            "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
+        }
+        pp.run_time_dependent_model(model, solver_parameters)

@@ -64,7 +64,7 @@ def model_conductive(
         "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     return model
 
 
@@ -87,7 +87,7 @@ def model_blocking(
         "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
-    pp.run_time_dependent_model(model)
+    pp.ModelRunner(model).run()
     return model
 
 

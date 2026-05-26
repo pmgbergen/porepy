@@ -371,7 +371,7 @@ class ManuSneddonDataSaving(pp.PorePyModel):
         u_n[close_to_fracture_tips] = 0
 
         e = ConvergenceAnalysis.lp_error(
-            frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
+            frac_sd[0], u_a, u_n, is_cc=True, relative=True
         )
 
         collect_data = ManuSneddonSaveData(error_displacement=e)
