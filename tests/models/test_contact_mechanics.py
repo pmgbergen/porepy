@@ -142,7 +142,8 @@ def test_friction_constraint(nd, formulation):
     # Radial return should enforce ||t_t|| <= b_p (with small tolerance)
     tol = 1e-10
     assert np.all(norm_t_t <= friction_bound + tol), (
-        f"Friction constraint violated: ||t_t|| = {norm_t_t.max()}, b_p = {friction_bound.max()}"
+        f"Friction constraint violated: ||t_t|| = {norm_t_t.max()}, "
+        f"b_p = {friction_bound.max()}"
     )
 
 
