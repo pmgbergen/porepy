@@ -478,7 +478,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return self.reference_variable_values.pressure * np.ones(bg.num_cells)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Mobility-free Darcy flux values for the Neumann boundary condition.
+        r"""Mobility-free Darcy flux values for the Neumann boundary condition.
 
         The values correspond to the integrated quantity
         :math:`\int_\sigma \mathbf{K}\nabla p \cdot \mathbf{n}\, dA` on each
@@ -505,7 +505,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         return np.zeros(bg.num_cells)
 
     def bc_values_fluid_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """**Mass** flux values on the Neumann boundary.
+        r"""**Mass** flux values on the Neumann boundary.
 
         The values correspond to the integrated quantity
         :math:`\int_\sigma \frac{\rho}{\mu} \mathbf{K} \nabla p \cdot \mathbf{n}\, dA` on
