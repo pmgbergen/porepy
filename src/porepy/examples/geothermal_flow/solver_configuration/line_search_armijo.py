@@ -5,14 +5,9 @@ import logging
 import warnings
 
 import numpy as np
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
-# from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
 from porepy.numerics.nonlinear.anderson_acceleration import AndersonAcceleration
-
-# logging.basicConfig(level=logging.INFO)
-# logging.getLogger("porepy").setLevel(logging.DEBUG)
 
 import porepy.models.compositional_flow as cf
 
@@ -22,14 +17,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
-    """Newton solver with Armijo line search and Anderson acceleration.
-
-    The residual objective function is tailored to models where phase properties are
-    assumed to be surrogate factories and require an update before evaluating the
-    objective function.
-
-    """
-
+    """Newton solver with Armijo line search, Anderson acceleration,
+    and Appleyard variable chopping for compositional stability."""
+    
     def __init__(self, params: dict | None = None):
         pp.NewtonSolver.__init__(self, params)
         if params is None:
@@ -45,7 +35,42 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
             constrain_acceleration=constrain,
             regularization_parameter=reg_param,
         )
+    
+    def _apply_appleyard_chop(self, model: pp.PorePyModel, dx: np.ndarray) -> np.ndarray:
+        """Chop updates for saturations, phase fractions, and overall
+        compositions so that no absolute change exceeds the limit
+        ``params['appleyard_chop']``.
+        """
+        m = self.params.get("appleyard_chop_value", None)
+        if not isinstance(m, float):
+            return dx
 
+        assert 0 < m < 1, "Chopping limit must be strictly in (0, 1)."
+
+        # Collect all variable groups that need chopping
+        var_groups = []
+        if hasattr(model, "saturation_variables"):
+            var_groups.append(model.saturation_variables)
+        if hasattr(model, "phase_fraction_variables") and model.phase_fraction_variables:
+            var_groups.append(model.phase_fraction_variables)
+        if hasattr(model, "overall_fraction_variables"):
+            var_groups.append(model.overall_fraction_variables)
+
+        for var_names in var_groups:
+            dofs = model.equation_system.dofs_of(var_names)
+            d = dx[dofs]
+            chop = np.abs(d) > m
+            if np.any(chop):
+                logger.info(
+                    f"Appleyard chop on {var_names}: "
+                    f"{int(chop.sum())} DOFs clamped to ±{m}"
+                )
+                d[chop] = m * np.sign(d[chop])
+                dx[dofs] = d
+
+        return dx
+
+    
     def iteration(self, model: pp.PorePyModel):
         """An iteration consists of performing the Newton step, obtaining the step size
         from the line search, and then performing the Anderson acceleration based on
@@ -54,6 +79,11 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
         iteration = model.nonlinear_solver_statistics.num_iteration
 
         dx = pp.NewtonSolver.iteration(self, model)
+
+        # Appleyard chop (before Anderson and line search)
+        if self.params.get("appleyard_chop", False):
+            dx = self._apply_appleyard_chop(model, dx)
+
         if model.params["apply_schur_complement_reduction"]:
             res_norm = np.linalg.norm(model.equation_system.assemble()[1])
         else:
