@@ -360,7 +360,10 @@ class FluidMixture(pp.PorePyModel):
 
         # Determine active phases
         if self.phase_mode == PhaseMode.TWO_PHASE:
-            active_phases = [pp.compositional.PhysicalState.liquid, pp.compositional.PhysicalState.gas]
+            active_phases = [
+                pp.compositional.PhysicalState.liquid, 
+                pp.compositional.PhysicalState.gas
+            ]
         elif self.phase_mode == PhaseMode.THREE_PHASE:
             active_phases = [
                 pp.compositional.PhysicalState.liquid,
