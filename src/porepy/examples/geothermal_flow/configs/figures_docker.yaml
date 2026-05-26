@@ -1,6 +1,6 @@
 # geothermal_flow/configs/figures.yaml
 
-pvbatch: /usr/bin/pvbatch
+pvbatch: /opt/paraview/bin/pvbatch
 
 cases:
   benchmark:
