@@ -1,0 +1,279 @@
+# geothermal_flow/configs/figures.yaml
+
+pvbatch: /Applications/ParaView-6.1.0.app/Contents/bin/pvbatch
+
+cases:
+  benchmark:
+    pvd: visualization/benchmark/benchmark.pvd
+  example1:
+    pvd: visualization/example1/example1.pvd
+  example2:
+    pvd: visualization/example2/example2.pvd
+  example3:
+    pvd: visualization/example3/example3.pvd
+  
+
+figures:
+
+  figure6:
+    type: benchmark_reference_then_matplotlib
+
+    porepy_extract:
+      script: geothermal_flow/paraview_scripts/extract_benchmark_profile.py
+      pvd: visualization/benchmark/benchmark.pvd
+      out_csv: csv/benchmark/porepy_benchmark_profile.csv
+      time_index: -1
+      pvd_time_unit: years
+      gas_zero_threshold: 0.1
+
+    matplotlib_plot:
+      script: geothermal_flow/benchmark/plotting/plot_benchmark_comparison.py
+      porepy_csv: csv/benchmark/porepy_benchmark_profile.csv
+      reference_dir: geothermal_flow/benchmark/reference_data
+      output: figures/benchmark/figure6.png
+      simulation_time_years: 2000
+      residual_liquid_saturation: 0.3
+      vl_region: [0.47, 1.28]
+      lh_region: [1.40, 2.00]
+
+  figure8: #phz_fields_example1
+    type: paraview_layout_png
+    script: geothermal_flow/paraview_scripts/render_state_subplots.py
+    state: geothermal_flow/paraview_states/example1/phz.pvsm
+    pvd: visualization/example1/example1.pvd
+    out: figures/example1/figure8.png
+    time_index: -1
+    save_layout: true
+    update_all_pvd_readers: true
+  
+  figure9: #centerline_profiles
+    type: csv_then_matplotlib
+
+    paraview_extract:
+      script: geothermal_flow/paraview_scripts/extract_fracture_line_from_state.py
+      state: geothermal_flow/paraview_states/example1/plot_overline_y_15.pvsm
+      pvd: visualization/example1/example1.pvd
+      out_dir: csv/example1/plotover_line
+      time_index: -1
+      output_name: plot_overline_y_15.csv
+      source_name: PlotOverLine1
+      field_association: "Point Data"
+
+    matplotlib_plot:
+      script: geothermal_flow/plotting/plot_centerline_profiles.py
+      input_csv: csv/example1/plotover_line/plot_overline_y_15.csv
+      output: figures/example1/figure9.png
+      legend_loc: upper center
+
+      smoothing:
+        enabled: true
+        range: [0.0, 10.0]
+        variables: ["enthalpy", "s_gas", "z_NaCl"]
+        starting_values:
+          enthalpy: 1.197e6
+          s_gas: 0.388
+          z_NaCl: 0.25
+  
+  figure10:  #phase_saturations
+    type: paraview_layout_png
+    script: geothermal_flow/paraview_scripts/render_state_subplots.py
+    state: geothermal_flow/paraview_states/example1/vap_hal_sat.pvsm
+    pvd: visualization/example1/example1.pvd
+    out: figures/example1/figure10.png
+    time_index: -1
+    save_layout: true
+    update_all_pvd_readers: true
+
+  figure11:  #permeability_ratio
+    type: paraview_layout_png
+    script: geothermal_flow/paraview_scripts/render_state_subplots.py
+    state: geothermal_flow/paraview_states/example1/permeability_ratio.pvsm
+    pvd: visualization/example1/example1.pvd
+    out: figures/example1/figure11.png
+    time_index: -1
+    save_layout: true
+    update_all_pvd_readers: true
+
+  figure12:  #halite_saturation_progression
+    type: paraview_time_series_then_matplotlib
+
+    paraview_render:
+      script: geothermal_flow/paraview_scripts/render_state_time_series.py
+      state: geothermal_flow/paraview_states/example1/hal_sat_panel.pvsm
+      pvd: visualization/example1/example1.pvd
+      out_dir: figures/example1/s_halite_panels
+      times_days: [1, 10, 30, 74]
+
+    matplotlib_plot:
+      script: geothermal_flow/plotting/assemble_s_halite_panels.py
+      panel_dir: figures/example1/s_halite_panels
+      output: figures/example1/figure12.png
+  
+  figure13:  #fracture_halite_aperture
+    type: csv_then_matplotlib
+
+    paraview_extract:
+      script: geothermal_flow/paraview_scripts/extract_fracture_line_from_state.py
+      state: geothermal_flow/paraview_states/example1/fracture_line_data.pvsm
+      pvd: visualization/example1/example1.pvd
+      out_dir: csv/example1/fracture_line
+      times_days: [0, 0.6, 10, 30, 74]
+      source_name: CellCenters1
+      field_association: "Point Data"
+
+    matplotlib_plot:
+      script: geothermal_flow/plotting/plot_halite_aperture_ratio.py
+      input_dir: csv/example1/fracture_line
+      output: figures/example1/figure13.png
+      times_days: [0, 0.6, 10, 30, 74]
+      clogging_exponent: 0.1
+      aperture_ymin: 0.9935
+      aperture_ymax: 1.0001
+      x_col: "Points:0"
+      y_col: "Points:1"
+    
+  figure14:  # fracture_halite_aperture_phi_1:
+    type: csv_then_matplotlib
+
+    paraview_extract:
+      script: geothermal_flow/paraview_scripts/extract_fracture_line_from_state.py
+      state: geothermal_flow/paraview_states/example2/fracture_line_data.pvsm
+      pvd: visualization/example2/example2.pvd
+      out_dir: csv/example2/fracture_line
+      times_days: [0, 0.5, 1, 7]
+      source_name: CellCenters1
+      field_association: "Point Data"
+
+    matplotlib_plot:
+      script: geothermal_flow/plotting/plot_halite_aperture_ratio.py
+      input_dir: csv/example2/fracture_line
+      output: figures/example2/figure14.png
+      times_days: [0, 0.5, 1, 7]
+      clogging_exponent: 1.0
+      aperture_ymin: 0.84
+      aperture_ymax: 1.01
+      x_col: "Points:0"
+      y_col: "Points:1"
+  
+  figure15:  #near_well_halite_comparison
+    type: paraview_comparison_then_matplotlib
+
+    paraview_render:
+      script: geothermal_flow/paraview_scripts/render_state_time_series.py
+
+      panels:
+        phi_0_1:
+          state: geothermal_flow/paraview_states/example1/near_well_hal_sat.pvsm
+          pvd: visualization/example1/example1.pvd
+          out_dir: figures/example1/near_well_panels_phi_0_1
+          times_days: [7]
+
+        phi_1_0:
+          state: geothermal_flow/paraview_states/example2/near_well_hal_sat.pvsm
+          pvd: visualization/example2/example2.pvd
+          out_dir: figures/example2/near_well_panels_phi_1_0
+          times_days: [7]
+
+    matplotlib_plot:
+      script: geothermal_flow/plotting/plot_near_well_comparison.py
+      left: figures/example1/near_well_panels_phi_0_1/s_halite_t_7_days.png
+      right: figures/example2/near_well_panels_phi_1_0/s_halite_t_7_days.png
+      output: figures/example2/figure15.png
+      labels:
+        left: "$\\varphi = 0.1$"
+        right: "$\\varphi = 1.0$"
+      colorbar:
+        field: "$s^{\\mathrm{hal}}$"
+        vmin: 0.0
+        vmax: 0.5
+
+  figure16:  #production_diagnostics
+    type: pvd_timeseries_then_matplotlib
+
+    data_extract:
+      script: geothermal_flow/paraview_scripts/extract_well_time_series_data.py
+      cases:
+        phi_0_1:
+          pvd: visualization/example1/example1.pvd
+          cell_id: 3379
+          variables: ["pressure", "s_halite", "s_gas", "z_NaCl", "enthalpy"]
+          cache: output/example1/production_cell_timeseries.csv
+          diagnostics_cache: output/example1/production_diagnostics.csv
+          shape: triangle
+          block_filter: example1_2
+          max_time_days: 7.0
+
+        phi_1_0:
+          pvd: visualization/example2/example2.pvd
+          cell_id: 3379
+          variables: ["pressure", "s_halite", "s_gas", "z_NaCl", "enthalpy"]
+          cache: output/example2/production_cell_timeseries.csv
+          diagnostics_cache: output/example2/production_diagnostics.csv
+          shape: triangle
+          block_filter: example2_2
+          max_time_days: 7.0
+
+    matplotlib_plot:
+      script: geothermal_flow/plotting/plot_production_diagnostics.py
+      phi_0_1: output/example1/production_diagnostics.csv
+      phi_1_0: output/example2/production_diagnostics.csv
+      output: figures/example2/figure16.png
+      t_min: 2.0
+      t_max: 7.0
+      q_ymin: 0.0
+      q_ymax: 0.008
+      energy_ymin: 0.0
+      energy_ymax: 7000.0
+  
+  figure17:  #phz_fields_example3
+    type: paraview_layout_png
+    script: geothermal_flow/paraview_scripts/render_state_subplots.py
+    state: geothermal_flow/paraview_states/example3/phz.pvsm
+    pvd: visualization/example3/example3.pvd
+    out: figures/example3/figure17.png
+    time_index: -1
+    save_layout: true
+    update_all_pvd_readers: true
+
+  figure18:  #centerline_profiles
+    type: csv_then_matplotlib
+    paraview_extract:
+      script: geothermal_flow/paraview_scripts/extract_fracture_line_from_state.py
+      state: geothermal_flow/paraview_states/example3/plot_overline_y_16.pvsm
+      pvd: visualization/example3/example3.pvd
+      out_dir: csv/example3/plotover_line
+      time_index: -1
+      source_name: PlotOverLine1
+      output_name: plot_overline_y_16.csv
+      field_association: "Point Data"
+    matplotlib_plot:
+      script: geothermal_flow/plotting/plot_centerline_profiles.py
+      input_csv: csv/example3/plotover_line/plot_overline_y_16.csv
+      output: figures/example3/figure18.png
+      legend_loc: center
+
+  figure19:  #phase_saturations
+    type: paraview_layout_png
+    script: geothermal_flow/paraview_scripts/render_state_subplots.py
+    state: geothermal_flow/paraview_states/example3/vap_hal_sat.pvsm
+    pvd: visualization/example3/example3.pvd
+    out: figures/example3/figure19.png
+    time_index: -1
+    save_layout: true
+    update_all_pvd_readers: true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
