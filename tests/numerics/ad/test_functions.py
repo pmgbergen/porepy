@@ -8,9 +8,9 @@ scalar times a variable.
 """
 
 import warnings
-import pytest
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 from porepy.numerics.ad import AdArray
