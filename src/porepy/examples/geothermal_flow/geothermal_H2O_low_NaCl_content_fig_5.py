@@ -48,7 +48,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_lP"
-geometry_case = "horizontal"
+geometry_case = "vertical"
 
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]
@@ -119,6 +119,7 @@ material_constants = {"solid": solid_constants}
 params = {
     "fractional_flow": True,
     "enable_buoyancy_effects": True,
+    "buoyancy_upwinding": "phase_potential",
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
@@ -126,12 +127,12 @@ params = {
     "apply_schur_complement_reduction": False,
     "nl_convergence_inc_atol": np.inf,
     "nl_convergence_inc_rtol": np.inf,
-    "nl_convergence_res_atol": 1.0e-4,
+    "nl_convergence_res_atol": 9.0e-5,
     "nl_convergence_res_rtol": np.inf,
     "flag_failure_as_diverged": False,
     # Maximum number of nonlinear iterations (was incorrectly set as
     # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
-    "nl_max_iterations": 30,
+    "nl_max_iterations": 50,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
@@ -142,10 +143,10 @@ params = {
     # - "TR": Trust Region with CFL-aware dynamic radius adjustment
     # - "TR-LS": Trust Region + Line Search refinement
     # - "None": Plain Newton (no step control)
-    "step_control_method": "None",
+    "step_control_method": "LS",
 
     "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
-    "activate_step_control_after_iter": 5,  # Activate after this many iterations
+    "activate_step_control_after_iter": 10,  # Activate after this many iterations
 
     # Trust region specific parameters (only used for TR and TR-LS methods)
     "trust_region_min_radius": 0.5,          # Minimum trust region radius (prevents collapse)
