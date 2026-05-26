@@ -92,3 +92,130 @@ def test_contact_mechanics(nd, formulation):
     inds_t = np.arange(nd - 1)
     sigma_t = solid.fracture_tangential_stiffness * displacement_jump_local[inds_t]
     np.testing.assert_allclose(traction[inds_t] - sigma_t, 0, atol=1e-15)
+
+
+@pytest.mark.parametrize("nd", list(grid_classes.keys()))
+@pytest.mark.parametrize("formulation", list(tester_classes.keys()))
+def test_friction_constraint(nd, formulation):
+    """Test that radial return formulation respects friction constraints.
+
+    This test verifies that the radial return projection correctly enforces
+    ||t_t|| <= b_p (friction bound).
+    """
+    solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
+    solid_vals = {
+        "fracture_tangential_stiffness": 0.5e0,  # Reduce to test friction more
+        "fracture_normal_stiffness": 1.0e0,
+        "maximum_elastic_fracture_opening": 2.0,
+        "friction_coefficient": 0.5,  # Important for friction bound
+    }
+    solid = pp.SolidConstants(**solid_vals)
+
+    # Large displacement to trigger sliding
+    displacement_vals = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 0.0]]).T[:nd]
+    params = {
+        "times_to_export": [],
+        "fracture_indices": [1],
+        "cartesian": True,
+        "material_constants": {"solid": solid},
+        "interface_displacement_parameter_values": displacement_vals,
+    }
+
+    model_class = add_mixin(grid_classes[nd], tester_classes[formulation])
+    model: pp.PorePyModel = model_class(params)
+    pp.ModelRunner(model).run()
+
+    fractures = model.mdg.subdomains(dim=nd - 1)
+
+    # Evaluate tangential traction and friction bound
+    nd_vec_to_tangential = model.tangential_component(fractures)
+    t_t = nd_vec_to_tangential @ model.contact_traction(fractures)
+
+    t_t_vals = model.equation_system.evaluate(t_t).reshape((nd - 1, -1), order="F")
+    norm_t_t = np.linalg.norm(t_t_vals, axis=0)
+
+    # Evaluate friction bound
+    friction_bound = model.equation_system.evaluate(
+        model.friction_bound(fractures)
+    ).ravel()
+
+    # Radial return should enforce ||t_t|| <= b_p (with small tolerance)
+    tol = 1e-10
+    assert np.all(norm_t_t <= friction_bound + tol), (
+        f"Friction constraint violated: ||t_t|| = {norm_t_t.max()}, b_p = {friction_bound.max()}"
+    )
+
+
+@pytest.mark.parametrize("nd", list(grid_classes.keys()))
+@pytest.mark.parametrize("formulation", list(tester_classes.keys()))
+def test_zero_friction_bound_handling(nd, formulation):
+    """Test behavior when friction bound is zero (open state).
+
+    Both formulations should handle the case where b_p = 0 correctly.
+    In the open state, tangential traction should be zero.
+    """
+    solid_vals = {
+        "fracture_tangential_stiffness": 1.0e0,
+        "fracture_normal_stiffness": 1.0e0,
+        "maximum_elastic_fracture_opening": 2.0,
+        "friction_coefficient": 0.0,  # Zero friction - open state
+    }
+    solid = pp.SolidConstants(**solid_vals)
+
+    displacement_vals = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.0]]).T[:nd]
+    params = {
+        "times_to_export": [],
+        "fracture_indices": [1],
+        "cartesian": True,
+        "material_constants": {"solid": solid},
+        "interface_displacement_parameter_values": displacement_vals,
+    }
+
+    model_class = add_mixin(grid_classes[nd], tester_classes[formulation])
+    model: pp.PorePyModel = model_class(params)
+    pp.ModelRunner(model).run()
+
+    fractures = model.mdg.subdomains(dim=nd - 1)
+
+    # Evaluate tangential traction
+    nd_vec_to_tangential = model.tangential_component(fractures)
+    t_t = nd_vec_to_tangential @ model.contact_traction(fractures)
+    t_t_vals = model.equation_system.evaluate(t_t).ravel()
+
+    # In open state with zero friction, tangential traction should be near zero
+    assert np.allclose(t_t_vals, 0.0, atol=1e-10), (
+        f"Tangential traction should be zero in open state, got {t_t_vals}"
+    )
+
+
+@pytest.mark.parametrize("nd", list(grid_classes.keys()))
+@pytest.mark.parametrize("formulation", list(tester_classes.keys()))
+def test_contact_mechanics_convergence(nd, formulation):
+    """Check successful convergence behavior."""
+    solid_vals = {
+        "fracture_tangential_stiffness": 1.0e0,
+        "fracture_normal_stiffness": 1.0e0,
+        "maximum_elastic_fracture_opening": 2.0,
+    }
+    solid = pp.SolidConstants(**solid_vals)
+
+    displacement_vals = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 0.0]]).T[:nd]
+
+    params = {
+        "times_to_export": [],
+        "fracture_indices": [1],
+        "cartesian": True,
+        "material_constants": {"solid": solid},
+        "interface_displacement_parameter_values": displacement_vals,
+    }
+
+    model_class = add_mixin(grid_classes[nd], tester_classes[formulation])
+    model: pp.PorePyModel = model_class(params)
+
+    # Run and capture solver info
+    runner = pp.ModelRunner(model)
+    runner.run()
+
+    # Fetch convergence status from statistics.
+    status = model.nonlinear_solver_statistics.simulation_status
+    assert status.is_successful()
