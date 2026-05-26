@@ -38,7 +38,7 @@ from typing import Any
 import numpy as np
 import porepy as pp
 from porepy import compositional_flow as cf
-from porepy.applications.test_utils.models import add_mixin
+# from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo import (
     NewtonAndersonArmijoSolver,
 )
@@ -46,8 +46,9 @@ from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo imp
 from .benchmark.flow_model import BenchmarkThreePhaseFlowModel
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
-import pp_solvers
-from pp_solvers.preconditioners import cf_factory_well_inj, cf_factory_no_well
+### This requires PETSC 
+# import pp_solvers
+# from pp_solvers.preconditioners import cf_factory_well_inj, cf_factory_no_well
 
 from .reservoir_domain import ConnectedFracturedDomain2D, DisconnectedFracturedDomain2D
 from .io_utils import as_float, load_config, is_benchmark_config
@@ -217,29 +218,13 @@ def build_solver_params(config: dict[str, Any]) -> dict[str, Any]:
     """Translate YAML solver options into the parameter names expected by PorePy."""
 
     s = config["solver"]
-    use_preconditioner = bool(s.get("use_preconditioner", False))
 
-    preconditioner_options = {
-        "preconditioner_factory": cf_factory_well_inj,
-        "options": {
-            "gmres": {
-                "ksp_max_it": int(s.get("gmres_max_it", 300)),
-                "ksp_gmres_restart": int(s.get("gmres_restart", 100)),
-                "ksp_monitor": None,
-            },
-            "cpr_stage1_ilu": {
-                "pc_type": "hypre",
-                "pc_hypre_type": "ilu",
-                "pc_hypre_ilu_level": int(s.get("ilu_level", 3)),
-                "pc_hypre_ilu_maxiter": int(s.get("ilu_maxiter", 10)),
-            },
-            "cpr_stage0_identity": {"pc_type": "jacobi"},
-            "cpr_stage0_amg": {
-                "pc_hypre_boomeramg_strong_threshold": as_float(s.get("amg_strong_threshold", 0.25)),
-                "pc_hypre_boomeramg_relax_type_all": "Chebyshev",
-            },
-        },
-    }
+    if bool(s.get("use_preconditioner", False)):
+        raise NotImplementedError(
+            "The Docker reproducibility workflow does not include the optional "
+            "iterative preconditioner dependency. Set solver.use_preconditioner "
+            "to false in the YAML configuration."
+        )
 
     return {
         "max_iterations": int(config["time"].get("max_iterations", 100)),
@@ -262,8 +247,8 @@ def build_solver_params(config: dict[str, Any]) -> dict[str, Any]:
         "use_appleyard_chop": bool(s.get("use_appleyard_chop", False)),
         "appleyard_chop_value": as_float(s.get("appleyard_chop_value", 0.2)),
         "solver_statistics_file_name": str(s.get("solver_statistics_file_name", "solver_statistics.json")),
-        "use_preconditioner": use_preconditioner,
-        "linear_solver": preconditioner_options if use_preconditioner else s.get("linear_solver", "pypardiso"),
+        "use_preconditioner": False,
+        "linear_solver": "pypardiso", #preconditioner_options if use_preconditioner else s.get("linear_solver", "pypardiso"),
     }
 
 
@@ -386,8 +371,8 @@ def run(config_path: str | Path, defaults_path: str | Path | None = None) -> pp.
     print(f"Visualization directory: {vis_dir}\n")
 
     model_cls = create_model_class(config)
-    if config["solver"].get("use_preconditioner", False):
-        model_cls = add_mixin(pp_solvers.IterativeSolverMixin, model_cls)
+    # if config["solver"].get("use_preconditioner", False):
+    #     model_cls = add_mixin(pp_solvers.IterativeSolverMixin, model_cls)
 
     params = {**build_model_params(config), **build_solver_params(config)}
     model = model_cls(params)
