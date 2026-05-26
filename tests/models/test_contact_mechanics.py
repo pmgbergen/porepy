@@ -11,12 +11,20 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import ContactMechanicsTester, add_mixin
+from porepy.models.contact_mechanics import RadialReturnFormulation
 
 grid_classes = {2: SquareDomainOrthogonalFractures, 3: CubeDomainOrthogonalFractures}
 
+# Define the two formulation variants
+tester_classes = {
+    "standard": ContactMechanicsTester,
+    "radial_return": add_mixin(RadialReturnFormulation, ContactMechanicsTester),
+}
+
 
 @pytest.mark.parametrize("nd", list(grid_classes.keys()))
-def test_contact_mechanics(nd):
+@pytest.mark.parametrize("formulation", list(tester_classes.keys()))
+def test_contact_mechanics(nd, formulation):
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
     solid_vals = {
         "fracture_tangential_stiffness": 1.0e0,  # [Pa m^-1]
@@ -34,7 +42,7 @@ def test_contact_mechanics(nd):
         "material_constants": {"solid": solid},
         "interface_displacement_parameter_values": displacement_vals,
     }
-    model_class = add_mixin(grid_classes[nd], ContactMechanicsTester)
+    model_class = add_mixin(grid_classes[nd], tester_classes[formulation])
     model: pp.PorePyModel = model_class(params)
     pp.ModelRunner(model).run()
     fractures = model.mdg.subdomains(dim=nd - 1)
