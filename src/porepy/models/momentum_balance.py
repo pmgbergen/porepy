@@ -779,7 +779,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         return np.zeros((self.nd, bg.num_cells)).ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        r"""Stress values for the Neumann boundary condition.
+        """Stress values for the Neumann boundary condition.
 
         The values correspond to the integrated boundary traction
         :math:`\int_{\sigma} (\boldsymbol{\sigma} \cdot \mathbf{n})\, dA`
