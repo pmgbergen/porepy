@@ -498,8 +498,8 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the mobility-free Darcy flux
-            values on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing the mobility-free Darcy
+             flux values on the provided boundary grid.
 
         """
         return np.zeros(bg.num_cells)
@@ -508,8 +508,8 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         r"""**Mass** flux values on the Neumann boundary.
 
         The values correspond to the integrated quantity
-        :math:`\int_\sigma \frac{\rho}{\mu} \mathbf{K} \nabla p \cdot \mathbf{n}\, dA` on
-        each boundary face :math:`\sigma`, with SI unit
+        :math:`\int_\sigma \frac{\rho}{\mu} \mathbf{K} \nabla p \cdot \mathbf{n}\, dA`
+        on each boundary face :math:`\sigma`, with SI unit
         :math:`\mathrm{kg}\,\mathrm{m}^{n_d-3}\,\mathrm{s}^{-1}`,
         where :math:`n_d` is the ambient dimension.
 
@@ -517,15 +517,15 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         values correspond to a mass flux.
 
         Important:
-            Override this method to provide custom Neumann data for the integrated fluid
-            mass flux, per boundary grid as a numpy array with numerical values.
+            Override this method to provide custom Neumann data for the integrated
+            fluid  mass flux, per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the integrated fluid mass flux
-            values on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing the integrated fluid
+            mass flux values on the provided boundary grid.
 
         """
         return np.zeros(bg.num_cells)
