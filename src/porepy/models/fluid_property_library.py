@@ -1248,8 +1248,14 @@ class FluidBuoyancy(pp.PorePyModel):
             A list of ordered phase pairs (gamma, delta).
 
         """
+        phases=[
+        phase for phase in self.fluid.phases
+        if phase.state != PhysicalState.solid
+    ]
+        if phase not in phases:
+            return []
         combination_by_pairs = [
-            pair for pair in list(combinations(self.fluid.phases, 2)) if phase in pair
+            pair for pair in list(combinations(phases, 2)) if phase in pair
         ]
         selected_pairs = []
         for pair in combination_by_pairs:
