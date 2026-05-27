@@ -50,7 +50,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "condition_1": {
         "tf": final_times[case_name][0] * day_to_second,  # final time [years]
-        "dt": 50.0 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 12.5 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
         "geometry": ModelGeometryFigure8,
@@ -64,7 +64,7 @@ InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, simulation_cases[case_name]["geometry"])
 
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 2
+export_every_n_steps = 8
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
