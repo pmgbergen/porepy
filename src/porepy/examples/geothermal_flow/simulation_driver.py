@@ -28,6 +28,7 @@ The generated ``.pvd`` files are subsequently consumed by
 ``geothermal_flow.make_figures`` together with ParaView state files, extraction
 scripts, and Matplotlib plotting scripts to reproduce the paper figures.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,6 +39,7 @@ from typing import Any
 import numpy as np
 import porepy as pp
 from porepy import compositional_flow as cf
+
 # from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo import (
     NewtonAndersonArmijoSolver,
@@ -46,7 +48,7 @@ from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo imp
 from .benchmark.flow_model import BenchmarkThreePhaseFlowModel
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
-### This requires PETSC 
+### This requires PETSC
 # import pp_solvers
 # from pp_solvers.preconditioners import cf_factory_well_inj, cf_factory_no_well
 
@@ -98,6 +100,7 @@ def build_time_manager(config: dict[str, Any]) -> pp.TimeManager:
         rtol=as_float(t.get("rtol", 0.0)),
     )
 
+
 def build_material_constants(config: dict[str, Any]) -> dict[str, Any]:
     """Build solid material constants used by the selected geothermal model."""
 
@@ -130,9 +133,8 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
     """Create the case-specific model class from geometry, BC, IC, and physics settings."""
 
     if is_benchmark_config(config):
-
         return BenchmarkThreePhaseFlowModel
-    
+
     geometry_cls = GEOMETRIES[config["geometry"]]
     solver_cfg = config["solver"]
     well_cfg = config["well"]
@@ -171,7 +173,9 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
         def after_nonlinear_convergence(self) -> None:
             super().after_nonlinear_convergence()
             if solver_cfg.get("print_nonlinear_statistics", True):
-                print(f"Number of iterations: {self.nonlinear_solver_statistics.num_iteration}")
+                print(
+                    f"Number of iterations: {self.nonlinear_solver_statistics.num_iteration}"
+                )
                 print(f"Time value (days): {self.time_manager.time / pp.DAY:.4f}")
                 print(f"Time index: {self.time_manager.time_index}\n")
 
@@ -239,16 +243,20 @@ def build_solver_params(config: dict[str, Any]) -> dict[str, Any]:
         "armijo_line_search_max_iterations": int(s.get("armijo_max_iterations", 10)),
         "Anderson_acceleration": bool(s.get("use_anderson", True)),
         "anderson_acceleration_depth": int(s.get("anderson_acceleration_depth", 3)),
-        "anderson_acceleration_constrained": bool(s.get("anderson_acceleration_constrained", False)),
+        "anderson_acceleration_constrained": bool(
+            s.get("anderson_acceleration_constrained", False)
+        ),
         "anderson_acceleration_regularization_parameter": as_float(
             s.get("anderson_acceleration_regularization_parameter", 1.0e-3)
         ),
         "appleyard_chop": bool(s.get("use_appleyard_chop", False)),
         "use_appleyard_chop": bool(s.get("use_appleyard_chop", False)),
         "appleyard_chop_value": as_float(s.get("appleyard_chop_value", 0.2)),
-        "solver_statistics_file_name": str(s.get("solver_statistics_file_name", "solver_statistics.json")),
+        "solver_statistics_file_name": str(
+            s.get("solver_statistics_file_name", "solver_statistics.json")
+        ),
         "use_preconditioner": False,
-        "linear_solver": "pypardiso", #preconditioner_options if use_preconditioner else s.get("linear_solver", "pypardiso"),
+        "linear_solver": "pypardiso",  # preconditioner_options if use_preconditioner else s.get("linear_solver", "pypardiso"),
     }
 
 
@@ -287,17 +295,17 @@ def visualization_dir(config: dict[str, Any]) -> Path:
 
 def attach_vtk_samplers(model: pp.PorePyModel, config: dict) -> None:
     """Attach PHZ and PTZ VTK thermodynamic samplers to the model."""
-    
+
     vtk_cfg = config["vtk"]
 
     base_dir = Path(__file__).resolve().parent
 
     vtk_dir = Path(
         vtk_cfg.get(
-            "directory", 
-            "model_configuration/constitutive_description/driesner_vtk_files"
-            )
+            "directory",
+            "model_configuration/constitutive_description/driesner_vtk_files",
         )
+    )
 
     if not vtk_dir.is_absolute():
         vtk_dir = base_dir / vtk_dir
@@ -310,7 +318,7 @@ def attach_vtk_samplers(model: pp.PorePyModel, config: dict) -> None:
 
     if not ptz_path.exists():
         raise FileNotFoundError(f"PTZ VTK file not found: {ptz_path}")
-    
+
     brine_vtk_sampler_phz = VTKSampler(str(phz_path))
     brine_vtk_sampler_ptz = VTKSampler(str(ptz_path))
 
@@ -321,7 +329,7 @@ def attach_vtk_samplers(model: pp.PorePyModel, config: dict) -> None:
 
     model.vtk_sampler = brine_vtk_sampler_phz
     model.vtk_sampler_ptz = brine_vtk_sampler_ptz
-    
+
 
 def configure_schur_if_requested(model: pp.PorePyModel, config: dict[str, Any]) -> None:
     """Configure Schur-complement equation and variable groups when enabled."""
@@ -351,7 +359,9 @@ def print_flux_diagnostics(model: pp.PorePyModel) -> None:
 
     try:
         grid = model.mdg.subdomains()[0]
-        darcy_flux = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+        darcy_flux = model.darcy_flux(model.mdg.subdomains()).value(
+            model.equation_system
+        )
         inlet_idx, outlet_idx = model.get_inlet_outlet_sides(grid)
         print(f"Inflow values: {darcy_flux[inlet_idx]}")
         print(f"Outflow values: {darcy_flux[outlet_idx]}")
@@ -359,7 +369,9 @@ def print_flux_diagnostics(model: pp.PorePyModel) -> None:
         print(f"Flux diagnostics skipped: {exc}")
 
 
-def run(config_path: str | Path, defaults_path: str | Path | None = None) -> pp.PorePyModel:
+def run(
+    config_path: str | Path, defaults_path: str | Path | None = None
+) -> pp.PorePyModel:
     """Run one geothermal-flow case from YAML and return the completed model."""
 
     config = load_config(config_path, defaults_path=defaults_path)
@@ -401,7 +413,9 @@ def run(config_path: str | Path, defaults_path: str | Path | None = None) -> pp.
 def build_parser() -> argparse.ArgumentParser:
     """Create the command-line argument parser for the unified driver."""
 
-    parser = argparse.ArgumentParser(description="Run one geothermal-flow example from YAML.")
+    parser = argparse.ArgumentParser(
+        description="Run one geothermal-flow example from YAML."
+    )
     parser.add_argument("--config", required=True, help="Path to example YAML file.")
     parser.add_argument(
         "--defaults",
