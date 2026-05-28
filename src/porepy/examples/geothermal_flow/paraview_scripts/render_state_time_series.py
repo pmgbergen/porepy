@@ -1,7 +1,12 @@
 """Render a ParaView state at multiple times.
 
-This is useful for figures such as the 2x2 s_halite evolution plot:
-t = 1, 10, 30, 74 days.
+This is useful for figures such as:
+
+1. The 2x2 s_halite evolution plot:
+   t = 1, 10, 30, 74 days.
+
+2. The Figure 8 PHZ column plot:
+   one 3-row ParaView layout rendered at t = 10 and 74 days.
 
 Example
 -------
@@ -10,8 +15,10 @@ pvbatch geothermal_flow/paraview_scripts/render_state_time_series.py \
     --pvd visualization/example1/example1.pvd \
     --out-dir figures/example1/s_halite_panels \
     --times-days 1 10 30 74 \
+    --output-prefix s_halite \
     --width 1580 \
-    --height 840
+    --height 840 \
+    --save-layout
 """
 
 from __future__ import annotations
@@ -27,13 +34,29 @@ from paraview.simple import *
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--state", required=True, help="Path to the ParaView .pvsm state.")
-    parser.add_argument("--pvd", required=True, help="Path to the simulation .pvd file.")
-    parser.add_argument("--out-dir", required=True, help="Directory for panel PNG files.")
+    parser.add_argument(
+        "--state", required=True, help="Path to the ParaView .pvsm state."
+    )
+    parser.add_argument(
+        "--pvd", required=True, help="Path to the simulation .pvd file."
+    )
+    parser.add_argument(
+        "--out-dir", required=True, help="Directory for panel PNG files."
+    )
     parser.add_argument("--times-days", nargs="+", type=float, required=True)
     parser.add_argument("--width", type=int, default=1580)
     parser.add_argument("--height", type=int, default=840)
     parser.add_argument("--reader-index", type=int, default=0)
+    parser.add_argument(
+        "--output-prefix",
+        default="s_halite",
+        help="Prefix used for saved PNG files.",
+    )
+    parser.add_argument(
+        "--save-layout",
+        action="store_true",
+        help="Save the full ParaView layout instead of only the active render view.",
+    )
     parser.add_argument(
         "--update-all-pvd-readers",
         action="store_true",
@@ -76,6 +99,43 @@ def set_time(reader, selected_time: float) -> None:
             view.ViewTime = selected_time
 
 
+def load_state(state_path: Path) -> None:
+    """Load a ParaView state file.
+
+    ``LoadStateDataFileOptions='Use File Names From State'`` is compatible with
+    ParaView 6.1. The PVD reader filenames are replaced immediately after load.
+    """
+    try:
+        LoadState(str(state_path), LoadStateDataFileOptions="Use File Names From State")
+    except Exception as exc:
+        print(
+            "Warning: LoadStateDataFileOptions was not accepted; "
+            f"falling back to plain LoadState. Original error: {exc}"
+        )
+        LoadState(str(state_path))
+
+
+def save_screenshot(
+    out_file: Path,
+    *,
+    save_layout: bool,
+    width: int,
+    height: int,
+) -> None:
+    """Save either the full ParaView layout or the active render view."""
+    if save_layout:
+        target = GetLayout()
+    else:
+        target = GetActiveViewOrCreate("RenderView")
+
+    SaveScreenshot(
+        str(out_file),
+        target,
+        ImageResolution=[width, height],
+        TransparentBackground=0,
+    )
+
+
 def main() -> None:
     """Load state, swap PVD file, render requested time snapshots."""
     args = parse_args()
@@ -92,7 +152,7 @@ def main() -> None:
 
     paraview.simple._DisableFirstRenderCameraReset()
 
-    LoadState(str(state_path))
+    load_state(state_path)
 
     readers = find_pvd_readers()
     if not readers:
@@ -123,8 +183,6 @@ def main() -> None:
     if not available_times:
         raise RuntimeError("No time steps found in PVD reader.")
 
-    view = GetActiveViewOrCreate("RenderView")
-
     for time_days in args.times_days:
         requested_seconds = time_days * 24.0 * 3600.0
         selected_time = closest_time(requested_seconds, available_times)
@@ -133,13 +191,13 @@ def main() -> None:
         RenderAllViews()
 
         safe_label = f"{time_days:g}".replace(".", "p")
-        out_file = out_dir / f"s_halite_t_{safe_label}_days.png"
+        out_file = out_dir / f"{args.output_prefix}_t_{safe_label}_days.png"
 
-        SaveScreenshot(
-            str(out_file),
-            view,
-            ImageResolution=[args.width, args.height],
-            TransparentBackground=0,
+        save_screenshot(
+            out_file,
+            save_layout=args.save_layout,
+            width=args.width,
+            height=args.height,
         )
 
         print(
