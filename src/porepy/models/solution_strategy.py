@@ -19,6 +19,11 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.viz.solver_statistics import SolverStatisticsFactory
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceStatus,
+    SimulationStatus,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -1114,3 +1119,145 @@ class ContactIndicators(pp.PorePyModel):
         p = self.params.get("traction_estimate_p_mean", 5.0)
         p_mean = np.mean(val**p, axis=0) ** (1 / p)
         return float(p_mean)
+
+
+class ReferenceStateInitialization:
+    """Update the reference state at the beginning of the simulation."""
+
+    def prepare_simulation(self) -> None:
+        """Include initialization of the reference state in the preparation of the simulation."""
+        super().prepare_simulation()
+
+        logger.info("Initializing reference state...")
+        solver = pp.NewtonSolver(
+            {
+                "nl_convergence_inc_rtol": 1e-6,
+                "nl_convergence_res_rtol": 1e-6,
+                "nl_max_iterations": 20,
+            }
+        )
+
+        # Define exporter and export initial state.
+        folder = Path(self.params["folder_name"])
+        folder_iterations = folder.parent / (folder.name + "_initialization")
+        exporter = pp.Exporter(
+            self.mdg,
+            file_name=self.params["file_name"],
+            folder_name=folder_iterations,
+            length_scale=self.units.m,
+        )
+        exporter.write_vtu(
+            self.data_to_export(),
+            time_dependent=True,
+            time_step=0,
+        )
+
+        # Perform a pseudo time stepping to initialize the reference state.
+        init_iter = 0
+        while True:
+            # Advance iter.
+            init_iter += 1
+
+            # Communicate dt to the model and update time-dependent arrays and derived quantities.
+            self.before_time_step()
+
+            # TODO: self.initialize_nonlinear_solution()
+
+            # Solve pseudo time step.
+            solver_status = solver.solve(self)
+
+            # React to solver_status.
+            if solver_status.is_successful():
+                # Evaluate initialization status based on total increments.
+                convergence_status = self.check_initialization_convergence()
+                if convergence_status.is_converged():
+                    initialization_status = SimulationStatus.SUCCESSFUL
+                else:
+                    initialization_status = SimulationStatus.IN_PROGRESS
+
+                # Shift solution for next computation.
+                self.update_time_step_solution()
+
+                # Update the time step magnitude if the dynamic scheme is used.
+                if not self.time_manager.is_constant:
+                    assert isinstance(
+                        self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+                    )  # For type checking, to ensure the method is available.
+                    self.time_manager.compute_time_step(
+                        iterations=self.nonlinear_solver_statistics.num_iterations
+                    )
+
+            elif solver_status.is_failed():
+                if self.time_manager.is_constant:
+                    initialization_status = SimulationStatus.STOPPED
+
+                else:
+                    try:
+                        initialization_status = SimulationStatus.FAILED
+                        self.model.time_manager.compute_time_step(
+                            recompute_solution=True
+                        )
+                    except Exception as e:
+                        logger.warning(str(e))
+                        initialization_status = SimulationStatus.STOPPED
+            elif solver_status.is_stopped():
+                initialization_status = SimulationStatus.STOPPED
+
+            else:
+                raise ValueError("Unrecognized solver status.")
+
+            # Update reference.
+            self.update_reference()
+
+            # Export initialization iterates.
+            # TODO: Only on demand?
+            exporter.write_vtu(
+                self.data_to_export(),
+                time_dependent=True,
+                time_step=init_iter,
+            )
+
+            # Stop initialization.
+            if (
+                initialization_status.is_successful()
+                or initialization_status.is_stopped()
+            ):
+                break
+
+        # Save initial data.
+        # TODO need to overwrite current!
+        self.save_data_time_step()
+
+        # Reset time manager as possibly redefined during initialization.
+        self.time_manager.dt = self.time_manager.dt_init
+
+        logger.info("\033[92mReference state initialization successful.\033[0m")
+
+    def check_initialization_convergence(self) -> ConvergenceStatus:
+        """Check convergence of the initialization state.
+
+        Uses simple criterion based on the change in the state variables between
+        the current and previous iteration.
+
+        Returns:
+            ConvergenceStatus: Enum indicating whether the initialization state is converged
+            or not.
+
+        """
+        # TODO: Implementation plan:
+        # - Make tolerance variable, or allow for external control of criteria?
+        # Define a simple convergence criterion aiming for checking change in updates.
+        criterion = pp.IncrementBasedAbsoluteCriterion(
+            tol=1e-6,
+            metric=pp.EuclideanMetric(),
+        )
+
+        # Define the increment to be the change of (all) states in time.
+        state = self.equation_system.get_variable_values(iterate_index=0)
+        prev_state = self.equation_system.get_variable_values(time_step_index=0)
+        increment = state - prev_state
+
+        # Check convergence based on increment
+        convergence_status, _ = criterion.check(increment=increment)
+
+        return convergence_status
