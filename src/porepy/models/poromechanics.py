@@ -17,7 +17,7 @@ Suggested references:
 
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Callable
 
 import porepy as pp
 
@@ -265,6 +265,14 @@ class SolutionStrategyPoromechanics(
         )
 
 
+class DataSavingPoromechanics(
+    pp.fluid_mass_balance.DataSavingFluidMassBalance,
+    pp.momentum_balance.DataSavingMomentumBalance,
+    pp.contact_mechanics.DataSavingContactMechanics,
+):
+    """Data saving exporting absolute and relative values."""
+
+
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
 # definitions of the mixins, related to the enforcement of keyword-only arguments. The
 # type Callable is poorly supported, except if protocols are used and we really do not
@@ -280,6 +288,7 @@ class Poromechanics(  # type: ignore[misc]
     BoundaryConditionsPoromechanics,
     InitialConditionsPoromechanics,
     SolutionStrategyPoromechanics,
+    DataSavingPoromechanics,
     pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
