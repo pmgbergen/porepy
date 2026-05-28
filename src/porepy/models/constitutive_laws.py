@@ -33,8 +33,67 @@ if TYPE_CHECKING:
     ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
+class MechanicalAperture:
+    """Mechanical aperture of fractures wrt reference configuration."""
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the normal component of a vector on fractures."""
+
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Displacement jump on fractures wrt reference ."""
+
+    def reference_mechanical_aperture(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Reference mechanical aperture of fractures.
+
+        Parameters:
+            subdomains: List of subdomains where the reference mechanical aperture is
+                defined. Should be a fracture subdomain.
+
+        Returns:
+            Operator for the reference mechanical aperture.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
+        """
+        return Scalar(0.0, "reference_mechanical_aperture")
+
+    def mechanical_aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Total mechanical aperture of fractures incl. reference mechanical aperture.
+
+        Parameters:
+            subdomains: List of subdomains where the mechanical aperture is defined.
+                Should be a fracture subdomain.
+
+        Returns:
+            Operator for the mechanical aperture.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
+        """
+        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
+            raise ValueError("Mechanical aperture only defined on fractures")
+
+        reference_opening = self.reference_mechanical_aperture(subdomains)
+        normal_jump = self.normal_component(subdomains) @ self.displacement_jump(
+            subdomains
+        )
+
+        # Make sure the aperture is non-negative during nonlinear iteration.
+        f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+        zero = Scalar(0.0, "zero")
+        aperture = f_max(reference_opening + normal_jump, zero)
+        aperture.set_name("mechanical_aperture")
+        return aperture
+
+
 class DisplacementJump(pp.PorePyModel):
-    """Displacement jump on fractures.
+    """Displacement jump on fractures wrt reference configuration.
 
     The displacement jump is the difference between the displacement on the two sides of
     a fracture. It is defined in the local coordinate system of the fracture, and is
@@ -46,7 +105,9 @@ class DisplacementJump(pp.PorePyModel):
     """
 
     interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Operator giving the displacement on interfaces."""
+    """Operator giving the displacement on interfaces wrt reference configuration."""
+    relative_interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Operator giving the displacement increment on interfaces."""
     elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the normal component of the elastic fracture deformation."""
     elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -84,7 +145,7 @@ class DisplacementJump(pp.PorePyModel):
             self.local_coordinates(subdomains)
             @ mortar_projection.mortar_to_secondary_avg()
             @ mortar_projection.sign_of_mortar_sides()
-            @ self.interface_displacement(interfaces)
+            @ self.relative_interface_displacement(interfaces)
         )
         rotated_jumps.set_name("Rotated_displacement_jump")
         return rotated_jumps
@@ -303,7 +364,7 @@ class DimensionReduction(pp.PorePyModel):
         return specific_volume
 
 
-class DisplacementJumpAperture(DimensionReduction):
+class DisplacementJumpAperture(DimensionReduction, MechanicalAperture):
     """Fracture aperture from displacement jump."""
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
@@ -365,20 +426,11 @@ class DisplacementJumpAperture(DimensionReduction):
             if len(subdomains_of_dim) == 0:
                 continue
             if dim == self.nd - 1:
-                # Fractures. Get displacement jump
-                normal_jump = self.normal_component(
-                    subdomains_of_dim
-                ) @ self.displacement_jump(subdomains_of_dim)
-                # The jump should be bounded below by gap function. This is not
-                # guaranteed in the non-converged state. As this (especially
-                # non-positive values) may give significant trouble in the aperture.
-                # Insert safeguard by taking maximum of the jump and a residual
-                # aperture.
-                f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
-
+                # Fractures.
                 a_ref = self.residual_aperture(subdomains_of_dim)
-                apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
-                apertures_of_dim.set_name("aperture_maximum_function")
+                a_mech = self.mechanical_aperture(subdomains_of_dim)
+                apertures_of_dim = a_ref + a_mech
+                apertures_of_dim.set_name("aperture_of_fractures")
                 apertures = (
                     apertures
                     + projection.cell_prolongation(subdomains_of_dim) @ apertures_of_dim
@@ -2938,6 +2990,13 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
 
     To be used in mechanical problems, e.g. force balance.
 
+    NOTE: The implementation of the mechanical stress below is in absolute terms.
+    The stress could be formulated wrt a reference configuration, in which case
+    a reference (background) stress would be required, only depending on the reference
+    displacement. Under the assumption of linearity, the summation of the reference and the
+    linear mechanical stress below cancels the reference contributions. For simplicity,
+    background stress is not supported in the current implementation.
+
     """
 
     stress_keyword: str
@@ -3538,6 +3597,10 @@ class PressureStress(LinearElasticMechanicalStress):
     def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
 
+        NOTE: See comment on linearity assumption in
+        :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+        The same applies here.
+
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
@@ -3562,7 +3625,8 @@ class PressureStress(LinearElasticMechanicalStress):
         # sd_primary, thus there is no need for a subdomain projection.
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.darcy_keyword
-        ) @ self.perturbation_from_reference("pressure", subdomains)
+        ) @ self.pressure(subdomains)
+        # TODO: Safe to remove? self.perturbation_from_reference("pressure", subdomains)
         stress.set_name("pressure_stress")
         return stress
 
@@ -3693,6 +3757,10 @@ class ThermoPressureStress(PressureStress):
     def thermal_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature contribution to stress tensor.
 
+        NOTE: See comment on linearity assumption in
+        :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+        The same applies here.
+
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
@@ -3710,7 +3778,8 @@ class ThermoPressureStress(PressureStress):
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.enthalpy_keyword
-        ) @ self.perturbation_from_reference("temperature", subdomains)
+        ) @ self.temperature(subdomains)
+        # TODO: safe to remove? self.perturbation_from_reference("temperature", subdomains)
         stress.set_name("thermal_stress")
         return stress
 
@@ -4549,7 +4618,7 @@ class ConstantPorosity(pp.PorePyModel):
 
 
 class PoroMechanicsPorosity(pp.PorePyModel):
-    r"""Porosity for poromechanical models.
+    r"""Porosity for poromechanical models wrt reference configuration.
 
     Note:
         For legacy reasons, the discretization matrices for the :math:`\nabla \cdot
@@ -4584,26 +4653,22 @@ class PoroMechanicsPorosity(pp.PorePyModel):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-    """Displacement variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    interface_displacement: Callable[
-        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-    ]
-    """Displacement variable on interfaces. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
     pressure_variable: str
     """Name of the pressure variable. Normally set by a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
+    relative_pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Perturbation of pressure from reference."""
+
+    relative_displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Perturbation of displacement from reference. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    relative_interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Perturbation of interface displacement from reference. Normally defined in a mixin
+    instance of :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
     """
 
     bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
@@ -4692,7 +4757,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         return phi
 
     def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference porosity.
+        """Reference porosity (at reference configuration).
 
         Parameters:
             subdomains: List of subdomains where the reference porosity is defined.
@@ -4721,8 +4786,8 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         phi_ref = self.reference_porosity(subdomains)
         bulk_modulus = self.bulk_modulus(subdomains)
 
-        # Pressure changes
-        dp = self.perturbation_from_reference("pressure", subdomains)
+        # Pressure changes wrt reference configuration.
+        dp = self.relative_pressure(subdomains)
 
         # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
         n_inv = (alpha - phi_ref) * (Scalar(1) - alpha) / bulk_modulus
@@ -4758,7 +4823,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Divergence of displacement [-].
+        """Divergence of displacement wrt reference configuration [-].
 
         This is ``alpha : grad(u)`` where ``alpha`` is the Biot tensor and ``u`` is
         the displacement. If the tensor is isotropic, the expression simplifies to
@@ -4794,13 +4859,13 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # Compose operator.
         displacement_divergence_integrated = discr.displacement_divergence(
             self.darcy_keyword
-        ) @ self.displacement(subdomains) + discr.bound_displacement_divergence(
-            self.darcy_keyword
-        ) @ (
+        ) @ self.relative_displacement(
+            subdomains
+        ) + discr.bound_displacement_divergence(self.darcy_keyword) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
             @ mortar_projection.mortar_to_primary_avg()
-            @ self.interface_displacement(interfaces)
+            @ self.relative_interface_displacement(interfaces)
         )
         # Divide by cell volumes to counteract integration. The displacement_divergence
         # discretization contains a volume integral. Since this is used here together
@@ -4843,7 +4908,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # The consistency is based on perturbation. If the variable is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
-        dp = self.perturbation_from_reference(variable_name, subdomains)
+        dp = self.relative_pressure(subdomains)
         consistency_integrated = discr.consistency(physics_name) @ dp
 
         # Divide by cell volumes to counteract integration.
@@ -4858,7 +4923,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         return consistency
 
 
-class BiotPoroMechanicsPorosity(pp.PorePyModel):
+class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Porosity for poromechanical models following classical Biot's theory.
 
     The porosity is defined such that, after the chain rule is applied to the
@@ -4888,9 +4953,9 @@ class BiotPoroMechanicsPorosity(pp.PorePyModel):
 
         """
         specific_storage = self.specific_storage(subdomains)
-        dp = self.perturbation_from_reference("pressure", subdomains)
+        dp = self.relative_pressure(subdomains)
 
-        # Pressure change contribution
+        # Pressure change contribution.
         pressure_contribution = specific_storage * dp
         pressure_contribution.set_name("Biot's porosity change from pressure")
 
@@ -4915,9 +4980,9 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
 
     """
-    temperature_variable: str
-    """Name of the pressure variable. Normally set by a mixin instance of
-    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
+    relative_temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Perturbation of temperature from reference. Normally defined in a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
     """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4941,9 +5006,18 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Thermal contribution to the changes in porosity [-].
+        """Thermal contribution to the changes in porosity wrt reference
+        configuration [-].
 
-        beta_phi = (alpha - phi_ref) * beta_solid according to Coussy Eq. 4.44.
+        Implements the thermal porosity expansion according to Coussy (Eq. 4.44):
+
+        .. math::
+            \\beta_\\phi = (\\alpha - \\phi_{ref}) \\beta_{solid} \\Delta T
+
+        where :math:`\\alpha` is the Biot coefficient, :math:`\\phi_{ref}` is the
+        reference porosity, :math:`\\beta_{solid}` is the solid thermal expansion
+        coefficient, and :math:`\\Delta T` is the temperature perturbation from
+        reference.
 
         Parameters:
             subdomains: List of subdomains where the porosity is defined.
@@ -4951,10 +5025,13 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         Returns:
             Cell-wise thermal porosity expansion operator [-].
 
+        Raises:
+            ValueError: If any subdomain is not of dimension nd.
+
         """
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
-        dtemperature = self.perturbation_from_reference("temperature", subdomains)
+        dtemperature = self.relative_temperature(subdomains)
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion_coefficient(subdomains)
         alpha = self.biot_coefficient(subdomains)
