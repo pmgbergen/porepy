@@ -73,6 +73,12 @@ def main() -> None:
     cbar.set_ticks([args.vmin, args.vmax])
     cbar.ax.tick_params(labelsize=14)
 
+    # Remove black box around colorbar
+    cbar.outline.set_visible(False)
+
+    for tick_label in cbar.ax.get_yticklabels():
+        tick_label.set_fontweight("bold")
+
     fig.subplots_adjust(
         left=0.02,
         right=0.84,
