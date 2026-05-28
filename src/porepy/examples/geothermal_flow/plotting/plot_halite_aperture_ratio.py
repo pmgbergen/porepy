@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 import os
+
 os.environ["PATH"] = "/Library/TeX/texbin:" + os.environ["PATH"]
 
 plt.rcParams["text.usetex"] = True
@@ -131,7 +132,7 @@ def plot_halite_and_aperture(
     reference_aperture: float = 1.0e-3,
     aperture_ylim: tuple[float, float] = (0.9935, 1.0001),
     halite_ylim: tuple[float, float] | None = None,
-    s_halite_initial: np.ndarray | float=0.01055,
+    s_halite_initial: np.ndarray | float = 0.01055,
     x_col: str = "Points:0",
     y_col: str = "Points:1",
     show: bool = False,

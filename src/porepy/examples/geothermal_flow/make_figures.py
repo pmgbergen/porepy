@@ -19,6 +19,15 @@ it only performs extraction, rendering, and plotting.
 
 Typical usage from ``src/porepy/examples`` is
 
+    python -m geothermal_flow.make_figures
+
+By default, this uses
+
+    geothermal_flow/configs/figures.yaml
+
+To use a different figure manifest, for example inside the Docker
+reproducibility image, pass ``--config`` explicitly:
+
     python -m geothermal_flow.make_figures \\
         --config geothermal_flow/configs/figures.yaml
 
@@ -47,8 +56,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from click import command
+
 # import yaml
 from .io_utils import load_yaml
+
 
 def run_command(command: list[str], *, dry_run: bool = False) -> None:
     """Print and optionally execute a shell command."""
@@ -60,7 +72,49 @@ def run_command(command: list[str], *, dry_run: bool = False) -> None:
     if dry_run:
         return
 
-    subprocess.run(command, check=True)
+    # subprocess.run(command, check=True)
+    result = subprocess.run(
+        command,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    if result.stdout:
+        print(result.stdout, end="")
+
+    harmless_patterns = [
+        "openvkl",
+        "vtkSMSettings",
+        "ParaView-UserSettings.json",
+        "vtkOpenGLState",
+        "active textures",
+        "Leaked for texture object",
+        "bad X server connection",
+        "vtkContext2DScalarBarActor",
+        "printf format",
+        "std::format",
+        "deprecated in 6.1.0",
+    ]
+
+    stderr_lines = result.stderr.splitlines()
+    filtered_stderr = [
+        line
+        for line in stderr_lines
+        if not any(pattern in line for pattern in harmless_patterns)
+    ]
+
+    if filtered_stderr:
+        print("\n".join(filtered_stderr), file=sys.stderr)
+
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            command,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
 
 
 def bool_flag(command: list[str], flag: str, enabled: bool | None) -> None:
@@ -110,7 +164,9 @@ def run_benchmark_profile_extract(
     append_if_present(command, "--time-days", extract_cfg, "time_days")
     append_if_present(command, "--time-index", extract_cfg, "time_index")
     append_if_present(command, "--block-filter", extract_cfg, "block_filter")
-    append_if_present(command, "--gas-zero-threshold", extract_cfg, "gas_zero_threshold")
+    append_if_present(
+        command, "--gas-zero-threshold", extract_cfg, "gas_zero_threshold"
+    )
     append_if_present(command, "--pvd-time-unit", extract_cfg, "pvd_time_unit")
 
     run_command(command, dry_run=dry_run)
@@ -153,6 +209,7 @@ def run_benchmark_comparison_plot(
 
     run_command(command, dry_run=dry_run)
 
+
 def run_paraview_layout_png(
     name: str,
     cfg: dict[str, Any],
@@ -177,7 +234,9 @@ def run_paraview_layout_png(
     append_if_present(command, "--time-index", cfg, "time_index")
 
     bool_flag(command, "--save-layout", cfg.get("save_layout", False))
-    bool_flag(command, "--update-all-pvd-readers", cfg.get("update_all_pvd_readers", False))
+    bool_flag(
+        command, "--update-all-pvd-readers", cfg.get("update_all_pvd_readers", False)
+    )
 
     print(f"\nGenerating {name} as ParaView layout PNG")
     run_command(command, dry_run=dry_run)
@@ -205,6 +264,9 @@ def run_paraview_time_series(
     append_if_present(command, "--width", render_cfg, "width")
     append_if_present(command, "--height", render_cfg, "height")
     append_if_present(command, "--reader-index", render_cfg, "reader_index")
+    append_if_present(command, "--output-prefix", render_cfg, "output_prefix")
+
+    bool_flag(command, "--save-layout", render_cfg.get("save_layout", False))
 
     bool_flag(
         command,
@@ -332,6 +394,30 @@ def run_assemble_s_halite_panels(
     run_command(command, dry_run=dry_run)
 
 
+def run_assemble_column_phz(
+    plot_cfg: dict[str, Any],
+    *,
+    dry_run: bool = False,
+) -> None:
+    """Run the Matplotlib/PIL script that assembles Figure 8 PHZ columns."""
+    command = [
+        sys.executable,
+        plot_cfg["script"],
+        "--left",
+        plot_cfg["left"],
+        "--right",
+        plot_cfg["right"],
+        "--out",
+        plot_cfg["output"],
+    ]
+
+    append_if_present(command, "--gap", plot_cfg, "gap")
+    append_if_present(command, "--pad", plot_cfg, "pad")
+    append_if_present(command, "--background", plot_cfg, "background")
+
+    run_command(command, dry_run=dry_run)
+
+
 def run_near_well_comparison(
     plot_cfg: dict[str, Any],
     *,
@@ -425,9 +511,12 @@ def run_matplotlib_plot(plot_cfg: dict[str, Any], *, dry_run: bool = False) -> N
             "plot_production_diagnostics.py should be handled by "
             "run_production_diagnostics because it needs two input files."
         )
+    elif script_name == "assemble_column_phz.py":
+        run_assemble_column_phz(plot_cfg, dry_run=dry_run)
 
     else:
         raise RuntimeError(f"No Matplotlib dispatcher implemented for {script_name}")
+
 
 def run_well_timeseries_extraction(
     extract_cfg: dict[str, Any],
