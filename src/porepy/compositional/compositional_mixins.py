@@ -2550,7 +2550,7 @@ class ActivityModels(pp.PorePyModel):
         activity : float
             Ln of the activity of the species in the solution.
 
-        ln a_i = ln \gamma_i + ln m_i, where ln \gamma_i = 0 for ideal solution,
+        ln a_i = ln \\gamma_i + ln m_i, where ln \\gamma_i = 0 for ideal solution,
         m_i is the molality of the species.
         For minerals, the activity is 1.0.
         """

@@ -799,53 +799,61 @@ class SolutionStrategy(pp.PorePyModel):
         # np.savetxt(f"{folder}/indices.txt", A.indices, fmt="%d")
         # np.savetxt(f"{folder}/indptr.txt", A.indptr, fmt="%d")
 
-        row_sum = np.asarray(np.abs(A).sum(axis=1)).ravel()
-        col_sum = np.asarray(np.abs(A).sum(axis=0)).ravel()
+        # performance_logger = getattr(self, "performance_logger", None)
 
-        nonzero_row_sum = row_sum[row_sum > 0]
-        nonzero_col_sum = col_sum[col_sum > 0]
+        # if performance_logger is not None:
+        #     abs_data = np.abs(A.data)
+        #     nonzero_abs_data = abs_data[abs_data > 0]
 
-        performance_logger = getattr(self, "performance_logger", None)
+        #     abs_min = nonzero_abs_data.min()
+        #     abs_max = abs_data.max()
 
-        if performance_logger is not None:
-            abs_data = np.abs(A.data)
+        #     abs_b = np.abs(b)
+        #     nonzero_abs_b = abs_b[abs_b > 0]
 
-            performance_logger.log(
-                "linear_system_info",
-                time_step_index=self.time_manager.time_index,
-                time=self.time_manager.time,
-                dt=self.time_manager.dt,
-                linear_solver=self.linear_solver,
-                matrix_size=A.shape[0],
-                matrix_nnz=A.nnz,
-                matrix_abs_min=abs_data[abs_data > 0].min(),
-                matrix_abs_max=abs_data.max(),
-                matrix_abs_ratio=abs_data.max() / abs_data[abs_data > 0].min(),
-                rhs_abs_max=np.abs(b).max(),
-                rhs_abs_min=np.abs(b[np.abs(b) > 0]).min(),
-            )
+        #     rhs_abs_max = abs_b.max()
+        #     rhs_abs_min = nonzero_abs_b.min()
 
-            performance_logger.log(
-                "linear_system_scaling",
-                time_step_index=self.time_manager.time_index,
-                time=self.time_manager.time,
-                dt=self.time_manager.dt,
-                row_sum_min=nonzero_row_sum.min(),
-                row_sum_max=nonzero_row_sum.max(),
-                row_sum_ratio=nonzero_row_sum.max() / nonzero_row_sum.min(),
-                col_sum_min=nonzero_col_sum.min(),
-                col_sum_max=nonzero_col_sum.max(),
-                col_sum_ratio=nonzero_col_sum.max() / nonzero_col_sum.min(),
-            )
+        #     row_sum = np.asarray(np.abs(A).sum(axis=1)).ravel()
+        #     col_sum = np.asarray(np.abs(A).sum(axis=0)).ravel()
+
+        #     nonzero_row_sum = row_sum[row_sum > 0]
+        #     nonzero_col_sum = col_sum[col_sum > 0]
+
+        #     row_sum_min = nonzero_row_sum.min()
+        #     row_sum_max = nonzero_row_sum.max()
+        #     col_sum_min = nonzero_col_sum.min()
+        #     col_sum_max = nonzero_col_sum.max()
+
+        #     performance_logger.log(
+        #         "linear_system_info",
+        #         time_step_index=self.time_manager.time_index,
+        #         time=self.time_manager.time,
+        #         dt=self.time_manager.dt,
+        #         linear_solver=self.linear_solver,
+        #         matrix_size=A.shape[0],
+        #         matrix_nnz=A.nnz,
+        #         matrix_abs_min=abs_min,
+        #         matrix_abs_max=abs_max,
+        #         matrix_abs_ratio=abs_max / abs_min,
+        #         rhs_abs_max=rhs_abs_max,
+        #         rhs_abs_min=rhs_abs_min,
+        #     )
+
+        #     performance_logger.log(
+        #         "linear_system_scaling",
+        #         time_step_index=self.time_manager.time_index,
+        #         time=self.time_manager.time,
+        #         dt=self.time_manager.dt,
+        #         row_sum_min=row_sum_min,
+        #         row_sum_max=row_sum_max,
+        #         row_sum_ratio=row_sum_max / row_sum_min,
+        #         col_sum_min=col_sum_min,
+        #         col_sum_max=col_sum_max,
+        #         col_sum_ratio=col_sum_max / col_sum_min,
+        #     )
 
 
-
-        t_0 = time.time()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
-            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
-        )
 
         solver = self.linear_solver
         if solver == "pypardiso":
