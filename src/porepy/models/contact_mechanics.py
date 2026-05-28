@@ -644,10 +644,10 @@ class RadialReturnFormulation:
     ) -> pp.ad.Operator:
         """Contact mechanics equation for the tangential constraints."""
 
-        # Basis vector combinations
+        # Basis vector combinations.
         num_cells = sum([sd.num_cells for sd in subdomains])
 
-        # Mapping from a full vector to the tangential component
+        # Mapping from a full vector to the tangential component.
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
         # Basis vectors for the tangential components.
@@ -691,9 +691,9 @@ class RadialReturnFormulation:
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
 
-        # Define the traction to be the linear radial return projection of the
-        # augmented traction. The use of the mask function allows for ignoring
-        # cases when the denominator degenerates.
+        # Define the traction to be the linear radial return projection of the augmented
+        # traction. The use of the mask function allows for ignoring cases when the
+        # denominator degenerates.
         ones_frac = pp.ad.DenseArray(np.ones(num_cells))
         min_term = scalar_to_tangential @ (
             f_mask_by_threshold(
