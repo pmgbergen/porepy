@@ -15,6 +15,9 @@ import numpy as np
 import porepy as pp
 from porepy.models import constitutive_laws
 from porepy.models.abstract_equations import VariableMixin
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ContactMechanicsEquations(pp.BalanceEquation):
@@ -352,6 +355,8 @@ class ContactTractionVariable(VariableMixin):
     :class:`~porepy.models.contact_mechanics.SolutionStrategyContactMechanics`.
 
     """
+    has_contact_mechanics_reference_state: bool = False
+    """Flag whether reference states have been defined."""
 
     def create_variables(self) -> None:
         """Introduces the contact traction variable to the equation system."""
@@ -364,8 +369,18 @@ class ContactTractionVariable(VariableMixin):
             tags={"si_units": "-"},
         )
 
-    def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fracture contact traction [-].
+    def reference_contact_traction(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Reference displacement in the matrix."""
+        self.init_reference_contact_mechanics()
+        return pp.ad.TimeDependentDenseArray(
+            name=f"reference_" + self.contact_traction_variable,
+            domains=domains,
+        )
+
+    def relative_contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fracture contact traction increment [-].
 
         Parameters:
             subdomains: List of subdomains where the contact traction is defined. Should
@@ -384,11 +399,86 @@ class ContactTractionVariable(VariableMixin):
             self.contact_traction_variable, subdomains
         )
 
+    def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fracture contact traction [-].
+
+        Parameters:
+            subdomains: List of subdomains where the contact traction is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Variable for nondimensionalized fracture contact traction.
+
+        """
+        return self.reference_contact_traction(
+            subdomains
+        ) + self.relative_contact_traction(subdomains)
+
+    def init_reference_contact_mechanics(self) -> None:
+        """Initialization of reference tractions."""
+
+        # Employ a hack to initialize the reference state before it is used,
+        # since the reference state is needed in the creation of the variables,
+        # but the initialization of the reference state needs to be done after the
+        # variables are created. This is a bit of a circular dependency, but it works
+        # in practice. The alternative would be to separate the creation of the
+        # variables and the initialization of the reference state into two separate
+        # steps, but that would be more cumbersome to use.
+        # Make sure to only initialize once.
+        if self.has_contact_mechanics_reference_state:
+            return
+        self.has_contact_mechanics_reference_state = True
+
+        # Set reference state for matrix displacement
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd - 1):
+            for index in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                pp.set_solution_values(
+                    name="reference_" + self.contact_traction_variable,
+                    values=np.zeros(self.nd * sd.num_cells),
+                    data=data,
+                    **index,
+                )
+
+        # Write logging info in yellow color
+        logger.info("\033[93m" + "Initialized reference state." + "\033[0m")
+
+    def update_reference(self) -> None:
+        """Updating of reference tractions."""
+
+        # If super has an update_reference method, call it for compatibility with multi-physics.
+        if hasattr(super(), "update_reference"):
+            super().update_reference()
+
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd - 1):
+            for index in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                for name, values in [
+                    (
+                        "reference_" + self.contact_traction_variable,
+                        self.contact_traction([sd]).value(self.equation_system),
+                    ),
+                    (
+                        self.contact_traction_variable,
+                        np.zeros(self.nd * sd.num_cells),
+                    ),
+                ]:
+                    pp.set_solution_values(
+                        name=name,
+                        values=values,
+                        data=data,
+                        **index,
+                    )
+
+        # Write logging info in yellow color
+        logger.info("\033[93m" + "Updated reference state." + "\033[0m")
+
 
 class InitialConditionsContactTraction(pp.InitialConditionMixin):
     """Mixin for providing initial values for contact traction."""
 
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    # TODO: OK to misuse the naming here and use ic_value_* for
+    # initial conditions of the primary variable which is relative?
+
+    relative_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`VariablesMomentumBalance`."""
 
     def set_initial_values_primary_variables(self) -> None:
@@ -402,7 +492,7 @@ class InitialConditionsContactTraction(pp.InitialConditionMixin):
             # Contact traction is only defined on fractures
             self.equation_system.set_variable_values(
                 self.ic_values_contact_traction(sd),
-                [cast(pp.ad.Variable, self.contact_traction([sd]))],
+                [cast(pp.ad.Variable, self.relative_contact_traction([sd]))],
                 iterate_index=0,
             )
 
@@ -574,6 +664,90 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         return super()._is_nonlinear_problem()
 
 
+class DataSavingContactMechanics:
+    """Auxiliary class for exporting absolute and relative values."""
+
+    def data_to_export(self):
+        """Add reference state to export data."""
+        data = super().data_to_export()
+
+        # Get characteristic traction for scaling to Pa
+        sds = self.mdg.subdomains(dim=self.nd - 1)
+        if len(sds) > 0:
+            char = self.evaluate_and_scale(sds, "characteristic_contact_traction", "Pa")
+            cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+
+            # Ensure characteristic traction is an array
+            size = sum([sd.num_cells for sd in sds])
+            if isinstance(char, float):
+                char = char * np.ones(size)
+
+        # Add variants of contact tractions
+        for id, sd in enumerate(sds):
+            # Reference contact traction (dimensionless)
+            contact_traction_ref = self.reference_contact_traction([sd]).value(
+                self.equation_system
+            )
+            data.append(
+                (sd, self.contact_traction_variable + "_ref", contact_traction_ref)
+            )
+
+            # Delta contact traction (dimensionless)
+            contact_traction_inc = self.relative_contact_traction([sd]).value(
+                self.equation_system
+            )
+            data.append(
+                (sd, self.contact_traction_variable + "_inc", contact_traction_inc)
+            )
+
+            # Find and remove the original (sd, contact_traction_variable) entry
+            data = [
+                entry
+                for entry in data
+                if not (entry[0] == sd and entry[1] == self.contact_traction_variable)
+            ]
+            # Full contact traction (dimensionless)
+            contact_traction = self.contact_traction([sd]).value(self.equation_system)
+            data.append((sd, self.contact_traction_variable, contact_traction))
+
+            # Add Pa-scaled variants
+            if len(sds) > 0:
+                # Reference traction in Pa
+                traction_ref_pa = contact_traction_ref.reshape((self.nd, -1), order="F")
+                traction_ref_pa *= char[cell_offsets[id] : cell_offsets[id + 1]]
+                data.append(
+                    (
+                        sd,
+                        self.contact_traction_variable + "_ref_in_Pa",
+                        traction_ref_pa.ravel("F"),
+                    )
+                )
+
+                # Delta traction in Pa
+                traction_inc_pa = contact_traction_inc.reshape((self.nd, -1), order="F")
+                traction_inc_pa *= char[cell_offsets[id] : cell_offsets[id + 1]]
+                data.append(
+                    (
+                        sd,
+                        self.contact_traction_variable + "_inc_in_Pa",
+                        traction_inc_pa.ravel("F"),
+                    )
+                )
+
+                # Full traction in Pa
+                traction_pa = contact_traction.reshape((self.nd, -1), order="F")
+                traction_pa *= char[cell_offsets[id] : cell_offsets[id + 1]]
+                data.append(
+                    (
+                        sd,
+                        self.contact_traction_variable + "_in_Pa",
+                        traction_pa.ravel("F"),
+                    )
+                )
+
+        return data
+
+
 class ContactMechanics(
     ContactMechanicsEquations,
     # Keep interface displacement array separate from other constituive laws
@@ -584,6 +758,7 @@ class ContactMechanics(
     InitialConditionsContactTraction,
     BoundaryConditionsContactMechanics,
     SolutionStrategyContactMechanics,
+    DataSavingContactMechanics,
     # For clarity, the functionality of the FluidMixin is not really used in the pure
     # contact mechanics model, but for unity of implementation (and to avoid some
     # technical programming related to the FluidMixin not always being present) it is
