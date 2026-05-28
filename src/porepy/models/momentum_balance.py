@@ -417,6 +417,8 @@ class VariablesMomentumBalance(VariableMixin):
 
     displacement_variable: str
     interface_displacement_variable: str
+    has_momentum_balance_reference_state: bool = False
+    """Flag whether reference states have been defined."""
 
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
@@ -441,23 +443,30 @@ class VariablesMomentumBalance(VariableMixin):
             tags={"si_units": "m"},
         )
 
-    def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Displacement in the matrix.
+    def reference_displacement(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Reference displacement in the matrix."""
+        self.init_reference_momentum_balance()
+        return pp.ad.TimeDependentDenseArray(
+            name="reference_" + self.displacement_variable,
+            domains=domains,
+        )
 
-        Parameters:
-            domains: List of subdomains or interface grids where the displacement is
-                defined. Should be the matrix subdomains.
+    def reference_interface_displacement(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Reference displacement on fracture-matrix interfaces."""
+        self.init_reference_momentum_balance()
+        return pp.ad.TimeDependentDenseArray(
+            name="reference_" + self.interface_displacement_variable,
+            domains=interfaces,
+        )
 
-        Returns:
-            Variable for the displacement.
-
-        Raises:
-            ValueError: If the dimension of the subdomains is not equal to the ambient
-                dimension of the problem.
-            ValueError: If the method is called on a mixture of grids and boundary
-                grids
-
-        """
+    def relative_displacement(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Increment of displacement in the matrix."""
         if len(domains) == 0 or all(
             isinstance(grid, pp.BoundaryGrid) for grid in domains
         ):
@@ -480,7 +489,9 @@ class VariablesMomentumBalance(VariableMixin):
 
         return self.equation_system.md_variable(self.displacement_variable, domains)
 
-    def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Variable:
+    def relative_interface_displacement(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Variable:
         """Displacement on fracture-matrix interfaces.
 
         Parameters:
@@ -504,6 +515,131 @@ class VariablesMomentumBalance(VariableMixin):
         return self.equation_system.md_variable(
             self.interface_displacement_variable, interfaces
         )
+
+    def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Displacement in the matrix.
+
+        Parameters:
+            domains: List of subdomains or interface grids where the displacement is
+                defined. Should be the matrix subdomains.
+
+        Returns:
+            Variable for the displacement.
+
+        """
+        if not all([grid.dim == self.nd for grid in domains]):
+            # Hack the boundary treatment
+            return self.relative_displacement(domains)
+        return self.reference_displacement(domains) + self.relative_displacement(
+            domains
+        )
+
+    def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Displacement on fracture-matrix interfaces.
+
+        Parameters:
+            interfaces: List of interface grids where the displacement is defined.
+                Should be between the matrix and fractures.
+
+        Returns:
+            Variable for the displacement.
+
+        Raises:
+            ValueError: If the dimension of the interfaces is not equal to the ambient
+                dimension of the problem minus one.
+
+        """
+        return self.reference_interface_displacement(
+            interfaces
+        ) + self.relative_interface_displacement(interfaces)
+
+    def init_reference_momentum_balance(self) -> None:
+        """Initialization of reference displacements."""
+
+        # Employ a hack to initialize the reference state before it is used,
+        # since the reference state is needed in the creation of the variables,
+        # but the initialization of the reference state needs to be done after the
+        # variables are created. This is a bit of a circular dependency, but it works
+        # in practice. The alternative would be to separate the creation of the
+        # variables and the initialization of the reference state into two separate
+        # steps, but that would be more cumbersome to use.
+        # Make sure to only initialize once.
+        if self.has_momentum_balance_reference_state:
+            return
+        self.has_momentum_balance_reference_state = True
+
+        # Set reference state for matrix displacement
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+            for index in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                pp.set_solution_values(
+                    name="reference_" + self.displacement_variable,
+                    values=np.zeros(self.nd * sd.num_cells),
+                    data=data,
+                    **index,
+                )
+
+        # Set reference state for interface displacement
+        for intf, data in self.mdg.interfaces(return_data=True, dim=self.nd - 1):
+            for index in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                pp.set_solution_values(
+                    name="reference_" + self.interface_displacement_variable,
+                    values=np.zeros(self.nd * intf.num_cells),
+                    data=data,
+                    **index,
+                )
+
+        # Write logging info in yellow color
+        logger.info("\033[93m" + "Initialized reference state." + "\033[0m")
+
+    def update_reference(self) -> None:
+        """Updating of reference displacements."""
+
+        # If super class has an update reference method, call it for compatibility with multi-physics.
+        if hasattr(super(), "update_reference"):
+            super().update_reference()
+
+        # Update reference state for matrix displacement
+        for sd, data in self.mdg.subdomains(return_data=True, dim=self.nd):
+            for index in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                for name, values in [
+                    (
+                        "reference_" + self.displacement_variable,
+                        self.displacement([sd]).value(self.equation_system),
+                    ),
+                    (
+                        self.displacement_variable,
+                        np.zeros(self.nd * sd.num_cells),
+                    ),
+                ]:
+                    pp.set_solution_values(
+                        name=name,
+                        values=values,
+                        data=data,
+                        **index,
+                    )
+
+        # Update reference state for interface displacement
+        for intf, data in self.mdg.interfaces(return_data=True, dim=self.nd - 1):
+            for index in [{"iterate_index": 0}, {"time_step_index": 0}]:
+                for name, values in [
+                    (
+                        "reference_" + self.interface_displacement_variable,
+                        self.interface_displacement([intf]).value(self.equation_system),
+                    ),
+                    (
+                        self.interface_displacement_variable,
+                        np.zeros(self.nd * intf.num_cells),
+                    ),
+                ]:
+                    pp.set_solution_values(
+                        name=name,
+                        values=values,
+                        data=data,
+                        **index,
+                    )
+
+        # Write logging info in yellow color
+        logger.info("\033[93m" + "Updated reference state." + "\033[0m")
 
 
 class VariablesThreeFieldMomentumBalance:
@@ -808,10 +944,13 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
 class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
     """Mixin for providing initial values for displacement."""
 
-    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    # TODO: OK to misuse the naming here and use ic_value_* for
+    # initial conditions of the primary variable which is relative?
+
+    relative_displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesMomentumBalance`."""
 
-    interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    relative_interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`VariablesMomentumBalance`."""
 
     def set_initial_values_primary_variables(self) -> None:
@@ -825,6 +964,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
             - :meth:`ic_values_contact_traction`
 
         """
+
         # Super call for compatibility with multi-physics.
         super().set_initial_values_primary_variables()
 
@@ -835,7 +975,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
                 # operator.
                 self.equation_system.set_variable_values(
                     self.ic_values_displacement(sd),
-                    [cast(pp.ad.Variable, self.displacement([sd]))],
+                    [cast(pp.ad.Variable, self.relative_displacement([sd]))],
                     iterate_index=0,
                 )
 
@@ -843,7 +983,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         for intf in self.mdg.interfaces(dim=self.nd - 1, codim=1):
             self.equation_system.set_variable_values(
                 self.ic_values_interface_displacement(intf),
-                [cast(pp.ad.Variable, self.interface_displacement([intf]))],
+                [cast(pp.ad.Variable, self.relative_interface_displacement([intf]))],
                 iterate_index=0,
             )
 
@@ -884,6 +1024,83 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
 
         """
         return np.zeros(intf.num_cells * self.nd)
+
+
+class DataSavingMomentumBalance:
+    """Auxiliary class for exporting absolute and relative values."""
+
+    def data_to_export(self):
+        """Add reference state to export data."""
+        data = super().data_to_export()
+
+        # Add variants of displacements
+        for sd in self.mdg.subdomains(return_data=False, dim=self.nd):
+            # Reference displacement
+            displacement_ref = self.reference_displacement([sd]).value(
+                self.equation_system
+            )
+            data.append((sd, self.displacement_variable + "_ref", displacement_ref))
+
+            # Relative displacement
+            displacement_inc = self.relative_displacement([sd]).value(
+                self.equation_system
+            )
+            data.append((sd, self.displacement_variable + "_inc", displacement_inc))
+
+            # Full displacement
+            # Find and remove the original (sd, self.displacement_variable) entry
+            data = [
+                entry
+                for entry in data
+                if not (entry[0] == sd and entry[1] == self.displacement_variable)
+            ]
+            # Append the new entry with updated displacement
+            displacement = self.displacement([sd]).value(self.equation_system)
+            data.append((sd, self.displacement_variable, displacement))
+
+        # Add variants of interface displacements
+        for intf in self.mdg.interfaces(return_data=False, dim=self.nd - 1):
+            # Reference interface displacement
+            interface_displacement_ref = self.reference_interface_displacement(
+                [intf]
+            ).value(self.equation_system)
+            data.append(
+                (
+                    intf,
+                    self.interface_displacement_variable + "_ref",
+                    interface_displacement_ref,
+                )
+            )
+
+            # Delta interface displacement
+            interface_displacement_inc = self.relative_interface_displacement(
+                [intf]
+            ).value(self.equation_system)
+            data.append(
+                (
+                    intf,
+                    self.interface_displacement_variable + "_inc",
+                    interface_displacement_inc,
+                )
+            )
+
+            # Full interface displacement
+            data = [
+                entry
+                for entry in data
+                if not (
+                    entry[0] == intf
+                    and entry[1] == self.interface_displacement_variable
+                )
+            ]
+            interface_displacement = self.interface_displacement([intf]).value(
+                self.equation_system
+            )
+            data.append(
+                (intf, self.interface_displacement_variable, interface_displacement)
+            )
+
+        return data
 
 
 class InitialConditionsThreeFieldMomentumBalance:
@@ -984,6 +1201,7 @@ class MomentumBalance(  # type: ignore[misc]
     InitialConditionsMomentumBalance,
     contact_mechanics.SolutionStrategyContactMechanics,
     SolutionStrategyMomentumBalance,
+    DataSavingMomentumBalance,
     # For clarity, the functionality of the FluidMixin is not really used in the pure
     # momentum balance model, but for unity of implementation (and to avoid some
     # technical programming related to the FluidMixin not always being present) it is
