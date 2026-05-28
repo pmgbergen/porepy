@@ -461,7 +461,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "dt": 0.5,
         "num_iterations": 3,
         "simulation_status": "None",
-        "solver_status": ['successful'],
+        "solver_status": ["successful"],
         "final_solver_status": "successful",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
@@ -568,7 +568,7 @@ def test_solve_failure_statistics(default_newton_solver):
                     "num_iterations": 2,
                     "simulation_status": "None",
                     "solver_status": ["failed"],
-                    "final_solver_status":"failed",
+                    "final_solver_status": "failed",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "not_converged"],
                         "res_abs": ["not_converged", "not_converged"],
@@ -1133,14 +1133,18 @@ def test_integration_nonlinear_iteration_count(num_iterations):
 
     """
     model = SinglePhaseFlow({"times_to_export": []})
-    pp.ModelRunner(
-        model,
-        {
-            "nl_convergence_inc_atol": 0,
-            "nl_convergence_res_atol": 0,
-            "nl_max_iterations": num_iterations,
-        },
-    ).run()
+
+    # Model will not converge within the prescribed number of iterations, we just track
+    # the iteration count.
+    with pytest.raises(RuntimeError):
+        pp.ModelRunner(
+            model,
+            {
+                "nl_convergence_inc_atol": 0,
+                "nl_convergence_res_atol": 0,
+                "nl_max_iterations": num_iterations,
+            },
+        ).run()
 
     assert model.nonlinear_solver_statistics.num_iterations == num_iterations
     for key in model.nonlinear_solver_statistics.convergence_status:
