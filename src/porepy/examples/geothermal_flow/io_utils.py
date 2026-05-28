@@ -34,7 +34,11 @@ def deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str
     """Return ``base`` recursively updated by ``override`` without mutation."""
     merged = deepcopy(dict(base))
     for key, value in override.items():
-        if key in merged and isinstance(merged[key], dict) and isinstance(value, Mapping):
+        if (
+            key in merged
+            and isinstance(merged[key], dict)
+            and isinstance(value, Mapping)
+        ):
             merged[key] = deep_merge(merged[key], value)
         else:
             merged[key] = deepcopy(value)
@@ -52,8 +56,12 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
     return data
 
 
-def load_config(path: str | Path, defaults_path: str | Path | None = None) -> dict[str, Any]:
-    defaults_file = Path(defaults_path).expanduser().resolve() if defaults_path else DEFAULT_CONFIG
+def load_config(
+    path: str | Path, defaults_path: str | Path | None = None
+) -> dict[str, Any]:
+    defaults_file = (
+        Path(defaults_path).expanduser().resolve() if defaults_path else DEFAULT_CONFIG
+    )
     config_file = Path(path).expanduser().resolve()
     config = deep_merge(load_yaml(defaults_file), load_yaml(config_file))
     config["_config_file"] = str(config_file)
@@ -64,23 +72,36 @@ def load_config(path: str | Path, defaults_path: str | Path | None = None) -> di
 
 def validate_config_old(config: Mapping[str, Any]) -> None:
     required = [
-        "case_name", "geometry", "material", "well", "physics", "vtk",
-        "time", "solver", "visualization",
+        "case_name",
+        "geometry",
+        "material",
+        "well",
+        "physics",
+        "vtk",
+        "time",
+        "solver",
+        "visualization",
     ]
     missing = [key for key in required if key not in config]
     if missing:
         raise ConfigurationError(f"Missing required config keys: {missing}")
 
     if config["geometry"] not in {"disconnected", "connected"}:
-        raise ConfigurationError("geometry must be either 'disconnected' or 'connected'")
+        raise ConfigurationError(
+            "geometry must be either 'disconnected' or 'connected'"
+        )
 
     for key in ["clogging_exponent", "reference_aperture", "injection_fraction"]:
         if key not in config["physics"]:
-            raise ConfigurationError(f"physics.{key} must be specified by the example YAML")
+            raise ConfigurationError(
+                f"physics.{key} must be specified by the example YAML"
+            )
 
     for key in ["end", "dt_init", "dt_min", "dt_max", "iter_optimal", "iter_relax"]:
         if key not in config["time"]:
-            raise ConfigurationError(f"time.{key} must be specified by the example YAML")
+            raise ConfigurationError(
+                f"time.{key} must be specified by the example YAML"
+            )
 
     for key in ["end", "dt_init", "dt_min", "dt_max"]:
         if as_float(config["time"][key]) <= 0:
@@ -128,7 +149,9 @@ def validate_example_config(config: dict) -> None:
     """Validate Example 1--3 fractured-reservoir configuration."""
 
     if config["geometry"] not in {"disconnected", "connected"}:
-        raise ConfigurationError("geometry must be either 'disconnected' or 'connected'")
+        raise ConfigurationError(
+            "geometry must be either 'disconnected' or 'connected'"
+        )
 
     required_example = [
         "physics",
@@ -137,7 +160,9 @@ def validate_example_config(config: dict) -> None:
 
     for key in required_example:
         if key not in config:
-            raise ConfigurationError(f"Missing required example configuration key: {key}")
+            raise ConfigurationError(
+                f"Missing required example configuration key: {key}"
+            )
 
     required_material = [
         "residual_aperture",
@@ -159,9 +184,7 @@ def validate_benchmark_config(config: dict) -> None:
     """Validate the 1D benchmark configuration."""
 
     if config["geometry"] != "benchmark_horizontal":
-        raise ConfigurationError(
-            "benchmark geometry must be 'benchmark_horizontal'"
-        )
+        raise ConfigurationError("benchmark geometry must be 'benchmark_horizontal'")
 
     required_benchmark = [
         "boundary_conditions",
@@ -171,7 +194,9 @@ def validate_benchmark_config(config: dict) -> None:
 
     for key in required_benchmark:
         if key not in config:
-            raise ConfigurationError(f"Missing required benchmark configuration key: {key}")
+            raise ConfigurationError(
+                f"Missing required benchmark configuration key: {key}"
+            )
 
     required_material = [
         "permeability",

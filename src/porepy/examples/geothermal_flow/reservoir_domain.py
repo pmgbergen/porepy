@@ -1,4 +1,3 @@
-
 from typing import Literal, Sequence
 import numpy as np
 
@@ -8,8 +7,7 @@ import scipy.sparse as sps
 
 
 class DisconnectedFracturedDomain2D(pp.PorePyModel):
-    """A class to represent a simple 2D geometry for a simulation domain. 
-    """
+    """A class to represent a simple 2D geometry for a simulation domain."""
 
     # Domain dimensions
     _domain_x_length: float = 100.0
@@ -17,57 +15,57 @@ class DisconnectedFracturedDomain2D(pp.PorePyModel):
 
     # Producer well coordinates.
     prod_x_point: float = _domain_x_length - 15.0
-    prod_y_point: float = _domain_y_length*0.5
+    prod_y_point: float = _domain_y_length * 0.5
 
     # Injector well location
     _injection_points: list[np.ndarray] = [
-        np.array([_domain_x_length-prod_x_point, prod_y_point])
+        np.array([_domain_x_length - prod_x_point, prod_y_point])
     ]
     # Production well location
-    _production_points: list[np.ndarray] = [
-        np.array([prod_x_point, prod_y_point])
-    ]
+    _production_points: list[np.ndarray] = [np.array([prod_x_point, prod_y_point])]
 
     def set_domain(self) -> None:
         x_length_in_m = self.units.convert_units(self._domain_x_length, "m")
         y_length_in_m = self.units.convert_units(self._domain_y_length, "m")
-        box: dict[str, pp.number] = {
-            "xmax": x_length_in_m,
-            "ymax": y_length_in_m
-        }
+        box: dict[str, pp.number] = {"xmax": x_length_in_m, "ymax": y_length_in_m}
         self._domain = pp.Domain(box)
-        
+
     def set_fractures(self) -> None:
-        frac1 = pp.LineFracture(np.array([ 
-            [0., 12.0],
-            [15.0, 15.0]
-        ]))
-        frac2 = pp.LineFracture(np.array([
-            [self._production_points[0][0]-40, 90-30],
-            [14.0, 14.0]
-        ]))
-        frac3 = pp.LineFracture(np.array([
-            [self._production_points[0][0]-35, 90-30],
-            [20.5, 8.0]
-        ]))
-        frac4 = pp.LineFracture(np.array([
-            [self._production_points[0][0], self._production_points[0][0]+7.0],
-            [self._production_points[0][1], self._production_points[0][1]- 5.0]
-        ]))
+        frac1 = pp.LineFracture(np.array([[0.0, 12.0], [15.0, 15.0]]))
+        frac2 = pp.LineFracture(
+            np.array([[self._production_points[0][0] - 40, 90 - 30], [14.0, 14.0]])
+        )
+        frac3 = pp.LineFracture(
+            np.array([[self._production_points[0][0] - 35, 90 - 30], [20.5, 8.0]])
+        )
+        frac4 = pp.LineFracture(
+            np.array(
+                [
+                    [
+                        self._production_points[0][0],
+                        self._production_points[0][0] + 7.0,
+                    ],
+                    [
+                        self._production_points[0][1],
+                        self._production_points[0][1] - 5.0,
+                    ],
+                ]
+            )
+        )
         self._fractures = [frac1, frac2, frac3, frac4]
-      
+
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
- 
+
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.7, "m") # was 0.7
-        frac_cell_size = self.units.convert_units(1.0, "m") # was 1.0
+        cell_size = self.units.convert_units(0.7, "m")  # was 0.7
+        frac_cell_size = self.units.convert_units(1.0, "m")  # was 1.0
         mesh_args: dict[str, float] = {
             "cell_size": cell_size,
-            "cell_size_fracture": frac_cell_size
+            "cell_size_fracture": frac_cell_size,
         }
         return mesh_args
-    
+
     def set_geometry(self):
         """Create the injection and production wells."""
 
@@ -77,7 +75,7 @@ class DisconnectedFracturedDomain2D(pp.PorePyModel):
 
         for i, production_point in enumerate(self._production_points):
             self._add_well(production_point, i, "production")
-    
+
     def closest_face(self, grid: pp.Grid, point: np.ndarray) -> int:
         """Return index of closest face center to given point."""
         dists = np.linalg.norm(grid.face_centers - point.reshape(-1, 1), axis=0)
@@ -113,7 +111,9 @@ class DisconnectedFracturedDomain2D(pp.PorePyModel):
         )
         _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
 
-    def point_line_distance(self, point: np.ndarray, start: np.ndarray, end: np.ndarray) -> float:
+    def point_line_distance(
+        self, point: np.ndarray, start: np.ndarray, end: np.ndarray
+    ) -> float:
         """Shortest distance between a point and a line segment in 2D or 3D."""
         line_vec = end - start
         p_vec = point - start
@@ -149,83 +149,46 @@ class DisconnectedFracturedDomain2D(pp.PorePyModel):
 
 
 class ConnectedFracturedDomain2D(pp.PorePyModel):
-    """A class to represent a simple 2D geometry for a simulation domain. 
+    """A class to represent a simple 2D geometry for a simulation domain."""
 
-    """
     # Domain dimensions
     _domain_x_length: float = 100.0
     _domain_y_length: float = 30.0
 
     # Producer well coordinates.
     prod_x_point: float = _domain_x_length - 15.0
-    prod_y_point: float = _domain_y_length*0.5
+    prod_y_point: float = _domain_y_length * 0.5
 
     # Injector well location
     _injection_points: list[np.ndarray] = [
-        np.array([_domain_x_length-prod_x_point, prod_y_point+1])
+        np.array([_domain_x_length - prod_x_point, prod_y_point + 1])
     ]
 
     # Production well location
-    _production_points: list[np.ndarray] = [
-        np.array([prod_x_point, prod_y_point])
-    ]
+    _production_points: list[np.ndarray] = [np.array([prod_x_point, prod_y_point])]
 
     def set_domain(self) -> None:
         x_length_in_m = self.units.convert_units(self._domain_x_length, "m")
         y_length_in_m = self.units.convert_units(self._domain_y_length, "m")
-        box: dict[str, pp.number] = {
-            "xmax": x_length_in_m,
-            "ymax": y_length_in_m
-        }
+        box: dict[str, pp.number] = {"xmax": x_length_in_m, "ymax": y_length_in_m}
         self._domain = pp.Domain(box)
-    
-    def set_fractures(self) -> None:
 
-        frac1 = pp.LineFracture(np.array([
-            [15.0, 25.0],
-            [15.0+1, 10]
-        ]))
-        frac2 = pp.LineFracture(np.array([
-            [25.0, 35.0],
-            [10.0, 15]
-        ]))
-        frac3 = pp.LineFracture(np.array([
-            [35.0, 45.0],
-            [15.0, 10]
-        ]))
-        frac4 = pp.LineFracture(np.array([
-            [45.0, 55.0],
-            [10.0, 15]
-        ]))
-        frac5 = pp.LineFracture(np.array([
-            [55.0, 65.0],
-            [15.0, 10.0]
-        ]))
-        frac6 = pp.LineFracture(np.array([
-            [65.0, 75.0],
-            [10.0, 15.0]
-        ]))
-        frac7 = pp.LineFracture(np.array([
-            [75.0, 85.0],
-            [15.0, 10.0]
-        ]))
-        frac7 = pp.LineFracture(np.array([
-            [75.0, 80.0],
-            [15.0, 10.0]
-        ]))
-        frac8 = pp.LineFracture(np.array([
-            [80.0, 85.0],
-            [10.0, 15.0]
-        ]))
-        frac9 = pp.LineFracture(np.array([
-            [85.0, 85.0],
-            [15.0, 18.0]
-        ]))
+    def set_fractures(self) -> None:
+        frac1 = pp.LineFracture(np.array([[15.0, 25.0], [15.0 + 1, 10]]))
+        frac2 = pp.LineFracture(np.array([[25.0, 35.0], [10.0, 15]]))
+        frac3 = pp.LineFracture(np.array([[35.0, 45.0], [15.0, 10]]))
+        frac4 = pp.LineFracture(np.array([[45.0, 55.0], [10.0, 15]]))
+        frac5 = pp.LineFracture(np.array([[55.0, 65.0], [15.0, 10.0]]))
+        frac6 = pp.LineFracture(np.array([[65.0, 75.0], [10.0, 15.0]]))
+        frac7 = pp.LineFracture(np.array([[75.0, 85.0], [15.0, 10.0]]))
+        frac7 = pp.LineFracture(np.array([[75.0, 80.0], [15.0, 10.0]]))
+        frac8 = pp.LineFracture(np.array([[80.0, 85.0], [10.0, 15.0]]))
+        frac9 = pp.LineFracture(np.array([[85.0, 85.0], [15.0, 18.0]]))
         self._fractures = [frac1, frac2, frac3, frac4, frac5, frac6, frac7, frac8]
-      
+
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
- 
+
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(1.0, "m")
         frac_cell_size = self.units.convert_units(1.0, "m")
@@ -234,7 +197,7 @@ class ConnectedFracturedDomain2D(pp.PorePyModel):
             "cell_size_fracture": frac_cell_size,
         }
         return mesh_args
-    
+
     def set_geometry(self):
         """Create the injection and production wells."""
 
@@ -244,12 +207,12 @@ class ConnectedFracturedDomain2D(pp.PorePyModel):
 
         for i, production_point in enumerate(self._production_points):
             self._add_well(production_point, i, "production")
-    
+
     def closest_face(self, grid: pp.Grid, point: np.ndarray) -> int:
         """Return index of closest face center to given point."""
         dists = np.linalg.norm(grid.face_centers - point.reshape(-1, 1), axis=0)
         return int(np.argmin(dists))
-    
+
     def _add_well(
         self,
         point: np.ndarray,
@@ -279,7 +242,7 @@ class ConnectedFracturedDomain2D(pp.PorePyModel):
             shape=(sd_0d.num_cells, matrix.num_cells),
         )
         _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
-    
+
     def _filter_wells(
         self,
         subdomains: Sequence[pp.Grid],

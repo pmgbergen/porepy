@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
     """Newton solver with Armijo line search, Anderson acceleration,
     and Appleyard variable chopping for compositional stability."""
-    
+
     def __init__(self, params: dict | None = None):
         pp.NewtonSolver.__init__(self, params)
         if params is None:
@@ -35,8 +35,10 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
             constrain_acceleration=constrain,
             regularization_parameter=reg_param,
         )
-    
-    def _apply_appleyard_chop(self, model: pp.PorePyModel, dx: np.ndarray) -> np.ndarray:
+
+    def _apply_appleyard_chop(
+        self, model: pp.PorePyModel, dx: np.ndarray
+    ) -> np.ndarray:
         """Chop updates for saturations, phase fractions, and overall
         compositions so that no absolute change exceeds the limit
         ``params['appleyard_chop']``.
@@ -51,7 +53,10 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
         var_groups = []
         if hasattr(model, "saturation_variables"):
             var_groups.append(model.saturation_variables)
-        if hasattr(model, "phase_fraction_variables") and model.phase_fraction_variables:
+        if (
+            hasattr(model, "phase_fraction_variables")
+            and model.phase_fraction_variables
+        ):
             var_groups.append(model.phase_fraction_variables)
         if hasattr(model, "overall_fraction_variables"):
             var_groups.append(model.overall_fraction_variables)
@@ -70,7 +75,6 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
 
         return dx
 
-    
     def iteration(self, model: pp.PorePyModel):
         """An iteration consists of performing the Newton step, obtaining the step size
         from the line search, and then performing the Anderson acceleration based on
@@ -133,8 +137,7 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
         return rho_i * np.ones_like(dx)
 
     def residual_objective_function(
-        self, 
-        model: pp.PorePyModel, dx: np.ndarray, weight: float
+        self, model: pp.PorePyModel, dx: np.ndarray, weight: float
     ) -> np.floating[Any]:
         """The objective function to be minimized is the norm of the residual squared
         and divided by 2."""

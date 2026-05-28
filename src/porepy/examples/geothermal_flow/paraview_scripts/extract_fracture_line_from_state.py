@@ -8,7 +8,6 @@ from paraview.simple import *
 import builtins
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", required=True)
@@ -135,7 +134,7 @@ def main():
 
     paraview.simple._DisableFirstRenderCameraReset()
 
-    LoadState(str(state_path))
+    LoadState(str(state_path), LoadStateDataFileOptions="Use File Names From State")
 
     pvd_readers = sources_by_xml_name("PVDReader")
     if not pvd_readers:
@@ -160,7 +159,6 @@ def main():
     available_times = list(reader.TimestepValues)
     if not available_times:
         raise RuntimeError("No time steps found in PVD reader.")
-    
 
     jobs = []
 
@@ -211,7 +209,7 @@ def main():
     #     out_file = out_dir / f"fracture_profile_t_{time_days:g}_days.csv"
 
     #     SaveData(
-    #         str(out_file), 
+    #         str(out_file),
     #         proxy=export_source,
     #         FieldAssociation="Point Data",
     #     )

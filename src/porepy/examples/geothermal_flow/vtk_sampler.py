@@ -6,12 +6,8 @@ from typing import Tuple
 
 
 class VTKSampler:
-
     def __init__(
-        self,
-        file_name: str,
-        extend_q: bool = True,
-        first_order_expansion: bool = False
+        self, file_name: str, extend_q: bool = True, first_order_expansion: bool = False
     ) -> None:
         self.file_name = file_name
         self._extend_q = extend_q
@@ -26,7 +22,9 @@ class VTKSampler:
         return self._conversion_factors
 
     @conversion_factors.setter
-    def conversion_factors(self, conversion_factors: Tuple[float, float, float]) -> None:
+    def conversion_factors(
+        self, conversion_factors: Tuple[float, float, float]
+    ) -> None:
         # TODO: Add sanity checks for the length of conversion_factors
         self._conversion_factors = conversion_factors
 
@@ -35,7 +33,9 @@ class VTKSampler:
         return self._translation_factors
 
     @translation_factors.setter
-    def translation_factors(self, translation_factors: Tuple[float, float, float]) -> None: 
+    def translation_factors(
+        self, translation_factors: Tuple[float, float, float]
+    ) -> None:
         # TODO: Add sanity checks for the length of conversion_factors
         self._translation_factors = translation_factors
 
@@ -57,7 +57,7 @@ class VTKSampler:
         return self.search_space.extract_surface()
 
     @cached_property
-    def bc_surface_bounds(self): #-> pyvista.BoundsLike:
+    def bc_surface_bounds(self):  # -> pyvista.BoundsLike:
         return self.bc_surface.bounds
 
     @property
@@ -68,13 +68,17 @@ class VTKSampler:
     def sampled_cloud(self, sampled_cloud):
         if self._sampled_cloud is not None:
             self._sampled_cloud.clear_data()
-        self._sampled_cloud = sampled_cloud.copy() if sampled_cloud is not None else None
+        self._sampled_cloud = (
+            sampled_cloud.copy() if sampled_cloud is not None else None
+        )
 
     def _load_search_space(self):
         """Pre-load the search space from the file to initialize cached properties."""
         tb = time.time()
         _ = self.search_space  # This will trigger the cached_property to load the data
-        _ = self.bc_surface_bounds  # This will also trigger the cached_property for _bc_surface_bounds
+        _ = (
+            self.bc_surface_bounds
+        )  # This will also trigger the cached_property for _bc_surface_bounds
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
@@ -84,13 +88,15 @@ class VTKSampler:
 
         point_cloud = pyvista.PolyData(points)
         # if point_cloud fall outside the search space then interpolated values will be zero.
-        self.sampled_cloud = point_cloud.sample(self.search_space)  # Interpolation region
-        
+        self.sampled_cloud = point_cloud.sample(
+            self.search_space
+        )  # Interpolation region
+
         if self._extend_q:
             is_external = self._capture_points_outside_bounds(points)
             if np.any(is_external):
                 self._extrapolate(points, is_external)
-        
+
         self._apply_conversion_factor_on_gradients()
 
     def _apply_conversions_old(self, points):
@@ -101,22 +107,26 @@ class VTKSampler:
     def _apply_conversions(self, points):
         """Applies scaling and translation to point coordinates."""
         return points * self._conversion_factors + self._translation_factors
-    
+
     def _refresh(self) -> None:
-        for attr in ['search_space', 'bc_surface', 'bc_surface_bounds']:
+        for attr in ["search_space", "bc_surface", "bc_surface_bounds"]:
             if attr in self.__dict__:
                 del self.__dict__[attr]
         self._load_search_space()
-    
+
     def _apply_conversion_factor_on_gradients(self):
         """Efficiently applies conversion factors to all gradient fields in the point cloud."""
         if self._sampled_cloud is None:
             return
 
-        grad_fields = [name for name in self._sampled_cloud.point_data if name.startswith("grad_")]
+        grad_fields = [
+            name for name in self._sampled_cloud.point_data if name.startswith("grad_")
+        ]
         for name in grad_fields:
             grad = self._sampled_cloud[name]
-            grad *= self._conversion_factors  # Element-wise multiply each component (uses broadcasting)
+            grad *= (
+                self._conversion_factors
+            )  # Element-wise multiply each component (uses broadcasting)
 
     def _capture_points_outside_bounds(self, points: np.ndarray) -> np.ndarray:
         """

@@ -14,6 +14,7 @@ from porepy.examples.geothermal_flow.plotting.plot_production_diagnostics import
     save_production_diagnostics_cache,
 )
 
+
 # -----------------------------------------------------------------------------
 # Extraction
 # -----------------------------------------------------------------------------
@@ -113,12 +114,12 @@ def extract_or_load_well_timeseries(
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         df.to_csv(cache_path, index=False)
         print(f"Cached data saved to {cache_path}")
-    
+
     # --- 2. Filter by Time if Requested ---
     if max_time_days is not None:
         # Create a boolean mask where timesteps are less than or equal to the max time
         mask = timesteps <= max_time_days
-        
+
         # Apply mask to timesteps and all variable arrays
         timesteps = timesteps[mask]
         results = {var: vals[mask] for var, vals in results.items()}

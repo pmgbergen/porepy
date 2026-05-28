@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from typing import Sequence
 from pathlib import Path
@@ -12,9 +11,11 @@ import numpy as np
 import pandas as pd
 
 import os
+
 os.environ["PATH"] = "/Library/TeX/texbin:" + os.environ["PATH"]
 
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+
 
 def compute_production_rate(
     p_cell: np.ndarray,
@@ -24,11 +25,11 @@ def compute_production_rate(
     s_vapour: np.ndarray,
     p_BHP: float,
     vtk_sampler: VTKSampler,
-    K0: float=1.0e-15,
-    phi0: float=0.1,
-    r_e: float=0.2,
-    r_w: float=0.1,
-    h: float=1.0,
+    K0: float = 1.0e-15,
+    phi0: float = 0.1,
+    r_e: float = 0.2,
+    r_w: float = 0.1,
+    h: float = 1.0,
     skin: float = 0.0,
 ) -> float:
     """
@@ -94,7 +95,7 @@ def compute_production_rate(
     # Relative permeabilities (Corey-type with halite correction, Eq. 39)
     R_liq = 0.3
     R_vap = 0.0
-    mobile_pore = 1.0 #- s_halite
+    mobile_pore = 1.0  # - s_halite
     s_liq_res = R_liq * mobile_pore
     s_vap_res = R_vap * mobile_pore
     denom = mobile_pore - s_liq_res - s_vap_res
@@ -112,8 +113,9 @@ def compute_production_rate(
     kr_liq_corey = kr_liq**1.5
     kr_vap_corey = kr_vap  # linear
 
-    lambda_total = np.where(mask_liq, rho_liq * kr_liq_corey / mu_liq, 0.0) \
-                 + np.where(mask_vap, rho_vap * kr_vap_corey / mu_vap, 0.0)
+    lambda_total = np.where(mask_liq, rho_liq * kr_liq_corey / mu_liq, 0.0) + np.where(
+        mask_vap, rho_vap * kr_vap_corey / mu_vap, 0.0
+    )
 
     # ---------------------------------------------------------
     # 4. Production rate (Eq. 41)
@@ -122,6 +124,7 @@ def compute_production_rate(
     q_prod = -lambda_total * WI * (p_cell - p_BHP)
 
     return q_prod
+
 
 """Plot production diagnostics and Figure 16 comparison."""
 
@@ -137,7 +140,9 @@ def style_axes(ax: plt.Axes) -> None:
         spine.set_linewidth(2.0)
 
 
-def load_timeseries_csv(csv_path: str | Path) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+def load_timeseries_csv(
+    csv_path: str | Path,
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Load extracted well/cell time-series data from CSV."""
     csv_path = Path(csv_path)
     if not csv_path.exists():
@@ -150,9 +155,7 @@ def load_timeseries_csv(csv_path: str | Path) -> tuple[np.ndarray, dict[str, np.
 
     timesteps = df["time_days"].to_numpy(dtype=float)
     results = {
-        col: df[col].to_numpy(dtype=float)
-        for col in df.columns
-        if col != "time_days"
+        col: df[col].to_numpy(dtype=float) for col in df.columns if col != "time_days"
     }
 
     return timesteps, results

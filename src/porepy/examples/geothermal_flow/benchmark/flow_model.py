@@ -43,7 +43,7 @@ def find_z_for_target_sh(
     sh_target: float,
     sampler: "VTKSampler",
     z_bounds: Tuple[float, float] = (0.0, 0.2),
-    z_size: int = 2
+    z_size: int = 2,
 ) -> np.ndarray:
     """
     For each pressure value, find the NaCl mass fraction z such that the halite saturation S_h equals a target value.
@@ -64,6 +64,7 @@ def find_z_for_target_sh(
     z_solutions: np.ndarray = np.full(N, np.nan)
 
     for i, p_i in enumerate(p_values):
+
         def f(z: float) -> float:
             par_point: np.ndarray = np.array([[z, T0, p_i]])
             sampler.sample_at(par_point)
@@ -71,18 +72,11 @@ def find_z_for_target_sh(
 
         try:
             z_vals = np.linspace(z_bounds[0], z_bounds[1], z_size)
-            s_vals = np.array([
-                f(z) for z in z_vals
-            ])
+            s_vals = np.array([f(z) for z in z_vals])
             idx = np.where(np.diff(np.sign(s_vals)))[0]
             z_low = z_vals[idx[0]]
             z_high = z_vals[idx[0] + 1]
-            sol = root_scalar(
-                f,
-                bracket=[z_low, z_high],
-                method="brentq",
-                xtol=1.0e-6
-            )
+            sol = root_scalar(f, bracket=[z_low, z_high], method="brentq", xtol=1.0e-6)
             if sol.converged:
                 z_solutions[i] = sol.root
         except ValueError:
@@ -295,10 +289,12 @@ class BenchmarkThreePhaseBoundaryConditions(pp.PorePyModel):
         temperature = self.bc_values_temperature(boundary_grid)
 
         z_inlet = as_float(self._composition_config().get("inlet", 0.0))
-        sh_target = as_float(self._composition_config().get(
-            "outlet_target_halite_saturation",
-            0.1,
-        ))
+        sh_target = as_float(
+            self._composition_config().get(
+                "outlet_target_halite_saturation",
+                0.1,
+            )
+        )
         z_bounds = tuple(self._composition_config().get("search_bounds", [0.3, 0.42]))
 
         z_outlet_values = find_z_for_target_sh(
@@ -383,7 +379,9 @@ class BenchmarkThreePhaseInitialConditions(pp.PorePyModel):
 
             composition_cfg = self._ic_config().get("z_nacl", {})
             sh_target = as_float(composition_cfg.get("target_halite_saturation", 0.1))
-            z_bounds = tuple(as_float(x) for x in composition_cfg.get("search_bounds", [0.3, 0.42]))
+            z_bounds = tuple(
+                as_float(x) for x in composition_cfg.get("search_bounds", [0.3, 0.42])
+            )
 
             return find_z_for_target_sh(
                 T0=float(temperature[0]),
@@ -394,9 +392,7 @@ class BenchmarkThreePhaseInitialConditions(pp.PorePyModel):
             )
 
         if component.name == "H2O":
-            nacl_component = next(
-                c for c in self.fluid.components if c.name == "NaCl"
-            )
+            nacl_component = next(c for c in self.fluid.components if c.name == "NaCl")
             z_nacl = self.ic_values_overall_fraction(nacl_component, sd)
             return 1.0 - z_nacl
 
@@ -476,6 +472,7 @@ class BenchmarkPermeabilityWithHaliteMixin(pp.PorePyModel):
 
 class SolverStatisticsMixin(pp.PorePyModel):
     """Mixin to print nonlinear solver statistics after each converged solve."""
+
     def after_nonlinear_convergence(self) -> None:
         """Print benchmark progress after each converged nonlinear solve."""
         super().after_nonlinear_convergence()
@@ -550,6 +547,4 @@ class BenchmarkThreePhaseFlowModel(
             )
             return maximum(s_eff, epsilon)
 
-        return (saturation - residual_vapor) / (
-            1.0 - residual_liquid - residual_vapor
-        )
+        return (saturation - residual_vapor) / (1.0 - residual_liquid - residual_vapor)

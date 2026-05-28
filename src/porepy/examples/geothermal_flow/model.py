@@ -2,31 +2,28 @@
 Unified geothermal compositional flow model.
 This file is the single model implementation for examples 1--3.
 
-Simulation: Salt dissolution and precipitation in a horizontal 2D geothermal reservoir 
+Simulation: Salt dissolution and precipitation in a horizontal 2D geothermal reservoir
 with point injection and production wells.
 
 Description:
 ------------
-This experiment injects low-salinity water (z_NaCl ≈ 1e-4) into a halite-saturated 
-geological formation, with initial NaCl mass fraction z_NaCl = 0.40. The setup uses 
-a mixed-dimensional grid with fractures and point grid wells at x ≈ 15 (injector) and 
+This experiment injects low-salinity water (z_NaCl ≈ 1e-4) into a halite-saturated
+geological formation, with initial NaCl mass fraction z_NaCl = 0.40. The setup uses
+a mixed-dimensional grid with fractures and point grid wells at x ≈ 15 (injector) and
 x ≈ 85 (producer), simulating three phases: liquid, vapor, and solid halite.
 
 Boundary conditions:
 --------------------
 - All outer boundaries: **no-flow** (impermeable).
-- Wells: injection well imposes temperature/composition of the injected fluid; 
+- Wells: injection well imposes temperature/composition of the injected fluid;
   production well is controlled by peaceman well flux.
 
 """
 
-
 import porepy as pp
 import numpy as np
 
-from porepy.models.compositional_flow import (
-    CompositionalFlowTemplate
-)
+from porepy.models.compositional_flow import CompositionalFlowTemplate
 from porepy.models.constitutive_laws import PeacemanWellFlux
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 from porepy.examples.geothermal_flow.model_configuration.constitutive_description.mixture_constitutive_description import (
@@ -118,6 +115,7 @@ class ThreePhaseSecondaryEquation2D(SecondaryEquations):
 @dataclass(kw_only=True)
 class FractureSolidConstants(pp.SolidConstants):
     """Solid constants tailored to the current model."""
+
     SI_units: ClassVar[dict[str, str]] = dict(**pp.SolidConstants.SI_units)
     SI_units.update({"fracture_permeability": "m^2"})
     fracture_permeability: pp.number = 1.0
@@ -128,14 +126,14 @@ def clamped_halite_saturation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator
     halite_phase = [p for p in self.fluid.phases if p.name == "halite"]
     if len(halite_phase) != 1:
         raise ValueError("Expected exactly one halite phase.")
-    
+
     s_h_raw = halite_phase[0].saturation(subdomains)
 
     max_fn = pp.ad.Function(pp.ad.maximum, "max_fn")
 
     def min_fn(a: pp.ad.Operator, b: pp.ad.Operator) -> pp.ad.Operator:
         return -max_fn(-a, -b)
-    
+
     min_val = min_fn(pp.ad.Scalar(0.8), max_fn(s_h_raw, pp.ad.Scalar(0.0)))
     return min_val
 
@@ -150,19 +148,19 @@ class WellFlowData(pp.PorePyModel):
     vtk_sampler_ptz: VTKSampler
 
     # Initial reservoir conditions (representative of ~2 km depth).
-    _p_INIT: float = 10.5e6         # Pa
-    _T_INIT: float = 586.651        # K
+    _p_INIT: float = 10.5e6  # Pa
+    _T_INIT: float = 586.651  # K
     _z_INIT: dict[str, float] = {"H2O": 0.6, "NaCl": 0.4}
 
     # In- and outflow values.
-    _T_INJ: float = 300.651    # 300.15   # K (injection temperature)
+    _T_INJ: float = 300.651  # 300.15   # K (injection temperature)
     _z_INJ: dict[str, float] = {"H2O": 0.9999, "NaCl": 1.0e-4}
 
-    _INJECTION_FRACTION: float = 1.0   # kg/kg
+    _INJECTION_FRACTION: float = 1.0  # kg/kg
     _aperture_clogging_exponent: float = 0.1
-    
-    _p_OUT: float = 7.0e6          # Pa
-    _well_radius: float = 0.1      # m
+
+    _p_OUT: float = 7.0e6  # Pa
+    _well_radius: float = 0.1  # m
 
     # Initial and injected fluid composition.
     _fracture_aperture = 1.0e-3  # m (initial fracture aperture)
@@ -171,12 +169,9 @@ class WellFlowData(pp.PorePyModel):
     _T_INJECTION: dict[int, float] = {0: _T_INJ}
     _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
     _p_INJECTION: dict[int, float] = {0: _p_INIT}
-    
+
     def _get_fluid_density(
-        self,
-        temperature: float,
-        pressure: float,
-        z_NaCl: float
+        self, temperature: float, pressure: float, z_NaCl: float
     ) -> float:
         """Sample bulk fluid density from the VTK table."""
         par_point = np.array([[z_NaCl, temperature, pressure]])
@@ -185,30 +180,22 @@ class WellFlowData(pp.PorePyModel):
         rho = data["Rho"][0]
         return rho
 
-    def _get_total_injected_mass_rate(
-        self
-    ) -> float:
-        """Calculate total injected mass (in kg/s).
-        """
+    def _get_total_injected_mass_rate(self) -> float:
+        """Calculate total injected mass (in kg/s)."""
 
         T_inj = self._T_INJ
         z_NaCl = self._z_INJ["NaCl"]
         rho = self._get_fluid_density(
-            temperature=T_inj,
-            pressure=self._p_INIT,
-            z_NaCl=z_NaCl
+            temperature=T_inj, pressure=self._p_INIT, z_NaCl=z_NaCl
         )
 
         base_rate = self._INJECTION_FRACTION * rho / 3600.0  # kg/m^3/s
         return base_rate
 
     def _injected_component_mass(
-        self,
-        component: pp.Component,
-        subdomains: Sequence[pp.Grid]
+        self, component: pp.Component, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
-        """Return injected mass source density for a given component [kg/m^3/s].
-        """
+        """Return injected mass source density for a given component [kg/m^3/s]."""
 
         # total injected mass rate [kg/m3/s]
         _total_injected_mass = self._get_total_injected_mass_rate()
@@ -217,7 +204,7 @@ class WellFlowData(pp.PorePyModel):
         z_NaCl = self._z_INJ["NaCl"]
 
         # total injected mass rate [kg/m^3/s]
-        _injected_mass_rate: dict[str, dict[int, float]] = { 
+        _injected_mass_rate: dict[str, dict[int, float]] = {
             "H2O": {0: _total_injected_mass * z_H2O},
             "NaCl": {0: _total_injected_mass * z_NaCl},
         }
@@ -231,14 +218,13 @@ class WellFlowData(pp.PorePyModel):
                 np.ones(sd.num_cells)
                 * _injected_mass_rate[component.name][sd.tags["injection_well"]]
             )
-        
+
         if injected_mass:
             source = np.hstack(injected_mass)
         else:
             source = np.zeros((0,))
 
         return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
-    
 
 
 # =============================================================================
@@ -248,10 +234,9 @@ class ModifyComponentSourceMixin:
     """
     Adjusts the component source terms for the mass balance equations.
     """
+
     def component_source(
-        self,
-        component: pp.Component,
-        subdomains: list[pp.Grid]
+        self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """
         Constructs the adjusted source term for the mass balance of a given fluid component.
@@ -268,7 +253,7 @@ class ModifyComponentSourceMixin:
         Returns:
             AD operator representing the component source term with proper well adjustments.
         """
-       
+
         source: pp.ad.Operator = super().component_source(component, subdomains)  # type:ignore[misc]
 
         injection_wells_grid, _ = self._filter_wells(subdomains, "injection")
@@ -283,7 +268,8 @@ class ModifyComponentSourceMixin:
         )
 
         source += subdomain_projections.cell_restriction(subdomains) @ (
-            subdomain_projections.cell_prolongation(injection_wells_grid) @ injected_mass
+            subdomain_projections.cell_prolongation(injection_wells_grid)
+            @ injected_mass
         )
 
         production_wells_grid, _ = self._filter_wells(subdomains, "production")
@@ -298,14 +284,14 @@ class ModifyComponentSourceMixin:
 # FLUID SOURCE MIXIN WITH RAMPED PRODUCTION BHP
 # =============================================================================
 class ModifyFluidSourceMixin(WellFlowData):
-    """ Modify the fluid source term for the pressure equations at the injection and production wells .
-    """
+    """Modify the fluid source term for the pressure equations at the injection and production wells ."""
 
     def WI(self) -> pp.ad.Operator:
         # Pick the hosting matrix grid (first 2D subdomain)
         # Reservoir properties
         prod_intf = [
-            intf for intf in self.mdg.interfaces()
+            intf
+            for intf in self.mdg.interfaces()
             if "production_well" in self.mdg.interface_to_subdomain_pair(intf)[1].tags
         ]
         subdomains = self.interfaces_to_subdomains(prod_intf)
@@ -319,12 +305,16 @@ class ModifyFluidSourceMixin(WellFlowData):
         # We assume isotropic permeability and extract xx component.
         e_i = self.e_i(subdomains, i=0, dim=9).T
         isotropic_permeability = e_i @ self.permeability(subdomains)
-        well_geo = pp.ad.Scalar(2 * np.pi) * h * projection.primary_to_mortar_avg() @ (
-            isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+        well_geo = (
+            pp.ad.Scalar(2 * np.pi)
+            * h
+            * projection.primary_to_mortar_avg()
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor))
+        )
 
         well_index = self.volume_integral(well_geo, prod_intf, 1)
         return well_index
-                
+
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Source term in the total mass balance.
         - Injection wells: positive source (mass in).
@@ -363,7 +353,7 @@ class ModifyFluidSourceMixin(WellFlowData):
         lambda_f = self.total_mass_mobility(prod_wells_grid)
 
         p_bhp = self._p_OUT
-        q_prod = - lambda_f * WI*(self.pressure(prod_wells_grid) - p_bhp)
+        q_prod = -lambda_f * WI * (self.pressure(prod_wells_grid) - p_bhp)
         q_prod.set_name("produced_fluid_mass")
 
         source += subdomain_projections.cell_restriction(subdomains) @ (
@@ -378,11 +368,9 @@ class ModifyFluidSourceMixin(WellFlowData):
 # ENERGY SOURCE MIXIN
 # =============================================================================
 class ModifyEnergySourceMixin:
-
     vtk_sampler_ptz: VTKSampler
-    
-    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """
         Adjust energy source term.
 
@@ -420,31 +408,26 @@ class ModifiedPrimaryEquationsMixin:
         subdomains = self.mdg.subdomains()
 
         injection_well_grid, _ = self._filter_wells(subdomains, "injection")
-        t_constraint = self.temperature_constraint_at_injection_wells(injection_well_grid)
+        t_constraint = self.temperature_constraint_at_injection_wells(
+            injection_well_grid
+        )
         self.equation_system.set_equation(
-            t_constraint,
-            injection_well_grid,
-            {"cells": 1}
+            t_constraint, injection_well_grid, {"cells": 1}
         )
 
     def temperature_constraint_at_injection_wells(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        
         T_injection_value = self._T_INJ
         T_injection = pp.wrap_as_dense_ad_array(
-            np.hstack(
-                [
-                    np.ones(sd.num_cells) * T_injection_value
-                    for sd in subdomains
-                ]
-            ),
+            np.hstack([np.ones(sd.num_cells) * T_injection_value for sd in subdomains]),
             name="injection_temperature",
         )
-        
+
         temperature_constraint_injection = self.temperature(subdomains) - T_injection
         temperature_constraint_injection.set_name("injection_temperature_constraint")
         return temperature_constraint_injection
+
 
 class HaliteDependentApertureMixin:
     """
@@ -453,6 +436,7 @@ class HaliteDependentApertureMixin:
     Effective aperture:
         b_eff = b0 * (1 - alpha * S_halite)^aperture_clogging_exponent
     """
+
     @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         if len(subdomains) == 0:
@@ -460,7 +444,9 @@ class HaliteDependentApertureMixin:
             return b0
         well_tags = {"injection_well", "production_well"}
         fractures_and_intersections = [
-            sd for sd in subdomains if sd.dim < self.nd and not well_tags.intersection(sd.tags)
+            sd
+            for sd in subdomains
+            if sd.dim < self.nd and not well_tags.intersection(sd.tags)
         ]
         wells_grids = [sd for sd in subdomains if well_tags.intersection(sd.tags)]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
@@ -470,7 +456,7 @@ class HaliteDependentApertureMixin:
             elif sd in fractures_and_intersections:
                 a_loc = self.fracture_or_intersection_aperture([sd])
             elif sd in wells_grids:
-                a_loc = np.ones(sd.num_cells)*self._well_radius
+                a_loc = np.ones(sd.num_cells) * self._well_radius
             else:
                 a_loc = super().aperture([sd])
             a_glob = projection.cell_prolongation([sd]) @ a_loc
@@ -480,17 +466,23 @@ class HaliteDependentApertureMixin:
                 aperture += a_glob
         aperture.set_name("aperture")
         return aperture
-    
-    def fracture_or_intersection_aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        b_min = getattr(self, "_minimum_aperture", 1.0e-4)  # m, minimum aperture to avoid zero permeability
+
+    def fracture_or_intersection_aperture(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        b_min = getattr(
+            self, "_minimum_aperture", 1.0e-4
+        )  # m, minimum aperture to avoid zero permeability
         if len(subdomains) == 0:
             b0 = super().aperture(subdomains)  # type:ignore[misc]
             return b0
-        
+
         s_halite_array = clamped_halite_saturation(self, subdomains)
         max_fn = pp.ad.Function(pp.ad.maximum, "maximum_function")
         b0 = pp.ad.Scalar(self._fracture_aperture)
-        effective_b = b0 * (pp.ad.Scalar(1.0) - s_halite_array)**pp.ad.Scalar(self._aperture_clogging_exponent)
+        effective_b = b0 * (pp.ad.Scalar(1.0) - s_halite_array) ** pp.ad.Scalar(
+            self._aperture_clogging_exponent
+        )
         effective_b = max_fn(effective_b, pp.ad.Scalar(b_min))
         effective_b.set_name("fracture_intersection_aperture")
 
@@ -522,31 +514,36 @@ class PorosityWithHaliteMixin2D(pp.PorePyModel):
         """
         well_tags = {"injection_well", "production_well"}
         subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
-        subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd and not well_tags.intersection(sd.tags)]
+        subdomains_lower = [
+            sd
+            for sd in subdomains
+            if sd.dim < self.nd and not well_tags.intersection(sd.tags)
+        ]
         subdomains_wells = [sd for sd in subdomains if well_tags.intersection(sd.tags)]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
 
         phi_nd = projection.cell_prolongation(subdomains_nd) @ self.porosity_matrix(
             subdomains_nd
         )
-        phi_lower = projection.cell_prolongation(subdomains_lower) @ self.porosity_fracture_and_intersection(
+        phi_lower = projection.cell_prolongation(
             subdomains_lower
-        )
-        phi_wells = projection.cell_prolongation(subdomains_wells) @ self.porosity_wells(
+        ) @ self.porosity_fracture_and_intersection(subdomains_lower)
+        phi_wells = projection.cell_prolongation(
             subdomains_wells
-        )
+        ) @ self.porosity_wells(subdomains_wells)
         phi = phi_nd + phi_lower + phi_wells
         phi.set_name("porosity")
-        
+
         return phi
-    
-    def porosity_fracture_and_intersection(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+
+    def porosity_fracture_and_intersection(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Porosity specifically for fractures and intersections."""
 
         return self.porosity_matrix(subdomains)
-    
-    def porosity_wells(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
+    def porosity_wells(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity specifically for OD grid"""
         return self.porosity_matrix(subdomains)
 
@@ -579,6 +576,7 @@ class ThermalConductivityMixinWithClampedHalite(pp.PorePyModel):
     This avoids divergence or non-physical behavior caused by Newton updates that
     temporarily drive saturation outside [0, 1].
     """
+
     def fluid_thermal_conductivity(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -600,7 +598,9 @@ class ThermalConductivityMixinWithClampedHalite(pp.PorePyModel):
             # s_h = halite_phase[0].saturation(domains)
 
             # Clamp only once
-            s_ref_clamped = min_fn(pp.ad.Scalar(1.0), max_fn(ref_sat, pp.ad.Scalar(0.0)))
+            s_ref_clamped = min_fn(
+                pp.ad.Scalar(1.0), max_fn(ref_sat, pp.ad.Scalar(0.0))
+            )
             s_h_clamped = clamped_halite_saturation(self, domains)
 
             for phase in self.fluid.phases:
@@ -611,7 +611,9 @@ class ThermalConductivityMixinWithClampedHalite(pp.PorePyModel):
                 else:
                     total_sat = min_fn(pp.ad.Scalar(1.0), s_ref_clamped + s_h_clamped)
                     inferred = pp.ad.Scalar(1.0) - total_sat
-                    saturation = min_fn(pp.ad.Scalar(1.0), max_fn(inferred, pp.ad.Scalar(0.0)))
+                    saturation = min_fn(
+                        pp.ad.Scalar(1.0), max_fn(inferred, pp.ad.Scalar(0.0))
+                    )
 
                 kappa = phase.thermal_conductivity(domains)
                 ops.append(saturation * kappa)
@@ -628,7 +630,6 @@ class ThermalConductivityMixinWithClampedHalite(pp.PorePyModel):
 # PERMEABILITY MIXIN
 # =============================================================================
 class PermeabilityWithHaliteMixin2D(pp.PorePyModel):
-    
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
 
@@ -647,14 +648,14 @@ class PermeabilityWithHaliteMixin2D(pp.PorePyModel):
         matrix = [sd for sd in subdomains if sd.dim == self.nd]
         fractures = [sd for sd in subdomains if sd.dim == self.nd - 1]
         intersections = [
-            sd for sd in subdomains if sd.dim == self.nd - 2 and not well_tags.intersection(sd.tags)
+            sd
+            for sd in subdomains
+            if sd.dim == self.nd - 2 and not well_tags.intersection(sd.tags)
         ]
         wells = [sd for sd in subdomains if well_tags.intersection(sd.tags)]
         permeability = (
-            projection.cell_prolongation(matrix)
-            @ self.matrix_permeability(matrix)
-            + projection.cell_prolongation(wells)
-            @ self.well_permeability(wells)
+            projection.cell_prolongation(matrix) @ self.matrix_permeability(matrix)
+            + projection.cell_prolongation(wells) @ self.well_permeability(wells)
             + projection.cell_prolongation(fractures)
             @ self.fracture_permeability(fractures)
             + projection.cell_prolongation(intersections)
@@ -664,23 +665,21 @@ class PermeabilityWithHaliteMixin2D(pp.PorePyModel):
         return permeability
 
     def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        
         size = sum(sd.num_cells for sd in subdomains)
 
         base_perm = pp.wrap_as_dense_ad_array(
-            self.solid.permeability, size,
-            name="permeability"
+            self.solid.permeability, size, name="permeability"
         )
 
         s_h_clamped = clamped_halite_saturation(self, subdomains)
         reduction = (1.0 - s_h_clamped) ** 2
-        corrected_perm = base_perm*reduction
+        corrected_perm = base_perm * reduction
 
         return self.isotropic_second_order_tensor(subdomains, corrected_perm)
-    
+
     def well_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return self.matrix_permeability(subdomains)
-    
+
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of the fractures.
 
@@ -704,7 +703,7 @@ class PermeabilityWithHaliteMixin2D(pp.PorePyModel):
 
         """
         return self.cubic_law_permeability(subdomains)
-    
+
     def cubic_law_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Cubic law permeability for fractures or intersections.
 
@@ -722,7 +721,7 @@ class PermeabilityWithHaliteMixin2D(pp.PorePyModel):
             )
         aperture = self.aperture(subdomains)
         permeability = (aperture ** pp.ad.Scalar(2)) / pp.ad.Scalar(12)
-        
+
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def cubic_law_permeability_old(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -742,9 +741,7 @@ class PermeabilityWithHaliteMixin2D(pp.PorePyModel):
             )
         size = sum(sd.num_cells for sd in subdomains)
         base_perm = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability, 
-            size,
-            name="permeability"
+            self.solid.fracture_permeability, size, name="permeability"
         )
         return self.isotropic_second_order_tensor(subdomains, base_perm)
 
@@ -764,13 +761,10 @@ class ThreePhaseFlowModelConfiguration2D(
     ModifiedPrimaryEquationsMixin,
     ThreePhaseSecondaryEquation2D,
     CompositionalFlowTemplate,
-    VTKSamplerMixin
+    VTKSamplerMixin,
 ):
-    
     def relative_permeability(
-        self,
-        phase: pp.Phase,
-        domains: pp.SubdomainsOrBoundaries
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         epsilon = pp.ad.Scalar(1e-12)  # small floor
 
@@ -796,4 +790,4 @@ class ThreePhaseFlowModelConfiguration2D(
             return s_eff ** pp.ad.Scalar(1.5)  # Corey-type curve
         else:  # vapor
             s_eff = (s - s_v_res) / (mobile_pore_volume - s_l_res - s_v_res)
-            return s_eff 
+            return s_eff

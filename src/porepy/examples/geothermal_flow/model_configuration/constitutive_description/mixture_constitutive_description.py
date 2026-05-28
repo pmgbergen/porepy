@@ -23,11 +23,11 @@ class PhaseMode(str, Enum):
 
 
 class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
-    """ Class implementing the calculation of thermodynamic properties of liquid phases
-        using the Driesner Correlation
+    """Class implementing the calculation of thermodynamic properties of liquid phases
+    using the Driesner Correlation
     """
 
-    _vtk_sampler: 'VTKSampler'
+    _vtk_sampler: "VTKSampler"
 
     @property
     def vtk_sampler(self):
@@ -41,7 +41,6 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:  # value, jacobian
-
         nc = len(thermodynamic_dependencies[0])
         vals = (2.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -62,7 +61,7 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
             raise AttributeError(
                 "Instance of the vtk_sampler attribute is not present."
             )
-        
+
         if len(thermodynamic_input) == 3:
             p, h, z_NaCl = thermodynamic_input
         elif len(thermodynamic_input) == 2:
@@ -71,7 +70,7 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
 
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
-        
+
         n = len(p)  # same for all input (number of cells)
 
         # Mass density of phase
@@ -128,10 +127,9 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
             phis=phis,
             dphis=dphis,
         )
-   
+
 
 class GasDriesnerCorrelations(pp.compositional.EquationOfState):
-
     @property
     def vtk_sampler(self):
         return self._vtk_sampler
@@ -144,7 +142,6 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         # vals = (1.0e-2) * np.ones(nc)
         vals = (2.0) * np.ones(nc)
@@ -187,7 +184,7 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         if len(thermodynamic_input) == 3:
             drho.append(drhodz)
         drho = np.vstack(drho)
-        
+
         # specific enthalpy of phase
         h = self.vtk_sampler.sampled_cloud.point_data["H_v"]
         dhdz = self.vtk_sampler.sampled_cloud.point_data["grad_H_v"][:, 0]
@@ -230,14 +227,15 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
             kappa=kappa,
             dkappa=dkappa,
             phis=phis,
-            dphis=dphis, 
+            dphis=dphis,
         )
 
 
 class HaliteDriesnerCorrelations(pp.compositional.EquationOfState):
-    """ Class implementing the calculation of thermodynamic properties of liquid phases
-        using the DriesnerCorrelation
+    """Class implementing the calculation of thermodynamic properties of liquid phases
+    using the DriesnerCorrelation
     """
+
     @property
     def vtk_sampler(self):
         return self._vtk_sampler
@@ -245,12 +243,11 @@ class HaliteDriesnerCorrelations(pp.compositional.EquationOfState):
     @vtk_sampler.setter
     def vtk_sampler(self, vtk_sampler):
         self._vtk_sampler = vtk_sampler
-    
+
     def kappa(
         self,
         *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]: # value, jacobian
-
+    ) -> tuple[np.ndarray, np.ndarray]:  # value, jacobian
         nc = len(thermodynamic_dependencies[0])
         vals = (2.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -293,7 +290,7 @@ class HaliteDriesnerCorrelations(pp.compositional.EquationOfState):
 
         # dynamic viscosity of phase. No mu_h, I need to check this out.
         num_cells = len(thermodynamic_input[0])
-        mu = 1.0*np.ones(num_cells)
+        mu = 1.0 * np.ones(num_cells)
         dmu = np.zeros((len(thermodynamic_input), num_cells))
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
@@ -318,10 +315,9 @@ class HaliteDriesnerCorrelations(pp.compositional.EquationOfState):
             phis=phis,
             dphis=dphis,
         )
-    
+
 
 class FluidMixture(pp.PorePyModel):
-
     """Mixture mixin creating the brine mixture with two components."""
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -331,38 +327,35 @@ class FluidMixture(pp.PorePyModel):
     phase_mode: str
 
     """provided by :class:`~model_configuration.DriesnerBrineFlowModel´"""
-  
+
     def get_components(self) -> Sequence[pp.FluidComponent]:
         """Setting H20 as first component in Sequence makes it the reference component.
         z_H20 will be eliminated."""
         if self.component_system == ComponentSystem.WATER:
             return pp.compositional.load_fluid_constants(["H2O"], "chemicals")
-        return pp.compositional.load_fluid_constants(
-            ["H2O", "NaCl"], "chemicals")
+        return pp.compositional.load_fluid_constants(["H2O", "NaCl"], "chemicals")
 
     def get_phase_configuration(
-        self,
-        components: Sequence[pp.Component]
+        self, components: Sequence[pp.Component]
     ) -> Sequence[
-        tuple[
-            pp.compositional.PhysicalState,
-            str,
-            pp.compositional.EquationOfState
-        ]
+        tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
         # Phase to EoS class and string label
         phase_definitions = {
             pp.compositional.PhysicalState.liquid: (LiquidDriesnerCorrelations, "liq"),
             pp.compositional.PhysicalState.gas: (GasDriesnerCorrelations, "gas"),
-            pp.compositional.PhysicalState.halite: (HaliteDriesnerCorrelations, "halite"),
+            pp.compositional.PhysicalState.halite: (
+                HaliteDriesnerCorrelations,
+                "halite",
+            ),
         }
         eos_list = []
 
         # Determine active phases
         if self.phase_mode == PhaseMode.TWO_PHASE:
             active_phases = [
-                pp.compositional.PhysicalState.liquid, 
-                pp.compositional.PhysicalState.gas
+                pp.compositional.PhysicalState.liquid,
+                pp.compositional.PhysicalState.gas,
             ]
         elif self.phase_mode == PhaseMode.THREE_PHASE:
             active_phases = [
@@ -382,8 +375,7 @@ class FluidMixture(pp.PorePyModel):
         return eos_list
 
     def dependencies_of_phase_properties(
-        self,
-        phase: pp.Phase
+        self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         z_NaCl = [
             comp.fraction
@@ -406,6 +398,7 @@ class SecondaryEquations(LocalElimination):
       no p-h equilibrium)
 
     """
+
     dependencies_of_phase_properties: Sequence[
         Callable[[pp.GridLikeSequence], pp.ad.Variable]
     ]
@@ -420,7 +413,7 @@ class SecondaryEquations(LocalElimination):
         [pp.compositional.Component, pp.compositional.Phase], bool
     ]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-    
+
     # Optional: allow this to be passed by the user for consistency with FluidMixture
     phase_mode: str  # Can be "gas", "liquid", or "two-phase"
 
@@ -428,7 +421,6 @@ class SecondaryEquations(LocalElimination):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         if len(thermodynamic_dependencies) == 3:
             p, h, z_NaCl = thermodynamic_dependencies
         elif len(thermodynamic_dependencies) == 2:
@@ -454,7 +446,6 @@ class SecondaryEquations(LocalElimination):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
@@ -472,7 +463,6 @@ class SecondaryEquations(LocalElimination):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         if len(thermodynamic_dependencies) == 3:
             p, h, z_NaCl = thermodynamic_dependencies
         elif len(thermodynamic_dependencies) == 2:
@@ -483,7 +473,7 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Overall temperature
-        T = self.vtk_sampler.sampled_cloud.point_data["Temperature"] # [K]
+        T = self.vtk_sampler.sampled_cloud.point_data["Temperature"]  # [K]
         dTdz = self.vtk_sampler.sampled_cloud.point_data["grad_Temperature"][:, 0]
         dTdH = self.vtk_sampler.sampled_cloud.point_data["grad_Temperature"][:, 1]
         dTdp = self.vtk_sampler.sampled_cloud.point_data["grad_Temperature"][:, 2]
@@ -497,7 +487,6 @@ class SecondaryEquations(LocalElimination):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         if len(thermodynamic_dependencies) == 3:
             p, h, z_NaCl = thermodynamic_dependencies
         elif len(thermodynamic_dependencies) == 2:
@@ -581,7 +570,7 @@ class SecondaryEquations(LocalElimination):
             dX_s.append(dX_sdz)
         dX_s = np.vstack(dX_s)
         return X_s, dX_s
-    
+
     # Halite phase components
     def NaCl_halite_func(
         self,
@@ -592,10 +581,10 @@ class SecondaryEquations(LocalElimination):
         par_points = np.array((z_NaCl, h, p)).T
         self.vtk_sampler.sample_at(par_points)
 
-        # Partial fraction of salt in halite phase. 
+        # Partial fraction of salt in halite phase.
         # There exists only a single component (Salt) in the halite phase.
         num_cells = len(thermodynamic_dependencies[0])
-        X_h = 1.0*np.ones(num_cells)
+        X_h = 1.0 * np.ones(num_cells)
         dX_hdz = np.zeros(num_cells)
         dX_hdH = np.zeros(num_cells)
         dX_hdp = np.zeros(num_cells)

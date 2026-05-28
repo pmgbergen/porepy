@@ -12,6 +12,7 @@ import pandas as pd
 from scipy.signal import savgol_filter
 
 import os
+
 os.environ["PATH"] = "/Library/TeX/texbin:" + os.environ["PATH"]
 
 plt.rcParams["text.usetex"] = True
@@ -19,7 +20,9 @@ plt.rcParams["font.family"] = "serif"
 plt.rcParams["text.latex.preamble"] = r"\usepackage{lmodern}\usepackage{bm}"
 
 
-def _safe_savgol(values: np.ndarray, window_length: int = 17, polyorder: int = 2) -> np.ndarray:
+def _safe_savgol(
+    values: np.ndarray, window_length: int = 17, polyorder: int = 2
+) -> np.ndarray:
     """Apply Savitzky-Golay smoothing while handling short arrays safely."""
     n = len(values)
     if n < 5:
@@ -41,7 +44,10 @@ def plot_centerline_profile_p_T_h_s_vap_s_hal_z(
     smooth: bool = False,
     smooth_range: tuple[float, float] = (0.0, 10.0),
     variables_to_smooth: tuple[str, ...] = ("enthalpy", "s_gas"),
-    starting_values_smoothing: dict[str, float] | None = {"enthalpy": 1.197e6, "s_gas": 0.388},
+    starting_values_smoothing: dict[str, float] | None = {
+        "enthalpy": 1.197e6,
+        "s_gas": 0.388,
+    },
     legend_loc: str = "upper right",
     show: bool = False,
 ) -> None:
@@ -95,7 +101,9 @@ def plot_centerline_profile_p_T_h_s_vap_s_hal_z(
 
         for var in variables_to_smooth:
             if var in df.columns:
-                df.loc[mask, var] = _safe_savgol(df.loc[mask, var].to_numpy(dtype=float))
+                df.loc[mask, var] = _safe_savgol(
+                    df.loc[mask, var].to_numpy(dtype=float)
+                )
 
         if starting_values_smoothing:
             first_idx = df.index[np.argmin(np.abs(x - 0.0))]
@@ -239,6 +247,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--smooth-start", nargs="*", default=[])
     parser.add_argument("--legend-loc", default="upper right")
     return parser.parse_args()
+
 
 def parse_key_value_pairs(items: list[str]) -> dict[str, float]:
     values = {}

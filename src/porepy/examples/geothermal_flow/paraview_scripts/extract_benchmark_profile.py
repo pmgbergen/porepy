@@ -52,9 +52,7 @@ def closest_dataset(
         candidates = [entry for entry in datasets if block_filter in entry["file"]]
 
     if not candidates:
-        raise RuntimeError(
-            f"No PVD datasets matched block_filter={block_filter!r}."
-        )
+        raise RuntimeError(f"No PVD datasets matched block_filter={block_filter!r}.")
 
     # if time_years is not None:
     #     target = time_years * SECONDS_PER_YEAR
@@ -112,7 +110,9 @@ def load_mesh_from_pvd(
     return mesh, selected["time"], mesh_path
 
 
-def extract_profile(mesh: pv.DataSet, *, gas_zero_threshold: float | None = None) -> pd.DataFrame:
+def extract_profile(
+    mesh: pv.DataSet, *, gas_zero_threshold: float | None = None
+) -> pd.DataFrame:
     """Extract benchmark cell-centered profile data."""
     centers = mesh.cell_centers().points
     x_m = np.asarray(centers[:, 0], dtype=float)
@@ -166,6 +166,7 @@ def extract_profile(mesh: pv.DataSet, *, gas_zero_threshold: float | None = None
     df = df.sort_values("x_m").reset_index(drop=True)
 
     return df
+
 
 def convert_requested_time_to_pvd_units(
     *,

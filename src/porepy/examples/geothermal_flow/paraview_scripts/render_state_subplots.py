@@ -264,7 +264,7 @@ def main() -> None:
 
     paraview.simple._DisableFirstRenderCameraReset()
 
-    LoadState(str(state_path))
+    LoadState(str(state_path), LoadStateDataFileOptions="Use File Names From State")
 
     pvd_readers = find_pvd_readers()
 
