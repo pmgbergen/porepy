@@ -95,13 +95,13 @@ figures:
     time_index: -1
     save_layout: true
     update_all_pvd_readers: true
-
+  
   figure11:  #halite_saturation_progression
     type: paraview_time_series_then_matplotlib
 
     paraview_render:
       script: geothermal_flow/paraview_scripts/render_state_time_series.py
-      state: geothermal_flow/paraview_states/example1/hal_sat_panel.pvsm
+      state: geothermal_flow/paraview_states/example1/hal_sat_panel_no_colorbar.pvsm
       pvd: visualization/example1/example1.pvd
       out_dir: figures/example1/s_halite_panels
       times_days: [1, 10, 30, 74]
@@ -110,6 +110,10 @@ figures:
       script: geothermal_flow/plotting/assemble_s_halite_panels.py
       panel_dir: figures/example1/s_halite_panels
       output: figures/example1/figure11.png
+      colorbar_label: "$\\mathbf{s}^{\\mathbf{hal}}$"
+      vmin: 0.0
+      vmax: 0.21
+      cmap: coolwarm
   
   figure12:  #fracture_halite_aperture
     type: csv_then_matplotlib
