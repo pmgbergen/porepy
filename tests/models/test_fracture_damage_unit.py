@@ -63,6 +63,9 @@ def _prepared_model(
     geometry are fully initialized.  No time step is advanced and no nonlinear solve is
     performed.
 
+    Tests modify the equation system directly at iterate index 0 to prescribe variable
+    values. Hence not a fixture.
+
     Parameters:
         isotropic: If ``True``, use ``IsotropicFractureDamageLength``; otherwise use
             ``AnisotropicFractureDamageLength``.
