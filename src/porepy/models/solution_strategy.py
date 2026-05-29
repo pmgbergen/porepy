@@ -853,7 +853,7 @@ class SolutionStrategy(pp.PorePyModel):
         #         col_sum_ratio=col_sum_max / col_sum_min,
         #     )
 
-
+        t_0 = time.time()
 
         solver = self.linear_solver
         if solver == "pypardiso":
