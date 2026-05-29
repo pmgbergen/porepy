@@ -390,6 +390,11 @@ def run_assemble_s_halite_panels(
         "--out",
         plot_cfg["output"],
     ]
+    append_if_present(command, "--colorbar-label", plot_cfg, "colorbar_label")
+    append_if_present(command, "--vmin", plot_cfg, "vmin")
+    append_if_present(command, "--vmax", plot_cfg, "vmax")
+    append_if_present(command, "--cmap", plot_cfg, "cmap")
+    append_if_present(command, "--dpi", plot_cfg, "dpi")
 
     run_command(command, dry_run=dry_run)
 
