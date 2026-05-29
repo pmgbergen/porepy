@@ -2170,7 +2170,7 @@ class Exporter:
                 n = num_faces_per_cell[0]
                 if n == 4:
                     cell_types.add("tetra")
-                elif n == 6 and isinstance(grid, pp.CartGrid):
+                elif n == 6 and isinstance(grid, pp.TensorGrid):
                     cell_types.add("hexahedron")
                 else:
                     cell_types.add("polyhedron")

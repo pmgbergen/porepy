@@ -1414,6 +1414,14 @@ class ReservoirGeometry(pp.PorePyModel):
 
         ls = self.units.convert_units(1, "m")  # length scaling
 
+        meshing_config = self.params.get("meshing_config", {})
+        meshing_arguments = self.params.get("meshing_arguments", {})
+
+        cell_size = meshing_config.get("cell_size")
+        if cell_size is None:
+            cell_size = meshing_arguments.get("cell_size")
+
+
 
         mesh_sizes = {
             # Cartesian: 2 by 8 cells.
@@ -1421,6 +1429,9 @@ class ReservoirGeometry(pp.PorePyModel):
             "y_pts": y_pts*ls,
             "z_pts": z_pts*ls,
         }
+        if cell_size is not None:
+            mesh_sizes["cell_size"] = cell_size*ls
+
         print("Mesh sizes:", mesh_sizes)
         return mesh_sizes
 
@@ -1431,7 +1442,7 @@ class ReservoirGeometry(pp.PorePyModel):
             Grid type for the mixed-dimensional grid.
 
         """
-        return "tensor_grid"
+        return self.params.get("grid_type", "tensor_grid")
 
 
 

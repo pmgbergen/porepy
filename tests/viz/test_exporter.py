@@ -169,6 +169,26 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
     )
 
 
+def test_tensor_grid_3d_exports_as_hexahedron(setup: ExporterTestSetup):
+    """TensorGrid 3D cells should use the dedicated hexahedron export path."""
+
+    import meshio
+
+    sd = pp.TensorGrid(
+        np.array([0.0, 1.0]), np.array([0.0, 1.0]), np.array([-1.0, 0.0])
+    )
+    sd.compute_geometry()
+
+    save = pp.Exporter(sd, setup.file_name, setup.folder)
+    save.write_vtu([])
+
+    assert save.meshio_geom[3] is not None
+    assert [cb.type for cb in save.meshio_geom[3].connectivity] == ["hexahedron"]
+
+    written = meshio.read(setup.folder / f"{setup.file_name}_{sd.dim}.vtu")
+    assert [cell_block.type for cell_block in written.cells] == ["hexahedron"]
+
+
 def test_import_state_from_vtu_single_subdomains(
     setup: ExporterTestSetup, subdomain: SingleSubdomain
 ):
