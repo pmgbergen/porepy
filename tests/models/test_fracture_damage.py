@@ -148,7 +148,7 @@ def test_isotropic_damage(dim: int):
 
         # II) Third displacement jump is the negative of the second. For isotropic
         # damage length, this leads to a further decrease in...
-        # i) damage
+        # i) damage state/history.
         name = names[0]
         val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
         val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
@@ -159,7 +159,9 @@ def test_isotropic_damage(dim: int):
         assert np.all(val2 * 2 > val1), (
             f"Damage decrease too large for {name} at t=3: {val2}/{val1}."
         )
-        # ii) ... corresponding to a threefold increase in damage history.
+        # ii) ... corresponding to a threefold increase in damage history, since
+        # cumulative length 3 = length 2 + (length 2 - (-length 2) ), where the
+        # parenthesis is the last step.
         name = names[1]
         val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
         val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
@@ -170,9 +172,9 @@ def test_isotropic_damage(dim: int):
             err_msg=f"Damage history mismatch for {name} at t=3: {val2}/{val1}.",
         )
 
-        # III) Fourth displacement jump and increment are nonzero in the tangential
-        # direction, but the normal displacement is large enough to open the fracture.
-        # Thus, we expect no additional damage.
+        # III) Fourth displacement jump and corresponding increment are nonzero in the
+        # tangential direction, but the normal displacement is large enough to open the
+        # fracture. Thus, we expect no additional damage.
         for name in names:
             val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
             val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
