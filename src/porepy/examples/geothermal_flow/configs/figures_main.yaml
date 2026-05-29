@@ -101,7 +101,7 @@ figures:
 
     paraview_render:
       script: geothermal_flow/paraview_scripts/render_state_time_series.py
-      state: geothermal_flow/paraview_states/example1/hal_sat_panel_no_colorbar.pvsm
+      state: geothermal_flow/paraview_states/example1/hal_sat_panel.pvsm
       pvd: visualization/example1/example1.pvd
       out_dir: figures/example1/s_halite_panels
       times_days: [1, 10, 30, 74]
