@@ -1010,7 +1010,7 @@ class TimeDependentOperator(Operator):
 
         Raises:
             ValueError: If this instance represents an operator at a previous iterate.
-            AssertionError: If ``steps`` is not non-negative.
+            ValueError: If ``steps`` is not non-negative.
 
         """
         if isinstance(self, IterativeOperator):
@@ -1020,7 +1020,8 @@ class TimeDependentOperator(Operator):
                     + " if it already represents a previous iterate."
                 )
 
-        assert steps >= 0, "Number of steps backwards must be non-negative."
+        if steps < 0:
+            raise ValueError("Number of steps backwards must be non-negative.")
         # TODO copy or deepcopy? Is this enough for every operator class?
         op = copy.copy(self)
         # Delete the cached key, so that this must be regenerated for the new operator,
@@ -1134,7 +1135,7 @@ class IterativeOperator(Operator):
 
         Raises:
             ValueError: If this instance represents an operator at a previous time step.
-            AssertionError: If ``steps`` is not non-negative.
+            ValueError: If ``steps`` is not non-negative.
 
         """
         if isinstance(self, TimeDependentOperator):
@@ -1143,7 +1144,8 @@ class IterativeOperator(Operator):
                     "Cannot create an operator representing a previous iterate,"
                     + " if it already represents a previous time step."
                 )
-        assert steps >= 0, "Number of steps backwards must be non-negative."
+        if steps < 0:
+            raise ValueError("Number of steps backwards must be non-negative.")
         # See TODO in TimeDependentOperator.previous_timestep
         op = copy.copy(self)
         # Delete the cached key, so that this must be regenerated for the new operator,
