@@ -283638,7 +283638,7 @@
         <Domain name="array_list" id="180388.ColumnArrayStatus.array_list"/>
       </Property>
       <Property name="FileName" id="180388.FileName" number_of_elements="1">
-        <Element index="0" value="/Users/michealoguntola/Desktop/Numerical-Experiments-MaPSI/software-used-paper-one/porepy/src/porepy/examples/visualization/example3/example3.pvd"/>
+        <Element index="0" value="visualization/example3/example3.pvd"/>
         <Domain name="files" id="180388.FileName.files"/>
       </Property>
       <Property name="PointArrayInfo" id="180388.PointArrayInfo" number_of_elements="2">
