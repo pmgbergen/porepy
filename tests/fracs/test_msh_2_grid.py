@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.msh_2_grid import (
@@ -352,3 +353,43 @@ def test_create_grids_with_high_dim_inclusion(
 
         else:
             assert INCLUSION_NAME not in g.tags
+
+
+@pytest.mark.parametrize(
+    "nodes,is_linear",
+    [
+        # Equidistant, alingned with axes.
+        (np.array([[0, 1, 2], [0, 0, 0], [0, 0, 0]]), True),
+        # Non-equidistant, aligned with axes.
+        (np.array([[0, 1, 3], [0, 0, 0], [0, 0, 0]]), True),
+        # Not aligned with axes.
+        (np.array([[0, 1, 2], [0, 1, 2], [0, 0, 0]]), True),
+        # Not a straight line.
+        (np.array([[0, 1, 2], [0, 1, 2], [0, 0, 1]]), False),
+    ],
+)
+@pytest.mark.parametrize("shuffle", [True, False])
+def test_create_1d_grid_from_nodes(
+    nodes: np.ndarray, is_linear: bool, shuffle: bool
+) -> None:
+    """Test that create_embedded_line_grid creates a grid with the correct nodes.
+
+    We do no check of the actual grid structure beyond the node coordinates as this is
+    not a primary concern for the tested function.
+
+    Parameters:
+        nodes: The nodes to be used in the grid. Should be of shape (3, num_nodes).
+        is_linear: Whether the points are collinear.
+        shuffle: Whether to shuffle the order of the points.
+
+    """
+    if shuffle:
+        nodes = nodes[:, [2, 0, 1]]
+
+    # Only sort if the points are linear (otherwise, we would mess up the geometry). No
+    # need to sort if the points are not shuffled.
+    g = pp.fracs.msh_2_grid.create_embedded_line_grid(
+        nodes, None, sort=shuffle and is_linear
+    )
+    assert isinstance(g, pp.Grid)
+    assert compare_arrays(g.nodes, nodes)

@@ -1070,15 +1070,15 @@ class DarcysLaw(pp.PorePyModel):
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Gradient operator in the normal direction. The collapsed distance is
-        # :math:`\frac{a}{2}` on either side of the fracture.
+        # Gradient operator scaling factor in the normal direction. The collapsed
+        # distance is :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
-        normal_gradient = pp.ad.Scalar(2) * (
+        normal_gradient_length = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
-        normal_gradient.set_name("normal_gradient")
+        normal_gradient_length.set_name("normal_gradient_length")
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
@@ -1089,7 +1089,7 @@ class DarcysLaw(pp.PorePyModel):
         eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
             self.normal_permeability(interfaces)
             * (
-                normal_gradient * (pressure_h - pressure_l)
+                normal_gradient_length * (pressure_h - pressure_l)
                 + self.interface_vector_source_darcy_flux(interfaces)
             ),
             interfaces,
@@ -2480,13 +2480,13 @@ class FouriersLaw(pp.PorePyModel):
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Gradient operator in the normal direction. The collapsed distance is
-        # :math:`\frac{a}{2}` on either side of the fracture.
-        normal_gradient = pp.ad.Scalar(2) * (
+        # Gradient operator scaling factor in the normal direction. The collapsed
+        # distance is :math:`\frac{a}{2}` on either side of the fracture.
+        normal_gradient_length = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
-        normal_gradient.set_name("normal_gradient")
+        normal_gradient_length.set_name("normal_gradient_length")
 
         # Project the two temperatures to the interface and multiply with the normal
         # conductivity.
@@ -2501,7 +2501,7 @@ class FouriersLaw(pp.PorePyModel):
         eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
             self.normal_thermal_conductivity(interfaces)
             * (
-                normal_gradient * (temperature_h - temperature_l)
+                normal_gradient_length * (temperature_h - temperature_l)
                 + self.interface_vector_source_fourier_flux(interfaces)
             ),
             interfaces,

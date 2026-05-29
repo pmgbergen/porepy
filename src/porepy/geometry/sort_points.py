@@ -264,7 +264,7 @@ def sort_points_on_line(
 
     dx = p.max(axis=1) - p.min(axis=1)
     active_dim = np.where(dx > tol)[0]
-    assert active_dim.size == 1, "Points should be co-linear"
+    assert active_dim.size == 1, "Points should be collinear"
     return np.argsort(p[active_dim])[0]
 
 
