@@ -1251,12 +1251,17 @@ class ReservoirGeometry(pp.PorePyModel):
     def build_meshing_spec(self) -> MeshingSpec:
         """Parse self.params into internal MeshingSpec."""
 
-        meshing_args = self.params.get("meshing_config", {})
+        meshing_config = self.params.get("meshing_config", {})
+        meshing_arguments = self.params.get("meshing_arguments", {})
+
+        cell_size = meshing_config.get("cell_size")
+        if cell_size is None:
+            cell_size = meshing_arguments.get("cell_size")
 
         # ---- global sizes ----
-        dx = meshing_args.get("cell_size_x", meshing_args.get("cell_size"))
-        dy = meshing_args.get("cell_size_y", meshing_args.get("cell_size"))
-        dz = meshing_args.get("cell_size_z", meshing_args.get("cell_size"))
+        dx = meshing_config.get("cell_size_x", cell_size)
+        dy = meshing_config.get("cell_size_y", cell_size)
+        dz = meshing_config.get("cell_size_z", cell_size)
 
         if dx is None or dy is None or dz is None:
             raise ValueError("Missing global cell size (cell_size or cell_size_x/y/z).")
@@ -1264,10 +1269,10 @@ class ReservoirGeometry(pp.PorePyModel):
         global_cell_size = GlobalCellSize(dx=dx, dy=dy, dz=dz)
 
         # ---- layer dz ----
-        layer_dz = meshing_args.get("layer_cell_size_z", {})
+        layer_dz = meshing_config.get("layer_cell_size_z", {})
 
         # ---- rectangles ----
-        rectangles_input = meshing_args.get("fine_rectangles", [])
+        rectangles_input = meshing_config.get("fine_rectangles", [])
 
         fine_rectangles = tuple(
             FineRectangle(
@@ -1294,7 +1299,23 @@ class ReservoirGeometry(pp.PorePyModel):
 
         stratigraphy = self.params.get("stratigraphy")
         if stratigraphy is None:
-            raise ValueError("Missing 'stratigraphy' in params.")
+            #generate default single layer if no stratigraphy provided
+            top_depth = self.params.get("stratigraphy", {}).get("top_depth", 0.0)
+            a, b, c = self.params.get("domain_size", (10, 10, 10))  # [m]
+            bottom_depth = top_depth + c
+            return     (
+    ResolvedLayer(
+        name="default_layer",
+        top_depth=top_depth,
+        bottom_depth=bottom_depth,
+        porosity=self.solid.porosity,
+        permeability=self.solid.permeability,
+    ),
+)
+
+
+
+
 
         layers = stratigraphy.get("layers", [])
         if not layers:
