@@ -35,14 +35,12 @@ Several postprocessed figures depend on outputs from **both** simulations:
 ```text
 figure14
 figure15
-figure16
 ```
 
 In particular:
 
-- `figure14` uses Example 2 fracture-line extraction.
-- `figure15` compares near-well halite saturation between Example 1 and Example 2.
-- `figure16` compares production rate and energy production rate between Example 1 and Example 2.
+- `figure14` compares near-well halite saturation between Example 1 and Example 2.
+- `figure15` compares production rate and energy production rate between Example 1 and Example 2.
 
 Therefore, run both Example 1 and Example 2 before generating the comparison figures.
 
@@ -146,6 +144,7 @@ geothermal_flow/configs/figures.yaml
 The figure workflow may perform one or more of the following operations depending on the figure:
 
 - render a saved ParaView state file to PNG,
+- render ParaView time-series panels,
 - extract CSV data from a ParaView pipeline,
 - extract time-series data from `.pvd` files,
 - extract benchmark profiles from `.pvd` files,
@@ -266,65 +265,17 @@ The figure workflow currently covers:
 | Figure | Source case(s) | Workflow |
 |---|---|---|
 | `figure6` | benchmark | Extract benchmark profile and compare with CSMP reference data |
-| `figure8` | example1 | Render ParaView state |
+| `figure8` | example1 | Render PHZ column states at selected times and assemble columns |
 | `figure9` | example1 | Extract centerline CSV and plot with Matplotlib |
-| `figure10` | example1 | Render ParaView state |
-| `figure11` | example1 | Render ParaView state |
-| `figure12` | example1 | Render time-series ParaView panels and assemble with Matplotlib |
-| `figure13` | example1 | Extract fracture-line CSVs and plot halite/aperture profiles |
-| `figure14` | example2 | Extract fracture-line CSVs and plot halite/aperture profiles |
-| `figure15` | example1 + example2 | Render near-well panels and assemble comparison |
-| `figure16` | example1 + example2 | Extract production diagnostics and plot comparison |
-| `figure17` | example3 | Render ParaView state |
-| `figure18` | example3 | Extract centerline CSV and plot with Matplotlib |
-| `figure19` | example3 | Render ParaView state |
-
----
-
-## Main files
-
-```text
-geothermal_flow/
-  simulation_driver.py
-  make_figures.py
-  io_utils.py
-  model.py
-  reservoir_domain.py
-  vtk_sampler.py
-
-  configs/
-    defaults.yaml
-    benchmark.yaml
-    example1.yaml
-    example2.yaml
-    example3.yaml
-    figures.yaml
-
-  benchmark/
-    flow_model.py
-    reference_data/
-    plotting/
-      plot_benchmark_comparison.py
-
-  paraview_scripts/
-    render_state_subplots.py
-    render_state_time_series.py
-    extract_fracture_line_from_state.py
-    extract_benchmark_profile.py
-    extract_well_time_series_data.py
-
-  plotting/
-    assemble_s_halite_panels.py
-    plot_centerline_profiles.py
-    plot_halite_aperture_ratio.py
-    plot_near_well_comparison.py
-    plot_production_diagnostics.py
-
-  paraview_states/
-    example1/
-    example2/
-    example3/
-```
+| `figure10` | example1 | Render phase saturation and permeability-ratio ParaView state |
+| `figure11` | example1 | Render halite-saturation time panels and assemble with Matplotlib |
+| `figure12` | example1 | Extract fracture-line CSVs and plot halite/aperture profiles |
+| `figure13` | example2 | Extract fracture-line CSVs and plot halite/aperture profiles |
+| `figure14` | example1 + example2 | Render near-well panels and assemble comparison |
+| `figure15` | example1 + example2 | Extract production diagnostics and plot comparison |
+| `figure16` | example3 | Render PHZ column states at selected times and assemble columns |
+| `figure17` | example3 | Extract centerline CSV and plot with Matplotlib |
+| `figure18` | example3 | Render phase-saturation ParaView state |
 
 ---
 
@@ -417,13 +368,13 @@ geothermal_flow/benchmark/reference_data/
 
 The benchmark plotting script expects the CSMP reference files used for pressure, temperature, liquid saturation, and halite saturation.
 
-### Figure 15 or Figure 16 fails
+### Figure 14 or Figure 15 fails
 
 These figures depend on both Example 1 and Example 2 outputs. Make sure both simulations have been run before generating these comparison figures.
 
-### Figure 16 production diagnostics missing
+### Figure 15 production diagnostics missing
 
-`figure16` automatically extracts production-cell time series and writes diagnostics caches under:
+`figure15` automatically extracts production-cell time series and writes diagnostics caches under:
 
 ```text
 output/example1/
