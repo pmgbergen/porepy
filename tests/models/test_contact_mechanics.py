@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.test_utils.models import ContactMechanicsTester, add_mixin
 from porepy.models.contact_mechanics import (
     RadialReturnTangentialContactMechanicsEquation,
