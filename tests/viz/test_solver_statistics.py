@@ -7,6 +7,7 @@ import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
+from porepy.models.model_runner import SimulationStatus
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
@@ -15,7 +16,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusHistory,
     SolverStatus,
 )
-from porepy.models.model_runner import SimulationStatus
 from porepy.viz.solver_statistics import (
     NonlinearSolverAndTimeStatistics,
     NonlinearSolverStatistics,

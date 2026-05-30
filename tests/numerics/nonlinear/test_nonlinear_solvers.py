@@ -10,6 +10,7 @@ from deepdiff import DeepDiff
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.models.model_runner import SimulationStatus
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoHistory,
     ConvergenceStatus,
@@ -17,7 +18,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     SolverStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
-from porepy.models.model_runner import SimulationStatus
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
 
