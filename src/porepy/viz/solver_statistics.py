@@ -370,11 +370,12 @@ class NonlinearSolverStatistics(SolverStatistics):
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
         # Determine number of waisted iterations.
+        # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
         ):
-            if simulation_status != SolverStatus.SUCCESSFUL:
+            if not simulation_status.is_successful():
                 total_num_waisted_iterations += num_iterations
 
         # Update global data.
@@ -477,9 +478,10 @@ class TimeStatistics(SolverStatistics):
         # Simulation status identifies success of time step.
         total_num_time_steps = 0
         total_num_failed_time_steps = 0
+        # TODO: Rethink during upgrade of time integration.
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if simulation_status != SolverStatus.SUCCESSFUL:
+            if not simulation_status.is_successful():
                 total_num_failed_time_steps += 1
 
         # Update global data.
