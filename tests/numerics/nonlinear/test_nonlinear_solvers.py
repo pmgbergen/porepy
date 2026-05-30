@@ -1134,7 +1134,7 @@ def test_update_solver_statistics(default_newton_solver):
 
     # Set some inputs for the update_solver_statistics method.
     # Here, we simulate one iteration with not converged status.
-    simulation_status = SolverStatus.IN_PROGRESS
+    solver_status = SolverStatus.IN_PROGRESS
     convergence_status = ConvergenceStatusCollection(
         {
             "inc_abs": ConvergenceStatus.NOT_CONVERGED,
@@ -1146,7 +1146,7 @@ def test_update_solver_statistics(default_newton_solver):
 
     # Call the update_solver_statistics method
     solver.update_solver_statistics(
-        model, simulation_status, convergence_status, convergence_info
+        model, solver_status, convergence_status, convergence_info
     )
 
     # Check that the solver statistics have been updated correctly
@@ -1160,7 +1160,7 @@ def test_update_solver_statistics(default_newton_solver):
         "inc_abs": [2.0],
         "res_abs": [1.0],
     }
-    assert model.nonlinear_solver_statistics.simulation_status_history == []
+    assert model.nonlinear_solver_statistics.solver_status_history == ["in_progress"]
 
 
 # ! ---- Test integration ---- ! #
