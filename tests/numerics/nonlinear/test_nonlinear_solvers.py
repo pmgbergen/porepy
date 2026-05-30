@@ -297,8 +297,8 @@ def test_solve_convergence_statistics(default_newton_solver):
                 "global": {
                     "num_cells": {},
                     "num_domains": {},
-                    "simulation_status_history": [],
-                    "final_simulation_status": None,
+                    "simulation_status_history": ["successful"],
+                    "final_simulation_status": "successful",
                     "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
@@ -315,7 +315,7 @@ def test_solve_convergence_statistics(default_newton_solver):
                 },
                 "0": {
                     "num_iterations": 2,
-                    "simulation_status": "None",
+                    "simulation_status": "successful",
                     "solver_status": ["successful"],
                     "final_solver_status": "successful",
                     "convergence_status": {
@@ -389,11 +389,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "global": {
             "num_cells": {},
             "num_domains": {},
-            "simulation_status_history": [],
-            "final_simulation_status": None,
+            "simulation_status_history": ["successful"],
+            "final_simulation_status": "successful",
             "num_entries": 1,
             "final_time_reached": 0,
-            "total_num_time_steps": 0,
+            "total_num_time_steps": 1,
             "total_num_failed_time_steps": 0,
             "num_iterations_history": [2],
             "total_num_iterations": 2,
@@ -414,7 +414,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
             "time": 0.5,
             "dt": 0.5,
             "num_iterations": 2,
-            "simulation_status": "None",
+            "simulation_status": "successful",
             "solver_status": ["successful"],
             "final_solver_status": "successful",
             "convergence_status": {
@@ -434,11 +434,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     reference_data_after_2 = copy.deepcopy(reference_data_after_1)
     reference_data_after_2["global"].update(
         {
-            "simulation_status_history": [],
-            "final_simulation_status": None,
+            "simulation_status_history": ["successful", "successful"],
+            "final_simulation_status": "successful",
             "num_entries": 2,
             "final_time_reached": 1,
-            "total_num_time_steps": 0,
+            "total_num_time_steps": 2,
             "total_num_failed_time_steps": 0,
             "num_iterations_history": [2, 3],
             "total_num_iterations": 5,
@@ -460,7 +460,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "time": 1.0,
         "dt": 0.5,
         "num_iterations": 3,
-        "simulation_status": "None",
+        "simulation_status": "successful",
         "solver_status": ["successful"],
         "final_solver_status": "successful",
         "convergence_status": {
@@ -548,12 +548,12 @@ def test_solve_failure_statistics(default_newton_solver):
                 "global": {
                     "num_cells": {},
                     "num_domains": {},
-                    "simulation_status_history": [],
-                    "final_simulation_status": None,
+                    "simulation_status_history": ["failed"],
+                    "final_simulation_status": "failed",
                     "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
-                    "total_num_waisted_iterations": 0,
+                    "total_num_waisted_iterations": 2,
                     "final_convergence_status": {
                         "inc_abs": "not_converged",
                         "res_abs": "not_converged",
@@ -566,7 +566,7 @@ def test_solve_failure_statistics(default_newton_solver):
                 },
                 "0": {
                     "num_iterations": 2,
-                    "simulation_status": "None",
+                    "simulation_status": "failed",
                     "solver_status": ["failed"],
                     "final_solver_status": "failed",
                     "convergence_status": {
@@ -650,15 +650,15 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "global": {
             "num_cells": {},
             "num_domains": {},
-            "simulation_status_history": [],
-            "final_simulation_status": None,
+            "simulation_status_history": ["failed"],
+            "final_simulation_status": "failed",
             "num_entries": 1,
             "final_time_reached": 0,
-            "total_num_time_steps": 0,
-            "total_num_failed_time_steps": 0,
+            "total_num_time_steps": 1,
+            "total_num_failed_time_steps": 1,
             "num_iterations_history": [2],
             "total_num_iterations": 2,
-            "total_num_waisted_iterations": 0,
+            "total_num_waisted_iterations": 2,
             "final_convergence_status": {
                 "inc_abs": "not_converged",
                 "res_abs": "not_converged",
@@ -675,7 +675,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
             "time": 0.5,
             "dt": 0.5,
             "num_iterations": 2,
-            "simulation_status": "None",
+            "simulation_status": "failed",
             "solver_status": ["failed"],
             "final_solver_status": "failed",
             "convergence_status": {
@@ -695,15 +695,15 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_2 = copy.deepcopy(reference_data_after_1)
     reference_data_after_2["global"].update(
         {
-            "simulation_status_history": [],
-            "final_simulation_status": None,
+            "simulation_status_history": ["failed", "successful"],
+            "final_simulation_status": "successful",
             "num_entries": 2,
             "final_time_reached": 0,
-            "total_num_time_steps": 0,
-            "total_num_failed_time_steps": 0,
+            "total_num_time_steps": 2,
+            "total_num_failed_time_steps": 1,
             "num_iterations_history": [2, 3],
             "total_num_iterations": 5,
-            "total_num_waisted_iterations": 0,
+            "total_num_waisted_iterations": 2,
             "final_convergence_status": {
                 "inc_abs": "converged",
                 "res_abs": "converged",
@@ -721,7 +721,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "time": 0.5,
         "dt": 0.5,
         "num_iterations": 3,
-        "simulation_status": "None",
+        "simulation_status": "successful",
         "final_solver_status": "successful",
         "solver_status": ["successful"],
         "convergence_status": {
@@ -743,15 +743,15 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3 = copy.deepcopy(reference_data_after_2)
     reference_data_after_3["global"].update(
         {
-            "simulation_status_history": [],
-            "final_simulation_status": None,
+            "simulation_status_history": ["failed", "successful", "successful"],
+            "final_simulation_status": "successful",
             "num_entries": 3,
             "final_time_reached": 1,
-            "total_num_time_steps": 0,
-            "total_num_failed_time_steps": 0,
+            "total_num_time_steps": 3,
+            "total_num_failed_time_steps": 1,
             "num_iterations_history": [2, 3, 3],
             "total_num_iterations": 8,
-            "total_num_waisted_iterations": 0,
+            "total_num_waisted_iterations": 2,
             "final_convergence_status": {
                 "inc_abs": "converged",
                 "res_abs": "converged",
@@ -766,7 +766,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3["2"] = copy.deepcopy(reference_data_after_2["1"])
     reference_data_after_3["2"].update(
         {
-            "simulation_status": "None",
+            "simulation_status": "successful",
             "solver_status": ["successful"],
             "final_solver_status": "successful",
             "final_time_reached": 1,
