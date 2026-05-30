@@ -519,7 +519,7 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
     if not isinstance(var, AdArray):
         if isinstance(var, np.ndarray):
             vals = var.copy()
-            vals[~char_inds] = 0.0
+            vals[np.logical_not(char_inds)] = 0.0
             return vals
         else:
             if isinstance(char_inds, np.ndarray):
@@ -527,7 +527,7 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
             else:
                 return float(char_inds) * var
     vals = var.val.copy()
-    vals[~char_inds] = 0.0
+    vals[np.logical_not(char_inds)] = 0.0
     jac = var.jac.copy()
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return AdArray(vals, jac)
