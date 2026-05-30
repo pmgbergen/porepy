@@ -515,16 +515,19 @@ def test_elastoplastic_2d_single_fracture(
     # Instantiate constants and store in params.
 
     solid = pp.SolidConstants(**solid_vals_elastoplastic)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "u_north": u_north,
         "fracture_indices": [1],  # Single fracture with constant y coordinate.
     }
+    solver_params = {
+        "nl_convergence_res_atol": 1e-9,
+    }
 
     # Create model and run simulation.
-    model = ElastoplasticModel2d(params)
-    pp.ModelRunner(model, params).run()
+    model = ElastoplasticModel2d(model_params)
+    pp.ModelRunner(model, solver_params).run()
     verify_elastoplastic_deformation(
         model,
         u_e_expected,
@@ -595,16 +598,19 @@ def test_elastoplastic_3d_single_fracture(
     """
     # Instantiate constants and store in params.
     solid = pp.SolidConstants(**solid_vals_elastoplastic)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "fracture_indices": [1],
         "u_north": u_north,
     }
+    solver_params = {
+        "nl_convergence_res_atol": 1e-9,
+    }
 
     # Create model and run simulation
-    model = ElastoplasticModel3d(params)
-    pp.ModelRunner(model, params).run()
+    model = ElastoplasticModel3d(model_params)
+    pp.ModelRunner(model, solver_params).run()
     verify_elastoplastic_deformation(
         model,
         u_e_expected,

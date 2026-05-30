@@ -466,12 +466,12 @@ def test_unit_conversion(units: dict, model_class: type):
 
     # Create model and run simulation
     reference_model = model_class(model_params_ref)
-    pp.ModelRunner(reference_model).run()
+    pp.ModelRunner(reference_model, {"nl_convergence_res_atol": 1e-7}).run()
 
     model_params["units"] = pp.Units(**units)
     model = model_class(model_params)
 
-    pp.ModelRunner(model).run()
+    pp.ModelRunner(model, {"nl_convergence_res_atol": 1e-7}).run()
     variables = [
         model.pressure_variable,
         model.interface_darcy_flux_variable,
