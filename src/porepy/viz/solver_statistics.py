@@ -393,7 +393,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         """Append the current statistics to the data dictionary at current index."""
 
         str_solver_status_history = [str(s) for s in self.solver_status_history]
-        final_str_solver_status = (
+        str_solver_status = (
             None
             if len(self.solver_status_history) == 0
             else str_solver_status_history[-1]
@@ -408,8 +408,8 @@ class NonlinearSolverStatistics(SolverStatistics):
                     if len(self.simulation_status_history) == 0
                     else self.simulation_status_history[-1]
                 ),
-                "solver_status": str_solver_status_history,
-                "final_solver_status": final_str_solver_status,
+                "solver_status_history": str_solver_status_history,
+                "solver_status": str_solver_status,
                 "convergence_status": self.convergence_status.to_str().copy(),
                 "convergence_info": self.convergence_info.copy(),
             }
