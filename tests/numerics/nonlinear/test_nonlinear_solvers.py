@@ -323,8 +323,8 @@ def test_solve_convergence_statistics(default_newton_solver):
                 "0": {
                     "num_iterations": 2,
                     "simulation_status": "successful",
-                    "solver_status": ["successful"],
-                    "final_solver_status": "successful",
+                    "solver_status_history": ["successful"],
+                    "solver_status": "successful",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "converged"],
                         "res_abs": ["not_converged", "converged"],
@@ -422,8 +422,8 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
             "dt": 0.5,
             "num_iterations": 2,
             "simulation_status": "successful",
-            "solver_status": ["successful"],
-            "final_solver_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
             "convergence_status": {
                 "inc_abs": ["not_converged", "converged"],
                 "res_abs": ["not_converged", "converged"],
@@ -468,8 +468,8 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "dt": 0.5,
         "num_iterations": 3,
         "simulation_status": "successful",
-        "solver_status": ["successful"],
-        "final_solver_status": "successful",
+        "solver_status_history": ["successful"],
+        "solver_status": "successful",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
             "res_abs": ["not_converged", "not_converged", "converged"],
@@ -591,8 +591,8 @@ def test_solve_failure_statistics(default_newton_solver):
                 "0": {
                     "num_iterations": 2,
                     "simulation_status": "failed",
-                    "solver_status": ["failed"],
-                    "final_solver_status": "failed",
+                    "solver_status_history": ["failed"],
+                    "solver_status": "failed",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "not_converged"],
                         "res_abs": ["not_converged", "not_converged"],
@@ -700,8 +700,8 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
             "dt": 0.5,
             "num_iterations": 2,
             "simulation_status": "failed",
-            "solver_status": ["failed"],
-            "final_solver_status": "failed",
+            "solver_status_history": ["failed"],
+            "solver_status": "failed",
             "convergence_status": {
                 "inc_abs": ["not_converged", "not_converged"],
                 "res_abs": ["not_converged", "not_converged"],
@@ -746,8 +746,8 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "dt": 0.5,
         "num_iterations": 3,
         "simulation_status": "successful",
-        "final_solver_status": "successful",
-        "solver_status": ["successful"],
+        "solver_status": "successful",
+        "solver_status_history": ["successful"],
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
             "res_abs": ["not_converged", "not_converged", "converged"],
@@ -791,8 +791,8 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3["2"].update(
         {
             "simulation_status": "successful",
-            "solver_status": ["successful"],
-            "final_solver_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
             "final_time_reached": 1,
             "time_index": 2,
             "time": 1.0,

@@ -99,8 +99,8 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             # NonlinearSolverStatistics data for first outer iteration
             "num_iterations": 2,
             "simulation_status": SimulationStatus.FAILED,
-            "solver_status": [SolverStatus.IN_PROGRESS, SolverStatus.FAILED],
-            "final_solver_status": SolverStatus.FAILED,
+            "solver_status_history": [SolverStatus.IN_PROGRESS, SolverStatus.FAILED],
+            "solver_status": SolverStatus.FAILED,
             "convergence_status": {
                 "crit1": [
                     ConvergenceStatus.NOT_CONVERGED,
@@ -122,8 +122,8 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             # NonlinearSolverStatistics data for second outer iteration
             "num_iterations": 1,
             "simulation_status": SimulationStatus.SUCCESSFUL,
-            "solver_status": [SolverStatus.SUCCESSFUL],
-            "final_solver_status": SolverStatus.SUCCESSFUL,
+            "solver_status_history": [SolverStatus.SUCCESSFUL],
+            "solver_status": SolverStatus.SUCCESSFUL,
             "convergence_status": {
                 "crit1": [ConvergenceStatus.CONVERGED],
                 "crit2": [ConvergenceStatus.CONVERGED],
