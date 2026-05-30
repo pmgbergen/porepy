@@ -17,6 +17,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     SolverStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.models.model_runner import SimulationStatus
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
 
@@ -286,6 +287,12 @@ def test_solve_convergence_statistics(default_newton_solver):
     # Call solve.
     _ = solver.solve(model)
 
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
+
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
         data = json.load(f)
@@ -483,6 +490,12 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
 
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
+
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
         data = json.load(f)
@@ -494,6 +507,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
@@ -536,6 +554,12 @@ def test_solve_failure_statistics(default_newton_solver):
 
     # Check simulation status.
     assert solver_status == SolverStatus.FAILED
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.FAILED
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
@@ -780,6 +804,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
 
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.FAILED
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
+
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
         data = json.load(f)
@@ -796,6 +826,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
 
     # Retry time step (second loop), so do not increase time.
     _ = solver.solve(model)
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
@@ -815,6 +851,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
