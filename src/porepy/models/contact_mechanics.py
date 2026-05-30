@@ -589,9 +589,19 @@ class ContactMechanics(
 # ! ---- VARIANT BASED ON RADIAL RETURN ---- ! #
 
 
-class RadialReturnFormulation:
-    """Alternative formulation for tangential fracture deformation based on classical
-    radial return projection.
+class RadialReturnTangentialContactMechanicsEquation:
+    """Alternative formulation for tangential fracture deformation based on the
+    classical radial return projection.
+
+    . math::
+
+        \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
+        \\mathbf{t}_t &= \\min\\left(
+            1,
+            -\\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
+        \\right) \cdot \\mathbf{t}_t^{trial}
+
+    where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
 
     """
 
@@ -694,12 +704,11 @@ class RadialReturnFormulation:
         # Define the traction to be the linear radial return projection of the augmented
         # traction. The use of the mask function allows for ignoring cases when the
         # denominator degenerates.
-        ones_frac = pp.ad.DenseArray(np.ones(num_cells))
         min_term = scalar_to_tangential @ (
             f_mask_by_threshold(
                 norm_t_t_trial,
                 -f_max(
-                    pp.ad.Scalar(-1.0) * ones_frac,
+                    pp.ad.Scalar(-1.0),
                     pp.ad.Scalar(-1.0) * b_p / norm_t_t_trial,
                 ),
             )
@@ -710,5 +719,7 @@ class RadialReturnFormulation:
         return equation
 
 
-class RadialReturnContactMechanics(RadialReturnFormulation, ContactMechanics):
+class RadialReturnContactMechanics(
+    RadialReturnTangentialContactMechanicsEquation, ContactMechanics
+):
     """Full contact mechanics model with (linear instead of rescaled) radial return."""
