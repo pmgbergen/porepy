@@ -16,12 +16,7 @@ from porepy.time.time_step_acceptance import (
     TimeStepEvaluationContext,
     default_time_step_criteria,
 )
-from porepy.time.time_step_status import (
-    TimeStepInfoHistory,
-    TimeStepStatus,
-    TimeStepStatusCollection,
-    TimeStepStatusHistory,
-)
+from porepy.time.time_step_status import TimeStepStatus
 
 logger = logging.getLogger(__name__)
 
