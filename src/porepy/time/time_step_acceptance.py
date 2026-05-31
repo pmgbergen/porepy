@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
 import logging
-from porepy.time.time_step_status import (
-    TimeStepStatus,
-    TimeStepInfo,
-    TimeStepStatusCollection,
-    TimeStepInfoCollection,
-)
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
-import porepy as pp
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
+import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+from porepy.time.time_step_status import (
+    TimeStepInfo,
+    TimeStepInfoCollection,
+    TimeStepStatus,
+    TimeStepStatusCollection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,10 @@ class IterationCountCriterion(TimeStepAcceptanceCriterion):
             info = f"Too many iterations: {iters} > {self.max_iterations}"
         else:
             status = TimeStepStatus.ACCEPTED
-            info = f"Iterations: {iters} (range: [{self.min_iterations}, {self.max_iterations}])"
+            info = (
+                f"Iterations: {iters} (range: [{self.min_iterations}, "
+                f"{self.max_iterations}])"
+            )
 
         return status, info
 

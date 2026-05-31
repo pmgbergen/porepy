@@ -1,24 +1,27 @@
-"""Time-stepping strategies: Direct, Adaptive, Multirate.
+"""Time-stepping strategies.
 
 Design mirrors pp.numerics.nonlinear.nonlinear_solvers.NewtonSolver.
+Main method perform_time_step() orchestrates the workflow and is
+called from the model runner.
+
 """
 
-from abc import ABC, abstractmethod
 import logging
+from abc import ABC, abstractmethod
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.numerics.time_step_control import TimeManager
+from porepy.time.time_step_acceptance import (
+    TimeStepEvaluationContext,
+    default_time_step_criteria,
+)
 from porepy.time.time_step_status import (
+    TimeStepInfoHistory,
     TimeStepStatus,
     TimeStepStatusCollection,
     TimeStepStatusHistory,
-    TimeStepInfoHistory,
 )
-from porepy.time.time_step_acceptance import (
-    default_time_step_criteria,
-    TimeStepEvaluationContext,
-)
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +35,10 @@ class TimeStepper(ABC):
     """Base class for time-stepping strategies.
 
     Responsibilities:
-    - Orchestrate the single time-step workflow
-    - Execute trials (nonlinear solves)
+    - Orchestrate the single time-step workflow to be called from the model runner.
+    - Execute trials (delegating nonlinear solves)
     - Check acceptance and rejection criteria
-    - Manage retries with reduced dt
-    - Adapt dt based on solver performance
     - Delegate time-tracking to TimeManager
-    - Delegate nonlinear solves
 
     Design mirrors NewtonSolver: acceptance criteria are checked first (positive logic),
     then rejection criteria (negative logic), and results are summarized.
@@ -61,20 +61,9 @@ class TimeStepper(ABC):
         """TimeManager for tracking time and dt."""
         self.params = params or {}
         """Parameters for time stepping."""
-        self.step_index: int = 0
-        """Current time step index."""
 
         self.init_acceptance_criteria()
         self.init_rejection_criteria()
-
-        # TODO: remove?
-        # Statistics tracking (similar to solver statistics)
-        # self.acceptance_status_history = TimeStepStatusHistory()
-        # """History of acceptance status decisions."""
-        # self.rejection_status_history = TimeStepStatusHistory()
-        # """History of rejection status decisions."""
-        # self.info_history = TimeStepInfoHistory()
-        # """History of diagnostic information."""
 
     def init_acceptance_criteria(self) -> None:
         """Parse and initialize acceptance criteria."""
@@ -102,7 +91,7 @@ class TimeStepper(ABC):
         model,  #: pp.SolutionStrategy,
         solver,  #: pp.LinearSolver | pp.NewtonSolver,
     ) -> TimeStepStatus:
-        """Perform a single trial time step and evaluate acceptance/rejection criteria."""
+        """Perform a single time step and evaluate acceptance/rejection criteria."""
 
         # Execute trial time step.
         model.before_time_step()
@@ -143,7 +132,7 @@ class TimeStepper(ABC):
         self,
         model: "pp.SolutionStrategy",
         statistics: "pp.NonlinearSolverStatistics",  # TODO: clean up use of statistics
-        solver_status: SimulationStatus,  # TODO: clean up use of solver status vs simulation status
+        solver_status: SimulationStatus,  # TODO: clean up
     ) -> TimeStepEvaluationContext:
         """Build the evaluation context for acceptance/rejection checking.
 
@@ -174,7 +163,8 @@ class TimeStepper(ABC):
         """Conclude on the overall trial status.
 
         NOTE: Acceptance status takes precedence; rejection status is checked only
-        if acceptance is mixed. Final status determines if trial is accepted/rejected/stopped.
+        if acceptance is mixed. Final status determines if trial is
+        accepted/rejected/stopped.
 
         Parameters:
             acceptance_status: Acceptance criterion statuses.
@@ -193,7 +183,8 @@ class TimeStepper(ABC):
             logger.debug("Trial rejected by rejection criteria.")
         else:
             raise ValueError(
-                f"Invalid time step acceptance status {acceptance_status} and rejection status {rejection_status}."
+                f"Invalid time step acceptance status {acceptance_status} and "
+                f"rejection status {rejection_status}."
             )
 
         return time_step_status
@@ -210,7 +201,8 @@ class TimeStepper(ABC):
         logger.info(
             f"Time step #{self.time_manager.time_index}: "
             f"dt={self.time_manager.dt:.2e}, "
-            f"time={self.time_manager.time:.2e} of {self.time_manager.time_final:.2e}"
+            f"time={self.time_manager.time:.2e} of "
+            f"{self.time_manager.time_final:.2e}"
         )
 
     def update_time_statistics(
@@ -225,20 +217,12 @@ class TimeStepper(ABC):
 
         Parameters:
             model: The SolutionStrategy model.
-            time_step_status: Overall status of the time step (accepted, rejected, stopped).
+            time_step_status: Status of the time step (accepted/rejected/stopped).
             acceptance_status: Acceptance statuses.
             rejection_status: Rejection statuses.
             info: Diagnostic information.
         """
-        # TODO: Need wholistic upgrade - check out SolverStatistics.
-        # if acceptance_status is not None:
-        #     self.acceptance_status_history.append(acceptance_status)
-        # if rejection_status is not None:
-        #     self.rejection_status_history.append(rejection_status)
-        # if info is not None:
-        #     self.info_history.append(info)
-
-        # TODO time_step_status
+        # TODO time_step_status, acceptance_status/rejection_status, acceptance_info
 
         assert isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics)
         model.nonlinear_solver_statistics.log_time_information(
@@ -257,16 +241,12 @@ class TimeStepper(ABC):
 class DirectTimeStepper(TimeStepper):
     """Simple stepper: one trial per time step, no retry logic.
 
-    This is appropriate for:
-    - Very robust problems where convergence is guaranteed
-    - Initial testing and debugging
-    - Paired with a robust nonlinear solver
+    Meant for use of constant time step size.
 
     Workflow:
-    1. Execute trial with current dt
+    1. Execute (trial) time step
     2. Check acceptance and rejection criteria
-    3. Accept if both pass; reject otherwise
-    4. No retries; stop if rejected
+    3. No retries; stop if rejected
 
     """
 
@@ -306,10 +286,7 @@ class DirectTimeStepper(TimeStepper):
 class AdaptiveTimeStepper(TimeStepper):
     """Adaptive stepper: retries with reduced dt if criteria fail.
 
-    This is appropriate for:
-    - Problems where dt may need adjustment
-    - Automatic dt adaptation based on solver performance
-    - Coupled with detailed acceptance/rejection criteria
+    Meant for use of non-constant time step size.
 
     Workflow:
     1. For each retry (up to max_retries):
@@ -339,14 +316,14 @@ class AdaptiveTimeStepper(TimeStepper):
         )
         assert self.max_attempts > 0, "max_attempts must be greater than 0."
 
-        # Time control.
+        # Cache previous time at the start of the trial for use in retries.
         self.previous_time = self.time_manager.time
-        """Time at the start of the current trial."""
+        """Cached time at the start of the current trial."""
 
     def perform_time_step(
         self,
         model,  #: pp.SolutionStrategy,
-        solver,  #: pp.LinearSolver | pp.NewtonSolver,
+        solver,  #: pp.NewtonSolver,
     ) -> TimeStepStatus:
         """Perform a time step with accept/reject logic and retries.
 
@@ -385,14 +362,18 @@ class AdaptiveTimeStepper(TimeStepper):
         """Compute the new time step size based on the trial status.
 
         Parameters:
-            time_step_status: The status of the current trial (accepted, rejected, stopped).
+            time_step_status: Status of the current trial (accepted/rejected/stopped).
             model: The SolutionStrategy model (for accessing statistics).
 
         Updates the time manager's dt based on the trial outcome and solver performance.
         """
+        # TODO: Update time manager's computation of dt. E.g.
+        # dt = self.time_criteria.compute_time_step(context)
+        # self.time_manager.set_dt(dt) # clips into range.
+
         if time_step_status.is_accepted():
             # For accepted steps, we may want to increase dt for the next step.
-            # This logic can be based on solver performance (e.g., number of iterations).
+            # This logic can be based on solver performance (e.g., #iterations).
             assert isinstance(
                 model.nonlinear_solver_statistics,
                 pp.NonlinearSolverStatistics,
@@ -429,7 +410,8 @@ class TimeStepperFactory:
             params:  Model parameters
 
         Returns:
-            TimeStepper: DirectTimeStepper if dt is constant, AdaptiveTimeStepper otherwise.
+            TimeStepper: DirectTimeStepper if dt is constant, AdaptiveTimeStepper
+                otherwise.
 
         """
         # Check if time stepping is constant or adaptive

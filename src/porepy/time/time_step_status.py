@@ -12,8 +12,8 @@ The design mirrors pp.numerics.nonlinear.convergence_check.
 
 import logging
 from enum import StrEnum
-from porepy.numerics.nonlinear.convergence_check import _recursive_append
 
+from porepy.numerics.nonlinear.convergence_check import _recursive_append
 
 logger = logging.getLogger(__name__)
 
