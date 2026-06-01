@@ -594,7 +594,8 @@ class VariablesMomentumBalance(VariableMixin):
     def update_reference(self) -> None:
         """Updating of reference displacements."""
 
-        # If super class has an update reference method, call it for compatibility with multi-physics.
+        # If super class has an update reference method, call it for compatibility
+        # with multi-physics.
         if hasattr(super(), "update_reference"):
             super().update_reference()
 

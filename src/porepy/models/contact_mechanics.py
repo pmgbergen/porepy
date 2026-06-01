@@ -7,6 +7,7 @@ combination with the momentum balance model, but can be used as a standalone mod
 
 """
 
+import logging
 from functools import partial
 from typing import Callable, Optional, cast
 
@@ -15,7 +16,6 @@ import numpy as np
 import porepy as pp
 from porepy.models import constitutive_laws
 from porepy.models.abstract_equations import VariableMixin
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -445,7 +445,8 @@ class ContactTractionVariable(VariableMixin):
     def update_reference(self) -> None:
         """Updating of reference tractions."""
 
-        # If super has an update_reference method, call it for compatibility with multi-physics.
+        # If super has an update_reference method, call it for compatibility with
+        # multi-physics.
         if hasattr(super(), "update_reference"):
             super().update_reference()
 

@@ -912,7 +912,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     def update_reference(self) -> None:
         """Updating of reference flow variables."""
 
-        # If super has an update_reference method, call it for compatibility with multi-physics.
+        # If super has an update_reference method, call it for compatibility with
+        # multi-physics.
         if hasattr(super(), "update_reference"):
             super().update_reference()
 
@@ -1273,7 +1274,7 @@ class DataSavingFluidMassBalance:
             data.append((intf, self.interface_darcy_flux_variable + "_inc", flux_inc))
 
             # Full interface Darcy flux
-            # Find and remove the original (intf, self.interface_darcy_flux_variable) entry
+            # Find and remove the original (intf, self.interface_darcy_flux_variable)
             data = [
                 entry
                 for entry in data

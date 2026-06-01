@@ -2993,9 +2993,9 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     NOTE: The implementation of the mechanical stress below is in absolute terms.
     The stress could be formulated wrt a reference configuration, in which case
     a reference (background) stress would be required, only depending on the reference
-    displacement. Under the assumption of linearity, the summation of the reference and the
-    linear mechanical stress below cancels the reference contributions. For simplicity,
-    background stress is not supported in the current implementation.
+    displacement. Under the assumption of linearity, the summation of the reference and
+    the linear mechanical stress below cancels the reference contributions. For
+    simplicity, background stress is not supported in the current implementation.
 
     """
 
@@ -3779,7 +3779,8 @@ class ThermoPressureStress(PressureStress):
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.enthalpy_keyword
         ) @ self.temperature(subdomains)
-        # TODO: safe to remove? self.perturbation_from_reference("temperature", subdomains)
+        # TODO: safe to remove?
+        # self.perturbation_from_reference("temperature", subdomains)
         stress.set_name("thermal_stress")
         return stress
 
@@ -4661,13 +4662,13 @@ class PoroMechanicsPorosity(pp.PorePyModel):
     """Perturbation of pressure from reference."""
 
     relative_displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Perturbation of displacement from reference. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    """Perturbation of displacement from reference. Normally defined in a mixin instance
+    of :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
     relative_interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Perturbation of interface displacement from reference. Normally defined in a mixin
-    instance of :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    """Perturbation of interface displacement from reference. Normally defined in a
+    mixin instance of :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
 
@@ -4981,8 +4982,8 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
 
     """
     relative_temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Perturbation of temperature from reference. Normally defined in a mixin instance of
-    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+    """Perturbation of temperature from reference. Normally defined in a mixin instance
+    of :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
     """
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
