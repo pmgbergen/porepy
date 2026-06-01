@@ -103,6 +103,37 @@ def run_displacement_controlled_setup(
     return m.results, m
 
 
+def _assert_damage_values_equal_between_steps(
+    vals: Sequence[object],
+    names: Sequence[str],
+    from_idx: int,
+    to_idx: int,
+    from_time: int,
+    to_time: int,
+) -> None:
+    """Assert equal values of damage fields for all names between two steps."""
+    for name in names:
+        val_from = cast(np.ndarray, getattr(vals[from_idx], "approx_" + name))
+        val_to = cast(np.ndarray, getattr(vals[to_idx], "approx_" + name))
+        np.testing.assert_allclose(
+            val_from,
+            val_to,
+            atol=1e-8,
+            err_msg=f"Mismatch between damage values at t={from_time} and t={to_time}"
+            f" for {name}",
+        )
+
+
+def _assert_increment_damage_length_zero(length_1: np.ndarray, step: int) -> None:
+    """Assert that a given displacement increment gives zero damage length."""
+    np.testing.assert_allclose(
+        length_1,
+        0.0,
+        atol=1e-8,
+        err_msg=f"Damage length after {step} step not close to zero: {length_1}.",
+    )
+
+
 @pytest.mark.parametrize("dim", [2, 3])
 # The tests take about a minute and are not critical, rather a supplement to test_damage
 # @pytest.mark.skipped  # reason: slow
@@ -136,15 +167,7 @@ def test_isotropic_damage(dim: int):
         names = [damage + "_damage_state", damage + "_damage_history"]
         # I) First two displacement jumps are identical, yielding identical damage
         # values after first two steps.
-        for name in names:
-            val0 = cast(np.ndarray, getattr(vals[0], "approx_" + name))
-            val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
-            np.testing.assert_allclose(
-                val0,
-                val1,
-                atol=1e-8,
-                err_msg=f"Mismatch between damage values at t=1 and t=2 for {name}",
-            )
+        _assert_damage_values_equal_between_steps(vals, names, 0, 1, 1, 2)
 
         # II) Third displacement jump is the negative of the second. For isotropic
         # damage length, this leads to a further decrease in...
@@ -175,27 +198,14 @@ def test_isotropic_damage(dim: int):
         # III) Fourth displacement jump and corresponding increment are nonzero in the
         # tangential direction, but the normal displacement is large enough to open the
         # fracture. Thus, we expect no additional damage.
-        for name in names:
-            val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
-            val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
-            np.testing.assert_allclose(
-                val2,
-                val3,
-                atol=1e-8,
-                err_msg=f"Mismatch between damage values at t=3 and t=4 for {name}.",
-            )
+        _assert_damage_values_equal_between_steps(vals, names, 2, 3, 3, 4)
     # Test damage lengths. Each value is the contribution from that increment.
     length_0 = vals[0].approx_damage_length
     length_1 = vals[1].approx_damage_length
     length_2 = vals[2].approx_damage_length
     length_3 = vals[3].approx_damage_length
     # 1) The second displacement increment is zero.
-    np.testing.assert_allclose(
-        length_1,
-        0.0,
-        atol=1e-8,
-        err_msg=f"Damage length after second step not close to zero: {length_1}.",
-    )
+    _assert_increment_damage_length_zero(length_1, 2)
 
     # 2) Isotropic damage length depends on the magnitude, not the direction, of the
     # displacement jump. Since the first and third jump are in opposite directions, the
@@ -252,15 +262,7 @@ def test_anisotropic_damage(dim: int):
         names = [damage + "_damage_state", damage + "_damage_history"]
         # I) First two displacement jumps are identical, yielding identical damage
         # values after first two steps.
-        for name in names:
-            val0 = cast(np.ndarray, getattr(vals[0], "approx_" + name))
-            val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
-            np.testing.assert_allclose(
-                val0,
-                val1,
-                atol=1e-8,
-                err_msg=f"Mismatch between damage values at t=1 and t=2 for {name}",
-            )
+        _assert_damage_values_equal_between_steps(vals, names, 0, 1, 1, 2)
 
         # II) Third displacement jump is the negative of the second. For anisotropic
         # damage length, this yields identical damage values after third step.
@@ -277,27 +279,14 @@ def test_anisotropic_damage(dim: int):
         # III) Fourth displacement jump and increment are nonzero in the tangential
         # direction, but the normal displacement is large enough to open the fracture.
         # Thus, we expect no additional damage.
-        for name in names:
-            val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
-            val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
-            np.testing.assert_allclose(
-                val2,
-                val3,
-                atol=1e-8,
-                err_msg=f"Mismatch between damage values at t=3 and t=4 for {name}",
-            )
+        _assert_damage_values_equal_between_steps(vals, names, 2, 3, 3, 4)
     # Test damage lengths. Each value is the contribution from that increment.
     length_0 = vals[0].approx_damage_length
     length_1 = vals[1].approx_damage_length
     length_2 = vals[2].approx_damage_length
     length_3 = vals[3].approx_damage_length
     # 1) The second displacement increment is zero.
-    np.testing.assert_allclose(
-        length_1,
-        0.0,
-        atol=1e-8,
-        err_msg=f"Damage length after second step not close to zero: {length_1}.",
-    )
+    _assert_increment_damage_length_zero(length_1, 2)
 
     # 2) Anisotropic damage length depends on the direction of the displacement jump.
     # Since the first and third jump are in opposite directions and only the part of the
