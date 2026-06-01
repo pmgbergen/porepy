@@ -154,8 +154,7 @@ def _damages(results: list, damage: str) -> list[np.ndarray]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("damage", ["dilation", "friction"])
-def test_no_damage_for_zero_tangential_slip(damage: str):
+def test_no_damage_for_zero_tangential_slip():
     """With compression but no tangential slip the damage history stays zero.
 
     The fracture is always in contact (positive normal compression), but the applied
@@ -166,18 +165,19 @@ def test_no_damage_for_zero_tangential_slip(damage: str):
     north = np.zeros((2, num_steps))
     north[1, :] = _NORMAL_DISP_COMPRESSION  # y: compression, no tangential
 
-    results, _ = build_and_run(north, [damage], isotropic=True)
+    results, _ = build_and_run(north, ["dilation", "friction"], isotropic=True)
 
-    for i, h in enumerate(_histories(results, damage)):
-        np.testing.assert_allclose(
-            h,
-            0.0,
-            atol=1e-6,
-            err_msg=(
-                f"{damage} damage history non-zero at step {i + 1} "
-                f"with no tangential slip: {h}"
-            ),
-        )
+    for damage in ["dilation", "friction"]:
+        for i, h in enumerate(_histories(results, damage)):
+            np.testing.assert_allclose(
+                h,
+                0.0,
+                atol=1e-6,
+                err_msg=(
+                    f"{damage} damage history non-zero at step {i + 1} "
+                    f"with no tangential slip: {h}"
+                ),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -185,8 +185,7 @@ def test_no_damage_for_zero_tangential_slip(damage: str):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("damage", ["dilation", "friction"])
-def test_no_damage_for_open_fracture(damage: str):
+def test_no_damage_for_open_fracture():
     """Tangential slip under tensile normal loading does not accumulate damage.
 
     When the fracture is open the contact state characteristic equals 1, which forces
@@ -200,18 +199,19 @@ def test_no_damage_for_open_fracture(damage: str):
     north[0, 1] = 1.0e-4  # tangential displacement jump in open state
     north[0, 2] = 2.0e-4
 
-    results, _ = build_and_run(north, [damage], isotropic=True)
+    results, _ = build_and_run(north, ["dilation", "friction"], isotropic=True)
 
-    for i, h in enumerate(_histories(results, damage)):
-        np.testing.assert_allclose(
-            h,
-            0.0,
-            atol=1e-6,
-            err_msg=(
-                f"{damage} damage history non-zero at step {i + 1} "
-                f"with open fracture: {h}"
-            ),
-        )
+    for damage in ["dilation", "friction"]:
+        for i, h in enumerate(_histories(results, damage)):
+            np.testing.assert_allclose(
+                h,
+                0.0,
+                atol=1e-6,
+                err_msg=(
+                    f"{damage} damage history non-zero at step {i + 1} "
+                    f"with open fracture: {h}"
+                ),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -315,8 +315,7 @@ def test_damage_bounded(monotone_slip_results):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("damage", ["dilation", "friction"])
-def test_isotropic_more_history_after_reversal(damage: str):
+def test_isotropic_more_history_after_reversal():
     """Isotropic model accumulates strictly more history after a load reversal.
 
     Loading profile (north x-displacement): 0 → +d → −d.
@@ -341,16 +340,17 @@ def test_isotropic_more_history_after_reversal(damage: str):
     north[0, 1] = +slip  # forward step
     north[0, 2] = -slip  # equal-magnitude reversal
 
-    results_iso, _ = build_and_run(north, [damage], isotropic=True)
-    results_aniso, _ = build_and_run(north, [damage], isotropic=False)
+    results_iso, _ = build_and_run(north, ["dilation", "friction"], isotropic=True)
+    results_aniso, _ = build_and_run(north, ["dilation", "friction"], isotropic=False)
 
-    h_iso = _histories(results_iso, damage)[-1]
-    h_aniso = _histories(results_aniso, damage)[-1]
+    for damage in ["dilation", "friction"]:
+        h_iso = _histories(results_iso, damage)[-1]
+        h_aniso = _histories(results_aniso, damage)[-1]
 
-    assert np.all(h_iso > h_aniso + 1e-12), (
-        f"{damage}: isotropic history {h_iso} not strictly greater than "
-        f"anisotropic {h_aniso} after load reversal."
-    )
+        assert np.all(h_iso > h_aniso + 1e-12), (
+            f"{damage}: isotropic history {h_iso} not strictly greater than "
+            f"anisotropic {h_aniso} after load reversal."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -358,8 +358,7 @@ def test_isotropic_more_history_after_reversal(damage: str):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("damage", ["dilation", "friction"])
-def test_isotropic_anisotropic_agree_for_unidirectional_loading(damage: str):
+def test_isotropic_anisotropic_agree_for_unidirectional_loading():
     """Isotropic and anisotropic lengths are identical for purely one-directional slip.
 
     When all slip increments are in the same direction the normalised direction vector m
@@ -372,18 +371,20 @@ def test_isotropic_anisotropic_agree_for_unidirectional_loading(damage: str):
     north[1, :] = _NORMAL_DISP_COMPRESSION
     north[0, :] = np.array([0.0, 1.0e-4, 2.0e-4])  # monotone in one direction
 
-    results_iso, _ = build_and_run(north, [damage], isotropic=True)
-    results_aniso, _ = build_and_run(north, [damage], isotropic=False)
+    results_iso, _ = build_and_run(north, ["dilation", "friction"], isotropic=True)
+    results_aniso, _ = build_and_run(north, ["dilation", "friction"], isotropic=False)
 
-    for i, (h_iso, h_aniso) in enumerate(
-        zip(_histories(results_iso, damage), _histories(results_aniso, damage))
-    ):
-        np.testing.assert_allclose(
-            h_iso,
-            h_aniso,
-            rtol=1e-4,
-            err_msg=(
-                f"{damage}: isotropic/anisotropic history mismatch at step {i + 1}. "
-                f"iso={h_iso}, aniso={h_aniso}"
-            ),
-        )
+    for damage in ["dilation", "friction"]:
+        for i, (h_iso, h_aniso) in enumerate(
+            zip(_histories(results_iso, damage), _histories(results_aniso, damage))
+        ):
+            np.testing.assert_allclose(
+                h_iso,
+                h_aniso,
+                rtol=1e-4,
+                err_msg=(
+                    f"{damage}: isotropic/anisotropic history mismatch "
+                    f"at step {i + 1}. "
+                    f"iso={h_iso}, aniso={h_aniso}"
+                ),
+            )
