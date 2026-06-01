@@ -40,33 +40,40 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
         self._run_initialization(update_reference_after_solve=True)
 
     def _run_initialization(self, update_reference_after_solve: bool) -> None:
-        # TODO: Use same solver as outside?
-        solver = pp.NewtonSolver(
-            {
-                "nl_convergence_inc_rtol": 1e-6,
-                "nl_convergence_res_rtol": 1e-6,
-                "nl_max_iterations": 20,
-            }
-        )
+        """Run initialization with strategy-specific update placement."""
+
+        # Get initialization parameters.
+        init_config = self.params.get("initialization", {})
+
+        # Define nonlinear solver for initialization.
+        solver_params = init_config.get("solver_params", {})
+        solver = pp.NewtonSolver(solver_params)
+
+
+        # Get initialization parameters
+        use_export = init_config.get("use_export", True)
+        convergence_tol = init_config.get("convergence_inc_atol", 1e-6)
+        pseudo_time_step = init_config.get("pseudo_time_step", 1000 * pp.YEAR)
 
         # Define exporter and export initial state.
-        # TODO add user control.
-        folder = Path(self.params["folder_name"])
-        folder_iterations = folder.parent / (folder.name + "_initialization")
-        exporter = pp.Exporter(
-            self.mdg,
-            file_name=self.params["file_name"],
+        exporter = None
+        if use_export:
+            folder = Path(self.params["folder_name"])
+            folder_iterations = folder.parent / (folder.name + "_initialization")
+            exporter = pp.Exporter(
+                self.mdg,
+                file_name=self.params["file_name"],
             folder_name=folder_iterations,
             length_scale=self.units.m,
-        )
-        exporter.write_vtu(
-            self.data_to_export(),
-            time_dependent=True,
-            time_step=0,
-        )
+            )
+            exporter.write_vtu(
+                self.data_to_export(),
+                time_dependent=True,
+                time_step=0,
+            )
 
         # Artificial time control for quasi-static initialization.
-        self.time_manager.dt = 1000 * pp.YEAR
+        self.time_manager.dt = pseudo_time_step
 
         # Perform a pseudo time stepping to initialize the reference state.
         iteration = 0
@@ -85,7 +92,9 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
             # React to solver_status.
             if solver_status.is_successful():
                 # Evaluate initialization status based on total increments.
-                convergence_status = self.check_initialization_convergence()
+                convergence_status = self.check_initialization_convergence(
+                    convergence_tol
+                )
                 if convergence_status.is_converged():
                     initialization_status = SimulationStatus.SUCCESSFUL
                 else:
@@ -125,11 +134,12 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
                 raise ValueError("Unrecognized solver status.")
 
             # Export initialization iterates.
-            exporter.write_vtu(
-                self.data_to_export(),
-                time_dependent=True,
-                time_step=iteration,
-            )
+            if exporter is not None:
+                exporter.write_vtu(
+                    self.data_to_export(),
+                    time_dependent=True,
+                    time_step=iteration,
+                )
 
             # Stop initialization.
             if (
@@ -138,8 +148,9 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
             ):
                 break
 
-        # Save initial data.
-        # TODO: Exporter has own counter which needs reset - this is prone to error.
+        # Revert exporter-internal counter (initiated in prepare_simulation) and
+        # save updated initial data.
+        # TODO: Revisit. Exporter has own counter which needs reset - prone to error.
         self.exporter._time_step_counter = 0
         self.save_data_time_step()
 
@@ -148,22 +159,23 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
 
         logger.info("\033[92mInitialization completed.\033[0m")
 
-    def check_initialization_convergence(self) -> ConvergenceStatus:
+    def check_initialization_convergence(self, tol: float) -> ConvergenceStatus:
         """Check convergence of the initialization state.
 
         Uses simple criterion based on the change in the state variables between
         the current and previous iteration.
+
+        Parameters:
+            tol: Tolerance for convergence.
 
         Returns:
             ConvergenceStatus: Enum indicating whether the initialization state is
                 converged or not.
 
         """
-        # TODO: Implementation plan:
-        # - Make tolerance variable, or allow for external control of criteria?
         # Define a simple convergence criterion aiming for checking change in updates.
         criterion = pp.IncrementBasedAbsoluteCriterion(
-            tol=1e-6,
+            tol=tol,
             metric=pp.EuclideanMetric(),
         )
 
