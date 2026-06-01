@@ -1,7 +1,7 @@
 """This file is testing the functionality of `pp.BoundaryConditionMixin`.
 
-It also contains tests verifying that `bc_values_*` methods return arrays with
-their documented SI units.
+It also contains tests verifying that `bc_values_*` methods return arrays with their
+documented SI units.
 """
 
 from dataclasses import dataclass, field
@@ -461,10 +461,10 @@ def test_robin_limit_case(
     )
 
 
-"""Tests that ``bc_values_*`` methods return arrays with their documented SI
-units, by exploiting :class:`porepy.Units` non-dimensionalization: a correctly
-unit-tagged BC produces a solution that, recovered to SI, is invariant under
-any choice of internal unit system.
+"""Tests that ``bc_values_*`` methods return arrays with their documented SI units, by
+exploiting :class:`porepy.Units` non-dimensionalization: a correctly unit-tagged BC
+produces a solution that, recovered to SI, is invariant under any choice of internal
+unit system.
 """
 
 

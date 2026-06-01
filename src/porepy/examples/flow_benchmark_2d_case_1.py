@@ -103,8 +103,8 @@ class BoundaryConditions:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
-        integrated over the boundary cell volumes. Since the inflow boundary contains
-        a fracture, the latter includes the fracture specific volume.
+        integrated over the boundary cell volumes. Since the inflow boundary contains a
+        fracture, the latter includes the fracture specific volume.
 
         Parameters:
             bg: Boundary grid.

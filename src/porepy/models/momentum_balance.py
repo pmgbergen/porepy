@@ -789,8 +789,7 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
 
         Important:
             Override this method to provide custom Neumann data for the integrated
-            boundary traction, per boundary grid as a numpy array with numerical
-            values.
+            boundary traction, per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to evaluate values on.
