@@ -168,7 +168,7 @@ def test_isotropic_damage(dim: int):
         np.testing.assert_allclose(
             val2,
             3 * val1,
-            rtol=1e-3,  # Allow some tolerance due to numerical errors.
+            rtol=2e-4,  # Allow some tolerance due to numerical errors.
             err_msg=f"Damage history mismatch for {name} at t=3: {val2}/{val1}.",
         )
 
@@ -215,7 +215,7 @@ def test_isotropic_damage(dim: int):
     np.testing.assert_allclose(
         length_3,
         expected_3,
-        rtol=1e-2,
+        rtol=3e-3,
         err_msg=f"Damage length is wrong after fourth step: {length_3}",
     )
 
@@ -318,6 +318,6 @@ def test_anisotropic_damage(dim: int):
     np.testing.assert_allclose(
         length_3,
         expected_3,
-        rtol=1e-2,
+        rtol=3e-3,
         err_msg=f"Damage length is wrong after fourth step: {length_3}",
     )
