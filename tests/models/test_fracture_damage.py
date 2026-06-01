@@ -141,9 +141,9 @@ def test_isotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
     sensible/intuitive expectations.
 
-    By disabling the Neumann normal stress boundary condition on the north side, we have
-    Dirichlet conditions as driving force, with values as per north_displacements in the
-    parameter dictionary. The intuition for each assertion is given below.
+    We have Dirichlet conditions as driving force, with values as per
+    north_displacements in the parameter dictionary. The intuition for each assertion is
+    given below.
 
     The error computed using the exact solution is not tested here, since the exact
     solution is based on the assumption of a known normal traction on the north
@@ -237,9 +237,9 @@ def test_anisotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
     sensible/intuitive expectations.
 
-    By disabling the Neumann normal stress boundary condition on the north side, we have
-    Dirichlet conditions as driving force, with values as per north_displacements in the
-    parameter dictionary. The intuition for each assertion is given below.
+    We have Dirichlet conditions as driving force, with values as per
+    north_displacements in the parameter dictionary. The intuition for each assertion is
+    given below.
 
     The error computed using the exact solution is not tested here, since the exact
     solution is based on the assumption of a known normal traction on the north
