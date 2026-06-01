@@ -124,6 +124,18 @@ class TestDamageStateFormula:
     and the formula reduces to the unclipped expression.
     """
 
+    @staticmethod
+    def _prepared_model_with_fractures(
+        isotropic: bool = True,
+        damages: list[str] | None = None,
+        dim: int = 2,
+    ) -> tuple[object, list[pp.Grid], int]:
+        """Return a prepared model together with fracture subdomains and cell count."""
+        model = _prepared_model(isotropic=isotropic, damages=damages, dim=dim)
+        fractures = model.mdg.subdomains(dim=model.nd - 1)
+        nc = sum(sd.num_cells for sd in fractures)
+        return model, fractures, nc
+
     @pytest.mark.parametrize("damage", ["dilation", "friction"])
     @pytest.mark.parametrize("lambda_val", [0.0, 0.5, 1.0, 3.0])
     def test_damage_state_matches_formula(self, damage: str, lambda_val: float):
@@ -133,9 +145,7 @@ class TestDamageStateFormula:
             damage: Damage type, either ``"dilation"`` or ``"friction"``.
             lambda_val: Damage history value prescribed to all fracture cells.
         """
-        model = _prepared_model(damages=[damage])
-        fractures = model.mdg.subdomains(dim=model.nd - 1)
-        nc = sum(sd.num_cells for sd in fractures)
+        model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
         d0 = float(getattr(model.solid, f"residual_{damage}_damage"))
 
         model.equation_system.set_variable_values(
@@ -153,9 +163,7 @@ class TestDamageStateFormula:
     @pytest.mark.parametrize("damage", ["dilation", "friction"])
     def test_damage_state_is_one_for_zero_history(self, damage: str):
         """Lambda = 0 means no accumulated damage: state must equal 1."""
-        model = _prepared_model(damages=[damage])
-        fractures = model.mdg.subdomains(dim=model.nd - 1)
-        nc = sum(sd.num_cells for sd in fractures)
+        model, fractures, nc = self._prepared_model_with_fractures(damages=[damage])
 
         model.equation_system.set_variable_values(
             np.zeros(nc),
@@ -169,9 +177,7 @@ class TestDamageStateFormula:
 
     def test_dilation_damage_approaches_d0_at_large_history(self):
         """Lambda = 10 (clip maximum) drives the damage state to d0."""
-        model = _prepared_model(damages=["dilation"])
-        fractures = model.mdg.subdomains(dim=model.nd - 1)
-        nc = sum(sd.num_cells for sd in fractures)
+        model, fractures, nc = self._prepared_model_with_fractures(damages=["dilation"])
         d0 = float(model.solid.residual_dilation_damage)
 
         # The clip is at 10, so exp(-10) ≈ 4.5e-5 is the residual offset.
@@ -186,9 +192,7 @@ class TestDamageStateFormula:
 
     def test_damage_state_is_monotone_in_history(self):
         """A larger history value produces a smaller (more damaged) state."""
-        model = _prepared_model(damages=["dilation"])
-        fractures = model.mdg.subdomains(dim=model.nd - 1)
-        nc = sum(sd.num_cells for sd in fractures)
+        model, fractures, nc = self._prepared_model_with_fractures(damages=["dilation"])
 
         def _eval(lam: float) -> float:
             model.equation_system.set_variable_values(
