@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
+from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 
 import porepy as pp
@@ -21,6 +23,22 @@ from porepy.numerics.nonlinear.convergence_check import (
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class InitializationConfig:
+    solver_params: dict
+    use_export: bool
+    convergence_inc_atol: float
+    pseudo_time_step: float
+
+    @classmethod
+    def from_params(cls, params: dict) -> InitializationConfig:
+        init_config = params.get("initialization", {})
+        return cls(
+            solver_params=init_config.get("solver_params", {}),
+            use_export=init_config.get("use_export", False),
+            convergence_inc_atol=init_config.get("convergence_inc_atol", 1e-6),
+            pseudo_time_step=init_config.get("pseudo_time_step", 1000 * pp.YEAR),
+        )
 
 class InitializationStrategy(pp.PorePyModel):
     def prepare_simulation(self) -> None:
@@ -32,6 +50,29 @@ class InitializationStrategy(pp.PorePyModel):
     def initialization(self) -> None:
         raise NotImplementedError
 
+    def _setup_initialization_exporter(self, use_export: bool) -> pp.Exporter | None:
+        """Setup exporter for initialization output.
+
+        Parameters:
+            use_export: Whether to setup exporter for initialization output.
+
+        Returns:
+            exporter: Exporter instance if use_export is True, else None.
+
+        """
+        if not use_export:
+            return None
+        folder = Path(self.params["folder_name"])
+        folder_iterations = folder.parent / (folder.name + "_initialization")
+        exporter = pp.Exporter(
+            self.mdg,
+            file_name=self.params["file_name"],
+            folder_name=folder_iterations,
+            length_scale=self.units.m,
+        )
+        exporter.write_vtu(self.data_to_export(), time_dependent=True, time_step=0)
+        return exporter
+
 
 class QuasiStaticReferenceStateInitialization(InitializationStrategy):
 
@@ -40,46 +81,32 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
         self._run_initialization(update_reference_after_solve=True)
 
     def _run_initialization(self, update_reference_after_solve: bool) -> None:
-        """Run initialization with strategy-specific update placement."""
+        """Run initialization with strategy-specific update placement.
+
+        Parameters:
+            update_reference_after_solve: Whether to update the reference state
+                after each solve.
+        """
 
         # Get initialization parameters.
-        init_config = self.params.get("initialization", {})
+        init_config = InitializationConfig.from_params(self.params)
 
         # Define nonlinear solver for initialization.
-        solver_params = init_config.get("solver_params", {})
-        solver = pp.NewtonSolver(solver_params)
-
-
-        # Get initialization parameters
-        use_export = init_config.get("use_export", True)
-        convergence_tol = init_config.get("convergence_inc_atol", 1e-6)
-        pseudo_time_step = init_config.get("pseudo_time_step", 1000 * pp.YEAR)
+        solver = pp.NewtonSolver(init_config.solver_params)
 
         # Define exporter and export initial state.
-        exporter = None
-        if use_export:
-            folder = Path(self.params["folder_name"])
-            folder_iterations = folder.parent / (folder.name + "_initialization")
-            exporter = pp.Exporter(
-                self.mdg,
-                file_name=self.params["file_name"],
-            folder_name=folder_iterations,
-            length_scale=self.units.m,
-            )
-            exporter.write_vtu(
-                self.data_to_export(),
-                time_dependent=True,
-                time_step=0,
-            )
+        exporter = self._setup_initialization_exporter(init_config.use_export)
 
         # Artificial time control for quasi-static initialization.
-        self.time_manager.dt = pseudo_time_step
+        copy_time_manager = deepcopy(self.time_manager)
+        self._setup_initialization_time_manager(init_config.pseudo_time_step)
 
         # Perform a pseudo time stepping to initialize the reference state.
         iteration = 0
         while True:
             # Advance iter.
             iteration += 1
+            logger.info("Initialization iteration %d", iteration)
 
             # Communicate dt to the model and update time-dependent arrays and
             # derived quantities.
@@ -90,10 +117,11 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
             solver_status = solver.solve(self)
 
             # React to solver_status.
+            # TODO: Revisit after refactoring of time stepping and integration.
             if solver_status.is_successful():
                 # Evaluate initialization status based on total increments.
-                convergence_status = self.check_initialization_convergence(
-                    convergence_tol
+                convergence_status = self._check_initialization_convergence(
+                    init_config.convergence_inc_atol
                 )
                 if convergence_status.is_converged():
                     initialization_status = SimulationStatus.SUCCESSFUL
@@ -121,7 +149,7 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
                 else:
                     try:
                         initialization_status = SimulationStatus.FAILED
-                        self.model.time_manager.compute_time_step(
+                        self.time_manager.compute_time_step(
                             recompute_solution=True
                         )
                     except Exception as e:
@@ -154,12 +182,35 @@ class QuasiStaticReferenceStateInitialization(InitializationStrategy):
         self.exporter._time_step_counter = 0
         self.save_data_time_step()
 
-        # Reset time manager as possibly redefined during initialization.
-        self.time_manager.dt = self.time_manager.dt_init
+        # Restore time manager.
+        self.time_manager = copy_time_manager
 
         logger.info("\033[92mInitialization completed.\033[0m")
 
-    def check_initialization_convergence(self, tol: float) -> ConvergenceStatus:
+    def _setup_initialization_time_manager(self, pseudo_time_step: float) -> None:
+        """Setup time manager for initialization.
+
+        Parameters:
+            pseudo_time_step: Time step to use for the pseudo time stepping during
+                initialization.
+
+        """
+        self.time_manager = pp.TimeManager(
+            schedule=[
+                self.time_manager.time_init,
+                self.time_manager.time_final + pseudo_time_step
+            ],
+            dt_init=pseudo_time_step,
+            constant_dt=False,
+            dt_min_max=(self.time_manager.dt_min_max[0], pseudo_time_step),
+            iter_max=self.time_manager.iter_max,
+            iter_optimal_range=self.time_manager.iter_optimal_range,
+            iter_relax_factors=self.time_manager.iter_relax_factors,
+            recomp_factor=self.time_manager.recomp_factor,
+            recomp_max=self.time_manager.recomp_max,
+         )
+
+    def _check_initialization_convergence(self, tol: float) -> ConvergenceStatus:
         """Check convergence of the initialization state.
 
         Uses simple criterion based on the change in the state variables between
