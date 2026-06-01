@@ -1,4 +1,11 @@
-"""Initialization strategies utilizing auxiliary simulations."""
+"""Initialization strategies utilizing auxiliary simulations.
+
+TODO:
+* Once time stepping is updated. Make here use of provided structures.
+* User control on hard coded parameters.
+* Allow to reuse solvers etc.?
+
+"""
 
 from __future__ import annotations
 
@@ -26,49 +33,13 @@ class InitializationStrategy(pp.PorePyModel):
         raise NotImplementedError
 
 
-class QuasiStaticPreviousStateInitialization(InitializationStrategy):
-    def initialization(self) -> None:
-        # TODO: Similar to QuasiStaticReferenceStateInitialization, but without updating
-        # the reference state during initialization.
-        raise NotImplementedError
-
-    def check_initialization_convergence(self) -> ConvergenceStatus:
-        """Check convergence of the initialization state.
-
-        Uses simple criterion based on the change in the state variables between
-        the current and previous iteration.
-
-        Returns:
-            ConvergenceStatus: Enum indicating whether the initialization state is
-                converged or not.
-
-        """
-        # TODO: Implementation plan:
-        # - Make tolerance variable, or allow for external control of criteria?
-        # Define a simple convergence criterion aiming for checking change in updates.
-        criterion = pp.IncrementBasedAbsoluteCriterion(
-            tol=1e-6,
-            metric=pp.EuclideanMetric(),
-        )
-
-        # Define the increment to be the change of (all) states in time.
-        state = self.equation_system.get_variable_values(iterate_index=0)
-        prev_state = self.equation_system.get_variable_values(time_step_index=0)
-        increment = state - prev_state
-
-        # Check convergence based on increment
-        convergence_status, _ = criterion.check(increment=increment)
-
-        return convergence_status
-
-
-class QuasiStaticReferenceStateInitialization(QuasiStaticPreviousStateInitialization):
-    """Update the reference state at the beginning of the simulation."""
+class QuasiStaticReferenceStateInitialization(InitializationStrategy):
 
     def initialization(self) -> None:
-        """Initialization of reference states."""
+        """Run initialization with strategy-specific update placement."""
+        self._run_initialization(update_reference_after_solve=True)
 
-        logger.info("Initializing reference state...")
+    def _run_initialization(self, update_reference_after_solve: bool) -> None:
         # TODO: Use same solver as outside?
         solver = pp.NewtonSolver(
             {
@@ -122,6 +93,8 @@ class QuasiStaticReferenceStateInitialization(QuasiStaticPreviousStateInitializa
 
                 # Shift solution for next computation.
                 self.update_time_step_solution()
+                if update_reference_after_solve:
+                    self.update_reference()
 
                 # Update the time step magnitude if the dynamic scheme is used.
                 if not self.time_manager.is_constant:
@@ -151,9 +124,6 @@ class QuasiStaticReferenceStateInitialization(QuasiStaticPreviousStateInitializa
             else:
                 raise ValueError("Unrecognized solver status.")
 
-            # Update reference.
-            self.update_reference()
-
             # Export initialization iterates.
             exporter.write_vtu(
                 self.data_to_export(),
@@ -169,10 +139,48 @@ class QuasiStaticReferenceStateInitialization(QuasiStaticPreviousStateInitializa
                 break
 
         # Save initial data.
-        # TODO need to overwrite current! Check
+        # TODO: Exporter has own counter which needs reset - this is prone to error.
+        self.exporter._time_step_counter = 0
         self.save_data_time_step()
 
         # Reset time manager as possibly redefined during initialization.
         self.time_manager.dt = self.time_manager.dt_init
 
-        logger.info("\033[92mReference state initialization successful.\033[0m")
+        logger.info("\033[92mInitialization completed.\033[0m")
+
+    def check_initialization_convergence(self) -> ConvergenceStatus:
+        """Check convergence of the initialization state.
+
+        Uses simple criterion based on the change in the state variables between
+        the current and previous iteration.
+
+        Returns:
+            ConvergenceStatus: Enum indicating whether the initialization state is
+                converged or not.
+
+        """
+        # TODO: Implementation plan:
+        # - Make tolerance variable, or allow for external control of criteria?
+        # Define a simple convergence criterion aiming for checking change in updates.
+        criterion = pp.IncrementBasedAbsoluteCriterion(
+            tol=1e-6,
+            metric=pp.EuclideanMetric(),
+        )
+
+        # Define the increment to be the change of (all) states in time.
+        state = self.equation_system.get_variable_values(iterate_index=0)
+        prev_state = self.equation_system.get_variable_values(time_step_index=0)
+        increment = state - prev_state
+
+        # Check convergence based on increment
+        convergence_status, _ = criterion.check(increment=increment)
+
+        return convergence_status
+
+
+class QuasiStaticPreviousStateInitialization(QuasiStaticReferenceStateInitialization):
+    """Update the reference state at the beginning of the simulation."""
+
+    def initialization(self) -> None:
+        """Run initialization with strategy-specific update placement."""
+        self._run_initialization(update_reference_after_solve=False)
