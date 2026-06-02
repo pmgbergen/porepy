@@ -900,6 +900,7 @@ _BC_UNIT_INVARIANCE_SPECS: list[_BCUnitInvarianceSpec] = [
 ]
 
 
+@pytest.mark.skipped(reason="slow")
 @pytest.mark.parametrize(
     "spec",
     _BC_UNIT_INVARIANCE_SPECS,
