@@ -53,6 +53,7 @@ __all__ = [
     "RegularizedHeaviside",
     "maximum",
     "characteristic_function",
+    "mask_by_threshold",
     "clip",
     "mask_by_threshold",
 ]
