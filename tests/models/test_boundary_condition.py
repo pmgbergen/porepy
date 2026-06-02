@@ -15,7 +15,6 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
-
 from porepy.examples.tracer_flow import TracerFlowModel
 from porepy.models.momentum_balance import MomentumBalance
 
