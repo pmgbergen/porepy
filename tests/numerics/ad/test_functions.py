@@ -8,6 +8,7 @@ scalar times a variable.
 """
 
 import warnings
+import pytest
 
 import numpy as np
 import scipy.sparse as sps
@@ -893,3 +894,76 @@ def test_clip_does_not_mutate_input():
     _ = af.clip(a, 0.0, 3.0)
     assert np.allclose(a.val, np.array([-1.0, 2.0, 5.0]))
     assert np.allclose(a.jac.toarray(), sps.eye(3).toarray())
+
+
+# Function: mask_by_threshold
+@pytest.mark.parametrize(
+    "char_var,var,tol,expected_val,expected_jac",
+    [
+        # Test case 1: scalar, no AdArray
+        pytest.param(
+            np.array([0.5, -0.1, 2.0]),
+            10.0,
+            0.0,
+            np.array([10.0, 0.0, 10.0]),
+            None,
+            id="scalar_no_advar",
+        ),
+        # Test case 2: ndarray, no AdArray
+        pytest.param(
+            np.array([0.5, -0.1, 2.0]),
+            np.array([10, 20, 30]),
+            0.0,
+            np.array([10, 0, 30]),
+            None,
+            id="array_no_advar",
+        ),
+        # Test case 3: NaN * 0 = 0
+        pytest.param(
+            np.array([0.5, -0.1, 2.0]),
+            np.array([10.0, np.nan, 30.0]),
+            0.0,
+            np.array([10.0, 0.0, 30.0]),
+            None,
+            id="nan_times_zero",
+        ),
+        # Test case 4: AdArray with tolerance
+        pytest.param(
+            AdArray(np.array([0.05, 0.1, 1.0]), sps.csr_matrix((3, 3))),
+            AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
+            0.08,
+            np.array([0, 20, 30]),
+            np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]]),
+            id="adarray_with_tolerance",
+        ),
+        # Test case 5: all masked
+        pytest.param(
+            AdArray(np.array([0.1, 0.2, 0.3]), sps.csr_matrix((3, 3))),
+            AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
+            0.5,
+            np.array([0, 0, 0]),
+            np.zeros((3, 3)),
+            id="all_masked",
+        ),
+        # Test case 6: all kept
+        pytest.param(
+            AdArray(np.array([0.5, 1.0, 2.0]), sps.csr_matrix((3, 3))),
+            AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
+            0.0,
+            np.array([10, 20, 30]),
+            np.diag([1, 1, 1]),
+            id="all_kept",
+        ),
+    ],
+)
+def test_mask_by_threshold(char_var, var, tol, expected_val, expected_jac):
+    """Parametrized test for mask_by_threshold covering multiple cases."""
+    result = af.mask_by_threshold(tol, char_var, var)
+
+    # Check values
+    assert np.allclose(result.val if hasattr(result, "val") else result, expected_val)
+
+    # Check Jacobian if expected
+    if expected_jac is not None:
+        assert hasattr(result, "jac"), "Expected AdArray with Jacobian"
+        assert np.allclose(result.jac.toarray(), expected_jac)
