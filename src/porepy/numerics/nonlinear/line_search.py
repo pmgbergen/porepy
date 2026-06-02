@@ -37,6 +37,19 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
+class NonFiniteSampleError(FloatingPointError):
+    """Raised when a non-finite function sample is encountered.
+
+    Carries the x-location of the offending sample so callers can shrink the interval
+    to [a, x_bad].
+    """
+
+    def __init__(self, x_bad: float, x_good: float):
+        super().__init__("Non-finite function value encountered during sampling")
+        self.x_bad = float(x_bad)
+        self.x_good = float(x_good)
+
+
 class LineSearchNewtonSolver(pp.NewtonSolver):
     """Class for relaxing a nonlinear iteration update using a line search.
 
@@ -150,8 +163,8 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             objective_function,
             num_steps=num_steps,
             step_size_tolerance=interval_size,
-            f_a=f_0,
-            f_b=f_1,
+            f_a=float(f_0),
+            f_b=float(f_1),
         )
         # Safeguard against zero weights.
         return np.maximum(alpha, self.min_line_search_weight) * np.ones_like(dx)
@@ -396,14 +409,67 @@ class SplineInterpolationLineSearch:
         """
         counter = 0
         while b - a > interval_target_size or counter < 1:
-            alpha, x, y = self.optimum_from_spline(
-                function,
-                a,
-                b,
-                num_pts,
-                f_a=f_a,
-                f_b=f_b,
-            )
+            try:
+                alpha, x, y = self.optimum_from_spline(
+                    function,
+                    a,
+                    b,
+                    num_pts,
+                    f_a=f_a,
+                    f_b=f_b,
+                )
+            except NonFiniteSampleError as err:
+                # Non-finite found at x*=err.x_bad. We assume that the minimum lies in
+                # [a, x_bad] and disect this interval.
+                x_bad = err.x_bad
+                x_good = err.x_good
+
+                # Case 1: The bad point is the first sample; use [a, x_bad] as the new
+                # interval and continue the recursion. We will encounter the error again
+                # in the next iteration, but we will have shrunk the interval to [a,
+                # x_bad] from [a, b].
+                if np.isclose(x_good, a):
+                    b = x_bad
+                    f_b = None
+                    # In case the new interval satisfies the termination criterion, we
+                    # will set alpha to b.
+                    alpha = b
+                    counter += 1
+                    continue  # To next recursion iteration.
+
+                # By now, there are two posssibilities for the location of the minimum:
+                # either in [a, x_good) or in [x_good, x_bad]. We start by searching for
+                # alpha in [a, x_good]. We do not catch the error here, since by
+                # assumption all values in the interval [a, x_good] are valid.
+                alpha, x, y = self.optimum_from_spline(
+                    function,
+                    a,
+                    x_good,
+                    num_pts,
+                    f_a=f_a,
+                )
+
+                # Case 2: If alpha is not in [a, x_good): The minimum is at or beyond
+                # x_good. This should imply that alpha is in the interval [x_good,
+                # x_bad], which will be our updated interval. While we expect to incur
+                # the error in the next iteration, we have shrunk the interval to
+                # [x_good, x_bad] from [a, b], since the alpha, x, y last computed are
+                # all non-degenerate.
+                if np.isclose(alpha, x_good) or alpha > x_good:
+                    # Update both ends
+                    a = x_good
+                    f_a = y[-1]
+                    b = x_bad
+                    f_b = None
+
+                    counter += 1
+                    continue  # To next recursion iteration.
+                # 2) Alpha is in [a, x_good): narrow the search interval to [a, x_good]
+                # so the fall-through code below operates on the same grid as the x, y
+                # already computed above.
+                b = x_good
+                f_b = y[-1]
+
             x = np.linspace(a, b, num_pts)
             # Find the indices on either side of alpha. We know that alpha is int, since
             # alpha is scalar.
@@ -423,7 +489,10 @@ class SplineInterpolationLineSearch:
                 f_a = y[ind - 1]
                 f_b = y[ind]
             counter += 1
+            # Continue recursion.
 
+        # Recursion is terminated. Return the last computed alpha and the final
+        # interval.
         return alpha, a, b
 
     def optimum_from_spline(
@@ -453,24 +522,25 @@ class SplineInterpolationLineSearch:
         """
         x = np.linspace(a, b, num_pts)
         y_list = []
-
-        for pt in x:
+        for i, pt in enumerate(x):
             if f_a is not None and np.isclose(pt, a):
                 f_pt = f_a
             elif f_b is not None and np.isclose(pt, b):
                 f_pt = f_b
             else:
                 f_pt = f(pt)
-            # Safeguard 2: Check for any non-finite values (NaN or inf)
+            # Check for any non-finite values (NaN or inf). Raise NonFiniteSampleError
+            # so the caller (recursive_spline_interpolation) can shrink the interval
+            # and retry. x_good is the last successfully sampled point (or a if this
+            # is the very first sample).
             if not np.all(np.isfinite(f_pt)):
                 logger.warning(
                     f"Non-finite constraint values at relaxation weight {pt:.6e}. "
                     "This suggests the Newton update leads to an unphysical state. "
                     "Truncating line search interval."
                 )
-                # If we get non-finite values, truncate the x vector
-                x = x[: np.where(x == pt)[0][0]]
-                break
+                x_good = x[i - 1] if i > 0 else a
+                raise NonFiniteSampleError(x_bad=pt, x_good=x_good)
             # Collect function values, scalar or vector.
             y_list.append(f_pt)
         if isinstance(y_list[0], np.ndarray):
