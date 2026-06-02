@@ -117,7 +117,7 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
         return self._bc_type(sd, "neu")
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Boundary condition values for Darcy flux.
+        """Boundary condition values for mobility-free Darcy flux.
 
         For 0D boundary grids, mobility-free Darcy-flux values are assigned
         on the top face of the well. The value is taken from the `well_flux`
