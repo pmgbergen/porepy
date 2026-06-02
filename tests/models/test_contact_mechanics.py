@@ -105,7 +105,6 @@ def test_contact_mechanics(nd, formulation):
 def test_friction_constraint(nd, formulation, friction_coefficient):
     """Test whether friction constraint ||t_t|| <= b_p (friction bound) is respected."""
 
-    solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
     solid_vals = {
         "fracture_tangential_stiffness": 0.5e0,
         "fracture_normal_stiffness": 1.0e0,
@@ -175,8 +174,7 @@ def test_contact_mechanics_convergence(nd, formulation):
     model = model_class(params)
 
     # Run and capture solver info.
-    runner = pp.ModelRunner(model)
-    runner.run()
+    pp.ModelRunner(model).run()
 
     # Fetch convergence status from statistics.
     status = model.nonlinear_solver_statistics.simulation_status
