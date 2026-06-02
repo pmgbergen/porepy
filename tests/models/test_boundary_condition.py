@@ -16,7 +16,6 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
 
-# from tests.functional.setups.linear_tracer import TracerFlowModel_1p
 from porepy.examples.tracer_flow import TracerFlowModel
 from porepy.models.momentum_balance import MomentumBalance
 
