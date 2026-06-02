@@ -593,16 +593,6 @@ class RadialReturnTangentialContactMechanicsEquation:
     """Alternative formulation for tangential fracture deformation based on the
     classical radial return projection.
 
-    . math::
-
-        \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
-        \\mathbf{t}_t &= \\min\\left(
-            1,
-            -\\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
-        \\right) \cdot \\mathbf{t}_t^{trial}
-
-    where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
-
     """
 
     tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -652,7 +642,23 @@ class RadialReturnTangentialContactMechanicsEquation:
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Contact mechanics equation for the tangential constraints."""
+        """Contact mechanics equation for the tangential constraints.
+
+        .. math::
+
+            \\mathbf{t}_t^{trial} &= \\mathbf{t}_t + c_{num} \\Delta \\mathbf{u}_t \\\\
+            \\mathbf{t}_t &= \\min\\left(
+                1,
+                -\\frac{b_p}{\\|\\mathbf{t}_t^{trial}\\|}
+            \\right) \\cdot \\mathbf{t}_t^{trial}
+
+        where :math:`b_p = \\max(\\text{friction\\_bound}, 0)` is the friction bound.
+
+        See e.g.: Eq. (48c) in Alart and Curnier, "A mixed formulation for frictional
+        contact problems prone to Newton like solution methods", CMAME, 1991,
+        DOI: 10.1016/0045-7825(91)90022-X.
+
+        """
 
         # Basis vector combinations.
         num_cells = sum([sd.num_cells for sd in subdomains])
