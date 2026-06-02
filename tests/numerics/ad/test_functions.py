@@ -875,6 +875,8 @@ def test_mask_by_threshold(char_var, var, tol, expected_val, expected_jac):
     if expected_jac is not None:
         assert hasattr(result, "jac"), "Expected AdArray with Jacobian"
         assert np.allclose(result.jac.toarray(), expected_jac)
+
+
 # Function: clip
 
 
