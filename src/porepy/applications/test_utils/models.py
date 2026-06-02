@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, cast
+from typing import Any, Callable, TypeVar, cast
 
 import numpy as np
 
@@ -310,9 +310,10 @@ def subdomains_or_interfaces_from_method_name(
     return domains
 
 
-def add_mixin(
-    mixin: type[pp.PorePyModel], parent: type[pp.PorePyModel]
-) -> type[pp.PorePyModel]:
+_T = TypeVar("_T", bound=pp.PorePyModel)
+
+
+def add_mixin(mixin: type[pp.PorePyModel], parent: type[_T]) -> type[_T]:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.

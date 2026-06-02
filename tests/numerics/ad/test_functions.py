@@ -875,3 +875,93 @@ def test_mask_by_threshold(char_var, var, tol, expected_val, expected_jac):
     if expected_jac is not None:
         assert hasattr(result, "jac"), "Expected AdArray with Jacobian"
         assert np.allclose(result.jac.toarray(), expected_jac)
+# Function: clip
+
+
+def test_clip_ndarray():
+    # Values entirely within bounds, at min, at max, and outside both bounds.
+    var = np.array([-2.0, 0.0, 1.5, 5.0])
+    result = af.clip(var, 0.0, 3.0)
+    assert np.allclose(result, np.array([0.0, 0.0, 1.5, 3.0]))
+
+
+def test_clip_float():
+    assert af.clip(2.0, 0.0, 3.0) == 2.0
+    assert af.clip(-1.0, 0.0, 3.0) == 0.0
+    assert af.clip(5.0, 0.0, 3.0) == 3.0
+
+
+def test_clip_adarray_values():
+    # Check that values are clipped correctly.
+    val = np.array([-1.0, 1.0, 4.0])
+    J = sps.eye(3, format="csr")
+    a = AdArray(val, J)
+    b = af.clip(a, 0.0, 3.0)
+    assert np.allclose(b.val, np.array([0.0, 1.0, 3.0]))
+
+
+def test_clip_adarray_jacobian_interior():
+    # For values strictly inside [min_val, max_val], the Jacobian is preserved.
+    val = np.array([1.0, 2.0])
+    J = sps.csr_matrix(np.array([[3.0, 0.0], [0.0, 5.0]]))
+    a = AdArray(val, J)
+    b = af.clip(a, 0.0, 3.0)
+    assert np.allclose(b.jac.toarray(), J.toarray())
+
+
+def test_clip_adarray_jacobian_at_bounds():
+    # For values exactly at min or max, the Jacobian is zeroed out.
+    val = np.array([0.0, 3.0])
+    J = sps.eye(2, format="csr")
+    a = AdArray(val, J)
+    b = af.clip(a, 0.0, 3.0)
+    assert np.allclose(b.jac.toarray(), np.zeros((2, 2)))
+
+
+def test_clip_adarray_jacobian_outside_bounds():
+    # For values outside [min_val, max_val], the Jacobian is zeroed out.
+    val = np.array([-1.0, 5.0])
+    J = sps.eye(2, format="csr")
+    a = AdArray(val, J)
+    b = af.clip(a, 0.0, 3.0)
+    assert np.allclose(b.jac.toarray(), np.zeros((2, 2)))
+
+
+def test_clip_adarray_mixed():
+    # Mix of clipped (below, above) and interior values.
+    val = np.array([-1.0, 1.0, 2.0, 5.0])
+    J = sps.csr_matrix(
+        np.array([[1, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 4]], dtype=float)
+    )
+    a = AdArray(val, J)
+    b = af.clip(a, 0.0, 3.0)
+
+    expected_val = np.array([0.0, 1.0, 2.0, 3.0])
+    # Interior rows (indices 1 and 2) keep their Jacobian; clipped rows (0, 3) are zero.
+    expected_jac = np.array(
+        [[0, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 0]], dtype=float
+    )
+    assert np.allclose(b.val, expected_val)
+    assert np.allclose(b.jac.toarray(), expected_jac)
+
+
+def test_clip_adarray_dense_jacobian():
+    # Verify correctness with a non-diagonal (dense) Jacobian.
+    val = np.array([0.5, 2.5])
+    J = sps.csr_matrix(np.array([[1.0, 2.0], [3.0, 4.0]]))
+    a = AdArray(val, J)
+    b = af.clip(a, 0.0, 3.0)
+    assert np.allclose(b.val, np.array([0.5, 2.5]))
+    assert np.allclose(b.jac.toarray(), J.toarray())
+
+
+def test_clip_does_not_mutate_input():
+    # Ensure the original AdArray is unchanged after clipping.
+    val = np.array([-1.0, 2.0, 5.0])
+    J = sps.eye(3, format="csr")
+    a = AdArray(val.copy(), J.copy())
+    # Perform clipping, but ignore the result to check that 'a' is unchanged. The clip
+    # affects the values -1 and 5.
+    _ = af.clip(a, 0.0, 3.0)
+    assert np.allclose(a.val, np.array([-1.0, 2.0, 5.0]))
+    assert np.allclose(a.jac.toarray(), sps.eye(3).toarray())

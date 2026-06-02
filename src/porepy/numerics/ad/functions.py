@@ -54,6 +54,7 @@ __all__ = [
     "maximum",
     "characteristic_function",
     "mask_by_threshold",
+    "clip",
 ]
 
 
@@ -61,7 +62,7 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(np.exp(var.val))
+        der = var._diagvec_mul_jac(val)
         return AdArray(val, der)
     else:
         return np.exp(var)
@@ -74,6 +75,36 @@ def log(var: FloatType) -> FloatType:
         return AdArray(val, der)
     else:
         return np.log(var)
+
+
+def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
+    """Clip (limit) the values in an array or AdArray between min_val and max_val.
+
+    Parameters:
+        var: Input variable (AdArray, ndarray, or float).
+        min_val: Minimum allowed value.
+        max_val: Maximum allowed value.
+
+    Returns:
+        Clipped variable, with values restricted to [min_val, max_val].
+        If input is AdArray, the Jacobian is preserved only for the unclipped region;
+        for clipped values, the Jacobian is set to zero.
+    """
+    if isinstance(var, AdArray):
+        val = np.clip(var.val, min_val, max_val)
+        # For clipped values, the derivative is zero; for unclipped, keep original
+        # jacobian.
+        mask = (var.val > min_val) & (var.val < max_val)
+        mask_diag = mask.astype(float)
+
+        mask_matrix = sps.diags(mask_diag)
+        jac = mask_matrix @ var.jac
+        return AdArray(val, jac)
+    elif isinstance(var, np.ndarray):
+        return np.clip(var, min_val, max_val)
+    else:
+        # float or int
+        return float(np.clip(var, min_val, max_val))
 
 
 # Absolute value and l2_norm
