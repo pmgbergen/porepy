@@ -483,9 +483,9 @@ class _BCUnitInvarianceSpec:
 
 #: Unit scalings probing each axis of the BC's SI dimensions.
 _DEFAULT_UNIT_SCALINGS: list[pp.Units] = [
-    pp.Units(m=10.0),
-    pp.Units(kg=0.01),
-    pp.Units(m=100.0),
+    pp.Units(m=3, kg=7, K=0.23),
+    pp.Units(m=2.44, kg=4.1, K=11.0),
+    pp.Units(m=1.44, kg=0.1, K=0.01),
     pp.Units(m=10.0, kg=0.01, K=10.0),
 ]
 
@@ -540,6 +540,16 @@ def _assert_bc_unit_invariance(
     """Recovered SI observable must be invariant under unit rescaling."""
 
     baseline = _run_and_recover_in_si(spec, pp.Units())
+
+    # Guard against trivially-passing tests: zero, NaN,
+    # or degenerate solution.
+    assert np.all(np.isfinite(baseline)), (
+        f"Baseline for '{spec.probe_label}' contains non-finite values."
+    )
+    assert np.max(np.abs(baseline)) > 0.0, (
+        f"Baseline for '{spec.probe_label}' is identically zero."
+    )
+
     scaled = _run_and_recover_in_si(spec, units)
 
     np.testing.assert_allclose(
@@ -552,19 +562,6 @@ def _assert_bc_unit_invariance(
             f"scaling {_unit_scaling_label(units)}. Declared BC unit: "
             f"'{spec.declared_bc_unit}'."
         ),
-    )
-
-
-def _assert_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
-    """Guard against trivially-passing tests: zero, NaN, or degenerate solution."""
-
-    baseline = _run_and_recover_in_si(spec, pp.Units())
-
-    assert np.all(np.isfinite(baseline)), (
-        f"Baseline for '{spec.probe_label}' contains non-finite values."
-    )
-    assert np.max(np.abs(baseline)) > 0.0, (
-        f"Baseline for '{spec.probe_label}' is identically zero."
     )
 
 
@@ -926,16 +923,3 @@ def test_bc_values_unit_invariance(
         units,
         atol=1e-10,
     )
-
-
-@pytest.mark.parametrize(
-    "spec",
-    _BC_UNIT_INVARIANCE_SPECS,
-    ids=_bc_spec_label,
-)
-def test_bc_values_baseline_well_posed(spec: _BCUnitInvarianceSpec) -> None:
-    """Test that verifies the SI baseline observable is finite and
-    non-degenerate.
-    """
-
-    _assert_baseline_well_posed(spec)
