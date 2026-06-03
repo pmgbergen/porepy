@@ -7,7 +7,7 @@ import os
 import time
 from datetime import datetime
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "0"
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle

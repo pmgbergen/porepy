@@ -395,6 +395,8 @@ class SolutionStrategy(pp.PorePyModel):
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
