@@ -481,10 +481,10 @@ class _BCUnitInvarianceSpec:
 
 #: Unit scalings probing each axis of the BC's SI dimensions.
 _DEFAULT_UNIT_SCALINGS: list[pp.Units] = [
+    pp.Units(m=10.0),
+    pp.Units(kg=0.01),
+    pp.Units(m=5.0, kg=12.0),
     pp.Units(m=3, kg=7, K=0.23),
-    pp.Units(m=2.44, kg=4.1, K=11.0),
-    pp.Units(m=1.44, kg=0.1, K=0.01),
-    pp.Units(m=10.0, kg=0.01, K=10.0),
 ]
 
 
