@@ -779,14 +779,24 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         return np.zeros((self.nd, bg.num_cells)).ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Stress values for the Nirichlet boundary condition.
+        r"""Stress values for the Neumann boundary condition.
+
+        The values correspond to the integrated boundary traction
+        :math:`\int_{\sigma} (\boldsymbol{\sigma} \cdot \mathbf{n})\, dA`
+        on each boundary face :math:`\sigma`, with SI unit
+        :math:`\mathrm{Pa}\,\mathrm{m}^{n_d-1}`,
+        where :math:`n_d` is the ambient dimension.
+
+        Important:
+            Override this method to provide custom Neumann data for the integrated
+            boundary traction, per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to evaluate values on.
 
         Returns:
-            An array with shape (bg.num_cells,) containing the stress values
-            on the provided boundary grid.
+            An array with ``shape=(self.nd * bg.num_cells,)`` containing the
+            integrated boundary traction values on the provided boundary grid.
 
         """
         return np.zeros((self.nd, bg.num_cells)).ravel("F")
