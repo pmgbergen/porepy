@@ -130,12 +130,6 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
-        self._schur_complement_primary_variables: list[str] = []
-        """See :meth:`schur_complement_primary_variables`."""
-
-        self._schur_complement_primary_equations: list[str] = []
-        """See :meth:`schur_complement_primary_equations`."""
-
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
@@ -257,84 +251,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         return np.array([0])
-
-    @property
-    def schur_complement_primary_equations(self) -> list[str]:
-        """Names of the primary equations for the Schur complement reduction of the
-        linear system.
-
-        They define the row-block which does not contain the sub-matrix which is to be
-        inverted for the Schur complement.
-
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of equation names to be set as primary equations.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the equations (currently) defined as primary equations.
-
-        """
-        return self._schur_complement_primary_equations
-
-    @schur_complement_primary_equations.setter
-    def schur_complement_primary_equations(self, names: list[str]) -> None:
-        known_equations = list(self.equation_system.equations.keys())
-        for n in names:
-            if n not in known_equations:
-                raise ValueError(f"Equation {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary equation names must be unique.")
-        # Shallow copy for safety, and keep order of equation system.
-        self._schur_complement_primary_equations = [
-            n for n in known_equations if n in names
-        ]
-
-    @property
-    def schur_complement_primary_variables(self) -> list[str]:
-        """Names of the primary variables for the Schur complement reduction of the
-        linear system.
-
-        They define the column-block which does not contain the sub-matrix which is to
-        be inverted for the Schur complement.
-
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of variable names to be set as primary variables.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the variables (currently) defined as primary variables.
-
-        """
-        return self._schur_complement_primary_variables
-
-    @schur_complement_primary_variables.setter
-    def schur_complement_primary_variables(self, names: list[str]) -> None:
-        known_variables = list(set(v.name for v in self.equation_system.variables))
-        for n in names:
-            if n not in known_variables:
-                raise ValueError(f"Variable {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary variables names must be unique.")
-        # Shallow copy for safety
-        self._schur_complement_primary_variables = [n for n in names]
 
     def before_time_step(self) -> None:
         """Called at the start of each time step by model runners.
@@ -745,23 +661,7 @@ class SolutionStrategy(pp.PorePyModel):
         """
         t_0 = time.time()
 
-        if self._apply_schur_complement_reduction():
-            assert self.schur_complement_primary_variables, (
-                "Primary column block for Schur technique not found."
-            )
-            assert self.schur_complement_primary_equations, (
-                "Primary row block for Schur technique not defined."
-            )
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.schur_complement_primary_equations,
-                self.schur_complement_primary_variables,
-                inverter=cast(
-                    Callable[[sps.spmatrix], sps.spmatrix],
-                    self.params.get("schur_complement_inverter", None),
-                ),
-            )
-        else:
-            self.linear_system = self.equation_system.assemble()
+        self.linear_system = self.equation_system.assemble()
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
@@ -783,55 +683,110 @@ class SolutionStrategy(pp.PorePyModel):
         """
         A, b = self.linear_system
         t_0 = time.time()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
-            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
+
+            rhs = self.bmat.rhs
+        if np.any(np.isnan(rhs) | np.isinf(rhs)):
+            # This should never be the case, as this situation should cut off by the
+            # nonlinear convergence criterion from the earliear nonlinear iteration. We
+            # keep this safeguard until the iterative solver is in a more mature state.
+            raise ValueError("RHS contains NaN or Inf values")
+
+        try:
+            solver = self.params[(
+                block_linear_system=self.bmat,
+                dof_manager=self._dof_manager,
+                petsc_ksp_pc_configuration=self._petsc_ksp_pc_configuration,
+                user_options=solver_options,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to build a PETSc linear solver based on the given linear "
+                "system.",
+                solver_options,
+            )
+            return np.full_like(rhs, np.nan), -9999
+        elapsed = time() - t0
+        self.nonlinear_solver_statistics.linsolve_construction_time.append(elapsed)
+        logger.info("Linear solver constructed in %.2f seconds.", elapsed)
+
+        # Project the right hand side to the local block matrix ordering, as was done
+        # for the block matrix during assembly. We need to do this on the reordered rhs
+        # vector (with contact eqs reordered).
+        t0 = time()
+        x_loc = solver.solve(rhs)
+        elapsed = time() - t0
+        self.linear_solver_statistics.linsolve_solve_time.append(elapsed)
+        num_it = len(solver.get_residuals())
+        logger.info(
+            "Linear system solved in %.2f seconds with %d iterations.",
+            elapsed,
+            num_it,
         )
 
-        solver = self.linear_solver
-        if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overridden
-            # by the user. We need to check if the pypardiso package is available.
-            try:
-                from pypardiso import spsolve as sparse_solver  # type: ignore
-            except ImportError:
-                # Fall back on the standard scipy sparse solver.
-                sparse_solver = sps.linalg.spsolve
-                warn(
-                    """PyPardiso could not be imported,
-                    falling back on scipy.sparse.linalg.spsolve"""
-                )
-            x = sparse_solver(A, b)
-        elif solver == "umfpack":
-            # Following may be needed:
-            # A.indices = A.indices.astype(np.int64)
-            # A.indptr = A.indptr.astype(np.int64)
-            x = sps.linalg.spsolve(A, b, use_umfpack=True)
-        elif solver == "scipy_sparse":
-            x = sps.linalg.spsolve(A, b)
-        else:
-            raise ValueError(
-                f"AbstractModel does not know how to apply the linear solver {solver}"
+        info: PETScKspConvergedReason = solver.ksp.getConvergedReason()
+        if info <= 0:
+            logger.warning(
+                f"Linear solver did not converge. Reason: %d. "
+                "Check the solver options and the problem setup. "
+                "See detailed description of PETSc error codes: "
+                "https://petsc.org/release/manualpages/KSP/KSPConvergedReason/",
+                info,
             )
+        # Transform the solution back to the global (PorePy) ordering.
+        for transformation in reversed(self._transformations):
+            x_loc = transformation.transform_solution(x_loc)
 
-        x = np.atleast_1d(x)
-        if self._apply_schur_complement_reduction():
-            x = self.equation_system.expand_schur_complement_solution(x)
+        _, proj_col = self._dof_manager.build_projection()
+        x = np.zeros_like(x_loc)
+        x[concatenate_dof_indices(proj_col)] = x_loc
+
+        # x = self.bmat.permute_right_vector_to_original(x_loc)  # YZ: This fails 02.06
+
+        self.linear_solver_statistics.petsc_converged_reason.append(info)
+        self.linear_solver_statistics.num_krylov_iters.append(num_it)
+        if self.linear_solver_params().get("delete_matrices", True):
+            del self.bmat
+
+        return np.atleast_1d(x), info
 
         logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
         return x
 
-    def _apply_schur_complement_reduction(self) -> bool:
-        """Returns the model parameter on whether the linear system should be reduced
-        via Schur complement using the defined primary and secondary equations and
-        variables.
+        # logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
+        # logger.debug(
+        #     f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
+        #     {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
+        # )
 
-        Can be set via ``model.params['apply_schur_complement_reduction'].
-        Returns False by default.
+        # solver = self.linear_solver
+        # if solver == "pypardiso":
+        #     # This is the default option which is invoked unless explicitly overridden
+        #     # by the user. We need to check if the pypardiso package is available.
+        #     try:
+        #         from pypardiso import spsolve as sparse_solver  # type: ignore
+        #     except ImportError:
+        #         # Fall back on the standard scipy sparse solver.
+        #         sparse_solver = sps.linalg.spsolve
+        #         warn(
+        #             """PyPardiso could not be imported,
+        #             falling back on scipy.sparse.linalg.spsolve"""
+        #         )
+        #     x = sparse_solver(A, b)
+        # elif solver == "umfpack":
+        #     # Following may be needed:
+        #     # A.indices = A.indices.astype(np.int64)
+        #     # A.indptr = A.indptr.astype(np.int64)
+        #     x = sps.linalg.spsolve(A, b, use_umfpack=True)
+        # elif solver == "scipy_sparse":
+        #     x = sps.linalg.spsolve(A, b)
+        # else:
+        #     raise ValueError(
+        #         f"AbstractModel does not know how to apply the linear solver {solver}"
+        #     )
 
-        """
-        return bool(self.params.get("apply_schur_complement_reduction", False))
+        # x = np.atleast_1d(x)
+
+        # logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear.
