@@ -4,7 +4,7 @@ your own problem.
 
 """
 
-from typing import Literal, Optional, TypedDict
+from typing import Any, Literal, Optional, TypedDict
 from scipy.sparse import csr_matrix
 from dataclasses import dataclass, field
 
@@ -195,13 +195,17 @@ class EllipticVectorParametersData:
     bc: pp.BoundaryConditionVectorial
     fourth_order_tensor: pp.FourthOrderTensor
     scalar_vector_mappoints: ScalarGradientData
-    active_cells: np.ndarray
-    active_faces: np.ndarray
-    mpsa_eta: Optional[float]
-    reconstruction_eta: Optional[float]
+    mpsa_eta: Optional[float] = None
+    reconstruction_eta: Optional[float] = None
     inverter: Literal["python", "numba"] = "numba"
     reconstruct_on_internal_faces: bool = False
-    parameter_dictionary: dict = field(default_factory=lambda: {})
+    partition_arguments: dict = field(default_factory=lambda: {})
+    update_discretization: bool = False
+    specified_cells: Optional[np.ndarray] = None
+    specified_faces: Optional[np.ndarray] = None
+    specified_nodes: Optional[np.ndarray] = None
+    active_cells: Optional[np.ndarray] = None
+    active_faces: Optional[np.ndarray] = None
 
 
 # class GlobalSimulationData(TypedDict):

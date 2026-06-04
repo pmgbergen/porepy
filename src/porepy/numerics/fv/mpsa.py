@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from time import time
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, cast
 from warnings import warn
 
 import numpy as np
@@ -181,12 +181,13 @@ class Mpsa(Discretization):
             data: For entries, see above.
 
         """
-        parameter_dictionary: EllipticVectorParametersData = data[pp.PARAMETERS][
-            self.keyword
-        ]
-        matrix_dictionary: EllipticVectorDiscretizationMatricesData = data[
-            pp.DISCRETIZATION_MATRICES
-        ][self.keyword]
+        parameter_dictionary = cast(
+            EllipticVectorParametersData, data[pp.PARAMETERS][self.keyword]
+        )
+        matrix_dictionary = cast(
+            EllipticVectorDiscretizationMatricesData,
+            data[pp.DISCRETIZATION_MATRICES][self.keyword],
+        )
         constit = parameter_dictionary.fourth_order_tensor
         bound = parameter_dictionary.bc
 
@@ -194,19 +195,19 @@ class Mpsa(Discretization):
         hf_eta = parameter_dictionary.reconstruction_eta
 
         inverter = parameter_dictionary.inverter
-        reconstruct_on_internal_faces = parameter_dictionary.get(
-            "reconstruct_on_internal_faces", False
+        reconstruct_on_internal_faces = (
+            parameter_dictionary.reconstruct_on_internal_faces
         )
 
         # Control of the number of subdomanis.
         max_memory, num_subproblems = _fvutils.parse_partition_arguments(
-            parameter_dictionary.get("partition_arguments", {})
+            parameter_dictionary.partition_arguments
         )
 
         # Whether to update an existing discretization, or construct a new one. If True,
         # either specified_cells, _faces or _nodes should also be given, or else a full
         # new discretization will be computed
-        update: bool = parameter_dictionary.get("update_discretization", False)
+        update = parameter_dictionary.update_discretization
         if update:
             # EK comment: The functionality to update discretizations has not been
             # thoroughly tested and should be used with extreme care.
@@ -416,28 +417,21 @@ class Mpsa(Discretization):
         )
 
         if update:
+            # YZ: I'm scared to touch this part.
             update_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
-            matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
-                update_ind
-            ]
-            matrix_dictionary[self.bound_stress_matrix_key][update_ind] = (
-                bound_stress_glob[update_ind]
-            )
-            matrix_dictionary[self.bound_displacement_cell_matrix_key][update_ind] = (
+            matrix_dictionary.stress[update_ind] = stress_glob[update_ind]
+            matrix_dictionary.bound_stress[update_ind] = bound_stress_glob[update_ind]
+            matrix_dictionary.bound_displacement_cell[update_ind] = (
                 bound_displacement_cell_glob[update_ind]
             )
-            matrix_dictionary[self.bound_displacement_face_matrix_key][update_ind] = (
+            matrix_dictionary.bound_displacement_face[update_ind] = (
                 bound_displacement_face_glob[update_ind]
             )
         else:
-            matrix_dictionary[self.stress_matrix_key] = stress_glob
-            matrix_dictionary[self.bound_stress_matrix_key] = bound_stress_glob
-            matrix_dictionary[self.bound_displacement_cell_matrix_key] = (
-                bound_displacement_cell_glob
-            )
-            matrix_dictionary[self.bound_displacement_face_matrix_key] = (
-                bound_displacement_face_glob
-            )
+            matrix_dictionary.stress = stress_glob
+            matrix_dictionary.bound_stress = bound_stress_glob
+            matrix_dictionary.bound_displacement_cell = bound_displacement_cell_glob
+            matrix_dictionary.bound_displacement_face = bound_displacement_face_glob
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
@@ -638,7 +632,7 @@ class Mpsa(Discretization):
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
                                                      sd.num_cells * sd.dim))``
 
-                Stree discretization matrix.
+                Stress discretization matrix.
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
                                                      sd.num_faces * sd.dim))``
 

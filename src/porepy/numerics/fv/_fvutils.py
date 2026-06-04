@@ -15,6 +15,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.examples.example_params import EllipticVectorParametersData
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
@@ -306,7 +307,7 @@ def determine_eta(sd: pp.Grid) -> float:
 
 
 def find_active_indices(
-    parameter_dictionary: dict[str, Any], sd: pp.Grid
+    parameter_dictionary: EllipticVectorParametersData, sd: pp.Grid
 ) -> tuple[np.ndarray, np.ndarray]:
     """Process information in parameter dictionary on whether the discretization
     should consider a subgrid. Look for fields in the parameter dictionary called
@@ -329,9 +330,9 @@ def find_active_indices(
     """
     # The discretization can be limited to a specified set of cells, faces or nodes
     # If none of these are specified, the entire grid will be discretized
-    specified_cells = parameter_dictionary.get("specified_cells", None)
-    specified_faces = parameter_dictionary.get("specified_faces", None)
-    specified_nodes = parameter_dictionary.get("specified_nodes", None)
+    specified_cells = parameter_dictionary.specified_cells
+    specified_faces = parameter_dictionary.specified_faces
+    specified_nodes = parameter_dictionary.specified_nodes
 
     # Find the cells and faces that should be considered for discretization
     if (
@@ -343,14 +344,14 @@ def find_active_indices(
         active_cells, active_faces = cell_ind_for_partial_update(
             sd, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
         )
-        parameter_dictionary["active_cells"] = active_cells
-        parameter_dictionary["active_faces"] = active_faces
+        parameter_dictionary.active_cells = active_cells
+        parameter_dictionary.active_faces = active_faces
     else:
         # All cells and faces in the grid should be updated
         active_cells = np.arange(sd.num_cells)
         active_faces = np.arange(sd.num_faces)
-        parameter_dictionary["active_cells"] = active_cells
-        parameter_dictionary["active_faces"] = active_faces
+        parameter_dictionary.active_cells = active_cells
+        parameter_dictionary.active_faces = active_faces
 
     return active_cells, active_faces
 
