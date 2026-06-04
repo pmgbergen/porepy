@@ -81,6 +81,8 @@ class MockModel:
         self.mdg = MockMdg()
         self.nonlinear_increment_history = nonlinear_increment_history
         self.residual_history = residual_history
+        self._linear_solve_failed = False
+        self._linear_solve_failure_reason = None
 
     def before_nonlinear_loop(self):
         self.nonlinear_solver_statistics.increase_index()
@@ -109,6 +111,37 @@ class MockModel:
 
     def _is_time_dependent(self):
         return False
+
+
+class LinearFailureMockModel(MockModel):
+    """Mock model that can flag a failed linear solve on a chosen iteration."""
+
+    def __init__(
+        self,
+        nonlinear_increment_history=None,
+        residual_history=None,
+        fail_on_solve_call=None,
+        path=None,
+    ):
+        super().__init__(
+            nonlinear_increment_history=nonlinear_increment_history,
+            residual_history=residual_history,
+            path=path,
+        )
+        self.fail_on_solve_call = fail_on_solve_call
+        self.solve_linear_system_calls = 0
+        self.after_nonlinear_iteration_calls = 0
+
+    def after_nonlinear_iteration(self, inc):
+        self.after_nonlinear_iteration_calls += 1
+
+    def solve_linear_system(self):
+        self.solve_linear_system_calls += 1
+        self._linear_solve_failed = (
+            self.solve_linear_system_calls == self.fail_on_solve_call
+        )
+        self._linear_solve_failure_reason = -3 if self._linear_solve_failed else None
+        return self.nonlinear_increment
 
 
 class TimeDependentMockModel(MockModel):
@@ -884,6 +917,27 @@ def test_nonlinear_loop(
         # Newton loop only stops on convergence or divergence.
         # Need to handle the non-convergence and non-divergence case.
         assert not (is_converged or is_diverged), f"Unexpected exception: {e}"
+
+
+def test_nonlinear_loop_diverges_on_linear_solve_failure(default_newton_solver):
+    """Test that a failed linear solve immediately marks the nonlinear loop diverged."""
+    model = LinearFailureMockModel(
+        nonlinear_increment_history=[2.0, 2.0, 2.0],
+        residual_history=[1.0, 1.0, 1.0],
+        fail_on_solve_call=2,
+    )
+    solver = default_newton_solver
+
+    solver.before_nonlinear_loop(model)
+    convergence_status, divergence_status = solver.nonlinear_loop(model)
+
+    assert (
+        convergence_status["linear_solver_failure"]
+        == ConvergenceStatus.NOT_CONVERGED
+    )
+    assert divergence_status["linear_solver_failure"] == ConvergenceStatus.DIVERGED
+    assert solver.iteration_index == 2
+    assert model.after_nonlinear_iteration_calls == 1
 
 
 @pytest.mark.parametrize(

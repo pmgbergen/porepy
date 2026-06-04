@@ -16,6 +16,7 @@ from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
+    ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
     SimulationStatus,
@@ -268,6 +269,8 @@ class NewtonSolver:
         """
         # Prepare model for nonlinear loop.
         model.before_nonlinear_loop()
+        setattr(model, "_linear_solve_failed", False)
+        setattr(model, "_linear_solve_failure_reason", None)
 
         # Prepare solver for nonlinear loop.
         self.iteration_index = 0
@@ -296,15 +299,88 @@ class NewtonSolver:
                 # Perform nonlinear iteration and obtain increment.
                 nonlinear_increment = self.nonlinear_iteration(model)
 
-                # Finalize nonlinear iteration and determine status.
-                (convergence_status, divergence_status) = (
-                    self.after_nonlinear_iteration(model, nonlinear_increment)
-                )
+                if getattr(model, "_linear_solve_failed", False):
+                    convergence_status, divergence_status = (
+                        self._mark_linear_solve_failure_as_diverged(
+                            model, nonlinear_increment
+                        )
+                    )
+                elif not np.all(np.isfinite(nonlinear_increment)):
+                    convergence_status, divergence_status = (
+                        self._mark_nonfinite_increment_as_diverged(
+                            model, nonlinear_increment
+                        )
+                    )
+                else:
+                    # Finalize nonlinear iteration and determine status.
+                    (convergence_status, divergence_status) = (
+                        self.after_nonlinear_iteration(model, nonlinear_increment)
+                    )
 
                 # Exit the Newton loop.
                 if convergence_status.is_converged() or divergence_status.is_diverged():
                     break
 
+        return convergence_status, divergence_status
+
+    def _mark_linear_solve_failure_as_diverged(
+        self, model: SolutionStrategy, nonlinear_increment: np.ndarray
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+        """Stop the Newton loop immediately when the linear solver fails.
+
+        This bypasses ``model.after_nonlinear_iteration`` on purpose so a failed linear
+        solve does not write a non-physical increment back into the iterate state.
+
+        """
+        reason = getattr(model, "_linear_solve_failure_reason", None)
+        logger.warning(
+            "Treating nonlinear iteration %s as diverged because the linear solver "
+            "failed with PETSc reason %s.",
+            self.iteration_index,
+            reason,
+        )
+        return self._build_explicit_divergence_status(
+            model=model,
+            nonlinear_increment=nonlinear_increment,
+            criterion_name="linear_solver_failure",
+        )
+
+    def _mark_nonfinite_increment_as_diverged(
+        self, model: SolutionStrategy, nonlinear_increment: np.ndarray
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+        """Stop the Newton loop immediately when the increment contains NaN/Inf."""
+        logger.warning(
+            "Treating nonlinear iteration %s as diverged because the nonlinear "
+            "increment contains non-finite values.",
+            self.iteration_index,
+        )
+        return self._build_explicit_divergence_status(
+            model=model,
+            nonlinear_increment=nonlinear_increment,
+            criterion_name="nonfinite_increment",
+        )
+
+    def _build_explicit_divergence_status(
+        self,
+        model: SolutionStrategy,
+        nonlinear_increment: np.ndarray,
+        criterion_name: str,
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+        """Create and log an explicit divergence status without updating the model."""
+        convergence_status = ConvergenceStatusCollection(
+            {criterion_name: ConvergenceStatus.NOT_CONVERGED}
+        )
+        divergence_status = ConvergenceStatusCollection(
+            {criterion_name: ConvergenceStatus.DIVERGED}
+        )
+        convergence_info = {criterion_name: np.nan}
+
+        self.logging(model, convergence_info, nonlinear_increment)
+        self.update_solver_statistics(
+            model,
+            convergence_status=divergence_status,
+            convergence_info=convergence_info,
+        )
         return convergence_status, divergence_status
 
     def after_nonlinear_loop(
