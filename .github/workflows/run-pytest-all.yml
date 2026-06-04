@@ -78,6 +78,7 @@ jobs:
 
     - name: Install pypardiso
       run: |
+        pip install mkl==2025.3.1
         pip install pypardiso
 
     - name: all tests
