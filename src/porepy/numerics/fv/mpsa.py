@@ -19,6 +19,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.examples.example_params import (
+    EllipticVectorDiscretizationMatricesData,
+    EllipticVectorParametersData,
+)
 from porepy.numerics.discretization import Discretization
 
 from . import _fvutils
@@ -177,19 +181,19 @@ class Mpsa(Discretization):
             data: For entries, see above.
 
         """
-        parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+        parameter_dictionary: EllipticVectorParametersData = data[pp.PARAMETERS][
             self.keyword
         ]
-        constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
-        bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
+        matrix_dictionary: EllipticVectorDiscretizationMatricesData = data[
+            pp.DISCRETIZATION_MATRICES
+        ][self.keyword]
+        constit = parameter_dictionary.fourth_order_tensor
+        bound = parameter_dictionary.bc
 
-        eta: Optional[float] = parameter_dictionary.get("mpsa_eta", None)
-        hf_eta: Optional[float] = parameter_dictionary.get("reconstruction_eta", None)
+        eta = parameter_dictionary.mpsa_eta
+        hf_eta = parameter_dictionary.reconstruction_eta
 
-        inverter: Literal["python", "numba"] = parameter_dictionary.get(
-            "inverter", "numba"
-        )
+        inverter = parameter_dictionary.inverter
         reconstruct_on_internal_faces = parameter_dictionary.get(
             "reconstruct_on_internal_faces", False
         )

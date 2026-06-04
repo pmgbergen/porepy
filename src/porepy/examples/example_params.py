@@ -4,6 +4,11 @@ your own problem.
 
 """
 
+from typing import Literal, Optional, TypedDict
+from scipy.sparse import csr_matrix
+from dataclasses import dataclass
+
+
 import numpy as np
 
 import porepy as pp
@@ -137,3 +142,79 @@ solver_params = {
     "constraint_violation_tolerance": 3e-1,
     "min_line_search_weight": 1e-10,
 }
+
+
+class AdvectionDiscretizationMatricesData(TypedDict):
+    transport: csr_matrix
+    rhs_neu: np.ndarray
+    rhs_dir: np.ndarray
+
+
+class EllipticScalarDiscretizationMatricesData(TypedDict):
+    flux: csr_matrix
+    bound_flux: csr_matrix
+    bound_pressure_cell: csr_matrix
+    bound_pressure_face: csr_matrix
+    vector_source: csr_matrix
+    bound_pressure_vector_source: csr_matrix
+
+
+class ScalarGradientData(TypedDict):
+    enthalpy_flux_discretization: csr_matrix
+    flow: csr_matrix
+
+
+@dataclass
+class EllipticVectorDiscretizationMatricesData:
+    stress: csr_matrix
+    bound_stress: csr_matrix
+    bound_displacement_cell: csr_matrix
+    bound_displacement_face: csr_matrix
+    bound_displacement_pressure: csr_matrix
+    scalar_gradient: ScalarGradientData
+    displacement_divergence: ScalarGradientData
+    boundary_displacement_divergence: ScalarGradientData
+    mpsa_consistency: ScalarGradientData
+
+
+class AdvectionParametersData(TypedDict):
+    darcy_flux: np.ndarray
+    bc: pp.BoundaryCondition
+
+
+class EllipticScalarParametersData(TypedDict):
+    bc: pp.BoundaryCondition
+    second_order_tensor: pp.SecondOrderTensor
+    ambient_dimension: int
+    active_cells: np.ndarray
+    active_faces: np.ndarray
+
+
+@dataclass
+class EllipticVectorParametersData:
+    bc: pp.BoundaryConditionVectorial
+    fourth_order_tensor: pp.FourthOrderTensor
+    scalar_vector_mappoints: ScalarGradientData
+    active_cells: np.ndarray
+    active_faces: np.ndarray
+    mpsa_eta: Optional[float]
+    reconstruction_eta: Optional[float]
+    inverter: Literal["python", "numba"] = "numba"
+    reconstruct_on_internal_faces: bool = False
+
+
+# class GlobalSimulationData(TypedDict):
+#     time_step_solutions: dict[str, dict[int, np.ndarray]]
+#     iterate_solutions: dict[str, dict[int, np.ndarray]]
+#     discretization_matrices: dict[
+#         str,
+#         AdvectionDiscretizationMatricesData
+#         | EllipticScalarDiscretizationMatricesData
+#         | EllipticVectorDiscretizationMatricesData,
+#     ]
+#     parameters: dict[
+#         str,
+#         AdvectionParametersData
+#         | EllipticScalarParametersData
+#         | EllipticVectorParametersData,
+#     ]
