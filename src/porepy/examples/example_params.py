@@ -6,7 +6,7 @@ your own problem.
 
 from typing import Literal, Optional, TypedDict
 from scipy.sparse import csr_matrix
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 import numpy as np
@@ -201,6 +201,7 @@ class EllipticVectorParametersData:
     reconstruction_eta: Optional[float]
     inverter: Literal["python", "numba"] = "numba"
     reconstruct_on_internal_faces: bool = False
+    parameter_dictionary: dict = field(default_factory=lambda: {})
 
 
 # class GlobalSimulationData(TypedDict):
