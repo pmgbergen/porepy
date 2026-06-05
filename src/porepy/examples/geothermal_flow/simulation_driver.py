@@ -81,11 +81,7 @@ def build_time_manager(config: dict[str, Any]) -> pp.TimeManager:
     """Construct a PorePy TimeManager from YAML configuration."""
 
     t = config["time"]
-    if is_benchmark_config(config):
-        tol = 3.78432e9  # 120 years in seconds
-        t_end = as_float(t["end"]) + tol
-    else:
-        t_end = as_float(t["end"])
+    t_end = as_float(t["end"])
     return pp.TimeManager(
         schedule=[0.0, t_end],
         dt_init=as_float(t["dt_init"]),
