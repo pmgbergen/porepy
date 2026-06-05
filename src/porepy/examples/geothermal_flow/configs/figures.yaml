@@ -1,3 +1,10 @@
+"""This YAML file defines the configuration for generating all figures in the geothermal flow paper. 
+Each figure has a type that determines the sequence of steps to generate it, and each step has its 
+own configuration. The scripts specified in this file are responsible for performing the necessary 
+data extraction, rendering, and plotting to produce the final figures.
+
+NOTE: To be used inside docker container.
+"""
 # geothermal_flow/configs/figures.yaml
 
 pvbatch: /opt/paraview/bin/pvbatch
