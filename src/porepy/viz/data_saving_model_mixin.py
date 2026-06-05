@@ -584,12 +584,30 @@ class ExportingSpeciesConcentration:
         data=super().data_to_export()
         #sds=self.mdg.subdomains(dim=self.nd)
         sds=self.mdg.subdomains()
+        initial_time = getattr(
+            self.time_manager, "time_init", self.time_manager.schedule[0]
+        )
+        is_initial_time = np.isclose(self.time_manager.time, initial_time)
+        baseline_attr = "_initial_molar_bulk_concentration_for_export"
+        if not hasattr(self, baseline_attr):
+            setattr(self, baseline_attr, {})
+        initial_concentrations = getattr(self, baseline_attr)
         
         for comp in self.fluid.components:
             if comp.name== "Li+":
                 for subdomain in sds:
                     concentration=self.evaluate_and_scale_compositional([subdomain],"molar_bulk_concentration", "", component=comp)
-                    initial_concentration = self.ic_values_species_concentration(comp, subdomain)
+                    key = (comp.name, subdomain.id)
+                    if is_initial_time:
+                        initial_concentrations[key] = concentration.copy()
+                    if key not in initial_concentrations:
+                        raise RuntimeError(
+                            "Initial molar_bulk_concentration has not been stored for "
+                            f"{comp.name} on subdomain {subdomain.id}. Export the "
+                            "initial time before exporting species concentration "
+                            "anomalies."
+                        )
+                    initial_concentration = initial_concentrations[key]
                     data.append((subdomain,"species_concentration_anomaly",concentration- initial_concentration))
         return data
     
