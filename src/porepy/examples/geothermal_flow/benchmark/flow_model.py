@@ -19,7 +19,8 @@ import numpy as np
 
 from ..io_utils import as_float
 import porepy as pp
-from porepy.models.compositional_flow import CompositionalFlowTemplate
+import porepy.models.compositional_flow as cf
+from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
 
 from ..model_configuration.constitutive_description.mixture_constitutive_description import (
     ComponentSystem,
@@ -170,9 +171,193 @@ class BenchmarkHorizontalGeometry(pp.PorePyModel):
 # =============================================================================
 # Boundary conditions
 # =============================================================================
+class _FractionalFlowBCMixin:
+    """
+    Fractional-flow boundary additions for the CFF (CompositionalFractionalFlowTemplate)
+    formulation.
+
+    - advection_weight_component_mass_balance (fractional branch)
+            = fractional_component_mass_mobility(component) = lambda^xi / lambda
+    - advection_weight_energy_balance (fractional branch)
+            = sum_gamma  specific_enthalpy_gamma * fractional_phase_mass_mobility_gamma
+            = sum_gamma  h_gamma * (rho_gamma kr_gamma / mu_gamma) / lambda
+    where
+            lambda^xi   = sum_gamma rho_gamma * chi^{xi,gamma} * kr_gamma / mu_gamma
+            lambda      = sum_xi lambda^xi  ( = sum_gamma rho_gamma kr_gamma / mu_gamma )
+
+    All phase properties are sampled from self.vtk_sampler_phz at the boundary state
+    (z_NaCl, h, p).
+
+    """
+
+    def _boundary_phase_properties(
+        self, boundary_grid: pp.BoundaryGrid, dirichlet: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        """Sample rho, mu, h and salt partial fractions for each phase at the
+        Dirichlet boundary faces, plus saturations for relative permeability.
+
+        Returns a dict of arrays, each of length ``dirichlet.sum()``.
+        """
+        p = self.bc_values_pressure(boundary_grid)[dirichlet]
+        h = self.bc_values_enthalpy(boundary_grid)[dirichlet]
+        # t = self.bc_values_temperature(boundary_grid)[dirichlet]
+        nacl = next(c for c in self.fluid.components if c.name == "NaCl")
+        z = self.bc_values_overall_fraction(nacl, boundary_grid)[dirichlet]
+
+        par_points = np.array((z, h, p)).T
+        self.vtk_sampler.sample_at(par_points)
+        pd = self.vtk_sampler.sampled_cloud.point_data
+
+        # Densities [kg/m^3]
+        rho_l = pd["Rho_l"]
+        rho_v = pd["Rho_v"]
+        rho_h = pd["Rho_h"]
+
+        # Viscosities [Pa s].  Halite is immobile so its viscosity is irrelevant
+        # (kr_h = 0 zeroes its mobility); use 1.0 to avoid division by zero.
+        mu_l = pd["mu_l"]
+        mu_v = pd["mu_v"]
+        mu_h = np.ones_like(mu_l)
+
+        # Specific enthalpies [J/kg]
+        h_l = pd["H_l"]
+        h_v = pd["H_v"]
+        h_h = pd["H_h"]
+
+        # Salt partial mass fractions chi^{NaCl, gamma}; water is the complement.
+        x_l = pd["Xl"]  # NaCl mass fraction in liquid
+        x_v = pd["Xv"]  # NaCl mass fraction in vapor
+        x_h = np.ones_like(x_l)  # halite is pure NaCl
+
+        # Saturations for relative permeability.
+        s_l = pd["S_l"]
+        s_v = pd["S_v"]
+        s_h = np.clip(pd["S_h"], 0.0, 1.0)
+
+        return {
+            "rho": {"liq": rho_l, "gas": rho_v, "halite": rho_h},
+            "mu": {"liq": mu_l, "gas": mu_v, "halite": mu_h},
+            "h": {"liq": h_l, "gas": h_v, "halite": h_h},
+            "chi_NaCl": {"liq": x_l, "gas": x_v, "halite": x_h},
+            "chi_H2O": {"liq": 1.0 - x_l, "gas": 1.0 - x_v, "halite": 1.0 - x_h},
+            "s": {"liq": s_l, "gas": s_v, "halite": s_h},
+        }
+
+    def _boundary_relperm(self, s: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+        """Relative permeability at the boundary, matching the model's law:
+        reference (liquid) phase:  kr_l = max((s_l - r_l)/(1 - r_l - r_v), 0)
+        vapor:                     kr_v = (s_v - r_v)/(1 - r_l - r_v)
+        halite:                    kr_h = 0  (immobile)
+        with r_l = 0.3, r_v = 0.
+        """
+        r_l, r_v = 0.3, 0.0
+        denom = 1.0 - r_l - r_v
+        kr_l = np.maximum((s["liq"] - r_l) / denom, 0.0)
+        kr_v = np.maximum((s["gas"] - r_v) / denom, 0.0)
+        kr_h = np.zeros_like(s["liq"])
+        return {"liq": kr_l, "gas": kr_v, "halite": kr_h}
+
+    def _boundary_mobilities(
+        self, boundary_grid: pp.BoundaryGrid, dirichlet: np.ndarray
+    ) -> dict:
+        """Assemble per-phase mass mobilities and the totals at the boundary.
+
+        phase mass mobility:        Lam_gamma = rho_gamma * kr_gamma / mu_gamma
+        component mass mobility:    lambda^xi = sum_gamma rho_gamma chi^{xi,gamma}
+                                                 kr_gamma / mu_gamma
+        total mass mobility:        lambda    = sum_gamma Lam_gamma
+        """
+        props = self._boundary_phase_properties(boundary_grid, dirichlet)
+        kr = self._boundary_relperm(props["s"])
+        phases = ("liq", "gas", "halite")
+
+        # Phase mass mobility Lam = rho_gamma * kr_gamma / mu_gamma
+        Lam = {g: props["rho"][g] * kr[g] / props["mu"][g] for g in phases}
+        lam_total = sum(Lam[g] for g in phases)
+
+        # Component mass mobilities lambda^xi = sum_gamma rho chi^xi kr / mu
+        lam_NaCl = sum(
+            props["rho"][g] * props["chi_NaCl"][g] * kr[g] / props["mu"][g]
+            for g in phases
+        )
+        lam_H2O = sum(
+            props["rho"][g] * props["chi_H2O"][g] * kr[g] / props["mu"][g]
+            for g in phases
+        )
+
+        return {
+            "Lam": Lam,
+            "lam_total": lam_total,
+            "lam_NaCl": lam_NaCl,
+            "lam_H2O": lam_H2O,
+            "h": props["h"],
+        }
+
+    # ------------------------------------------------------------------ #
+    #  Required CFF boundary values.                                     #
+    # ------------------------------------------------------------------ #
+    def bc_values_fractional_flow_component(
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Component fractional flow on the boundary: f^xi = lambda^xi / lambda.
+
+        Returns zeros on non-Dirichlet faces (no advective inflow weight there).
+        """
+        # return np.zeros(boundary_grid.num_cells)
+        sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(boundary_grid.num_cells)
+        dirichlet = sides.west | sides.east
+        if not np.any(dirichlet):
+            return values
+
+        mob = self._boundary_mobilities(boundary_grid, dirichlet)
+        lam_total = mob["lam_total"]
+        # Guard against division by zero where no mobile phase is present.
+        safe = lam_total > 0.0
+
+        if component.name == "NaCl":
+            f_xi = np.zeros_like(lam_total)
+            f_xi[safe] = mob["lam_NaCl"][safe] / lam_total[safe]
+        elif component.name == "H2O":
+            f_xi = np.zeros_like(lam_total)
+            f_xi[safe] = mob["lam_H2O"][safe] / lam_total[safe]
+        else:
+            raise ValueError(f"Unsupported component: {component.name}")
+
+        values[dirichlet] = f_xi
+        return values
+
+    def bc_values_fractional_flow_energy(
+        self, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Energy advection weight on the boundary:
+
+            w_E = sum_gamma h_gamma * (rho_gamma kr_gamma / mu_gamma) / lambda
+                = sum_gamma h_gamma * Lam_gamma / lambda.
+
+        Returns zeros on non-Dirichlet faces.
+        """
+        sides = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(boundary_grid.num_cells)
+        dirichlet = sides.west | sides.east
+        if not np.any(dirichlet):
+            return values
+
+        mob = self._boundary_mobilities(boundary_grid, dirichlet)
+        Lam = mob["Lam"]
+        h = mob["h"]
+        lam_total = mob["lam_total"]
+        safe = lam_total > 0.0
+
+        w_E = np.zeros_like(lam_total)
+        numerator = sum(h[g] * Lam[g] for g in ("liq", "gas", "halite"))
+        w_E[safe] = numerator[safe] / lam_total[safe]
+
+        values[dirichlet] = w_E
+        return values
 
 
-class BenchmarkThreePhaseBoundaryConditions(pp.PorePyModel):
+class BenchmarkThreePhaseBoundaryConditions(_FractionalFlowBCMixin, pp.PorePyModel):
     """Boundary conditions for the low-pressure benchmark case."""
 
     vtk_sampler_ptz: VTKSampler
@@ -466,6 +651,8 @@ class BenchmarkPermeabilityWithHaliteMixin(pp.PorePyModel):
 
         reduction = (1.0 - s_halite_clamped) ** 2
         corrected_perm = base_perm * reduction
+        if cf.is_fractional_flow(self):
+            corrected_perm = corrected_perm * self.total_mass_mobility(subdomains)
 
         return self.isotropic_second_order_tensor(subdomains, corrected_perm)
 
@@ -501,7 +688,7 @@ class BenchmarkThreePhaseFlowModel(
     BenchmarkThreePhaseInitialConditions,
     FluidMixture,
     BenchmarkThreePhaseSecondaryEquations,
-    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
     VTKSamplerMixin,
 ):
     """Complete benchmark model for the 1D CSMP--PorePy comparison."""

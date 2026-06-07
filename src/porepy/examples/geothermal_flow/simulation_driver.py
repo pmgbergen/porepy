@@ -268,6 +268,7 @@ def build_model_params(config: dict[str, Any]) -> dict[str, Any]:
         ),
         "material_constants": build_material_constants(config),
         "enable_buoyancy_effects": False,
+        "fractional_flow": bool(config["model"].get("fractional_flow", False)),
         "time_manager": build_time_manager(config),
         "prepare_simulation": False,
         "folder_name": str(visualization_dir(config)),

@@ -2,6 +2,7 @@ case_name: benchmark
 
 model:
   kind: benchmark_1d
+  fractional_flow: true
 
 geometry: benchmark_horizontal
 
