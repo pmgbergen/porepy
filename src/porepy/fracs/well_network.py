@@ -118,6 +118,9 @@ class WellNetwork3d:
             sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
             mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
 
+        if len(intersections) == 0:
+            return mdg
+
         cell_center_0d = np.vstack(
             [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
         ).T
