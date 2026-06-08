@@ -107,7 +107,9 @@ class WellNetwork3d:
         well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
         well_mdg.compute_geometry()
 
-        for wg in well_mdg.subdomains(dim=1):
+        for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
+            wg.well_num = wi
+            wg.frac_num = -1
             self._update_well_grid_tags(wg, self.domain)
 
         mdg.add_subdomains(well_mdg.subdomains())
