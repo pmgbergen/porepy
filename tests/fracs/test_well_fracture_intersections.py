@@ -422,7 +422,7 @@ MULTI_WELL_CASES = (
     IntersectionCase(
         "2d_single_fracture_multiple_wells",
         [
-            make_well_2d(0, [(1.0, 2.0), (1.0, -2.0)]),
+            make_well_2d(0, [(2.0, 2.0), (2.0, -2.0)]),
             make_well_2d(1, [(0.0, 2.0), (1.0, 1.0), (2.0, -2.0)]),
         ],
         [make_fracture_horizontal_at_y(0, 1.0, x_min=-1.0, x_max=3.0)],
@@ -448,7 +448,7 @@ MULTI_WELL_CASES = (
 
 MULTI_WELL_EXPECTED = {
     "2d_single_fracture_multiple_wells": [
-        (np.array([1.0, 1.0, 0.0]), 0, [0]),
+        (np.array([2.0, 1.0, 0.0]), 0, [0]),
         (np.array([1.0, 1.0, 0.0]), 1, [0]),
     ],
     "3d_single_fracture_three_wells_mixed_segments": [
