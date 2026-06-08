@@ -312,12 +312,10 @@ class DataSavingMixin(pp.PorePyModel):
         """
         vals_scaled = cast(
             np.ndarray,
-            self.equation_system.evaluate(getattr(self, method_name)(component,grids)),
+            self.equation_system.evaluate(getattr(self, method_name)(component, grids)),
         )
         vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals
-
-
 
 
 class IterationExporting(pp.PorePyModel):
@@ -519,8 +517,6 @@ class FractureDeformationExporting(pp.PorePyModel):
             )
         return data
 
-
-
     @staticmethod
     def compute_slip_tendency(
         traction: np.ndarray,
@@ -568,22 +564,24 @@ class FractureDeformationExporting(pp.PorePyModel):
 
 class ExportingTemperatureAnomaly:
     def data_to_export(self) -> list[DataInput]:
-        data=super().data_to_export()
-        #sds=self.mdg.subdomains(dim=self.nd)
-        sds=self.mdg.subdomains()
-        
+        data = super().data_to_export()
+        # sds=self.mdg.subdomains(dim=self.nd)
+        sds = self.mdg.subdomains()
+
         for subdomain in sds:
-            temperature=self.evaluate_and_scale([subdomain],"temperature","K")
+            temperature = self.evaluate_and_scale([subdomain], "temperature", "K")
             initial_temperature = self.ic_values_temperature(subdomain)
-            data.append((subdomain,"temperature_anomaly",temperature- initial_temperature))
+            data.append(
+                (subdomain, "temperature_anomaly", temperature - initial_temperature)
+            )
         return data
-    
+
 
 class ExportingSpeciesConcentration:
     def data_to_export(self) -> list[DataInput]:
-        data=super().data_to_export()
-        #sds=self.mdg.subdomains(dim=self.nd)
-        sds=self.mdg.subdomains()
+        data = super().data_to_export()
+        # sds=self.mdg.subdomains(dim=self.nd)
+        sds = self.mdg.subdomains()
         initial_time = getattr(
             self.time_manager, "time_init", self.time_manager.schedule[0]
         )
@@ -592,11 +590,13 @@ class ExportingSpeciesConcentration:
         if not hasattr(self, baseline_attr):
             setattr(self, baseline_attr, {})
         initial_concentrations = getattr(self, baseline_attr)
-        
+
         for comp in self.fluid.components:
-            if comp.name== "Li+":
+            if comp.name == "Li+":
                 for subdomain in sds:
-                    concentration=self.evaluate_and_scale_compositional([subdomain],"molar_bulk_concentration", "", component=comp)
+                    concentration = self.evaluate_and_scale_compositional(
+                        [subdomain], "molar_bulk_concentration", "", component=comp
+                    )
                     key = (comp.name, subdomain.id)
                     if is_initial_time:
                         initial_concentrations[key] = concentration.copy()
@@ -608,27 +608,123 @@ class ExportingSpeciesConcentration:
                             "anomalies."
                         )
                     initial_concentration = initial_concentrations[key]
-                    data.append((subdomain,"species_concentration_anomaly",concentration- initial_concentration))
+                    data.append(
+                        (
+                            subdomain,
+                            "species_concentration_anomaly",
+                            concentration - initial_concentration,
+                        )
+                    )
         return data
-    
+
 
 class ExportingDataForMineralDissolution:
     def data_to_export(self) -> list[DataInput]:
-        data=super().data_to_export()
-        #sds=self.mdg.subdomains(dim=self.nd)
-        sds=self.mdg.subdomains()
+        data = super().data_to_export()
+        # sds=self.mdg.subdomains(dim=self.nd)
+        sds = self.mdg.subdomains()
 
-
-        
         for subdomain in sds:
-            porosity=self.evaluate_and_scale([subdomain],"porosity","-")
-            data.append((subdomain,"porosity",porosity))
+            porosity = self.evaluate_and_scale([subdomain], "porosity", "-")
+            data.append((subdomain, "porosity", porosity))
 
             for comp in self.fluid.components:
-                concentration=self.evaluate_and_scale_compositional([subdomain],"molar_bulk_concentration", "", component=comp)
-                data.append((subdomain,"bulk_concentration_"+comp.name,concentration))
-                if comp.name== "Li+":
+                concentration = self.evaluate_and_scale_compositional(
+                    [subdomain], "molar_bulk_concentration", "", component=comp
+                )
+                data.append(
+                    (subdomain, "bulk_concentration_" + comp.name, concentration)
+                )
+                if comp.name == "Li+":
                     lithium_concentration = concentration / porosity
-                    data.append((subdomain,"lithium_concentration",lithium_concentration))
+                    data.append(
+                        (subdomain, "lithium_concentration", lithium_concentration)
+                    )
+
+        return data
+
+
+class ExportingCellDarcyFlux:
+    def interpolate_darcy_flux(self):
+        """Reconstruct cell-centered Darcy velocity from face Darcy fluxes."""
+
+        # Use the highest-dimensional subdomain.
+        # For a 3D matrix grid, this should be the 3D domain.
+        domain = max(self.mdg.subdomains(), key=lambda sd: sd.dim)
+        dim = domain.dim
+
+        face_fluxes = self.darcy_flux(self.mdg.subdomains()).value(self.equation_system)
+        face_fluxes = np.asarray(face_fluxes).ravel()
+
+        cell_fluxes = np.zeros((dim, domain.num_cells), dtype=float)
+
+        # cell_faces is easier to access in CSC format: faces of each cell
+        cell_faces = domain.cell_faces.tocsc()
+
+        for cell in range(domain.num_cells):
+            start = cell_faces.indptr[cell]
+            end = cell_faces.indptr[cell + 1]
+
+            faces = cell_faces.indices[start:end]
+            signs = cell_faces.data[start:end]
+
+            # Outward normals for this cell.
+            # face_normals are integrated normals, i.e. normal * face area.
+            normals = domain.face_normals[:dim, faces] * signs
+
+            # Outward fluxes for this cell.
+            fluxes = face_fluxes[faces] * signs
+
+            # Solve normals.T @ q_cell ≈ fluxes
+            # Shape:
+            # normals.T: (num_faces_of_cell, dim)
+            # fluxes:    (num_faces_of_cell,)
+            q_cell, *_ = np.linalg.lstsq(normals.T, fluxes, rcond=None)
+
+            cell_fluxes[:, cell] = q_cell
+
+        return domain, cell_fluxes
+
+    def data_to_export(self) -> list[DataInput]:
+        data = super().data_to_export()
+        # sds=self.mdg.subdomains(dim=self.nd)
+        sds = self.mdg.subdomains()
+
+        domain, darcy_flux = self.interpolate_darcy_flux()
+
+        darcy_flux_magnitude = np.linalg.norm(darcy_flux, axis=0)
+
+        if domain.dim == 3:
+            vertical_flux = darcy_flux[2, :]
+        elif domain.dim == 2:
+            vertical_flux = darcy_flux[1, :]
+        else:
+            vertical_flux = darcy_flux[0, :]
+
+        for subdomain in sds:
+            if subdomain.dim == domain.dim:
+                data.append(
+                    (
+                        subdomain,
+                        "darcy_flux",
+                        darcy_flux,
+                    )
+                )
+
+                data.append(
+                    (
+                        subdomain,
+                        "darcy_flux_magnitude",
+                        darcy_flux_magnitude,
+                    )
+                )
+
+                data.append(
+                    (
+                        subdomain,
+                        "vertical_darcy_flux",
+                        vertical_flux,
+                    )
+                )
 
         return data
