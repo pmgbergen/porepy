@@ -1,6 +1,10 @@
 # Common configuration shared by examples 1--3.
 # Keep only values here when they are identical for all cases.
 
+model:
+  kind: fractured_reservoir_2d
+  fractional_flow: false
+
 material:
   residual_aperture: 1.0e-1
   permeability: 1.0e-15
