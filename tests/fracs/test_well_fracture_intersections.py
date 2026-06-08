@@ -519,6 +519,108 @@ MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED = {
     "multiple_fractures_same_point_2d": (np.array([1.0, 1.0, 0.0]), {0, 1}),
 }
 
+NO_INTERSECTION_CASE_NAMES = {case.name for case in NO_INTERSECTION_CASES}
+
+
+def _expected_meshing_intersections(
+    case: IntersectionCase,
+) -> list[tuple[np.ndarray, int, list[int]]]:
+    if case.name in BASIC_GEOMETRY_EXPECTED:
+        return BASIC_GEOMETRY_EXPECTED[case.name]
+    if case.name in MULTI_WELL_EXPECTED:
+        return MULTI_WELL_EXPECTED[case.name]
+    if case.name in SHARED_INTERSECTION_EXPECTED:
+        coord, fracture_indices = SHARED_INTERSECTION_EXPECTED[case.name]
+        return [(coord, 0, sorted(fracture_indices))]
+    if case.name in MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED:
+        coord, fracture_indices = MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED[case.name]
+        return [(coord, 0, sorted(fracture_indices))]
+    if case.name in NO_INTERSECTION_CASE_NAMES:
+        return []
+    raise ValueError(f"No meshing expectations configured for case '{case.name}'.")
+
+
+def _assert_intersection_meshing(
+    case: IntersectionCase,
+    expected: list[tuple[np.ndarray, int, list[int]]],
+) -> None:
+    import gmsh
+
+    nd = _infer_dimension_from_fractures(case.fractures)
+
+    box = {
+        "xmin": -5.0,
+        "xmax": 5.0,
+        "ymin": -5.0,
+        "ymax": 5.0,
+    }
+    if nd == 3:
+        box["zmin"] = -5.0
+        box["zmax"] = 5.0
+
+    domain = pp.Domain(box)
+    fracture_network = pp.create_fracture_network(case.fractures, domain=domain)
+    well_network = pp.WellNetwork3d(case.wells, domain)
+
+    tmp_mdg = pp.create_mdg(
+        "simplex", {"cell_size": 5.0}, fracture_network=fracture_network
+    )
+
+    num_frac_subdomains = len(tmp_mdg.subdomains(dim=nd - 1))
+    num_fracture_intersections = len(tmp_mdg.subdomains(dim=nd - 2))
+    if nd == 3:
+        num_fracture_intersection_points = len(tmp_mdg.subdomains(dim=0))
+    else:
+        num_fracture_intersection_points = 0
+
+    mdg = well_network.mesh(fracture_network, tmp_mdg, {"cell_size": 5.0})
+    gmsh.clear()
+    gmsh.finalize()
+    num_intersections = len(expected)
+
+    assert len(mdg.subdomains(dim=nd)) == 1
+    if nd == 3:
+        assert len(mdg.subdomains(dim=2)) == len(case.fractures)
+        assert (
+            len(mdg.subdomains(dim=1)) == len(case.wells) + num_fracture_intersections
+        )
+        assert (
+            len(mdg.subdomains(dim=0))
+            == num_intersections + num_fracture_intersection_points
+        )
+    if nd == 2:
+        assert len(mdg.subdomains(dim=1)) == len(case.fractures) + len(case.wells)
+        assert (
+            len(mdg.subdomains(dim=0)) == num_intersections + num_fracture_intersections
+        )
+
+    found_intersection = num_intersections * [False]
+
+    for pg in mdg.subdomains(dim=0):
+        for i, (expected_coord, expected_well_idx, expected_frac_idxs) in enumerate(
+            expected
+        ):
+            if np.allclose(pg.cell_centers[:, 0], expected_coord, atol=TOL):
+                neigh_subdomains = mdg.neighboring_subdomains(pg, only_higher=True)
+                if len(expected_frac_idxs) == 0:
+                    assert len(neigh_subdomains) == 1
+                else:
+                    assert len(neigh_subdomains) >= 2
+                num_fractures_found = 0
+                for sd in neigh_subdomains:
+                    if sd.frac_num > -1:
+                        assert sd.frac_num in expected_frac_idxs
+                        num_fractures_found += 1
+                    else:
+                        assert sd.well_num == expected_well_idx
+
+                assert num_fractures_found == len(expected_frac_idxs)
+                found_intersection[i] = True
+                break
+    assert all(found_intersection), (
+        f"Case '{case.name}': not all expected intersections were found in the mesh."
+    )
+
 
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
 def test_intersect_well_fractures_basic_geometries(case: IntersectionCase) -> None:
@@ -638,86 +740,32 @@ def test_2d_multiple_fractures_same_point():
 def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     """Test basic geometry meshing for well-fracture intersections."""
 
-    nd = _infer_dimension_from_fractures(case.fractures)
+    _assert_intersection_meshing(case, BASIC_GEOMETRY_EXPECTED[case.name])
 
-    box = {
-        "xmin": -5.0,
-        "xmax": 5.0,
-        "ymin": -5.0,
-        "ymax": 5.0,
-    }
-    if nd == 3:
-        box["zmin"] = -5.0
-        box["zmax"] = 5.0
 
-    domain = pp.Domain(box)
-    fracture_network = pp.create_fracture_network(case.fractures, domain=domain)
-    well_network = pp.WellNetwork3d(case.wells, domain)
-    import gmsh
+@pytest.mark.parametrize("case", NO_INTERSECTION_CASES, ids=lambda case: case.name)
+def test_no_intersection_meshing(case: IntersectionCase) -> None:
+    """Test meshing for cases where the well does not intersect any fracture."""
 
-    tmp_mdg = pp.create_mdg(
-        "simplex", {"cell_size": 5.0}, fracture_network=fracture_network
-    )
+    _assert_intersection_meshing(case, _expected_meshing_intersections(case))
 
-    num_frac_subdomains = len(tmp_mdg.subdomains(dim=nd - 1))
-    num_fracture_intersections = len(tmp_mdg.subdomains(dim=nd - 2))
-    if nd == 3:
-        num_fracture_intersection_points = len(tmp_mdg.subdomains(dim=0))
-    else:
-        num_fracture_intersection_points = 0
 
-    mdg = well_network.mesh(fracture_network, tmp_mdg, {"cell_size": 5.0})
-    gmsh.clear()
-    gmsh.finalize()
-    expected = BASIC_GEOMETRY_EXPECTED[case.name]
-    num_intersections = len(expected)
+@pytest.mark.parametrize("case", MULTI_WELL_CASES, ids=lambda case: case.name)
+def test_multi_well_meshing(case: IntersectionCase) -> None:
+    """Test meshing for cases where multiple wells intersect the fracture network."""
 
-    assert len(mdg.subdomains(dim=nd)) == 1
-    if nd == 3:
-        assert len(mdg.subdomains(dim=2)) == len(case.fractures)
-        assert (
-            len(mdg.subdomains(dim=1)) == len(case.wells) + num_fracture_intersections
-        )
-        assert (
-            len(mdg.subdomains(dim=0))
-            == num_intersections + num_fracture_intersection_points
-        )
-    if nd == 2:
-        assert len(mdg.subdomains(dim=1)) == len(case.fractures) + len(case.wells)
-        assert (
-            len(mdg.subdomains(dim=0)) == num_intersections + num_fracture_intersections
-        )
+    _assert_intersection_meshing(case, _expected_meshing_intersections(case))
 
-    # Now test that the expected intersections are actually present in the mesh, by
-    # checking coordinates and neighboring subdomains.
 
-    # We will loop over all 0d subdomains and check if their coordinates match any of the expected intersection points. Eventually, all
-    # points should be found. This will break if we add a test geometry which contains intersection points.
-    found_intersection = num_intersections * [False]
+@pytest.mark.parametrize("case", SHARED_INTERSECTION_CASES, ids=lambda case: case.name)
+def test_shared_intersection_meshing(case: IntersectionCase) -> None:
+    """Test meshing for cases where one well hits a shared fracture intersection."""
 
-    for pg in mdg.subdomains(dim=0):
-        for i, (expected_coord, expected_well_idx, expected_frac_idxs) in enumerate(
-            expected
-        ):
-            if np.allclose(pg.cell_centers[:, 0], expected_coord, atol=TOL):
-                intfs = mdg.subdomain_to_interfaces(pg)
-                neigh_subdomains = mdg.neighboring_subdomains(pg, only_higher=True)
-                if len(expected_frac_idxs) == 0:
-                    # This is a kink in the well.
-                    assert len(neigh_subdomains) == 1
-                else:
-                    assert len(neigh_subdomains) >= 2
-                num_fractures_found = 0
-                for sd in neigh_subdomains:
-                    if sd.frac_num > -1:
-                        assert sd.frac_num in expected_frac_idxs
-                        num_fractures_found += 1
-                    else:
-                        assert sd.well_num == expected_well_idx
+    _assert_intersection_meshing(case, _expected_meshing_intersections(case))
 
-                assert num_fractures_found == len(expected_frac_idxs)
-                found_intersection[i] = True
-                break
-    assert all(found_intersection), (
-        f"Case '{case.name}': not all expected intersections were found in the mesh."
-    )
+
+def test_2d_multiple_fractures_same_point_meshing() -> None:
+    """Test meshing for a 2D well crossing a shared fracture intersection point."""
+
+    case = MULTIPLE_FRACTURES_SAME_POINT_2D_CASES
+    _assert_intersection_meshing(case, _expected_meshing_intersections(case))
