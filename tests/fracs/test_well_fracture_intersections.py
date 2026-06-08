@@ -614,7 +614,7 @@ def _assert_intersection_meshing(
                     else:
                         assert sd.well_num == expected_well_idx
 
-                assert num_fractures_found == len(expected_frac_idxs)
+                assert num_fractures_found == 1
                 found_intersection[i] = True
                 break
     assert all(found_intersection), (

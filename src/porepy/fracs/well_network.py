@@ -112,6 +112,8 @@ class WellNetwork3d:
             wg.frac_num = -1
             self._update_well_grid_tags(wg, self.domain)
 
+        orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
+
         mdg.add_subdomains(well_mdg.subdomains())
 
         for intf, data in well_mdg.interfaces(return_data=True):
@@ -145,11 +147,53 @@ class WellNetwork3d:
             # constitutive laws are probably not ready for. On the other hand, this
             # should also be equivalent to a 1d fracture for nd=2, so perhaps it will
             # not be an issue.
-            assert len(frac_inds) == 1, (
-                """Multiple fractures intersecting at the same point is not implemented."""
-            )
-            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
-            assert g_frac.frac_num == frac_inds[0]
+            if len(frac_inds) == 1:
+                g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
+                assert g_frac.frac_num == frac_inds[0]
+            else:
+                if mdg.dim_max() == 2:
+                    # The intersection should be on a 0d intersection point, or else
+                    # we have either overlapping fractures or a faulty interpretation of the geometry.
+                    found = False
+                    for sd in mdg.subdomains(dim=0):
+                        if sd.id in orig_0d_domain_id and np.isclose(
+                            np.linalg.norm(sd.cell_centers - isect.coord),
+                            0,
+                            atol=self.tol,
+                        ):
+                            g_frac = sd
+                            break
+                    assert found
+                else:  # mdg.dim_max() == 3
+                    found = False
+                    for sd in mdg.subdomains(dim=0):
+                        if sd.id in orig_0d_domain_id and np.isclose(
+                            np.linalg.norm(sd.cell_centers - isect.coord),
+                            0,
+                            atol=self.tol,
+                        ):
+                            g_frac = sd
+                            break
+                    if found:
+                        assert len(frac_inds) > 2
+                    else:
+                        sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
+                        for fi in frac_inds:
+                            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
+                            sds_1d = sds_1d.intersection(
+                                mdg.neighboring_subdomains(g_frac, only_lower=True)
+                            )
+
+                        cell_dist = {}
+                        for sd in sds_1d:
+                            cell_dist[sd] = np.min(
+                                np.linalg.norm(
+                                    sd.cell_centers
+                                    - np.array(isect.coord).reshape((-1, 1)),
+                                    axis=0,
+                                )
+                            )
+                        g_frac = min(cell_dist, key=cell_dist.get)
 
             embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
 
