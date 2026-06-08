@@ -687,3 +687,37 @@ def test_basic_geometry_meshing(case: IntersectionCase) -> None:
         assert (
             len(mdg.subdomains(dim=0)) == num_intersections + num_fracture_intersections
         )
+
+    # Now test that the expected intersections are actually present in the mesh, by
+    # checking coordinates and neighboring subdomains.
+
+    # We will loop over all 0d subdomains and check if their coordinates match any of the expected intersection points. Eventually, all
+    # points should be found. This will break if we add a test geometry which contains intersection points.
+    found_intersection = num_intersections * [False]
+
+    for pg in mdg.subdomains(dim=0):
+        for i, (expected_coord, expected_well_idx, expected_frac_idxs) in enumerate(
+            expected
+        ):
+            if np.allclose(pg.cell_centers[:, 0], expected_coord, atol=TOL):
+                intfs = mdg.subdomain_to_interfaces(pg)
+                neigh_subdomains = mdg.neighboring_subdomains(pg, only_higher=True)
+                if len(expected_frac_idxs) == 0:
+                    # This is a kink in the well.
+                    assert len(neigh_subdomains) == 1
+                else:
+                    assert len(neigh_subdomains) >= 2
+                num_fractures_found = 0
+                for sd in neigh_subdomains:
+                    if sd.frac_num > -1:
+                        assert sd.frac_num in expected_frac_idxs
+                        num_fractures_found += 1
+                    else:
+                        assert sd.well_num == expected_well_idx
+
+                assert num_fractures_found == len(expected_frac_idxs)
+                found_intersection[i] = True
+                break
+    assert all(found_intersection), (
+        f"Case '{case.name}': not all expected intersections were found in the mesh."
+    )
