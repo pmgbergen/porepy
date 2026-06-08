@@ -258,7 +258,6 @@ def _find_intersection(
 
 
 def _run_case(case: IntersectionCase) -> tuple:
-
     well_network = WellNetwork3d(case.wells, None)
     fracture_network = pp.create_fracture_network(case.fractures, domain=None)
 
@@ -654,6 +653,7 @@ def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     domain = pp.Domain(box)
     fracture_network = pp.create_fracture_network(case.fractures, domain=domain)
     well_network = pp.WellNetwork3d(case.wells, domain)
+    import gmsh
 
     tmp_mdg = pp.create_mdg(
         "simplex", {"cell_size": 5.0}, fracture_network=fracture_network
@@ -667,7 +667,8 @@ def test_basic_geometry_meshing(case: IntersectionCase) -> None:
         num_fracture_intersection_points = 0
 
     mdg = well_network.mesh(fracture_network, tmp_mdg, {"cell_size": 5.0})
-
+    gmsh.clear()
+    gmsh.finalize()
     expected = BASIC_GEOMETRY_EXPECTED[case.name]
     num_intersections = len(expected)
 
