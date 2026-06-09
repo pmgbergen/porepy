@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
 import porepy as pp
 from porepy import compositional_flow as cf
 
@@ -45,8 +46,9 @@ from porepy.examples.geothermal_flow.solver_configuration.line_search_armijo imp
     NewtonAndersonArmijoSolver,
 )
 
+# from .benchmark.flow_model import BenchmarkThreePhaseFlowModel
 from .benchmark.flow_model import BenchmarkThreePhaseFlowModel
-from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+from .vtk_sampler import VTKSampler
 
 ### This requires PETSC
 # import pp_solvers
@@ -127,7 +129,6 @@ def build_material_constants(config: dict[str, Any]) -> dict[str, Any]:
 
 def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
     """Create the case-specific model class from geometry, BC, IC, and physics settings."""
-
     if is_benchmark_config(config):
         return BenchmarkThreePhaseFlowModel
 
@@ -168,25 +169,27 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
 
         def after_nonlinear_convergence(self) -> None:
             super().after_nonlinear_convergence()
+
             if solver_cfg.get("print_nonlinear_statistics", True):
                 print(
                     f"Number of iterations: {self.nonlinear_solver_statistics.num_iteration}"
                 )
-                print(f"Time value (days): {self.time_manager.time / pp.DAY:.4f}")
+                print(
+                    f"Time value (years): {self.time_manager.time / (365.0 * pp.DAY):.4f}"
+                )
                 print(f"Time index: {self.time_manager.time_index}\n")
-
-        def get_variable_block_indices(self, var_name: str | list[str]) -> np.ndarray:
-            if not isinstance(var_name, list):
-                var_name = [var_name]
-            if len(var_name) == 1 and var_name[0] in VARIABLE_BLOCK_ALIASES:
-                var_name = VARIABLE_BLOCK_ALIASES[var_name[0]]
-            return self.equation_system.dofs_of(var_name)
 
         def after_simulation(self) -> None:
             super().after_simulation()
             if config.get("visualization", {}).get("write_pvd", True):
                 self.exporter.write_pvd()
 
+        # def get_variable_block_indices(self, var_name: str | list[str]) -> np.ndarray:
+        #     if not isinstance(var_name, list):
+        #         var_name = [var_name]
+        #     if len(var_name) == 1 and var_name[0] in VARIABLE_BLOCK_ALIASES:
+        #         var_name = VARIABLE_BLOCK_ALIASES[var_name[0]]
+        #     return self.equation_system.dofs_of(var_name)
         # def solve_linear_system(self):
         #     if solver_cfg.get("print_residual_blocks", True):
         #         if not solver_cfg.get("use_schur_complement", False):
@@ -237,7 +240,7 @@ def build_solver_params(config: dict[str, Any]) -> dict[str, Any]:
         "armijo_line_search_weight": as_float(s.get("armijo_weight", 0.8)),
         "armijo_line_search_incline": as_float(s.get("armijo_incline", 1.0e-2)),
         "armijo_line_search_max_iterations": int(s.get("armijo_max_iterations", 10)),
-        "Anderson_acceleration": bool(s.get("use_anderson", True)),
+        "Anderson_acceleration": bool(s.get("use_anderson", False)),
         "anderson_acceleration_depth": int(s.get("anderson_acceleration_depth", 3)),
         "anderson_acceleration_constrained": bool(
             s.get("anderson_acceleration_constrained", False)
@@ -248,9 +251,6 @@ def build_solver_params(config: dict[str, Any]) -> dict[str, Any]:
         "appleyard_chop": bool(s.get("use_appleyard_chop", False)),
         "use_appleyard_chop": bool(s.get("use_appleyard_chop", False)),
         "appleyard_chop_value": as_float(s.get("appleyard_chop_value", 0.2)),
-        "solver_statistics_file_name": str(
-            s.get("solver_statistics_file_name", "solver_statistics.json")
-        ),
         "use_preconditioner": False,
         "linear_solver": "pypardiso",  # preconditioner_options if use_preconditioner else s.get("linear_solver", "pypardiso"),
     }
@@ -319,7 +319,6 @@ def attach_vtk_samplers(model: pp.PorePyModel, config: dict) -> None:
     brine_vtk_sampler_phz = VTKSampler(str(phz_path))
     brine_vtk_sampler_ptz = VTKSampler(str(ptz_path))
 
-    # Match the original example_1.py thermodynamic table scaling exactly.
     brine_vtk_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)
     brine_vtk_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)
     brine_vtk_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)

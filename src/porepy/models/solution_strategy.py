@@ -171,7 +171,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         self.update_discretization_parameters()
         self.discretize()
-        print(f"DEBUG: use_preconditioner = {self.params.get('use_preconditioner', False)}")
         if not self.params.get("use_preconditioner", False):
             self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
