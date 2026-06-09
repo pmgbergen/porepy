@@ -12,6 +12,7 @@ and plotting should live outside this file.
 """
 
 from __future__ import annotations
+import tracemalloc
 
 from typing import Literal, Tuple
 
@@ -469,6 +470,7 @@ class BenchmarkThreePhaseBoundaryConditions(_FractionalFlowBCMixin, pp.PorePyMod
         boundary_grid: pp.BoundaryGrid,
     ) -> np.ndarray:
         """Return H2O or NaCl mass fraction on the west/east boundaries."""
+
         sides = self.domain_boundary_sides(boundary_grid)
         pressure = self.bc_values_pressure(boundary_grid)
         temperature = self.bc_values_temperature(boundary_grid)
@@ -669,7 +671,6 @@ class SolverStatisticsMixin(pp.PorePyModel):
 
         print(f"Number of iterations: {self.nonlinear_solver_statistics.num_iteration}")
         print(f"Time value (years): {self.time_manager.time / (365.0 * pp.DAY):.4f}")
-        print(f"Time value (days): {self.time_manager.time / pp.DAY:.4f}")
         print(f"Time index: {self.time_manager.time_index}\n")
 
     def after_simulation(self) -> None:
