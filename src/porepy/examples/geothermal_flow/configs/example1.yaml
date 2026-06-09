@@ -21,7 +21,7 @@ time:
   iter_relax: [0.75, 1.5]
 
 solver:
-  use_line_search: false
-  use_anderson: true
+  use_line_search: true
+  use_anderson: true    # NOTE: Works with or without anderson. For testing it is set false.
   anderson_acceleration_constrained: true
   use_appleyard_chop: false

@@ -22,6 +22,6 @@ time:
 
 solver:
   use_line_search: true
-  use_anderson: false
+  use_anderson: true    # NOTE: Works with or without anderson. For testing it is set true.     
   anderson_acceleration_constrained: false
   use_appleyard_chop: false
