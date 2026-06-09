@@ -1,4 +1,13 @@
-# geothermal_flow/configs/figures.yaml
+# Figure-generation manifest for the geothermal-flow paper.
+#
+# This YAML file defines the configuration for generating all figures in the
+# geothermal-flow paper. Each figure has a type that determines the sequence of
+# steps used to generate it, and each step has its own configuration.
+#
+# The scripts specified here perform the required data extraction, ParaView
+# rendering, panel assembly, and Matplotlib plotting.
+#
+# NOTE: This manifest is intended for use locally.
 
 pvbatch: /Applications/ParaView-6.1.0.app/Contents/bin/pvbatch
 
@@ -96,7 +105,7 @@ figures:
     save_layout: true
     update_all_pvd_readers: true
 
- figure11:  #halite_saturation_progression
+  figure11:  #halite_saturation_progression
     type: paraview_time_series_then_matplotlib
 
     paraview_render:
