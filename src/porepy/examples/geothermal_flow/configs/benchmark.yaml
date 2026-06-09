@@ -53,7 +53,6 @@ solver:
   max_iterations: 100
   linear_solver: pypardiso
   flag_failure_as_diverged: true
-  solver_statistics_file_name: solver_statistics_benchmark.json
 
 vtk:
   directory: model_configuration/constitutive_description/driesner_vtk_files
