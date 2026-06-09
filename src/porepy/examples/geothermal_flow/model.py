@@ -559,6 +559,7 @@ class PorosityWithHaliteMixin2D(pp.PorePyModel):
         """
 
         phi_0 = pp.ad.Scalar(self.solid.porosity, name="porosity")
+
         s_h_clamped = clamped_halite_saturation(self, subdomains)
 
         phi_matrix = phi_0 * (1.0 - s_h_clamped)
