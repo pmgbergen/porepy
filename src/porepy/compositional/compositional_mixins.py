@@ -60,6 +60,113 @@ __all__ = [
 DomainFunctionType = pp.DomainFunctionType
 ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
+_FORMULA_ELEMENT_TOKEN_RE = re.compile(r"[A-Z][a-z]?")
+_CHARGE_SYMBOL = "Z"
+_CHEMICAL_SYMBOLS = tuple(chemical_symbols)
+_CHEMICAL_SYMBOL_SET = set(_CHEMICAL_SYMBOLS)
+_PSEUDO_ELEMENT_PLACEHOLDERS = (
+    "Og",
+    "Ts",
+    "Lv",
+    "Mc",
+    "Fl",
+    "Nh",
+    "Cn",
+    "Rg",
+    "Ds",
+    "Mt",
+    "Hs",
+    "Bh",
+    "Sg",
+    "Db",
+    "Rf",
+    "Lr",
+    "No",
+    "Md",
+    "Fm",
+    "Es",
+    "Cf",
+    "Bk",
+    "Cm",
+    "Am",
+    "Pu",
+    "Np",
+    "Pa",
+    "Ac",
+    "Fr",
+    "Ra",
+)
+
+
+def _composition_to_symbol_counts(composition: dict[int, float]) -> dict[str, float]:
+    """Convert a chempy composition map to element-symbol counts."""
+    symbol_counts: dict[str, float] = {}
+    for atomic_number, count in composition.items():
+        symbol = _CHARGE_SYMBOL if atomic_number == 0 else chemical_symbols[atomic_number - 1]
+        symbol_counts[symbol] = symbol_counts.get(symbol, 0.0) + float(count)
+    return symbol_counts
+
+
+def _rewrite_formula_with_placeholders(formula: str) -> tuple[str, dict[str, str]]:
+    """Map pseudo-elements such as X to temporary real elements for chempy parsing."""
+    tokens = [match.group(0) for match in _FORMULA_ELEMENT_TOKEN_RE.finditer(formula)]
+    unknown_symbols: list[str] = []
+    seen_unknown: set[str] = set()
+
+    for token in tokens:
+        if token in _CHEMICAL_SYMBOL_SET or token in seen_unknown:
+            continue
+        seen_unknown.add(token)
+        unknown_symbols.append(token)
+
+    if not unknown_symbols:
+        return formula, {}
+
+    used_real_symbols = {token for token in tokens if token in _CHEMICAL_SYMBOL_SET}
+    available_placeholders = [
+        symbol for symbol in _PSEUDO_ELEMENT_PLACEHOLDERS if symbol not in used_real_symbols
+    ]
+    if len(available_placeholders) < len(unknown_symbols):
+        raise ValueError(
+            "Not enough placeholder elements available to parse pseudo-elements in "
+            f"formula '{formula}'."
+        )
+
+    pseudo_to_placeholder = dict(zip(unknown_symbols, available_placeholders))
+    placeholder_to_pseudo = {
+        placeholder: pseudo for pseudo, placeholder in pseudo_to_placeholder.items()
+    }
+    rewritten_formula = _FORMULA_ELEMENT_TOKEN_RE.sub(
+        lambda match: pseudo_to_placeholder.get(match.group(0), match.group(0)),
+        formula,
+    )
+    return rewritten_formula, placeholder_to_pseudo
+
+
+def _parse_formula_to_symbol_counts(formula: str) -> dict[str, float]:
+    """Parse a formula into symbol counts, allowing pseudo-elements like X."""
+    try:
+        return _composition_to_symbol_counts(Species.from_formula(formula).composition)
+    except Exception as original_error:
+        rewritten_formula, placeholder_to_pseudo = _rewrite_formula_with_placeholders(
+            formula
+        )
+        if not placeholder_to_pseudo:
+            raise original_error
+
+        try:
+            composition = Species.from_formula(rewritten_formula).composition
+        except Exception:
+            raise original_error
+
+        restored_counts: dict[str, float] = {}
+        for symbol, count in _composition_to_symbol_counts(composition).items():
+            restored_symbol = placeholder_to_pseudo.get(symbol, symbol)
+            restored_counts[restored_symbol] = (
+                restored_counts.get(restored_symbol, 0.0) + count
+            )
+        return restored_counts
+
 
 def _no_property_function(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
     """Helper function to define missing phase property functions."""
@@ -2230,31 +2337,35 @@ class ChemicalSystem(FluidMixin):
         _, species_in_phase = self.get_all_components_by_phase()
         self.species_in_phase = species_in_phase  # Save for later
 
-        # Parse each unique component name into a Species object
-        species_objs = {}
-        for name, comp in species_in_phase.items():
+        # Parse each unique component name into a symbol-count mapping.
+        species_compositions: dict[str, dict[str, float]] = {}
+        for name in species_in_phase:
             try:
-                species_objs[name] = Species.from_formula(name)
+                species_compositions[name] = _parse_formula_to_symbol_counts(name)
             except Exception as e:
                 print(f"Skipping {name}: {e}")
 
-        species_names = list(species_objs.keys())
+        species_names = list(species_compositions.keys())
         self.species_names = species_names
 
         # Collect all unique element symbols
         element_set = {
-            chemical_symbols[atomic_number - 1] if atomic_number != 0 else "Z"
-            for s in species_objs.values()
-            for atomic_number in s.composition
+            element_symbol
+            for composition in species_compositions.values()
+            for element_symbol in composition
         }
+
         # Create a mapping from element symbol to atomic number
         symbol_to_atomic = {s: i + 1 for i, s in enumerate(chemical_symbols)}
-        symbol_to_atomic["Z"] = 0  # Special case for charge
+        symbol_to_atomic[_CHARGE_SYMBOL] = 0  # Special case for charge
+        pseudo_elements = sorted(
+            element for element in element_set if element not in symbol_to_atomic
+        )
+        for offset, element in enumerate(pseudo_elements, start=len(chemical_symbols) + 1):
+            symbol_to_atomic[element] = offset
 
         # Sort elements by atomic number (ascending), Z first
-        elements = sorted(
-            element_set, key=lambda el: symbol_to_atomic.get(el, float("inf"))
-        )
+        elements = sorted(element_set, key=lambda el: symbol_to_atomic[el])
 
         # Build initial matrix
         def build_matrix(element_list):
@@ -2262,17 +2373,7 @@ class ChemicalSystem(FluidMixin):
             for elem in element_list:
                 row = []
                 for sp in species_names:
-                    comp = species_objs[sp].composition
-                    count = 0
-                    for atomic_number, num in comp.items():
-                        if atomic_number == 0 and elem == "Z":
-                            count = num
-                        elif (
-                            atomic_number != 0
-                            and chemical_symbols[atomic_number - 1] == elem
-                        ):
-                            count = num
-                    row.append(count)
+                    row.append(species_compositions[sp].get(elem, 0.0))
                 matrix.append(row)
             return np.array(matrix)
 
@@ -2282,7 +2383,7 @@ class ChemicalSystem(FluidMixin):
             matrix,
             elements,
             max_rank=len(species_names),
-            prefer_drop=("Z",),   # drop charge unless necessary
+            prefer_drop=(_CHARGE_SYMBOL,),   # drop charge unless necessary
         )
         # Final full-rank matrix
         matrix = build_matrix(working_elements)
@@ -2299,7 +2400,7 @@ class ChemicalSystem(FluidMixin):
             print("\t".join(row))
 
         self.element_objects = [
-            Element(name=el, atomic_number=(0 if el == "Z" else symbol_to_atomic[el]))
+            Element(name=el, atomic_number=symbol_to_atomic[el])
             for el in working_elements
         ]
         self.fluid.elements = self.element_objects
