@@ -1,19 +1,19 @@
 # Example 2: same disconnected fracture network, stronger halite-aperture feedback.
-# Paper case: φ = 1.0, a0 = 1e-3 m, 7 days.
+# Paper case: φ = 0.1, a0 = 1e-3 m, 7 days.
 
 case_name: example2
 geometry: disconnected
 
 physics:
-  clogging_exponent: 1.0
+  clogging_exponent: 0.1
   reference_aperture: 1.0e-3
-  injection_fraction: 1.0
+  injection_fraction: 1.3
 
 vtk:
   phz_file: XHP_l2_original_salt_new.vtk
 
 time:
-  end: 604800.0         # 7 days [s]
+  end: 648000.0         # 7 days [s]
   dt_init: 180.0        # 3 minutes [s]
   dt_min: 1.0           # [s]
   dt_max: 600.0         # 10 minutes [s]

@@ -78,4 +78,3 @@ solver:
 visualization:
   root: visualization
   write_pvd: true
-  write_vtu_before_run: false

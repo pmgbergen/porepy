@@ -319,6 +319,8 @@ def plot_production_diagnostics_comparison(
 
     mask_01 = t_01 >= t_min
     mask_10 = t_10 >= t_min
+    label_q_inj_0_28 = r"$q_{\mathrm{inj}} = 0.28~\mathrm{kg}\,\mathrm{m}^{-3}\,\mathrm{s}^{-1}$"
+    label_q_inj_0_364 = r"$q_{\mathrm{inj}} = 0.364~\mathrm{kg}\,\mathrm{m}^{-3}\,\mathrm{s}^{-1}$"
 
     fig, axes = plt.subplots(
         1,
@@ -331,14 +333,14 @@ def plot_production_diagnostics_comparison(
     ax_q.plot(
         t_01[mask_01],
         -q_01[mask_01],
-        label=r"$\varphi = 0.1$",
+        label=label_q_inj_0_28,
         color="tab:blue",
         linewidth=2.5,
     )
     ax_q.plot(
         t_10[mask_10],
         -q_10[mask_10],
-        label=r"$\varphi = 1.0$",
+        label=label_q_inj_0_364,
         color="tab:orange",
         linewidth=2.5,
         linestyle="--",
@@ -354,14 +356,14 @@ def plot_production_diagnostics_comparison(
     ax_e.plot(
         t_01[mask_01],
         e_01[mask_01],
-        label=r"$\varphi = 0.1$",
+        label=label_q_inj_0_28,
         color="tab:blue",
         linewidth=2.5,
     )
     ax_e.plot(
         t_10[mask_10],
         e_10[mask_10],
-        label=r"$\varphi = 1.0$",
+        label=label_q_inj_0_364,
         color="tab:orange",
         linewidth=2.5,
         linestyle="--",
