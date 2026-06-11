@@ -25,7 +25,6 @@ from porepy.compositional.materials import SolidConstants
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
 
-
 @dataclass(kw_only=True)
 class FractureSolidConstants(SolidConstants):
     """Solid constants tailored to the current model."""
@@ -165,18 +164,17 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
     """Complete model class for case 1 from the 2d flow benchmark."""
 
 
-def execution() -> list[FlowBenchmark2dCase1Model]:
-    """Execution of the flow benchmark 2D case 1 example.
+def run_example() -> list[FlowBenchmark2dCase1Model]:
+    """Run the flow benchmark 2D case 1 example and return the models.
 
-    We run both the conductive and blocking fracture cases.
-    
+    Both the conductive and blocking fracture cases are included.
+
     """
-
     solid_constants = [
         solid_constants_blocking_fractures,
         solid_constants_conductive_fractures,
     ]
-    models = []
+    models: list[FlowBenchmark2dCase1Model] = []
     for solid_constant in solid_constants:
         model_params = {
             "material_constants": {"solid": solid_constant},
@@ -184,11 +182,11 @@ def execution() -> list[FlowBenchmark2dCase1Model]:
             "meshing_arguments": {"cell_size": 0.125},
         }
         model = FlowBenchmark2dCase1Model(model_params)  # type: ignore[abstract]
-        models.append(model)
         solver_parameters = {
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
         pp.run_time_dependent_model(model, solver_parameters)
+        models.append(model)
         title = (
             "Pressure distribution.\n"
             f"Fracture permeability {solid_constant.fracture_permeability:.0e}."
@@ -205,40 +203,7 @@ def execution() -> list[FlowBenchmark2dCase1Model]:
         )
     return models
 
-        
 
 # If executed as main, run simulation.
 if __name__ == "__main__":
-    # # We run both the conductive and blocking fracture cases.
-    # solid_constants = [
-    #     solid_constants_blocking_fractures,
-    #     solid_constants_conductive_fractures,
-    # ]
-
-    # for solid_constant in solid_constants:
-    #     model_params = {
-    #         "material_constants": {"solid": solid_constant},
-    #         "grid_type": "cartesian",
-    #         "meshing_arguments": {"cell_size": 0.125},
-    #     }
-    #     model = FlowBenchmark2dCase1Model(model_params)  # type: ignore[abstract]
-    #     solver_parameters = {
-    #         "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
-    #     }
-    #     pp.run_time_dependent_model(model, solver_parameters)
-    #     title = (
-    #         "Pressure distribution.\n"
-    #         f"Fracture permeability {solid_constant.fracture_permeability:.0e}."
-    #     )
-    #     pp.plot_grid(
-    #         model.mdg,
-    #         model.pressure_variable,
-    #         figsize=(12, 10),
-    #         plot_2d=True,
-    #         title=title,
-    #         pointsize=20,
-    #         fracturewidth_1d=3,
-    #         linewidth=0.5,
-    #     )
-    models = execution()
-    
+    run_example()
