@@ -3626,7 +3626,6 @@ class PressureStress(LinearElasticMechanicalStress):
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.darcy_keyword
         ) @ self.pressure(subdomains)
-        # TODO: Safe to remove? self.perturbation_from_reference("pressure", subdomains)
         stress.set_name("pressure_stress")
         return stress
 
@@ -3779,8 +3778,6 @@ class ThermoPressureStress(PressureStress):
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.enthalpy_keyword
         ) @ self.temperature(subdomains)
-        # TODO: safe to remove?
-        # self.perturbation_from_reference("temperature", subdomains)
         stress.set_name("thermal_stress")
         return stress
 
