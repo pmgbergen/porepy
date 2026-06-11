@@ -4,7 +4,7 @@ your own problem.
 
 """
 
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, NotRequired, Optional, TypedDict
 from scipy.sparse import csr_matrix
 from dataclasses import dataclass, field
 
@@ -150,6 +150,11 @@ class AdvectionDiscretizationMatricesData(TypedDict):
     rhs_dir: np.ndarray
 
 
+class CommonParametersData(TypedDict):
+    specified_cells: Optional[np.ndarray] = None
+    specified_faces: Optional[np.ndarray] = None
+
+
 class EllipticScalarDiscretizationMatricesData(TypedDict):
     flux: csr_matrix
     bound_flux: csr_matrix
@@ -185,9 +190,11 @@ class AdvectionParametersData(TypedDict):
 class EllipticScalarParametersData(TypedDict):
     bc: pp.BoundaryCondition
     second_order_tensor: pp.SecondOrderTensor
-    ambient_dimension: int
+    ambient_dimension: NotRequired[int]
     active_cells: np.ndarray
     active_faces: np.ndarray
+    mpfa_eta: Optional[float] = None
+    mpfa_inverter: Literal["python", "numba"] = "numba"
 
 
 @dataclass

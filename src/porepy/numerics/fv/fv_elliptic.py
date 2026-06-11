@@ -3,6 +3,7 @@ Module contains superclass for mpfa and tpfa.
 """
 
 from __future__ import annotations
+from typing import Literal
 
 import numpy as np
 import scipy.sparse as sps
@@ -27,7 +28,7 @@ class FVElliptic(Discretization):
 
         # Keywords used to identify individual terms in the discretization matrix
         # dictionary:
-        self.flux_matrix_key = "flux"
+        self.flux_matrix_key: Literal["flux"] = "flux"
         """Key used to store flux discretization (transmissibility matrix) in the
         discretization matrix dictionary."""
         self.bound_flux_matrix_key = "bound_flux"

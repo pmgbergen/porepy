@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal, Optional, cast
 from warnings import warn
 
 import numpy as np
@@ -11,6 +11,10 @@ import scipy.sparse as sps
 import porepy as pp
 
 from . import _fvutils
+from porepy.examples.example_params import (
+    EllipticScalarDiscretizationMatricesData,
+    EllipticScalarParametersData,
+)
 
 
 class Mpfa(pp.FVElliptic):
@@ -119,14 +123,20 @@ class Mpfa(pp.FVElliptic):
                 description of required fields and storage of computed values.
 
         """
-        parameter_dictionary: dict = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
+
+        matrix_dictionary = cast(
+            EllipticScalarDiscretizationMatricesData,
+            data[pp.DISCRETIZATION_MATRICES][self.keyword],
+        )
+        parameter_dictionary = cast(
+            EllipticScalarParametersData, data[pp.PARAMETERS][self.keyword]
+        )
+
         # Dimension for vector source term field. Defaults to the same as the grid.
         # For grids embedded in a higher dimension, this must be set to the ambient
         # dimension.
-        vector_source_dim: int = parameter_dictionary.get("ambient_dimension", sd.dim)
+
+        vector_source_dim = parameter_dictionary.get("ambient_dimension", sd.dim)
 
         # Short cut: if sd.dim == 0, construct empty matrices right away
         if sd.dim == 0:
@@ -151,18 +161,16 @@ class Mpfa(pp.FVElliptic):
             # Done
             return
 
-        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
-        bnd: pp.BoundaryCondition = parameter_dictionary["bc"]
+        k = parameter_dictionary["second_order_tensor"]
+        bnd = parameter_dictionary["bc"]
 
-        eta: Optional[float] = parameter_dictionary.get("mpfa_eta", None)
-        inverter: Literal["numba", "python"] = parameter_dictionary.get(
-            "mpfa_inverter", "numba"
-        )
+        eta = parameter_dictionary["mpfa_eta"]
+        inverter = parameter_dictionary["mpfa_inverter"]
         reconstruct_on_internal_faces = parameter_dictionary.get(
             "reconstruct_on_internal_faces", False
         )
 
-        # Control of the number of subdomanis.
+        # Control of the number of subdomains.
         max_memory, num_subproblems = _fvutils.parse_partition_arguments(
             parameter_dictionary.get("partition_arguments", {})
         )
@@ -717,7 +725,11 @@ class Mpfa(pp.FVElliptic):
                 pp.DISCRETIZATION_MATRICES: {self.keyword: {}},
             }
             discr.discretize(sd, d)
-            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+            matrix_dictionary = cast(
+                EllipticScalarDiscretizationMatricesData,
+                d[pp.DISCRETIZATION_MATRICES][self.keyword],
+            )
 
             return (
                 matrix_dictionary[self.flux_matrix_key],
