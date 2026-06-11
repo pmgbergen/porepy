@@ -439,8 +439,7 @@ class ContactTractionVariable(VariableMixin):
                     **index,
                 )
 
-        # Write logging info in yellow color
-        logger.info("\033[93m" + "Initialized reference state." + "\033[0m")
+        logger.info("Initialized reference state.")
 
     def update_reference(self) -> None:
         """Updating of reference tractions."""
@@ -469,8 +468,7 @@ class ContactTractionVariable(VariableMixin):
                         **index,
                     )
 
-        # Write logging info in yellow color
-        logger.info("\033[93m" + "Updated reference state." + "\033[0m")
+        logger.info("Updated reference state.")
 
 
 class InitialConditionsContactTraction(pp.InitialConditionMixin):
