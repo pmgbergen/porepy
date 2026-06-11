@@ -104,7 +104,7 @@ figures:
     time_index: -1
     save_layout: true
     update_all_pvd_readers: true
-
+  
   figure11:  #halite_saturation_progression
     type: paraview_time_series_then_matplotlib
 
@@ -165,8 +165,8 @@ figures:
       output: figures/example2/figure13.png
       times_days: [0, 0.5, 1, 7]
       clogging_exponent: 1.0
-      aperture_ymin: 0.84
-      aperture_ymax: 1.01
+      aperture_ymin: 0.985
+      aperture_ymax: 1.002
       x_col: "Points:0"
       y_col: "Points:1"
   
@@ -177,26 +177,26 @@ figures:
       script: geothermal_flow/paraview_scripts/render_state_time_series.py
 
       panels:
-        phi_0_1:
+        q_inj_0_28:
           state: geothermal_flow/paraview_states/example1/near_well_hal_sat.pvsm
           pvd: visualization/example1/example1.pvd
-          out_dir: figures/example1/near_well_panels_phi_0_1
+          out_dir: figures/example1/near_well_panels_q_inj_0_2_8
           times_days: [7]
 
-        phi_1_0:
+        q_inj_0_364:
           state: geothermal_flow/paraview_states/example2/near_well_hal_sat.pvsm
           pvd: visualization/example2/example2.pvd
-          out_dir: figures/example2/near_well_panels_phi_1_0
+          out_dir: figures/example1/near_well_panels_q_inj_0_3_6_4
           times_days: [7]
 
     matplotlib_plot:
       script: geothermal_flow/plotting/plot_near_well_comparison.py
-      left: figures/example1/near_well_panels_phi_0_1/s_halite_t_7_days.png
-      right: figures/example2/near_well_panels_phi_1_0/s_halite_t_7_days.png
+      left: figures/example1/near_well_panels_q_inj_0_2_8/s_halite_t_7_days.png
+      right: figures/example2/near_well_panels_q_inj_0_3_6_4/s_halite_t_7_days.png
       output: figures/example2/figure14.png
       labels:
-        left: "$\\varphi = 0.1$"
-        right: "$\\varphi = 1.0$"
+        left: "$q_{\\mathrm{inj}} = 0.28~\\mathrm{kg}\\,\\mathrm{m}^{-3}\\,\\mathrm{s}^{-1}$"
+        right: "$q_{\\mathrm{inj}} = 0.364~\\mathrm{kg}\\,\\mathrm{m}^{-3}\\,\\mathrm{s}^{-1}$"
       colorbar:
         field: "$\\mathbf{s}^{\\mathbf{hal}}$"
         vmin: 0.0
@@ -208,7 +208,7 @@ figures:
     data_extract:
       script: geothermal_flow/paraview_scripts/extract_well_time_series_data.py
       cases:
-        phi_0_1:
+        q_inj_0_28:
           pvd: visualization/example1/example1.pvd
           cell_id: 3379
           variables: ["pressure", "s_halite", "s_gas", "z_NaCl", "enthalpy"]
@@ -218,7 +218,7 @@ figures:
           block_filter: data_2 #TODO: make sure this is correct for the new data
           max_time_days: 7.0
 
-        phi_1_0:
+        q_inj_0_364:
           pvd: visualization/example2/example2.pvd
           cell_id: 3379
           variables: ["pressure", "s_halite", "s_gas", "z_NaCl", "enthalpy"]
@@ -290,19 +290,3 @@ figures:
     time_index: -1
     save_layout: true
     update_all_pvd_readers: true
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

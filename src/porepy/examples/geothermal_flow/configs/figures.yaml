@@ -189,7 +189,7 @@ figures:
     matplotlib_plot:
       script: geothermal_flow/plotting/plot_near_well_comparison.py
       left: figures/example1/near_well_panels_q_inj_0_2_8/s_halite_t_7_days.png
-      right: figures/example2/near_well_panel_q_inj_0_3_6_4/s_halite_t_7_days.png
+      right: figures/example2/near_well_panels_q_inj_0_3_6_4/s_halite_t_7_days.png
       output: figures/example2/figure14.png
       labels:
         left: "$q_{\\mathrm{inj}} = 0.28~\\mathrm{kg}\\,\\mathrm{m}^{-3}\\,\\mathrm{s}^{-1}$"
