@@ -183,7 +183,6 @@ class ConnectedFracturedDomain2D(pp.PorePyModel):
         frac7 = pp.LineFracture(np.array([[75.0, 85.0], [15.0, 10.0]]))
         frac7 = pp.LineFracture(np.array([[75.0, 80.0], [15.0, 10.0]]))
         frac8 = pp.LineFracture(np.array([[80.0, 85.0], [10.0, 15.0]]))
-        frac9 = pp.LineFracture(np.array([[85.0, 85.0], [15.0, 18.0]]))
         self._fractures = [frac1, frac2, frac3, frac4, frac5, frac6, frac7, frac8]
 
     def grid_type(self) -> str:
@@ -221,7 +220,7 @@ class ConnectedFracturedDomain2D(pp.PorePyModel):
     ) -> None:
         """Insert single well as point grid and connect to matrix."""
 
-        # Convert to 3D coordinates (for porepy PointGrid)
+        # Convert to 3D coordinates (for PointGrid)
         p = np.zeros(3)
         p[:2] = point
 
@@ -230,10 +229,9 @@ class ConnectedFracturedDomain2D(pp.PorePyModel):
         sd_0d.tags[f"{well_type}_well"] = well_index
         sd_0d.compute_geometry()
 
-        # This object must have been passed or prepared by a mixin
         self.mdg.add_subdomains(sd_0d)
 
-        # Couple well to the matrix (0D <--> 2D coupling is allowed with wells in PorePy)
+        # Couple well to the matrix (0D <--> 2D)
         matrix = self.mdg.subdomains(dim=self.domain.dim)[0]
         cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
         cell_well = np.array([0], dtype=int)
