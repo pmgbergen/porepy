@@ -1,14 +1,14 @@
 # Reproducible simulations for multiphase flow and transport in fractured geothermal systems
 
-This directory contains the unified simulation and figure-generation workflow for reproducing the benchmark and numerical examples in the paper **“Mathematical Modeling of Salt Precipitation and Multi-Phase Flow in High Enthalpy Fractured Geothermal Systems.”**
+This directory contains the unified simulation and figure-generation workflow for reproducing the benchmark and numerical examples in the paper "**Oguntola et al. 2026: Mathematical Modeling of Salt Precipitation and Multi-Phase Flow in High Enthalpy Fractured Geothermal Systems.**"
 
-The workflow supports the paper’s main computational results: verification of the PorePy implementation against the CSMP++ 1D salt benchmark, followed by 2D fractured-reservoir simulations that study halite precipitation and dissolution, permeability reduction, fracture clogging, and production performance in high-enthalpy geothermal systems. The paper presents a unified compositional model using persistent primary variables pressure, enthalpy, and total salt mass fraction, implemented in PorePy with a discrete fracture-matrix representation and thermodynamic lookup tables for the H2O–NaCl system.
+The workflow supports the paper’s main computational results: verification of the PorePy implementation against the CSMP++ 1D salt benchmark, followed by 2D fractured-reservoir simulations that study halite precipitation and dissolution, permeability reduction, fracture and matrix clogging, and production performance in high-enthalpy geothermal systems.
 
 
 The workflow has two stages:
 
 1. **Simulation stage**  
-   Runs a selected PorePy case and writes standard PorePy visualization files to
+   Runs a selected simulation case and writes standard PorePy visualization files to
 
    ```text
    visualization/<case_name>/
@@ -23,12 +23,12 @@ The workflow has two stages:
 
 ### Example 1 and Example 2 are coupled for comparison figures
 
-Examples 1 and 2 are paired cases. They use the same disconnected-fracture geometry and reference aperture, but different clogging exponents:
+Examples 1 and 2 are paired cases. They use the same disconnected-fracture geometry, reference aperture, clogging exponents, but different injection rate:
 
-| Case | Geometry | Clogging exponent |
+| Case | Geometry | Injection rate ($\text{kgm}^{-3}\text{s}^{-1}$) |
 |---|---|---:|
-| `example1` | disconnected | `0.1` |
-| `example2` | disconnected | `1.0` |
+| `example1` | disconnected | `0.28` |
+| `example2` | disconnected | `0.364` |
 
 Several postprocessed figures depend on outputs from **both** simulations:
 
@@ -251,10 +251,10 @@ This file defines how each paper figure is generated from the simulation outputs
 
 | Case | Geometry | Clogging exponent `φ` | Reference aperture `a⁰` [m] | Injection multiplier | End time | PHZ table | Solver safeguards |
 |---|---|---:|---:|---:|---:|---|---|
-| `benchmark` | horizontal 1D benchmark | — | — | — | `2000 years` | `XHP_l2_original_salt_new.vtk` | benchmark settings |
+| `benchmark` | horizontal 1D benchmark | — | — | — | `2000 years` | `XHP_l2_original_salt_new.vtk` | no line search |
 | `example1` | disconnected | `0.1` | `1e-3` | `1.0` | `74 days` | `XHP_l2_original_salt_new.vtk` | no line search |
-| `example2` | disconnected | `1.0` | `1e-3` | `1.0` | `7 days` | `XHP_l2_original_salt_new.vtk` | line search |
-| `example3` | connected | `2.0` | `1e-2` | `3.0` | `60 days` | `XHP_l2_original.vtk` | line search + Appleyard chop |
+| `example2` | disconnected | `0.1` | `1e-3` | `1.3` | `7 days` | `XHP_l2_original_salt_new.vtk` | line search |
+| `example3` | connected | `2.0` | `1e-2` | `3.0` | `60 days` | `XHP_l2_original.vtk` | line search |
 
 ---
 
