@@ -179,10 +179,25 @@ def create_model_class(config: dict[str, Any]) -> type[pp.PorePyModel]:
                 )
                 print(f"Time index: {self.time_manager.time_index}\n")
 
+        def prepare_simulation(self) -> None:
+            """Prepare the simulation and initialize physical export-time storage."""
+            # Physical simulation times, in seconds, corresponding to exported VTU files.
+            self.pvd_times_seconds: list[float] = []
+            super().prepare_simulation()
+
+        def save_data_time_step(self) -> None:
+            """Save one VTU time step and store its cumulative physical time."""
+            super().save_data_time_step()
+
+            time_seconds = float(self.time_manager.time)
+
+            if not self.pvd_times_seconds or self.pvd_times_seconds[-1] != time_seconds:
+                self.pvd_times_seconds.append(time_seconds)
+
         def after_simulation(self) -> None:
             super().after_simulation()
             if config.get("visualization", {}).get("write_pvd", True):
-                self.exporter.write_pvd()
+                self.exporter.write_pvd(self.pvd_times_seconds)
 
         # def get_variable_block_indices(self, var_name: str | list[str]) -> np.ndarray:
         #     if not isinstance(var_name, list):
@@ -350,21 +365,6 @@ def configure_schur_if_requested(model: pp.PorePyModel, config: dict[str, Any]) 
     model.schur_complement_primary_variables = primary_variables
 
 
-def print_flux_diagnostics(model: pp.PorePyModel) -> None:
-    """Print inlet and outlet Darcy-flux diagnostics without affecting the simulation."""
-
-    try:
-        grid = model.mdg.subdomains()[0]
-        darcy_flux = model.darcy_flux(model.mdg.subdomains()).value(
-            model.equation_system
-        )
-        inlet_idx, outlet_idx = model.get_inlet_outlet_sides(grid)
-        print(f"Inflow values: {darcy_flux[inlet_idx]}")
-        print(f"Outflow values: {darcy_flux[outlet_idx]}")
-    except Exception as exc:  # diagnostics must never hide a successful simulation
-        print(f"Flux diagnostics skipped: {exc}")
-
-
 def run(
     config_path: str | Path, defaults_path: str | Path | None = None
 ) -> pp.PorePyModel:
@@ -400,8 +400,6 @@ def run(
     print(f"Elapsed time for simulation: {time.time() - start:.2f} seconds")
     print(f"Total DoFs: {model.equation_system.num_dofs()}")
     print(f"Grid info: {model.mdg}")
-
-    print_flux_diagnostics(model)
 
     return model
 
