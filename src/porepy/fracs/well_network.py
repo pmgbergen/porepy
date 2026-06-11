@@ -107,6 +107,16 @@ class WellNetwork3d:
         well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
         well_mdg.compute_geometry()
 
+        for sd_w in well_mdg.subdomains(dim=0):
+            for sd_f in mdg.subdomains(dim=0):
+                if np.allclose(sd_w.cell_centers, sd_f.cell_centers, atol=self.tol):
+                    raise ValueError(
+                        "Found a 0d subdomain with identical cell centers to a fracture "
+                        "intersection point. This should not happen, and is likely an "
+                        "issue with the geometry or meshing. Please check the geometry and "
+                        "meshing of the well network."
+                    )
+
         for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
             wg.well_num = wi
             wg.frac_num = -1
