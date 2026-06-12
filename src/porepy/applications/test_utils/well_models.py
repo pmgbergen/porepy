@@ -8,15 +8,9 @@ import porepy as pp
 
 
 class OneVerticalWell(pp.PorePyModel):
-    def set_well_network(self) -> None:
-        """Assign well network class."""
-        points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1.0]])
-        mesh_size = self.units.convert_units(1 / 10.0, "m")
-        self.well_network = pp.WellNetwork3d(
-            domain=self.domain,
-            wells=[pp.Well(points)],
-            parameters={"mesh_size": mesh_size},
-        )
+    def set_wells(self) -> None:
+        """Set wells in the well network."""
+        self._wells = [pp.Well(np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1.0]]))]
 
     def meshing_arguments(self) -> dict:
         # Length scale:
@@ -31,6 +25,10 @@ class OneVerticalWell(pp.PorePyModel):
         mesh_sizes.update(self.params.get("meshing_args", {}))
         return mesh_sizes
 
+    def well_meshing_arguments(self) -> dict:
+        mesh_size = self.units.convert_units(1 / 10.0, "m")
+        return {"cell_size": mesh_size}
+
     def grid_type(self) -> Literal["simplex", "cartesian"]:
         return self.params.get("grid_type", "simplex")
 
@@ -43,15 +41,16 @@ class OneSlantedWell(pp.PorePyModel):
 
     """
 
-    def set_well_network(self) -> None:
-        """Assign well network class."""
-        points = np.array([[0.25, 0.75], [0.3, 0.3], [1.0, 0.2]])
-        mesh_size = self.units.convert_units(1 / 10.0, "m")
-        self.well_network = pp.WellNetwork3d(
-            domain=self.domain,
-            wells=[pp.Well(points)],
-            parameters={"mesh_size": mesh_size},
-        )
+    def set_wells(self) -> None:
+        """Set wells in the well network."""
+        self._wells = [pp.Well(np.array([[0.25, 0.3], [0.75, 0.3], [1.0, 0.2]]))]
+
+    def well_meshing_arguments(self) -> dict:
+        # Length scale:
+        ls = self.units.convert_units(1 / 10.0, "m")
+        # Set default values, then update with any user-provided meshing arguments.
+        mesh_sizes = {"cell_size": ls}
+        return self.params.get("well_meshing_args", mesh_sizes)
 
 
 class BoundaryConditionsWellSetup(pp.PorePyModel):
