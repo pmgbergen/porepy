@@ -4,7 +4,7 @@ your own problem.
 
 """
 
-from typing import Any, Literal, NotRequired, Optional, TypedDict
+from typing import Any, Literal, Optional, TypedDict, NotRequired, Required
 from scipy.sparse import csr_matrix
 from dataclasses import dataclass, field
 
@@ -150,11 +150,6 @@ class AdvectionDiscretizationMatricesData(TypedDict):
     rhs_dir: np.ndarray
 
 
-class CommonParametersData(TypedDict):
-    specified_cells: Optional[np.ndarray] = None
-    specified_faces: Optional[np.ndarray] = None
-
-
 class EllipticScalarDiscretizationMatricesData(TypedDict):
     flux: csr_matrix
     bound_flux: csr_matrix
@@ -169,8 +164,7 @@ class ScalarGradientData(TypedDict):
     flow: csr_matrix
 
 
-@dataclass
-class EllipticVectorDiscretizationMatricesData:
+class EllipticVectorDiscretizationMatricesData(TypedDict, total=False):
     stress: csr_matrix
     bound_stress: csr_matrix
     bound_displacement_cell: csr_matrix
@@ -182,37 +176,48 @@ class EllipticVectorDiscretizationMatricesData:
     mpsa_consistency: ScalarGradientData
 
 
-class AdvectionParametersData(TypedDict):
+class CommonParametersData(TypedDict, total=False):
+    specified_cells: Optional[np.ndarray]  # = None
+    specified_faces: Optional[np.ndarray]  # = None
+    specified_nodes: Optional[np.ndarray]  # = None
+
+
+class AdvectionParametersData(CommonParametersData, total=False):
     darcy_flux: np.ndarray
     bc: pp.BoundaryCondition
 
 
-class EllipticScalarParametersData(TypedDict):
+class EllipticScalarParametersData(CommonParametersData, total=False):
     bc: pp.BoundaryCondition
     second_order_tensor: pp.SecondOrderTensor
-    ambient_dimension: NotRequired[int]
+    ambient_dimension: int
     active_cells: np.ndarray
     active_faces: np.ndarray
-    mpfa_eta: Optional[float] = None
-    mpfa_inverter: Literal["python", "numba"] = "numba"
+    mpfa_eta: Optional[float]
+    mpfa_inverter: Literal["python", "numba"]
 
 
-@dataclass
-class EllipticVectorParametersData:
-    bc: pp.BoundaryConditionVectorial
-    fourth_order_tensor: pp.FourthOrderTensor
-    scalar_vector_mappoints: ScalarGradientData
-    mpsa_eta: Optional[float] = None
-    reconstruction_eta: Optional[float] = None
-    inverter: Literal["python", "numba"] = "numba"
-    reconstruct_on_internal_faces: bool = False
-    partition_arguments: dict = field(default_factory=lambda: {})
-    update_discretization: bool = False
-    specified_cells: Optional[np.ndarray] = None
-    specified_faces: Optional[np.ndarray] = None
-    specified_nodes: Optional[np.ndarray] = None
-    active_cells: Optional[np.ndarray] = None
-    active_faces: Optional[np.ndarray] = None
+class EllipticVectorParametersData(CommonParametersData, total=False):
+    bc: Required[pp.BoundaryConditionVectorial]
+    fourth_order_tensor: Required[pp.FourthOrderTensor]
+    scalar_vector_mappoints: Required[ScalarGradientData]
+    bc_values: np.ndarray
+    source: np.ndarray
+    mpsa_eta: Optional[float]  # = None
+    reconstruction_eta: Optional[float]  # = None
+    inverter: Literal["python", "numba"]  # = "numba"
+    reconstruct_on_internal_faces: bool  # = False
+    partition_arguments: dict  # = field(default_factory=lambda: {})
+    update_discretization: bool  # = False
+    active_cells: Optional[np.ndarray]  # = None
+    active_faces: Optional[np.ndarray]  # = None
+
+
+class UpdateDiscretizationData(TypedDict, total=False):
+    modified_cells: np.ndarray
+    modified_faces: np.ndarray
+    map_cells: csr_matrix
+    map_faces: csr_matrix
 
 
 # class GlobalSimulationData(TypedDict):

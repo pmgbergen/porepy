@@ -9,13 +9,17 @@ between these methods, the current structure with multiple auxiliary methods eme
 
 from __future__ import annotations
 
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.examples.example_params import EllipticVectorParametersData
+from porepy.examples.example_params import (
+    CommonParametersData,
+    EllipticVectorParametersData,
+    UpdateDiscretizationData,
+)
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
@@ -1168,7 +1172,7 @@ def partial_update_discretization(
     if dim is None:
         dim = sd.dim
 
-    update_info = data["update_discretization"]
+    update_info = cast(UpdateDiscretizationData, data["update_discretization"])
     # By default, neither cells nor faces have been updated
     update_cells = update_info.get("modified_cells", np.array([], dtype=int))
     update_faces = update_info.get("modified_faces", np.array([], dtype=int))
@@ -1201,7 +1205,7 @@ def partial_update_discretization(
     _, cells, _ = sparse_array_to_row_col_data(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
 
-    param = data[pp.PARAMETERS][keyword]
+    param = cast(CommonParametersData, data[pp.PARAMETERS][keyword])
     if update_cells.size > 0:
         param["specified_cells"] = update_cells
         do_discretize = True
@@ -1252,7 +1256,7 @@ def partial_update_discretization(
     # Also eliminate contributions to rows that will also be updated (but not
     # columns, a non-updated row should keep its information about a column
     # to be updated).
-    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]
+    mat_dict = data[pp.DISCRETIZATION_MATRICES][keyword]  # No typing here
     mat_dict_copy = {}
     for key, val in mat_dict.items():
         if isinstance(val, dict):

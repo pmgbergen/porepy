@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from time import time
-from typing import Any, Literal, Optional, cast
+from typing import Any, Final, Literal, Optional, cast
 from warnings import warn
 
 import numpy as np
@@ -20,6 +20,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.examples.example_params import (
+    EllipticScalarDiscretizationMatricesData,
+    EllipticScalarParametersData,
     EllipticVectorDiscretizationMatricesData,
     EllipticVectorParametersData,
 )
@@ -83,17 +85,21 @@ class Mpsa(Discretization):
         self.keyword = keyword
         """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'.
         """
-        self.stress_matrix_key = "stress"
+        self.stress_matrix_key: Literal["stress"] = "stress"
         """Keyword used to identify the discretization matrix for the stress. Defaults
         to 'stress'."""
-        self.bound_stress_matrix_key = "bound_stress"
+        self.bound_stress_matrix_key: Literal["bound_stress"] = "bound_stress"
         """Keyword used to identify the discretization matrix for the boundary
         conditions for stress. Defaults to 'bound_stress'."""
-        self.bound_displacement_cell_matrix_key = "bound_displacement_cell"
+        self.bound_displacement_cell_matrix_key: Literal["bound_displacement_cell"] = (
+            "bound_displacement_cell"
+        )
         """Keyword used to identify the discretization matrix for the cell center
         displacement contribution to boundary displacement reconstrution. Defaults to
         'bound_displacement_cell'."""
-        self.bound_displacement_face_matrix_key = "bound_displacement_face"
+        self.bound_displacement_face_matrix_key: Literal["bound_displacement_face"] = (
+            "bound_displacement_face"
+        )
         """Keyword used to identify the discretization matrix for the boundary
         conditions' contribution to boundary displacement reconstrution. Defaults to
         'bound_displacement_face'."""
@@ -188,26 +194,26 @@ class Mpsa(Discretization):
             EllipticVectorDiscretizationMatricesData,
             data[pp.DISCRETIZATION_MATRICES][self.keyword],
         )
-        constit = parameter_dictionary.fourth_order_tensor
-        bound = parameter_dictionary.bc
+        constit = parameter_dictionary["fourth_order_tensor"]
+        bound = parameter_dictionary["bc"]
 
-        eta = parameter_dictionary.mpsa_eta
-        hf_eta = parameter_dictionary.reconstruction_eta
+        eta = parameter_dictionary.get("mpsa_eta", None)
+        hf_eta = parameter_dictionary.get("reconstruction_eta", None)
 
-        inverter = parameter_dictionary.inverter
-        reconstruct_on_internal_faces = (
-            parameter_dictionary.reconstruct_on_internal_faces
+        inverter = parameter_dictionary.get("inverter", "numba")
+        reconstruct_on_internal_faces = parameter_dictionary.get(
+            "reconstruct_on_internal_faces", False
         )
 
         # Control of the number of subdomanis.
         max_memory, num_subproblems = _fvutils.parse_partition_arguments(
-            parameter_dictionary.partition_arguments
+            parameter_dictionary.get("partition_arguments", {})
         )
 
         # Whether to update an existing discretization, or construct a new one. If True,
         # either specified_cells, _faces or _nodes should also be given, or else a full
         # new discretization will be computed
-        update = parameter_dictionary.update_discretization
+        update = parameter_dictionary.get("update_discretization", False)
         if update:
             # EK comment: The functionality to update discretizations has not been
             # thoroughly tested and should be used with extreme care.
@@ -323,12 +329,7 @@ class Mpsa(Discretization):
                 loc_eta = eta
 
             # Discretization of sub-problem
-            (
-                loc_stress,
-                loc_bound_stress,
-                loc_bound_displacement_cell,
-                loc_bound_displacement_face,
-            ) = self._stress_discretization(
+            discr_result = self._stress_discretization(
                 sub_g,
                 loc_c,
                 loc_bnd,
@@ -337,6 +338,10 @@ class Mpsa(Discretization):
                 hf_eta=hf_eta,
                 reconstruct_on_internal_faces=reconstruct_on_internal_faces,
             )
+            loc_stress = discr_result["stress"]
+            loc_bound_stress = discr_result["bound_stress"]
+            loc_bound_displacement_cell = discr_result["bound_displacement_cell"]
+            loc_bound_displacement_face = discr_result["bound_displacement_face"]
 
             # Eliminate contribution from faces already discretized (the dual grids /
             # interaction regions may be structured so that some faces have previously
@@ -417,21 +422,28 @@ class Mpsa(Discretization):
         )
 
         if update:
-            # YZ: I'm scared to touch this part.
             update_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
-            matrix_dictionary.stress[update_ind] = stress_glob[update_ind]
-            matrix_dictionary.bound_stress[update_ind] = bound_stress_glob[update_ind]
-            matrix_dictionary.bound_displacement_cell[update_ind] = (
+            matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
+                update_ind
+            ]
+            matrix_dictionary[self.bound_stress_matrix_key][update_ind] = (
+                bound_stress_glob[update_ind]
+            )
+            matrix_dictionary[self.bound_displacement_cell_matrix_key][update_ind] = (
                 bound_displacement_cell_glob[update_ind]
             )
-            matrix_dictionary.bound_displacement_face[update_ind] = (
+            matrix_dictionary[self.bound_displacement_face_matrix_key][update_ind] = (
                 bound_displacement_face_glob[update_ind]
             )
         else:
-            matrix_dictionary.stress = stress_glob
-            matrix_dictionary.bound_stress = bound_stress_glob
-            matrix_dictionary.bound_displacement_cell = bound_displacement_cell_glob
-            matrix_dictionary.bound_displacement_face = bound_displacement_face_glob
+            matrix_dictionary[self.stress_matrix_key] = stress_glob
+            matrix_dictionary[self.bound_stress_matrix_key] = bound_stress_glob
+            matrix_dictionary[self.bound_displacement_cell_matrix_key] = (
+                bound_displacement_cell_glob
+            )
+            matrix_dictionary[self.bound_displacement_face_matrix_key] = (
+                bound_displacement_face_glob
+            )
 
     def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
@@ -525,9 +537,15 @@ class Mpsa(Discretization):
                 source term.
 
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = cast(
+            EllipticVectorDiscretizationMatricesData,
+            data[pp.DISCRETIZATION_MATRICES][self.keyword],
+        )
+        parameter_dictionary = cast(
+            EllipticVectorParametersData, data[pp.PARAMETERS][self.keyword]
+        )
 
+        # They are hard-coded here. If changing keys is a feature, it will not work here.
         stress = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
 
@@ -557,7 +575,7 @@ class Mpsa(Discretization):
         hf_disp: bool = False,
         hf_eta: Optional[float] = None,
         reconstruct_on_internal_faces: bool = False,
-    ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix, sps.spmatrix]:
+    ) -> EllipticVectorDiscretizationMatricesData:
         """
         Actual implementation of the MPSA W-method. To calculate the MPSA
         discretization on a grid, either call this method, or, to respect the
@@ -626,7 +644,7 @@ class Mpsa(Discretization):
             reconstruct_on_internal_faces: Whether to reconstruct the displacement on
                 internal faces.
 
-        Returns:
+        Returns: (TODO)
             tuple of 4 sps.spmatrix:
 
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces * sd.dim,
@@ -688,7 +706,8 @@ class Mpsa(Discretization):
         if sd.dim == 1:
             tpfa_key = "tpfa_elasticity"
             discr = pp.Tpfa(tpfa_key)
-            params: dict = {}
+            # params: dict = {}
+            params = EllipticScalarParametersData()
 
             # Implicitly set Neumann boundary conditions on the whole domain. More
             # general values should be permissible, but it will require handling of
@@ -710,12 +729,15 @@ class Mpsa(Discretization):
                 pp.DISCRETIZATION_MATRICES: {tpfa_key: {}},
             }
             discr.discretize(sd, d)
-            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][tpfa_key]
-            return (
-                matrix_dictionary["flux"],
-                matrix_dictionary["bound_flux"],
-                matrix_dictionary["bound_pressure_cell"],
-                matrix_dictionary["bound_pressure_face"],
+            matrix_dictionary = cast(
+                EllipticScalarDiscretizationMatricesData,
+                d[pp.DISCRETIZATION_MATRICES][tpfa_key],
+            )
+            return EllipticVectorDiscretizationMatricesData(
+                stress=matrix_dictionary["flux"],
+                bound_stress=matrix_dictionary["bound_flux"],
+                bound_displacement_cell=matrix_dictionary["bound_pressure_cell"],
+                bound_displacement_face=matrix_dictionary["bound_pressure_face"],
             )
 
         # The grid coordinates are always three-dimensional, even if the grid is really
@@ -804,7 +826,12 @@ class Mpsa(Discretization):
         # hf_cell @ u_cell_centers + hf_bound @ u_bound_condition
         if not subface_rhs:
             hf_bound @= hf2f.T
-        return stress, bound_stress, hf_cell, hf_bound
+        return EllipticVectorDiscretizationMatricesData(
+            stress=stress,
+            bound_stress=bound_stress,
+            bound_displacement_cell=hf_cell,
+            bound_displacement_face=hf_bound,
+        )
 
     def _create_inverse_gradient_matrix(
         self,
