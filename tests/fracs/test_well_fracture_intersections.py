@@ -616,13 +616,27 @@ def _assert_intersection_meshing(
                     assert len(neigh_subdomains) >= 2
                 num_fractures_found = 0
                 for sd in neigh_subdomains:
-                    if sd.frac_num > -1:
+                    if sd.well_num > -1:
+                        assert sd.well_num == expected_well_idx, (
+                            f"Case '{case.name}': expected well index  "
+                            f"{expected_well_idx}, got {sd.well_num}."
+                        )
+                    elif sd.frac_num > -1:
+                        # This is a fracture (and not a fracture intersection)
+                        # subdomain.
                         assert sd.frac_num in expected_frac_idxs
                         num_fractures_found += 1
                     else:
-                        assert sd.well_num == expected_well_idx
+                        # This is a fracture intersection
+                        assert len(expected_frac_idxs) > 1, (
+                            f"Case '{case.name}': expected multiple fractures at "
+                            f"intersection, got {expected_frac_idxs}."
+                        )
+                        assert num_fractures_found == 0, (
+                            f"Case '{case.name}': A well cannot intersect both a "
+                            "fracture and a fracture intersection at the same point."
+                        )
 
-                assert num_fractures_found == 1
                 found_intersection[i] = True
                 break
     assert all(found_intersection), (
