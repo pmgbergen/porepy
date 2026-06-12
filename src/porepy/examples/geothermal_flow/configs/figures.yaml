@@ -26,7 +26,7 @@ figures:
       script: geothermal_flow/paraview_scripts/extract_benchmark_profile.py
       pvd: visualization/benchmark/benchmark.pvd
       out_csv: csv/benchmark/porepy_benchmark_profile.csv
-      time_years: 2127
+      time_index: -1
       pvd_time_unit: years
       gas_zero_threshold: 0.1
 
@@ -183,7 +183,7 @@ figures:
         q_inj_0_364:
           state: geothermal_flow/paraview_states/example2/near_well_hal_sat.pvsm
           pvd: visualization/example2/example2.pvd
-          out_dir: figures/example1/near_well_panels_q_inj_0_3_6_4
+          out_dir: figures/example2/near_well_panels_q_inj_0_3_6_4
           times_days: [7]
 
     matplotlib_plot:
