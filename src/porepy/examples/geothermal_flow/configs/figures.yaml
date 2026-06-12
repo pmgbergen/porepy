@@ -152,7 +152,7 @@ figures:
       state: geothermal_flow/paraview_states/example2/fracture_line_data.pvsm
       pvd: visualization/example2/example2.pvd
       out_dir: csv/example2/fracture_line
-      times_days: [0, 0.5, 1, 7]
+      times_days: [0, 0.5, 2.0, 7]
       source_name: CellCenters1
       field_association: "Point Data"
 
@@ -160,8 +160,8 @@ figures:
       script: geothermal_flow/plotting/plot_halite_aperture_ratio.py
       input_dir: csv/example2/fracture_line
       output: figures/example2/figure13.png
-      times_days: [0, 0.5, 1, 7]
-      clogging_exponent: 1.0
+      times_days: [0, 0.5, 2.0, 7]
+      clogging_exponent: 0.1
       aperture_ymin: 0.985
       aperture_ymax: 1.002
       x_col: "Points:0"
@@ -212,8 +212,9 @@ figures:
           cache: output/example1/production_cell_timeseries.csv
           diagnostics_cache: output/example1/production_diagnostics.csv
           shape: triangle
-          block_filter: data_2 #TODO: make sure this is correct for the new data
+          block_filter: example1_2
           max_time_days: 7.0
+          force_reextract: true
 
         q_inj_0_364:
           pvd: visualization/example2/example2.pvd
@@ -222,13 +223,14 @@ figures:
           cache: output/example2/production_cell_timeseries.csv
           diagnostics_cache: output/example2/production_diagnostics.csv
           shape: triangle
-          block_filter: data_2 #TODO: make sure this is correct for the new data
+          block_filter: example2_2
           max_time_days: 7.0
+          force_reextract: true
 
     matplotlib_plot:
       script: geothermal_flow/plotting/plot_production_diagnostics.py
-      phi_0_1: output/example1/production_diagnostics.csv
-      phi_1_0: output/example2/production_diagnostics.csv
+      q_inj_0_28: output/example1/production_diagnostics.csv
+      q_inj_0_364: output/example2/production_diagnostics.csv
       output: figures/example2/figure15.png
       t_min: 2.0
       t_max: 7.0

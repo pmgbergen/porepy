@@ -16,8 +16,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--right", required=True, help="Right panel image.")
     parser.add_argument("--out", required=True, help="Output figure path.")
 
-    parser.add_argument("--left-label", default=r"$\varphi = 0.1$")
-    parser.add_argument("--right-label", default=r"$\varphi = 1.0$")
+    parser.add_argument(
+        "--left-label",
+        default=r"$q_{\text{inj}} = 0.28~\text{kg}\,\text{m}^{-3}\text{s}^{-1}$",
+    )
+    parser.add_argument(
+        "--right-label",
+        default=r"$q_{\text{inj}} = 0.364~\text{kg}\,\text{m}^{-3}\text{s}^{-1}$",
+    )
     parser.add_argument("--colorbar-label", default=r"$s^{\mathrm{hal}}$")
     parser.add_argument("--vmin", type=float, default=0.0)
     parser.add_argument("--vmax", type=float, default=0.5)

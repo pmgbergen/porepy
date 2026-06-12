@@ -319,8 +319,12 @@ def plot_production_diagnostics_comparison(
 
     mask_01 = t_01 >= t_min
     mask_10 = t_10 >= t_min
-    label_q_inj_0_28 = r"$q_{\mathrm{inj}} = 0.28~\mathrm{kg}\,\mathrm{m}^{-3}\,\mathrm{s}^{-1}$"
-    label_q_inj_0_364 = r"$q_{\mathrm{inj}} = 0.364~\mathrm{kg}\,\mathrm{m}^{-3}\,\mathrm{s}^{-1}$"
+    label_q_inj_0_28 = (
+        r"$q_{\mathrm{inj}} = 0.28~\mathrm{kg}\,\mathrm{m}^{-3}\,\mathrm{s}^{-1}$"
+    )
+    label_q_inj_0_364 = (
+        r"$q_{\mathrm{inj}} = 0.364~\mathrm{kg}\,\mathrm{m}^{-3}\,\mathrm{s}^{-1}$"
+    )
 
     fig, axes = plt.subplots(
         1,
@@ -392,8 +396,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plot production diagnostics from cached production CSV files."
     )
-    parser.add_argument("--phi-0-1", required=True, help="CSV cache for phi = 0.1.")
-    parser.add_argument("--phi-1-0", required=True, help="CSV cache for phi = 1.0.")
+    parser.add_argument(
+        "--q-inj-0-28", required=True, help="CSV cache for q_inj = 0.28."
+    )
+    parser.add_argument(
+        "--q-inj-0-364", required=True, help="CSV cache for q_inj = 0.364."
+    )
     parser.add_argument("--out", required=True, help="Output comparison figure.")
     parser.add_argument("--t-min", type=float, default=2.0)
     parser.add_argument("--t-max", type=float, default=7.0)
@@ -409,8 +417,8 @@ def main() -> None:
     """Run the command-line comparison plotter."""
     args = parse_args()
 
-    t_01, q_01, e_01 = load_production_diagnostics_cache(args.phi_0_1)
-    t_10, q_10, e_10 = load_production_diagnostics_cache(args.phi_1_0)
+    t_01, q_01, e_01 = load_production_diagnostics_cache(args.q_inj_0_28)
+    t_10, q_10, e_10 = load_production_diagnostics_cache(args.q_inj_0_364)
 
     plot_production_diagnostics_comparison(
         timesteps_phi_01=t_01,

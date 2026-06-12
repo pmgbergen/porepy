@@ -470,10 +470,10 @@ def run_production_diagnostics(
     command = [
         sys.executable,
         plot_cfg["script"],
-        "--phi-0-1",
-        plot_cfg["phi_0_1"],
-        "--phi-1-0",
-        plot_cfg["phi_1_0"],
+        "--q-inj-0-28",
+        plot_cfg["q_inj_0_28"],
+        "--q-inj-0-364",
+        plot_cfg["q_inj_0_364"],
         "--out",
         plot_cfg["output"],
     ]
