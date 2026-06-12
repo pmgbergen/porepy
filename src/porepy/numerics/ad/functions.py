@@ -53,6 +53,9 @@ __all__ = [
     "RegularizedHeaviside",
     "maximum",
     "characteristic_function",
+    "mask_by_threshold",
+    "clip",
+    "mask_by_threshold",
 ]
 
 
@@ -60,7 +63,7 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(np.exp(var.val))
+        der = var._diagvec_mul_jac(val)
         return AdArray(val, der)
     else:
         return np.exp(var)
@@ -73,6 +76,36 @@ def log(var: FloatType) -> FloatType:
         return AdArray(val, der)
     else:
         return np.log(var)
+
+
+def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
+    """Clip (limit) the values in an array or AdArray between min_val and max_val.
+
+    Parameters:
+        var: Input variable (AdArray, ndarray, or float).
+        min_val: Minimum allowed value.
+        max_val: Maximum allowed value.
+
+    Returns:
+        Clipped variable, with values restricted to [min_val, max_val].
+        If input is AdArray, the Jacobian is preserved only for the unclipped region;
+        for clipped values, the Jacobian is set to zero.
+    """
+    if isinstance(var, AdArray):
+        val = np.clip(var.val, min_val, max_val)
+        # For clipped values, the derivative is zero; for unclipped, keep original
+        # jacobian.
+        mask = (var.val > min_val) & (var.val < max_val)
+        mask_diag = mask.astype(float)
+
+        mask_matrix = sps.diags(mask_diag)
+        jac = mask_matrix @ var.jac
+        return AdArray(val, jac)
+    elif isinstance(var, np.ndarray):
+        return np.clip(var, min_val, max_val)
+    else:
+        # float or int
+        return float(np.clip(var, min_val, max_val))
 
 
 # Absolute value and l2_norm
@@ -484,4 +517,49 @@ def characteristic_function(tol: float, var: FloatType) -> FloatType:
     zero_inds = np.isclose(var.val, 0, atol=tol)
     vals[zero_inds] = 1.0
     jac = sps.csr_matrix(var.jac.shape)
+    return AdArray(vals, jac)
+
+
+def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatType:
+    """Mask a variable by a characteristic function (greater than tolerance).
+
+    Returns the variable `var` where `char_var` exceeds the tolerance `tol`,
+    and zeros it out elsewhere. This implements element-wise masking:
+    ``result = var * (char_var > tol)``, without evaluating the var if not needed
+    (i.e. may also be NaN).
+
+    The Jacobian is zeroed for rows corresponding to masked-out elements.
+
+    Note:
+        See module level documentation on how to wrap functions like this in
+        ``ad.Function``.
+
+    Parameters:
+        tol: Absolute tolerance threshold for the characteristic variable.
+        char_var: Characteristic variable (Ad operator, array, or scalar).
+            Used to determine which elements of `var` are kept.
+        var: Variable to be masked (Ad operator, array, or scalar).
+            Kept where ``char_var > tol``, zeroed elsewhere.
+
+    Returns:
+        Masked version of `var` as an AdArray (if `var` is AdArray) or ndarray.
+
+    """
+    # Determine characteristic indices, i.e. where char_var is greater than tol.
+    char_inds = (char_var.val if isinstance(char_var, AdArray) else char_var) > tol
+    # Return var(.val) at characteristic indices, and zero otherwise.
+    if not isinstance(var, AdArray):
+        if isinstance(var, np.ndarray):
+            vals = var.copy()
+            vals[np.logical_not(char_inds)] = 0.0
+            return vals
+        else:
+            if isinstance(char_inds, np.ndarray):
+                return char_inds.astype(float) * var
+            else:
+                return float(char_inds) * var
+    vals = var.val.copy()
+    vals[np.logical_not(char_inds)] = 0.0
+    jac = var.jac.copy()
+    pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return AdArray(vals, jac)

@@ -411,9 +411,10 @@ class SolutionStrategy(pp.PorePyModel):
     def after_time_step_failure(self) -> None:
         """Called after a time step has failed to converge.
 
-        The base method does nothing.
+        The base method reverts the trial time step being executed.
 
         """
+        self.revert_trial_time_step_solution()
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -678,6 +679,19 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
+
+    def revert_trial_time_step_solution(self) -> None:
+        """Revert the solution to the previous time step solution.
+
+        This method is intended to be used in the case of a failed time step, where the
+        trial solution should be reverted to the last known good solution. All iterate
+        indices are updated to the previous time step solution, which is stored at time
+        step index 0. I.e., we assume time step solution has *not* been shifted yet.
+
+        """
+        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+        for ind in self.iterate_indices:
+            self.equation_system.set_variable_values(prev_solution, iterate_index=ind)
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""

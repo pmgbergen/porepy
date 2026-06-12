@@ -213,7 +213,7 @@ class BoundaryConditions(pp.PorePyModel):
         inlet_faces = np.logical_and.reduce(
             tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3))
         )
-        val = self.units.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * Pa")
         values = np.zeros(nc)
         values[inlet_faces] = val * volumes[inlet_faces]
 
