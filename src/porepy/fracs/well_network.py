@@ -126,15 +126,15 @@ class WellNetwork3d:
         for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
             wg.well_num = wi
             wg.frac_num = -1
-            self._update_well_grid_tags(wg, self.domain)
-
         orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
 
         mdg.add_subdomains(well_mdg.subdomains())
-
         for intf, data in well_mdg.interfaces(return_data=True):
             sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
             mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
+
+        for wg in well_mdg.subdomains(dim=1):
+            self._update_well_grid_tags(wg, self.domain, mdg)
 
         if len(intersections) == 0:
             return mdg
@@ -353,10 +353,10 @@ class WellNetwork3d:
                 1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
             )
 
-    def _update_well_grid_tags(self, g, domain):
+    def _update_well_grid_tags(self, g, domain, mdg):
         # Update the tags for the well grid, to identify boundary faces and tips.
         bounding_planes = domain.polytope_from_bounding_box()
-        on_boundary = np.zeros(g.num_faces, dtype=bool)
+        on_domain_boundary = np.zeros(g.num_faces, dtype=bool)
         for plane in bounding_planes:
             if domain.dim == 2:
                 plane = np.vstack((plane, np.zeros(plane.shape[1])))
@@ -366,11 +366,24 @@ class WellNetwork3d:
             else:
                 dist, _, _ = pp.geometry.distances.points_polygon(g.face_centers, plane)
 
-            on_boundary = np.logical_or(on_boundary, np.isclose(dist, 0))
-        g.tags["tip_faces"] = g.tags["domain_boundary_faces"] & np.logical_not(
-            on_boundary
+            on_domain_boundary = np.logical_or(
+                on_domain_boundary, np.isclose(dist.ravel(), 0)
+            )
+
+        on_some_boundary = (
+            np.bincount(g.cell_faces.tocsc().indices, minlength=g.num_faces) == 1
         )
-        g.tags["domain_boundary_faces"] = on_boundary
+        g.tags["tip_faces"] = on_some_boundary & np.logical_not(
+            on_some_boundary | g.tags["fracture_faces"]
+        )
+
+        g.tags["domain_boundary_faces"] = on_domain_boundary
+        if (bg_w := mdg.subdomain_to_boundary_grid(g)) is not None:
+            # Overwrite number of cells. This was initialized wrongly before
+            # sd_w.tags["domain_boundary_faces"] was set.
+            bg_w.num_cells = np.sum(on_domain_boundary)
+            bg_w.set_projections()
+            bg_w.compute_geometry()
 
     def _add_interface(
         self,
