@@ -52,8 +52,9 @@ class ModelGeometry(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         # Set up well network and add wells to the mixed-dimensional grid.
+        self.set_wells()
         self.set_well_network()
-        self.add_wells_to_mdg()
+        # self.add_wells_to_mdg()
 
         # Move cell centers if requested.
         self.move_cell_centers()
@@ -103,13 +104,24 @@ class ModelGeometry(pp.PorePyModel):
             **self.meshing_kwargs(),
         )
 
+    def set_wells(self) -> None:
+        """Set wells in the well network.
+
+        Override this method to define a geometry with wells.
+
+        """
+        self._wells = []
+
     def set_well_network(self) -> None:
         """Assign well network class."""
-        self.well_network = pp.WellNetwork3d(domain=self._domain)
+        self.well_network = pp.WellNetwork3d(self._wells, domain=self._domain)
+        self.well_network.mesh(
+            self.fracture_network, self.mdg, self.well_meshing_arguments()
+        )
 
     def add_wells_to_mdg(self) -> None:
         """Add wells to the mixed-dimensional grid."""
-        if len(self.well_network.wells) > 0:
+        if len(self._wells) > 0:
             # Compute intersections.
             assert isinstance(self.fracture_network, FractureNetwork3d)
             pp.compute_well_fracture_intersections(
@@ -159,6 +171,21 @@ class ModelGeometry(pp.PorePyModel):
         # If meshing arguments are provided in the params, they should already be
         # scaled by the length unit.
         return self.params.get("meshing_arguments", default_meshing_args)
+
+    def well_meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for well meshing.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.fracs.well_network.WellNetwork3d.mesh`.
+
+        """
+        # Default value of 1/2, scaled by the length unit.
+        cell_size = self.units.convert_units(0.5, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be
+        # scaled by the length unit.
+        return self.params.get("well_meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
         """Keyword arguments for md-grid creation.
@@ -909,6 +936,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         # Create well network and mesh.
+
         self.set_well_network()
         self.add_wells_to_mdg()
 
