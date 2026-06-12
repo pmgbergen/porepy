@@ -88,6 +88,9 @@ class WellNetwork3d:
             mdg: Mixed-dimensional grid to which the well grids will be added.
 
         """
+        if len(self.wells) == 0:
+            return mdg
+
         if not gmsh.is_initialized():
             gmsh.initialize()
 
