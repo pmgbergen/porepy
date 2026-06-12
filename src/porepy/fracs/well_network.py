@@ -88,6 +88,9 @@ class WellNetwork3d:
             mdg: Mixed-dimensional grid to which the well grids will be added.
 
         """
+        if not gmsh.is_initialized():
+            gmsh.initialize()
+
         # Export to gmsh.
         intersections, wells, fractures = self.intersect_well_fractures(
             fracture_network.fractures, fracture_network.nd
@@ -212,6 +215,8 @@ class WellNetwork3d:
                 shape=(1, g_frac.num_cells),
             ).tocsr()
             self._add_interface(0, g_frac, g_0d, mdg, proj)
+
+        gmsh.finalize()
 
         return mdg
 
