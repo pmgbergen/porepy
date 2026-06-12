@@ -2234,6 +2234,52 @@ class ChemicalSystem(FluidMixin):
         reactions = self.get_reactions()
         self.set_reactions(reactions)
 
+    def get_components(self):
+
+        """Return modelled components.
+
+        Supports two usages:
+
+        1. Original PorePy-style single fluid component:
+        params["material_constants"]["fluid"] = pp.FluidComponent(...)
+
+        2. User-provided component list:
+        params["material_constants"]["fluid"] = [
+            pp.FluidComponent(...),
+            pp.FluidComponent(...),
+            ...
+        ]
+
+        Or, cleaner:
+        params["material_constants"]["fluid_components"] = [...]
+        """
+
+        material_constants = self.params["material_constants"]
+
+        # Prefer explicit multi-component key if provided.
+        if "fluid_components" in material_constants:
+            fluid_constants = material_constants["fluid_components"]
+        else:
+            fluid_constants = material_constants["fluid"]
+
+        # Case 1: single component, keep old behavior.
+        if isinstance(fluid_constants, Component):
+            return [cast(pp.FluidComponent, fluid_constants)]
+
+        # Case 2: list / tuple of components.
+
+        elif all(isinstance(c, Component) for c in fluid_constants):
+            return cast(Sequence[pp.FluidComponent], fluid_constants)
+
+        else:
+            raise TypeError(
+                "model.params['material_constants']['fluid'] must be either a "
+                "FluidComponent or a sequence of FluidComponent objects."
+            )
+
+
+
+
     def get_all_components_by_phase(self):
         """Return a dictionary of all components grouped by phase."""
         system_info = {}
