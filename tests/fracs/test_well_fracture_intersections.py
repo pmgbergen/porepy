@@ -36,6 +36,7 @@ from dataclasses import dataclass
 
 import porepy as pp
 from porepy.fracs.well_network import WellNetwork3d
+import gmsh
 
 # Tolerance used throughout for coordinate comparisons.
 TOL = 1e-10
@@ -544,7 +545,6 @@ def _assert_intersection_meshing(
     case: IntersectionCase,
     expected: list[tuple[np.ndarray, int, list[int]]],
 ) -> None:
-    import gmsh
 
     nd = _infer_dimension_from_fractures(case.fractures)
 
@@ -582,8 +582,6 @@ def _assert_intersection_meshing(
         num_fracture_intersection_points = 0
 
     mdg = well_network.mesh(fracture_network, tmp_mdg, {"cell_size": 5.0})
-    gmsh.clear()
-    gmsh.finalize()
     num_intersections = len(expected)
 
     assert len(mdg.subdomains(dim=nd)) == 1
