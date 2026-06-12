@@ -563,7 +563,15 @@ def _assert_intersection_meshing(
     well_network = pp.WellNetwork3d(case.wells, domain)
 
     tmp_mdg = pp.create_mdg(
-        "simplex", {"cell_size": 5.0}, fracture_network=fracture_network
+        "simplex",
+        {
+            "cell_size": 5.0,
+            "refinement_proximity_multiplier": 1e-6,
+            # Set values for mesh coarsening that will have minimal impact on the mesh.
+            "refinement_size_multiplier": 1.0,
+            "background_transition_multiplier": 1.01,
+        },
+        fracture_network=fracture_network,
     )
 
     num_frac_subdomains = len(tmp_mdg.subdomains(dim=nd - 1))
