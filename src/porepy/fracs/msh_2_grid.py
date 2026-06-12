@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Optional, TypeVar
 
 import numpy as np
-
+import scipy.sparse as sps
 import porepy as pp
 
 from .gmsh_interface import PhysicalNames
@@ -362,11 +362,22 @@ def create_1d_grids(
             tip_pts = np.append(tip_pts, np.unique(loc_line_pts))
 
         elif line_type == line_tag[:-1]:
-            loc_pts_1d = np.unique(loc_line_pts)
+            # Read the cell-node relation from meshio and reconstruct the cell-face
+            # relation.
+            loc_pts_1d, indices = np.unique(loc_line_pts.ravel(), return_inverse=True)
             loc_coord = pts[loc_pts_1d, :].transpose()
-            g = create_embedded_line_grid(
-                loc_coord, loc_pts_1d, tol=tol, sort=sort_1d_nodes
+            num_faces = np.unique(loc_line_pts).size
+            num_cells = loc_line_pts.shape[0]
+            face_nodes = sps.dia_matrix(
+                (np.ones(num_faces, dtype=bool), 0), shape=(num_faces, num_faces)
+            ).tocsc()
+            indptr = np.arange(0, 2 * num_cells + 1, 2, dtype=int)
+            data = np.vstack((np.ones(num_cells), -np.ones(num_cells))).ravel(order="F")
+            cell_faces = sps.csc_matrix(
+                (data, indices, indptr), shape=(num_faces, num_cells)
             )
+            g = pp.Grid(1, loc_coord, face_nodes, cell_faces, name="TensorGrid")
+            g.global_point_ind = loc_pts_1d
             g = tag_grid(g, phys_names, cell_info)
             g.frac_num = int(frac_num)
             g_1d.append(g)
