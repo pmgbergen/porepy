@@ -352,3 +352,81 @@ def test_energy_conservation():
     # Well fluid flux should equal the injected fluid. Minus for convention of interface
     # fluxes from higher to lower domain.
     assert np.isclose(well_fluid_flux, -1, rtol=1e-10)
+
+
+def _single_cell_mdg() -> pp.MixedDimensionalGrid:
+    g = pp.CartGrid(np.array([1, 1]))
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains(g)
+    mdg.compute_geometry()
+    mdg.set_boundary_grid_projections()
+    return mdg
+
+
+class _DummyPhase:
+    name = "liquid"
+
+    def specific_enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        return pp.ad.Scalar(8.0)
+
+
+class _DummyStandardFractionalFlowModel(
+    pp.compositional_flow.EnthalpyBasedEnergyBalanceEquations
+):
+    fluid = type("_Fluid", (), {"phases": [_DummyPhase()]})()
+    params = {"fractional_flow": True}
+
+    def fractional_phase_mass_mobility(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return pp.ad.Scalar(1.0)
+
+
+class _DummyReactiveTransportFractionalFlowModel(
+    pp.fluid_mass_balance.FluidMassBalanceEquationsReactiveTransport,
+    pp.compositional_flow.EnthalpyBasedEnergyBalanceEquations,
+):
+    fluid = type("_Fluid", (), {"phases": [_DummyPhase()]})()
+    params = {"fractional_flow": True}
+    bc_data_fractional_flow_energy_key = "bc_data_fractional_flow_energy"
+
+    def fractional_phase_mass_mobility(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return pp.ad.Scalar(1.0)
+
+    def total_mass_mobility(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        return pp.ad.Scalar(20.0)
+
+    def total_element_mass_mobility(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return pp.ad.Scalar(100.0)
+
+    def create_boundary_operator(self, name, domains) -> pp.ad.Operator:
+        return pp.ad.Scalar(8.0)
+
+
+def test_fractional_flow_energy_weight_is_unchanged_in_standard_models() -> None:
+    mdg = _single_cell_mdg()
+    equation_system = pp.ad.EquationSystem(mdg)
+    model = _DummyStandardFractionalFlowModel()
+
+    val = equation_system.evaluate(model.advection_weight_energy_balance(mdg.subdomains()))
+    assert np.isclose(val, 8.0)
+
+
+def test_fractional_flow_energy_weight_is_rescaled_for_reactive_transport() -> None:
+    mdg = _single_cell_mdg()
+    equation_system = pp.ad.EquationSystem(mdg)
+    model = _DummyReactiveTransportFractionalFlowModel()
+
+    subdomain_val = equation_system.evaluate(
+        model.advection_weight_energy_balance(mdg.subdomains())
+    )
+    boundary_val = equation_system.evaluate(
+        model.advection_weight_energy_balance(mdg.boundaries())
+    )
+
+    assert np.isclose(subdomain_val, 1.6)
+    assert np.isclose(boundary_val, 1.6)

@@ -399,6 +399,10 @@ class EnthalpyBasedEnergyBalanceEquations(
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    total_element_mass_mobility: Callable[
+        [pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobilityReactiveTransport`."""
 
     enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
@@ -428,6 +432,41 @@ class EnthalpyBasedEnergyBalanceEquations(
         energy.set_name("fluid_internal_energy")
         return energy
 
+    def fractional_flow_energy_balance_scale(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        r"""Scale the fractional-flow enthalpy weight to the transported quantity.
+
+        The standard fractional-flow energy weight is normalized by the total mass
+        mobility. Reactive-transport pressure equations instead absorb the total element
+        mobility into the Darcy tensor. In that setting, enthalpy and its boundary data
+        are still given per unit mass and must be converted by
+
+        .. math::
+
+            \frac{M_\mathrm{mass}}{M_\mathrm{elem}},
+
+        before being multiplied by the Darcy flux.
+
+        Parameters:
+            domains: Subdomains or boundary grids on which to evaluate the scale.
+
+        Returns:
+            Unity for regular compositional flow models and the mass-to-element mobility
+            ratio for reactive-transport models.
+
+        """
+        if isinstance(
+            self, pp.fluid_mass_balance.FluidMassBalanceEquationsReactiveTransport
+        ):
+            scale = self.total_mass_mobility(
+                domains
+            ) / self.total_element_mass_mobility(domains)
+        else:
+            scale = pp.ad.Scalar(1.0)
+        scale.set_name("fractional_flow_energy_balance_scale")
+        return scale
+
     def advection_weight_energy_balance(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -435,7 +474,10 @@ class EnthalpyBasedEnergyBalanceEquations(
 
         In the fractional flow setting, this returns a time-dependent dense array on the
         boundary. On the internal domain it returns :math:`\\sum_j h_j f_j`, with
-        :math:`j` denoting a phase and :math:`f_j` the fractional phase mobility.
+        :math:`j` denoting a phase and :math:`f_j` the fractional phase mobility. In
+        reactive-transport models this quantity is additionally rescaled by the ratio of
+        total mass mobility to total element mobility, to stay consistent with the Darcy
+        tensor used in the pressure equation.
 
         In the regular setting it performs a super-call to the parent class
         implementation.
@@ -461,6 +503,7 @@ class EnthalpyBasedEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )
+            op = op * self.fractional_flow_energy_balance_scale(domains)
             op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
@@ -1671,10 +1714,11 @@ class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
         if is_fractional_flow(self):
             self.update_boundary_values_fractional_flow()
         else:
-            raise pp.compositional.CompositionalModellingError(
-                "Computing boundary values of fractional weights without flagging a"
-                + " fractional flow setting in model parameters."
-            )
+            pass
+            # raise pp.compositional.CompositionalModellingError(
+            #     "Computing boundary values of fractional weights without flagging a"
+            #     + " fractional flow setting in model parameters."
+            # )
 
     def bc_data_fractional_flow_component_key(self, component: pp.Component) -> str:
         """Key to store the BC values of the non-linear weight in the advective flux

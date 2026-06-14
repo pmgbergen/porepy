@@ -1304,3 +1304,16 @@ class SolutionStrategyReactiveTransport(pp.PorePyModel):
             self.add_nonlinear_diffusive_flux_discretization(
                 self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
             )
+
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Compositional flow models relay on re-discretization of the
+        Fourier flux, since the thermal conductivity is presumably a nonlinear fluid
+        property.
+
+        The discretization is added by default for all subdomains to the update routine.
+
+        """
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+        )
