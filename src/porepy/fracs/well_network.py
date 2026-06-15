@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import numpy as np
 import porepy as pp
 import gmsh
@@ -417,6 +418,99 @@ class WellNetwork3d:
 
     def _set_mesh_size(self, wells, cell_size):
         gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
+
+    def to_csv(self, file_name: Path, write_header: bool = True) -> None:
+        """Export the well network to a csv file.
+
+        Parameters:
+            file_name: Path to the csv file to which to export the well network.
+            write_header: Whether to write a header row to the csv file.
+
+        """
+        file_name = file_name.with_suffix(".csv")
+
+        # Delete the file 'csv_file' if it exists. This seems to be necessary to run
+        # tests on GH actions.
+        if file_name.exists():
+            file_name.unlink()
+
+        with open(file_name, "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=",")
+            if write_header:
+                csv_writer.writerow("# Well network exported from porepy.")
+                csv_writer.writerow(
+                    "# The first line may contain a 6-item bounding box for the domain"
+                    " in the format X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX."
+                )
+                csv_writer.writerow(
+                    "# Each row contains the coordinates of the endpoints of each well "
+                    "segment, ordered as (x1, y1, z1, x2, y2, z2, ...)."
+                )
+
+            # Write the domain bounding box.
+            if self.domain is not None:
+                if self.domain.dim == 2:
+                    order = ["xmin", "ymin", "xmax", "ymax"]
+                else:
+                    order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
+                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+
+            # write all the wells
+            for w in self.wells:
+                csv_writer.writerow(w.pts.ravel(order="F"))
+
+    @classmethod
+    def from_csv(cls, file_name: Path) -> WellNetwork3d:
+        """Import a well network from a csv file.
+
+        Parameters:
+            file_name: Path to the csv file from which to import the well network. The
+                csv file should have the same format as the one exported by the
+                ``to_csv`` method.
+
+        Returns:
+            A new instance of the WellNetwork3d class initialized with the wells from
+            the csv file.
+
+        """
+        wells = []
+        with open(file_name, "r") as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=",")
+            domain = None
+            for row in csv_reader:
+                if row[0].startswith("#"):
+                    continue
+                if domain is None:
+                    if len(row) == 6:
+                        domain = pp.Domain(
+                            bounding_box={
+                                "xmin": float(row[0]),
+                                "ymin": float(row[1]),
+                                "zmin": float(row[2]),
+                                "xmax": float(row[3]),
+                                "ymax": float(row[4]),
+                                "zmax": float(row[5]),
+                            }
+                        )
+                    elif len(row) == 4:
+                        domain = pp.Domain(
+                            bounding_box={
+                                "xmin": float(row[0]),
+                                "ymin": float(row[1]),
+                                "xmax": float(row[2]),
+                                "ymax": float(row[3]),
+                            }
+                        )
+                    else:
+                        raise ValueError(
+                            "The first non-comment line in the csv file should contain "
+                            "the domain bounding box with 6 entries in 3d and 4 "
+                            "entries in 2d."
+                        )
+                else:
+                    pts = np.array(row, dtype=float).reshape(-1, 3, order="F")
+                    wells.append(Well(pts))
+        return cls(wells, domain)
 
     def __repr__(self) -> str:
         """Return a string representation of the well network.
