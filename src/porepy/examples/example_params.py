@@ -57,7 +57,7 @@ model_params = {
     },
     "meshing_kwargs": {},
     # Used to export the fracture network to enable later reuse. Not invoked by default.
-    "csv_file_name": "fracture_network.csv",
+    "fracture_csv_file_name": "fracture_network.csv",
     # Used to export the gmsh geometry and the created mesh file.
     "gmsh_file_name": "gmsh_frac_file.msh",
     # Exporting and restarting

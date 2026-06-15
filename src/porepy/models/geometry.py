@@ -895,7 +895,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         folder_path = file_name.parent
         msh_path = (folder_path / file_name.stem).with_suffix(".msh")
         geo_path = (folder_path / file_name.stem).with_suffix(".geo_unrolled")
-        fracture_network_path = folder_path / self.csv_file_name()
+        fracture_network_path = folder_path / self.fracture_csv_file_name()
 
         # Check whether the msh or geo file exists. If used as in the docstring example,
         # both exist and the msh file is used to avoid remeshing unnecessarily.
@@ -940,14 +940,14 @@ class LoadGeometryMixin(pp.PorePyModel):
         self.set_well_network()
         self.add_wells_to_mdg()
 
-    def csv_file_name(self) -> Path:
+    def fracture_csv_file_name(self) -> Path:
         """Name of the file used for input and output of fracture network csv files.
 
         Returns:
             Name of the fracture network csv file.
 
         """
-        return Path(self.params.get("csv_file_name", "fracture_network.csv"))
+        return Path(self.params.get("fracture_csv_file_name", "fracture_network.csv"))
 
     def create_and_export_geometry(self, set_geometry_class=None) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
@@ -974,9 +974,9 @@ class LoadGeometryMixin(pp.PorePyModel):
         set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
 
         # In addition, save the fracture network.
-        folder_path = Path(self.csv_file_name()).parent.absolute()
-        csv_file_name = Path(self.csv_file_name())
-        fracture_network_path = folder_path / csv_file_name
+        folder_path = Path(self.fracture_csv_file_name()).parent.absolute()
+        fracture_csv_file_name = Path(self.fracture_csv_file_name())
+        fracture_network_path = folder_path / fracture_csv_file_name
         self.fracture_network.to_csv(fracture_network_path)
 
     def meshing_kwargs(self) -> dict:
@@ -993,7 +993,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Add kwargs related to storing the geometry files to the meshing kwargs of
         # ``ModelGeometry``.
         default_meshing_kwargs = {
-            "csv_file_name": self.csv_file_name(),
+            "fracture_csv_file_name": self.fracture_csv_file_name(),
         }
         meshing_kwargs = super().meshing_kwargs()  # type: ignore[safe-super]
         default_meshing_kwargs.update(meshing_kwargs)
