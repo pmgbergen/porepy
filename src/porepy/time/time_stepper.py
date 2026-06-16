@@ -21,13 +21,9 @@ from porepy.time.time_step_status import TimeStepStatus
 logger = logging.getLogger(__name__)
 
 
-# ============================================================================
-# Base Time Stepper
-# ============================================================================
-
-
-class TimeStepper(ABC):
+class TimeStepper:
     """Base class for time-stepping strategies.
+    TODO: Docstring
 
     Responsibilities:
     - Orchestrate the single time-step workflow to be called from the model runner.
@@ -37,6 +33,20 @@ class TimeStepper(ABC):
 
     Design mirrors NewtonSolver: acceptance criteria are checked first (positive logic),
     then rejection criteria (negative logic), and results are summarized.
+
+    """
+
+    """Adaptive stepper: retries with reduced dt if criteria fail.
+
+    Meant for use of non-constant time step size.
+
+    Workflow:
+    1. For each retry (up to max_retries):
+       a. Execute trial with current dt
+       b. Check acceptance and rejection criteria
+       c. If accepted: update time, adapt dt for next step, return
+       d. If rejected: reduce dt, loop
+    2. If all retries exhausted: stop
 
     """
 
@@ -57,6 +67,19 @@ class TimeStepper(ABC):
         self.params = params or {}
         """Parameters for time stepping."""
 
+        self.max_attempts = time_manager.recomp_max
+        """Maximum number of retry attempts."""
+
+        if self.time_manager.is_constant:
+            assert self.max_attempts == 1
+            assert self.time_manager.dt_min_max[0] == self.time_manager.dt_min_max[1]
+        
+        assert self.max_attempts > 0, "max_attempts must be greater than 0."
+
+        # Cache previous time at the start of the trial for use in retries.
+        self.previous_time = self.time_manager.time
+        """Cached time at the start of the current trial."""
+
         self.init_acceptance_criteria()
         self.init_rejection_criteria()
 
@@ -72,14 +95,71 @@ class TimeStepper(ABC):
         _, self.rejection_criteria = default_time_step_criteria()
         """Rejection criteria for time-step trials."""
 
-    @abstractmethod
-    def perform_time_step(self) -> TimeStepStatus:
-        """Execute one logical time step (may involve multiple trials).
+    def perform_time_step(
+        self,
+        model,  #: pp.SolutionStrategy,
+        solver,  #: pp.NewtonSolver,
+    ) -> TimeStepStatus:
+        """Perform a time step with accept/reject logic and retries.
 
         Returns:
-            TimeStepStatus: Final status (accepted or stopped).
+            TimeStepStatus: ACCEPTED if criteria met, STOPPED if max retries exhausted.
+
         """
-        pass
+        # Advance time index for entire time step.
+        self.time_manager.increase_time_index()
+
+        # Cache previous time for trial.
+        self.previous_time = self.time_manager.time
+
+        for _ in range(self.max_attempts):
+            # Update time manager for new trial (if not first attempt).
+            # NOTE: No use of self.time_manager.increase_time() here.
+            self.time_manager.time = self.previous_time + self.time_manager.dt
+
+            # Attempt a standard time step.
+            time_step_status = self.perform_trial_time_step(model, solver)
+
+            # New time step size based on trial results.
+            self.compute_next_time_step(time_step_status, model)
+
+            # Abort simulation on success or error.
+            if time_step_status.is_accepted() or time_step_status.is_stopped():
+                break
+
+        else:  # attempts exhausted without break
+            time_step_status = TimeStepStatus.STOPPED
+            logger.error(f"Max retries ({self.max_attempts}) exhausted; stopping.")
+
+        return time_step_status
+
+    def compute_next_time_step(self, time_step_status: TimeStepStatus, model) -> None:
+        """Compute the new time step size based on the trial status.
+
+        Parameters:
+            time_step_status: Status of the current trial (accepted/rejected/stopped).
+            model: The SolutionStrategy model (for accessing statistics).
+
+        Updates the time manager's dt based on the trial outcome and solver performance.
+        """
+        # TODO: Update time manager's computation of dt. E.g.
+        # dt = self.time_criteria.compute_time_step(context)
+        # self.time_manager.set_dt(dt) # clips into range.
+
+        if time_step_status.is_accepted():
+            # For accepted steps, we may want to increase dt for the next step.
+            # This logic can be based on solver performance (e.g., #iterations).
+            assert isinstance(
+                model.nonlinear_solver_statistics,
+                pp.NonlinearSolverStatistics,
+            )  # For type checking, to ensure the method is available.
+            model.time_manager.compute_time_step(
+                iterations=model.nonlinear_solver_statistics.num_iterations
+            )
+
+        elif time_step_status.is_rejected():
+            # For rejected steps, we want to reduce dt for the next attempt.
+            model.time_manager.compute_time_step(recompute_solution=True)
 
     def perform_trial_time_step(
         self,
@@ -228,163 +308,9 @@ class TimeStepper(ABC):
         )
 
 
-# ============================================================================
-# Direct Time Stepper
-# ============================================================================
-
-
-class DirectTimeStepper(TimeStepper):
-    """Simple stepper: one trial per time step, no retry logic.
-
-    Meant for use of constant time step size.
-
-    Workflow:
-    1. Execute (trial) time step
-    2. Check acceptance and rejection criteria
-    3. No retries; stop if rejected
-
-    """
-
-    def perform_time_step(
-        self,
-        model,  #: pp.SolutionStrategy,
-        solver,  #: pp.LinearSolver | pp.NewtonSolver,
-    ) -> TimeStepStatus:
-        """Perform one time step without retries.
-
-        Returns:
-            TimeStepStatus: ACCEPTED if criteria met, STOPPED otherwise.
-
-        """
-        # Advance time manager.
-        self.time_manager.increase_time_index()
-        self.time_manager.increase_time()
-
-        # Execute trial time step.
-        time_step_status = self.perform_trial_time_step(model, solver)
-
-        # Advance time if accepted
-        if time_step_status == TimeStepStatus.ACCEPTED:
-            logger.debug(f"Time advanced to {self.time_manager.time}")
-        else:
-            logger.warning("Trial rejected in direct time stepper; stopping.")
-            time_step_status = TimeStepStatus.STOPPED
-
-        return time_step_status
-
-
-# ============================================================================
-# Adaptive Time Stepper
-# ============================================================================
-
-
-class AdaptiveTimeStepper(TimeStepper):
-    """Adaptive stepper: retries with reduced dt if criteria fail.
-
-    Meant for use of non-constant time step size.
-
-    Workflow:
-    1. For each retry (up to max_retries):
-       a. Execute trial with current dt
-       b. Check acceptance and rejection criteria
-       c. If accepted: update time, adapt dt for next step, return
-       d. If rejected: reduce dt, loop
-    2. If all retries exhausted: stop
-
-    """
-
-    def __init__(self, time_manager: TimeManager, params: dict = None) -> None:
-        """Initialize adaptive time stepper.
-
-        Parameters:
-            time_manager: TimeManager instance
-            params: Model params
-
-        """
-        super().__init__(time_manager, params)
-        self.max_attempts = time_manager.recomp_max
-        """Maximum number of retry attempts."""
-
-        # Sanity checks.
-        assert not self.time_manager.is_constant, (
-            "AdaptiveTimeStepper should not be used with constant time step size."
-        )
-        assert self.max_attempts > 0, "max_attempts must be greater than 0."
-
-        # Cache previous time at the start of the trial for use in retries.
-        self.previous_time = self.time_manager.time
-        """Cached time at the start of the current trial."""
-
-    def perform_time_step(
-        self,
-        model,  #: pp.SolutionStrategy,
-        solver,  #: pp.NewtonSolver,
-    ) -> TimeStepStatus:
-        """Perform a time step with accept/reject logic and retries.
-
-        Returns:
-            TimeStepStatus: ACCEPTED if criteria met, STOPPED if max retries exhausted.
-
-        """
-        # Advance time index for entire time step.
-        self.time_manager.increase_time_index()
-
-        # Cache previous time for trial.
-        self.previous_time = self.time_manager.time
-
-        for _ in range(self.max_attempts):
-            # Update time manager for new trial (if not first attempt).
-            # NOTE: No use of self.time_manager.increase_time() here.
-            self.time_manager.time = self.previous_time + self.time_manager.dt
-
-            # Attempt a standard time step.
-            time_step_status = self.perform_trial_time_step(model, solver)
-
-            # New time step size based on trial results.
-            self.compute_next_time_step(time_step_status, model)
-
-            # Abort simulation on success or error.
-            if time_step_status.is_accepted() or time_step_status.is_stopped():
-                break
-
-        else:  # attempts exhausted without break
-            time_step_status = TimeStepStatus.STOPPED
-            logger.error(f"Max retries ({self.max_attempts}) exhausted; stopping.")
-
-        return time_step_status
-
-    def compute_next_time_step(self, time_step_status: TimeStepStatus, model) -> None:
-        """Compute the new time step size based on the trial status.
-
-        Parameters:
-            time_step_status: Status of the current trial (accepted/rejected/stopped).
-            model: The SolutionStrategy model (for accessing statistics).
-
-        Updates the time manager's dt based on the trial outcome and solver performance.
-        """
-        # TODO: Update time manager's computation of dt. E.g.
-        # dt = self.time_criteria.compute_time_step(context)
-        # self.time_manager.set_dt(dt) # clips into range.
-
-        if time_step_status.is_accepted():
-            # For accepted steps, we may want to increase dt for the next step.
-            # This logic can be based on solver performance (e.g., #iterations).
-            assert isinstance(
-                model.nonlinear_solver_statistics,
-                pp.NonlinearSolverStatistics,
-            )  # For type checking, to ensure the method is available.
-            model.time_manager.compute_time_step(
-                iterations=model.nonlinear_solver_statistics.num_iterations
-            )
-
-        elif time_step_status.is_rejected():
-            # For rejected steps, we want to reduce dt for the next attempt.
-            model.time_manager.compute_time_step(recompute_solution=True)
-
-
-# ============================================================================
-# Time stepper factory
-# ============================================================================
+# # ============================================================================
+# # Time stepper factory
+# # ============================================================================
 
 
 class TimeStepperFactory:
@@ -409,6 +335,7 @@ class TimeStepperFactory:
                 otherwise.
 
         """
+        return TimeStepper(time_manager, params)
         # Check if time stepping is constant or adaptive
         is_constant_dt = getattr(time_manager, "is_constant", True)
         if is_constant_dt:

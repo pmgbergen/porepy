@@ -790,6 +790,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
         self.time_step_converged: list = time_step_converged
         self.time_step_history: list = []
+        """Time step trial magnitudes, including failed attempts."""
 
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # The AD time step is expected to update here.
@@ -859,6 +860,7 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
+            "should_fail": True,
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and should fail.
@@ -866,6 +868,7 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
+            "should_fail": True,
         },
         # Case 4: The time step fails right before the schedule point. Expected to
         # decrease dt and meet the schedule regardless.
@@ -878,10 +881,11 @@ MAX_NONLINEAR_ITER = 10
 )
 def test_model_time_step_control(params: dict):
     """The integration test of the `TimeManager` class into PorePy models."""
-    constant_dt = params.get("constant_dt", False)
-    num_nonlinear_iterations = params["num_nonlinear_iterations"]
-    time_step_converged = params["time_step_converged"]
-    exported_dt_expected = params["exported_dt_expected"]
+    constant_dt: bool = params.get("constant_dt", False)
+    should_fail: bool = params.get("should_fail", False)
+    num_nonlinear_iterations: list[int] = params["num_nonlinear_iterations"]
+    time_step_converged: list[bool] = params["time_step_converged"]
+    exported_dt_expected: list[float] = params["exported_dt_expected"]
 
     schedule_end = 2 if constant_dt else 1.35
     time_manager = pp.TimeManager(
@@ -949,3 +953,6 @@ def test_model_time_step_control(params: dict):
     }
     pp.ModelRunner(model, solver_params).run()
     assert np.allclose(model.time_step_history, exported_dt_expected)
+
+    # If should fail, final time is not reached, and vice versa.
+    assert model.time_manager.final_time_reached() != should_fail
