@@ -1254,6 +1254,10 @@ class SolutionStrategyReactiveTransport(pp.PorePyModel):
             Suggested next timestep [s].
 
         """
+        if not self.params.get("use_reaction_transport_dt_control", False):
+            return 1e99
+
+
         if hasattr(self, "reactions"):
             reactions = self.reactions
             #assert there is only one reaction

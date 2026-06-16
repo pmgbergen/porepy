@@ -611,7 +611,7 @@ class ExportingSpeciesConcentration:
                     data.append(
                         (
                             subdomain,
-                            "species_concentration_anomaly",
+                            f"{comp.name}_bulk_concentration_anomaly",
                             concentration - initial_concentration,
                         )
                     )
