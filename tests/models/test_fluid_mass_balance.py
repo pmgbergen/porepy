@@ -21,6 +21,7 @@ from typing import Literal, Optional
 import numpy as np
 import pytest
 import scipy.sparse as sps
+import gmsh
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
@@ -41,6 +42,23 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+
+
+@pytest.fixture(autouse=True)
+def finalize_gmsh():
+    """Fixture to ensure gmsh is finalized after each test.
+
+    This is to avoid tests failing because gmsh was not cleared after a previously
+    breaking test.
+    """
+    yield  # This is where the test runs
+    try:
+        # Try to clear and finalize gmsh after each test. This will raise an error
+        # if gmsh was not initialized in the test, but we can ignore that.
+        gmsh.clear()
+        gmsh.finalize()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="function")
