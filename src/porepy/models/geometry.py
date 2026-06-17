@@ -110,7 +110,7 @@ class ModelGeometry(pp.PorePyModel):
         Override this method to define a geometry with wells.
 
         """
-        self._wells = []
+        self._wells: list[pp.Well] = []
 
     def set_well_network(self) -> None:
         """Assign well network class."""

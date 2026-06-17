@@ -5,11 +5,16 @@ import numpy as np
 import porepy as pp
 import gmsh
 from pathlib import Path
-from typing import Optional, NamedTuple
+from typing import Optional, NamedTuple, TYPE_CHECKING
 
 from .wells_3d import Well
 from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, GmshSurface, fragment
 from scipy import sparse as sps
+
+
+if TYPE_CHECKING:
+    from porepy.fracs.fracture_network import FractureNetwork
+    from porepy.fracs.fracture import Fracture
 
 
 class WellFractureIntersection(NamedTuple):
@@ -60,7 +65,7 @@ class WellNetwork3d:
         """List of wells in the network."""
 
         for i, w in enumerate(self.wells):
-            w.index = i
+            w._index = i
 
         self.parameters: dict = {}
         """Dictionary of parameters, e.g. for the meshing process passed at
@@ -76,10 +81,10 @@ class WellNetwork3d:
 
     def mesh(
         self,
-        fracture_network: FractureNetwork3d,
+        fracture_network: FractureNetwork,
         mdg: pp.MixedDimensionalGrid,
         mesh_args: dict,
-    ) -> None:
+    ) -> pp.MixedDimensionalGrid:
         """Mesh the well network and add to the mixed-dimensional grid.
 
         Parameters:
@@ -201,17 +206,18 @@ class WellNetwork3d:
                                 mdg.neighboring_subdomains(g_frac, only_lower=True)
                             )
 
-                        cell_dist = {}
+                        dist_min = np.inf
                         for sd in sds_1d:
-                            cell_dist[sd] = np.min(
+                            dist = np.min(
                                 np.linalg.norm(
                                     sd.cell_centers
                                     - np.array(isect.coord).reshape((-1, 1)),
                                     axis=0,
                                 )
                             )
-                        g_frac = min(cell_dist, key=cell_dist.get)
-
+                            if dist < dist_min:
+                                dist_min = dist
+                                g_frac = sd
             embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
 
             proj = sps.coo_matrix(
@@ -224,20 +230,24 @@ class WellNetwork3d:
 
         return mdg
 
-    def intersect_well_fractures(self, fractures, nd):
+    def intersect_well_fractures(
+        self,
+        fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
+        nd: int,
+    ) -> tuple[list[WellFractureIntersection], list[GmshEntity], list[GmshEntity]]:
         wells = self.wells
         if len(fractures) == 0 or len(wells) == 0:
-            return {}
+            return [], [], []
         if not gmsh.is_initialized():
             gmsh.initialize()
 
-        fractures = _export_fractures_to_gmsh(fractures)
+        fracture_tags = _export_fractures_to_gmsh(fractures)
         gmsh.model.occ.synchronize()
 
         segments = self._to_gmsh()
 
         gmsh.model.occ.synchronize()
-        fracture_entities, well_entities = fragment(fractures, segments)
+        fracture_entities, well_entities = fragment(fracture_tags, segments)
 
         return (
             self._intersections_from_points(
@@ -257,9 +267,9 @@ class WellNetwork3d:
         common_points = self._match_well_and_fracture_points(
             well_points, fracture_points
         )
-        well_points = self._well_kink_points(well_points, common_points)
+        kink_points = self._well_kink_points(well_points, common_points)
 
-        all_points = common_points | well_points
+        all_points = common_points | kink_points
 
         merged_intersections: list[WellFractureIntersection] = []
         for ind, ((pi, wi), fi_set) in enumerate(all_points.items()):
@@ -328,7 +338,7 @@ class WellNetwork3d:
 
         return intersections
 
-    def _to_gmsh(self) -> tuple[list[int], list[int]]:
+    def _to_gmsh(self) -> list[GmshLine]:
         segment_inds = [well.to_gmsh() for well in self.wells]
         gmsh.model.occ.synchronize()
 
@@ -510,6 +520,9 @@ class WellNetwork3d:
                 else:
                     pts = np.array(row, dtype=float).reshape(-1, 3, order="F")
                     wells.append(Well(pts))
+        assert domain is not None, (
+            "The csv file should contain a line with the domain bounding box."
+        )
         return cls(wells, domain)
 
     def __repr__(self) -> str:
@@ -526,7 +539,9 @@ class WellNetwork3d:
         return s
 
 
-def _export_fractures_to_gmsh(fractures: list[pp.Fracture]) -> list[int]:
+def _export_fractures_to_gmsh(
+    fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
+) -> list[GmshEntity]:
     entities = []
     dim = 1 if isinstance(fractures[0], pp.LineFracture) else 2
     for fracture in fractures:
