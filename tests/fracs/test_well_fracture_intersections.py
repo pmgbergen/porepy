@@ -783,7 +783,7 @@ def test_shared_intersection_meshing(case: IntersectionCase) -> None:
 
     expected = _expected_meshing_intersections(case)
     if len(expected[0][2]) > 2:
-        with pytest.raises(ValueError):
+        with pytest.raises(NotImplementedError):
             _assert_intersection_meshing(case, _expected_meshing_intersections(case))
     else:
         _assert_intersection_meshing(case, expected)
@@ -793,5 +793,5 @@ def test_2d_multiple_fractures_same_point_meshing() -> None:
     """Test meshing for a 2D well crossing a shared fracture intersection point."""
 
     case = MULTIPLE_FRACTURES_SAME_POINT_2D_CASES
-    with pytest.raises(ValueError):
+    with pytest.raises(NotImplementedError):
         _assert_intersection_meshing(case, _expected_meshing_intersections(case))

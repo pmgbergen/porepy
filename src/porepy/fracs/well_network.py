@@ -119,15 +119,7 @@ class WellNetwork3d:
         well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
         well_mdg.compute_geometry()
 
-        for sd_w in well_mdg.subdomains(dim=0):
-            for sd_f in mdg.subdomains(dim=0):
-                if np.allclose(sd_w.cell_centers, sd_f.cell_centers, atol=self.tol):
-                    raise ValueError(
-                        "Found a 0d subdomain with identical cell centers to a fracture "
-                        "intersection point. This should not happen, and is likely an "
-                        "issue with the geometry or meshing. Please check the geometry and "
-                        "meshing of the well network."
-                    )
+        self._check_overlapping_point_grids(mdg, well_mdg)
 
         for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
             wg.well_num = wi
@@ -395,6 +387,23 @@ class WellNetwork3d:
             bg_w.num_cells = np.sum(on_domain_boundary)
             bg_w.set_projections()
             bg_w.compute_geometry()
+
+    def _check_overlapping_point_grids(
+        self, mdg: pp.MixedDimensionalGrid, well_mdg: pp.MixedDimensionalGrid
+    ) -> None:
+        """Check that there are no overlapping point grids in the well and fracture
+        meshes.
+
+        It should be possible to cover this case with a minor effort at the level of
+        geometry (no idea on the constitutive laws), but this has not been prioritized.
+        """
+
+        for sd_w in well_mdg.subdomains(dim=0):
+            for sd_f in mdg.subdomains(dim=0):
+                if np.allclose(sd_w.cell_centers, sd_f.cell_centers, atol=self.tol):
+                    raise NotImplementedError(
+                        "Coinciding point grids in fracture and well meshes."
+                    )
 
     def _add_interface(
         self,
