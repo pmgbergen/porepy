@@ -957,8 +957,6 @@ class FluidBuoyancy(pp.PorePyModel):
             raise ValueError("domains must consist entirely of subdomains.")
         domains = cast(list[pp.Grid], domains)
 
-        from porepy.models.compositional_flow import is_mass_mobility_weighted_permeability
-
         b_flux_jumps: List[pp.ad.Operator] = []
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
@@ -971,15 +969,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
-
         interfaces = self.subdomains_to_interfaces(domains, [1])
         if len(interfaces) != 0:
-            # Get interface flux contribution
-            if is_mass_mobility_weighted_permeability(self):
-                intf_density_metric = rho_gamma - rho_delta
-            else:
-                intf_density_metric = self.total_mass_mobility(domains) * (rho_gamma - rho_delta)
-
+            intf_density_metric = rho_gamma - rho_delta
             intf_w_flux_gamma_delta = self.interface_density_driven_flux(
                 interfaces, intf_density_metric
             )
