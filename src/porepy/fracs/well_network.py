@@ -131,7 +131,7 @@ class WellNetwork3d:
         fracture_tags = _export_fractures_to_gmsh(fractures)
         gmsh.model.occ.synchronize()
 
-        segments = self._to_gmsh()
+        segments = _to_gmsh(self.wells)
 
         gmsh.model.occ.synchronize()
         fracture_entities, well_entities = fragment(fracture_tags, segments)
@@ -172,18 +172,6 @@ class WellNetwork3d:
             )
 
         return merged_intersections
-
-    def _to_gmsh(self) -> list[GmshLine]:
-        segment_inds = [well.to_gmsh() for well in self.wells]
-        gmsh.model.occ.synchronize()
-
-        entities = []
-
-        for i, segments in enumerate(segment_inds):
-            indices = [s for s in segments]
-            entities += [GmshLine(index=i, tags=indices)]
-
-        return entities
 
     def _generate_well_mesh(
         self, intersections, wells, mesh_args: dict
@@ -306,37 +294,7 @@ class WellNetwork3d:
                 (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
                 shape=(1, g_frac.num_cells),
             ).tocsr()
-            self._add_interface(0, g_frac, g_0d, mdg, proj)
-
-    def _add_interface(
-        self,
-        dim: int,
-        sd_primary: pp.Grid,
-        sd_secondary: pp.Grid,
-        mdg: pp.MixedDimensionalGrid,
-        primary_secondary_map: sps.coo_matrix,
-    ) -> None:
-        """Utility method to add an interface to the mdg.
-
-        Both grids should already be present in the mixed-dimensional grid.
-
-        Parameters:
-            sd_primary: Primary subdomain grid. In the context of this module, it represents
-                a fracture or well.
-            sd_secondary: Secondary subdomain grid. In the context of this module, it
-                typically represents an intersection point.
-            mdg: MixedDimensionalGrid to which the interface will be added.
-            primary_secondary_map: Map between ``cells_l`` and either ``faces_h`` (codim=1)
-                or ``cells_h`` (codim=2).
-
-        """
-        codim = sd_primary.dim - sd_secondary.dim
-        subdomain_pair = (sd_primary, sd_secondary)
-        side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_secondary.copy()}
-        mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
-        mg._primary_to_mortar_int = primary_secondary_map
-        mg.compute_geometry()
-        mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
+            _add_interface(0, g_frac, g_0d, mdg, proj)
 
     def to_csv(self, file_name: Path, write_header: bool = True) -> None:
         """Export the well network to a csv file.
@@ -529,6 +487,19 @@ def _set_mesh_size(wells, cell_size) -> None:
     gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
 
 
+def _to_gmsh(wells: list[Well]) -> list[GmshLine]:
+    segment_inds = [well.to_gmsh() for well in wells]
+    gmsh.model.occ.synchronize()
+
+    entities = []
+
+    for i, segments in enumerate(segment_inds):
+        indices = [s for s in segments]
+        entities += [GmshLine(index=i, tags=indices)]
+
+    return entities
+
+
 def _update_well_grid_tags(g, domain: pp.Domain, mdg: pp.MixedDimensionalGrid) -> None:
     # Update the tags for the well grid, to identify boundary faces and tips.
     bounding_planes = domain.polytope_from_bounding_box()
@@ -578,6 +549,36 @@ def _check_overlapping_point_grids(
                 raise NotImplementedError(
                     "Coinciding point grids in fracture and well meshes."
                 )
+
+
+def _add_interface(
+    dim: int,
+    sd_primary: pp.Grid,
+    sd_secondary: pp.Grid,
+    mdg: pp.MixedDimensionalGrid,
+    primary_secondary_map: sps.coo_matrix,
+) -> None:
+    """Utility method to add an interface to the mdg.
+
+    Both grids should already be present in the mixed-dimensional grid.
+
+    Parameters:
+        sd_primary: Primary subdomain grid. In the context of this module, it
+            represents a fracture or well.
+        sd_secondary: Secondary subdomain grid. In the context of this module, it
+            typically represents an intersection point.
+        mdg: MixedDimensionalGrid to which the interface will be added.
+        primary_secondary_map: Map between ``cells_l`` and either ``faces_h``
+            (codim=1) or ``cells_h`` (codim=2).
+
+    """
+    codim = sd_primary.dim - sd_secondary.dim
+    subdomain_pair = (sd_primary, sd_secondary)
+    side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_secondary.copy()}
+    mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
+    mg._primary_to_mortar_int = primary_secondary_map
+    mg.compute_geometry()
+    mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
 
 
 def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
