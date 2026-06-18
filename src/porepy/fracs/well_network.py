@@ -107,13 +107,7 @@ class WellNetwork3d:
         well_mdg = self._generate_well_mesh(intersections, wells, mesh_args)
 
         self._check_overlapping_point_grids(mdg, well_mdg)
-
-        orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
-
-        mdg.add_subdomains(well_mdg.subdomains())
-        for intf, data in well_mdg.interfaces(return_data=True):
-            sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
-            mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
+        orig_0d_domain_id = self._add_well_subdomains(mdg, well_mdg)
 
         for wg in well_mdg.subdomains(dim=1):
             self._update_well_grid_tags(wg, self.domain, mdg)
@@ -347,6 +341,16 @@ class WellNetwork3d:
             wg.well_num = wi
             wg.frac_num = -1
         return well_mdg
+
+    def _add_well_subdomains(self, mdg, well_mdg):
+
+        orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
+
+        mdg.add_subdomains(well_mdg.subdomains())
+        for intf, data in well_mdg.interfaces(return_data=True):
+            sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
+            mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
+        return orig_0d_domain_id
 
     def _set_physical_names(self, intersections, wells):
         for isect in intersections:
