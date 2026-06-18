@@ -103,15 +103,15 @@ class WellNetwork3d:
         intersections, wells, fractures = self.intersect_well_fractures(
             fracture_network.fractures, fracture_network.nd
         )
-        well_mdg = self._generate_well_mesh(intersections, wells, mesh_args)
+        well_mdg = _generate_well_mesh(intersections, wells, mesh_args)
 
-        orig_0d_domain_id = self._add_well_subdomains(mdg, well_mdg)
+        orig_0d_domain_id = _add_well_subdomains(mdg, well_mdg, self.tol, self.domain)
 
         if len(intersections) == 0:
             return mdg
 
-        self._add_well_fracture_interfaces(
-            mdg, well_mdg, intersections, orig_0d_domain_id
+        _add_well_fracture_interfaces(
+            mdg, well_mdg, intersections, orig_0d_domain_id, self.tol
         )
 
         return mdg
@@ -136,172 +136,12 @@ class WellNetwork3d:
         fracture_entities, well_entities = fragment(fracture_tags, segments)
 
         return (
-            self._intersections_from_points(
+            _intersections_from_points(
                 _PointsOnEntities(well_entities), _PointsOnEntities(fracture_entities)
             ),
             well_entities,
             fracture_entities,
         )
-
-    def _intersections_from_points(
-        self, well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
-    ) -> list[WellFractureIntersection]:
-        # Combine intersections with the same point and well indices - these will
-        # correspond to intersections between the well and a fracture intersection line
-        # or point.
-
-        common_points = _match_well_and_fracture_points(well_points, fracture_points)
-        kink_points = _well_kink_points(well_points, common_points)
-
-        all_points = common_points | kink_points
-
-        merged_intersections: list[WellFractureIntersection] = []
-        for ind, ((pi, wi), fi_set) in enumerate(all_points.items()):
-            coord = gmsh.model.get_bounding_box(0, pi)[:3]
-            merged_intersections.append(
-                WellFractureIntersection(
-                    coord=coord,
-                    index=ind,
-                    well_index=wi,
-                    fracture_index=list(fi_set),
-                    gmsh_index=pi,
-                )
-            )
-
-        return merged_intersections
-
-    def _generate_well_mesh(
-        self,
-        intersections: list[WellFractureIntersection],
-        wells: list[GmshEntity],
-        mesh_args: dict,
-    ) -> pp.MixedDimensionalGrid:
-        _set_physical_names(intersections, wells)
-        _set_mesh_size(wells, mesh_args.get("cell_size"))
-        gmsh.model.mesh.generate(1)
-        file_name = Path("well_mesh.msh")
-        gmsh.write(file_name.as_posix())
-
-        subdomains = pp.fracs.simplex.line_grid_from_gmsh(
-            file_name,
-            physical_name_stem_1d=PhysicalNames.WELL.value,
-            physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
-            sort_1d_nodes=False,
-        )
-        well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
-        well_mdg.compute_geometry()
-        for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
-            wg.well_num = wi
-            wg.frac_num = -1
-
-        gmsh.finalize()
-        return well_mdg
-
-    def _add_well_subdomains(
-        self, mdg: pp.MixedDimensionalGrid, well_mdg: pp.MixedDimensionalGrid
-    ) -> list[int]:
-        _check_overlapping_point_grids(mdg, well_mdg, self.tol)
-
-        orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
-
-        mdg.add_subdomains(well_mdg.subdomains())
-        for intf, data in well_mdg.interfaces(return_data=True):
-            sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
-            mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
-
-        for wg in well_mdg.subdomains(dim=1):
-            _update_well_grid_tags(wg, self.domain, mdg)
-
-        return orig_0d_domain_id
-
-    def _add_well_fracture_interfaces(
-        self,
-        mdg: pp.MixedDimensionalGrid,
-        well_mdg: pp.MixedDimensionalGrid,
-        intersections: list[WellFractureIntersection],
-        orig_0d_domain_id: list[int],
-    ) -> None:
-        cell_center_0d = np.vstack(
-            [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
-        ).T
-
-        for isect in intersections:
-            if len(isect.fracture_index) == 0:
-                # This is a kink in the well. Continue.
-                continue
-
-            ind_0d = np.argmin(
-                np.linalg.norm(
-                    cell_center_0d - np.reshape(isect.coord, (-1, 1)), axis=0
-                )
-            )
-
-            g_0d = well_mdg.subdomains(dim=0)[ind_0d]
-
-            frac_inds = isect.fracture_index
-
-            # Intersection at a fracture intersection. This is in principle possible,
-            #  but it will create a non-conforming coupling of codimension 1, which the
-            # constitutive laws are probably not ready for. On the other hand, this
-            # should also be equivalent to a 1d fracture for nd=2, so perhaps it will
-            # not be an issue.
-            if len(frac_inds) == 1:
-                g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
-                assert g_frac.frac_num == frac_inds[0]
-            else:
-                if mdg.dim_max() == 2:
-                    # The intersection should be on a 0d intersection point, or else
-                    # we have either overlapping fractures or a faulty interpretation
-                    # of the geometry.
-                    found = False
-                    for sd in mdg.subdomains(dim=0):
-                        if sd.id in orig_0d_domain_id and np.isclose(
-                            np.linalg.norm(sd.cell_centers - isect.coord),
-                            0,
-                            atol=self.tol,
-                        ):
-                            g_frac = sd
-                            break
-                    assert found
-                else:  # mdg.dim_max() == 3
-                    found = False
-                    for sd in mdg.subdomains(dim=0):
-                        if sd.id in orig_0d_domain_id and np.isclose(
-                            np.linalg.norm(sd.cell_centers - isect.coord),
-                            0,
-                            atol=self.tol,
-                        ):
-                            g_frac = sd
-                            break
-                    if found:
-                        assert len(frac_inds) > 2
-                    else:
-                        sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
-                        for fi in frac_inds:
-                            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
-                            sds_1d = sds_1d.intersection(
-                                mdg.neighboring_subdomains(g_frac, only_lower=True)
-                            )
-
-                        dist_min = np.inf
-                        for sd in sds_1d:
-                            dist = np.min(
-                                np.linalg.norm(
-                                    sd.cell_centers
-                                    - np.array(isect.coord).reshape((-1, 1)),
-                                    axis=0,
-                                )
-                            )
-                            if dist < dist_min:
-                                dist_min = dist
-                                g_frac = sd
-            embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
-
-            proj = sps.coo_matrix(
-                (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
-                shape=(1, g_frac.num_cells),
-            ).tocsr()
-            _add_interface(0, g_frac, g_0d, mdg, proj)
 
     def to_csv(self, file_name: Path, write_header: bool = True) -> None:
         """Export the well network to a csv file.
@@ -422,6 +262,170 @@ def _export_fractures_to_gmsh(
         tag = fracture.fracture_to_gmsh()
         entities += [GmshEntity(index=fracture.index, tags=[tag], dim=dim)]
     return entities
+
+
+def _intersections_from_points(
+    well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
+) -> list[WellFractureIntersection]:
+    # Combine intersections with the same point and well indices - these will
+    # correspond to intersections between the well and a fracture intersection line
+    # or point.
+
+    common_points = _match_well_and_fracture_points(well_points, fracture_points)
+    kink_points = _well_kink_points(well_points, common_points)
+
+    all_points = common_points | kink_points
+
+    merged_intersections: list[WellFractureIntersection] = []
+    for ind, ((pi, wi), fi_set) in enumerate(all_points.items()):
+        coord = gmsh.model.get_bounding_box(0, pi)[:3]
+        merged_intersections.append(
+            WellFractureIntersection(
+                coord=coord,
+                index=ind,
+                well_index=wi,
+                fracture_index=list(fi_set),
+                gmsh_index=pi,
+            )
+        )
+
+    return merged_intersections
+
+
+def _generate_well_mesh(
+    intersections: list[WellFractureIntersection],
+    wells: list[GmshEntity],
+    mesh_args: dict,
+) -> pp.MixedDimensionalGrid:
+    _set_physical_names(intersections, wells)
+    _set_mesh_size(wells, mesh_args.get("cell_size"))
+    gmsh.model.mesh.generate(1)
+    file_name = Path("well_mesh.msh")
+    gmsh.write(file_name.as_posix())
+
+    subdomains = pp.fracs.simplex.line_grid_from_gmsh(
+        file_name,
+        physical_name_stem_1d=PhysicalNames.WELL.value,
+        physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
+        sort_1d_nodes=False,
+    )
+    well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
+    well_mdg.compute_geometry()
+    for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
+        wg.well_num = wi
+        wg.frac_num = -1
+
+    gmsh.finalize()
+    return well_mdg
+
+
+def _add_well_subdomains(
+    mdg: pp.MixedDimensionalGrid,
+    well_mdg: pp.MixedDimensionalGrid,
+    tol: float,
+    domain: pp.Domain,
+) -> list[int]:
+    _check_overlapping_point_grids(mdg, well_mdg, tol)
+
+    orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
+
+    mdg.add_subdomains(well_mdg.subdomains())
+    for intf, data in well_mdg.interfaces(return_data=True):
+        sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
+        mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
+
+    for wg in well_mdg.subdomains(dim=1):
+        _update_well_grid_tags(wg, domain, mdg)
+
+    return orig_0d_domain_id
+
+
+def _add_well_fracture_interfaces(
+    mdg: pp.MixedDimensionalGrid,
+    well_mdg: pp.MixedDimensionalGrid,
+    intersections: list[WellFractureIntersection],
+    orig_0d_domain_id: list[int],
+    tol: float,
+) -> None:
+    cell_center_0d = np.vstack(
+        [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
+    ).T
+
+    for isect in intersections:
+        if len(isect.fracture_index) == 0:
+            # This is a kink in the well. Continue.
+            continue
+
+        ind_0d = np.argmin(
+            np.linalg.norm(cell_center_0d - np.reshape(isect.coord, (-1, 1)), axis=0)
+        )
+
+        g_0d = well_mdg.subdomains(dim=0)[ind_0d]
+
+        frac_inds = isect.fracture_index
+
+        # Intersection at a fracture intersection. This is in principle possible,
+        #  but it will create a non-conforming coupling of codimension 1, which the
+        # constitutive laws are probably not ready for. On the other hand, this
+        # should also be equivalent to a 1d fracture for nd=2, so perhaps it will
+        # not be an issue.
+        if len(frac_inds) == 1:
+            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
+            assert g_frac.frac_num == frac_inds[0]
+        else:
+            if mdg.dim_max() == 2:
+                # The intersection should be on a 0d intersection point, or else
+                # we have either overlapping fractures or a faulty interpretation
+                # of the geometry.
+                found = False
+                for sd in mdg.subdomains(dim=0):
+                    if sd.id in orig_0d_domain_id and np.isclose(
+                        np.linalg.norm(sd.cell_centers - isect.coord),
+                        0,
+                        atol=tol,
+                    ):
+                        g_frac = sd
+                        break
+                assert found
+            else:  # mdg.dim_max() == 3
+                found = False
+                for sd in mdg.subdomains(dim=0):
+                    if sd.id in orig_0d_domain_id and np.isclose(
+                        np.linalg.norm(sd.cell_centers - isect.coord),
+                        0,
+                        atol=tol,
+                    ):
+                        g_frac = sd
+                        break
+                if found:
+                    assert len(frac_inds) > 2
+                else:
+                    sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
+                    for fi in frac_inds:
+                        g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
+                        sds_1d = sds_1d.intersection(
+                            mdg.neighboring_subdomains(g_frac, only_lower=True)
+                        )
+
+                    dist_min = np.inf
+                    for sd in sds_1d:
+                        dist = np.min(
+                            np.linalg.norm(
+                                sd.cell_centers
+                                - np.array(isect.coord).reshape((-1, 1)),
+                                axis=0,
+                            )
+                        )
+                        if dist < dist_min:
+                            dist_min = dist
+                            g_frac = sd
+        embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
+
+        proj = sps.coo_matrix(
+            (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
+            shape=(1, g_frac.num_cells),
+        ).tocsr()
+        _add_interface(0, g_frac, g_0d, mdg, proj)
 
 
 def _match_well_and_fracture_points(
