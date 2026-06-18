@@ -212,10 +212,24 @@ def is_fractional_flow(model: pp.PorePyModel) -> bool:
         model: A PorePy model.
 
     Returns:
-        True if ``model.params['fractional_flow'] == True`. Defaults to False.
+        True if ``model.params['fractional_flow'] == True``. Defaults to False.
 
     """
     return bool(model.params.get("fractional_flow", False))
+
+
+def is_mass_mobility_weighted_permeability(model: pp.PorePyModel) -> bool:
+    """Checking the model parameters for the ``'mass_mobility_weighted_permeability'`` flag.
+
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        True if ``model.params['mass_mobility_weighted_permeability'] == True``. Defaults to False.
+
+    """
+    return bool(model.params.get("mass_mobility_weighted_permeability", False))
+
 
 
 def log_cf_model_configuration(model: pp.PorePyModel) -> None:
@@ -346,7 +360,10 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             Whatever :attr:`darcy_flux` returns.
 
         """
-        return self.darcy_flux(domains)
+        if is_mass_mobility_weighted_permeability(self):
+            return self.darcy_flux(domains)
+        else:
+            return super().fluid_flux(domains)
 
     def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """The interface fluid flux is given solely by the :attr:`interface_darcy_flux`,
@@ -359,7 +376,10 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             Whatever :attr:`interface_darcy_flux` returns.
 
         """
-        return self.interface_darcy_flux(interfaces)
+        if is_mass_mobility_weighted_permeability(self):
+            return self.interface_darcy_flux(interfaces)
+        else:
+            return super().interface_fluid_flux(interfaces)
 
     def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """The well fluid flux is given solely by the :attr:`well_flux`,
@@ -372,7 +392,10 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             Whatever :attr:`well_flux` returns.
 
         """
-        return self.well_flux(interfaces)
+        if is_mass_mobility_weighted_permeability(self):
+            return self.well_flux(interfaces)
+        else:
+            return super().well_fluid_flux(interfaces)
 
 
 class EnthalpyBasedEnergyBalanceEquations(
@@ -1843,7 +1866,7 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
     def add_nonlinear_darcy_flux_discretization(self) -> None:
         """If the fractional flow formulation is used, the nonlinear Darcy flux
         discretization is added by default for all subdomains to the update routine."""
-        if is_fractional_flow(self):
+        if is_mass_mobility_weighted_permeability(self):
             self.add_nonlinear_diffusive_flux_discretization(
                 self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
             )

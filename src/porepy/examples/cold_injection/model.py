@@ -791,7 +791,7 @@ class Permeability(ModelConfig):
             np.concatenate(K_vals), name="base_matrix_permeability"
         )
 
-        if cf.is_fractional_flow(self):
+        if cf.is_mass_mobility_weighted_permeability(self):
             K_ *= self.total_mass_mobility(subdomains)
 
         K = self.isotropic_second_order_tensor(subdomains, K_)
@@ -830,7 +830,7 @@ class Permeability(ModelConfig):
             np.concatenate(K_vals), name="base_fracture_permeability"
         )
 
-        if cf.is_fractional_flow(self):
+        if cf.is_mass_mobility_weighted_permeability(self):
             K_ *= self.total_mass_mobility(subdomains)
 
         K = self.isotropic_second_order_tensor(subdomains, K_)
@@ -850,7 +850,7 @@ class Permeability(ModelConfig):
             np.concatenate(K_vals), name="base_well_permeability"
         )
 
-        if cf.is_fractional_flow(self):
+        if cf.is_mass_mobility_weighted_permeability(self):
             K_ *= self.total_mass_mobility(subdomains)
 
         K = self.isotropic_second_order_tensor(subdomains, K_)

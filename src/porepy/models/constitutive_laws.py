@@ -707,7 +707,7 @@ class MassWeightedPermeability(ConstantPermeability):
             as a second-order tensor.
 
         """
-        if pp.compositional_flow.is_fractional_flow(self):
+        if pp.compositional_flow.is_mass_mobility_weighted_permeability(self):
             op = self.isotropic_second_order_tensor(
                 subdomains, self.mass_mobility_weighted_permeability(subdomains)
             )
