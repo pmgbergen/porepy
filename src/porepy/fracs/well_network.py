@@ -118,8 +118,6 @@ class WellNetwork3d:
             mdg, well_mdg, intersections, orig_0d_domain_id
         )
 
-        gmsh.finalize()
-
         return mdg
 
     def intersect_well_fractures(
@@ -262,6 +260,8 @@ class WellNetwork3d:
         for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
             wg.well_num = wi
             wg.frac_num = -1
+
+        gmsh.finalize()
         return well_mdg
 
     def _add_well_subdomains(self, mdg, well_mdg):
