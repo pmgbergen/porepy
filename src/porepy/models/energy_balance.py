@@ -756,13 +756,14 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.
 
-        The values are used on the boundary for :math:`c \\nabla T` where Neumann data
-        is required for the whole expression
-        (``c`` being the conductivity on the boundary).
+        The values represent the boundary contribution of :math:`c \\nabla T` integrated
+        over each boundary face, with SI unit
+        :math:`\\mathrm{W} \\cdot \\mathrm{m}^{n_d - 3}` where :math:`n_d` is the
+        ambient dimension and ``c`` is the conductivity.
 
         Important:
-            Override this method to provide custom Neumann boundary data for
-            the flux, per boundary grid as a numpy array with numerical values.
+            Override this method to provide custom Neumann boundary data for the flux,
+            per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to provide values for.
@@ -774,22 +775,23 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         return np.zeros(bg.num_cells)
 
     def bc_values_enthalpy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        r"""**Energy** flux values on the Neumann boundary.
+        """**Energy** flux values on the Neumann boundary.
 
-        These values are used on the boundary for
-        :math:`\frac{\rho h}{\mu} \mathbf{K} \nabla p` where Neumann data is required
-        for the whole expression.
+        The values represent the boundary contribution of
+        :math:`\\frac{\\rho h}{\\mu} \\mathbf{K} \\nabla p` integrated over each
+        boundary face, with SI unit :math:`\\mathrm{W} \\cdot \\mathrm{m}^{n_d - 3}`
+        where :math:`n_d` is the ambient dimension.
 
         Important:
-            Override this method to provide custom Neumann boundary data for
-            the flux, per boundary grid as a numpy array with numerical values.
+            Override this method to provide custom Neumann boundary data for the flux,
+            per boundary grid as a numpy array with numerical values.
 
         Parameters:
             bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing values for the
-            flux on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing values for the flux on
+            the provided boundary grid.
 
         """
         return np.zeros(bg.num_cells)

@@ -27,6 +27,7 @@ from .fluid_property_library import (
 )
 
 Scalar = pp.ad.Scalar
+Function = pp.ad.Function
 
 if TYPE_CHECKING:
     number = pp.number
@@ -374,7 +375,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 # non-positive values) may give significant trouble in the aperture.
                 # Insert safeguard by taking maximum of the jump and a residual
                 # aperture.
-                f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+                f_max = Function(pp.ad.maximum, "maximum_function")
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
                 apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
@@ -1069,15 +1070,15 @@ class DarcysLaw(pp.PorePyModel):
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Gradient operator in the normal direction. The collapsed distance is
-        # :math:`\frac{a}{2}` on either side of the fracture.
+        # Gradient operator scaling factor in the normal direction. The collapsed
+        # distance is :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
-        normal_gradient = pp.ad.Scalar(2) * (
+        normal_gradient_length = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
-        normal_gradient.set_name("normal_gradient")
+        normal_gradient_length.set_name("normal_gradient_length")
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
@@ -1088,7 +1089,7 @@ class DarcysLaw(pp.PorePyModel):
         eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
             self.normal_permeability(interfaces)
             * (
-                normal_gradient * (pressure_h - pressure_l)
+                normal_gradient_length * (pressure_h - pressure_l)
                 + self.interface_vector_source_darcy_flux(interfaces)
             ),
             interfaces,
@@ -1386,7 +1387,7 @@ class AdTpfaFlux(pp.PorePyModel):
                 "differentiable_mpfa",
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
-            vector_source_d = pp.ad.Function(
+            vector_source_d = Function(
                 partial(  # type: ignore[arg-type]
                     self.__mpfa_vector_source_discretization, base_discr
                 ),
@@ -1476,7 +1477,7 @@ class AdTpfaFlux(pp.PorePyModel):
         if isinstance(base_discr, pp.ad.MpfaAd):
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
-            boundary_value_contribution = pp.ad.Function(
+            boundary_value_contribution = Function(
                 # See comment in diffusive_flux method for explanation why the type
                 # ignore is needed.
                 partial(  # type: ignore[arg-type]
@@ -1957,7 +1958,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         skin_factor = self.skin_factor(interfaces)
         r_e = self.equivalent_well_radius(subdomains)
 
-        f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
+        f_log = Function(pp.ad.functions.log, "log_function_Piecmann")
 
         # We assume isotropic permeability and extract xx component.
         e_i = self.e_i(subdomains, i=0, dim=9).T
@@ -2479,13 +2480,13 @@ class FouriersLaw(pp.PorePyModel):
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # Gradient operator in the normal direction. The collapsed distance is
-        # :math:`\frac{a}{2}` on either side of the fracture.
-        normal_gradient = pp.ad.Scalar(2) * (
+        # Gradient operator scaling factor in the normal direction. The collapsed
+        # distance is :math:`\frac{a}{2}` on either side of the fracture.
+        normal_gradient_length = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
-        normal_gradient.set_name("normal_gradient")
+        normal_gradient_length.set_name("normal_gradient_length")
 
         # Project the two temperatures to the interface and multiply with the normal
         # conductivity.
@@ -2500,7 +2501,7 @@ class FouriersLaw(pp.PorePyModel):
         eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
             self.normal_thermal_conductivity(interfaces)
             * (
-                normal_gradient * (temperature_h - temperature_l)
+                normal_gradient_length * (temperature_h - temperature_l)
                 + self.interface_vector_source_fourier_flux(interfaces)
             ),
             interfaces,
@@ -3974,10 +3975,10 @@ class ShearDilation(pp.PorePyModel):
 
         """
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
-        f_norm = pp.ad.Function(
+        f_norm = Function(
             partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
         )
-        f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
+        f_tan = Function(pp.ad.functions.tan, "tan_function")
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
             self.tangential_component(subdomains)
             @ self.plastic_displacement_jump(subdomains)
@@ -4270,32 +4271,238 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
         return u_t
 
 
+class FractureDamageEvolutionCoefficients:
+    r"""Fracture damage coefficients according to Gao et al. (2024). These are used for
+    computing the history variables according to
+
+    ... math::
+        \Lambda^{\alpha} = \int_0^t k^{\alpha} l dt
+
+    where :math:`k^{\alpha}` is the damage evolution coefficient for damage type
+    :math:`\alpha` (friction or dilation) and :math:`l` is a length function defined in
+    :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
+    :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength`.
+
+    The damage evolution coefficients are computed as functions of the contact traction,
+    the characteristic fracture roughness, and the uniaxial compressive strength of the
+    solid. For dilation, we have
+
+    .. math::
+        k^{dilation} = K_ad \frac{t_n,p}{t_trans \cdot u_char},
+
+    where :math:`K_ad=log(UCS/t_n,p)` is the logarithm of the ratio of the uniaxial
+    compressive strength and the positive normal traction, :math:`t_n,p`, t_trans is the
+    transitional normal strength, and :math:`u_char` is the characteristic fracture
+    roughness.
+
+    For friction damage, we have
+
+    .. math::
+        k^{friction} = 3 \frac{t_n,p}{t_trans \cdot u_char}.
+
+    """
+
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the characteristic contact traction of the fracture."""
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the fracture contact traction."""
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the normal component of a vector on the fracture."""
+
+    solid: FractureDamageSolidConstants
+    """SolidConstants with damage parameters."""
+
+    def characteristic_fracture_roughness(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic roughness of the fracture [-].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic roughness is
+                defined.
+
+        Returns:
+            Operator for the characteristic roughness.
+        """
+        return Scalar(
+            self.solid.characteristic_fracture_roughness,
+            "characteristic_fracture_roughness",
+        )
+
+    def transitional_normal_strength(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Transitional normal strength for fractures [Pa].
+
+        From Li et al. (2020), https://doi.org/10.1007/s00603-019-01976-5.
+
+        Parameters:
+            subdomains: List of subdomains where the strength is defined.
+
+        Returns:
+            Operator for the transitional normal strength.
+        """
+        strength = Scalar(0.2) * self.uniaxial_compressive_strength(subdomains)
+        strength.set_name("transitional_normal_strength")
+        return strength
+
+    def dilation_damage_evolution_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Damage evolution coefficient for dilation damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage coefficient is defined.
+                Should be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the dilation damage evolution coefficient.
+        """
+        # The damage evolution coefficient is defined as the logarithm of the ratio of
+        # the uniaxial compressive strength and the tangential component of the contact
+        # traction.
+        f_log = Function(pp.ad.functions.log, "log")
+
+        # Nondimensionlize, since the contact traction is nondimensionalized.
+        dimensionless_strength = self.uniaxial_compressive_strength(
+            subdomains
+        ) / self.characteristic_contact_traction(subdomains)
+        K_ad = f_log(
+            dimensionless_strength / self._positive_normal_traction(subdomains)
+        )
+        coefficient = K_ad * (
+            self.normalized_traction_for_damage(subdomains)
+            / self.characteristic_fracture_roughness(subdomains)
+        )
+        coefficient.set_name("dilation_damage_evolution_coefficient")
+        return coefficient
+
+    def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Positive normal traction for fractures [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the traction is defined.
+
+        Returns:
+            Operator for the positive normal traction.
+        """
+        # Clip the contact traction to avoid division by zero. The clip is set to
+        # negative values, since the contact traction is negative when the fracture is
+        # in contact, and the dilation effect is only relevant when the fracture is in
+        # contact. As used in this class, the below common factor is linear in traction.
+        # Thus, the product with the log(1/traction) should indeed vanish in the limit
+        # of zero traction.
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
+            "clip_function",
+        )
+        t = self.normal_component(subdomains) @ f_clip(
+            self.contact_traction(subdomains)
+        )
+        op = Scalar(-1, "sign_inverter") * t
+        op.set_name("positive_normal_traction")
+        return op
+
+    def uniaxial_compressive_strength(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """uniaxial compressive strength for fractures [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the strength is defined.
+
+        Returns:
+            Operator for the uniaxial compressive strength.
+        """
+        return Scalar(
+            self.solid.uniaxial_compressive_strength,
+            name="uniaxial_compressive_strength",
+        )
+
+    def friction_damage_evolution_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Damage evolution coefficient for friction damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage evolution coefficient is
+                defined. Should be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the friction damage evolution coefficient.
+        """
+        # The damage evolution coefficient is, according to Gao et al (2024), a purely
+        # geometric factor which may be set to 3.
+        characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
+
+        coefficient = Scalar(3.0) * (
+            self.normalized_traction_for_damage(subdomains) / characteristic_roughness
+        )
+        coefficient.set_name("friction_damage_evolution_coefficient")
+        return coefficient
+
+    def normalized_traction_for_damage(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Utility method used for the normalized traction in damage calculations.
+
+        The traction is normalized by the transitional normal strength. We use the
+        positive normal traction to helper method to avoid upstream issues if the
+        traction is passed to a logarithm function, as in the dilation damage
+        coefficient.
+
+        Parameters:
+            subdomains: List of subdomains where the traction is defined.
+
+            Returns:
+                Operator for the normalized traction.
+        """
+        # Nondimensionalize the characteristic contact traction, since the contact
+        # traction is nondimensional.
+        strength = self.transitional_normal_strength(
+            subdomains
+        ) / self.characteristic_contact_traction(subdomains)
+
+        coefficient = self._positive_normal_traction(subdomains) / strength
+        coefficient.set_name("normalized_traction_for_damage")
+        return coefficient
+
+
 class FrictionDamage(pp.PorePyModel):
-    """Frictional damage relations.
+    r"""Frictional damage relations.
 
-    The frictional damage is computed from the history variable h, according to J. White
-    (2014) https://doi.org/10.1002/nag.2247, as
+    This class implements
+        1. the computation of the friction coefficient from the frictional damage,
+        2. the computation of the friction damage state from the history variable.
+
+
+    The friction damage state is the factor by which the friction coefficient is
+    modified compared to the non-damaged case:
 
     .. math::
-        d = 1+(d_0-1)  exp⁡(-c h)
+        F = d F_0,
 
-    where :math:`d_0` is the initial damage and c is a material parameter. The
-    damage is used to compute the frictional bound according to
+    where :math:`F_0` is the non-damaged friction coefficient. d is dimensionless and
+    takes values between 0 and 1, where 0 means no friction and 1 means intact friction.
+    The damage evolution coefficient is computed from the history variable
+    :math:`\Lambda`, according to J. White (2014) https://doi.org/10.1002/nag.2247 and
+    Stefansson in preparation, as
 
     .. math::
-        b = d b_0,
+        d = d_0 + (1 - d_0) \exp(-\Lambda)
 
-    where :math:`b_0` is the non-damaged friction bound.
+    where :math:`d_0` is the residual friction damage.
 
     """
 
     solid: FractureDamageSolidConstants
     """SolidConstants with frictional damage parameters."""
 
-    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable provided by the DamageHistoryVariable mixin."""
+    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable provided by the DamageHistoryVariables mixin."""
 
-    def friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def friction_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Frictional damage [-].
 
         Parameters:
@@ -4306,147 +4513,130 @@ class FrictionDamage(pp.PorePyModel):
             Operator for nondimensionalized frictional damage.
 
         """
-        # Get the history variable.
-        history = self.damage_history(subdomains)
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            "clip_function",
+        )
+        # Get the history variable. Guard against negative values.
+        history = f_clip(self.friction_damage_history(subdomains))
 
-        # Get the initial damage and the material parameter.
-        d0 = self.initial_friction_damage(subdomains)
-        c = self.friction_damage_decay(subdomains)
+        # Get the material parameter.
+        d0 = self.residual_friction_damage(subdomains)
 
         # Compute the damage.
-        f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
+        f_exp = Function(pp.ad.functions.exp, "exp")
         one = pp.ad.Scalar(1.0)
-        return one + (d0 - one) * f_exp(-c * history)
+        return d0 + (one - d0) * f_exp(-history)
 
-    def initial_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Initial damage [-].
+    def residual_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Residual friction damage [-].
 
         Parameters:
-            subdomains: List of subdomains where the initial damage is defined. Should
+            subdomains: List of subdomains where the residual damage is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Scalar for nondimensionalized initial damage.
+            Scalar for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(self.solid.initial_friction_damage)
+        return pp.ad.Scalar(
+            self.solid.residual_friction_damage, "residual_friction_damage"
+        )
 
-    def friction_damage_decay(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Damage decay [-].
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction coefficient [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage decay is defined. Should
-            be of co-dimension one, i.e. fractures.
+            subdomains: List of fracture subdomains.
 
         Returns:
-            Scalar for dimensionless damage decay.
+            Friction coefficient operator.
 
         """
-        return pp.ad.Scalar(self.solid.friction_damage_decay)
-
-    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Frictional bound [-].
-
-        The frictional bound is computed from the frictional damage as
-
-        .. math::
-            b = d b_0,
-
-        where :math:`b_0` is the non-damaged friction bound.
-
-        Parameters:
-            subdomains: List of subdomains where the frictional bound is defined. Should
-                be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Operator for nondimensionalized frictional bound.
-
-        """
-        # Check that the super class has a friction bound method. Otherwise, something
-        # has gone wrong in the inheritance.
-        if not hasattr(super(), "friction_bound"):
+        if not hasattr(super(), "friction_coefficient"):
             raise ValueError(
-                "The super class of FrictionDamage must have a friction_bound method."
+                "The super class of FrictionDamage must have a friction_coefficient "
+                "method."
             )
-        # Combine the frictional damage with the non-damaged friction bound.
-        intact_bound = super().friction_bound(subdomains)  # type: ignore[misc]
-        return self.friction_damage(subdomains) * intact_bound
+        # After the check, we can safely call the super class method to get the
+        # non-damaged friction, ignoring the type checker.
+        intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
+        intact_bound.set_name("intact_friction_coefficient")
+        op = self.friction_damage_state(subdomains) * intact_bound
+        op.set_name("damaged_friction_coefficient")
+        return op
 
 
 class DilationDamage(pp.PorePyModel):
-    """Dilation damage relations.
+    r"""Dilation damage relations.
 
+    This class implements
+        1. the computation of the shear dilation gap from the dilation damage state.
+        2. the computation of the dilation damage state from the history variable.
 
-    The dilation damage is computed from the history variable h according to J. White
-    (2014) https://doi.org/10.1002/nag.2247, as
-
-    .. math::
-        d = 1+(d_0-1)  exp⁡(-c h)
-
-    where :math:`d_0` is the initial damage and c is a material parameter. The damage is
-    used to compute the shear dilation gap according to
+    The dilation damage state is the factor by which shear dilation is modified compared
+    to the non-damaged case:
 
     .. math::
         g = d g_0,
 
-    where :math:`g_0` is the non-damaged dilation gap.
+    where :math:`g_0` is the non-damaged dilation gap. The dilation damage state is
+    computed from the damage history variable :math:`\Lambda` according to J. White
+    (2014) https://doi.org/10.1002/nag.2247, as
+
+    .. math::
+        d = d_0 + (1 - d_0)  \exp⁡(-\Lambda)
+
+    where :math:`d_0` is the initial dilation  damage.
 
     """
 
     solid: FractureDamageSolidConstants
     """SolidConstants with dilation damage parameters."""
 
-    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable provided by the DamageHistoryVariable mixin."""
+    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable provided by the DamageHistoryVariables mixin."""
 
-    def dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Dilation damage [-].
+    def dilation_damage_state(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Dilation damage state [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage is defined. Should
-            be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the damage state is defined. Should be
+                of co-dimension one, i.e. fractures.
 
         Returns:
             Operator for dimensionless dilation damage.
 
         """
-        # Get the history variable.
-        history = self.damage_history(subdomains)
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            "clip_function",
+        )
+        # Get the history variable. Guard against negative values.
+        history = f_clip(self.dilation_damage_history(subdomains))
 
-        # Get the initial damage and the material parameter.
-        d0 = self.initial_dilation_damage(subdomains)
-        c = self.dilation_damage_decay(subdomains)
+        # Get the material parameter.
+        d0 = self.residual_dilation_damage(subdomains)
 
         # Compute the damage.
-        f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
+        f_exp = Function(pp.ad.functions.exp, "exp")
         one = pp.ad.Scalar(1.0)
-        return one + (d0 - one) * f_exp(-c * history)
+        return d0 + (one - d0) * f_exp(-history)
 
-    def initial_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Initial damage [-].
+    def residual_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Residual dilation damage [-].
 
         Parameters:
-            subdomains: List of subdomains where the initial damage is defined. Should
+            subdomains: List of subdomains where the residual damage is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Scalar for nondimensionalized initial damage.
+            Scalar for nondimensionalized residual damage.
 
         """
-        return pp.ad.Scalar(self.solid.initial_dilation_damage)
-
-    def dilation_damage_decay(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-        """Damage decay [-].
-
-        Parameters:
-            subdomains: List of subdomains where the damage decay is defined. Should
-                be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Scalar for nondimensionalized damage decay.
-
-        """
-        return pp.ad.Scalar(self.solid.dilation_damage_decay)
+        return pp.ad.Scalar(
+            self.solid.residual_dilation_damage, "residual_dilation_damage"
+        )
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear dilation gap [m].
@@ -4468,7 +4658,10 @@ class DilationDamage(pp.PorePyModel):
             )
         # Combine the dilation damage with the non-damaged dilation gap.
         intact_gap = super().shear_dilation_gap(subdomains)  # type: ignore[misc]
-        return self.dilation_damage(subdomains) * intact_gap
+        intact_gap.set_name("intact_shear_dilation")
+        op = self.dilation_damage_state(subdomains) * intact_gap
+        op.set_name("damaged_shear_dilation")
+        return op
 
 
 class BiotCoefficient(pp.PorePyModel):

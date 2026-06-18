@@ -115,7 +115,7 @@ class BoundaryConditions(pp.PorePyModel):
             cc[2][domain_sides.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
-        val = self.units.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * Pa")
         values = np.zeros(bg.num_cells)
         values[inlet_faces] = val * bg.cell_volumes[inlet_faces]
         return values
