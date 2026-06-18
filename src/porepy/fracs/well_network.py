@@ -114,87 +114,9 @@ class WellNetwork3d:
 
         if len(intersections) == 0:
             return mdg
-
-        cell_center_0d = np.vstack(
-            [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
-        ).T
-
-        for isect in intersections:
-            if len(isect.fracture_index) == 0:
-                # This is a kink in the well. Continue.
-                continue
-
-            ind_0d = np.argmin(
-                np.linalg.norm(
-                    cell_center_0d - np.reshape(isect.coord, (-1, 1)), axis=0
-                )
-            )
-
-            g_0d = well_mdg.subdomains(dim=0)[ind_0d]
-
-            frac_inds = isect.fracture_index
-
-            # Intersection at a fracture intersection. This is in principle possible,
-            #  but it will create a non-conforming coupling of codimension 1, which the
-            # constitutive laws are probably not ready for. On the other hand, this
-            # should also be equivalent to a 1d fracture for nd=2, so perhaps it will
-            # not be an issue.
-            if len(frac_inds) == 1:
-                g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
-                assert g_frac.frac_num == frac_inds[0]
-            else:
-                if mdg.dim_max() == 2:
-                    # The intersection should be on a 0d intersection point, or else
-                    # we have either overlapping fractures or a faulty interpretation of the geometry.
-                    found = False
-                    for sd in mdg.subdomains(dim=0):
-                        if sd.id in orig_0d_domain_id and np.isclose(
-                            np.linalg.norm(sd.cell_centers - isect.coord),
-                            0,
-                            atol=self.tol,
-                        ):
-                            g_frac = sd
-                            break
-                    assert found
-                else:  # mdg.dim_max() == 3
-                    found = False
-                    for sd in mdg.subdomains(dim=0):
-                        if sd.id in orig_0d_domain_id and np.isclose(
-                            np.linalg.norm(sd.cell_centers - isect.coord),
-                            0,
-                            atol=self.tol,
-                        ):
-                            g_frac = sd
-                            break
-                    if found:
-                        assert len(frac_inds) > 2
-                    else:
-                        sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
-                        for fi in frac_inds:
-                            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
-                            sds_1d = sds_1d.intersection(
-                                mdg.neighboring_subdomains(g_frac, only_lower=True)
-                            )
-
-                        dist_min = np.inf
-                        for sd in sds_1d:
-                            dist = np.min(
-                                np.linalg.norm(
-                                    sd.cell_centers
-                                    - np.array(isect.coord).reshape((-1, 1)),
-                                    axis=0,
-                                )
-                            )
-                            if dist < dist_min:
-                                dist_min = dist
-                                g_frac = sd
-            embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
-
-            proj = sps.coo_matrix(
-                (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
-                shape=(1, g_frac.num_cells),
-            ).tocsr()
-            self._add_interface(0, g_frac, g_0d, mdg, proj)
+        self._add_well_fracture_interfaces(
+            mdg, well_mdg, intersections, orig_0d_domain_id
+        )
 
         gmsh.finalize()
 
@@ -351,6 +273,90 @@ class WellNetwork3d:
             sd_primary, sd_secondary = well_mdg.interface_to_subdomain_pair(intf)
             mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
         return orig_0d_domain_id
+
+    def _add_well_fracture_interfaces(
+        self, mdg, well_mdg, intersections, orig_0d_domain_id
+    ):
+        cell_center_0d = np.vstack(
+            [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
+        ).T
+
+        for isect in intersections:
+            if len(isect.fracture_index) == 0:
+                # This is a kink in the well. Continue.
+                continue
+
+            ind_0d = np.argmin(
+                np.linalg.norm(
+                    cell_center_0d - np.reshape(isect.coord, (-1, 1)), axis=0
+                )
+            )
+
+            g_0d = well_mdg.subdomains(dim=0)[ind_0d]
+
+            frac_inds = isect.fracture_index
+
+            # Intersection at a fracture intersection. This is in principle possible,
+            #  but it will create a non-conforming coupling of codimension 1, which the
+            # constitutive laws are probably not ready for. On the other hand, this
+            # should also be equivalent to a 1d fracture for nd=2, so perhaps it will
+            # not be an issue.
+            if len(frac_inds) == 1:
+                g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
+                assert g_frac.frac_num == frac_inds[0]
+            else:
+                if mdg.dim_max() == 2:
+                    # The intersection should be on a 0d intersection point, or else
+                    # we have either overlapping fractures or a faulty interpretation of the geometry.
+                    found = False
+                    for sd in mdg.subdomains(dim=0):
+                        if sd.id in orig_0d_domain_id and np.isclose(
+                            np.linalg.norm(sd.cell_centers - isect.coord),
+                            0,
+                            atol=self.tol,
+                        ):
+                            g_frac = sd
+                            break
+                    assert found
+                else:  # mdg.dim_max() == 3
+                    found = False
+                    for sd in mdg.subdomains(dim=0):
+                        if sd.id in orig_0d_domain_id and np.isclose(
+                            np.linalg.norm(sd.cell_centers - isect.coord),
+                            0,
+                            atol=self.tol,
+                        ):
+                            g_frac = sd
+                            break
+                    if found:
+                        assert len(frac_inds) > 2
+                    else:
+                        sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
+                        for fi in frac_inds:
+                            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
+                            sds_1d = sds_1d.intersection(
+                                mdg.neighboring_subdomains(g_frac, only_lower=True)
+                            )
+
+                        dist_min = np.inf
+                        for sd in sds_1d:
+                            dist = np.min(
+                                np.linalg.norm(
+                                    sd.cell_centers
+                                    - np.array(isect.coord).reshape((-1, 1)),
+                                    axis=0,
+                                )
+                            )
+                            if dist < dist_min:
+                                dist_min = dist
+                                g_frac = sd
+            embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
+
+            proj = sps.coo_matrix(
+                (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
+                shape=(1, g_frac.num_cells),
+            ).tocsr()
+            self._add_interface(0, g_frac, g_0d, mdg, proj)
 
     def _set_physical_names(self, intersections, wells):
         for isect in intersections:
