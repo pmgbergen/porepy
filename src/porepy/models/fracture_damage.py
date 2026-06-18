@@ -162,7 +162,7 @@ class DilationDamageVariable(FractureDamageVariables):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": 1},
+            dof_info={pp.ad.GridEntity.cells: 1},
             name=self.dilation_damage_history_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -200,7 +200,7 @@ class FrictionDamageVariable(FractureDamageVariables):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={"cells": 1},
+            dof_info={pp.ad.GridEntity.cells: 1},
             name=self.friction_damage_history_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -423,8 +423,20 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
         u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
             time_step_index + 1
         )
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
 
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+        )
 
         contribution = f_norm(u_t_increment)
 
@@ -512,7 +524,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             tangential_to_scalar @ (m_t * u_t_1),
             zero,
         )
-        f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
+        f_abs = pp.ad.Function(pp.ad.abs, "abs_function", domain, range_)
         contribution = f_abs(max_1 - max_0)
         # If time_step_index > 0, we can safely disregard the contribution if the
         # displacement increment is zero. Return increment for checking before adding
