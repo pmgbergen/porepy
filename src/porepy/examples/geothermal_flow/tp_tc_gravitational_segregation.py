@@ -692,8 +692,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 3.0 * day
-dt = 0.5 * day
+tf = 500.0 * day
+dt = 5.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -711,40 +711,39 @@ solid_constants = pp.SolidConstants(
 )
 material_constants = {"solid": solid_constants}
 params = {
-    "fractional_flow": True,
+    "fractional_flow": False,
     "mass_mobility_weighted_permeability": False,
     "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
-    "nl_convergence_criteria": {
-        "res_abs": pp.ResidualBasedAbsoluteCriterion(
-            tol=residual_tolerance/10.0, metric=pp.EuclideanMetric()
-        ),
-    },
-    "nl_divergence_criteria": {
-        "max_iter": pp.MaxIterationsCriterion(max_iterations=100),
-    },
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'cpr'
 }
-
-
 model = FlowModel(params)
 
-model.prepare_simulation()
+solver_params = {
+    "nl_convergence_criteria": {
+        "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
+        ),
+    },
+    "nl_divergence_criteria": {
+        "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+    },
+}
+
+
+pp.ModelRunner(model, solver_params).run()
 
 # Print number of cells and DOFs
 total_cells = sum(sd.num_cells for sd in model.mdg.subdomains())
 total_dofs = model.equation_system.num_dofs()
 print(f"Number of cells: {total_cells}")
 print(f"Number of DOFs: {total_dofs}")
-
-
-pp.run_time_dependent_model(model, params)
 
 # Write Newton iteration statistics to CSV
 model.write_newton_iterations_to_csv("newton_iterations.csv")

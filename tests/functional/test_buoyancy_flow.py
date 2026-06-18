@@ -85,7 +85,7 @@ def _run_buoyancy_model(
         print_info=True,
     )
     model_params = {
-        "fractional_flow": True,
+        "fractional_flow": False,
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
@@ -112,7 +112,7 @@ def _run_buoyancy_model(
     pp.ModelRunner(model, solver_params).run()
 
 
-@pytest.mark.skipped  # reason: slow
+# @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("model_class, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
 def test_buoyancy_model(model_class, dim: Literal[2, 3], expected_order_loss, md):

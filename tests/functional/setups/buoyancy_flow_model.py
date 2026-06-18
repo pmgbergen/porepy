@@ -24,7 +24,7 @@ import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate as FlowTemplate,
 )
 
 # Constants for fluid phase densities (kg/m^3)

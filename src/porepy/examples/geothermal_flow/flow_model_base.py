@@ -9,7 +9,7 @@ from typing import Callable, Optional, cast, Any
 
 import porepy as pp
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate as FlowTemplate,
 )
 
 # PETSc imports (only if available)
