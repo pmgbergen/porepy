@@ -262,7 +262,6 @@ class WellNetwork3d:
         return well_mdg
 
     def _add_well_subdomains(self, mdg, well_mdg):
-
         self._check_overlapping_point_grids(mdg, well_mdg)
 
         orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
@@ -396,7 +395,7 @@ class WellNetwork3d:
             np.bincount(g.cell_faces.tocsc().indices, minlength=g.num_faces) == 1
         )
         g.tags["tip_faces"] = on_some_boundary & np.logical_not(
-            on_some_boundary | g.tags["fracture_faces"]
+            on_domain_boundary | g.tags["fracture_faces"]
         )
 
         g.tags["domain_boundary_faces"] = on_domain_boundary
