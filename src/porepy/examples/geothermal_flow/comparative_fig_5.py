@@ -147,7 +147,7 @@ print("\nStep 1: Loading data...")
 
 # 1a. Load data from PorePy's VTU output file
 
-vtk_map = {'horizontal': 'fig5_horizontal_time_idx_000400_h1_l2', 'vertical': 'fig5_vertical_time_idx_004000_h1_l2'}
+vtk_map = {'horizontal': 'fig5_horizontal_time_idx_000400_h1_l2', 'vertical': 'fig5_vertical_time_idx_010000_h1_l2'}
 
 vtk_file = "benchmark_figures_data/porepy_vtks/" + vtk_map[figure_type] + ".vtu"
 fields_to_extract = ['pressure', 'temperature', 's_gas', 'enthalpy']

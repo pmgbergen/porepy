@@ -797,6 +797,16 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
+    def potential_driven_flux(
+        self, subdomains: pp.SubdomainsOrBoundaries, phase: pp.Phase
+    ) -> pp.ad.Operator:
+
+        rho_mixture = self.fractionally_weighted_density(subdomains)
+        rho_phase = phase.density(subdomains)
+        m_star = self.darcy_flux(subdomains)  + self.density_driven_flux(subdomains,rho_phase-rho_mixture)
+        m_star.set_name("potential_driven_flux_" + phase.name)
+        return m_star
+
     @pp.ad.cached_method
     def __entity_buoyancy_flux(
         self,
@@ -1196,6 +1206,8 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
     def update_buoyancy_driven_fluxes(self):
+        ppu_Q = True
+
         """Update stored buoyancy flux arrays (subdomains and interfaces)."""
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
@@ -1207,24 +1219,47 @@ class FluidBuoyancy(pp.PorePyModel):
 
                 rho_gamma_full = gamma.density(subdomains)
                 rho_delta_full = delta.density(subdomains)
-                subdomain_vals = self.equation_system.evaluate(
-                    self.density_driven_flux(
-                        subdomains, rho_gamma_full - rho_delta_full
+                if ppu_Q:
+                    subdomain_gamma_vals = self.equation_system.evaluate(
+                        self.potential_driven_flux(
+                            subdomains, gamma
+                        )
                     )
-                )
+                    subdomain_delta_vals = self.equation_system.evaluate(
+                        self.potential_driven_flux(
+                            subdomains, delta
+                        )
+                    )
+                else:
+                    subdomain_vals = self.equation_system.evaluate(
+                        self.density_driven_flux(
+                            subdomains, rho_gamma_full - rho_delta_full
+                        )
+                    )
+
                 # Offsets for the indices of individual subdomains.
                 subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
 
                 for id, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
                     sd_offset = subdomain_offsets[id]
-                    vals_loc = subdomain_vals[sd_offset : sd_offset + sd.num_faces]
 
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                        {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
-                    )
-                    data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                        {self.buoyant_flux_array_key(delta, gamma): -vals_loc}
-                    )
+                    if ppu_Q:
+                        vals_loc = subdomain_gamma_vals[sd_offset: sd_offset + sd.num_faces]
+                        data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
+                            {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
+                        )
+                        vals_loc = subdomain_delta_vals[sd_offset: sd_offset + sd.num_faces]
+                        data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
+                            {self.buoyant_flux_array_key(delta, gamma): +vals_loc}
+                        )
+                    else:
+                        vals_loc = subdomain_vals[sd_offset: sd_offset + sd.num_faces]
+                        data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
+                            {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
+                        )
+                        data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
+                            {self.buoyant_flux_array_key(delta, gamma): -vals_loc}
+                        )
 
                 # Same procedure for interfaces.
                 interfaces = self.subdomains_to_interfaces(subdomains, [1])
