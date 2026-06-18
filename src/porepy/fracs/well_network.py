@@ -347,7 +347,44 @@ def _add_well_fracture_interfaces(
     orig_0d_domain_id: list[int],
     tol: float,
 ) -> None:
-    cell_center_0d = np.vstack(
+
+    def match_point_grid(isect) -> pp.Grid:
+        # The intersection should be on a 0d intersection point, or else
+        # we have either overlapping fractures or a faulty interpretation
+        # of the geometry.
+        found = False
+        g_frac = None
+        for sd in mdg.subdomains(dim=0):
+            if sd.id in orig_0d_domain_id and np.isclose(
+                np.linalg.norm(sd.cell_centers - isect.coord), 0, atol=tol
+            ):
+                g_frac = sd
+                break
+        return g_frac, found
+
+    def match_line_grid(isect) -> pp.Grid:
+        dist_min = np.inf
+        for sd in common_fracture_intersections(frac_inds):
+            dist = np.min(
+                np.linalg.norm(
+                    sd.cell_centers - np.array(isect.coord).reshape((-1, 1)), axis=0
+                )
+            )
+            if dist < dist_min:
+                dist_min = dist
+                g_frac = sd
+        return g_frac
+
+    def common_fracture_intersections(frac_inds):
+        sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
+        for fi in frac_inds:
+            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
+            sds_1d = sds_1d.intersection(
+                mdg.neighboring_subdomains(g_frac, only_lower=True)
+            )
+        return sds_1d
+
+    point_grid_coord = np.vstack(
         [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
     ).T
 
@@ -357,10 +394,10 @@ def _add_well_fracture_interfaces(
             continue
 
         ind_0d = np.argmin(
-            np.linalg.norm(cell_center_0d - np.reshape(isect.coord, (-1, 1)), axis=0)
+            np.linalg.norm(point_grid_coord - np.reshape(isect.coord, (-1, 1)), axis=0)
         )
 
-        g_0d = well_mdg.subdomains(dim=0)[ind_0d]
+        g_low = well_mdg.subdomains(dim=0)[ind_0d]
 
         frac_inds = isect.fracture_index
 
@@ -370,62 +407,28 @@ def _add_well_fracture_interfaces(
         # should also be equivalent to a 1d fracture for nd=2, so perhaps it will
         # not be an issue.
         if len(frac_inds) == 1:
-            g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
-            assert g_frac.frac_num == frac_inds[0]
+            g_high = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
+            assert g_high.frac_num == frac_inds[0]
         else:
+            # TODO: Document this carefully, and check the logic. It may be that some
+            # cases could be ruled out.
             if mdg.dim_max() == 2:
-                # The intersection should be on a 0d intersection point, or else
-                # we have either overlapping fractures or a faulty interpretation
-                # of the geometry.
-                found = False
-                for sd in mdg.subdomains(dim=0):
-                    if sd.id in orig_0d_domain_id and np.isclose(
-                        np.linalg.norm(sd.cell_centers - isect.coord),
-                        0,
-                        atol=tol,
-                    ):
-                        g_frac = sd
-                        break
-                assert found
+                g_high, found = match_point_grid(isect)
+                assert found, "Intersection point not found in fracture mesh."
             else:  # mdg.dim_max() == 3
-                found = False
-                for sd in mdg.subdomains(dim=0):
-                    if sd.id in orig_0d_domain_id and np.isclose(
-                        np.linalg.norm(sd.cell_centers - isect.coord),
-                        0,
-                        atol=tol,
-                    ):
-                        g_frac = sd
-                        break
+                g_high, found = match_point_grid(isect)
                 if found:
                     assert len(frac_inds) > 2
                 else:
-                    sds_1d = set(mdg.subdomains(dim=mdg.dim_max() - 2))
-                    for fi in frac_inds:
-                        g_frac = mdg.subdomains(dim=mdg.dim_max() - 1)[fi]
-                        sds_1d = sds_1d.intersection(
-                            mdg.neighboring_subdomains(g_frac, only_lower=True)
-                        )
+                    g_high = match_line_grid(isect)
 
-                    dist_min = np.inf
-                    for sd in sds_1d:
-                        dist = np.min(
-                            np.linalg.norm(
-                                sd.cell_centers
-                                - np.array(isect.coord).reshape((-1, 1)),
-                                axis=0,
-                            )
-                        )
-                        if dist < dist_min:
-                            dist_min = dist
-                            g_frac = sd
-        embedded_cell = g_frac.closest_cell(g_0d.cell_centers)
+        embedded_cell = g_high.closest_cell(g_low.cell_centers)
 
         proj = sps.coo_matrix(
             (np.array([1], dtype=bool), (np.array([0]), embedded_cell)),
-            shape=(1, g_frac.num_cells),
+            shape=(1, g_high.num_cells),
         ).tocsr()
-        _add_interface(0, g_frac, g_0d, mdg, proj)
+        _add_interface(0, g_high, g_low, mdg, proj)
 
 
 def _match_well_and_fracture_points(
