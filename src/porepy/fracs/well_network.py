@@ -104,26 +104,10 @@ class WellNetwork3d:
         intersections, wells, fractures = self.intersect_well_fractures(
             fracture_network.fractures, fracture_network.nd
         )
-        self._set_physical_names(intersections, wells)
-        self._set_mesh_size(wells, mesh_args.get("cell_size"))
-        gmsh.model.mesh.generate(1)
-        file_name = Path("well_mesh.msh")
-        gmsh.write(file_name.as_posix())
-
-        subdomains = pp.fracs.simplex.line_grid_from_gmsh(
-            file_name,
-            physical_name_stem_1d=PhysicalNames.WELL.value,
-            physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
-            sort_1d_nodes=False,
-        )
-        well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
-        well_mdg.compute_geometry()
+        well_mdg = self._generate_well_mesh(intersections, wells, mesh_args)
 
         self._check_overlapping_point_grids(mdg, well_mdg)
 
-        for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
-            wg.well_num = wi
-            wg.frac_num = -1
         orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
 
         mdg.add_subdomains(well_mdg.subdomains())
@@ -341,6 +325,28 @@ class WellNetwork3d:
             entities += [GmshLine(index=i, tags=indices)]
 
         return entities
+
+    def _generate_well_mesh(
+        self, intersections, wells, mesh_args: dict
+    ) -> pp.MixedDimensionalGrid:
+        self._set_physical_names(intersections, wells)
+        self._set_mesh_size(wells, mesh_args.get("cell_size"))
+        gmsh.model.mesh.generate(1)
+        file_name = Path("well_mesh.msh")
+        gmsh.write(file_name.as_posix())
+
+        subdomains = pp.fracs.simplex.line_grid_from_gmsh(
+            file_name,
+            physical_name_stem_1d=PhysicalNames.WELL.value,
+            physical_name_stem_0d=PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value,
+            sort_1d_nodes=False,
+        )
+        well_mdg = pp.meshing.subdomains_to_mdg(subdomains)
+        well_mdg.compute_geometry()
+        for wi, wg in enumerate(well_mdg.subdomains(dim=1)):
+            wg.well_num = wi
+            wg.frac_num = -1
+        return well_mdg
 
     def _set_physical_names(self, intersections, wells):
         for isect in intersections:
