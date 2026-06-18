@@ -8,13 +8,12 @@ from pathlib import Path
 from typing import Optional, NamedTuple, TYPE_CHECKING
 
 from .wells_3d import Well
-from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, GmshSurface, fragment
+from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, fragment
 from scipy import sparse as sps
 
 
 if TYPE_CHECKING:
     from porepy.fracs.fracture_network import FractureNetwork
-    from porepy.fracs.fracture import Fracture
 
 
 class WellFractureIntersection(NamedTuple):
@@ -151,9 +150,7 @@ class WellNetwork3d:
         # correspond to intersections between the well and a fracture intersection line
         # or point.
 
-        common_points = _match_well_and_fracture_points(
-            well_points, fracture_points
-        )
+        common_points = _match_well_and_fracture_points(well_points, fracture_points)
         kink_points = _well_kink_points(well_points, common_points)
 
         all_points = common_points | kink_points
@@ -174,7 +171,10 @@ class WellNetwork3d:
         return merged_intersections
 
     def _generate_well_mesh(
-        self, intersections, wells, mesh_args: dict
+        self,
+        intersections: list[WellFractureIntersection],
+        wells: list[GmshEntity],
+        mesh_args: dict,
     ) -> pp.MixedDimensionalGrid:
         _set_physical_names(intersections, wells)
         _set_mesh_size(wells, mesh_args.get("cell_size"))
@@ -197,7 +197,9 @@ class WellNetwork3d:
         gmsh.finalize()
         return well_mdg
 
-    def _add_well_subdomains(self, mdg, well_mdg):
+    def _add_well_subdomains(
+        self, mdg: pp.MixedDimensionalGrid, well_mdg: pp.MixedDimensionalGrid
+    ) -> list[int]:
         _check_overlapping_point_grids(mdg, well_mdg, self.tol)
 
         orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
@@ -213,8 +215,12 @@ class WellNetwork3d:
         return orig_0d_domain_id
 
     def _add_well_fracture_interfaces(
-        self, mdg, well_mdg, intersections, orig_0d_domain_id
-    ):
+        self,
+        mdg: pp.MixedDimensionalGrid,
+        well_mdg: pp.MixedDimensionalGrid,
+        intersections: list[WellFractureIntersection],
+        orig_0d_domain_id: list[int],
+    ) -> None:
         cell_center_0d = np.vstack(
             [g.cell_centers[:, 0] for g in well_mdg.subdomains(dim=0)]
         ).T
@@ -245,7 +251,8 @@ class WellNetwork3d:
             else:
                 if mdg.dim_max() == 2:
                     # The intersection should be on a 0d intersection point, or else
-                    # we have either overlapping fractures or a faulty interpretation of the geometry.
+                    # we have either overlapping fractures or a faulty interpretation
+                    # of the geometry.
                     found = False
                     for sd in mdg.subdomains(dim=0):
                         if sd.id in orig_0d_domain_id and np.isclose(
@@ -468,7 +475,9 @@ def _well_kink_points(
     return kinks
 
 
-def _set_physical_names(intersections, wells) -> None:
+def _set_physical_names(
+    intersections: list[WellFractureIntersection], wells: list[GmshEntity]
+) -> None:
     for isect in intersections:
         gmsh.model.addPhysicalGroup(
             0,
@@ -483,7 +492,7 @@ def _set_physical_names(intersections, wells) -> None:
         )
 
 
-def _set_mesh_size(wells, cell_size) -> None:
+def _set_mesh_size(wells: list[GmshEntity], cell_size: Optional[float]) -> None:
     gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
 
 
@@ -500,7 +509,9 @@ def _to_gmsh(wells: list[Well]) -> list[GmshLine]:
     return entities
 
 
-def _update_well_grid_tags(g, domain: pp.Domain, mdg: pp.MixedDimensionalGrid) -> None:
+def _update_well_grid_tags(
+    g: pp.Grid, domain: pp.Domain, mdg: pp.MixedDimensionalGrid
+) -> None:
     # Update the tags for the well grid, to identify boundary faces and tips.
     bounding_planes = domain.polytope_from_bounding_box()
     on_domain_boundary = np.zeros(g.num_faces, dtype=bool)
@@ -589,7 +600,7 @@ def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
 
 
 class _PointsOnEntities:
-    def __init__(self, entities: list[GmshEntity]):
+    def __init__(self, entities: list[GmshEntity]) -> None:
         points, inds = [], []
         for entity in entities:
             loc_points, loc_inds = entity.embedded_points()
