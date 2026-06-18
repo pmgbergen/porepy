@@ -1088,7 +1088,7 @@ class DarcysLaw(pp.PorePyModel):
         # distance is :math:`\frac{a}{2}` on either side of the fracture.
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
-        normal_gradient = pp.ad.Scalar(2) * (
+        normal_gradient_length = pp.ad.Scalar(2) * (
             projection.secondary_to_mortar_avg()
             @ self.aperture(subdomains) ** Scalar(-1)
         )
@@ -4409,6 +4409,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         return Scalar(
             self.solid.characteristic_fracture_roughness,
             "characteristic_fracture_roughness",
+            domains=subdomains,
         )
 
     def transitional_normal_strength(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4422,7 +4423,9 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         Returns:
             Operator for the transitional normal strength.
         """
-        strength = Scalar(0.2) * self.uniaxial_compressive_strength(subdomains)
+        strength = Scalar(0.2, domains=subdomains) * self.uniaxial_compressive_strength(
+            subdomains
+        )
         strength.set_name("transitional_normal_strength")
         return strength
 
@@ -4441,7 +4444,18 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # The damage evolution coefficient is defined as the logarithm of the ratio of
         # the uniaxial compressive strength and the tangential component of the contact
         # traction.
-        f_log = Function(pp.ad.functions.log, "log")
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
+        f_log = Function(pp.ad.functions.log, "log", domain, range_)
 
         # Nondimensionlize, since the contact traction is nondimensionalized.
         dimensionless_strength = self.uniaxial_compressive_strength(
@@ -4472,14 +4486,27 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # contact. As used in this class, the below common factor is linear in traction.
         # Thus, the product with the log(1/traction) should indeed vanish in the limit
         # of zero traction.
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
             "clip_function",
+            domain,
+            range_,
         )
         t = self.normal_component(subdomains) @ f_clip(
             self.contact_traction(subdomains)
         )
-        op = Scalar(-1, "sign_inverter") * t
+        op = Scalar(-1, "sign_inverter", domains=subdomains) * t
         op.set_name("positive_normal_traction")
         return op
 
@@ -4497,6 +4524,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         return Scalar(
             self.solid.uniaxial_compressive_strength,
             name="uniaxial_compressive_strength",
+            domains=subdomains,
         )
 
     def friction_damage_evolution_coefficient(
@@ -4515,7 +4543,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # geometric factor which may be set to 3.
         characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
 
-        coefficient = Scalar(3.0) * (
+        coefficient = Scalar(3.0, domains=subdomains) * (
             self.normalized_traction_for_damage(subdomains) / characteristic_roughness
         )
         coefficient.set_name("friction_damage_evolution_coefficient")
@@ -4593,16 +4621,6 @@ class FrictionDamage(pp.PorePyModel):
             Operator for nondimensionalized frictional damage.
 
         """
-        f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
-            "clip_function",
-        )
-        # Get the history variable. Guard against negative values.
-        history = f_clip(self.friction_damage_history(subdomains))
-
-        # Get the material parameter.
-        d0 = self.residual_friction_damage(subdomains)
-
         domain = (
             OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
             if subdomains
@@ -4613,6 +4631,17 @@ class FrictionDamage(pp.PorePyModel):
             if subdomains
             else None
         )
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            "clip_function",
+            domain,
+            range_,
+        )
+        # Get the history variable. Guard against negative values.
+        history = f_clip(self.friction_damage_history(subdomains))
+
+        # Get the material parameter.
+        d0 = self.residual_friction_damage(subdomains)
 
         # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp", domain, range_)
@@ -4701,16 +4730,6 @@ class DilationDamage(pp.PorePyModel):
             Operator for dimensionless dilation damage.
 
         """
-        f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
-            "clip_function",
-        )
-        # Get the history variable. Guard against negative values.
-        history = f_clip(self.dilation_damage_history(subdomains))
-
-        # Get the material parameter.
-        d0 = self.residual_dilation_damage(subdomains)
-        c = self.dilation_damage_decay(subdomains)
         domain = (
             OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
             if subdomains
@@ -4721,6 +4740,18 @@ class DilationDamage(pp.PorePyModel):
             if subdomains
             else None
         )
+
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            "clip_function",
+            domain,
+            range_,
+        )
+        # Get the history variable. Guard against negative values.
+        history = f_clip(self.dilation_damage_history(subdomains))
+
+        # Get the material parameter.
+        d0 = self.residual_dilation_damage(subdomains)
 
         # Compute the damage.
         f_exp = Function(pp.ad.functions.exp, "exp", domain, range_)

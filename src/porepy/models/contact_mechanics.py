@@ -715,14 +715,29 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Auxiliary functions.
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        domain = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+        range_ = (
+            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+            if subdomains
+            else None
+        )
+
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+        )
         f_mask_by_threshold = pp.ad.Function(
             partial(
                 pp.ad.mask_by_threshold,
                 self.numerical.open_state_tolerance,
             ),
             "mask_by_threshold_function",
+            domain,
+            range_,
         )
 
         # Augment the traction.
