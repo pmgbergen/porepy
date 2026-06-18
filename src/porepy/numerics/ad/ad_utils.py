@@ -358,6 +358,7 @@ def set_solution_values(
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
     additive: bool = False,
+    reference: bool = False,
 ) -> None:
     """Function for setting values in the data dictionary, for some time-dependent or
     iterative term.
@@ -388,6 +389,10 @@ def set_solution_values(
             values were set before.
 
     """
+    if reference:
+        _set_reference_values(name, values, data, additive)
+        return
+
     loc_index = _validate_indices(time_step_index, iterate_index)
 
     for loc, index in loc_index:
@@ -412,6 +417,7 @@ def get_solution_values(
     data: dict,
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
+    reference: bool = False
 ) -> np.ndarray:
     """Function for fetching values stored in the data dictionary, for some
     time-dependent or iterative term.
@@ -445,6 +451,13 @@ def get_solution_values(
         A copy of the values stored at the passed index.
 
     """
+    if reference:
+        # TODO: Currently asymmetry in index handling. Not touching for now.
+        # Give reference precedence.
+        # assert time_step_index is None and iterate_index is None, (
+        #     "Indices should not be passed when reference=True."
+        # )
+        return _get_reference_values(name, data)
     loc_index = _validate_indices(time_step_index, iterate_index)
     if len(loc_index) != 1:
         raise ValueError(
@@ -499,6 +512,10 @@ def shift_solution_values(
         ValueError: if ``max_index`` is negative.
 
     """
+    if location == pp.REFERENCE_SOLUTIONS:
+        _shift_to_reference_solutions(name, data)
+        return
+
     if location not in [pp.ITERATE_SOLUTIONS, pp.TIME_STEP_SOLUTIONS]:
         raise ValueError(f"Shifting values not implemented for location {location}")
 
@@ -527,6 +544,96 @@ def shift_solution_values(
 
     for i in range_:
         data[location][name][i] = data[location][name][i - 1].copy()
+
+
+def _set_reference_values(
+    name: str,
+    values: np.ndarray,
+    data: dict,
+    additive: bool = False,
+) -> None:
+    """Function for setting reference values in the data dictionary.
+
+    Parameters:
+        name: Name of the quantity that is to be assigned values.
+        values: The values that are set in the data dictionary.
+        data: Data dictionary corresponding to the subdomain or interface in question.
+        additive: ``default=False``
+
+            Flag to decide whether the values already stored in the data dictionary
+            should be added to or overwritten.
+
+    Raises:
+        ValueError: If the user attempts to set values additively at an index where no
+            values were set before.
+
+    """
+    if pp.REFERENCE_SOLUTIONS not in data:
+        data[pp.REFERENCE_SOLUTIONS] = {}
+
+    if additive:
+        if name not in data[pp.REFERENCE_SOLUTIONS]:
+            raise ValueError(
+                f"Cannot set value additively for {name} at reference values:"
+                + " No values stored to add to."
+            )
+        data[pp.REFERENCE_SOLUTIONS][name] += values
+    else:
+        data[pp.REFERENCE_SOLUTIONS][name] = values.copy()
+
+
+def _get_reference_values(
+    name: str,
+    data: dict,
+) -> np.ndarray:
+    """Function for fetching reference values stored in the data dictionary.
+
+    Parameters:
+        name: Name of the parameter whose values we are interested in.
+        data: The data dictionary.
+
+    Returns:
+        A copy of the values stored at the passed category and name.
+        0 if no values are stored for the passed category and name.
+
+    """
+    try:
+        value = data[pp.REFERENCE_SOLUTIONS][name].copy()
+    except KeyError as err:
+        # TODO: If possible return empty operators that allow arithmetic operations.
+        # For now return 0 as default.
+        value = 0.
+    return value
+
+
+def _shift_to_reference_solutions(
+    name: str,
+    data: dict,
+) -> None:
+    """Shift the current iterate to reference values for specific name.
+
+    This function shifts the reference values stored in the data dictionary
+    for the specified category and name by one time step or iteration.
+
+    Parameters:
+        name: The name of the reference values.
+        data: The data dictionary.
+
+    """
+    # Sanity checks.
+    if pp.ITERATE_SOLUTIONS not in data:
+        return
+    elif name not in data[pp.ITERATE_SOLUTIONS]:
+        return
+
+    # Initialize data structure.
+    if pp.REFERENCE_SOLUTIONS not in data:
+        data[pp.REFERENCE_SOLUTIONS] = {}
+    if name not in data[pp.REFERENCE_SOLUTIONS]:
+        data[pp.REFERENCE_SOLUTIONS][name] = {}
+
+    # Shift current iterate to the reference values.
+    data[pp.REFERENCE_SOLUTIONS][name] = data[pp.ITERATE_SOLUTIONS][name][0].copy()
 
 
 class MergedOperator(operators.Operator):
