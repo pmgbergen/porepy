@@ -210,7 +210,7 @@ class WellNetwork3d:
         return well_mdg
 
     def _add_well_subdomains(self, mdg, well_mdg):
-        self._check_overlapping_point_grids(mdg, well_mdg)
+        _check_overlapping_point_grids(mdg, well_mdg, self.tol)
 
         orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
 
@@ -220,7 +220,7 @@ class WellNetwork3d:
             mdg.add_interface(intf, (sd_primary, sd_secondary), data["face_cells"])
 
         for wg in well_mdg.subdomains(dim=1):
-            self._update_well_grid_tags(wg, self.domain, mdg)
+            _update_well_grid_tags(wg, self.domain, mdg)
 
         return orig_0d_domain_id
 
@@ -307,55 +307,6 @@ class WellNetwork3d:
                 shape=(1, g_frac.num_cells),
             ).tocsr()
             self._add_interface(0, g_frac, g_0d, mdg, proj)
-
-    def _update_well_grid_tags(self, g, domain, mdg):
-        # Update the tags for the well grid, to identify boundary faces and tips.
-        bounding_planes = domain.polytope_from_bounding_box()
-        on_domain_boundary = np.zeros(g.num_faces, dtype=bool)
-        for plane in bounding_planes:
-            if domain.dim == 2:
-                plane = np.vstack((plane, np.zeros(plane.shape[1])))
-                dist, *_ = pp.geometry.distances.points_segments(
-                    g.face_centers, plane[:, 0], plane[:, 1]
-                )
-            else:
-                dist, _, _ = pp.geometry.distances.points_polygon(g.face_centers, plane)
-
-            on_domain_boundary = np.logical_or(
-                on_domain_boundary, np.isclose(dist.ravel(), 0)
-            )
-
-        on_some_boundary = (
-            np.bincount(g.cell_faces.tocsc().indices, minlength=g.num_faces) == 1
-        )
-        g.tags["tip_faces"] = on_some_boundary & np.logical_not(
-            on_domain_boundary | g.tags["fracture_faces"]
-        )
-
-        g.tags["domain_boundary_faces"] = on_domain_boundary
-        if (bg_w := mdg.subdomain_to_boundary_grid(g)) is not None:
-            # Overwrite number of cells. This was initialized wrongly before
-            # sd_w.tags["domain_boundary_faces"] was set.
-            bg_w.num_cells = np.sum(on_domain_boundary)
-            bg_w.set_projections()
-            bg_w.compute_geometry()
-
-    def _check_overlapping_point_grids(
-        self, mdg: pp.MixedDimensionalGrid, well_mdg: pp.MixedDimensionalGrid
-    ) -> None:
-        """Check that there are no overlapping point grids in the well and fracture
-        meshes.
-
-        It should be possible to cover this case with a minor effort at the level of
-        geometry (no idea on the constitutive laws), but this has not been prioritized.
-        """
-
-        for sd_w in well_mdg.subdomains(dim=0):
-            for sd_f in mdg.subdomains(dim=0):
-                if np.allclose(sd_w.cell_centers, sd_f.cell_centers, atol=self.tol):
-                    raise NotImplementedError(
-                        "Coinciding point grids in fracture and well meshes."
-                    )
 
     def _add_interface(
         self,
@@ -576,6 +527,57 @@ def _set_physical_names(intersections, wells) -> None:
 
 def _set_mesh_size(wells, cell_size) -> None:
     gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
+
+
+def _update_well_grid_tags(g, domain: pp.Domain, mdg: pp.MixedDimensionalGrid) -> None:
+    # Update the tags for the well grid, to identify boundary faces and tips.
+    bounding_planes = domain.polytope_from_bounding_box()
+    on_domain_boundary = np.zeros(g.num_faces, dtype=bool)
+    for plane in bounding_planes:
+        if domain.dim == 2:
+            plane = np.vstack((plane, np.zeros(plane.shape[1])))
+            dist, *_ = pp.geometry.distances.points_segments(
+                g.face_centers, plane[:, 0], plane[:, 1]
+            )
+        else:
+            dist, _, _ = pp.geometry.distances.points_polygon(g.face_centers, plane)
+
+        on_domain_boundary = np.logical_or(
+            on_domain_boundary, np.isclose(dist.ravel(), 0)
+        )
+
+    on_some_boundary = (
+        np.bincount(g.cell_faces.tocsc().indices, minlength=g.num_faces) == 1
+    )
+    g.tags["tip_faces"] = on_some_boundary & np.logical_not(
+        on_domain_boundary | g.tags["fracture_faces"]
+    )
+
+    g.tags["domain_boundary_faces"] = on_domain_boundary
+    if (bg_w := mdg.subdomain_to_boundary_grid(g)) is not None:
+        # Overwrite number of cells. This was initialized wrongly before
+        # sd_w.tags["domain_boundary_faces"] was set.
+        bg_w.num_cells = np.sum(on_domain_boundary)
+        bg_w.set_projections()
+        bg_w.compute_geometry()
+
+
+def _check_overlapping_point_grids(
+    mdg: pp.MixedDimensionalGrid, well_mdg: pp.MixedDimensionalGrid, tol: float
+) -> None:
+    """Check that there are no overlapping point grids in the well and fracture
+    meshes.
+
+    It should be possible to cover this case with a minor effort at the level of
+    geometry (no idea on the constitutive laws), but this has not been prioritized.
+    """
+
+    for sd_w in well_mdg.subdomains(dim=0):
+        for sd_f in mdg.subdomains(dim=0):
+            if np.allclose(sd_w.cell_centers, sd_f.cell_centers, atol=tol):
+                raise NotImplementedError(
+                    "Coinciding point grids in fracture and well meshes."
+                )
 
 
 def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
