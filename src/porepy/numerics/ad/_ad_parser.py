@@ -197,7 +197,7 @@ class AdParser:
         #    them according to the operator.
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
-                if op.is_previous_iterate or op.is_previous_time:
+                if op.is_previous_iterate or op.is_previous_time or op.is_reference:
                     # Empty vector like the global vector of unknowns for prev time/iter
                     # insert the values at the right dofs and slice.
                     vals = np.empty_like(
@@ -218,7 +218,7 @@ class AdParser:
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
                 # If a variable represents a previous iteration or time, parse values.
-                if op.is_previous_iterate or op.is_previous_time:
+                if op.is_previous_iterate or op.is_previous_time or op.is_reference:
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
