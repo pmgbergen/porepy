@@ -692,7 +692,7 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 300.0 * day
+tf = 0.5 * day
 dt = 0.5 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -722,7 +722,7 @@ params = {
     "nl_convergence_tol_res": residual_tolerance,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
-    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
+    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'cpr'
 }
 

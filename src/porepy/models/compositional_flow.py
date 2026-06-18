@@ -1398,24 +1398,21 @@ class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
         """
 
         # Updating BC values of non-linear weights in component mass balance equations.
-        # Dependent components are skipped.
+        # Note: We need the fractional flow boundary values for all components, including the
+        # dependent/reference component, because when mass_mobility_weighted_permeability is
+        # False, the total boundary fluid flux is computed by summing over all components'
+        # boundary fluxes.
         for component in self.fluid.components:
-            # NOTE: The independency of overall fractions is used to characterize the
-            # dependency of fractional flow, since the fractional weights also fulfill
-            # the unity constraint.
-            # In practice, the fractional flow weight for the dependent component is
-            # never used in any equation, since it's mass balance is not part of the
-            # model equations.
-            if self.has_independent_fraction(component):
-                bc_func = cast(
-                    Callable[[pp.BoundaryGrid], np.ndarray],
-                    partial(self.bc_values_fractional_flow_component, component),
-                )
+            bc_func = cast(
+                Callable[[pp.BoundaryGrid], np.ndarray],
+                partial(self.bc_values_fractional_flow_component, component),
+            )
 
-                self.update_boundary_condition(
-                    name=self.bc_data_fractional_flow_component_key(component),
-                    function=bc_func,
-                )
+            self.update_boundary_condition(
+                name=self.bc_data_fractional_flow_component_key(component),
+                function=bc_func,
+            )
+
 
         # Updating BC values of the non-linear weight in the energy balance (advected
         # enthalpy).
