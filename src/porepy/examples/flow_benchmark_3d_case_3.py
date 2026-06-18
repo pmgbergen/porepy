@@ -130,9 +130,11 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""
 
+def run_example()-> list[FlowBenchmark3dCase3Model]:
+    """Run flow benchmark 3d case 3 and return models."""
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+    models: list[FlowBenchmark3dCase3Model] = []
+
     params = {
         "material_constants": {
             "solid": solid_constants,
@@ -145,3 +147,11 @@ if __name__ == "__main__":
         "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
     }
     pp.run_time_dependent_model(model, solver_parameters)
+    models.append(model)
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()
