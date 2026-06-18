@@ -510,7 +510,7 @@ class EnthalpyBasedEnergyBalanceEquations(
             len(subdomains) == 0
             or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
         ) and is_fractional_flow(self):
-            flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
+            flux = self.advection_weight_energy_balance(subdomains) * self.mass_flux(
                 subdomains
             )
         else:
@@ -775,7 +775,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains
-                ) * self.darcy_flux(domains)
+                ) * self.mass_flux(domains)
             else:
                 return self.create_boundary_operator(
                     self.bc_data_component_flux_key(component),
@@ -1070,6 +1070,141 @@ class ConstitutiveLawsCF(
     transport.
 
     """
+
+    def mass_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Total mass flux of the fluid mixture.
+
+        If mass_mobility_weighted_permeability is True, it is given by darcy_flux.
+        If mass_mobility_weighted_permeability is False, it is given by fluid_flux
+        (which is darcy_flux scaled by total mass mobility).
+        """
+        if is_mass_mobility_weighted_permeability(self):
+            return self.darcy_flux(subdomains)
+        else:
+            return self.fluid_flux(subdomains)
+
+    def interface_mass_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Total mass flux of the fluid mixture across interfaces."""
+        if is_mass_mobility_weighted_permeability(self):
+            return self.interface_darcy_flux(interfaces)
+        else:
+            return self.interface_fluid_flux(interfaces)
+
+    def well_mass_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Total mass flux of the fluid mixture along wells."""
+        if is_mass_mobility_weighted_permeability(self):
+            return self.well_flux(interfaces)
+        else:
+            return self.well_fluid_flux(interfaces)
+
+    def advective_flux(
+        self,
+        subdomains: list[pp.Grid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindAd,
+        bc_values: pp.ad.Operator,
+        interface_flux: Optional[
+            Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+        ] = None,
+    ) -> pp.ad.Operator:
+        """Override advective flux to scale Darcy flux by total mobility if using
+        fractional flow and mass_mobility_weighted_permeability is False, and we are
+        not computing the fluid flux itself."""
+        is_fluid_flux = (
+            hasattr(advected_entity, "name")
+            and advected_entity.name == "total_mass_mobility"
+        )
+        if is_fractional_flow(self) and not is_fluid_flux:
+            velocity_field = self.mass_flux(subdomains)
+        else:
+            velocity_field = self.darcy_flux(subdomains)
+
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        flux: pp.ad.Operator = (
+            velocity_field * (discr.upwind() @ advected_entity)
+            + discr.bound_transport_dir() @ (velocity_field * bc_values)
+            # Advective flux coming from lower-dimensional subdomains
+            + discr.bound_transport_neu() @ bc_values
+        )
+        if interface_flux is not None:
+            flux += (
+                discr.bound_transport_neu()
+                @ mortar_projection.mortar_to_primary_int()
+                @ interface_flux(interfaces)
+            )
+        else:
+            assert len(interfaces) == 0
+        return flux
+
+    def interface_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """Override interface advective flux to scale interface Darcy flux by total
+        mobility if using fractional flow and mass_mobility_weighted_permeability
+        is False, and we are not computing the interface fluid flux itself."""
+        is_fluid_flux = (
+            hasattr(advected_entity, "name")
+            and advected_entity.name == "total_mass_mobility"
+        )
+        if is_fractional_flow(self) and not is_fluid_flux:
+            velocity_field = self.interface_mass_flux(interfaces)
+        else:
+            velocity_field = self.interface_darcy_flux(interfaces)
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(subdomains)
+        interface_flux: pp.ad.Operator = velocity_field * (
+            discr.upwind_primary()
+            @ mortar_projection.primary_to_mortar_avg()
+            @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary()
+            @ mortar_projection.secondary_to_mortar_avg()
+            @ advected_entity
+        )
+        return interface_flux
+
+    def well_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """Override well advective flux to scale well Darcy flux by total mobility if
+        using fractional flow and mass_mobility_weighted_permeability is False, and
+        we are not computing the well fluid flux itself."""
+        is_fluid_flux = (
+            hasattr(advected_entity, "name")
+            and advected_entity.name == "total_mass_mobility"
+        )
+        if is_fractional_flow(self) and not is_fluid_flux:
+            velocity_field = self.well_mass_flux(interfaces)
+        else:
+            velocity_field = self.well_flux(interfaces)
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        interface_flux: pp.ad.Operator = velocity_field * (
+            discr.upwind_primary()
+            @ mortar_projection.primary_to_mortar_avg()
+            @ advected_entity
+            + discr.upwind_secondary()
+            @ mortar_projection.secondary_to_mortar_avg()
+            @ advected_entity
+        )
+        return interface_flux
+
 
 
 # endregion

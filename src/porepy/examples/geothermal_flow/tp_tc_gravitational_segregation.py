@@ -9,13 +9,9 @@ import time
 import csv
 import matplotlib.pyplot as plt
 import scipy.sparse as sps
-from scipy.sparse.csgraph import reverse_cuthill_mckee
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
-from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
-)
 from flow_model_base import FlowModelBase
 from abc import abstractmethod
 
@@ -89,23 +85,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    # def set_fractures(self) -> None:
+    #     points = np.array(
+    #         [
+    #             [1.0, 2.0],
+    #             [4.0, 2.0],
+    #             [1.0, 2.0],
+    #             [1.0, 4.0],
+    #             [4.0, 2.0],
+    #             [4.0, 4.0],
+    #             [2.0, 1.0],
+    #             [2.0, 4.0],
+    #             [3.0, 1.0],
+    #             [3.0, 4.0],
+    #         ]
+    #     ).T
+    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -692,8 +688,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 0.5 * day
-dt = 0.5 * day
+tf = 300.0 * day
+dt = 50.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -718,13 +714,20 @@ params = {
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
-    "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": residual_tolerance,
+    "nl_convergence_criteria": {
+        "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            tol=residual_tolerance, metric=pp.EuclideanMetric()
+        ),
+    },
+    "nl_divergence_criteria": {
+        "max_iter": pp.MaxIterationsCriterion(max_iterations=100),
+    },
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'cpr'
 }
+
 
 model = FlowModel(params)
 
