@@ -156,9 +156,11 @@ class FlowBenchmark2dCase4Model(  # type: ignore[misc]
 ):
     """Mixer class for case 4 from the 2d flow benchmark."""
 
+def run_example() -> list[FlowBenchmark2dCase4Model]:
+    """Run the flow benchmark 2D case 4 example and return the models."""
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+    models: list[FlowBenchmark2dCase4Model] = []
+
     model_params = {
         "material_constants": {"solid": solid_constants},
         "meshing_arguments": {"cell_size": 10.0},
@@ -166,6 +168,7 @@ if __name__ == "__main__":
 
     model = FlowBenchmark2dCase4Model(model_params)  # type: ignore[abstract]
     pp.run_time_dependent_model(model)
+    models.append(model)
 
     title = f"Pressure distribution."
     pp.plot_grid(
@@ -178,3 +181,9 @@ if __name__ == "__main__":
         fracturewidth_1d=3,
         linewidth=0.2,
     )
+
+    return models
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

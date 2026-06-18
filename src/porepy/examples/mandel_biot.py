@@ -1441,9 +1441,10 @@ class MandelModel(  # type: ignore[misc]
 
     """
 
+def run_example()->list[MandelModel]:
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+    models:list[MandelModel] = []
+
     # Set material constants.
     material_constants = {
         "solid": pp.SolidConstants(**mandel_solid_constants),  # type: ignore[arg-type]
@@ -1476,3 +1477,10 @@ if __name__ == "__main__":
 
     model = MandelModel(params=model_params)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model)
+    models.append(model)
+
+    return models
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()
