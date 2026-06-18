@@ -915,9 +915,25 @@ class FluidBuoyancy(pp.PorePyModel):
             )
 
             # Compute interface contribution and project back to primary grid
-            interface_coupling_intf = (
-                gamma_interface * delta_interface
-            ) * intf_w_flux_gamma_delta
+            if is_mass_mobility_weighted_permeability(self):
+                interface_coupling_intf = (
+                    gamma_interface * delta_interface
+                ) * intf_w_flux_gamma_delta
+            else:
+                l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
+                l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
+                l_gamma_interface = (
+                    intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ l_gamma
+                    + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ l_gamma
+                )
+                l_delta_interface = (
+                    intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ l_delta
+                    + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ l_delta
+                )
+                lambda_interface_upwind = l_gamma_interface + l_delta_interface
+                interface_coupling_intf = (
+                    gamma_interface * delta_interface
+                ) * lambda_interface_upwind * intf_w_flux_gamma_delta
             # discr_gamma.bound_transport_neu() and discr_delta.bound_transport_neu()
             # are equal, discr_gamma.bound_transport_neu() is selected to operate
             b_intf_flux_gamma_delta = (
@@ -1013,9 +1029,26 @@ class FluidBuoyancy(pp.PorePyModel):
             )
 
             # Compute interface contribution and project back to secondary grid
-            interface_coupling_intf = (
-                gamma_interface * delta_interface
-            ) * intf_w_flux_gamma_delta
+            from porepy.models.compositional_flow import is_mass_mobility_weighted_permeability
+            if is_mass_mobility_weighted_permeability(self):
+                interface_coupling_intf = (
+                    gamma_interface * delta_interface
+                ) * intf_w_flux_gamma_delta
+            else:
+                l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
+                l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
+                l_gamma_interface = (
+                    intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ l_gamma
+                    + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ l_gamma
+                )
+                l_delta_interface = (
+                    intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ l_delta
+                    + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ l_delta
+                )
+                lambda_interface_upwind = l_gamma_interface + l_delta_interface
+                interface_coupling_intf = (
+                    gamma_interface * delta_interface
+                ) * lambda_interface_upwind * intf_w_flux_gamma_delta
             b_flux_jump_gamma_delta = (
                 mortar_projection.mortar_to_secondary_int() @ interface_coupling_intf
             )
