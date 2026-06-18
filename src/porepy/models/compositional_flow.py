@@ -510,7 +510,7 @@ class EnthalpyBasedEnergyBalanceEquations(
             len(subdomains) == 0
             or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
         ) and is_fractional_flow(self):
-            flux = self.advection_weight_energy_balance(subdomains) * self.mass_flux(
+            flux = self.advection_weight_energy_balance(subdomains) * self.fluid_flux(
                 subdomains
             )
         else:
@@ -775,7 +775,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             if is_fractional_flow(self):
                 return self.advection_weight_component_mass_balance(
                     component, domains
-                ) * self.mass_flux(domains)
+                ) * self.fluid_flux(domains)
             else:
                 return self.create_boundary_operator(
                     self.bc_data_component_flux_key(component),
@@ -1071,31 +1071,6 @@ class ConstitutiveLawsCF(
 
     """
 
-    def mass_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Total mass flux of the fluid mixture.
-
-        If mass_mobility_weighted_permeability is True, it is given by darcy_flux.
-        If mass_mobility_weighted_permeability is False, it is given by fluid_flux
-        (which is darcy_flux scaled by total mass mobility).
-        """
-        if is_mass_mobility_weighted_permeability(self):
-            return self.darcy_flux(subdomains)
-        else:
-            return self.fluid_flux(subdomains)
-
-    def interface_mass_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Total mass flux of the fluid mixture across interfaces."""
-        if is_mass_mobility_weighted_permeability(self):
-            return self.interface_darcy_flux(interfaces)
-        else:
-            return self.interface_fluid_flux(interfaces)
-
-    def well_mass_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Total mass flux of the fluid mixture along wells."""
-        if is_mass_mobility_weighted_permeability(self):
-            return self.well_flux(interfaces)
-        else:
-            return self.well_fluid_flux(interfaces)
 
     def advective_flux(
         self,
@@ -1115,7 +1090,7 @@ class ConstitutiveLawsCF(
             and advected_entity.name == "total_mass_mobility"
         )
         if is_fractional_flow(self) and not is_fluid_flux:
-            velocity_field = self.mass_flux(subdomains)
+            velocity_field = self.fluid_flux(subdomains)
         else:
             velocity_field = self.darcy_flux(subdomains)
 
@@ -1153,7 +1128,7 @@ class ConstitutiveLawsCF(
             and advected_entity.name == "total_mass_mobility"
         )
         if is_fractional_flow(self) and not is_fluid_flux:
-            velocity_field = self.interface_mass_flux(interfaces)
+            velocity_field = self.interface_fluid_flux(interfaces)
         else:
             velocity_field = self.interface_darcy_flux(interfaces)
 
@@ -1187,7 +1162,7 @@ class ConstitutiveLawsCF(
             and advected_entity.name == "total_mass_mobility"
         )
         if is_fractional_flow(self) and not is_fluid_flux:
-            velocity_field = self.well_mass_flux(interfaces)
+            velocity_field = self.well_fluid_flux(interfaces)
         else:
             velocity_field = self.well_flux(interfaces)
 

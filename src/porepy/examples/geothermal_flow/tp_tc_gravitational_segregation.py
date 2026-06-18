@@ -68,7 +68,8 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0125 * 2
+    # _sphere_radius: float = 0.0125 * 2
+    _sphere_radius: float = 0.25 * 2
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -81,7 +82,8 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0125 * 2, "m")
+        # cell_size = self.units.convert_units(0.0125 * 2, "m")
+        cell_size = self.units.convert_units(0.25 * 2, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -123,7 +125,8 @@ class ModelGeometry(Geometry):
 
 
 class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 0.0625* 0.5
+    _sphere_radius: float = 1.0 * 0.5
+    # _sphere_radius: float = 0.0625 * 0.5
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -141,7 +144,8 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0625 * 0.5, "m")
+        # cell_size = self.units.convert_units(0.0625 * 0.5, "m")
+        cell_size = self.units.convert_units(1.0 * 0.5, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -688,8 +692,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 300.0 * day
-dt = 50.0 * day
+tf = 3.0 * day
+dt = 0.5 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -716,7 +720,7 @@ params = {
     "apply_schur_complement_reduction": False,
     "nl_convergence_criteria": {
         "res_abs": pp.ResidualBasedAbsoluteCriterion(
-            tol=residual_tolerance, metric=pp.EuclideanMetric()
+            tol=residual_tolerance/10.0, metric=pp.EuclideanMetric()
         ),
     },
     "nl_divergence_criteria": {

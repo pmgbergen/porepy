@@ -858,15 +858,16 @@ class FluidBuoyancy(pp.PorePyModel):
             discr_delta.upwind() @ f_delta
         )  # well-defined fractional flow on facets.
 
-        if is_mass_mobility_weighted_permeability(self):
+        if  is_mass_mobility_weighted_permeability(self):
+            b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+        else:
             l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
             l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
             l_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ (l_gamma)  # well-defined lambda on facets.
             l_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ (l_delta)  # well-defined lambda on facets.
             lambda_upwind = l_gamma_upwind + l_delta_upwind
             b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * lambda_upwind * w_flux_gamma_delta
-        else:
-            b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+
         b_fluxes.append(b_flux_gamma_delta)
 
         interfaces = self.subdomains_to_interfaces(domains, [1])
