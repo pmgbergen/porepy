@@ -38,6 +38,7 @@ __all__ = [
     "Operator",
     "TimeDependentOperator",
     "IterativeOperator",
+    "ReferenceOperator",
     "SparseArray",
     "DenseArray",
     "TimeDependentDenseArray",
@@ -77,11 +78,14 @@ def _get_previous_time_or_iterate(
         iteration.
 
     """
-    if steps == 0:
+    # Keep reference operators as they are.
+    if isinstance(op, ReferenceOperator) and op.is_reference:
+        return op
+    elif steps == 0:
         return op
     # The recursion reached an atomic operator, which has some time- or
     # iterate-dependent behaviour
-    if isinstance(op, TimeDependentOperator) and prev_time:
+    elif isinstance(op, TimeDependentOperator) and prev_time:
         return op.previous_timestep(steps=steps)
     elif isinstance(op, IterativeOperator) and not prev_time:
         return op.previous_iteration(steps=steps)
@@ -104,6 +108,22 @@ def _get_previous_time_or_iterate(
             _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
             for child in op.children
         ]
+        return new_op
+
+
+def _get_reference(op: Operator) -> Operator:
+    """Helper function for providing correct AD structure for reference operators."""
+    if isinstance(op, TimeDependentOperator) and op.is_previous_time:
+        return op
+    elif isinstance(op, IterativeOperator) and op.is_previous_iterate:
+        return op
+    elif isinstance(op, ReferenceOperator) and not op.is_reference:
+        return op.reference()
+    elif op.is_leaf():
+        return op
+    else:
+        new_op = copy.copy(op)
+        new_op.children = [_get_reference(child) for child in op.children]
         return new_op
 
 
@@ -430,6 +450,19 @@ class Operator:
 
         """
         return _get_previous_time_or_iterate(self, prev_time=False, steps=steps)
+
+    def reference(self) -> pp.ad.Operator:
+        """Base method to trigger a recursion over the operator tree and create a
+        shallow copy of this operator with reference behaviour.
+
+        For more information, see :class:`ReferenceOperator`.
+
+        """
+        return _get_reference(self)
+
+    def perturbation_from_reference(self) -> pp.ad.Operator:
+        """Returns the perturbation of this operator from its reference value."""
+        return self - self.reference()
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
@@ -958,7 +991,7 @@ class TimeDependentOperator(Operator):
         )
 
         self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
+        """Reference to the operator representing this operator at the current time and
         iterate.
 
         This attribute is only available in operators representing previous time steps.
@@ -984,6 +1017,10 @@ class TimeDependentOperator(Operator):
         - ...
 
         """
+        if isinstance(self, ReferenceOperator):
+            if self.is_reference:
+                return None
+
         if self._time_step_index < 0:
             return None
         else:
@@ -1072,7 +1109,7 @@ class IterativeOperator(Operator):
         )
 
         self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
+        """Reference to the operator representing this operator at the current time and
         iterate.
 
         This attribute is only available in operators representing previous time steps.
@@ -1092,7 +1129,7 @@ class IterativeOperator(Operator):
     def iterate_index(self) -> int | None:
         """Returns the iterate index this instance represents, at the current time.
 
-        - None indicates this instance is at a previous time
+        - None indicates this instance is at a previous time or reference.
         - 0 represents the most recently computed iterate.
         - 1 represents the iterate before that
         - ...
@@ -1105,6 +1142,10 @@ class IterativeOperator(Operator):
         # Operators at previous time have no iterate indices
         if isinstance(self, TimeDependentOperator):
             if self.is_previous_time:
+                return None
+
+        if isinstance(self, ReferenceOperator):
+            if self.is_reference:
                 return None
 
         # operators representing at current time use the values stored at index 0
@@ -1163,6 +1204,84 @@ class IterativeOperator(Operator):
 
 
 _IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
+
+class ReferenceOperator(Operator):
+    """Intermediate parent class for operator classes, which can have a reference."""
+
+    _is_reference: bool = False
+    """True if this operator represents a reference value."""
+
+    def __init__(
+        self,
+        name: str | None = None,
+        domains: Optional[pp.GridLikeSequence] = None,
+        operation: Optional[Operations] = None,
+        children: Optional[Sequence[Operator]] = None,
+    ) -> None:
+        super().__init__(
+            name=name, domains=domains, operation=operation, children=children
+        )
+
+        self.original_operator: Operator
+        """Reference to the operator representing this operator at the current time and
+        iterate.
+
+        This attribute is only available in operators representing previous time steps.
+
+        """
+
+    @property
+    def is_reference(self) -> bool:
+        """True, if the operator represents a reference."""
+        return self._is_reference
+
+    def reference(
+        self: _ReferenceOperator
+    ) -> _ReferenceOperator:
+        """Returns a copy of the reference operator with an advanced time-step
+        index.
+
+        Reference operators do not invoke the recursion (like the base class),
+        but represent a leaf in the recursion tree.
+
+        Note:
+            You cannot create operators at the previous time step from operators which
+            are at some previous iterate. Use the :attr:`original_operator` instead.
+
+        Raises:
+            ValueError: If this instance represents an operator at a previous iterate.
+            AssertionError: If ``steps`` is not strictly positive.
+
+        """
+        # Currently, only "non-fixed" operators can be evaluated at reference.
+        if isinstance(self, TimeDependentOperator) and self.is_previous_time:
+            return self
+        if isinstance(self, IterativeOperator) and self.is_previous_iterate:
+            return self
+        if isinstance(self, ReferenceOperator) and self.is_reference: 
+            return self
+
+        # TODO copy or deepcopy? Is this enough for every operator class?
+        op = copy.copy(self)
+        # Delete the cached key, so that this must be regenerated for the new operator,
+        # which is different from the original one.
+        op._cached_key = None
+        op._is_reference = True
+
+        if isinstance(self, TimeDependentOperator) and self.is_previous_time:
+            op._time_step_index = -1
+        if isinstance(self, IterativeOperator) and self.is_previous_iterate:
+            op._iterate_index = -1
+
+        # keeping track to the very first one
+        if self.is_current_iterate:
+            op.original_operator = self
+        else:
+            op.original_operator = self.original_operator
+
+        return op
+    
+_ReferenceOperator = TypeVar("_ReferenceOperator", bound=ReferenceOperator)
 
 
 class SparseArray(Operator):
@@ -1394,7 +1513,7 @@ class DenseArray(Operator):
         return self._values
 
 
-class TimeDependentDenseArray(TimeDependentOperator):
+class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1464,7 +1583,9 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
         """
         vals = []
-        if self.is_previous_time:
+        if self.is_reference:
+            index_kwarg = {"reference": True}
+        elif self.is_previous_time:
             index_kwarg = {"time_step_index": self.time_step_index}
         else:
             index_kwarg = {"iterate_index": 0}
@@ -1578,7 +1699,7 @@ class Scalar(Operator):
         self._value = value
 
 
-class Variable(TimeDependentOperator, IterativeOperator):
+class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator):
     """AD operator representing a variable defined on a single grid or mortar grid.
 
     For combinations of variables on different subdomains, see
@@ -1735,6 +1856,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
             data,
             iterate_index=self.iterate_index,
             time_step_index=self.time_step_index,
+            reference=self.is_reference,
         )
 
     def __repr__(self) -> str:
@@ -1805,6 +1927,7 @@ class MixedDimensionalVariable(Variable):
         time_indices = []
         iter_indices = []
         current_iter = []
+        reference = []
         names = []
         domains = []
 
@@ -1812,8 +1935,9 @@ class MixedDimensionalVariable(Variable):
             time_indices.append(var.time_step_index)
             iter_indices.append(var.iterate_index)
             current_iter.append(var.is_current_iterate)
+            reference.append(var.is_reference)
             names.append(var.name)
-            domains.append(var.domain)
+            domains.append(var.domain)        
 
         # check assumptions
         if len(variables) > 0:
@@ -1837,8 +1961,9 @@ class MixedDimensionalVariable(Variable):
         else:
             time_indices = [-1]
             iter_indices = [None]
-            names = ["empty_md_variable"]
             current_iter = [True]
+            reference = [False]
+            names = ["empty_md_variable"]
 
         # NOTE everything below here is redundent with a proper super() call
         # See top comment in constructor
@@ -1859,6 +1984,9 @@ class MixedDimensionalVariable(Variable):
             # can be None if variables at previous time. Set iterate index to default
             # value.
             self._iterate_index = -1 if iter_indices[0] is None else iter_indices[0]
+
+        # Check if reference
+        self._is_reference = reference[0]
 
         self._name = names[0]
 
@@ -1967,6 +2095,13 @@ class MixedDimensionalVariable(Variable):
         obtained at the previous iteration."""
         op = super().previous_iteration(steps=steps)
         op.sub_vars = [var.previous_iteration(steps=steps) for var in self.sub_vars]
+        return op
+
+    def reference(self) -> MixedDimensionalVariable:
+        """Mixed-dimensional variables have sub-variables which also need to be
+        obtained as reference."""
+        op = super().reference()
+        op.sub_vars = [var.reference() for var in self.sub_vars]
         return op
 
 
