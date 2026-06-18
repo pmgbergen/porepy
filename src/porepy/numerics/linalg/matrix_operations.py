@@ -20,6 +20,69 @@ try:
 except ImportError:
     numba_available = False
 
+if numba_available:
+    @njit(
+        cache=True,
+        parallel=True,
+    )
+    def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
+        # Construction of simple data structures (low complexity). Indices for block
+        # positions, flattened inverse block positions and nonzeros. Expanded block
+        # positions.
+        idx_blocks = np.cumsum(sz).astype(np.int32)
+        # Expanded nonzero positions for flattened inverse blocks
+        idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+        # Nonzero positions for the given matrix data (i.e. a.data)
+        idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
+
+        # Retrieve global indices (low complexity)
+        if is_csr_q:
+            cols = indices
+            row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+        else:
+            rows = indices
+            col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+
+        # flattened nonzero values of the dense inverse (low complexity)
+        # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
+        v = np.zeros(idx_inv_blocks[-1])
+
+        for ib in prange(sz.size - 1):
+            v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+            flat_block = v[v_range]
+            # Retrieve global block position
+            idx_shift = idx_blocks[ib]
+            idx_block = idx_blocks[np.array([ib, ib + 1])]
+
+            # Transform from global to local rows and cols positions
+            if is_csr_q:
+                l_row = (
+                    np.repeat(
+                        np.arange(idx_block[0], idx_block[1]),
+                        row_reps[idx_block[0] : idx_block[1]],
+                    ).astype(np.int32)
+                    - idx_shift
+                )
+                l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+            else:
+                l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+                l_col = (
+                    np.repeat(
+                        np.arange(idx_block[0], idx_block[1]),
+                        col_reps[idx_block[0] : idx_block[1]],
+                    ).astype(np.int32)
+                    - idx_shift
+                )
+            # Construct flattened local positions (major order of non-zeros)
+            sequence_ij = l_row * sz[ib + 1] + l_col
+            # Assigning flattened positions directly from the matrix data (a.data)
+            flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+            # Reshape flattened block to squared dense block of size[ib]
+            dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+            # Perform inversion and assigning values from a 1-D ravelled array
+            v[v_range] = np.ravel(np.linalg.inv(dense_block))
+        return v
+
 
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
@@ -1351,68 +1414,68 @@ def invert_diagonal_blocks(
         # Extended block sizes structure
         sz = np.insert(size, 0, 0).astype(np.int32)
 
-        @njit(
-            "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
-            cache=True,
-            parallel=True,
-        )
-        def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-            # Construction of simple data structures (low complexity). Indices for block
-            # positions, flattened inverse block positions and nonzeros. Expanded block
-            # positions.
-            idx_blocks = np.cumsum(sz).astype(np.int32)
-            # Expanded nonzero positions for flattened inverse blocks
-            idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
-            # Nonzero positions for the given matrix data (i.e. a.data)
-            idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
+        # @njit(
+        #     "f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])",
+        #     cache=True,
+        #     parallel=True,
+        # )
+        # def inv_compiled_function_porepy(is_csr_q, data, indices, indptr, sz):
+        #     # Construction of simple data structures (low complexity). Indices for block
+        #     # positions, flattened inverse block positions and nonzeros. Expanded block
+        #     # positions.
+        #     idx_blocks = np.cumsum(sz).astype(np.int32)
+        #     # Expanded nonzero positions for flattened inverse blocks
+        #     idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)
+        #     # Nonzero positions for the given matrix data (i.e. a.data)
+        #     idx_nnz = np.searchsorted(indices, idx_blocks).astype(np.int32)
 
-            # Retrieve global indices (low complexity)
-            if is_csr_q:
-                cols = indices
-                row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
-            else:
-                rows = indices
-                col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+        #     # Retrieve global indices (low complexity)
+        #     if is_csr_q:
+        #         cols = indices
+        #         row_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
+        #     else:
+        #         rows = indices
+        #         col_reps = indptr[1 : indptr.size] - indptr[0 : indptr.size - 1]
 
-            # flattened nonzero values of the dense inverse (low complexity)
-            # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
-            v = np.zeros(idx_inv_blocks[-1])
+        #     # flattened nonzero values of the dense inverse (low complexity)
+        #     # Numba np.zeros support ensures v is a contiguous array (C-contiguous)
+        #     v = np.zeros(idx_inv_blocks[-1])
 
-            for ib in prange(sz.size - 1):
-                v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
-                flat_block = v[v_range]
-                # Retrieve global block position
-                idx_shift = idx_blocks[ib]
-                idx_block = idx_blocks[np.array([ib, ib + 1])]
+        #     for ib in prange(sz.size - 1):
+        #         v_range = np.arange(idx_inv_blocks[ib], idx_inv_blocks[ib + 1])
+        #         flat_block = v[v_range]
+        #         # Retrieve global block position
+        #         idx_shift = idx_blocks[ib]
+        #         idx_block = idx_blocks[np.array([ib, ib + 1])]
 
-                # Transform from global to local rows and cols positions
-                if is_csr_q:
-                    l_row = (
-                        np.repeat(
-                            np.arange(idx_block[0], idx_block[1]),
-                            row_reps[idx_block[0] : idx_block[1]],
-                        ).astype(np.int32)
-                        - idx_shift
-                    )
-                    l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                else:
-                    l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
-                    l_col = (
-                        np.repeat(
-                            np.arange(idx_block[0], idx_block[1]),
-                            col_reps[idx_block[0] : idx_block[1]],
-                        ).astype(np.int32)
-                        - idx_shift
-                    )
-                # Construct flattened local positions (major order of non-zeros)
-                sequence_ij = l_row * sz[ib + 1] + l_col
-                # Assigning flattened positions directly from the matrix data (a.data)
-                flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
-                # Reshape flattened block to squared dense block of size[ib]
-                dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
-                # Perform inversion and assigning values from a 1-D ravelled array
-                v[v_range] = np.ravel(np.linalg.inv(dense_block))
-            return v
+        #         # Transform from global to local rows and cols positions
+        #         if is_csr_q:
+        #             l_row = (
+        #                 np.repeat(
+        #                     np.arange(idx_block[0], idx_block[1]),
+        #                     row_reps[idx_block[0] : idx_block[1]],
+        #                 ).astype(np.int32)
+        #                 - idx_shift
+        #             )
+        #             l_col = cols[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+        #         else:
+        #             l_row = rows[idx_nnz[ib] : idx_nnz[ib + 1]] - idx_shift
+        #             l_col = (
+        #                 np.repeat(
+        #                     np.arange(idx_block[0], idx_block[1]),
+        #                     col_reps[idx_block[0] : idx_block[1]],
+        #                 ).astype(np.int32)
+        #                 - idx_shift
+        #             )
+        #         # Construct flattened local positions (major order of non-zeros)
+        #         sequence_ij = l_row * sz[ib + 1] + l_col
+        #         # Assigning flattened positions directly from the matrix data (a.data)
+        #         flat_block[sequence_ij] = data[idx_nnz[ib] : idx_nnz[ib + 1]]
+        #         # Reshape flattened block to squared dense block of size[ib]
+        #         dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
+        #         # Perform inversion and assigning values from a 1-D ravelled array
+        #         v[v_range] = np.ravel(np.linalg.inv(dense_block))
+        #     return v
 
         inv_a = inv_compiled_function(is_csr_q, data, indices, indptr, sz)
         return inv_a
