@@ -1,7 +1,7 @@
 """Unit tests for status objects and convergence/divergence criteria.
 
 Overview of tests:
-- SimulationStatus and ConvergenceStatus enums and their check methods
+- SolverStatus and ConvergenceStatus enums and their check methods
 - ConvergenceStatusCollection and ConvergenceStatusHistory for tracking status evolution
 - ConvergenceInfoCollection and ConvergenceInfoHistory for tracking convergence metrics
 - Absolute, relative, and combined convergence criteria (single and multiphysics)
@@ -31,7 +31,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     NanDivergenceCriterion,
     RelativeConvergenceCriterion,
     RelativeDivergenceCriterion,
-    SimulationStatus,
+    SolverStatus,
 )
 
 
@@ -57,8 +57,8 @@ def multiphysics_check(info, expected_value):
 
 
 def test_simulation_status_methods():
-    """Test the status check methods of SimulationStatus enum members."""
-    s = SimulationStatus
+    """Test the status check methods of SolverStatus enum members."""
+    s = SolverStatus
     assert s.IN_PROGRESS.is_in_progress()
     assert s.SUCCESSFUL.is_successful()
     assert s.FAILED.is_failed()
@@ -82,8 +82,8 @@ def test_simulation_status_methods():
 
 
 def test_simulation_status_str():
-    """Test the string representation of SimulationStatus enum members."""
-    s = SimulationStatus
+    """Test the string representation of SolverStatus enum members."""
+    s = SolverStatus
     assert str(s.IN_PROGRESS) == "in_progress"
     assert str(s.SUCCESSFUL) == "successful"
     assert str(s.FAILED) == "failed"

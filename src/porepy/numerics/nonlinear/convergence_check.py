@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Status and info classes
 
 
-class SimulationStatus(StrEnum):
+class SolverStatus(StrEnum):
     """Enumeration of potential simulation statuses."""
 
     IN_PROGRESS = "in_progress"
@@ -39,19 +39,19 @@ class SimulationStatus(StrEnum):
 
     def is_in_progress(self) -> bool:
         """Check if the status indicates an ongoing simulation."""
-        return self == SimulationStatus.IN_PROGRESS
+        return self == SolverStatus.IN_PROGRESS
 
     def is_successful(self) -> bool:
         """Check if the status indicates a successful simulation."""
-        return self == SimulationStatus.SUCCESSFUL
+        return self == SolverStatus.SUCCESSFUL
 
     def is_failed(self) -> bool:
         """Check if the status indicates a failed simulation."""
-        return self == SimulationStatus.FAILED
+        return self == SolverStatus.FAILED
 
     def is_stopped(self) -> bool:
         """Check if the status indicates a stopped simulation."""
-        return self == SimulationStatus.STOPPED
+        return self == SolverStatus.STOPPED
 
 
 class ConvergenceStatus(StrEnum):
