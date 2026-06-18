@@ -836,11 +836,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_fluxes: List[pp.ad.Operator] = []
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
-
-        if is_mass_mobility_weighted_permeability(self):
-            density_metric = rho_gamma - rho_delta
-        else:
-            density_metric = self.total_mass_mobility(domains) * (rho_gamma - rho_delta)
+        density_metric = rho_gamma - rho_delta
 
         w_flux_gamma_delta = self.density_driven_flux(domains, density_metric)
         f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
@@ -862,18 +858,22 @@ class FluidBuoyancy(pp.PorePyModel):
             discr_delta.upwind() @ f_delta
         )  # well-defined fractional flow on facets.
 
-        b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+        if is_mass_mobility_weighted_permeability(self):
+            l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
+            l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
+            l_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ (l_gamma)  # well-defined lambda on facets.
+            l_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ (l_delta)  # well-defined lambda on facets.
+            lambda_upwind = l_gamma_upwind + l_delta_upwind
+            b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * lambda_upwind * w_flux_gamma_delta
+        else:
+            b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
         b_fluxes.append(b_flux_gamma_delta)
 
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         if len(interfaces) != 0:
             # Get interface flux contribution.
-            if is_mass_mobility_weighted_permeability(self):
-                intf_density_metric = rho_gamma - rho_delta
-            else:
-                intf_density_metric = self.total_mass_mobility(domains) * (rho_gamma - rho_delta)
-
+            intf_density_metric = rho_gamma - rho_delta
             intf_w_flux_gamma_delta = self.interface_density_driven_flux(
                 interfaces, intf_density_metric
             )
