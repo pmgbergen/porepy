@@ -151,10 +151,10 @@ class WellNetwork3d:
         # correspond to intersections between the well and a fracture intersection line
         # or point.
 
-        common_points = self._match_well_and_fracture_points(
+        common_points = _match_well_and_fracture_points(
             well_points, fracture_points
         )
-        kink_points = self._well_kink_points(well_points, common_points)
+        kink_points = _well_kink_points(well_points, common_points)
 
         all_points = common_points | kink_points
 
@@ -173,58 +173,6 @@ class WellNetwork3d:
 
         return merged_intersections
 
-    def _well_kink_points(
-        self,
-        well_points: _PointsOnEntities,
-        well_fracture_comment: dict[tuple[int, int], set[int]],
-    ) -> dict[tuple[int, int], set[int]]:
-        # Find points that are shared between wells. These correspond to kinks in the
-        # well geometry.
-
-        # Dictionary that maps (point index, well index) to a set of fracture indices.
-        kinks: dict[tuple[int, int], set[int]] = {}
-
-        for wi in np.unique(well_points.inds):
-            ind_in_well = np.where(well_points.inds == wi)[0]
-            loc_points = well_points.points[ind_in_well]
-            duplicate_indices = np.where(np.bincount(loc_points) > 1)[0]
-            for p in duplicate_indices:
-                if (p, wi) in well_fracture_comment:
-                    # This is an intersection point, so we do not want to register it as
-                    # a kink.
-                    continue
-                kinks[(p, wi)] = set()
-
-        return kinks
-
-    def _match_well_and_fracture_points(
-        self, well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
-    ) -> dict[tuple[int, int], set[int]]:
-        # Find the points that are shared between wells and fractures. These correspond
-        # to intersections.
-
-        # Dictionary that maps (point index, well index) to a set of fracture indices.
-        intersections: dict[tuple[int, int], set[int]] = {}
-        # Only register each point-well-fracture combination once.
-        visited_point_fracture_combo = set()
-
-        for wi, pi in zip(well_points.inds, well_points.points):
-            if pi in fracture_points.points:
-                # Find all fractures that contain this point, loop over a unique set of
-                # these.
-                in_fracture_inds = np.where(fracture_points.points == pi)[0]
-                for fi in list(
-                    set([fracture_points.inds[i] for i in in_fracture_inds])
-                ):
-                    if (pi, wi, fi) in visited_point_fracture_combo:
-                        continue
-                    visited_point_fracture_combo.add((pi, wi, fi))
-                    val = intersections.get((pi, wi), set())
-                    val.add(fi)
-                    intersections[(pi, wi)] = val
-
-        return intersections
-
     def _to_gmsh(self) -> list[GmshLine]:
         segment_inds = [well.to_gmsh() for well in self.wells]
         gmsh.model.occ.synchronize()
@@ -240,8 +188,8 @@ class WellNetwork3d:
     def _generate_well_mesh(
         self, intersections, wells, mesh_args: dict
     ) -> pp.MixedDimensionalGrid:
-        self._set_physical_names(intersections, wells)
-        self._set_mesh_size(wells, mesh_args.get("cell_size"))
+        _set_physical_names(intersections, wells)
+        _set_mesh_size(wells, mesh_args.get("cell_size"))
         gmsh.model.mesh.generate(1)
         file_name = Path("well_mesh.msh")
         gmsh.write(file_name.as_posix())
@@ -360,20 +308,6 @@ class WellNetwork3d:
             ).tocsr()
             self._add_interface(0, g_frac, g_0d, mdg, proj)
 
-    def _set_physical_names(self, intersections, wells):
-        for isect in intersections:
-            gmsh.model.addPhysicalGroup(
-                0,
-                [isect.gmsh_index],
-                -1,
-                f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.index}",
-            )
-
-        for well in wells:
-            gmsh.model.addPhysicalGroup(
-                1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
-            )
-
     def _update_well_grid_tags(self, g, domain, mdg):
         # Update the tags for the well grid, to identify boundary faces and tips.
         bounding_planes = domain.polytope_from_bounding_box()
@@ -452,9 +386,6 @@ class WellNetwork3d:
         mg._primary_to_mortar_int = primary_secondary_map
         mg.compute_geometry()
         mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
-
-    def _set_mesh_size(self, wells, cell_size):
-        gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
 
     def to_csv(self, file_name: Path, write_header: bool = True) -> None:
         """Export the well network to a csv file.
@@ -575,6 +506,76 @@ def _export_fractures_to_gmsh(
         tag = fracture.fracture_to_gmsh()
         entities += [GmshEntity(index=fracture.index, tags=[tag], dim=dim)]
     return entities
+
+
+def _match_well_and_fracture_points(
+    well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
+) -> dict[tuple[int, int], set[int]]:
+    # Find the points that are shared between wells and fractures. These correspond
+    # to intersections.
+
+    # Dictionary that maps (point index, well index) to a set of fracture indices.
+    intersections: dict[tuple[int, int], set[int]] = {}
+    # Only register each point-well-fracture combination once.
+    visited_point_fracture_combo = set()
+
+    for wi, pi in zip(well_points.inds, well_points.points):
+        if pi in fracture_points.points:
+            # Find all fractures that contain this point, loop over a unique set of
+            # these.
+            in_fracture_inds = np.where(fracture_points.points == pi)[0]
+            for fi in list(set([fracture_points.inds[i] for i in in_fracture_inds])):
+                if (pi, wi, fi) in visited_point_fracture_combo:
+                    continue
+                visited_point_fracture_combo.add((pi, wi, fi))
+                val = intersections.get((pi, wi), set())
+                val.add(fi)
+                intersections[(pi, wi)] = val
+
+    return intersections
+
+
+def _well_kink_points(
+    well_points: _PointsOnEntities,
+    well_fracture_comment: dict[tuple[int, int], set[int]],
+) -> dict[tuple[int, int], set[int]]:
+    # Find points that are shared between wells. These correspond to kinks in the
+    # well geometry.
+
+    # Dictionary that maps (point index, well index) to a set of fracture indices.
+    kinks: dict[tuple[int, int], set[int]] = {}
+
+    for wi in np.unique(well_points.inds):
+        ind_in_well = np.where(well_points.inds == wi)[0]
+        loc_points = well_points.points[ind_in_well]
+        duplicate_indices = np.where(np.bincount(loc_points) > 1)[0]
+        for p in duplicate_indices:
+            if (p, wi) in well_fracture_comment:
+                # This is an intersection point, so we do not want to register it as
+                # a kink.
+                continue
+            kinks[(p, wi)] = set()
+
+    return kinks
+
+
+def _set_physical_names(intersections, wells) -> None:
+    for isect in intersections:
+        gmsh.model.addPhysicalGroup(
+            0,
+            [isect.gmsh_index],
+            -1,
+            f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.index}",
+        )
+
+    for well in wells:
+        gmsh.model.addPhysicalGroup(
+            1, well.tags, -1, f"{PhysicalNames.WELL.value}{well.index}"
+        )
+
+
+def _set_mesh_size(wells, cell_size) -> None:
+    gmsh.model.mesh.set_size([(w.dim, t) for w in wells for t in w.tags], cell_size)
 
 
 def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
