@@ -1205,6 +1205,7 @@ class IterativeOperator(Operator):
 
 _IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
 
+
 class ReferenceOperator(Operator):
     """Intermediate parent class for operator classes, which can have a reference."""
 
@@ -1235,9 +1236,7 @@ class ReferenceOperator(Operator):
         """True, if the operator represents a reference."""
         return self._is_reference
 
-    def reference(
-        self: _ReferenceOperator
-    ) -> _ReferenceOperator:
+    def reference(self: _ReferenceOperator) -> _ReferenceOperator:
         """Returns a copy of the reference operator with an advanced time-step
         index.
 
@@ -1258,7 +1257,7 @@ class ReferenceOperator(Operator):
             return self
         if isinstance(self, IterativeOperator) and self.is_previous_iterate:
             return self
-        if isinstance(self, ReferenceOperator) and self.is_reference: 
+        if isinstance(self, ReferenceOperator) and self.is_reference:
             return self
 
         # TODO copy or deepcopy? Is this enough for every operator class?
@@ -1280,7 +1279,8 @@ class ReferenceOperator(Operator):
             op.original_operator = self.original_operator
 
         return op
-    
+
+
 _ReferenceOperator = TypeVar("_ReferenceOperator", bound=ReferenceOperator)
 
 
@@ -1562,6 +1562,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator):
                 f"(time_dependent_dense_array, name={self.name}, domains={domain_ids} "
                 f"previous_time={self.is_previous_time},"
                 f"time_step_index={self.time_step_index})"
+                f"reference={self.is_reference})"
             )
             self._cached_key = key
         return self._cached_key
@@ -1584,10 +1585,13 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator):
         """
         vals = []
         if self.is_reference:
-            index_kwarg = {"reference": True}
+            reference = True
+            index_kwarg = {}
         elif self.is_previous_time:
+            reference = False
             index_kwarg = {"time_step_index": self.time_step_index}
         else:
+            reference = False
             index_kwarg = {"iterate_index": 0}
 
         for grid in self._domains:
@@ -1604,7 +1608,9 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator):
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
 
             vals.append(
-                pp.get_solution_values(name=self._name, data=data, **index_kwarg)
+                pp.get_solution_values(
+                    name=self._name, data=data, reference=reference, **index_kwarg
+                )
             )
 
         if len(vals) > 0:
@@ -1869,7 +1875,9 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator):
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
         )
-        if self.is_previous_iterate:
+        if self.is_reference:
+            s += f"Evaluated at the reference solution.\n"
+        elif self.is_previous_iterate:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
         elif self.is_previous_time:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -1937,7 +1945,7 @@ class MixedDimensionalVariable(Variable):
             current_iter.append(var.is_current_iterate)
             reference.append(var.is_reference)
             names.append(var.name)
-            domains.append(var.domain)        
+            domains.append(var.domain)
 
         # check assumptions
         if len(variables) > 0:

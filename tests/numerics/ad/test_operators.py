@@ -756,6 +756,7 @@ def test_ad_variable_prev_time_and_iter(prev_time):
         assert getattr(vars_rec[i + 1], index_key) == i
         assert getattr(vars_rec[i + 1], other_index_key) is None
 
+
 @pytest.mark.parametrize("reference", [None, "set", "shift"])
 @pytest.mark.parametrize("state", [None, "previous_timestep", "previous_iteration"])
 def test_ad_variable_reference(reference, state):
@@ -802,9 +803,7 @@ def test_ad_variable_reference(reference, state):
     elif reference == "shift":
         # Shift current approximation to reference values.
         for _, data in mdg.subdomains(return_data=True):
-            pp.shift_solution_values(
-                var.name, data, pp.REFERENCE_SOLUTIONS
-            )
+            pp.shift_solution_values(var.name, data, pp.REFERENCE_SOLUTIONS)
 
     # Bring variable in correct state for testing.
     if state is None:
