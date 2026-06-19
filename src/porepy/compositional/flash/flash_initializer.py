@@ -1560,6 +1560,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     nphase = int(params["num_phases"])
                     ncomp = int(params["num_components"])
                     N3 = int(params["N3"])
+                    tol = params["atol"]
 
                     T_cs = np.empty(ncomp)
                     p_cs = np.empty(ncomp)
@@ -1659,21 +1660,15 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             # dvdp = np.sum(y * dvs[:, 0])
                             # dvdT = np.sum(y * dvs[:, 1])
 
-                            u_new = np.dot(y, us)  # - p * v_mix
-                            du_new_dT = np.dot(y, dus[:, 1])  # - p * dvdT
+                            u_new = np.dot(y, us)
 
-                            dT = (s2 - u_new) / du_new_dT
-                            dT = np.sign(dT) * min(5.0, np.abs(dT))
-                            fc = 1 - np.abs(dT) / T
-
-                            # if y_g > 1e-3:
-                            #     if y_g > 1.0 - 1e-8:
-                            #         fc = 1.0
-                            #     p += fc * dT * dvdT / np.abs(dvdp)
-                            # else:
-                            #     p *= 2.0 - fc
-
-                            T += fc * dT
+                            ru = 1 - u_new / s2
+                            if not np.abs(ru) <= tol:
+                                Ju = np.dot(y, dus[:, 1]) / s2
+                                dT = ru / Ju
+                                dT = np.sign(dT) * min(5.0, np.abs(dT))
+                                fc = 1 - np.abs(dT) / T
+                                T += fc * dT
 
                             X_gen[k] = assemble_generic_arg(
                                 x, y, z, p, T, s1, s2, x_p, FlashSpec.vu

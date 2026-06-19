@@ -410,14 +410,20 @@ def get_descent(
         tau = max(tau_min, tau)
 
         while tau < tau_max:
-            d_LM = np.linalg.solve(B + tau * I, g)
-            # LM found descend direction. Assign to d and break.
-            if d_LM.dot(g) > descent_tol * np.linalg.norm(d_LM):
-                d = d_LM
+            try:
+                d_LM = np.linalg.solve(B + tau * I, g)
+            except:  # Any failure, got to steepest descent
+                d = g
+                tau = tau_max
                 break
-            # Else increase regularization by 1 order.
             else:
-                tau *= 10
+                # LM found descend direction. Assign to d and break.
+                if d_LM.dot(g) > descent_tol * np.linalg.norm(d_LM):
+                    d = d_LM
+                    break
+                # Else increase regularization by 1 order.
+                else:
+                    tau *= 10
 
     return d, tau_min, tau, tau_max
 
@@ -478,7 +484,7 @@ def npipm_inner(
     n_P1m = n_P - 1  # Number of independent phases.
     n_C1m = n_C - 1  # Number of independent components.
     n_CP = n_C * n_P  # Number of independent partial fractions
-    # n_CP1p = n_CP + 1
+    n_CP1p = n_CP + 1
     n_F = n_P1m + n_CP  # Number of phase and partial fractions.
     n_F1p = n_F + 1
 
@@ -615,6 +621,9 @@ def npipm_inner(
     i_pert = 0  # Iteration when global perturbation was performed.
     i_diff_pert = 30  # Iterations between perturbations.
     res_history = np.zeros(max(2 * (max_cycle - 1), stag_window))
+    recovery_mode = False  # Flag for recovery mode, pure LM
+    recovery_i = 0  # Iteration when entereing recovery mode.
+    recovery_num = 5  # Number of iterations in recovery mode
 
     aa_depth_default = 3
     if aa_depth > 0:
@@ -655,7 +664,7 @@ def npipm_inner(
 
         dX_i, _, tau, _ = get_descent(J_i, -f_i, do_LM, tau, rtol_desc)
 
-        if np.any(np.isnan(dX_i)) or np.any(np.isinf(dX_i)):  # Divergence.
+        if not np.all(np.isfinite(dX_i)):  # Divergence.
             exitcode = 3
             break
 
@@ -735,7 +744,7 @@ def npipm_inner(
             # NOTE we allow eval to fail in line search to not break the main
             # algorithm.
             f_i_j = eval_F(X_i_j)
-            if np.any(np.isnan(f_i_j) | np.isinf(f_i_j)):
+            if not np.all(np.isfinite(f_i_j)):
                 continue
 
             pot_i_j = f_i_j.dot(f_i_j) * 0.5
@@ -779,7 +788,7 @@ def npipm_inner(
         # endregion
 
         # region Cycling and stagnation detection.
-        if i > res_history.size:
+        if i > res_history.size and not recovery_mode:
             # Stagnation check
             r_stag = res_history[-stag_window:]
             rtol = rtol_stag * r_stag.max()
@@ -868,7 +877,25 @@ def npipm_inner(
         i_diff = i - i_cyst_detected
 
         # region Special measures for persistent failures.
-        if is_cycling or is_stagnating or ls_fail_count > 0:
+        if recovery_mode:
+            if i >= recovery_i + recovery_num:
+                recovery_mode = False
+                do_LM = False
+            # Ensure fractions are always feasible in recovery.
+            x, y = parse_xy(X_i[:-1], n_C, n_P)
+
+            y[y > 1] = 1.0
+            y[y < 0] = 0.0
+            for j in range(n_P):
+                xj = x[j, :]
+                xj[xj > 1] = 1.0
+                xj[xj < 0] = EPS
+                if y[j] >= atol_frac:
+                    xj /= xj.sum()
+                x[j, :] = xj
+
+            X_i[-n_F1p:-1] = np.hstack((y[1:], x.flatten()))
+        elif is_cycling or is_stagnating or ls_fail_count > 0:
             # First line of action: check special cases.
             x, y = parse_xy(X_i[:-1], n_C, n_P)
 
@@ -915,8 +942,19 @@ def npipm_inner(
             idx[-n_F1p : -(n_P + n_C1m + 1)] = True
             res_part = np.linalg.norm(f_i_j[~idx])
 
+            # Solution close to phase border or transitioning phase border.
+            # Go to recovery mode using LM.
+            if (
+                spec > FlashSpec.vT and (res_part < 1 or np.any(y < atol_frac))
+                # and is_stagnating
+            ):
+                recovery_i = i
+                recovery_mode = True
+                do_LM = True
+                x = np.maximum(x, EPS)
+                X_i[-n_CP1p:-1] = x.flatten()
             # Perturb every n-th iteration, with n being maximal cycle detected.
-            if (res_part < tol) and ((i >= i_efp + i_diff_pert) or i_efp == 0):
+            elif (res_part < tol) and ((i >= i_efp + i_diff_pert) or i_efp == 0):
                 for j in range(n_P):
                     xj = x[j, :]
                     # Perturb extended fractions where phase absent.
@@ -1086,7 +1124,7 @@ def npipm_inner(
     # Avoid returning nans, infs or values which caused failure in F or DF.
     # By returning safe values in the form of the initial guess, we avoid failure in
     # subsequent code.
-    if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)) or exitcode > 2:
+    if not np.all(np.isfinite(X_i)) or exitcode > 2:
         X_i[:-1] = X0[-f_dim + 1 :].copy()
 
     return np.hstack((X_gen, X_i[:-1])), exitcode, i
@@ -1115,17 +1153,54 @@ def npipm(
     if spec == FlashSpec.pT:
         return npipm_inner(X0, F, DF, params, spec, 0)
 
-    pT_npc_iter = int(params["pT_npc_iterations"])
-    # If no non-linear preconditioning is requested, go with the full algorithm
-    if pT_npc_iter == 0:
-        return npipm_inner(X0, F, DF, params, spec, 0)
-
     exitcode = 1  # Default return value.
     f_dim = int(params["f_dim"])
+    tol = np.float64(params["atol_res"])
+    max_iter = int(params["max_iterations"])
+    pT_npc_iter = int(params["pT_npc_iterations"])
     n_C = int(params["num_components"])
     n_P = int(params["num_phases"])
     tol = np.float64(params["atol_res"])
-    max_iter = int(params["max_iterations"])
+    EPS = float(f_dim * np.finfo(np.float64).eps)
+
+    # If no non-linear preconditioning is requested, go with the full algorithm
+    if pT_npc_iter == 0:
+        X_out, ec, ni = npipm_inner(X0, F, DF, params, spec, 0)
+        if spec >= FlashSpec.vT and ec > 1:
+            X_gen = X_out[:-f_dim].copy()
+            X_mod = X_out[-f_dim:].copy()
+            X_mod[-n_C * n_P :] = np.maximum(X_mod[-n_C * n_P :], EPS)
+            try:
+                f = F(np.hstack((X_gen, X_mod)))
+            except:
+                return X_out, ec, ni
+            else:
+                i = 1 if spec == FlashSpec.vT else 2
+                f[i : i + n_C * (n_P - 1)] = 0.0
+                if np.linalg.norm(f) <= tol:
+                    ec = 0
+                    X_out = np.hstack((X_gen, X_mod))
+                elif np.linalg.norm(f[i:]) <= tol:
+                    for k in range(ni, max_iter):
+                        f_k = f[:i]
+                        J_k = DF(np.hstack((X_gen, X_mod)))[:i, :i]
+                        if not (
+                            np.all(np.isfinite(f))
+                            and np.all(np.isfinite(X_mod))
+                            and np.all(np.isfinite(J_k))
+                        ):
+                            break
+                        # dpT = np.linalg.solve(J_k.T@J_k, -J_k.T@f_k)
+                        dpT = np.linalg.solve(J_k, -f_k)
+                        X_mod[:i] += 0.4 * dpT
+                        f = F(np.hstack((X_gen, X_mod)))
+                        if np.linalg.norm(f[:i]) <= tol:
+                            ec = 0
+                            X_out = np.hstack((X_gen, X_mod))
+                            break
+                    ni += k
+
+        return X_out, ec, ni
 
     T_rpc = float(params["rpc_T"])
     rpc_T_chop = float(params["rpc_T_chop"])
@@ -1270,7 +1345,7 @@ def npipm(
                 i += n_t
                 break
 
-    if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)):
+    if not np.all(np.isfinite(X_i)):
         # Return initial guess back to not break subsequent code.
         X_i = X0[-f_dim:].copy()
         assert exitcode > 1, "Expecting exitcode > 1 in case of failure."
