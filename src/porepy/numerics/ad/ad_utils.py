@@ -417,7 +417,7 @@ def get_solution_values(
     data: dict,
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
-    reference: bool = False
+    reference: bool = False,
 ) -> np.ndarray:
     """Function for fetching values stored in the data dictionary, for some
     time-dependent or iterative term.
@@ -602,7 +602,7 @@ def _get_reference_values(
     except KeyError as err:
         # TODO: If possible return empty operators that allow arithmetic operations.
         # For now return 0 as default.
-        value = 0.
+        value = 0.0
     return value
 
 
