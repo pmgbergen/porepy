@@ -208,11 +208,9 @@ class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
         projection = pp.ad.SubdomainProjections(subdomains, dim=9)
         matrix = [sd for sd in subdomains if sd.dim == self.nd]
         fractures_and_intersections: list[pp.Grid] = [
-            sd
-            for sd in subdomains
-            if sd.dim < self.nd and ("parent_well_index" not in sd.tags)
+            sd for sd in subdomains if sd.dim < self.nd and (not self.is_well_grid(sd))
         ]
-        wells = [sd for sd in subdomains if "parent_well_index" in sd.tags]
+        wells = [sd for sd in subdomains if self.is_well_grid(sd)]
 
         permeability = (
             projection.cell_prolongation(matrix) @ self.matrix_permeability(matrix)

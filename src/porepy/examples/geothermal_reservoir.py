@@ -79,7 +79,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         # mixin class.
         values = super().bc_values_pressure(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
-            well = self.well_network.wells[sd.tags["parent_well_index"]]
+            well = self.well_network.wells[sd.well_num]
             well_tag = well.tags["well_name"]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
@@ -108,7 +108,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         sd = bg.parent
         values = super().bc_values_temperature(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
-            well_tag = self.well_names[sd.tags["parent_well_index"]]
+            well_tag = self.well_names[sd.well_num]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
