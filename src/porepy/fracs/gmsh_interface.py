@@ -115,7 +115,14 @@ class GmshLine(GmshEntity):
     def __init__(self, index: int, tags: list[int]):
         super().__init__(index=index, dim=1, tags=tags)
 
-    def embedded_points(self):
+    def points_on_entity(self) -> tuple[np.ndarray, list[int]]:
+        """Find points that are on the line, either embedded or on the boundary.
+
+        Returns:
+            points: The points on the line, as a list of gmsh point tags.
+            indices: A list of the same length as points, with the index of the line
+                for each point.
+        """
         points = []
         for tag in self.tags:
             _, adjacent_points = gmsh.model.get_adjacencies(self.dim, tag)
@@ -130,19 +137,27 @@ class GmshSurface(GmshEntity):
     def __init__(self, index: int, tags: list[int]):
         super().__init__(index=index, dim=2, tags=tags)
 
-    def embedded_points(self):
-        embedded_points, fracture_inds_embedded = self._find_embedded_points()
-        boundary_points, fracture_inds_boundary = self._find_boundary_points()
+    def points_on_entity(self) -> tuple[np.ndarray, list[int]]:
+        """Find points that are on the surface, either embedded or on the boundary.
+
+        Returns:
+            points: The points on the surface, as a list of gmsh point tags.
+            indices: A list of the same length as points, with the index of the
+                surface for each point.
+
+        """
+        embedded_points, inds_embedded = self._embedded_points()
+        boundary_points, inds_boundary = self._boundary_points()
 
         if len(embedded_points) + len(boundary_points) == 0:
             merged = np.array([], dtype=int)
         else:
             merged = np.hstack((embedded_points, boundary_points))
 
-        return merged, fracture_inds_embedded + fracture_inds_boundary
+        return merged, inds_embedded + inds_boundary
 
-    def _find_embedded_points(self):
-        # Find points that are embedded in the fracture - that is, not on the boundary.
+    def _embedded_points(self):
+        """Find points that are embedded in the surface."""
         points, inds = [], []
         for tag in self.tags:
             for point in gmsh.model.mesh.get_embedded(self.dim, tag):
@@ -151,8 +166,8 @@ class GmshSurface(GmshEntity):
                     inds += [self.index]
         return points, inds
 
-    def _find_boundary_points(self):
-        # Find intersections on the fracture boundary
+    def _boundary_points(self):
+        """Find points that are on the boundary of the surface."""
         points, inds = [], []
         for tag in self.tags:
             boundary_lines = gmsh.model.get_boundary([(self.dim, tag)], oriented=False)
@@ -163,7 +178,21 @@ class GmshSurface(GmshEntity):
         return points, inds
 
 
-def fragment(first, second):
+def fragment(
+    first: list[GmshEntity], second: list[GmshEntity]
+) -> tuple[list[GmshEntity], list[GmshEntity]]:
+    """Fragment two sets of geometric entities.
+
+    See the Gmsh manual for more details on the fragment operation.
+
+    Parameters:
+        first: The first set of geometric entities to fragment.
+        second: The second set of geometric entities to fragment.
+
+    Returns:
+        A tuple of the two sets of geometric entities after fragmentation.
+
+    """
     if len(first) == 0 or len(second) == 0:
         return first, second
 

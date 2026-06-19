@@ -611,7 +611,7 @@ class _PointsOnEntities:
     def __init__(self, entities: list[GmshEntity]) -> None:
         points, inds = [], []
         for entity in entities:
-            loc_points, loc_inds = entity.embedded_points()
+            loc_points, loc_inds = entity.points_on_entity()
             points.extend(loc_points)
             inds.extend(loc_inds)
         self.points = _merge_arrays(points)
