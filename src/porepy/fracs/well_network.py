@@ -122,8 +122,6 @@ class WellNetwork3d:
         nd: int,
     ) -> tuple[list[WellFractureIntersection], list[GmshEntity], list[GmshEntity]]:
         wells = self.wells
-        if len(fractures) == 0 or len(wells) == 0:
-            return [], [], []
         if not gmsh.is_initialized():
             gmsh.initialize()
 
@@ -257,6 +255,9 @@ def _export_fractures_to_gmsh(
     fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
 ) -> list[GmshEntity]:
     entities = []
+    if len(fractures) == 0:
+        return entities
+
     dim = 1 if isinstance(fractures[0], pp.LineFracture) else 2
     for fracture in fractures:
         tag = fracture.fracture_to_gmsh()

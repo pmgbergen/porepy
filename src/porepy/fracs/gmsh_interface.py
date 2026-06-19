@@ -164,6 +164,8 @@ class GmshSurface(GmshEntity):
 
 
 def fragment(first, second):
+    if len(first) == 0 or len(second) == 0:
+        return first, second
 
     first_tags = [t for f in first for t in f.tags]
     second_tags = [t for s in second for t in s.tags]
