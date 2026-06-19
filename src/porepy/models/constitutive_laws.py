@@ -4741,6 +4741,68 @@ class ConstantPorosity(pp.PorePyModel):
         return Scalar(self.solid.porosity, "porosity")
 
 
+class CompressibleRockPorosity(pp.PorePyModel):
+    """Porosity with rock compressibility.
+
+    When one-way poromechanical coupling is sufficient, the effective changes in
+    porosity due to rock deformation can be captured by a porosity model which
+    accounts for the reference porosity and the changes due to compressibility.
+
+    """
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+
+    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the reference porosity is defined.
+
+        Returns:
+            Reference porosity operator.
+
+        """
+        return Scalar(self.solid.porosity, "reference_porosity")
+
+    def rock_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Rock compressibility [1/Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the rock compressibility is defined.
+
+        Returns:
+            Rock compressibility operator.
+
+        """
+        return Scalar(self.solid.rock_compressibility, "rock_compressibility")
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity with rock compressibility [-].
+
+        The porosity consists of a reference porosity and changes due to rock
+        compressibility.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            The porosity represented as an Ad operator. The value is constant for all
+            subdomains.
+
+        """
+        reference_porosity = self.reference_porosity(subdomains)
+        c_r = self.rock_compressibility(subdomains)
+        dp = self.pressure(subdomains).perturbation_from_reference()
+        f_exp = Function(pp.ad.functions.exp, "exp")
+        phi = reference_porosity * f_exp(c_r * dp)
+        phi.set_name("porosity")
+        return phi
+
+
 class PoroMechanicsPorosity(pp.PorePyModel):
     r"""Porosity for poromechanical models.
 
