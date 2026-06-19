@@ -478,6 +478,7 @@ def npipm_inner(
     n_P1m = n_P - 1  # Number of independent phases.
     n_C1m = n_C - 1  # Number of independent components.
     n_CP = n_C * n_P  # Number of independent partial fractions
+    # n_CP1p = n_CP + 1
     n_F = n_P1m + n_CP  # Number of phase and partial fractions.
     n_F1p = n_F + 1
 
@@ -550,7 +551,10 @@ def npipm_inner(
             if do_rpc_T:
                 J_loc[:, Tidx] *= T_rpc
             if do_rpc_p:
-                J_loc[:, pidx] *= p_rpc
+                if p_rpc > 0:
+                    J_loc[:, pidx] *= p_rpc
+                else:
+                    J_loc[:, pidx] *= X_loc[0]
             return extend_and_regularize_jac(
                 J_loc, _x, _y, nu_loc, npipm_cc, npipm_neg, npipm_dec
             )
@@ -708,7 +712,11 @@ def npipm_inner(
         if do_rpc_T:
             dX_i[Tidx] *= T_rpc
         if do_rpc_p:
-            dX_i[pidx] *= p_rpc
+            if p_rpc > 0:
+                dX_i[pidx] *= p_rpc
+            else:
+                p_ = X_i[0]
+                dX_i[pidx] = p_ * (np.exp(dX_i[0]) - 1)
 
         # region Armijo line search.
         pot_i = f_i.dot(f_i) * 0.5

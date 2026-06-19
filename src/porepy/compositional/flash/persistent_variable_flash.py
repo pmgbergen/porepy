@@ -304,7 +304,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     elif spec == FlashSpec.vu:
                         es[j] = u_c(pre_res_j, p, T, xn[j])
 
-                # Block which all flashes have in common.
+                # Common block.
                 res = np.hstack(
                     (
                         isofugacity_constraints_res(x, phis),
@@ -312,18 +312,6 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                         complementary_conditions_res(x, y),
                     )
                 )
-
-                # Pre-append volume block for isochoric specifications.
-                if spec >= FlashSpec.vT:
-                    vm = np.dot(y, vs)
-                    res = np.hstack(
-                        (
-                            # Scaling volume constraint with target volume s1.
-                            # first_order_constraint_res(1.0, y, vs / s1),
-                            np.ones(1) * (np.log(vm) - np.log(s1)),
-                            res,
-                        )
-                    )
 
                 # Pre-append energy block for non-isothermal specifications.
                 if spec not in (FlashSpec.pT, FlashSpec.vT):
@@ -334,6 +322,18 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                             # high T-values allow for non-physical solutions because the
                             # energy residual is scaled down.
                             first_order_constraint_res(1.0, y, es / s2),  # / T**2
+                            res,
+                        )
+                    )
+
+                # Pre-append volume block for isochoric specifications.
+                if spec >= FlashSpec.vT:
+                    vm = np.dot(y, vs)
+                    res = np.hstack(
+                        (
+                            # Scaling volume constraint with target volume s1.
+                            # first_order_constraint_res(1.0, y, vs / s1),
+                            np.ones(1) * (np.log(vm) - np.log(s1)),
                             res,
                         )
                     )
@@ -399,17 +399,6 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
                 )
 
-                # Pre-append volume block for isochoric specifications.
-                if spec >= FlashSpec.vT:
-                    vm = np.dot(y, vs)
-                    jac = np.vstack(
-                        (
-                            # first_order_constraint_jac(y, vs, dvs) / s1,
-                            (1.0 / np.abs(vm) * first_order_constraint_jac(y, vs, dvs)),
-                            jac,
-                        )
-                    )
-
                 # Pre-append energy block for non-isothermal specifications.
                 if spec not in (FlashSpec.pT, FlashSpec.vT):
                     jac = np.vstack(
@@ -421,6 +410,17 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     # TT = T**2
                     # jac[0] /= TT
                     # jac[0, 1] -= 2.0 / (TT * T) * res_e
+
+                # Pre-append volume block for isochoric specifications.
+                if spec >= FlashSpec.vT:
+                    vm = np.dot(y, vs)
+                    jac = np.vstack(
+                        (
+                            # first_order_constraint_jac(y, vs, dvs) / s1,
+                            (1.0 / np.abs(vm) * first_order_constraint_jac(y, vs, dvs)),
+                            jac,
+                        )
+                    )
 
                 return jac
 

@@ -1198,10 +1198,19 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 p_cs = np.empty(ncomp)
                 v_cs = np.empty(ncomp)
                 omegas = np.empty(ncomp)
+                _, _, _, _, _, _, _, x_p_ = parse_generic_arg(
+                    X_gen[0], ncomp, nphase, FlashSpec.ph
+                )
                 for i in range(ncomp):
                     T_cs[i] = params[f"_T_crit_{i}"]
                     p_cs[i] = params[f"_p_crit_{i}"]
-                    v_cs[i] = params[f"_v_crit_{i}"]
+                    # v_cs[i] = params[f"_v_crit_{i}"]
+                    z_ = np.zeros(ncomp)
+                    z_[i] = 1.0
+                    pre_ = prearg_val_c(
+                        PhysicalState.liquid, p_cs[i], T_cs[i], z_, x_p_
+                    )
+                    v_cs[i] = v_c(pre_, p_cs[i], T_cs[i], z_)
                     omegas[i] = params[f"_omega_{i}"]
 
                 for k in nb.prange(X_gen.shape[0]):
@@ -1329,10 +1338,19 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     p_cs = np.empty(ncomp)
                     v_cs = np.empty(ncomp)
                     omegas = np.empty(ncomp)
+                    _, _, _, _, _, _, _, x_p_ = parse_generic_arg(
+                        X_gen[0], ncomp, nphase, FlashSpec.vT
+                    )
                     for i in range(ncomp):
                         T_cs[i] = params[f"_T_crit_{i}"]
                         p_cs[i] = params[f"_p_crit_{i}"]
-                        v_cs[i] = params[f"_v_crit_{i}"]
+                        # v_cs[i] = params[f"_v_crit_{i}"]
+                        z_ = np.zeros(ncomp)
+                        z_[i] = 1.0
+                        pre_ = prearg_val_c(
+                            PhysicalState.liquid, p_cs[i], T_cs[i], z_, x_p_
+                        )
+                        v_cs[i] = v_c(pre_, p_cs[i], T_cs[i], z_)
                         omegas[i] = params[f"_omega_{i}"]
 
                     for k in nb.prange(X_gen.shape[0]):
@@ -1541,113 +1559,129 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     gas_idx = int(params["gas_phase_index"])
                     nphase = int(params["num_phases"])
                     ncomp = int(params["num_components"])
+                    N3 = int(params["N3"])
 
                     T_cs = np.empty(ncomp)
                     p_cs = np.empty(ncomp)
                     v_cs = np.empty(ncomp)
+                    _, _, _, _, _, _, _, x_p_ = parse_generic_arg(
+                        X_gen[0], ncomp, nphase, FlashSpec.vu
+                    )
                     for i in range(ncomp):
                         T_cs[i] = params[f"_T_crit_{i}"]
                         p_cs[i] = params[f"_p_crit_{i}"]
-                        v_cs[i] = params[f"_v_crit_{i}"]
-
-                    for k in nb.prange(X_gen.shape[0]):
-                        Xk = X_gen[k]
-
-                        # s1 and s2 are target volume and energy respectively
-                        x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                            Xk, ncomp, nphase, FlashSpec.vu
+                        # v_cs[i] = params[f"_v_crit_{i}"]
+                        z_ = np.zeros(ncomp)
+                        z_[i] = 1.0
+                        pre_ = prearg_val_c(
+                            PhysicalState.liquid, p_cs[i], T_cs[i], z_, x_p_
                         )
+                        v_cs[i] = v_c(pre_, p_cs[i], T_cs[i], z_)
 
-                        # Assume no gas, fetch later if otherwise.
-                        y_g = 0.0
+                    for i in range(N3):
+                        for k in nb.prange(X_gen.shape[0]):
+                            Xk = X_gen[k]
 
-                        # Initial pT values using pseudo-critical values with some
-                        # adjustments.
-                        if p == 0.0 or T == 0.0:
-                            T = np.dot(z, T_cs)
-                            v_pc = cubic_mix(z, v_cs)
-                            p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
-
-                            # Refining pressure and temperature guess based on ratio of
-                            # pseudo-critical volume and given volume. We multiply with
-                            # some estimate for the compressibility factor.
-                            R = v_pc / s1
-                            if R > 1:  # liquid-like
-                                p *= 0.1
-                                T = T / np.sqrt(R)
-                            else:  # gas-like
-                                p *= 0.9
-
-                            # Make first fraction guess based on pseudo-critical values.
-                            xf = assemble_generic_arg(
-                                x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
-                            )
-                            xf = fractions_from_rr(
-                                get_K_values, xf, params, FlashSpec.vu, True
-                            )
+                            # s1 and s2 are target volume and energy respectively
                             x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                                xf, ncomp, nphase, FlashSpec.vu
+                                Xk, ncomp, nphase, FlashSpec.vu
                             )
 
-                            # Correct pressure if no gas phase
-                            if gas_idx >= 0:
-                                y_g = y[gas_idx]
+                            # Assume no gas, fetch later if otherwise.
+                            y_g = 0.0
 
-                            if y_g < 1e-3:
-                                p *= 0.7
-                                T *= 1.1
-                                # Refine fraction guess.
+                            # Initial pT values using pseudo-critical values with some
+                            # adjustments.
+                            if p == 0.0 or T == 0.0:
+                                T = np.dot(z, T_cs)
+                                v_pc = cubic_mix(z, v_cs)
+                                p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
+
+                                # Refining pressure and temperature guess based on ratio
+                                # of pseudo-critical volume and given volume. We
+                                # multiply with  estimate for the comp. factor.
+                                R = v_pc / s1
+                                if R > 1:  # liquid-like
+                                    p *= 0.1
+                                    T = T / np.sqrt(R)
+                                else:  # gas-like
+                                    p *= 0.9
+
+                                # Make first fraction guess.
                                 xf = assemble_generic_arg(
                                     x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
                                 )
                                 xf = fractions_from_rr(
-                                    get_K_values, xf, params, FlashSpec.vu, False
+                                    get_K_values, xf, params, FlashSpec.vu, True
                                 )
                                 x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                                     xf, ncomp, nphase, FlashSpec.vu
                                 )
 
-                        xn = normalize_rows(x)
-                        if gas_idx >= 0:
-                            y_g = y[gas_idx]
+                                # Correct pressure if no gas phase
+                                if gas_idx >= 0:
+                                    y_g = y[gas_idx]
 
-                        us = np.empty(nphase)
-                        dus = np.empty((nphase, 2 + ncomp))
-                        vs = np.empty(nphase)
-                        dvs = np.empty((nphase, 2 + ncomp))
+                                if y_g < 1e-3:
+                                    p *= 0.7
+                                    T *= 1.1
+                                    # Refine fraction guess.
+                                    xf = assemble_generic_arg(
+                                        x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                                    )
+                                    xf = fractions_from_rr(
+                                        get_K_values, xf, params, FlashSpec.vu, False
+                                    )
+                                    x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                                        xf, ncomp, nphase, FlashSpec.vu
+                                    )
 
-                        for j in range(nphase):
-                            pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
-                            pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
-                            us[j] = u_c(pre_val_j, p, T, xn[j])
-                            dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
-                            vs[j] = v_c(pre_val_j, p, T, xn[j])
-                            dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                            xn = normalize_rows(x)
+                            if gas_idx >= 0:
+                                y_g = y[gas_idx]
 
-                        v_mix = np.dot(y, vs)
-                        # dvdp = np.sum(y * dvs[:, 0])
-                        dvdT = np.sum(y * dvs[:, 1])
+                            us = np.empty(nphase)
+                            dus = np.empty((nphase, 2 + ncomp))
+                            vs = np.empty(nphase)
+                            dvs = np.empty((nphase, 2 + ncomp))
 
-                        u_new = np.dot(y, us) - p * v_mix
-                        du_new_dT = np.dot(y, dus[:, 1]) - p * dvdT
+                            for j in range(nphase):
+                                pre_val_j = prearg_val_c(
+                                    phasestates[j], p, T, xn[j], x_p
+                                )
+                                pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
+                                us[j] = u_c(pre_val_j, p, T, xn[j])
+                                dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                                vs[j] = v_c(pre_val_j, p, T, xn[j])
+                                dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
-                        dT = (s2 - u_new) / du_new_dT
-                        fc = 1 - np.abs(dT) / T
+                            # v_mix = np.dot(y, vs)
+                            # dvdp = np.sum(y * dvs[:, 0])
+                            # dvdT = np.sum(y * dvs[:, 1])
 
-                        # if y_g > 1e-3:
-                        #     if y_g > 1.0 - 1e-8:
-                        #         fc = 1.0
-                        #     p += fc * dT * dvdT / np.abs(dvdp)
-                        # else:
-                        #     p *= 2.0 - fc
+                            u_new = np.dot(y, us)  # - p * v_mix
+                            du_new_dT = np.dot(y, dus[:, 1])  # - p * dvdT
 
-                        T += fc * dT
+                            dT = (s2 - u_new) / du_new_dT
+                            dT = np.sign(dT) * min(5.0, np.abs(dT))
+                            fc = 1 - np.abs(dT) / T
 
-                        X_gen[k] = assemble_generic_arg(
-                            x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
-                        )
+                            # if y_g > 1e-3:
+                            #     if y_g > 1.0 - 1e-8:
+                            #         fc = 1.0
+                            #     p += fc * dT * dvdT / np.abs(dvdp)
+                            # else:
+                            #     p *= 2.0 - fc
 
-                    return vT_init(FlashSpec.vu, X_gen, params)
+                            T += fc * dT
+
+                            X_gen[k] = assemble_generic_arg(
+                                x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                            )
+
+                        X_gen = vT_init(FlashSpec.vu, X_gen, params)
+
+                    return X_gen
 
                 self._initializers[FlashSpec.vu] = vu_init
 
