@@ -803,7 +803,15 @@ class FluidBuoyancy(pp.PorePyModel):
 
         rho_mixture = self.fractionally_weighted_density(subdomains)
         rho_phase = phase.density(subdomains)
-        m_star = self.darcy_flux(subdomains)  + self.density_driven_flux(subdomains,rho_phase-rho_mixture)
+        # Proper PPU direction: sign of the phase-potential flux
+        # -K (grad p - rho_phase g). Built from the total (mixture) potential flux as
+        # darcy_flux + density_driven_flux(rho_phase - rho_mixture). No explicit total
+        # mobility factor: darcy_flux and density_driven_flux share the same Darcy
+        # tensor, so lambda_T is handled consistently (inside the tensor when
+        # mass-mobility-weighted, absent otherwise) and cannot change the upwind sign.
+        m_star = self.darcy_flux(subdomains) + self.density_driven_flux(
+            subdomains, rho_phase - rho_mixture
+        )
         m_star.set_name("potential_driven_flux_" + phase.name)
         return m_star
 

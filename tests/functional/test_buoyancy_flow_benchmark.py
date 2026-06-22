@@ -26,7 +26,7 @@ import porepy as pp
 from porepy.applications.test_utils import reference_arrays_buoyancy_discretization
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate as FlowTemplate,
 )
 
 
@@ -468,7 +468,7 @@ def slow_test_buoyancy_flow_benchmark(
     )
     material_constants = {"solid": solid_constants}
     params = {
-        "fractional_flow": True,
+        "fractional_flow": False,
         "enable_buoyancy_effects": True,
         "material_constants": material_constants,
         "time_manager": time_manager,
@@ -514,12 +514,6 @@ def slow_test_buoyancy_flow_benchmark(
         ref_interp
     )
 
-    print(f"\nRelative L2 norm of saturation difference: {l2_norm:.4e}")
-    assert l2_norm < epsilon_saturation, (
-        f"L2 norm {l2_norm:.4e} exceeds tolerance {epsilon_saturation:.4e} "
-        f"for case rho_idx={rho_idx}"
-    )
-
     if run_plots:
         print(f"Plotting enabled. Saving plot for case rho_idx={rho_idx}...")
         plt.figure(figsize=(8, 5))
@@ -561,6 +555,11 @@ def slow_test_buoyancy_flow_benchmark(
         plt.close()
         print("Plot saved.")
 
+    print(f"\nRelative L2 norm of saturation difference: {l2_norm:.4e}")
+    assert l2_norm < epsilon_saturation, (
+        f"L2 norm {l2_norm:.4e} exceeds tolerance {epsilon_saturation:.4e} "
+        f"for case rho_idx={rho_idx}"
+    )
 
 @pytest.fixture
 def saturation_at_5_days():
