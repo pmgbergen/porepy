@@ -159,7 +159,7 @@ from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad.ad_utils import (
+from porepy.numerics.ad._get_set_values import (
     get_solution_values,
     set_solution_values,
     shift_solution_values,

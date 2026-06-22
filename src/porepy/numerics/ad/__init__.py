@@ -11,6 +11,7 @@ __all__ = []
 
 from . import (
     ad_utils,
+    _get_set_values,
     discretizations,
     equation_system,
     forward_mode,
@@ -22,6 +23,7 @@ from . import (
     time_derivatives,
 )
 from .ad_utils import *
+from ._get_set_values import *
 from .discretizations import *
 from .equation_system import *
 from .forward_mode import *
@@ -33,6 +35,7 @@ from .surrogate_operator import *
 from .time_derivatives import *
 
 __all__.extend(ad_utils.__all__)
+__all__.extend(_get_set_values.__all__)
 __all__.extend(operators.__all__)
 __all__.extend(operator_functions.__all__)
 __all__.extend(discretizations.__all__)
