@@ -1058,7 +1058,69 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 # region Intermediate mixins collecting variables, equations and constitutive laws.
 
 
+class PhasePotentialTotalMassFlux(pp.PorePyModel):
+    """Mixin providing the phase-potential (PPU) discretization of the total-mass flux.
+
+    When phase-potential upwinding is active and the total mobility is *not* absorbed
+    into the permeability tensor (i.e. it is applied by upwinding), the total-mass flux
+    is reconstructed per phase, upwinding each phase mass mobility by that phase's own
+    potential. This keeps the pressure, energy and component equations on a single,
+    consistent velocity field (without it, the total-mass flux would be lumped and
+    upwinded by the total flux, mismatching the per-phase energy/component fluxes).
+
+    The total-mass segregation (buoyancy) cancels across phases, so no buoyancy term is
+    added here. In all other cases (hybrid upwinding, massic permeability, boundary
+    grids, or buoyancy disabled) the inherited implementation is used.
+
+    This mixin must precede the mass-balance class in the MRO so its ``fluid_flux``
+    takes precedence; ``super().fluid_flux`` then resolves to the inherited variant
+    (lumped :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations` or
+    massic :class:`MassicPressureEquations`).
+    """
+
+    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    is_phase_potential_upwinding: Callable[[], bool]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+    phase_potential_advective_flux: Callable[
+        [
+            list[pp.Grid],
+            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
+            pp.ad.Operator,
+            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
+        ],
+        pp.ad.Operator,
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+    boundary_fluid_flux: Callable[[Sequence[pp.Grid]], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations`."""
+    interface_fluid_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations`."""
+
+    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        is_boundary = len(domains) == 0 or all(
+            isinstance(d, pp.BoundaryGrid) for d in domains
+        )
+        if (
+            not is_mass_mobility_weighted_permeability(self)
+            and self.params.get("enable_buoyancy_effects", False)
+            and not is_boundary
+            and self.is_phase_potential_upwinding()
+        ):
+            subdomains = cast(list[pp.Grid], domains)
+            flux = self.phase_potential_advective_flux(
+                subdomains,
+                lambda phase, d: phase.density(d) * self.phase_mobility(phase, d),
+                self.boundary_fluid_flux(subdomains),
+                self.interface_fluid_flux,
+            )
+            flux.set_name("fluid_flux")
+            return flux
+        return super().fluid_flux(domains)
+
+
 class PrimaryEquationsCF(
+    PhasePotentialTotalMassFlux,
     EnthalpyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
@@ -1077,6 +1139,7 @@ class PrimaryEquationsCF(
 
 
 class PrimaryEquationsCFF(
+    PhasePotentialTotalMassFlux,
     EnthalpyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     MassicPressureEquations,
