@@ -529,11 +529,9 @@ class EnthalpyBasedEnergyBalanceEquations(
             self.params.get("enable_buoyancy_effects", False) and not is_boundary
         )
 
-        # Viscous part of the advective enthalpy flux. PPU and HU share the structure
-        # "viscous advection + simplicial buoyancy"; they differ only in the upwinding.
-        # PPU upwinds the advected enthalpy per phase by each phase's own potential
-        # (so the reconstructed total mobility matches the buoyancy term); HU lumps the
-        # weight and upwinds it by the single total-flux direction.
+        # Pure PPU: the full per-phase enthalpy flux rides each phase's own potential
+        # Psi_j (which already carries the buoyancy), so the segregation term is
+        # intrinsic and must NOT be added separately.
         if buoyancy_condition and self.is_phase_potential_upwinding():
             subdomains = cast(list[pp.Grid], subdomains)
             boundary_operator = self._combine_boundary_operators(  # type: ignore[attr-defined]
@@ -554,23 +552,30 @@ class EnthalpyBasedEnergyBalanceEquations(
                 boundary_operator,
                 self.interface_enthalpy_flux,
             )
-        elif is_boundary and is_fractional_flow(self):
+            flux.set_name("enthalpy_flux")
+            return flux
+
+        # Hybrid upwinding (or no buoyancy): lumped advective flux, upwinded by the
+        # total flux, plus the separate simplicial monotone buoyancy term.
+        if is_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.fluid_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-
-        # Buoyancy (segregation) term, added for both PPU and HU. Its upwinding
-        # direction follows the selected scheme via the stored buoyancy flux arrays.
-        if buoyancy_condition:
+        if buoyancy_condition:  # hybrid upwinding
             flux += self.enthalpy_buoyancy(subdomains)
         flux.set_name("enthalpy_flux")
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         source = super().energy_source(subdomains)
-        if self.params.get("enable_buoyancy_effects", False):
+        # The interface buoyancy jump is the hybrid-upwinding interface contribution.
+        # In pure PPU the interface buoyancy is intrinsic to the per-phase flux, so no
+        # separate jump term is added.
+        if self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not self.is_phase_potential_upwinding():
             source += self.enthalpy_buoyancy_jump(subdomains)
         return source
 
@@ -731,11 +736,10 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             self.component_mass(component, subdomains), subdomains, dim=1
         )
         buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
-        # Viscous part of the advective component flux. PPU upwinds the component
-        # contribution per phase by each phase's own potential (matching the buoyancy
-        # term's total-mobility reconstruction); HU lumps the weight and upwinds it by
-        # the total-flux direction. The simplicial buoyancy term is added on top for
-        # both schemes.
+        # Pure PPU: the full per-phase component flux rides each phase's own potential
+        # (which carries the buoyancy), so the segregation term is intrinsic and is NOT
+        # added separately. Hybrid upwinding uses the lumped advective flux plus the
+        # separate simplicial monotone buoyancy term.
         if buoyancy_condition and self.is_phase_potential_upwinding():
 
             def component_weight(
@@ -763,9 +767,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             )
         else:
             flux = self.component_flux(component, subdomains)
-
-        if buoyancy_condition:
-            flux += self.component_buoyancy(component, subdomains)
+            if buoyancy_condition:  # hybrid upwinding
+                flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -1037,7 +1040,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
-        if self.params.get("enable_buoyancy_effects", False):
+        # Pure PPU carries the interface buoyancy intrinsically in the per-phase flux;
+        # only hybrid upwinding adds the separate interface buoyancy jump.
+        if self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not self.is_phase_potential_upwinding():
             source += self.component_buoyancy_jump(component, subdomains)
 
         source.set_name(f"interface_component_flux_source_{component.name}")
