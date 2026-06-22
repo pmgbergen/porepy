@@ -45,7 +45,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
         "trustregion_fraction_to_boundary",
         "anderson_acceleration",
         "anderson_acceleration_regularization",
-        "pT_npc_iterations",
+        "npc_iterations",
     ],
     float,
 ] = {
@@ -62,7 +62,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
     "trustregion_fraction_to_boundary": 0.99,
     "anderson_acceleration": 0,
     "anderson_acceleration_regularization": 1e-7,
-    "pT_npc_iterations": 0,
+    "npc_iterations": 0,
 }
 """Default solver parameters required by the :func:`npipm_solver`.
 
@@ -445,7 +445,7 @@ def npipm_inner(
     DF: Callable[[np.ndarray], np.ndarray],
     params: dict,
     spec: FlashSpec,
-    pT_npc_cycle: int,
+    npc_cycle: int,
 ) -> tuple[np.ndarray, int, int]:
     """Inner function for the NPIPM-solver, suitable for recursion when using the
     pT-flash as a non-linear preconditioning."""
@@ -489,11 +489,11 @@ def npipm_inner(
     n_F1p = n_F + 1
 
     # Declare pT nonlinear preconditioning cycle:
-    if (pT_npc_cycle > 0) and (spec != FlashSpec.pT):
-        is_pT_npc_cycle = True
+    if (npc_cycle > 0) and (spec != FlashSpec.pT):
+        is_npc_cycle = True
         f_dim = n_F1p
     else:
-        is_pT_npc_cycle = False
+        is_npc_cycle = False
 
     # Scaling for right-preconditioning pressure and temperature values for higher
     # flashes. Making pressure and temperature non-dimensional.
@@ -531,28 +531,30 @@ def npipm_inner(
     def eval_F(X_loc: np.ndarray) -> np.ndarray:
         nu_loc = X_loc[-1]
         _X_loc = X_loc[:-1]
-        _x, _y = parse_xy(_X_loc, n_C, n_P)
+
         try:
             f_loc = F(np.hstack((X_gen, _X_loc)))
         except:
             return np.full((f_dim,), np.nan)
         else:
-            if is_pT_npc_cycle:
+            if is_npc_cycle:
                 f_loc = f_loc[-n_F:]
+
+            _x, _y = parse_xy(_X_loc, n_C, n_P)
             return extend_and_regularize_res(
                 f_loc, _x, _y, nu_loc, npipm_cc, npipm_neg, npipm_dec
             )
 
     def eval_DF(X_loc: np.ndarray) -> np.ndarray:
         nu_loc = X_loc[-1]
-        _X_Loc = X_loc[:-1]
-        _x, _y = parse_xy(_X_Loc, n_C, n_P)
+        _X_loc = X_loc[:-1]
+
         try:
-            J_loc = DF(np.hstack((X_gen, _X_Loc)))
+            J_loc = DF(np.hstack((X_gen, _X_loc)))
         except:
             return np.full((f_dim, f_dim), np.nan)
         else:
-            if is_pT_npc_cycle:
+            if is_npc_cycle:
                 J_loc = J_loc[-n_F:, -n_F:]
             if do_rpc_T:
                 J_loc[:, Tidx] *= T_rpc
@@ -561,6 +563,8 @@ def npipm_inner(
                     J_loc[:, pidx] *= p_rpc
                 else:
                     J_loc[:, pidx] *= X_loc[0]
+
+            _x, _y = parse_xy(_X_loc, n_C, n_P)
             return extend_and_regularize_jac(
                 J_loc, _x, _y, nu_loc, npipm_cc, npipm_neg, npipm_dec
             )
@@ -621,6 +625,7 @@ def npipm_inner(
     i_pert = 0  # Iteration when global perturbation was performed.
     i_diff_pert = 30  # Iterations between perturbations.
     res_history = np.zeros(max(2 * (max_cycle - 1), stag_window))
+    res_history[-1] = res_0
     recovery_mode = False  # Flag for recovery mode, pure LM
     recovery_i = 0  # Iteration when entereing recovery mode.
     recovery_num = 5  # Number of iterations in recovery mode
@@ -640,7 +645,7 @@ def npipm_inner(
     # endregion
 
     i = 0
-    Ni = pT_npc_cycle if is_pT_npc_cycle else max_iter
+    Ni = npc_cycle if is_npc_cycle else max_iter
     for i in range(Ni):
         if X_i[-1] < 0:  # Safety net for slack variable, cannot be negative.
             x, y = parse_xy(X_i[:-1], n_C, n_P)
@@ -953,6 +958,19 @@ def npipm_inner(
                 do_LM = True
                 x = np.maximum(x, EPS)
                 X_i[-n_CP1p:-1] = x.flatten()
+                # Refine pT state.
+                # X_temp = X_i.copy()
+                # try:
+                #     k=0
+                #     for k in range(Ni - i):
+                #         f_k = F(np.hstack((X_gen, X_i[:-1])))[:2]
+                #         if np.linalg.norm(f_k) < tol:
+                #             break
+                #         J_k = DF(np.hstack((X_gen, X_i[:-1])))[:2, :2]
+                #         X_i[:2] += np.linalg.solve(J_k, -f_k)
+                #     i += k
+                # except:
+                #     X_i = X_temp
             # Perturb every n-th iteration, with n being maximal cycle detected.
             elif (res_part < tol) and ((i >= i_efp + i_diff_pert) or i_efp == 0):
                 for j in range(n_P):
@@ -1124,7 +1142,8 @@ def npipm_inner(
     # Avoid returning nans, infs or values which caused failure in F or DF.
     # By returning safe values in the form of the initial guess, we avoid failure in
     # subsequent code.
-    if not np.all(np.isfinite(X_i)) or exitcode > 2:
+    # Do the same if stationary or max iter reached, and initial guess better solution.
+    if exitcode > 2 or (exitcode > 0 and res_history[-1] > res_0):
         X_i[:-1] = X0[-f_dim + 1 :].copy()
 
     return np.hstack((X_gen, X_i[:-1])), exitcode, i
@@ -1155,79 +1174,23 @@ def npipm(
 
     exitcode = 1  # Default return value.
     f_dim = int(params["f_dim"])
-    tol = np.float64(params["atol_res"])
-    max_iter = int(params["max_iterations"])
-    pT_npc_iter = int(params["pT_npc_iterations"])
     n_C = int(params["num_components"])
     n_P = int(params["num_phases"])
+    max_iter = int(params["max_iterations"])
     tol = np.float64(params["atol_res"])
+    npc_iter = int(params["npc_iterations"])
+
     EPS = float(f_dim * np.finfo(np.float64).eps)
+    n_CP = n_C * n_P
 
-    # If no non-linear preconditioning is requested, go with the full algorithm
-    if pT_npc_iter == 0:
-        X_out, ec, ni = npipm_inner(X0, F, DF, params, spec, 0)
-        if spec >= FlashSpec.vT and ec > 1:
-            X_gen = X_out[:-f_dim].copy()
-            X_mod = X_out[-f_dim:].copy()
-            X_mod[-n_C * n_P :] = np.maximum(X_mod[-n_C * n_P :], EPS)
-            try:
-                f = F(np.hstack((X_gen, X_mod)))
-            except:
-                return X_out, ec, ni
-            else:
-                i = 1 if spec == FlashSpec.vT else 2
-                f[i : i + n_C * (n_P - 1)] = 0.0
-                if np.linalg.norm(f) <= tol:
-                    ec = 0
-                    X_out = np.hstack((X_gen, X_mod))
-                elif np.linalg.norm(f[i:]) <= tol:
-                    for k in range(ni, max_iter):
-                        f_k = f[:i]
-                        J_k = DF(np.hstack((X_gen, X_mod)))[:i, :i]
-                        if not (
-                            np.all(np.isfinite(f))
-                            and np.all(np.isfinite(X_mod))
-                            and np.all(np.isfinite(J_k))
-                        ):
-                            break
-                        # dpT = np.linalg.solve(J_k.T@J_k, -J_k.T@f_k)
-                        dpT = np.linalg.solve(J_k, -f_k)
-                        X_mod[:i] += 0.4 * dpT
-                        f = F(np.hstack((X_gen, X_mod)))
-                        if np.linalg.norm(f[:i]) <= tol:
-                            ec = 0
-                            X_out = np.hstack((X_gen, X_mod))
-                            break
-                    ni += k
-
-        return X_out, ec, ni
-
-    T_rpc = float(params["rpc_T"])
-    rpc_T_chop = float(params["rpc_T_chop"])
-    p_rpc = float(params["rpc_p"])
-    rpc_p_chop = float(params["rpc_p_chop"])
-
-    n_P1m = n_P - 1  # Number of independent phases.
-    n_C1m = n_C - 1  # Number of independent components.
-    n_CP = n_C * n_P  # Number of independent partial fractions
-    n_F = n_P1m + n_CP  # Number of phase and partial fractions.
-
-    atol_frac = 1e-10  # abs. tol for considering fractions to be zero.
-
-    Tidx = 0
-
-    if spec > FlashSpec.vT:
-        pidx = 0
-        do_rpc_p = True
-        # Shift index because T-derivatives come after p-derivatives.
-        Tidx += 1
-    else:
-        do_rpc_p = False
-        pidx = -1
+    pti = 0  # Number of non-fractional variables.
+    if spec not in (FlashSpec.pT, FlashSpec.vT):
+        pti += 1
+    if spec >= FlashSpec.vT:
+        pti += 1
 
     X_gen = X0[:-f_dim].copy()
     X_i = X0[-f_dim:].copy()
-    dX_i = np.zeros_like(X_i)
 
     def eval_F(X_loc: np.ndarray) -> np.ndarray:
         try:
@@ -1237,14 +1200,9 @@ def npipm(
 
     def eval_DF(X_loc: np.ndarray) -> np.ndarray:
         try:
-            J_loc = DF(np.hstack((X_gen, X_loc)))
+            return DF(np.hstack((X_gen, X_loc)))
         except:
-            J_loc = np.full((f_dim, f_dim), np.nan)
-
-        J_loc[:, Tidx] *= T_rpc
-        if do_rpc_p:
-            J_loc[:, pidx] *= p_rpc
-        return J_loc
+            return np.full((f_dim, f_dim), np.nan)
 
     f_i = eval_F(X_i)
 
@@ -1256,50 +1214,55 @@ def npipm(
     if np.any(np.isinf(f_i)):  # Divergence.
         return X0, 3, 0
 
-    res_history = np.zeros(10)
-    i = 0
-    for i in range(1, max_iter + 1):
-        # Nonlinear-preconditioning using pT flash.
-        # pT-flash updates only phase and partial fractions.
-        X_npc, e_npc, _ = npipm_inner(
-            np.hstack((X_gen, X_i)), F, DF, params, spec, pT_npc_iter
-        )
-        if e_npc == 0:  # Accept pT update if converged.
-            X_i[-n_F:] = X_npc[-n_F:]
-        else:
-            # Check if global residual is decreased and accept.
-            if np.linalg.norm(eval_F(X_npc[-f_dim:])) <= res_0:
-                X_i[-n_F:] = X_npc[-n_F:]
-            else:
-                # Check if phase is incumbent: y close to 0  and sum x close to 1
-                # Give it a push in that direction and trigger full algorithm.
-                phase_incumbent = False
-                x, y = parse_xy(X_i, n_P, n_C)
+    # If no non-linear preconditioning is requested, start the full algorithm.
+    if npc_iter == 0:
+        X_out, ec, ni = npipm_inner(X0, F, DF, params, spec, 0)
+        if spec >= FlashSpec.vT and ec > 1:
+            X_mod = X_out[-f_dim:].copy()
+            X_mod[-n_CP:] = np.maximum(X_mod[-n_CP:], EPS)
+            f = eval_F(X_mod)
+            if not np.all(np.isfinite(f)):
+                return X_out, ec, ni
 
-                y_eps = 1e-3  # trial fraction.
-                y_c = y_eps / (n_P - 1)  # complementary mass reduced from other phases.
-                for j in range(n_P):
-                    sxj = np.sum(x[j])
-                    yj = y[j]
-                    if np.abs(yj) <= atol_frac and sxj > 0.9:
-                        phase_incumbent = True
-                        y -= y_c
-                        y = np.maximum(np.zeros(n_P), y - y_c)
-                        y[j] = y_eps
-                        x[j] /= sxj
-                        # Mass distributed accross other phases
-                        # z_t = (gen_arg[3] - y_eps * x[j]) / (1.0 - y_eps)
-
-                if phase_incumbent:
-                    X_i[-n_F:] = np.hstack((y[1:], x.flatten()))
-                    X_t, e_t, n_t = npipm_inner(
-                        np.hstack((X_gen, X_i)), F, DF, params, spec, 0
-                    )
-                    if e_t == 0:
-                        X_i = X_t[-f_dim:]
-                        exitcode = 0
-                        i += n_t
+            f[pti : pti + n_C * (n_P - 1)] = 0.0  # Ignoring isofug??
+            if np.linalg.norm(f) <= tol:
+                ec = 0
+                X_out = np.hstack((X_gen, X_mod))
+            elif np.linalg.norm(f[pti:]) <= tol:
+                for k in range(ni, max_iter):
+                    f_k = f[:pti]
+                    J_k = eval_DF(X_mod)[:pti, :pti]
+                    if not (
+                        np.all(np.isfinite(f))
+                        and np.all(np.isfinite(X_mod))
+                        and np.all(np.isfinite(J_k))
+                    ):
                         break
+                    # dpT = np.linalg.lstsq(J_k, -f_k, rcond=EPS)[0]
+                    # if np.linalg.matrix_rank(J_k) == pti:
+                    dpT = np.linalg.solve(J_k, -f_k)
+                    # else:
+                    #     dpT = -J_k.T @ f_k
+                    X_mod[:pti] += 0.4 * dpT
+                    f = eval_F(X_mod)
+                    if np.linalg.norm(f[:pti]) <= tol:
+                        ec = 0
+                        X_out = np.hstack((X_gen, X_mod))
+                        break
+                ni += k
+
+        return X_out, ec, ni
+
+    res_history = np.zeros(10)
+    res_history[-1] = res_0
+    k = 0
+    for k in range(max_iter):
+        # Nonlinear-preconditioning using pT or vT flash.
+        X_npc, e_npc, _ = npipm_inner(
+            np.hstack((X_gen, X_i)), F, DF, params, spec, npc_iter
+        )
+        if np.linalg.norm(eval_F(X_npc[-f_dim:])) <= res_history[-1]:
+            X_i = X_npc[-f_dim:]
 
         f_i = eval_F(X_i)
         res_history = np.roll(res_history, -1)
@@ -1307,8 +1270,21 @@ def npipm(
         if res_history[-1] <= tol:
             exitcode = 0
             break
+        # If solution close enough, trigger Newton.
+        elif res_history[-1] <= 1e-3 and e_npc == 0:
+            X_t, e_t, n_t = npipm_inner(np.hstack((X_gen, X_i)), F, DF, params, spec, 0)
+            f_t = eval_F(X_t[-f_dim:])
+            if e_t == 0:
+                X_i = X_t[-f_dim:]
+                exitcode = 0
+                k += n_t
+                break
+            elif np.linalg.norm(f_t) <= res_history[-1]:
+                X_i = X_t[-f_dim:]
+                f_i = f_t
 
-        J_i = eval_DF(X_i)
+        f_i = f_i[:pti]
+        J_i = eval_DF(X_i)[:pti, :pti]
 
         if np.any(np.isinf(f_i)):
             exitcode = 3
@@ -1317,37 +1293,11 @@ def npipm(
             exitcode = 4
             break
 
-        # Only non-isothermal:Update only T.
-        if spec < FlashSpec.vT:
-            # NOTE: Least squares steepest descent update.
-            dX_i[Tidx] = -f_i[0] * J_i[0, Tidx]
-        # Additional isochoric specifications require a pressure update as well.
-        else:
-            assert False, "WIP"
+        # Steepest descent in pT direction.
+        delta = -J_i.T @ f_i
+        X_i[:pti] += delta
 
-        # Scale update back to physical dimensions.
-        dT = dX_i[Tidx]
-        dX_i[Tidx] = np.sign(dT) * min(np.abs(dT), rpc_T_chop) * T_rpc
-        if do_rpc_p:
-            dp = dX_i[pidx]
-            dX_i[pidx] = np.sign(dp) * min(np.abs(dp), rpc_p_chop) * p_rpc
-
-        X_i += dX_i
-
-        # If for isobaric flashes the temperature change is below 1 Kelvin, and
-        # the pT-npc-cycle succeeded, we are likely very close to the solution.
-        # Trigger Newton. TODO loosen criteria.
-        if spec < FlashSpec.vT and np.abs(dX_i[Tidx]) < 1.0 and e_npc == 0:
-            X_t, e_t, n_t = npipm_inner(np.hstack((X_gen, X_i)), F, DF, params, spec, 0)
-            if e_t == 0:
-                X_i = X_t[-f_dim:]
-                exitcode = 0
-                i += n_t
-                break
-
-    if not np.all(np.isfinite(X_i)):
-        # Return initial guess back to not break subsequent code.
+    if exitcode > 2 or (exitcode > 0 and res_history[-1] > res_0):
         X_i = X0[-f_dim:].copy()
-        assert exitcode > 1, "Expecting exitcode > 1 in case of failure."
 
-    return np.hstack((X_gen, X_i)), exitcode, i
+    return np.hstack((X_gen, X_i)), exitcode, k

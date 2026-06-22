@@ -896,6 +896,10 @@ class UniformFlashInitializer(FlashInitializer):
         logger.info(f"Compiling uniform flash initialization ..")
         start = time.time()
 
+        T_crits = self._Tcrits
+        p_crits = self._pcrits
+        v_crits = self._vcrits
+
         @_COMPILER(nb.f8[:](FlashSpec_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:]))
         def initializer(
             spec: FlashSpec, params: dict[str, float], X_gen: np.ndarray
@@ -908,13 +912,9 @@ class UniformFlashInitializer(FlashInitializer):
             feed_bias = params["feed_bias"]
 
             # Critical values per component.
-            T_crits = np.empty(ncomp)
-            p_crits = np.empty(ncomp)
-            v_crits = np.empty(ncomp)
-            for i in range(ncomp):
-                T_crits[i] = params[f"_T_crit_{i}"]
-                p_crits[i] = params[f"_p_crit_{i}"]
-                v_crits[i] = params[f"_v_crit_{i}"]
+            T_cs = T_crits.copy()
+            p_cs = p_crits.copy()
+            v_cs = v_crits.copy()
 
             approx_T = spec not in (FlashSpec.pT, FlashSpec.vT)
             approx_p = spec >= FlashSpec.vT
@@ -922,10 +922,10 @@ class UniformFlashInitializer(FlashInitializer):
             _, _, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, ncomp, nphase, spec)
             # Critical value approximations for pressure and temperature.
             if approx_T:
-                T = np.dot(z, T_crits)
+                T = np.dot(z, T_cs)
 
             if approx_p:
-                p = critical_pressure_guess(z, p_crits, T_crits, v_crits)
+                p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
 
             # Phase fractions and saturations are always uniformly guessed.
             y = np.ones(nphase) / nphase
@@ -1080,7 +1080,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
             KeyError: If the requested flash initialization is not compiled.
 
         """
-        _ = self._initializers[key]
         if key not in self._initializers:
             raise KeyError(f"{key.name} flash initialization not compiled.")
 
@@ -1126,6 +1125,11 @@ class HeuristicVLInitializer(UniformFlashInitializer):
         # Setting outer scope variables to avoid referencing self in JIT functions.
         nphase, ncomp = self._n_PC
         phasestates = self._phasestates
+
+        T_crits = self._Tcrits
+        p_crits = self._pcrits
+        v_crits = self._vcrits
+        acentric_factors = self._omegas
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
@@ -1194,24 +1198,19 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 N2 = int(params["N2"])
                 tol = params["atol"]
 
-                T_cs = np.empty(ncomp)
-                p_cs = np.empty(ncomp)
+                T_cs = T_crits.copy()
+                p_cs = p_crits.copy()
+                omegas = acentric_factors.copy()
                 v_cs = np.empty(ncomp)
-                omegas = np.empty(ncomp)
+
                 _, _, _, _, _, _, _, x_p_ = parse_generic_arg(
                     X_gen[0], ncomp, nphase, FlashSpec.ph
                 )
                 for i in range(ncomp):
-                    T_cs[i] = params[f"_T_crit_{i}"]
-                    p_cs[i] = params[f"_p_crit_{i}"]
-                    # v_cs[i] = params[f"_v_crit_{i}"]
                     z_ = np.zeros(ncomp)
                     z_[i] = 1.0
-                    pre_ = prearg_val_c(
-                        PhysicalState.liquid, p_cs[i], T_cs[i], z_, x_p_
-                    )
+                    pre_ = prearg_val_c(PhysicalState.gas, p_cs[i], T_cs[i], z_, x_p_)
                     v_cs[i] = v_c(pre_, p_cs[i], T_cs[i], z_)
-                    omegas[i] = params[f"_omega_{i}"]
 
                 for k in nb.prange(X_gen.shape[0]):
                     Xk = X_gen[k]
@@ -1220,14 +1219,10 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                         Xk, ncomp, nphase, FlashSpec.ph
                     )
                     # NOTE local copy for simplicity of compilation.
-                    p_cs_ = p_cs.copy()
-                    T_cs_ = T_cs.copy()
-                    v_cs_ = v_cs.copy()
-                    omegas_ = omegas.copy()
 
                     # Compute pseudo-critical estimate of enthalpy.
-                    T_pc = (z * T_cs_).sum()
-                    p_pc = critical_pressure_guess(z, p_cs_, T_cs_, v_cs_)
+                    T_pc = (z * T_cs).sum()
+                    p_pc = critical_pressure_guess(z, p_cs, T_cs, v_cs)
 
                     pre_g_pc = prearg_val_c(PhysicalState.gas, p_pc, T_pc, z, x_p)
                     pre_l_pc = prearg_val_c(PhysicalState.liquid, p_pc, T_pc, z, x_p)
@@ -1257,8 +1252,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     else:
                         # NOTE Starting from pseudo-critical alone is often unstable.
                         T0 = (T_REF + T_pc) * 0.5
-                        T_dew = get_dew_point_T(T0, p, z, p_cs_, T_cs_, omegas_)
-                        T_bub = get_bubble_point_T(T_dew, p, z, p_cs_, T_cs_, omegas_)
+                        T_dew = get_dew_point_T(T0, p, z, p_cs, T_cs, omegas)
+                        T_bub = get_bubble_point_T(T_dew, p, z, p_cs, T_cs, omegas)
 
                         # Compute enthalpies at points.
                         pre_g_dew = prearg_val_c(PhysicalState.gas, p, T_dew, z, x_p)
@@ -1281,7 +1276,7 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             ps = PhysicalState.gas
                         else:
                             ps = PhysicalState.liquid
-                        T_r = T_cs_.max()
+                        T_r = T_cs.max()
 
                         # Simple Newton on energy constraint.
                         # Single-phase is always well-behaved.
@@ -1334,24 +1329,20 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     N2 = int(params["N2"])
                     tol = params["atol"]
 
-                    T_cs = np.empty(ncomp)
-                    p_cs = np.empty(ncomp)
+                    T_cs = T_crits.copy()
+                    p_cs = p_crits.copy()
+                    omegas = acentric_factors.copy()
                     v_cs = np.empty(ncomp)
-                    omegas = np.empty(ncomp)
                     _, _, _, _, _, _, _, x_p_ = parse_generic_arg(
                         X_gen[0], ncomp, nphase, FlashSpec.vT
                     )
                     for i in range(ncomp):
-                        T_cs[i] = params[f"_T_crit_{i}"]
-                        p_cs[i] = params[f"_p_crit_{i}"]
-                        # v_cs[i] = params[f"_v_crit_{i}"]
                         z_ = np.zeros(ncomp)
                         z_[i] = 1.0
                         pre_ = prearg_val_c(
                             PhysicalState.liquid, p_cs[i], T_cs[i], z_, x_p_
                         )
                         v_cs[i] = v_c(pre_, p_cs[i], T_cs[i], z_)
-                        omegas[i] = params[f"_omega_{i}"]
 
                     for k in nb.prange(X_gen.shape[0]):
                         Xk = X_gen[k]
@@ -1560,18 +1551,16 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                     nphase = int(params["num_phases"])
                     ncomp = int(params["num_components"])
                     N3 = int(params["N3"])
+                    N2 = int(params["N2"])
                     tol = params["atol"]
 
-                    T_cs = np.empty(ncomp)
-                    p_cs = np.empty(ncomp)
+                    T_cs = T_crits.copy()
+                    p_cs = p_crits.copy()
                     v_cs = np.empty(ncomp)
                     _, _, _, _, _, _, _, x_p_ = parse_generic_arg(
                         X_gen[0], ncomp, nphase, FlashSpec.vu
                     )
                     for i in range(ncomp):
-                        T_cs[i] = params[f"_T_crit_{i}"]
-                        p_cs[i] = params[f"_p_crit_{i}"]
-                        # v_cs[i] = params[f"_v_crit_{i}"]
                         z_ = np.zeros(ncomp)
                         z_[i] = 1.0
                         pre_ = prearg_val_c(
@@ -1587,9 +1576,6 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                             x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
                                 Xk, ncomp, nphase, FlashSpec.vu
                             )
-
-                            # Assume no gas, fetch later if otherwise.
-                            y_g = 0.0
 
                             # Initial pT values using pseudo-critical values with some
                             # adjustments.
@@ -1622,6 +1608,8 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                                 # Correct pressure if no gas phase
                                 if gas_idx >= 0:
                                     y_g = y[gas_idx]
+                                else:
+                                    y_g = 0.0
 
                                 if y_g < 1e-3:
                                     p *= 0.7
@@ -1638,38 +1626,47 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                                     )
 
                             xn = normalize_rows(x)
-                            if gas_idx >= 0:
-                                y_g = y[gas_idx]
-
                             us = np.empty(nphase)
                             dus = np.empty((nphase, 2 + ncomp))
-                            vs = np.empty(nphase)
-                            dvs = np.empty((nphase, 2 + ncomp))
 
-                            for j in range(nphase):
-                                pre_val_j = prearg_val_c(
-                                    phasestates[j], p, T, xn[j], x_p
-                                )
-                                pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
-                                us[j] = u_c(pre_val_j, p, T, xn[j])
-                                dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
-                                vs[j] = v_c(pre_val_j, p, T, xn[j])
-                                dvs[j] = dv_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                            for _ in range(1):
+                                # if s1 <= v_pc:
+                                #     p = pvT_c(s1, T, z, x_p)
+                                #     pre_val_L = prearg_val_c(
+                                #         PhysicalState.liquid, p, T, xn[j], x_p
+                                #     )
+                                #     pre_jac_L = prearg_jac_c(
+                                #         pre_val_L, p, T, xn[j], x_p
+                                #     )
+                                #     u_new = u_c(pre_val_L, p, T, z)
+                                #     dudT = du_c(pre_val_L, pre_jac_L, p, T, z)[1]
+                                # else:
+                                for j in range(nphase):
+                                    pre_val_j = prearg_val_c(
+                                        phasestates[j], p, T, xn[j], x_p
+                                    )
+                                    pre_jac_j = prearg_jac_c(
+                                        pre_val_j, p, T, xn[j], x_p
+                                    )
+                                    us[j] = u_c(pre_val_j, p, T, xn[j])
+                                    dus[j] = du_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                                u_new = np.dot(y, us)
+                                dudT = np.dot(y, dus[:, 1])
 
-                            # v_mix = np.dot(y, vs)
-                            # dvdp = np.sum(y * dvs[:, 0])
-                            # dvdT = np.sum(y * dvs[:, 1])
+                                ru = 1 - u_new / s2
+                                if np.abs(ru) <= tol:
+                                    break
 
-                            u_new = np.dot(y, us)
-
-                            ru = 1 - u_new / s2
-                            if not np.abs(ru) <= tol:
-                                Ju = np.dot(y, dus[:, 1]) / s2
+                                Ju = dudT / s2
+                                # if np.abs(Ju) > 1e-6:
                                 dT = ru / Ju
+                                # else:
+                                #     dT = ru
                                 dT = np.sign(dT) * min(5.0, np.abs(dT))
                                 fc = 1 - np.abs(dT) / T
                                 T += fc * dT
-
+                            #     T = max(T, 250.0)
+                            # p = max(p, 1e3)
                             X_gen[k] = assemble_generic_arg(
                                 x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
                             )
@@ -1706,16 +1703,13 @@ class HeuristicVLInitializer(UniformFlashInitializer):
                 # Assume no guess, fetch later if otherwise.
                 y_g = 0.0
 
+                T_cs = T_crits.copy()
+                p_cs = p_crits.copy()
+                v_cs = v_crits.copy()
+
                 # If no p or T value are provided at all, create initial guess using
                 # pseudo-critical values.
                 if p == 0.0 or T == 0.0:
-                    T_cs = np.empty(ncomp)
-                    v_cs = np.empty(ncomp)
-                    p_cs = np.empty(ncomp)
-                    for i in range(ncomp):
-                        T_cs[i] = params[f"_T_crit_{i}"]
-                        v_cs[i] = params[f"_v_crit_{i}"]
-                        p_cs[i] = params[f"_p_crit_{i}"]
                     # pseudo_critical T_guess
                     T = np.dot(z, T_cs)
 
