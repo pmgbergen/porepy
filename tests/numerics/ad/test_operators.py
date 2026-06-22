@@ -913,7 +913,7 @@ def test_time_dependent_array_reference(state, reference):
     # Build reference and check status.
     ref = sd_array.reference()
     # Only expect reference for current iteration.
-    if isinstance(ref, pp.ad.ReferenceOperator):
+    if isinstance(ref, pp.numerics.ad._derived_operators.ReferenceOperator):
         assert ref.is_reference == (state == None)
 
     # Expected value.
