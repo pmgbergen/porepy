@@ -128,6 +128,8 @@ params = {
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
+    # Persist per-time-step solver statistics (iterations, status, residuals) to JSON.
+    "solver_statistics_file_name": f"solver_statistics_fig_5_{buoyancy_upwinding}",
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_inc_atol": np.inf,
@@ -261,3 +263,58 @@ mn = cast(np.ndarray, mn)
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
 print("Inflow values : ", mn[inlet_idx])
 print("Outflow values : ", mn[outlet_idx])
+
+
+def report_solver_statistics(model) -> None:
+    """Print the nonlinear-solver and time-stepping statistics collected by PorePy.
+
+    Reports, per time-step attempt, the number of nonlinear iterations and the outcome
+    (accepted / time-step cut / stopped), followed by aggregate totals. The same data
+    (plus per-iteration residual norms) is also written to the JSON file given by the
+    ``solver_statistics_file_name`` parameter.
+    """
+    stats = getattr(model, "nonlinear_solver_statistics", None)
+    if stats is None:
+        print("No solver statistics available on the model.")
+        return
+
+    iters = list(getattr(stats, "num_iterations_history", []) or [])
+    status = [str(s) for s in getattr(stats, "simulation_status_history", []) or []]
+
+    if not iters and not status:
+        print("Solver statistics object is empty (no recorded time steps).")
+        return
+
+    # Align the two histories defensively.
+    n = min(len(iters), len(status)) if status else len(iters)
+    iters = iters[:n]
+    status = status[:n] if status else ["?"] * n
+
+    accepted_states = ("successful", "in_progress")
+    converged_iters = sum(it for it, s in zip(iters, status) if s in accepted_states)
+    cut_iters = sum(it for it, s in zip(iters, status) if s == "failed")
+    stopped_iters = sum(it for it, s in zip(iters, status) if s == "stopped")
+    n_accepted = sum(1 for s in status if s in accepted_states)
+    n_cuts = sum(1 for s in status if s == "failed")
+    n_stopped = sum(1 for s in status if s == "stopped")
+
+    print("\n" + "=" * 60)
+    print(" Solver statistics")
+    print("=" * 60)
+    print(f"{'attempt':>8} {'status':>14} {'nl_iterations':>14}")
+    for k, (it, s) in enumerate(zip(iters, status)):
+        print(f"{k:>8} {s:>14} {it:>14}")
+    print("-" * 60)
+    print(f"Time-step attempts            : {n}")
+    print(f"  accepted steps              : {n_accepted}")
+    print(f"  time-step cuts (failed)     : {n_cuts}")
+    print(f"  stopped                     : {n_stopped}")
+    print(f"Total nonlinear iterations    : {sum(iters)}")
+    print(f"  on accepted steps           : {converged_iters}")
+    print(f"  wasted (cuts + stopped)     : {cut_iters + stopped_iters}")
+    if n_accepted:
+        print(f"Avg iterations / accepted step: {converged_iters / n_accepted:.2f}")
+    print("=" * 60)
+
+
+report_solver_statistics(model)

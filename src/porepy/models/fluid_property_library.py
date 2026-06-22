@@ -889,27 +889,31 @@ class FluidBuoyancy(pp.PorePyModel):
             Callable[[list[pp.MortarGrid]], pp.ad.Operator], None
         ] = None,
     ) -> pp.ad.Operator:
-        r"""Per-phase phase-potential-upwind (PPU) advective flux.
+        r"""Advective (viscous) flux with phase-potential upwinding of the weight.
 
-        Assembles the advective flux as a sum over phases of each phase's potential
-        flux times the upstream-weighted, per-phase advected quantity:
+        This is the viscous part of the phase-potential-upwind (PPU) scheme. It uses
+        the shared total (mixture) Darcy flux, but reconstructs the advected weight by
+        upwinding each phase contribution with that phase's own potential direction:
 
         .. math::
 
-            \sum_j \Psi_j \, \mathrm{upw}_j\!\left(w_j\right),
+            \texttt{darcy\_flux} \cdot \sum_j \mathrm{upw}_j\!\left(w_j\right),
 
-        where :math:`\Psi_j` is :meth:`potential_driven_flux` of phase :math:`j` and the
-        upwinding direction is the sign of :math:`\Psi_j` (phase potential). Because
-        :math:`\Psi_j` already carries the buoyancy contribution, the result is the full
-        per-phase PPU flux and **no separate buoyancy term must be added**.
+        where the upwinding of :math:`w_j` follows the sign of the phase-potential flux
+        :math:`\Psi_j` (:meth:`potential_driven_flux`). For the total mass weight
+        :math:`w_j = \rho_j k_{rj}/\mu_j` this yields the PPU total mobility
+        :math:`\sum_j \mathrm{upw}_j(l_j)`, which matches the total mobility
+        reconstructed in the buoyancy term (``l_gamma_up + l_delta_up``). The buoyancy
+        (segregation) contribution itself is **not** included here; it must be added
+        separately via :meth:`enthalpy_buoyancy` / :meth:`component_buoyancy`, whose
+        upwinding directions are set to the phase potentials when PPU is active.
 
-        This is the structurally correct PPU discretization of the benchmark scheme:
-        the whole phase flux (viscous and gravitational) is upwinded by that phase's own
-        potential, as opposed to lumping all phases and upwinding by the total Darcy
-        flux (which only coincides with PPU in the gravity-free / co-current case).
+        Contrast with hybrid upwinding (HU), where the same weight is lumped and
+        upwinded by the single total-flux direction. The two schemes share this
+        viscous-plus-buoyancy structure and differ only in the upwinding directions.
 
         The boundary and interface contributions reuse the total-flux transport
-        operators, which is exact at single-phase boundaries.
+        operators (exact at single-phase boundaries).
 
         Parameters:
             subdomains: List of subdomains.
@@ -920,7 +924,7 @@ class FluidBuoyancy(pp.PorePyModel):
             interface_flux: Optional interface flux operator/variable.
 
         Returns:
-            Operator representing the per-phase PPU advective flux.
+            Operator representing the per-phase-upwinded advective (viscous) flux.
 
         """
         darcy_flux = self.darcy_flux(subdomains)
@@ -931,14 +935,18 @@ class FluidBuoyancy(pp.PorePyModel):
         # Total-flux discretization is used only for the boundary transport operators.
         bc_discr = self.mobility_discretization(subdomains)
 
-        interior_terms: List[pp.ad.Operator] = []
-        for phase in self.fluid.phases:
-            discr = self._phase_potential_discretization(phase, subdomains)
-            psi = self.potential_driven_flux(subdomains, phase)
-            interior_terms.append(psi * (discr.upwind() @ advected_weight(phase, subdomains)))
+        # PPU total mobility / advected weight: each phase contribution upwinded by its
+        # own potential, then summed. This matches the buoyancy term's reconstruction.
+        weighted_sum = pp.ad.sum_operator_list(
+            [
+                self._phase_potential_discretization(phase, subdomains).upwind()
+                @ advected_weight(phase, subdomains)
+                for phase in self.fluid.phases
+            ]
+        )
 
         flux: pp.ad.Operator = (
-            pp.ad.sum_operator_list(interior_terms)
+            darcy_flux * weighted_sum
             + bc_discr.bound_transport_dir() @ (darcy_flux * bc_values)
             + bc_discr.bound_transport_neu() @ bc_values
         )
