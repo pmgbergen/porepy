@@ -499,13 +499,13 @@ class TimeManager:
 
         return self.dt
 
-    def increase_time(self) -> None:
-        """Increase simulation time by the current time step."""
-        self.time += self.dt
+    # def increase_time(self) -> None:
+    #     """Increase simulation time by the current time step."""
+    #     self.time += self.dt
 
-    def increase_time_index(self) -> None:
-        """Increase time index counter by one."""
-        self.time_index += 1
+    # def increase_time_index(self) -> None:
+    #     """Increase time index counter by one."""
+    #     self.time_index += 1
 
     def _adaptation_based_on_iterations(self, iterations: Optional[int]) -> None:
         """Provided convergence, adapt time step based on the number of iterations.

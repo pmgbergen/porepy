@@ -910,30 +910,33 @@ def test_model_time_step_control(params: dict):
                 model.nonlinear_solver_statistics.num_iterations
                 < model.num_nonlinear_iterations[model.time_step_idx] - 1
             ):
+                # Not converged, not diverged, continue iterating.
                 return (
                     ConvergenceStatusCollection(
-                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                        {"crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
                     ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.CONVERGED}
+                        {"div_crit": ConvergenceStatus.SUCCESS}
                     ),
                     ConvergenceInfoCollection({"crit": 1.0}),
                 )
             if model.time_step_converged[model.time_step_idx] is True:
+                # Converged.
                 return (
-                    ConvergenceStatusCollection({"crit": ConvergenceStatus.CONVERGED}),
+                    ConvergenceStatusCollection({"crit": ConvergenceStatus.SUCCESS}),
                     ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.CONVERGED}
+                        {"div_crit": ConvergenceStatus.SUCCESS}
                     ),
                     ConvergenceInfoCollection({"crit": 0.0}),
                 )
             else:
+                # Diverged.
                 return (
                     ConvergenceStatusCollection(
-                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                        {"crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
                     ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.DIVERGED}
+                        {"div_crit": ConvergenceStatus.FAILURE}
                     ),
                     ConvergenceInfoCollection({"crit": np.nan}),
                 )
@@ -951,7 +954,12 @@ def test_model_time_step_control(params: dict):
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": MAX_NONLINEAR_ITER,
     }
-    pp.ModelRunner(model, solver_params).run()
+    model_runner = pp.ModelRunner(model, solver_params)
+    if should_fail:
+        with pytest.raises(ValueError):
+            model_runner.run()
+    else:
+        model_runner.run()
     assert np.allclose(model.time_step_history, exported_dt_expected)
 
     # If should fail, final time is not reached, and vice versa.

@@ -12,10 +12,10 @@ from abc import ABC, abstractmethod
 import porepy as pp
 from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.numerics.time_step_control import TimeManager
-from porepy.time.time_step_acceptance import (
-    TimeStepEvaluationContext,
-    default_time_step_criteria,
-)
+# from porepy.time.time_step_acceptance import (
+#     TimeStepEvaluationContext,
+#     default_time_step_criteria,
+# )
 from porepy.time.time_step_status import TimeStepStatus
 
 logger = logging.getLogger(__name__)
@@ -71,29 +71,30 @@ class TimeStepper:
         """Maximum number of retry attempts."""
 
         if self.time_manager.is_constant:
-            assert self.max_attempts == 1
-            assert self.time_manager.dt_min_max[0] == self.time_manager.dt_min_max[1]
-        
+            logger.warning("Overriding time manager parameters")
+            self.max_attempts = 1
+            # assert self.time_manager.dt_min_max[0] == self.time_manager.dt_min_max[1]
+
         assert self.max_attempts > 0, "max_attempts must be greater than 0."
 
         # Cache previous time at the start of the trial for use in retries.
         self.previous_time = self.time_manager.time
         """Cached time at the start of the current trial."""
 
-        self.init_acceptance_criteria()
-        self.init_rejection_criteria()
+        # self.init_acceptance_criteria()
+        # self.init_rejection_criteria()
 
-    def init_acceptance_criteria(self) -> None:
-        """Parse and initialize acceptance criteria."""
-        # TODO: Extend to reading criteria from params like in NonlinearSolver.
-        self.acceptance_criteria, _ = default_time_step_criteria()
-        """Acceptance criteria for time-step trials."""
+    # def init_acceptance_criteria(self) -> None:
+    #     """Parse and initialize acceptance criteria."""
+    #     # TODO: Extend to reading criteria from params like in NonlinearSolver.
+    #     self.acceptance_criteria, _ = default_time_step_criteria()
+    #     """Acceptance criteria for time-step trials."""
 
-    def init_rejection_criteria(self) -> None:
-        """Parse and initialize rejection criteria."""
-        # TODO: Extend to reading criteria from params like in NonlinearSolver.
-        _, self.rejection_criteria = default_time_step_criteria()
-        """Rejection criteria for time-step trials."""
+    # def init_rejection_criteria(self) -> None:
+    #     """Parse and initialize rejection criteria."""
+    #     # TODO: Extend to reading criteria from params like in NonlinearSolver.
+    #     _, self.rejection_criteria = default_time_step_criteria()
+    #     """Rejection criteria for time-step trials."""
 
     def perform_time_step(
         self,
@@ -107,7 +108,7 @@ class TimeStepper:
 
         """
         # Advance time index for entire time step.
-        self.time_manager.increase_time_index()
+        # self.time_manager.increase_time_index()
 
         # Cache previous time for trial.
         self.previous_time = self.time_manager.time
@@ -116,9 +117,14 @@ class TimeStepper:
             # Update time manager for new trial (if not first attempt).
             # NOTE: No use of self.time_manager.increase_time() here.
             self.time_manager.time = self.previous_time + self.time_manager.dt
+            self.time_manager.time_index += 1
 
             # Attempt a standard time step.
             time_step_status = self.perform_trial_time_step(model, solver)
+
+            if not time_step_status.is_accepted():
+                self.time_manager.time = self.previous_time
+                self.time_manager.time_index -= 1
 
             # New time step size based on trial results.
             self.compute_next_time_step(time_step_status, model)
@@ -164,7 +170,7 @@ class TimeStepper:
     def perform_trial_time_step(
         self,
         model,  #: pp.SolutionStrategy,
-        solver,  #: pp.LinearSolver | pp.NewtonSolver,
+        solver: pp.LinearSolver | pp.NewtonSolver,
     ) -> TimeStepStatus:
         """Perform a single time step and evaluate acceptance/rejection criteria."""
 
@@ -172,19 +178,19 @@ class TimeStepper:
         model.before_time_step()
         solver_status = solver.solve(model)
 
-        # Build context once for both acceptance and rejection checks.
-        context = self._build_evaluation_context(
-            model, model.nonlinear_solver_statistics, solver_status
-        )
+        # # Build context once for both acceptance and rejection checks.
+        # context = self._build_evaluation_context(
+        #     model, model.nonlinear_solver_statistics, solver_status
+        # )
 
         # Check criteria using context.
-        acceptance_status, acceptance_info = self.acceptance_criteria.check(context)
-        rejection_status = self.rejection_criteria.check(context)
+        # acceptance_status, acceptance_info = self.acceptance_criteria.check(context)
+        # rejection_status = self.rejection_criteria.check(context)
 
-        # Summarize trial status.
-        time_step_status = self.summarize_time_step_status(
-            acceptance_status, rejection_status
-        )
+        # # Summarize trial status.
+        # time_step_status = self.summarize_time_step_status(
+        #     acceptance_status, rejection_status
+        # )
 
         # Logging.
         self.log_time_step()
@@ -203,73 +209,73 @@ class TimeStepper:
 
         return time_step_status
 
-    def _build_evaluation_context(
-        self,
-        model: "pp.SolutionStrategy",
-        statistics: "pp.NonlinearSolverStatistics",  # TODO: clean up use of statistics
-        solver_status: SimulationStatus,  # TODO: clean up
-    ) -> TimeStepEvaluationContext:
-        """Build the evaluation context for acceptance/rejection checking.
+    # def _build_evaluation_context(
+    #     self,
+    #     model: "pp.SolutionStrategy",
+    #     statistics: "pp.NonlinearSolverStatistics",  # TODO: clean up use of statistics
+    #     solver_status: SimulationStatus,  # TODO: clean up
+    # ) -> TimeStepEvaluationContext:
+    #     """Build the evaluation context for acceptance/rejection checking.
 
-        This centralizes all data needed by criteria into a single container.
-        Optional fields (temporal_increment) can be computed
-        on-demand or left None if not available.
+    #     This centralizes all data needed by criteria into a single container.
+    #     Optional fields (temporal_increment) can be computed
+    #     on-demand or left None if not available.
 
-        Parameters:
-            model: The SolutionStrategy model
-            statistics: The NonlinearSolverStatistics from the solve
-            solver_status: The SimulationStatus from the solve
+    #     Parameters:
+    #         model: The SolutionStrategy model
+    #         statistics: The NonlinearSolverStatistics from the solve
+    #         solver_status: The SimulationStatus from the solve
 
-        Returns:
-            TimeStepEvaluationContext: Unified context for criteria evaluation.
-        """
-        context = TimeStepEvaluationContext(
-            model=model,
-            statistics=statistics,
-            solver_status=solver_status,
-        )
-        return context
+    #     Returns:
+    #         TimeStepEvaluationContext: Unified context for criteria evaluation.
+    #     """
+    #     context = TimeStepEvaluationContext(
+    #         model=model,
+    #         statistics=statistics,
+    #         solver_status=solver_status,
+    #     )
+    #     return context
 
-    def summarize_time_step_status(
-        self,
-        acceptance_status: TimeStepStatusCollection,
-        rejection_status: TimeStepStatusCollection,
-    ) -> TimeStepStatus:
-        """Conclude on the overall trial status.
+    # def summarize_time_step_status(
+    #     self,
+    #     acceptance_status: TimeStepStatusCollection,
+    #     rejection_status: TimeStepStatusCollection,
+    # ) -> TimeStepStatus:
+    #     """Conclude on the overall trial status.
 
-        NOTE: Acceptance status takes precedence; rejection status is checked only
-        if acceptance is mixed. Final status determines if trial is
-        accepted/rejected/stopped.
+    #     NOTE: Acceptance status takes precedence; rejection status is checked only
+    #     if acceptance is mixed. Final status determines if trial is
+    #     accepted/rejected/stopped.
 
-        Parameters:
-            acceptance_status: Acceptance criterion statuses.
-            rejection_status: Rejection criterion statuses.
+    #     Parameters:
+    #         acceptance_status: Acceptance criterion statuses.
+    #         rejection_status: Rejection criterion statuses.
 
-        Returns:
-            TimeStepStatus: ACCEPTED, REJECTED, or STOPPED.
-        """
-        if acceptance_status.is_accepted():
-            # All acceptance criteria passed
-            time_step_status = TimeStepStatus.ACCEPTED
-            logger.debug("Trial accepted by all acceptance criteria.")
-        elif rejection_status.is_rejected():
-            # Any rejection criterion triggered
-            time_step_status = TimeStepStatus.REJECTED
-            logger.debug("Trial rejected by rejection criteria.")
-        else:
-            raise ValueError(
-                f"Invalid time step acceptance status {acceptance_status} and "
-                f"rejection status {rejection_status}."
-            )
+    #     Returns:
+    #         TimeStepStatus: ACCEPTED, REJECTED, or STOPPED.
+    #     """
+    #     if acceptance_status.is_accepted():
+    #         # All acceptance criteria passed
+    #         time_step_status = TimeStepStatus.ACCEPTED
+    #         logger.debug("Trial accepted by all acceptance criteria.")
+    #     elif rejection_status.is_rejected():
+    #         # Any rejection criterion triggered
+    #         time_step_status = TimeStepStatus.REJECTED
+    #         logger.debug("Trial rejected by rejection criteria.")
+    #     else:
+    #         raise ValueError(
+    #             f"Invalid time step acceptance status {acceptance_status} and "
+    #             f"rejection status {rejection_status}."
+    #         )
 
-        return time_step_status
+    #     return time_step_status
 
-    def after_time_step(self, time_step_status: TimeStepStatus, model) -> None:
-        """Update model state after time step based on trial status."""
-        if time_step_status.is_accepted():
-            model.after_time_step_convergence()
-        else:
-            model.after_time_step_failure()
+    # def after_time_step(self, time_step_status: TimeStepStatus, model) -> None:
+    #     """Update model state after time step based on trial status."""
+    #     if time_step_status.is_accepted():
+    #         model.after_time_step_convergence()
+    #     else:
+    #         model.after_time_step_failure()
 
     def log_time_step(self) -> None:
         """Log the current state of the time step."""
@@ -280,32 +286,32 @@ class TimeStepper:
             f"{self.time_manager.time_final:.2e}"
         )
 
-    def update_time_statistics(
-        self,
-        model,  #: pp.SolutionStrategy,
-        time_step_status: TimeStepStatus,
-        acceptance_status,
-        rejection_status,
-        acceptance_info,
-    ) -> None:
-        """Update statistics from the time step.
+    # def update_time_statistics(
+    #     self,
+    #     model,  #: pp.SolutionStrategy,
+    #     time_step_status: TimeStepStatus,
+    #     acceptance_status,
+    #     rejection_status,
+    #     acceptance_info,
+    # ) -> None:
+    #     """Update statistics from the time step.
 
-        Parameters:
-            model: The SolutionStrategy model.
-            time_step_status: Status of the time step (accepted/rejected/stopped).
-            acceptance_status: Acceptance statuses.
-            rejection_status: Rejection statuses.
-            info: Diagnostic information.
-        """
-        # TODO time_step_status, acceptance_status/rejection_status, acceptance_info
+    #     Parameters:
+    #         model: The SolutionStrategy model.
+    #         time_step_status: Status of the time step (accepted/rejected/stopped).
+    #         acceptance_status: Acceptance statuses.
+    #         rejection_status: Rejection statuses.
+    #         info: Diagnostic information.
+    #     """
+    #     # TODO time_step_status, acceptance_status/rejection_status, acceptance_info
 
-        assert isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics)
-        model.nonlinear_solver_statistics.log_time_information(
-            model.time_manager.time_index,
-            model.time_manager.time,
-            model.time_manager.dt,
-            model.time_manager.final_time_reached(),
-        )
+    #     assert isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics)
+    #     model.nonlinear_solver_statistics.log_time_information(
+    #         model.time_manager.time_index,
+    #         model.time_manager.time,
+    #         model.time_manager.dt,
+    #         model.time_manager.final_time_reached(),
+    #     )
 
 
 # # ============================================================================

@@ -79,8 +79,8 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             "total_num_iterations": 3,
             "total_num_waisted_iterations": 2,
             "final_convergence_status": {
-                "crit1": ConvergenceStatus.CONVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.SUCCESS,
+                "crit2": ConvergenceStatus.SUCCESS,
             },
         }
     )
@@ -92,12 +92,12 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             "simulation_status": SimulationStatus.FAILED,
             "convergence_status": {
                 "crit1": [
-                    ConvergenceStatus.NOT_CONVERGED,
-                    ConvergenceStatus.DIVERGED,
+                    ConvergenceStatus.CONTINUE_ITERATING,
+                    ConvergenceStatus.FAILURE,
                 ],
                 "crit2": [
-                    ConvergenceStatus.NOT_CONVERGED,
-                    ConvergenceStatus.CONVERGED,
+                    ConvergenceStatus.CONTINUE_ITERATING,
+                    ConvergenceStatus.SUCCESS,
                 ],
             },
             "convergence_info": {
@@ -112,8 +112,8 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             "num_iterations": 1,
             "simulation_status": SimulationStatus.SUCCESSFUL,
             "convergence_status": {
-                "crit1": [ConvergenceStatus.CONVERGED],
-                "crit2": [ConvergenceStatus.CONVERGED],
+                "crit1": [ConvergenceStatus.SUCCESS],
+                "crit2": [ConvergenceStatus.SUCCESS],
             },
             "convergence_info": {
                 "crit1": [0.1],
@@ -611,7 +611,7 @@ def test_nonlinear_solver_statistics_log_convergence_status():
     # 1. Iteration
     stats.log_convergence_status(
         ConvergenceStatusCollection(
-            {"crit1": ConvergenceStatus.CONVERGED, "crit2": ConvergenceStatus.DIVERGED}
+            {"crit1": ConvergenceStatus.SUCCESS, "crit2": ConvergenceStatus.FAILURE}
         )
     )
     assert (
@@ -619,8 +619,8 @@ def test_nonlinear_solver_statistics_log_convergence_status():
             stats.convergence_status,
             ConvergenceStatusHistory(
                 {
-                    "crit1": [ConvergenceStatus.CONVERGED],
-                    "crit2": [ConvergenceStatus.DIVERGED],
+                    "crit1": [ConvergenceStatus.SUCCESS],
+                    "crit2": [ConvergenceStatus.FAILURE],
                 }
             ),
         )
@@ -632,8 +632,8 @@ def test_nonlinear_solver_statistics_log_convergence_status():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.NOT_CONVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.CONTINUE_ITERATING,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -643,10 +643,10 @@ def test_nonlinear_solver_statistics_log_convergence_status():
             ConvergenceStatusHistory(
                 {
                     "crit1": [
-                        ConvergenceStatus.CONVERGED,
-                        ConvergenceStatus.NOT_CONVERGED,
+                        ConvergenceStatus.SUCCESS,
+                        ConvergenceStatus.CONTINUE_ITERATING,
                     ],
-                    "crit2": [ConvergenceStatus.DIVERGED, ConvergenceStatus.CONVERGED],
+                    "crit2": [ConvergenceStatus.FAILURE, ConvergenceStatus.SUCCESS],
                 }
             ),
         )
@@ -716,8 +716,11 @@ def test_nonlinear_solver_statistics_append_global_data():
     stats.num_iterations = 1
     stats.convergence_status = ConvergenceStatusHistory(
         {
-            "crit1": [ConvergenceStatus.NOT_CONVERGED, ConvergenceStatus.CONVERGED],
-            "crit2": [ConvergenceStatus.CONVERGED, ConvergenceStatus.CONVERGED],
+            "crit1": [
+                ConvergenceStatus.CONTINUE_ITERATING,
+                ConvergenceStatus.SUCCESS,
+            ],
+            "crit2": [ConvergenceStatus.SUCCESS, ConvergenceStatus.SUCCESS],
         }
     )
 
@@ -748,8 +751,11 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     ]
     stats.convergence_status = ConvergenceStatusHistory(
         {
-            "crit1": [ConvergenceStatus.NOT_CONVERGED, ConvergenceStatus.DIVERGED],
-            "crit2": [ConvergenceStatus.NOT_CONVERGED, ConvergenceStatus.CONVERGED],
+            "crit1": [ConvergenceStatus.CONTINUE_ITERATING, ConvergenceStatus.FAILURE],
+            "crit2": [
+                ConvergenceStatus.CONTINUE_ITERATING,
+                ConvergenceStatus.SUCCESS,
+            ],
         }
     )
     stats.convergence_info = ConvergenceInfoHistory(
@@ -796,8 +802,8 @@ def test_nonlinear_solver_statistics_append_data():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.NOT_CONVERGED,
-                "crit2": ConvergenceStatus.NOT_CONVERGED,
+                "crit1": ConvergenceStatus.CONTINUE_ITERATING,
+                "crit2": ConvergenceStatus.CONTINUE_ITERATING,
             }
         )
     )
@@ -810,8 +816,8 @@ def test_nonlinear_solver_statistics_append_data():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.DIVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.FAILURE,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -831,8 +837,8 @@ def test_nonlinear_solver_statistics_append_data():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.CONVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.SUCCESS,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -873,8 +879,8 @@ def test_nonlinear_solver_statistics_save():
     stats.num_iterations = 1
     stats.convergence_status = ConvergenceStatusHistory(
         {
-            "crit1": [ConvergenceStatus.CONVERGED],
-            "crit2": [ConvergenceStatus.CONVERGED],
+            "crit1": [ConvergenceStatus.SUCCESS],
+            "crit2": [ConvergenceStatus.SUCCESS],
         }
     )
     stats.convergence_info = ConvergenceInfoHistory(
@@ -929,8 +935,8 @@ def test_nonlinear_solver_statistics_integration():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.NOT_CONVERGED,
-                "crit2": ConvergenceStatus.NOT_CONVERGED,
+                "crit1": ConvergenceStatus.CONTINUE_ITERATING,
+                "crit2": ConvergenceStatus.CONTINUE_ITERATING,
             }
         )
     )
@@ -943,8 +949,8 @@ def test_nonlinear_solver_statistics_integration():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.DIVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.FAILURE,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -963,8 +969,8 @@ def test_nonlinear_solver_statistics_integration():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.CONVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.SUCCESS,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -1384,8 +1390,8 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.NOT_CONVERGED,
-                "crit2": ConvergenceStatus.NOT_CONVERGED,
+                "crit1": ConvergenceStatus.CONTINUE_ITERATING,
+                "crit2": ConvergenceStatus.CONTINUE_ITERATING,
             }
         )
     )
@@ -1399,8 +1405,8 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.DIVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.FAILURE,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -1419,8 +1425,8 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.CONVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.SUCCESS,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -1468,8 +1474,8 @@ def test_nonlinear_solver_and_time_statistics_save():
     stats.num_iterations = 1
     stats.convergence_status = ConvergenceStatusHistory(
         {
-            "crit1": [ConvergenceStatus.CONVERGED],
-            "crit2": [ConvergenceStatus.CONVERGED],
+            "crit1": [ConvergenceStatus.SUCCESS],
+            "crit2": [ConvergenceStatus.SUCCESS],
         }
     )
     stats.convergence_info = ConvergenceInfoHistory(
@@ -1527,8 +1533,8 @@ def test_nonlinear_solver_and_time_statistics_integration():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.NOT_CONVERGED,
-                "crit2": ConvergenceStatus.NOT_CONVERGED,
+                "crit1": ConvergenceStatus.CONTINUE_ITERATING,
+                "crit2": ConvergenceStatus.CONTINUE_ITERATING,
             }
         )
     )
@@ -1542,8 +1548,8 @@ def test_nonlinear_solver_and_time_statistics_integration():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.DIVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.FAILURE,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )
@@ -1561,8 +1567,8 @@ def test_nonlinear_solver_and_time_statistics_integration():
     stats.log_convergence_status(
         ConvergenceStatusCollection(
             {
-                "crit1": ConvergenceStatus.CONVERGED,
-                "crit2": ConvergenceStatus.CONVERGED,
+                "crit1": ConvergenceStatus.SUCCESS,
+                "crit2": ConvergenceStatus.SUCCESS,
             }
         )
     )

@@ -422,15 +422,15 @@ def check_convergence_test_model() -> CheckConvergenceTest:
     "nonlinear_increment,residual,expected",
     [
         # Case 1: Both increment and residual are below tolerance.
-        (np.array([1e-6, 1e-6]), np.array([1e-6]), ConvergenceStatus.CONVERGED),
+        (np.array([1e-6, 1e-6]), np.array([1e-6]), ConvergenceStatus.SUCCESS),
         # Case 2: Increment is above tolerance.
-        (np.array([1e-6, 1]), np.array([1e-6]), ConvergenceStatus.NOT_CONVERGED),
+        (np.array([1e-6, 1]), np.array([1e-6]), ConvergenceStatus.CONTINUE_ITERATING),
         # Case 3: Residual is above tolerance.
-        (np.array([1e-6, 1e-6]), np.array([1]), ConvergenceStatus.NOT_CONVERGED),
+        (np.array([1e-6, 1e-6]), np.array([1]), ConvergenceStatus.CONTINUE_ITERATING),
         # Case 4: Increment is nan.
-        (np.array([np.nan, 0.1]), np.array([1e-6]), ConvergenceStatus.DIVERGED),
+        (np.array([np.nan, 0.1]), np.array([1e-6]), ConvergenceStatus.FAILURE),
         # Case 5: Residual is above divergence tolerance.
-        (np.array([1e-6, 1e-6]), np.array([2e4]), ConvergenceStatus.DIVERGED),
+        (np.array([1e-6, 1e-6]), np.array([2e4]), ConvergenceStatus.FAILURE),
     ],
 )
 def test_check_convergence(
@@ -469,11 +469,11 @@ def test_check_convergence(
     )
     # Condense the two statuses into one.
     status = convergence_status.union(divergence_status)
-    if expected == ConvergenceStatus.CONVERGED:
+    if expected == ConvergenceStatus.SUCCESS:
         assert status.is_converged()
-    elif expected == ConvergenceStatus.NOT_CONVERGED:
+    elif expected == ConvergenceStatus.CONTINUE_ITERATING:
         assert status.is_not_converged()
-    elif expected == ConvergenceStatus.DIVERGED:
+    elif expected == ConvergenceStatus.FAILURE:
         assert status.is_diverged()
 
 
