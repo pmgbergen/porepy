@@ -59,9 +59,9 @@ class ConvergenceStatus(StrEnum):
 
     CONVERGED = "converged"
     """Convergence criterion is satisfied / Divergence criterion is not satisfied."""
-    NOT_CONVERGED = "not_converged"
+    CONTINUE_ITERATING = "continue_iterating"
     """Convergence criterion is not satisfied."""
-    DIVERGED = "diverged"
+    FAILED = "failed"
     """Divergence criterion is satisfied."""
 
     def __str__(self):
@@ -71,13 +71,13 @@ class ConvergenceStatus(StrEnum):
         """Check if the status indicates convergence."""
         return self == ConvergenceStatus.CONVERGED
 
-    def is_not_converged(self) -> bool:
+    def is_iterating(self) -> bool:
         """Check if the status indicates not converged."""
-        return self == ConvergenceStatus.NOT_CONVERGED
+        return self == ConvergenceStatus.CONTINUE_ITERATING
 
-    def is_diverged(self) -> bool:
+    def is_failed(self) -> bool:
         """Check if the status indicates divergence."""
-        return self == ConvergenceStatus.DIVERGED
+        return self == ConvergenceStatus.FAILED
 
 
 class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
@@ -89,11 +89,11 @@ class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
 
     def is_not_converged(self) -> bool:
         """Check if any status indicates not converged."""
-        return any(status.is_not_converged() for status in self.values())
+        return any(status.is_iterating() for status in self.values())
 
     def is_diverged(self) -> bool:
         """Check if any status indicates divergence."""
-        return any(status.is_diverged() for status in self.values())
+        return any(status.is_failed() for status in self.values())
 
     def union(
         self, other: "ConvergenceStatusCollection"
@@ -313,7 +313,7 @@ class NanDivergenceCriterion(DivergenceCriterion):
         """
         if np.isnan(kwargs["value"]).any():
             logger.info(self.divergence_msg())
-            return ConvergenceStatus.DIVERGED
+            return ConvergenceStatus.FAILED
         return ConvergenceStatus.CONVERGED
 
 
@@ -355,13 +355,13 @@ class AbsoluteConvergenceCriterion(AbsoluteCriterion, ConvergenceCriterion):
             status = (
                 ConvergenceStatus.CONVERGED
                 if all(v < self.tol for v in metric_value.values())
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         else:
             status = (
                 ConvergenceStatus.CONVERGED
                 if metric_value < self.tol
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         return status, metric_value
 
@@ -382,8 +382,8 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
         status, _ = AbsoluteConvergenceCriterion.check(
             cast(AbsoluteConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_not_converged():
-            status = ConvergenceStatus.DIVERGED
+        if status.is_iterating():
+            status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
 
@@ -475,7 +475,7 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
                     for key, val in metric_value.items()
                     if key in self.reference_value
                 )
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
             relative_metric_value: ConvergenceInfo = {
                 key: val / self.reference_value[key]
@@ -487,7 +487,7 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
             status = (
                 ConvergenceStatus.CONVERGED
                 if metric_value < self.tol * self.reference_value
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
             relative_metric_value = metric_value / self.reference_value
         return status, relative_metric_value
@@ -515,8 +515,8 @@ class RelativeDivergenceCriterion(RelativeCriterion, DivergenceCriterion):
         status, _ = RelativeConvergenceCriterion.check(
             cast(RelativeConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_not_converged():
-            status = ConvergenceStatus.DIVERGED
+        if status.is_iterating():
+            status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
 
@@ -595,14 +595,14 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
                     for key, v in metric_value.items()
                     if key in self.reference_value
                 )
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         else:
             assert isinstance(self.reference_value, float)
             status = (
                 ConvergenceStatus.CONVERGED
                 if metric_value < self.atol + self.rtol * self.reference_value
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         return status, metric_value
 
@@ -627,8 +627,8 @@ class CombinedDivergenceCriterion(CombinedCriterion, DivergenceCriterion):
         status, _ = CombinedConvergenceCriterion.check(
             cast(CombinedConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_not_converged():
-            status = ConvergenceStatus.DIVERGED
+        if status.is_iterating():
+            status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
 
@@ -917,6 +917,6 @@ class MaxIterationsCriterion(DivergenceCriterion):
         """
         if num_iterations >= self.max_iterations:
             logger.info(self.divergence_msg())
-            return ConvergenceStatus.DIVERGED
+            return ConvergenceStatus.FAILED
         else:
             return ConvergenceStatus.CONVERGED

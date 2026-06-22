@@ -902,12 +902,12 @@ def test_nonlinear_loop(
         ),
         (
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.FAILED,
             SimulationStatus.SUCCESSFUL,  # Convergence trumps divergence
         ),
         (
-            ConvergenceStatus.NOT_CONVERGED,
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.FAILED,
             SimulationStatus.FAILED,
         ),
     ],
@@ -1080,8 +1080,8 @@ def test_update_solver_statistics(default_newton_solver):
     simulation_status = SimulationStatus.IN_PROGRESS
     convergence_status = ConvergenceStatusCollection(
         {
-            "inc_abs": ConvergenceStatus.NOT_CONVERGED,
-            "res_abs": ConvergenceStatus.NOT_CONVERGED,
+            "inc_abs": ConvergenceStatus.CONTINUE_ITERATING,
+            "res_abs": ConvergenceStatus.CONTINUE_ITERATING,
             "max_iter": ConvergenceStatus.CONVERGED,
         }
     )

@@ -908,7 +908,7 @@ def test_model_time_step_control(params: dict):
             ):
                 return (
                     ConvergenceStatusCollection(
-                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                        {"crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
                     ConvergenceStatusCollection(
                         {"div_crit": ConvergenceStatus.CONVERGED}
@@ -926,11 +926,9 @@ def test_model_time_step_control(params: dict):
             else:
                 return (
                     ConvergenceStatusCollection(
-                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                        {"crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
-                    ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.DIVERGED}
-                    ),
+                    ConvergenceStatusCollection({"div_crit": ConvergenceStatus.FAILED}),
                     ConvergenceInfoCollection({"crit": np.nan}),
                 )
 

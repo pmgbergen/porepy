@@ -98,25 +98,25 @@ def test_convergence_status_methods():
     s = ConvergenceStatus
 
     assert s.CONVERGED.is_converged()
-    assert s.NOT_CONVERGED.is_not_converged()
-    assert s.DIVERGED.is_diverged()
+    assert s.CONTINUE_ITERATING.is_iterating()
+    assert s.FAILED.is_failed()
 
-    assert not s.CONVERGED.is_not_converged()
-    assert not s.CONVERGED.is_diverged()
+    assert not s.CONVERGED.is_iterating()
+    assert not s.CONVERGED.is_failed()
 
-    assert not s.NOT_CONVERGED.is_converged()
-    assert not s.NOT_CONVERGED.is_diverged()
+    assert not s.CONTINUE_ITERATING.is_converged()
+    assert not s.CONTINUE_ITERATING.is_failed()
 
-    assert not s.DIVERGED.is_converged()
-    assert not s.DIVERGED.is_not_converged()
+    assert not s.FAILED.is_converged()
+    assert not s.FAILED.is_iterating()
 
 
 def test_convergence_status_str():
     """Test the string representation of ConvergenceStatus enum members."""
     s = ConvergenceStatus
     assert str(s.CONVERGED) == "converged"
-    assert str(s.NOT_CONVERGED) == "not_converged"
-    assert str(s.DIVERGED) == "diverged"
+    assert str(s.CONTINUE_ITERATING) == "not_converged"
+    assert str(s.FAILED) == "diverged"
 
 
 @pytest.mark.parametrize(
@@ -131,37 +131,37 @@ def test_convergence_status_str():
         ),
         # All not converged
         (
-            ConvergenceStatus.NOT_CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONTINUE_ITERATING,
             [False, True, False],
         ),
         # All diverged
         (
-            ConvergenceStatus.DIVERGED,
-            ConvergenceStatus.DIVERGED,
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.FAILED,
+            ConvergenceStatus.FAILED,
+            ConvergenceStatus.FAILED,
             [False, False, True],
         ),
         # Mixed: converged, converged, not converged
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             [False, True, False],
         ),
         # Mixed: not converged, converged, not onverged
         (
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             [False, True, False],
         ),
         # Mixed: diverged, converged, nc
         (
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.FAILED,
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             [False, True, True],
         ),
     ],
@@ -185,12 +185,12 @@ def test_convergence_status_collection_union_with_overlap():
     c1 = ConvergenceStatusCollection(
         {
             "crit1": ConvergenceStatus.CONVERGED,
-            "crit2": ConvergenceStatus.NOT_CONVERGED,
+            "crit2": ConvergenceStatus.CONTINUE_ITERATING,
         }
     )
     c2 = ConvergenceStatusCollection(
         {
-            "crit1": ConvergenceStatus.DIVERGED,
+            "crit1": ConvergenceStatus.FAILED,
             "crit3": ConvergenceStatus.CONVERGED,
         }
     )
@@ -209,12 +209,12 @@ def test_convergence_status_collection_union_without_overlap():
     c1 = ConvergenceStatusCollection(
         {
             "crit1": ConvergenceStatus.CONVERGED,
-            "crit2": ConvergenceStatus.NOT_CONVERGED,
+            "crit2": ConvergenceStatus.CONTINUE_ITERATING,
         }
     )
     c2 = ConvergenceStatusCollection(
         {
-            "crit3": ConvergenceStatus.DIVERGED,
+            "crit3": ConvergenceStatus.FAILED,
             "crit4": ConvergenceStatus.CONVERGED,
         }
     )
@@ -238,7 +238,7 @@ def test_convergence_status_history_append():
     c1 = ConvergenceStatusCollection(
         {
             "crit1": ConvergenceStatus.CONVERGED,
-            "crit2": ConvergenceStatus.NOT_CONVERGED,
+            "crit2": ConvergenceStatus.CONTINUE_ITERATING,
         }
     )
     history.append(c1)
@@ -250,8 +250,8 @@ def test_convergence_status_history_append():
     # Add second entry and check structure.
     c2 = ConvergenceStatusCollection(
         {
-            "crit1": ConvergenceStatus.DIVERGED,
-            "crit2": ConvergenceStatus.NOT_CONVERGED,
+            "crit1": ConvergenceStatus.FAILED,
+            "crit2": ConvergenceStatus.CONTINUE_ITERATING,
         }
     )
     history.append(c2)
@@ -261,10 +261,10 @@ def test_convergence_status_history_append():
         assert len(history[key]) == 2
 
     # Check values.
-    assert history["crit1"] == [ConvergenceStatus.CONVERGED, ConvergenceStatus.DIVERGED]
+    assert history["crit1"] == [ConvergenceStatus.CONVERGED, ConvergenceStatus.FAILED]
     assert history["crit2"] == [
-        ConvergenceStatus.NOT_CONVERGED,
-        ConvergenceStatus.NOT_CONVERGED,
+        ConvergenceStatus.CONTINUE_ITERATING,
+        ConvergenceStatus.CONTINUE_ITERATING,
     ]
 
 
@@ -274,13 +274,13 @@ def test_convergence_history_to_str():
     c1 = ConvergenceStatusCollection(
         {
             "crit1": ConvergenceStatus.CONVERGED,
-            "crit2": ConvergenceStatus.NOT_CONVERGED,
+            "crit2": ConvergenceStatus.CONTINUE_ITERATING,
         }
     )
     c2 = ConvergenceStatusCollection(
         {
-            "crit1": ConvergenceStatus.DIVERGED,
-            "crit2": ConvergenceStatus.NOT_CONVERGED,
+            "crit1": ConvergenceStatus.FAILED,
+            "crit2": ConvergenceStatus.CONTINUE_ITERATING,
         }
     )
     history.append(c1)
@@ -354,7 +354,7 @@ def test_convergence_info_history():
 )
 @pytest.mark.parametrize(
     ("value", "expected_status"),
-    [(1.0, ConvergenceStatus.CONVERGED), (np.nan, ConvergenceStatus.DIVERGED)],
+    [(1.0, ConvergenceStatus.CONVERGED), (np.nan, ConvergenceStatus.FAILED)],
 )
 def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
     """Test of the general NanDivergenceCriterion."""
@@ -369,8 +369,8 @@ def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
         (0, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
         (1, 3, ConvergenceStatus.CONVERGED),  # First active iteration
         (2, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
-        (3, 3, ConvergenceStatus.DIVERGED),  # Third active iteration (max reached)
-        (4, 3, ConvergenceStatus.DIVERGED),
+        (3, 3, ConvergenceStatus.FAILED),  # Third active iteration (max reached)
+        (4, 3, ConvergenceStatus.FAILED),
     ],
 )
 def test_max_iterations_criterion(iteration_index, max_iterations, expected_status):
@@ -402,7 +402,7 @@ def test_max_iterations_criterion(iteration_index, max_iterations, expected_stat
     ("tol", "value", "expected_status", "expected_info"),
     [
         (1e-3, [1e-4], ConvergenceStatus.CONVERGED, 1e-4),
-        (1e-3, [1e-2, 1e-2], ConvergenceStatus.NOT_CONVERGED, np.sqrt(2) * 1e-2),
+        (1e-3, [1e-2, 1e-2], ConvergenceStatus.CONTINUE_ITERATING, np.sqrt(2) * 1e-2),
     ],
 )
 def test_absolute_convergence_criterion(
@@ -439,7 +439,7 @@ def test_absolute_convergence_criterion(
     ("tol", "value", "expected_status"),
     [
         (1e-3, [1e-4], ConvergenceStatus.CONVERGED),
-        (1e-3, [1e-2, 1e-2], ConvergenceStatus.DIVERGED),
+        (1e-3, [1e-2, 1e-2], ConvergenceStatus.FAILED),
     ],
 )
 def test_absolute_divergence_criterion(
@@ -473,7 +473,7 @@ def test_absolute_divergence_criterion(
             1e-2,
             [1e-2, 1e-2],
             1e-1,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             np.sqrt(2) * 1e-1,
         ),  # rel = sqrt(2)*1e-2/1e-1 = ~0.014 > tol
     ],
@@ -511,7 +511,7 @@ def test_relative_convergence_criterion_single_physics(
             1e-2,
             [1e-2, 1e-2],
             [1e-1, 1e-1],
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             1e-1,
         ),
     ],
@@ -558,7 +558,7 @@ def test_relative_convergence_criterion_multiphysics(
     ("tol", "value", "reference_value", "expected_status"),
     [
         (1e-2, [1e-5], 1e-2, ConvergenceStatus.CONVERGED),  # rel = 0.001 < tol
-        (1e-2, [1e-2, 1e-2], 1e-1, ConvergenceStatus.DIVERGED),  # rel = ~0.014 > tol
+        (1e-2, [1e-2, 1e-2], 1e-1, ConvergenceStatus.FAILED),  # rel = ~0.014 > tol
     ],
 )
 def test_relative_divergence_criterion(
@@ -596,7 +596,7 @@ def test_relative_divergence_criterion(
     ("value", "reference_value", "expected_status", "expected_info"),
     [
         ([1e-5], 1e-2, ConvergenceStatus.CONVERGED, 1e-5),
-        ([1e-2, 1e-2], 1e-1, ConvergenceStatus.NOT_CONVERGED, np.sqrt(2) * 1e-2),
+        ([1e-2, 1e-2], 1e-1, ConvergenceStatus.CONTINUE_ITERATING, np.sqrt(2) * 1e-2),
     ],
 )
 def test_combined_convergence_criterion(
@@ -648,7 +648,7 @@ def test_combined_convergence_criterion(
     ("value", "reference_value", "expected_status"),
     [
         ([1e-5], 1e-2, ConvergenceStatus.CONVERGED),
-        ([1e-2, 1e-2], 1e-1, ConvergenceStatus.DIVERGED),
+        ([1e-2, 1e-2], 1e-1, ConvergenceStatus.FAILED),
     ],
 )
 def test_combined_divergence_criterion(
@@ -679,15 +679,15 @@ def test_combined_divergence_criterion(
         ),
         (
             2e-3,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
         ),
         (
             1e-2,
-            ConvergenceStatus.NOT_CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
-            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONTINUE_ITERATING,
         ),
     ],
 )
@@ -734,15 +734,15 @@ def test_convergence_criteria_collection(
         ),
         (
             2e-3,
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.FAILED,
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.FAILED,
         ),
         (
             1e-2,
-            ConvergenceStatus.DIVERGED,
-            ConvergenceStatus.DIVERGED,
-            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.FAILED,
+            ConvergenceStatus.FAILED,
+            ConvergenceStatus.FAILED,
         ),
     ],
 )
