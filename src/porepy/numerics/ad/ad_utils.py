@@ -600,9 +600,11 @@ def _get_reference_values(
     try:
         value = data[pp.REFERENCE_SOLUTIONS][name].copy()
     except KeyError as err:
-        # TODO: If possible return empty operators that allow arithmetic operations.
-        # For now return 0 as default.
-        value = 0.0
+        # No reference is set, we should return a zero array of the right shape. Look
+        # for the shape in the time step solutions, since these are most likely to be
+        # set. If there are cases where no time step solution is available, we will need
+        # to think of a different approach.
+        value = 0.0 * data[pp.TIME_STEP_SOLUTIONS][name][0]  # type: ignore
     return value
 
 
