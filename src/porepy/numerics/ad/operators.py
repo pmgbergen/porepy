@@ -1224,10 +1224,8 @@ class ReferenceOperator(Operator):
         )
 
         self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time and
+        """The original operator representing this operator at the current time and
         iterate.
-
-        This attribute is only available in operators representing previous time steps.
 
         """
 
@@ -1242,14 +1240,6 @@ class ReferenceOperator(Operator):
 
         Reference operators do not invoke the recursion (like the base class),
         but represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous time step from operators which
-            are at some previous iterate. Use the :attr:`original_operator` instead.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous iterate.
-            AssertionError: If ``steps`` is not strictly positive.
 
         """
         # Currently, only "non-fixed" operators can be evaluated at reference.
@@ -1267,13 +1257,7 @@ class ReferenceOperator(Operator):
         op._cached_key = None
         op._is_reference = True
 
-        if isinstance(self, TimeDependentOperator) and self.is_previous_time:
-            op._time_step_index = -1
-        if isinstance(self, IterativeOperator) and self.is_previous_iterate:
-            op._iterate_index = -1
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
+        if self.original_operator is None:
             op.original_operator = self
         else:
             op.original_operator = self.original_operator
@@ -1559,9 +1543,9 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator):
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
             key = (
-                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids} "
-                f"previous_time={self.is_previous_time},"
-                f"time_step_index={self.time_step_index})"
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids}\n"
+                f"previous_time={self.is_previous_time}, "
+                f"time_step_index={self.time_step_index}), "
                 f"reference={self.is_reference})"
             )
             self._cached_key = key
