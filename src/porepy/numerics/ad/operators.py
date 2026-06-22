@@ -93,7 +93,7 @@ def _get_previous_time_or_iterate(
     elif steps == 0:
         return op
     # The recursion reached an atomic operator, which has some time- or
-    # iterate-dependent behaviour
+    # iterate-dependent behaviour.
     elif isinstance(op, TimeDependentOperator) and prev_time:
         return op.previous_timestep(steps=steps)
     elif isinstance(op, IterativeOperator) and not prev_time:
@@ -103,7 +103,7 @@ def _get_previous_time_or_iterate(
     # itself. Holds only if the operator is original (no previous_* operation performed)
 
     # The recursion reached an operator without children and without time- or iterate-
-    # dependent behaviour
+    # dependent behaviour.
     elif op.is_leaf():
         return op
     # Else we are in the middle of the operator tree and need to go deeper, creating
