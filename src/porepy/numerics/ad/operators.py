@@ -112,13 +112,27 @@ def _get_previous_time_or_iterate(
 
 
 def _get_reference(op: Operator) -> Operator:
-    """Helper function for providing correct AD structure for reference operators."""
-    if isinstance(op, TimeDependentOperator) and op.is_previous_time:
+    """Helper function for providing correct AD structure for reference operators.
+
+    The reference is taken according to the following prioritized rules:
+        1. If the operator has a reference, we return it.
+        2. If the operator represents a previous time step, we return the operator
+           itself.
+        3. If the operator represents a previous iterate, we return the operator itself.
+        4. If the operator is a leaf, we return the operator itself.
+        5. Else, we copy the operator tree that has the operator as root, but with the
+           reference behaviour in all the children.
+
+    Returns:
+        A reference operator according to the above rules.
+
+    """
+    if isinstance(op, ReferenceOperator):
+        return op.reference()
+    elif isinstance(op, TimeDependentOperator) and op.is_previous_time:
         return op
     elif isinstance(op, IterativeOperator) and op.is_previous_iterate:
         return op
-    elif isinstance(op, ReferenceOperator) and not op.is_reference:
-        return op.reference()
     elif op.is_leaf():
         return op
     else:
@@ -1243,11 +1257,11 @@ class ReferenceOperator(Operator):
 
         """
         # Currently, only "non-fixed" operators can be evaluated at reference.
+        if isinstance(self, ReferenceOperator) and self.is_reference:
+            return self
         if isinstance(self, TimeDependentOperator) and self.is_previous_time:
             return self
         if isinstance(self, IterativeOperator) and self.is_previous_iterate:
-            return self
-        if isinstance(self, ReferenceOperator) and self.is_reference:
             return self
 
         # TODO copy or deepcopy? Is this enough for every operator class?
