@@ -306,3 +306,91 @@ class ReferenceOperator:
             op.original_operator = self.original_operator
 
         return op
+
+
+def _get_previous_time_or_iterate(
+    op: Operator, prev_time: bool = True, steps: int = 1
+) -> Operator:
+    """Helper function which traverses an operator's tree recursively to get a
+    copy of it and it's children, representing ``op`` at a previous time or
+    iteration.
+
+    Parameters:
+        op: Some operator whose tree should be traversed.
+        prev_time: ``default=True``
+
+            If True, it calls :meth:`Operator.previous_timestep`, otherwise it calls
+            :meth:`Operator.previous_iteration`.
+
+            This is the only difference in the recursion and we can avoid duplicate
+            code.
+        steps: ``default=1``
+
+            Number of steps backwards in time or iterate sense.
+
+    Returns:
+        A copy of the operator and its children, representing the previous time or
+        iteration.
+
+    """
+    # Keep reference operators as they are.
+    if isinstance(op, ReferenceOperator) and op.is_reference:
+        return op
+    elif steps == 0:
+        return op
+    # The recursion reached an atomic operator, which has some time- or
+    # iterate-dependent behaviour.
+    elif isinstance(op, TimeDependentOperator) and prev_time:
+        return op.previous_timestep(steps=steps)
+    elif isinstance(op, IterativeOperator) and not prev_time:
+        return op.previous_iteration(steps=steps)
+    # NOTE The previous_iteration of a time-dependent operator will return the operator
+    # itself. Vice-versa, the previous_timestep of an Iterative operator will return
+    # itself. Holds only if the operator is original (no previous_* operation performed)
+
+    # The recursion reached an operator without children and without time- or iterate-
+    # dependent behaviour.
+    elif op.is_leaf():
+        return op
+    # Else we are in the middle of the operator tree and need to go deeper, creating
+    # copies along.
+    else:
+        # Create new operator from the tree, with the only difference being the new
+        # children, for which the recursion is invoked
+        # NOTE copy takes care of references to original_operator and func
+        new_op = copy.copy(op)
+        new_op.children = [
+            _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
+            for child in op.children
+        ]
+        return new_op
+
+
+def _get_reference(op: Operator) -> Operator:
+    """Helper function for providing correct AD structure for reference operators.
+
+    The reference is taken according to the following prioritized rules:
+        1. If the operator has a reference, we return it.
+        2. If the operator represents a previous time step, we return the operator
+           itself.
+        3. If the operator represents a previous iterate, we return the operator itself.
+        4. If the operator is a leaf, we return the operator itself.
+        5. Else, we copy the operator tree that has the operator as root, but with the
+           reference behaviour in all the children.
+
+    Returns:
+        A reference operator according to the above rules.
+
+    """
+    if isinstance(op, ReferenceOperator):
+        return op.reference()
+    elif isinstance(op, TimeDependentOperator) and op.is_previous_time:
+        return op
+    elif isinstance(op, IterativeOperator) and op.is_previous_iterate:
+        return op
+    elif op.is_leaf():
+        return op
+    else:
+        new_op = copy.copy(op)
+        new_op.children = [_get_reference(child) for child in op.children]
+        return new_op
