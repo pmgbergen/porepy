@@ -1,14 +1,31 @@
+"""This module contains mixin classes that extend the behavior of an operator.
+
+The mixins will modify how an operator is evaluated:
+  - TimeDependentOperator: The operator represents a previous time step, and its
+    value will be fetched from the time step which it represents, see class
+    documentation for details.
+  - IterativeOperator: The operator represents a previous iterate, and its value
+    will be fetched from the iterate which it represents, see class documentation for
+    details.
+  - ReferenceOperator: The operator represents a reference value and will evaluate this
+    reference.
+
+
+"""
+
 import copy
 
 
 class TimeDependentOperator:
-    """Intermediate parent class for operator classes, which can have a time-dependent
+    """Mixin class for operator classes, which can have a time-dependent
     representation.
 
     Implements the notion of time step indices, as well as a method to create a
     representation of an operator instance at a previous time.
 
-    Operators created via constructor always start at the current time.
+    Operators created via constructor always start at the current time. To create an
+    operator representing a previous time step, use the :meth:`previous_timestep`
+    method.
 
     """
 
@@ -98,12 +115,12 @@ class TimeDependentOperator:
         # which is different from the original one.
         op._cached_key = None
 
-        # NOTE Use private time step index, because it is always an integer
+        # NOTE Use private time step index, because it is always an integer.
         # The public time step index is NONE for current time
         # (which translates to -1 for the private index)
         op._time_step_index = self._time_step_index + int(steps)
 
-        # keeping track to the very first one
+        # Keeping track of the original operator.
         if self.is_current_iterate:
             op.original_operator = self
         else:
@@ -113,8 +130,8 @@ class TimeDependentOperator:
 
 
 class IterativeOperator:
-    """Intermediate parent class for operator classes, which can have multiple
-    representations in the iterative sense.
+    """Mixin class for operator classes, which can have multiple representations in the
+    iterative sense.
 
     Implements the notion of iterate indices, as well as a method to create a
     representation of an operator instance at a iterate time.
@@ -122,8 +139,8 @@ class IterativeOperator:
     Operators created via constructor always start at the current iterate.
 
     Note:
-        Operators which represents some previous iterate represent also
-        always the current time.
+        Operators which represents some previous iterate represent also always the
+        current time.
 
     """
 
@@ -169,7 +186,7 @@ class IterativeOperator:
             values are used to linearize the system and construct the Jacobian.
 
         """
-        # Operators at previous time have no iterate indices
+        # Operators at previous time have no iterate indices.
         if isinstance(self, TimeDependentOperator):
             if self.is_previous_time:
                 return None
@@ -178,7 +195,7 @@ class IterativeOperator:
             if self.is_reference:
                 return None
 
-        # operators representing at current time use the values stored at index 0
+        # Operators representing at current time use the values stored at index 0
         # in that case the private index is -1
         if self._iterate_index < 0:
             return 0
@@ -234,10 +251,7 @@ class IterativeOperator:
 
 
 class ReferenceOperator:
-    """Intermediate parent class for operator classes, which can have a reference."""
-
-    _is_reference: bool = False
-    """True if this operator represents a reference value."""
+    """Mixin class for operator classes, which can have a reference representation."""
 
     def __init__(
         self,
@@ -255,6 +269,8 @@ class ReferenceOperator:
         iterate.
 
         """
+        self._is_reference: bool = False
+        """True if this operator represents a reference value."""
 
     @property
     def is_reference(self) -> bool:
