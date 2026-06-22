@@ -1,3 +1,14 @@
+"""This module contains helper functions for setting, getting and shifting values in the
+data dictionary of a grid. This functionality is used by Ad Variables (including
+MixedDimensionalVariables) and TimeDependentDenseArrays.
+
+The main functions are:
+    - :func:`set_solution_values`
+    - :func:`get_solution_values`
+    - :func:`shift_solution_values`
+
+"""
+
 from functools import lru_cache
 from typing import Any, Optional
 import porepy as pp
@@ -79,30 +90,41 @@ def get_solution_values(
     iterate_index: Optional[int] = None,
     reference: bool = False,
 ) -> np.ndarray:
-    """Function for fetching values stored in the data dictionary, for some
-    time-dependent or iterative term.
+    """Function for fetching values stored in the data dictionary.
+
+    The data dictionary can store values at different time steps, iterations, as well as
+    reference values, and this function handles the fetching of values for all of these
+    cases through the use of indices and flags. The following rules apply:
+      1. If the ``reference`` flag is ``True``, values are fetched from the reference
+         values, and the indices are ignored.
+      2. If the ``reference`` flag is ``False``, values are fetched from the time step
+         or iterate values, depending on which index is passed. If both are passed,
+         an error is raised.
 
     Note:
         Compared to :func:`set_solution_values` the getter works only for 1 defined
         index, whereas the setter can take both a time and iterate index.
 
     Parameters:
-        name: Name of the parameter whose values we are interested in.
-        data: The data dictionary.
-        time_step_index: ``default=None``
+        name: Name of the parameter whose values we are interested in. data: The data
+        dictionary. time_step_index:
 
             Determines the key of where ``values`` are to be stored in
-            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
-            0 is the most recent time step, 1 the one before that and so on.
-        iterate_index: ``default=None``
+            ``data[pp.TIME_STEP_SOLUTIONS][name]``. 0 is the most recent time step, 1
+            the one before that and so on.
+        iterate_index:
 
             Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``.
-            0 is the current iterate, 1 the previous iterate, and so on.
+            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current iterate, 1 the
+            previous iterate, and so on.
+        reference:
+            Flag to decide whether reference values should be fetched instead of time
+            step or iterate values. If ``True``, the getter will look for values in
+            ``data[pp.REFERENCE_SOLUTIONS][name]``.
 
     Raises:
-        ValueError: In the case of inconsistent usage of indices (both None or negative
-            values).
+        ValueError: In the case of inconsistent usage of indices for time step and
+            iterate (both None or negative values).
         ValueError: If the user attempts to get multiple iterate and time step values
             simultanously. Only 1 index is permitted in the getter.
         KeyError: If no values are stored for the passed index.
@@ -112,12 +134,10 @@ def get_solution_values(
 
     """
     if reference:
-        # TODO: Currently asymmetry in index handling. Not touching for now.
-        # Give reference precedence.
-        # assert time_step_index is None and iterate_index is None, (
-        #     "Indices should not be passed when reference=True."
-        # )
         return _get_reference_values(name, data)
+    # Get the location and index in the data dictionary where the values are stored. If
+    # both time step and iterate indices are passed, this will give both, but we raise
+    # an error in that case since we have not formally settled which to prioritize.
     loc_index = _validate_indices(time_step_index, iterate_index)
     if len(loc_index) != 1:
         raise ValueError(
@@ -137,10 +157,7 @@ def get_solution_values(
 
 
 def shift_solution_values(
-    name: str,
-    data: dict,
-    location: Any,
-    max_index: Optional[int] = None,
+    name: str, data: dict, location: Any, max_index: Optional[int] = None
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
@@ -207,10 +224,7 @@ def shift_solution_values(
 
 
 def _set_reference_values(
-    name: str,
-    values: np.ndarray,
-    data: dict,
-    additive: bool = False,
+    name: str, values: np.ndarray, data: dict, additive: bool = False
 ) -> None:
     """Function for setting reference values in the data dictionary.
 
@@ -242,10 +256,7 @@ def _set_reference_values(
         data[pp.REFERENCE_SOLUTIONS][name] = values.copy()
 
 
-def _get_reference_values(
-    name: str,
-    data: dict,
-) -> np.ndarray:
+def _get_reference_values(name: str, data: dict) -> np.ndarray:
     """Function for fetching reference values stored in the data dictionary.
 
     Parameters:
@@ -268,14 +279,11 @@ def _get_reference_values(
     return value
 
 
-def _shift_to_reference_solutions(
-    name: str,
-    data: dict,
-) -> None:
+def _shift_to_reference_solutions(name: str, data: dict) -> None:
     """Shift the current iterate to reference values for specific name.
 
-    This function shifts the reference values stored in the data dictionary
-    for the specified category and name by one time step or iteration.
+    This function shifts the reference values stored in the data dictionary for the
+    specified category and name by one time step or iteration.
 
     Parameters:
         name: The name of the reference values.
@@ -300,8 +308,7 @@ def _shift_to_reference_solutions(
 
 @lru_cache
 def _validate_indices(
-    time_step_index: Optional[int] = None,
-    iterate_index: Optional[int] = None,
+    time_step_index: Optional[int] = None, iterate_index: Optional[int] = None
 ) -> list[tuple[Any, int]]:
     """Helper method to validate the indexation of getter and setter methods for
     values in a grid's data dictionary.
