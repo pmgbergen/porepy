@@ -401,12 +401,15 @@ def set_solver_params():
     }
     return solver_params
 
+
 def run_example() -> list[pp.PorePyModel]:
     """Run the geothermal reservoir example and return the model."""
+    models: list[pp.PorePyModel] = []
     model = GeothermalReservoirWellBCs(set_model_params())
     pp.ModelRunner(model, set_solver_params()).run()
-    return [model]
+    models.append(model)
+    return models
+
 
 if __name__ == "__main__":
     run_example()
-    

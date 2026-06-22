@@ -156,10 +156,11 @@ class FlowBenchmark2dCase4Model(  # type: ignore[misc]
 ):
     """Mixer class for case 4 from the 2d flow benchmark."""
 
-def run_example() -> list[FlowBenchmark2dCase4Model]:
-    """Run the flow benchmark 2D case 4 example and return the models."""
 
-    models: list[FlowBenchmark2dCase4Model] = []
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 2D case 4 example and return the model."""
+
+    models: list[pp.PorePyModel] = []
 
     model_params = {
         "material_constants": {"solid": solid_constants},
@@ -183,6 +184,7 @@ def run_example() -> list[FlowBenchmark2dCase4Model]:
     )
 
     return models
+
 
 # If executed as main, run simulation.
 if __name__ == "__main__":

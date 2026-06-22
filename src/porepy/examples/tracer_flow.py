@@ -118,10 +118,10 @@ class TracerFlowModel(  # type: ignore[misc]
     problem."""
 
 
-def run_example()-> list[TracerFlowModel]:
-    """Run tracer flow test case and return models."""
+def run_example() -> list[pp.PorePyModel]:
+    """Run the tracer flow example and return the models."""
 
-    models: list[TracerFlowModel] = []
+    models: list[pp.PorePyModel] = []
 
     # Initial time step 60 seconds.
     dt_init = pp.MINUTE
@@ -177,8 +177,9 @@ def run_example()-> list[TracerFlowModel]:
 
     model = TracerFlowModel(params)  # type: ignore[abstract]
     runner = pp.ModelRunner(model, params)
-    models.append(model)
     runner.run()
+    models.append(model)
+
     pp.plot_grid(
         model.mdg,
         "pressure",
@@ -197,6 +198,7 @@ def run_example()-> list[TracerFlowModel]:
     )
 
     return models
+
 
 # If executed as main, run simulation
 if __name__ == "__main__":

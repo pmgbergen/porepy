@@ -130,10 +130,11 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""
 
-def run_example()-> list[FlowBenchmark3dCase3Model]:
-    """Run flow benchmark 3d case 3 and return models."""
 
-    models: list[FlowBenchmark3dCase3Model] = []
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 3d case 3 example and return the model."""
+
+    models: list[pp.PorePyModel] = []
 
     params = {
         "material_constants": {
