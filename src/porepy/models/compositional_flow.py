@@ -434,6 +434,19 @@ class EnthalpyBasedEnergyBalanceEquations(
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
+    phase_potential_advective_flux: Callable[
+        [
+            list[pp.Grid],
+            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
+            pp.ad.Operator,
+            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
+        ],
+        pp.ad.Operator,
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
     enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
@@ -506,20 +519,47 @@ class EnthalpyBasedEnergyBalanceEquations(
         return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        if (
-            len(subdomains) == 0
-            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
-        ) and is_fractional_flow(self):
+        is_boundary = len(subdomains) == 0 or all(
+            isinstance(d, pp.BoundaryGrid) for d in subdomains
+        )
+        buoyancy_condition: bool = (
+            self.params.get("enable_buoyancy_effects", False) and not is_boundary
+        )
+        if buoyancy_condition:
+            # Per-phase phase-potential-upwind (PPU) advective enthalpy flux. Each
+            # phase's advected enthalpy h_j rho_j k_rj/mu_j is upwinded by that phase's
+            # own potential flux, which already carries the buoyancy. The separate
+            # enthalpy_buoyancy term is therefore absorbed here and must NOT be added
+            # again. This is the structurally correct PPU scheme (the lumped
+            # total-flux upwinding only coincides with PPU in the co-current case).
+            subdomains = cast(list[pp.Grid], subdomains)
+            boundary_operator = self._combine_boundary_operators(  # type: ignore[attr-defined]
+                subdomains=subdomains,
+                dirichlet_operator=self.advection_weight_energy_balance,
+                neumann_operator=self.enthalpy_flux,
+                robin_operator=None,
+                bc_type=self.bc_type_enthalpy_flux,
+                name="bc_values_enthalpy",
+            )
+            flux = self.phase_potential_advective_flux(
+                subdomains,
+                lambda phase, domains: (
+                    phase.specific_enthalpy(domains)
+                    * phase.density(domains)
+                    * self.phase_mobility(phase, domains)
+                ),
+                boundary_operator,
+                self.interface_enthalpy_flux,
+            )
+            flux.set_name("enthalpy_flux")
+            return flux
+
+        if is_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.fluid_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-        buoyancy_condition: bool = self.params.get(
-            "enable_buoyancy_effects", False
-        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
-        if buoyancy_condition:
-            flux += self.enthalpy_buoyancy(subdomains)
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -613,6 +653,20 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
+    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
+    phase_potential_advective_flux: Callable[
+        [
+            list[pp.Grid],
+            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
+            pp.ad.Operator,
+            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
+        ],
+        pp.ad.Operator,
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -668,9 +722,36 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(component, subdomains)
         if self.params.get("enable_buoyancy_effects", False):
-            flux += self.component_buoyancy(component, subdomains)
+            # Per-phase PPU advective flux for the component. Each phase carries the
+            # component with weight chi_{c,j} rho_j k_rj/mu_j, upwinded by that phase's
+            # own potential flux (which includes buoyancy). The separate
+            # component_buoyancy term is absorbed and must NOT be added again.
+            def component_weight(
+                phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+            ) -> pp.ad.Operator:
+                if component in phase:  # type: ignore[operator]
+                    return (
+                        phase.partial_fraction_of[component](domains)
+                        * phase.density(domains)
+                        * self.phase_mobility(phase, domains)
+                    )
+                size = sum(g.num_cells for g in domains)
+                return pp.wrap_as_dense_ad_array(
+                    np.zeros(size), name="zero_component_weight"
+                )
+
+            flux = self.phase_potential_advective_flux(
+                subdomains,
+                component_weight,
+                self.boundary_component_flux(component, subdomains),
+                cast(
+                    Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+                    partial(self.interface_component_flux, component),
+                ),
+            )
+        else:
+            flux = self.component_flux(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
