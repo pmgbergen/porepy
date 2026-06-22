@@ -800,6 +800,43 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
+    #: Valid buoyancy upwinding schemes.
+    #: ``"phase_potential"`` selects phase-potential upwinding (PPU): the full phase
+    #: flux (viscous and gravitational) is upwinded by that phase's own potential.
+    #: ``"hybrid"`` selects hybrid upwinding (HU): the viscous part is upwinded by the
+    #: total Darcy flux and the buoyancy part by the inter-phase gravity flux.
+    _valid_buoyancy_upwinding_schemes: tuple[str, str] = ("phase_potential", "hybrid")
+
+    def buoyancy_upwinding_scheme(self) -> str:
+        """Return the selected buoyancy upwinding scheme.
+
+        Controlled by the model parameter ``"buoyancy_upwinding"``. Defaults to
+        ``"phase_potential"`` (PPU).
+
+        Raises:
+            ValueError: If the parameter holds an unsupported scheme name.
+
+        Returns:
+            Either ``"phase_potential"`` or ``"hybrid"``.
+
+        """
+        scheme = self.params.get("buoyancy_upwinding", "phase_potential")
+        if scheme not in self._valid_buoyancy_upwinding_schemes:
+            raise ValueError(
+                f"Unknown buoyancy_upwinding scheme {scheme!r}. "
+                f"Choose one of {self._valid_buoyancy_upwinding_schemes}."
+            )
+        return scheme
+
+    def is_phase_potential_upwinding(self) -> bool:
+        """Whether the phase-potential (PPU) buoyancy scheme is active.
+
+        Returns:
+            True for PPU, False for hybrid upwinding (HU).
+
+        """
+        return self.buoyancy_upwinding_scheme() == "phase_potential"
+
     def potential_driven_flux(
         self, subdomains: pp.SubdomainsOrBoundaries, phase: pp.Phase
     ) -> pp.ad.Operator:
@@ -1361,9 +1398,14 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
     def update_buoyancy_driven_fluxes(self):
-        ppu_Q = True
+        """Update stored buoyancy flux arrays (subdomains and interfaces).
 
-        """Update stored buoyancy flux arrays (subdomains and interfaces)."""
+        The stored arrays define the upwinding direction of the buoyancy
+        discretizations. In the phase-potential scheme (PPU) they hold each phase's
+        phase-potential flux; in the hybrid scheme (HU) they hold the inter-phase
+        gravity flux (opposite sign for the two phases).
+        """
+        ppu_Q = self.is_phase_potential_upwinding()
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs

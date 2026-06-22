@@ -448,6 +448,9 @@ class EnthalpyBasedEnergyBalanceEquations(
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
+    is_phase_potential_upwinding: Callable[[], bool]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
@@ -525,13 +528,12 @@ class EnthalpyBasedEnergyBalanceEquations(
         buoyancy_condition: bool = (
             self.params.get("enable_buoyancy_effects", False) and not is_boundary
         )
-        if buoyancy_condition:
-            # Per-phase phase-potential-upwind (PPU) advective enthalpy flux. Each
-            # phase's advected enthalpy h_j rho_j k_rj/mu_j is upwinded by that phase's
-            # own potential flux, which already carries the buoyancy. The separate
-            # enthalpy_buoyancy term is therefore absorbed here and must NOT be added
-            # again. This is the structurally correct PPU scheme (the lumped
-            # total-flux upwinding only coincides with PPU in the co-current case).
+
+        # Phase-potential upwinding (PPU): the advective enthalpy flux is assembled
+        # per phase and upwinded by each phase's own potential flux, which already
+        # carries the buoyancy. The separate enthalpy_buoyancy term is therefore
+        # absorbed here and must NOT be added again.
+        if buoyancy_condition and self.is_phase_potential_upwinding():
             subdomains = cast(list[pp.Grid], subdomains)
             boundary_operator = self._combine_boundary_operators(  # type: ignore[attr-defined]
                 subdomains=subdomains,
@@ -554,18 +556,26 @@ class EnthalpyBasedEnergyBalanceEquations(
             flux.set_name("enthalpy_flux")
             return flux
 
+        # Standard advective flux. This is also the viscous part of hybrid upwinding
+        # (HU), to which the separate buoyancy segregation term is added below.
         if is_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.fluid_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
+        if buoyancy_condition:  # hybrid upwinding: add the segregation flux
+            flux += self.enthalpy_buoyancy(subdomains)
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         source = super().energy_source(subdomains)
-        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
-        if buoyancy_condition:
+        # The interface buoyancy jump belongs to the hybrid-upwinding decomposition.
+        # In PPU the interface contribution is carried by the per-phase advective flux,
+        # so no separate jump term is added.
+        if self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not self.is_phase_potential_upwinding():
             source += self.enthalpy_buoyancy_jump(subdomains)
         return source
 
@@ -667,6 +677,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
+    is_phase_potential_upwinding: Callable[[], bool]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -722,11 +735,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        if self.params.get("enable_buoyancy_effects", False):
-            # Per-phase PPU advective flux for the component. Each phase carries the
-            # component with weight chi_{c,j} rho_j k_rj/mu_j, upwinded by that phase's
-            # own potential flux (which includes buoyancy). The separate
-            # component_buoyancy term is absorbed and must NOT be added again.
+        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
+        if buoyancy_condition and self.is_phase_potential_upwinding():
+            # Phase-potential upwinding (PPU): the component is carried per phase with
+            # weight chi_{c,j} rho_j k_rj/mu_j, upwinded by that phase's own potential
+            # flux (which already includes buoyancy). The separate component_buoyancy
+            # term is therefore absorbed and must NOT be added again.
             def component_weight(
                 phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
             ) -> pp.ad.Operator:
@@ -751,7 +765,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
                 ),
             )
         else:
+            # Standard advective flux. For hybrid upwinding (HU) the separate buoyancy
+            # segregation term is added on top.
             flux = self.component_flux(component, subdomains)
+            if buoyancy_condition:
+                flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -1023,7 +1041,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
-        if self.params.get("enable_buoyancy_effects", False):
+        # The interface buoyancy jump belongs to the hybrid-upwinding decomposition;
+        # in PPU the interface contribution is carried by the per-phase advective flux.
+        if self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not self.is_phase_potential_upwinding():
             source += self.component_buoyancy_jump(component, subdomains)
 
         source.set_name(f"interface_component_flux_source_{component.name}")

@@ -50,6 +50,11 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 case_name = "case_lP"
 geometry_case = "vertical"
 
+# Buoyancy upwinding scheme:
+#   "phase_potential" -> phase-potential upwinding (PPU)
+#   "hybrid"          -> hybrid upwinding (HU)
+buoyancy_upwinding = "phase_potential"
+
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]
     "vertical": [365000.0],  # final time [1000 years]
@@ -119,7 +124,7 @@ material_constants = {"solid": solid_constants}
 params = {
     "fractional_flow": False,
     "enable_buoyancy_effects": True,
-    "buoyancy_upwinding": "phase_potential",
+    "buoyancy_upwinding": buoyancy_upwinding,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
