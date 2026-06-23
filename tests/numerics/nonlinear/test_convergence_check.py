@@ -115,8 +115,8 @@ def test_convergence_status_str():
     """Test the string representation of ConvergenceStatus enum members."""
     s = ConvergenceStatus
     assert str(s.CONVERGED) == "converged"
-    assert str(s.CONTINUE_ITERATING) == "not_converged"
-    assert str(s.FAILED) == "diverged"
+    assert str(s.CONTINUE_ITERATING) == "continue_iterating"
+    assert str(s.FAILED) == "failed"
 
 
 @pytest.mark.parametrize(
@@ -173,7 +173,7 @@ def test_convergence_status_collection_parametrized(c1, c2, c3, expected_status)
 
     status = [
         collection.is_converged(),
-        collection.is_not_converged(),
+        collection.is_iterating(),
         collection.is_diverged(),
     ]
 
@@ -290,10 +290,10 @@ def test_convergence_history_to_str():
     history_str = history.to_str()
 
     # Check values.
-    assert history_str["crit1"] == ["converged", "diverged"]
+    assert history_str["crit1"] == ["converged", "failed"]
     assert history_str["crit2"] == [
-        "not_converged",
-        "not_converged",
+        "continue_iterating",
+        "continue_iterating",
     ]
 
 
@@ -354,7 +354,7 @@ def test_convergence_info_history():
 )
 @pytest.mark.parametrize(
     ("value", "expected_status"),
-    [(1.0, ConvergenceStatus.CONVERGED), (np.nan, ConvergenceStatus.FAILED)],
+    [(1.0, ConvergenceStatus.CONTINUE_ITERATING), (np.nan, ConvergenceStatus.FAILED)],
 )
 def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
     """Test of the general NanDivergenceCriterion."""
@@ -366,9 +366,9 @@ def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
 @pytest.mark.parametrize(
     ("iteration_index", "max_iterations", "expected_status"),
     [
-        (0, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
-        (1, 3, ConvergenceStatus.CONVERGED),  # First active iteration
-        (2, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
+        (0, 3, ConvergenceStatus.CONTINUE_ITERATING),  # Before first iteration
+        (1, 3, ConvergenceStatus.CONTINUE_ITERATING),  # First active iteration
+        (2, 3, ConvergenceStatus.CONTINUE_ITERATING),  # Second active iteration
         (3, 3, ConvergenceStatus.FAILED),  # Third active iteration (max reached)
         (4, 3, ConvergenceStatus.FAILED),
     ],
@@ -713,7 +713,7 @@ def test_convergence_criteria_collection(
     if expected_status_collection == ConvergenceStatus.CONVERGED:
         assert status.is_converged()
     else:
-        assert status.is_not_converged()
+        assert status.is_iterating()
     assert np.isclose(info["crit_single"], value)
     assert multiphysics_check(info["crit_multi"], value)
 

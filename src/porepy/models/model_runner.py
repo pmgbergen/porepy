@@ -28,7 +28,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ModelRunnerStatus:
-    pass
+    def is_success(self) -> bool:
+        return isinstance(self, ModelRunnerStatusSuccess)
+
+    def is_failure(self) -> bool:
+        return isinstance(self, ModelRunnerStatusFailure)
 
 
 @dataclass

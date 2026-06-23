@@ -18,6 +18,7 @@ from porepy.time.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
+from porepy.viz.solver_statistics import NonlinearSolverStatistics
 # from porepy.time.time_step_status import TimeStepStatus
 
 logger = logging.getLogger(__name__)
@@ -159,13 +160,14 @@ class TimeStepper:
         if convergence_status.is_converged():
             # For accepted steps, we may want to increase dt for the next step.
             # This logic can be based on solver performance (e.g., #iterations).
-            assert isinstance(
-                model.nonlinear_solver_statistics,
-                pp.NonlinearSolverStatistics,
-            )  # For type checking, to ensure the method is available.
-            model.time_manager.compute_time_step(
-                iterations=model.nonlinear_solver_statistics.num_iterations
-            )
+            if isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics):
+                # The problem is nonlinear.
+                num_iterations = model.nonlinear_solver_statistics.num_iterations
+            else:
+                # The problem is time-dependent and linear.
+                num_iterations = 1
+
+            model.time_manager.compute_time_step(iterations=num_iterations)
             return TimeStepperStatusSuccess()
         elif convergence_status.is_failed():
             try:

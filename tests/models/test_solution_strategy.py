@@ -472,7 +472,7 @@ def test_check_convergence(
     if expected == ConvergenceStatus.CONVERGED:
         assert status.is_converged()
     elif expected == ConvergenceStatus.CONTINUE_ITERATING:
-        assert status.is_not_converged()
+        assert status.is_iterating()
     elif expected == ConvergenceStatus.FAILED:
         assert status.is_diverged()
 

@@ -855,7 +855,11 @@ def test_before_nonlinear_loop(default_newton_solver):
     ],
 )
 def test_nonlinear_loop(
-    inc_history, res_history, is_converged, is_diverged, default_newton_solver
+    inc_history,
+    res_history,
+    is_converged,
+    is_diverged,
+    default_newton_solver: pp.NewtonSolver,
 ):
     """Test that the Newton loop exits correctly."""
     model = MockModel(
@@ -877,11 +881,11 @@ def test_nonlinear_loop(
         if is_converged:
             assert convergence_status.is_converged()
         else:
-            assert convergence_status.is_not_converged()
+            assert convergence_status.is_iterating()
         if is_diverged:
             assert divergence_status.is_diverged()
         else:
-            assert divergence_status.is_converged()
+            assert divergence_status.is_iterating()
 
         # Check that the number of iterations is as expected.
         assert solver.iteration_index == num_iter
@@ -976,7 +980,12 @@ def test_before_nonlinear_iteration(default_newton_solver):
     ],
 )
 def test_after_nonlinear_iteration(
-    inc, res, iteration_index, is_converged, is_diverged, default_newton_solver
+    inc,
+    res,
+    iteration_index,
+    is_converged,
+    is_diverged,
+    default_newton_solver: pp.NewtonSolver,
 ):
     """Test the after_nonlinear_iteration method of the Newton solver."""
     # Init model and solver.
@@ -1006,11 +1015,11 @@ def test_after_nonlinear_iteration(
     if is_converged:
         assert convergence_status.is_converged()
     else:
-        assert convergence_status.is_not_converged()
+        assert convergence_status.is_iterating()
     if is_diverged:
         assert divergence_status.is_diverged()
     else:
-        assert divergence_status.is_converged()
+        assert divergence_status.is_iterating()
 
 
 @pytest.mark.parametrize(
@@ -1029,7 +1038,12 @@ def test_after_nonlinear_iteration(
     ],
 )
 def test_check_convergence(
-    inc, res, iteration_index, is_converged, is_diverged, default_newton_solver
+    inc,
+    res,
+    iteration_index,
+    is_converged,
+    is_diverged,
+    default_newton_solver: pp.NewtonSolver,
 ):
     """Test the check_convergence method of the Newton solver."""
     # Init model and solver.
@@ -1052,11 +1066,11 @@ def test_check_convergence(
     if is_converged:
         assert convergence_status.is_converged()
     else:
-        assert convergence_status.is_not_converged()
+        assert convergence_status.is_iterating()
     if is_diverged:
         assert divergence_status.is_diverged()
     else:
-        assert divergence_status.is_converged()
+        assert divergence_status.is_iterating()
     assert (
         DeepDiff(
             convergence_info,
@@ -1067,7 +1081,7 @@ def test_check_convergence(
     )
 
 
-def test_update_solver_statistics(default_newton_solver):
+def test_update_solver_statistics(default_newton_solver: pp.NewtonSolver):
     """Unit test for the update_solver_statistics method of the Newton solver."""
     model = MockModel()
     solver = default_newton_solver
