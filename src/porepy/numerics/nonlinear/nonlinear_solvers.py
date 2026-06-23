@@ -17,7 +17,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
     DivergenceCriteria,
-    SimulationStatus,
+    SolverStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
@@ -234,14 +234,14 @@ class NewtonSolver:
         """Advance to the next iteration."""
         self.iteration_index += 1
 
-    def solve(self, model: SolutionStrategy) -> SimulationStatus:
+    def solve(self, model: SolutionStrategy) -> SolverStatus:
         """Solve the nonlinear problem using the Newton-Raphson method.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
 
         Returns:
-            SimulationStatus: The status of the nonlinear solver.
+            The status of the nonlinear solver.
 
         """
         # Prepare for nonlinear loop.
@@ -316,7 +316,7 @@ class NewtonSolver:
         model: SolutionStrategy,
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
-    ) -> SimulationStatus:
+    ) -> SolverStatus:
         """Conclude on the overall solver status.
 
         NOTE: Convergence status takes precedence over divergence status.
@@ -327,16 +327,16 @@ class NewtonSolver:
             divergence_status: Divergence statuses.
 
         Returns:
-            SimulationStatus: The overall status of the nonlinear solver.
+            SolverStatus: The overall status of the nonlinear solver.
 
         """
         if convergence_status.is_converged():
-            solver_status = SimulationStatus.SUCCESSFUL
+            solver_status = SolverStatus.SUCCESSFUL
             self.update_solver_statistics(model, solver_status=solver_status)
             model.after_nonlinear_convergence()
         elif divergence_status.is_diverged():
             # NOTE: While FAILED on solver level, IN_PROGRESS on simulation level.
-            solver_status = SimulationStatus.FAILED
+            solver_status = SolverStatus.FAILED
             self.update_solver_statistics(model, solver_status=solver_status)
             model.after_nonlinear_failure()
             warn("Failed to solve the nonlinear problem.", UserWarning)
@@ -355,7 +355,7 @@ class NewtonSolver:
                     "Stopping the simulation.",
                     UserWarning,
                 )
-                solver_status = SimulationStatus.STOPPED
+                solver_status = SolverStatus.STOPPED
         else:
             raise ValueError(
                 "Invalid convergence status: "
@@ -543,7 +543,7 @@ class NewtonSolver:
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        solver_status: SimulationStatus | None = None,
+        solver_status: SolverStatus | None = None,
         convergence_status: ConvergenceStatusCollection | None = None,
         convergence_info: ConvergenceInfoCollection | None = None,
     ) -> None:

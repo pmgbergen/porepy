@@ -10,11 +10,12 @@ from deepdiff import DeepDiff
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.models.model_runner import SimulationStatus
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
-    SimulationStatus,
+    SolverStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 
@@ -265,7 +266,7 @@ def test_solve_convergence(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
 
 def test_solve_convergence_statistics(default_newton_solver):
@@ -285,6 +286,12 @@ def test_solve_convergence_statistics(default_newton_solver):
 
     # Call solve.
     _ = solver.solve(model)
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
@@ -316,6 +323,8 @@ def test_solve_convergence_statistics(default_newton_solver):
                 "0": {
                     "num_iterations": 2,
                     "simulation_status": "successful",
+                    "solver_status_history": ["successful"],
+                    "solver_status": "successful",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "converged"],
                         "res_abs": ["not_converged", "converged"],
@@ -354,7 +363,7 @@ def test_solve_convergence_time_dependent(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
     # Second time step.
     model.time_manager.increase_time()
@@ -362,7 +371,7 @@ def test_solve_convergence_time_dependent(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
 
 def test_solve_convergence_time_dependent_statistics(default_newton_solver):
@@ -413,6 +422,8 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
             "dt": 0.5,
             "num_iterations": 2,
             "simulation_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
             "convergence_status": {
                 "inc_abs": ["not_converged", "converged"],
                 "res_abs": ["not_converged", "converged"],
@@ -457,6 +468,8 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "dt": 0.5,
         "num_iterations": 3,
         "simulation_status": "successful",
+        "solver_status_history": ["successful"],
+        "solver_status": "successful",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
             "res_abs": ["not_converged", "not_converged", "converged"],
@@ -477,6 +490,12 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
 
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
+
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
         data = json.load(f)
@@ -488,6 +507,11 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
@@ -511,7 +535,7 @@ def test_solve_failure(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.FAILED
+    assert solver_status == SolverStatus.FAILED
 
 
 def test_solve_failure_statistics(default_newton_solver):
@@ -529,7 +553,13 @@ def test_solve_failure_statistics(default_newton_solver):
     solver_status = solver.solve(model)
 
     # Check simulation status.
-    assert solver_status == SimulationStatus.FAILED
+    assert solver_status == SolverStatus.FAILED
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.FAILED
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
@@ -561,6 +591,8 @@ def test_solve_failure_statistics(default_newton_solver):
                 "0": {
                     "num_iterations": 2,
                     "simulation_status": "failed",
+                    "solver_status_history": ["failed"],
+                    "solver_status": "failed",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "not_converged"],
                         "res_abs": ["not_converged", "not_converged"],
@@ -601,14 +633,14 @@ def test_solve_failure_time_dependent(default_newton_solver):
 
     # Check simulation status.
     assert not model.time_manager.final_time_reached()
-    assert solver_status == SimulationStatus.FAILED
+    assert solver_status == SolverStatus.FAILED
 
     # Retry time step, so do not increase time.
     solver_status = solver.solve(model)
 
     # Check simulation status.
     assert not model.time_manager.final_time_reached()
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
@@ -617,7 +649,7 @@ def test_solve_failure_time_dependent(default_newton_solver):
 
     # Check simulation status.
     assert model.time_manager.final_time_reached()
-    assert solver_status == SimulationStatus.SUCCESSFUL
+    assert solver_status == SolverStatus.SUCCESSFUL
 
 
 def test_solve_failure_time_dependent_statistics(default_newton_solver):
@@ -668,6 +700,8 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
             "dt": 0.5,
             "num_iterations": 2,
             "simulation_status": "failed",
+            "solver_status_history": ["failed"],
+            "solver_status": "failed",
             "convergence_status": {
                 "inc_abs": ["not_converged", "not_converged"],
                 "res_abs": ["not_converged", "not_converged"],
@@ -712,6 +746,8 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "dt": 0.5,
         "num_iterations": 3,
         "simulation_status": "successful",
+        "solver_status": "successful",
+        "solver_status_history": ["successful"],
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
             "res_abs": ["not_converged", "not_converged", "converged"],
@@ -754,6 +790,9 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3["2"] = copy.deepcopy(reference_data_after_2["1"])
     reference_data_after_3["2"].update(
         {
+            "simulation_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
             "final_time_reached": 1,
             "time_index": 2,
             "time": 1.0,
@@ -764,6 +803,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.FAILED
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
@@ -781,6 +826,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
 
     # Retry time step (second loop), so do not increase time.
     _ = solver.solve(model)
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
@@ -800,6 +851,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     model.time_manager.increase_time()
     model.time_manager.increase_time_index()
     _ = solver.solve(model)
+
+    # Summarize status and save statistics.
+    # TODO: Revisit during restructuring of loops.
+    simulation_status = SimulationStatus.SUCCESSFUL
+    model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_and_time_statistics.json", "r") as f:
@@ -898,17 +955,17 @@ def test_nonlinear_loop(
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
-            SimulationStatus.SUCCESSFUL,
+            SolverStatus.SUCCESSFUL,
         ),
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.DIVERGED,
-            SimulationStatus.SUCCESSFUL,  # Convergence trumps divergence
+            SolverStatus.SUCCESSFUL,  # Convergence trumps divergence
         ),
         (
             ConvergenceStatus.NOT_CONVERGED,
             ConvergenceStatus.DIVERGED,
-            SimulationStatus.FAILED,
+            SolverStatus.FAILED,
         ),
     ],
 )
@@ -929,7 +986,7 @@ def test_summarize_solver_status(
 
     # Minimal mimicking of loop.
     model.nonlinear_solver_statistics.simulation_status_history = [
-        SimulationStatus.SUCCESSFUL
+        SolverStatus.SUCCESSFUL
     ]
 
     solver_status = solver.summarize_solver_status(
@@ -1077,7 +1134,7 @@ def test_update_solver_statistics(default_newton_solver):
 
     # Set some inputs for the update_solver_statistics method.
     # Here, we simulate one iteration with not converged status.
-    simulation_status = SimulationStatus.IN_PROGRESS
+    solver_status = SolverStatus.IN_PROGRESS
     convergence_status = ConvergenceStatusCollection(
         {
             "inc_abs": ConvergenceStatus.NOT_CONVERGED,
@@ -1089,7 +1146,7 @@ def test_update_solver_statistics(default_newton_solver):
 
     # Call the update_solver_statistics method
     solver.update_solver_statistics(
-        model, simulation_status, convergence_status, convergence_info
+        model, solver_status, convergence_status, convergence_info
     )
 
     # Check that the solver statistics have been updated correctly
@@ -1103,9 +1160,7 @@ def test_update_solver_statistics(default_newton_solver):
         "inc_abs": [2.0],
         "res_abs": [1.0],
     }
-    assert model.nonlinear_solver_statistics.simulation_status_history == [
-        "in_progress"
-    ]
+    assert model.nonlinear_solver_statistics.solver_status_history == ["in_progress"]
 
 
 # ! ---- Test integration ---- ! #
@@ -1120,14 +1175,18 @@ def test_integration_nonlinear_iteration_count(num_iterations):
 
     """
     model = SinglePhaseFlow({"times_to_export": []})
-    pp.ModelRunner(
-        model,
-        {
-            "nl_convergence_inc_atol": 0,
-            "nl_convergence_res_atol": 0,
-            "nl_max_iterations": num_iterations,
-        },
-    ).run()
+
+    # Model will not converge within the prescribed number of iterations, we just track
+    # the iteration count.
+    with pytest.raises(RuntimeError):
+        pp.ModelRunner(
+            model,
+            {
+                "nl_convergence_inc_atol": 0,
+                "nl_convergence_res_atol": 0,
+                "nl_max_iterations": num_iterations,
+            },
+        ).run()
 
     assert model.nonlinear_solver_statistics.num_iterations == num_iterations
     for key in model.nonlinear_solver_statistics.convergence_status:
