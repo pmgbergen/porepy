@@ -5,12 +5,12 @@ module for operations on sparse matrices
 from __future__ import annotations
 
 import warnings
+from functools import lru_cache
 from typing import Literal, Optional, Union, cast, overload
 
 import networkx as nx
 import numpy as np
 import scipy.sparse as sps
-from functools import lru_cache
 
 import porepy as pp
 
@@ -27,8 +27,8 @@ if numba_available:
     def _get_inv_compiled_function():
         """Build and cache the Numba-compiled block-inverse function.
 
-        The function is compiled on first use and reused on subsequent calls, 
-        which keeps importing PorePy fast and avoids recompiling the function 
+        The function is compiled on first use and reused on subsequent calls,
+        which keeps importing PorePy fast and avoids recompiling the function
         on every inversion.
 
         Returns:
