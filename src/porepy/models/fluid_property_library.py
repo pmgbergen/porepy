@@ -963,21 +963,24 @@ class FluidBuoyancy(pp.PorePyModel):
         r"""Phase-potential-upwind (PPU) **buoyancy** (segregation) term.
 
         The PPU counterpart of the simplicial HU buoyancy
-        (:meth:`enthalpy_buoyancy` / :meth:`component_buoyancy`). Instead of the
-        pairwise simplicial weight, the nonlinear weight is reconstructed by summing
-        each phase-equation, upwinded by its own potential :math:`\Psi_j`, times the
-        phase's gravity flux relative to the mixture:
+        (:meth:`enthalpy_buoyancy` / :meth:`component_buoyancy`). It is the gravity part
+        of the full per-phase flux, with the diffusive term
+        (:meth:`phase_potential_advective_flux`, riding ``darcy_flux``) carrying the
+        pressure gradient *and* the mixture gravity. To avoid double counting, this term
+        adds the per-phase gravity weight and removes the mixture gravity:
 
         .. math::
 
-            \sum_j \mathrm{upw}_j\!\left(w_j\right)\,
-            \big(K\, g\cdot n\big)\,(\rho_j - \rho_{\text{mix}}),
+            \big(K g\cdot n\big)\,\sum_j \mathrm{upw}_j\!\left(\rho_j w_j\right)
+            \;-\; \texttt{density\_driven\_flux}(\rho_{\text{mix}})\,
+            \sum_j \mathrm{upw}_j\!\left(w_j\right).
 
-        with :math:`(K g\cdot n)(\rho_j - \rho_{\text{mix}}) =
-        \texttt{density\_driven\_flux}(\rho_j - \rho_{\text{mix}})`. Together with
-        :meth:`phase_potential_advective_flux` (the diffusive term riding ``m``), this
-        reproduces the full per-phase flux :math:`\sum_j \Psi_j\,\mathrm{upw}_j(w_j)`,
-        but kept as the explicit diffusive + buoyancy separation that mirrors HU.
+        The gravity weight :math:`\rho_j w_j` is upwinded **as a single group** (matching
+        the benchmark, which upstream-weights :math:`k_{rj}\rho_j^2/\mu_j`), not as
+        :math:`\rho_j^{\text{face}}\,\mathrm{upw}_j(w_j)`. Together with
+        :meth:`phase_potential_advective_flux` this reproduces the full per-phase flux
+        :math:`(-K\nabla p)\sum_j\mathrm{upw}_j(w_j) + (K g\cdot n)\sum_j
+        \mathrm{upw}_j(\rho_j w_j)` (fig 5D PPU), written as diffusion + buoyancy.
 
         The upwinding direction is the phase potential, set via the stored buoyancy flux
         arrays when PPU is active.
@@ -992,17 +995,33 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         rho_mixture = self.fractionally_weighted_density(subdomains)
-        b_flux = pp.ad.sum_operator_list(
+        # Unit gravity flux K g.n and the mixture gravity flux already carried by
+        # darcy_flux in the diffusive term.
+        unit_gravity_flux = self.density_driven_flux(
+            subdomains, pp.ad.Scalar(1.0, "unit_density")
+        )
+        mixture_gravity_flux = self.density_driven_flux(subdomains, rho_mixture)
+
+        # Diffusive weight sum_j upwind_j(w_j) (same as the diffusive term).
+        diffusive_weight = pp.ad.sum_operator_list(
             [
-                (
-                    self._phase_potential_discretization(phase, subdomains).upwind()
-                    @ advected_weight(phase, subdomains)
-                )
-                * self.density_driven_flux(
-                    subdomains, phase.density(subdomains) - rho_mixture
-                )
+                self._phase_potential_discretization(phase, subdomains).upwind()
+                @ advected_weight(phase, subdomains)
                 for phase in self.fluid.phases
             ]
+        )
+        # Gravity weight sum_j upwind_j(rho_j w_j): density upwinded WITH the mobility.
+        gravity_weight = pp.ad.sum_operator_list(
+            [
+                self._phase_potential_discretization(phase, subdomains).upwind()
+                @ (phase.density(subdomains) * advected_weight(phase, subdomains))
+                for phase in self.fluid.phases
+            ]
+        )
+
+        b_flux = (
+            unit_gravity_flux * gravity_weight
+            - mixture_gravity_flux * diffusive_weight
         )
         b_flux.set_name("phase_potential_buoyancy")
         return b_flux
