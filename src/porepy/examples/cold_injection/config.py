@@ -7,7 +7,7 @@ such as position of wells and injection rates.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, TypeAlias
+from typing import Callable, TypeAlias
 
 import numpy as np
 import scipy.sparse as sps
@@ -24,14 +24,9 @@ from porepy.numerics.nonlinear.convergence_check import (
 
 from .solver import CFLESolver
 
-if TYPE_CHECKING:
-    from .model import IsothermalModelTemplate
-
-    CIModel: TypeAlias = (
-        cfle.EnthalpyBasedCFLETemplate
-        | cfle.EnthalpyBasedCFFLETemplate
-        | IsothermalModelTemplate
-    )
+CIModel: TypeAlias = (
+    cfle.CFLEModelTemplate | cfle.CFFLEModelTemplate | cfle.IsothermalCFLEModelTemplate
+)
 
 
 class RelaxedCFLEResidualCriterion(pp.ResidualBasedAbsoluteCriterion):
@@ -275,7 +270,7 @@ class ModelConfig(pp.PorePyModel):
         return heated
 
 
-CFLEModel: TypeAlias = cfle.EnthalpyBasedCFLETemplate | cfle.EnthalpyBasedCFFLETemplate
+CFLEModel: TypeAlias = cfle.CFLEModelTemplate | cfle.CFFLEModelTemplate
 
 
 def get_default_params(
@@ -384,8 +379,8 @@ def get_rpc(model: CIModel) -> Callable[[list[sps.csr_matrix]], list[sps.csr_mat
             # "pressure": 22064000.0,
             "pressure": 10e6,
             "temperature": 647.096,
-            "enthalpy": 524641.0735546586,
-            "fluid_specific_volume": 5.59480372671e-05,
+            "specific_fluid_enthalpy": 524641.0735546586,
+            "specific_fluid_volume": 5.59480372671e-05,
             "well_flux": 1e-4,  # 1e-5
             "interface_darcy_flux": 1e-6,  # 1e-5
         }
@@ -450,7 +445,7 @@ def get_rpc(model: CIModel) -> Callable[[list[sps.csr_matrix]], list[sps.csr_mat
     return rpc
 
 
-def set_schur_complement(model: CIModel) -> None:
+def set_schur_complement(model: CIModel, use_extensives: bool = False) -> None:
     """Sets primary and secondary variables for the eliminating the local equilibrium
     DOFs."""
 
@@ -463,7 +458,9 @@ def set_schur_complement(model: CIModel) -> None:
     if "injection_temperature_constraint" in model.equation_system.equations:
         primary_equations += ["injection_temperature_constraint"]
 
-    primary_variables = cf.get_primary_variables_cf(model)
+    primary_variables = cf.get_primary_variables_cf(
+        model, use_extensives=use_extensives
+    )
     primary_variables += list(
         set([v.name for v in model.equation_system.variables if "flux" in v.name])
     )

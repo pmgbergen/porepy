@@ -308,7 +308,7 @@ class GasLikeCorrelations(pp.compositional.EquationOfState):
 class FluidMixture(pp.PorePyModel):
     """Mixture mixin creating the brine mixture with two components."""
 
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    specific_fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
@@ -336,7 +336,7 @@ class FluidMixture(pp.PorePyModel):
             for comp in self.fluid.components
             if comp != self.fluid.reference_component
         ]
-        return [self.pressure, self.enthalpy] + z_NaCl  # type:ignore[return-value]
+        return [self.pressure, self.specific_fluid_enthalpy] + z_NaCl  # type:ignore[return-value]
 
 
 class SecondaryEquations(LocalElimination):

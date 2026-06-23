@@ -535,7 +535,7 @@ def _get_primary_equ_and_vars_cf(model: pp.PorePyModel) -> tuple[list[str], list
     if isinstance(
         model, pp.compositional_flow.SolutionStrategyExtendedFluidMassAndEnergy
     ):
-        var_names += [model.enthalpy_variable]
+        var_names += [model.specific_fluid_enthalpy_variable]
     elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
         var_names += [model.temperature_variable]
 

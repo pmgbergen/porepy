@@ -1217,7 +1217,7 @@ def npipm(
     # If no non-linear preconditioning is requested, start the full algorithm.
     if npc_iter == 0:
         X_out, ec, ni = npipm_inner(X0, F, DF, params, spec, 0)
-        if spec >= FlashSpec.vT and ec > 1:
+        if spec > FlashSpec.vT and ec > 1:
             X_mod = X_out[-f_dim:].copy()
             X_mod[-n_CP:] = np.maximum(X_mod[-n_CP:], EPS)
             f = eval_F(X_mod)

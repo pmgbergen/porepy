@@ -594,7 +594,7 @@ class FluidMixture2N(pp.PorePyModel):
             for comp in self.fluid.components
             if comp != self.fluid.reference_component
         ]
-        return [self.pressure, self.enthalpy] + z  # type:ignore[return-value]
+        return [self.pressure, self.specific_fluid_enthalpy] + z  # type:ignore[return-value]
 
 
 class SecondaryEquations2N(SecondaryEquations):
@@ -730,7 +730,9 @@ class FlowModel2N(
             cur_rho_z = cur_rho * components[1].fraction([sd])
             num_rho_z += norm_vol_int(cur_rho_z, sd)
 
-            cur_energy = cur_rho * self.enthalpy([sd]) - self.pressure([sd])
+            cur_energy = cur_rho * self.specific_fluid_enthalpy([sd]) - self.pressure(
+                [sd]
+            )
             num_energy += norm_vol_int(cur_energy, sd)
 
         # Loss metrics
@@ -986,7 +988,7 @@ class FluidMixture3N(pp.PorePyModel):
             for comp in self.fluid.components
             if comp != self.fluid.reference_component
         ]
-        return [self.pressure, self.enthalpy] + z  # type:ignore[return-value]
+        return [self.pressure, self.specific_fluid_enthalpy] + z  # type:ignore[return-value]
 
 
 class SecondaryEquations3N(SecondaryEquations):
@@ -1221,7 +1223,9 @@ class FlowModel3N(
                 / total_volume
             )
 
-            num_energy = num_rho * self.enthalpy([sd]) - self.pressure([sd])
+            num_energy = num_rho * self.specific_fluid_enthalpy([sd]) - self.pressure(
+                [sd]
+            )
             num_energy_integral += (
                 np.sum(
                     self.equation_system.evaluate(

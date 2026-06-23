@@ -20,7 +20,6 @@ from scipy.linalg import lstsq
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-
 from porepy.compositional import FlashSpec
 
 if TYPE_CHECKING:
@@ -339,11 +338,11 @@ class CFLESolver(pp.NewtonSolver):
             if log_pv:
                 dofsp = model.equation_system.dofs_of(["pressure"])
                 vec[dofsp] = np.log(vec[dofsp])
-                # dofsv = model.equation_system.dofs_of(["fluid_specific_volume"])
+                # dofsv = model.equation_system.dofs_of(["specific_fluid_volume"])
                 # vec[dofsv] = np.log(vec[dofsv])
 
         model.plot_from_vec(vec, "pressure", is_update, suffix)  # type:ignore
-        model.plot_from_vec(vec, "fluid_specific_volume", is_update, suffix)  # type:ignore
+        model.plot_from_vec(vec, "specific_fluid_volume", is_update, suffix)  # type:ignore
         model.plot_from_vec(vec, "s_G", is_update, suffix)  # type:ignore
         # model.plot_from_vec(vec, "y_G", is_update, suffix)
 
@@ -358,7 +357,7 @@ class CFLESolver(pp.NewtonSolver):
         print("Whole p-block")
         sds = model.mdg.subdomains()
         p = model.pressure(sds)
-        v = model.fluid_specific_volume(sds)
+        v = model.specific_fluid_volume(sds)
         dofs = model.equation_system.dofs_of([p, v])
         A0, _ = model.equation_system.assemble(
             True,
@@ -376,7 +375,7 @@ class CFLESolver(pp.NewtonSolver):
         print("Rock")
         sds = model.mdg.subdomains(dim=2)
         p = model.pressure(sds)
-        v = model.fluid_specific_volume(sds)
+        v = model.specific_fluid_volume(sds)
         dofs = model.equation_system.dofs_of([p, v])
         As = model.equation_system.evaluate(
             [
@@ -394,7 +393,7 @@ class CFLESolver(pp.NewtonSolver):
         print("Fracture")
         sds = model.mdg.subdomains(dim=1)
         p = model.pressure(sds)
-        v = model.fluid_specific_volume(sds)
+        v = model.specific_fluid_volume(sds)
         dofs = model.equation_system.dofs_of([p, v])
         As = model.equation_system.evaluate(
             [
@@ -412,7 +411,7 @@ class CFLESolver(pp.NewtonSolver):
         print("Injector")
         sds = [sd for sd in model.mdg.subdomains(dim=0) if "injection_well" in sd.tags]
         p = model.pressure(sds)
-        v = model.fluid_specific_volume(sds)
+        v = model.specific_fluid_volume(sds)
         dofs = model.equation_system.dofs_of([p, v])
         As = model.equation_system.evaluate(
             [
@@ -430,7 +429,7 @@ class CFLESolver(pp.NewtonSolver):
         print("Producer")
         sds = [sd for sd in model.mdg.subdomains(dim=0) if "production_well" in sd.tags]
         p = model.pressure(sds)
-        v = model.fluid_specific_volume(sds)
+        v = model.specific_fluid_volume(sds)
         dofs = model.equation_system.dofs_of([p, v])
         As = model.equation_system.evaluate(
             [
@@ -615,7 +614,7 @@ class CFLESolver(pp.NewtonSolver):
         assert 0 < c[0] < 1, "Lower v-clip must be in (0, 1)."
         assert 1 < c[1], "Upper v-clip must be greater than 1."
 
-        dofs = model.equation_system.dofs_of([model.fluid_volume_variable])  # type:ignore
+        dofs = model.equation_system.dofs_of([model.specific_fluid_volume_variable])  # type:ignore
 
         v_k = self._xk[dofs]
         dxs = model._scale_back_state(dx, is_increment=True)
@@ -722,15 +721,17 @@ class CFLESolver(pp.NewtonSolver):
                 apply_scale(model.pressure_variable)
                 apply_scale(model.interface_darcy_flux_variable)
                 apply_scale(model.well_flux_variable)
-            if isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
-                apply_scale(model.fluid_volume_variable)
+                if model.has_fluid_volume_variable:
+                    apply_scale(model.specific_fluid_volume_variable)
             if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
                 apply_scale(model.temperature_variable)
                 apply_scale(model.interface_enthalpy_flux_variable)
                 apply_scale(model.well_enthalpy_flux_variable)
                 apply_scale(model.interface_fourier_flux_variable)
-            if isinstance(model, pp.energy_balance.EnthalpyVariable):
-                apply_scale(model.enthalpy_variable)
+                if model.has_fluid_enthalpy_variable:
+                    apply_scale(model.specific_fluid_enthalpy_variable)
+                if model.has_fluid_internal_energy_variable:
+                    apply_scale(model.specific_internal_energy_variable)
 
             dx_ns /= scales
             g = self._grad_pot * scales
@@ -974,27 +975,27 @@ class CFLESolver(pp.NewtonSolver):
 
         # Updating state variables. If isochoric, update pressure. If isobaric, update
         # fluid volume.
-        if results.specification >= FlashSpec.vT and isinstance(
-            model, pp.fluid_mass_balance.VariablesSinglePhaseFlow
-        ):
-            update(model.pressure(subdomains), results.p)
-        elif isinstance(model, pp.fluid_mass_balance.FluidVolumeVariable):
-            update(model.fluid_specific_volume(subdomains), results.v)
+        if isinstance(model, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+            if results.specification >= FlashSpec.vT:
+                update(model.pressure(subdomains), results.p)
+            elif model.has_fluid_volume_variable:
+                update(model.specific_fluid_volume(subdomains), results.v)
 
         # Update energy-related variables if applicable.
-        # Nonisothermal -> update temperature.
-        if results.specification not in [
-            FlashSpec.pT,
-            FlashSpec.vT,
-        ] and isinstance(model, pp.energy_balance.VariablesEnergyBalance):
-            update(model.temperature(subdomains), results.T)
+        if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+            if results.specification not in [FlashSpec.pT, FlashSpec.vT]:
+                update(model.temperature(subdomains), results.T)
 
-        # Enthalpy specified -> update variable if present.
-        if results.specification not in [
-            FlashSpec.ph,
-            FlashSpec.vh,
-        ] and isinstance(model, pp.energy_balance.EnthalpyVariable):
-            update(model.enthalpy(subdomains), results.h)
+            if (
+                results.specification not in [FlashSpec.ph, FlashSpec.vh]
+            ) and model.has_fluid_enthalpy_variable:
+                update(model.specific_fluid_enthalpy(subdomains), results.h)
+
+            if (
+                results.specification != FlashSpec.vu
+                and model.has_fluid_internal_energy_variable
+            ):
+                update(model.specific_fluid_internal_energy(subdomains), results.u)
 
     def resolve_md_flux_update(self, model: CIModel, dx: np.ndarray) -> None:
         """Modifies the update for interface and well fluxes such that the

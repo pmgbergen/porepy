@@ -22,12 +22,10 @@ import scipy.sparse as sps
 from numpy.typing import NDArray
 
 import porepy as pp
-import porepy.compositional as pc
 import porepy.compositional.flash as pf
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-import porepy.models.persistent_variable_equilibrium as pve
 from porepy.compositional.compiled_eos import ScalarFunction
 
 from .config import ModelConfig
@@ -262,27 +260,36 @@ class SolutionStrategy(ModelConfig):
                     self.pore_volume_jump([grid])
                 )
                 if np.max(v_jump_factor) > 1.1:
-                    if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                    if self.has_fluid_volume_variable:
                         v = self.equation_system.evaluate(
-                            self.fluid_specific_volume([grid])
+                            self.specific_fluid_volume([grid])
                         )
                     else:
                         v = self.equation_system.evaluate(
                             self.fluid.specific_volume([grid])
                         )
 
+                    # New volume after jump.
+                    v *= v_jump_factor
+
                     assert np.all(v > 0), "Bad specific volume."
                     if self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vT:
                         equ_spec = pf.IsochoricSpecifications(
-                            v=v_jump_factor * v,
+                            v=v,
                             T=self.equation_system.evaluate(self.temperature([grid])),
                         )
                     elif self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vu:
-                        equ_spec = pf.IsochoricSpecifications(
-                            v=v_jump_factor * v,
-                            u=self.equation_system.evaluate(
+                        if self.has_fluid_internal_energy_variable:
+                            u = self.equation_system.evaluate(
+                                self.specific_fluid_internal_energy([grid])
+                            )
+                        else:
+                            u = self.equation_system.evaluate(
                                 self.fluid.specific_internal_energy([grid])
-                            ),
+                            )
+                        equ_spec = pf.IsochoricSpecifications(
+                            v=v,
+                            u=u,
                         )
                     logger.info(
                         f"Performing isochoric preconditioning on grid {grid.id}."
@@ -299,10 +306,10 @@ class SolutionStrategy(ModelConfig):
                             update_secondary_quantities=True,
                         )
                     )
-                    if isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+                    if self.has_fluid_volume_variable:
                         self.equation_system.set_variable_values(
                             res[0].v,
-                            [self.fluid_specific_volume([grid])],  # type:ignore[arg-type]
+                            [self.specific_fluid_volume([grid])],  # type:ignore[arg-type]
                             iterate_index=0,
                         )
                     self.isochoric_npc_done = True
@@ -381,16 +388,16 @@ class SolutionStrategy(ModelConfig):
                 eqs += ["injection_temperature_constraint"]
 
         # if (
-        #     isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable)
+        #     self.has_fluid_volume_variable
         #     and "local_fluid_volume_constraint" in self.equation_system.equations
         # ):
-        #     vars += [self.fluid_specific_volume(subdomains)]
+        #     vars += [self.specific_fluid_volume(subdomains)]
         #     eqs += ["local_fluid_volume_constraint"]
         # if (
-        #     isinstance(self, pp.energy_balance.EnthalpyVariable)
+        #     self.has_fluid_enthalpy_variable
         #     and "local_fluid_enthalpy_constraint" in self.equation_system.equations
         # ):
-        #     vars += [self.enthalpy(subdomains)]
+        #     vars += [self.specific_fluid_enthalpy(subdomains)]
         #     eqs += ["local_fluid_enthalpy_constraint"]
 
         chop = 0.4
@@ -968,6 +975,8 @@ class Permeability(ModelConfig):
 class DataCollectionMixin(pp.PorePyModel):
     """Collects data required for running the plot script."""
 
+    has_fluid_volume_variable: bool
+
     def __init__(self, params: dict | None = None):
         super().__init__(params)  # type:ignore[safe-super]
         self._flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
@@ -995,11 +1004,11 @@ class DataCollectionMixin(pp.PorePyModel):
                         self.equation_system.evaluate(self.temperature([sd])),
                     )
                 )
-            if not isinstance(self, pp.fluid_mass_balance.FluidVolumeVariable):
+            if not self.has_fluid_volume_variable:
                 data.append(
                     (
                         sd,
-                        "fluid_specific_volume",
+                        "specific_fluid_volume",
                         self.equation_system.evaluate(self.fluid.specific_volume([sd])),
                     )
                 )
@@ -1132,195 +1141,3 @@ class QuadraticRelPerm(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Quadratic relative permeability model."""
         return phase.saturation(domains) ** pp.ad.Scalar(2)
-
-
-class AdjustedFluidVolumeModel(pp.PorePyModel):
-    """Model with fluid volume variable, which is used to compute the fluid mass in the
-    system."""
-
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    fluid_specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-
-    def __init__(self, params=None):
-        super().__init__(params)
-        self.fluid_volume_variable: str = "fluid_specific_volume"
-
-    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        mass_density = self.porosity(subdomains) / self.fluid_specific_volume(
-            subdomains
-        )
-        mass = self.volume_integral(mass_density, subdomains, dim=1)
-        mass.set_name("fluid_mass_through_volume")
-        return mass
-
-    def component_mass(
-        self, component: pp.Component, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        mass_density = (
-            self.porosity(subdomains)
-            / self.fluid_specific_volume(subdomains)
-            * component.fraction(subdomains)
-        )
-        mass_density.set_name(f"component_mass_through_volume_{component.name}")
-        return mass_density
-
-    def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-
-        if isinstance(self, pp.energy_balance.EnthalpyVariable):
-            h = self.enthalpy(subdomains)
-        else:
-            h = self.fluid.specific_enthalpy(subdomains)
-
-        energy = (
-            self.porosity(subdomains)
-            / self.fluid_specific_volume(subdomains)
-            * (h - self.pressure(subdomains))
-        )
-        energy.set_name("fluid_internal_energy")
-        return energy
-
-    def initial_condition(self) -> None:
-        super().initial_condition()  # type:ignore[safe-super]
-
-        subdomains = self.mdg.subdomains()
-        rho = self.fluid.density(subdomains)
-
-        rho_val = self.equation_system.evaluate(rho)
-        assert np.all(rho_val > 0.0)
-
-        self.equation_system.set_variable_values(
-            cast(np.ndarray, 1.0 / rho_val),
-            [cast(pp.ad.Variable, self.fluid_specific_volume(subdomains))],
-            iterate_index=0,
-        )
-
-
-class PseudoIsothermalMixin(pp.PorePyModel):
-    """Mixin to introduce the notion of temperature in a model, without being an
-    actual variable. Used to evaluate phase properties at a given temperature.
-
-    The isothermal value can be set with a class attribute ``_T_IN``.
-
-    """
-
-    _T_IN: float
-
-    def temperature(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        nc = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_dense_ad_array(self._T_IN, nc, "temperature")
-
-    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
-        return np.ones(sd.num_cells) * self._T_IN
-
-    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        return np.ones(bg.num_cells) * self._T_IN
-
-    def postprocess_equilibrium(
-        self,
-        grid: pp.Grid,
-        results: pf.FlashResults,
-        /,
-        *,
-        state: Optional[np.ndarray] = None,
-    ) -> NDArray[np.bool_]:
-        """Removes temperature-dependency from derivatives of phase properties."""
-        row_idx = np.array(
-            [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
-        )
-
-        for phase in results.phases:
-            phase.dh = phase.dh[row_idx, :]
-            phase.drho = phase.drho[row_idx, :]
-            phase.du = phase.du[row_idx, :]
-            phase.dmu = phase.dmu[row_idx, :]
-            phase.dkappa = phase.dkappa[row_idx, :]
-            phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
-
-        return super().postprocess_equilibrium(grid, results, state=state)  # type:ignore[misc]
-
-    def postprocess_initial_equilibrium(
-        self, sd: pp.Grid, results: pf.FlashResults
-    ) -> None:
-        """Removes temperature-dependency from derivatives of phase properties."""
-        row_idx = np.array(
-            [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
-        )
-
-        for phase in results.phases:
-            phase.dh = phase.dh[row_idx, :]
-            phase.drho = phase.drho[row_idx, :]
-            phase.du = phase.du[row_idx, :]
-            phase.dmu = phase.dmu[row_idx, :]
-            phase.dkappa = phase.dkappa[row_idx, :]
-            phase.dphis = np.array([dphis[row_idx, :] for dphis in phase.dphis])
-
-        super().postprocess_initial_equilibrium(sd, results)  # type:ignore[misc]
-
-    def update_thermodynamic_properties_of_phases_on_grid(
-        self, grid: pp.Grid, state: Optional[np.ndarray] = None
-    ) -> None:
-        """Handling of constant temperature case for EoS computations."""
-
-        row_idx = np.array(
-            [True, False] + [True] * self.fluid.num_components, dtype=np.bool_
-        )
-
-        equilibrium_defined = pc.has_equilibrium_specified(self)
-        is_persistent = pc.is_persistent_variable_form(self)
-
-        for phase in self.fluid.phases:
-            dep_vals = [
-                self.equation_system.evaluate(d([grid]), state=state)
-                for d in self.dependencies_of_phase_properties(phase)
-            ]
-            dep_vals = (
-                dep_vals[:1] + [np.ones(grid.num_cells) * self._T_IN] + dep_vals[1:]
-            )
-            phase_state = phase.compute_properties(
-                *cast(list[np.ndarray], dep_vals),
-                params=self.params.get("phase_property_params", None),
-            )
-
-            phase_state.dh = phase_state.dh[row_idx, :]
-            phase_state.drho = phase_state.drho[row_idx, :]
-            phase_state.du = phase_state.du[row_idx, :]
-            phase_state.dmu = phase_state.dmu[row_idx, :]
-            phase_state.dkappa = phase_state.dkappa[row_idx, :]
-            phase_state.dphis = np.array(
-                [dphis[row_idx, :] for dphis in phase_state.dphis]
-            )
-
-            cf.update_phase_properties(
-                grid,
-                phase,
-                phase_state,
-                0,
-                use_extended_derivatives=is_persistent,
-                update_fugacities=equilibrium_defined,
-            )
-
-
-class IsothermalModelTemplate(
-    PseudoIsothermalMixin,
-    AdjustedFluidVolumeModel,
-    cf.ConstitutiveLawsCF,
-    pc.PhaseVariablesClosure,
-    pve.VT_PVEEquations,
-    cf.ComponentMassBalanceEquations,
-    pp.fluid_mass_balance.FluidMassBalanceEquations,
-    pc.CompositionalVariables,
-    pp.fluid_mass_balance.FluidVolumeVariable,
-    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
-    cfle.BoundaryConditionsEquilibrium,
-    cf.BoundaryConditionsMulticomponent,
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
-    cfle.InitialConditionsEquilibrium,
-    cf.InitialConditionsFractions,
-    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
-    cfle.SolutionStrategyEquilibrium,
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
-    pp.ModelGeometry,
-    pp.DataSavingMixin,
-):
-    """Isothermal model template for case 2."""

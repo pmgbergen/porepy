@@ -567,7 +567,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
     variables."""
 
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    specific_fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def collect_data(self) -> LinearTracerSaveData:
         """Adds errors for additional fractions, and the energy variables."""
@@ -576,7 +576,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
 
         # T and h are expected to stay zero (trivial IC and BC) in the isothermal
         # setting.
-        approx_h = self.enthalpy(subdomains).value(self.equation_system)
+        approx_h = self.specific_fluid_enthalpy(subdomains).value(self.equation_system)
         exact_h = np.zeros(approx_h.shape)
         approx_T = self.temperature(subdomains).value(self.equation_system)
         exact_T = np.zeros(approx_T.shape)
@@ -650,7 +650,7 @@ class TracerFluid_3p(TracerFluid_1p):
     """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are
     1)."""
 
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    specific_fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Formal dependency of phase properties, though never used in dummy EoS."""
 
     def get_phase_configuration(
@@ -666,7 +666,7 @@ class TracerFluid_3p(TracerFluid_1p):
     def dependencies_of_phase_properties(
         self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
-        return [self.enthalpy]
+        return [self.specific_fluid_enthalpy]
 
 
 def saturation_function(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -682,7 +682,7 @@ class ModelClosure_3p(pp.LocalElimination):
 
     """
 
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    specific_fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def set_equations(self):
         super().set_equations()
@@ -699,7 +699,7 @@ class ModelClosure_3p(pp.LocalElimination):
                 self.eliminate_locally(
                     phase.saturation,
                     # Choose any scalar variable to inform the framework about the DOFs.
-                    [self.enthalpy],
+                    [self.specific_fluid_enthalpy],
                     saturation_function,
                     # Eliminate the saturation on subdomains and boundaries, and let the
                     # framework handle the IC/BC using the function.
@@ -712,7 +712,9 @@ class ModelClosure_3p(pp.LocalElimination):
         heuristic law."""
 
         subdomains = self.mdg.subdomains()
-        op = self.enthalpy(subdomains) - self.fluid.specific_enthalpy(subdomains)
+        op = self.specific_fluid_enthalpy(subdomains) - self.fluid.specific_enthalpy(
+            subdomains
+        )
         op.set_name("enthalpy_closure")
         self.equation_system.set_equation(op, subdomains, {"cells": 1})
 

@@ -24,7 +24,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Sequence, cast
 
 import porepy as pp
-from porepy.models.abstract_equations import EquationMixin
 
 from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
 from .utils import CompositionalModellingError, FlashSpec
@@ -35,7 +34,6 @@ __all__ = [
     "has_equilibrium_specified",
     "is_persistent_variable_form",
     "CompositionalVariables",
-    "PhaseVariablesClosure",
     "FluidMixin",
 ]
 
@@ -999,83 +997,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             raise NotImplementedError("Missing logic for partial fractions.")
 
         return fraction
-
-
-class PhaseVariablesClosure(EquationMixin):
-    """Equation mixin for multi-phase models where phases have independent saturation
-    and phase fraction variables.
-
-    While saturations are associated with flow, phase fractions are associated with
-    local equilibrium. If both are independent per phase, equations of form
-
-    .. math::
-
-        y_{\\gamma}\\frac{sum_{\\delta} s_{\\delta} \\rho_{\\delta}}{\\rho_{\\gamma}} -
-        s_{\\gamma} = 0
-
-    are added for all phases with independent saturation and phase fraction variables,
-    to achieve system closure.
-
-    """
-
-    has_independent_saturation: Callable[[pp.Phase], bool]
-    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
-
-    def set_equations(self) -> None:
-        super().set_equations()
-
-        subdomains = self.mdg.subdomains()
-        for phase in self.fluid.phases:
-            if self.has_independent_fraction(phase) and self.has_independent_saturation(
-                phase
-            ):
-                equ = self.mass_constraint_for_phase(phase, subdomains)
-                self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-
-    def mass_constraint_for_phase(
-        self, phase: pp.Phase, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Constructs a type of local mass constraint based on a relation between
-        mixture density, saturated phase density and phase fractions.
-
-        For a phase :math:`j` it holds:
-
-        .. math::
-
-            y_j \\rho - s_j \\rho_j = 0~,~
-            y_j - s_j \\dfrac{\\rho_j}{rho} = 0
-
-        with the mixture density :math:`\\rho = \\sum_k s_k \\rho_k`, assuming
-        :math:`\\rho_k` is the density of a phase when saturated.
-
-        - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
-        - :math:`s` : Phase :attr:`~porepy.compositional.base.Phase.saturation`
-        - :math:`\\rho` : Fluid mixture :attr:`~porepy.compositional.base.Fluid.
-          density`
-        - :math:`\\rho_j` : Phase:attr:`~porepy.compositional.base.Phase.density`
-
-        Note:
-            These equations can be used to close the model if molar phase fractions and
-            saturations are independent variables.
-
-            They also appear in the unified flash with isochoric specifications.
-
-        Parameters:
-            phase: A phase for which the equation should be assembled.
-            subdomains: A list of subdomains on which the equation is defined.
-
-        Returns:
-            The left-hand side of above equations.
-
-            If normalization of state constraints is set in the solution strategy,
-            it returns the normalized form.
-
-        """
-        equ = phase.fraction(subdomains) * self.fluid.density(
-            subdomains
-        ) / phase.density(subdomains) - phase.saturation(subdomains)
-        equ.set_name(f"local_phase_mass_constraint_{phase.name}")
-        return equ
 
 
 class FluidMixin(pp.PorePyModel):

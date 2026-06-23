@@ -281,7 +281,7 @@ def slow_test_buoyancy_flow_benchmark(
                 for comp in self.fluid.components
                 if comp != self.fluid.reference_component
             ]
-            return [self.pressure, self.enthalpy] + z_CO2
+            return [self.pressure, self.specific_fluid_enthalpy] + z_CO2
 
     class SecondaryEquations(LocalElimination):
         dependencies_of_phase_properties: Callable[

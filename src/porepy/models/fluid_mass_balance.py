@@ -715,6 +715,22 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
     """
 
+    specific_fluid_volume_variable: str
+    """Name of the primary variable representing the specific fluid volume on
+    all subdomains.
+    Usually declared by :class:`SolutionStrategySinglePhaseFlow`"""
+
+    @property
+    def has_fluid_volume_variable(self) -> bool:
+        """Indicator whether the modeler requested an independent specific fluid
+        volume variable.
+
+        Can be set with ``model.params["create_fluid_volume_variable"]=True``.
+        Defaults to False.
+
+        """
+        return self.params.get("create_fluid_volume_variable", False)
+
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
 
@@ -745,6 +761,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             interfaces=self.mdg.interfaces(codim=2),
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
+
+        if self.has_fluid_volume_variable:
+            self.equation_system.create_variables(
+                self.specific_fluid_volume_variable,
+                subdomains=self.mdg.subdomains(),
+                tags={"si_units": "mol * m^-3"},
+            )
 
     def pressure(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Pressure term. Either a primary variable if subdomains are provided a
@@ -807,29 +830,28 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
         return flux
 
-
-class FluidVolumeVariable(pp.VariableMixin):
-    """Introduces a variable for the specific volume of the fluid (mixture)."""
-
-    fluid_volume_variable: str
-
-    def create_variables(self):
-        """Mixin overload creating the variable."""
-        super().create_variables()
-
-        self.equation_system.create_variables(
-            self.fluid_volume_variable,
-            subdomains=self.mdg.subdomains(),
-            tags={"si_units": "mol * m^-3"},
-        )
-
-    def fluid_specific_volume(
+    def specific_fluid_volume(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Method for accessing the variable."""
+        """Fluid specific volume as a variable. Either a primary variable if subdomains
+        are provided a boundary condition operator if boundary grids are provided.
+
+        Parameters:
+            domains: List of subdomains or boundary grids.
+
+        Raises:
+            ValueError: If the grids are not all subdomains or all boundary grids.
+
+        Returns:
+            Operator representing the fluid volume [mol * m^-3].
+
+        """
+        if not self.has_fluid_volume_variable:
+            raise TypeError(f"Model {type(self)} has no volume variable defined.")
+
         if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.fluid_volume_variable,
+                name=self.specific_fluid_volume_variable,
                 domains=domains,  # type: ignore[arg-type]
             )
 
@@ -841,7 +863,9 @@ class FluidVolumeVariable(pp.VariableMixin):
 
         domains = cast(list[pp.Grid], domains)
 
-        return self.equation_system.md_variable(self.fluid_volume_variable, domains)
+        return self.equation_system.md_variable(
+            self.specific_fluid_volume_variable, domains
+        )
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
@@ -914,6 +938,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         self.well_flux_variable: str = "well_flux"
         """Name of the primary variable representing the well flux on interfaces of
         codimension two."""
+
+        self.specific_fluid_volume_variable: str
+        """Name of the primary variable representing the specific fluid volume.
+
+        Only defined if the variable is requrested by
+        ``model.params["create_fluid_volume_variable"]``.
+        
+        """
+
+        if self.params.get("create_fluid_volume_variable", False):
+            self.specific_fluid_volume_variable = "specific_fluid_volume"
 
         # Discretization
         self.darcy_keyword: str = "flow"

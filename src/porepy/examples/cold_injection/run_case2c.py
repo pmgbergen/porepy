@@ -1,7 +1,11 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Isothermal model with nonlinear preconditioning using the vT flash.
+Non-isothermal model with nonlinear preconditioning using the uv flash.
+Temperature is initially constant, during injection and on the boundary.
+Temperature drop is expected when fracture opens.
+
+Hybrid model using a global ph formulation and uv only in preconditioning.
 
 """
 
@@ -12,7 +16,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
@@ -29,23 +33,19 @@ from porepy.examples.cold_injection.model import (
     FluidPoreInteraction,
     NoFluxRediscretization,
 )
-from porepy.models.compositional_flow_with_equilibrium import (
-    IsothermalCFLEModelTemplate,
-)
+from porepy.models.compositional_flow_with_equilibrium import CFLEModelTemplate
 
+ISOCHORIC_NPC = False
 
-V_PRIMARY = True
-ISOCHORIC_NPC = True
-
-APERTURE_JUMP_SCHEDULE: list[tuple[float, pp.number]] = [
-    (25 * pp.DAY, 100),
+APERTURE_JUMP_SCHEDULE: list[tuple[float, float]] = [
+    # (25 * pp.DAY, 5.0),
 ]
 
+max_iterations = 30
+iter_range = (15, 25)
 newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
-max_iterations = 25
-iter_range = (15, max_iterations)
 
 T_END_DAYS = 50
 
@@ -58,6 +58,7 @@ if APERTURE_JUMP_SCHEDULE:
     if t_before[-1] < t_jump - pp.HOUR:
         t_before += [t_jump - pp.HOUR]
     time_schedule = t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
+
 
 dt_init = pp.DAY * 0.5
 dt_min = pp.SECOND
@@ -73,7 +74,7 @@ time_manager = pp.TimeManager(
     recomp_factor=0.5,
     recomp_max=10,
     print_info=True,
-    atol=5e-15,
+    atol=5e-5,
 )
 
 model_params, solver_params = get_default_params(
@@ -98,18 +99,24 @@ model_params["flash_params"]["phase_property_params"] = eos_params
 model_params["phase_property_params"] = eos_params
 model_params["flash_params"]["global_iteration_stride"] = None
 model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
-model_params["flash_params"]["solver_params"]["max_iterations"] = 25
+model_params["flash_params"]["solver_params"]["max_iterations"] = 80
 
 model_params["equilibrium_specification"] = (
-    pp.compositional.FlashSpec.vT,
+    pp.compositional.FlashSpec.ph,
     "persistent-variables",
 )
 model_params["flash_params"]["compile_args"] = (
     pp.compositional.FlashSpec.pT,
-    pp.compositional.FlashSpec.vT,
+    pp.compositional.FlashSpec.ph,
 )
 
-model_params["use_logp_nonlinear_rpc"] = False
+
+solver_params["armijo_line_search_weight"] = 0.9
+solver_params["armijo_line_search_incline"] = 1e-4
+solver_params["armijo_line_search_max_iterations"] = 20
+solver_params["armijo_stop_after_residual_reaches"] = 1e-5
+solver_params["armijo_least_squares_form"] = False
+solver_params["newton_chop"] = 0.4
 
 solver_params["atol_objective"] = newton_tol_res
 solver_params["newton_chop"] = None
@@ -145,15 +152,17 @@ class ModelClass(  # type:ignore
     NoFluxRediscretization,
     HorizontalFractureAndPointWells2D,
     ColdInjectionMixins,
-    IsothermalCFLEModelTemplate,
+    CFLEModelTemplate,
 ):
     pass
 
 
-model_params["create_fluid_volume_variable"] = True
+model_params["create_fluid_volume_variable"] = False
+model_params["create_fluid_internal_energy_variable"] = False
+model_params["create_fluid_enthalpy_variable"] = True
 
 
-# ModelClass._PRESSURE_BOUNDARY_ON = False
+ModelClass._HEATED_BOUNDARY_ON = True
 ModelClass._COMPONENT_NAMES = ["H2O"]
 ModelClass._IDEAL_COMPONENTS = [pp.compositional.ideal.IdealH2O]
 # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
@@ -163,13 +172,18 @@ ModelClass._p_OUT = 10e6
 ModelClass._p_BC = 10e6
 ModelClass._T_INIT = 450.0
 ModelClass._T_IN = 450.0
-ModelClass._T_BC = 450.0
+ModelClass._T_BC = 450.0  # 640.
 ModelClass._z_INIT = {"H2O": 1.0}
 ModelClass._z_IN = {"H2O": 1.0}
 ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
 
 if ISOCHORIC_NPC:
-    ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT
+    ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
+    model_params["flash_params"]["compile_args"] = (
+        pp.compositional.FlashSpec.pT,
+        pp.compositional.FlashSpec.ph,
+        pp.compositional.FlashSpec.vu,
+    )
 
 
 if __name__ == "__main__":
@@ -177,12 +191,11 @@ if __name__ == "__main__":
     _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
     _stride = model_params["flash_params"]["global_iteration_stride"]
     sub_folder = (
-        "CI_CASE2A/"
+        f"CI_CASE2C/"
         f"{timestamp}"
         f"_AJUMP_{_ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
         f"_STRIDE_{_stride}"
-        f"_VPRIM_{bool(V_PRIMARY)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
@@ -200,7 +213,7 @@ if __name__ == "__main__":
     model.params["linear_right_preconditioner"] = get_rpc(model)  # type:ignore
 
     # Defining sub system for Schur complement reduction.
-    set_schur_complement(model, use_extensives=V_PRIMARY)  # type:ignore[arg-type]
+    set_schur_complement(model, use_extensives=True)  # type:ignore[arg-type]
     solver_params.update(
         get_default_convergence_criteria(
             model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug

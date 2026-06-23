@@ -24,8 +24,8 @@ The following equations are available:
   tensor. To be used in a fractional flow model. This model is computationally
   expensive, since it requires a re-discretization of the MPFA, but also numerically
   consistent.
-- :class:`EnthalpyBasedEnergyBalanceEquations`: A specialized total energy balance
-  using an independent (specific fluid) enthalpy variable in the accumulation term.
+- :class:`EnergyBasedEnergyBalanceEquations`: A specialized total energy balance
+  using an independent (specific fluid) energy variable in the accumulation term.
   Otherwise completely analogous to its base
   :class:`~porepy.models.energy_balance.TotalEnergyBalanceEquations`.
 
@@ -278,7 +278,9 @@ def get_primary_equations_cf(model: pp.PorePyModel) -> list[str]:
     return equ_names
 
 
-def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
+def get_primary_variables_cf(
+    model: pp.PorePyModel, use_extensives: bool = False
+) -> list[str]:
     """Returns a list of primary variables assumed to be the default in the CF setting.
 
     The list includes:
@@ -297,13 +299,19 @@ def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
 
     """
     var_names: list[str] = []
-    if isinstance(model, pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
-        var_names += [model.pressure_variable]
+    if isinstance(model, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+        if model.has_fluid_volume_variable and use_extensives:
+            var_names += [model.specific_fluid_volume_variable]
+        else:
+            var_names += [model.pressure_variable]
 
-    if isinstance(model, SolutionStrategyExtendedFluidMassAndEnergy):
-        var_names += [model.enthalpy_variable]
-    elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
-        var_names += [model.temperature_variable]
+    if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
+        if model.has_fluid_internal_energy_variable and use_extensives:
+            var_names += [model.specific_internal_energy_variable]
+        elif model.has_fluid_enthalpy_variable and use_extensives:
+            var_names += [model.specific_fluid_enthalpy_variable]
+        else:
+            var_names += [model.temperature_variable]
 
     if isinstance(model, pp.compositional.CompositionalVariables):
         var_names += model.overall_fraction_variables
@@ -313,6 +321,88 @@ def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
 
 
 # region general PDEs.
+
+
+class VolumeBalanceFormulation(pp.PorePyModel):
+    """Models with a fluid volume variable are turned into volume-balance models
+    by utilizing the fluid volume variable in the accumulation terms."""
+
+    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+
+        assert isinstance(self, pp.fluid_mass_balance.FluidMassBalanceEquations), (
+            f"Model {type(self)} does not inherit the mass balance equation"
+        )
+        assert isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow), (
+            f"Model {type(self)} does not inherit the flow variables."
+        )
+
+        if self.has_fluid_volume_variable:
+            mass_density = self.porosity(subdomains) / self.specific_fluid_volume(
+                subdomains
+            )
+            mass = self.volume_integral(mass_density, subdomains, dim=1)
+            mass.set_name("fluid_volume")
+            return mass
+        else:
+            return super().fluid_mass(subdomains)  # type: ignore[misc]
+
+    def component_mass(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+
+        assert isinstance(self, ComponentMassBalanceEquations), (
+            f"Model {type(self)} does not inherit the component balance equation."
+        )
+        assert isinstance(self, pc.CompositionalVariables), (
+            f"Model {type(self)} does not inherit the compositional variables."
+        )
+        assert isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow), (
+            f"Model {type(self)} does not inherit the flow variables."
+        )
+
+        if self.has_fluid_volume_variable:
+            mass_density = (
+                self.porosity(subdomains)
+                / self.specific_fluid_volume(subdomains)
+                * component.fraction(subdomains)
+            )
+            mass_density.set_name(f"component_volume_{component.name}")
+            return mass_density
+        else:
+            return super().component_mass(component, subdomains)  # type: ignore[misc]
+
+    def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+
+        assert isinstance(self, pp.energy_balance.TotalEnergyBalanceEquations), (
+            f"Model {type(self)} does not inherit the energy balance equation."
+        )
+        assert isinstance(self, pp.energy_balance.VariablesEnergyBalance), (
+            f"Model {type(self)} does not inherit the energy variables."
+        )
+        assert isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow), (
+            f"Model {type(self)} does not inherit the flow variables."
+        )
+
+        if self.has_fluid_volume_variable:
+            if self.has_fluid_internal_energy_variable:
+                e = self.specific_fluid_internal_energy(
+                    subdomains
+                ) / self.specific_fluid_volume(subdomains)
+            else:
+                if self.has_fluid_enthalpy_variable:
+                    e = self.specific_fluid_enthalpy(subdomains)
+                else:
+                    e = self.fluid.specific_enthalpy(subdomains)
+
+                e = e / self.specific_fluid_volume(subdomains) - self.pressure(
+                    subdomains
+                )
+
+            energy = self.porosity(subdomains) * e
+            energy.set_name("fluid_internal_energy")
+            return energy
+        else:
+            return super().fluid_internal_energy(subdomains)  # type: ignore[misc]
 
 
 class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
@@ -375,9 +465,7 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
         return self.well_flux(interfaces)
 
 
-class EnthalpyBasedEnergyBalanceEquations(
-    pp.energy_balance.TotalEnergyBalanceEquations
-):
+class EnergyBasedEnergyBalanceEquations(pp.energy_balance.TotalEnergyBalanceEquations):
     """Mixed-dimensional balance of total energy in a fluid mixture, formulated with an
     independent (specific fluid) enthalpy variable in the accumulation term *and* a
     temperature variable in the Fourier flux.
@@ -402,9 +490,6 @@ class EnthalpyBasedEnergyBalanceEquations(
 
     """
 
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`EnthalpyVariable`."""
-
     total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     fractional_phase_mass_mobility: Callable[
@@ -423,8 +508,9 @@ class EnthalpyBasedEnergyBalanceEquations(
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Returns the internal energy of the fluid using the independent
-        :meth:`~porepy.models.energy_balance.EnthalpyVariable.enthalpy` variable and the
-        :attr:`~porepy.compositional.base.Fluid.density` of the fluid mixture
+        :meth:`~porepy.models.energy_balance.VariablesEnergyBalance.
+        specific_fluid_enthalpy` variable and the
+        :attr:`~porepy.compositional.base.Fluid.density` of the fluid
 
         .. math::
 
@@ -433,10 +519,24 @@ class EnthalpyBasedEnergyBalanceEquations(
         in AD operator form on the ``subdomains``.
 
         """
-        energy = self.porosity(subdomains) * (
-            self.fluid.density(subdomains) * self.enthalpy(subdomains)
-            - self.pressure(subdomains)
+
+        assert isinstance(self, pp.energy_balance.VariablesEnergyBalance), (
+            f"Model {type(self)} does not inherit the energy variables."
         )
+
+        if self.has_fluid_internal_energy_variable:
+            e = self.fluid.density(subdomains) * self.specific_fluid_enthalpy(
+                subdomains
+            ) - self.pressure(subdomains)
+        elif self.has_fluid_enthalpy_variable:
+            e = self.fluid.density(subdomains) * self.specific_fluid_internal_energy(
+                subdomains
+            )
+        # Covers case where neither enthalpy nor internal energy are variables.
+        else:
+            return super().fluid_internal_energy(subdomains)
+
+        energy = self.porosity(subdomains) * e
         energy.set_name("fluid_internal_energy")
         return energy
 
@@ -941,7 +1041,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
 
 class PrimaryEquationsCF(
-    EnthalpyBasedEnergyBalanceEquations,
+    EnergyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
@@ -959,7 +1059,7 @@ class PrimaryEquationsCF(
 
 
 class PrimaryEquationsCFF(
-    EnthalpyBasedEnergyBalanceEquations,
+    EnergyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     MassicPressureEquations,
 ):
@@ -978,7 +1078,6 @@ class PrimaryEquationsCFF(
 
 class VariablesCF(
     pc.CompositionalVariables,
-    pp.energy_balance.EnthalpyVariable,
     pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
 ):
     """Bundles standard variables for non-isothermal flow (pressure and temperature)
@@ -1434,15 +1533,44 @@ class BoundaryConditionsCF(
     # Put on top for override of update_all_boundary_values, which includes sub-routine
     # for updating phase properties on boundaries.
     BoundaryConditionsPhaseProperties,
-    # Put enthalpy above BC for p,T and fractions, in case they are required to evaluate
-    # enthalpy.
-    pp.energy_balance.BoundaryConditionsEnthalpy,
     pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
     BoundaryConditionsMulticomponent,
 ):
     """Collection of BC values update routines required for CF, where phase properties
     are represented by surrogate factories and values need to be computed on the
-    boundary, depending on primary variables."""
+    boundary, depending on primary variables.
+
+    Includes the method :meth:`bc_values_enthalpy` for non-isothermal multiphase flow,
+    such that mutliphase in- and outflow can be computed.
+
+    """
+
+    specific_fluid_enthalpy_variable: str
+    """Name of enthalpy variable. Usually provided by a solution strategy mixin."""
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Passes :meth:`bc_values_enthalpy` to the BC update routine."""
+        super().update_boundary_values_primary_variables()
+
+        if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+            if self.has_fluid_enthalpy_variable:
+                self.update_boundary_condition(
+                    name=self.specific_fluid_enthalpy_variable,
+                    function=self.bc_values_enthalpy,
+                )
+
+    def bc_values_enthalpy(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """BC values for fluid enthalpy on the Dirichlet boundary.
+
+        Parameters:
+            bg: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the value of
+            the fluid enthalpy on the Dirichlet boundary.
+
+        """
+        return np.zeros(bg.num_cells)
 
 
 class BoundaryConditionsCFF(
@@ -1602,13 +1730,94 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 class InitialConditionsCF(
     # Put this on top because it overrides initial_condition.
     InitialConditionsPhaseProperties,
-    # Put this above mass and energy, in case enthalpy is evaluated depending on
-    # p, T and fractions.
-    pp.energy_balance.InitialConditionsEnthalpy,
     pp.mass_and_energy_balance.InitialConditionsMassAndEnergy,
     InitialConditionsFractions,
 ):
-    """Collection of initialization procedures for the general CF model."""
+    """Collection of initialization procedures for the general CF model.
+
+    Includes methods :meth:`ic_values_enthalpy` and :meth:`ic_values_internal_energy`
+    for non-isothermal models initialized using the respective variables.
+
+    Includes also :meth:`ic_values_volume` for volume-balance formulations.
+
+    """
+
+    def set_initial_values_primary_variables(self) -> None:
+        """Calls :meth:`ic_values_enthalpy` and sets the values to iterate index 0."""
+        super().set_initial_values_primary_variables()
+
+        for sd in self.mdg.subdomains():
+            if isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+                if self.has_fluid_volume_variable:
+                    self.equation_system.set_variable_values(
+                        self.ic_values_volume(sd),
+                        [cast(pp.ad.Variable, self.specific_fluid_volume([sd]))],
+                        iterate_index=0,
+                    )
+
+            if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+                if self.has_fluid_enthalpy_variable:
+                    self.equation_system.set_variable_values(
+                        self.ic_values_enthalpy(sd),
+                        [cast(pp.ad.Variable, self.specific_fluid_enthalpy([sd]))],
+                        iterate_index=0,
+                    )
+                if self.has_fluid_internal_energy_variable:
+                    self.equation_system.set_variable_values(
+                        self.ic_values_internal_energy(sd),
+                        [
+                            cast(
+                                pp.ad.Variable,
+                                self.specific_fluid_internal_energy([sd]),
+                            )
+                        ],
+                        iterate_index=0,
+                    )
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        """Initial values for (specific fluid) enthalpy.
+
+        Override this method to customize the initialization.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial specific fluid enthalpy values on that subdomain with
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
+
+    def ic_values_internal_energy(self, sd: pp.Grid) -> np.ndarray:
+        """Initial values for (specific fluid) internal energy.
+
+        Override this method to customize the initialization.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial specific fluid internal energy values on that subdomain with
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
+
+    def ic_values_volume(self, sd: pp.Grid) -> np.ndarray:
+        """Initial values for (specific fluid) volume.
+
+        Override this method to customize the initialization.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial specific fluid volume values on that subdomain with
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
 
 
 # endregion
@@ -1826,11 +2035,18 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
+
         super().__init__(params)
 
-        self.enthalpy_variable: str = "enthalpy"
-        """Primary variable in the compositional flow model, denoting the total,
-        transported (specific molar) enthalpy of the fluid."""
+        # Default behavior for extended thermodynamic state variables.
+        if "create_fluid_enthalpy_variable" not in self.params:
+            self.params["create_fluid_enthalpy_variable"] = True  # type: ignore[assignment]
+
+        if "create_fluid_internal_energy_variable" not in self.params:
+            self.params["create_fluid_internal_energy_variable"] = False  # type: ignore[assignment]
+
+        if "create_fluid_volume_variable" not in self.params:
+            self.params["create_fluid_volume_variable"] = False  # type: ignore[assignment]
 
         self.enthalpy_keyword = self.mobility_keyword
         """Overwrites the enthalpy keyword for storing upwinding matrices for the
@@ -1880,6 +2096,7 @@ class SolutionStrategyCF(
 
 class CompositionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
+    VolumeBalanceFormulation,
     PrimaryEquationsCF,
     VariablesCF,
     BoundaryConditionsCF,
@@ -1931,6 +2148,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
 
 class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
+    VolumeBalanceFormulation,
     PrimaryEquationsCFF,
     VariablesCF,
     BoundaryConditionsCFF,

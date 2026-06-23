@@ -343,7 +343,7 @@ class GeothermalWaterModel(  # type:ignore[misc]
     TwoPhaseWaterFluid,
     Pipe2D,
     pp.constitutive_laws.DarcysLawAd,
-    cfle.EnthalpyBasedCFFLETemplate,
+    cfle.CFFLEModelTemplate,
 ):
     """Model assembly for the geothermal water benchmark."""
 

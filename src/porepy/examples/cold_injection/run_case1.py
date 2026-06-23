@@ -85,7 +85,7 @@ if BUOYANCY_ON:
         BuoyancyModel,
         PointWells,
         ColdInjectionMixins,
-        cfle.EnthalpyBasedCFFLETemplate,
+        cfle.CFFLEModelTemplate,
     ):
         pass
 
@@ -95,7 +95,7 @@ else:
         NoFluxRediscretization,
         PointWells,
         ColdInjectionMixins,
-        cfle.EnthalpyBasedCFLETemplate,
+        cfle.CFLEModelTemplate,
     ):
         pass
 

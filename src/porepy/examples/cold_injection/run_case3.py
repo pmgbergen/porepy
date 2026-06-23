@@ -10,7 +10,6 @@ from datetime import datetime
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
-import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.examples.cold_injection.config import (
     get_default_convergence_criteria,
     get_default_params,
@@ -21,6 +20,10 @@ from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
     NoFluxRediscretization,
+)
+from porepy.models.compositional_flow_with_equilibrium import (
+    CFFLEModelTemplate,
+    CFLEModelTemplate,
 )
 
 BUOYANCY_ON = False
@@ -73,7 +76,7 @@ if BUOYANCY_ON:
         BuoyancyModel,
         RandomFracturesAndPointWells2D,
         ColdInjectionMixins,
-        cfle.EnthalpyBasedCFFLETemplate,
+        CFFLEModelTemplate,
     ):
         pass
 
@@ -83,7 +86,7 @@ else:
         NoFluxRediscretization,
         RandomFracturesAndPointWells2D,
         ColdInjectionMixins,
-        cfle.EnthalpyBasedCFLETemplate,
+        CFLEModelTemplate,
     ):
         pass
 
