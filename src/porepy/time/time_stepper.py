@@ -170,15 +170,9 @@ class TimeStepper:
             model.time_manager.compute_time_step(iterations=num_iterations)
             return TimeStepperStatusSuccess()
         elif convergence_status.is_failed():
-            try:
-                # For rejected steps, we want to reduce dt for the next attempt.
-                model.time_manager.compute_time_step(recompute_solution=True)
-                return TimeStepperStatusContinueIterating()
-            except ValueError as e:
-                # Time manager raises a value error if dt cannot be reduced any further.
-                # TODO: this will be more elegant when this logic is moved out of the
-                # time manager.
-                return TimeStepperStatusFailure(reason=str(e))
+            # For rejected steps, we want to reduce dt for the next attempt.
+            model.time_manager.compute_time_step(recompute_solution=True)
+            return TimeStepperStatusContinueIterating()
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
 

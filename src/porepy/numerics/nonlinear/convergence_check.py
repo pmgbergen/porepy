@@ -22,36 +22,36 @@ logger = logging.getLogger(__name__)
 # Status and info classes
 
 
-class SimulationStatus(StrEnum):
-    """Enumeration of potential simulation statuses."""
+# class SimulationStatus(StrEnum):
+#     """Enumeration of potential simulation statuses."""
 
-    IN_PROGRESS = "in_progress"
-    """Simulation is currently in progress and in a nominal state."""
-    SUCCESSFUL = "successful"
-    """Simulation completed with success."""
-    FAILED = "failed"
-    """Simulation is currently in progress and in a failed state."""
-    STOPPED = "stopped"
-    """Simulation was stopped due to an error."""
+#     IN_PROGRESS = "in_progress"
+#     """Simulation is currently in progress and in a nominal state."""
+#     SUCCESSFUL = "successful"
+#     """Simulation completed with success."""
+#     FAILED = "failed"
+#     """Simulation is currently in progress and in a failed state."""
+#     STOPPED = "stopped"
+#     """Simulation was stopped due to an error."""
 
-    def __str__(self):
-        return self.value
+#     def __str__(self):
+#         return self.value
 
-    def is_in_progress(self) -> bool:
-        """Check if the status indicates an ongoing simulation."""
-        return self == SimulationStatus.IN_PROGRESS
+#     def is_in_progress(self) -> bool:
+#         """Check if the status indicates an ongoing simulation."""
+#         return self == SimulationStatus.IN_PROGRESS
 
-    def is_successful(self) -> bool:
-        """Check if the status indicates a successful simulation."""
-        return self == SimulationStatus.SUCCESSFUL
+#     def is_successful(self) -> bool:
+#         """Check if the status indicates a successful simulation."""
+#         return self == SimulationStatus.SUCCESSFUL
 
-    def is_failed(self) -> bool:
-        """Check if the status indicates a failed simulation."""
-        return self == SimulationStatus.FAILED
+#     def is_failed(self) -> bool:
+#         """Check if the status indicates a failed simulation."""
+#         return self == SimulationStatus.FAILED
 
-    def is_stopped(self) -> bool:
-        """Check if the status indicates a stopped simulation."""
-        return self == SimulationStatus.STOPPED
+#     def is_stopped(self) -> bool:
+#         """Check if the status indicates a stopped simulation."""
+#         return self == SimulationStatus.STOPPED
 
 
 class ConvergenceStatus(StrEnum):
