@@ -502,6 +502,10 @@ class FluidBuoyancy(pp.PorePyModel):
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """See :class:`FluidMobility`."""
 
+    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
+    """
+
     darcy_flux_discretization: Callable[
         [list[pp.Grid]], pp.ad.MpfaAd
     ]  # because it contains the div(w(rho)) term
@@ -854,177 +858,6 @@ class FluidBuoyancy(pp.PorePyModel):
         )
         m_star.set_name("potential_driven_flux_" + phase.name)
         return m_star
-
-    def _phase_potential_discretization(
-        self, phase: pp.Phase, subdomains: list[pp.Grid]
-    ) -> pp.ad.UpwindAd:
-        """Per-phase upwind discretization driven by the phase-potential flux.
-
-        For a multiphase mixture the phase-potential direction of ``phase`` is stored
-        (when PPU is active) in the buoyancy flux array of any pair ``(phase, other)``,
-        so the corresponding buoyancy discretization upwinds by ``potential_driven_flux
-        (phase)``. In the single-phase case the phase potential coincides with the total
-        Darcy flux and the standard mobility discretization is returned.
-
-        Parameters:
-            phase: The phase whose potential drives the upwinding.
-            subdomains: The subdomains to consider.
-
-        Returns:
-            An Upwind discretization upwinded by the phase-potential flux of ``phase``.
-
-        """
-        pairs = self.phase_pairs_for(phase)
-        if pairs:
-            gamma, delta = pairs[0]
-            return self.buoyancy_discretization(gamma, delta, subdomains)
-        return self.mobility_discretization(subdomains)
-
-    def phase_potential_advective_flux(
-        self,
-        subdomains: list[pp.Grid],
-        advected_weight: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-        bc_values: pp.ad.Operator,
-        interface_flux: Union[
-            Callable[[list[pp.MortarGrid]], pp.ad.Operator], None
-        ] = None,
-    ) -> pp.ad.Operator:
-        r"""Phase-potential-upwind (PPU) **diffusive** advective flux.
-
-        This is the diffusive term: the total (mixture) Darcy flux ``m`` times the PPU
-        nonlinear weight, obtained by summing the per-phase contributions, each upwinded
-        by that phase's own potential :math:`\Psi_j` (:meth:`potential_driven_flux`):
-
-        .. math::
-
-            m \, \sum_j \mathrm{upw}_j\!\left(w_j\right).
-
-        It mirrors the hybrid-upwinding (HU) diffusive term ``m · upwind_m(Σ_j w_j)``,
-        differing only in the nonlinear-weight reconstruction (per-phase potential
-        upwinding instead of a single lumped upwinding by ``m``). The buoyancy
-        (segregation) term is **separate**: in PPU it is :meth:`phase_potential_buoyancy`
-        (per-phase potential direction), in HU it is the simplicial
-        :meth:`enthalpy_buoyancy` / :meth:`component_buoyancy` (gravity direction).
-
-        The boundary contribution reuses the total-flux transport operators, which is
-        exact at single-phase boundaries.
-
-        Parameters:
-            subdomains: List of subdomains.
-            advected_weight: Callable returning, for a phase, the cell-wise advected
-                quantity carried by that phase (e.g. :math:`h_j \rho_j k_{rj}/\mu_j` for
-                energy).
-            bc_values: Boundary operator for the advected flux.
-            interface_flux: Optional interface flux operator/variable.
-
-        Returns:
-            Operator representing the PPU diffusive advective flux.
-
-        """
-        darcy_flux = self.darcy_flux(subdomains)
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=1
-        )
-        # Total-flux discretization is used only for the boundary transport operators.
-        bc_discr = self.mobility_discretization(subdomains)
-
-        # PPU nonlinear weight: each phase contribution upwinded by its own potential
-        # Psi_j, then summed. Rides the total (mixture) Darcy flux m.
-        diffusive_weight = pp.ad.sum_operator_list(
-            [
-                self._phase_potential_discretization(phase, subdomains).upwind()
-                @ advected_weight(phase, subdomains)
-                for phase in self.fluid.phases
-            ]
-        )
-
-        flux: pp.ad.Operator = (
-            darcy_flux * diffusive_weight
-            + bc_discr.bound_transport_dir() @ (darcy_flux * bc_values)
-            + bc_discr.bound_transport_neu() @ bc_values
-        )
-        if interface_flux is not None:
-            flux += (
-                bc_discr.bound_transport_neu()
-                @ mortar_projection.mortar_to_primary_int()
-                @ interface_flux(interfaces)
-            )
-        else:
-            assert len(interfaces) == 0
-        flux.set_name("phase_potential_advective_flux")
-        return flux
-
-    def phase_potential_buoyancy(
-        self,
-        subdomains: list[pp.Grid],
-        advected_weight: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-    ) -> pp.ad.Operator:
-        r"""Phase-potential-upwind (PPU) **buoyancy** (segregation) term.
-
-        The PPU counterpart of the simplicial HU buoyancy
-        (:meth:`enthalpy_buoyancy` / :meth:`component_buoyancy`). It is the gravity part
-        of the full per-phase flux, with the diffusive term
-        (:meth:`phase_potential_advective_flux`, riding ``darcy_flux``) carrying the
-        pressure gradient *and* the mixture gravity. To avoid double counting, this term
-        adds the per-phase gravity weight and removes the mixture gravity:
-
-        .. math::
-
-            \big(K g\cdot n\big)\,\sum_j \mathrm{upw}_j\!\left(\rho_j w_j\right)
-            \;-\; \texttt{density\_driven\_flux}(\rho_{\text{mix}})\,
-            \sum_j \mathrm{upw}_j\!\left(w_j\right).
-
-        The gravity weight :math:`\rho_j w_j` is upwinded **as a single group** (matching
-        the benchmark, which upstream-weights :math:`k_{rj}\rho_j^2/\mu_j`), not as
-        :math:`\rho_j^{\text{face}}\,\mathrm{upw}_j(w_j)`. Together with
-        :meth:`phase_potential_advective_flux` this reproduces the full per-phase flux
-        :math:`(-K\nabla p)\sum_j\mathrm{upw}_j(w_j) + (K g\cdot n)\sum_j
-        \mathrm{upw}_j(\rho_j w_j)` (fig 5D PPU), written as diffusion + buoyancy.
-
-        The upwinding direction is the phase potential, set via the stored buoyancy flux
-        arrays when PPU is active.
-
-        Parameters:
-            subdomains: List of subdomains.
-            advected_weight: Callable returning, for a phase, the advected mass-mobility
-                weight :math:`w_j` (e.g. :math:`h_j \rho_j k_{rj}/\mu_j` for energy).
-
-        Returns:
-            Operator representing the PPU buoyancy flux.
-
-        """
-        rho_mixture = self.fractionally_weighted_density(subdomains)
-        # Unit gravity flux K g.n and the mixture gravity flux already carried by
-        # darcy_flux in the diffusive term.
-        unit_gravity_flux = self.density_driven_flux(
-            subdomains, pp.ad.Scalar(1.0, "unit_density")
-        )
-        mixture_gravity_flux = self.density_driven_flux(subdomains, rho_mixture)
-
-        # Diffusive weight sum_j upwind_j(w_j) (same as the diffusive term).
-        diffusive_weight = pp.ad.sum_operator_list(
-            [
-                self._phase_potential_discretization(phase, subdomains).upwind()
-                @ advected_weight(phase, subdomains)
-                for phase in self.fluid.phases
-            ]
-        )
-        # Gravity weight sum_j upwind_j(rho_j w_j): density upwinded WITH the mobility.
-        gravity_weight = pp.ad.sum_operator_list(
-            [
-                self._phase_potential_discretization(phase, subdomains).upwind()
-                @ (phase.density(subdomains) * advected_weight(phase, subdomains))
-                for phase in self.fluid.phases
-            ]
-        )
-
-        b_flux = (
-            unit_gravity_flux * gravity_weight
-            - mixture_gravity_flux * diffusive_weight
-        )
-        b_flux.set_name("phase_potential_buoyancy")
-        return b_flux
 
     @pp.ad.cached_method
     def __entity_buoyancy_flux(
@@ -1415,11 +1248,23 @@ class FluidBuoyancy(pp.PorePyModel):
                     pp.initialize_data(data, self.buoyancy_key(gamma, delta))
                     pp.initialize_data(data, self.buoyancy_key(delta, gamma))
                     null_vals = np.zeros(sd.num_faces)
+                    # Set the SAME advective-flux boundary classification used by the
+                    # mobility discretization (bc_type_fluid_flux). Without this the
+                    # Upwind discretization defaults to all-Dirichlet, so its upwind()
+                    # and bound_transport_*() would not partition the boundary faces
+                    # consistently with the advective flux (cf. PPU boundary bug).
+                    bc = self.bc_type_fluid_flux(sd)
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                        {self.buoyant_flux_array_key(gamma, delta): +null_vals}
+                        {
+                            self.buoyant_flux_array_key(gamma, delta): +null_vals,
+                            "bc": bc,
+                        }
                     )
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                        {self.buoyant_flux_array_key(delta, gamma): -null_vals}
+                        {
+                            self.buoyant_flux_array_key(delta, gamma): -null_vals,
+                            "bc": bc,
+                        }
                     )
                 for intf, data in self.mdg.interfaces(return_data=True):
                     null_vals = np.zeros(intf.num_cells)

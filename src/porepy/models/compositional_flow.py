@@ -437,28 +437,6 @@ class EnthalpyBasedEnergyBalanceEquations(
     phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
-    phase_potential_advective_flux: Callable[
-        [
-            list[pp.Grid],
-            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-            pp.ad.Operator,
-            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-    phase_potential_buoyancy: Callable[
-        [
-            list[pp.Grid],
-            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-
-    is_phase_potential_upwinding: Callable[[], bool]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-
     enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
@@ -537,61 +515,30 @@ class EnthalpyBasedEnergyBalanceEquations(
             self.params.get("enable_buoyancy_effects", False) and not is_boundary
         )
 
-        # PPU: diffusive term (per-phase potential-upwinded weight, riding the total
-        # flux) + the PPU buoyancy term (per-phase-equation sum, phase-potential
-        # direction). Same diffusive + buoyancy separation as HU, different weights and
-        # upwinding directions.
-        if buoyancy_condition and self.is_phase_potential_upwinding():
-            subdomains = cast(list[pp.Grid], subdomains)
-            boundary_operator = self._combine_boundary_operators(  # type: ignore[attr-defined]
-                subdomains=subdomains,
-                dirichlet_operator=self.advection_weight_energy_balance,
-                neumann_operator=self.enthalpy_flux,
-                robin_operator=None,
-                bc_type=self.bc_type_enthalpy_flux,
-                name="bc_values_enthalpy",
-            )
-
-            def enthalpy_weight(
-                phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
-            ) -> pp.ad.Operator:
-                return (
-                    phase.specific_enthalpy(domains)
-                    * phase.density(domains)
-                    * self.phase_mobility(phase, domains)
-                )
-
-            flux = self.phase_potential_advective_flux(
-                subdomains,
-                enthalpy_weight,
-                boundary_operator,
-                self.interface_enthalpy_flux,
-            )
-            flux = flux + self.phase_potential_buoyancy(subdomains, enthalpy_weight)
-            flux.set_name("enthalpy_flux")
-            return flux
-
-        # Hybrid upwinding (or no buoyancy): lumped advective flux, upwinded by the
-        # total flux, plus the separate simplicial monotone buoyancy term.
+        # PPU and HU share the SAME flux structure: the lumped advective flux (upwinded
+        # by the total flux) plus the separate simplicial monotone buoyancy term. They
+        # differ ONLY in the buoyancy upwind direction (phase potential vs gravity flux),
+        # carried by ``ppu_Q`` in ``update_buoyancy_driven_fluxes``. Reusing HU's
+        # ``enthalpy_buoyancy`` is what keeps PPU correct at the boundary: it is built on
+        # ``rho_gamma - rho_delta`` and ``f_gamma * f_delta``, which vanish identically in
+        # single-phase regions, so the buoyancy term contributes nothing where only one
+        # phase is present (e.g. the inflow/outflow boundaries).
         if is_boundary and is_fractional_flow(self):
             flux = self.advection_weight_energy_balance(subdomains) * self.fluid_flux(
                 subdomains
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-        if buoyancy_condition:  # hybrid upwinding
+        if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
         flux.set_name("enthalpy_flux")
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         source = super().energy_source(subdomains)
-        # The interface buoyancy jump is the hybrid-upwinding interface contribution.
-        # In pure PPU the interface buoyancy is intrinsic to the per-phase flux, so no
-        # separate jump term is added.
-        if self.params.get(
-            "enable_buoyancy_effects", False
-        ) and not self.is_phase_potential_upwinding():
+        # PPU and HU both use the simplicial ``enthalpy_buoyancy``, so both need its
+        # interface (secondary-side) jump contribution.
+        if self.params.get("enable_buoyancy_effects", False):
             source += self.enthalpy_buoyancy_jump(subdomains)
         return source
 
@@ -682,28 +629,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
-    phase_potential_advective_flux: Callable[
-        [
-            list[pp.Grid],
-            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-            pp.ad.Operator,
-            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-    phase_potential_buoyancy: Callable[
-        [
-            list[pp.Grid],
-            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-
-    is_phase_potential_upwinding: Callable[[], bool]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -760,39 +685,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             self.component_mass(component, subdomains), subdomains, dim=1
         )
         buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
-        # PPU: diffusive term (per-phase potential-upwinded weight) + PPU buoyancy term
-        # (per-phase-equation sum, phase-potential direction). HU: lumped advective flux
-        # + the separate simplicial monotone buoyancy term.
-        if buoyancy_condition and self.is_phase_potential_upwinding():
-
-            def component_weight(
-                phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
-            ) -> pp.ad.Operator:
-                if component in phase:  # type: ignore[operator]
-                    return (
-                        phase.partial_fraction_of[component](domains)
-                        * phase.density(domains)
-                        * self.phase_mobility(phase, domains)
-                    )
-                size = sum(g.num_cells for g in domains)
-                return pp.wrap_as_dense_ad_array(
-                    np.zeros(size), name="zero_component_weight"
-                )
-
-            flux = self.phase_potential_advective_flux(
-                subdomains,
-                component_weight,
-                self.boundary_component_flux(component, subdomains),
-                cast(
-                    Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-                    partial(self.interface_component_flux, component),
-                ),
-            )
-            flux = flux + self.phase_potential_buoyancy(subdomains, component_weight)
-        else:
-            flux = self.component_flux(component, subdomains)
-            if buoyancy_condition:  # hybrid upwinding
-                flux += self.component_buoyancy(component, subdomains)
+        # PPU and HU share the SAME flux structure: the lumped advective flux plus the
+        # separate simplicial monotone buoyancy term ``component_buoyancy``. They differ
+        # ONLY in the buoyancy upwind direction (carried by ``ppu_Q``). See the rationale
+        # in :meth:`EnthalpyBasedEnergyBalanceEquations.enthalpy_flux`.
+        flux = self.component_flux(component, subdomains)
+        if buoyancy_condition:
+            flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -1064,11 +963,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
-        # Pure PPU carries the interface buoyancy intrinsically in the per-phase flux;
-        # only hybrid upwinding adds the separate interface buoyancy jump.
-        if self.params.get(
-            "enable_buoyancy_effects", False
-        ) and not self.is_phase_potential_upwinding():
+        # PPU and HU both use the simplicial ``component_buoyancy``, so both need its
+        # interface (secondary-side) jump contribution.
+        if self.params.get("enable_buoyancy_effects", False):
             source += self.component_buoyancy_jump(component, subdomains)
 
         source.set_name(f"interface_component_flux_source_{component.name}")
@@ -1089,86 +986,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 # region Intermediate mixins collecting variables, equations and constitutive laws.
 
 
-class PhasePotentialTotalMassFlux(pp.PorePyModel):
-    """Mixin providing the phase-potential (PPU) discretization of the total-mass flux.
-
-    When phase-potential upwinding is active and the total mobility is *not* absorbed
-    into the permeability tensor (i.e. it is applied by upwinding), the total-mass flux
-    is reconstructed per phase, upwinding each phase mass mobility by that phase's own
-    potential. This keeps the pressure, energy and component equations on a single,
-    consistent velocity field (without it, the total-mass flux would be lumped and
-    upwinded by the total flux, mismatching the per-phase energy/component fluxes).
-
-    The total-mass segregation (buoyancy) cancels across phases, so no buoyancy term is
-    added here. In all other cases (hybrid upwinding, massic permeability, boundary
-    grids, or buoyancy disabled) the inherited implementation is used.
-
-    This mixin must precede the mass-balance class in the MRO so its ``fluid_flux``
-    takes precedence; ``super().fluid_flux`` then resolves to the inherited variant
-    (lumped :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations` or
-    massic :class:`MassicPressureEquations`).
-    """
-
-    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    is_phase_potential_upwinding: Callable[[], bool]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-    phase_potential_advective_flux: Callable[
-        [
-            list[pp.Grid],
-            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-            pp.ad.Operator,
-            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-    phase_potential_buoyancy: Callable[
-        [
-            list[pp.Grid],
-            Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
-    boundary_fluid_flux: Callable[[Sequence[pp.Grid]], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations`."""
-    interface_fluid_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations`."""
-
-    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        is_boundary = len(domains) == 0 or all(
-            isinstance(d, pp.BoundaryGrid) for d in domains
-        )
-        if (
-            not is_mass_mobility_weighted_permeability(self)
-            and self.params.get("enable_buoyancy_effects", False)
-            and not is_boundary
-            and self.is_phase_potential_upwinding()
-        ):
-            subdomains = cast(list[pp.Grid], domains)
-
-            def mass_weight(
-                phase: pp.Phase, d: pp.SubdomainsOrBoundaries
-            ) -> pp.ad.Operator:
-                return phase.density(d) * self.phase_mobility(phase, d)
-
-            flux = self.phase_potential_advective_flux(
-                subdomains,
-                mass_weight,
-                self.boundary_fluid_flux(subdomains),
-                self.interface_fluid_flux,
-            )
-            # Total-mass buoyancy cancels continuously; the per-phase term is included
-            # for full consistency with the energy/component fluxes.
-            flux = flux + self.phase_potential_buoyancy(subdomains, mass_weight)
-            flux.set_name("fluid_flux")
-            return flux
-        return super().fluid_flux(domains)
-
-
 class PrimaryEquationsCF(
-    PhasePotentialTotalMassFlux,
     EnthalpyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
@@ -1187,7 +1005,6 @@ class PrimaryEquationsCF(
 
 
 class PrimaryEquationsCFF(
-    PhasePotentialTotalMassFlux,
     EnthalpyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     MassicPressureEquations,
