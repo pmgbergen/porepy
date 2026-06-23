@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import warnings
 from typing import Optional
 
 import numpy as np
 
-from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+# from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from porepy.time.time_step_status import TimeStepStatus
+from porepy.time.time_step_status import TimeStepperStatusFailure
 from porepy.time.time_stepper import TimeStepperFactory
 from porepy.models.solution_strategy import SolutionStrategy
 import porepy as pp
@@ -23,6 +24,21 @@ __all__ = ["ModelRunner"]
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ModelRunnerStatus:
+    pass
+
+
+@dataclass
+class ModelRunnerStatusSuccess(ModelRunnerStatus):
+    pass
+
+
+@dataclass
+class ModelRunnerStatusFailure(ModelRunnerStatus):
+    reason: str
 
 
 def run_stationary_model(model, params: dict) -> None:
@@ -223,7 +239,7 @@ class ModelRunner:
 
         self.use_progress_bar = use_progress_bar
 
-    def run(self) -> None:
+    def run(self) -> ModelRunnerStatus:
         """Run the model (stationary or time-dependent)."""
         # Run simulation.
         if self._is_time_dependent:
@@ -234,31 +250,25 @@ class ModelRunner:
         # Clean up model after simulation.
         self.model.after_simulation()
 
-        # Conclude.
-        if simulation_status.is_failed():
-            raise ValueError("Simulation failed.")
-        elif simulation_status.is_stopped():
-            raise ValueError("Simulation stopped due to error.")
+        return simulation_status
 
-    def _run_stationary(self) -> SimulationStatus:
+    def _run_stationary(self) -> ModelRunnerStatus:
         """Run a stationary model."""
         # Perform stationary solve.
-        solver_status = self.solver.solve(self.model)
+        convergence_status = self.solver.solve(self.model)
 
         # Conclude the simulation status based on the solver status.
-        if solver_status.is_successful():
+        if convergence_status.is_converged():
             # NOTE: time_step_convergence can be considered a misnomer.
             # But technically this is the only time we solve for. Thus we reuse the
             # method to set the solution and save data.
             self.model.after_time_step_convergence()
-            simulation_status = SimulationStatus.SUCCESSFUL
+            return ModelRunnerStatusSuccess()
         else:
             self.model.after_time_step_failure()
-            simulation_status = SimulationStatus.STOPPED
+            return ModelRunnerStatusFailure("Solver did not converge.")
 
-        return simulation_status
-
-    def _run_time_dependent(self) -> SimulationStatus:
+    def _run_time_dependent(self) -> ModelRunnerStatus:
         """Run a time-dependent model with trial-based time stepping."""
 
         with logging_redirect_tqdm([logging.root]):
@@ -272,19 +282,15 @@ class ModelRunner:
                 self.update_time_progressbar()
 
                 # Abort simulation if time step was stopped.
-                if not time_step_status.is_accepted():
-                    logger.error("Time stepping failed/stopped.")
-                    break
+                match time_step_status:
+                    case TimeStepperStatusFailure(reason):
+                        logger.error("Time stepping failed.")
+                        return ModelRunnerStatusFailure(reason=reason)
 
             # Conclude the simulation status.
             if self.model.time_manager.final_time_reached():
-                simulation_status = SimulationStatus.SUCCESSFUL
-            elif time_step_status.is_stopped():
-                simulation_status = SimulationStatus.STOPPED
-            else:
-                simulation_status = SimulationStatus.FAILED
-
-        return simulation_status
+                return ModelRunnerStatusSuccess()
+            return ModelRunnerStatusFailure("Final time was not reached.")
 
     def update_time_progressbar(self) -> None:
         """Update the time progressbar with the current time and time step size."""
@@ -299,9 +305,9 @@ class ModelRunner:
             )
         )
 
-    def update_statistics(self, simulation_status: SimulationStatus) -> None:
-        """Update the statistics with the current simulation status and other relevant information."""
-        self.model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
-        self.model.nonlinear_solver_statistics.log_mesh_information(
-            self.model.mdg.subdomains()
-        )
+    # def update_statistics(self, simulation_status: SimulationStatus) -> None:
+    #     """Update the statistics with the current simulation status and other relevant information."""
+    #     self.model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
+    #     self.model.nonlinear_solver_statistics.log_mesh_information(
+    #         self.model.mdg.subdomains()
+    #     )

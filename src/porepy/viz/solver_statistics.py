@@ -15,7 +15,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoHistory,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
-    SimulationStatus,
+    # SimulationStatus,
     _recursive_append,
 )
 
@@ -62,10 +62,10 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
-    """Overall simulation status."""
-    simulation_status_history: list[SimulationStatus] = field(default_factory=list)
-    """Overall simulation status history."""
+    # simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
+    # """Overall simulation status."""
+    # simulation_status_history: list[SimulationStatus] = field(default_factory=list)
+    # """Overall simulation status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 

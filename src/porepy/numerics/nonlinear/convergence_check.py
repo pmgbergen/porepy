@@ -55,7 +55,7 @@ class SimulationStatus(StrEnum):
 
 
 class ConvergenceStatus(StrEnum):
-    """Enumeration of potential convergence statuses."""
+    """Enumeration of potential convergence statuses. (TODO)"""
 
     CONVERGED = "converged"
     """Convergence criterion is satisfied / Divergence criterion is not satisfied."""
@@ -314,7 +314,7 @@ class NanDivergenceCriterion(DivergenceCriterion):
         if np.isnan(kwargs["value"]).any():
             logger.info(self.divergence_msg())
             return ConvergenceStatus.FAILED
-        return ConvergenceStatus.CONVERGED
+        return ConvergenceStatus.CONTINUE_ITERATING
 
 
 class AbsoluteCriterion:
@@ -919,4 +919,4 @@ class MaxIterationsCriterion(DivergenceCriterion):
             logger.info(self.divergence_msg())
             return ConvergenceStatus.FAILED
         else:
-            return ConvergenceStatus.CONVERGED
+            return ConvergenceStatus.CONTINUE_ITERATING

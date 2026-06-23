@@ -10,21 +10,25 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from warnings import warn
+import logging
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
+    ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
-    SimulationStatus,
+    # SimulationStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
 
 if TYPE_CHECKING:
     import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class LinearSolver:
@@ -60,7 +64,7 @@ class LinearSolver:
         )
         """Divergence criterion used in the convergence check."""
 
-    def solve(self, model: SolutionStrategy) -> SimulationStatus:
+    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
         """Solve a linear problem defined by the current state of the model.
 
         The linear solver performs only one iteration and checks whether it converged.
@@ -86,9 +90,17 @@ class LinearSolver:
         convergence_status, divergence_status = self.linear_solve(model)
 
         # Conclude on the solver status.
-        solver_status = self.summarize_solver_status(
-            model, convergence_status, divergence_status
-        )
+        if convergence_status.is_converged():
+            solver_status = ConvergenceStatus.CONVERGED
+            model.after_nonlinear_convergence()
+        elif divergence_status.is_diverged():
+            solver_status = ConvergenceStatus.FAILED
+            model.after_nonlinear_failure()
+            logger.warning("Failed to solve the nonlinear problem.")
+        else:
+            raise ValueError(
+                "Nonlinear loop should return with either convergence or divergence."
+            )
 
         return solver_status
 
@@ -134,42 +146,6 @@ class LinearSolver:
         )
 
         return convergence_status, divergence_status
-
-    def summarize_solver_status(
-        self,
-        model: SolutionStrategy,
-        convergence_status: ConvergenceStatusCollection,
-        divergence_status: ConvergenceStatusCollection,
-    ) -> SimulationStatus:
-        """Conclude on the overall solver status.
-
-        NOTE: Convergence status takes precedence over divergence status.
-
-        Parameters:
-            model: The model instance specifying the problem to be solved.
-            convergence_status: Convergence statuses.
-            divergence_status: Divergence statuses.
-
-        Returns:
-            SimulationStatus: The overall status of the nonlinear solver.
-
-        """
-        if convergence_status.is_converged():
-            solver_status = SimulationStatus.SUCCESSFUL
-            self.update_solver_statistics(model, solver_status)
-            model.after_nonlinear_convergence()
-        elif divergence_status.is_diverged():
-            solver_status = SimulationStatus.FAILED
-            self.update_solver_statistics(model, solver_status)
-            model.after_nonlinear_failure()
-            warn("Failed to solve the (non)linear problem.", UserWarning)
-        else:
-            raise ValueError(
-                "Invalid convergence status: "
-                f"{convergence_status.union(divergence_status)}"
-            )
-
-        return solver_status
 
     def after_linear_iteration(
         self, model: SolutionStrategy, nonlinear_increment: np.ndarray
@@ -241,7 +217,7 @@ class LinearSolver:
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        solver_status: SimulationStatus,
+        # solver_status: SimulationStatus,
     ) -> None:
         """Update the solver statistics in the model.
 
@@ -252,7 +228,7 @@ class LinearSolver:
 
         """
         # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_simulation_status(solver_status)
+        # model.nonlinear_solver_statistics.log_simulation_status(solver_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
             assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)

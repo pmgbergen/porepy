@@ -21,6 +21,10 @@ import pytest
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.models.model_runner import (
+    ModelRunnerStatusFailure,
+    ModelRunnerStatusSuccess,
+)
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceStatus,
@@ -859,6 +863,7 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
+            "should_fail": True,
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and should fail.
@@ -866,6 +871,7 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
+            "should_fail": True,
         },
         # Case 4: The time step fails right before the schedule point. Expected to
         # decrease dt and meet the schedule regardless.
@@ -882,6 +888,7 @@ def test_model_time_step_control(params: dict):
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
     exported_dt_expected = params["exported_dt_expected"]
+    should_fail = params.get("should_fail", False)
 
     schedule_end = 2 if constant_dt else 1.35
     time_manager = pp.TimeManager(
@@ -911,7 +918,7 @@ def test_model_time_step_control(params: dict):
                         {"crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
                     ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.CONVERGED}
+                        {"div_crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
                     ConvergenceInfoCollection({"crit": 1.0}),
                 )
@@ -919,7 +926,7 @@ def test_model_time_step_control(params: dict):
                 return (
                     ConvergenceStatusCollection({"crit": ConvergenceStatus.CONVERGED}),
                     ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.CONVERGED}
+                        {"div_crit": ConvergenceStatus.CONTINUE_ITERATING}
                     ),
                     ConvergenceInfoCollection({"crit": 0.0}),
                 )
@@ -945,5 +952,11 @@ def test_model_time_step_control(params: dict):
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": MAX_NONLINEAR_ITER,
     }
-    pp.ModelRunner(model, solver_params).run()
+
+    status = pp.ModelRunner(model, solver_params).run()
     assert np.allclose(model.time_step_history, exported_dt_expected)
+    assert model.time_manager.final_time_reached() != should_fail
+    if should_fail:
+        assert isinstance(status, ModelRunnerStatusFailure)
+    else:
+        assert isinstance(status, ModelRunnerStatusSuccess)
