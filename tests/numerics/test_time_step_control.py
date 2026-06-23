@@ -511,17 +511,22 @@ class TestTimeControl:
         time_manager.dt = 1
         time_manager._recomp_num = 6
         time_manager.compute_time_step(iterations=1000, recompute_solution=True)
+        # YZ: This logic was originally expected from the TimeManager class:
         # We expect the following actions to occur:
         #     time to be reduced by old dt (time = 5 - 1 = 4)
         #     time index to be reduced by one (time_index = 13 - 1 = 12)
         #     new dt to be half of the old one (dt = 1 * 0.5 = 0.5)
         #     recomputation flag set to True (_recomp_flag = True)
         #     recomputation counter to increase by 1 (_recomp_num = 6 + 1 = 7)
-        assert time_manager.time == 4.0
-        assert time_manager.time_index == 12
+
+        # YZ: Now none of this is the responsibility of the time manager. It only
+        # updates dt, and does not track the state. This is a temporary state of things
+        # for migrating towards the new TimeStepper class.
+        assert time_manager.time == 5.0  # Was 4.0
+        assert time_manager.time_index == 13  # Was 14
         assert time_manager.dt == 0.5
         assert time_manager._recomp_sol
-        assert time_manager._recomp_num == 7
+        assert time_manager._recomp_num == 6  # Was 7
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than

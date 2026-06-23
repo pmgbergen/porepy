@@ -13,6 +13,7 @@ import numpy as np
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
+    ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
     # SimulationStatus,
@@ -62,10 +63,10 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    # simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
-    # """Overall simulation status."""
-    # simulation_status_history: list[SimulationStatus] = field(default_factory=list)
-    # """Overall simulation status history."""
+    simulation_status: ConvergenceStatus = ConvergenceStatus.CONTINUE_ITERATING
+    """Overall simulation status."""
+    simulation_status_history: list[ConvergenceStatus] = field(default_factory=list)
+    """Overall simulation status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
@@ -98,7 +99,7 @@ class SolverStatistics:
             self.num_domains[dim_str] += 1
 
     def log_simulation_status(
-        self, simulation_status: SimulationStatus, **kwargs
+        self, simulation_status: ConvergenceStatus, **kwargs
     ) -> None:
         """Log overall simulation status.
 
@@ -355,7 +356,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
         ):
-            if simulation_status != SimulationStatus.SUCCESSFUL:
+            if simulation_status != ConvergenceStatus.CONVERGED:
                 total_num_waisted_iterations += num_iterations
 
         # Update global data.
@@ -451,7 +452,7 @@ class TimeStatistics(SolverStatistics):
         total_num_failed_time_steps = 0
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if simulation_status != SimulationStatus.SUCCESSFUL:
+            if simulation_status != ConvergenceStatus.CONVERGED:
                 total_num_failed_time_steps += 1
 
         # Update global data.

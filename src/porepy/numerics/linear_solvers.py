@@ -217,7 +217,7 @@ class LinearSolver:
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        # solver_status: SimulationStatus,
+        solver_status: ConvergenceStatus,
     ) -> None:
         """Update the solver statistics in the model.
 
@@ -228,7 +228,7 @@ class LinearSolver:
 
         """
         # Basic discretization-related information and overall simulation status.
-        # model.nonlinear_solver_statistics.log_simulation_status(solver_status)
+        model.nonlinear_solver_statistics.log_simulation_status(solver_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
             assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)

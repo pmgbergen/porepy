@@ -251,17 +251,30 @@ class NewtonSolver:
         # Actual Newton loop.
         convergence_status, divergence_status = self.nonlinear_loop(model)
 
-        if convergence_status.is_converged():
+        is_converged = convergence_status.is_converged()
+        is_diverged = divergence_status.is_diverged()
+        if is_converged:
             solver_status = ConvergenceStatus.CONVERGED
-            model.after_nonlinear_convergence()
-        elif divergence_status.is_diverged():
+        elif is_diverged:
             solver_status = ConvergenceStatus.FAILED
-            model.after_nonlinear_failure()
             logger.warning("Failed to solve the nonlinear problem.")
         else:
             raise ValueError(
                 "Nonlinear loop should return with either convergence or divergence."
             )
+        # YZ: This hack is to be addressed when we find a better way to organize
+        # statistics collection.
+        # Logging basic discretization-related information and overall simulation status
+        pp.LinearSolver.update_solver_statistics(
+            cast(pp.LinearSolver, self), model=model, solver_status=solver_status
+        )
+
+        # This must be done after writing statistics, since model.after_*** calls write
+        # statistics to json file.
+        if is_converged:
+            model.after_nonlinear_convergence()
+        elif is_diverged:
+            model.after_nonlinear_failure()
 
         # Finalize the nonlinear loop.
         self.after_nonlinear_loop()
@@ -517,6 +530,3 @@ class NewtonSolver:
         # Convergence-related information.
         model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
         model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
-
-        # Basic discretization-related information and overall simulation status.
-        pp.LinearSolver.update_solver_statistics(cast(pp.LinearSolver, self), model)

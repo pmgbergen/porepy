@@ -31,7 +31,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     NanDivergenceCriterion,
     RelativeConvergenceCriterion,
     RelativeDivergenceCriterion,
-    SimulationStatus,
 )
 
 
@@ -51,43 +50,6 @@ def multiphysics_check(info, expected_value):
     return np.isclose(info["a"], expected_value) and np.isclose(
         info["b"], 2.0 * expected_value
     )
-
-
-# ! ---- SIMULATION STATUS TESTS ---- !
-
-
-def test_simulation_status_methods():
-    """Test the status check methods of SimulationStatus enum members."""
-    s = SimulationStatus
-    assert s.IN_PROGRESS.is_in_progress()
-    assert s.SUCCESSFUL.is_successful()
-    assert s.FAILED.is_failed()
-    assert s.STOPPED.is_stopped()
-
-    assert not s.IN_PROGRESS.is_successful()
-    assert not s.IN_PROGRESS.is_failed()
-    assert not s.IN_PROGRESS.is_stopped()
-
-    assert not s.SUCCESSFUL.is_in_progress()
-    assert not s.SUCCESSFUL.is_failed()
-    assert not s.SUCCESSFUL.is_stopped()
-
-    assert not s.FAILED.is_in_progress()
-    assert not s.FAILED.is_successful()
-    assert not s.FAILED.is_stopped()
-
-    assert not s.STOPPED.is_in_progress()
-    assert not s.STOPPED.is_successful()
-    assert not s.STOPPED.is_failed()
-
-
-def test_simulation_status_str():
-    """Test the string representation of SimulationStatus enum members."""
-    s = SimulationStatus
-    assert str(s.IN_PROGRESS) == "in_progress"
-    assert str(s.SUCCESSFUL) == "successful"
-    assert str(s.FAILED) == "failed"
-    assert str(s.STOPPED) == "stopped"
 
 
 # ! ---- CONVERGENCE STATUS TESTS ---- !

@@ -385,6 +385,8 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
         if status.is_iterating():
             status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
+        elif status.is_converged():
+            status = ConvergenceStatus.CONTINUE_ITERATING
         return status
 
 
@@ -518,6 +520,8 @@ class RelativeDivergenceCriterion(RelativeCriterion, DivergenceCriterion):
         if status.is_iterating():
             status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
+        elif status.is_converged():
+            status = ConvergenceStatus.CONTINUE_ITERATING
         return status
 
 
