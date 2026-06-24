@@ -5,8 +5,6 @@ using the AD framework.
 
 from __future__ import annotations
 
-import os
-import concurrent.futures
 from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
@@ -147,6 +145,15 @@ class EquationSystem:
 
         Private to avoid users setting equations directly and circumventing the current
         set-method which includes information about the image space.
+
+        """
+
+        self._simplified_equations: dict[str, Operator] = dict()
+        """Cache of constant-folded / fused equation trees, keyed by equation name.
+
+        Filled lazily on first :meth:`assemble` and reused across assembles (the trees are
+        static for a fixed equation set). Invalidated entry-wise in :meth:`set_equation`
+        and :meth:`remove_equation`.
 
         """
 
@@ -1233,6 +1240,8 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
+        # Invalidate any cached simplified tree for this (re)set equation.
+        self._simplified_equations.pop(name, None)
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
@@ -1248,6 +1257,8 @@ class EquationSystem:
         if name in self._equations:
             # Remove the equation from the storage
             equ = self._equations.pop(name)
+            # Invalidate any cached simplified tree for this equation.
+            self._simplified_equations.pop(name, None)
             # Remove the image space information.
             # Note that there is no need to modify the numbering of the other equations,
             # since this is a local (to the equation) numbering.
@@ -1688,20 +1699,31 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
-        # eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
-        eqs: list[pp.ad.Operator] = [self._equations[name].simplify(self.mdg) for name in equ_blocks]
+        # The simplified (constant-folded / fused) equation trees are STATIC for a fixed
+        # equation set, so simplify once per equation and reuse across assembles instead
+        # of re-simplifying on every residual/Jacobian evaluation (the custom Newton loop
+        # assembles several times per iteration). The cache is invalidated whenever an
+        # equation is set or removed (see set_equation / remove_equation). simplify only
+        # folds genuinely-constant data (Scalar/DenseArray/SparseArray); discretization
+        # matrices, boundary/time arrays and variable values remain live leaves read at
+        # parse time, so a re-discretization or a state/time change is still reflected.
+        for name in equ_blocks:
+            if name not in self._simplified_equations:
+                self._simplified_equations[name] = self._equations[name].simplify(
+                    self.mdg
+                )
+        eqs: list[pp.ad.Operator] = [
+            self._simplified_equations[name] for name in equ_blocks
+        ]
         rows = list(equ_blocks.values())
 
-        max_workers = max(1, os.cpu_count())
-        # Only run the evaluation we actually need
+        # Evaluate synchronously. (A previous ThreadPoolExecutor submitted a single task
+        # and blocked on it -- zero parallelism, only pool create/join overhead per
+        # assemble; the Python-level Ad tree walk is GIL-bound so threads do not help.)
         if not evaluate_jacobian:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                values_future = executor.submit(self.evaluate, eqs, False, state)
-                values = values_future.result()
+            values = self.evaluate(eqs, False, state)
         else:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                ad_list_future = executor.submit(self.evaluate, eqs, True, state)
-                ad_list: list[pp.ad.AdArray] = ad_list_future.result()
+            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
 
         # Process results based on what's requested
         if not evaluate_jacobian:

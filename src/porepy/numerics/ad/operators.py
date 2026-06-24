@@ -1053,7 +1053,13 @@ class Operator:
             data_types = (Scalar, DenseArray, SparseArray)
 
             for t in simplified_terms:
-                if isinstance(t, data_types):
+                # Treat time-dependent leaves (e.g. TimeDependentScalar, a Scalar
+                # subclass) as NON-constant: their value changes between assembles and
+                # must stay a live leaf read at parse time, never folded into a frozen
+                # constant (this also keeps the cached simplified tree correct).
+                if isinstance(t, data_types) and not isinstance(
+                    t, TimeDependentOperator
+                ):
                     constants.append(t)
                 else:
                     variables.append(t)
@@ -1129,8 +1135,17 @@ class Operator:
         result = curr_op
 
         # --- STRATEGY 3: Constant Folding ---
+        # Time-dependent leaves are excluded: their value changes between assembles, so a
+        # node depending on one must not be folded into a frozen constant (keeps the
+        # cached simplified tree correct across time steps).
         data_types = (Scalar, DenseArray, SparseArray)
-        if len(curr_op.children) > 0 and all(isinstance(c, data_types) for c in curr_op.children):
+        if (
+            len(curr_op.children) > 0
+            and all(isinstance(c, data_types) for c in curr_op.children)
+            and not any(
+                isinstance(c, TimeDependentOperator) for c in curr_op.children
+            )
+        ):
             try:
                 raw_values = [c.parse(mdg) for c in curr_op.children]
                 res = None

@@ -30,12 +30,13 @@ class AdParser:
         self._mdg = mdg
         """MixedDimensionalGrid on which the operators are defined."""
 
-        self._cache: dict[pp.ad.Operator, Any] = {}
-        """Cache for parsed operators. This is used to avoid re-parsing the same
-        operator multiple times. The cache is cleared after each evaluation.
+        self._cache: dict[int, Any] = {}
+        """Per-evaluation memoization of parsed operators, keyed by ``id(op)``.
 
-        Efficient use of caching has turned out to be difficult to achieve, and the
-        cache is at the moment used sparingly. This will be revisited in the future.
+        The operator graph is a DAG: subexpressions shared across or within equations are
+        evaluated once per :meth:`evaluate` call instead of once per parent reference. The
+        cache is cleared after each top-level evaluation, so object identities cannot be
+        reused across calls.
         """
 
     def clear_cache(self) -> None:
@@ -173,7 +174,21 @@ class AdParser:
         ad_base: np.ndarray | pp.ad.AdArray,
         equation_system: pp.EquationSystem,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-        """Evaluate a single operator.
+        """Evaluate a single operator, memoizing shared subtrees within one evaluation.
+
+        The operator graph is a DAG: a subexpression shared across (or within) equations
+        -- e.g. ``darcy_flux`` reused in the mass and energy balances, which is the SAME
+        object because constitutive laws use ``@cached_method`` -- would otherwise be
+        re-evaluated once per parent reference. Each operator's result is cached, keyed by
+        ``id(op)`` (object identity), so every unique subtree is evaluated once per
+        :meth:`evaluate` call; the cache is cleared between calls.
+
+        Identity keying is used (not the structural ``op._key()``) because it is O(1) and
+        unconditionally correct: the structural key omits the callable of operator-function
+        (``Operations.evaluate``) nodes, so two different functions on identical argument
+        trees would collide. Sharing the cached result is safe because the parser only
+        uses binary operations that return new arrays (the forward-mode ``AdArray`` has no
+        in-place arithmetic).
 
         Parameters:
             op: The operator to evaluate.
@@ -186,12 +201,26 @@ class AdParser:
                 whether the derivative is requested.
 
         """
-        # If the operator is in the cache, return the cached value.
-        if op in self._cache:
-            cached = self._cache[op]
-            return cached
+        op_id = id(op)
+        if op_id in self._cache:
+            return self._cache[op_id]
+        res = self._evaluate_single_uncached(op, ad_base, equation_system)
+        self._cache[op_id] = res
+        return res
 
-        # The operator is not in the cache. Parse the operator by recursion:
+    def _evaluate_single_uncached(
+        self,
+        op: pp.ad.Operator,
+        ad_base: np.ndarray | pp.ad.AdArray,
+        equation_system: pp.EquationSystem,
+    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
+        """Parse a single operator by recursion (no memoization).
+
+        See :meth:`_evaluate_single`, which wraps this with per-evaluation memoization;
+        recursive child evaluations go back through that wrapper so shared subtrees hit the
+        cache.
+        """
+        # Parse the operator by recursion:
         # 1. If the operator is a leaf (has no children), parse the leaf.
         # 2. If the operator is a composite operator, parse the children and combine
         #    them according to the operator.
