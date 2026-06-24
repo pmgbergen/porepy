@@ -70,38 +70,11 @@ class VTKSampler:
 
     @sampled_could.setter
     def sampled_could(self, sampled_could):
-        # Avoid calling dataset-specific methods like .clean() which are not
-        # present on all pyvista dataset types (e.g. RectilinearGrid). Always
-        # create a deep copy of the incoming dataset and replace any existing
-        # one. If an old dataset exists, delete the reference to help free
-        # memory.
-        if hasattr(self, "_sampled_could"):
-            try:
-                # Attempt to explicitly free resources if a clear-like
-                # method exists (some datasets provide `.clean()`), but don't
-                # assume it is present.
-                cleanup = getattr(self._sampled_could, "clean", None)
-                if callable(cleanup):
-                    cleanup()
-            except Exception:
-                # Ignore any errors — we will replace the reference below.
-                pass
-            # Replace with a deep copy of the new dataset
-            try:
-                self._sampled_could = sampled_could.copy(deep=True)
-            except Exception:
-                # Fallback: assign directly if copy fails
-                self._sampled_could = sampled_could
-        else:
-            try:
-                self._sampled_could = sampled_could.copy(deep=True)
-            except Exception:
-                self._sampled_could = sampled_could
-        # Remove caller reference
-        try:
-            del sampled_could
-        except Exception:
-            pass
+        # Store the freshly probed dataset directly. ``point_cloud.sample(...)`` returns a
+        # NEW dataset whose interpolated arrays do not share memory with the search space,
+        # and the object never escapes this class, so the previous defensive
+        # ``copy(deep=True)`` was pure per-probe overhead with no benefit.
+        self._sampled_could = sampled_could
 
     @property
     def constant_extended_fields(self):
@@ -117,6 +90,24 @@ class VTKSampler:
     def sample_at(self, points):
         if self.mutex_state and self.sampled_could is not None:
             return
+
+        # Memoize on the raw input points. Within one property update the liquid/gas EOS
+        # and the secondary property functions probe at the SAME (z_NaCl, h, p) points on
+        # a given grid, and the custom Newton loop re-evaluates properties several times
+        # per iteration; reuse the sampled cloud instead of re-probing the whole VTK
+        # dataset whenever the points are unchanged from the last real probe. The shape
+        # check comes first (cheap short-circuit) and also guards the index-subset point
+        # arrays used elsewhere (e.g. thermal-overshoot postprocessing); value equality
+        # then forces a re-probe whenever the state actually changed.
+        last_points = getattr(self, "_last_points", None)
+        if (
+            self.sampled_could is not None
+            and last_points is not None
+            and last_points.shape == points.shape
+            and np.array_equal(last_points, points)
+        ):
+            return
+
         x_par = points.copy()
         self._apply_conversion_factor(x_par)
         self._apply_translation_factor(x_par)
@@ -134,6 +125,11 @@ class VTKSampler:
             self.__taylor_expansion(x_par, external_idx)
 
         self._apply_conversion_factor_on_gradients()
+
+        # Cache the RAW input points (before conversion/translation/clamp) for the memo,
+        # set ONLY on this real-probe path. ``copy()`` is required because callers pass a
+        # transposed (non-contiguous) view ``np.array((z, h, p)).T``.
+        self._last_points = points.copy()
 
     def _apply_conversion_factor(self, points):
         for i, scale in enumerate(self.conversion_factors):
