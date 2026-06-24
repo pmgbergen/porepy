@@ -152,10 +152,7 @@ class ModelRunner:
         # Construct the default if not provided. This time stepper is constructed even
         # for a stationary problem, but used only for time-dependent problems.
         if time_stepper is None:
-            time_stepper = TimeStepper(
-                time_manager=model.time_manager,
-                params=self.params.get("time_stepper", {}),
-            )
+            time_stepper = TimeStepper(time_manager=model.time_manager)
         self.time_stepper: TimeStepper = time_stepper
         """Responsible for the time stepping logic."""
 
