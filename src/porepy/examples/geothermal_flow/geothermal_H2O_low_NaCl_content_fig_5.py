@@ -66,7 +66,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 1.0 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.125 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -84,7 +84,7 @@ InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, geometry_cases[geometry_case])
 
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 1
+export_every_n_steps = 8
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
@@ -140,7 +140,7 @@ params = {
     "flag_failure_as_diverged": False,
     # Maximum number of nonlinear iterations (was incorrectly set as
     # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
-    "nl_max_iterations": 15,
+    "nl_max_iterations": 20,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
