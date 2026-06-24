@@ -66,7 +66,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 1.0 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -84,7 +84,7 @@ InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, geometry_cases[geometry_case])
 
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 4
+export_every_n_steps = 1
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
@@ -105,7 +105,7 @@ time_manager = pp.TimeManager(
 #     dt_init=dt,
 #     constant_dt=False,
 #     dt_min_max=((1.0/365.0) * dt, 1.0 * dt),
-#     iter_relax_factors=(0.5, 1.5),
+#     iter_relax_factors=(0.5, 2.0),
 #     iter_optimal_range=(3, 8),
 #     recomp_factor=0.3,
 #     print_info=True,
@@ -125,6 +125,7 @@ params = {
     "fractional_flow": False,
     "enable_buoyancy_effects": True,
     "buoyancy_upwinding": buoyancy_upwinding,
+    "lag_buoyancy_direction": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
@@ -139,7 +140,7 @@ params = {
     "flag_failure_as_diverged": False,
     # Maximum number of nonlinear iterations (was incorrectly set as
     # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
-    "nl_max_iterations": 50,
+    "nl_max_iterations": 15,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
@@ -150,7 +151,7 @@ params = {
     # - "TR": Trust Region with CFL-aware dynamic radius adjustment
     # - "TR-LS": Trust Region + Line Search refinement
     # - "None": Plain Newton (no step control)
-    "step_control_method": "LS",
+    "step_control_method": "None",
 
     "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
     "activate_step_control_after_iter": 10,  # Activate after this many iterations

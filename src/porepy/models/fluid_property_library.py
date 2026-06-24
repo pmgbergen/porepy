@@ -1501,7 +1501,7 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
     def update_buoyancy_driven_fluxes(self):
-        """Refresh the two stored upwind directions of the buoyancy discretizations.
+        """Evaluate and store the two upwind directions of the buoyancy discretizations.
 
         For each ordered phase pair ``(gamma, delta)`` the :class:`HUpwind` /
         :class:`HUpwindCoupling` discretizations read two direction arrays:
@@ -1511,6 +1511,10 @@ class FluidBuoyancy(pp.PorePyModel):
         - phase-potential upwinding (PPU), guarded by
           :meth:`is_phase_potential_upwinding`: each phase's own potential flux
           (``Psi_gamma`` for gamma, ``Psi_delta`` for delta).
+
+        When this is called (every Newton iteration, or only once per time step) is a
+        *model* concern: see ``FlowModelBase.refresh_buoyancy_direction`` /
+        ``before_time_step`` and the ``"lag_buoyancy_direction"`` parameter.
         """
         phase_potential = self.is_phase_potential_upwinding()
         subdomains = self.mdg.subdomains()

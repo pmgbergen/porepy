@@ -166,7 +166,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
     def update_flux_values(self):
         super().update_flux_values()
-        self.update_buoyancy_driven_fluxes()
+        self.refresh_buoyancy_direction()
 
     def compute_residual_from_increment(
         self, nonlinear_increment: np.ndarray, restore_state: bool = True
@@ -204,8 +204,8 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # Update derived quantities
         self.update_derived_quantities()
 
-        # Update buoyancy-driven fluxes
-        self.update_buoyancy_driven_fluxes()
+        # Update buoyancy-driven fluxes (skipped when the direction is lagged/frozen)
+        self.refresh_buoyancy_direction()
 
         # Rediscretize
         self.rediscretize()
@@ -223,7 +223,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             # CRITICAL: Must also restore derived quantities and discretization
             # Otherwise the state is corrupted for the next iteration
             self.update_derived_quantities()
-            self.update_buoyancy_driven_fluxes()
+            self.refresh_buoyancy_direction()
             self.rediscretize()
 
         return current_nonlinear_residual
@@ -253,8 +253,8 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # Fetch the residual and current iterate.
         # Update derived quantities
         model.update_derived_quantities()
-        # Update buoyancy-driven fluxes
-        model.update_buoyancy_driven_fluxes()
+        # Update buoyancy-driven fluxes (skipped when the direction is lagged/frozen)
+        model.refresh_buoyancy_direction()
         # Rediscretize
         model.rediscretize()
 

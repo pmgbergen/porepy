@@ -405,9 +405,38 @@ class FlowModelBase(FlowTemplate):
         super().set_nonlinear_discretizations()
         self.set_nonlinear_buoyancy_discretization()
 
+    def lag_buoyancy_direction(self) -> bool:
+        """Whether to freeze the buoyancy upwind direction over each time step.
+
+        When ``params["lag_buoyancy_direction"]`` is True (default False) the buoyancy
+        upwind direction -- the hybrid inter-phase gravity flux (HU) or the per-phase
+        phase potentials (PPU) -- is evaluated once per time step from the previous
+        converged state (in :meth:`before_time_step`) and held fixed through the step's
+        Newton iterations, instead of being refreshed every iteration. This follows Weis
+        et al. (2014, Geofluids 14:347-371, p.353), who use the old velocity field to
+        define the upwind nodes for the whole step (cheaper, no visible effect on the
+        results, and it removes the upwind-direction flip-flop at flow reversal). The
+        option applies to BOTH the hybrid and phase-potential schemes.
+        """
+        return bool(self.params.get("lag_buoyancy_direction", False))
+
+    def refresh_buoyancy_direction(self) -> None:
+        """Per-iteration refresh of the buoyancy upwind direction, unless it is lagged."""
+        if not self.lag_buoyancy_direction():
+            self.update_buoyancy_driven_fluxes()
+
+    def before_time_step(self) -> None:
+        super().before_time_step()
+        # Lagged scheme: freeze the buoyancy upwind direction at the previous converged
+        # state (now the current iterate) for the whole time step, then rediscretize so
+        # the frozen direction is in place before the first nonlinear assembly.
+        if self.lag_buoyancy_direction():
+            self.update_buoyancy_driven_fluxes()
+            self.rediscretize()
+
     def  after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         super().after_nonlinear_iteration(nonlinear_increment)
-        self.update_buoyancy_driven_fluxes()
+        self.refresh_buoyancy_direction()
         self.rediscretize()
 
     # def before_nonlinear_iteration(self) -> None:
