@@ -1123,8 +1123,10 @@ class FluidBuoyancy(pp.PorePyModel):
         *deviation* added on top of the viscous flux (which carries the mixture-density
         gravity via ``darcy_flux``); the viscous term itself is left untouched for now.
 
-        Subdomain term only -- the interface (mortar) coupling via
-        :class:`PPUpwindCoupling` is a follow-up (zero for the fracture-free benchmark).
+        The interface (mortar) coupling is included: the same per-phase buoyancy on the
+        interface, with each phase's weight upwinded across the interface by
+        :class:`PPUpwindCoupling` and projected back to the primary faces (zero for the
+        fracture-free benchmark, mirroring the simplicial term's interface block).
 
         Parameters:
             subdomains: List of subdomains.
@@ -1157,6 +1159,55 @@ class FluidBuoyancy(pp.PorePyModel):
         diffusive_weight = pp.ad.sum_operator_list(diffusive_terms)
         gravity_weight = pp.ad.sum_operator_list(gravity_terms)
         b_flux = unit_gravity * gravity_weight - mixture_gravity * diffusive_weight
+
+        # Interface (mortar) coupling: the same per-phase buoyancy on the interface, with
+        # each phase's weight upwinded across the interface by ``PPUpwindCoupling`` and
+        # projected back to the primary subdomain faces. Mirrors the interface block of
+        # the simplicial term (``__entity_buoyancy_flux``); zero for fracture-free media.
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        if len(interfaces) != 0:
+            intf_discr = self.ppu_interface_upwind_discretization(interfaces)
+            unit_gravity_intf = self.interface_density_driven_flux(
+                interfaces, unit_density
+            )
+            mixture_gravity_intf = self.interface_density_driven_flux(
+                interfaces, rho_mixture
+            )
+            mortar_projection = pp.ad.MortarProjections(
+                self.mdg, subdomains, interfaces, dim=1
+            )
+            primary_trace = pp.ad.Trace(subdomains).trace
+            mortar_avg = mortar_projection.primary_to_mortar_avg()
+            secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
+
+            diffusive_intf_terms: List[pp.ad.Operator] = []
+            gravity_intf_terms: List[pp.ad.Operator] = []
+            for phase, suf in zip(phases, suffixes):
+                tag = f"_{suf}" if suf else ""
+                up_primary = getattr(intf_discr, f"upwind_primary{tag}")()
+                up_secondary = getattr(intf_discr, f"upwind_secondary{tag}")()
+                w = advected_weight(phase, subdomains)
+                rho_w = phase.density(subdomains) * w
+                diffusive_intf_terms.append(
+                    up_primary @ mortar_avg @ primary_trace @ w
+                    + up_secondary @ secondary_to_mortar @ w
+                )
+                gravity_intf_terms.append(
+                    up_primary @ mortar_avg @ primary_trace @ rho_w
+                    + up_secondary @ secondary_to_mortar @ rho_w
+                )
+            diffusive_intf = pp.ad.sum_operator_list(diffusive_intf_terms)
+            gravity_intf = pp.ad.sum_operator_list(gravity_intf_terms)
+            intf_buoy = (
+                unit_gravity_intf * gravity_intf
+                - mixture_gravity_intf * diffusive_intf
+            )
+            b_flux = b_flux + (
+                discr.bound_transport_neu()
+                @ mortar_projection.mortar_to_primary_int()
+                @ intf_buoy
+            )
+
         b_flux.set_name("ppu_buoyancy")
         return b_flux
 
