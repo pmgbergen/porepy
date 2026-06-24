@@ -10,13 +10,13 @@ from typing import Optional
 import numpy as np
 
 # from porepy.numerics.nonlinear.convergence_check import SimulationStatus
+from porepy.time.time_stepper import TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
 from porepy.time.time_step_status import TimeStepperStatusFailure
-from porepy.time.time_stepper import TimeStepperFactory
 from porepy.models.solution_strategy import SolutionStrategy
 import porepy as pp
 
@@ -134,7 +134,12 @@ class ModelRunner:
 
     """
 
-    def __init__(self, model: SolutionStrategy, params: dict | None = None) -> None:
+    def __init__(
+        self,
+        model: SolutionStrategy,
+        params: Optional[dict] = None,
+        time_stepper: Optional[TimeStepper] = None,
+    ) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
 
@@ -143,6 +148,16 @@ class ModelRunner:
 
         self.solver: pp.NewtonSolver | pp.LinearSolver
         """Solver instance, set in :meth:`set_solver`."""
+
+        # Construct the default if not provided. This time stepper is constructed even
+        # for a stationary problem, but used only for time-dependent problems.
+        if time_stepper is None:
+            time_stepper = TimeStepper(
+                time_manager=model.time_manager,
+                params=self.params.get("time_stepper", {}),
+            )
+        self.time_stepper: TimeStepper = time_stepper
+        """Responsible for the time stepping logic."""
 
         if self.params.get("prepare_simulation", True):
             self.model.prepare_simulation()
@@ -157,7 +172,6 @@ class ModelRunner:
         self.set_solver()
 
         if self._is_time_dependent:
-            self.set_time_stepper()
             self.init_time_progressbar()
 
     def set_solver(self) -> None:
@@ -177,14 +191,6 @@ class ModelRunner:
             )
         else:
             self.solver = pp.LinearSolver(self.params)
-
-    def set_time_stepper(self) -> None:
-        """Set the time stepper for time-dependent problems."""
-        self.time_stepper = TimeStepperFactory.create_time_stepper(
-            self.model.time_manager,
-            params=self.params,
-        )
-        """Time stepper."""
 
     def init_time_progressbar(self) -> None:
         """Initializes the a progressbar for logging according to

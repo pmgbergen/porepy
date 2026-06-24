@@ -230,11 +230,3 @@ class LinearSolver:
         # Basic discretization-related information and overall simulation status.
         model.nonlinear_solver_statistics.log_simulation_status(solver_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
-        if model._is_time_dependent():
-            assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
-            model.nonlinear_solver_statistics.log_time_information(
-                model.time_manager.time_index,
-                model.time_manager.time,
-                model.time_manager.dt,
-                model.time_manager.final_time_reached(),
-            )

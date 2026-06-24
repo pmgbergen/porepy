@@ -466,7 +466,8 @@ class TimeManager:
         self._iters = iterations
 
         # First, check if we reach final simulation time with a valid solution
-        # TODO: rm?
+        # TODO: rm? This works as a safeguard and should not be removed if the logic
+        # below is not reconsidered.
         if not recompute_solution and self.final_time_reached():
             return None
 
@@ -474,21 +475,20 @@ class TimeManager:
         # TODO: rm? who is responsible for asking for compute_dt?
         if self.is_constant:
             # Some sanity checks
-            if self._iters is not None:
+            if iterations is not None:
                 msg = (
-                    f"iterations '{self._iters}' has no effect if time step is "
-                    "constant."
+                    f"iterations '{iterations}' has no effect if time step is constant."
                 )
                 warnings.warn(msg)
-            if self._recomp_sol:
+            if recompute_solution:
                 msg = "recompute_solution=True has no effect if time step is constant."
                 warnings.warn(msg)
 
             return self.dt_init
 
         # Adapt time step
-        if not self._recomp_sol:
-            self._adaptation_based_on_iterations(iterations=self._iters)
+        if not recompute_solution:
+            self._adaptation_based_on_iterations(iterations=iterations)
         else:
             self._adaptation_based_on_recomputation()
 
