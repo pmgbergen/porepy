@@ -918,6 +918,9 @@ class FluidBuoyancy(pp.PorePyModel):
     normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.ConstantPermeability`."""
 
+    interface_darcy_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+
     _nonlinear_discretizations: list[pp.ad.MergedOperator]
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
@@ -1043,6 +1046,119 @@ class FluidBuoyancy(pp.PorePyModel):
         :class:`~porepy.numerics.ad.discretizations.UpwindCouplingAd` objects.
         """
         return HUpwindCouplingAd(self.hybrid_upwind_key(gamma, delta), interfaces)
+
+    # ------------------------------------------------------------------ #
+    #  Per-phase PPU upwind discretization wiring (N independent          #
+    #  advecting directions, one phase potential per phase).              #
+    # ------------------------------------------------------------------ #
+
+    def ppu_upwind_key(self) -> str:
+        """Discretization / parameter keyword for the per-phase PPU upwind."""
+        return "ppu_upwind"
+
+    def _ppu_phase_suffix_pairs(self) -> list[tuple[pp.Phase, str]]:
+        """``(phase, flux_array_key)`` for each phase, ordered gamma, delta, theta.
+
+        The flux-array key matches :class:`PPUpwind` (``"darcy_flux"`` for a single
+        phase, ``"ppu_flux_<suffix>"`` otherwise).
+        """
+        phases = list(self.fluid.phases)
+        suffixes = _validate_num_phases(len(phases))
+        return [
+            (phase, "darcy_flux" if suf == "" else f"ppu_flux_{suf}")
+            for phase, suf in zip(phases, suffixes)
+        ]
+
+    def ppu_upwind_discretization(self, subdomains: list[pp.Grid]) -> PPUpwindAd:
+        """Return the N-phase PPU subdomain upwind discretization."""
+        return PPUpwindAd(
+            self.ppu_upwind_key(),
+            subdomains,
+            num_phases=len(list(self.fluid.phases)),
+        )
+
+    def ppu_interface_upwind_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> PPUpwindCouplingAd:
+        """Return the N-phase PPU interface (mortar) upwind discretization."""
+        return PPUpwindCouplingAd(
+            self.ppu_upwind_key(),
+            interfaces,
+            num_phases=len(list(self.fluid.phases)),
+        )
+
+    def interface_potential_driven_flux(
+        self, interfaces: list[pp.MortarGrid], phase: pp.Phase
+    ) -> pp.ad.Operator:
+        """Per-phase interface potential flux (mortar) for the PPU upwind direction.
+
+        Mirrors :meth:`potential_driven_flux` on the interface: the interface (mortar)
+        Darcy flux plus the phase's interface density-driven flux, so its sign upwinds
+        that phase across the interface.
+        """
+        subdomains = self.mdg.subdomains()
+        rho_mixture = self.fractionally_weighted_density(subdomains)
+        rho_phase = phase.density(subdomains)
+        flux = self.interface_darcy_flux(
+            interfaces
+        ) + self.interface_density_driven_flux(interfaces, rho_phase - rho_mixture)
+        flux.set_name("interface_potential_driven_flux_" + phase.name)
+        return flux
+
+    def ppu_buoyancy(
+        self,
+        subdomains: list[pp.Grid],
+        advected_weight: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
+    ) -> pp.ad.Operator:
+        r"""Per-phase PPU gravity (buoyancy) term, upwinded through :class:`PPUpwind`.
+
+        .. math::
+
+            b = (Kg\cdot n)\,\sum_\gamma \mathrm{upw}_{\Psi_\gamma}(\rho_\gamma w_\gamma)
+              - \mathrm{ddf}(\rho_{mix})\,\sum_\gamma \mathrm{upw}_{\Psi_\gamma}(w_\gamma),
+
+        with each phase's weight upwinded by *its own* potential via the frozen
+        :class:`PPUpwind` matrices (``unit_gravity = density_driven_flux(1)``,
+        ``mixture_gravity = density_driven_flux(rho_mix)``). This is the per-phase gravity
+        *deviation* added on top of the viscous flux (which carries the mixture-density
+        gravity via ``darcy_flux``); the viscous term itself is left untouched for now.
+
+        Subdomain term only -- the interface (mortar) coupling via
+        :class:`PPUpwindCoupling` is a follow-up (zero for the fracture-free benchmark).
+
+        Parameters:
+            subdomains: List of subdomains.
+            advected_weight: Callable ``(phase, domains) -> w_gamma`` (cell-wise).
+
+        Returns:
+            Operator representing the PPU buoyancy flux.
+
+        """
+        discr = self.ppu_upwind_discretization(subdomains)
+        rho_mixture = self.fractionally_weighted_density(subdomains)
+        size = sum(sd.num_cells for sd in subdomains)
+        unit_density = pp.wrap_as_dense_ad_array(
+            np.ones(size), name="ppu_unit_density"
+        )
+        unit_gravity = self.density_driven_flux(subdomains, unit_density)
+        mixture_gravity = self.density_driven_flux(subdomains, rho_mixture)
+
+        phases = list(self.fluid.phases)
+        suffixes = _validate_num_phases(len(phases))
+        diffusive_terms: List[pp.ad.Operator] = []
+        gravity_terms: List[pp.ad.Operator] = []
+        for phase, suf in zip(phases, suffixes):
+            tag = f"_{suf}" if suf else ""
+            upwind = getattr(discr, f"upwind{tag}")()
+            w = advected_weight(phase, subdomains)
+            rho_w = phase.density(subdomains) * w
+            diffusive_terms.append(upwind @ w)
+            gravity_terms.append(upwind @ rho_w)
+        diffusive_weight = pp.ad.sum_operator_list(diffusive_terms)
+        gravity_weight = pp.ad.sum_operator_list(gravity_terms)
+        b_flux = unit_gravity * gravity_weight - mixture_gravity * diffusive_weight
+        b_flux.set_name("ppu_buoyancy")
+        return b_flux
 
     def interface_buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
@@ -1252,11 +1368,7 @@ class FluidBuoyancy(pp.PorePyModel):
     #: flux (viscous and gravitational) is upwinded by that phase's own potential.
     #: ``"hybrid"`` selects hybrid upwinding (HU): the viscous part is upwinded by the
     #: total Darcy flux and the buoyancy part by the inter-phase gravity flux.
-    _valid_buoyancy_upwinding_schemes: tuple[str, str, str] = (
-        "phase_potential",
-        "hybrid",
-        "PPU_Discriminant",
-    )
+    _valid_buoyancy_upwinding_schemes: tuple[str, str] = ("phase_potential", "hybrid")
 
     def buoyancy_upwinding_scheme(self) -> str:
         """Return the selected buoyancy upwinding scheme.
@@ -1288,15 +1400,6 @@ class FluidBuoyancy(pp.PorePyModel):
         """
         return self.buoyancy_upwinding_scheme() == "phase_potential"
 
-    def is_PPU_Discriminant(self) -> bool:
-        """Whether the discriminant-gated PPU scheme (``"PPU_Discriminant"``) is active.
-
-        Returns:
-            True for the product/discriminant PPU, False otherwise.
-
-        """
-        return self.buoyancy_upwinding_scheme() == "PPU_Discriminant"
-
     def potential_driven_flux(
         self, subdomains: pp.SubdomainsOrBoundaries, phase: pp.Phase
     ) -> pp.ad.Operator:
@@ -1314,218 +1417,6 @@ class FluidBuoyancy(pp.PorePyModel):
         )
         m_star.set_name("potential_driven_flux_" + phase.name)
         return m_star
-
-    # ------------------------------------------------------------------ #
-    #  PPU_Discriminant: product-gated phase-potential upwinding          #
-    # ------------------------------------------------------------------ #
-
-    def _PPU_reference_potential(self) -> float:
-        r"""Characteristic ``|\Psi_\gamma|`` scale (interior faces) used to size the
-        smooth sign/gate widths. Refreshed in :meth:`update_buoyancy_driven_fluxes`;
-        falls back to ``1.0`` before the first update."""
-        ref = getattr(self, "_PPU_psi_ref", 0.0)
-        return ref if ref > 0.0 else 1.0
-
-    def _PPU_update_reference_potential(self) -> None:
-        r"""Refresh ``_PPU_psi_ref`` = max interior-face ``|\Psi_\gamma|`` over phases."""
-        subdomains = self.mdg.subdomains()
-        if len(subdomains) == 0:
-            return
-        offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
-        ref = 0.0
-        for ph in self.fluid.phases:
-            vals = self.equation_system.evaluate(
-                self.potential_driven_flux(subdomains, ph)
-            )
-            for k, sd in enumerate(subdomains):
-                interior = sd.get_internal_faces()
-                if interior.size == 0:
-                    continue
-                loc = np.abs(vals[offsets[k] : offsets[k] + sd.num_faces][interior])
-                ref = max(ref, float(np.max(loc)))
-        if ref > 0.0:
-            self._PPU_psi_ref = ref
-
-    def _PPU_face_operators(
-        self, subdomains: list[pp.Grid]
-    ) -> tuple[pp.ad.SparseArray, pp.ad.SparseArray, pp.ad.SparseArray, pp.ad.Operator]:
-        r"""Per-face operators for the discriminant scheme (block-diagonal).
-
-        Returns ``(face_avg, face_jump, boundary_cell_to_face, boundary_orientation)``:
-
-        - ``face_jump @ w = w_+ - w_-`` on interior faces (``= cell_faces @ w``), boundary
-          rows zeroed;
-        - ``face_avg  @ w = 0.5 (w_+ + w_-)`` on interior faces, boundary rows zeroed;
-        - ``boundary_cell_to_face @ w`` = the adjacent cell value on boundary faces, zero
-          on interior;
-        - ``boundary_orientation`` = ``+/-1`` on boundary faces (sign of ``cell_faces``,
-          i.e. whether the global normal points out of the adjacent cell), ``0`` on
-          interior; a constant dense array used to orient the boundary inflow test.
-        """
-        avg_blocks: List[sps.spmatrix] = []
-        jump_blocks: List[sps.spmatrix] = []
-        bcf_blocks: List[sps.spmatrix] = []
-        orient: List[np.ndarray] = []
-        for sd in subdomains:
-            cf = sd.cell_faces.tocsr().astype(float)
-            interior = np.zeros(sd.num_faces)
-            interior[sd.get_internal_faces()] = 1.0
-            boundary = 1.0 - interior
-            row_int = sps.diags(interior, format="csr")
-            row_bnd = sps.diags(boundary, format="csr")
-            cf_abs = cf.copy()
-            cf_abs.data = np.abs(cf_abs.data)
-            jump_blocks.append(row_int @ cf)
-            avg_blocks.append(0.5 * (row_int @ cf_abs))
-            bcf_blocks.append(row_bnd @ cf_abs)
-            orient.append(boundary * np.asarray(cf @ np.ones(sd.num_cells)).ravel())
-        if len(subdomains) == 0:
-            empty = sps.csr_matrix((0, 0))
-            avg_blocks = [empty]
-            jump_blocks = [empty]
-            bcf_blocks = [empty]
-            orient = [np.zeros(0)]
-        mk = pp.matrix_operations.csr_matrix_from_sparse_blocks
-        face_avg = pp.ad.SparseArray(mk(avg_blocks), name="PPU_face_avg")
-        face_jump = pp.ad.SparseArray(mk(jump_blocks), name="PPU_face_jump")
-        boundary_cell_to_face = pp.ad.SparseArray(
-            mk(bcf_blocks), name="PPU_boundary_cell_to_face"
-        )
-        boundary_orientation = pp.wrap_as_dense_ad_array(
-            np.concatenate(orient), name="PPU_boundary_orientation"
-        )
-        return face_avg, face_jump, boundary_cell_to_face, boundary_orientation
-
-    def _PPU_smoothing_widths(self) -> tuple[float, float]:
-        r"""``(eps_sign, eps_gate)`` in absolute units, scaled by the characteristic
-        ``|\Psi|`` so the parameters ``"PPU_sign_eps"`` / ``"PPU_gate_eps"`` are
-        dimensionless fractions. ``eps_gate`` is in potential-squared units (the gate
-        acts on the product ``Psi_0 Psi_1``)."""
-        ref = self._PPU_reference_potential()
-        sign_frac = max(float(self.params.get("PPU_sign_eps", 0.05)), 1e-12)
-        gate_frac = max(float(self.params.get("PPU_gate_eps", 0.3)), 1e-12)
-        return sign_frac * ref, (gate_frac * ref) ** 2
-
-    def _PPU_smooth_sign(self, x: pp.ad.Operator, eps_sign: float) -> pp.ad.Operator:
-        """Smooth sign ``tanh(x / eps_sign)`` (in ``[-1, 1]``)."""
-        return pp.ad.Function(pp.ad.tanh, "PPU_tanh")(
-            x * pp.ad.Scalar(1.0 / eps_sign)
-        )
-
-    def _PPU_effective_signs(
-        self,
-        potentials: list[pp.ad.Operator],
-        eps_sign: float,
-        eps_gate: float,
-    ) -> list[pp.ad.Operator]:
-        r"""Per-phase effective upwind sign
-        ``sigma_eff_gamma = (1-H) sigma_m + H sigma_gamma``.
-
-        ``H = H_eps(- Psi_0 Psi_1)`` is the counter-current fraction (the discriminant
-        ``Psi_0 Psi_1 = ΔΦ_m^2 - ΔΦ_b^2``); ``sigma_m`` is the bulk-drive sign and
-        ``sigma_gamma`` the per-phase sign. Two-phase only. The list is aligned with
-        ``potentials``.
-        """
-        assert len(potentials) == 2, (
-            "PPU_Discriminant is implemented for two phases (vapour/liquid)."
-        )
-        psi_0, psi_1 = potentials
-        sigma_0 = self._PPU_smooth_sign(psi_0, eps_sign)
-        sigma_1 = self._PPU_smooth_sign(psi_1, eps_sign)
-        sigma_m = self._PPU_smooth_sign(
-            pp.ad.Scalar(0.5) * (psi_0 + psi_1), eps_sign
-        )
-        # Counter-current gate H in [0, 1]: 1 where the product is negative.
-        neg_product = pp.ad.Scalar(-1.0) * (psi_0 * psi_1)
-        gate = pp.ad.Function(
-            lambda v: pp.ad.functions.heaviside_smooth(v, eps_gate), "PPU_gate"
-        )(neg_product)
-        one = pp.ad.Scalar(1.0)
-        sigma_eff_0 = (one - gate) * sigma_m + gate * sigma_0
-        sigma_eff_1 = (one - gate) * sigma_m + gate * sigma_1
-        return [sigma_eff_0, sigma_eff_1]
-
-    def PPU_discriminant_flux(
-        self,
-        subdomains: list[pp.Grid],
-        advected_weight: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-        bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
-        name: str,
-    ) -> pp.ad.Operator:
-        r"""Discriminant-gated PPU advective flux for an advected weight.
-
-        Builds, for two phases, the true per-phase PPU flux
-
-        .. math::
-
-            F = \sum_\gamma \Psi_\gamma\,\big(\text{avg}(w_\gamma)
-                + \tfrac12\,\sigma^{\text{eff}}_\gamma\,\text{jump}(w_\gamma)\big),
-
-        with each phase riding its own potential ``Psi_gamma = potential_driven_flux``,
-        and the effective upwind sign produced by the product gate
-        (:meth:`_PPU_effective_signs`). On boundary faces the interior gated weight is
-        replaced by a smooth inflow/outflow blend between the EoS-reconstructed Dirichlet
-        weight (inflow) and the adjacent cell value (outflow). Neumann faces of the
-        benchmark carry ``Psi ~ 0`` (no-flux laterals) so they contribute nothing; a
-        prescribed bulk Neumann/interface flux is not split per phase and is omitted here
-        (zero for the all-Dirichlet, fracture-free benchmark).
-
-        Parameters:
-            subdomains: List of subdomains.
-            advected_weight: Callable ``(phase, domains) -> w_gamma`` (cell-wise; must
-                evaluate on boundary grids too).
-            bc_type: Boundary-condition type callable for the advective flux.
-            name: Unique name prefix for the per-phase boundary operators.
-
-        Returns:
-            Operator representing the discriminant-gated PPU flux.
-
-        """
-        phases = list(self.fluid.phases)
-        potentials = [self.potential_driven_flux(subdomains, ph) for ph in phases]
-        eps_sign, eps_gate = self._PPU_smoothing_widths()
-        sigma_eff = self._PPU_effective_signs(potentials, eps_sign, eps_gate)
-        face_avg, face_jump, bnd_cell_to_face, bnd_orient = self._PPU_face_operators(
-            subdomains
-        )
-        half = pp.ad.Scalar(0.5)
-        one = pp.ad.Scalar(1.0)
-
-        def zero_boundary(
-            boundary_grids: Sequence[pp.BoundaryGrid],
-        ) -> pp.ad.Operator:
-            n = sum(bg.num_cells for bg in boundary_grids)
-            return pp.wrap_as_dense_ad_array(np.zeros(n), name=name + "_zero_bc")
-
-        flux_terms: List[pp.ad.Operator] = []
-        for k, ph in enumerate(phases):
-            psi = potentials[k]
-            w = advected_weight(ph, subdomains)
-            # Interior gated upwind weight (boundary rows are zero here).
-            w_interior = (face_avg @ w) + half * sigma_eff[k] * (face_jump @ w)
-            # Per-phase Dirichlet boundary weight (EoS on the boundary grid).
-            bc_w = self._combine_boundary_operators(
-                subdomains=subdomains,
-                dirichlet_operator=(
-                    lambda boundary_grids, p=ph: advected_weight(p, boundary_grids)
-                ),
-                neumann_operator=zero_boundary,
-                robin_operator=None,
-                bc_type=bc_type,
-                name=f"{name}_w_{ph.name}",
-            )
-            # Boundary inflow fraction: inflow when Psi points into the cell, i.e. the
-            # outward-oriented potential (psi * orientation) is negative. Zero on interior
-            # faces (orientation = 0 there), but the boundary weights below are also zero
-            # on interior, so the interior contribution is unaffected.
-            inflow = half * (
-                one - self._PPU_smooth_sign(psi * bnd_orient, eps_sign)
-            )
-            w_boundary = inflow * bc_w + (one - inflow) * (bnd_cell_to_face @ w)
-            flux_terms.append(psi * (w_interior + w_boundary))
-        flux = pp.ad.sum_operator_list(flux_terms)
-        flux.set_name("PPU_discriminant_flux")
-        return flux
 
     @pp.ad.cached_method
     def __entity_buoyancy_flux(
@@ -1809,6 +1700,24 @@ class FluidBuoyancy(pp.PorePyModel):
             Ad operator representing the buoyancy flux for the component.
 
         """
+        if self.is_phase_potential_upwinding():
+
+            def component_weight(
+                phase: pp.Phase, d: pp.SubdomainsOrBoundaries
+            ) -> pp.ad.Operator:
+                if component_xi in phase:  # type: ignore[operator]
+                    return (
+                        phase.partial_fraction_of[component_xi](d)
+                        * phase.density(d)
+                        * self.phase_mobility(phase, d)
+                    )
+                size = sum(g.num_cells for g in d)
+                return pp.wrap_as_dense_ad_array(
+                    np.zeros(size), name="zero_component_weight"
+                )
+
+            return self.ppu_buoyancy(cast(list[pp.Grid], domains), component_weight)
+
         b_fluxes: List[pp.ad.Operator] = []
         b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
@@ -1825,6 +1734,11 @@ class FluidBuoyancy(pp.PorePyModel):
     def enthalpy_buoyancy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Get the buoyancy flux for specific enthalpy.
 
+        Phase-potential upwinding (``buoyancy_upwinding == "phase_potential"``) uses the
+        per-phase PPU buoyancy (:meth:`ppu_buoyancy`, upwinded by each phase's own
+        potential via :class:`PPUpwind`); hybrid upwinding uses the simplicial
+        inter-phase buoyancy term.
+
         Parameters:
             domains: The domains to consider for the buoyancy flux calculation.
 
@@ -1832,6 +1746,19 @@ class FluidBuoyancy(pp.PorePyModel):
             Ad operator representing the buoyancy flux for the specific enthalpy.
 
         """
+        if self.is_phase_potential_upwinding():
+
+            def enthalpy_weight(
+                phase: pp.Phase, d: pp.SubdomainsOrBoundaries
+            ) -> pp.ad.Operator:
+                return (
+                    phase.specific_enthalpy(d)
+                    * phase.density(d)
+                    * self.phase_mobility(phase, d)
+                )
+
+            return self.ppu_buoyancy(cast(list[pp.Grid], domains), enthalpy_weight)
+
         b_fluxes: List[pp.ad.Operator] = []
         b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
@@ -1950,6 +1877,21 @@ class FluidBuoyancy(pp.PorePyModel):
                         {"hybrid_gravity_flux": +null_vals}
                     )
 
+        # Per-phase PPU upwind: one keyword holding one flux array per phase (not per
+        # pair) -- on subdomains and interfaces.
+        ppu_keyword = self.ppu_upwind_key()
+        phase_flux_keys = [key for _, key in self._ppu_phase_suffix_pairs()]
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(data, ppu_keyword)
+            entries = {key: np.zeros(sd.num_faces) for key in phase_flux_keys}
+            entries["bc"] = self.bc_type_fluid_flux(sd)
+            data[pp.PARAMETERS][ppu_keyword].update(entries)
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(data, ppu_keyword)
+            data[pp.PARAMETERS][ppu_keyword].update(
+                {key: np.zeros(intf.num_cells) for key in phase_flux_keys}
+            )
+
     def _register_hybrid_nonlinear_discretization(
         self, op: pp.ad.MergedOperator
     ) -> None:
@@ -1997,6 +1939,63 @@ class FluidBuoyancy(pp.PorePyModel):
                     intf_discr.upwind_secondary_delta()
                 )
 
+        # Per-phase PPU upwind: one discretization (N matrices) for subdomains and one
+        # for interfaces, registered for the phase-potential scheme (which consumes them
+        # in ``ppu_buoyancy``).
+        if self.is_phase_potential_upwinding():
+            ppu_discr = self.ppu_upwind_discretization(self.mdg.subdomains())
+            ppu_intf_discr = self.ppu_interface_upwind_discretization(
+                self.mdg.interfaces(codim=1)
+            )
+            suffixes = _validate_num_phases(len(list(self.fluid.phases)))
+            for suf in suffixes:
+                tag = f"_{suf}" if suf else ""
+                self._register_hybrid_nonlinear_discretization(
+                    getattr(ppu_discr, f"upwind{tag}")()
+                )
+                self._register_hybrid_nonlinear_discretization(
+                    getattr(ppu_intf_discr, f"upwind_primary{tag}")()
+                )
+                self._register_hybrid_nonlinear_discretization(
+                    getattr(ppu_intf_discr, f"upwind_secondary{tag}")()
+                )
+
+    def _update_ppu_upwind_directions(self) -> None:
+        """Refresh the per-phase PPU upwind directions.
+
+        Stores each phase's potential flux ``Psi_phase`` under the matching
+        ``"ppu_flux_<phase>"`` key (subdomains) and the per-phase interface potential
+        (interfaces), so :class:`PPUpwind` / :class:`PPUpwindCoupling` build their N
+        upwind matrices from one independent direction per phase.
+        """
+        ppu_keyword = self.ppu_upwind_key()
+        subdomains = self.mdg.subdomains()
+        if len(subdomains) > 0:
+            offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
+            for phase, flux_key in self._ppu_phase_suffix_pairs():
+                vals = self.equation_system.evaluate(
+                    self.potential_driven_flux(subdomains, phase)
+                )
+                for k, (sd, data) in enumerate(
+                    self.mdg.subdomains(return_data=True)
+                ):
+                    data[pp.PARAMETERS][ppu_keyword].update(
+                        {flux_key: vals[offsets[k] : offsets[k] + sd.num_faces]}
+                    )
+        interfaces = self.mdg.interfaces(codim=1)
+        if len(interfaces) > 0:
+            intf_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
+            for phase, flux_key in self._ppu_phase_suffix_pairs():
+                vals = self.equation_system.evaluate(
+                    self.interface_potential_driven_flux(interfaces, phase)
+                )
+                for k, (intf, data) in enumerate(
+                    self.mdg.interfaces(return_data=True, codim=1)
+                ):
+                    data[pp.PARAMETERS][ppu_keyword].update(
+                        {flux_key: vals[intf_offsets[k] : intf_offsets[k] + intf.num_cells]}
+                    )
+
     def update_buoyancy_driven_fluxes(self):
         """Update stored buoyancy flux arrays (subdomains and interfaces).
 
@@ -2005,11 +2004,10 @@ class FluidBuoyancy(pp.PorePyModel):
         phase-potential flux; in the hybrid scheme (HU) they hold the inter-phase
         gravity flux (opposite sign for the two phases).
         """
-        # For the discriminant PPU scheme, refresh the characteristic |Psi| scale used to
-        # size the smooth sign/gate widths (over interior faces, so the strong boundary
-        # fluxes do not inflate it). Constant per Newton solve, no Jacobian pollution.
-        if self.is_PPU_Discriminant():
-            self._PPU_update_reference_potential()
+        # Phase-potential scheme: refresh the per-phase PPU upwind directions (each
+        # phase's potential flux) consumed by ``ppu_buoyancy`` via :class:`PPUpwind`.
+        if self.is_phase_potential_upwinding():
+            self._update_ppu_upwind_directions()
 
         ppu_Q = self.is_phase_potential_upwinding()
         for phase_gamma in self.fluid.phases:
