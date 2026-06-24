@@ -84,21 +84,6 @@ class TimeStepper:
         self.previous_time = self.time_manager.time
         """Cached time at the start of the current trial."""
 
-        # self.init_acceptance_criteria()
-        # self.init_rejection_criteria()
-
-    # def init_acceptance_criteria(self) -> None:
-    #     """Parse and initialize acceptance criteria."""
-    #     # TODO: Extend to reading criteria from params like in NonlinearSolver.
-    #     self.acceptance_criteria, _ = default_time_step_criteria()
-    #     """Acceptance criteria for time-step trials."""
-
-    # def init_rejection_criteria(self) -> None:
-    #     """Parse and initialize rejection criteria."""
-    #     # TODO: Extend to reading criteria from params like in NonlinearSolver.
-    #     _, self.rejection_criteria = default_time_step_criteria()
-    #     """Rejection criteria for time-step trials."""
-
     def perform_time_step(
         self,
         model,  #: pp.SolutionStrategy,
@@ -110,14 +95,11 @@ class TimeStepper:
             TimeStepStatus: ACCEPTED if criteria met, STOPPED if max retries exhausted.
 
         """
-        # Advance time index for entire time step.
-        # self.time_manager.increase_time_index()
-
         # Cache previous time for trial.
         self.previous_time = self.time_manager.time
 
         for _ in range(self.max_attempts):
-            # Update time manager for new trial (if not first attempt).
+            # Update time manager for new trial.
             # NOTE: No use of self.time_manager.increase_time() here.
             self.time_manager.time = self.previous_time + self.time_manager.dt
             self.time_manager.time_index += 1
@@ -153,9 +135,7 @@ class TimeStepper:
 
         Updates the time manager's dt based on the trial outcome and solver performance.
         """
-        # TODO: Update time manager's computation of dt. E.g.
-        # dt = self.time_criteria.compute_time_step(context)
-        # self.time_manager.set_dt(dt) # clips into range.
+        # YZ: This currently uses time_manager, but this logic is to be outsourced.
 
         if convergence_status.is_converged():
             # For accepted steps, we may want to increase dt for the next step.
@@ -178,7 +158,7 @@ class TimeStepper:
 
     def perform_trial_time_step(
         self,
-        model,  #: pp.SolutionStrategy,
+        model: pp.PorePyModel,  #: pp.SolutionStrategy,
         solver: pp.LinearSolver | pp.NewtonSolver,
     ) -> ConvergenceStatus:
         """Perform a single time step and evaluate acceptance/rejection criteria."""
@@ -187,31 +167,8 @@ class TimeStepper:
         model.before_time_step()
         convergence_status = solver.solve(model)
 
-        # # Build context once for both acceptance and rejection checks.
-        # context = self._build_evaluation_context(
-        #     model, model.nonlinear_solver_statistics, solver_status
-        # )
-
-        # Check criteria using context.
-        # acceptance_status, acceptance_info = self.acceptance_criteria.check(context)
-        # rejection_status = self.rejection_criteria.check(context)
-
-        # # Summarize trial status.
-        # time_step_status = self.summarize_time_step_status(
-        #     acceptance_status, rejection_status
-        # )
-
         # Logging.
         self.log_time_step()
-
-        # Update statistics
-        # self.update_time_statistics(
-        #     model,
-        #     time_step_status,
-        #     acceptance_status,
-        #     rejection_status,
-        #     acceptance_info,
-        # )
 
         # Model update based on trial results.
         self.after_time_step(convergence_status, model)
