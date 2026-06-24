@@ -666,6 +666,9 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
+        def before_time_step(self) -> None:
+            """"""
+
         def before_nonlinear_loop(self) -> None:
             """Method to be called before the non-linear loop.
 
@@ -688,6 +691,12 @@ else:
             etc.
 
             """
+
+        def after_time_step_convergence(self) -> None:
+            """"""
+
+        def after_time_step_failure(self) -> None:
+            """"""
 
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.
