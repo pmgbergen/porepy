@@ -410,24 +410,23 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
     # The slicing will be done based on a numpy array of indices (row and column for csr
     # and csc, respectively). The provided index can be an array of booleans, or a
     # single integer. Convert these to numpy arrays of indices.
-    if np.asarray(ind).dtype == "bool":
-        ind = np.where(ind)[0]
-    if isinstance(ind, int):
-        ind = np.array([ind])
+    ind_arr = np.asarray(ind)
+    if ind_arr.dtype == "bool":
+        ind_arr = np.where(ind_arr)[0]
 
     # Dimension of the sliced matrix along the axis of the slicing.
-    N = ind.size
+    N = ind_arr.size
     # Expand the indices along the compressed axis. To understand this command, it is
     # necessary to be familiar with the compressed storage format.
     ind_slice = pp.array_operations.expand_index_pointers(
-        A.indptr[ind], A.indptr[ind + 1]
+        A.indptr[ind_arr], A.indptr[ind_arr + 1]
     )
     # Pick out the subset of the indices from A that are also in the slice.
     indices = A.indices[ind_slice]
     # Make a new indptr array and fill it with the relevant parts of the original indptr
     # array.
-    indptr = np.zeros(ind.size + 1)
-    indptr[1:] = np.cumsum(A.indptr[ind + 1] - A.indptr[ind])
+    indptr = np.zeros(ind_arr.size + 1)
+    indptr[1:] = np.cumsum(A.indptr[ind_arr + 1] - A.indptr[ind_arr])
     # Data can be extracted directly from the data array of A.
     data = A.data[ind_slice]
 

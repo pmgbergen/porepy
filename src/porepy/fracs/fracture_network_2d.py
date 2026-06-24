@@ -469,7 +469,7 @@ class FractureNetwork2d(FractureNetwork):
             # occur more than once will be intersections.
             all_intersection_points = np.where(
                 np.bincount(unique_boundary_points[:, 0]) > 1
-            )[0]
+            )[0].astype(int)
 
         else:
             # No intersections, simply create an empty list.
