@@ -279,6 +279,183 @@ class HUpwindCouplingAd(pp.ad.Discretization):
         pp.ad.wrap_discretization(self, self._discretization, interfaces=interfaces)
 
 
+#: Phase names per supported phase count. ``num_phases == 1`` uses the empty suffix so
+#: the discretization collapses exactly to ``Upwind`` / ``UpwindCoupling``.
+_PPU_PHASE_SUFFIXES: dict[int, tuple[str, ...]] = {
+    1: ("",),
+    2: ("gamma", "delta"),
+    3: ("gamma", "delta", "theta"),
+}
+
+
+def _validate_num_phases(num_phases: int) -> tuple[str, ...]:
+    """Return the phase suffixes for ``num_phases``, or raise for unsupported counts."""
+    if num_phases not in _PPU_PHASE_SUFFIXES:
+        raise NotImplementedError(
+            "Phase-potential upwinding is implemented for 1, 2 or 3 phases "
+            f"(gamma, delta, theta). Got num_phases={num_phases}; "
+            "the case num_phases > 3 is not implemented."
+        )
+    return _PPU_PHASE_SUFFIXES[num_phases]
+
+
+class PPUpwind(pp.Upwind):
+    """Phase-potential upwinding: ``num_phases`` independent upwind matrices.
+
+    Unlike :class:`HUpwind` (one direction, two opposite matrices), each phase has its
+    *own* advecting direction (its phase-potential flux), so this discretization stores
+    one flux array per phase and builds one single-point upwind matrix (+ boundary
+    matrices) per phase, all in one :meth:`discretize`.
+
+    - ``num_phases == 1``: identical to :class:`~porepy.numerics.fv.upwind.Upwind`
+      (single ``transport`` / ``rhs_dir`` / ``rhs_neu`` from the ``"darcy_flux"`` array);
+    - ``num_phases == 2``: phases ``gamma``, ``delta``;
+    - ``num_phases == 3``: phases ``gamma``, ``delta``, ``theta``;
+    - ``num_phases > 3``: raises :class:`NotImplementedError`.
+
+    Per phase ``p`` the flux array is read from parameter key ``"ppu_flux_<p>"`` (or
+    ``"darcy_flux"`` for the single-phase case) and the matrices stored under
+    ``"transport_<p>"`` / ``"rhs_dir_<p>"`` / ``"rhs_neu_<p>"`` (no suffix for one phase).
+    """
+
+    def __init__(self, keyword: str = "ppu_upwind", num_phases: int = 2) -> None:
+        super().__init__(keyword)
+        self.num_phases = num_phases
+        self._suffixes = _validate_num_phases(num_phases)
+        self._phase_flux_array_keys: dict[str, str] = {}
+        for suf in self._suffixes:
+            tag = f"_{suf}" if suf else ""
+            setattr(self, f"upwind{tag}_matrix_key", f"transport{tag}")
+            setattr(self, f"bound_transport_dir{tag}_matrix_key", f"rhs_dir{tag}")
+            setattr(self, f"bound_transport_neu{tag}_matrix_key", f"rhs_neu{tag}")
+            self._phase_flux_array_keys[suf] = (
+                "darcy_flux" if suf == "" else f"ppu_flux_{suf}"
+            )
+        if num_phases > 1:
+            # Base keys alias the first phase so ``.upwind()`` etc. resolve to gamma.
+            self.upwind_matrix_key = "transport_gamma"
+            self.bound_transport_dir_matrix_key = "rhs_dir_gamma"
+            self.bound_transport_neu_matrix_key = "rhs_neu_gamma"
+
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        num_components: int = parameter_dictionary.get("num_components", 1)
+        if "bc" in parameter_dictionary:
+            bc = parameter_dictionary["bc"]
+        else:
+            bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
+
+        for suf in self._suffixes:
+            tag = f"_{suf}" if suf else ""
+            flux = np.asarray(parameter_dictionary[self._phase_flux_array_keys[suf]])
+            upwind, rhs_dir, rhs_neu = _single_point_upwind_matrices(
+                sd, flux, bc, num_components
+            )
+            matrix_dictionary[f"transport{tag}"] = upwind
+            matrix_dictionary[f"rhs_dir{tag}"] = rhs_dir
+            matrix_dictionary[f"rhs_neu{tag}"] = rhs_neu
+
+
+class PPUpwindAd(pp.ad.Discretization):
+    """AD wrapper for :class:`PPUpwind`.
+
+    The available factory methods depend on ``num_phases``: ``upwind()`` (single phase),
+    or ``upwind_gamma()`` / ``upwind_delta()`` (``+ upwind_theta()`` for three phases),
+    with the matching ``bound_transport_{dir,neu}_<phase>()`` boundary variants.
+    """
+
+    def __init__(
+        self, keyword: str, subdomains: list[pp.Grid], num_phases: int = 2
+    ) -> None:
+        self.subdomains = subdomains
+        self._discretization = PPUpwind(keyword, num_phases=num_phases)
+        self._name = "PPUpwind"
+        self.keyword = keyword
+        pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
+
+
+class PPUpwindCoupling(pp.UpwindCoupling):
+    """Interface (mortar) counterpart of :class:`PPUpwind`.
+
+    Builds one mortar upwind set (``upwind_primary`` / ``upwind_secondary`` / signed
+    ``flux``) per phase from that phase's interface flux direction; the geometric
+    ``trace`` / ``inv_trace`` / ``mortar_discr`` are built once and shared.
+    ``num_phases == 1`` is identical to
+    :class:`~porepy.numerics.fv.upwind.UpwindCoupling`; ``num_phases > 3`` raises.
+    """
+
+    def __init__(self, keyword: str, num_phases: int = 2) -> None:
+        super().__init__(keyword)
+        self.num_phases = num_phases
+        self._suffixes = _validate_num_phases(num_phases)
+        self.trace_primary_matrix_key = "trace"
+        self.inv_trace_primary_matrix_key = "inv_trace"
+        self.mortar_discr_matrix_key = "mortar_discr"
+        self._phase_flux_array_keys: dict[str, str] = {}
+        for suf in self._suffixes:
+            tag = f"_{suf}" if suf else ""
+            setattr(self, f"upwind_primary{tag}_matrix_key", f"upwind_primary{tag}")
+            setattr(self, f"upwind_secondary{tag}_matrix_key", f"upwind_secondary{tag}")
+            setattr(self, f"flux{tag}_matrix_key", f"flux{tag}")
+            self._phase_flux_array_keys[suf] = (
+                "darcy_flux" if suf == "" else f"ppu_flux_{suf}"
+            )
+        if num_phases > 1:
+            self.upwind_primary_matrix_key = "upwind_primary_gamma"
+            self.upwind_secondary_matrix_key = "upwind_secondary_gamma"
+            self.flux_matrix_key = "flux_gamma"
+
+    def discretize(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: dict,
+        data_secondary: dict,
+        data_intf: dict,
+    ) -> None:
+        if sd_primary.dim - sd_secondary.dim not in [1, 2]:
+            raise ValueError(
+                "Implementation is only valid for grids one dimension apart."
+            )
+        matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
+
+        inv_trace_h = np.abs(sd_primary.divergence(dim=1))
+        matrix_dictionary["inv_trace"] = inv_trace_h
+        matrix_dictionary["trace"] = inv_trace_h.T
+        matrix_dictionary["mortar_discr"] = sps.eye(intf.num_cells)
+
+        for suf in self._suffixes:
+            tag = f"_{suf}" if suf else ""
+            lam_flux = np.sign(
+                parameter_dictionary[self._phase_flux_array_keys[suf]]
+            )
+            flag = (lam_flux > 0).astype(float)
+            matrix_dictionary[f"upwind_primary{tag}"] = sps.diags(flag)
+            matrix_dictionary[f"upwind_secondary{tag}"] = sps.diags(1.0 - flag)
+            matrix_dictionary[f"flux{tag}"] = sps.diags(lam_flux)
+
+
+class PPUpwindCouplingAd(pp.ad.Discretization):
+    """AD wrapper for :class:`PPUpwindCoupling`.
+
+    Per-phase factory methods ``upwind_primary_<phase>()`` /
+    ``upwind_secondary_<phase>()`` / ``flux_<phase>()`` (or unsuffixed for one phase),
+    plus the shared ``trace`` / ``inv_trace`` / ``mortar_discr``.
+    """
+
+    def __init__(
+        self, keyword: str, interfaces: list[pp.MortarGrid], num_phases: int = 2
+    ) -> None:
+        self.interfaces = interfaces
+        self._discretization = PPUpwindCoupling(keyword, num_phases=num_phases)
+        self._name = "PPUpwind coupling"
+        self.keyword = keyword
+        pp.ad.wrap_discretization(self, self._discretization, interfaces=interfaces)
+
+
 class FluidDensityFromPressure(pp.PorePyModel):
     """Fluid density as a function of pressure for a single-phase, single-component
     fluid."""
