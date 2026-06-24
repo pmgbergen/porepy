@@ -835,7 +835,6 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     def solve_linear_system(self) -> np.ndarray:
         return np.ones(self.equation_system.num_dofs())
 
-
 MAX_NONLINEAR_ITER = 10
 
 
@@ -868,7 +867,8 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
-            "should_fail": True,
+            "schedule_end": 2,  # Matches the constant dt = 1.
+            "failure_reason": "Max retries (1)",
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and should fail.
@@ -876,7 +876,7 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
-            "should_fail": True,
+            "failure_reason": "time step achieved its minimum admissible value",
         },
         # Case 4: The time step fails right before the schedule point. Expected to
         # decrease dt and meet the schedule regardless.
@@ -884,6 +884,39 @@ MAX_NONLINEAR_ITER = 10
             "num_nonlinear_iterations": [1, 1, 1, 1, 1],
             "time_step_converged": [True, False, True, True, True],
             "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
+        },
+        # Case 5: Fail because we reach the limit of attempts to cut the time step.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1, 1],
+            "time_step_converged": [True, True, False, False, False, False],
+            "exported_dt_expected": [1, 2, 4, 1.2, 0.36, 0.108],
+            "schedule_end": 10,  # Far beyond possible dt to avoid dt_max clipping.
+            "failure_reason": "Max retries (4)",
+        },
+        # Case 6: All time steps are successful so dt reaches dt_max and remains it.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1, 1],
+            "time_step_converged": [True, True, True, True, True, True],
+            "exported_dt_expected": [1, 2, 4, 5, 5, 0.1],
+            "schedule_end": 17.1,
+        },
+        # Case 7: All time steps are successful, but take too many nonlinear iterations,
+        # so dt reaches dt_min and remains it.
+        {
+            "num_nonlinear_iterations": [8, 8, 8, 8, 8, 8],
+            "time_step_converged": [True, True, True, True, True, True],
+            "exported_dt_expected": [1, 0.4, 0.16, 0.1, 0.1, 0.1],
+            "schedule_end": 1.86,
+        },
+        # Case 8: Time step we need to make to meet the schedule is below minimal dt.
+        # The current behavior is that we ignore dt_min to meet the schedule.
+        # This implies that if we hit this in the middle of the simulation, next dt will
+        # be dt_min, which is quite sub-optimal.
+        {
+            "num_nonlinear_iterations": [1, 1],
+            "time_step_converged": [True, True],
+            "exported_dt_expected": [1, 1e-5],
+            "schedule_end": 1 + 1e-5,
         },
     ],
 )
@@ -893,9 +926,12 @@ def test_model_time_step_control(params: dict):
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
     exported_dt_expected = params["exported_dt_expected"]
-    should_fail = params.get("should_fail", False)
+    failure_reason = params.get("failure_reason", "")
+    # 1.35 is the default value assumed by most of the tests. It is arbitrary.
+    schedule_end = params.get("schedule_end", 1.35)
 
-    schedule_end = 2 if constant_dt else 1.35
+    should_fail = len(failure_reason) != 0
+
     time_manager = pp.TimeManager(
         schedule=(0, schedule_end),
         dt_init=1,
@@ -904,11 +940,12 @@ def test_model_time_step_control(params: dict):
         iter_relax_factors=(0.4, 2),
         iter_optimal_range=(4, 7),
         recomp_factor=0.3,
+        recomp_max=4,
     )
 
     class DynamicNewtonSolver(pp.NewtonSolver):
         def check_convergence(
-            self, model, nonlinear_increment
+            self, model: DynamicTimeStepTestCaseModel, nonlinear_increment
         ) -> tuple[
             ConvergenceStatusCollection,
             ConvergenceStatusCollection,
@@ -963,5 +1000,6 @@ def test_model_time_step_control(params: dict):
     assert model.time_manager.final_time_reached() != should_fail
     if should_fail:
         assert isinstance(status, ModelRunnerStatusFailure)
+        assert status.reason.find(failure_reason) != -1
     else:
-        assert isinstance(status, ModelRunnerStatusSuccess)
+        assert status.is_success()

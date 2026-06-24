@@ -94,7 +94,7 @@ class TimeStepper:
         previous_time = self.time_manager.time
 
         # Logging time step start.
-        self.log_time_step()
+        _log_time_step(time_manager=self.time_manager)
 
         for attempt in range(self.max_attempts):
             # Update time manager for new trial.
@@ -189,15 +189,6 @@ class TimeStepper:
 
         return convergence_status
 
-    def log_time_step(self) -> None:
-        """Log the current state of the time step."""
-        logger.info(
-            f"Time step #{self.time_manager.time_index}: "
-            f"dt={self.time_manager.dt:.2e}, "
-            f"time={self.time_manager.time:.2e} of "
-            f"{self.time_manager.time_final:.2e}"
-        )
-
     def update_time_statistics(
         self, model: pp.PorePyModel, time_step_status: TimeStepperStatus
     ) -> None:
@@ -210,3 +201,13 @@ class TimeStepper:
             self.time_manager.final_time_reached(),
             time_step_status=time_step_status,
         )
+
+
+def _log_time_step(time_manager: pp.TimeManager) -> None:
+    """Log the current state of the time step."""
+    logger.info(
+        f"Time step #{time_manager.time_index}: "
+        f"dt={time_manager.dt:.2e}, "
+        f"time={time_manager.time:.2e} of "
+        f"{time_manager.time_final:.2e}"
+    )
