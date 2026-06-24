@@ -118,20 +118,20 @@ def _single_point_upwind_matrices(
 
 
 class HUpwind(pp.Upwind):
-    """Hybrid-upwinding discretization: two opposite upwind matrices from one direction.
+    """Two-direction upwinding for the simplicial buoyancy term.
 
-    Hybrid upwinding upwinds the two phases of a pair along a *single* inter-phase
-    gravity direction ``w_flux`` (heavier phase one way, lighter phase the other). Rather
-    than maintaining two :class:`~porepy.numerics.fv.upwind.Upwind` objects with
-    sign-flipped flux arrays, this discretization stores that *one* direction and, in
-    :meth:`discretize`, builds the two opposite single-point upwind matrices (plus their
-    boundary matrices):
+    Stores **two** direction arrays and, in :meth:`discretize`, builds one single-point
+    upwind matrix (plus its boundary matrices) per direction:
 
-    - ``upwind_gamma`` / ``bound_transport_{dir,neu}_gamma`` -- upstream by ``+w_flux``;
-    - ``upwind_delta`` / ``bound_transport_{dir,neu}_delta`` -- upstream by ``-w_flux``.
+    - ``upwind_gamma`` / ``bound_transport_{dir,neu}_gamma`` -- upstream by ``gamma_flux``;
+    - ``upwind_delta`` / ``bound_transport_{dir,neu}_delta`` -- upstream by ``delta_flux``.
 
-    The matrix keys are exposed as AD methods by :func:`wrap_discretization` (see
-    :class:`HUpwindAd`).
+    The model sets the two directions per scheme (see
+    :meth:`FluidBuoyancy.update_buoyancy_driven_fluxes`): hybrid upwinding (HU) stores the
+    inter-phase gravity flux with opposite signs (``+ddf(rho_gamma - rho_delta)`` /
+    ``-ddf(...)``); phase-potential upwinding (PPU) stores each phase's own potential flux
+    (``Psi_gamma`` / ``Psi_delta``). The matrix keys are exposed as AD methods by
+    :func:`wrap_discretization` (see :class:`HUpwindAd`).
     """
 
     def __init__(self, keyword: str = "hybrid_upwind") -> None:
@@ -146,7 +146,8 @@ class HUpwind(pp.Upwind):
         self.upwind_delta_matrix_key = "transport_delta"
         self.bound_transport_dir_delta_matrix_key = "rhs_dir_delta"
         self.bound_transport_neu_delta_matrix_key = "rhs_neu_delta"
-        self._flux_array_key = "hybrid_gravity_flux"
+        self._gamma_flux_key = "hybrid_gamma_flux"
+        self._delta_flux_key = "hybrid_delta_flux"
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
@@ -158,14 +159,14 @@ class HUpwind(pp.Upwind):
         else:
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
-        direction = np.asarray(parameter_dictionary[self._flux_array_key])
-        # gamma: upstream by +direction; delta: by -direction (the single stored gravity
-        # flux flipped, so both matrices come from one direction).
+        # gamma upstream by gamma_flux, delta by delta_flux (two independent directions).
+        gamma_dir = np.asarray(parameter_dictionary[self._gamma_flux_key])
+        delta_dir = np.asarray(parameter_dictionary[self._delta_flux_key])
         up_g, dir_g, neu_g = _single_point_upwind_matrices(
-            sd, +direction, bc, num_components
+            sd, gamma_dir, bc, num_components
         )
         up_d, dir_d, neu_d = _single_point_upwind_matrices(
-            sd, -direction, bc, num_components
+            sd, delta_dir, bc, num_components
         )
         matrix_dictionary["transport_gamma"] = up_g
         matrix_dictionary["rhs_dir_gamma"] = dir_g
@@ -178,7 +179,7 @@ class HUpwind(pp.Upwind):
 class HUpwindAd(pp.ad.Discretization):
     """AD wrapper for :class:`HUpwind`.
 
-    Exposes the per-phase upwind / boundary-transport matrices of the one-direction
+    Exposes the per-direction upwind / boundary-transport matrices of the two-direction
     hybrid discretization as :class:`~porepy.numerics.ad.operators.MergedOperator`
     factories: ``upwind_gamma()`` / ``upwind_delta()`` and the boundary variants.
     """
@@ -199,13 +200,13 @@ class HUpwindAd(pp.ad.Discretization):
 
 
 class HUpwindCoupling(pp.UpwindCoupling):
-    """Interface (mortar) counterpart of :class:`HUpwind`.
+    """Interface (mortar) counterpart of :class:`HUpwind`: two directions.
 
-    From the single inter-phase gravity flux on the interface, builds the two opposite
-    sets of mortar upwind matrices -- ``upwind_{primary,secondary}_gamma`` (from
-    ``+direction``) and ``upwind_{primary,secondary}_delta`` (from ``-direction``), plus
-    the per-direction signed ``flux`` -- in one :meth:`discretize`. The geometric
-    ``trace`` / ``inv_trace`` / ``mortar_discr`` matrices are built once and shared.
+    Builds, per stored direction, the mortar upwind matrices
+    ``upwind_{primary,secondary}_gamma`` (from ``gamma_flux``) and
+    ``upwind_{primary,secondary}_delta`` (from ``delta_flux``), plus the signed ``flux``,
+    in one :meth:`discretize`. The geometric ``trace`` / ``inv_trace`` / ``mortar_discr``
+    matrices are built once and shared.
     """
 
     def __init__(self, keyword: str) -> None:
@@ -224,7 +225,8 @@ class HUpwindCoupling(pp.UpwindCoupling):
         self.upwind_primary_delta_matrix_key = "upwind_primary_delta"
         self.upwind_secondary_delta_matrix_key = "upwind_secondary_delta"
         self.flux_delta_matrix_key = "flux_delta"
-        self._flux_array_key = "hybrid_gravity_flux"
+        self._gamma_flux_key = "hybrid_gamma_flux"
+        self._delta_flux_key = "hybrid_delta_flux"
 
     def discretize(
         self,
@@ -240,18 +242,19 @@ class HUpwindCoupling(pp.UpwindCoupling):
                 "Implementation is only valid for grids one dimension apart."
             )
         matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
-        lam_flux = np.sign(
-            data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
-        )
+        parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
 
         inv_trace_h = np.abs(sd_primary.divergence(dim=1))
         matrix_dictionary["inv_trace"] = inv_trace_h
         matrix_dictionary["trace"] = inv_trace_h.T
         matrix_dictionary["mortar_discr"] = sps.eye(intf.num_cells)
 
-        # gamma rides +direction, delta rides -direction (one stored gravity flux).
-        for suffix, sign in (("gamma", 1.0), ("delta", -1.0)):
-            lf = sign * lam_flux
+        # gamma rides gamma_flux, delta rides delta_flux (two independent directions).
+        for suffix, key in (
+            ("gamma", self._gamma_flux_key),
+            ("delta", self._delta_flux_key),
+        ):
+            lf = np.sign(parameter_dictionary[key])
             flag = (lf > 0).astype(float)
             matrix_dictionary[f"upwind_primary_{suffix}"] = sps.diags(flag)
             matrix_dictionary[f"upwind_secondary_{suffix}"] = sps.diags(1.0 - flag)
@@ -276,183 +279,6 @@ class HUpwindCouplingAd(pp.ad.Discretization):
         self.trace: Callable[[], pp.ad.MergedOperator]
         self.inv_trace: Callable[[], pp.ad.MergedOperator]
         self.mortar_discr: Callable[[], pp.ad.MergedOperator]
-        pp.ad.wrap_discretization(self, self._discretization, interfaces=interfaces)
-
-
-#: Phase names per supported phase count. ``num_phases == 1`` uses the empty suffix so
-#: the discretization collapses exactly to ``Upwind`` / ``UpwindCoupling``.
-_PPU_PHASE_SUFFIXES: dict[int, tuple[str, ...]] = {
-    1: ("",),
-    2: ("gamma", "delta"),
-    3: ("gamma", "delta", "theta"),
-}
-
-
-def _validate_num_phases(num_phases: int) -> tuple[str, ...]:
-    """Return the phase suffixes for ``num_phases``, or raise for unsupported counts."""
-    if num_phases not in _PPU_PHASE_SUFFIXES:
-        raise NotImplementedError(
-            "Phase-potential upwinding is implemented for 1, 2 or 3 phases "
-            f"(gamma, delta, theta). Got num_phases={num_phases}; "
-            "the case num_phases > 3 is not implemented."
-        )
-    return _PPU_PHASE_SUFFIXES[num_phases]
-
-
-class PPUpwind(pp.Upwind):
-    """Phase-potential upwinding: ``num_phases`` independent upwind matrices.
-
-    Unlike :class:`HUpwind` (one direction, two opposite matrices), each phase has its
-    *own* advecting direction (its phase-potential flux), so this discretization stores
-    one flux array per phase and builds one single-point upwind matrix (+ boundary
-    matrices) per phase, all in one :meth:`discretize`.
-
-    - ``num_phases == 1``: identical to :class:`~porepy.numerics.fv.upwind.Upwind`
-      (single ``transport`` / ``rhs_dir`` / ``rhs_neu`` from the ``"darcy_flux"`` array);
-    - ``num_phases == 2``: phases ``gamma``, ``delta``;
-    - ``num_phases == 3``: phases ``gamma``, ``delta``, ``theta``;
-    - ``num_phases > 3``: raises :class:`NotImplementedError`.
-
-    Per phase ``p`` the flux array is read from parameter key ``"ppu_flux_<p>"`` (or
-    ``"darcy_flux"`` for the single-phase case) and the matrices stored under
-    ``"transport_<p>"`` / ``"rhs_dir_<p>"`` / ``"rhs_neu_<p>"`` (no suffix for one phase).
-    """
-
-    def __init__(self, keyword: str = "ppu_upwind", num_phases: int = 2) -> None:
-        super().__init__(keyword)
-        self.num_phases = num_phases
-        self._suffixes = _validate_num_phases(num_phases)
-        self._phase_flux_array_keys: dict[str, str] = {}
-        for suf in self._suffixes:
-            tag = f"_{suf}" if suf else ""
-            setattr(self, f"upwind{tag}_matrix_key", f"transport{tag}")
-            setattr(self, f"bound_transport_dir{tag}_matrix_key", f"rhs_dir{tag}")
-            setattr(self, f"bound_transport_neu{tag}_matrix_key", f"rhs_neu{tag}")
-            self._phase_flux_array_keys[suf] = (
-                "darcy_flux" if suf == "" else f"ppu_flux_{suf}"
-            )
-        if num_phases > 1:
-            # Base keys alias the first phase so ``.upwind()`` etc. resolve to gamma.
-            self.upwind_matrix_key = "transport_gamma"
-            self.bound_transport_dir_matrix_key = "rhs_dir_gamma"
-            self.bound_transport_neu_matrix_key = "rhs_neu_gamma"
-
-    def discretize(self, sd: pp.Grid, data: dict) -> None:
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        num_components: int = parameter_dictionary.get("num_components", 1)
-        if "bc" in parameter_dictionary:
-            bc = parameter_dictionary["bc"]
-        else:
-            bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
-
-        for suf in self._suffixes:
-            tag = f"_{suf}" if suf else ""
-            flux = np.asarray(parameter_dictionary[self._phase_flux_array_keys[suf]])
-            upwind, rhs_dir, rhs_neu = _single_point_upwind_matrices(
-                sd, flux, bc, num_components
-            )
-            matrix_dictionary[f"transport{tag}"] = upwind
-            matrix_dictionary[f"rhs_dir{tag}"] = rhs_dir
-            matrix_dictionary[f"rhs_neu{tag}"] = rhs_neu
-
-
-class PPUpwindAd(pp.ad.Discretization):
-    """AD wrapper for :class:`PPUpwind`.
-
-    The available factory methods depend on ``num_phases``: ``upwind()`` (single phase),
-    or ``upwind_gamma()`` / ``upwind_delta()`` (``+ upwind_theta()`` for three phases),
-    with the matching ``bound_transport_{dir,neu}_<phase>()`` boundary variants.
-    """
-
-    def __init__(
-        self, keyword: str, subdomains: list[pp.Grid], num_phases: int = 2
-    ) -> None:
-        self.subdomains = subdomains
-        self._discretization = PPUpwind(keyword, num_phases=num_phases)
-        self._name = "PPUpwind"
-        self.keyword = keyword
-        pp.ad.wrap_discretization(self, self._discretization, subdomains=subdomains)
-
-
-class PPUpwindCoupling(pp.UpwindCoupling):
-    """Interface (mortar) counterpart of :class:`PPUpwind`.
-
-    Builds one mortar upwind set (``upwind_primary`` / ``upwind_secondary`` / signed
-    ``flux``) per phase from that phase's interface flux direction; the geometric
-    ``trace`` / ``inv_trace`` / ``mortar_discr`` are built once and shared.
-    ``num_phases == 1`` is identical to
-    :class:`~porepy.numerics.fv.upwind.UpwindCoupling`; ``num_phases > 3`` raises.
-    """
-
-    def __init__(self, keyword: str, num_phases: int = 2) -> None:
-        super().__init__(keyword)
-        self.num_phases = num_phases
-        self._suffixes = _validate_num_phases(num_phases)
-        self.trace_primary_matrix_key = "trace"
-        self.inv_trace_primary_matrix_key = "inv_trace"
-        self.mortar_discr_matrix_key = "mortar_discr"
-        self._phase_flux_array_keys: dict[str, str] = {}
-        for suf in self._suffixes:
-            tag = f"_{suf}" if suf else ""
-            setattr(self, f"upwind_primary{tag}_matrix_key", f"upwind_primary{tag}")
-            setattr(self, f"upwind_secondary{tag}_matrix_key", f"upwind_secondary{tag}")
-            setattr(self, f"flux{tag}_matrix_key", f"flux{tag}")
-            self._phase_flux_array_keys[suf] = (
-                "darcy_flux" if suf == "" else f"ppu_flux_{suf}"
-            )
-        if num_phases > 1:
-            self.upwind_primary_matrix_key = "upwind_primary_gamma"
-            self.upwind_secondary_matrix_key = "upwind_secondary_gamma"
-            self.flux_matrix_key = "flux_gamma"
-
-    def discretize(
-        self,
-        sd_primary: pp.Grid,
-        sd_secondary: pp.Grid,
-        intf: pp.MortarGrid,
-        data_primary: dict,
-        data_secondary: dict,
-        data_intf: dict,
-    ) -> None:
-        if sd_primary.dim - sd_secondary.dim not in [1, 2]:
-            raise ValueError(
-                "Implementation is only valid for grids one dimension apart."
-            )
-        matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
-
-        inv_trace_h = np.abs(sd_primary.divergence(dim=1))
-        matrix_dictionary["inv_trace"] = inv_trace_h
-        matrix_dictionary["trace"] = inv_trace_h.T
-        matrix_dictionary["mortar_discr"] = sps.eye(intf.num_cells)
-
-        for suf in self._suffixes:
-            tag = f"_{suf}" if suf else ""
-            lam_flux = np.sign(
-                parameter_dictionary[self._phase_flux_array_keys[suf]]
-            )
-            flag = (lam_flux > 0).astype(float)
-            matrix_dictionary[f"upwind_primary{tag}"] = sps.diags(flag)
-            matrix_dictionary[f"upwind_secondary{tag}"] = sps.diags(1.0 - flag)
-            matrix_dictionary[f"flux{tag}"] = sps.diags(lam_flux)
-
-
-class PPUpwindCouplingAd(pp.ad.Discretization):
-    """AD wrapper for :class:`PPUpwindCoupling`.
-
-    Per-phase factory methods ``upwind_primary_<phase>()`` /
-    ``upwind_secondary_<phase>()`` / ``flux_<phase>()`` (or unsuffixed for one phase),
-    plus the shared ``trace`` / ``inv_trace`` / ``mortar_discr``.
-    """
-
-    def __init__(
-        self, keyword: str, interfaces: list[pp.MortarGrid], num_phases: int = 2
-    ) -> None:
-        self.interfaces = interfaces
-        self._discretization = PPUpwindCoupling(keyword, num_phases=num_phases)
-        self._name = "PPUpwind coupling"
-        self.keyword = keyword
         pp.ad.wrap_discretization(self, self._discretization, interfaces=interfaces)
 
 
@@ -924,93 +750,6 @@ class FluidBuoyancy(pp.PorePyModel):
     _nonlinear_discretizations: list[pp.ad.MergedOperator]
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
-    def buoyancy_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for subdomain buoyancy between phases gamma and delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the buoyancy term between the two phases. Can be used on
-                subdomains.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyancy_intf_key`
-
-        """
-        return "buoyancy_" + gamma.name + "_" + delta.name
-
-    def buoyant_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for stored buoyant flux array on subdomains.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the array of buoyancy flux between the two phases on
-                subdomains.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyant_intf_flux_array_key`
-
-        """
-        return "buoyant_flux_" + gamma.name + "_" + delta.name
-
-    def buoyancy_intf_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for interface buoyancy between phases gamma and delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the buoyancy term between the two phases. Can be used on
-                subdomains.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyancy_key`
-
-        """
-        return "buoyancy_intf_" + gamma.name + "_" + delta.name
-
-    def buoyant_intf_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for stored buoyant flux array on interfaces.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the array of buoyancy flux between the two phases on
-                interfaces.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyant_flux_array_key`
-
-        """
-        return "buoyant_intf_flux_" + gamma.name + "_" + delta.name
-
-    def buoyancy_discretization(
-        self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
-    ) -> pp.ad.UpwindAd:
-        """Return upwind discretization for subdomain buoyancy term gamma↔delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            subdomains: The subdomains to consider for the discretization.
-
-        Returns:
-            An Upwind discretization for the buoyancy term between the two phases.
-
-        """
-        discr = pp.ad.UpwindAd(self.buoyancy_key(gamma, delta), subdomains)
-        assert isinstance(discr._discretization, pp.Upwind)
-        discr._discretization.flux_array_key = self.buoyant_flux_array_key(gamma, delta)
-        return discr
-
     def hybrid_upwind_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
         """Discretization/parameter keyword for the pair's hybrid upwind."""
         return "hybrid_upwind_" + gamma.name + "_" + delta.name
@@ -1018,12 +757,12 @@ class FluidBuoyancy(pp.PorePyModel):
     def hybrid_upwind_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> HUpwindAd:
-        """Return the one-direction hybrid-upwind discretization for the pair.
+        """Return the two-direction hybrid-upwind discretization for the pair.
 
-        A single :class:`HUpwind` whose stored ``"hybrid_gravity_flux"`` direction (the
-        gamma->delta inter-phase gravity flux) yields both ``upwind_gamma`` (``+``) and
-        ``upwind_delta`` (``-``), replacing the previous pair of sign-flipped
-        :class:`~porepy.numerics.ad.discretizations.UpwindAd` objects.
+        A single :class:`HUpwind` whose two stored directions ``"hybrid_gamma_flux"`` /
+        ``"hybrid_delta_flux"`` yield ``upwind_gamma`` and ``upwind_delta`` respectively.
+        The model fills the two directions per scheme (inter-phase gravity flux ``+/-`` for
+        hybrid; the per-phase potential fluxes for phase-potential upwinding).
 
         Parameters:
             gamma: The first (reference) phase.
@@ -1039,53 +778,13 @@ class FluidBuoyancy(pp.PorePyModel):
     def hybrid_interface_upwind_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> HUpwindCouplingAd:
-        """Return the one-direction hybrid interface (mortar) upwind for the pair.
+        """Return the two-direction hybrid interface (mortar) upwind for the pair.
 
-        A single :class:`HUpwindCoupling` whose stored interface gravity direction yields
-        both phases' opposite mortar upwind matrices, replacing the pair of sign-flipped
-        :class:`~porepy.numerics.ad.discretizations.UpwindCouplingAd` objects.
+        A single :class:`HUpwindCoupling` whose two stored interface directions
+        (``hybrid_gamma_flux`` / ``hybrid_delta_flux``) yield the two phases' mortar upwind
+        matrices.
         """
         return HUpwindCouplingAd(self.hybrid_upwind_key(gamma, delta), interfaces)
-
-    # ------------------------------------------------------------------ #
-    #  Per-phase PPU upwind discretization wiring (N independent          #
-    #  advecting directions, one phase potential per phase).              #
-    # ------------------------------------------------------------------ #
-
-    def ppu_upwind_key(self) -> str:
-        """Discretization / parameter keyword for the per-phase PPU upwind."""
-        return "ppu_upwind"
-
-    def _ppu_phase_suffix_pairs(self) -> list[tuple[pp.Phase, str]]:
-        """``(phase, flux_array_key)`` for each phase, ordered gamma, delta, theta.
-
-        The flux-array key matches :class:`PPUpwind` (``"darcy_flux"`` for a single
-        phase, ``"ppu_flux_<suffix>"`` otherwise).
-        """
-        phases = list(self.fluid.phases)
-        suffixes = _validate_num_phases(len(phases))
-        return [
-            (phase, "darcy_flux" if suf == "" else f"ppu_flux_{suf}")
-            for phase, suf in zip(phases, suffixes)
-        ]
-
-    def ppu_upwind_discretization(self, subdomains: list[pp.Grid]) -> PPUpwindAd:
-        """Return the N-phase PPU subdomain upwind discretization."""
-        return PPUpwindAd(
-            self.ppu_upwind_key(),
-            subdomains,
-            num_phases=len(list(self.fluid.phases)),
-        )
-
-    def ppu_interface_upwind_discretization(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> PPUpwindCouplingAd:
-        """Return the N-phase PPU interface (mortar) upwind discretization."""
-        return PPUpwindCouplingAd(
-            self.ppu_upwind_key(),
-            interfaces,
-            num_phases=len(list(self.fluid.phases)),
-        )
 
     def interface_potential_driven_flux(
         self, interfaces: list[pp.MortarGrid], phase: pp.Phase
@@ -1104,133 +803,6 @@ class FluidBuoyancy(pp.PorePyModel):
         ) + self.interface_density_driven_flux(interfaces, rho_phase - rho_mixture)
         flux.set_name("interface_potential_driven_flux_" + phase.name)
         return flux
-
-    def ppu_buoyancy(
-        self,
-        subdomains: list[pp.Grid],
-        advected_weight: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator],
-    ) -> pp.ad.Operator:
-        r"""Per-phase PPU gravity (buoyancy) term, upwinded through :class:`PPUpwind`.
-
-        .. math::
-
-            b = (Kg\cdot n)\,\sum_\gamma \mathrm{upw}_{\Psi_\gamma}(\rho_\gamma w_\gamma)
-              - \mathrm{ddf}(\rho_{mix})\,\sum_\gamma \mathrm{upw}_{\Psi_\gamma}(w_\gamma),
-
-        with each phase's weight upwinded by *its own* potential via the frozen
-        :class:`PPUpwind` matrices (``unit_gravity = density_driven_flux(1)``,
-        ``mixture_gravity = density_driven_flux(rho_mix)``). This is the per-phase gravity
-        *deviation* added on top of the viscous flux (which carries the mixture-density
-        gravity via ``darcy_flux``); the viscous term itself is left untouched for now.
-
-        The interface (mortar) coupling is included: the same per-phase buoyancy on the
-        interface, with each phase's weight upwinded across the interface by
-        :class:`PPUpwindCoupling` and projected back to the primary faces (zero for the
-        fracture-free benchmark, mirroring the simplicial term's interface block).
-
-        Parameters:
-            subdomains: List of subdomains.
-            advected_weight: Callable ``(phase, domains) -> w_gamma`` (cell-wise).
-
-        Returns:
-            Operator representing the PPU buoyancy flux.
-
-        """
-        discr = self.ppu_upwind_discretization(subdomains)
-        rho_mixture = self.fractionally_weighted_density(subdomains)
-        size = sum(sd.num_cells for sd in subdomains)
-        unit_density = pp.wrap_as_dense_ad_array(
-            np.ones(size), name="ppu_unit_density"
-        )
-        unit_gravity = self.density_driven_flux(subdomains, unit_density)
-        mixture_gravity = self.density_driven_flux(subdomains, rho_mixture)
-
-        phases = list(self.fluid.phases)
-        suffixes = _validate_num_phases(len(phases))
-        diffusive_terms: List[pp.ad.Operator] = []
-        gravity_terms: List[pp.ad.Operator] = []
-        for phase, suf in zip(phases, suffixes):
-            tag = f"_{suf}" if suf else ""
-            upwind = getattr(discr, f"upwind{tag}")()
-            w = advected_weight(phase, subdomains)
-            rho_w = phase.density(subdomains) * w
-            diffusive_terms.append(upwind @ w)
-            gravity_terms.append(upwind @ rho_w)
-        diffusive_weight = pp.ad.sum_operator_list(diffusive_terms)
-        gravity_weight = pp.ad.sum_operator_list(gravity_terms)
-        b_flux = unit_gravity * gravity_weight - mixture_gravity * diffusive_weight
-
-        # Interface (mortar) coupling: the same per-phase buoyancy on the interface, with
-        # each phase's weight upwinded across the interface by ``PPUpwindCoupling`` and
-        # projected back to the primary subdomain faces. Mirrors the interface block of
-        # the simplicial term (``__entity_buoyancy_flux``); zero for fracture-free media.
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        if len(interfaces) != 0:
-            intf_discr = self.ppu_interface_upwind_discretization(interfaces)
-            unit_gravity_intf = self.interface_density_driven_flux(
-                interfaces, unit_density
-            )
-            mixture_gravity_intf = self.interface_density_driven_flux(
-                interfaces, rho_mixture
-            )
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, dim=1
-            )
-            primary_trace = pp.ad.Trace(subdomains).trace
-            mortar_avg = mortar_projection.primary_to_mortar_avg()
-            secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
-
-            diffusive_intf_terms: List[pp.ad.Operator] = []
-            gravity_intf_terms: List[pp.ad.Operator] = []
-            for phase, suf in zip(phases, suffixes):
-                tag = f"_{suf}" if suf else ""
-                up_primary = getattr(intf_discr, f"upwind_primary{tag}")()
-                up_secondary = getattr(intf_discr, f"upwind_secondary{tag}")()
-                w = advected_weight(phase, subdomains)
-                rho_w = phase.density(subdomains) * w
-                diffusive_intf_terms.append(
-                    up_primary @ mortar_avg @ primary_trace @ w
-                    + up_secondary @ secondary_to_mortar @ w
-                )
-                gravity_intf_terms.append(
-                    up_primary @ mortar_avg @ primary_trace @ rho_w
-                    + up_secondary @ secondary_to_mortar @ rho_w
-                )
-            diffusive_intf = pp.ad.sum_operator_list(diffusive_intf_terms)
-            gravity_intf = pp.ad.sum_operator_list(gravity_intf_terms)
-            intf_buoy = (
-                unit_gravity_intf * gravity_intf
-                - mixture_gravity_intf * diffusive_intf
-            )
-            b_flux = b_flux + (
-                discr.bound_transport_neu()
-                @ mortar_projection.mortar_to_primary_int()
-                @ intf_buoy
-            )
-
-        b_flux.set_name("ppu_buoyancy")
-        return b_flux
-
-    def interface_buoyancy_discretization(
-        self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.UpwindCouplingAd:
-        """Return upwind discretization for interface buoyancy term gamma-delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            interfaces: The interfaces to consider for the discretization.
-
-        Returns:
-            An Upwind discretization for the buoyancy term between the two phases.
-
-        """
-        discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
-        assert isinstance(discr._discretization, pp.UpwindCoupling)
-        discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(
-            gamma, delta
-        )
-        return discr
 
     def fractionally_weighted_density(
         self, domains: pp.SubdomainsOrBoundaries
@@ -1751,24 +1323,6 @@ class FluidBuoyancy(pp.PorePyModel):
             Ad operator representing the buoyancy flux for the component.
 
         """
-        if self.is_phase_potential_upwinding():
-
-            def component_weight(
-                phase: pp.Phase, d: pp.SubdomainsOrBoundaries
-            ) -> pp.ad.Operator:
-                if component_xi in phase:  # type: ignore[operator]
-                    return (
-                        phase.partial_fraction_of[component_xi](d)
-                        * phase.density(d)
-                        * self.phase_mobility(phase, d)
-                    )
-                size = sum(g.num_cells for g in d)
-                return pp.wrap_as_dense_ad_array(
-                    np.zeros(size), name="zero_component_weight"
-                )
-
-            return self.ppu_buoyancy(cast(list[pp.Grid], domains), component_weight)
-
         b_fluxes: List[pp.ad.Operator] = []
         b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
@@ -1785,10 +1339,10 @@ class FluidBuoyancy(pp.PorePyModel):
     def enthalpy_buoyancy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Get the buoyancy flux for specific enthalpy.
 
-        Phase-potential upwinding (``buoyancy_upwinding == "phase_potential"``) uses the
-        per-phase PPU buoyancy (:meth:`ppu_buoyancy`, upwinded by each phase's own
-        potential via :class:`PPUpwind`); hybrid upwinding uses the simplicial
-        inter-phase buoyancy term.
+        Both schemes use the same simplicial inter-phase buoyancy term
+        (:meth:`__entity_buoyancy_flux`); they differ only in the two upwind directions
+        stored for the :class:`HUpwind` discretization (hybrid: inter-phase gravity flux
+        with opposite signs; phase-potential: each phase's own potential flux).
 
         Parameters:
             domains: The domains to consider for the buoyancy flux calculation.
@@ -1797,19 +1351,6 @@ class FluidBuoyancy(pp.PorePyModel):
             Ad operator representing the buoyancy flux for the specific enthalpy.
 
         """
-        if self.is_phase_potential_upwinding():
-
-            def enthalpy_weight(
-                phase: pp.Phase, d: pp.SubdomainsOrBoundaries
-            ) -> pp.ad.Operator:
-                return (
-                    phase.specific_enthalpy(d)
-                    * phase.density(d)
-                    * self.phase_mobility(phase, d)
-                )
-
-            return self.ppu_buoyancy(cast(list[pp.Grid], domains), enthalpy_weight)
-
         b_fluxes: List[pp.ad.Operator] = []
         b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
@@ -1880,68 +1421,37 @@ class FluidBuoyancy(pp.PorePyModel):
         return b_flux
 
     def set_buoyancy_discretization_parameters(self):
-        """Initialize parameter containers and zero flux arrays for buoyancy."""
+        """Initialize parameter containers and zero direction arrays for buoyancy.
+
+        Each pair's hybrid upwind keyword holds the *two* direction arrays
+        ``hybrid_gamma_flux`` / ``hybrid_delta_flux`` (filled per scheme in
+        :meth:`update_buoyancy_driven_fluxes`).
+        """
         for phase_gamma in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase_gamma):
-                gamma, delta = pairs
+            for gamma, delta in self.phase_pairs_for(phase_gamma):
+                key = self.hybrid_upwind_key(gamma, delta)
                 for sd, data in self.mdg.subdomains(return_data=True):
-                    pp.initialize_data(data, self.buoyancy_key(gamma, delta))
-                    pp.initialize_data(data, self.buoyancy_key(delta, gamma))
                     null_vals = np.zeros(sd.num_faces)
-                    # Set the SAME advective-flux boundary classification used by the
-                    # mobility discretization (bc_type_fluid_flux). Without this the
-                    # Upwind discretization defaults to all-Dirichlet, so its upwind()
-                    # and bound_transport_*() would not partition the boundary faces
-                    # consistently with the advective flux (cf. PPU boundary bug).
-                    bc = self.bc_type_fluid_flux(sd)
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
+                    # Same advective-flux boundary classification as the mobility
+                    # discretization, so the upwind/bound_transport matrices partition the
+                    # boundary faces consistently with the advective flux.
+                    pp.initialize_data(data, key)
+                    data[pp.PARAMETERS][key].update(
                         {
-                            self.buoyant_flux_array_key(gamma, delta): +null_vals,
-                            "bc": bc,
+                            "hybrid_gamma_flux": +null_vals,
+                            "hybrid_delta_flux": +null_vals,
+                            "bc": self.bc_type_fluid_flux(sd),
                         }
-                    )
-                    data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                        {
-                            self.buoyant_flux_array_key(delta, gamma): -null_vals,
-                            "bc": bc,
-                        }
-                    )
-                    # Hybrid upwind: a single stored gravity direction per pair (its two
-                    # opposite per-phase matrices are built in HUpwind.discretize).
-                    pp.initialize_data(data, self.hybrid_upwind_key(gamma, delta))
-                    data[pp.PARAMETERS][self.hybrid_upwind_key(gamma, delta)].update(
-                        {"hybrid_gravity_flux": +null_vals, "bc": bc}
                     )
                 for intf, data in self.mdg.interfaces(return_data=True):
                     null_vals = np.zeros(intf.num_cells)
-                    pp.initialize_data(data, self.buoyancy_intf_key(gamma, delta))
-                    pp.initialize_data(data, self.buoyancy_intf_key(delta, gamma))
-                    data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
-                        {self.buoyant_intf_flux_array_key(gamma, delta): +null_vals}
+                    pp.initialize_data(data, key)
+                    data[pp.PARAMETERS][key].update(
+                        {
+                            "hybrid_gamma_flux": +null_vals,
+                            "hybrid_delta_flux": +null_vals,
+                        }
                     )
-                    data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
-                        {self.buoyant_intf_flux_array_key(delta, gamma): -null_vals}
-                    )
-                    # Hybrid interface upwind: one stored gravity direction per pair.
-                    pp.initialize_data(data, self.hybrid_upwind_key(gamma, delta))
-                    data[pp.PARAMETERS][self.hybrid_upwind_key(gamma, delta)].update(
-                        {"hybrid_gravity_flux": +null_vals}
-                    )
-
-        # Per-phase PPU upwind: one keyword holding one flux array per phase (not per
-        # pair) -- on subdomains and interfaces.
-        ppu_keyword = self.ppu_upwind_key()
-        phase_flux_keys = [key for _, key in self._ppu_phase_suffix_pairs()]
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(data, ppu_keyword)
-            entries = {key: np.zeros(sd.num_faces) for key in phase_flux_keys}
-            entries["bc"] = self.bc_type_fluid_flux(sd)
-            data[pp.PARAMETERS][ppu_keyword].update(entries)
-        for intf, data in self.mdg.interfaces(return_data=True):
-            pp.initialize_data(data, ppu_keyword)
-            data[pp.PARAMETERS][ppu_keyword].update(
-                {key: np.zeros(intf.num_cells) for key in phase_flux_keys}
-            )
 
     def _register_hybrid_nonlinear_discretization(
         self, op: pp.ad.MergedOperator
@@ -1990,171 +1500,88 @@ class FluidBuoyancy(pp.PorePyModel):
                     intf_discr.upwind_secondary_delta()
                 )
 
-        # Per-phase PPU upwind: one discretization (N matrices) for subdomains and one
-        # for interfaces, registered for the phase-potential scheme (which consumes them
-        # in ``ppu_buoyancy``).
-        if self.is_phase_potential_upwinding():
-            ppu_discr = self.ppu_upwind_discretization(self.mdg.subdomains())
-            ppu_intf_discr = self.ppu_interface_upwind_discretization(
-                self.mdg.interfaces(codim=1)
-            )
-            suffixes = _validate_num_phases(len(list(self.fluid.phases)))
-            for suf in suffixes:
-                tag = f"_{suf}" if suf else ""
-                self._register_hybrid_nonlinear_discretization(
-                    getattr(ppu_discr, f"upwind{tag}")()
-                )
-                self._register_hybrid_nonlinear_discretization(
-                    getattr(ppu_intf_discr, f"upwind_primary{tag}")()
-                )
-                self._register_hybrid_nonlinear_discretization(
-                    getattr(ppu_intf_discr, f"upwind_secondary{tag}")()
-                )
-
-    def _update_ppu_upwind_directions(self) -> None:
-        """Refresh the per-phase PPU upwind directions.
-
-        Stores each phase's potential flux ``Psi_phase`` under the matching
-        ``"ppu_flux_<phase>"`` key (subdomains) and the per-phase interface potential
-        (interfaces), so :class:`PPUpwind` / :class:`PPUpwindCoupling` build their N
-        upwind matrices from one independent direction per phase.
-        """
-        ppu_keyword = self.ppu_upwind_key()
-        subdomains = self.mdg.subdomains()
-        if len(subdomains) > 0:
-            offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
-            for phase, flux_key in self._ppu_phase_suffix_pairs():
-                vals = self.equation_system.evaluate(
-                    self.potential_driven_flux(subdomains, phase)
-                )
-                for k, (sd, data) in enumerate(
-                    self.mdg.subdomains(return_data=True)
-                ):
-                    data[pp.PARAMETERS][ppu_keyword].update(
-                        {flux_key: vals[offsets[k] : offsets[k] + sd.num_faces]}
-                    )
-        interfaces = self.mdg.interfaces(codim=1)
-        if len(interfaces) > 0:
-            intf_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
-            for phase, flux_key in self._ppu_phase_suffix_pairs():
-                vals = self.equation_system.evaluate(
-                    self.interface_potential_driven_flux(interfaces, phase)
-                )
-                for k, (intf, data) in enumerate(
-                    self.mdg.interfaces(return_data=True, codim=1)
-                ):
-                    data[pp.PARAMETERS][ppu_keyword].update(
-                        {flux_key: vals[intf_offsets[k] : intf_offsets[k] + intf.num_cells]}
-                    )
-
     def update_buoyancy_driven_fluxes(self):
-        """Update stored buoyancy flux arrays (subdomains and interfaces).
+        """Refresh the two stored upwind directions of the buoyancy discretizations.
 
-        The stored arrays define the upwinding direction of the buoyancy
-        discretizations. In the phase-potential scheme (PPU) they hold each phase's
-        phase-potential flux; in the hybrid scheme (HU) they hold the inter-phase
-        gravity flux (opposite sign for the two phases).
+        For each ordered phase pair ``(gamma, delta)`` the :class:`HUpwind` /
+        :class:`HUpwindCoupling` discretizations read two direction arrays:
+
+        - hybrid upwinding (HU): the inter-phase gravity flux with opposite signs
+          (``+ddf(rho_gamma - rho_delta)`` for gamma, ``-ddf(...)`` for delta);
+        - phase-potential upwinding (PPU), guarded by
+          :meth:`is_phase_potential_upwinding`: each phase's own potential flux
+          (``Psi_gamma`` for gamma, ``Psi_delta`` for delta).
         """
-        # Phase-potential scheme: refresh the per-phase PPU upwind directions (each
-        # phase's potential flux) consumed by ``ppu_buoyancy`` via :class:`PPUpwind`.
-        if self.is_phase_potential_upwinding():
-            self._update_ppu_upwind_directions()
+        phase_potential = self.is_phase_potential_upwinding()
+        subdomains = self.mdg.subdomains()
+        subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        interface_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
 
-        ppu_Q = self.is_phase_potential_upwinding()
         for phase_gamma in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase_gamma):
-                gamma, delta = pairs
+            for gamma, delta in self.phase_pairs_for(phase_gamma):
+                key = self.hybrid_upwind_key(gamma, delta)
 
-                # Compute the values for all subdomains jointly, then distribute in a
-                # for-loop. This is faster evaluation inside a loop over subdomains.
-                subdomains = self.mdg.subdomains()
-
-                rho_gamma_full = gamma.density(subdomains)
-                rho_delta_full = delta.density(subdomains)
-                # The hybrid upwind always rides the single inter-phase gravity direction.
-                gravity_vals = self.equation_system.evaluate(
-                    self.density_driven_flux(
-                        subdomains, rho_gamma_full - rho_delta_full
+                # Two subdomain directions per pair (evaluated jointly, then distributed).
+                if phase_potential:
+                    gamma_vals = self.equation_system.evaluate(
+                        self.potential_driven_flux(subdomains, gamma)
                     )
-                )
-                if ppu_Q:
-                    subdomain_gamma_vals = self.equation_system.evaluate(
-                        self.potential_driven_flux(
-                            subdomains, gamma
-                        )
-                    )
-                    subdomain_delta_vals = self.equation_system.evaluate(
-                        self.potential_driven_flux(
-                            subdomains, delta
-                        )
+                    delta_vals = self.equation_system.evaluate(
+                        self.potential_driven_flux(subdomains, delta)
                     )
                 else:
-                    subdomain_vals = gravity_vals
-
-                # Offsets for the indices of individual subdomains.
-                subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
-
-                for id, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
-                    sd_offset = subdomain_offsets[id]
-
-                    # Single gravity direction for the hybrid upwind (gamma uses +, delta
-                    # uses - internally in HUpwind.discretize).
-                    grav_loc = gravity_vals[sd_offset : sd_offset + sd.num_faces]
-                    data[pp.PARAMETERS][self.hybrid_upwind_key(gamma, delta)].update(
-                        {"hybrid_gravity_flux": +grav_loc}
+                    gravity_vals = self.equation_system.evaluate(
+                        self.density_driven_flux(
+                            subdomains,
+                            gamma.density(subdomains) - delta.density(subdomains),
+                        )
                     )
+                    gamma_vals = +gravity_vals
+                    delta_vals = -gravity_vals
 
-                    if ppu_Q:
-                        vals_loc = subdomain_gamma_vals[sd_offset: sd_offset + sd.num_faces]
-                        data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                            {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
-                        )
-                        vals_loc = subdomain_delta_vals[sd_offset: sd_offset + sd.num_faces]
-                        data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                            {self.buoyant_flux_array_key(delta, gamma): +vals_loc}
-                        )
-                    else:
-                        vals_loc = subdomain_vals[sd_offset: sd_offset + sd.num_faces]
-                        data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                            {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
-                        )
-                        data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                            {self.buoyant_flux_array_key(delta, gamma): -vals_loc}
-                        )
-
-                # Same procedure for interfaces.
-                interfaces = self.subdomains_to_interfaces(subdomains, [1])
+                for k, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
+                    sl = slice(subdomain_offsets[k], subdomain_offsets[k] + sd.num_faces)
+                    data[pp.PARAMETERS][key].update(
+                        {
+                            "hybrid_gamma_flux": gamma_vals[sl],
+                            "hybrid_delta_flux": delta_vals[sl],
+                        }
+                    )
 
                 if len(interfaces) < 1:
                     # Shortcut for fracture-less domains.
                     continue
 
-                interface_values = self.equation_system.evaluate(
-                    self.interface_density_driven_flux(
-                        interfaces, rho_gamma_full - rho_delta_full
+                # Two interface directions per pair.
+                if phase_potential:
+                    gamma_intf = self.equation_system.evaluate(
+                        self.interface_potential_driven_flux(interfaces, gamma)
                     )
-                )
-                interface_offsets = np.cumsum(
-                    [0] + [intf.num_cells for intf in interfaces]
-                )
+                    delta_intf = self.equation_system.evaluate(
+                        self.interface_potential_driven_flux(interfaces, delta)
+                    )
+                else:
+                    grav_intf = self.equation_system.evaluate(
+                        self.interface_density_driven_flux(
+                            interfaces,
+                            gamma.density(subdomains) - delta.density(subdomains),
+                        )
+                    )
+                    gamma_intf = +grav_intf
+                    delta_intf = -grav_intf
 
-                for id, (intf, data) in enumerate(
+                for k, (intf, data) in enumerate(
                     self.mdg.interfaces(return_data=True, codim=1)
                 ):
-                    intf_offset = interface_offsets[id]
-                    vals_loc = interface_values[
-                        intf_offset : intf_offset + intf.num_cells
-                    ]
-
-                    data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
-                        {self.buoyant_intf_flux_array_key(gamma, delta): +vals_loc}
+                    sl = slice(
+                        interface_offsets[k], interface_offsets[k] + intf.num_cells
                     )
-                    data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
-                        {self.buoyant_intf_flux_array_key(delta, gamma): -vals_loc}
-                    )
-                    # Single interface gravity direction for the hybrid coupling.
-                    data[pp.PARAMETERS][self.hybrid_upwind_key(gamma, delta)].update(
-                        {"hybrid_gravity_flux": +vals_loc}
+                    data[pp.PARAMETERS][key].update(
+                        {
+                            "hybrid_gamma_flux": gamma_intf[sl],
+                            "hybrid_delta_flux": delta_intf[sl],
+                        }
                     )
 
 
