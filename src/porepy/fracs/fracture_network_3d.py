@@ -690,7 +690,7 @@ class FractureNetwork3d(FractureNetwork):
 
         num_point_occ = np.bincount(points_of_intersection_lines)
         # Identify all points that occur more than once.
-        all_intersection_points = np.where(num_point_occ > 1)[0]
+        all_intersection_points = np.where(num_point_occ > 1)[0].astype(int)
         # Filter away those points that lie on the domain boundary.
         intersection_points = [
             pt
