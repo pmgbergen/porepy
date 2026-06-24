@@ -1,7 +1,7 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Non-isothermal model with nonlinear preconditioning using the uv flash.
+Thermal model with nonlinear preconditioning using the uv flash.
 Temperature is initially constant, during injection and on the boundary.
 Temperature drop is expected when fracture opens.
 
@@ -35,12 +35,12 @@ from porepy.examples.cold_injection.model import (
 )
 from porepy.models.compositional_flow_with_equilibrium import CFLEModelTemplate
 
-ISOCHORIC_NPC = False
-UV_PRIMARY = True
-
-APERTURE_JUMP_SCHEDULE: list[tuple[float, float]] = [
-    # (25 * pp.DAY, 5.0),
-]
+from .run_case2a import (
+    T_END_DAYS,
+    Case2DataCollection,
+    get_case2_argparser,
+    resolve_args,
+)
 
 max_iterations = 30
 iter_range = (15, 25)
@@ -48,42 +48,15 @@ newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
 
-T_END_DAYS = 50
-
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
-if APERTURE_JUMP_SCHEDULE:
-    t_jump = APERTURE_JUMP_SCHEDULE[0][0]
-    t = np.array(time_schedule)
-    t_before: list[float] = t[t < t_jump].tolist()
-    t_after: list[float] = t[t > t_jump].tolist()
-    if t_before[-1] < t_jump - pp.HOUR:
-        t_before += [t_jump - pp.HOUR]
-    time_schedule = t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
-
-
 dt_init = pp.DAY * 0.5
 dt_min = pp.SECOND
-dt_max = np.max(np.diff(np.array(time_schedule)))
-
-time_manager = pp.TimeManager(
-    schedule=time_schedule,
-    dt_init=dt_init,
-    dt_min_max=(dt_min, dt_max),
-    iter_max=max_iterations,
-    iter_optimal_range=iter_range,
-    iter_relax_factors=(0.75, 1.5),
-    recomp_factor=0.5,
-    recomp_max=10,
-    print_info=True,
-    atol=5e-5,
-)
 
 model_params, solver_params = get_default_params(
     base_permeability=1e-14,
 )
 
 # model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
-model_params["time_manager"] = time_manager
 # model_params["times_to_export"] = time_schedule
 model_params["meshing_arguments"] = {
     "cell_size": 5.0,
@@ -111,19 +84,12 @@ model_params["flash_params"]["compile_args"] = (
     pp.compositional.FlashSpec.vu,
 )
 
-
-solver_params["armijo_line_search_weight"] = 0.9
-solver_params["armijo_line_search_incline"] = 1e-4
-solver_params["armijo_line_search_max_iterations"] = 20
-solver_params["armijo_stop_after_residual_reaches"] = 1e-5
-solver_params["armijo_least_squares_form"] = False
-solver_params["newton_chop"] = 0.4
-
 solver_params["atol_objective"] = newton_tol_res
 solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 solver_params["volume_clip"] = (0.9, 1.1)  # (0.8, 1.2)
+model_params["use_logp_nonlinear_rpc"] = False
 if (
     model_params["use_logp_nonlinear_rpc"]
     and solver_params["pressure_clip"] is not None
@@ -149,6 +115,7 @@ solver_params["in_physical_space"] = True
 
 
 class ModelClass(  # type:ignore
+    Case2DataCollection,
     FluidPoreInteraction,
     NoFluxRediscretization,
     HorizontalFractureAndPointWells2D,
@@ -163,7 +130,7 @@ model_params["create_fluid_internal_energy_variable"] = True
 model_params["create_fluid_enthalpy_variable"] = False
 
 
-ModelClass._HEATED_BOUNDARY_ON = True
+ModelClass._HEATED_BOUNDARY_ON = False
 ModelClass._COMPONENT_NAMES = ["H2O"]
 ModelClass._IDEAL_COMPONENTS = [pp.compositional.ideal.IdealH2O]
 # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
@@ -176,27 +143,65 @@ ModelClass._T_IN = 450.0
 ModelClass._T_BC = 450.0  # 640.
 ModelClass._z_INIT = {"H2O": 1.0}
 ModelClass._z_IN = {"H2O": 1.0}
-ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
-
-if ISOCHORIC_NPC:
-    ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
 
 
 if __name__ == "__main__":
+    parser = get_case2_argparser("CI Case 2b.")
+    APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
+
+    # NOTE for debugging
+    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 2)]
+
+    ajump: float | None
+    if APERTURE_JUMP_SCHEDULE:
+        ajump = APERTURE_JUMP_SCHEDULE[0][1]
+
+        t_jump = APERTURE_JUMP_SCHEDULE[0][0]
+        t = np.array(time_schedule)
+        t_before: list[float] = t[t < t_jump].tolist()
+        t_after: list[float] = t[t > t_jump].tolist()
+        if t_before[-1] < t_jump - pp.HOUR:
+            t_before += [t_jump - pp.HOUR]
+        time_schedule = (
+            t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
+        )
+    else:
+        ajump = None
+
+    ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
+    model_params["time_manager"] = pp.TimeManager(
+        schedule=time_schedule,
+        dt_init=dt_init,
+        dt_min_max=(dt_min, np.max(np.diff(np.array(time_schedule)))),
+        iter_max=max_iterations,
+        iter_optimal_range=iter_range,
+        iter_relax_factors=(0.75, 1.5),
+        recomp_factor=0.5,
+        recomp_max=10,
+        print_info=True,
+        atol=5e-15,
+    )
+
+    if ISOCHORIC_NPC:
+        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
+
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
-    _ajump = False if len(APERTURE_JUMP_SCHEDULE) == 0 else APERTURE_JUMP_SCHEDULE[0][1]
-    _stride = model_params["flash_params"]["global_iteration_stride"]
     sub_folder = (
         f"CI_CASE2B/"
         f"{timestamp}"
-        f"_AJUMP_{_ajump}"
+        f"_AJUMP_{ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
-        f"_STRIDE_{_stride}"
-        f"_UVPRIM_{bool(UV_PRIMARY)}"
+        # f"_STRIDE_{model_params["flash_params"]["global_iteration_stride"]}"
+        f"_EPRIM_{bool(E_PRIMARY)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
-    print(f"\nStarting simulation : {sub_folder}\n")
+    print(
+        f"\nStarting simulation : {sub_folder}\n"
+        f"Aperture jump: {ajump}\n"
+        f"Extensives primary: {E_PRIMARY}\n"
+        f"Do isochoric NPC: {ISOCHORIC_NPC}\n"
+    )
 
     model = ModelClass(model_params)  # type:ignore[abstract]
 
@@ -210,7 +215,7 @@ if __name__ == "__main__":
     model.params["linear_right_preconditioner"] = get_rpc(model)  # type:ignore
 
     # Defining sub system for Schur complement reduction.
-    set_schur_complement(model, use_extensives=UV_PRIMARY)  # type:ignore[arg-type]
+    set_schur_complement(model, use_extensives=E_PRIMARY)  # type:ignore[arg-type]
     solver_params.update(
         get_default_convergence_criteria(
             model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug

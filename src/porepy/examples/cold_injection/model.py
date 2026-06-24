@@ -259,7 +259,7 @@ class SolutionStrategy(ModelConfig):
                 v_jump_factor = self.equation_system.evaluate(
                     self.pore_volume_jump([grid])
                 )
-                if np.max(v_jump_factor) > 1.1:
+                if np.max(v_jump_factor) > 1 + 1e-5:
                     if self.has_fluid_volume_variable:
                         v = self.equation_system.evaluate(
                             self.specific_fluid_volume([grid])
