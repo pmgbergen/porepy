@@ -95,12 +95,15 @@ class LinearSolver:
             model.after_nonlinear_convergence()
         elif divergence_status.is_diverged():
             solver_status = ConvergenceStatus.FAILED
+            logger.warning("Failed to solve the linear problem.")
             model.after_nonlinear_failure()
-            logger.warning("Failed to solve the nonlinear problem.")
         else:
-            raise ValueError(
-                "Nonlinear loop should return with either convergence or divergence."
+            solver_status = ConvergenceStatus.FAILED
+            logger.warning(
+                "Linear solver did not fail, but the convergence criterion did not "
+                "accept the solution. Treating it as a failure."
             )
+            model.after_nonlinear_failure()
 
         return solver_status
 
@@ -199,17 +202,27 @@ class LinearSolver:
         """
         # Fetch the residual.
         residual = model.equation_system.assemble(evaluate_jacobian=False)
+        iterate = model.equation_system.get_variable_values(iterate_index=0)
 
         # Check convergence status based on current iteration.
         convergence_status, convergence_info = self.convergence_criteria.check(
             increment=nonlinear_increment,
             residual=residual,
+            # Reference values don't make sense for a linear solver, but passed to
+            # conform the interface defined by the NewtonSolver.
+            reference_increment=iterate,
+            reference_residual=residual,
         )
 
         # Check divergence status based on current iteration.
         divergence_status = self.divergence_criteria.check(
             increment=nonlinear_increment,
             residual=residual,
+            # Reference values and num_iterations don't make sense for a linear solver,
+            # but passed to conform the interface defined by the NewtonSolver.
+            reference_increment=iterate,
+            reference_residual=residual,
+            num_iterations=1,
         )
 
         return convergence_status, divergence_status, convergence_info

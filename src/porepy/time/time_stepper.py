@@ -53,11 +53,7 @@ class TimeStepper:
 
     """
 
-    def __init__(
-        self,
-        time_manager: TimeManager,
-        params: Optional[dict] = None,
-    ) -> None:
+    def __init__(self, time_manager: TimeManager) -> None:
         """Initialize the time stepper.
 
         Parameters:
@@ -67,8 +63,6 @@ class TimeStepper:
         """
         self.time_manager = time_manager
         """TimeManager for tracking time and dt."""
-        self.params = params or {}
-        """Parameters for time stepping."""
 
         self.max_attempts = time_manager.recomp_max
         """Maximum number of retry attempts."""
@@ -102,7 +96,7 @@ class TimeStepper:
             self.time_manager.time_index += 1
 
             # Attempt a standard time step.
-            convergence_status = self.perform_trial_time_step(model, solver)
+            convergence_status = self._perform_trial_time_step(model, solver)
 
             if not convergence_status.is_converged():
                 # Roll back if the time step attempt failed.
@@ -110,12 +104,12 @@ class TimeStepper:
                 self.time_manager.time_index -= 1
 
             # New time step size based on trial results.
-            time_step_status = self.compute_next_time_step(
+            time_step_status = self._compute_next_time_step(
                 convergence_status, model, attempt
             )
 
             # Saving statistics
-            self.update_time_statistics(model, time_step_status)
+            self._update_time_statistics(model, time_step_status)
 
             # Abort simulation on success or error.
             if isinstance(
@@ -127,7 +121,7 @@ class TimeStepper:
             f"Max retries ({self.max_attempts}) exhausted; stopping."
         )
 
-    def compute_next_time_step(
+    def _compute_next_time_step(
         self, convergence_status: ConvergenceStatus, model: pp.PorePyModel, attempt: int
     ) -> TimeStepperStatus:
         """Compute the new time step size based on the trial status.
@@ -162,7 +156,7 @@ class TimeStepper:
                 )
             try:
                 # For rejected steps, we want to reduce dt for the next attempt.
-                model.time_manager.compute_time_step(recompute_solution=True)
+                self.time_manager.compute_time_step(recompute_solution=True)
                 return TimeStepperStatusContinueIterating()
             except ValueError as e:
                 # Time manager raises a value error if dt cannot be reduced any further.
@@ -170,7 +164,7 @@ class TimeStepper:
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
 
-    def perform_trial_time_step(
+    def _perform_trial_time_step(
         self,
         model: pp.PorePyModel,  #: pp.SolutionStrategy,
         solver: pp.LinearSolver | pp.NewtonSolver,
@@ -189,7 +183,7 @@ class TimeStepper:
 
         return convergence_status
 
-    def update_time_statistics(
+    def _update_time_statistics(
         self, model: pp.PorePyModel, time_step_status: TimeStepperStatus
     ) -> None:
         """Update statistics from the time step."""

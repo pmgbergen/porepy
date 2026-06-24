@@ -253,6 +253,9 @@ class NewtonSolver:
 
         is_converged = convergence_status.is_converged()
         is_diverged = divergence_status.is_diverged()
+
+        # Summarizing the convergence message from multiple criteria into an overall
+        # status.
         if is_converged:
             solver_status = ConvergenceStatus.CONVERGED
         elif is_diverged:
