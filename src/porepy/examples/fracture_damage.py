@@ -514,7 +514,7 @@ model_params = {
 }
 
 
-def run_example() -> list[pp.PorePyModel]:
+def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     """Run a selected fracture damage example and return the model.
 
     This executable block provides a lightweight demonstration of running a fracture
@@ -523,7 +523,7 @@ def run_example() -> list[pp.PorePyModel]:
     "north_displacements" in the parameter dictionary.
 
     The parameter `regimes` controls which mechanisms will be activated. Three regimes
-    are available: "dilation", "friction", or both, set to "dilation" below.
+    are available: "dilation", "friction", or both, set to "dilation" as default.
 
     """
 
@@ -531,9 +531,7 @@ def run_example() -> list[pp.PorePyModel]:
 
     dim = 2  # 2D case
     time_steps = 5
-    # Choose damage regimes: "dilation", "friction", or both. Set to "dilation" for the
-    # executable example.
-    regimes = ["dilation"]
+    #regimes = ["dilation"]
 
     model_params.update(
         {
