@@ -1,0 +1,323 @@
+"""
+Geothermal flow simulation with H2O and low NaCl content (Figure 5).
+
+This script includes a backtracking line search algorithm to improve Newton
+convergence. The line search can be enabled/disabled via the 'use_line_search'
+parameter in the params dictionary.
+
+Line search parameters (in DriesnerModelConfiguration.backtracking_line_search):
+- alpha_init: Initial step length (default: 1.0)
+- rho: Step reduction factor (default: 0.5)
+- c: Armijo parameter (default: 1e-4)
+- max_iterations: Maximum backtracking steps (default: 10)
+"""
+from __future__ import annotations
+
+import time
+from typing import cast
+
+import numpy as np
+
+import porepy as pp
+
+# geometry description horizontal case
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
+    SimpleGeometryHorizontal as ModelGeometryH,
+)
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
+    SimpleGeometryVertical as ModelGeometryV,
+)
+
+
+# Figure 5 two with low pressure (lP) condition
+# Horizontal without gravity
+# Vertical with gravity
+
+from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
+    DriesnerBrineFlowModel as FlowModel,
+)
+
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
+    BC_two_phase_steady_state as BC,
+)
+
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
+    IC_two_phase_steady_state as IC,
+)
+from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+
+# Main directives
+case_name = "case_lP"
+geometry_case = "vertical"
+
+# Buoyancy upwinding scheme:
+#   "phase_potential" -> phase-potential upwinding (PPU)
+#   "hybrid"          -> hybrid upwinding (HU)
+buoyancy_upwinding = "hybrid"
+
+final_times = {
+    "horizontal": [73000.0],  # final time [200 years]
+    "vertical": [73000.0],  # final time [1000 years]
+}
+
+day_to_second = 86400
+to_Mega = 1.0e-6
+# Configuration dictionary mapping cases to their specific classes
+simulation_cases = {
+    "case_lP": {
+        "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
+        "dt": 0.0625 *  365.0 * day_to_second,  # final time [1 years]
+        "bc": BC,
+        "ic": IC,
+    }
+}
+
+geometry_cases = {
+    "horizontal": ModelGeometryH,
+    "vertical": ModelGeometryV,
+}
+
+tf = cast(float, simulation_cases[case_name]["tf"])
+dt = cast(float, simulation_cases[case_name]["dt"])
+BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
+InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
+ModelGeometry: type = cast(type, geometry_cases[geometry_case])
+
+# Export configuration: number of time steps between consecutive VTK/PVD exports.
+export_every_n_steps = 16
+
+# Build times_to_export as multiples of dt. Include t=0 and final time tf.
+times = list(np.arange(0.0, tf, dt * export_every_n_steps))
+times.append(tf)
+times_to_export = times
+# now times_to_export can be overridden later by params if desired
+
+time_manager = pp.TimeManager(
+    schedule=[0.0, tf],
+    dt_init=dt,
+    constant_dt=True,
+    iter_max=50,
+    print_info=True,
+)
+
+# time_manager = pp.TimeManager(
+#     schedule=[0.0, tf],
+#     dt_init=dt,
+#     constant_dt=False,
+#     dt_min_max=((1.0/365.0) * dt, 1.0 * dt),
+#     iter_relax_factors=(0.5, 2.0),
+#     iter_optimal_range=(3, 8),
+#     recomp_factor=0.3,
+#     print_info=True,
+# )
+
+
+
+solid_constants = pp.SolidConstants(
+    permeability=1e-15,
+    porosity=0.1,
+    thermal_conductivity=2.0 * to_Mega,
+    density=2700.0,
+    specific_heat_capacity=880.0 * to_Mega,
+)
+material_constants = {"solid": solid_constants}
+params = {
+    "fractional_flow": False,
+    "enable_buoyancy_effects": True,
+    "buoyancy_upwinding": buoyancy_upwinding,
+    "lag_buoyancy_direction": True,
+    "material_constants": material_constants,
+    "time_manager": time_manager,
+    "times_to_export": times_to_export,
+    "folder_name": "visualization_steady_fig_5",  # output directory for the .vtu/.pvd
+    "file_name": "steady_fig_5",  # base name of the exported files
+    # Persist per-time-step solver statistics (iterations, status, residuals) to JSON.
+    "solver_statistics_file_name": f"solver_statistics_fig_5_{buoyancy_upwinding}",
+    "prepare_simulation": False,
+    "apply_schur_complement_reduction": False,
+    "nl_convergence_inc_atol": np.inf,
+    "nl_convergence_inc_rtol": np.inf,
+    "nl_convergence_res_atol": 9.0e-6,
+    "nl_convergence_res_rtol": np.inf,
+    "flag_failure_as_diverged": False,
+    # Maximum number of nonlinear iterations (was incorrectly set as
+    # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
+    "nl_max_iterations": 25,
+    # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
+    # "global_line_search": 1,
+    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
+    "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
+
+    # Step control method options:
+    # - "LS": Line Search (backtracking with Armijo condition)
+    # - "TR": Trust Region with CFL-aware dynamic radius adjustment
+    # - "TR-LS": Trust Region + Line Search refinement
+    # - "None": Plain Newton (no step control)
+    "step_control_method": "LS",
+
+    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
+    "activate_step_control_after_iter": 10,  # Activate after this many iterations
+
+    # Trust region specific parameters (only used for TR and TR-LS methods)
+    "trust_region_min_radius": 0.5,          # Minimum trust region radius (prevents collapse)
+    "trust_region_max_radius": 100.0,        # Maximum trust region radius (prevents unbounded growth)
+    "trust_region_aggressive": True,         # For hyperbolic systems: accept any step that reduces residual
+    "trust_region_block_structured": True,   # Leverage block structure: trust pressure (SPD), limit hyperbolic vars
+
+    # CFL-based trust radius bounds (RECOMMENDED for hyperbolic stability)
+    "trust_region_use_cfl_bounds": True,     # Use CFL to set physics-based bounds: min=1/CFL, max=CFL*10
+
+    # CFL-aware dynamic radius adjustment (acts as dynamic CFL limiter)
+    "trust_region_cfl_max_target": 10.0,              # Target CFL for expansion
+}
+# params = {
+#     "material_constants": material_constants,
+#     "fractional_flow": True,
+#     "buoyancy_on": True,
+#     "time_manager": time_manager,
+#     "prepare_simulation": False,
+#     "apply_schur_complement_reduction": False,
+#     "nl_convergence_tol": np.inf,
+#     "nl_convergence_tol_res": 1.0e-4,
+#     "max_iterations": 500,
+# }
+
+
+class GeothermalWaterFlowModel(
+    ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
+):
+    pass
+
+
+# Instance of the computational model
+model = GeothermalWaterFlowModel(params)
+
+parametric_space_ref_level = 2
+folder_prefix = "src/porepy/examples/geothermal_flow/"
+file_name_prefix = (
+    "model_configuration/constitutive_description/driesner_vtk_files/"
+)
+# file_name_phz = (
+#     file_name_prefix
+#     + "XHP_l"
+#     + str(parametric_space_ref_level)
+#     + "_modified_low_salt_content.vtk"
+# )
+# file_name_ptz = (
+#     file_name_prefix
+#     + "XTP_l"
+#     + str(parametric_space_ref_level)
+#     + "_modified_low_salt_content.vtk"
+# )
+
+file_name_phz = (
+    file_name_prefix
+    + "opensowat_xph_l_"
+    + str(parametric_space_ref_level)
+    + "_grads.vtk"
+)
+file_name_ptz = (
+    file_name_prefix
+    + "opensowat_xpt_l_"
+    + str(parametric_space_ref_level)
+    + "_grads.vtk"
+)
+
+brine_sampler_phz = VTKSampler(file_name_phz)
+brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
+model.vtk_sampler = brine_sampler_phz
+
+brine_sampler_ptz = VTKSampler(file_name_ptz)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0)  # (z,t,p)
+brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
+model.vtk_sampler_ptz = brine_sampler_ptz
+
+
+tb = time.time()
+model.prepare_simulation()
+te = time.time()
+print("Elapsed time prepare simulation: ", te - tb)
+print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
+print("Mixed-dimensional grid employed: ", model.mdg)
+model.schur_complement_primary_equations = (
+    pp.compositional_flow.get_primary_equations_cf(model)
+)
+model.schur_complement_primary_variables = (
+    pp.compositional_flow.get_primary_variables_cf(model)
+)
+
+# print geometry
+model.exporter.write_vtu()
+tb = time.time()
+pp.run_time_dependent_model(model, params)
+te = time.time()
+print("Elapsed time run_time_dependent_model: ", te - tb)
+print("Total number of DoF: ", model.equation_system.num_dofs())
+print("Mixed-dimensional grid information: ", model.mdg)
+
+# Retrieve the grid and boundary information
+grid = model.mdg.subdomains()[0]
+bc_sides = model.domain_boundary_sides(grid)
+
+# Integrated overall mass flux on all facets
+mn = model.equation_system.evaluate(model.darcy_flux(model.mdg.subdomains()))
+mn = cast(np.ndarray, mn)
+
+inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
+print("Inflow values : ", mn[inlet_idx])
+print("Outflow values : ", mn[outlet_idx])
+
+
+def report_solver_statistics(model) -> None:
+    """Print the nonlinear-solver and time-stepping statistics collected by PorePy.
+
+    Reports, per time-step attempt, the number of nonlinear iterations and the outcome
+    (accepted / time-step cut / stopped), followed by aggregate totals. The same data
+    (plus per-iteration residual norms) is also written to the JSON file given by the
+    ``solver_statistics_file_name`` parameter.
+    """
+    stats = getattr(model, "nonlinear_solver_statistics", None)
+    if stats is None:
+        print("No solver statistics available on the model.")
+        return
+
+    iters = list(getattr(stats, "num_iterations_history", []) or [])
+    status = [str(s) for s in getattr(stats, "simulation_status_history", []) or []]
+
+    if not iters and not status:
+        print("Solver statistics object is empty (no recorded time steps).")
+        return
+
+    # Align the two histories defensively.
+    n = min(len(iters), len(status)) if status else len(iters)
+    iters = iters[:n]
+    status = status[:n] if status else ["?"] * n
+
+    accepted_states = ("successful", "in_progress")
+    converged_iters = sum(it for it, s in zip(iters, status) if s in accepted_states)
+    cut_iters = sum(it for it, s in zip(iters, status) if s == "failed")
+    stopped_iters = sum(it for it, s in zip(iters, status) if s == "stopped")
+    n_accepted = sum(1 for s in status if s in accepted_states)
+    n_cuts = sum(1 for s in status if s == "failed")
+    n_stopped = sum(1 for s in status if s == "stopped")
+
+    print("\n" + "=" * 60)
+    print(" Solver statistics")
+    print("=" * 60)
+    print(f"{'attempt':>8} {'status':>14} {'nl_iterations':>14}")
+    for k, (it, s) in enumerate(zip(iters, status)):
+        print(f"{k:>8} {s:>14} {it:>14}")
+    print("-" * 60)
+    print(f"Time-step attempts            : {n}")
+    print(f"  accepted steps              : {n_accepted}")
+    print(f"  time-step cuts (failed)     : {n_cuts}")
+    print(f"  stopped                     : {n_stopped}")
+    print(f"Total nonlinear iterations    : {sum(iters)}")
+    print(f"  on accepted steps           : {converged_iters}")
+    print(f"  wasted (cuts + stopped)     : {cut_iters + stopped_iters}")
+    if n_accepted:
+        print(f"Avg iterations / accepted step: {converged_iters / n_accepted:.2f}")
+    print("=" * 60)
+
+
+report_solver_statistics(model)
