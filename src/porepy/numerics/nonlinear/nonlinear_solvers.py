@@ -18,7 +18,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
-    # SimulationStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (

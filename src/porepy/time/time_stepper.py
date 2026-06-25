@@ -7,7 +7,6 @@ called from the model runner.
 """
 
 import logging
-from typing import Optional
 
 import porepy as pp
 from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
@@ -19,7 +18,6 @@ from porepy.time.time_step_status import (
     TimeStepperStatusSuccess,
 )
 from porepy.viz.solver_statistics import NonlinearSolverStatistics
-# from porepy.time.time_step_status import TimeStepStatus
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +164,7 @@ class TimeStepper:
 
     def _perform_trial_time_step(
         self,
-        model: pp.PorePyModel,  #: pp.SolutionStrategy,
+        model: pp.PorePyModel,
         solver: pp.LinearSolver | pp.NewtonSolver,
     ) -> ConvergenceStatus:
         """Perform a single time step and evaluate acceptance/rejection criteria."""

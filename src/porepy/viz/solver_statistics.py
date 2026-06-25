@@ -16,7 +16,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
-    # SimulationStatus,
     _recursive_append,
 )
 

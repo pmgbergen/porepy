@@ -9,7 +9,6 @@ case, see numerics.nonlinear.nonlinear_solvers.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from warnings import warn
 import logging
 
 from porepy.models.solution_strategy import SolutionStrategy
@@ -21,9 +20,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
-    # SimulationStatus,
 )
-from porepy.viz.solver_statistics import TimeStatistics
 
 if TYPE_CHECKING:
     import numpy as np

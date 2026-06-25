@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC
 from dataclasses import dataclass
 import logging
 import warnings
@@ -9,7 +10,6 @@ from typing import Optional
 
 import numpy as np
 
-# from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.time.time_stepper import TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
@@ -27,21 +27,25 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ModelRunnerStatus:
+class ModelRunnerStatus(ABC):
+    """A status object used to indicate the ModelRunner state."""
     def is_success(self) -> bool:
+        """Whether the simulation finished successfully."""
         return isinstance(self, ModelRunnerStatusSuccess)
 
     def is_failure(self) -> bool:
+        """Whether the simulation finished with a failure."""
         return isinstance(self, ModelRunnerStatusFailure)
 
 
 @dataclass
 class ModelRunnerStatusSuccess(ModelRunnerStatus):
-    pass
+    """A status object that indicates that the simulation finished successfully."""
 
 
 @dataclass
 class ModelRunnerStatusFailure(ModelRunnerStatus):
+    """A status object that indicates that the simulation finished with a failure."""
     reason: str
 
 
@@ -291,7 +295,7 @@ class ModelRunner:
                 # Abort simulation if time step was stopped.
                 match time_step_status:
                     case TimeStepperStatusFailure(reason):
-                        logger.error("Time stepping failed.")
+                        logger.error(f"Time stepping failed: {reason}")
                         return ModelRunnerStatusFailure(reason=reason)
 
             # Conclude the simulation status.
@@ -311,10 +315,3 @@ class ModelRunner:
                 * self.time_progressbar.total
             )
         )
-
-    # def update_statistics(self, simulation_status: SimulationStatus) -> None:
-    #     """Update the statistics with the current simulation status and other relevant information."""
-    #     self.model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
-    #     self.model.nonlinear_solver_statistics.log_mesh_information(
-    #         self.model.mdg.subdomains()
-    #     )
