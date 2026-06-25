@@ -517,24 +517,21 @@ model_params = {
 def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     """Run a selected fracture damage example and return the model.
 
-    This function provides a lightweight demonstration of running a fracture damage
-    model. The model is the momentum balance model including fracture damage with
-    time-dependent displacement boundary conditions set by the key "north_displacements"
-    in the parameter dictionary.
+    This executable block provides a lightweight demonstration of running a fracture
+    damage model. The model is the momentum balance model of fracture damage with
+    time-dependent displacement boundary conditions set by the key
+    "north_displacements" in the parameter dictionary.
 
-    Parameters:
-        regimes: A list of strings specifying which damage mechanisms to activate.
-            Options are "dilation", "friction", or both. Defaults to ["dilation"].
+    The parameter `regimes` controls which mechanisms will be activated. Three regimes
+    are available: "dilation", "friction", or both, set to "dilation" as default.
 
-    Returns:
-        A list containing the model(s) used in the simulation. Length of the list equals
-        the number of regimes specified.
     """
 
     models: list[pp.PorePyModel] = []
 
     dim = 2  # 2D case
     time_steps = 5
+    #regimes = ["dilation"]
 
     model_params.update(
         {
