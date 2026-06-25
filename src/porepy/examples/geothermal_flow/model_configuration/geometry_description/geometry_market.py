@@ -203,14 +203,14 @@ class SimpleGeometryHorizontal(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
-
-    _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([0.0, 5.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([2000.0, 5.0, 0.0])
+    _ref_level = 0.125
+    _dist_from_ref_point: float = _ref_level * 5.0
+    _inlet_centre: np.ndarray = np.array([0.0, _ref_level * 5.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([2000.0, _ref_level * 5.0, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(2000.0, "m")
-        y_length = self.units.convert_units(5.0, "m")
+        y_length = self.units.convert_units(self._ref_level * 5.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -218,7 +218,7 @@ class SimpleGeometryHorizontal(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(self._ref_level * 10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -249,13 +249,13 @@ class SimpleGeometryVertical(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
-
-    _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([5.0, 0.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([5.0, 2000.0, 0.0])
+    _ref_level = 2.0
+    _dist_from_ref_point: float = _ref_level * 5.0
+    _inlet_centre: np.ndarray = np.array([_ref_level * 5.0, 0.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([_ref_level * 5.0, 2000.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(5.0, "m")
+        x_length = self.units.convert_units(self._ref_level * 5.0, "m")
         y_length = self.units.convert_units(2000.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
@@ -264,7 +264,7 @@ class SimpleGeometryVertical(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(self._ref_level  * 10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -459,4 +459,73 @@ class Figure8Geometry2D(Geometry):
         inlet_facets = find_facets_bottom(self._inlet_centre, self._inlet_dist_from_ref_point)
         outlet_facets = find_facets_top(self._outlet_centre, self._outlet_dist_from_ref_point)
         return inlet_facets, outlet_facets
+
+
+# Impermeable barrier layers for the WA-HU Ex. 6.3 test, digitized from Bosma et al.
+# (2022, CMAME 388:114288) Fig. 5(a). Keys = FIGURE rows (top = 0, gravity downward) on a
+# 100-cell grid; values = inclusive barrier-cell column ranges. Columns NOT listed are the
+# openings in that layer. (Exact layout is in ref [39]; this is a faithful read of Fig. 5a.)
+_BARRIER_LAYERS_FIG = {
+    16: [(4, 19), (40, 59), (70, 99)],
+    38: [(0, 9), (17, 25), (38, 49), (54, 74), (90, 94)],
+    45: [(23, 59), (63, 70)],
+    58: [(1, 17), (22, 29), (48, 59), (70, 99)],
+    74: [(0, 15), (19, 53), (58, 70), (84, 92)],
+    82: [(4, 18), (24, 42), (58, 94)],
+}
+
+
+class GeometryBarriers2D(Geometry):
+    """100 m x 100 m vertical Cartesian box (1 m cells) with horizontal impermeable
+    barrier layers, for the immiscible 3-phase gravity-segregation-through-barriers test
+    (Bosma et al. 2022, Ex. 6.3 / Fig. 5). The box is CLOSED (no inlet/outlet).
+
+    Barrier cells are reported by :meth:`barrier_cell_mask`; the run script's
+    ``permeability`` override multiplies those cells' permeability by a tiny factor.
+    """
+
+    _length = 100.0     # m, both directions
+    _cell = 1.0         # m
+
+    def set_domain(self) -> None:
+        length = self.units.convert_units(self._length, "m")
+        self._domain = pp.Domain({"xmax": length, "ymax": length})
+
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
+        return self.params.get("grid_type", "cartesian")
+
+    def meshing_arguments(self) -> dict:
+        return {"cell_size": self.units.convert_units(self._cell, "m")}
+
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """(inlet, outlet) facets: inlet is empty (closed bottom/sides), outlet = TOP.
+        """
+        sides = self.domain_boundary_sides(sd)
+        top_facets = np.where(sides.north)[0]            # max-y edge == physical top (2D)
+        inlet_facets = np.array([], dtype=int)           # bottom + sides stay closed
+        return inlet_facets, top_facets
+
+    def barrier_cell_mask(self, sd: pp.Grid) -> np.ndarray:
+        """Per-cell boolean mask, True for impermeable barrier cells.
+
+        Figure rows count from the TOP (gravity down) while PorePy ``y`` increases UPWARD,
+        so figure_row = (n - 1) - porepy_row. The digitized 100-grid layout is scaled if
+        the mesh is not exactly 100 cells per side.
+        """
+        length = self.units.convert_units(self._length, "m")
+        cell = self.units.convert_units(self._cell, "m")
+        n = int(round(length / cell))                  # cells per side (= 100 for 1 m cells)
+        xc = sd.cell_centers
+        col = np.floor(xc[0] / cell).astype(int)
+        prow = np.floor(xc[1] / cell).astype(int)      # PorePy row, 0 = bottom
+        figrow = (n - 1) - prow                        # figure row, 0 = top
+        scale = n / 100.0
+        mask = np.zeros(sd.num_cells, dtype=bool)
+        for fig_r, segments in _BARRIER_LAYERS_FIG.items():
+            in_row = figrow == int(round(fig_r * scale))
+            for a, b in segments:
+                mask |= in_row & (col >= int(round(a * scale))) & (col <= int(round(b * scale)))
+        return mask
 

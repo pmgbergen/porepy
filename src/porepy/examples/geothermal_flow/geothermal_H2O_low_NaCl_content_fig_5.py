@@ -53,7 +53,7 @@ geometry_case = "vertical"
 # Buoyancy upwinding scheme:
 #   "phase_potential" -> phase-potential upwinding (PPU)
 #   "hybrid"          -> hybrid upwinding (HU)
-buoyancy_upwinding = "phase_potential"
+buoyancy_upwinding = "hybrid"
 
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]

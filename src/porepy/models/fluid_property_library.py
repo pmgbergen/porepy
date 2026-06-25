@@ -1098,9 +1098,13 @@ class FluidBuoyancy(pp.PorePyModel):
         else:
             l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
             l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
+            l_background = self.total_mass_mobility(domains) - l_gamma - l_delta
+            l_background_upwind = pp.ad.Scalar(0.5) * (
+                discr.upwind_gamma() @ (l_background) + discr.upwind_delta() @ (l_background)
+            )
             l_gamma_upwind: pp.ad.Operator = discr.upwind_gamma() @ (l_gamma)  # well-defined lambda on facets.
             l_delta_upwind: pp.ad.Operator = discr.upwind_delta() @ (l_delta)  # well-defined lambda on facets.
-            lambda_upwind = l_gamma_upwind + l_delta_upwind
+            lambda_upwind = l_gamma_upwind + l_delta_upwind + l_background_upwind
             b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * lambda_upwind * w_flux_gamma_delta
 
         b_fluxes.append(b_flux_gamma_delta)

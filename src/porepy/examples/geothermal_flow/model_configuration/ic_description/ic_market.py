@@ -197,3 +197,100 @@ class IC_two_phase_Figure_8_left_panel(IC_Base):
         t_init = 283.15
         return np.ones(sd.num_cells) * t_init
 
+class IC_two_phase_steady_state(IC_Base):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        p_inlet = 15.0
+        p_outlet = 5.0
+        xc = sd.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        p_linear = (
+            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        )
+        p_init = np.array(list(map(p_linear, xc)))
+        return p_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        t_inlet = 723.15
+        t_outlet = 473.15
+        xc = sd.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        T_linear = (
+            lambda x: (x[dir_idx] * t_outlet + (2000.0 - x[dir_idx]) * t_inlet) / 2000.0
+        )
+        T = np.array(list(map(T_linear, xc)))
+        return T
+
+
+class IC_three_phase_segregation(pp.PorePyModel):
+    """Initial condition for the immiscible 3-phase gravity-segregation-through-barriers
+    test (Bosma et al. 2022, Ex. 6.3 / Fig. 5).
+
+    Top 10% of the 100 m box = heavy 'water', bottom 10% = light 'gas', the rest =
+    intermediate 'oil'. Immiscible: each component lives entirely in one phase. Self-
+    contained (does NOT use the VTK table base). Components are ordered [H2O, C5H12, CH4]
+    with H2O the reference; phases are [water, oil, gas] with water the reference phase.
+    """
+
+    _height = 100.0          # m, vertical (y) extent of the box
+    _p_ref = 10.0            # reference pressure [MPa] (closed incompressible -> arbitrary)
+
+    def _bands(self, sd: pp.Grid):
+        y = sd.cell_centers[1]
+        height = self.units.convert_units(self._height, "m")
+        top = y > 0.9 * height          # heavy water
+        bottom = y < 0.1 * height       # light gas
+        middle = ~(top | bottom)        # intermediate oil
+        return top, middle, bottom
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        return np.full(sd.num_cells, self._p_ref)
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        # isothermal/decoupled energy -> uniform placeholder (mirrors buoyancy_flow_model)
+        return np.ones(sd.num_cells)
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        top, middle, bottom = self._bands(sd)
+        z = np.zeros(sd.num_cells)
+        if component == self.fluid.components[1]:       # C5H12 (oil) -> middle band
+            z[middle] = 1.0
+        elif component == self.fluid.components[2]:     # CH4 (gas) -> bottom band
+            z[bottom] = 1.0
+        return z                                        # H2O (reference) = 1 - sum (top band)
+
+    def ic_values_saturation(self, sd: pp.Grid):
+        top, middle, bottom = self._bands(sd)
+        s_oil = np.where(middle, 1.0, 0.0)
+        s_gas = np.where(bottom, 1.0, 0.0)
+        return s_oil, s_gas                              # s_water = 1 - s_oil - s_gas
+
+    def initial_condition(self) -> None:
+        super().initial_condition()
+        water, oil, gas = self.fluid.phases
+        c5h12, ch4 = self.fluid.components[1], self.fluid.components[2]
+        for sd in self.mdg.subdomains():
+            s_oil, s_gas = self.ic_values_saturation(sd)
+            self.equation_system.set_variable_values(s_oil, [oil.saturation([sd])], 0, 0)
+            self.equation_system.set_variable_values(s_gas, [gas.saturation([sd])], 0, 0)
+
+            one = np.ones(sd.num_cells)
+            zero = np.zeros(sd.num_cells)
+            # immiscible partial fractions: C5H12 only in oil, CH4 only in gas
+            self.equation_system.set_variable_values(
+                zero, [water.partial_fraction_of[c5h12]([sd])], 0, 0)
+            self.equation_system.set_variable_values(
+                one, [oil.partial_fraction_of[c5h12]([sd])], 0, 0)
+            self.equation_system.set_variable_values(
+                zero, [gas.partial_fraction_of[c5h12]([sd])], 0, 0)
+            self.equation_system.set_variable_values(
+                zero, [water.partial_fraction_of[ch4]([sd])], 0, 0)
+            self.equation_system.set_variable_values(
+                zero, [oil.partial_fraction_of[ch4]([sd])], 0, 0)
+            self.equation_system.set_variable_values(
+                one, [gas.partial_fraction_of[ch4]([sd])], 0, 0)

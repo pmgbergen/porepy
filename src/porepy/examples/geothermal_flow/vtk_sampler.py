@@ -70,11 +70,16 @@ class VTKSampler:
 
     @sampled_could.setter
     def sampled_could(self, sampled_could):
-        # Store the freshly probed dataset directly. ``point_cloud.sample(...)`` returns a
-        # NEW dataset whose interpolated arrays do not share memory with the search space,
-        # and the object never escapes this class, so the previous defensive
-        # ``copy(deep=True)`` was pure per-probe overhead with no benefit.
-        self._sampled_could = sampled_could
+        # Keep a deep (standalone) copy of the freshly probed dataset and release the
+        # pipeline-connected original. The pyvista/VTK probe output retains references to
+        # the resample filter and its inputs (including the per-call point cloud); storing
+        # it directly leaves those references for the cyclic GC to reclaim, which lets
+        # memory grow across the many probes of a long run. Deep-copying breaks the
+        # pipeline so both the original and the previously stored dataset are freed
+        # promptly by refcounting. (The memoization in sample_at keeps this rare -- one
+        # copy per distinct state, not one per property function.)
+        self._sampled_could = sampled_could.copy(deep=True)
+        del sampled_could
 
     @property
     def constant_extended_fields(self):

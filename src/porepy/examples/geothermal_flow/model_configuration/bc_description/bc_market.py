@@ -196,16 +196,56 @@ class BC_two_phase_Figure_8_left_panel(BCBase):
         T[inlet_idx] = t_inlet
         return T
 
-    # def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-    #     inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-    #     flux_inlet = 1000.0
-    #     flux = np.zeros(boundary_grid.num_cells)
-    #     flux[inlet_idx] = flux_inlet
-    #     return flux
-    #
-    # def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-    #     inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-    #     h_inlet = 1.000001 # 1 W = J/second
-    #     h = np.zeros(boundary_grid.num_cells)
-    #     h[inlet_idx] = h_inlet
-    #     return h
+class BC_two_phase_steady_state(BCBase):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, outlet_facets = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facets, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_inlet = 15.0
+        p_outlet = 5.0
+        xc = boundary_grid.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        p_linear = (
+            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        )
+        p = np.array(list(map(p_linear, xc)))
+        return p
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        t_inlet = 723.15
+        t_outlet = 473.15
+        xc = boundary_grid.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        T_linear = (
+            lambda x: (x[dir_idx] * t_outlet + (2000.0 - x[dir_idx]) * t_inlet) / 2000.0
+        )
+        T = np.array(list(map(T_linear, xc)))
+        return T
+
+
+class BC_three_phase_closed(BCBase):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # get_inlet_outlet_sides -> (inlet, outlet); the TOP is the outlet slot. Unpack it
+        # (the whole tuple cannot be passed straight to pp.BoundaryCondition as `faces`).
+        _, top_facets = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, top_facets, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_top = 10.0
+        p_bottom = 15.0
+        xc = boundary_grid.cell_centers.T
+        dir_idx = 1
+        p_linear = (
+            lambda x: (x[dir_idx] * p_top + (100.0 - x[dir_idx]) * p_bottom) / 100.0
+        )
+        p = np.array(list(map(p_linear, xc)))
+        return p
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        h = np.zeros_like(boundary_grid.num_cells)
+        return h
