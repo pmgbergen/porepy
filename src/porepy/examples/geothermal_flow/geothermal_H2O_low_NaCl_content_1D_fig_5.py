@@ -89,33 +89,69 @@ class Table:
     """
 
     def __init__(self, file_name, fields, a_in=1.0, b_in=1.0):
-        import pyvista as pv
+        key = "|".join(f"{k}:{v}" for k, v in sorted(fields.items())) + f"|{a_in}|{b_in}"
+        cache = file_name + ".sicache.npz"
+        if not (os.path.exists(cache) and self._load(cache, key)):
+            self._build(file_name, fields, a_in, b_in, key, cache)
+
+    def _load(self, cache, key):
+        try:
+            z = np.load(cache, allow_pickle=False)
+            if str(z["key"]) != key:
+                return False
+            for s in ("ny", "nz"):
+                setattr(self, s, int(z[s]))
+            for s in ("a0", "da", "b0", "db", "a_in", "b_in",
+                      "a_min", "a_max", "b_min", "b_max"):
+                setattr(self, s, float(z[s]))
+            self.V = {str(n): z["V_" + str(n)] for n in z["names"]}
+            return True
+        except Exception:
+            return False
+
+    def _build(self, file_name, fields, a_in, b_in, key, cache):
+        import pyvista as pv     # only hit on a cache miss (first run)
 
         g = pv.read(file_name)
-        self.nx, self.ny, self.nz = g.dimensions          # (z, second, p)
-        a = np.asarray(g.y); b = np.asarray(g.z)          # axis nodes (table units)
-        self.a0, self.da = a[0], a[1] - a[0]
-        self.b0, self.db = b[0], b[1] - b[0]
-        self.a_in, self.b_in = a_in, b_in
-        # solver-unit bounds (for clamping the Newton state)
-        self.a_min, self.a_max = a[0] / a_in, a[-1] / a_in
-        self.b_min, self.b_max = b[0] / b_in, b[-1] / b_in
-        self.V = {}
-        for name, scale in fields.items():
-            self.V[name] = np.asarray(g.point_data[name]).reshape(
-                self.nz, self.ny, self.nx)[:, :, 0] * scale     # [p, second]
+        nx, ny, nz = g.dimensions                          # (z, second, p)
+        a = np.asarray(g.y); b = np.asarray(g.z)
+        self.ny, self.nz = int(ny), int(nz)
+        self.a0, self.da = float(a[0]), float(a[1] - a[0])
+        self.b0, self.db = float(b[0]), float(b[1] - b[0])
+        self.a_in, self.b_in = float(a_in), float(b_in)
+        self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
+        self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
+        self.V = {name: np.asarray(g.point_data[name]).reshape(nz, ny, nx)[:, :, 0] * scale
+                  for name, scale in fields.items()}
+        out = {"key": np.array(key), "ny": self.ny, "nz": self.nz,
+               "a0": self.a0, "da": self.da, "b0": self.b0, "db": self.db,
+               "a_in": self.a_in, "b_in": self.b_in, "a_min": self.a_min,
+               "a_max": self.a_max, "b_min": self.b_min, "b_max": self.b_max,
+               "names": np.array(list(self.V.keys()))}
+        out.update({"V_" + n: A for n, A in self.V.items()})
+        try:
+            np.savez(cache, **out)
+        except Exception:
+            pass
 
-    def __call__(self, name, a, b):
-        a = np.atleast_1d(np.asarray(a, float)) * self.a_in     # SI -> table axis
+    def sample_many(self, a, b):
+        """Bilinear-interpolate ALL stored fields at (a, b) with ONE stencil computation."""
+        a = np.atleast_1d(np.asarray(a, float)) * self.a_in
         b = np.atleast_1d(np.asarray(b, float)) * self.b_in
         fa = np.clip((a - self.a0) / self.da, 0.0, self.ny - 1 - 1e-9)
         fb = np.clip((b - self.b0) / self.db, 0.0, self.nz - 1 - 1e-9)
-        ja = fa.astype(int); jb = fb.astype(int)
+        ja = fa.astype(np.intp); jb = fb.astype(np.intp)
         ta = fa - ja; tb = fb - jb
-        A = self.V[name]
-        f00 = A[jb, ja]; f10 = A[jb, ja + 1]; f01 = A[jb + 1, ja]; f11 = A[jb + 1, ja + 1]
-        return ((1 - ta) * (1 - tb) * f00 + ta * (1 - tb) * f10
-                + (1 - ta) * tb * f01 + ta * tb * f11)
+        ja1 = ja + 1; jb1 = jb + 1
+        w00 = (1 - ta) * (1 - tb); w10 = ta * (1 - tb)
+        w01 = (1 - ta) * tb;       w11 = ta * tb
+        out = {}
+        for name, A in self.V.items():
+            out[name] = w00 * A[jb, ja] + w10 * A[jb, ja1] + w01 * A[jb1, ja] + w11 * A[jb1, ja1]
+        return out
+
+    def __call__(self, name, a, b):
+        return self.sample_many(a, b)[name]
 
 
 # xph: solver h[J/kg] -> axis MJ/kg (1e-6); p[Pa] -> MPa (1e-6).
@@ -144,15 +180,13 @@ class Props:
 
 
 def eval_props(table, p, h):
-    rho_l = table("Rho_l", h, p)
-    rho_v = table("Rho_v", h, p)
-    s_v = np.clip(table("S_v", h, p), 0.0, 1.0)
+    s = table.sample_many(h, p)                     # ONE stencil for all 8 fields
+    rho_l = s["Rho_l"]; rho_v = s["Rho_v"]
+    s_v = np.clip(s["S_v"], 0.0, 1.0)
     s_l = 1.0 - s_v
-    h_l = table("H_l", h, p)
-    h_v = table("H_v", h, p)
-    mu_l = table("mu_l", h, p)
-    mu_v = table("mu_v", h, p)
-    T = table("Temperature", h, p)
+    h_l = s["H_l"]; h_v = s["H_v"]
+    mu_l = s["mu_l"]; mu_v = s["mu_v"]
+    T = s["Temperature"]
 
     kr_l = np.maximum((s_l - S_R_LIQ) / (1.0 - S_R_LIQ), 0.0)   # Corey-type liquid
     kr_v = s_v                                                  # linear gas
@@ -231,9 +265,20 @@ def boundary_state(table, p_bc, h_bc):
     return BoundaryState(p=p_bc, h=h_bc, pr=pr, T=float(pr.T[0]))
 
 
-def residual(x, x_old, dt, geom, table, bbot, btop, scheme, ug, ud):
+def accumulation_old(x_old, geom, table):
+    """Old-time accumulation (constant over a step's Newton iterations) -- computed once."""
+    p_old = x_old[0::2]; h_old = x_old[1::2]
+    pr = eval_props(table, p_old, h_old)
+    acc_mass_o = geom.Vcell * PHI * pr.rho_mix
+    acc_en_o = geom.Vcell * (PHI * (pr.rho_mix * h_old - p_old)
+                             + (1 - PHI) * RHO_S * C_S * pr.T)
+    return acc_mass_o, acc_en_o
+
+
+def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud):
     """Full 2N residual, interleaved [mass_0, energy_0, mass_1, ...].
 
+    ``acc_*_o`` are the (precomputed, step-constant) old-time accumulations.
     ``ug``/``ud`` are the frozen (lagged) per-face upstream indices for liquid/gas:
       HU  -> i_liq=upwind(+ddf(rho_l-rho_v)), i_gas=upwind(-ddf); used ONLY for the
              simplicial two-pair buoyancy (advection rides the total velocity V_T).
@@ -243,15 +288,10 @@ def residual(x, x_old, dt, geom, table, bbot, btop, scheme, ug, ud):
     N = geom.N
     p = x[0::2]; h = x[1::2]
     pr = eval_props(table, p, h)
-    p_old = x_old[0::2]; h_old = x_old[1::2]
-    pr_old = eval_props(table, p_old, h_old)
 
-    # accumulation (backward Euler)
+    # accumulation (backward Euler); old-time part passed in (step-constant)
     acc_mass = geom.Vcell * PHI * pr.rho_mix
-    acc_mass_o = geom.Vcell * PHI * pr_old.rho_mix
     acc_en = geom.Vcell * (PHI * (pr.rho_mix * h - p) + (1 - PHI) * RHO_S * C_S * pr.T)
-    acc_en_o = geom.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
-                             + (1 - PHI) * RHO_S * C_S * pr_old.T)
 
     dp_face = p[:-1] - p[1:]
     rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:])
@@ -330,7 +370,8 @@ def residual(x, x_old, dt, geom, table, bbot, btop, scheme, ug, ud):
 # --------------------------------------------------------------------------------------- #
 #  Sparse coloured finite-difference Jacobian (block-tridiagonal, 6 colours)
 # --------------------------------------------------------------------------------------- #
-def _build_sparsity(N):
+def build_jac_plan(N):
+    """Precompute the 6-colour FD-Jacobian sparsity ONCE (block-tridiagonal interleaved)."""
     rows_of_col = []
     for k in range(N):
         for _v in range(2):
@@ -338,53 +379,60 @@ def _build_sparsity(N):
             for kk in (k - 1, k, k + 1):
                 if 0 <= kk < N:
                     rows += [2 * kk, 2 * kk + 1]
-            rows_of_col.append(np.array(rows, dtype=int))
+            rows_of_col.append(np.array(rows, dtype=np.intp))
     color = np.array([(k % 3) * 2 + v for k in range(N) for v in range(2)])
-    return rows_of_col, color
-
-
-def jacobian_fd(x, r0, args, rows_of_col, color, eps_rel=1e-7):
-    N = args[2].N
     n = 2 * N
-    scale = np.where(np.arange(n) % 2 == 0, 1.0e6, 1.0e5)     # p ~ MPa, h ~ 1e5 J/kg
-    eps = eps_rel * np.maximum(np.abs(x), scale)
-    rows_all, cols_all, data_all = [], [], []
+    col_perturb, gat_rows, gat_owner, coo_cols = [], [], [], []
     for c in range(6):
         cols_c = np.where(color == c)[0]
+        rs = [rows_of_col[j] for j in cols_c]
+        ow = [np.full(rows_of_col[j].size, j, dtype=np.intp) for j in cols_c]
+        col_perturb.append(cols_c)
+        gat_rows.append(np.concatenate(rs))      # rows touched by this colour (gather)
+        gat_owner.append(np.concatenate(ow))     # owning column (for eps + COO col)
+    all_rows = np.concatenate(gat_rows)
+    all_cols = np.concatenate(gat_owner)
+    sc = np.where(np.arange(n) % 2 == 0, 1.0e6, 1.0e5)   # p ~ MPa, h ~ 1e5 J/kg
+    return dict(n=n, col_perturb=col_perturb, gat_rows=gat_rows, gat_owner=gat_owner,
+                all_rows=all_rows, all_cols=all_cols, scale=sc)
+
+
+def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
+    n = plan["n"]
+    eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
+    parts = []
+    for c in range(6):
+        cols_c = plan["col_perturb"][c]
         dx = np.zeros(n); dx[cols_c] = eps[cols_c]
         dr = residual(x + dx, *args) - r0
-        for j in cols_c:
-            rws = rows_of_col[j]
-            rows_all.append(rws)
-            cols_all.append(np.full(rws.size, j))
-            data_all.append(dr[rws] / eps[j])
-    return sp.csc_matrix((np.concatenate(data_all),
-                          (np.concatenate(rows_all), np.concatenate(cols_all))), shape=(n, n))
+        parts.append(dr[plan["gat_rows"][c]] / eps[plan["gat_owner"][c]])   # vectorised
+    return sp.csc_matrix((np.concatenate(parts), (plan["all_rows"], plan["all_cols"])),
+                         shape=(n, n))
 
 
 # --------------------------------------------------------------------------------------- #
 #  Newton time stepping
 # --------------------------------------------------------------------------------------- #
-def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme,
+def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
                 rtol=1e-6, atol=1e-7, maxit=25, verbose=False):
-    rows_of_col, color = _build_sparsity(geom.N)
-    p_old, h_old = x_old[0::2], x_old[1::2]
-    pr_old = eval_props(table, p_old, h_old)
-    ug, ud = buoyancy_directions(geom, p_old, pr_old, scheme)     # lagged per step
+    pr_old = eval_props(table, x_old[0::2], x_old[1::2])
+    ug, ud = buoyancy_directions(geom, x_old[0::2], pr_old, scheme)     # lagged per step
+    acc_mass_o, acc_en_o = accumulation_old(x_old, geom, table)
 
     x = x0.copy()
-    args = (x_old, dt, geom, table, bbot, btop, scheme, ug, ud)
+    args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud)
     r0 = residual(x, *args)
     nrm0 = np.linalg.norm(r0)
     nrm = nrm0
+    tol = rtol * nrm0 + atol * np.sqrt(2 * geom.N)
     for it in range(maxit):
         r = residual(x, *args)
         nrm = np.linalg.norm(r)
         if verbose:
             print(f"    newton {it}: |r|={nrm:.3e}")
-        if nrm <= rtol * nrm0 + atol * np.sqrt(2 * geom.N):
+        if nrm <= tol:
             return x, it, nrm, True
-        J = jacobian_fd(x, r, args, rows_of_col, color)
+        J = jacobian_fd(x, r, args, plan)
         try:
             dx = spla.spsolve(J, -r)
         except Exception:
@@ -417,13 +465,14 @@ def run(scheme="hu", N=200, n_steps=None, dt=None, adaptive=True, verbose=True):
     h0 = xpt("H", np.full(N, T_INIT - 273.15), p0)
     x = np.empty(2 * N); x[0::2] = p0; x[1::2] = h0
 
+    plan = build_jac_plan(N)                       # sparsity/colour plan built ONCE
     dt0 = dt if dt is not None else 0.125 * YEAR
     tf = 1000.0 * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0
     while t < tf - 1e-6:
         dt = min(dt, tf - t)
         x_old = x.copy()
-        xn, nit, nrm, ok = newton_step(x, x_old, dt, geom, table, bbot, btop, scheme)
+        xn, nit, nrm, ok = newton_step(x, x_old, dt, geom, table, bbot, btop, scheme, plan)
         if not ok and adaptive and dt > dt0 / 64:
             dt *= 0.5                                  # retry with smaller step
             continue
