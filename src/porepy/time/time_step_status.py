@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from porepy.numerics.nonlinear.nonlinear_solvers import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
 )
 
 

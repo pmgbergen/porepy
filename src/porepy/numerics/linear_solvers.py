@@ -8,8 +8,8 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import logging
+from typing import TYPE_CHECKING
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (

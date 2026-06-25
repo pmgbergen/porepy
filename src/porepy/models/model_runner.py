@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
-from abc import ABC
-from dataclasses import dataclass
 import logging
 import warnings
+from abc import ABC
+from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
 
+import porepy as pp
+from porepy.models.solution_strategy import SolutionStrategy
+from porepy.time.time_step_status import TimeStepperStatusFailure
 from porepy.time.time_stepper import TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from porepy.time.time_step_status import TimeStepperStatusFailure
-from porepy.models.solution_strategy import SolutionStrategy
-import porepy as pp
 
 __all__ = ["ModelRunner"]
 

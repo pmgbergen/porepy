@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 # Status and info classes
 
 
-
 class ConvergenceStatus(StrEnum):
     """Enumeration of potential convergence statuses. (TODO)"""
 

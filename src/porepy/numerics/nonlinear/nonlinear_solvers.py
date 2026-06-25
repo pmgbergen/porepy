@@ -4,11 +4,11 @@ Implemented classes
     NewtonSolver
 """
 
-from abc import ABC
 import logging
+from abc import ABC
+from dataclasses import dataclass
 from typing import cast
 
-from dataclasses import dataclass
 import numpy as np
 
 import porepy as pp
