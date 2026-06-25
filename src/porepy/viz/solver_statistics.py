@@ -333,7 +333,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iterations = 0
         self.convergence_status.clear()
         self.convergence_info.clear()
-        self.solver_status_history.clear()  # do we ever clear simulation_status_history?
+        self.solver_status_history.clear()
 
     def log_convergence_status(
         self, convergence_status: ConvergenceStatusCollection, **kwargs
