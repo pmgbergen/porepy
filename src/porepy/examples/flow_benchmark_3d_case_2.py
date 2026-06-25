@@ -253,15 +253,19 @@ class FlowBenchmark3dCase2Model(  # type:ignore[misc]
     """Mixer class for Case 2: Regular Network from the 3D flow benchmark."""
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 3D case 2 example and return the models.
+
+    Both the conductive and blocking fracture cases are included.
+
+    """
     # Run the model for both cases.
     solid_cases = {
         "conductive fractures": solid_constants_conductive,
         "blocking fractures": solid_constants_blocking,
     }
-
-    for case_name, solid_constants in solid_cases.items():
+    models: list[pp.PorePyModel] = []
+    for _, solid_constants in solid_cases.items():
         params = {
             "material_constants": {
                 "solid": solid_constants,
@@ -274,3 +278,11 @@ if __name__ == "__main__":
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
         pp.run_time_dependent_model(model, solver_parameters)
+        models.append(model)
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()
