@@ -469,6 +469,10 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
     def lithostatic_stress_offset(self) -> np.ndarray:
         """Return surface lithostatic stress.
 
+        Defaults to 0. For geometries below the surface, typical values
+        are lithostatic stress multiplier times effective overburden stress
+        at surface of the domain due to gravity.
+
         Returns:
             Surface lithostatic stress in Pa. Default is 0 Pa.
 
@@ -510,8 +514,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
         # Multiply with lithostatic stress multipliers, which can be used to set
         # different stresses in different directions.
         gradient = self.lithostatic_stress_multipliers * gravity
-        # Allow for explicit offset (typically lithostatic stress multiplier times
-        # effective overburden stress at surface of the domain).
+        # Allow for explicit offset.
         offset = self.lithostatic_stress_offset
         # Get domain sides and depth at boundary cell centers.
         domain_sides = self.domain_boundary_sides(boundary_grid)
