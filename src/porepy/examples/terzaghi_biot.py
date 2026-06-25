@@ -711,10 +711,9 @@ class TerzaghiModel(  # type: ignore[misc]
 
     """
 
+def run_example()-> list[TerzaghiModel]:
 
-def run_example() -> list[pp.PorePyModel]:
-    """Run Terzaghi's consolidation example and return the model."""
-    models: list[pp.PorePyModel] = []
+    models:list[TerzaghiModel] = []
 
     # Run Terzaghi model with the full poromechanics model.
     model_params_poromech = {
@@ -728,6 +727,7 @@ def run_example() -> list[pp.PorePyModel]:
     model_biot = TerzaghiModel(model_params_poromech)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model_biot)
     models.append(model_biot)
+
     return models
 
 

@@ -1441,10 +1441,9 @@ class MandelModel(  # type: ignore[misc]
 
     """
 
+def run_example()->list[MandelModel]:
 
-def run_example() -> list[pp.PorePyModel]:
-    """Run Mandel's consolidation example and return the model."""
-    models: list[pp.PorePyModel] = []
+    models:list[MandelModel] = []
 
     # Set material constants.
     material_constants = {
@@ -1479,8 +1478,8 @@ def run_example() -> list[pp.PorePyModel]:
     model = MandelModel(params=model_params)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model)
     models.append(model)
-    return models
 
+    return models
 
 # If executed as main, run simulation.
 if __name__ == "__main__":

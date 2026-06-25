@@ -513,9 +513,8 @@ model_params = {
     "adaptive_indicator_scaling": True,  # Needed for nonlinear convergence.
 }
 
-
 def run_example() -> list[pp.PorePyModel]:
-    """Run a selected fracture damage example and return the model.
+    """Run a selected fracture damage example.
 
     This executable block provides a lightweight demonstration of running a fracture
     damage model. The model is the momentum balance model of fracture damage with
@@ -526,8 +525,6 @@ def run_example() -> list[pp.PorePyModel]:
     are available: "dilation", "friction", or both, set to "dilation" below.
 
     """
-
-    models: list[pp.PorePyModel] = []
 
     dim = 2  # 2D case
     time_steps = 5
@@ -575,11 +572,9 @@ def run_example() -> list[pp.PorePyModel]:
     }
     pp.ModelRunner(model, solver_params).run()
 
-    models.append(model)
-
-    return models
-
+    return [model]
 
 # If executed as main, run simulation.
 if __name__ == "__main__":
     run_example()
+    
