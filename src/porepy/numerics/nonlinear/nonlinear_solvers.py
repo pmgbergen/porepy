@@ -16,7 +16,6 @@ from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
-    ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
 )
@@ -263,7 +262,7 @@ class NewtonSolver:
             model: The model instance specifying the problem to be solved.
 
         Returns:
-            ConvergenceStatus: The overall status of the nonlinear solver.
+            The status of the nonlinear solver.
 
         """
         # Prepare for nonlinear loop.

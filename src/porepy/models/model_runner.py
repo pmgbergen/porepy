@@ -7,12 +7,14 @@ import warnings
 from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
+from enum import StrEnum
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.time.time_step_status import TimeStepperStatusFailure
+from porepy.time.time_step_status import TimeStepperStatus, TimeStepperStatusFailure
 from porepy.time.time_stepper import TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
@@ -20,7 +22,15 @@ from porepy.utils.ui_and_logging import (
 )
 from porepy.utils.ui_and_logging import progressbar_class
 
-__all__ = ["ModelRunner"]
+if TYPE_CHECKING:
+    from porepy.numerics.nonlinear.convergence_check import SolverStatus
+
+__all__ = [
+    "ModelRunnerStatus",
+    "ModelRunnerStatusSuccess",
+    "ModelRunnerStatusFailure",
+    "ModelRunner",
+]
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

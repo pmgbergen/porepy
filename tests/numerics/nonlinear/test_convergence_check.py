@@ -1,7 +1,7 @@
 """Unit tests for status objects and convergence/divergence criteria.
 
 Overview of tests:
-- SimulationStatus and ConvergenceStatus enums and their check methods
+- SolverStatus and ConvergenceStatus enums and their check methods
 - ConvergenceStatusCollection and ConvergenceStatusHistory for tracking status evolution
 - ConvergenceInfoCollection and ConvergenceInfoHistory for tracking convergence metrics
 - Absolute, relative, and combined convergence criteria (single and multiphysics)

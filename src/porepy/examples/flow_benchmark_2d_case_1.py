@@ -164,14 +164,17 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
     """Complete model class for case 1 from the 2d flow benchmark."""
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
-    # We run both the conductive and blocking fracture cases.
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 2D case 1 example and return the models.
+
+    Both the conductive and blocking fracture cases are included.
+
+    """
     solid_constants = [
         solid_constants_blocking_fractures,
         solid_constants_conductive_fractures,
     ]
-
+    models: list[pp.PorePyModel] = []
     for solid_constant in solid_constants:
         model_params = {
             "material_constants": {"solid": solid_constant},
@@ -183,6 +186,7 @@ if __name__ == "__main__":
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
         pp.run_time_dependent_model(model, solver_parameters)
+        models.append(model)
         title = (
             "Pressure distribution.\n"
             f"Fracture permeability {solid_constant.fracture_permeability:.0e}."
@@ -197,3 +201,9 @@ if __name__ == "__main__":
             fracturewidth_1d=3,
             linewidth=0.5,
         )
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

@@ -215,6 +215,7 @@ def test_solver_statistics_initialization():
     assert stats.num_domains == {}
     assert stats.simulation_status == ConvergenceStatus.CONTINUE_ITERATING
     assert stats.simulation_status_history == []
+    assert stats.solver_status_history == []
     assert stats.custom_data == {}
 
 
@@ -230,6 +231,8 @@ def test_solver_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -273,6 +276,7 @@ def test_log_mesh_information(subdomains, expected_num_cells, expected_num_domai
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONTINUE_ITERATING,
         ],
+        # TODO add simulation status and mixed status updates.
     ],
 )
 def test_log_simulation_status(statuses):
@@ -399,7 +403,9 @@ def test_solver_statistics_append_custom_data():
     reference_data.pop("global")
     # Remove simulation status from comparison.
     reference_data["0"].pop("simulation_status")
+    reference_data["0"].pop("solver_status")
     reference_data["1"].pop("simulation_status")
+    reference_data["1"].pop("solver_status")
 
     assert DeepDiff(data, reference_data) == {}
 
@@ -589,7 +595,9 @@ def test_nonlinear_solver_statistics_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
     assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -688,10 +696,6 @@ def test_nonlinear_solver_statistics_increase_index():
         "crit1": [ConvergenceStatus.CONVERGED, ConvergenceStatus.FAILED],
         "crit2": [ConvergenceStatus.FAILED, ConvergenceStatus.CONVERGED],
     }
-    stats.convergence_info = {
-        "crit1": [1.0, 0.5],
-    }
-    stats.increase_index()
     assert stats.index == 1
     assert stats.custom_data == {}
     assert stats.num_iterations == 0
@@ -748,6 +752,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     stats.simulation_status_history = [
         ConvergenceStatus.FAILED,
     ]
+    stats.solver_status_history = [SolverStatus.IN_PROGRESS, SolverStatus.FAILED]
     stats.convergence_status = ConvergenceStatusHistory(
         {
             "crit1": [ConvergenceStatus.CONTINUE_ITERATING, ConvergenceStatus.FAILED],
@@ -873,6 +878,7 @@ def test_nonlinear_solver_statistics_save():
         ConvergenceStatus.FAILED,
         ConvergenceStatus.CONVERGED,
     ]
+    stats.solver_status_history = [SolverStatus.SUCCESSFUL]
     stats.index = 1
     stats.num_iterations_history = [2, 1]
     stats.num_iterations = 1
@@ -1010,6 +1016,7 @@ def test_time_statistics_initialization():
     assert stats.num_domains == {}
     assert stats.simulation_status == ConvergenceStatus.CONTINUE_ITERATING
     assert stats.simulation_status_history == []
+    assert stats.solver_status_history == []
     assert stats.custom_data == {}
 
     # Check TimeStatistics attributes.
@@ -1030,7 +1037,9 @@ def test_time_statistics_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
     assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -1319,6 +1328,7 @@ def test_nonlinear_solver_and_time_statistics_initialization():
     assert stats.num_domains == {}
     assert stats.simulation_status == ConvergenceStatus.CONTINUE_ITERATING
     assert stats.simulation_status_history == []
+    assert stats.solver_status_history == []
     assert stats.custom_data == {}
 
     # Check NonlinearSolverStatistics attributes.
@@ -1345,7 +1355,9 @@ def test_nonlinear_solver_and_time_statistics_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
     assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
+    assert hasattr(model.nonlinear_solver_statistics, "solver_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
     # Check that SolverStatistics has not path for storing.
@@ -1464,6 +1476,8 @@ def test_nonlinear_solver_and_time_statistics_save():
         ConvergenceStatus.FAILED,
         ConvergenceStatus.CONVERGED,
     ]
+    stats.solver_status_history = [SolverStatus.SUCCESSFUL]
+    stats.solver_status = SolverStatus.SUCCESSFUL
     stats.index = 1
     stats.num_iterations_history = [2, 1]
     stats.time_index = 1

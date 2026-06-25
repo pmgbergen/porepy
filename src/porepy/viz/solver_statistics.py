@@ -71,7 +71,7 @@ class SolverStatistics:
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
-    )
+    )  # TODO: Rename to nonlinear solver status (?)
     """Overall simulation status."""
     simulation_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
     """Overall simulation status history."""
@@ -109,10 +109,10 @@ class SolverStatistics:
     def log_simulation_status(
         self, simulation_status: NonlinearSolverStatus, **kwargs
     ) -> None:
-        """Log overall simulation status.
+        """Log the status of the simulation.
 
         Parameters:
-            simulation_status: Overall simulation status.
+            status: A status enum.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
@@ -122,6 +122,18 @@ class SolverStatistics:
                 self.simulation_status_history.append(self.simulation_status)
             else:
                 self.simulation_status_history[-1] = self.simulation_status
+
+    def log_solver_status(self, solver_status: SolverStatus, **kwargs) -> None:
+        """Log the status of the solver.
+
+        Parameters:
+            status: A status enum.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        if solver_status is not None:
+            self.solver_status = solver_status
+            self.solver_status_history.append(self.solver_status)
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -198,6 +210,7 @@ class SolverStatistics:
         data[str(self.index)].update(
             {
                 "simulation_status": str(self.simulation_status),
+                "solver_status": str(self.solver_status),
             }
         )
         return data
@@ -305,6 +318,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iterations = 0
         self.convergence_status.clear()
         self.convergence_info.clear()
+        self.solver_status_history.clear()
 
     def log_convergence_status(
         self, convergence_status: ConvergenceStatusCollection, **kwargs
@@ -360,11 +374,12 @@ class NonlinearSolverStatistics(SolverStatistics):
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
         # Determine number of waisted iterations.
+        # TODO: Rethink during upgrade of time integration.
         total_num_waisted_iterations = 0
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
         ):
-            if simulation_status != ConvergenceStatus.CONVERGED:
+            if not simulation_status.is_successful():
                 total_num_waisted_iterations += num_iterations
 
         # Update global data.
@@ -381,6 +396,13 @@ class NonlinearSolverStatistics(SolverStatistics):
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary at current index."""
 
+        str_solver_status_history = [str(s) for s in self.solver_status_history]
+        str_solver_status = (
+            None
+            if len(self.solver_status_history) == 0
+            else str_solver_status_history[-1]
+        )
+
         data = super().append_iterative_data(data)
         data[str(self.index)].update(
             {
@@ -390,6 +412,8 @@ class NonlinearSolverStatistics(SolverStatistics):
                     if len(self.simulation_status_history) == 0
                     else self.simulation_status_history[-1]
                 ),
+                "solver_status_history": str_solver_status_history,
+                "solver_status": str_solver_status,
                 "convergence_status": self.convergence_status.to_str().copy(),
                 "convergence_info": self.convergence_info.copy(),
             }
@@ -458,9 +482,10 @@ class TimeStatistics(SolverStatistics):
         # Simulation status identifies success of time step.
         total_num_time_steps = 0
         total_num_failed_time_steps = 0
+        # TODO: Rethink during upgrade of time integration.
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if simulation_status != ConvergenceStatus.CONVERGED:
+            if not simulation_status.is_successful():
                 total_num_failed_time_steps += 1
 
         # Update global data.

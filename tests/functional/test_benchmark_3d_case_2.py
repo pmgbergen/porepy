@@ -63,8 +63,9 @@ def model_conductive(
         "flux_discretization": flux_discretization,
         "times_to_export": [],  # Suppress output for tests
     }
+    solver_params = {"nl_convergence_res_atol": 1e-9}
     model = ModelWithEffectivePermeability(model_params)
-    pp.ModelRunner(model).run()
+    pp.ModelRunner(model, solver_params).run()
     return model
 
 

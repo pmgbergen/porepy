@@ -77,7 +77,7 @@ class LinearSolver:
             model: Model to be solved.
 
         Returns:
-            SimulationStatus: The status of the simulation.
+            The status of the solver.
 
         """
         # Prepare solving.
@@ -255,5 +255,5 @@ class LinearSolver:
 
         """
         # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_simulation_status(solver_status)
+        model.nonlinear_solver_statistics.log_solver_status(solver_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
