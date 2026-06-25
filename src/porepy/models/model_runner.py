@@ -274,6 +274,9 @@ class ModelRunner:
         # Clean up model after simulation.
         self.model.after_simulation()
 
+        if simulation_status.is_failure():
+            raise RuntimeError(simulation_status)
+
         return simulation_status
 
     def _run_stationary(self) -> ModelRunnerStatus:
