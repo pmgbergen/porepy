@@ -238,8 +238,8 @@ def _upwind_idx(direction):
 def buoyancy_directions(geom, p, pr, scheme):
     """Per-internal-face upstream cell indices (i_liq, i_gas) for the buoyancy term.
 
-    HU: liquid rides +ddf(rho_l-rho_v), gas rides -ddf  (opposite inter-phase directions).
-    PPU: each phase rides its own potential Psi_g = T_f(p_L-p_U) - K A rho_g g.
+    hu:   liquid rides +ddf(rho_l-rho_v), gas rides -ddf  (opposite inter-phase directions).
+    ppu / sppu: each phase rides its own potential Psi_g = T_f(p_L-p_U) - K A rho_g g.
     Phase order matches PorePy phases = [liq, gas].
     """
     rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:])
@@ -247,12 +247,12 @@ def buoyancy_directions(geom, p, pr, scheme):
     if scheme == "hu":
         ddf = -geom.GA * (rho_l_f - rho_v_f)     # inter-phase gravity flux ddf(rho_l-rho_v)
         dir_liq, dir_gas = ddf, -ddf
-    elif scheme == "ppu":
+    elif scheme in ("ppu", "sppu"):
         dp = geom.Tf * (p[:-1] - p[1:])
         dir_liq = dp - geom.GA * rho_l_f         # Psi_liq ~ -K(grad p - rho_l g)
         dir_gas = dp - geom.GA * rho_v_f         # Psi_gas
     else:
-        raise ValueError(f"unknown scheme {scheme!r}; use 'hu' or 'ppu'")
+        raise ValueError(f"unknown scheme {scheme!r}; use 'hu', 'ppu' or 'sppu'")
     return _upwind_idx(dir_liq), _upwind_idx(dir_gas)
 
 
@@ -283,11 +283,16 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
     """Full 2N residual, interleaved [mass_0, energy_0, mass_1, ...].
 
     ``acc_*_o`` are the (precomputed, step-constant) old-time accumulations.
-    ``ug``/``ud`` are the frozen (lagged) per-face upstream indices for liquid/gas:
-      HU  -> i_liq=upwind(+ddf(rho_l-rho_v)), i_gas=upwind(-ddf); used ONLY for the
-             simplicial two-pair buoyancy (advection rides the total velocity V_T).
-      PPU -> i_liq=upwind(Psi_liq), i_gas=upwind(Psi_gas); genuine per-phase potential
-             upwinding of the FULL phase flux (Weis fig-5 reference; buoyancy intrinsic).
+    Three schemes (``ug``/``ud`` = frozen lagged per-face upstream indices for liq/gas):
+      "hu"   -> total-velocity advection + simplicial buoyancy, directions i_liq=upwind(+ddf),
+                i_gas=upwind(-ddf) (inter-phase gravity flux).
+      "sppu" -> SAME total-velocity advection + SAME simplicial buoyancy as HU, but the
+                buoyancy directions are the phase potentials i_liq=upwind(Psi_liq),
+                i_gas=upwind(Psi_gas). (HU lambda-K-grad(p) term, PPU buoyancy directions.)
+      "ppu"  -> genuine per-phase potential upwinding of the FULL phase flux
+                F=sum_g Psi_g upwind(w_g) (buoyancy intrinsic; Weis fig-5 reference).
+    Only "ppu" takes the genuine-PPU branch below; "hu" and "sppu" share the simplicial branch
+    (they differ only in ug/ud, set by buoyancy_directions).
     """
     N = geom.N
     p = x[0::2]; h = x[1::2]
@@ -311,7 +316,7 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
         F_mass = Psi_l * pr.mm_l[ug] + Psi_v * pr.mm_v[ud]
         F_en = F_four + Psi_l * (pr.h_l[ug] * pr.mm_l[ug]) + Psi_v * (pr.h_v[ud] * pr.mm_v[ud])
     else:
-        # HU: total-velocity advection + simplicial two-pair buoyancy (UNCHANGED)
+        # HU and sPPU: total-velocity advection + simplicial buoyancy (differ only in ug/ud)
         rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
         V_T = geom.Tf * dp_face - geom.GA * rho_ff_f
         up = np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
@@ -541,7 +546,8 @@ def plot_comparison(results, save_path, case="vertical"):
         "s_liq": (f"fig_5_{tag}_saturation_liq_raw.csv", "Liquid saturation [-]"),
     }
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
-    colors = {"hu": "tab:blue", "ppu": "tab:red"}
+    colors = {"hu": "tab:blue", "ppu": "tab:red", "sppu": "tab:green"}
+    labels = {"hu": "HU", "ppu": "PPU", "sppu": "simplicial PPU"}
     for ax, key in zip(axes, ("T", "p", "s_liq")):
         csv, ylabel = refs[key]
         xr, yr = _load_ref_csv(csv)
@@ -550,7 +556,7 @@ def plot_comparison(results, save_path, case="vertical"):
             y_km = res["y"] / 1000.0
             val = {"T": res["T"] - 273.15, "p": res["p"] / 1e6, "s_liq": res["s_liq"]}[key]
             ax.plot(y_km, val, "-", color=colors.get(sch, None), lw=1.8,
-                    label=f"{sch.upper()} (avg. it. {res['avg_it']:.2f}, "
+                    label=f"{labels.get(sch, sch.upper())} (avg. it. {res['avg_it']:.2f}, "
                           f"total it. {res['total_it']})")
         ax.set_xlabel("Distance [km]"); ax.set_ylabel(ylabel)
         ax.set_xlim(0, 2); ax.grid(alpha=0.3)
@@ -591,7 +597,7 @@ def selftest():
 def main():
     import sys
     selftest()
-    schemes = sys.argv[1].split(",") if len(sys.argv) > 1 else ["hu", "ppu"]
+    schemes = sys.argv[1].split(",") if len(sys.argv) > 1 else ["hu", "ppu", "sppu"]
     N = int(sys.argv[2]) if len(sys.argv) > 2 else 200
     case = sys.argv[3] if len(sys.argv) > 3 else "vertical"   # "vertical"(5D) | "horizontal"(5B)
     n_steps = int(os.environ["NSTEPS"]) if "NSTEPS" in os.environ else None

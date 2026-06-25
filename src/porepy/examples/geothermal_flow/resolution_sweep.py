@@ -15,7 +15,7 @@ import geothermal_H2O_low_NaCl_content_1D_fig_5 as m   # noqa: E402
 
 NS = [100, 200, 400, 800, 1600, 3200]
 CASES = ["vertical", "horizontal"]
-SCHEMES = ["hu", "ppu"]
+SCHEMES = ["hu", "ppu", "sppu"]
 PANEL = {"vertical": "5D", "horizontal": "5B"}
 OUT = os.path.join(m.HERE, "visualization_1D_fig_5")
 
