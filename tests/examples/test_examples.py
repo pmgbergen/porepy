@@ -20,17 +20,10 @@ import porepy
 matplotlib.use("template")
 
 EXAMPLE_DIR = Path(porepy.__file__).parent / "examples"
-# Exclude .py files that are not executable examples and example files
-# that are temporarily not tested in the folder of examples.
-EXCLUDED_EXAMPLE_FILENAMES = [
-    "__init__.py",
-    "example_params.py",
-    "geothermal_reservoir.py",
-]
 EXAMPLE_FILENAMES = [
     path
     for path in EXAMPLE_DIR.glob("*.py")
-    if path.name not in EXCLUDED_EXAMPLE_FILENAMES
+    if path.name not in ("__init__.py", "example_params.py")
 ]
 
 
@@ -54,7 +47,4 @@ def test_run_examples(example_path: Path):
 
     for model in models:
         status = model.nonlinear_solver_statistics
-        assert status.simulation_status.is_successful(), (
-            f"{module_name} did not complete successfully."
-            f"Simulation status: {status.simulation_status}."
-        )
+        assert status.simulation_status.is_successful()
