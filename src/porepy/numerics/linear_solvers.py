@@ -21,6 +21,11 @@ from porepy.numerics.nonlinear.convergence_check import (
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
 )
+from porepy.numerics.nonlinear.nonlinear_solvers import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -61,7 +66,7 @@ class LinearSolver:
         )
         """Divergence criterion used in the convergence check."""
 
-    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
+    def solve(self, model: SolutionStrategy) -> NonlinearSolverStatus:
         """Solve a linear problem defined by the current state of the model.
 
         The linear solver performs only one iteration and checks whether it converged.
@@ -87,19 +92,31 @@ class LinearSolver:
         convergence_status, divergence_status = self.linear_solve(model)
 
         # Conclude on the solver status.
+        solver_status: NonlinearSolverStatus
         if convergence_status.is_converged():
-            solver_status = ConvergenceStatus.CONVERGED
-            model.after_nonlinear_convergence()
+            solver_status = NonlinearSolverStatusConverged(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
         elif divergence_status.is_diverged():
-            solver_status = ConvergenceStatus.FAILED
+            solver_status = NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
             logger.warning("Failed to solve the linear problem.")
-            model.after_nonlinear_failure()
         else:
-            solver_status = ConvergenceStatus.FAILED
+            solver_status = NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
             logger.warning(
                 "Linear solver did not fail, but the convergence criterion did not "
                 "accept the solution. Treating it as a failure."
             )
+
+        if solver_status.is_converged():
+            model.after_nonlinear_convergence()
+        else:
             model.after_nonlinear_failure()
 
         return solver_status
@@ -227,7 +244,7 @@ class LinearSolver:
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        solver_status: ConvergenceStatus,
+        solver_status: NonlinearSolverStatus,
     ) -> None:
         """Update the solver statistics in the model.
 

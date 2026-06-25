@@ -221,7 +221,7 @@ def test_model_delegate_methods_called(
             (before_main_loop + main_loop + after_main_loop_failure) * 4
             # And a single successful time step
             + before_main_loop
-            + main_loop
+            + main_loop 
             + after_main_loop_success
         )
     elif solver_type == "nonlinear":
@@ -434,6 +434,15 @@ MAX_NONLINEAR_ITER = 10
             "time_step_converged": [True, True],
             "exported_dt_expected": [1, 1e-5],
             "schedule_end": 1 + 1e-5,
+        },
+        # Case 9: Successful constant_dt simulation, but Newton makes either too few or
+        # to many interations. Check that dt remains the same.
+        {
+            "constant_dt": True,
+            "num_nonlinear_iterations": [1, 8, 1],
+            "time_step_converged": [True, True, True],
+            "exported_dt_expected": [1, 1, 1],
+            "schedule_end": 3,
         },
     ],
 )

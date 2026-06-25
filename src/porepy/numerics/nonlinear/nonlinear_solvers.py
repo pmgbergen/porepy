@@ -4,10 +4,11 @@ Implemented classes
     NewtonSolver
 """
 
+from abc import ABC
 import logging
 from typing import cast
-from warnings import warn
 
+from dataclasses import dataclass
 import numpy as np
 
 import porepy as pp
@@ -27,6 +28,27 @@ from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NonlinearSolverStatus(ABC):
+    def is_converged(self) -> bool:
+        return isinstance(self, NonlinearSolverStatusConverged)
+
+    def is_failed(self) -> bool:
+        return isinstance(self, NonlinearSolverStatusFailed)
+
+
+@dataclass
+class NonlinearSolverStatusConverged(NonlinearSolverStatus):
+    convergence_statuses: ConvergenceStatusCollection
+    divergence_statuses: ConvergenceStatusCollection
+
+
+@dataclass
+class NonlinearSolverStatusFailed(NonlinearSolverStatus):
+    convergence_statuses: ConvergenceStatusCollection
+    divergence_statuses: ConvergenceStatusCollection
 
 
 class NewtonSolver:
@@ -234,14 +256,14 @@ class NewtonSolver:
         """Advance to the next iteration."""
         self.iteration_index += 1
 
-    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
+    def solve(self, model: SolutionStrategy) -> NonlinearSolverStatus:
         """Solve the nonlinear problem using the Newton-Raphson method.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
 
         Returns:
-            SimulationStatus: The status of the nonlinear solver.
+            ConvergenceStatus: The overall status of the nonlinear solver.
 
         """
         # Prepare for nonlinear loop.
@@ -255,10 +277,17 @@ class NewtonSolver:
 
         # Summarizing the convergence message from multiple criteria into an overall
         # status.
+        solver_status: NonlinearSolverStatus
         if is_converged:
-            solver_status = ConvergenceStatus.CONVERGED
+            solver_status = NonlinearSolverStatusConverged(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
         elif is_diverged:
-            solver_status = ConvergenceStatus.FAILED
+            solver_status = NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
             logger.warning("Failed to solve the nonlinear problem.")
         else:
             raise ValueError(

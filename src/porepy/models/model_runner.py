@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelRunnerStatus(ABC):
     """A status object used to indicate the ModelRunner state."""
+
     def is_success(self) -> bool:
         """Whether the simulation finished successfully."""
         return isinstance(self, ModelRunnerStatusSuccess)
@@ -46,7 +47,9 @@ class ModelRunnerStatusSuccess(ModelRunnerStatus):
 @dataclass
 class ModelRunnerStatusFailure(ModelRunnerStatus):
     """A status object that indicates that the simulation finished with a failure."""
+
     reason: str
+    "Reason why the model runner failed."
 
 
 def run_stationary_model(model, params: dict) -> None:
@@ -294,7 +297,7 @@ class ModelRunner:
 
                 # Abort simulation if time step was stopped.
                 match time_step_status:
-                    case TimeStepperStatusFailure(reason):
+                    case TimeStepperStatusFailure(nonlinear_solver_status, reason):
                         logger.error(f"Time stepping failed: {reason}")
                         return ModelRunnerStatusFailure(reason=reason)
 
