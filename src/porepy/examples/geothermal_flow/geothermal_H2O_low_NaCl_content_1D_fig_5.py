@@ -93,6 +93,9 @@ class Table:
         cache = file_name + ".sicache.npz"
         if not (os.path.exists(cache) and self._load(cache, key)):
             self._build(file_name, fields, a_in, b_in, key, cache)
+        # all fields stacked -> gather every field's 4 corners in 4 fancy-index ops, not 4*nf
+        self.names = list(self.V.keys())
+        self.V_stack = np.ascontiguousarray(np.stack([self.V[n] for n in self.names]))
 
     def _load(self, cache, key):
         try:
@@ -135,20 +138,18 @@ class Table:
             pass
 
     def sample_many(self, a, b):
-        """Bilinear-interpolate ALL stored fields at (a, b) with ONE stencil computation."""
+        """Bilinear-interpolate ALL stored fields at (a, b) with ONE stencil + stacked gather."""
         a = np.atleast_1d(np.asarray(a, float)) * self.a_in
         b = np.atleast_1d(np.asarray(b, float)) * self.b_in
-        fa = np.clip((a - self.a0) / self.da, 0.0, self.ny - 1 - 1e-9)
-        fb = np.clip((b - self.b0) / self.db, 0.0, self.nz - 1 - 1e-9)
+        fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
+        fb = ((b - self.b0) / self.db).clip(0.0, self.nz - 1 - 1e-9)
         ja = fa.astype(np.intp); jb = fb.astype(np.intp)
         ta = fa - ja; tb = fb - jb
         ja1 = ja + 1; jb1 = jb + 1
-        w00 = (1 - ta) * (1 - tb); w10 = ta * (1 - tb)
-        w01 = (1 - ta) * tb;       w11 = ta * tb
-        out = {}
-        for name, A in self.V.items():
-            out[name] = w00 * A[jb, ja] + w10 * A[jb, ja1] + w01 * A[jb1, ja] + w11 * A[jb1, ja1]
-        return out
+        Vs = self.V_stack
+        vals = ((1 - ta) * (1 - tb) * Vs[:, jb, ja] + ta * (1 - tb) * Vs[:, jb, ja1]
+                + (1 - ta) * tb * Vs[:, jb1, ja] + ta * tb * Vs[:, jb1, ja1])   # (nf, N)
+        return {n: vals[i] for i, n in enumerate(self.names)}
 
     def __call__(self, name, a, b):
         return self.sample_many(a, b)[name]
@@ -415,19 +416,21 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 # --------------------------------------------------------------------------------------- #
 def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
                 rtol=1e-6, atol=1e-7, maxit=25, verbose=False):
-    pr_old = eval_props(table, x_old[0::2], x_old[1::2])
-    ug, ud = buoyancy_directions(geom, x_old[0::2], pr_old, scheme)     # lagged per step
-    acc_mass_o, acc_en_o = accumulation_old(x_old, geom, table)
+    p_old = x_old[0::2]; h_old = x_old[1::2]
+    pr_old = eval_props(table, p_old, h_old)                  # x_old props: ONE eval
+    ug, ud = buoyancy_directions(geom, p_old, pr_old, scheme)  # lagged per step
+    acc_mass_o = geom.Vcell * PHI * pr_old.rho_mix
+    acc_en_o = geom.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
+                             + (1 - PHI) * RHO_S * C_S * pr_old.T)
+    args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud)
+    pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
+    hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
 
     x = x0.copy()
-    args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud)
-    r0 = residual(x, *args)
-    nrm0 = np.linalg.norm(r0)
-    nrm = nrm0
+    r = residual(x, *args)
+    nrm = nrm0 = np.linalg.norm(r)
     tol = rtol * nrm0 + atol * np.sqrt(2 * geom.N)
     for it in range(maxit):
-        r = residual(x, *args)
-        nrm = np.linalg.norm(r)
         if verbose:
             print(f"    newton {it}: |r|={nrm:.3e}")
         if nrm <= tol:
@@ -438,14 +441,15 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
         except Exception:
             dx = spla.lsqr(J, -r)[0]
         step = 1.0
-        for _ in range(10):
+        for _ in range(10):                          # backtracking; reuse the accepted r
             xn = x + step * dx
-            xn[0::2] = np.clip(xn[0::2], table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
-            xn[1::2] = np.clip(xn[1::2], table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
-            if np.linalg.norm(residual(xn, *args)) < nrm:
+            xn[0::2] = np.clip(xn[0::2], *pclip)
+            xn[1::2] = np.clip(xn[1::2], *hclip)
+            r_new = residual(xn, *args); nrm_new = np.linalg.norm(r_new)
+            if nrm_new < nrm:
                 break
             step *= 0.5
-        x = xn
+        x = xn; r = r_new; nrm = nrm_new
     return x, maxit, nrm, nrm <= 1e-3 * nrm0
 
 
