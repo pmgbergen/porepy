@@ -231,9 +231,15 @@ def boundary_state(table, p_bc, h_bc):
     return BoundaryState(p=p_bc, h=h_bc, pr=pr, T=float(pr.T[0]))
 
 
-def residual(x, x_old, dt, geom, table, bbot, btop, ug, ud):
+def residual(x, x_old, dt, geom, table, bbot, btop, scheme, ug, ud):
     """Full 2N residual, interleaved [mass_0, energy_0, mass_1, ...].
-    ``ug``/``ud`` are the frozen (lagged) buoyancy upstream indices."""
+
+    ``ug``/``ud`` are the frozen (lagged) per-face upstream indices for liquid/gas:
+      HU  -> i_liq=upwind(+ddf(rho_l-rho_v)), i_gas=upwind(-ddf); used ONLY for the
+             simplicial two-pair buoyancy (advection rides the total velocity V_T).
+      PPU -> i_liq=upwind(Psi_liq), i_gas=upwind(Psi_gas); genuine per-phase potential
+             upwinding of the FULL phase flux (Weis fig-5 reference; buoyancy intrinsic).
+    """
     N = geom.N
     p = x[0::2]; h = x[1::2]
     pr = eval_props(table, p, h)
@@ -247,41 +253,64 @@ def residual(x, x_old, dt, geom, table, bbot, btop, ug, ud):
     acc_en_o = geom.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
                              + (1 - PHI) * RHO_S * C_S * pr_old.T)
 
-    # internal faces (N-1)
-    rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
-    V_T = geom.Tf * (p[:-1] - p[1:]) - geom.GA * rho_ff_f
-    up = np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
-    F_mass = V_T * pr.lam_T[up]
-    F_adv_h = V_T * pr.adv_h[up]
-    F_four = geom.TFf * (pr.T[:-1] - pr.T[1:])
-
+    dp_face = p[:-1] - p[1:]
     rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:])
     rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
-    w_flux = -geom.GA * (rho_l_f - rho_v_f)          # ddf(rho_l - rho_v)
-    # PorePy's enthalpy_buoyancy sums BOTH ordered pairs (liq,gas)+(gas,liq); with the two
-    # opposite w_flux signs they combine to advect the enthalpy DIFFERENCE (h_liq - h_v).
-    # ug=i_liq (upwind by the liquid direction), ud=i_gas (by the gas direction).
-    common = pr.f_l[ug] * pr.f_v[ud] * (pr.mm_l[ug] + pr.mm_v[ud])
-    F_buoy = BUOY_SCALE * common * w_flux * (pr.h_l[ug] - pr.h_v[ud])
-    F_en = F_four + F_adv_h + F_buoy
+    F_four = geom.TFf * (pr.T[:-1] - pr.T[1:])
 
-    # bottom boundary (below cell 0), flux positive upward into the domain
-    V_b = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_ff[0]
-    if V_b >= 0.0:
-        Fm_b = V_b * bbot.pr.lam_T[0]; Fh_b = V_b * bbot.pr.adv_h[0]
+    if scheme == "ppu":
+        # genuine phase-potential upwinding: each phase rides its OWN potential flux
+        # Psi_g = T_f(p_L-p_U) - K A rho_g g, mobility/enthalpy upwinded by sign(Psi_g)
+        # (lagged in ug/ud). Buoyancy is intrinsic to Psi_g (no separate term).
+        Psi_l = geom.Tf * dp_face - geom.GA * rho_l_f
+        Psi_v = geom.Tf * dp_face - geom.GA * rho_v_f
+        F_mass = Psi_l * pr.mm_l[ug] + Psi_v * pr.mm_v[ud]
+        F_en = F_four + Psi_l * (pr.h_l[ug] * pr.mm_l[ug]) + Psi_v * (pr.h_v[ud] * pr.mm_v[ud])
     else:
-        Fm_b = V_b * pr.lam_T[0];      Fh_b = V_b * pr.adv_h[0]
-    Fmass_bot0 = Fm_b
-    Fen_bot0 = geom.TFb * (bbot.T - pr.T[0]) + Fh_b
+        # HU: total-velocity advection + simplicial two-pair buoyancy (UNCHANGED)
+        rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
+        V_T = geom.Tf * dp_face - geom.GA * rho_ff_f
+        up = np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
+        F_mass = V_T * pr.lam_T[up]
+        w_flux = -geom.GA * (rho_l_f - rho_v_f)
+        common = pr.f_l[ug] * pr.f_v[ud] * (pr.mm_l[ug] + pr.mm_v[ud])
+        F_buoy = BUOY_SCALE * common * w_flux * (pr.h_l[ug] - pr.h_v[ud])
+        F_en = F_four + V_T * pr.adv_h[up] + F_buoy
 
-    # top boundary (above cell N-1), flux positive upward out of the domain
-    V_t = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_ff[0]
-    if V_t >= 0.0:
-        Fm_t = V_t * pr.lam_T[-1];     Fh_t = V_t * pr.adv_h[-1]
+    # ---- boundary faces (Dirichlet p, T->h_bc) ----
+    if scheme == "ppu":
+        # bottom: per-phase potential half-face flux (inflow uses boundary props)
+        Psi_lb = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_l[0]
+        Psi_vb = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_v[0]
+        mml = bbot.pr.mm_l[0] if Psi_lb >= 0 else pr.mm_l[0]
+        hl = bbot.pr.h_l[0] if Psi_lb >= 0 else pr.h_l[0]
+        mmv = bbot.pr.mm_v[0] if Psi_vb >= 0 else pr.mm_v[0]
+        hv = bbot.pr.h_v[0] if Psi_vb >= 0 else pr.h_v[0]
+        Fmass_bot0 = Psi_lb * mml + Psi_vb * mmv
+        Fen_bot0 = geom.TFb * (bbot.T - pr.T[0]) + Psi_lb * hl * mml + Psi_vb * hv * mmv
+
+        Psi_lt = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_l[0]
+        Psi_vt = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_v[0]
+        mml = pr.mm_l[-1] if Psi_lt >= 0 else btop.pr.mm_l[0]
+        hl = pr.h_l[-1] if Psi_lt >= 0 else btop.pr.h_l[0]
+        mmv = pr.mm_v[-1] if Psi_vt >= 0 else btop.pr.mm_v[0]
+        hv = pr.h_v[-1] if Psi_vt >= 0 else btop.pr.h_v[0]
+        Fmass_topN = Psi_lt * mml + Psi_vt * mmv
+        Fen_topN = geom.TFb * (pr.T[-1] - btop.T) + Psi_lt * hl * mml + Psi_vt * hv * mmv
     else:
-        Fm_t = V_t * btop.pr.lam_T[0]; Fh_t = V_t * btop.pr.adv_h[0]
-    Fmass_topN = Fm_t
-    Fen_topN = geom.TFb * (pr.T[-1] - btop.T) + Fh_t
+        V_b = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_ff[0]
+        if V_b >= 0.0:
+            Fmass_bot0 = V_b * bbot.pr.lam_T[0]; Fh_b = V_b * bbot.pr.adv_h[0]
+        else:
+            Fmass_bot0 = V_b * pr.lam_T[0];      Fh_b = V_b * pr.adv_h[0]
+        Fen_bot0 = geom.TFb * (bbot.T - pr.T[0]) + Fh_b
+
+        V_t = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_ff[0]
+        if V_t >= 0.0:
+            Fmass_topN = V_t * pr.lam_T[-1];     Fh_t = V_t * pr.adv_h[-1]
+        else:
+            Fmass_topN = V_t * btop.pr.lam_T[0]; Fh_t = V_t * btop.pr.adv_h[0]
+        Fen_topN = geom.TFb * (pr.T[-1] - btop.T) + Fh_t
 
     # divergence: net upward outflow per cell = F_top - F_bottom
     div_mass = np.empty(N); div_en = np.empty(N)
@@ -344,7 +373,7 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme,
     ug, ud = buoyancy_directions(geom, p_old, pr_old, scheme)     # lagged per step
 
     x = x0.copy()
-    args = (x_old, dt, geom, table, bbot, btop, ug, ud)
+    args = (x_old, dt, geom, table, bbot, btop, scheme, ug, ud)
     r0 = residual(x, *args)
     nrm0 = np.linalg.norm(r0)
     nrm = nrm0
