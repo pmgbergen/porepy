@@ -15,6 +15,11 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     ConvergenceStatusCollection,
 )
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
@@ -978,29 +983,29 @@ def test_nonlinear_loop(
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.CONVERGED,
+            NonlinearSolverStatusConverged,
         ),
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.CONTINUE_ITERATING,
-            ConvergenceStatus.CONVERGED,
+            NonlinearSolverStatusConverged,
         ),
         (
             ConvergenceStatus.CONVERGED,
             ConvergenceStatus.FAILED,
-            ConvergenceStatus.CONVERGED,  # Convergence trumps divergence
+            NonlinearSolverStatusConverged,  # Convergence trumps divergence
         ),
         (
             ConvergenceStatus.CONTINUE_ITERATING,
             ConvergenceStatus.FAILED,
-            ConvergenceStatus.FAILED,
+            NonlinearSolverStatusFailed,
         ),
     ],
 )
 def test_summarize_solver_status(
     convergence_status,
     divergence_status,
-    expected_solver_status,
+    expected_solver_status: type[NonlinearSolverStatus],
     default_newton_solver: pp.NewtonSolver,
 ):
     """Unit test for the summarize_solver_status method of the Newton solver."""
@@ -1013,16 +1018,19 @@ def test_summarize_solver_status(
     solver.solver_progressbar = DummyProgressBar()
 
     # Minimal mimicking of loop.
-    model.nonlinear_solver_statistics.simulation_status_history = [
-        ConvergenceStatus.CONVERGED
+    model.nonlinear_solver_statistics.solver_status_history = [
+        NonlinearSolverStatusConverged(
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
     ]
 
     solver_status = solver.summarize_solver_status(
-        model, convergence_status, divergence_status
+        convergence_status, divergence_status
     )
 
     # Check that the returned simulation status matches expected value.
-    assert solver_status == expected_solver_status
+    assert isinstance(solver_status, expected_solver_status)
 
 
 def test_before_nonlinear_iteration(default_newton_solver: pp.NewtonSolver):

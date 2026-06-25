@@ -92,27 +92,9 @@ class LinearSolver:
         convergence_status, divergence_status = self.linear_solve(model)
 
         # Conclude on the solver status.
-        solver_status: NonlinearSolverStatus
-        if convergence_status.is_converged():
-            solver_status = NonlinearSolverStatusConverged(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-        elif divergence_status.is_diverged():
-            solver_status = NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-            logger.warning("Failed to solve the linear problem.")
-        else:
-            solver_status = NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-            logger.warning(
-                "Linear solver did not fail, but the convergence criterion did not "
-                "accept the solution. Treating it as a failure."
-            )
+        solver_status = self.summarize_solver_status(
+            convergence_status, divergence_status
+        )
 
         if solver_status.is_converged():
             model.after_nonlinear_convergence()
@@ -123,6 +105,34 @@ class LinearSolver:
         self.update_solver_statistics(model=model, solver_status=solver_status)
 
         return solver_status
+
+    def summarize_solver_status(
+        self,
+        convergence_status: ConvergenceStatusCollection,
+        divergence_status: ConvergenceStatusCollection,
+    ) -> NonlinearSolverStatus:
+        # YZ: This is a duplicated method of NewtonSolver, but I find it acceptible for
+        # now since we are planning to unify these two classes in the nearest future.
+        if convergence_status.is_converged():
+            return NonlinearSolverStatusConverged(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
+        elif divergence_status.is_diverged():
+            logger.warning("Failed to solve the nonlinear problem.")
+            return NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
+        else:
+            logger.error(
+                "Nonlinear solver did not fail, but the convergence criterion did not "
+                "accept the solution. Treating it as a failure."
+            )
+            return NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
 
     def before_linear_solve(self, model: SolutionStrategy) -> None:
         """Prepare the linear solve.

@@ -15,6 +15,10 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusCollection,
     MaxIterationsCriterion,
 )
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.time_step_control import TimeManager
 from porepy.time.time_stepper import TimeStepper
@@ -120,10 +124,20 @@ class MockNonlinearSolver:
         """Number of times solve must be called to return success."""
 
     def solve(self, model) -> ConvergenceStatus:
+        # We need to do it, otherwise will fail with IndexError on attempt to write
+        # statistics. This is called in model.before_nonlinear_loop.
+        model.nonlinear_solver_statistics.increase_index()
+
         self._iter += 1
         if self._iter < self.num_iters_for_success:
-            return ConvergenceStatus.FAILED
-        return ConvergenceStatus.CONVERGED
+            return NonlinearSolverStatusFailed(
+                convergence_statuses=ConvergenceStatusCollection(),
+                divergence_statuses=ConvergenceStatusCollection(),
+            )
+        return NonlinearSolverStatusConverged(
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
 
 
 class MaxIterationsConvergenceCriterion(ConvergenceCriterion):
@@ -483,8 +497,15 @@ def test_model_time_step_control(params: dict):
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": MAX_NONLINEAR_ITER,
     }
-
-    status = ModelRunner(model, solver_params).run()
+    if not should_fail:
+        status = ModelRunner(model, solver_params).run()
+    else:
+        try:
+            ModelRunner(model, solver_params).run()
+        except RuntimeError as e:
+            status = e.args[0]
+        else:
+            assert False
     assert np.allclose(model.time_step_history, exported_dt_expected)
     assert model.time_manager.final_time_reached() != should_fail
     if should_fail:

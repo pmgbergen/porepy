@@ -253,27 +253,12 @@ class NewtonSolver:
         # Actual Newton loop.
         convergence_status, divergence_status = self.nonlinear_loop(model)
 
-        is_converged = convergence_status.is_converged()
-        is_diverged = divergence_status.is_diverged()
-
         # Summarizing the convergence message from multiple criteria into an overall
         # status.
-        solver_status: NonlinearSolverStatus
-        if is_converged:
-            solver_status = NonlinearSolverStatusConverged(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-        elif is_diverged:
-            solver_status = NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-            logger.warning("Failed to solve the nonlinear problem.")
-        else:
-            raise ValueError(
-                "Nonlinear loop should return with either convergence or divergence."
-            )
+        solver_status = self.summarize_solver_status(
+            convergence_status, divergence_status
+        )
+
         # YZ: This hack is to be addressed when we find a better way to organize
         # statistics collection.
         # Logging basic discretization-related information and overall simulation status
@@ -283,15 +268,41 @@ class NewtonSolver:
 
         # This must be done after writing statistics, since model.after_*** calls write
         # statistics to json file.
-        if is_converged:
+        if solver_status.is_converged():
             model.after_nonlinear_convergence()
-        elif is_diverged:
+        else:
             model.after_nonlinear_failure()
 
         # Finalize the nonlinear loop.
         self.after_nonlinear_loop()
 
         return solver_status
+
+    def summarize_solver_status(
+        self,
+        convergence_status: ConvergenceStatusCollection,
+        divergence_status: ConvergenceStatusCollection,
+    ) -> NonlinearSolverStatus:
+        if convergence_status.is_converged():
+            return NonlinearSolverStatusConverged(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
+        elif divergence_status.is_diverged():
+            logger.warning("Failed to solve the nonlinear problem.")
+            return NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
+        else:
+            logger.error(
+                "Nonlinear solver did not fail, but the convergence criterion did not "
+                "accept the solution. Treating it as a failure."
+            )
+            return NonlinearSolverStatusFailed(
+                convergence_statuses=convergence_status,
+                divergence_statuses=divergence_status,
+            )
 
     def before_nonlinear_loop(self, model: SolutionStrategy) -> None:
         """Prepare for the nonlinear loop.
