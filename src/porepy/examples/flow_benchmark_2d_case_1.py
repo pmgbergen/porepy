@@ -164,7 +164,7 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
     """Complete model class for case 1 from the 2d flow benchmark."""
 
 
-def run_example() -> list[pp.PorePyModel]:
+def run_example() -> list[FlowBenchmark2dCase1Model]:
     """Run the flow benchmark 2D case 1 example and return the models.
 
     Both the conductive and blocking fracture cases are included.
@@ -174,7 +174,7 @@ def run_example() -> list[pp.PorePyModel]:
         solid_constants_blocking_fractures,
         solid_constants_conductive_fractures,
     ]
-    models: list[pp.PorePyModel] = []
+    models: list[FlowBenchmark2dCase1Model] = []
     for solid_constant in solid_constants:
         model_params = {
             "material_constants": {"solid": solid_constant},
