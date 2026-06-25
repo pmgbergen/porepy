@@ -215,7 +215,9 @@ class Geom:
     yc: np.ndarray
 
 
-def make_geom(N):
+def make_geom(N, g=G):
+    """Build the 1-D geometry. ``g`` is the gravity along the column: G for the vertical
+    case (fig 5D), 0.0 for the horizontal case (fig 5B, gravity perpendicular to flow)."""
     dy = L_COLUMN / N
     A = DX
     Vcell = A * dy
@@ -223,7 +225,7 @@ def make_geom(N):
     es = Vcell * (1 - PHI) * RHO_S * C_S * T_REF / DT0
     return Geom(N=N, dy=dy, A=A, Tf=K_PERM * A / dy, Tb=2.0 * K_PERM * A / dy,
                 TFf=K_E * A / dy, TFb=2.0 * K_E * A / dy, Vcell=Vcell,
-                GA=K_PERM * A * G, ms=ms, es=es, yc=(np.arange(N) + 0.5) * dy)
+                GA=K_PERM * A * g, ms=ms, es=es, yc=(np.arange(N) + 0.5) * dy)
 
 
 def _upwind_idx(direction):
@@ -453,11 +455,25 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
     return x, maxit, nrm, nrm <= 1e-3 * nrm0
 
 
-def run(scheme="hu", N=200, n_steps=None, dt=None, adaptive=True, verbose=True):
-    """Integrate the fig-5D column to t=1000 yr with the chosen buoyancy scheme."""
+# Per-case settings: gravity along the column and the benchmark final time.
+#   "vertical"   = fig 5D: gravity ON,  t_final = 1000 yr.
+#   "horizontal" = fig 5B: gravity OFF (perpendicular to flow), t_final = 200 yr.
+CASES = {"vertical": dict(g=G, tf_yr=1000.0), "horizontal": dict(g=0.0, tf_yr=200.0)}
+
+
+def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
+        adaptive=True, verbose=True):
+    """Integrate the fig-5 column with the chosen buoyancy scheme.
+
+    ``case`` selects fig 5D (vertical, gravity on, 1000 yr) or fig 5B (horizontal,
+    gravity off, 200 yr). The two differ ONLY in the gravity value and final time.
+    """
+    if case not in CASES:
+        raise ValueError(f"case must be one of {list(CASES)}")
+    cfg = CASES[case]
     table = Table(VTK_XPH, _XPH_FIELDS, a_in=1e-6, b_in=1e-6)     # h[J/kg], p[Pa]
     xpt = Table(VTK_XPT, {"H": 1e3}, a_in=1.0, b_in=1e-6)         # T[degC], p[Pa] -> H[J/kg]
-    geom = make_geom(N)
+    geom = make_geom(N, g=cfg["g"])
 
     h_bot = float(xpt("H", T_BOT - 273.15, P_BOT)[0])
     h_top = float(xpt("H", T_TOP - 273.15, P_TOP)[0])
@@ -471,7 +487,7 @@ def run(scheme="hu", N=200, n_steps=None, dt=None, adaptive=True, verbose=True):
 
     plan = build_jac_plan(N)                       # sparsity/colour plan built ONCE
     dt0 = dt if dt is not None else 0.125 * YEAR
-    tf = 1000.0 * YEAR if n_steps is None else n_steps * dt0
+    tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0
     while t < tf - 1e-6:
         dt = min(dt, tf - t)
@@ -489,7 +505,7 @@ def run(scheme="hu", N=200, n_steps=None, dt=None, adaptive=True, verbose=True):
 
     pr = eval_props(table, x[0::2], x[1::2])
     return {"y": y, "p": x[0::2], "h": x[1::2], "T": pr.T, "s_gas": pr.s_v,
-            "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N}
+            "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N, "case": case}
 
 
 # --------------------------------------------------------------------------------------- #
@@ -501,15 +517,17 @@ def _load_ref_csv(name):
     return d[:, 0], d[:, 1]      # distance[km], value
 
 
-def plot_comparison(results, save_path):
+def plot_comparison(results, save_path, case="vertical"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    tag = "vertical" if case == "vertical" else "horizontal"
+    panel = "5D (vertical, gravity)" if case == "vertical" else "5B (horizontal, no gravity)"
     refs = {
-        "T": ("fig_5_vertical_temperature_raw.csv", "Temperature [°C]"),
-        "p": ("fig_5_vertical_pressured_raw.csv", "Pressure [MPa]"),
-        "s_liq": ("fig_5_vertical_saturation_liq_raw.csv", "Liquid saturation [-]"),
+        "T": (f"fig_5_{tag}_temperature_raw.csv", "Temperature [°C]"),
+        "p": (f"fig_5_{tag}_pressured_raw.csv", "Pressure [MPa]"),
+        "s_liq": (f"fig_5_{tag}_saturation_liq_raw.csv", "Liquid saturation [-]"),
     }
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
     colors = {"hu": "tab:blue", "ppu": "tab:red"}
@@ -525,7 +543,7 @@ def plot_comparison(results, save_path):
         ax.set_xlabel("Distance [km]"); ax.set_ylabel(ylabel)
         ax.set_xlim(0, 2); ax.grid(alpha=0.3)
     axes[0].legend(fontsize=8, loc="best")
-    fig.suptitle("Figure 5D (vertical column) — independent 1D solver vs digitized reference")
+    fig.suptitle(f"Figure {panel} — independent 1D solver vs digitized reference")
     fig.tight_layout()
     fig.savefig(save_path, dpi=130)
     print(f"wrote {save_path}")
@@ -563,21 +581,23 @@ def main():
     selftest()
     schemes = sys.argv[1].split(",") if len(sys.argv) > 1 else ["hu", "ppu"]
     N = int(sys.argv[2]) if len(sys.argv) > 2 else 200
+    case = sys.argv[3] if len(sys.argv) > 3 else "vertical"   # "vertical"(5D) | "horizontal"(5B)
     n_steps = int(os.environ["NSTEPS"]) if "NSTEPS" in os.environ else None
     out_dir = os.path.join(HERE, "visualization_1D_fig_5")
     os.makedirs(out_dir, exist_ok=True)
+    panel = "5D" if case == "vertical" else "5B"
 
     results = {}
     for sch in schemes:
-        print(f"--- running scheme={sch}, N={N} ---")
-        res = run(scheme=sch, N=N, n_steps=n_steps, verbose=True)
+        print(f"--- running scheme={sch}, N={N}, case={case} (fig {panel}) ---")
+        res = run(scheme=sch, N=N, case=case, n_steps=n_steps, verbose=True)
         results[sch] = res
         band = np.where((res["s_gas"] > 1e-3) & (res["s_gas"] < 1 - 1e-3))[0]
         print(f"  {sch}: T {res['T'][0]-273.15:.0f}->{res['T'][-1]-273.15:.0f} C, "
               f"p {res['p'][0]/1e6:.1f}->{res['p'][-1]/1e6:.2f} MPa, "
               f"band y=[{res['y'][band[0]]:.0f},{res['y'][band[-1]]:.0f}]m" if band.size
               else f"  {sch}: no two-phase band")
-    plot_comparison(results, os.path.join(out_dir, f"fig5D_compare_N{N}.png"))
+    plot_comparison(results, os.path.join(out_dir, f"fig{panel}_compare_N{N}.png"), case=case)
 
 
 if __name__ == "__main__":
