@@ -415,19 +415,6 @@ def test_parse_equations(
     model.equation_system.assemble({equation_name: domains})
 
 
-class CheckConvergenceTest(pp.SolutionStrategy):
-    """Class to ."""
-
-    def __init__(self, params: dict):
-        super().__init__(params)
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
-
-
-@pytest.fixture
-def check_convergence_test_model() -> CheckConvergenceTest:
-    return CheckConvergenceTest({})
-
-
 @pytest.mark.parametrize(
     "nonlinear_increment,residual,expected",
     [
@@ -447,7 +434,6 @@ def test_check_convergence(
     nonlinear_increment: np.ndarray,
     residual: np.ndarray,
     expected: tuple[bool, bool],
-    check_convergence_test_model: CheckConvergenceTest,
 ):
     """Test that ``SolutionStrategy.check_convergence`` returns the right
     diverged/converged values.
@@ -477,14 +463,14 @@ def test_check_convergence(
     divergence_status = divergence_criteria.check(
         increment=nonlinear_increment, residual=residual
     )
-    # Condense the two statuses into one.
-    status = convergence_status.union(divergence_status)
     if expected == ConvergenceStatus.CONVERGED:
-        assert status.is_converged()
+        assert convergence_status.is_converged() and not divergence_status.is_diverged()
     elif expected == ConvergenceStatus.CONTINUE_ITERATING:
-        assert status.is_iterating()
+        assert convergence_status.is_iterating() and divergence_status.is_iterating()
     elif expected == ConvergenceStatus.FAILED:
-        assert status.is_diverged()
+        assert divergence_status.is_diverged() and not convergence_status.is_converged()
+    # Condense the two statuses into one. We check that "union" works.
+    _ = convergence_status.union(divergence_status)
 
 
 @pytest.mark.parametrize(

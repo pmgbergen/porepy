@@ -400,7 +400,7 @@ def test_absolute_convergence_criterion(
 @pytest.mark.parametrize(
     ("tol", "value", "expected_status"),
     [
-        (1e-3, [1e-4], ConvergenceStatus.CONVERGED),
+        (1e-3, [1e-4], ConvergenceStatus.CONTINUE_ITERATING),
         (1e-3, [1e-2, 1e-2], ConvergenceStatus.FAILED),
     ],
 )
@@ -519,7 +519,7 @@ def test_relative_convergence_criterion_multiphysics(
 @pytest.mark.parametrize(
     ("tol", "value", "reference_value", "expected_status"),
     [
-        (1e-2, [1e-5], 1e-2, ConvergenceStatus.CONVERGED),  # rel = 0.001 < tol
+        (1e-2, [1e-5], 1e-2, ConvergenceStatus.CONTINUE_ITERATING),  # rel = 0.001 < tol
         (1e-2, [1e-2, 1e-2], 1e-1, ConvergenceStatus.FAILED),  # rel = ~0.014 > tol
     ],
 )
@@ -690,14 +690,14 @@ def test_convergence_criteria_collection(
     [
         (
             1e-4,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.CONVERGED,
-            ConvergenceStatus.CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONTINUE_ITERATING,
         ),
         (
             2e-3,
             ConvergenceStatus.FAILED,
-            ConvergenceStatus.CONVERGED,
+            ConvergenceStatus.CONTINUE_ITERATING,
             ConvergenceStatus.FAILED,
         ),
         (
@@ -727,7 +727,9 @@ def test_divergence_criteria_collection(
     status = criteria.check(value=np.array([value]))
     assert status["crit_single"] == expected_status_crit_single
     assert status["crit_multi"] == expected_status_crit_multi
-    if expected_status_collection == ConvergenceStatus.CONVERGED:
-        assert status.is_converged()
-    else:
+    if expected_status_collection == ConvergenceStatus.CONTINUE_ITERATING:
+        assert status.is_iterating()
+    elif expected_status_collection == ConvergenceStatus.FAILED:
         assert status.is_diverged()
+    else:
+        assert False
