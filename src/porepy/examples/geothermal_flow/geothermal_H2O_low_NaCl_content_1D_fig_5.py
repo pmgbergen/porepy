@@ -489,10 +489,12 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
     dt0 = dt if dt is not None else 0.125 * YEAR
     tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0
+    total_it = 0                                    # all Newton iterations (incl. retries)
     while t < tf - 1e-6:
         dt = min(dt, tf - t)
         x_old = x.copy()
         xn, nit, nrm, ok = newton_step(x, x_old, dt, geom, table, bbot, btop, scheme, plan)
+        total_it += nit
         if not ok and adaptive and dt > dt0 / 64:
             dt *= 0.5                                  # retry with smaller step
             continue
@@ -503,9 +505,11 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
             print(f"  t={t/YEAR:7.1f} yr  dt={dt/YEAR:.4f}  nit={nit}  |r|={nrm:.1e}"
                   f"  {'' if ok else 'NOT CONVERGED'}")
 
+    avg_it = total_it / step if step else 0.0
     pr = eval_props(table, x[0::2], x[1::2])
     return {"y": y, "p": x[0::2], "h": x[1::2], "T": pr.T, "s_gas": pr.s_v,
-            "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N, "case": case}
+            "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N, "case": case,
+            "n_steps": step, "total_it": total_it, "avg_it": avg_it}
 
 
 # --------------------------------------------------------------------------------------- #
@@ -539,7 +543,8 @@ def plot_comparison(results, save_path, case="vertical"):
             y_km = res["y"] / 1000.0
             val = {"T": res["T"] - 273.15, "p": res["p"] / 1e6, "s_liq": res["s_liq"]}[key]
             ax.plot(y_km, val, "-", color=colors.get(sch, None), lw=1.8,
-                    label=f"1D {sch.upper()} (N={res['N']})")
+                    label=f"{sch.upper()} (avg. it. {res['avg_it']:.2f}, "
+                          f"total it. {res['total_it']})")
         ax.set_xlabel("Distance [km]"); ax.set_ylabel(ylabel)
         ax.set_xlim(0, 2); ax.grid(alpha=0.3)
     axes[0].legend(fontsize=8, loc="best")
