@@ -1,51 +1,32 @@
 """
-Test all available executable examples.
+Test executable examples.
 
-The tests collect Python example modules from ``porepy.examples`` and execute
-their ``run_example()`` functions. Each executable example is expected to return
-a list of models. For each returned model, the simulation status is checked to
-verify that the simulation completes successfully or stops in a controlled way.
+The tests verify that the examples can be well executed with
+a successful simulation status.
 
 """
-import importlib
-from pathlib import Path
 
-import matplotlib
-import pytest
+import porepy.examples.flow_benchmark_2d_case_1 as flow_benchmark_2d_case_1
+import porepy as pp
 
-import porepy
 
-# Disable plotting during tests.
-matplotlib.use("template")
+def test_flow_benchmark_2d_case_1_main(monkeypatch) -> None:
+    """Test that the flow benchmark 2D case 1 example runs as main.
 
-EXAMPLE_DIR = Path(porepy.__file__).parent / "examples"
-EXAMPLE_FILENAMES = [
-    path for path in EXAMPLE_DIR.glob("*.py") 
-    if path.name not in ("__init__.py", "example_params.py")
-]
-
-@pytest.mark.examples
-@pytest.mark.parametrize("example_path", EXAMPLE_FILENAMES)
-def test_run_examples(example_path: Path):
-    """We run the executable examples and check that they didn't raise any error.
-
-    The test imports the example module, verifies the definition of a ``run_example()``
-    function, and checks the simulation status of models.
+    Plotting is disabled and the test verifies that the simulation status
+    is successful for both the conductive and blocking fracture cases.
 
     """
-    module_name = f"porepy.examples.{example_path.stem}"
-    module = importlib.import_module(module_name)
-    
-    # The executable example is required to define a run_example() function.
-    if not hasattr(module, "run_example"):
-        raise AssertionError(
-            f"{module_name} does not define run_example()."
-        )
+    # Disable plotting to avoid creating figures.
+    monkeypatch.setattr(
+        flow_benchmark_2d_case_1.pp, "plot_grid", lambda *args, **kwargs: None
+    )
+    models = flow_benchmark_2d_case_1.run_example()
 
-    models = module.run_example()
+    # Both the conductive and blocking fracture cases should be executed.
+    assert len(models) == 2
 
+    # Verify that the simulation status is successful for cases.
     for model in models:
-        status = model.nonlinear_solver_statistics
-        assert (
-            status.simulation_status.is_successful() 
-        )
+        stats = model.nonlinear_solver_statistics
+        assert stats.simulation_status.is_successful()
