@@ -394,7 +394,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
         ):
-            if not simulation_status.is_successful():
+            if not simulation_status.is_success():
                 total_num_waisted_iterations += num_iterations
 
         # Update global data.
@@ -500,7 +500,7 @@ class TimeStatistics(SolverStatistics):
         # TODO: Rethink during upgrade of time integration.
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if not simulation_status.is_successful():
+            if not simulation_status.is_success():
                 total_num_failed_time_steps += 1
 
         # Update global data.
