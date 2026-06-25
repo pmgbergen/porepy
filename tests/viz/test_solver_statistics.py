@@ -14,6 +14,10 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
 )
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatusConverged,
+)
+from porepy.time.time_step_status import TimeStepperStatusContinueIterating
 from porepy.viz.solver_statistics import (
     NonlinearSolverAndTimeStatistics,
     NonlinearSolverStatistics,
@@ -213,8 +217,18 @@ def test_solver_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == ConvergenceStatus.CONTINUE_ITERATING
+    assert stats.simulation_status == TimeStepperStatusContinueIterating(
+        attempt=-1,
+        nonlinear_solver_status=NonlinearSolverStatusConverged(
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        ),
+    )
     assert stats.simulation_status_history == []
+    assert stats.solver_status == NonlinearSolverStatusConverged(
+        convergence_statuses=ConvergenceStatusCollection(),
+        divergence_statuses=ConvergenceStatusCollection(),
+    )
     assert stats.solver_status_history == []
     assert stats.custom_data == {}
 

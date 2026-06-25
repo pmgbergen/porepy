@@ -13,14 +13,17 @@ import numpy as np
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
-    ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
     _recursive_append,
 )
-from porepy.numerics.nonlinear.nonlinear_solvers import (
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
+)
+from porepy.time.time_step_status import (
+    TimeStepperStatus,
+    TimeStepperStatusContinueIterating,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,15 +69,27 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    simulation_status: NonlinearSolverStatus = field(
+    solver_status: NonlinearSolverStatus = field(
         default_factory=lambda: NonlinearSolverStatusConverged(
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
-    )  # TODO: Rename to nonlinear solver status (?)
-    """Overall simulation status."""
-    simulation_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
-    """Overall simulation status history."""
+    )
+    """Nonlinear solver status history."""
+    solver_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
+    """Nonlinear solver status."""
+    simulation_status: TimeStepperStatus = field(
+        default_factory=lambda: TimeStepperStatusContinueIterating(
+            attempt=-1,
+            nonlinear_solver_status=NonlinearSolverStatusConverged(
+                convergence_statuses=ConvergenceStatusCollection(),
+                divergence_statuses=ConvergenceStatusCollection(),
+            ),
+        )
+    )
+    """Simulation time step status."""
+    simulation_status_history: list[TimeStepperStatus] = field(default_factory=list)
+    """Simulation time step status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
@@ -107,7 +122,7 @@ class SolverStatistics:
             self.num_domains[dim_str] += 1
 
     def log_simulation_status(
-        self, simulation_status: NonlinearSolverStatus, **kwargs
+        self, simulation_status: TimeStepperStatus, **kwargs
     ) -> None:
         """Log the status of the simulation.
 
@@ -123,7 +138,7 @@ class SolverStatistics:
             else:
                 self.simulation_status_history[-1] = self.simulation_status
 
-    def log_solver_status(self, solver_status: SolverStatus, **kwargs) -> None:
+    def log_solver_status(self, solver_status: NonlinearSolverStatus, **kwargs) -> None:
         """Log the status of the solver.
 
         Parameters:
@@ -318,7 +333,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iterations = 0
         self.convergence_status.clear()
         self.convergence_info.clear()
-        self.solver_status_history.clear()
+        self.solver_status_history.clear()  # do we ever clear simulation_status_history?
 
     def log_convergence_status(
         self, convergence_status: ConvergenceStatusCollection, **kwargs

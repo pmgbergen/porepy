@@ -221,7 +221,7 @@ def test_model_delegate_methods_called(
             (before_main_loop + main_loop + after_main_loop_failure) * 4
             # And a single successful time step
             + before_main_loop
-            + main_loop 
+            + main_loop
             + after_main_loop_success
         )
     elif solver_type == "nonlinear":

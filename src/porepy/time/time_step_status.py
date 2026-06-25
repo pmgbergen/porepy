@@ -3,7 +3,7 @@
 from abc import ABC
 from dataclasses import dataclass
 
-from porepy.numerics.nonlinear.nonlinear_solvers import (
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
 )

@@ -22,8 +22,6 @@ from porepy.utils.ui_and_logging import (
 )
 from porepy.utils.ui_and_logging import progressbar_class
 
-if TYPE_CHECKING:
-    from porepy.numerics.nonlinear.convergence_check import SolverStatus
 
 __all__ = [
     "ModelRunnerStatus",

@@ -21,7 +21,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
 )
-from porepy.numerics.nonlinear.nonlinear_solvers import (
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
@@ -118,6 +118,9 @@ class LinearSolver:
             model.after_nonlinear_convergence()
         else:
             model.after_nonlinear_failure()
+
+        # Logging statistics.
+        self.update_solver_statistics(model=model, solver_status=solver_status)
 
         return solver_status
 

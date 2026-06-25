@@ -13,7 +13,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     ConvergenceStatusCollection,
 )
-from porepy.numerics.nonlinear.nonlinear_solvers import (
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
@@ -215,14 +215,14 @@ class TimeStepper:
     ) -> None:
         """Update statistics from the time step."""
         assert isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics)
-        # Right now, log_time_information does nothing with the time_step_status, but
-        # we may need to record this information in some time.
+        model.nonlinear_solver_statistics.log_simulation_status(
+            simulation_status=time_step_status
+        )
         model.nonlinear_solver_statistics.log_time_information(
             self.time_manager.time_index,
             self.time_manager.time,
             self.time_manager.dt,
             self.time_manager.final_time_reached(),
-            time_step_status=time_step_status,
         )
 
 

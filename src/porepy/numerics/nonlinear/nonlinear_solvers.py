@@ -5,8 +5,6 @@ Implemented classes
 """
 
 import logging
-from abc import ABC
-from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
@@ -19,6 +17,11 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusCollection,
     DivergenceCriteria,
 )
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -27,27 +30,6 @@ from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class NonlinearSolverStatus(ABC):
-    def is_converged(self) -> bool:
-        return isinstance(self, NonlinearSolverStatusConverged)
-
-    def is_failed(self) -> bool:
-        return isinstance(self, NonlinearSolverStatusFailed)
-
-
-@dataclass
-class NonlinearSolverStatusConverged(NonlinearSolverStatus):
-    convergence_statuses: ConvergenceStatusCollection
-    divergence_statuses: ConvergenceStatusCollection
-
-
-@dataclass
-class NonlinearSolverStatusFailed(NonlinearSolverStatus):
-    convergence_statuses: ConvergenceStatusCollection
-    divergence_statuses: ConvergenceStatusCollection
 
 
 class NewtonSolver:
