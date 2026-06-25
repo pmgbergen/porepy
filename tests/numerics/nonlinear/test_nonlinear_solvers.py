@@ -20,9 +20,46 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
+from porepy.time.time_step_status import (
+    TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
+    TimeStepperStatusSuccess,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
+
+
+def time_step_success() -> TimeStepperStatusSuccess:
+    """Create a successful time-step status for statistics tests."""
+    return TimeStepperStatusSuccess(
+        nonlinear_solver_status=NonlinearSolverStatusConverged(
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
+    )
+
+
+def time_step_failure() -> TimeStepperStatusFailure:
+    """Create a failed time-step status for statistics tests."""
+    return TimeStepperStatusFailure(
+        nonlinear_solver_status=NonlinearSolverStatusFailed(
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        ),
+        reason="Nonlinear solver failed.",
+    )
+
+
+def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
+    """Create an in-progress time-step status for statistics tests."""
+    return TimeStepperStatusContinueIterating(
+        attempt=0,
+        nonlinear_solver_status=NonlinearSolverStatusFailed(
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        ),
+    )
 
 
 @pytest.fixture
@@ -152,6 +189,22 @@ class TimeDependentMockModel(MockModel):
         self.equation_system.residual = np.array(self.residuals[0])
         self.residuals = self.residuals[1:]
 
+    # def _log_time_information(self):
+    #     self.nonlinear_solver_statistics.log_time_information(
+    #         time_index=self.time_manager.time_index,
+    #         time=self.time_manager.time,
+    #         dt=self.time_manager.dt,
+    #         final_time_reached=self.time_manager.final_time_reached(),
+    #     )
+
+    # def after_nonlinear_convergence(self):
+    #     self._log_time_information()
+    #     super().after_nonlinear_convergence()
+
+    # def after_nonlinear_failure(self):
+    #     self._log_time_information()
+    #     super().after_nonlinear_failure()
+
     def _is_time_dependent(self):
         return True
 
@@ -181,6 +234,33 @@ def test_init_criteria():
     )
     assert solver.convergence_criteria == custom_conv_criteria
     assert solver.divergence_criteria == custom_div_criteria
+
+
+@pytest.mark.parametrize(
+    ("status_type", "expected"),
+    [
+        (NonlinearSolverStatusConverged, "successful"),
+        (NonlinearSolverStatusFailed, "failed"),
+    ],
+)
+def test_nonlinear_solver_status_serialization(status_type, expected):
+    status = status_type(
+        convergence_statuses=ConvergenceStatusCollection(),
+        divergence_statuses=ConvergenceStatusCollection(),
+    )
+    assert status.serialize() == expected
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (time_step_status_in_progress(), "in_progress"),
+        (time_step_success(), "successful"),
+        (time_step_failure(), "failed"),
+    ],
+)
+def test_time_stepper_status_serialization(status, expected):
+    assert status.serialize() == expected
 
 
 def test_init_criteria_valid_max_iterations(default_newton_solver):
@@ -292,7 +372,7 @@ def test_solve_convergence_statistics(default_newton_solver):
 
     # Summarize status and save statistics.
     # TODO: Revisit during restructuring of loops.
-    simulation_status = SimulationStatus.SUCCESSFUL
+    simulation_status = time_step_success()
     model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
     model.nonlinear_solver_statistics.save()
 
@@ -308,8 +388,8 @@ def test_solve_convergence_statistics(default_newton_solver):
                 "global": {
                     "num_cells": {},
                     "num_domains": {},
-                    "simulation_status_history": ["converged"],
-                    "final_simulation_status": "converged",
+                    "simulation_status_history": ["successful"],
+                    "final_simulation_status": "successful",
                     "num_entries": 1,
                     "num_iterations_history": [2],
                     "total_num_iterations": 2,
@@ -326,7 +406,9 @@ def test_solve_convergence_statistics(default_newton_solver):
                 },
                 "0": {
                     "num_iterations": 2,
-                    "simulation_status": "converged",
+                    "simulation_status": "successful",
+                    "solver_status_history": ["successful"],
+                    "solver_status": "successful",
                     "convergence_status": {
                         "inc_abs": ["continue_iterating", "converged"],
                         "res_abs": ["continue_iterating", "converged"],
@@ -400,8 +482,8 @@ def test_solve_convergence_time_dependent_statistics(
         "global": {
             "num_cells": {},
             "num_domains": {},
-            "simulation_status_history": ["converged"],
-            "final_simulation_status": "converged",
+            "simulation_status_history": ["successful"],
+            "final_simulation_status": "successful",
             "num_entries": 1,
             "final_time_reached": 0,
             "total_num_time_steps": 1,
@@ -425,7 +507,9 @@ def test_solve_convergence_time_dependent_statistics(
             "time": 0.5,
             "dt": 0.5,
             "num_iterations": 2,
-            "simulation_status": "converged",
+            "simulation_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
             "convergence_status": {
                 "inc_abs": ["continue_iterating", "converged"],
                 "res_abs": ["continue_iterating", "converged"],
@@ -443,8 +527,11 @@ def test_solve_convergence_time_dependent_statistics(
     reference_data_after_2 = copy.deepcopy(reference_data_after_1)
     reference_data_after_2["global"].update(
         {
-            "simulation_status_history": ["converged", "converged"],
-            "final_simulation_status": "converged",
+            "simulation_status_history": [
+                "successful",
+                "successful",
+            ],
+            "final_simulation_status": "successful",
             "num_entries": 2,
             "final_time_reached": 1,
             "total_num_time_steps": 2,
@@ -469,7 +556,9 @@ def test_solve_convergence_time_dependent_statistics(
         "time": 1.0,
         "dt": 0.5,
         "num_iterations": 3,
-        "simulation_status": "converged",
+        "simulation_status": "successful",
+        "solver_status_history": ["successful"],
+        "solver_status": "successful",
         "convergence_status": {
             "inc_abs": ["continue_iterating", "continue_iterating", "converged"],
             "res_abs": ["continue_iterating", "continue_iterating", "converged"],
@@ -508,7 +597,7 @@ def test_solve_convergence_time_dependent_statistics(
 
     # Summarize status and save statistics.
     # TODO: Revisit during restructuring of loops.
-    simulation_status = SimulationStatus.SUCCESSFUL
+    simulation_status = time_step_success()
     model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
     model.nonlinear_solver_statistics.save()
 
@@ -525,7 +614,7 @@ def test_solve_convergence_time_dependent_statistics(
     _ = solver.solve(model)
     # Summarize status and save statistics.
     # TODO: Revisit during restructuring of loops.
-    simulation_status = SimulationStatus.SUCCESSFUL
+    simulation_status = time_step_success()
     model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
     model.nonlinear_solver_statistics.save()
 
@@ -570,6 +659,9 @@ def test_solve_failure_statistics(default_newton_solver: pp.NewtonSolver):
 
     # Check simulation status.
     assert solver_status.is_failed()
+
+    model.nonlinear_solver_statistics.log_simulation_status(time_step_failure())
+    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open("solver_statistics.json", "r") as f:
@@ -729,8 +821,11 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_2 = copy.deepcopy(reference_data_after_1)
     reference_data_after_2["global"].update(
         {
-            "simulation_status_history": ["failed", "converged"],
-            "final_simulation_status": "converged",
+            "simulation_status_history": [
+                "failed",
+                "successful",
+            ],
+            "final_simulation_status": "successful",
             "num_entries": 2,
             "final_time_reached": 0,
             "total_num_time_steps": 2,
@@ -755,7 +850,9 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "time": 0.5,
         "dt": 0.5,
         "num_iterations": 3,
-        "simulation_status": "converged",
+        "simulation_status": "successful",
+        "solver_status_history": ["successful"],
+        "solver_status": "successful",
         "convergence_status": {
             "inc_abs": ["continue_iterating", "continue_iterating", "converged"],
             "res_abs": ["continue_iterating", "continue_iterating", "converged"],
@@ -791,8 +888,12 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3 = copy.deepcopy(reference_data_after_2)
     reference_data_after_3["global"].update(
         {
-            "simulation_status_history": ["failed", "converged", "converged"],
-            "final_simulation_status": "converged",
+            "simulation_status_history": [
+                "failed",
+                "successful",
+                "successful",
+            ],
+            "final_simulation_status": "successful",
             "num_entries": 3,
             "final_time_reached": 1,
             "total_num_time_steps": 3,
@@ -815,8 +916,6 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     reference_data_after_3["2"].update(
         {
             "simulation_status": "successful",
-            "solver_status_history": ["successful"],
-            "solver_status": "successful",
             "final_time_reached": 1,
             "time_index": 2,
             "time": 1.0,
@@ -830,7 +929,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
 
     # Summarize status and save statistics.
     # TODO: Revisit during restructuring of loops.
-    simulation_status = SimulationStatus.FAILED
+    simulation_status = time_step_failure()
     model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
     model.nonlinear_solver_statistics.save()
 
@@ -853,7 +952,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
 
     # Summarize status and save statistics.
     # TODO: Revisit during restructuring of loops.
-    simulation_status = SimulationStatus.SUCCESSFUL
+    simulation_status = time_step_success()
     model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
     model.nonlinear_solver_statistics.save()
 
@@ -878,7 +977,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
 
     # Summarize status and save statistics.
     # TODO: Revisit during restructuring of loops.
-    simulation_status = SimulationStatus.SUCCESSFUL
+    simulation_status = time_step_success()
     model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
     model.nonlinear_solver_statistics.save()
 
@@ -1026,7 +1125,8 @@ def test_summarize_solver_status(
     ]
 
     solver_status = solver.summarize_solver_status(
-        convergence_status, divergence_status
+        ConvergenceStatusCollection({"convergence": convergence_status}),
+        ConvergenceStatusCollection({"divergence": divergence_status}),
     )
 
     # Check that the returned simulation status matches expected value.

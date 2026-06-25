@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
@@ -7,6 +7,10 @@ from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollect
 @dataclass
 class NonlinearSolverStatus(ABC):
     """A status object used to indicate the NewtonSolver (or LinearSolver) state."""
+
+    @abstractmethod
+    def serialize(self) -> str:
+        """Return the stable string representation used in stored statistics."""
 
     def is_converged(self) -> bool:
         """Whether the nonlinear system is solved successfully."""
@@ -24,6 +28,9 @@ class NonlinearSolverStatusConverged(NonlinearSolverStatus):
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
 
+    def serialize(self) -> str:
+        return "successful"
+
 
 @dataclass
 class NonlinearSolverStatusFailed(NonlinearSolverStatus):
@@ -31,3 +38,6 @@ class NonlinearSolverStatusFailed(NonlinearSolverStatus):
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
+
+    def serialize(self) -> str:
+        return "failed"

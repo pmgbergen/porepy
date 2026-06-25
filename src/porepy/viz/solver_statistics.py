@@ -182,7 +182,9 @@ class SolverStatistics:
 
         """
 
-        str_simulation_status_history = [str(s) for s in self.simulation_status_history]
+        str_simulation_status_history = [
+            status.serialize() for status in self.simulation_status_history
+        ]
         final_str_simulation_status = (
             None
             if len(self.simulation_status_history) == 0
@@ -224,8 +226,8 @@ class SolverStatistics:
         """
         data[str(self.index)].update(
             {
-                "simulation_status": str(self.simulation_status),
-                "solver_status": str(self.solver_status),
+                "simulation_status": self.simulation_status.serialize(),
+                "solver_status": self.solver_status.serialize(),
             }
         )
         return data
@@ -411,7 +413,9 @@ class NonlinearSolverStatistics(SolverStatistics):
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary at current index."""
 
-        str_solver_status_history = [str(s) for s in self.solver_status_history]
+        str_solver_status_history = [
+            status.serialize() for status in self.solver_status_history
+        ]
         str_solver_status = (
             None
             if len(self.solver_status_history) == 0
@@ -422,10 +426,10 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.index)].update(
             {
                 "num_iterations": self.num_iterations,
-                "simulation_status": str(
+                "simulation_status": (
                     None
                     if len(self.simulation_status_history) == 0
-                    else self.simulation_status_history[-1]
+                    else self.simulation_status_history[-1].serialize()
                 ),
                 "solver_status_history": str_solver_status_history,
                 "solver_status": str_solver_status,

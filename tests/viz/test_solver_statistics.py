@@ -101,22 +101,22 @@ def reference_solver_statistics_dict() -> dict:
             "num_cells": {"0": 6, "1": 5, "2": 4},
             "num_domains": {"0": 1, "1": 1, "2": 1},
             "simulation_status_history": [
-                str(time_stepper_status("failed")),
-                str(time_stepper_status("converged")),
+                "failed",
+                "successful",
             ],
-            "final_simulation_status": str(time_stepper_status("converged")),
+            "final_simulation_status": "successful",
             "num_entries": 2,
         },
         # Custom data from SolverStatistics
         "0": {
             "foo": ["bar1", "bar2"],
-            "simulation_status": str(time_stepper_status("failed")),
-            "solver_status": str(nonlinear_solver_status("converged")),
+            "simulation_status": "failed",
+            "solver_status": "successful",
         },
         "1": {
             "foo": ["bar3"],
-            "simulation_status": str(time_stepper_status("converged")),
-            "solver_status": str(nonlinear_solver_status("converged")),
+            "simulation_status": "successful",
+            "solver_status": "successful",
         },
     }
 
@@ -145,7 +145,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             "num_iterations": 2,
             "solver_status": None,
             "solver_status_history": [],
-            "simulation_status": str(time_stepper_status("failed")),
+            "simulation_status": "failed",
             "convergence_status": {
                 "crit1": [
                     "continue_iterating",
@@ -168,7 +168,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
             "num_iterations": 1,
             "solver_status": None,
             "solver_status_history": [],
-            "simulation_status": str(time_stepper_status("converged")),
+            "simulation_status": "successful",
             "convergence_status": {
                 "crit1": ["converged"],
                 "crit2": ["converged"],
@@ -193,8 +193,8 @@ def reference_time_statistics_dict() -> dict:
     reference_dict["global"].update(
         {
             "simulation_status_history": [
-                str(time_stepper_status("converged")),
-                str(time_stepper_status("converged")),
+                "successful",
+                "successful",
             ],
             "final_time_reached": True,
             "total_num_time_steps": 2,
@@ -204,7 +204,7 @@ def reference_time_statistics_dict() -> dict:
     # Add TimeStatistics data to each iteration
     reference_dict["0"].update(
         {
-            "simulation_status": str(time_stepper_status("converged")),
+            "simulation_status": "successful",
             "time_index": 0,
             "time": 2.0,
             "dt": 2.0,
@@ -494,8 +494,8 @@ def test_solver_statistics_append_iterative_data():
             out,
             {
                 "0": {
-                    "simulation_status": str(time_stepper_status("failed")),
-                    "solver_status": str(stats.solver_status),
+                    "simulation_status": "failed",
+                    "solver_status": "successful",
                 }
             },
             ignore_string_type_changes=True,
@@ -852,7 +852,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     # Compare against reference data. Restrict to "0", ignore custom data, and cast.
     reference_data = {"0": reference_nonlinear_solver_statistics_dict()["0"]}
     reference_data["0"].pop("foo")
-    failed_solver_status = str(nonlinear_solver_status("failed"))
+    failed_solver_status = "failed"
     reference_data["0"]["solver_status"] = failed_solver_status
     reference_data["0"]["solver_status_history"] = [failed_solver_status]
     assert (
@@ -985,7 +985,7 @@ def test_nonlinear_solver_statistics_save():
     reference_data.pop("0")  # Only test data for second iteration here.
     reference_data["1"].pop("foo")  # Remove custom data.
 
-    successful_solver_status = str(nonlinear_solver_status("converged"))
+    successful_solver_status = "successful"
     reference_data["1"]["solver_status"] = successful_solver_status
     reference_data["1"]["solver_status_history"] = [successful_solver_status]
 
@@ -1592,7 +1592,7 @@ def test_nonlinear_solver_and_time_statistics_save():
     reference_data.pop("0")  # Only test data for second iteration here.
     reference_data["1"].pop("foo")  # Remove custom data.
 
-    successful_solver_status = str(nonlinear_solver_status("converged"))
+    successful_solver_status = "successful"
     reference_data["1"]["solver_status"] = successful_solver_status
     reference_data["1"]["solver_status_history"] = [successful_solver_status]
 
