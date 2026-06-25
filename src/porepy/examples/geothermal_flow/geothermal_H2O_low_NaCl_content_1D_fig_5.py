@@ -38,6 +38,7 @@ import os
 from dataclasses import dataclass
 
 import numpy as np
+import scipy.linalg as sla
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
@@ -396,11 +397,16 @@ def build_jac_plan(N):
     all_rows = np.concatenate(gat_rows)
     all_cols = np.concatenate(gat_owner)
     sc = np.where(np.arange(n) % 2 == 0, 1.0e6, 1.0e5)   # p ~ MPa, h ~ 1e5 J/kg
+    # banded (LAPACK) storage: block-tridiagonal interleaved -> bandwidth l,u (=3 here).
+    l = int((all_rows - all_cols).max())
+    u = int((all_cols - all_rows).max())
+    bpos = u + all_rows - all_cols                       # ab[u+i-j, j] = A[i,j]
     return dict(n=n, col_perturb=col_perturb, gat_rows=gat_rows, gat_owner=gat_owner,
-                all_rows=all_rows, all_cols=all_cols, scale=sc)
+                all_rows=all_rows, all_cols=all_cols, scale=sc, l=l, u=u, bpos=bpos)
 
 
 def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
+    """Coloured FD Jacobian in LAPACK banded storage (ab, shape (l+u+1, n))."""
     n = plan["n"]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
     parts = []
@@ -409,8 +415,9 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
         dx = np.zeros(n); dx[cols_c] = eps[cols_c]
         dr = residual(x + dx, *args) - r0
         parts.append(dr[plan["gat_rows"][c]] / eps[plan["gat_owner"][c]])   # vectorised
-    return sp.csc_matrix((np.concatenate(parts), (plan["all_rows"], plan["all_cols"])),
-                         shape=(n, n))
+    ab = np.zeros((plan["l"] + plan["u"] + 1, n))
+    ab[plan["bpos"], plan["all_cols"]] = np.concatenate(parts)
+    return ab
 
 
 # --------------------------------------------------------------------------------------- #
@@ -437,11 +444,11 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
             print(f"    newton {it}: |r|={nrm:.3e}")
         if nrm <= tol:
             return x, it, nrm, True
-        J = jacobian_fd(x, r, args, plan)
+        ab = jacobian_fd(x, r, args, plan)
         try:
-            dx = spla.spsolve(J, -r)
+            dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)   # O(N) banded solve
         except Exception:
-            dx = spla.lsqr(J, -r)[0]
+            dx = np.zeros_like(r)        # singular -> no step; line search fails -> dt cut
         step = 1.0
         for _ in range(10):                          # backtracking; reuse the accepted r
             xn = x + step * dx
