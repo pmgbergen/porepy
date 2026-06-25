@@ -466,6 +466,19 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
     """Time manager associated with the model."""
 
     @property
+    def lithostatic_stress_offset(self) -> np.ndarray:
+        """Return surface lithostatic stress.
+
+        Returns:
+            Surface lithostatic stress in Pa. Default is 0 Pa.
+
+        """
+        surface_lithostatic_stress = self.params.get(
+            "surface_lithostatic_stress", np.zeros(3)
+        )
+        return self.units.convert_units(surface_lithostatic_stress, units="Pa")
+
+    @property
     def lithostatic_stress_multipliers(self) -> np.ndarray:
         """Return multipliers for lithostatic stress.
 
@@ -497,6 +510,9 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
         # Multiply with lithostatic stress multipliers, which can be used to set
         # different stresses in different directions.
         gradient = self.lithostatic_stress_multipliers * gravity
+        # Allow for explicit offset (typically lithostatic stress multiplier times
+        # effective overburden stress at surface of the domain).
+        offset = self.lithostatic_stress_offset
         # Get domain sides and depth at boundary cell centers.
         domain_sides = self.domain_boundary_sides(boundary_grid)
         depth = self.depth(boundary_grid.cell_centers)
@@ -513,8 +529,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
                 if np.any(ind):
                     # Set ith component of stress on these faces.
                     values[i, ind] = (
-                        gradient[i]
-                        * depth[ind]
+                        (offset + gradient[i] * depth[ind])
                         * sign
                         * boundary_grid.cell_volumes[ind]
                     )
@@ -529,6 +544,25 @@ class HydrostaticPressureValues(GravityMagnitude):
 
     """
 
+    params: dict
+    """Model parameters."""
+
+    @property
+    def hydrostatic_pressure_offset(self) -> float:
+        """Return hydrostatic pressure at surface.
+
+        Default is atmospheric pressure, assuming the top of the domain
+        corresponds to the surface of the Earth. To control the effective
+        hydrostatic pressure at the surface, set the parameter "surface_pressure"
+        in the model parameters.
+
+        Returns:
+            Surface pressure in Pa.
+
+        """
+        surface_pressure = self.params.get("surface_pressure", pp.ATMOSPHERIC_PRESSURE)
+        return self.units.convert_units(surface_pressure, units="Pa")
+
     def hydrostatic_pressure(self, depth: np.ndarray) -> np.ndarray:
         r"""Compute hydrostatic pressure at given depths.
 
@@ -536,7 +570,7 @@ class HydrostaticPressureValues(GravityMagnitude):
         .. math::
             p(z) = \rho g z + p_{atm}
         where :math:`\rho` is the fluid density, :math:`g` is the gravity acceleration,
-        and :math:`p_{atm}` is the atmospheric pressure.
+        and :math:`p_{atm}` is the atmospheric pressure / or surface pressure.
 
         Parameters:
             depth: Array of depths at which to compute hydrostatic pressure.
@@ -547,7 +581,7 @@ class HydrostaticPressureValues(GravityMagnitude):
         """
         gravity = self.gravity_force_magnitude("fluid")
         pressure = gravity * depth + self.units.convert_units(
-            pp.ATMOSPHERIC_PRESSURE, units="Pa"
+            self.hydrostatic_pressure_offset, units="Pa"
         )
         return pressure
 
