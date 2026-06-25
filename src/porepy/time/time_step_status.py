@@ -13,6 +13,14 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
 class TimeStepperStatus(ABC):
     """A status object used to indicate the TimeStepper state."""
 
+    def is_success(self) -> bool:
+        """Whether the time step is made successfully."""
+        return isinstance(self, TimeStepperStatusSuccess)
+
+    def is_failure(self) -> bool:
+        """Whether the time step is failed and we gave up."""
+        return isinstance(self, TimeStepperStatusFailure)
+
 
 @dataclass
 class TimeStepperStatusContinueIterating(TimeStepperStatus):
