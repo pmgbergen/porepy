@@ -62,6 +62,11 @@ class TimeStepperStatusContinueIterating(TimeStepperStatus):
 class TimeStepperStatusSuccess(TimeStepperStatus):
     """The TimeStepper made a time step successfully."""
 
+    dt: float
+    """Simulation time step magnitude."""
+    time: float
+    """Simulation time at the end of the time step (t0 + dt)."""
+
     nonlinear_solver_status: NonlinearSolverStatusConverged
     """Nonlinear solver status that caused the time step success."""
 

@@ -11,7 +11,6 @@ import porepy as pp
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
-    ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
 )
@@ -76,7 +75,9 @@ def time_stepper_status(
     if status == "converged":
         solver_status = nonlinear_solver_status(status)
         assert isinstance(solver_status, NonlinearSolverStatusConverged)
-        return TimeStepperStatusSuccess(nonlinear_solver_status=solver_status)
+        return TimeStepperStatusSuccess(
+            time=1.0, dt=0.5, nonlinear_solver_status=solver_status
+        )
     elif status == "continue_iterating":
         return TimeStepperStatusContinueIterating(
             attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")

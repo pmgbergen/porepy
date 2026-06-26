@@ -12,7 +12,10 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.time.time_step_status import TimeStepperStatusFailure
+from porepy.time.time_step_status import (
+    TimeStepperStatusFailure,
+    TimeStepperStatusSuccess,
+)
 from porepy.time.time_stepper import TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
@@ -219,6 +222,7 @@ class ModelRunner:
         use_progress_bar = (
             self.params.get("progressbars", False) and self._is_time_dependent
         )
+        use_progress_bar = True
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The time"
@@ -232,26 +236,22 @@ class ModelRunner:
         self.params.update({"_nl_progress_bar_position": 1})
 
         if use_progress_bar:
-            # Create a time bar of length of expected number of time steps, estimated
-            # from the initial time step size.
-            # NOTE: Adaptive time stepping updates the bar proportionally if step sizes
-            # change from initial time step size.
-            expected_time_steps: int = int(
-                np.round(
-                    (
-                        self.model.time_manager.schedule[-1]
-                        - self.model.time_manager.schedule[0]
-                    )
-                    / self.model.time_manager.dt
-                )
-            )
+            # Create a time bar of length of expected simulation time.
+
+            # Creating a custom format string. Difference from the default: it converts
+            # the simulation time (done/total) to the a scientific format with :.1e.
+            l_bar = "{desc}: {percentage:3.0f}%|"
+            r_bar = "| {n:.1e}/{total:.1e} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"
+            bar_format = l_bar + "{bar}" + r_bar
 
             # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
-                range(expected_time_steps),
+                total=self.model.time_manager.schedule[-1],
                 desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
+                bar_format=bar_format,
+                postfix=self._progressbar_postfix(),
             )
         else:
             self.time_progressbar = DummyProgressBar()
@@ -295,13 +295,17 @@ class ModelRunner:
 
         with logging_redirect_tqdm([logging.root]):
             while not self.model.time_manager.final_time_reached():
+                # Update the progressbar before the time step.
+                self.time_progressbar.set_postfix_str(self._progressbar_postfix())
+
                 # Perform the time step.
                 time_step_status = self.time_stepper.perform_time_step(
                     self.model, self.solver
                 )
 
-                # Progressbar update.
-                self.update_time_progressbar()
+                # Update the progressbar after the time step.
+                if isinstance(time_step_status, TimeStepperStatusSuccess):
+                    self.time_progressbar.update(n=time_step_status.dt)
 
                 # Abort simulation if time step was stopped.
                 match time_step_status:
@@ -314,15 +318,6 @@ class ModelRunner:
                 return ModelRunnerStatusSuccess()
             return ModelRunnerStatusFailure("Final time was not reached.")
 
-    def update_time_progressbar(self) -> None:
-        """Update the time progressbar with the current time and time step size."""
-        self.time_progressbar.set_postfix_str(
-            f"Time step size {self.model.time_manager.dt:.2e}"
-        )
-        self.time_progressbar.update(
-            n=np.round(
-                self.model.time_manager.time
-                / self.model.time_manager.time_final
-                * self.time_progressbar.total
-            )
-        )
+    def _progressbar_postfix(self) -> str:
+        """Formats a progressbar postfix string with dt."""
+        return f"Δt={self.model.time_manager.dt:.1e}"

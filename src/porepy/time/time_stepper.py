@@ -152,9 +152,13 @@ class TimeStepper:
                 # The problem is time-dependent and linear.
                 num_iterations = 1
 
+            current_dt = self.time_manager.dt
+            new_time = self.time_manager.time
             self.time_manager.compute_time_step(iterations=num_iterations)
             return TimeStepperStatusSuccess(
-                nonlinear_solver_status=nonlinear_solver_status
+                dt=current_dt,
+                time=new_time,
+                nonlinear_solver_status=nonlinear_solver_status,
             )
 
         elif isinstance(nonlinear_solver_status, NonlinearSolverStatusFailed):

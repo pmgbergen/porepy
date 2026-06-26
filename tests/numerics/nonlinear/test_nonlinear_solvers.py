@@ -33,10 +33,12 @@ from porepy.utils.ui_and_logging import DummyProgressBar
 def time_step_success() -> TimeStepperStatusSuccess:
     """Create a successful time-step status for statistics tests."""
     return TimeStepperStatusSuccess(
+        time=1.0,
+        dt=0.5,
         nonlinear_solver_status=NonlinearSolverStatusConverged(
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
-        )
+        ),
     )
 
 
