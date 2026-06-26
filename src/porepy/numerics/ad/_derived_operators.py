@@ -288,11 +288,6 @@ class ReferenceOperator:
         # Currently, only "non-fixed" operators can be evaluated at reference.
         if isinstance(self, ReferenceOperator) and self.is_reference:
             return self
-        if isinstance(self, TimeDependentOperator) and self.is_previous_time:
-            return self
-        if isinstance(self, IterativeOperator) and self.is_previous_iterate:
-            return self
-
         # TODO copy or deepcopy? Is this enough for every operator class?
         op = copy.copy(self)
         # Delete the cached key, so that this must be regenerated for the new operator,
