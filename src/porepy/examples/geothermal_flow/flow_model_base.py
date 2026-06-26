@@ -572,122 +572,100 @@ class FlowModelBase(FlowTemplate):
         """
         return self.get_components()[1].name
 
-    def permute_equations_and_variables(self):
+    def _local_elimination_pairs(self, equation_keys) -> list[tuple[str, str]]:
+        """``(variable, equation)`` for every local-elimination (algebraic) equation.
+
+        Discovered from the ``elimination_of_<variable>_on_grids_...`` naming, so this
+        captures the eliminated saturations, partial fractions and temperature for ANY
+        number of phases/components -- no variable names are hardcoded. For example
+        ``elimination_of_x_CH4_gas_on_grids_[0]`` yields the variable ``x_CH4_gas``.
         """
-        Permute equations and variables in the following order:
-        1. Elliptic equations: mass_balance_equation, interface_darcy_flux_equation, well_flux_equation
-        2. Transport equations: component mass balance for the non-reference component, energy_balance_equation,
-           interface_fourier_flux_equation, interface_enthalpy_flux_equation, well_enthalpy_flux_equation
-        3. Algebraic equations: elimination_of_s_gas_on_grids_[0], elimination_of_x_<comp>_liq_on_grids_[0],
-           elimination_of_x_<comp>_gas_on_grids_[0], elimination_of_temperature_on_grids_[0]
+        prefix = "elimination_of_"
+        pairs: list[tuple[str, str]] = []
+        for equation in equation_keys:
+            if equation.startswith(prefix):
+                variable = equation[len(prefix):].rsplit("_on_grids", 1)[0]
+                pairs.append((variable, equation))
+        return pairs
+
+    def permute_equations_and_variables(self):
+        """Reorder the (equation, variable) dofs into a CPR-friendly two-field split.
+
+        * **elliptic / pressure field** -- pressure, the interface Darcy flux, and all
+          local algebraic eliminations (eliminated saturations, partial fractions and
+          temperature); solved (near-)exactly inside the CPR preconditioner.
+        * **transport field** -- enthalpy, the thermal interface fluxes, and one overall
+          fraction ``z_<comp>`` per NON-reference component.
+
+        The split is derived from the fluid mixture and the equation system, so it works
+        unchanged for two-phase/two-component, three-phase/three-component, and beyond --
+        no variable or equation names are hardcoded.
 
         Returns:
-            tuple: (equation_permutation, variable_permutation) where each is an array of indices
+            ``(equation_permutation, variable_permutation, field_sizes)`` where the
+            permutations are index arrays and ``field_sizes`` is
+            ``{'elliptic': n_e, 'transport': n_t}``.
         """
+        assembled = self.equation_system.assembled_equation_indices
+        equation_keys = list(assembled.keys())
 
-        # Inputs provided
-        equation_keys = list(self.equation_system.assembled_equation_indices.keys())
-        variables_keys = list(set([v.name for v in self.equation_system.variables]))
+        def equation_named(keyword: str, exclude: str | None = None) -> str | None:
+            """First assembled equation whose key contains ``keyword`` (and not
+            ``exclude``). ``exclude`` disambiguates the global 'mass_balance_equation'
+            from the per-component 'component_mass_balance_equation_*'."""
+            return next(
+                (eq for eq in equation_keys
+                 if keyword in eq and (exclude is None or exclude not in eq)),
+                None,
+            )
 
-        # Initialize the dictionary
-        variable_equation_map = {}
+        def variable_dofs(name: str):
+            domains = self.mdg.interfaces() if "interface" in name else self.mdg.subdomains()
+            md_var = self.equation_system.md_variable(name, domains)
+            return self.equation_system.dofs_of(md_var.sub_vars)
 
-        # Helper function to find equation in list
-        def find_eq(keyword, eq_list):
-            for eq in eq_list:
-                if keyword in eq:
-                    return eq
-            return None
+        # One overall-fraction variable + component balance per NON-reference component
+        # (the reference component, index 0, is fixed by the unity closure).
+        component_pairs = [
+            (f"z_{c.name}", equation_named(f"component_mass_balance_equation_{c.name}"))
+            for c in self.get_components()[1:]
+        ]
 
-        # 1. Map Global Conservation Laws & Fluxes (Standard Physics Mappings)
-        # Pressure <-> Mass Balance
-        variable_equation_map['pressure'] = (
-            find_eq('mass_balance_equation', equation_keys),
-            'pressure'
+        # (variable, equation) pairs, in permutation order, for each field.
+        elliptic_pairs = [
+            ("pressure", equation_named("mass_balance_equation", exclude="component")),
+            ("interface_darcy_flux", equation_named("interface_darcy_flux")),
+            *self._local_elimination_pairs(equation_keys),
+        ]
+        transport_pairs = [
+            ("enthalpy", equation_named("energy_balance_equation")),
+            ("interface_enthalpy_flux", equation_named("interface_enthalpy_flux")),
+            ("interface_fourier_flux", equation_named("interface_fourier_flux")),
+            *component_pairs,
+        ]
+
+        def collect(pairs):
+            equation_idx: list[int] = []
+            variable_idx: list[int] = []
+            for variable, equation in pairs:
+                if equation is None or equation not in assembled:
+                    continue
+                rows = assembled[equation]
+                dofs = variable_dofs(variable)
+                assert len(rows) == len(dofs), (
+                    f"{variable!r}: {len(rows)} equation rows vs {len(dofs)} variable dofs"
+                )
+                equation_idx.extend(rows)
+                variable_idx.extend(dofs)
+            return equation_idx, variable_idx
+
+        elliptic_eq, elliptic_var = collect(elliptic_pairs)
+        transport_eq, transport_var = collect(transport_pairs)
+        return (
+            np.array(elliptic_eq + transport_eq),
+            np.array(elliptic_var + transport_var),
+            {"elliptic": len(elliptic_eq), "transport": len(transport_eq)},
         )
-
-        # Determine active (non-reference) component for binary mixtures
-        active_comp = self._get_non_reference_component()
-        # Fallback: use 'CO2' if component cannot be determined to preserve prior behaviour
-        if not active_comp:
-            active_comp = 'CO2'
-
-        # z_<comp> <-> Component Mass Balance
-        z_key = f"z_{active_comp}"
-        variable_equation_map[z_key] = (
-            find_eq(f'component_mass_balance_equation_{active_comp}', equation_keys),
-            z_key
-        )
-
-        # Enthalpy <-> Energy Balance
-        variable_equation_map['enthalpy'] = (
-            find_eq('energy_balance_equation', equation_keys),
-            'enthalpy'
-        )
-
-        # Fluxes (Direct name matching)
-        flux_vars = ['interface_darcy_flux', 'interface_fourier_flux', 'interface_enthalpy_flux']
-        for var in flux_vars:
-            # Matches e.g. "interface_darcy_flux" to "interface_darcy_flux_equation"
-            variable_equation_map[var] = (find_eq(var, equation_keys), var)
-
-        # 2. Map Local Elimination/Constraint Equations
-        # These look for the variable name inside the elimination string
-        # e.g., "s_gas" is found inside "elimination_of_s_gas_..."
-        elimination_vars = ['s_gas', f'x_{active_comp}_liq', f'x_{active_comp}_gas', 'temperature']
-
-        for var in elimination_vars:
-            # Search for the equation string that contains "elimination_of_{var}"
-            target_str = f"elimination_of_{var}"
-            found_eq = find_eq(target_str, equation_keys)
-
-            if found_eq:
-                variable_equation_map[var] = (found_eq, var)
-
-        def find_variable_idxs(name):
-            if 'interface' in name:
-                md_var = self.equation_system.md_variable(name, self.mdg.interfaces())
-            else:
-                md_var = self.equation_system.md_variable(name, self.mdg.subdomains())
-            var_dof = self.equation_system.dofs_of(md_var.sub_vars)
-            return var_dof
-
-        equation_e_indices = []
-        variable_e_indices = []
-
-        # order for field split
-        elliptic_keys = ['pressure', 'interface_darcy_flux']
-        elliptic_keys.extend(elimination_vars)
-        for key in elliptic_keys:
-            eq_name, var_name = variable_equation_map.get(key, (None, None))
-            if eq_name and var_name:
-                # Get equation indices
-                eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
-                equation_e_indices.extend(eq_idxs)
-
-                # Get variable indices
-                var_dofs = find_variable_idxs(var_name)
-                variable_e_indices.extend(var_dofs)
-                assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
-
-        equation_t_indices = []
-        variable_t_indices = []
-        transport_keys = ['enthalpy', 'interface_enthalpy_flux','interface_fourier_flux', z_key]
-        for key in transport_keys:
-            eq_name, var_name = variable_equation_map.get(key, (None, None))
-            if eq_name and var_name:
-                # Get equation indices
-                eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
-                equation_t_indices.extend(eq_idxs)
-
-                # Get variable indices
-                var_dofs = find_variable_idxs(var_name)
-                variable_t_indices.extend(var_dofs)
-                assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
-
-        equation_indices = equation_e_indices + equation_t_indices
-        variable_indices = variable_e_indices + variable_t_indices
-        return np.array(equation_indices), np.array(variable_indices), {'elliptic': len(equation_e_indices), 'transport': len(equation_t_indices)}
 
     def apply_equation_permutation(self, A: sps.spmatrix, b: np.ndarray) -> tuple[sps.spmatrix, np.ndarray, np.ndarray | None, np.ndarray | None, dict | None]:
         """
