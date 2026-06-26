@@ -297,7 +297,7 @@ ax.set_xticks(x)
 ax.grid(axis="x")
 ax.grid(axis="y", which="major", alpha=0.5)
 
-ax.set_yscale("log")
+# ax.set_yscale("log")
 
 # ax.legend(handles=imgs, loc="upper left", bbox_to_anchor=(1.05, 1))
 # axr.legend(handles=imgrs, loc="upper left", bbox_to_anchor=(1.05, 1))
@@ -315,7 +315,7 @@ fig.savefig(
 TAU_G_MAX = np.max(y)
 
 # region Time steps and gas transients for isothermal cases.
-fig = plt.figure(figsize=(WIDTH, 0.7 * WIDTH))
+fig = plt.figure(figsize=(1.4 * WIDTH, WIDTH))
 ax = fig.add_subplot(111)
 axr = ax.twinx()
 imgs = []
@@ -407,7 +407,7 @@ for x, y, l, c, m in zip(xs, yrs, labels, colors, markers):
         marker=m,
         markersize=1.5 * MS if "pT" in l else MS,
         color=c,
-        label=l + r"-$\Delta t$",
+        label=l,
     )
 
 ax.set_xlabel(r"$t - t_{\ast}$ [h]")
@@ -429,7 +429,13 @@ ax.set_xticks(
 # ax.tick_params(axis='x', labelrotation=45)
 
 # ax.legend(handles=imgs, loc="upper left", bbox_to_anchor=(1.25, 0.8))
-ax.legend(handles=imgs, loc="lower right", bbox_to_anchor=(1, 0.1))
+# ax.legend(handles=imgs, loc="lower right", bbox_to_anchor=(1, 0.1), title=r"$s_{\text{frac}}$")
+ax.legend(
+    handles=imgs, loc="upper left", bbox_to_anchor=(1.1, 1), title=r"$s_{\text{frac}}$"
+)
+axr.legend(
+    handles=imgrs, loc="upper left", bbox_to_anchor=(1.1, 0.4), title=r"$\Delta t$"
+)
 # ax.legend(handles=imgs, ncols = 4, loc="lower center", bbox_to_anchor=(0.5, 1))
 
 fig.tight_layout(pad=PAD)
@@ -486,7 +492,7 @@ imgrs += axr.plot(
 
 ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
 ax.set_ylabel(r"$\lVert p(t_{\ast}) - p(t_{-1})\rVert_{L^2(\Omega)}$")
-axr.set_ylabel(r"$\lvert p(t_{\ast}) - p(t_{-1})\rvert_{\infty}$")
+axr.set_ylabel(r"$\lvert p(t_{\ast}) - p(t_{-1})\rvert_{\infty}$ [MPa]")
 
 ax.set_xticks(x)
 ax.grid(axis="x")

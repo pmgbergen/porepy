@@ -39,6 +39,6 @@ echo "--- SIMULATION 9 / ${NUM} COMPLETED ---"
 # # Thermal hybrid cases: global ph formulation with uv pre-conditioning
 # python3 src/porepy/examples/cold_injection/run_case2d.py -a 3
 # echo "--- SIMULATION 15 / ${NUM} COMPLETED ---"
-# # Plotting and printing results
-# python3 src/porepy/examples/cold_injection/plot_case2.py
-# echo "--- RUN CASE 2 COMPLETED ---"
+# Plotting and printing results
+python3 src/porepy/examples/cold_injection/plot_case2.py
+echo "--- RUN CASE 2 COMPLETED ---"
