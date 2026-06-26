@@ -155,3 +155,145 @@ class TestTimeDependentAndIterative:
 
         for v_e, v_r in zip(vals_exp, vals_rec):
             assert np.allclose(v_e, v_r)
+
+
+op_type = ["dense", "variable"]
+
+
+class TestReferenceOperator:
+    def setup_method(self):
+        self.mdg = grid()
+        self.equation_system = pp.ad.EquationSystem(self.mdg)
+
+        self.num_cells = sum(sd.num_cells for sd in self.mdg.subdomains())
+
+        name = "foo"
+        self.equation_system.create_variables(
+            name, dof_info={"cells": 1}, subdomains=self.mdg.subdomains()
+        )
+        self.var = self.equation_system.md_variable(name=name)
+
+        self.default_val = 0
+        self.iter_value = 1
+        self.time_value = 2
+        self.ref_val = 3
+
+        self.dense_arr = pp.ad.TimeDependentDenseArray(
+            name=name, domains=self.mdg.subdomains()
+        )
+
+        name = self.var.name
+        for sd, sd_data in self.mdg.subdomains(return_data=True):
+            vec = np.ones(sd.num_cells)
+            pp.set_solution_values(
+                name=name, values=self.time_value * vec, data=sd_data, time_step_index=0
+            )
+            pp.set_solution_values(
+                name=name, values=self.iter_value * vec, data=sd_data, iterate_index=0
+            )
+            pp.set_solution_values(
+                name=name,
+                values=self.iter_value * vec,
+                data=sd_data,
+                iterate_index=0,
+            )
+            pp.set_solution_values(
+                name=name, values=self.ref_val * vec, data=sd_data, reference=True
+            )
+
+    def _expected(self, op_type, state):
+        jac_val = 1.0 if op_type == "variable" and state == "current" else 0.0
+
+        if state == "current":
+            return self.iter_value, jac_val
+        elif state == "previous_timestep":
+            return self.time_value, jac_val
+        elif state == "previous_iteration":
+            return self.iter_value, jac_val
+        else:
+            raise NotImplementedError(f"State {state} not implemented.")
+
+    def _change_reference_values(self, state_change):
+        vec = np.ones(self.num_cells)
+
+        if state_change is None:
+            # TODO: Should we rather erase here, so that the reference will return
+            # default?
+            for _, data in self.mdg.subdomains(return_data=True):
+                del data[pp.REFERENCE_SOLUTIONS][self.var.name]
+                return 0
+        elif state_change == "set":
+            # Explicitly set the reference values.
+            self.equation_system.set_variable_values(
+                vec * self.time_value, [self.var], reference=True
+            )
+            return self.time_value
+        elif state_change == "shift":
+            # Shift current approximation to reference values.
+            for _, data in self.mdg.subdomains(return_data=True):
+                pp.shift_solution_values(self.var.name, data, pp.REFERENCE_SOLUTIONS)
+            return self.iter_value
+
+    def _operator(self, op_type):
+        if op_type == "dense":
+            return self.dense_arr
+        elif op_type == "variable":
+            return self.var
+        elif op_type == "combined":
+            return self.dense_arr + pp.ad.Scalar(2.0) * self.var
+        else:
+            raise NotImplementedError(f"Operator type {op_type} not implemented.")
+
+    def _operator_to_state(self, op_type, state):
+        op = self._operator(op_type)
+
+        return getattr(op, state)() if state is not "current" else op
+
+    @pytest.mark.parametrize("op_type", ["variable", "dense"])
+    @pytest.mark.parametrize(
+        "state", ["current", "previous_timestep", "previous_iteration"]
+    )
+    def test_reference_on_time_and_increments(self, op_type, state):
+        # Taking the reference should give the same result for standard, time and
+        # iterative operators
+        op_ref = self._operator_to_state(op_type, state).reference()
+
+        val = self.equation_system.evaluate(op_ref, derivative=True)
+        np.testing.assert_allclose(val.val, self.ref_val)
+        np.testing.assert_allclose(val.jac.data, 0.0)
+
+    @pytest.mark.parametrize("op_type", ["variable", "dense"])
+    @pytest.mark.parametrize(
+        "state", ["current", "previous_timestep", "previous_iteration"]
+    )
+    @pytest.mark.parametrize("state_change", [None, "set", "shift"])
+    def test_shifting_reference_values(self, op_type, state, state_change):
+        # Shifting reference values should give the same result for standard, time and
+        # iterative operators
+        op_ref = self._operator_to_state(op_type, state).reference()
+        expected = self._change_reference_values(state_change)
+
+        val = self.equation_system.evaluate(op_ref, derivative=True)
+        np.testing.assert_allclose(val.val, expected)
+        np.testing.assert_allclose(val.jac.data, 0.0)
+
+    @pytest.mark.parametrize("op_type", ["variable", "dense"])
+    @pytest.mark.parametrize(
+        "state", ["current", "previous_timestep", "previous_iteration"]
+    )
+    def test_perturbation_from_reference(self, op_type, state):
+        # Perturbation from reference should give the same result for standard, time and
+        # iterative operators
+        op = self._operator_to_state(op_type, state)
+        pert = op.perturbation_from_reference()
+
+        pert_val = self.equation_system.evaluate(pert, derivative=True)
+        expected_val, expected_jac = self._expected(op_type, state)
+        np.testing.assert_allclose(pert_val.val, expected_val - self.ref_val)
+        np.testing.assert_allclose(pert_val.jac.data, expected_jac)
+
+    def test_time_difference_of_reference_is_zero(self):
+        # The time difference of a reference operator should be zero
+        ref_increment = pp.ad.time_increment(self.var.reference())
+        val_ref_increment = self.equation_system.evaluate(ref_increment)
+        assert np.allclose(val_ref_increment, 0.0)
