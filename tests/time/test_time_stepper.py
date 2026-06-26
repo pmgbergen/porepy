@@ -488,7 +488,7 @@ def test_model_time_step_control(params: dict):
         iter_relax_factors=(0.4, 2),
         iter_optimal_range=(4, 7),
         recomp_factor=0.3,
-        recomp_max=4,
+        recomp_max=3,  # Max 3 retries <=> max 4 attempts.
     )
 
     model = DynamicTimeStepTestCaseModel(
