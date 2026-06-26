@@ -19,7 +19,11 @@ from __future__ import annotations
 
 import os
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# Numba JIT: keeping this disabled forces every numba-compiled discretization/AD kernel to
+# run as interpreted Python (10-50x slower assembly). Leave JIT ENABLED for real runs; set
+# PP_DISABLE_JIT=1 only when debugging numba kernels.
+if os.environ.get("PP_DISABLE_JIT", "0") == "1":
+    os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from typing import Callable, Optional, Sequence, cast  # noqa: E402
 
@@ -53,7 +57,7 @@ mu_w = mu_o = mu_g = 1.0e-3
 h_w, h_o, h_g = 1.0, 1.5, 2.0
 
 milli_darcy = 9.869233e-16          # 1 mD in m^2
-k_rock = 1.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
+k_rock = 100.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
 porosity = 0.3
 BARRIER_K_FACTOR = 1.0e-8           # barrier cells get k * this (effectively impermeable)
 
@@ -278,13 +282,31 @@ class FlowModel(
 # --------------------------------------------------------------------------------------- #
 day = 86400.0
 # Fig. 5 snapshots are at 0, 78 and 571 days. constant_dt steps and exports at the schedule.
+# time_manager = pp.TimeManager(
+#     schedule=[0.0, 78.0 * day, 571.0 * day],
+#     dt_init=1.0 * day,                                 # NOTE: tune dt for convergence/cost
+#     constant_dt=True,
+#     iter_max=50,
+#     print_info=True,
+# )
+
+dt = 0.25 * day
+tf = 571.0 * day
 time_manager = pp.TimeManager(
-    schedule=[0.0, 78.0 * day, 571.0 * day],
-    dt_init=1.0 * day,                                 # NOTE: tune dt for convergence/cost
+    schedule=[0.0, tf],
+    dt_init=dt,                                 # NOTE: tune dt for convergence/cost
     constant_dt=True,
     iter_max=50,
     print_info=True,
 )
+
+# Export configuration: number of time steps between consecutive VTK/PVD exports.
+export_every_n_steps = 8
+
+# Build times_to_export as multiples of dt. Include t=0 and final time tf.
+times = list(np.arange(0.0, tf, dt * export_every_n_steps))
+times.append(tf)
+times_to_export = times
 
 solid_constants = pp.SolidConstants(
     permeability=k_rock,                               # 1 mD
@@ -303,11 +325,16 @@ params = {
     "lag_buoyancy_direction": False,
     "material_constants": {"solid": solid_constants},
     "time_manager": time_manager,
+    "times_to_export": times_to_export,
     "grid_type": "cartesian",
     "prepare_simulation": False,
     "folder_name": "visualization_three_phase_barriers",
     "file_name": "three_phase_barriers",
     "max_iterations": 100,
+    # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
+    # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
+    # importable in the active environment (pip install -e on the sparsa repo).
+    "ad_backend": "sparsa",
 }
 
 if __name__ == "__main__":

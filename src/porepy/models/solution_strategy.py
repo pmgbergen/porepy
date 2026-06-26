@@ -200,6 +200,13 @@ class SolutionStrategy(pp.PorePyModel):
         """Create an equation_system manager on the mixed-dimensional grid."""
         if not hasattr(self, "equation_system"):
             self.equation_system = pp.ad.EquationSystem(self.mdg)
+            # Optional pluggable AD backend. ``params["ad_backend"] = "sparsa"`` routes
+            # the whole model's assembly through the external sparsa engine via the
+            # adapter, leaving the native parser as the default.
+            if self.params.get("ad_backend", "native") == "sparsa":
+                from porepy.numerics.ad.sparsa_backend import SparsaParser
+
+                self.equation_system._ad_parser = SparsaParser(self.mdg)
 
     def set_nonlinear_solver_statistics(self) -> None:
         """Set the solver statistics object.
