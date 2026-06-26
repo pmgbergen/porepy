@@ -1,69 +1,74 @@
+"""The module contains tests of the mixin classes for ad operators that make them
+time-dependent, iterative and/or reference operators.
+
+The tests are collected in two classes:
+ - TestTimeDependentAndIterative: Tests that the time-dependent and iterative mixins
+    behave correctly independently and in combination.
+ - TestReferenceOperator: Tests that the reference operator behaves correctly for
+    different ad operators.
+See the respective classes and their test methods for details.
+"""
+
 import pytest
 import porepy as pp
 import numpy as np
 import copy
 
 
-@pytest.fixture(scope="module")
-def mdg():
-    grid, _ = pp.mdg_library.square_with_orthogonal_fractures(
-        "cartesian",
-        {"cell_size": 0.2},
-        fracture_indices=[1],
-    )
-    return grid
-
-
 def grid():
+    """Provide a 2x2 Cartesian grid for testing. There is no immediate need for a more
+    complex grid, nor for a truly mixed-dimensional grid, since the functionality to be
+    tested should be agnostic to the grid.
+    """
     g = pp.CartGrid([2, 2])
     mdg = pp.MixedDimensionalGrid()
     mdg.add_subdomains(g)
     return mdg
 
 
-def get_operator(case, mdg):
-
-    equation_system = pp.ad.EquationSystem(mdg)
-
-    name = "foo"
-    for sd, sd_data in mdg.subdomains(return_data=True):
-        vals_sol = np.ones(sd.num_cells)
-        pp.set_solution_values(
-            name=name, values=vals_sol, data=sd_data, time_step_index=0
-        )
-        vals_it = 2 * np.ones(sd.num_cells)
-        pp.set_solution_values(name=name, values=vals_it, data=sd_data, iterate_index=0)
-
-    for intf, data in mdg.interfaces(return_data=True):
-        vals_sol = np.ones(intf.num_cells)
-        pp.set_solution_values(name=name, values=vals_sol, data=data, time_step_index=0)
-        vals_it = 2 * np.ones(intf.num_cells)
-        pp.set_solution_values(name=name, values=vals_it, data=data, iterate_index=0)
-
-    match case:
-        case "dense":
-            op = pp.ad.TimeDependentDenseArray(name=name, domains=mdg.subdomains())
-        case "sparse":
-            op = pp.ad.SparseArray(name=name, domains=mdg.subdomains())
-        case "variable":
-            equation_system.create_variables(
-                name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
-            )
-            op = equation_system.md_variable(name=name)
-        case "combined":
-            raise NotImplementedError("Combined operators are not yet supported.")
-        case _:
-            raise NotImplementedError("Combined operators are not yet supported.")
-
-    return op, equation_system
-
-
-cases = ["dense", "variable"]
-
-
 @pytest.mark.parametrize("time_dependent", [True, False])
 class TestTimeDependentAndIterative:
+    """Test that the mixins that make operators time-dependent and iterative behave
+    correctly independently and in combination.
+
+    See the individual test methods for details.
+
+    Regarding coverage, we consider both variables and time dependent dense arrays.
+    Other operators should be covered by these cases.
+
+    """
+
+    def setup_method(self):
+        """Set up the problem."""
+        self.mdg = grid()
+        self.equation_system = pp.ad.EquationSystem(self.mdg)
+
+        # NOTE: We use the same name for both the variable and the dense array to avoid
+        # more if-else statements when setting and fetching values and expected results.
+        self.name = "foo"
+        self.var = self.equation_system.create_variables(
+            self.name, dof_info={"cells": 1}, subdomains=self.mdg.subdomains()
+        )
+        self.dense_arr = pp.ad.TimeDependentDenseArray(
+            name=self.name, domains=self.mdg.subdomains()
+        )
+        # Recursion depth for the time and iterative operators.
+        self.depth = 4
+        # Populate the data arrays.
+        for i in range(self.depth - 1):
+            for sd, data in self.mdg.subdomains(return_data=True):
+                for index_key in ["time_step_index", "iterate_index"]:
+                    pp.set_solution_values(
+                        name=self.name,
+                        values=i * np.ones(sd.num_cells),
+                        data=data,
+                        **{index_key: i},
+                    )
+
     def _get_index_keys(self, time_dependent: bool):
+        """Helper method to get the correct index keys and previous methods for time
+        dependent and iterative operators.
+        """
         if time_dependent:
             index_key = "time_step_index"
             other_index_key = "iterate_index"
@@ -77,81 +82,79 @@ class TestTimeDependentAndIterative:
 
         return index_key, other_index_key, prev_method, other_prev_method
 
-    def test_time_and_iterative_combined_raises(self, time_dependent: bool):
-        mdg = grid()
-        operator, _ = get_operator("variable", mdg)
+    def _get_operator(self, operator_type: str):
+        if operator_type == "dense":
+            return self.dense_arr
+        else:
+            return self.var
 
+    def test_time_and_iterative_combined_raises_on_variable(self, time_dependent: bool):
+        """Check that, for variables, we cannot call both previous_timestep and
+        previous_iteration on the same operator (independent on the order of the calls).
+
+        The test does not apply to dense arrays, which essentially give a void operation
+        when calling previous_iterate, hence there is no problem calling previous
+        timestep afterwards.
+
+        """
         index_key, other_index_key, prev_method, other_prev_method = (
             self._get_index_keys(time_dependent)
         )
-        # prohibit prev time step variable to also be prev iter
         with pytest.raises(ValueError):
-            var_pt = getattr(operator, prev_method)()
+            var_pt = getattr(self.var, prev_method)()
             _ = getattr(var_pt, other_prev_method)()
 
-    def test_time_and_iterative_recursive(self, time_dependent: bool):
-        mdg = grid()
-        operator, equation_system = get_operator("variable", mdg)
-
-        name = operator.name
+    @pytest.mark.parametrize("operator_type", ["variable", "dense"])
+    def test_time_and_iterative_repeated_calls(
+        self, time_dependent: bool, operator_type: str
+    ):
+        """Verify the behavior of repeated calls to previous_timestep and
+        previous_iteration."""
+        operator = self._get_operator(operator_type)
 
         index_key, _, prev_method, _ = self._get_index_keys(time_dependent)
 
-        depth = 4
-
-        for i in range(depth - 1):
-            for sd, data in mdg.subdomains(return_data=True):
-                pp.set_solution_values(
-                    name=operator.name,
-                    values=i * np.ones(sd.num_cells),
-                    data=data,
-                    **{index_key: i},
-                )
-
-        for sd, data in mdg.subdomains(return_data=True):
+        for sd, data in self.mdg.subdomains(return_data=True):
             op = getattr(operator, prev_method)(steps=0)
-            val_current = equation_system.evaluate(op)
-            # np.testing.assert_allclose(val_current, 0)
+            val_current = self.equation_system.evaluate(op)
 
-            for i in range(0, depth - 1):
+            for i in range(0, self.depth - 1):
                 op_prev = getattr(op, prev_method)(steps=i + 1)
-                val_prev = equation_system.evaluate(op_prev, derivative=True)
-                np.testing.assert_allclose(val_prev.val, i)
+                val_prev = self.equation_system.evaluate(op_prev, derivative=True)
+                if operator_type == "dense" and not time_dependent:
+                    # The dense array is not a function of the current approximation, so
+                    # the jacobian should be zero.
+                    np.testing.assert_allclose(val_prev.jac.data, 0)
+                else:
+                    np.testing.assert_allclose(val_prev.val, i)
                 if i > 0:
                     np.testing.assert_allclose(val_prev.jac.data, 0)
 
-    def test_time_and_iterative_recursive_vs_direct(self, time_dependent: bool):
-        mdg = grid()
-        var, equation_system = get_operator("variable", mdg)
-
-        name = var.name
+    @pytest.mark.parametrize("operator_type", ["variable", "dense"])
+    def test_time_and_iterative_recursive_vs_direct(
+        self, time_dependent: bool, operator_type: str
+    ):
+        """Verify that calling previous_timestep or previous_iteration recursively
+        gives the same result as calling it with the correct number of steps directly.
+        """
+        operator = self._get_operator(operator_type)
 
         index_key, _, prev_method, _ = self._get_index_keys(time_dependent)
 
-        depth = 4
-
-        for i in range(depth - 1):
-            for sd, data in mdg.subdomains(return_data=True):
-                pp.set_solution_values(
-                    name=var.name,
-                    values=i * np.ones(sd.num_cells),
-                    data=data,
-                    **{index_key: i},
-                )
-
         # Test creating with explicit stepping and recursive stepping
-        vars_exp = [getattr(var, prev_method)(steps=i) for i in range(0, depth)]
-
+        vars_exp = [
+            getattr(operator, prev_method)(steps=i) for i in range(0, self.depth)
+        ]
         vars_rec = []
-        for i in range(0, depth):
-            var_i = copy.copy(var)
+        for i in range(0, self.depth):
+            var_i = copy.copy(operator)
             for _ in range(i):
                 var_i = getattr(var_i, prev_method)()
             vars_rec.append(var_i)
 
         assert len(vars_exp) == len(vars_rec)
-        vals_exp = [equation_system.evaluate(v) for v in vars_exp]
-        vals_rec = [equation_system.evaluate(v) for v in vars_rec]
+        vals_exp = [self.equation_system.evaluate(v) for v in vars_exp]
+        vals_rec = [self.equation_system.evaluate(v) for v in vars_rec]
 
         for v_e, v_r in zip(vals_exp, vals_rec):
             assert np.allclose(v_e, v_r)
