@@ -249,7 +249,7 @@ class SimpleGeometryVertical(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
-    _ref_level = 2.0
+    _ref_level = 0.125
     _dist_from_ref_point: float = _ref_level * 5.0
     _inlet_centre: np.ndarray = np.array([_ref_level * 5.0, 0.0, 0.0])
     _outlet_centre: np.ndarray = np.array([_ref_level * 5.0, 2000.0, 0.0])

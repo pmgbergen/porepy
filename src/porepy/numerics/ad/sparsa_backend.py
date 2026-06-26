@@ -235,64 +235,41 @@ def _finalize(ad, layout, equation_system, sparsa):
 #  for a constant, ("proj", [slicers]) for a ProjectionList, or ("empty",).
 # ---------------------------------------------------------------------------------------
 class _Bundle:
-    __slots__ = ("program", "layout", "var_leaves", "surrogates")
+    __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves")
 
-    def __init__(self, program, layout, var_leaves, surrogates):
-        self.program = program          # sparsa.Program
+    def __init__(self, program, layout, var_leaves, surrogates, const_leaves):
+        self.program = program          # sparsa.Program (compiled structure + sparsity)
         self.layout = layout            # sparsa.Layout (global columns)
-        self.var_leaves = var_leaves    # list of (reg, vid, dofs)
+        self.var_leaves = var_leaves    # list of (reg, vid, dofs): refreshed from state
         self.surrogates = surrogates    # list of (op, value_reg, partial_regs, dep_rows)
+        self.const_leaves = const_leaves  # list of (op, reg): RE-PARSED each replay
+        # ^ discretizations / previous-iterate / BC values change every iteration even
+        #   though the op structure is fixed -- they must NOT be baked at compile time.
 
 
 def _combine_compile(op, kids, rec, surr, sparsa):
+    # Tags: "reg" = LocalAd-valued (depends on variables); "creg" = constant register
+    # (a refreshed leaf: matrix / array / scalar). A result is "reg" iff any LocalAd
+    # operand feeds it. Projection lists carry the tag "proj".
     name = op.operation.name
-    REG = lambda x: x[0] == "reg"
-    CONST = lambda x: x[0] == "const"
+    is_reg = lambda t: t[0] == "reg"
+    rtag = lambda *ts: "reg" if any(is_reg(t) for t in ts) else "creg"
 
     if name in ("add", "sub", "mul", "div"):
         a, b = kids
-        if REG(a) and REG(b):
-            return ("reg", rec.emit(name, [a[1], b[1]]))
-        if REG(a) and CONST(b):
-            return ("reg", rec.emit(f"{name}_const", [a[1]], const=b[1]))
-        if CONST(a) and REG(b):
-            if name == "add":
-                return ("reg", rec.emit("add_const", [b[1]], const=a[1]))
-            if name == "mul":
-                return ("reg", rec.emit("mul_const", [b[1]], const=a[1]))
-            if name == "sub":
-                return ("reg", rec.emit("rsub_const", [b[1]], const=a[1]))
-            if name == "div":
-                return ("reg", rec.emit("rdiv_const", [b[1]], const=a[1]))
-        return ("const", {"add": lambda: a[1] + b[1], "sub": lambda: a[1] - b[1],
-                          "mul": lambda: a[1] * b[1], "div": lambda: a[1] / b[1]}[name]())
+        return (rtag(a, b), rec.emit(name, [a[1], b[1]]))
     if name == "pow":
         a, b = kids
-        return ("reg", rec.emit("pow_const", [a[1]], const=b[1])) if REG(a) else \
-               ("const", a[1] ** b[1])
+        return (rtag(a, b), rec.emit("pow", [a[1], b[1]]))
     if name in ("matmul", "rmatmul"):
         left, right = (kids[0], kids[1]) if name == "matmul" else (kids[1], kids[0])
-        slicers = None
         if left[0] == "proj":
-            slicers = left[1]
-        elif isinstance(left[1], pp.matrix_operations.ArraySlicer):
-            slicers = [left[1]]
-        if slicers is not None:
-            if REG(right):
-                # materialized lazily on first replay using the operand size (cached after)
-                return ("reg", rec.emit("matmul_proj", [right[1]], const=slicers))
-            res = None  # projection @ constant -> constant
-            for sl in slicers:
-                m = sl @ right[1]
-                res = m if res is None else res + m
-            return ("const", res)
-        if REG(right):
-            return ("reg", rec.emit("matmul_const", [right[1]], const=left[1]))
-        return ("const", left[1] @ right[1])
+            return (rtag(right), rec.emit("matmul_proj", [right[1]], const=left[1]))
+        return (rtag(right), rec.emit("matmul", [left[1], right[1]]))
     if name == "evaluate":
-        diff = [(i, k) for i, k in enumerate(kids) if REG(k)]
+        diff = [(i, k) for i, k in enumerate(kids) if is_reg(k)]  # differentiable deps
         if not diff:
-            return ("const", op.func(*[k[1] for k in kids]))
+            raise _CompileUnsupported(f"function node with no variable deps {op!r}")
         if not (hasattr(op, "_fetch_data") and hasattr(op, "domains")):
             raise _CompileUnsupported(f"non-surrogate function node {op!r}")
         value_reg = rec.leaf()
@@ -308,35 +285,44 @@ class _CompileUnsupported(Exception):
     pass
 
 
-def _compile(op, rec, equation_system, var_by_key, surr, mdg, cache, sparsa):
+def _compile(op, rec, equation_system, var_by_key, surr, const, mdg, cache, sparsa):
     oid = id(op)
     if oid in cache:
         return cache[oid]
     if isinstance(op, pp.ad.ProjectionList):
+        # geometric slicers are fixed across iterations -> baked into matmul_proj.
         res = ("proj", [c.parse(mdg) for c in op.children])
     elif op.is_leaf():
-        if isinstance(op, pp.ad.Variable):
-            if op.is_previous_iterate or op.is_previous_time:
-                if isinstance(op, pp.ad.MixedDimensionalVariable):
-                    subs = op.sub_vars
-                    res = ("const", np.concatenate([sv.parse(mdg) for sv in subs])
-                           if subs else np.zeros(0))
-                else:
-                    res = ("const", op.parse(mdg))
-            else:
-                dofs = equation_system.dofs_of([op])
-                if dofs.size == 0:
-                    res = ("const", np.zeros(0))
-                else:
-                    res = ("reg", var_by_key[_dofs_key(dofs)])
+        if isinstance(op, pp.ad.Variable) and not (
+            op.is_previous_iterate or op.is_previous_time
+        ) and equation_system.dofs_of([op]).size > 0:
+            res = ("reg", var_by_key[_dofs_key(equation_system.dofs_of([op]))])
         else:
-            res = ("const", op.parse(mdg))
+            # Everything else (constants, discretizations, previous-iterate/time vars,
+            # empty interface vars, BC/time-dependent arrays) is a REFRESHED leaf: its
+            # value is re-parsed every replay, so nothing stale gets baked in.
+            reg = rec.leaf()
+            const.append((op, reg))
+            res = ("creg", reg)
     else:
-        kids = [_compile(c, rec, equation_system, var_by_key, surr, mdg, cache, sparsa)
+        kids = [_compile(c, rec, equation_system, var_by_key, surr, const, mdg, cache, sparsa)
                 for c in op.children]
         res = _combine_compile(op, kids, rec, surr, sparsa)
     cache[oid] = res
     return res
+
+
+def _parse_const_leaf(op, mdg, sparsa):
+    """Re-parse a refreshed constant leaf's CURRENT value (called every replay)."""
+    if isinstance(op, pp.ad.Variable):
+        if op.is_previous_iterate or op.is_previous_time:
+            if isinstance(op, pp.ad.MixedDimensionalVariable):
+                subs = op.sub_vars
+                return (np.concatenate([sv.parse(mdg) for sv in subs])
+                        if subs else np.zeros(0))
+            return op.parse(mdg)
+        return sparsa.LocalAd(np.zeros(0), {})  # current variable with 0 dofs (empty)
+    return op.parse(mdg)
 
 
 def _build_bundle(ops, equation_system, state, mdg, sparsa):
@@ -352,19 +338,21 @@ def _build_bundle(ops, equation_system, state, mdg, sparsa):
         reg = rec.leaf()
         var_by_key[_dofs_key(dofs)] = reg
         var_leaves.append((reg, vid, dofs))
-    surr, cache, out_regs = [], {}, []
+    surr, const, cache, out_regs = [], [], {}, []
     for o in ops:
-        tag = _compile(o, rec, equation_system, var_by_key, surr, mdg, cache, sparsa)
+        tag = _compile(o, rec, equation_system, var_by_key, surr, const, mdg, cache, sparsa)
         if tag[0] != "reg":
-            raise _CompileUnsupported("equation root is not a register")
+            raise _CompileUnsupported("equation root is not variable-dependent")
         out_regs.append(tag[1])
-    return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr)
+    return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const)
 
 
 def _replay(bundle, equation_system, state, mdg, sparsa):
     leaves = {}
     for reg, vid, dofs in bundle.var_leaves:
         leaves[reg] = sparsa.LocalAd(state[dofs], {vid: sparsa.DiagBlock(np.ones(dofs.size))})
+    for op, reg in bundle.const_leaves:  # re-parse CURRENT values (no stale baked data)
+        leaves[reg] = _parse_const_leaf(op, mdg, sparsa)
     for op, value_reg, partial_regs, dep_rows in bundle.surrogates:
         value = np.hstack([op._fetch_data(op, g, False) for g in op.domains])
         derivs = np.atleast_2d(np.hstack([op._fetch_data(op, g, True) for g in op.domains]))
