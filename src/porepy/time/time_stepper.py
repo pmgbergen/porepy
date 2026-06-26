@@ -6,6 +6,8 @@ called from the model runner.
 
 """
 
+from __future__ import annotations
+
 import logging
 
 import porepy as pp
