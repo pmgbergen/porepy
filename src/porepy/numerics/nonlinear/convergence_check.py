@@ -23,14 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 class ConvergenceStatus(StrEnum):
-    """Enumeration of potential convergence statuses. (TODO)"""
+    """Enumeration of potential convergence statuses."""
 
     CONVERGED = "converged"
-    """Convergence criterion is satisfied / Divergence criterion is not satisfied."""
+    """Convergence criterion is satisfied."""
     CONTINUE_ITERATING = "continue_iterating"
-    """Convergence criterion is not satisfied."""
+    """We neither succeeded nor failed: should continue iterating."""
     FAILED = "failed"
-    """Divergence criterion is satisfied."""
+    """Divergence criterion flags a failure: divergence, exception, iteration limit,
+    etc.
+
+    """
 
     def __str__(self):
         return self.value
@@ -40,7 +43,7 @@ class ConvergenceStatus(StrEnum):
         return self == ConvergenceStatus.CONVERGED
 
     def is_iterating(self) -> bool:
-        """Check if the status indicates not converged."""
+        """Check if the status indicates neither converged nor failed."""
         return self == ConvergenceStatus.CONTINUE_ITERATING
 
     def is_failed(self) -> bool:

@@ -96,13 +96,13 @@ class LinearSolver:
             convergence_status, divergence_status
         )
 
+        # Logging statistics.
+        self.update_solver_statistics(model=model, solver_status=solver_status)
+
         if solver_status.is_converged():
             model.after_nonlinear_convergence()
         else:
             model.after_nonlinear_failure()
-
-        # Logging statistics.
-        self.update_solver_statistics(model=model, solver_status=solver_status)
 
         return solver_status
 
@@ -111,6 +111,17 @@ class LinearSolver:
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
     ) -> NonlinearSolverStatus:
+        """Consider a collection of convergence and divergence statuses from multiple
+        criteria and make an overall verdict on whether we accept the sollution or not.
+
+        Parameters:
+            convergence_status: Multiple convergence statuses from different criteria.
+            divergence_status: Multiple divergence statuses from variaous criteria.
+
+        Returns:
+            NonlinearSolverStatus: Either Converged or Failed.
+
+        """
         # YZ: This is a duplicated method of NewtonSolver, but I find it acceptible for
         # now since we are planning to unify these two classes in the nearest future.
         if convergence_status.is_converged():

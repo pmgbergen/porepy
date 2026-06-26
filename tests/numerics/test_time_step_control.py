@@ -468,33 +468,6 @@ class TestTimeControl:
             time_manager.compute_time_step(recompute_solution=True)
         assert str(record[0].message) == msg
 
-    def test_non_recomputed_solution_conditions(self):
-        """Test behaviour of the algorithm when the solution should NOT be recomputed"""
-        # Check if internal flag _recomp_sol remains unchanged when
-        # recompute_solution=False regardless of the number of iterations provided by
-        # the user
-        time_manager = pp.TimeManager([0, 1], 0.1)
-        time_manager.compute_time_step(iterations=5)
-        assert not time_manager._recomp_sol
-        time_manager.compute_time_step(iterations=1000)
-        assert not time_manager._recomp_sol
-        # Check if _recomp_num resets to zero when solution is NOT recomputed
-        time_manager = pp.TimeManager([0, 1], 0.1)
-        time_manager._recomp_num = 3  # manually change recomputation attempts
-        time_manager.compute_time_step(iterations=5)
-        assert time_manager._recomp_num == 0
-        # Assume recompute_solution=True, but we reach or exceeded maximum number of
-        # attempts
-        time_manager = pp.TimeManager([0, 1], 0.1, recomp_max=5)
-        time_manager._recomp_num = 5
-        with pytest.raises(ValueError) as excinfo:
-            msg = (
-                f"Solution did not converge after {time_manager.recomp_max} recomputing"
-                " attempts."
-            )
-            time_manager.compute_time_step(iterations=5, recompute_solution=True)
-        assert time_manager._recomp_sol and (msg in str(excinfo.value))
-
     def test_recompute_solution_false_by_default(self):
         """Checks if recompute solution is False by default"""
         time_manager = pp.TimeManager([0, 1], 0.1)

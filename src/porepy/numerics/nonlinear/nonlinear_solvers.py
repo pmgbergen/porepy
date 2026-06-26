@@ -283,6 +283,17 @@ class NewtonSolver:
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
     ) -> NonlinearSolverStatus:
+        """Consider a collection of convergence and divergence statuses from multiple
+        criteria and make an overall verdict on whether we accept the sollution or not.
+
+        Parameters:
+            convergence_status: Multiple convergence statuses from different criteria.
+            divergence_status: Multiple divergence statuses from variaous criteria.
+
+        Returns:
+            NonlinearSolverStatus: Either Converged or Failed.
+
+        """
         if convergence_status.is_converged():
             return NonlinearSolverStatusConverged(
                 convergence_statuses=convergence_status,
@@ -541,7 +552,6 @@ class NewtonSolver:
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            solver_status: Status of the solver.
             convergence_status: Convergence (and divergence) status of the solver.
             convergence_info: Dictionary containing norms and other information.
 

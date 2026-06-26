@@ -9,10 +9,7 @@ called from the model runner.
 import logging
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceStatus,
-    ConvergenceStatusCollection,
-)
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
 from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
@@ -47,25 +44,25 @@ class TimeStepper:
 
     The constant dt case is supported internally by setting max_retries = 1.
 
+    Parameters:
+        time_manager: TimeManager instance.
+
     """
 
     def __init__(self, time_manager: TimeManager) -> None:
-        """Initialize the time stepper.
-
-        Parameters:
-            time_manager: TimeManager instance.
-            params: Model parameters.
-
-        """
+        """Initialize the time stepper."""
         self.time_manager = time_manager
         """TimeManager for tracking time and dt."""
 
-        self.max_attempts = time_manager.recomp_max
-        """Maximum number of retry attempts."""
+        self.max_attempts = time_manager.recomp_max + 1
+        """Maximum number of retry attempts. Set it to 1 for no retries, which is
+        equivalent to the constant_dt policy."""
+        # Note: +1 because recomp_max=0 means a single attempt.
 
         if self.time_manager.is_constant:
             logger.warning("Overriding time manager parameters to ensure constant_dt.")
             self.max_attempts = 1
+            time_manager.recomp_max = 0
 
         assert self.max_attempts > 0, "max_attempts must be greater than 0."
 

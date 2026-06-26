@@ -667,7 +667,7 @@ else:
             Defaults to True."""
 
         def before_time_step(self) -> None:
-            """"""
+            """Called at the start of each time step by model runners."""
 
         def before_nonlinear_loop(self) -> None:
             """Method to be called before the non-linear loop.
@@ -693,10 +693,10 @@ else:
             """
 
         def after_time_step_convergence(self) -> None:
-            """"""
+            """Called after a new time step solution has been achieved."""
 
         def after_time_step_failure(self) -> None:
-            """"""
+            """Called after a time step has failed to converge."""
 
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.

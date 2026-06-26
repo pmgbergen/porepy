@@ -158,8 +158,7 @@ class TimeManager:
             Factor by which the time step will be multiplied in case the solution must
             be recomputed. We require `recomp_factor` to be strictly less than one.
         recomp_max: Failed-to-converge maximum recomputation attempts. The maximum
-        allowable
-            number of consecutive recomputation attempts.
+            allowable number of consecutive recomputation attempts.
         print_info. Whether to print on-the-fly time-stepping information or not.
         rtol: Relative tolerance parameter for float point equality.
         atol: Absolute tolerance parameter for float point equality.
@@ -465,14 +464,16 @@ class TimeManager:
         self._recomp_sol = recompute_solution
         self._iters = iterations
 
-        # First, check if we reach final simulation time with a valid solution
-        # TODO: rm? This works as a safeguard and should not be removed if the logic
-        # below is not reconsidered.
+        # First, check if we reach final simulation time with a valid solution. This
+        # works as a safeguard and should not be removed if the logic below is not
+        # reconsidered.
         if not recompute_solution and self.final_time_reached():
             return None
 
         # If the time step is constant, always return that value
-        # TODO: rm? who is responsible for asking for compute_dt?
+        # TimeStepper currently may ask to recompute dt even for the constant time step.
+        # This is temporary, the time manager soon to stop being responsible for
+        # recomputing the time step. Keeping the original behavior for now.
         if self.is_constant:
             # Some sanity checks
             if iterations is not None:
@@ -535,9 +536,6 @@ class TimeManager:
             )
             warnings.warn(msg)
 
-        # Make sure to reset the recomputation counter
-        self._recomp_num = 0
-
         # Proceed to determine the next time step using the following criteria: (C1) If
         #     the number of iterations is less than the lower endpoint of the optimal
         #     iteration range `iter_low`, we can relax the time step by multiplying it
@@ -565,68 +563,58 @@ class TimeManager:
         Raises:
             ValueError if dt = dt_min, since any recomputation attempt will be
                 pointless.
-            ValueError if recomp_attempts > max_recomp_attempts.
 
         """
-
-        if self._recomp_num < self.recomp_max:
-            # If dt = dt_min, adaptation based on recomputation won't have any effect in
-            # the next iteration (any decrease in time step will be corrected to dt_min
-            # by self.correction_based_on_dt_min() in a subsequent correction step).
-            # Thus, to avoid pointless iterations, we raise an error.
-            if self.dt == self.dt_min_max[0]:
-                msg = (
-                    "Recomputation will not have any effect since the time step "
-                    f"achieved its minimum admissible value -> dt = dt_min = {self.dt}."
-                )
-                raise ValueError(msg)
-
-            # Raise a warning if iterations is not None
-            if self._iters is not None:
-                msg = "Number of iterations has no effect in recomputation."
-                warnings.warn(msg)
-
-            # If the solution did not converge AND we are allowed to recompute it, then:
-            #   (S1) Update simulation time since solution will be recomputed.
-            #   (S2) Update time index since solution will be recomputed.
-            #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
-            #   (S4) Increase counter that keeps track of the number of times the
-            #        solution was recomputed.
-            #   (S5) Step back in the schedule if we expected to meet the next schedule
-            #        point.
-
-            # Note that iterations is not really used here. So, as long as
-            # recompute_solution = True and recomputation_attempts <
-            # max_recomp_attempts, the method is entirely agnostic to the number of
-            # iterations passed. This design choice was made to give more flexibility,
-            # in the sense that we are not limiting the recomputation criteria to _only_
-            # reaching the maximum number of iterations, even though that is the primary
-            # intended usage.
-            # TODO: Suggestion to remove. S1 and S2.
-            # self.time -= self.dt  # (S1)
-            # self.time_index -= 1  # (S2)
-            self.dt *= self.recomp_factor  # (S3)
-            # TODO: Suggestion to remove. S4.
-            # self._recomp_num += 1  # (S4)
-            # TODO: This can be made less complex and more robust, when not using
-            # indices.
-            if self._is_about_to_hit_schedule:  # (S5)
-                self._scheduled_idx -= 1
-
-            if self._print_info:
-                msg = (
-                    "Solution did not converge and will be recomputed."
-                    f" Recomputing attempt #{self._recomp_num}. Next dt = {self.dt}."
-                )
-                print(msg)
-        else:
-            # The solution did not converge AND recomputation attempts have been
-            # exhausted.
+        # If dt = dt_min, adaptation based on recomputation won't have any effect in
+        # the next iteration (any decrease in time step will be corrected to dt_min
+        # by self.correction_based_on_dt_min() in a subsequent correction step).
+        # Thus, to avoid pointless iterations, we raise an error.
+        if self.dt == self.dt_min_max[0]:
             msg = (
-                f"Solution did not converge after {self.recomp_max} recomputing "
-                "attempts."
+                "Recomputation will not have any effect since the time step "
+                f"achieved its minimum admissible value -> dt = dt_min = {self.dt}."
             )
             raise ValueError(msg)
+
+        # Raise a warning if iterations is not None
+        if self._iters is not None:
+            msg = "Number of iterations has no effect in recomputation."
+            warnings.warn(msg)
+
+        # If the solution did not converge AND we are allowed to recompute it, then:
+        #   (S1) Update simulation time since solution will be recomputed.
+        #   (S2) Update time index since solution will be recomputed.
+        #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
+        #   (S4) Increase counter that keeps track of the number of times the
+        #        solution was recomputed.
+        #   (S5) Step back in the schedule if we expected to meet the next schedule
+        #        point.
+
+        # Note that iterations is not really used here. So, as long as
+        # recompute_solution = True and recomputation_attempts <
+        # max_recomp_attempts, the method is entirely agnostic to the number of
+        # iterations passed. This design choice was made to give more flexibility,
+        # in the sense that we are not limiting the recomputation criteria to _only_
+        # reaching the maximum number of iterations, even though that is the primary
+        # intended usage.
+
+        # S1, S2 and S4 are removed as the TimeStepper is responsible for this now.
+        # self.time -= self.dt  # (S1)
+        # self.time_index -= 1  # (S2)
+        self.dt *= self.recomp_factor  # (S3)
+        # self._recomp_num += 1  # (S4)
+
+        # When we refactor this into the TimeStepper's responsibility, it should be made
+        # less complex and more robust, by not using indices.
+        if self._is_about_to_hit_schedule:  # (S5)
+            self._scheduled_idx -= 1
+
+        if self._print_info:
+            msg = (
+                "Solution did not converge and will be recomputed."
+                f" Recomputing attempt #{self._recomp_num}. Next dt = {self.dt}."
+            )
+            print(msg)
 
     def _correction_based_on_dt_min(self) -> None:
         """Correct time step if dt < dt_min."""
@@ -650,8 +638,8 @@ class TimeManager:
 
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
-        # TODO: We could make this more efficient and more robust
-        # by keeping track of the next scheduled time, instead of the index
+        # When moving this to the TimeStepper, we should make this more efficient and
+        # robust by keeping track of the next scheduled time, instead of the index
         # and updating it every time we hit the schedule. This way, we would also avoid
         # any issues related to the index, e.g., out of bounds, and we would not need to
         # step back in the schedule if we expected to hit it but did not due to
@@ -673,9 +661,12 @@ class TimeManager:
                     )
                 return
 
-            # TODO: Keep track of previous dt, and return to that value if we expected
-            # to hit the schedule. There is no reason to start increasing the dt from
-            # scratch. Use a reset of previous dt to avoid oscillations and ensure a
+            # Consider dt=1, t=0.999999, schedule_time=1. We'll decrease the time step
+            # to dt=1e-6 and have to slowly increase it. When refactored, we should
+            # track of previous dt, and return to that value if we expected to hit the
+            # schedule. There is no reason to start increasing the dt from scratch.
+
+            # Use a reset of previous dt to avoid oscillations and ensure a
             # stable time step adaptation in combination with the relaxation factors.
             self.dt = schedule_time - self.time  # Correcting time step.
 
