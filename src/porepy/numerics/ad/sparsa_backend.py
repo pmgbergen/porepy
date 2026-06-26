@@ -347,7 +347,7 @@ def _build_bundle(ops, equation_system, state, mdg, sparsa):
     return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const)
 
 
-def _replay(bundle, equation_system, state, mdg, sparsa):
+def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
     leaves = {}
     for reg, vid, dofs in bundle.var_leaves:
         leaves[reg] = sparsa.LocalAd(state[dofs], {vid: sparsa.DiagBlock(np.ones(dofs.size))})
@@ -360,7 +360,14 @@ def _replay(bundle, equation_system, state, mdg, sparsa):
         for preg, row in zip(partial_regs, dep_rows):
             leaves[preg] = derivs[row]
     outs = bundle.program.run(leaves)
-    return [_finalize(ad, bundle.layout, equation_system, sparsa) for ad in outs]
+    if derivative:
+        return [_finalize(ad, bundle.layout, equation_system, sparsa) for ad in outs]
+    # residual-only: the structure is identical, so the SAME Program serves both. We
+    # replay and take only the value (skipping the global Jacobian scatter), which still
+    # avoids the eager DAG re-walk -- the dominant cost of the per-iteration convergence
+    # residual re-assembly.
+    return [ad.val if isinstance(ad, sparsa.LocalAd)
+            else np.atleast_1d(np.asarray(ad, dtype=float)) for ad in outs]
 
 
 class SparsaParser:
@@ -383,18 +390,20 @@ class SparsaParser:
         if state is None:
             state = equation_system.get_variable_values(iterate_index=0)
 
-        # Compile-once fast path: derivative assemble of an equation list.
-        if derivative and isinstance(op, list):
+        # Compile-once fast path for an equation LIST. The structure is fixed, so the
+        # SAME compiled Program serves both the Jacobian assemble (derivative=True) and
+        # the residual-only assemble (derivative=False, used by the convergence check).
+        if isinstance(op, list):
             key = tuple(id(o) for o in op)
-            bundle = self._bundles.get(key)
-            if bundle is None and key not in self._bundles:
+            if key not in self._bundles:
                 try:
-                    bundle = _build_bundle(op, equation_system, state, self.mdg, sparsa)
+                    self._bundles[key] = _build_bundle(
+                        op, equation_system, state, self.mdg, sparsa)
                 except _CompileUnsupported:
-                    bundle = None  # structurally uncompilable -> eager path
-                self._bundles[key] = bundle  # cache success or None
+                    self._bundles[key] = None  # uncompilable -> eager path
+            bundle = self._bundles[key]
             if bundle is not None:
-                return _replay(bundle, equation_system, state, self.mdg, sparsa)
+                return _replay(bundle, equation_system, state, self.mdg, sparsa, derivative)
 
         # Eager path.
         ops = op if isinstance(op, list) else [op]
