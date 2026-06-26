@@ -222,7 +222,6 @@ class ModelRunner:
         use_progress_bar = (
             self.params.get("progressbars", False) and self._is_time_dependent
         )
-        use_progress_bar = True
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The time"
