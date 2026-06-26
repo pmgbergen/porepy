@@ -1,7 +1,8 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Isothermal model with nonlinear preconditioning using the vT flash.
+Isothermal model using a global pT-formulation and the possibility to do nonlinear
+vT-preconditioning.
 
 """
 
@@ -12,6 +13,8 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
+from functools import partial
+from typing import Callable, cast
 
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
@@ -35,7 +38,11 @@ from porepy.models.compositional_flow_with_equilibrium import (
 )
 
 JUMP_TIME = 25 * pp.DAY
+T_BEFORE_JUMP = JUMP_TIME - pp.HOUR
 T_END_DAYS = 50
+time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
+dt_init = pp.DAY * 0.5
+dt_min = pp.SECOND
 
 newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
@@ -43,9 +50,15 @@ newton_tol_inc = 1.0
 max_iterations = 25
 iter_range = (15, max_iterations)
 
-time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
-dt_init = pp.DAY * 0.5
-dt_min = pp.SECOND
+
+def modify_schedule(old_schedule: list[float]) -> list[float]:
+    t = np.array(old_schedule).copy()
+    t_before: list[float] = t[t < JUMP_TIME].tolist()
+    t_after: list[float] = t[t > JUMP_TIME].tolist()
+    if t_before[-1] < T_BEFORE_JUMP:
+        t_before += [T_BEFORE_JUMP]
+    return t_before + np.arange(JUMP_TIME, t_after[0], pp.HOUR).tolist() + t_after
+
 
 model_params, solver_params = get_default_params(
     base_permeability=1e-14,
@@ -71,7 +84,7 @@ model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
 model_params["flash_params"]["solver_params"]["max_iterations"] = 25
 
 model_params["equilibrium_specification"] = (
-    pp.compositional.FlashSpec.vT,
+    pp.compositional.FlashSpec.pT,
     "persistent-variables",
 )
 model_params["flash_params"]["compile_args"] = (
@@ -110,10 +123,17 @@ solver_params["in_physical_space"] = True
 
 
 class Case2DataCollection(pp.PorePyModel):
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
     def __init__(self, params=None):
         super().__init__(params)
 
-        self._gas_in_frac_per_time: list[tuple[float, float, float]] = []
+        self._p_before_drop: None | np.ndarray = None
+        self._T_before_drop: None | np.ndarray = None
+        self._y_vanished: bool = False
+        self._p_transient_over: bool = False
+        self._T_transient_over: bool = False
+        self._transient_over: bool = False
 
     def after_nonlinear_convergence(self):
         frac = self.mdg.subdomains(dim=1)
@@ -139,6 +159,111 @@ class Case2DataCollection(pp.PorePyModel):
 
         self.nonlinear_solver_statistics.log_custom_data(gas_in_frac=yG_avg)
         self.nonlinear_solver_statistics.log_custom_data(sat_in_frac=sG_avg)
+
+        subdomains = self.mdg.subdomains()
+        # Calculate pressure drop at jump time.
+        t = self.time_manager.time
+        if t >= JUMP_TIME - dt_min / 10 and not self._transient_over:
+            p_now = self.pressure(subdomains)
+            p_now_vals = cast(np.ndarray, self.equation_system.evaluate(p_now))
+
+            l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, 1), "l2_norm")
+            diff = lambda x: np.sqrt(
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(
+                            l2_norm(x) * l2_norm(x),
+                            subdomains,
+                            1,
+                        )
+                    )
+                )
+            )
+
+            # Safe p-values before a-jump.
+            if self._p_before_drop is None:
+                self._p_before_drop = cast(
+                    np.ndarray, self.equation_system.evaluate(p_now.previous_timestep())
+                )
+
+            p_factor = 1e-6  # Convert to MPa
+            delta_p_l2 = diff(
+                (p_now - pp.ad.DenseArray(self._p_before_drop)) * pp.ad.Scalar(p_factor)
+            )
+            delta_p_max = np.abs((p_now_vals - self._p_before_drop) * p_factor).max()
+
+            self.nonlinear_solver_statistics.log_custom_data(
+                to_global=True,
+                append=True,
+                transient_t=t,
+            )
+            self.nonlinear_solver_statistics.log_custom_data(
+                to_global=True,
+                append=True,
+                delta_p_l2_transient=delta_p_l2,
+            )
+            self.nonlinear_solver_statistics.log_custom_data(
+                to_global=True,
+                append=True,
+                delta_p_max_transient=delta_p_max,
+            )
+
+            yG_vals = cast(np.ndarray, self.equation_system.evaluate(yG))
+            if np.all(np.abs(yG_vals) <= 1e-10) and not self._y_vanished:
+                self._y_vanished = True
+                self.nonlinear_solver_statistics.log_custom_data(
+                    to_global=True, gas_disappears_time=t
+                )
+
+            # if np.linalg.norm(self._p_before_drop - p_now_vals) <= 1e-2:
+            # NOTE l2 norm gives the longest transient period, folloed by eucledian 2 norm, and max(abs())
+            # np.allclose(p_now_vals, self._p_before_drop) gives the shortest.
+            if delta_p_l2 < 1 and not self._p_transient_over:
+                self._p_transient_over = True
+                self.nonlinear_solver_statistics.log_custom_data(
+                    to_global=True, p_transient_end_time=t
+                )
+
+            self._transient_over = self._y_vanished and self._p_transient_over
+
+            # Register T drop analogous to p.
+            if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+                T_now = self.temperature(subdomains)
+                T_now_vals = cast(np.ndarray, self.equation_system.evaluate(T_now))
+
+                if self._T_before_drop is None:
+                    self._T_before_drop = cast(
+                        np.ndarray,
+                        self.equation_system.evaluate(T_now.previous_timestep()),
+                    )
+
+                delta_T_l2 = diff(T_now - pp.ad.DenseArray(self._T_before_drop))
+                delta_T_max = np.abs(T_now_vals - self._T_before_drop).max()
+
+                self.nonlinear_solver_statistics.log_custom_data(
+                    to_global=True,
+                    append=True,
+                    delta_T_l2_transient=delta_T_l2,
+                )
+                self.nonlinear_solver_statistics.log_custom_data(
+                    to_global=True,
+                    append=True,
+                    delta_T_max_transient=delta_T_max,
+                )
+
+                if delta_T_l2 < 1 and not self._T_transient_over:
+                    self._T_transient_over = True
+                    self.nonlinear_solver_statistics.log_custom_data(
+                        to_global=True, T_transient_end_time=t
+                    )
+
+                self._transient_over = self._transient_over and self._T_transient_over
+
+            if self._transient_over:
+                self.nonlinear_solver_statistics.log_custom_data(
+                    to_global=True, transient_end_time=t
+                )
+
         return super().after_nonlinear_convergence()
 
 
@@ -209,7 +334,7 @@ class ModelClass(  # type:ignore
     pass
 
 
-model_params["create_fluid_volume_variable"] = True
+model_params["create_fluid_volume_variable"] = False
 
 
 # ModelClass._PRESSURE_BOUNDARY_ON = False
@@ -230,24 +355,16 @@ ModelClass._z_IN = {"H2O": 1.0}
 if __name__ == "__main__":
     parser = get_case2_argparser("CI Case 2a.")
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
+    E_PRIMARY = False
 
     # NOTE for debugging
-    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 2)]
-    # E_PRIMARY = False
+    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 10)]
+    # ISOCHORIC_NPC = True
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
-
-        t_jump = APERTURE_JUMP_SCHEDULE[0][0]
-        t = np.array(time_schedule)
-        t_before: list[float] = t[t < t_jump].tolist()
-        t_after: list[float] = t[t > t_jump].tolist()
-        if t_before[-1] < t_jump - pp.HOUR:
-            t_before += [t_jump - pp.HOUR]
-        time_schedule = (
-            t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
-        )
+        time_schedule = modify_schedule(time_schedule)
     else:
         ajump = None
 

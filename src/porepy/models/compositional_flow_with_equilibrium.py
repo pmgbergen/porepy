@@ -1352,10 +1352,9 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             )
 
         logger.info(
-            f"Fluid equilibrated on grid {grid.id}"
-            + f" at time {self.time_manager.time:.3e}"
-            + f" and iteration {self.nonlinear_solver_statistics.num_iterations}"  # type: ignore[attr-defined]
-            + " (elapsed time: %.5f (s))." % (results.clocktime_solve)
+            f"Fluid equilibrated on grid {grid.id}: "
+            + f"t= {self.time_manager.time:.3e} "
+            + f"i= {self.nonlinear_solver_statistics.num_iterations}"  # type: ignore[attr-defined]
         )
         self.nonlinear_solver_statistics.log_custom_data(
             append=True,

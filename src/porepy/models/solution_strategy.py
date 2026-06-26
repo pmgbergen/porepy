@@ -690,6 +690,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         # self.save_data_time_step()
+        self.nonlinear_solver_statistics.save()
         if not self._is_nonlinear_problem():
             warn("Failed to solve linear system for the linear problem.")
             return SimulationStatus.STOPPED

@@ -546,7 +546,7 @@ class CFLESolver(pp.NewtonSolver):
             self.appleyard_chop(model, dx)
         if self.params["pressure_clip"] is not None:
             self.pressure_clip(model, dx)
-        if self.params["volume_clip"] is not None:
+        if self.params["volume_clip"] is not None and model.has_fluid_volume_variable:
             self.volume_clip(model, dx)
 
     def appleyard_chop(self, model: CIModel, dx: np.ndarray) -> None:

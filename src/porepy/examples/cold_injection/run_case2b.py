@@ -1,11 +1,7 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Thermal model with nonlinear preconditioning using the uv flash.
-Temperature is initially constant, during injection and on the boundary.
-Temperature drop is expected when fracture opens.
-
-Full uv-based model with volume and internal energy as primary variables.
+Isothermal model with nonlinear preconditioning using the vT flash.
 
 """
 
@@ -16,7 +12,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
@@ -33,24 +29,24 @@ from porepy.examples.cold_injection.model import (
     FluidPoreInteraction,
     NoFluxRediscretization,
 )
-from porepy.models.compositional_flow_with_equilibrium import CFLEModelTemplate
-
-from .run_case2a import (
-    T_END_DAYS,
+from porepy.examples.cold_injection.run_case2a import (
     Case2DataCollection,
+    dt_init,
+    dt_min,
     get_case2_argparser,
+    modify_schedule,
     resolve_args,
+    time_schedule,
+)
+from porepy.models.compositional_flow_with_equilibrium import (
+    IsothermalCFLEModelTemplate,
 )
 
-max_iterations = 30
-iter_range = (15, 25)
 newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
-
-time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
-dt_init = pp.DAY * 0.5
-dt_min = pp.SECOND
+max_iterations = 25
+iter_range = (15, max_iterations)
 
 model_params, solver_params = get_default_params(
     base_permeability=1e-14,
@@ -73,15 +69,15 @@ model_params["flash_params"]["phase_property_params"] = eos_params
 model_params["phase_property_params"] = eos_params
 model_params["flash_params"]["global_iteration_stride"] = None
 model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
-model_params["flash_params"]["solver_params"]["max_iterations"] = 80
+model_params["flash_params"]["solver_params"]["max_iterations"] = 25
 
 model_params["equilibrium_specification"] = (
-    pp.compositional.FlashSpec.vu,
+    pp.compositional.FlashSpec.vT,
     "persistent-variables",
 )
 model_params["flash_params"]["compile_args"] = (
     pp.compositional.FlashSpec.pT,
-    pp.compositional.FlashSpec.vu,
+    pp.compositional.FlashSpec.vT,
 )
 
 solver_params["atol_objective"] = newton_tol_res
@@ -120,17 +116,15 @@ class ModelClass(  # type:ignore
     NoFluxRediscretization,
     HorizontalFractureAndPointWells2D,
     ColdInjectionMixins,
-    CFLEModelTemplate,
+    IsothermalCFLEModelTemplate,
 ):
     pass
 
 
 model_params["create_fluid_volume_variable"] = True
-model_params["create_fluid_internal_energy_variable"] = True
-model_params["create_fluid_enthalpy_variable"] = False
 
 
-ModelClass._HEATED_BOUNDARY_ON = False
+# ModelClass._PRESSURE_BOUNDARY_ON = False
 ModelClass._COMPONENT_NAMES = ["H2O"]
 ModelClass._IDEAL_COMPONENTS = [pp.compositional.ideal.IdealH2O]
 # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
@@ -140,7 +134,7 @@ ModelClass._p_OUT = 10e6
 ModelClass._p_BC = 10e6
 ModelClass._T_INIT = 450.0
 ModelClass._T_IN = 450.0
-ModelClass._T_BC = 450.0  # 640.
+ModelClass._T_BC = 450.0
 ModelClass._z_INIT = {"H2O": 1.0}
 ModelClass._z_IN = {"H2O": 1.0}
 
@@ -150,21 +144,13 @@ if __name__ == "__main__":
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
-    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 2)]
+    # APERTURE_JUMP_SCHEDULE = [(25 * pp.DAY, 2)]
+    # E_PRIMARY = False
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
-
-        t_jump = APERTURE_JUMP_SCHEDULE[0][0]
-        t = np.array(time_schedule)
-        t_before: list[float] = t[t < t_jump].tolist()
-        t_after: list[float] = t[t > t_jump].tolist()
-        if t_before[-1] < t_jump - pp.HOUR:
-            t_before += [t_jump - pp.HOUR]
-        time_schedule = (
-            t_before + np.arange(t_jump, t_after[0], pp.HOUR).tolist() + t_after
-        )
+        time_schedule = modify_schedule(time_schedule)
     else:
         ajump = None
 
@@ -183,11 +169,11 @@ if __name__ == "__main__":
     )
 
     if ISOCHORIC_NPC:
-        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
+        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT
 
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     sub_folder = (
-        f"CI_CASE2B/"
+        "CI_CASE2B/"
         f"{timestamp}"
         f"_AJUMP_{ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"

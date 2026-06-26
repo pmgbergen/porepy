@@ -68,6 +68,8 @@ class SolverStatistics:
     """Overall simulation status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
+    custom_global_data: dict[str, Any] = field(default_factory=dict)
+    """Custom global data to be added to the statistics object."""
 
     def __replace__(self, **kwargs) -> "SolverStatistics":
         """Create a new instance with updated fields."""
@@ -114,7 +116,9 @@ class SolverStatistics:
             else:
                 self.simulation_status_history[-1] = self.simulation_status
 
-    def log_custom_data(self, append: bool = False, **kwargs) -> None:
+    def log_custom_data(
+        self, to_global: bool = False, append: bool = False, **kwargs
+    ) -> None:
         """Log custom data to be added to the statistics object with custom keys.
 
         Has two modes:
@@ -124,16 +128,25 @@ class SolverStatistics:
           same key, converting to a list if necessary.
 
         Parameters:
+            to_global: Appends the data to the global data entry.
             append: Whether to append to existing data with the same key.
             **kwargs: Custom data to be added to the statistics object.
 
         """
         if append:
             # Append data to existing keys.
-            self.custom_data = _recursive_append(self.custom_data, kwargs)
+            if to_global:
+                self.custom_global_data = _recursive_append(
+                    self.custom_global_data, kwargs
+                )
+            else:
+                self.custom_data = _recursive_append(self.custom_data, kwargs)
         else:
             # Overwrite existing data.
-            self.custom_data.update(kwargs)
+            if to_global:
+                self.custom_global_data.update(kwargs)
+            else:
+                self.custom_data.update(kwargs)
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary.
@@ -160,6 +173,7 @@ class SolverStatistics:
             "final_simulation_status": final_str_simulation_status,
             "num_entries": self.index + 1,
         }
+        data["global"].update(self.custom_global_data)
 
         return data
 

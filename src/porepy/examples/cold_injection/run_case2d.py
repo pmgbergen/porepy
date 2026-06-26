@@ -1,11 +1,11 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Thermal model with nonlinear preconditioning using the uv flash.
+Non-isothermal model with nonlinear preconditioning using the uv flash.
 Temperature is initially constant, during injection and on the boundary.
 Temperature drop is expected when fracture opens.
 
-Full uv-based model with volume and internal energy as primary variables.
+Hybrid model using a global ph formulation and uv only in preconditioning.
 
 """
 
@@ -74,11 +74,12 @@ model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
 model_params["flash_params"]["solver_params"]["max_iterations"] = 80
 
 model_params["equilibrium_specification"] = (
-    pp.compositional.FlashSpec.vu,
+    pp.compositional.FlashSpec.ph,
     "persistent-variables",
 )
 model_params["flash_params"]["compile_args"] = (
     pp.compositional.FlashSpec.pT,
+    pp.compositional.FlashSpec.ph,
     pp.compositional.FlashSpec.vu,
 )
 
@@ -123,9 +124,9 @@ class ModelClass(  # type:ignore
     pass
 
 
-model_params["create_fluid_volume_variable"] = True
-model_params["create_fluid_internal_energy_variable"] = True
-model_params["create_fluid_enthalpy_variable"] = False
+model_params["create_fluid_volume_variable"] = False
+model_params["create_fluid_internal_energy_variable"] = False
+model_params["create_fluid_enthalpy_variable"] = True
 
 
 ModelClass._HEATED_BOUNDARY_ON = False
@@ -144,7 +145,7 @@ ModelClass._z_IN = {"H2O": 1.0}
 
 
 if __name__ == "__main__":
-    parser = get_case2_argparser("CI Case 2c.")
+    parser = get_case2_argparser("CI Case 2d.")
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
@@ -176,7 +177,7 @@ if __name__ == "__main__":
 
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     sub_folder = (
-        f"CI_CASE2C/"
+        f"CI_CASE2D/"
         f"{timestamp}"
         f"_AJUMP_{ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"
