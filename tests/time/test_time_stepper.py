@@ -1,12 +1,14 @@
 """Integration tests for the TimeStepper class."""
 
 import json
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from typing import Literal, Optional
 
-from deepdiff import DeepDiff
+import numpy as np
 import pytest
+from deepdiff import DeepDiff
+
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
@@ -26,8 +28,6 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.time_step_control import TimeManager
 from porepy.time.time_stepper import TimeStepper
-import numpy as np
-
 from porepy.viz.solver_statistics import (
     NonlinearSolverAndTimeStatistics,
     SolverStatisticsFactory,
