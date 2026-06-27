@@ -146,6 +146,13 @@ def collect_from_raw(data: dict) -> dict:
     return d
 
 
+def get_a(data: dict) -> float:
+    name: str = data["_subfolder"]
+    i = name.find("_AJUMP_")
+    j = name.find("_ICHOR_")
+    return float(name[i + 7 : j])
+
+
 c2b_ajump = [
     fetch(c2b_dir, p) for p in c2b_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
 ]
@@ -160,14 +167,6 @@ c2a_npc = [
 ][0]
 
 plot_data = {}
-
-
-def get_a(data: dict) -> float:
-    name: str = data["_subfolder"]
-    i = name.find("_AJUMP_")
-    j = name.find("_ICHOR_")
-    return float(name[i + 7 : j])
-
 
 # Case 2a data
 plot_data["case2a"] = {}
@@ -286,9 +285,8 @@ imgs += ax.plot(
     # marker="*",
     # markersize=MS,
     color="black",
-    label=r"gas transient time",
+    label=r"vT(vT)",
 )
-
 
 ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
 ax.set_ylabel(r"$\tau_G$ [s]")
@@ -592,4 +590,332 @@ fig.savefig(
 # endregion
 # region plot pressure and temperature drop per aperture jump for case 2c
 
+# endregion
+# region Plot clock times in bar chart
+fig = plt.figure(figsize=(1.5 * WIDTH, WIDTH))
+ax = fig.add_subplot(111)
+imgs = []
+
+# restructure data
+assembly = np.array(
+    [
+        [d["time_in_assembly"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["time_in_assembly"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+linsolve = np.array(
+    [
+        [d["time_in_linsolve"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["time_in_linsolve"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+flash = np.array(
+    [
+        [d["time_in_flash"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["time_in_flash"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+trustreg = np.array(
+    [
+        [d["time_in_tr"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["time_in_tr"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+REF: float = assembly[0, 0] + linsolve[0, 0] + flash[0, 0] + trustreg[0, 0]
+
+assembly /= REF
+linsolve /= REF
+flash /= REF
+trustreg /= REF
+
+n_models, n_params = assembly.shape
+
+group_width = 0.8
+bar_width = group_width / n_params
+bar_spacing = 0.9
+
+centers = np.arange(n_models)
+models = ["vT(vT)", "uv(uv)"]
+colors = {
+    "assembly": "tab:blue",
+    "linsolve": "tab:green",
+    "flash": "tab:orange",
+    "tr": "tab:purple",
+}
+
+for j in range(n_params):
+    x = centers - group_width / 2 + (j + 0.5) * bar_width
+
+    ax.bar(
+        x,
+        assembly[:, j],
+        width=bar_width * bar_spacing,
+        label="Assembly" if j == 0 else None,
+        color=colors["assembly"],
+    )
+
+    ax.bar(
+        x,
+        linsolve[:, j],
+        width=bar_width * bar_spacing,
+        bottom=assembly[:, j],
+        label="Linear solve" if j == 0 else None,
+        color=colors["linsolve"],
+    )
+
+    ax.bar(
+        x,
+        flash[:, j],
+        width=bar_width * bar_spacing,
+        bottom=assembly[:, j] + linsolve[:, j],
+        label="Flash" if j == 0 else None,
+        color=colors["flash"],
+    )
+
+    ax.bar(
+        x,
+        trustreg[:, j],
+        width=bar_width * bar_spacing,
+        bottom=assembly[:, j] + linsolve[:, j] + flash[:, j],
+        label="Trust region" if j == 0 else None,
+        color=colors["tr"],
+    )
+bar_positions = []
+bar_labels = []
+params = list(plot_data["case2b"]["ajump"].keys())
+
+for i in range(n_models):
+    for j in range(n_params):
+        x = centers[i] - group_width / 2 + (j + 0.5) * bar_width
+        bar_positions.append(x)
+        bar_labels.append(f"{params[j]}")
+
+ax.set_xticks(ticks=bar_positions, labels=bar_labels)
+# secax = ax.secondary_xaxis('bottom')
+# secax.set_xticks(ticks=centers, labels=models)
+# secax.set_xticklabels(models)
+# secax.spines['bottom'].set_position(('outward', 35))
+# secax.tick_params(length=0)
+for x, model in zip(centers, models):
+    ax.text(
+        x,
+        -0.08,
+        model,
+        ha="center",
+        va="top",
+        transform=ax.get_xaxis_transform(),
+        # fontsize=plt.rcParams['font.size'],
+    )
+
+ax.set_ylabel("Normalized wall-clock time")
+# ax.set_ylabel(f"Normalized wall-clock time\n(reference = {REF:.2f} s)")
+ax.axhline(1.0, color="black", ls="--", lw=LW)
+ax.text(
+    1.01,
+    1.0,
+    f"{REF:.2f} s",
+    transform=ax.get_yaxis_transform(),
+    va="bottom",
+    ha="left",
+)
+y_ticks = ax.get_yticks().astype(int).tolist()
+if 1 not in y_ticks:
+    y_ticks.append(1)
+ax.set_yticks(np.sort(np.array(y_ticks)))
+
+ax.legend(loc="center left")
+
+fig.tight_layout(pad=PAD)
+fig.savefig(
+    f"{FOLDER}clocktimes.png",
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+    pad_inches=0.01,
+)
+# endregion
+# region Wasted iterations
+fig = plt.figure(figsize=(1.5 * WIDTH, WIDTH))
+ax = fig.add_subplot(111)
+axr = ax.twinx()
+imgs = []
+
+# restructure data
+total_ts = np.array(
+    [
+        [d["total_time_steps"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["total_time_steps"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+total_gi = np.array(
+    [
+        [d["total_global_iter"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["total_global_iter"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+total_fi = np.array(
+    [
+        [d["total_flash_iter"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["total_flash_iter"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+total_tri = np.array(
+    [
+        [d["total_tr_iter"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["total_tr_iter"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+
+wasted_ts = np.array(
+    [
+        [d["wasted_time_steps"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["wasted_time_steps"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+wasted_gi = np.array(
+    [
+        [d["wasted_global_iter"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["wasted_global_iter"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+wasted_fi = np.array(
+    [
+        [d["wasted_flash_iter"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["wasted_flash_iter"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+wasted_tri = np.array(
+    [
+        [d["wasted_tr_iter"] for d in plot_data["case2b"]["ajump"].values()],
+        [d["wasted_tr_iter"] for d in plot_data["case2b"]["ajump"].values()],
+    ]
+)
+
+eff_ts = (1 - wasted_ts / total_ts) * 100
+eff_gi = (1 - wasted_gi / total_gi) * 100
+eff_fi = (1 - wasted_fi / total_fi) * 100
+eff_tri = (1 - wasted_tri / total_tri) * 100
+
+accepted_ts = total_ts - wasted_ts
+accepted_gi = total_gi - wasted_gi
+accepted_fi = total_fi - wasted_fi
+accepted_tri = total_tri - wasted_tri
+
+cost_ratio_fi = (wasted_fi / wasted_gi) / (accepted_fi / accepted_gi)
+cost_ratio_tri = (wasted_tri / wasted_gi) / (accepted_tri / accepted_gi)
+# cost_ratio_fi[np.isnan(cost_ratio_fi)] = 0
+# cost_ratio_tri[np.isnan(cost_ratio_tri)] = 0
+
+n_models, n_params = total_ts.shape
+
+group_width = 0.8
+bar_width = group_width / n_params
+bar_spacing = 0.9
+
+centers = np.arange(n_models)
+models = ["vT(vT)", "uv(uv)"]
+colors = {
+    "ts": "tab:blue",
+    "gi": "tab:green",
+    "fi": "tab:orange",
+    "tri": "tab:purple",
+}
+param_points = np.arange(n_params)
+
+for j, c in enumerate(centers):
+    x = c - group_width / 2 + (param_points + 0.5) * bar_width
+
+    ax.plot(
+        x,
+        eff_ts[j],
+        linewidth=LW,
+        linestyle="solid",
+        color=colors["ts"],
+        label="Time stepping" if j == 0 else None,
+    )
+    ax.plot(
+        x,
+        eff_gi[j],
+        linewidth=LW,
+        linestyle="solid",
+        color=colors["gi"],
+        label="Nonlinear" if j == 0 else None,
+    )
+    ax.plot(
+        x,
+        eff_fi[j],
+        linewidth=LW,
+        linestyle="solid",
+        color=colors["fi"],
+        label="Flash" if j == 0 else None,
+    )
+    ax.plot(
+        x,
+        eff_tri[j],
+        linewidth=LW,
+        linestyle="solid",
+        color=colors["tri"],
+        label="Trust region" if j == 0 else None,
+    )
+
+    axr.plot(
+        x,
+        cost_ratio_fi[j],
+        linewidth=LW,
+        linestyle="dashed",
+        color=colors["fi"],
+        label="Flash" if j == 0 else None,
+    )
+    axr.plot(
+        x,
+        cost_ratio_tri[j],
+        linewidth=LW,
+        linestyle="dashed",
+        color=colors["tri"],
+        label="Trust region" if j == 0 else None,
+    )
+
+bar_positions = []
+bar_labels = []
+params = list(plot_data["case2b"]["ajump"].keys())
+
+for i in range(n_models):
+    for j in range(n_params):
+        x = centers[i] - group_width / 2 + (j + 0.5) * bar_width
+        bar_positions.append(x)
+        bar_labels.append(f"{params[j]}")
+
+ax.set_xticks(ticks=bar_positions, labels=bar_labels)
+for x, model in zip(centers, models):
+    ax.text(
+        x,
+        -0.08,
+        model,
+        ha="center",
+        va="top",
+        transform=ax.get_xaxis_transform(),
+        # fontsize=plt.rcParams['font.size'],
+    )
+
+ax.set_ylabel(r"\% usefull iterations")
+axr.set_ylabel(r"cost rejection / cost acceptance")
+
+axr.grid(axis="y", ls="dashed", alpha=0.5, color="grey")
+ax.grid(axis="x", ls="solid", color="grey", alpha=0.5)
+
+ax.legend(loc="upper left", bbox_to_anchor=(1.1, 1), title="Contributing iterations")
+axr.legend(
+    loc="upper left",
+    bbox_to_anchor=(1.1, 0.3),
+    title="Cost ratio",
+)
+
+fig.tight_layout(pad=PAD)
+fig.savefig(
+    f"{FOLDER}iterations.png",
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+    pad_inches=0.01,
+)
 # endregion
