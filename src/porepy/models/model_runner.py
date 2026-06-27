@@ -4,26 +4,25 @@ from __future__ import annotations
 
 import logging
 import warnings
-from enum import StrEnum
-from typing import TYPE_CHECKING, Optional, Literal
+from copy import deepcopy
 from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING, Literal, Optional
 
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceCriteria,
+    ConvergenceStatusCollection,
+    DivergenceCriteria,
+    SolverStatus,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from copy import deepcopy
-
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceCriteria,
-    DivergenceCriteria,
-    ConvergenceStatusCollection,
-    SolverStatus,
-)
 
 if TYPE_CHECKING:
     from porepy.numerics.nonlinear.convergence_check import SolverStatus
@@ -687,7 +686,8 @@ class SteadyStateInitialization:
         """Check steady state convergence.
 
         Returns:
-            ConvergenceStatus: Enum indicating whether the current state is a steady state.
+            ConvergenceStatusCollection: Status whether the current state is a steady
+                state.
 
         """
         # Define the increment in time.
