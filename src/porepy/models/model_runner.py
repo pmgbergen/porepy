@@ -348,9 +348,7 @@ class ModelRunner:
         if mode == "steady-state":
             Initialization = SteadyStateInitialization
         elif mode == "steady-reference-state":
-            Initialization = (
-                SteadyStateInitialization  # Placeholder for future implementation
-            )
+            Initialization = ReferenceStateInitialization
         else:
             raise ValueError(f"Invalid initialization mode: {mode}")
 
@@ -657,3 +655,12 @@ class SteadyStateInitialization:
     def after_successful_step(self) -> None:
         # Shift solution for next computation.
         self.model.update_time_step_solution()
+
+
+class ReferenceStateInitialization(SteadyStateInitialization):
+    """Initialization class for steady reference state initialization."""
+
+    def after_successful_step(self) -> None:
+        """Update reference state after successful step."""
+        super().after_successful_step()
+        self.model.update_reference_solution()
