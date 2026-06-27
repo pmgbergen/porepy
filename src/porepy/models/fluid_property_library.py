@@ -1041,6 +1041,121 @@ class FluidBuoyancy(pp.PorePyModel):
         m_star.set_name("potential_driven_flux_" + phase.name)
         return m_star
 
+    def passive_phase_interference_factor(self) -> pp.ad.Scalar:
+        r"""Spatial localization factor :math:`\chi \in [0, 1]` for passive-phase
+        interference in the simplicial hybrid-upwind buoyancy term.
+
+        For a phase pair (:math:`\gamma`, :math:`\delta`), the *background* mass mobility
+
+        .. math::
+
+            \lambda_{bg} = \lambda_{tot} - \lambda_\gamma - \lambda_\delta
+
+        gathers the contribution of every phase other than the active pair (the passive
+        phases). :math:`\chi` distributes that background mobility between the two
+        inter-phase hybrid-upwind directions: a fraction :math:`\chi` is upwinded along
+        the :math:`\gamma` direction and the complement :math:`1 - \chi` along the
+        :math:`\delta` direction. The symmetric default :math:`\chi = 0.5` weights the
+        two passive directions equally.
+
+        Configurable through ``params["passive_phase_interference_factor"]`` (default
+        ``0.5``).
+
+        Returns:
+            The localization factor wrapped as an Ad scalar.
+
+        Raises:
+            ValueError: If the configured value lies outside :math:`[0, 1]`.
+
+        """
+        chi = self.params.get("passive_phase_interference_factor", 0.5)
+        if not 0.0 <= chi <= 1.0:
+            raise ValueError(
+                "passive_phase_interference_factor (chi) must lie in [0, 1]; "
+                f"got {chi}."
+            )
+        return pp.ad.Scalar(chi)
+
+    def __interface_lambda_upwind(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        intf_discr: HUpwindCouplingAd,
+        mortar_avg: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        r"""Total mass mobility upwinded onto the interface for the (gamma, delta) pair.
+
+        Mirrors the simplicial cell-wise treatment in :meth:`__entity_buoyancy_flux`: the
+        active-pair mobilities :math:`\lambda_\gamma`, :math:`\lambda_\delta` are upwinded
+        along their own inter-phase directions, and the passive-phase background mobility
+        :math:`\lambda_{bg} = \lambda_{tot} - \lambda_\gamma - \lambda_\delta` is split
+        between the two directions by the localization factor :math:`\chi` (see
+        :meth:`passive_phase_interference_factor`).
+
+        Both the interface buoyancy *flux* (projected to the primary) and the interface
+        buoyancy *jump* (projected to the secondary) build the mortar coupling from this
+        single expression, so the discretization stays locally conservative across the
+        interface.
+
+        Parameters:
+            gamma: The first (reference) phase of the pair.
+            delta: The second phase of the pair.
+            domains: The subdomains on which the cell-wise mobilities are evaluated.
+            intf_discr: The pair's hybrid interface (mortar) upwind discretization.
+            mortar_avg: Primary-to-mortar average projection.
+            primary_trace: Trace operator onto the primary boundary.
+            secondary_to_mortar: Secondary-to-mortar average projection.
+
+        Returns:
+            The interface-upwinded total mass mobility :math:`\lambda` on mortar cells.
+
+        """
+
+        def to_interface(
+            primary_dir: Callable[[], pp.ad.MergedOperator],
+            secondary_dir: Callable[[], pp.ad.MergedOperator],
+            quantity: pp.ad.Operator,
+        ) -> pp.ad.Operator:
+            # Upwind a cell quantity onto the mortar from both the primary side (via the
+            # trace) and the secondary side, using the given inter-phase direction.
+            return (
+                primary_dir() @ mortar_avg @ primary_trace @ quantity
+                + secondary_dir() @ secondary_to_mortar @ quantity
+            )
+
+        l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
+        l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
+        l_background = self.total_mass_mobility(domains) - l_gamma - l_delta
+
+        l_gamma_interface = to_interface(
+            intf_discr.upwind_primary_gamma, intf_discr.upwind_secondary_gamma, l_gamma
+        )
+        l_delta_interface = to_interface(
+            intf_discr.upwind_primary_delta, intf_discr.upwind_secondary_delta, l_delta
+        )
+        # Passive-phase background mobility, localized between the two inter-phase
+        # directions by the factor chi (gamma) / 1 - chi (delta).
+        l_background_gamma_interface = to_interface(
+            intf_discr.upwind_primary_gamma,
+            intf_discr.upwind_secondary_gamma,
+            l_background,
+        )
+        l_background_delta_interface = to_interface(
+            intf_discr.upwind_primary_delta,
+            intf_discr.upwind_secondary_delta,
+            l_background,
+        )
+        xi = self.passive_phase_interference_factor()
+        xi_complement = pp.ad.Scalar(1.0) - xi
+        l_background_interface = (
+            xi * l_background_gamma_interface
+            + xi_complement * l_background_delta_interface
+        )
+        return l_gamma_interface + l_delta_interface + l_background_interface
+
     @pp.ad.cached_method
     def __entity_buoyancy_flux(
         self,
@@ -1099,9 +1214,9 @@ class FluidBuoyancy(pp.PorePyModel):
             l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
             l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
             l_background = self.total_mass_mobility(domains) - l_gamma - l_delta
-            l_background_upwind = pp.ad.Scalar(0.5) * (
-                discr.upwind_gamma() @ (l_background) + discr.upwind_delta() @ (l_background)
-            )
+            xi = self.passive_phase_interference_factor()
+            xi_complement = pp.ad.Scalar(1.0) - xi
+            l_background_upwind = xi * discr.upwind_gamma() @ (l_background) + xi_complement * discr.upwind_delta() @ (l_background)
             l_gamma_upwind: pp.ad.Operator = discr.upwind_gamma() @ (l_gamma)  # well-defined lambda on facets.
             l_delta_upwind: pp.ad.Operator = discr.upwind_delta() @ (l_delta)  # well-defined lambda on facets.
             lambda_upwind = l_gamma_upwind + l_delta_upwind + l_background_upwind
@@ -1156,17 +1271,19 @@ class FluidBuoyancy(pp.PorePyModel):
                     gamma_interface * delta_interface
                 ) * intf_w_flux_gamma_delta
             else:
-                l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
-                l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
-                l_gamma_interface = (
-                    intf_discr.upwind_primary_gamma() @ mortar_avg @ primary_trace @ l_gamma
-                    + intf_discr.upwind_secondary_gamma() @ secondary_to_mortar @ l_gamma
+                # Simplicial inter-phase mobility on the interface, including the
+                # passive-phase background term localized by chi. The SAME expression
+                # feeds the primary-projected flux and the secondary-projected jump, so
+                # the mortar coupling is locally conservative across the interface.
+                lambda_interface_upwind = self.__interface_lambda_upwind(
+                    gamma,
+                    delta,
+                    domains,
+                    intf_discr,
+                    mortar_avg,
+                    primary_trace,
+                    secondary_to_mortar,
                 )
-                l_delta_interface = (
-                    intf_discr.upwind_primary_delta() @ mortar_avg @ primary_trace @ l_delta
-                    + intf_discr.upwind_secondary_delta() @ secondary_to_mortar @ l_delta
-                )
-                lambda_interface_upwind = l_gamma_interface + l_delta_interface
                 interface_coupling_intf = (
                     gamma_interface * delta_interface
                 ) * lambda_interface_upwind * intf_w_flux_gamma_delta
@@ -1267,17 +1384,19 @@ class FluidBuoyancy(pp.PorePyModel):
                     gamma_interface * delta_interface
                 ) * intf_w_flux_gamma_delta
             else:
-                l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
-                l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
-                l_gamma_interface = (
-                    intf_discr.upwind_primary_gamma() @ mortar_avg @ primary_trace @ l_gamma
-                    + intf_discr.upwind_secondary_gamma() @ secondary_to_mortar @ l_gamma
+                # Simplicial inter-phase mobility on the interface, including the
+                # passive-phase background term localized by chi. The SAME expression
+                # feeds the primary-projected flux and the secondary-projected jump, so
+                # the mortar coupling is locally conservative across the interface.
+                lambda_interface_upwind = self.__interface_lambda_upwind(
+                    gamma,
+                    delta,
+                    domains,
+                    intf_discr,
+                    mortar_avg,
+                    primary_trace,
+                    secondary_to_mortar,
                 )
-                l_delta_interface = (
-                    intf_discr.upwind_primary_delta() @ mortar_avg @ primary_trace @ l_delta
-                    + intf_discr.upwind_secondary_delta() @ secondary_to_mortar @ l_delta
-                )
-                lambda_interface_upwind = l_gamma_interface + l_delta_interface
                 interface_coupling_intf = (
                     gamma_interface * delta_interface
                 ) * lambda_interface_upwind * intf_w_flux_gamma_delta
