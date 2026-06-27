@@ -68,3 +68,28 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     assert num_times_visited_assemble_linear_system == 2, (
         "Should do exactly 2 attempts."
     )
+
+
+def test_intialization_and_run():
+    """Test that the model runner can initialize and run a simple model."""
+    model = pp.SinglePhaseFlow(
+        {"time_manager": pp.TimeManager(schedule=[0, 1], dt_init=0.1)}
+    )
+    solver_params = {
+        "initialization": {
+            "mode": "steady-state",
+            "pseudo_dt_init": 1000 * pp.YEAR,
+            "pseudo_dt_max": 100000 * pp.YEAR,
+        },
+    }
+    model_runner = pp.ModelRunner(model, params=solver_params)
+    model_runner.initialize()
+    assert np.isclose(
+        model_runner.model.time_manager.time,
+        model_runner.model.time_manager.schedule[0],
+    ), "Time should be reset to initial time after initialization."
+    model_runner.run()
+    assert np.isclose(
+        model_runner.model.time_manager.time,
+        model_runner.model.time_manager.schedule[-1],
+    ), "Time should reach the end of the schedule after running."
