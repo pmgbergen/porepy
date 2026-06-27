@@ -684,6 +684,12 @@ class SolutionStrategy(pp.PorePyModel):
             values=solution, time_step_index=0, additive=False
         )
 
+    def update_reference_solution(self) -> None:
+        """Shifts the current solution to the reference solution."""
+
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+        self.equation_system.set_variable_values(values=solution, reference=True)
+
     def revert_trial_time_step_solution(self) -> None:
         """Revert the solution to the previous time step solution.
 

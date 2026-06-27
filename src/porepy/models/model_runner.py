@@ -5,15 +5,18 @@ from __future__ import annotations
 import logging
 import warnings
 from abc import ABC
-from typing import Optional, cast
-from enum import StrEnum
-from typing import TYPE_CHECKING, Optional, Literal
+from copy import deepcopy
 from dataclasses import dataclass
-
-import numpy as np
+from typing import Optional, cast
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceCriteria,
+    ConvergenceStatusCollection,
+    DivergenceCriteria,
+    SolverStatus,
+)
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
@@ -24,14 +27,6 @@ from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from copy import deepcopy
-
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceCriteria,
-    DivergenceCriteria,
-    ConvergenceStatusCollection,
-    SolverStatus,
-)
 
 __all__ = [
     "ModelRunnerStatus",
@@ -643,7 +638,8 @@ class SteadyStateInitialization:
         """Check steady state convergence.
 
         Returns:
-            ConvergenceStatus: Enum indicating whether the current state is a steady state.
+            ConvergenceStatus: Enum indicating whether the current state is a steady
+                state.
 
         """
         # Define the increment in time.
