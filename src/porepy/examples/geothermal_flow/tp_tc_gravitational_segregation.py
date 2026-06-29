@@ -12,7 +12,7 @@ import scipy.sparse as sps
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
-from flow_model_base import FlowModelBase
+from model_configuration.flow_model_base import FlowModelBase
 from abc import abstractmethod
 
 # PETSc imports (only if available)

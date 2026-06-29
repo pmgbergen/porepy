@@ -19,12 +19,6 @@ from __future__ import annotations
 
 import os
 
-# Numba JIT: keeping this disabled forces every numba-compiled discretization/AD kernel to
-# run as interpreted Python (10-50x slower assembly). Leave JIT ENABLED for real runs; set
-# PP_DISABLE_JIT=1 only when debugging numba kernels.
-if os.environ.get("PP_DISABLE_JIT", "0") == "1":
-    os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 from typing import Callable, Optional, Sequence, cast  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -33,7 +27,7 @@ from porepy.models.abstract_equations import LocalElimination  # noqa: E402
 
 # Absolute imports (like geothermal_H2O_low_NaCl_content_fig_5.py) so the market modules'
 # internal ``from ...vtk_sampler import VTKSampler`` resolves. Requires porepy importable.
-from porepy.examples.geothermal_flow.flow_model_base import FlowModelBase  # noqa: E402
+from porepy.examples.geothermal_flow.model_configuration.flow_model_base import FlowModelBase  # noqa: E402,E501
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E402,E501
     GeometryBarriers2D,
 )
@@ -57,7 +51,7 @@ mu_w = mu_o = mu_g = 1.0e-3
 h_w, h_o, h_g = 1.0, 1.5, 2.0
 
 milli_darcy = 9.869233e-16          # 1 mD in m^2
-k_rock = 100.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
+k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
 porosity = 0.3
 BARRIER_K_FACTOR = 1.0e-8           # barrier cells get k * this (effectively impermeable)
 
@@ -290,7 +284,7 @@ day = 86400.0
 #     print_info=True,
 # )
 
-dt = 0.25 * day
+dt = 0.0625 * day
 tf = 571.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -300,8 +294,19 @@ time_manager = pp.TimeManager(
     print_info=True,
 )
 
+# time_manager = pp.TimeManager(
+#     schedule=[0.0, tf],
+#     dt_init=dt,
+#     constant_dt=False,
+#     dt_min_max=(0.01 * dt, 1.0 * dt),
+#     iter_relax_factors=(0.5, 2.0),
+#     iter_optimal_range=(3, 8),
+#     recomp_factor=0.3,
+#     print_info=True,
+# )
+
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 8
+export_every_n_steps = 16
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
@@ -330,11 +335,18 @@ params = {
     "prepare_simulation": False,
     "folder_name": "visualization_three_phase_barriers",
     "file_name": "three_phase_barriers",
-    "max_iterations": 100,
+    # Step control method options:
+    # - "LS": Line Search (backtracking with Armijo condition)
+    # - "TR": Trust Region with CFL-aware dynamic radius adjustment
+    # - "TR-LS": Trust Region + Line Search refinement
+    # - "None": Plain Newton (no step control)
+    "step_control_method": "None",
+    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
+    "activate_step_control_after_iter": 2,  # Activate after this many iterations
     # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
     # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
     # importable in the active environment (pip install -e on the sparsa repo).
-    "ad_backend": "sparsa",
+    "ad_backend": "native",
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
@@ -349,7 +361,7 @@ if __name__ == "__main__":
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=25),
         },
     }
     pp.ModelRunner(model, solver_params).run()
