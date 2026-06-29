@@ -285,7 +285,7 @@ class NanDivergenceCriterion(DivergenceCriterion):
         if np.isnan(kwargs["value"]).any():
             logger.info(self.divergence_msg())
             return ConvergenceStatus.FAILED
-        return ConvergenceStatus.CONTINUE_ITERATING
+        return ConvergenceStatus.CONVERGED
 
 
 class AbsoluteCriterion:
@@ -357,7 +357,7 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
             status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         elif status.is_converged():
-            status = ConvergenceStatus.CONTINUE_ITERATING
+            status = ConvergenceStatus.CONVERGED
         return status
 
 
@@ -491,8 +491,6 @@ class RelativeDivergenceCriterion(RelativeCriterion, DivergenceCriterion):
         if status.is_iterating():
             status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
-        elif status.is_converged():
-            status = ConvergenceStatus.CONTINUE_ITERATING
         return status
 
 
@@ -602,9 +600,7 @@ class CombinedDivergenceCriterion(CombinedCriterion, DivergenceCriterion):
         status, _ = CombinedConvergenceCriterion.check(
             cast(CombinedConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_converged():
-            status = ConvergenceStatus.CONTINUE_ITERATING
-        elif status.is_iterating():
+        if status.is_iterating():
             status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
@@ -896,4 +892,4 @@ class MaxIterationsCriterion(DivergenceCriterion):
             logger.info(self.divergence_msg())
             return ConvergenceStatus.FAILED
         else:
-            return ConvergenceStatus.CONTINUE_ITERATING
+            return ConvergenceStatus.CONVERGED

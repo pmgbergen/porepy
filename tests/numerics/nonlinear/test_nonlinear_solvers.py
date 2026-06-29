@@ -383,11 +383,11 @@ def test_solve_convergence_statistics(default_newton_solver):
                     "final_convergence_status": {
                         "inc_abs": "converged",
                         "res_abs": "converged",
-                        "max_iter": "continue_iterating",
-                        "inc_inf": "continue_iterating",
-                        "res_inf": "continue_iterating",
-                        "inc_nan": "continue_iterating",
-                        "res_nan": "continue_iterating",
+                        "max_iter": "converged",
+                        "inc_inf": "converged",
+                        "res_inf": "converged",
+                        "inc_nan": "converged",
+                        "res_nan": "converged",
                     },
                 },
                 "0": {
@@ -398,11 +398,11 @@ def test_solve_convergence_statistics(default_newton_solver):
                     "convergence_status": {
                         "inc_abs": ["continue_iterating", "converged"],
                         "res_abs": ["continue_iterating", "converged"],
-                        "max_iter": ["continue_iterating", "continue_iterating"],
-                        "inc_inf": ["continue_iterating", "continue_iterating"],
-                        "res_inf": ["continue_iterating", "continue_iterating"],
-                        "inc_nan": ["continue_iterating", "continue_iterating"],
-                        "res_nan": ["continue_iterating", "continue_iterating"],
+                        "max_iter": ["converged", "converged"],
+                        "inc_inf": ["converged", "converged"],
+                        "res_inf": ["converged", "converged"],
+                        "inc_nan": ["converged", "converged"],
+                        "res_nan": ["converged", "converged"],
                     },
                     "convergence_info": {"inc_abs": [2.0, 0.5], "res_abs": [1.0, 0.5]},
                 },
@@ -498,10 +498,10 @@ def test_solve_failure_statistics(default_newton_solver: pp.NewtonSolver):
                     "final_convergence_status": {
                         "inc_abs": "continue_iterating",
                         "res_abs": "continue_iterating",
-                        "max_iter": "continue_iterating",
+                        "max_iter": "converged",
                         "inc_inf": "failed",
                         "res_inf": "failed",
-                        "inc_nan": "continue_iterating",
+                        "inc_nan": "converged",
                         "res_nan": "failed",
                     },
                 },
@@ -513,11 +513,11 @@ def test_solve_failure_statistics(default_newton_solver: pp.NewtonSolver):
                     "convergence_status": {
                         "inc_abs": ["continue_iterating", "continue_iterating"],
                         "res_abs": ["continue_iterating", "continue_iterating"],
-                        "max_iter": ["continue_iterating", "continue_iterating"],
-                        "inc_inf": ["continue_iterating", "failed"],
-                        "res_inf": ["continue_iterating", "failed"],
-                        "inc_nan": ["continue_iterating", "continue_iterating"],
-                        "res_nan": ["continue_iterating", "failed"],
+                        "max_iter": ["converged", "converged"],
+                        "inc_inf": ["converged", "failed"],
+                        "res_inf": ["converged", "failed"],
+                        "inc_nan": ["converged", "converged"],
+                        "res_nan": ["converged", "failed"],
                     },
                     "convergence_info": {
                         "inc_abs": [2.0, 100.0],
@@ -635,7 +635,7 @@ def test_nonlinear_loop(
         if is_diverged:
             assert divergence_status.is_diverged()
         else:
-            assert divergence_status.is_iterating()
+            assert divergence_status.is_converged()
 
         # Check that the number of iterations is as expected.
         assert solver.iteration_index == num_iter
@@ -778,7 +778,7 @@ def test_after_nonlinear_iteration(
     if is_diverged:
         assert divergence_status.is_diverged()
     else:
-        assert divergence_status.is_iterating()
+        assert divergence_status.is_converged()
 
 
 @pytest.mark.parametrize(
@@ -829,7 +829,7 @@ def test_check_convergence(
     if is_diverged:
         assert divergence_status.is_diverged()
     else:
-        assert divergence_status.is_iterating()
+        assert divergence_status.is_converged()
     assert (
         DeepDiff(
             convergence_info,

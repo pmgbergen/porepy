@@ -31,6 +31,8 @@ from porepy.numerics.nonlinear.convergence_check import (
     NanDivergenceCriterion,
     RelativeConvergenceCriterion,
     RelativeDivergenceCriterion,
+    DivergenceCriteria,
+    ConvergenceCriteria,
 )
 
 
@@ -316,7 +318,7 @@ def test_convergence_info_history():
 )
 @pytest.mark.parametrize(
     ("value", "expected_status"),
-    [(1.0, ConvergenceStatus.CONTINUE_ITERATING), (np.nan, ConvergenceStatus.FAILED)],
+    [(1.0, ConvergenceStatus.CONVERGED), (np.nan, ConvergenceStatus.FAILED)],
 )
 def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
     """Test of the general NanDivergenceCriterion."""
@@ -328,9 +330,9 @@ def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
 @pytest.mark.parametrize(
     ("iteration_index", "max_iterations", "expected_status"),
     [
-        (0, 3, ConvergenceStatus.CONTINUE_ITERATING),  # Before first iteration
-        (1, 3, ConvergenceStatus.CONTINUE_ITERATING),  # First active iteration
-        (2, 3, ConvergenceStatus.CONTINUE_ITERATING),  # Second active iteration
+        (0, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
+        (1, 3, ConvergenceStatus.CONVERGED),  # First active iteration
+        (2, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
         (3, 3, ConvergenceStatus.FAILED),  # Third active iteration (max reached)
         (4, 3, ConvergenceStatus.FAILED),
     ],
@@ -400,7 +402,7 @@ def test_absolute_convergence_criterion(
 @pytest.mark.parametrize(
     ("tol", "value", "expected_status"),
     [
-        (1e-3, [1e-4], ConvergenceStatus.CONTINUE_ITERATING),
+        (1e-3, [1e-4], ConvergenceStatus.CONVERGED),
         (1e-3, [1e-2, 1e-2], ConvergenceStatus.FAILED),
     ],
 )
@@ -519,7 +521,7 @@ def test_relative_convergence_criterion_multiphysics(
 @pytest.mark.parametrize(
     ("tol", "value", "reference_value", "expected_status"),
     [
-        (1e-2, [1e-5], 1e-2, ConvergenceStatus.CONTINUE_ITERATING),  # rel = 0.001 < tol
+        (1e-2, [1e-5], 1e-2, ConvergenceStatus.CONVERGED),  # rel = 0.001 < tol
         (1e-2, [1e-2, 1e-2], 1e-1, ConvergenceStatus.FAILED),  # rel = ~0.014 > tol
     ],
 )
@@ -665,7 +667,7 @@ def test_convergence_criteria_collection(
     crit_multi = AbsoluteConvergenceCriterion(tol=1e-2, metric=multiphysics_metric())
 
     # Create a collection.
-    criteria = pp.numerics.nonlinear.convergence_check.ConvergenceCriteria(
+    criteria = ConvergenceCriteria(
         {"crit_single": crit_single, "crit_multi": crit_multi}
     )
 
@@ -690,14 +692,14 @@ def test_convergence_criteria_collection(
     [
         (
             1e-4,
-            ConvergenceStatus.CONTINUE_ITERATING,
-            ConvergenceStatus.CONTINUE_ITERATING,
-            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONVERGED,
+            ConvergenceStatus.CONVERGED,
+            ConvergenceStatus.CONVERGED,
         ),
         (
             2e-3,
             ConvergenceStatus.FAILED,
-            ConvergenceStatus.CONTINUE_ITERATING,
+            ConvergenceStatus.CONVERGED,
             ConvergenceStatus.FAILED,
         ),
         (
@@ -720,15 +722,15 @@ def test_divergence_criteria_collection(
     crit_multi = AbsoluteDivergenceCriterion(tol=1e-2, metric=multiphysics_metric())
 
     # Create a collection
-    criteria = pp.numerics.nonlinear.convergence_check.DivergenceCriteria(
+    criteria = DivergenceCriteria(
         {"crit_single": crit_single, "crit_multi": crit_multi}
     )
 
     status = criteria.check(value=np.array([value]))
     assert status["crit_single"] == expected_status_crit_single
     assert status["crit_multi"] == expected_status_crit_multi
-    if expected_status_collection == ConvergenceStatus.CONTINUE_ITERATING:
-        assert status.is_iterating()
+    if expected_status_collection == ConvergenceStatus.CONVERGED:
+        assert status.is_converged()
     elif expected_status_collection == ConvergenceStatus.FAILED:
         assert status.is_diverged()
     else:
