@@ -582,31 +582,15 @@ class TimeManager:
             warnings.warn(msg)
 
         # If the solution did not converge AND we are allowed to recompute it, then:
-        #   (S1) Update simulation time since solution will be recomputed.
-        #   (S2) Update time index since solution will be recomputed.
-        #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
-        #   (S4) Increase counter that keeps track of the number of times the
-        #        solution was recomputed.
-        #   (S5) Step back in the schedule if we expected to meet the next schedule
+        #   (S1) Decrease time step multiplying it by the recomputing factor < 1.
+        #   (S2) Step back in the schedule if we expected to meet the next schedule
         #        point.
 
-        # Note that iterations is not really used here. So, as long as
-        # recompute_solution = True and recomputation_attempts <
-        # max_recomp_attempts, the method is entirely agnostic to the number of
-        # iterations passed. This design choice was made to give more flexibility,
-        # in the sense that we are not limiting the recomputation criteria to _only_
-        # reaching the maximum number of iterations, even though that is the primary
-        # intended usage.
-
-        # S1, S2 and S4 are removed as the TimeStepper is responsible for this now.
-        # self.time -= self.dt  # (S1)
-        # self.time_index -= 1  # (S2)
-        self.dt *= self.recomp_factor  # (S3)
-        # self._recomp_num += 1  # (S4)
+        self.dt *= self.recomp_factor  # (S1)
 
         # When we refactor this into the TimeStepper's responsibility, it should be made
         # less complex and more robust, by not using indices.
-        if self._is_about_to_hit_schedule:  # (S5)
+        if self._is_about_to_hit_schedule:  # (S2)
             self._scheduled_idx -= 1
 
         if self._print_info:

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class TimeStepper:
-    """Base class for time-stepping strategies.
+    """A class for defining a time-stepping strategy.
 
     Responsibilities:
     - Orchestrate the single time-step workflow to be called from the model runner.
@@ -73,7 +73,7 @@ class TimeStepper:
         model: pp.PorePyModel,
         solver: pp.NewtonSolver | pp.LinearSolver,
     ) -> TimeStepperStatusSuccess | TimeStepperStatusFailure:
-        """Perform a time step. If the nonlinear solver fails, cut the time step and
+        """Perform a time step. If the nonlinear solver fails, alter the time step and
         retry.
 
         Returns:
