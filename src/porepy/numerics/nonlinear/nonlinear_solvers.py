@@ -19,8 +19,10 @@ from porepy.numerics.nonlinear.convergence_check import (
 )
 from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
+)
+from porepy.numerics.nonlinear.nonlinear_solver_utils import (
+    summarize_solver_status,
+    update_solver_statistics_after_nonlinear_solve,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
@@ -255,15 +257,11 @@ class NewtonSolver:
 
         # Summarizing the convergence message from multiple criteria into an overall
         # status.
-        solver_status = self.summarize_solver_status(
-            convergence_status, divergence_status
-        )
+        solver_status = summarize_solver_status(convergence_status, divergence_status)
 
-        # YZ: This hack is to be addressed when we find a better way to organize
-        # statistics collection.
         # Logging basic discretization-related information and overall simulation status
-        pp.LinearSolver.update_solver_statistics(
-            cast(pp.LinearSolver, self), model=model, solver_status=solver_status
+        update_solver_statistics_after_nonlinear_solve(
+            model=model, solver_status=solver_status
         )
 
         # This must be done after writing statistics, since model.after_*** calls write
@@ -277,43 +275,6 @@ class NewtonSolver:
         self.after_nonlinear_loop()
 
         return solver_status
-
-    def summarize_solver_status(
-        self,
-        convergence_status: ConvergenceStatusCollection,
-        divergence_status: ConvergenceStatusCollection,
-    ) -> NonlinearSolverStatus:
-        """Consider a collection of convergence and divergence statuses from multiple
-        criteria and make an overall verdict on whether we accept the sollution or not.
-
-        Parameters:
-            convergence_status: Multiple convergence statuses from different criteria.
-            divergence_status: Multiple divergence statuses from variaous criteria.
-
-        Returns:
-            NonlinearSolverStatus: Either Converged or Failed.
-
-        """
-        if convergence_status.is_converged():
-            return NonlinearSolverStatusConverged(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-        elif divergence_status.is_diverged():
-            logger.warning("Failed to solve the nonlinear problem.")
-            return NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-        else:
-            logger.error(
-                "Nonlinear solver did not fail, but the convergence criterion did not "
-                "accept the solution. Treating it as a failure."
-            )
-            return NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
 
     def before_nonlinear_loop(self, model: SolutionStrategy) -> None:
         """Prepare for the nonlinear loop.

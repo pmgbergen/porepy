@@ -20,6 +20,7 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
+from porepy.numerics.nonlinear.nonlinear_solver_utils import summarize_solver_status
 from porepy.time.time_step_status import (
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
@@ -694,7 +695,7 @@ def test_summarize_solver_status(
         )
     ]
 
-    solver_status = solver.summarize_solver_status(
+    solver_status = summarize_solver_status(
         ConvergenceStatusCollection({"convergence": convergence_status}),
         ConvergenceStatusCollection({"divergence": divergence_status}),
     )

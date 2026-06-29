@@ -15,17 +15,16 @@ from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
-    ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
 )
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
+from porepy.numerics.nonlinear.nonlinear_solver_status import NonlinearSolverStatus
+from porepy.numerics.nonlinear.nonlinear_solver_utils import (
+    update_solver_statistics_after_nonlinear_solve,
 )
+from porepy.numerics.nonlinear.nonlinear_solver_utils import summarize_solver_status
 
 if TYPE_CHECKING:
     import numpy as np
@@ -92,12 +91,12 @@ class LinearSolver:
         convergence_status, divergence_status = self.linear_solve(model)
 
         # Conclude on the solver status.
-        solver_status = self.summarize_solver_status(
-            convergence_status, divergence_status
-        )
+        solver_status = summarize_solver_status(convergence_status, divergence_status)
 
         # Logging statistics.
-        self.update_solver_statistics(model=model, solver_status=solver_status)
+        update_solver_statistics_after_nonlinear_solve(
+            model=model, solver_status=solver_status
+        )
 
         if solver_status.is_converged():
             model.after_nonlinear_convergence()
@@ -105,45 +104,6 @@ class LinearSolver:
             model.after_nonlinear_failure()
 
         return solver_status
-
-    def summarize_solver_status(
-        self,
-        convergence_status: ConvergenceStatusCollection,
-        divergence_status: ConvergenceStatusCollection,
-    ) -> NonlinearSolverStatus:
-        """Consider a collection of convergence and divergence statuses from multiple
-        criteria and make an overall verdict on whether we accept the sollution or not.
-
-        Parameters:
-            convergence_status: Multiple convergence statuses from different criteria.
-            divergence_status: Multiple divergence statuses from variaous criteria.
-
-        Returns:
-            NonlinearSolverStatus: Either Converged or Failed.
-
-        """
-        # YZ: This is a duplicated method of NewtonSolver, but I find it acceptible for
-        # now since we are planning to unify these two classes in the nearest future.
-        if convergence_status.is_converged():
-            return NonlinearSolverStatusConverged(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-        elif divergence_status.is_diverged():
-            logger.warning("Failed to solve the nonlinear problem.")
-            return NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
-        else:
-            logger.error(
-                "Nonlinear solver did not fail, but the convergence criterion did not "
-                "accept the solution. Treating it as a failure."
-            )
-            return NonlinearSolverStatusFailed(
-                convergence_statuses=convergence_status,
-                divergence_statuses=divergence_status,
-            )
 
     def before_linear_solve(self, model: SolutionStrategy) -> None:
         """Prepare the linear solve.
@@ -264,20 +224,3 @@ class LinearSolver:
         )
 
         return convergence_status, divergence_status, convergence_info
-
-    def update_solver_statistics(
-        self,
-        model: SolutionStrategy,
-        solver_status: NonlinearSolverStatus,
-    ) -> None:
-        """Update the solver statistics in the model.
-
-        Parameters:
-            model: The model instance specifying the problem to be solved.
-            solver_status: Simulation status of the solver.
-            info: Dictionary containing norms and other information.
-
-        """
-        # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_solver_status(solver_status)
-        model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
