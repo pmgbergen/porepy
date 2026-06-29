@@ -22,9 +22,9 @@ from porepy.numerics.nonlinear.convergence_check import (
 )
 from porepy.numerics.nonlinear.nonlinear_solver_status import NonlinearSolverStatus
 from porepy.numerics.nonlinear.nonlinear_solver_utils import (
+    summarize_solver_status,
     update_solver_statistics_after_nonlinear_solve,
 )
-from porepy.numerics.nonlinear.nonlinear_solver_utils import summarize_solver_status
 
 if TYPE_CHECKING:
     import numpy as np

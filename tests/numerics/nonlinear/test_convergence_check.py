@@ -23,16 +23,16 @@ from porepy.numerics.nonlinear.convergence_check import (
     AbsoluteDivergenceCriterion,
     CombinedConvergenceCriterion,
     CombinedDivergenceCriterion,
+    ConvergenceCriteria,
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
+    DivergenceCriteria,
     NanDivergenceCriterion,
     RelativeConvergenceCriterion,
     RelativeDivergenceCriterion,
-    DivergenceCriteria,
-    ConvergenceCriteria,
 )
 
 
