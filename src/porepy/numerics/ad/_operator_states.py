@@ -24,6 +24,8 @@ When combining the mixins, their behavior is prioritized as follows:
 
 """
 
+from __future__ import annotations
+
 import copy
 from typing import TYPE_CHECKING, Optional, Sequence
 
@@ -128,7 +130,6 @@ class TimeDependentOperator:
 
         """
         if isinstance(self, ReferenceOperator) and self.is_reference:
-            #
             return self
         if isinstance(self, IterativeOperator) and self.is_previous_iterate:
             raise ValueError(
@@ -145,8 +146,8 @@ class TimeDependentOperator:
         op._cached_key = None
 
         # NOTE Use private time step index, because it is always an integer.
-        # The public time step index is NONE for current time
-        # (which translates to -1 for the private index)
+        # The public time step index is NONE for current time (which translates to -1
+        # for the private index).
         op._time_step_index = self._time_step_index + int(steps)
 
         # Keeping track of the original operator.
