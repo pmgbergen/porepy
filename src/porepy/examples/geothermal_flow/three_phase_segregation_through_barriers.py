@@ -502,7 +502,7 @@ time_manager = pp.TimeManager(
 # )
 
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 32
+export_every_n_steps = 4
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
@@ -550,7 +550,7 @@ params = {
     # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
     # importable in the active environment (pip install -e on the sparsa repo).
     "ad_backend": "native",
-    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
+    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
 }
