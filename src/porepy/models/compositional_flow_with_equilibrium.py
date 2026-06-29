@@ -357,27 +357,25 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
         which results of the boundary flash are stored in
         :meth:`boundary_equilibrium_results`."""
 
-        nt = self.time_step_indices.size
+        def update(
+            prop: pp.ExtendedDomainFunctionType, val: np.ndarray, bg: pp.BoundaryGrid
+        ) -> None:
+            if isinstance(prop, pp.ad.SurrogateFactory):
+                prop.update_boundary_values(val, bg, depth=self.time_step_indices.size)
 
         for bg, fluid_props in self.boundary_equilibrium_results.items():
             j = self.fluid.phases.index(phase)
             phase_props = fluid_props.phases[j]
-            if isinstance(phase.density, pp.ad.SurrogateFactory):
-                phase.density.update_boundary_values(phase_props.rho, bg, depth=nt)
-            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                phase.specific_enthalpy.update_boundary_values(
-                    phase_props.h, bg, depth=nt
-                )
-            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-                phase.specific_internal_energy.update_boundary_values(
-                    phase_props.u, bg, depth=nt
-                )
-            if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                phase.viscosity.update_boundary_values(phase_props.mu, bg, depth=nt)
-            if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                phase.thermal_conductivity.update_boundary_values(
-                    phase_props.kappa, bg, depth=nt
-                )
+            to_update = [
+                (phase.density, phase_props.rho),
+                (phase.specific_volume, phase_props.v),
+                (phase.specific_enthalpy, phase_props.h),
+                (phase.specific_internal_energy, phase_props.u),
+                (phase.viscosity, phase_props.mu),
+                (phase.thermal_conductivity, phase_props.kappa),
+            ]
+            for prop, val in to_update:
+                update(prop, val, bg)
 
     def bc_values_saturation(self, phase: pp.Phase, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition for saturation values of a ``phase``.
@@ -818,8 +816,6 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
     # Provided by respective variable mixins.
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    specific_fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    specific_fluid_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     has_independent_saturation: Callable[[pp.Phase], bool]
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
@@ -1550,6 +1546,7 @@ class SolutionStrategyCFLE(
 
 class CFLEModelTemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
+    cf.VolumeBalanceFormulation,
     PersistentEquilibriumEquations,
     cf.PrimaryEquationsCF,
     cf.VariablesCF,
@@ -1564,6 +1561,7 @@ class CFLEModelTemplate(  # type: ignore[misc]
 
 class CFFLEModelTemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
+    cf.VolumeBalanceFormulation,
     PersistentEquilibriumEquations,
     cf.PrimaryEquationsCFF,
     cf.VariablesCF,
@@ -1576,7 +1574,7 @@ class CFFLEModelTemplate(  # type: ignore[misc]
     """Base class for compositional fractional flow with local equilibrium equations."""
 
 
-class IsothermalCFLEModelTemplate(
+class IsothermalCFLEModelTemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
     cf.VolumeBalanceFormulation,
     PersistentEquilibriumEquations,

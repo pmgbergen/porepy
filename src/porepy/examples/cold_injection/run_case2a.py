@@ -60,20 +60,10 @@ def modify_schedule(old_schedule: list[float]) -> list[float]:
     return t_before + np.arange(JUMP_TIME, t_after[0], pp.HOUR).tolist() + t_after
 
 
-model_params, solver_params = get_default_params(
-    base_permeability=1e-14,
-)
+model_params, solver_params = get_default_params()
 
 # model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
 # model_params["times_to_export"] = time_schedule
-model_params["meshing_arguments"] = {
-    "cell_size": 5.0,
-    "cell_size_boundary": 5.0,
-    "cell_size_fracture": 1.0,
-    "refinement_proximity_multiplier": 1.0,
-    "refinement_size_multiplier": 1.0,
-    "background_transition_multiplier": 15,
-}
 
 eos_params = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["gen_arg_params"] = eos_params

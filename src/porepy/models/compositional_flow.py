@@ -164,22 +164,24 @@ def update_phase_properties(
 
     ops = [
         phase.density,
+        phase.specific_volume,
         phase.specific_enthalpy,
         phase.specific_internal_energy,
         phase.viscosity,
         phase.thermal_conductivity,
     ]
-    vals = [props.rho, props.h, props.u, props.mu, props.kappa]
+    vals = [props.rho, props.v, props.h, props.u, props.mu, props.kappa]
     if use_extended_derivatives:
         dvals = [
             props.drho_ext,
+            props.dv_ext,
             props.dh_ext,
             props.du_ext,
             props.dmu_ext,
             props.dkappa_ext,
         ]
     else:
-        dvals = [props.drho, props.dh, props.du, props.dmu, props.dkappa]
+        dvals = [props.drho, props.dv, props.dh, props.du, props.dmu, props.dkappa]
 
     if update_fugacities:
         ops += [phase.fugacity_coefficient_of[comp] for comp in phase]
@@ -1377,17 +1379,24 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
 
         """
 
-        nt = self.time_step_indices.size
+        def update(
+            prop: pp.ExtendedDomainFunctionType, val: np.ndarray, bg: pp.BoundaryGrid
+        ) -> None:
+            if isinstance(prop, pp.ad.SurrogateFactory):
+                prop.update_boundary_values(val, bg, depth=self.time_step_indices.size)
+
         for bg in self.mdg.boundaries():
             for phase in self.fluid.phases:
+                ops = [
+                    phase.density,
+                    phase.specific_volume,
+                    phase.specific_enthalpy,
+                    phase.specific_internal_energy,
+                    phase.viscosity,
+                    phase.thermal_conductivity,
+                ]
                 # Some work is required for BGs with zero cells.
-                if bg.num_cells == 0:
-                    rho_bc = np.zeros(0)
-                    h_bc = np.zeros(0)
-                    u_bc = np.zeros(0)
-                    mu_bc = np.zeros(0)
-                    kappa_bc = np.zeros(0)
-                else:
+                if bg.num_cells > 0:
                     dep_vals = [
                         self.equation_system.evaluate(d([bg]))
                         for d in self.dependencies_of_phase_properties(phase)
@@ -1396,26 +1405,12 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                         *cast(list[np.ndarray], dep_vals),
                         params=self.params.get("phase_property_params", None),
                     )
-                    rho_bc = state.rho
-                    h_bc = state.h
-                    u_bc = state.u
-                    mu_bc = state.mu
-                    kappa_bc = state.kappa
+                    vals = [state.rho, state.v, state.h, state.u, state.mu, state.kappa]
+                else:
+                    vals = [np.zeros(0)] * len(ops)
 
-                if isinstance(phase.density, pp.ad.SurrogateFactory):
-                    phase.density.update_boundary_values(rho_bc, bg, depth=nt)
-                if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                    phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
-                if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-                    phase.specific_internal_energy.update_boundary_values(
-                        u_bc, bg, depth=nt
-                    )
-                if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                    phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
-                if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                    phase.thermal_conductivity.update_boundary_values(
-                        kappa_bc, bg, depth=nt
-                    )
+                for op, val in zip(ops, vals):
+                    update(op, val, bg)
 
 
 class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
@@ -1920,16 +1915,22 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
-        nt = self.time_step_indices.size
-        for phase in self.fluid.phases:
-            if isinstance(phase.density, pp.ad.SurrogateFactory):
-                phase.density.progress_values_in_time(subdomains, depth=nt)
-            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
-            if isinstance(phase.specific_internal_energy, pp.ad.SurrogateFactory):
-                phase.specific_internal_energy.progress_values_in_time(
-                    subdomains, depth=nt
+
+        def update(prop: pp.ExtendedDomainFunctionType) -> None:
+            if isinstance(prop, pp.ad.SurrogateFactory):
+                prop.progress_values_in_time(
+                    subdomains, depth=self.time_step_indices.size
                 )
+
+        for phase in self.fluid.phases:
+            to_update = [
+                phase.density,
+                phase.specific_volume,
+                phase.specific_enthalpy,
+                phase.specific_internal_energy,
+            ]
+            for prop in to_update:
+                update(prop)
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Attaches to the iterate and time step initialization and copies the values
@@ -1948,70 +1949,47 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         )
         super().initialize_previous_iterate_and_time_step_values()  # type:ignore
 
-        ni = self.iterate_indices.size
-        nt = self.time_step_indices.size
         equilibrium_defined = pc.has_equilibrium_specified(self)
 
-        for sd in self.mdg.subdomains():
+        # NOTE need the if-checks for models where different properties are modelled
+        # with mixins providing constitutive laws (not surrogateoperators).
+        def init_in_time(prop: pp.ExtendedDomainFunctionType, grid: pp.Grid) -> None:
+            if isinstance(prop, pp.ad.SurrogateFactory):
+                prop.progress_values_in_time([grid], depth=self.time_step_indices.size)
+
+        def init_iterates(prop: pp.ExtendedDomainFunctionType, grid: pp.Grid) -> None:
+            if isinstance(prop, pp.ad.SurrogateFactory):
+                vals = prop.get_values_on_grid(grid, iterate_index=0)
+                prop.progress_iterate_values_on_grid(
+                    vals, grid, depth=self.iterate_indices.size
+                )
+
+        for grid in self.mdg.subdomains():
             for phase in self.fluid.phases:
-                # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks for models where different properties are
-                # modelled with mixins providing constitutive laws (not surrogate
-                # operators).
+                to_init_in_time = [
+                    phase.density,
+                    phase.specific_volume,
+                    phase.specific_enthalpy,
+                    phase.specific_internal_energy,
+                ]
+
+                to_init_iterates = to_init_in_time + [
+                    phase.viscosity,
+                    phase.thermal_conductivity,
+                ]
+
+                if equilibrium_defined:
+                    to_init_iterates += [
+                        phase.fugacity_coefficient_of[comp] for comp in phase.components
+                    ]
+
                 for _ in self.iterate_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        vals = phase.density.get_values_on_grid(sd, iterate_index=0)
-                        phase.density.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        vals = phase.specific_enthalpy.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.specific_enthalpy.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(
-                        phase.specific_internal_energy, pp.ad.SurrogateFactory
-                    ):
-                        vals = phase.specific_internal_energy.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.specific_internal_energy.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                        vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
-                        phase.viscosity.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                        vals = phase.thermal_conductivity.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.thermal_conductivity.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
+                    for prop in to_init_iterates:
+                        init_iterates(prop, grid)
 
-                    if equilibrium_defined:
-                        for _, comp in enumerate(phase.components):
-                            phi = phase.fugacity_coefficient_of[comp]
-                            if isinstance(phi, pp.ad.SurrogateFactory):
-                                vals = phi.get_values_on_grid(sd, iterate_index=0)
-                                phi.progress_iterate_values_on_grid(vals, sd, depth=ni)
-
-                # Copy values to all time step indices.
                 for _ in self.time_step_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_values_in_time([sd], depth=nt)
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
-                    if isinstance(
-                        phase.specific_internal_energy, pp.ad.SurrogateFactory
-                    ):
-                        phase.specific_internal_energy.progress_values_in_time(
-                            [sd], depth=nt
-                        )
+                    for prop in to_init_in_time:
+                        init_in_time(prop, grid)
 
 
 class SolutionStrategyExtendedFluidMassAndEnergy(

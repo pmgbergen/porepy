@@ -213,6 +213,7 @@ from porepy.models import (
 
 # need to import compositional flow after mass_and_energy
 from porepy.models import compositional_flow
+from porepy.models import compositional_flow_with_equilibrium
 
 # Full model classes.
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -224,6 +225,10 @@ from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
 from porepy.models.compositional_flow import (
     CompositionalFlowTemplate,
     CompositionalFractionalFlowTemplate,
+)
+from porepy.models.compositional_flow_with_equilibrium import (
+    CFFLEModelTemplate,
+    CFLEModelTemplate,
 )
 
 

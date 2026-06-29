@@ -310,8 +310,12 @@ def get_default_params(
     meshing_params = {
         "grid_type": "simplex",
         "meshing_arguments": {
-            "cell_size": 5e-1,
-            "cell_size_fracture": 5e-1,
+            "cell_size": 5.0,
+            "cell_size_boundary": 5.0,
+            "cell_size_fracture": 1.0,
+            "refinement_proximity_multiplier": 1.0,
+            "refinement_size_multiplier": 1.0,
+            "background_transition_multiplier": 15,
         },
     }
 
@@ -376,11 +380,16 @@ def get_rpc(model: CIModel) -> Callable[[list[sps.csr_matrix]], list[sps.csr_mat
 
     def rpc(mats: list[sps.csr_matrix]) -> list[sps.csr_matrix]:
         ref_vals = {
+            # NOTE pure critical parameters
             # "pressure": 22064000.0,
+            # "temperature": 647.096,
+            # "specific_fluid_volume": 5.59480372671e-05,
+            # NOTE initial p,T, and critical v as evaluated by EoS.
             "pressure": 10e6,
-            "temperature": 647.096,
-            "specific_fluid_enthalpy": 524641.0735546586,
-            "specific_fluid_volume": 5.59480372671e-05,
+            "temperature": 450.0,
+            "specific_fluid_volume": np.float64(7.495910000715131e-05),
+            "specific_fluid_enthalpy": np.float64(524641.0735546586),
+            "specific_fluid_internal_energy": np.float64(522987.17597210075),
             "well_flux": 1e-4,  # 1e-5
             "interface_darcy_flux": 1e-6,  # 1e-5
         }

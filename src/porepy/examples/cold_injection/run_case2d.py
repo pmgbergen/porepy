@@ -37,6 +37,7 @@ from porepy.examples.cold_injection.run_case2a import (
     Case2DataCollection,
     dt_init,
     dt_min,
+    eos_params,
     get_case2_argparser,
     modify_schedule,
     resolve_args,
@@ -50,22 +51,11 @@ newton_tol_res = 1e-7
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
 
-model_params, solver_params = get_default_params(
-    base_permeability=1e-14,
-)
+model_params, solver_params = get_default_params()
 
 # model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
 # model_params["times_to_export"] = time_schedule
-model_params["meshing_arguments"] = {
-    "cell_size": 5.0,
-    "cell_size_boundary": 5.0,
-    "cell_size_fracture": 1.0,
-    "refinement_proximity_multiplier": 1.0,
-    "refinement_size_multiplier": 1.0,
-    "background_transition_multiplier": 15,
-}
 
-eos_params = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["gen_arg_params"] = eos_params
 model_params["flash_params"]["phase_property_params"] = eos_params
 model_params["phase_property_params"] = eos_params

@@ -27,6 +27,10 @@ import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.compositional.compiled_eos import ScalarFunction
+from porepy.compositional.compositional_mixins import (
+    _get_surrogate_factory_as_property,
+    _no_property_function,
+)
 
 from .config import ModelConfig
 
@@ -136,6 +140,39 @@ class FluidMixture(ModelConfig):
         return d + [  # type:ignore[return-value]
             phase.extended_fraction_of[comp] for comp in phase
         ]
+
+    def specific_internal_energy_of_phase(
+        self, phase: pp.Phase
+    ) -> pp.ExtendedDomainFunctionType:
+        name = f"phase_{phase.name}_specific_internal_energy"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
+
+    def specific_enthalpy_of_phase(
+        self, phase: pp.Phase
+    ) -> pp.ExtendedDomainFunctionType:
+
+        def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            op = phase.specific_internal_energy(domains) - self.pressure(
+                domains
+            ) * phase.specific_volume(domains)
+            op.set_name(f"phase_{phase.name}_specific_enthalpy")
+            return op
+
+        return h
+
+    def specific_volume_of_phase(
+        self, phase: pp.Phase
+    ) -> pp.ExtendedDomainFunctionType:
+        name = f"phase_{phase.name}_specific_volume"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
 
 
 class SolutionStrategy(ModelConfig):
@@ -994,14 +1031,54 @@ class DataCollectionMixin(pp.PorePyModel):
             data.append(
                 (sd, "aperture", self.equation_system.evaluate(self.aperture([sd])))
             )
-            if not isinstance(
-                self, pp.energy_balance.VariablesEnergyBalance
-            ) and hasattr(self, "temperature"):
+
+            if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+                if not self.has_fluid_enthalpy_variable:
+                    data.append(
+                        (
+                            sd,
+                            "specific_fluid_enthalpy",
+                            self.equation_system.evaluate(
+                                self.fluid.specific_enthalpy([sd])
+                            ),
+                        )
+                    )
+                if not self.has_fluid_internal_energy_variable:
+                    data.append(
+                        (
+                            sd,
+                            "specific_fluid_internal_energy",
+                            self.equation_system.evaluate(
+                                self.fluid.specific_internal_energy([sd])
+                            ),
+                        )
+                    )
+            elif isinstance(
+                self, pp.compositional_flow_with_equilibrium.IsothermalCFLEModelTemplate
+            ):  # For Pseudo-isothermal model.
                 data.append(
                     (
                         sd,
                         "temperature",
                         self.equation_system.evaluate(self.temperature([sd])),
+                    )
+                )
+                data.append(
+                    (
+                        sd,
+                        "specific_fluid_enthalpy",
+                        self.equation_system.evaluate(
+                            self.fluid.specific_enthalpy([sd])
+                        ),
+                    )
+                )
+                data.append(
+                    (
+                        sd,
+                        "specific_fluid_internal_energy",
+                        self.equation_system.evaluate(
+                            self.fluid.specific_internal_energy([sd])
+                        ),
                     )
                 )
             if not self.has_fluid_volume_variable:

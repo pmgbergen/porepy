@@ -11,6 +11,7 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import FuncFormatter
 
 from porepy.examples.cold_injection.run_case2a import (
     JUMP_TIME,
@@ -20,6 +21,8 @@ from porepy.examples.cold_injection.run_case2a import (
 )
 
 # os.system(f"rm -rf {mpl.get_cachedir()}/tex.cache/*")
+
+# mypy: ignore-errors
 
 plt.rcParams["text.latex.preamble"] = r"\usepackage{amsmath}"
 plt.rcParams["text.usetex"] = True
@@ -266,7 +269,7 @@ fig.savefig(
 )
 # endregion
 # region Gas transient duration per aperture
-fig = plt.figure(figsize=(0.5 * WIDTH, 0.5 * WIDTH))
+fig = plt.figure(figsize=(0.7 * WIDTH, 0.5 * WIDTH))
 ax = fig.add_subplot(111)
 imgs = []
 
@@ -292,6 +295,8 @@ ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
 ax.set_ylabel(r"$\tau_G$ [s]")
 
 ax.set_xticks(x)
+ax.set_yticks(y)
+ax.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: f"{y:.1f}"))
 ax.grid(axis="x")
 ax.grid(axis="y", which="major", alpha=0.5)
 
@@ -313,7 +318,7 @@ fig.savefig(
 TAU_G_MAX = np.max(y)
 
 # region Time steps and gas transients for isothermal cases.
-fig = plt.figure(figsize=(1.4 * WIDTH, WIDTH))
+fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
 axr = ax.twinx()
 imgs = []
@@ -424,17 +429,13 @@ ax.set_xticks(
     ticks=xtrans([T_BEFORE_JUMP - JUMP_TIME, 0, 3600, 3 * 3600]),
     labels=[-1, 0, 1, 3],
 )
-# ax.tick_params(axis='x', labelrotation=45)
 
-# ax.legend(handles=imgs, loc="upper left", bbox_to_anchor=(1.25, 0.8))
-# ax.legend(handles=imgs, loc="lower right", bbox_to_anchor=(1, 0.1), title=r"$s_{\text{frac}}$")
 ax.legend(
     handles=imgs, loc="upper left", bbox_to_anchor=(1.1, 1), title=r"$s_{\text{frac}}$"
 )
 axr.legend(
     handles=imgrs, loc="upper left", bbox_to_anchor=(1.1, 0.4), title=r"$\Delta t$"
 )
-# ax.legend(handles=imgs, ncols = 4, loc="lower center", bbox_to_anchor=(0.5, 1))
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
@@ -447,7 +448,7 @@ fig.savefig(
 # endregion
 # region Plot pressure drop per aperture jump for case 2b
 
-fig = plt.figure(figsize=(0.5 * WIDTH, 0.5 * WIDTH))
+fig = plt.figure(figsize=(0.7 * WIDTH, 0.5 * WIDTH))
 ax = fig.add_subplot(111)
 axr = ax.twinx()
 imgs = []
@@ -493,6 +494,7 @@ ax.set_ylabel(r"$\lVert p(t_{\ast}) - p(t_{-1})\rVert_{L^2(\Omega)}$")
 axr.set_ylabel(r"$\lvert p(t_{\ast}) - p(t_{-1})\rvert_{\infty}$ [MPa]")
 
 ax.set_xticks(x)
+ax.set_yticks(y[:2] + y[-1:])
 ax.grid(axis="x")
 ax.grid(axis="y", which="major", alpha=0.5)
 
@@ -500,6 +502,7 @@ axr.tick_params(axis="y", colors=color_right)
 axr.spines["right"].set_color(color_right)
 axr.yaxis.label.set_color(color_right)
 axr.grid(axis="y", which="major", color=color_right, alpha=0.5)
+axr.set_yticks([np.min(yr), np.max(yr)])
 
 # axr.set_yscale('log')
 # ax.set_yscale('log')
@@ -592,7 +595,7 @@ fig.savefig(
 
 # endregion
 # region Plot clock times in bar chart
-fig = plt.figure(figsize=(1.5 * WIDTH, WIDTH))
+fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
 imgs = []
 
@@ -711,12 +714,12 @@ ax.set_ylabel("Normalized wall-clock time")
 # ax.set_ylabel(f"Normalized wall-clock time\n(reference = {REF:.2f} s)")
 ax.axhline(1.0, color="black", ls="--", lw=LW)
 ax.text(
-    1.01,
-    1.0,
+    centers[0] - group_width / 2 + 0.5 * bar_width,
+    1.1,
     f"{REF:.2f} s",
-    transform=ax.get_yaxis_transform(),
+    # transform=ax.get_yaxis_transform(),
     va="bottom",
-    ha="left",
+    ha="center",
 )
 y_ticks = ax.get_yticks().astype(int).tolist()
 if 1 not in y_ticks:
@@ -735,7 +738,7 @@ fig.savefig(
 )
 # endregion
 # region Wasted iterations
-fig = plt.figure(figsize=(1.5 * WIDTH, WIDTH))
+fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
 axr = ax.twinx()
 imgs = []
@@ -898,7 +901,7 @@ for x, model in zip(centers, models):
     )
 
 ax.set_ylabel(r"\% usefull iterations")
-axr.set_ylabel(r"cost rejection / cost acceptance")
+axr.set_ylabel(r"work rejection / work acceptance")
 
 axr.grid(axis="y", ls="dashed", alpha=0.5, color="grey")
 ax.grid(axis="x", ls="solid", color="grey", alpha=0.5)
@@ -907,7 +910,7 @@ ax.legend(loc="upper left", bbox_to_anchor=(1.1, 1), title="Contributing iterati
 axr.legend(
     loc="upper left",
     bbox_to_anchor=(1.1, 0.3),
-    title="Cost ratio",
+    title="Work ratio",
 )
 
 fig.tight_layout(pad=PAD)
