@@ -157,6 +157,8 @@ class ModelRunner:
     Parameters:
         model: A PorePy model instance.
         params: Parameters related to the solution procedure. Defaults to None.
+        time_stepper: The object corresponding for making a single time step. Passing
+            None (default) initializes the default PorePy time stepper.
 
     """
 
@@ -318,10 +320,9 @@ class ModelRunner:
                     self.time_progressbar.update(n=time_step_status.dt)
 
                 # Abort simulation if time step was stopped.
-                match time_step_status:
-                    case TimeStepperStatusFailure(nonlinear_solver_status, reason):
-                        logger.error(f"Time stepping failed: {reason}")
-                        return ModelRunnerStatusFailure(reason=reason)
+                if isinstance(time_step_status, TimeStepperStatusFailure):
+                    logger.error(f"Time stepping failed: {time_step_status.reason}")
+                    return ModelRunnerStatusFailure(reason=time_step_status.reason)
 
             # Conclude the simulation status.
             if self.model.time_manager.final_time_reached():
