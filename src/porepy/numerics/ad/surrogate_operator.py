@@ -130,9 +130,9 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
+from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
-from .operators import Operator, Operations
-from ._derived_operators import TimeDependentOperator, IterativeOperator
+from .operators import Operations, Operator
 
 __all__ = [
     "SurrogateOperator",
