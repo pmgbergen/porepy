@@ -235,9 +235,9 @@ def _finalize(ad, layout, equation_system, sparsa):
 #  for a constant, ("proj", [slicers]) for a ProjectionList, or ("empty",).
 # ---------------------------------------------------------------------------------------
 class _Bundle:
-    __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves")
+    __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves", "baked")
 
-    def __init__(self, program, layout, var_leaves, surrogates, const_leaves):
+    def __init__(self, program, layout, var_leaves, surrogates, const_leaves, baked):
         self.program = program          # sparsa.Program (compiled structure + sparsity)
         self.layout = layout            # sparsa.Layout (global columns)
         self.var_leaves = var_leaves    # list of (reg, vid, dofs): refreshed from state
@@ -245,6 +245,8 @@ class _Bundle:
         self.const_leaves = const_leaves  # list of (op, reg): RE-PARSED each replay
         # ^ discretizations / previous-iterate / BC values change every iteration even
         #   though the op structure is fixed -- they must NOT be baked at compile time.
+        self.baked = baked              # list of (reg, matrix): geometric projection
+        #   selection matrices, constant across iterations -> filled once, reused.
 
 
 def _combine_compile(op, kids, rec, surr, sparsa):
@@ -262,17 +264,23 @@ def _combine_compile(op, kids, rec, surr, sparsa):
         a, b = kids
         return (rtag(a, b), rec.emit("pow", [a[1], b[1]]))
     if name in ("matmul", "rmatmul"):
+        # Projections are baked into constant matrices in _compile, so every matmul
+        # operand is a plain register (matrix / LocalAd) -- no special slicer handling.
         left, right = (kids[0], kids[1]) if name == "matmul" else (kids[1], kids[0])
-        if left[0] == "proj":
-            return (rtag(right), rec.emit("matmul_proj", [right[1]], const=left[1]))
-        return (rtag(right), rec.emit("matmul", [left[1], right[1]]))
+        return (rtag(left, right), rec.emit("matmul", [left[1], right[1]]))
     if name == "evaluate":
-        diff = [(i, k) for i, k in enumerate(kids) if is_reg(k)]  # differentiable deps
-        if not diff:
-            raise _CompileUnsupported(f"function node with no variable deps {op!r}")
         if not (hasattr(op, "_fetch_data") and hasattr(op, "domains")):
             raise _CompileUnsupported(f"non-surrogate function node {op!r}")
+        diff = [(i, k) for i, k in enumerate(kids) if is_reg(k)]  # current-var deps
         value_reg = rec.leaf()
+        if not diff:
+            # Args are all constant/previous-time (e.g. an accumulation term at the old
+            # time level): zero Jacobian wrt current variables. Compile to a refreshed
+            # value-only leaf (plain array, re-fetched each replay), exactly mirroring the
+            # eager path's `op.func(*constants)` -> plain value. Tag "creg" so downstream
+            # treats it as a constant (a LocalAd here would break `matrix @ value`).
+            surr.append((op, value_reg, [], []))
+            return ("creg", value_reg)
         partial_regs = [rec.leaf() for _ in diff]
         arg_regs = [k[1] for _, k in diff]
         out = rec.emit("compose", [value_reg, *arg_regs, *partial_regs], const=len(diff))
@@ -285,13 +293,31 @@ class _CompileUnsupported(Exception):
     pass
 
 
-def _compile(op, rec, equation_system, var_by_key, surr, const, mdg, cache, sparsa):
+def _materialize_projection(slicers):
+    """Turn one or more :class:`ArraySlicer` projections into a single constant CSR
+    selection matrix (``sum_k slicer_k @ I``). Projections are geometric and fixed across
+    iterations, so this is baked once at compile time and reused every replay."""
+    M = None
+    for sl in slicers:
+        m = (sl @ sps.identity(sl.domain_size, format="csr")).tocsr()
+        M = m if M is None else (M + m)
+    return M
+
+
+def _compile(op, rec, equation_system, var_by_key, surr, const, baked, mdg, cache, sparsa):
     oid = id(op)
     if oid in cache:
         return cache[oid]
-    if isinstance(op, pp.ad.ProjectionList):
-        # geometric slicers are fixed across iterations -> baked into matmul_proj.
-        res = ("proj", [c.parse(mdg) for c in op.children])
+    if isinstance(op, (pp.ad.ProjectionList, pp.ad.Projection)):
+        # Geometric projections are fixed -> materialize once into a constant selection
+        # matrix and bake it. A baked matrix works uniformly as a matmul operand AND as a
+        # binary operand (e.g. ``Scalar(-1.0) * Projection``), unlike a deferred slicer
+        # list (which is not indexable as a register).
+        parsed = op.parse(mdg)
+        slicers = parsed if isinstance(parsed, list) else [parsed]
+        reg = rec.leaf()
+        baked.append((reg, _materialize_projection(slicers)))
+        res = ("creg", reg)
     elif op.is_leaf():
         if isinstance(op, pp.ad.Variable) and not (
             op.is_previous_iterate or op.is_previous_time
@@ -305,7 +331,7 @@ def _compile(op, rec, equation_system, var_by_key, surr, const, mdg, cache, spar
             const.append((op, reg))
             res = ("creg", reg)
     else:
-        kids = [_compile(c, rec, equation_system, var_by_key, surr, const, mdg, cache, sparsa)
+        kids = [_compile(c, rec, equation_system, var_by_key, surr, const, baked, mdg, cache, sparsa)
                 for c in op.children]
         res = _combine_compile(op, kids, rec, surr, sparsa)
     cache[oid] = res
@@ -338,27 +364,30 @@ def _build_bundle(ops, equation_system, state, mdg, sparsa):
         reg = rec.leaf()
         var_by_key[_dofs_key(dofs)] = reg
         var_leaves.append((reg, vid, dofs))
-    surr, const, cache, out_regs = [], [], {}, []
+    surr, const, baked, cache, out_regs = [], [], [], {}, []
     for o in ops:
-        tag = _compile(o, rec, equation_system, var_by_key, surr, const, mdg, cache, sparsa)
+        tag = _compile(o, rec, equation_system, var_by_key, surr, const, baked, mdg, cache, sparsa)
         if tag[0] != "reg":
             raise _CompileUnsupported("equation root is not variable-dependent")
         out_regs.append(tag[1])
-    return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const)
+    return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const, baked)
 
 
 def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
     leaves = {}
     for reg, vid, dofs in bundle.var_leaves:
         leaves[reg] = sparsa.LocalAd(state[dofs], {vid: sparsa.DiagBlock(np.ones(dofs.size))})
+    for reg, mat in bundle.baked:  # geometric projection matrices, constant across replays
+        leaves[reg] = mat
     for op, reg in bundle.const_leaves:  # re-parse CURRENT values (no stale baked data)
         leaves[reg] = _parse_const_leaf(op, mdg, sparsa)
     for op, value_reg, partial_regs, dep_rows in bundle.surrogates:
-        value = np.hstack([op._fetch_data(op, g, False) for g in op.domains])
-        derivs = np.atleast_2d(np.hstack([op._fetch_data(op, g, True) for g in op.domains]))
-        leaves[value_reg] = value
-        for preg, row in zip(partial_regs, dep_rows):
-            leaves[preg] = derivs[row]
+        leaves[value_reg] = np.hstack([op._fetch_data(op, g, False) for g in op.domains])
+        if dep_rows:  # value-only (all-constant-arg) surrogates carry no partials
+            derivs = np.atleast_2d(
+                np.hstack([op._fetch_data(op, g, True) for g in op.domains]))
+            for preg, row in zip(partial_regs, dep_rows):
+                leaves[preg] = derivs[row]
     outs = bundle.program.run(leaves)
     if derivative:
         return [_finalize(ad, bundle.layout, equation_system, sparsa) for ad in outs]
@@ -381,6 +410,8 @@ class SparsaParser:
         self.mdg = mdg
         self._sparsa = _require_sparsa()
         self._bundles: dict = {}
+        self._stats = {"compiled_jac": 0, "compiled_res": 0, "eager_list": 0,
+                       "eager_single_jac": 0, "eager_single_res": 0}
 
     def clear_cache(self) -> None:
         pass
@@ -403,7 +434,11 @@ class SparsaParser:
                     self._bundles[key] = None  # uncompilable -> eager path
             bundle = self._bundles[key]
             if bundle is not None:
+                self._stats["compiled_jac" if derivative else "compiled_res"] += 1
                 return _replay(bundle, equation_system, state, self.mdg, sparsa, derivative)
+            self._stats["eager_list"] += 1
+        else:
+            self._stats["eager_single_jac" if derivative else "eager_single_res"] += 1
 
         # Eager path.
         ops = op if isinstance(op, list) else [op]

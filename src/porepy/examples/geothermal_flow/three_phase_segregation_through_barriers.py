@@ -513,7 +513,7 @@ params = {
     # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
     # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
     # importable in the active environment (pip install -e on the sparsa repo).
-    "ad_backend": "native",
+    "ad_backend": "sparsa",
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
