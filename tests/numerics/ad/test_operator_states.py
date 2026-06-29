@@ -323,13 +323,16 @@ class TestReferenceOperator:
     @pytest.mark.parametrize("op_type", operator_types)
     @pytest.mark.parametrize("state", state_list)
     def test_reference_on_current_timelag_and_iterates(self, op_type, state):
-        # Taking the reference should give the same result for standard, time and
-        # iterative operators
-        op_ref = self._operator_to_state(op_type, state).reference()
+        """Taking the reference should give the same result for standard, time and
+        iterative operators.
 
+        See class docstring for details on terminology.
+
+        """
+        op_ref = self._operator_to_state(op_type, state).reference()
         val = self.equation_system.evaluate(op_ref, derivative=True)
         np.testing.assert_allclose(val.val, self._expected_reference(op_type, state))
-        # The jacobian should always be zero, since the reference operator is not a
+        # The Jacobian should always be zero, since the reference operator is not a
         # function of the current approximation.
         np.testing.assert_allclose(val.jac.data, 0.0)
 
@@ -337,6 +340,12 @@ class TestReferenceOperator:
     @pytest.mark.parametrize("state", state_list)
     @pytest.mark.parametrize("change_type", ["delete", "set", "shift"])
     def test_shifting_reference_values(self, op_type, state, change_type):
+        """Test that the various ways of changing the reference values works correctly
+        for all operator types and states.
+
+        See class docstring for details on terminology.
+
+        """
         op_ref = self._operator_to_state(op_type, state).reference()
         expected = self._change_reference_values(op_type, change_type)
 
@@ -347,6 +356,12 @@ class TestReferenceOperator:
     @pytest.mark.parametrize("op_type", operator_types)
     @pytest.mark.parametrize("state", state_list)
     def test_perturbation_from_reference(self, op_type, state):
+        """Test that the perturbation from reference operator evaluates correctly for
+        all operator types and states.
+
+        See class docstring for details on terminology.
+
+        """
         op = self._operator_to_state(op_type, state)
         pert = op.perturbation_from_reference()
 
@@ -360,6 +375,11 @@ class TestReferenceOperator:
 
     @pytest.mark.parametrize("op_type", operator_types)
     def test_time_difference_of_reference_is_zero(self, op_type):
+        """Test that the time difference of a reference operator is zero.
+
+        See class docstring for details on terminology.
+
+        """
         op = self._operator_to_state(op_type, "current")
         ref_increment = pp.ad.time_increment(op.reference())
         val_ref_increment = self.equation_system.evaluate(ref_increment)
