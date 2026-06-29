@@ -284,7 +284,7 @@ day = 86400.0
 #     print_info=True,
 # )
 
-dt = 0.0625 * day
+dt = 0.03125 * day
 tf = 571.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -306,7 +306,7 @@ time_manager = pp.TimeManager(
 # )
 
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 16
+export_every_n_steps = 32
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
