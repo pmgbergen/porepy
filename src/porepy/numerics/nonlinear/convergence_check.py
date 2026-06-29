@@ -602,7 +602,9 @@ class CombinedDivergenceCriterion(CombinedCriterion, DivergenceCriterion):
         status, _ = CombinedConvergenceCriterion.check(
             cast(CombinedConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_iterating():
+        if status.is_converged():
+            status = ConvergenceStatus.CONTINUE_ITERATING
+        elif status.is_iterating():
             status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
