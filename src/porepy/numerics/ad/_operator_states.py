@@ -25,16 +25,16 @@ When combining the mixins, their behavior is prioritized as follows:
 """
 
 import copy
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Sequence
 
 if TYPE_CHECKING:
     import porepy as pp
     from porepy.numerics.ad.operators import (
-        Operator,
         Operations,
-        _TimeDependentOperator,
+        Operator,
         _IterativeOperator,
         _ReferenceOperator,
+        _TimeDependentOperator,
     )
 
 

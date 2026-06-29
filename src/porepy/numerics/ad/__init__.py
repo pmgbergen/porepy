@@ -10,8 +10,8 @@ etc.
 __all__ = []
 
 from . import (
-    ad_utils,
     _get_set_values,
+    ad_utils,
     discretizations,
     equation_system,
     forward_mode,
@@ -22,8 +22,8 @@ from . import (
     surrogate_operator,
     time_derivatives,
 )
-from .ad_utils import *
 from ._get_set_values import *
+from .ad_utils import *
 from .discretizations import *
 from .equation_system import *
 from .forward_mode import *
