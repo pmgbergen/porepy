@@ -187,9 +187,165 @@ class FluidMixture3N(pp.PorePyModel):
 
 
 class SecondaryEquations3N(LocalElimination):
+    """Secondary-quantity closures for the 3-phase / 3-component model.
+
+    Two representations are supported per quantity, selected by
+    ``params["substitute_as_function"]`` (a subset of ``{"saturation",
+    "partial_fraction"}``; default empty):
+
+    * **Eliminated variable** (classic): the quantity is an independent variable with a
+      local equation ``var - surrogate(p,h,z) = 0`` (:meth:`eliminate_locally`).
+    * **Substituted function**: the quantity is the ``SurrogateFactory`` itself, dropped
+      straight into the equations (:meth:`substitute_locally`). This removes its DOFs and
+      its elimination equations -> smaller, faster system. It is Jacobian-equivalent here
+      because the closures return zero derivatives (lagged), so the elimination already
+      drops the z-coupling.
+
+    Temperature is intentionally NOT substitutable: the energy equation's Fourier flux
+    ``K_e grad(T)`` is discretized with MPFA; turning ``T`` into ``T(p,h,z)`` would expand
+    ``grad(T)`` into ``grad(p)/grad(h)/grad(z)`` terms the MPFA stencil cannot carry. So
+    temperature is always eliminated as a variable.
+    """
+
     dependencies_of_phase_properties: Callable
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    # ----------------------------------------------------------------------------------
+    #  Substitution configuration + surrogate registry
+    # ----------------------------------------------------------------------------------
+    def _substitute_as_function(self) -> set[str]:
+        return set(self.params.get("substitute_as_function", []))
+
+    def _substitute_saturation(self) -> bool:
+        return "saturation" in self._substitute_as_function()
+
+    def _substitute_partial_fraction(self) -> bool:
+        return "partial_fraction" in self._substitute_as_function()
+
+    def _substitutions(self) -> list:
+        reg = getattr(self, "_substitution_registry", None)
+        if reg is None:
+            reg = []
+            self._substitution_registry = reg
+        return reg
+
+    def substitute_locally(
+        self, name: str, dependencies, func
+    ) -> pp.ad.SurrogateFactory:
+        """Build (once) a ``SurrogateFactory`` for ``name`` over ``dependencies`` via
+        ``func`` and register it for value/derivative refreshes. The returned object is
+        itself the accessor callable: on subdomains it evaluates to the function, on
+        boundary grids to a time-dependent dense array of its values.
+
+        Unlike :meth:`eliminate_locally`, this creates **no** secondary variable and
+        **no** elimination equation.
+        """
+        for expr, *_ in self._substitutions():
+            if expr.name == name:  # accessor may be requested more than once
+                return expr
+        sec_expr = pp.ad.SurrogateFactory(
+            name=name, mdg=self.mdg, dependencies=dependencies, dof_info={"cells": 1}
+        )
+        matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
+        boundary = cast(pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix))
+        boundaries = [boundary] if boundary is not None else []
+        self._substitutions().append(
+            (sec_expr, func, list(self.mdg.subdomains()), boundaries)
+        )
+        return sec_expr
+
+    def _refresh_substitutions(self, on_boundaries: bool) -> None:
+        for sec_expr, func, subdomains, boundaries in self._substitutions():
+            grids = boundaries if on_boundaries else subdomains
+            for grid in grids:
+                X = [
+                    self.equation_system.evaluate(d([grid]))
+                    for d in sec_expr._dependencies
+                ]
+                vals, diffs = func(*X)
+                sec_expr.set_values_on_grid(vals, grid)
+                if not on_boundaries:  # no derivatives are stored on the boundary
+                    sec_expr.set_derivatives_on_grid(diffs, grid)
+
+    # ----------------------------------------------------------------------------------
+    #  Accessor + DOF-gate overrides (route substituted quantities to their surrogate and
+    #  suppress their independent variables)
+    # ----------------------------------------------------------------------------------
+    def has_independent_saturation(self, phase: pp.Phase) -> bool:
+        if self._substitute_saturation() and super().has_independent_saturation(phase):
+            return False  # represented as a function -> no DOF
+        return super().has_independent_saturation(phase)
+
+    def saturation(self, phase: pp.Phase):
+        if self._substitute_saturation() and super().has_independent_saturation(phase):
+            return self.substitute_locally(
+                f"saturation_{phase.name}",
+                self.dependencies_of_phase_properties(phase),
+                saturation_functions_map[phase.name],
+            )
+        return super().saturation(phase)
+
+    def has_independent_partial_fraction(
+        self, component: pp.Component, phase: pp.Phase
+    ) -> bool:
+        if self._substitute_partial_fraction() and super().has_independent_partial_fraction(
+            component, phase
+        ):
+            return False  # represented as a function -> no DOF
+        return super().has_independent_partial_fraction(component, phase)
+
+    def partial_fraction(self, component: pp.Component, phase: pp.Phase):
+        if self._substitute_partial_fraction() and super().has_independent_partial_fraction(
+            component, phase
+        ):
+            return self.substitute_locally(
+                f"partial_fraction_{component.name}_{phase.name}",
+                self.dependencies_of_phase_properties(phase),
+                chi_functions_map[component.name + "_" + phase.name],
+            )
+        return super().partial_fraction(component, phase)
+
+    # ----------------------------------------------------------------------------------
+    #  Per-iteration / per-time-step / initial refresh of the substituted surrogates
+    #  (mirrors LocalElimination's update of eliminated surrogates).
+    # ----------------------------------------------------------------------------------
+    def update_derived_quantities(self) -> None:
+        super().update_derived_quantities()
+        self._refresh_substitutions(on_boundaries=False)
+
+    def update_all_boundary_conditions(self) -> None:
+        super().update_all_boundary_conditions()
+        self._refresh_substitutions(on_boundaries=True)
+
+    def initial_condition(self) -> None:
+        super().initial_condition()
+        # Seed the substituted surrogates so the t=0 state/export is consistent.
+        self._refresh_substitutions(on_boundaries=False)
+
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
+        # Substituted secondary quantities appear in accumulation terms, so (like phase
+        # density/enthalpy) they need previous-iterate AND previous-time-step values.
+        # Copy the current iterate-0 value into all iterate and time-step indices.
+        super().initialize_previous_iterate_and_time_step_values()
+        ni = self.iterate_indices.size
+        nt = self.time_step_indices.size
+        self._refresh_substitutions(on_boundaries=False)  # ensure iterate-0 is current
+        for sec_expr, _, subdomains, _ in self._substitutions():
+            for sd in subdomains:
+                for _ in self.iterate_indices:
+                    vals = sec_expr.get_values_on_grid(sd, iterate_index=0)
+                    sec_expr.progress_iterate_values_on_grid(vals, sd, depth=ni)
+                for _ in self.time_step_indices:
+                    sec_expr.progress_values_in_time([sd], depth=nt)
+
+    def after_nonlinear_convergence(self) -> None:
+        # Shift the converged iterate value into the time-step history, mirroring the
+        # framework's progression of phase-property surrogates (density/enthalpy).
+        super().after_nonlinear_convergence()
+        nt = self.time_step_indices.size
+        for sec_expr, _, subdomains, _ in self._substitutions():
+            sec_expr.progress_values_in_time(subdomains, depth=nt)
 
     def set_equations(self) -> None:
         super().set_equations()
@@ -199,9 +355,11 @@ class SecondaryEquations3N(LocalElimination):
         sd_and_bnd = subdomains + [matrix_boundary]
         rphase = self.fluid.reference_phase
 
-        # eliminate the non-reference (oil, gas) saturations as functions of z
+        # Non-reference (oil, gas) saturations: eliminate as variables, unless substituted
+        # as functions (then has_independent_saturation is False and the accessor already
+        # returns the surrogate -> nothing to eliminate here).
         for phase in self.fluid.phases:
-            if phase == rphase:
+            if not self.has_independent_saturation(phase):
                 continue
             self.eliminate_locally(
                 phase.saturation,
@@ -209,7 +367,8 @@ class SecondaryEquations3N(LocalElimination):
                 saturation_functions_map[phase.name],
                 sd_and_bnd,
             )
-        # eliminate the independent partial fractions (immiscibility chi = 1/0)
+        # Independent partial fractions (immiscibility chi = 1/0): same logic -- the loop
+        # gates on has_independent_partial_fraction, which is False when substituted.
         for phase in self.fluid.phases:
             for comp in phase:
                 if self.has_independent_partial_fraction(comp, phase):
@@ -219,7 +378,8 @@ class SecondaryEquations3N(LocalElimination):
                         chi_functions_map[comp.name + "_" + phase.name],
                         sd_and_bnd,
                     )
-        # eliminate temperature -> 0 (isothermal)
+        # Temperature -> 0 (isothermal): ALWAYS eliminated as a variable (see class docs:
+        # grad(T) under MPFA must not become grad(p)/grad(h)/grad(z)).
         self.eliminate_locally(
             self.temperature,
             self.dependencies_of_phase_properties(rphase),
@@ -324,6 +484,13 @@ solid_constants = pp.SolidConstants(
 params = {
     "fractional_flow": False,
     "mass_mobility_weighted_permeability": False,
+    # Represent these secondary quantities as AD functions (SurrogateFactory) substituted
+    # directly into the equations, instead of eliminating them as independent variables +
+    # local equations -> drops their DOFs and elimination equations (smaller/faster).
+    # Subset of {"saturation", "partial_fraction"}; [] reproduces the classic elimination.
+    # NOTE: temperature is deliberately not included (grad(T) under MPFA, see
+    # SecondaryEquations3N docstring).
+    "substitute_as_function": ["saturation", "partial_fraction"],
     "enable_buoyancy_effects": True,
     # buoyancy scheme: "hybrid" (HU), "phase_potential" (PPU), or your simplicial-PPU
     "buoyancy_upwinding": "hybrid",
@@ -352,6 +519,56 @@ params = {
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
 }
 
+def report_system_size(model) -> int:
+    """Print the system size and a table of registered variables: their dof count, role,
+    and whether they may be represented as a function (``substitute_locally``).
+
+    The primary PDE unknowns (pressure, enthalpy, overall fractions z) and temperature
+    (its ``K_e grad(T)`` Fourier flux is MPFA-discretized) must stay variables; the
+    secondary saturations and partial fractions are substitutable. Quantities already
+    substituted as functions are listed separately.
+
+    Returns the number of cells (for convenience).
+    """
+    es = model.equation_system
+    ncells = sum(sd.num_cells for sd in model.mdg.subdomains())
+    ndof = es.num_dofs()
+    var_dofs: dict[str, int] = {}
+    for v in es.variables:
+        var_dofs[v.name] = var_dofs.get(v.name, 0) + int(es.dofs_of([v]).size)
+    upc = ndof // ncells if ncells and ndof % ncells == 0 else round(ndof / max(ncells, 1), 2)
+
+    def role(name: str) -> tuple[str, str]:
+        if name in ("pressure", "enthalpy") or name.startswith("z_"):
+            return "primary unknown", "no"
+        if name == "temperature":
+            return "secondary (keep: MPFA grad(T))", "no"
+        if name.startswith("s_"):
+            return "secondary saturation", "yes"
+        if name.startswith("x_"):
+            return "secondary partial fraction", "yes"
+        return "other", "?"
+
+    substituted = list(getattr(model, "_substitution_registry", []) or [])
+
+    print("=" * 74)
+    print(f" System size:  ncells = {ncells}   ndof = {ndof}   unknowns/cell = {upc}")
+    print(f" substitute_as_function = {model.params.get('substitute_as_function', [])}")
+    print("=" * 74)
+    print(f" {'variable':26s} {'ndof':>8}  {'role':32s} substitutable")
+    print("-" * 74)
+    for name in sorted(var_dofs):
+        r, sub = role(name)
+        print(f" {name:26s} {var_dofs[name]:>8}  {r:32s} {sub}")
+    if substituted:
+        print("-" * 74)
+        print(f" substituted as functions ({len(substituted)}):")
+        for sec_expr, *_ in substituted:
+            print(f"   {sec_expr.name}")
+    print("=" * 74)
+    return ncells
+
+
 if __name__ == "__main__":
     model = FlowModel(params)
     solver_params = {
@@ -364,6 +581,14 @@ if __name__ == "__main__":
             "max_iter": pp.MaxIterationsCriterion(max_iterations=25),
         },
     }
-    pp.ModelRunner(model, solver_params).run()
-    print("cells:", sum(sd.num_cells for sd in model.mdg.subdomains()),
-          " dofs:", model.equation_system.num_dofs())
+    # Construct the runner first (this prepares the simulation), so the system size can
+    # be reported before the (long) time loop starts.
+    # Construct the runner first (this prepares the simulation), then report the system
+    # size + the registered variables (role and whether each is substitutable) before the
+    # (long) time loop starts.
+    runner = pp.ModelRunner(model, solver_params)
+    ncells = report_system_size(model)
+    ndof = model.equation_system.num_dofs()
+
+    runner.run()
+    print("cells:", ncells, " dofs:", ndof)

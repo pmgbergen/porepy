@@ -276,21 +276,22 @@ class IC_three_phase_segregation(pp.PorePyModel):
         c5h12, ch4 = self.fluid.components[1], self.fluid.components[2]
         for sd in self.mdg.subdomains():
             s_oil, s_gas = self.ic_values_saturation(sd)
-            self.equation_system.set_variable_values(s_oil, [oil.saturation([sd])], 0, 0)
-            self.equation_system.set_variable_values(s_gas, [gas.saturation([sd])], 0, 0)
+            # Seed initial values only for quantities that are still independent
+            # variables. When a quantity is substituted as a function (SurrogateFactory)
+            # its value is computed from z, so there is no variable to seed (and
+            # set_variable_values would reject the surrogate operator).
+            if self.has_independent_saturation(oil):
+                self.equation_system.set_variable_values(s_oil, [oil.saturation([sd])], 0, 0)
+            if self.has_independent_saturation(gas):
+                self.equation_system.set_variable_values(s_gas, [gas.saturation([sd])], 0, 0)
 
             one = np.ones(sd.num_cells)
             zero = np.zeros(sd.num_cells)
             # immiscible partial fractions: C5H12 only in oil, CH4 only in gas
-            self.equation_system.set_variable_values(
-                zero, [water.partial_fraction_of[c5h12]([sd])], 0, 0)
-            self.equation_system.set_variable_values(
-                one, [oil.partial_fraction_of[c5h12]([sd])], 0, 0)
-            self.equation_system.set_variable_values(
-                zero, [gas.partial_fraction_of[c5h12]([sd])], 0, 0)
-            self.equation_system.set_variable_values(
-                zero, [water.partial_fraction_of[ch4]([sd])], 0, 0)
-            self.equation_system.set_variable_values(
-                zero, [oil.partial_fraction_of[ch4]([sd])], 0, 0)
-            self.equation_system.set_variable_values(
-                one, [gas.partial_fraction_of[ch4]([sd])], 0, 0)
+            for value, phase, comp in (
+                (zero, water, c5h12), (one, oil, c5h12), (zero, gas, c5h12),
+                (zero, water, ch4), (zero, oil, ch4), (one, gas, ch4),
+            ):
+                if self.has_independent_partial_fraction(comp, phase):
+                    self.equation_system.set_variable_values(
+                        value, [phase.partial_fraction_of[comp]([sd])], 0, 0)
