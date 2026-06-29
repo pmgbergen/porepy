@@ -22,7 +22,14 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
 
 @dataclass
 class TimeStepperStatus(ABC):
-    """A status object used to indicate the TimeStepper state."""
+    """A status object used to indicate the TimeStepper state. This is an enum of three
+    allowed states: success / failure / continue_iterating. Each state can have data
+    associated with it. `TimeStepperStatusContinueIterating`, `TimeStepperStatusSuccess`
+    and `TimeStepperStatusFailure` can be subclassed to (i) introduce specific cases of
+    these states and (ii) associate additional data with them. The base class
+    `TimeStepperStatus` should NOT be subclassed.
+
+    """
 
     @abstractmethod
     def serialize(self) -> str:
@@ -34,6 +41,10 @@ class TimeStepperStatus(ABC):
 
     def is_success(self) -> bool:
         """Whether the time step is made successfully."""
+        # Developer note: This breaks the OOP principle that the base class should not
+        # know of its children, but we agreed on having these methods (is_success and
+        # is_failure) for convenience. One can think of TimeStepperStatus as a closed
+        # enum of 3 cases, which in this case justifies this binding with child classes.
         return isinstance(self, TimeStepperStatusSuccess)
 
     def is_failure(self) -> bool:

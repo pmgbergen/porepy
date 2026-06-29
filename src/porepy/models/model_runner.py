@@ -36,10 +36,21 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ModelRunnerStatus(ABC):
-    """A status object used to indicate the ModelRunner state."""
+    """A status object used to indicate the ModelRunner state. This is an enum of two
+    allowed states: either success or failure. Each state can have data associated with
+    it. `ModelRunnerStatusSuccess` and `ModelRunnerStatusFailure` can be subclassed to
+    (i) introduce specific cases of success or failure and (ii) associate additional
+    data with these cases. The base class `ModelRunnerStatus` should NOT be subclassed.
+
+    """
 
     def is_success(self) -> bool:
         """Whether the simulation finished successfully."""
+        # Developer note: This breaks the OOP principle that the base class should not
+        # know of its children, but we agreed on having these methods (is_success and
+        # is_failure) for convenience. One can think of ModelRunnerStatus as a closed
+        # enum of two cases (success and failure), which in this case justifies this
+        # binding with child classes.
         return isinstance(self, ModelRunnerStatusSuccess)
 
     def is_failure(self) -> bool:

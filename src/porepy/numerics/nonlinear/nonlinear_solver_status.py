@@ -6,7 +6,14 @@ from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollect
 
 @dataclass
 class NonlinearSolverStatus(ABC):
-    """A status object used to indicate the NewtonSolver (or LinearSolver) state."""
+    """A status object used to indicate the NewtonSolver (or LinearSolver) state. This
+    is an enum of two allowed states: either success or failure. Each state can have
+    data associated with it. `NonlinearSolverStatusConverged` and
+    `NonlinearSolverStatusFailed` can be subclassed to (i) introduce specific cases of
+    success or failure and (ii) associate additional data with these cases. The base
+    class `NonlinearSolverStatus` should NOT be subclassed.
+
+    """
 
     @abstractmethod
     def serialize(self) -> str:
@@ -14,6 +21,11 @@ class NonlinearSolverStatus(ABC):
 
     def is_converged(self) -> bool:
         """Whether the nonlinear system is solved successfully."""
+        # Developer note: This breaks the OOP principle that the base class should not
+        # know of its children, but we agreed on having these methods (is_success and
+        # is_failure) for convenience. One can think of NonlinearSolverStatus as a
+        # closed enum of two cases (success and failure), which in this case justifies
+        # this binding with child classes.
         return isinstance(self, NonlinearSolverStatusConverged)
 
     def is_failed(self) -> bool:
