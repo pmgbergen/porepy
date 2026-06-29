@@ -29,14 +29,14 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .forward_mode import AdArray
-from ._derived_operators import (
-    TimeDependentOperator,
+from ._operator_states import (
     IterativeOperator,
     ReferenceOperator,
+    TimeDependentOperator,
     _get_previous_time_or_iterate,
     _get_reference,
 )
+from .forward_mode import AdArray
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
