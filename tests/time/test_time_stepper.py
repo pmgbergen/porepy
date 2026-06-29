@@ -26,7 +26,7 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatusFailed,
 )
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
-from porepy.numerics.time_step_control import TimeManager
+from porepy.time.time_step_control import TimeManager
 from porepy.time.time_stepper import TimeStepper
 from porepy.viz.solver_statistics import (
     NonlinearSolverAndTimeStatistics,
