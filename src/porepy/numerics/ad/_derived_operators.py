@@ -1,23 +1,45 @@
 """This module contains mixin classes that extend the behavior of an operator.
 
 The mixins will modify how an operator is evaluated:
-  - TimeDependentOperator: The operator represents a previous time step, and its
-    value will be fetched from the time step which it represents, see class
-    documentation for details.
-  - IterativeOperator: The operator represents a previous iterate, and its value
-    will be fetched from the iterate which it represents, see class documentation for
+  - TimeDependentOperator: The operator represents a previous time step, and its value
+    will be fetched from the time step which it represents, see class documentation for
     details.
+  - IterativeOperator: The operator represents a previous iterate, and its value will be
+    fetched from the iterate which it represents, see class documentation for details.
   - ReferenceOperator: The operator represents a reference value and will evaluate this
     reference.
+
+When combining the mixins, their behavior is prioritized as follows:
+  - Calling the method reference() on an operator which is a ReferenceOperator will
+    return the operator in a reference state, independent of the original state (default
+    state, previous iterate, previous timestep) of the operator.
+  - Taking the previous time step or previous iterate of an operator which is a
+    ReferenceOperator will return the operator itself. Taking the reference is a one-way
+    operation.
+  - Taking the previous time step of an operator at a previous iterate will raise an
+    error.
+  - Taking the previous iterate of an operator at a previous time step will raise an
+    error.
 
 
 """
 
 import copy
+from typing import Optional, Sequence, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import porepy as pp
+    from porepy.numerics.ad.operators import (
+        Operator,
+        Operations,
+        _TimeDependentOperator,
+        _IterativeOperator,
+        _ReferenceOperator,
+    )
 
 
 class TimeDependentOperator:
-    """Mixin class for operator classes, which can have a time-dependent
+    """Mixin class for Operator classes, which can have a time-dependent
     representation.
 
     Implements the notion of time step indices, as well as a method to create a
@@ -29,6 +51,10 @@ class TimeDependentOperator:
 
     """
 
+    is_current_iterate: bool
+    """True, if the operator represents the current iterate."""
+    _cached_key: Optional[str]
+
     def __init__(
         self,
         name: str | None = None,
@@ -36,7 +62,7 @@ class TimeDependentOperator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        super().__init__(
+        super().__init__(  # type: ignore[call-arg]
             name=name, domains=domains, operation=operation, children=children
         )
 
@@ -61,7 +87,8 @@ class TimeDependentOperator:
     def time_step_index(self) -> int | None:
         """Returns the time step index this instance represents.
 
-        - None indicates the current time (unknown value)
+        - None indicates the current time (unknown value) or that the operator
+          represents a reference value.
         - 0 indicates this is an operator at the first previous time step
         - 1 at the time step before
         - ...
@@ -100,12 +127,14 @@ class TimeDependentOperator:
             ValueError: If ``steps`` is not non-negative.
 
         """
-        if isinstance(self, IterativeOperator):
-            if self.is_previous_iterate:
-                raise ValueError(
-                    "Cannot create an operator representing a previous time step,"
-                    + " if it already represents a previous iterate."
-                )
+        if isinstance(self, ReferenceOperator) and self.is_reference:
+            #
+            return self
+        if isinstance(self, IterativeOperator) and self.is_previous_iterate:
+            raise ValueError(
+                "Cannot create an operator representing a previous time step,"
+                + " if it already represents a previous iterate."
+            )
 
         if steps < 0:
             raise ValueError("Number of steps backwards must be non-negative.")
@@ -122,7 +151,7 @@ class TimeDependentOperator:
 
         # Keeping track of the original operator.
         if self.is_current_iterate:
-            op.original_operator = self
+            op.original_operator = self  # type: ignore[assignment]
         else:
             op.original_operator = self.original_operator
 
@@ -130,7 +159,7 @@ class TimeDependentOperator:
 
 
 class IterativeOperator:
-    """Mixin class for operator classes, which can have multiple representations in the
+    """Mixin class for Operator classes, which can have multiple representations in the
     iterative sense.
 
     Implements the notion of iterate indices, as well as a method to create a
@@ -144,6 +173,11 @@ class IterativeOperator:
 
     """
 
+    _cached_key: Optional[str]
+    """Cached key for the operator, used for hashing."""
+    is_current_iterate: bool
+    """True, if the operator represents the current iterate."""
+
     def __init__(
         self,
         name: str | None = None,
@@ -151,7 +185,7 @@ class IterativeOperator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        super().__init__(
+        super().__init__(  # type: ignore[call-arg]
             name=name, domains=domains, operation=operation, children=children
         )
 
@@ -226,12 +260,13 @@ class IterativeOperator:
             ValueError: If ``steps`` is not non-negative.
 
         """
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                raise ValueError(
-                    "Cannot create an operator representing a previous iterate,"
-                    + " if it already represents a previous time step."
-                )
+        if isinstance(self, ReferenceOperator) and self.is_reference:
+            return self
+        if isinstance(self, TimeDependentOperator) and self.is_previous_time:
+            raise ValueError(
+                "Cannot create an operator representing a previous iterate,"
+                + " if it already represents a previous time step."
+            )
         if steps < 0:
             raise ValueError("Number of steps backwards must be non-negative.")
         # See TODO in TimeDependentOperator.previous_timestep
@@ -243,7 +278,7 @@ class IterativeOperator:
 
         # keeping track to the very first one
         if self.is_current_iterate:
-            op.original_operator = self
+            op.original_operator = self  # type: ignore[assignment]
         else:
             op.original_operator = self.original_operator
 
@@ -251,7 +286,10 @@ class IterativeOperator:
 
 
 class ReferenceOperator:
-    """Mixin class for operator classes, which can have a reference representation."""
+    """Mixin class for Operator classes, which can have a reference representation."""
+
+    _cached_key: Optional[str]
+    """Cached key for the operator, used for hashing."""
 
     def __init__(
         self,
@@ -260,7 +298,7 @@ class ReferenceOperator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
-        super().__init__(
+        super().__init__(  # type: ignore[call-arg]
             name=name, domains=domains, operation=operation, children=children
         )
 
@@ -296,7 +334,7 @@ class ReferenceOperator:
         op._is_reference = True
 
         if (not hasattr(self, "original_operator")) or self.original_operator is None:
-            op.original_operator = self
+            op.original_operator = self  # type: ignore[assignment]
         else:
             op.original_operator = self.original_operator
 
@@ -366,11 +404,8 @@ def _get_reference(op: Operator) -> Operator:
 
     The reference is taken according to the following prioritized rules:
         1. If the operator has a reference, we return it.
-        2. If the operator represents a previous time step, we return the operator
-           itself.
-        3. If the operator represents a previous iterate, we return the operator itself.
-        4. If the operator is a leaf, we return the operator itself.
-        5. Else, we copy the operator tree that has the operator as root, but with the
+        2. If the operator is a leaf, we return the operator itself.
+        3. Else, we copy the operator tree that has the operator as root, but with the
            reference behaviour in all the children.
 
     Returns:
@@ -379,10 +414,6 @@ def _get_reference(op: Operator) -> Operator:
     """
     if isinstance(op, ReferenceOperator):
         return op.reference()
-    elif isinstance(op, TimeDependentOperator) and op.is_previous_time:
-        return op
-    elif isinstance(op, IterativeOperator) and op.is_previous_iterate:
-        return op
     elif op.is_leaf():
         return op
     else:

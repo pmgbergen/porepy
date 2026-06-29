@@ -53,6 +53,11 @@ def set_solution_values(
             Flag to decide whether the values already stored in the data dictionary
             should be added to or overwritten.
 
+        reference: ``default=False``
+            Flag to decide whether reference values should be set instead of time step
+            or iterate values. If ``True``, the setter will store values in
+            ``data[pp.REFERENCE_SOLUTIONS][name]``.
+
     Raises:
         ValueError: In the case of inconsistent usage of indices (both None, or negative
             values).
@@ -272,10 +277,10 @@ def _get_reference_values(name: str, data: dict) -> np.ndarray:
         value = data[pp.REFERENCE_SOLUTIONS][name].copy()
     except KeyError as err:
         # No reference is set, we should return a zero array of the right shape. Look
-        # for the shape in the time step solutions, since these are most likely to be
-        # set. If there are cases where no time step solution is available, we will need
-        # to think of a different approach.
-        value = 0.0 * data[pp.TIME_STEP_SOLUTIONS][name][0]  # type: ignore
+        # for the shape in the iterate solutions, since these are most likely to be set.
+        # If there are cases where no iterate solution is available, we will need to
+        # think of a different approach.
+        value = 0.0 * data[pp.ITERATE_SOLUTIONS][name][0]  # type: ignore
     return value
 
 
