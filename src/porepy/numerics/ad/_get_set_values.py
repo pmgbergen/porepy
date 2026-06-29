@@ -11,9 +11,10 @@ The main functions are:
 
 from functools import lru_cache
 from typing import Any, Optional
-import porepy as pp
+
 import numpy as np
 
+import porepy as pp
 
 __all__ = [
     "set_solution_values",

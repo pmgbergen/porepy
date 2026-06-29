@@ -9,10 +9,12 @@ The tests are collected in two classes:
 See the respective classes and their test methods for details.
 """
 
-import pytest
-import porepy as pp
-import numpy as np
 import copy
+
+import numpy as np
+import pytest
+
+import porepy as pp
 
 
 def grid():
@@ -213,8 +215,8 @@ class TestReferenceOperator:
 
         # The default value for the reference operator.
         self.default_reference_value = 0
-        # The values to use for the current approximation, previous time step and previous
-        # iteration.
+        # The values to use for the current approximation, previous time step and
+        # previous iteration.
         self.iter_value = 1
         self.time_value = 2
         # The value to use for the reference operator.
