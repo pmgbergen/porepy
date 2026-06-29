@@ -593,7 +593,7 @@ def test_before_nonlinear_loop(default_newton_solver: pp.NewtonSolver):
 
 
 @pytest.mark.parametrize(
-    "inc_history, res_history, is_converged, is_diverged",
+    "inc_history, res_history, is_converged, is_failed",
     [
         ([2.0, 2.0], [1.0, 1.0], False, False),  # no convergence after 2 iterations
         ([2.0, 0.5], [1.0, 0.5], True, False),  # convergence in 2 iterations
@@ -609,7 +609,7 @@ def test_nonlinear_loop(
     inc_history,
     res_history,
     is_converged,
-    is_diverged,
+    is_failed,
     default_newton_solver: pp.NewtonSolver,
 ):
     """Test that the Newton loop exits correctly."""
@@ -633,8 +633,8 @@ def test_nonlinear_loop(
             assert convergence_status.is_converged()
         else:
             assert convergence_status.is_iterating()
-        if is_diverged:
-            assert divergence_status.is_diverged()
+        if is_failed:
+            assert divergence_status.is_failed()
         else:
             assert divergence_status.is_converged()
 
@@ -644,7 +644,7 @@ def test_nonlinear_loop(
     except Exception as e:
         # Newton loop only stops on convergence or divergence.
         # Need to handle the non-convergence and non-divergence case.
-        assert not (is_converged or is_diverged), f"Unexpected exception: {e}"
+        assert not (is_converged or is_failed), f"Unexpected exception: {e}"
 
 
 @pytest.mark.parametrize(
@@ -725,7 +725,7 @@ def test_before_nonlinear_iteration(default_newton_solver: pp.NewtonSolver):
 
 
 @pytest.mark.parametrize(
-    "inc, res, iteration_index, is_converged, is_diverged",
+    "inc, res, iteration_index, is_converged, is_failed",
     [
         ([2.0, 1.0, 1, False, False]),  # Not converged nor diverged
         ([2.0, 1.0, 2, False, False]),  # Not converged nor diverged
@@ -744,7 +744,7 @@ def test_after_nonlinear_iteration(
     res,
     iteration_index,
     is_converged,
-    is_diverged,
+    is_failed,
     default_newton_solver: pp.NewtonSolver,
 ):
     """Test the after_nonlinear_iteration method of the Newton solver."""
@@ -776,14 +776,14 @@ def test_after_nonlinear_iteration(
         assert convergence_status.is_converged()
     else:
         assert convergence_status.is_iterating()
-    if is_diverged:
-        assert divergence_status.is_diverged()
+    if is_failed:
+        assert divergence_status.is_failed()
     else:
         assert divergence_status.is_converged()
 
 
 @pytest.mark.parametrize(
-    "inc, res, iteration_index, is_converged, is_diverged",
+    "inc, res, iteration_index, is_converged, is_failed",
     [
         ([2.0, 1.0, 1, False, False]),  # Not converged nor diverged
         ([2.0, 1.0, 2, False, False]),  # Not converged nor diverged
@@ -802,7 +802,7 @@ def test_check_convergence(
     res,
     iteration_index,
     is_converged,
-    is_diverged,
+    is_failed,
     default_newton_solver: pp.NewtonSolver,
 ):
     """Test the check_convergence method of the Newton solver."""
@@ -827,8 +827,8 @@ def test_check_convergence(
         assert convergence_status.is_converged()
     else:
         assert convergence_status.is_iterating()
-    if is_diverged:
-        assert divergence_status.is_diverged()
+    if is_failed:
+        assert divergence_status.is_failed()
     else:
         assert divergence_status.is_converged()
     assert (

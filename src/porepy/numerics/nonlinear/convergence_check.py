@@ -62,7 +62,7 @@ class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
         """Check if any status indicates not converged."""
         return any(status.is_iterating() for status in self.values())
 
-    def is_diverged(self) -> bool:
+    def is_failed(self) -> bool:
         """Check if any status indicates divergence."""
         return any(status.is_failed() for status in self.values())
 

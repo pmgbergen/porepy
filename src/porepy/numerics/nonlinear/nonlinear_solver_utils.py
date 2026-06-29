@@ -48,9 +48,9 @@ def summarize_solver_status(
 
     """
     is_converged = convergence_status.is_converged()
-    is_diverged = divergence_status.is_diverged()
+    is_failed = divergence_status.is_failed()
     if is_converged:
-        if is_diverged:
+        if is_failed:
             logger.warning(
                 "Nonlinear solver convergence criteria indicate convergence and "
                 "divergence at the same time. Accepting this solution."
@@ -59,7 +59,7 @@ def summarize_solver_status(
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
         )
-    elif is_diverged:
+    elif is_failed:
         logger.warning("Failed to solve the nonlinear problem.")
         return NonlinearSolverStatusFailed(
             convergence_statuses=convergence_status,

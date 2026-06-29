@@ -322,7 +322,7 @@ class NewtonSolver:
                 )
 
                 # Exit the Newton loop.
-                if convergence_status.is_converged() or divergence_status.is_diverged():
+                if convergence_status.is_converged() or divergence_status.is_failed():
                     break
 
         return convergence_status, divergence_status

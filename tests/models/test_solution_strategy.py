@@ -463,14 +463,15 @@ def test_check_convergence(
     divergence_status = divergence_criteria.check(
         increment=nonlinear_increment, residual=residual
     )
+
+    # Condense the two statuses into one.
+    status = convergence_status.union(divergence_status)
     if expected == ConvergenceStatus.CONVERGED:
-        assert convergence_status.is_converged() and not divergence_status.is_diverged()
+        assert status.is_converged()
     elif expected == ConvergenceStatus.CONTINUE_ITERATING:
-        assert convergence_status.is_iterating() and divergence_status.is_iterating()
+        assert status.is_iterating()
     elif expected == ConvergenceStatus.FAILED:
-        assert divergence_status.is_diverged() and not convergence_status.is_converged()
-    # Condense the two statuses into one. We check that "union" works.
-    _ = convergence_status.union(divergence_status)
+        assert status.is_failed()
 
 
 @pytest.mark.parametrize(

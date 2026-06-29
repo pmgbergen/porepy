@@ -138,7 +138,7 @@ def test_convergence_status_collection_parametrized(c1, c2, c3, expected_status)
     status = [
         collection.is_converged(),
         collection.is_iterating(),
-        collection.is_diverged(),
+        collection.is_failed(),
     ]
 
     assert status == expected_status
@@ -732,6 +732,6 @@ def test_divergence_criteria_collection(
     if expected_status_collection == ConvergenceStatus.CONVERGED:
         assert status.is_converged()
     elif expected_status_collection == ConvergenceStatus.FAILED:
-        assert status.is_diverged()
+        assert status.is_failed()
     else:
         assert False
