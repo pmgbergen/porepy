@@ -402,6 +402,42 @@ class FlowModel(
     def __init__(self, params):
         super().__init__(params)
 
+    def data_to_export(self):
+        """Export the standard variables plus the quantities that were substituted as
+        functions (so they remain visible even though they are no longer variables):
+
+        * all phase saturations ``s_<phase>`` (water/oil/gas),
+        * any partial fractions that were substituted (``partial_fraction_*``),
+        * temperature in Celsius ``T_C``.
+        """
+        data = super().data_to_export()
+        es = self.equation_system
+        sds = self.mdg.subdomains()
+        offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+        already = {v.name for v in es.variables}  # auto-exported variables (avoid dupes)
+
+        def add_field(name, operator):
+            if name in already:  # already exported as a variable
+                return
+            vals = np.asarray(operator.value(es), dtype=float)
+            for i, sd in enumerate(sds):
+                data.append((sd, name, vals[offsets[i]:offsets[i + 1]]))
+
+        # All phase saturations (functions when substituted -> not auto-exported; the
+        # reference-phase saturation is by-unity and never a variable).
+        for phase in self.fluid.phases:
+            add_field(f"s_{phase.name}", phase.saturation(sds))
+
+        # Partial fractions substituted as functions (no longer auto-exported), named with
+        # the x_<comp>_<phase> convention.
+        for sec_expr, *_ in getattr(self, "_substitution_registry", []):
+            if sec_expr.name.startswith("partial_fraction_"):
+                add_field(sec_expr.name.replace("partial_fraction_", "x_"), sec_expr(sds))
+
+        # Temperature in Celsius (temperature is kept as a variable).
+        add_field("T_C", self.temperature(sds) - pp.ad.Scalar(273.15))
+        return data
+
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -513,7 +549,7 @@ params = {
     # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
     # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
     # importable in the active environment (pip install -e on the sparsa repo).
-    "ad_backend": "sparsa",
+    "ad_backend": "native",
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
