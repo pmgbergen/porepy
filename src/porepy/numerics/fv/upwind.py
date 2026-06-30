@@ -241,20 +241,9 @@ class Upwind(Discretization):
         pos_flux = darcy_flux >= 0
         neg_flux = np.logical_not(pos_flux)
 
-        # Array to store index of the cell in the upstream direction.
-        upstream_cell_ind = np.zeros(sd.num_faces, dtype=int)
-        # Fill the array based on the cell-face relation. By construction, the normal
-        # vector of a face points from the first to the second row in this array
+        # Cell-face relation. By construction, the normal vector of a face points from the
+        # first to the second row of this array (exterior cells are -1).
         cf_dense = sd.cell_faces_as_dense()
-        # Positive fluxes point in the same direction as the normal vector, find the
-        # upstream cell.
-        upstream_cell_ind[pos_flux] = cf_dense[0, pos_flux]
-        upstream_cell_ind[neg_flux] = cf_dense[1, neg_flux]
-
-        # Make row and data arrays, preparing to make a coo-matrix for the upstream
-        # cell-to-face map.
-        row = np.arange(sd.num_faces)
-        values = np.ones(sd.num_faces, dtype=int)
 
         # We need to eliminate faces on the boundary; these will be discretized
         # separately below. On faces with Neumann conditions, boundary conditions apply
@@ -277,21 +266,25 @@ class Upwind(Discretization):
                 ),
             )
         )[0]
+        drop_face = np.zeros(sd.num_faces, dtype=bool)
+        drop_face[np.r_[neumann_ind, inflow_ind]] = True
 
-        # Delete indices that should be treated by boundary conditions.
-        delete_ind = np.sort(np.r_[neumann_ind, inflow_ind])
-        row = np.delete(row, delete_ind)
-        values = np.delete(values, delete_ind)
-        col = np.delete(upstream_cell_ind, delete_ind)
-
-        # Finally, we can construct the upstream weighting matrix.
+        # FIXED-SPARSITY upstream weighting: every face keeps a STRUCTURAL entry for BOTH of
+        # its neighbour cells, with weight 1 on the upstream cell and an explicit 0 on the
+        # downstream cell. The pattern is then purely geometric and does not change when the
+        # flow direction flips (only the data swaps), while ``upwind @ x`` is bit-identical
+        # to the classic one-entry-per-face form (the explicit zero contributes nothing).
+        # A fixed pattern lets compiled assemblers bake the structure once.
+        faces = np.arange(sd.num_faces)
+        row = np.concatenate([faces, faces])
+        col = np.concatenate([cf_dense[0], cf_dense[1]])
+        values = np.concatenate([pos_flux.astype(float), neg_flux.astype(float)])
+        keep = (col >= 0) & ~drop_face[row]  # drop exterior "cells" and BC-handled faces
         upstream_mat = sps.coo_matrix(
-            (
-                values,
-                (row, col),
-            ),
+            (values[keep], (row[keep], col[keep])),
             shape=(sd.num_faces, sd.num_cells),
         ).tocsr()
+        upstream_mat.sort_indices()  # canonical, stable pattern
 
         # Form and store discretization matrix.
         # Expand the discretization matrix to more than one component.
