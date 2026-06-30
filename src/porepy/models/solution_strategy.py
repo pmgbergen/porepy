@@ -104,7 +104,7 @@ class SolutionStrategy(pp.PorePyModel):
                 # Path to json file (of type pathlib.Path) containing evolution of
                 # exported time steps and used time step size at that time. If 'None'
                 # a default value is used internally, as defined in
-                # :class:`~porepy.time.time_step_control.TimeManager.
+                # :class:`~porepy.time_stepper.time_step_control.TimeManager.
                 "time_index": -1,
                 # Index addressing history in times_file; only relevant if "vtu_files"
                 # is not 'None' or "is_mdg_pvd" is 'True'. The index corresponds to

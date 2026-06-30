@@ -12,11 +12,11 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.time.time_step_status import (
+from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.time.time_stepper import TimeStepper
+from porepy.time_stepper.time_stepper import TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,

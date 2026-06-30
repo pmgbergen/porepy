@@ -148,12 +148,20 @@ from porepy.models.protocol import PorePyModel
 
 # Related to models and solvers
 from porepy.models.model_runner import (
+    ModelRunnerStatus,
+    ModelRunnerStatusFailure,
+    ModelRunnerStatusSuccess,
     ModelRunner,
     run_time_dependent_model,
     run_stationary_model,
 )
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
 
 
 from porepy.numerics import ad
@@ -166,7 +174,15 @@ from porepy.numerics.ad.ad_utils import (
 )
 
 # Time stepping control
-from porepy.time.time_step_control import TimeManager
+from porepy import time_stepper
+from porepy.time_stepper.time_step_status import (
+    TimeStepperStatus,
+    TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
+    TimeStepperStatusSuccess,
+)
+from porepy.time_stepper.time_stepper import TimeStepper
+from porepy.time_stepper.time_step_control import TimeManager
 
 from porepy import models
 from porepy.models.abstract_equations import (

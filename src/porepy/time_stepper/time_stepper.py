@@ -17,8 +17,8 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from porepy.time.time_step_control import TimeManager
-from porepy.time.time_step_status import (
+from porepy.time_stepper.time_step_control import TimeManager
+from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
