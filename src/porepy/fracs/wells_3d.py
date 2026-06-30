@@ -146,16 +146,6 @@ class Well:
         t = self.tags.copy()
         return Well(p, tags=t)
 
-    def __str__(self) -> str:
-        """Return a string representation of the well.
-
-        Returns:
-            A string representation of the well.
-        """
-        s = f"Well \n"  #  consisting of {self.num_segments()} segments.\n"
-        # s += f"Well index: {self.index}"
-        return s
-
     def __repr__(self) -> str:
         """Get a string representation of the well properties.
 
@@ -163,8 +153,7 @@ class Well:
             A string representation of the well properties.
 
         """
-        s = f"Well \n"  #  consisting of {self.num_segments()} segments.\n"
-        # s += f"Well index: {self.index}\n"
+        s = f"Well consisting of {self.num_segments()} segments.\n"
 
         # If the well consists of only a few segments (5 here is somewhat randomly
         # chosen), list all the coordinates. If not, we limit the representation to

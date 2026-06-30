@@ -220,9 +220,6 @@ class WellNetwork3d:
             A string representation of the well network.
 
         """
-        # At the moment, it is unclear what more information should be included in
-        # the string representation. We therefore implement only __repr__ (calls to
-        # __str__ will be forwarded to __repr__).
         s = f"Well network consisting of {len(self.wells)} wells.\n"
         return s
 
