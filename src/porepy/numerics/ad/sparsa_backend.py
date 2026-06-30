@@ -21,12 +21,27 @@ the function's analytic derivative); all composition + assembly is done by spars
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+
+# lower the replay Program to a compiled (numba) kernel with a baked global scatter.
+# On by default; set SPARSA_COMPILED=0 to force the Python register-machine replay (used for
+# A/B comparison and as the automatic fallback when a program cannot be lowered).
+_USE_COMPILED = os.environ.get("SPARSA_COMPILED", "1") not in ("0", "false", "False")
+
+# A compiled kernel bakes the sparsity of every matrix. Some discretizations -- notably
+# UPWIND -- change their nonzero PATTERN with the iterate (which cell is upstream flips with
+# the flux sign; see numerics/fv/upwind.py). A compiled kernel is therefore valid only for
+# the exact structure it was built for. We key compiled kernels by a signature of the
+# re-parsed matrices' structure and keep one per distinct pattern, bounded by this cap; once
+# the cap is hit, new patterns fall back to the (always-correct) Python replay. Newton
+# iterates typically cycle through a small, stabilizing set of upwind patterns -> cache hits.
+_COMPILE_CACHE_CAP = int(os.environ.get("SPARSA_COMPILE_CACHE_CAP", "24"))
 
 
 def _require_sparsa():
@@ -235,7 +250,8 @@ def _finalize(ad, layout, equation_system, sparsa):
 #  for a constant, ("proj", [slicers]) for a ProjectionList, or ("empty",).
 # ---------------------------------------------------------------------------------------
 class _Bundle:
-    __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves", "baked")
+    __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves", "baked",
+                 "compiled_cache", "compile_enabled")
 
     def __init__(self, program, layout, var_leaves, surrogates, const_leaves, baked):
         self.program = program          # sparsa.Program (compiled structure + sparsity)
@@ -247,6 +263,10 @@ class _Bundle:
         #   though the op structure is fixed -- they must NOT be baked at compile time.
         self.baked = baked              # list of (reg, matrix): geometric projection
         #   selection matrices, constant across iterations -> filled once, reused.
+        # Tier-2: {structure_signature: sparsa.CompiledProgram}. compile_enabled is cleared
+        # if the program turns out not to be lowerable (then always the Python replay).
+        self.compiled_cache: dict[bytes, Any] = {}
+        self.compile_enabled = _USE_COMPILED
 
 
 def _combine_compile(op, kids, rec, surr, sparsa):
@@ -370,10 +390,15 @@ def _build_bundle(ops, equation_system, state, mdg, sparsa):
         if tag[0] != "reg":
             raise _CompileUnsupported("equation root is not variable-dependent")
         out_regs.append(tag[1])
-    return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const, baked)
+    bundle = _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const, baked)
+    bundle.compiled = _try_compile(bundle, state, mdg, sparsa)
+    return bundle
 
 
-def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
+def _build_leaves(bundle, state, mdg, sparsa):
+    """Assemble the reg -> value leaf dict for one replay (refreshing variable seeds,
+    re-parsed constants, and surrogate value/partials). Shared by the Python replay and the
+    compiled executor, and by the compile-time warmup."""
     leaves = {}
     for reg, vid, dofs in bundle.var_leaves:
         leaves[reg] = sparsa.LocalAd(state[dofs], {vid: sparsa.DiagBlock(np.ones(dofs.size))})
@@ -388,6 +413,59 @@ def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
                 np.hstack([op._fetch_data(op, g, True) for g in op.domains]))
             for preg, row in zip(partial_regs, dep_rows):
                 leaves[preg] = derivs[row]
+    return leaves
+
+
+def _structure_signature(bundle, leaves) -> bytes:
+    """A key over the nonzero PATTERN of every re-parsed sparse leaf matrix. Constant for
+    fixed discretizations (TPFA/MPFA/divergence/projections); changes when an upwind matrix
+    flips an upstream cell. Two replays with the same signature have identical Jacobian
+    structure, so a compiled kernel built for one is exact for the other."""
+    parts: list[bytes] = []
+    for _op, reg in bundle.const_leaves:
+        v = leaves.get(reg)
+        if sps.issparse(v):
+            v = v.tocsr()
+            parts.append(v.indptr.tobytes())
+            parts.append(v.indices.tobytes())
+    return b"".join(parts)
+
+
+def _compiled_for(bundle, leaves, sparsa):
+    """Return a CompiledProgram matching the current matrix structure (from the per-pattern
+    cache, compiling a new one if needed and within the cap), or None to use the Python
+    replay. The returned kernel is structurally exact for ``leaves``."""
+    if not bundle.compile_enabled:
+        return None
+    sig = _structure_signature(bundle, leaves)
+    cp = bundle.compiled_cache.get(sig)
+    if cp is not None:
+        return cp
+    if len(bundle.compiled_cache) >= _COMPILE_CACHE_CAP:
+        return None  # too many distinct patterns -> stop compiling, stay correct via replay
+    try:
+        cp = sparsa.compile_program(bundle.program, leaves)
+        cp.compile_assembly(bundle.layout)
+    except sparsa.UnsupportedProgram:
+        bundle.compile_enabled = False  # a construct we cannot lower -> never retry
+        return None
+    except Exception:  # pragma: no cover - never let compilation break the solve
+        bundle.compile_enabled = False
+        return None
+    bundle.compiled_cache[sig] = cp
+    return cp
+
+
+def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
+    leaves = _build_leaves(bundle, state, mdg, sparsa)
+    # Tier-2 compiled fast path: numba kernels + baked global scatter, no scipy in the loop.
+    # Valid only for the exact matrix structure it was built for -> selected by signature.
+    cp = _compiled_for(bundle, leaves, sparsa)
+    if cp is not None:
+        if derivative:
+            return [pp.ad.AdArray(val, jac) for (val, jac) in cp.assemble(leaves)]
+        return [np.atleast_1d(v) for v in cp.run_values(leaves)]
+
     outs = bundle.program.run(leaves)
     if derivative:
         return [_finalize(ad, bundle.layout, equation_system, sparsa) for ad in outs]
