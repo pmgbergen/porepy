@@ -1,30 +1,34 @@
-"""Tests for the geometry of well-fracture intersections.
+"""Tests for the geometry of well-fracture intersections. Both the detection of
+intersections and the meshing of the resulting mixed-dimensional grid are tested.
 
-This module targets the (not yet implemented) function:
+The file is structured as follows:
+  - Fractures and wells are genrated by factory functions that allow a certain degree of
+    customization.
+  - Test cases are defined as instances of the IntersectionCase dataclass, which define
+    groups of wells and fractures to be tested together. The cases are grouped into
+    categories based on the type of intersection they represent.
+  - Expected results for each test case are defined in dictionaries, which map the case
+    name to the expected intersection coordinates and the indices of the wells and
+    fractures involved in the intersection. The expected results are grouped similar to
+    the test cases.
+  - Helper functions are defined to run the intersection detection and meshing, and to
+    compare the actual and expected results.
+  - The actual tests use parametrizations of test cases and results. These are divided
+    into two main categories:
+    1. Intersection detection tests, which check that the intersection detection
+       algorithm of the WellNetwork3d class correctly finds intersection points between
+       wells and fractures.
+    2. Meshing tests, which check that the meshing of the mixed-dimensional grid
+       is performed correctly.
 
-    def intersect_well_fractures(
-        wells: list[pp.Well],
-        fractures: list[pp.Fracture],
-    ) -> tuple[tuple[np.ndarray, int, list[int]], ...]
-
-where each entry of the returned tuple is itself a tuple of:
-    (coordinate, well_index, [fracture_indices])
-
-with:
-    coordinate : np.ndarray, shape (ambient_dim,)
-        The spatial coordinate of the intersection point.
-    well_index : int
-        Index into the input ``wells`` list for the well involved.
-    fracture_indices : list[int]
-        Indices (into the input ``fractures`` list) of all fractures that
-        share this intersection point.
-
-Design notes
-------------
-The tests are purely geometric; no mesh is constructed.
-Geometry fixtures (wells, fractures) are exposed as module-level helpers
-  so that a future meshing test module can import and reuse them directly,
-  avoiding duplication.
+Scope of test configurations: While well network meshing in the multiphysics models
+currently is restricted to 3D, the tests in this file also covers 2D cases. To make the
+tests meaningful, the 2D cases make assumptions on how a well in a 2D domain should be
+represented and interpreted. This preempts final decisions on how to define such cases,
+and hence, the tests may not reflect the final implementation of 2D well-fracture
+meshing. The tests are included to ensure that the implementation works reasonably well
+also in 2D, thus trying to avoid a situation where finalizing the 2D implementation
+becomes a major task.
 
 """
 
@@ -74,8 +78,11 @@ def _infer_dimension_from_fractures(fractures: list[pp.Fracture]) -> int:
     return 2 if isinstance(fractures[0], pp.LineFracture) else 3
 
 
+# ----- Region: 3D and 2D fracture and well factories for test cases ---
+
+
 # 3D fractures factories (PlaneFracture for ambient dim = 3)
-def make_fracture_horizontal_at_z(
+def _make_fracture_horizontal_at_z(
     fracture_index: int, z: float, half_size: float = 2.0
 ) -> pp.PlaneFracture:
     """Return a horizontal square fracture centered at (0,0,z).
@@ -102,7 +109,7 @@ def make_fracture_horizontal_at_z(
     return pp.PlaneFracture(pts, index=fracture_index)
 
 
-def make_fracture_vertical_at_xz(
+def _make_fracture_vertical_at_xz(
     fracture_index: int, y: float = 0.0, half_size: float = 2.0
 ) -> pp.PlaneFracture:
     """Return a vertical square fracture in the xz-plane at y=constant.
@@ -130,7 +137,7 @@ def make_fracture_vertical_at_xz(
     return pp.PlaneFracture(pts, index=fracture_index)
 
 
-def make_fracture_vertical_at_yz(
+def _make_fracture_vertical_at_yz(
     fracture_index: int, x: float = 0.0, half_size: float = 2.0
 ) -> pp.PlaneFracture:
     """Return a vertical square fracture in the yz-plane at x=constant.
@@ -159,7 +166,7 @@ def make_fracture_vertical_at_yz(
 
 
 # 2D fractures factories (LineFracture for ambient dim = 2)
-def make_fracture_horizontal_at_y(
+def _make_fracture_horizontal_at_y(
     fracture_index: int, y: float, x_min: float = -2.0, x_max: float = 2.0
 ) -> pp.LineFracture:
     """Return a horizontal line fracture at height y in 2D.
@@ -177,7 +184,7 @@ def make_fracture_horizontal_at_y(
     return pp.LineFracture(points=pts, index=fracture_index)
 
 
-def make_fracture_vertical_at_x(
+def _make_fracture_vertical_at_x(
     fracture_index: int, x: float, y_min: float = -2.0, y_max: float = 2.0
 ) -> pp.LineFracture:
     """Return a vertical line fracture at x = const in 2D.
@@ -197,7 +204,7 @@ def make_fracture_vertical_at_x(
 
 
 # 3D well factories
-def make_well_3d(
+def _make_well_3d(
     well_index: int,
     points: list[tuple[float, float, float]],
 ) -> pp.Well:
@@ -215,7 +222,7 @@ def make_well_3d(
 
 
 # 2D well factories
-def make_well_2d(
+def _make_well_2d(
     well_index: int,
     points: list[tuple[float, float]],
 ) -> pp.Well:
@@ -233,141 +240,59 @@ def make_well_2d(
     return pp.Well(np.array(points).T, well_index)
 
 
-# Result verification helpers
-def _find_intersection(
-    result: tuple,
-    well_index: int,
-    fracture_indices: set[int],
-) -> np.ndarray | None:
-    """Return the coordinate of the intersection matching well_index and fracture
-    set, or None if not found.
-
-    Parameters:
-        result:
-            Return value of `intersect_well_fractures`.
-        well_index:
-            Expected well index.
-        fracture_indices:
-            Expected set of fracture indices.
-
-    """
-
-    for coord, _, well_idx, frac_idxs, _ in result:
-        if well_idx == well_index and set(frac_idxs) == fracture_indices:
-            return coord
-    return None
-
-
-def _run_case(case: IntersectionCase) -> tuple:
-    well_network = WellNetwork3d(case.wells, None)
-    fracture_network = pp.create_fracture_network(case.fractures, domain=None)
-
-    return well_network.intersect_well_fractures(
-        fracture_network.fractures, fracture_network.nd
-    )[0]
-
-
-def _assert_case_result(
-    case: IntersectionCase,
-    result: tuple,
-    expected: list[tuple[np.ndarray, int, list[int]]],
-) -> None:
-    assert len(result) == len(expected), (
-        f"Case '{case.name}': expected {len(expected)} intersections, "
-        f"got {len(result)}."
-    )
-
-    empty_fracture_list = []
-
-    for ind, (expected_coord, expected_well_idx, expected_frac_idxs) in enumerate(
-        expected
-    ):
-        if len(expected_frac_idxs) == 0:
-            # Special treatment of multiwell kinks.
-            empty_fracture_list.append(ind)
-            continue
-        coord = _find_intersection(
-            result,
-            well_index=expected_well_idx,
-            fracture_indices=set(expected_frac_idxs),
-        )
-        assert coord is not None, (
-            f"Case '{case.name}': missing intersection for well "
-            f"{expected_well_idx} and fractures {expected_frac_idxs}."
-        )
-        np.testing.assert_allclose(coord, expected_coord, atol=TOL, err_msg=case.name)
-
-    covered = []
-    for ind in empty_fracture_list:
-        coord = expected[ind][0]
-        for res_coord, _, well_idx, frac_idxs, _ in result:
-            if set(frac_idxs) == set() and np.allclose(res_coord, coord, atol=TOL):
-                assert well_idx == expected[ind][1], (
-                    f"Case '{case.name}': unexpected well index for intersection at {coord}."
-                )
-                covered.append(ind)
-                break
-    assert len(covered) == len(empty_fracture_list), (
-        f"Case '{case.name}': expected {len(empty_fracture_list)} intersections with no fractures, "
-        f"got {len(covered)}."
-    )
+# ----- Region: Define test cases and expected results ---
 
 
 BASIC_GEOMETRY_CASES = (
     IntersectionCase(
         "2d_single_segment_middle",
-        [make_well_2d(0, [(0.0, 3.0), (0.0, -3.0)])],
-        [make_fracture_horizontal_at_y(0, 0.0, x_min=-1.0, x_max=1.0)],
+        [_make_well_2d(0, [(0.0, 3.0), (0.0, -3.0)])],
+        [_make_fracture_horizontal_at_y(0, 0.0, x_min=-1.0, x_max=1.0)],
     ),
     IntersectionCase(
         "2d_two_segment_kink",
-        [make_well_2d(0, [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)])],
-        [make_fracture_horizontal_at_y(0, 0.0, x_min=-1.0, x_max=1.0)],
+        [_make_well_3d(0, [(0.0, 0.0, 2.0), (0.0, 0.0, 1.0), (1.0, 0.0, -1.0)])],
+        [_make_fracture_horizontal_at_y(0, 0.0, x_min=-1.0, x_max=1.0)],
     ),
     IntersectionCase(
         "2d_two_segment_bottom",
-        [make_well_2d(0, [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)])],
-        [make_fracture_horizontal_at_y(0, -1.0, x_min=-1.0, x_max=1.0)],
+        [_make_well_2d(0, [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)])],
+        [_make_fracture_horizontal_at_y(0, -1.0, x_min=-1.0, x_max=1.0)],
     ),
     IntersectionCase(
         "2d_multi_segment_multiple_intersections",
-        [make_well_2d(0, [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)])],
+        [_make_well_2d(0, [(0.0, 2.0), (0.0, 1.0), (1.0, -1.0)])],
         [
-            make_fracture_horizontal_at_y(0, 1.0, x_min=-1.0, x_max=1.0),
-            make_fracture_horizontal_at_y(1, 0.0, x_min=-1.0, x_max=1.0),
+            _make_fracture_horizontal_at_y(0, 1.0, x_min=-1.0, x_max=1.0),
+            _make_fracture_horizontal_at_y(1, 0.0, x_min=-1.0, x_max=1.0),
         ],
     ),
     IntersectionCase(
         "3d_single_segment_middle",
-        [make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, -3.0)])],
-        [make_fracture_horizontal_at_z(0, 1.0)],
+        [_make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, -3.0)])],
+        [_make_fracture_horizontal_at_z(0, 1.0)],
     ),
     IntersectionCase(
         "3d_two_segment_kink",
-        [make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (1.0, 0.0, -3.0)])],
-        [make_fracture_horizontal_at_z(0, 0.0)],
+        [_make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (1.0, 0.0, -3.0)])],
+        [_make_fracture_horizontal_at_z(0, 0.0)],
     ),
     IntersectionCase(
         "3d_two_segment_bottom",
-        [make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (1.0, 0.0, -3.0)])],
-        [make_fracture_horizontal_at_z(0, -3.0)],
+        [_make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (1.0, 0.0, -3.0)])],
+        [_make_fracture_horizontal_at_z(0, -3.0)],
     ),
     IntersectionCase(
         "3d_multi_segment_multiple_intersections",
         [
-            make_well_3d(
+            _make_well_3d(
                 0,
-                [
-                    (0.0, 0.0, 3.0),
-                    (0.0, 0.0, 0.0),
-                    (1.0, 0.0, -1.5),
-                    (2.0, 0.0, -3.0),
-                ],
+                [(0.0, 0.0, 3.0), (0.0, 0.0, 0.0), (1.0, 0.0, -1.5), (2.0, 0.0, -3.0)],
             )
         ],
         [
-            make_fracture_horizontal_at_z(0, -0.75),
-            make_fracture_horizontal_at_z(1, -2.25),
+            _make_fracture_horizontal_at_z(0, -0.75),
+            _make_fracture_horizontal_at_z(1, -2.25),
         ],
     ),
 )
@@ -376,7 +301,7 @@ BASIC_GEOMETRY_EXPECTED = {
     "2d_single_segment_middle": [(np.array([0.0, 0.0, 0.0]), 0, [0])],
     "2d_two_segment_kink": [
         (np.array([0.5, 0.0, 0.0]), 0, [0]),
-        (np.array([0.0, 1.0, 0.0]), 0, []),
+        (np.array([0.0, 0.0, 1.0]), 0, []),
     ],
     "2d_two_segment_bottom": [
         (np.array([0.0, 1.0, 0.0]), 0, []),
@@ -403,37 +328,39 @@ BASIC_GEOMETRY_EXPECTED = {
 NO_INTERSECTION_CASES = (
     IntersectionCase(
         "2d_no_intersections",
-        [make_well_2d(0, [(0.0, 3.5), (0.0, -3.5)])],
+        [_make_well_2d(0, [(0.0, 3.5), (0.0, -3.5)])],
         [
-            make_fracture_horizontal_at_y(0, 4.0),
-            make_fracture_horizontal_at_y(1, -4.0),
+            _make_fracture_horizontal_at_y(0, 4.0),
+            _make_fracture_horizontal_at_y(1, -4.0),
         ],
     ),
     IntersectionCase(
         "3d_no_intersections",
-        [make_well_3d(0, [(0.0, 0.0, 3.5), (0.0, 0.0, -3.5)])],
+        [_make_well_3d(0, [(0.0, 0.0, 3.5), (0.0, 0.0, -3.5)])],
         [
-            make_fracture_horizontal_at_z(0, 4.0),
-            make_fracture_horizontal_at_z(1, -4.0),
+            _make_fracture_horizontal_at_z(0, 4.0),
+            _make_fracture_horizontal_at_z(1, -4.0),
         ],
     ),
 )
+
+NO_INTERSECTION_EXPECTED = {case.name: [] for case in NO_INTERSECTION_CASES}
 
 MULTI_WELL_CASES = (
     IntersectionCase(
         "2d_single_fracture_multiple_wells",
         [
-            make_well_2d(0, [(2.0, 2.0), (2.0, -2.0)]),
-            make_well_2d(1, [(0.0, 2.0), (1.0, 1.0), (2.0, -2.0)]),
+            _make_well_2d(0, [(2.0, 2.0), (2.0, -2.0)]),
+            _make_well_2d(1, [(0.0, 2.0), (1.0, 1.0), (2.0, -2.0)]),
         ],
-        [make_fracture_horizontal_at_y(0, 1.0, x_min=-1.0, x_max=3.0)],
+        [_make_fracture_horizontal_at_y(0, 1.0, x_min=-1.0, x_max=3.0)],
     ),
     IntersectionCase(
         "3d_single_fracture_three_wells_mixed_segments",
         [
-            make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, -3.0)]),
-            make_well_3d(1, [(1.0, 0.0, 3.0), (1.0, 0.0, 1.0), (2.0, 0.0, -2.0)]),
-            make_well_3d(
+            _make_well_3d(0, [(0.0, 0.0, 3.0), (0.0, 0.0, -3.0)]),
+            _make_well_3d(1, [(1.0, 0.0, 3.0), (1.0, 0.0, 1.0), (2.0, 0.0, -2.0)]),
+            _make_well_3d(
                 2,
                 [
                     (-1.0, 1.0, 3.0),
@@ -443,7 +370,7 @@ MULTI_WELL_CASES = (
                 ],
             ),
         ],
-        [make_fracture_horizontal_at_z(0, -1.0, half_size=3.0)],
+        [_make_fracture_horizontal_at_z(0, -1.0, half_size=3.0)],
     ),
 )
 
@@ -465,36 +392,36 @@ MULTI_WELL_EXPECTED = {
 SHARED_INTERSECTION_CASES = (
     IntersectionCase(
         "codim_2_line_intersection",
-        [make_well_3d(0, [(0.0, 1.0, 1.0), (0.0, -1.0, -1.0)])],
+        [_make_well_3d(0, [(0.0, 1.0, 1.0), (0.0, -1.0, -1.0)])],
         [
-            make_fracture_horizontal_at_z(0, 0.0, half_size=3.0),
-            make_fracture_vertical_at_xz(1, y=0.0, half_size=3.0),
+            _make_fracture_horizontal_at_z(0, 0.0, half_size=3.0),
+            _make_fracture_vertical_at_xz(1, y=0.0, half_size=3.0),
         ],
     ),
     IntersectionCase(
         "codim_2_line_intersection_shifted",
-        [make_well_3d(0, [(2.0, 3.0, 0.0), (2.0, -1.0, -2.0)])],
+        [_make_well_3d(0, [(2.0, 3.0, 0.0), (2.0, -1.0, -2.0)])],
         [
-            make_fracture_horizontal_at_z(0, -1.0, half_size=5.0),
-            make_fracture_vertical_at_xz(1, y=1.0, half_size=5.0),
+            _make_fracture_horizontal_at_z(0, -1.0, half_size=5.0),
+            _make_fracture_vertical_at_xz(1, y=1.0, half_size=5.0),
         ],
     ),
     IntersectionCase(
         "codim_3_point_intersection",
-        [make_well_3d(0, [(1.0, 1.0, 1.0), (-1.0, -1.0, -1.0)])],
+        [_make_well_3d(0, [(1.0, 1.0, 1.0), (-1.0, -1.0, -1.0)])],
         [
-            make_fracture_horizontal_at_z(0, 0.0, half_size=3.0),
-            make_fracture_vertical_at_xz(1, y=0.0, half_size=3.0),
-            make_fracture_vertical_at_yz(2, x=0.0, half_size=3.0),
+            _make_fracture_horizontal_at_z(0, 0.0, half_size=3.0),
+            _make_fracture_vertical_at_xz(1, y=0.0, half_size=3.0),
+            _make_fracture_vertical_at_yz(2, x=0.0, half_size=3.0),
         ],
     ),
     IntersectionCase(
         "codim_3_point_intersection_shifted",
-        [make_well_3d(0, [(2.5, 0.5, 3.0), (0.5, -1.5, 1.0)])],
+        [_make_well_3d(0, [(2.5, 0.5, 3.0), (0.5, -1.5, 1.0)])],
         [
-            make_fracture_horizontal_at_z(0, 2.0, half_size=5.0),
-            make_fracture_vertical_at_xz(1, y=-0.5, half_size=5.0),
-            make_fracture_vertical_at_yz(2, x=1.5, half_size=5.0),
+            _make_fracture_horizontal_at_z(0, 2.0, half_size=5.0),
+            _make_fracture_vertical_at_xz(1, y=-0.5, half_size=5.0),
+            _make_fracture_vertical_at_yz(2, x=1.5, half_size=5.0),
         ],
     ),
 )
@@ -509,10 +436,10 @@ SHARED_INTERSECTION_EXPECTED = {
 
 MULTIPLE_FRACTURES_SAME_POINT_2D_CASES = IntersectionCase(
     "multiple_fractures_same_point_2d",
-    [make_well_2d(0, [(0.0, 2.0), (2.0, 0.0)])],
+    [_make_well_2d(0, [(0.0, 2.0), (2.0, 0.0)])],
     [
-        make_fracture_horizontal_at_y(0, 1.0),
-        make_fracture_vertical_at_x(1, 1.0),
+        _make_fracture_horizontal_at_y(0, 1.0),
+        _make_fracture_vertical_at_x(1, 1.0),
     ],
 )
 
@@ -520,12 +447,95 @@ MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED = {
     "multiple_fractures_same_point_2d": (np.array([1.0, 1.0, 0.0]), {0, 1}),
 }
 
-NO_INTERSECTION_CASE_NAMES = {case.name for case in NO_INTERSECTION_CASES}
+
+# Result verification helpers
+def _coordinate_from_result(
+    result: tuple,
+    well_index: int,
+    fracture_indices: set[int],
+) -> np.ndarray | None:
+    """Return the coordinate of the intersection matching well_index and fracture
+    set, or None if not found.
+    """
+
+    for coord, _, well_idx, frac_idxs, _ in result:
+        if well_idx == well_index and set(frac_idxs) == fracture_indices:
+            return coord
+    return None
+
+
+def _find_intersections(case: IntersectionCase) -> tuple:
+    """Run the intersect_well_fractures function on the given case and return the
+    result."""
+    well_network = WellNetwork3d(case.wells, None)
+    fracture_network = pp.create_fracture_network(case.fractures, domain=None)
+
+    return well_network.intersect_well_fractures(
+        fracture_network.fractures, fracture_network.nd
+    )[0]
+
+
+def _assert_intersection_detection_result(
+    case: IntersectionCase,
+    result: tuple,
+    expected: list[tuple[np.ndarray, int, list[int]]],
+) -> None:
+    assert len(result) == len(expected), (
+        f"Case '{case.name}': expected {len(expected)} intersections, "
+        f"got {len(result)}."
+    )
+    """Check that the intersection detection result matches the expected intersections.
+    """
+
+    # List of points that belong to no fractures. These are checked separately.
+    empty_fracture_list = []
+
+    # Loop over all expected intersections and check that they are present in the
+    # result.
+    for ind, (expected_coord, expected_well_idx, expected_frac_idxs) in enumerate(
+        expected
+    ):
+        if len(expected_frac_idxs) == 0:
+            # Postpone checking multisegment wells.
+            empty_fracture_list.append(ind)
+            continue
+
+        coord = _coordinate_from_result(
+            result,
+            well_index=expected_well_idx,
+            fracture_indices=set(expected_frac_idxs),
+        )
+        assert coord is not None, (
+            f"Case '{case.name}': missing intersection for well "
+            f"{expected_well_idx} and fractures {expected_frac_idxs}."
+        )
+        np.testing.assert_allclose(coord, expected_coord, atol=TOL, err_msg=case.name)
+
+    # For the points that belong to no fractures, check that they are present in the
+    # result and that the well index is correct.
+    covered = []
+    for ind in empty_fracture_list:
+        coord = expected[ind][0]
+        for res_coord, _, well_idx, frac_idxs, _ in result:
+            if set(frac_idxs) == set() and np.allclose(res_coord, coord, atol=TOL):
+                assert well_idx == expected[ind][1], (
+                    f"Case '{case.name}': unexpected well index for well kink at "
+                    f"intersection at {coord}."
+                )
+                covered.append(ind)
+                break
+    assert len(covered) == len(empty_fracture_list), (
+        f"Case '{case.name}': expected {len(empty_fracture_list)} points related to, "
+        f"multisegment wells, got {len(covered)}."
+    )
 
 
 def _expected_meshing_intersections(
     case: IntersectionCase,
 ) -> list[tuple[np.ndarray, int, list[int]]]:
+    """Translate the expected intersection results for a given case into the format
+    used for meshing tests.
+    """
     if case.name in BASIC_GEOMETRY_EXPECTED:
         return BASIC_GEOMETRY_EXPECTED[case.name]
     if case.name in MULTI_WELL_EXPECTED:
@@ -536,24 +546,19 @@ def _expected_meshing_intersections(
     if case.name in MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED:
         coord, fracture_indices = MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED[case.name]
         return [(coord, 0, sorted(fracture_indices))]
-    if case.name in NO_INTERSECTION_CASE_NAMES:
+    if case.name in NO_INTERSECTION_EXPECTED:
         return []
     raise ValueError(f"No meshing expectations configured for case '{case.name}'.")
 
 
-def _assert_intersection_meshing(
+def _generate_mesh_make_assertions(
     case: IntersectionCase,
     expected: list[tuple[np.ndarray, int, list[int]]],
 ) -> None:
 
     nd = _infer_dimension_from_fractures(case.fractures)
 
-    box = {
-        "xmin": -5.0,
-        "xmax": 5.0,
-        "ymin": -5.0,
-        "ymax": 5.0,
-    }
+    box = {"xmin": -5.0, "xmax": 5.0, "ymin": -5.0, "ymax": 5.0}
     if nd == 3:
         box["zmin"] = -5.0
         box["zmax"] = 5.0
@@ -642,6 +647,9 @@ def _assert_intersection_meshing(
     )
 
 
+# ----- Region: Tests for well-fracture intersection identification -----
+
+
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
 def test_intersect_well_fractures_basic_geometries(case: IntersectionCase) -> None:
     """
@@ -677,8 +685,10 @@ def test_intersect_well_fractures_basic_geometries(case: IntersectionCase) -> No
         Coordinates are compared using a numerical tolerance.
 
     """
-    result = _run_case(case)
-    _assert_case_result(case, result, BASIC_GEOMETRY_EXPECTED[case.name])
+    result = _find_intersections(case)
+    _assert_intersection_detection_result(
+        case, result, BASIC_GEOMETRY_EXPECTED[case.name]
+    )
 
 
 @pytest.mark.parametrize("case", NO_INTERSECTION_CASES, ids=lambda case: case.name)
@@ -688,7 +698,7 @@ def test_well_intersects_no_fractures(case: IntersectionCase) -> None:
 
     """
 
-    result = _run_case(case)
+    result = _find_intersections(case)
 
     assert len(result) == 0, (
         f"Case '{case.name}': expected no intersections, got {result}."
@@ -702,8 +712,8 @@ def test_single_fracture_intersected_by_multiple_wells(case: IntersectionCase) -
 
     """
 
-    result = _run_case(case)
-    _assert_case_result(case, result, MULTI_WELL_EXPECTED[case.name])
+    result = _find_intersections(case)
+    _assert_intersection_detection_result(case, result, MULTI_WELL_EXPECTED[case.name])
 
 
 @pytest.mark.parametrize("case", SHARED_INTERSECTION_CASES, ids=lambda case: case.name)
@@ -717,7 +727,7 @@ def test_well_intersects_shared_fracture_intersection_in_3d(
 
     """
 
-    result = _run_case(case)
+    result = _find_intersections(case)
 
     assert len(result) == 1, (
         f"Case '{case.name}': expected exactly one same-point multi-fracture "
@@ -725,7 +735,7 @@ def test_well_intersects_shared_fracture_intersection_in_3d(
     )
 
     expected_coord, expected_fracture_indices = SHARED_INTERSECTION_EXPECTED[case.name]
-    coord = _find_intersection(
+    coord = _coordinate_from_result(
         result,
         well_index=0,
         fracture_indices=expected_fracture_indices,
@@ -745,53 +755,61 @@ def test_2d_multiple_fractures_same_point():
 
     """
     case = MULTIPLE_FRACTURES_SAME_POINT_2D_CASES
-    result = _run_case(case)
+    result = _find_intersections(case)
 
     assert len(result) == 1
     expected_coord, expected_fracture_indices = (
         MULTIPLE_FRACTURES_SAME_POINT_2D_EXPECTED[case.name]
     )
-    coord = _find_intersection(result, 0, expected_fracture_indices)
+    coord = _coordinate_from_result(result, 0, expected_fracture_indices)
     assert coord is not None
     np.testing.assert_allclose(coord, expected_coord, atol=TOL)
+
+
+# ----- Region: Tests for meshing of well-fracture intersections -----
 
 
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
 def test_basic_geometry_meshing(case: IntersectionCase) -> None:
     """Test basic geometry meshing for well-fracture intersections."""
-
-    _assert_intersection_meshing(case, BASIC_GEOMETRY_EXPECTED[case.name])
+    _generate_mesh_make_assertions(case, BASIC_GEOMETRY_EXPECTED[case.name])
 
 
 @pytest.mark.parametrize("case", NO_INTERSECTION_CASES, ids=lambda case: case.name)
 def test_no_intersection_meshing(case: IntersectionCase) -> None:
     """Test meshing for cases where the well does not intersect any fracture."""
-
-    _assert_intersection_meshing(case, _expected_meshing_intersections(case))
+    _generate_mesh_make_assertions(case, _expected_meshing_intersections(case))
 
 
 @pytest.mark.parametrize("case", MULTI_WELL_CASES, ids=lambda case: case.name)
 def test_multi_well_meshing(case: IntersectionCase) -> None:
     """Test meshing for cases where multiple wells intersect the fracture network."""
-
-    _assert_intersection_meshing(case, _expected_meshing_intersections(case))
+    _generate_mesh_make_assertions(case, _expected_meshing_intersections(case))
 
 
 @pytest.mark.parametrize("case", SHARED_INTERSECTION_CASES, ids=lambda case: case.name)
 def test_shared_intersection_meshing(case: IntersectionCase) -> None:
-    """Test meshing for cases where one well hits a shared fracture intersection."""
+    """Test meshing for cases where one well hits a shared fracture intersection.
 
+    If there are more than two fractures sharing the intersection point (that is, this
+    is a codimension-3 intersection), the test is expected to raise a
+    NotImplementedError because this has not yet been implemented in the meshing code.
+
+    """
     expected = _expected_meshing_intersections(case)
     if len(expected[0][2]) > 2:
         with pytest.raises(NotImplementedError):
-            _assert_intersection_meshing(case, _expected_meshing_intersections(case))
+            _generate_mesh_make_assertions(case, _expected_meshing_intersections(case))
     else:
-        _assert_intersection_meshing(case, expected)
+        _generate_mesh_make_assertions(case, expected)
 
 
 def test_2d_multiple_fractures_same_point_meshing() -> None:
-    """Test meshing for a 2D well crossing a shared fracture intersection point."""
+    """Test meshing for a 2D well crossing a shared fracture intersection point.
 
+    This has not yet been implemented, so the test is expected to raise a
+    NotImplementedError.
+    """
     case = MULTIPLE_FRACTURES_SAME_POINT_2D_CASES
     with pytest.raises(NotImplementedError):
-        _assert_intersection_meshing(case, _expected_meshing_intersections(case))
+        _generate_mesh_make_assertions(case, _expected_meshing_intersections(case))
