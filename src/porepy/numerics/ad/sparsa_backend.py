@@ -21,6 +21,7 @@ the function's analytic derivative); all composition + assembly is done by spars
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -28,6 +29,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+
+logger = logging.getLogger(__name__)
 
 # lower the replay Program to a compiled (numba) kernel with a baked global scatter.
 # On by default; set SPARSA_COMPILED=0 to force the Python register-machine replay (used for
@@ -390,9 +393,8 @@ def _build_bundle(ops, equation_system, state, mdg, sparsa):
         if tag[0] != "reg":
             raise _CompileUnsupported("equation root is not variable-dependent")
         out_regs.append(tag[1])
-    bundle = _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const, baked)
-    bundle.compiled = _try_compile(bundle, state, mdg, sparsa)
-    return bundle
+    # Compiled kernels are built lazily, per matrix-structure signature, in _replay.
+    return _Bundle(rec.build(out_regs), tape.layout, var_leaves, surr, const, baked)
 
 
 def _build_leaves(bundle, state, mdg, sparsa):
