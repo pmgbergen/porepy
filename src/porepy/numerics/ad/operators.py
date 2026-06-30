@@ -912,6 +912,16 @@ class Operator:
             if self.operation == Operations.void or len(self.children) == 0:
                 raise ValueError("Base class operator must represent an operation.")
             tmp = [self.operation.value] + [child._key() for child in self.children]
+            # An ``evaluate`` node wraps a numerical function (operator function /
+            # surrogate factory) whose identity is NOT captured by the operation and
+            # children alone. Two DIFFERENT functions evaluated on the SAME arguments
+            # would otherwise produce identical keys, hash equal and compare equal, and
+            # collide in operator caches (e.g. ``cached_method`` returning the wrong
+            # cached operator -- this silently breaks the buoyancy flux when saturations /
+            # partial fractions are represented as surrogate functions). The operator
+            # name of an evaluate node encodes the function identity, so include it.
+            if self.operation == Operations.evaluate:
+                tmp.append(f"func={self.name}")
             self._cached_key = " ".join(tmp)
         return self._cached_key
 

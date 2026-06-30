@@ -121,17 +121,35 @@ def _sat_denominator(z_oil, z_gas):
     )
 
 
+def _clip_to_simplex(z_oil, z_gas):
+    """Project the overall fractions onto the valid simplex ``z_oil, z_gas >= 0`` and
+    ``z_oil + z_gas <= 1`` (so ``z_water = 1 - z_oil - z_gas >= 0``).
+
+    With ``z`` on the simplex the three derived phase saturations are guaranteed to form a
+    valid partition -- each in ``[0, 1]`` and summing to 1, *including* the by-unity water
+    saturation ``s_water = 1 - s_oil - s_gas``.  Clipping ``s_oil`` / ``s_gas``
+    independently does NOT guarantee this: when a Newton iterate strays off the simplex
+    the two clipped saturations can sum to more than 1, making ``s_water`` negative.
+    Clipping the evaluation here prevents the incorrect (negative) saturations.
+    """
+    z_oil = np.clip(z_oil, 0.0, 1.0)
+    z_gas = np.clip(z_gas, 0.0, 1.0)
+    total = z_oil + z_gas
+    scale = np.where(total > 1.0, 1.0 / np.maximum(total, 1.0e-30), 1.0)
+    return z_oil * scale, z_gas * scale
+
+
 def oil_saturation_func(*deps):
-    z_oil, z_gas = deps[2], deps[3]
+    z_oil, z_gas = _clip_to_simplex(deps[2], deps[3])
     nc = len(z_oil)
-    vals = np.clip((z_oil * rho_g * rho_w) / _sat_denominator(z_oil, z_gas), 1.0e-16, 1.0)
+    vals = np.clip((z_oil * rho_g * rho_w) / _sat_denominator(z_oil, z_gas), 0.0, 1.0)
     return vals, np.zeros((len(deps), nc))
 
 
 def gas_saturation_func(*deps):
-    z_oil, z_gas = deps[2], deps[3]
+    z_oil, z_gas = _clip_to_simplex(deps[2], deps[3])
     nc = len(z_oil)
-    vals = np.clip((z_gas * rho_o * rho_w) / _sat_denominator(z_oil, z_gas), 1.0e-16, 1.0)
+    vals = np.clip((z_gas * rho_o * rho_w) / _sat_denominator(z_oil, z_gas), 0.0, 1.0)
     return vals, np.zeros((len(deps), nc))
 
 
@@ -139,7 +157,9 @@ def _chi(active: bool):
     def f(*deps):
         nc = len(deps[0])
         vals = (np.ones(nc) if active else np.zeros(nc))
-        return np.clip(vals, 1.0e-16, 1.0), np.zeros((len(deps), nc))
+        # Clip to [0, 1] (not [eps, 1]) so the by-unity reference partial fraction
+        # x_ref = 1 - sum(others) also stays non-negative.
+        return np.clip(vals, 0.0, 1.0), np.zeros((len(deps), nc))
     return f
 
 
@@ -549,7 +569,7 @@ params = {
     # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
     # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
     # importable in the active environment (pip install -e on the sparsa repo).
-    "ad_backend": "native",
+    "ad_backend": "sparsa",
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
