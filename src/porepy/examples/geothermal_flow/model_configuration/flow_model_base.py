@@ -1290,7 +1290,12 @@ class FlowModelBase(FlowTemplate):
                     self.linear_system = self.equation_system.assemble()
 
         t_1 = time.time()
-        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+        mode = (
+            "Jacobian + residual"
+            if (iteration_num % 2 == 0 or iteration_num < 10)
+            else "residual only"
+        )
+        logger.info(f"Assembled {mode} in {t_1 - t_0:.2e} seconds.")
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
