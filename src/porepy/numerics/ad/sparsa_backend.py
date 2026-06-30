@@ -21,6 +21,7 @@ the function's analytic derivative); all composition + assembly is done by spars
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from typing import Any
@@ -254,7 +255,7 @@ def _finalize(ad, layout, equation_system, sparsa):
 # ---------------------------------------------------------------------------------------
 class _Bundle:
     __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves", "baked",
-                 "compiled_cache", "compile_enabled", "cap_logged")
+                 "compiled_cache", "compile_enabled", "cap_logged", "sig_cache")
 
     def __init__(self, program, layout, var_leaves, surrogates, const_leaves, baked):
         self.program = program          # sparsa.Program (compiled structure + sparsity)
@@ -271,6 +272,10 @@ class _Bundle:
         self.compiled_cache: dict[bytes, Any] = {}
         self.compile_enabled = _USE_COMPILED
         self.cap_logged = False
+        # Per-leaf structure-digest cache, keyed by index-array identity: a re-parsed FIXED
+        # matrix returns the same arrays (O(1) reuse); only re-discretized (upwind) matrices
+        # get fresh arrays and are re-hashed. reg -> (indptr_obj, indices_obj, digest).
+        self.sig_cache: dict[int, tuple] = {}
 
 
 def _combine_compile(op, kids, rec, surr, sparsa):
@@ -423,15 +428,31 @@ def _structure_signature(bundle, leaves) -> bytes:
     """A key over the nonzero PATTERN of every re-parsed sparse leaf matrix. Constant for
     fixed discretizations (TPFA/MPFA/divergence/projections); changes when an upwind matrix
     flips an upstream cell. Two replays with the same signature have identical Jacobian
-    structure, so a compiled kernel built for one is exact for the other."""
-    parts: list[bytes] = []
+    structure, so a compiled kernel built for one is exact for the other.
+
+    A re-parsed FIXED matrix returns the very same ``indptr``/``indices`` arrays each replay,
+    so its per-leaf digest is cached by array identity and reused in O(1) (no re-hash of the
+    large MPFA/TPFA patterns). Only re-discretized matrices (upwind) get fresh arrays and are
+    re-hashed -- those are small. Holding the cached array refs keeps identities unambiguous.
+    """
+    cache = bundle.sig_cache
+    h = hashlib.blake2b(digest_size=16)
     for _op, reg in bundle.const_leaves:
         v = leaves.get(reg)
-        if sps.issparse(v):
-            v = v.tocsr()
-            parts.append(v.indptr.tobytes())
-            parts.append(v.indices.tobytes())
-    return b"".join(parts)
+        if not sps.issparse(v):
+            continue
+        v = v.tocsr()
+        ent = cache.get(reg)
+        if ent is not None and ent[0] is v.indptr and ent[1] is v.indices:
+            digest = ent[2]
+        else:
+            hh = hashlib.blake2b(digest_size=16)
+            hh.update(np.ascontiguousarray(v.indptr))
+            hh.update(np.ascontiguousarray(v.indices))
+            digest = hh.digest()
+            cache[reg] = (v.indptr, v.indices, digest)
+        h.update(digest)
+    return h.digest()
 
 
 def _compiled_for(bundle, leaves, sparsa):
