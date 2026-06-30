@@ -254,7 +254,7 @@ def _finalize(ad, layout, equation_system, sparsa):
 # ---------------------------------------------------------------------------------------
 class _Bundle:
     __slots__ = ("program", "layout", "var_leaves", "surrogates", "const_leaves", "baked",
-                 "compiled_cache", "compile_enabled")
+                 "compiled_cache", "compile_enabled", "cap_logged")
 
     def __init__(self, program, layout, var_leaves, surrogates, const_leaves, baked):
         self.program = program          # sparsa.Program (compiled structure + sparsity)
@@ -270,6 +270,7 @@ class _Bundle:
         # if the program turns out not to be lowerable (then always the Python replay).
         self.compiled_cache: dict[bytes, Any] = {}
         self.compile_enabled = _USE_COMPILED
+        self.cap_logged = False
 
 
 def _combine_compile(op, kids, rec, surr, sparsa):
@@ -444,17 +445,27 @@ def _compiled_for(bundle, leaves, sparsa):
     if cp is not None:
         return cp
     if len(bundle.compiled_cache) >= _COMPILE_CACHE_CAP:
+        if not bundle.cap_logged:
+            bundle.cap_logged = True
+            logger.info(
+                "sparsa: matrix-structure pattern cache cap (%d) reached; new patterns "
+                "use the Python replay. Raise SPARSA_COMPILE_CACHE_CAP if assembly is slow.",
+                _COMPILE_CACHE_CAP)
         return None  # too many distinct patterns -> stop compiling, stay correct via replay
     try:
         cp = sparsa.compile_program(bundle.program, leaves)
         cp.compile_assembly(bundle.layout)
-    except sparsa.UnsupportedProgram:
+    except sparsa.UnsupportedProgram as err:
         bundle.compile_enabled = False  # a construct we cannot lower -> never retry
+        logger.info("sparsa: program not lowerable (%s); using the Python replay.", err)
         return None
-    except Exception:  # pragma: no cover - never let compilation break the solve
+    except Exception as err:  # pragma: no cover - never let compilation break the solve
         bundle.compile_enabled = False
+        logger.warning("sparsa: compilation failed (%r); using the Python replay.", err)
         return None
     bundle.compiled_cache[sig] = cp
+    logger.debug("sparsa: compiled a new matrix-structure pattern (#%d).",
+                 len(bundle.compiled_cache))
     return cp
 
 
