@@ -178,6 +178,26 @@ class GmshSurface(GmshEntity):
         return points, inds
 
 
+class PointsOnGmshEntities:
+    """Helper class to store points on Gmsh entities and their corresponding indices."""
+
+    def __init__(self, entities: list[GmshEntity]) -> None:
+        points, inds = [], []
+        for entity in entities:
+            loc_points, loc_inds = entity.points_on_entity()
+            points.extend(loc_points)
+            inds.extend(loc_inds)
+
+        if len(points) == 0:
+            self.points = np.array([], dtype=int)
+        else:
+            self.points = np.array([p for p in points], dtype=int)
+
+        """Array of point coordinates."""
+        self.inds = inds
+        """List of Gmsh indices."""
+
+
 def fragment(
     first: list[GmshEntity], second: list[GmshEntity]
 ) -> tuple[list[GmshEntity], list[GmshEntity]]:

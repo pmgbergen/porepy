@@ -8,22 +8,18 @@ from pathlib import Path
 from typing import Optional, NamedTuple, TYPE_CHECKING
 
 from .wells_3d import Well
-from .gmsh_interface import PhysicalNames, GmshEntity, GmshLine, fragment
+from .gmsh_interface import (
+    PhysicalNames,
+    GmshEntity,
+    GmshLine,
+    fragment,
+    PointsOnGmshEntities,
+)
 from scipy import sparse as sps
 
 
 if TYPE_CHECKING:
     from porepy.fracs.fracture_network import FractureNetwork
-
-
-class WellFractureIntersection(NamedTuple):
-    """Container class to store representation between a well and a fracture."""
-
-    coord: np.ndarray
-    index: int
-    well_index: int
-    fracture_index: list[int]
-    gmsh_index: int
 
 
 class WellNetwork3d:
@@ -120,7 +116,7 @@ class WellNetwork3d:
         self,
         fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
         nd: int,
-    ) -> tuple[list[WellFractureIntersection], list[GmshEntity], list[GmshEntity]]:
+    ) -> tuple[list[_WellFractureIntersection], list[GmshEntity], list[GmshEntity]]:
         wells = self.wells
         if not gmsh.is_initialized():
             gmsh.initialize()
@@ -135,7 +131,8 @@ class WellNetwork3d:
 
         return (
             _intersections_from_points(
-                _PointsOnEntities(well_entities), _PointsOnEntities(fracture_entities)
+                PointsOnGmshEntities(well_entities),
+                PointsOnGmshEntities(fracture_entities),
             ),
             well_entities,
             fracture_entities,
@@ -267,7 +264,7 @@ def _export_fractures_to_gmsh(
 
 def _intersections_from_points(
     well_points: _PointsOnEntities, fracture_points: _PointsOnEntities
-) -> list[WellFractureIntersection]:
+) -> list[_WellFractureIntersection]:
     # Combine intersections with the same point and well indices - these will
     # correspond to intersections between the well and a fracture intersection line
     # or point.
@@ -277,11 +274,11 @@ def _intersections_from_points(
 
     all_points = common_points | kink_points
 
-    merged_intersections: list[WellFractureIntersection] = []
+    merged_intersections: list[_WellFractureIntersection] = []
     for ind, ((pi, wi), fi_set) in enumerate(all_points.items()):
         coord = gmsh.model.get_bounding_box(0, pi)[:3]
         merged_intersections.append(
-            WellFractureIntersection(
+            _WellFractureIntersection(
                 coord=coord,
                 index=ind,
                 well_index=wi,
@@ -294,7 +291,7 @@ def _intersections_from_points(
 
 
 def _generate_well_mesh(
-    intersections: list[WellFractureIntersection],
+    intersections: list[_WellFractureIntersection],
     wells: list[GmshEntity],
     mesh_args: dict,
 ) -> pp.MixedDimensionalGrid:
@@ -344,7 +341,7 @@ def _add_well_subdomains(
 def _add_well_fracture_interfaces(
     mdg: pp.MixedDimensionalGrid,
     well_mdg: pp.MixedDimensionalGrid,
-    intersections: list[WellFractureIntersection],
+    intersections: list[_WellFractureIntersection],
     orig_0d_domain_id: list[int],
     tol: float,
 ) -> None:
@@ -484,7 +481,7 @@ def _well_kink_points(
 
 
 def _set_physical_names(
-    intersections: list[WellFractureIntersection], wells: list[GmshEntity]
+    intersections: list[_WellFractureIntersection], wells: list[GmshEntity]
 ) -> None:
     for isect in intersections:
         gmsh.model.addPhysicalGroup(
@@ -600,19 +597,18 @@ def _add_interface(
     mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
 
 
-def _merge_arrays(arrays: list[np.ndarray]) -> np.ndarray:
-    if len(arrays) > 0:
-        return np.hstack(arrays)
-    else:
-        return np.array([], dtype=int)
+class _WellFractureIntersection(NamedTuple):
+    """Container class to store representation between a well and a fracture."""
 
-
-class _PointsOnEntities:
-    def __init__(self, entities: list[GmshEntity]) -> None:
-        points, inds = [], []
-        for entity in entities:
-            loc_points, loc_inds = entity.points_on_entity()
-            points.extend(loc_points)
-            inds.extend(loc_inds)
-        self.points = _merge_arrays(points)
-        self.inds = inds
+    coord: np.ndarray
+    """Coordinates of the intersection point."""
+    index: int
+    """Index of the intersection point. Assigned in the order in which the intersection
+    points are found, used to assign physical names in the gmsh mesh."""
+    well_index: int
+    """PorePy index of the well to which the intersection point belongs."""
+    fracture_index: list[int]
+    """List of PorePy indices of the fractures to which the intersection point belongs.
+    """
+    gmsh_index: int
+    """Gmsh index of the intersection point."""
