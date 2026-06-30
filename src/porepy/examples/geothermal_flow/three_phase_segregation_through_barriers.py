@@ -546,7 +546,7 @@ params = {
     # Subset of {"saturation", "partial_fraction"}; [] reproduces the classic elimination.
     # NOTE: temperature is deliberately not included (grad(T) under MPFA, see
     # SecondaryEquations3N docstring).
-    #"substitute_as_function": ["saturation", "partial_fraction"],
+    # "substitute_as_function": ["saturation", "partial_fraction"],
     "enable_buoyancy_effects": True,
     # buoyancy scheme: "hybrid" (HU), "phase_potential" (PPU), or your simplicial-PPU
     "buoyancy_upwinding": "hybrid",

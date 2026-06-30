@@ -47,6 +47,9 @@ _USE_COMPILED = os.environ.get("SPARSA_COMPILED", "1") not in ("0", "false", "Fa
 # iterates typically cycle through a small, stabilizing set of upwind patterns -> cache hits.
 _COMPILE_CACHE_CAP = int(os.environ.get("SPARSA_COMPILE_CACHE_CAP", "24"))
 
+# SPARSA_TIMING=1 logs a per-assemble breakdown (leaf-building vs compiled kernel) at INFO.
+_TIMING = os.environ.get("SPARSA_TIMING", "0") not in ("0", "false", "False")
+
 
 def _require_sparsa():
     try:
@@ -491,6 +494,8 @@ def _compiled_for(bundle, leaves, sparsa):
 
 
 def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
+    if _TIMING:
+        return _replay_timed(bundle, equation_system, state, mdg, sparsa, derivative)
     leaves = _build_leaves(bundle, state, mdg, sparsa)
     # Tier-2 compiled fast path: numba kernels + baked global scatter, no scipy in the loop.
     # Valid only for the exact matrix structure it was built for -> selected by signature.
@@ -509,6 +514,40 @@ def _replay(bundle, equation_system, state, mdg, sparsa, derivative):
     # residual re-assembly.
     return [ad.val if isinstance(ad, sparsa.LocalAd)
             else np.atleast_1d(np.asarray(ad, dtype=float)) for ad in outs]
+
+
+def _replay_timed(bundle, equation_system, state, mdg, sparsa, derivative):
+    """Same as :func:`_replay`, but logs the per-stage breakdown (SPARSA_TIMING=1) so the
+    assembly cost can be split into PorePy leaf-building (re-discretization + surrogate
+    fetches, shared with the native path) vs the sparsa compiled kernel."""
+    import time
+    t0 = time.perf_counter()
+    leaves = _build_leaves(bundle, state, mdg, sparsa)
+    t1 = time.perf_counter()
+    cp = _compiled_for(bundle, leaves, sparsa)
+    t2 = time.perf_counter()
+    if cp is not None:
+        if derivative:
+            out = [pp.ad.AdArray(val, jac) for (val, jac) in cp.assemble(leaves)]
+        else:
+            out = [np.atleast_1d(v) for v in cp.run_values(leaves)]
+        path = "compiled"
+    else:
+        outs = bundle.program.run(leaves)
+        if derivative:
+            out = [_finalize(ad, bundle.layout, equation_system, sparsa) for ad in outs]
+        else:
+            out = [ad.val if isinstance(ad, sparsa.LocalAd)
+                   else np.atleast_1d(np.asarray(ad, dtype=float)) for ad in outs]
+        path = "replay"
+    t3 = time.perf_counter()
+    ninstr = len(cp.instrs) if cp is not None else len(bundle.program.steps)
+    logger.info(
+        "sparsa[%s,%s]: leaves(reparse+surrogates)=%.3fs  compile/lookup=%.3fs  "
+        "kernel=%.3fs  (instrs=%d, patterns=%d)",
+        path, "jac" if derivative else "res", t1 - t0, t2 - t1, t3 - t2,
+        ninstr, len(bundle.compiled_cache))
+    return out
 
 
 class SparsaParser:
