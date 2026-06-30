@@ -243,7 +243,7 @@ class TwoWells3d(SubsurfaceCuboidDomain):
         """
         return ["injection_well", "production_well"]
 
-    def set_well_network(self) -> None:
+    def set_wells(self) -> None:
         """Set the two wells.
 
         See below comment for a sketch of the setup.
@@ -285,10 +285,9 @@ class TwoWells3d(SubsurfaceCuboidDomain):
         )
         self._wells = [well_1, well_2]
 
+    def well_meshing_arguments(self) -> dict:
         mesh_size = self.params.get("well_mesh_size", {"mesh_size": 0.1 * dz})
-        self.well_network = pp.WellNetwork3d(
-            domain=self._domain, wells=self._wells, parameters=mesh_size
-        )
+        return mesh_size
 
 
 class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
