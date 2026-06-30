@@ -546,7 +546,7 @@ params = {
     # Subset of {"saturation", "partial_fraction"}; [] reproduces the classic elimination.
     # NOTE: temperature is deliberately not included (grad(T) under MPFA, see
     # SecondaryEquations3N docstring).
-    "substitute_as_function": ["saturation", "partial_fraction"],
+    #"substitute_as_function": ["saturation", "partial_fraction"],
     "enable_buoyancy_effects": True,
     # buoyancy scheme: "hybrid" (HU), "phase_potential" (PPU), or your simplicial-PPU
     "buoyancy_upwinding": "hybrid",
@@ -607,8 +607,24 @@ def report_system_size(model) -> int:
 
     substituted = list(getattr(model, "_substitution_registry", []) or [])
 
+    # AD expression-graph size: number of UNIQUE operators across all equations (the DAG
+    # the assembly walks; the parser caches by node, so this ~ the per-assemble work) and
+    # how many of them are function/surrogate ("evaluate") nodes.
+    seen, n_eval = set(), 0
+    stack = list(model.equation_system.equations.values())
+    while stack:
+        op = stack.pop()
+        if id(op) in seen:
+            continue
+        seen.add(id(op))
+        if getattr(op, "operation", None) == pp.ad.operators.Operations.evaluate:
+            n_eval += 1
+        stack.extend(op.children)
+    n_nodes = len(seen)
+
     print("=" * 74)
     print(f" System size:  ncells = {ncells}   ndof = {ndof}   unknowns/cell = {upc}")
+    print(f" AD graph:     {n_nodes} operators ({n_eval} function/surrogate nodes)")
     print(f" substitute_as_function = {model.params.get('substitute_as_function', [])}")
     print("=" * 74)
     print(f" {'variable':26s} {'ndof':>8}  {'role':32s} substitutable")
