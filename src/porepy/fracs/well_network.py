@@ -197,26 +197,8 @@ class WellNetwork3d:
                 if row[0].startswith("#"):
                     continue
                 if domain is None:
-                    if len(row) == 6:
-                        domain = pp.Domain(
-                            bounding_box={
-                                "xmin": float(row[0]),
-                                "ymin": float(row[1]),
-                                "zmin": float(row[2]),
-                                "xmax": float(row[3]),
-                                "ymax": float(row[4]),
-                                "zmax": float(row[5]),
-                            }
-                        )
-                    elif len(row) == 4:
-                        domain = pp.Domain(
-                            bounding_box={
-                                "xmin": float(row[0]),
-                                "ymin": float(row[1]),
-                                "xmax": float(row[2]),
-                                "ymax": float(row[3]),
-                            }
-                        )
+                    if len(row) in [4, 6]:
+                        domain = pp.Domain.from_numpy_array(row)
                     else:
                         raise ValueError(
                             "The first non-comment line in the csv file should contain "
