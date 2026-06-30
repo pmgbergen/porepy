@@ -1203,9 +1203,7 @@ class FractureNetwork3d(FractureNetwork):
                     "either as point sets or as elliptic shapes."
                 )
             if self.domain is not None:
-                order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-                # Write the domain bounding box.
-                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+                self.domain.to_csv(csv_writer)
 
             # write all the fractures
             for f in self.fractures:

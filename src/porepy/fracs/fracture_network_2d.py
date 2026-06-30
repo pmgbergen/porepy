@@ -773,9 +773,7 @@ class FractureNetwork2d(FractureNetwork):
                         "DOMAIN_YMAX",
                     ]
                     csv_writer.writerow(header)
-                order = ["xmin", "ymin", "xmax", "ymax"]
-                # Write the domain bounding box.
-                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+                self.domain.to_csv(csv_writer)
             if write_header:
                 header = [
                     "# FRACTURE COORDINATES",

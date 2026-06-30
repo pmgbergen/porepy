@@ -169,11 +169,7 @@ class WellNetwork3d:
 
             # Write the domain bounding box.
             if self.domain is not None:
-                if self.domain.dim == 2:
-                    order = ["xmin", "ymin", "xmax", "ymax"]
-                else:
-                    order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+                self.domain.to_csv(csv_writer)
 
             # write all the wells
             for w in self.wells:

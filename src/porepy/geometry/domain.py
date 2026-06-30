@@ -269,6 +269,23 @@ class Domain:
 
         return polytope
 
+    def to_csv(self, writer) -> None:
+        """Write the domain to a csv file.
+
+        Parameters:
+            writer: CSV writer to use for writing the domain.
+
+        """
+        if not self.is_boxed:
+            raise NotImplementedError(
+                "This function is only implemented for boxed domains."
+            )
+        if self.dim == 2:
+            order = ["xmin", "ymin", "xmax", "ymax"]
+        else:
+            order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
+        writer.writerow([self.bounding_box[o] for o in order])
+
     def _polygon_from_bounding_box(self) -> list[np.ndarray]:
         """Compute the polygon associated with a two-dimensional bounding box.
 
