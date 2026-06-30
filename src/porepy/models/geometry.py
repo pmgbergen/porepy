@@ -54,7 +54,6 @@ class ModelGeometry(pp.PorePyModel):
         # Set up well network and add wells to the mixed-dimensional grid.
         self.set_wells()
         self.set_well_network()
-        # self.add_wells_to_mdg()
 
         # Move cell centers if requested.
         self.move_cell_centers()
@@ -113,23 +112,20 @@ class ModelGeometry(pp.PorePyModel):
         self._wells: list[pp.Well] = []
 
     def set_well_network(self) -> None:
-        """Assign well network class."""
+        """Assign well network class.
+
+        Raises:
+            NotImplementedError: If the model is 2D and wells are defined.
+
+        """
         self.well_network = pp.WellNetwork3d(self._wells, domain=self._domain)
+        if len(self._wells) > 0 and self.nd == 2:
+            raise NotImplementedError(
+                "Well-fracture intersection meshing is not implemented for 2D cases."
+            )
         self.well_network.mesh(
             self.fracture_network, self.mdg, self.well_meshing_arguments()
         )
-
-    def add_wells_to_mdg(self) -> None:
-        """Add wells to the mixed-dimensional grid."""
-        if len(self._wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
 
     def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
@@ -942,7 +938,6 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Create well network and mesh.
 
         self.set_well_network()
-        self.add_wells_to_mdg()
 
     def fracture_csv_file_name(self) -> Path:
         """Name of the file used for input and output of fracture network csv files.
