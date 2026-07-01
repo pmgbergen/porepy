@@ -50,8 +50,8 @@ def test_add_one_well_with_matrix(get_mdg) -> None:
     #     known[22] = 0.08333333
     #     known[23] = 0.2
 
-    #     # Since the generation of .msh files is platform-dependent, only norm values are
-    #     # compared.
+    #     # Since the generation of .msh files is platform-dependent, only norm values
+    #     # are compared.
     #     assert np.isclose(
     #         np.linalg.norm(known),
     #         np.linalg.norm(intf.mortar_to_primary_int().toarray().flatten()),

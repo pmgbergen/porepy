@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union, NamedTuple
+from typing import Optional, Union, NamedTuple, Sequence
 from dataclasses import dataclass
 
 import gmsh
@@ -128,7 +128,7 @@ class GmshLine(GmshEntity):
             _, adjacent_points = gmsh.model.get_adjacencies(self.dim, tag)
             points.extend(adjacent_points)
         indices = [self.index] * len(points)
-        return points, indices
+        return np.array(points), indices
 
 
 class GmshSurface(GmshEntity):
@@ -181,10 +181,16 @@ class GmshSurface(GmshEntity):
 class PointsOnGmshEntities:
     """Helper class to store points on Gmsh entities and their corresponding indices."""
 
-    def __init__(self, entities: list[GmshEntity]) -> None:
+    def __init__(self, entities: Sequence[GmshEntity]) -> None:
         points, inds = [], []
         for entity in entities:
-            loc_points, loc_inds = entity.points_on_entity()
+            # The called method is duck-typed, ignore error. The comment on the next
+            # line is needed to avoid ruff autoformatting the call into a single line
+            # more than 88 characters long (it seems ruff ignores the line length limit
+            # for lines with comments).
+            loc_points, loc_inds = (  # Making ruff not format..
+                entity.points_on_entity()  # type: ignore[attr-defined]
+            )
             points.extend(loc_points)
             inds.extend(loc_inds)
 
@@ -199,8 +205,8 @@ class PointsOnGmshEntities:
 
 
 def fragment(
-    first: list[GmshEntity], second: list[GmshEntity]
-) -> tuple[list[GmshEntity], list[GmshEntity]]:
+    first: Sequence[GmshEntity], second: Sequence[GmshEntity]
+) -> tuple[Sequence[GmshEntity], Sequence[GmshEntity]]:
     """Fragment two sets of geometric entities.
 
     See the Gmsh manual for more details on the fragment operation.

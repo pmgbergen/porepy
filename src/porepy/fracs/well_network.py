@@ -5,7 +5,7 @@ import numpy as np
 import porepy as pp
 import gmsh
 from pathlib import Path
-from typing import Optional, NamedTuple, TYPE_CHECKING
+from typing import Optional, NamedTuple, TYPE_CHECKING, Sequence
 
 from .wells_3d import Well
 from .gmsh_interface import (
@@ -119,7 +119,9 @@ class WellNetwork3d:
         self,
         fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
         nd: int,
-    ) -> tuple[list[_WellFractureIntersection], list[GmshEntity], list[GmshEntity]]:
+    ) -> tuple[
+        list[_WellFractureIntersection], Sequence[GmshEntity], Sequence[GmshEntity]
+    ]:
         wells = self.wells
         if not gmsh.is_initialized():
             gmsh.initialize()
@@ -242,10 +244,14 @@ def _fractures_to_gmsh(
         return []
 
     dim = 1 if isinstance(fractures[0], pp.LineFracture) else 2
-    entities = [
-        GmshEntity(index=fracture.index, tags=[fracture.fracture_to_gmsh()], dim=dim)
-        for fracture in fractures
-    ]
+    entities = []
+    for fracture in fractures:
+        assert fracture.index is not None, "Fracture index is not set."
+        entities.append(
+            GmshEntity(
+                index=fracture.index, tags=[fracture.fracture_to_gmsh()], dim=dim
+            )
+        )
     gmsh.model.occ.synchronize()
     return entities
 
@@ -304,7 +310,7 @@ def _intersections_from_points(
         merged_intersections.append(
             _WellFractureIntersection(
                 coord=coord,
-                index=ind,
+                point_index=ind,
                 well_index=wi,
                 fracture_index=list(fi_set),
                 gmsh_index=pi,
@@ -391,7 +397,7 @@ def _well_kink_points(
 
 
 def _set_physical_names(
-    intersections: list[_WellFractureIntersection], wells: list[GmshEntity]
+    intersections: Sequence[_WellFractureIntersection], wells: Sequence[GmshEntity]
 ) -> None:
     """Set Gmsh physical names for the well-fracture intersection points and the wells.
 
@@ -404,7 +410,7 @@ def _set_physical_names(
             0,
             [isect.gmsh_index],
             -1,
-            f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.index}",
+            f"{PhysicalNames.WELL_FRACTURE_INTERSECTION_POINT.value}{isect.point_index}",
         )
 
     for well in wells:
@@ -413,7 +419,7 @@ def _set_physical_names(
         )
 
 
-def _set_mesh_size(wells: list[GmshEntity], cell_size: float) -> None:
+def _set_mesh_size(wells: Sequence[GmshEntity], cell_size: float) -> None:
     """Set the mesh size for the well entities.
 
     For now, we only allow for a single mesh size for all wells. Improvements can be
@@ -428,7 +434,7 @@ def _set_mesh_size(wells: list[GmshEntity], cell_size: float) -> None:
 
 def _generate_well_mesh(
     intersections: list[_WellFractureIntersection],
-    wells: list[GmshEntity],
+    wells: Sequence[GmshEntity],
     mesh_args: dict,
 ) -> pp.MixedDimensionalGrid:
     """Generate a mesh for the wells and the well-fracture intersection points.
@@ -450,7 +456,9 @@ def _generate_well_mesh(
     # Set physical names for later identification of objects in the mesh. Then set the
     # mesh size for the wells, and generate the mesh.
     _set_physical_names(intersections, wells)
-    _set_mesh_size(wells, mesh_args.get("cell_size"))
+    cell_size = mesh_args.get("cell_size")
+    assert cell_size is not None, "Mesh size for wells must be specified."
+    _set_mesh_size(wells, cell_size)
     gmsh.model.mesh.generate(1)
     file_name = Path("well_mesh.msh")
     gmsh.write(file_name.as_posix())
@@ -485,12 +493,12 @@ def _generate_well_mesh(
 def _add_well_fracture_interfaces(
     mdg: pp.MixedDimensionalGrid,
     well_mdg: pp.MixedDimensionalGrid,
-    intersections: list[_WellFractureIntersection],
+    intersections: Sequence[_WellFractureIntersection],
     orig_0d_domain_id: list[int],
     tol: float,
 ) -> None:
 
-    def match_point_grid(isect) -> pp.Grid:
+    def match_point_grid(isect) -> tuple[pp.Grid, bool]:
         """Match a well-fracture intersection coordinate with a 0d subdomain that
         existed
         """
@@ -720,7 +728,7 @@ class _WellFractureIntersection(NamedTuple):
 
     coord: np.ndarray
     """Coordinates of the intersection point."""
-    index: int
+    point_index: int
     """Index of the intersection point. Assigned in the order in which the intersection
     points are found, used to assign physical names in the gmsh mesh."""
     well_index: int
