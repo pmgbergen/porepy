@@ -4,6 +4,8 @@ The test coverage is somewhat patchy for now, see however additional tests (prim
 the bounding box functionality) in test_fracture_network.py.
 """
 
+import csv
+import os
 import numpy as np
 import pytest
 
@@ -202,3 +204,42 @@ def test_domain_sides_from_grid(g: pp.Grid, known: dict):
     domain_sides = pp.domain.domain_sides_from_grid(g)
     for key, val in known.items():
         assert np.all(np.where(getattr(domain_sides, key))[0] == val)
+
+
+@pytest.mark.parametrize("dim", [2, 3])
+def test_to_from_csv(dim: int):
+    """Test the Domain.to_csv and Domain.from_csv methods.
+
+    Parameters:
+        dim: The dimension of the domain to test. Should be 2 or 3.
+
+    """
+    if dim == 2:
+        domain = pp.Domain(bounding_box={"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
+    else:
+        domain = pp.Domain(
+            bounding_box={
+                "xmin": 0,
+                "xmax": 1,
+                "ymin": 0,
+                "ymax": 1,
+                "zmin": 0,
+                "zmax": 1,
+            }
+        )
+    # Write to csv
+    file_name = f"domain_{dim}d.csv"
+    with open(file_name, "w", newline="") as csv_file:
+        writer = csv.writer(csv_file, delimiter=",")
+        domain.to_csv(writer)
+    # Read from csv
+    with open(file_name, "r", newline="") as csv_file:
+        reader = csv.reader(csv_file, delimiter=",")
+        line = next(reader)
+        domain_from_csv = pp.Domain.from_numpy_array(line)
+
+    # Check that the two domains are equal
+    assert domain == domain_from_csv
+
+    # Delete the file after the test
+    os.remove(file_name)
