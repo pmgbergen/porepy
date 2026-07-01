@@ -34,13 +34,14 @@ becomes a major task.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+import gmsh
 import numpy as np
 import pytest
-from dataclasses import dataclass
 
 import porepy as pp
 from porepy.fracs.well_network import WellNetwork3d
-import gmsh
 
 # Tolerance used throughout for coordinate comparisons.
 TOL = 1e-10

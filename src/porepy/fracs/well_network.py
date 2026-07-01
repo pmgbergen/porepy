@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 import csv
-import numpy as np
-import porepy as pp
-import gmsh
 from pathlib import Path
-from typing import Optional, NamedTuple, TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, NamedTuple, Optional, Sequence
 
-from .wells_3d import Well
-from .gmsh_interface import (
-    PhysicalNames,
-    GmshEntity,
-    GmshLine,
-    fragment,
-    PointsOnGmshEntities,
-)
+import gmsh
+import numpy as np
 from scipy import sparse as sps
 
+import porepy as pp
+
+from .gmsh_interface import (
+    GmshEntity,
+    GmshLine,
+    PhysicalNames,
+    PointsOnGmshEntities,
+    fragment,
+)
+from .wells_3d import Well
 
 if TYPE_CHECKING:
     from porepy.fracs.fracture_network import FractureNetwork

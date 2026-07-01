@@ -6,6 +6,7 @@ the bounding box functionality) in test_fracture_network.py.
 
 import csv
 import os
+
 import numpy as np
 import pytest
 

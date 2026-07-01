@@ -19,6 +19,7 @@ from typing import Optional, TypeVar
 
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 from .gmsh_interface import PhysicalNames

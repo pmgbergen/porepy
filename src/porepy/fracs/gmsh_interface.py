@@ -27,8 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union, NamedTuple, Sequence
-from dataclasses import dataclass
+from typing import NamedTuple, Optional, Sequence, Union
 
 import gmsh
 import numpy as np

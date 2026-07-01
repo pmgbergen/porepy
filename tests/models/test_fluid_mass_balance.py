@@ -18,10 +18,10 @@ from __future__ import annotations
 import copy
 from typing import Literal, Optional
 
+import gmsh
 import numpy as np
 import pytest
 import scipy.sparse as sps
-import gmsh
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization

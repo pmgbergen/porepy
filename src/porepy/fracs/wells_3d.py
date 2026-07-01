@@ -16,10 +16,10 @@ mixed-dimensional grid by
 from __future__ import annotations
 
 import logging
-from typing import Iterator, Optional, NamedTuple
-
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator, NamedTuple, Optional
+
 import gmsh
 import numpy as np
 import scipy.sparse as sps
