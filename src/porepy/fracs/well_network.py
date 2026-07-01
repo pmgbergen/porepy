@@ -413,7 +413,7 @@ def _well_kink_points(
     for wi in np.unique(well_points.inds):
         ind_in_wells = np.where(well_points.inds == wi)[0]
         loc_points = well_points.points[ind_in_wells]
-        duplicate_indices = np.where(np.bincount(loc_points) > 1)[0]
+        duplicate_indices = np.where(np.bincount(loc_points) > 1)[0].astype(int)
         for p in duplicate_indices:
             if (p, wi) in well_fracture_common:
                 # This is an intersection point, so we do not want to register it as
