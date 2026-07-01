@@ -532,7 +532,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
                 if np.any(ind):
                     # Set ith component of stress on these faces.
                     values[i, ind] = (
-                        (offset + gradient[i] * depth[ind])
+                        (offset[i] + gradient[i] * depth[ind])
                         * sign
                         * boundary_grid.cell_volumes[ind]
                     )
