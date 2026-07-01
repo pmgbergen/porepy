@@ -22,6 +22,23 @@ if TYPE_CHECKING:
     from porepy.fracs.fracture_network import FractureNetwork
 
 
+class WellFractureIntersection(NamedTuple):
+    """Container class to store representation between a well and a fracture."""
+
+    coord: np.ndarray
+    """Coordinates of the intersection point."""
+    point_index: int
+    """Index of the intersection point. Assigned in the order in which the intersection
+    points are found, used to assign physical names in the gmsh mesh."""
+    well_index: int
+    """PorePy index of the well to which the intersection point belongs."""
+    fracture_index: list[int]
+    """List of PorePy indices of the fractures to which the intersection point belongs.
+    """
+    gmsh_index: int
+    """Gmsh index of the intersection point."""
+
+
 class WellNetwork3d:
     """Collection of :class:`~Well` classes with geometrical information.
 
@@ -120,8 +137,21 @@ class WellNetwork3d:
         fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
         nd: int,
     ) -> tuple[
-        list[_WellFractureIntersection], Sequence[GmshEntity], Sequence[GmshEntity]
+        list[WellFractureIntersection], Sequence[GmshEntity], Sequence[GmshEntity]
     ]:
+        """Find the intersections between the wells and the fractures.
+
+        Parameters:
+            fractures: List of fractures in the fracture network.
+            nd: Ambient dimension of the problem.
+
+        Returns:
+            intersections: List of well-fracture intersection, grouped in a tailored
+                class.
+            wells: List of GmshEntity objects corresponding to the wells.
+            fractures: List of GmshEntity objects corresponding to the fractures.
+
+        """
         wells = self.wells
         if not gmsh.is_initialized():
             gmsh.initialize()
@@ -151,8 +181,8 @@ class WellNetwork3d:
         """
         file_name = file_name.with_suffix(".csv")
 
-        # Delete the file 'csv_file' if it exists. This seems to be necessary to run
-        # tests on GH actions.
+        # Delete the file if it exists. This seems to be necessary to run tests on GH
+        # actions.
         if file_name.exists():
             file_name.unlink()
 
@@ -285,7 +315,7 @@ def _wells_to_gmsh(wells: list[Well]) -> list[GmshLine]:
 
 def _intersections_from_points(
     well_points: PointsOnGmshEntities, fracture_points: PointsOnGmshEntities
-) -> list[_WellFractureIntersection]:
+) -> list[WellFractureIntersection]:
     """From a set of points on wells and fractures, find the intersections between wells
     and fractures.
 
@@ -294,7 +324,7 @@ def _intersections_from_points(
         fracture_points: Points on fractures.
 
     Returns:
-        List of _WellFractureIntersection objects corresponding to the intersections
+        List of WellFractureIntersection objects corresponding to the intersections
         between wells and fractures.
     """
     # Find points that are shared between wells and fractures, and points that are
@@ -302,13 +332,13 @@ def _intersections_from_points(
     common_points = _match_well_and_fracture_points(well_points, fracture_points)
     kink_points = _well_kink_points(well_points, common_points)
 
-    # Loop over the union of the two sets of points, create a _WellFractureIntersection
+    # Loop over the union of the two sets of points, create a WellFractureIntersection
     # object that stores the relevant information for each point.
-    merged_intersections: list[_WellFractureIntersection] = []
+    merged_intersections: list[WellFractureIntersection] = []
     for ind, ((pi, wi), fi_set) in enumerate((common_points | kink_points).items()):
         coord = gmsh.model.get_bounding_box(0, pi)[:3]
         merged_intersections.append(
-            _WellFractureIntersection(
+            WellFractureIntersection(
                 coord=coord,
                 point_index=ind,
                 well_index=wi,
@@ -397,7 +427,7 @@ def _well_kink_points(
 
 
 def _set_physical_names(
-    intersections: Sequence[_WellFractureIntersection], wells: Sequence[GmshEntity]
+    intersections: Sequence[WellFractureIntersection], wells: Sequence[GmshEntity]
 ) -> None:
     """Set Gmsh physical names for the well-fracture intersection points and the wells.
 
@@ -433,7 +463,7 @@ def _set_mesh_size(wells: Sequence[GmshEntity], cell_size: float) -> None:
 
 
 def _generate_well_mesh(
-    intersections: list[_WellFractureIntersection],
+    intersections: list[WellFractureIntersection],
     wells: Sequence[GmshEntity],
     mesh_args: dict,
 ) -> pp.MixedDimensionalGrid:
@@ -493,7 +523,7 @@ def _generate_well_mesh(
 def _add_well_fracture_interfaces(
     mdg: pp.MixedDimensionalGrid,
     well_mdg: pp.MixedDimensionalGrid,
-    intersections: Sequence[_WellFractureIntersection],
+    intersections: Sequence[WellFractureIntersection],
     orig_0d_domain_id: list[int],
     tol: float,
 ) -> None:
@@ -750,20 +780,3 @@ def _update_well_grid_tags_and_boundary_grid(
         bg_w.num_cells = np.sum(on_domain_boundary)
         bg_w.set_projections()
         bg_w.compute_geometry()
-
-
-class _WellFractureIntersection(NamedTuple):
-    """Container class to store representation between a well and a fracture."""
-
-    coord: np.ndarray
-    """Coordinates of the intersection point."""
-    point_index: int
-    """Index of the intersection point. Assigned in the order in which the intersection
-    points are found, used to assign physical names in the gmsh mesh."""
-    well_index: int
-    """PorePy index of the well to which the intersection point belongs."""
-    fracture_index: list[int]
-    """List of PorePy indices of the fractures to which the intersection point belongs.
-    """
-    gmsh_index: int
-    """Gmsh index of the intersection point."""
