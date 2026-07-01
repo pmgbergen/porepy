@@ -103,6 +103,11 @@ class ModelGeometry(pp.PorePyModel):
             **self.meshing_kwargs(),
         )
 
+    @property
+    def wells(self) -> list[pp.Well]:
+        """Wells of the problem."""
+        return self._wells
+
     def set_wells(self) -> None:
         """Set wells in the well network.
 
