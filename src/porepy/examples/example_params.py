@@ -56,8 +56,14 @@ model_params = {
         # centroids to circumcenters in [0, 1). 0 implies no movement.
     },
     "meshing_kwargs": {},
+    "well_meshing_arguments": {
+        # Used for meshing wells.
+        "cell_size": units.convert_units(0.5, "m"),
+    },
     # Used to export the fracture network to enable later reuse. Not invoked by default.
     "fracture_csv_file_name": "fracture_network.csv",
+    # Used to export the well network to enable later reuse. Not invoked by default.
+    "well_csv_file_name": "well_network.csv",
     # Used to export the gmsh geometry and the created mesh file.
     "gmsh_file_name": "gmsh_frac_file.msh",
     # Exporting and restarting
