@@ -467,20 +467,20 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
     @property
     def lithostatic_stress_offset(self) -> np.ndarray:
-        """Return surface lithostatic stress.
+        """Return datum lithostatic stress.
 
-        Defaults to 0. For geometries below the surface, typical values
+        Defaults to 0. For geometries below the datum, typical values
         are lithostatic stress multiplier times effective overburden stress
-        at surface of the domain due to gravity.
+        at datum of the domain due to gravity.
 
         Returns:
-            Surface lithostatic stress in Pa. Default is 0 Pa.
+            Datum lithostatic stress in Pa. Default is 0 Pa.
 
         """
-        surface_lithostatic_stress = self.params.get(
-            "surface_lithostatic_stress", np.zeros(3)
+        datum_lithostatic_stress = self.params.get(
+            "datum_lithostatic_stress", np.zeros(3)
         )
-        return self.units.convert_units(surface_lithostatic_stress, units="Pa")
+        return self.units.convert_units(datum_lithostatic_stress, units="Pa")
 
     @property
     def lithostatic_stress_multipliers(self) -> np.ndarray:
@@ -552,28 +552,28 @@ class HydrostaticPressureValues(GravityMagnitude):
 
     @property
     def hydrostatic_pressure_offset(self) -> float:
-        """Return hydrostatic pressure at surface.
+        """Return hydrostatic pressure at datum.
 
         Default is atmospheric pressure, assuming the top of the domain
         corresponds to the surface of the Earth. To control the effective
-        hydrostatic pressure at the surface, set the parameter "surface_pressure"
+        hydrostatic pressure at the datum, set the parameter "datum_pressure"
         in the model parameters.
 
         Returns:
-            Surface pressure in Pa.
+            Datum pressure in Pa.
 
         """
-        surface_pressure = self.params.get("surface_pressure", pp.ATMOSPHERIC_PRESSURE)
-        return self.units.convert_units(surface_pressure, units="Pa")
+        datum_pressure = self.params.get("datum_pressure", pp.ATMOSPHERIC_PRESSURE)
+        return self.units.convert_units(datum_pressure, units="Pa")
 
     def hydrostatic_pressure(self, depth: np.ndarray) -> np.ndarray:
         r"""Compute hydrostatic pressure at given depths.
 
         The hydrostatic pressure at depth z is given by
         .. math::
-            p(z) = \rho g z + p_{atm}
+            p(z) = \rho g z + p_{offset}
         where :math:`\rho` is the fluid density, :math:`g` is the gravity acceleration,
-        and :math:`p_{atm}` is the atmospheric pressure / or surface pressure.
+        and :math:`p_{offset}` is the offset pressure.
 
         Parameters:
             depth: Array of depths at which to compute hydrostatic pressure.
