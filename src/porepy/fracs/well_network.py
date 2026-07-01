@@ -497,22 +497,46 @@ def _add_well_fracture_interfaces(
     orig_0d_domain_id: list[int],
     tol: float,
 ) -> None:
+    """Add interfaces between the well subdomains and the fracture subdomains.
 
-    def match_point_grid(isect) -> tuple[pp.Grid, bool]:
-        """Match a well-fracture intersection coordinate with a 0d subdomain that
-        existed
+    Parameters:
+        mdg: Mixed-dimensional grid to which the well subdomains will be added.
+        well_mdg: Mixed-dimensional grid containing the well subdomains.
+        intersections: List of well-fracture intersection points.
+        orig_0d_domain_id: List of original (before the introduction of well subdomains)
+            0-dimensional domain IDs.
+        tol: Geometric tolerance used in computations.
+
+    Raises:
+        NotImplementedError: If a well-fracture intersection point is located at a
+            fracture intersection point.
+
+    """
+
+    def match_point_grid(isect) -> bool:
+        """Check if the intersection point is on a 0d subdomain in the mdg.
+
+        For now, only return a boolean indicating if a matching 0d subdomain was found.
+        The function may be expanded in the future.
+
+        Parameters:
+            isect: Well-fracture intersection point.
+
+        Returns:
+            True if a matching 0d subdomain was found, False otherwise.
         """
-        # TODO: The logic here is faulty or we don't have test coverage.
         found = False
-        g_frac = None
         for sd in mdg.subdomains(dim=0):
             if sd.id in orig_0d_domain_id and np.isclose(
                 np.linalg.norm(sd.cell_centers - isect.coord), 0, atol=tol
             ):
-                g_frac = sd
-                break
+                found = True
+                # Implementation note: At this stage we have also identified the 0d
+                # subdomain in the mdg that is closest to the intersection point. This
+                # can be returned when we need to expand the function to also add
+                # well-fracture intersections in fracture intersection points.
 
-        return g_frac, found
+        return found
 
     def match_line_grid(isect, frac_inds) -> pp.Grid:
         """Identify the fracture intersection (1d) subdomain that is closest to the
@@ -588,15 +612,20 @@ def _add_well_fracture_interfaces(
             g_high = mdg.subdomains(dim=mdg.dim_max() - 1)[frac_inds[0]]
             assert g_high.frac_num == frac_inds[0]
         else:
-            # TODO: Document this carefully, and check the logic. It may be that some
-            # cases could be ruled out.
+            # We do not yet support well-fracture intersections at fracture intersection
+            # points. If we get to this point and the domain is 2d, we know that this is
+            # the case and can raise an error.
             if mdg.dim_max() == 2:
-                g_high, found = match_point_grid(isect)
-                assert found, "Intersection point not found in fracture mesh."
+                raise NotImplementedError(
+                    "Multiple fractures intersecting at a point is not implemented."
+                )
             else:  # mdg.dim_max() == 3
-                g_high, found = match_point_grid(isect)
-                if found:
-                    assert len(frac_inds) > 2
+                # We need to check if the fractures intersect at a point or along a
+                # line. If the former, we raise an error.
+                if match_point_grid(isect):
+                    raise NotImplementedError(
+                        "Multiple fractures intersecting at a point is not implemented."
+                    )
                 else:
                     g_high = match_line_grid(isect, frac_inds)
 
