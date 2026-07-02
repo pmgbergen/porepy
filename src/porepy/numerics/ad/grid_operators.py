@@ -115,18 +115,10 @@ class SubdomainProjections:
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
 
-        all_sd_space = (
-            OperatorSpace.from_domains(
-                list(self._all_subdomains), {GridEntity.cells: self.dim}
-            )
-            if self._all_subdomains
-            else None
+        all_sd_space = OperatorSpace.from_domains(
+            list(self._all_subdomains), {GridEntity.cells: self.dim}
         )
-        sub_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
-            if subdomains
-            else None
-        )
+        sub_space = OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
         return pp.ad.SparseArray(
             mat, name="CellRestriction", source=all_sd_space, target=sub_space
         )
@@ -163,18 +155,11 @@ class SubdomainProjections:
             # cells.
             mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
 
-        all_sd_space = (
-            OperatorSpace.from_domains(
-                list(self._all_subdomains), {GridEntity.cells: self.dim}
-            )
-            if self._all_subdomains
-            else None
+        all_sd_space = OperatorSpace.from_domains(
+            list(self._all_subdomains), {GridEntity.cells: self.dim}
         )
-        sub_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
-            if subdomains
-            else None
-        )
+        sub_space = OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
+
         return pp.ad.SparseArray(
             mat, name="CellProlongation", source=sub_space, target=all_sd_space
         )
@@ -212,18 +197,11 @@ class SubdomainProjections:
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
 
-        all_sd_space = (
-            OperatorSpace.from_domains(
-                list(self._all_subdomains), {GridEntity.faces: self.dim}
-            )
-            if self._all_subdomains
-            else None
+        all_sd_space = OperatorSpace.from_domains(
+            list(self._all_subdomains), {GridEntity.faces: self.dim}
         )
-        sub_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
-            if subdomains
-            else None
-        )
+        sub_space = OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
+
         return pp.ad.SparseArray(
             mat, name="FaceRestriction", source=all_sd_space, target=sub_space
         )
@@ -260,18 +238,10 @@ class SubdomainProjections:
             # faces.
             mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
 
-        all_sd_space = (
-            OperatorSpace.from_domains(
-                list(self._all_subdomains), {GridEntity.faces: self.dim}
-            )
-            if self._all_subdomains
-            else None
+        all_sd_space = OperatorSpace.from_domains(
+            list(self._all_subdomains), {GridEntity.faces: self.dim}
         )
-        sub_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
-            if subdomains
-            else None
-        )
+        sub_space = OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
         return pp.ad.SparseArray(
             mat, name="FaceProlongation", source=sub_space, target=all_sd_space
         )
@@ -810,12 +780,8 @@ class MortarProjections:
         intf_space = OperatorSpace.from_domains(
             list(self._interfaces), {GridEntity.cells: self.dim}
         )
-        sd_space = (
-            OperatorSpace.from_domains(
-                list(self._subdomains), {sd_entity: self.dim}
-            )
-            if self._subdomains
-            else None
+        sd_space = OperatorSpace.from_domains(
+            list(self._subdomains), {sd_entity: self.dim}
         )
         if to_mortar:
             op_source: Optional[OperatorSpace] = sd_space
@@ -904,13 +870,9 @@ class BoundaryProjection:
         sd_list = list(subdomains)
         self._subdomain_face_space: Optional[OperatorSpace] = (
             OperatorSpace.from_domains(sd_list, {GridEntity.faces: dim})
-            if sd_list
-            else None
         )
-        self._boundary_cell_space: Optional[OperatorSpace] = (
-            OperatorSpace.from_domains(boundary_grids, {GridEntity.cells: dim})
-            if boundary_grids
-            else None
+        self._boundary_cell_space: Optional[OperatorSpace] = OperatorSpace.from_domains(
+            boundary_grids, {GridEntity.cells: dim}
         )
 
     @property
@@ -986,15 +948,11 @@ class Trace:
         else:
             trace = [sps.csr_matrix((0, 0))]
 
-        cell_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: self.dim})
-            if subdomains
-            else None
+        cell_space = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.dim}
         )
-        face_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.faces: self.dim})
-            if subdomains
-            else None
+        face_space = OperatorSpace.from_domains(
+            subdomains, {GridEntity.faces: self.dim}
         )
         # Stack trace vertically to make them into mappings to global quantities. Wrap
         # the stacked matrices into an AD object.
@@ -1049,16 +1007,8 @@ class Divergence(Operator):
             name: Name to be assigned to the operator. Default is None.
 
         """
-        face_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.faces: dim})
-            if subdomains
-            else None
-        )
-        cell_space = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: dim})
-            if subdomains
-            else None
-        )
+        face_space = OperatorSpace.from_domains(subdomains, {GridEntity.faces: dim})
+        cell_space = OperatorSpace.from_domains(subdomains, {GridEntity.cells: dim})
         super().__init__(name=name, source=face_space, target=cell_space)
 
         self.dim: int = dim

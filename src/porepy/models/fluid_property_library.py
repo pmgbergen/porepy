@@ -120,22 +120,13 @@ class FluidDensityFromPressure(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        source = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        target = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         exp = pp.ad.Function(
             pp.ad.exp,
             "density_exponential",
-            source=source,
-            target=target,
+            source=domain_and_range,
+            target=domain_and_range,
         )
 
         # Reference variables are defined in a variables class which is assumed to be
@@ -208,18 +199,12 @@ class FluidDensityFromTemperature(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        source = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        target = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
         exp = pp.ad.Function(
-            pp.ad.exp, "density_exponential", source=source, target=target
+            pp.ad.exp,
+            "density_exponential",
+            source=domain_and_range,
+            target=domain_and_range,
         )
 
         # Reference variables are defined in a variables class which is assumed to be
@@ -1080,9 +1065,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         b_fluxes: List[pp.ad.Operator] = []
-        b_fluxes.append(
-            self.density_driven_flux(domains, pp.ad.Scalar(0.0))
-        )
+        b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
@@ -1105,9 +1088,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         b_fluxes: List[pp.ad.Operator] = []
-        b_fluxes.append(
-            self.density_driven_flux(domains, pp.ad.Scalar(0.0))
-        )
+        b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs

@@ -378,18 +378,16 @@ class DisplacementJumpAperture(DimensionReduction):
                 # non-positive values) may give significant trouble in the aperture.
                 # Insert safeguard by taking maximum of the jump and a residual
                 # aperture.
-                domain = (
-                    OperatorSpace.from_domains(subdomains_of_dim, {GridEntity.cells: 1})
-                    if subdomains_of_dim
-                    else None
-                )
-                range_ = (
-                    OperatorSpace.from_domains(subdomains_of_dim, {GridEntity.cells: 1})
-                    if subdomains_of_dim
-                    else None
+                domain_and_range = OperatorSpace.from_domains(
+                    subdomains_of_dim, {GridEntity.cells: 1}
                 )
 
-                f_max = Function(pp.ad.maximum, "maximum_function", domain, range_)
+                f_max = Function(
+                    pp.ad.maximum,
+                    "maximum_function",
+                    domain_and_range,
+                    domain_and_range,
+                )
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
                 apertures_of_dim = f_max(normal_jump + a_ref, a_ref)
@@ -1390,15 +1388,8 @@ class AdTpfaFlux(pp.PorePyModel):
 
             # Define the Ad function for the flux, including the impact of boundary
             # conditions internal and external.
-            domain = (
-                OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
-                if domains
-                else None
-            )
-            range_ = (
-                OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
-                if domains
-                else None
+            domain_and_range = OperatorSpace.from_domains(
+                domains, {GridEntity.cells: 1}
             )
             flux_p = pp.ad.Function(
                 # Mypy raises an error here since functool.partial returns a 'partial',
@@ -1409,8 +1400,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_flux_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-                domain,
-                range_,
+                domain_and_range,
+                domain_and_range,
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
             vector_source_d = Function(
@@ -1418,8 +1409,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_vector_source_discretization, base_discr
                 ),
                 "differentiable_mpfa_vector_source",
-                domain,
-                range_,
+                domain_and_range,
+                domain_and_range,
             )(t_f, vector_source_difference, vector_source_cells)
 
         else:
@@ -1505,15 +1496,8 @@ class AdTpfaFlux(pp.PorePyModel):
         if isinstance(base_discr, pp.ad.MpfaAd):
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
-            domain = (
-                OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-                if subdomains
-                else None
-            )
-            range_ = (
-                OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-                if subdomains
-                else None
+            domain_and_range = OperatorSpace.from_domains(
+                subdomains, {GridEntity.cells: 1}
             )
             boundary_value_contribution = Function(
                 # See comment in diffusive_flux method for explanation why the type
@@ -1522,8 +1506,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_bound_pressure_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-                domain,
-                range_,
+                domain_and_range,
+                domain_and_range,
             )(
                 bound_pressure_face_discr,
                 projected_internal_flux,
@@ -1998,18 +1982,14 @@ class PeacemanWellFlux(pp.PorePyModel):
         skin_factor = self.skin_factor(interfaces)
         r_e = self.equivalent_well_radius(subdomains)
 
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
-        f_log = Function(pp.ad.functions.log, "log_function_Piecmann", domain, range_)
+        f_log = Function(
+            pp.ad.functions.log,
+            "log_function_Piecmann",
+            domain_and_range,
+            domain_and_range,
+        )
 
         # We assume isotropic permeability and extract xx component.
         e_i = self.e_i(subdomains, i=0, dim=9).T
@@ -4039,25 +4019,18 @@ class ShearDilation(pp.PorePyModel):
             Cell-wise shear dilation.
 
         """
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
         f_norm = Function(
             partial(pp.ad.functions.l2_norm, self.nd - 1),
             "norm_function",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
-        f_tan = Function(pp.ad.functions.tan, "tan_function", domain, range_)
+        f_tan = Function(
+            pp.ad.functions.tan, "tan_function", domain_and_range, domain_and_range
+        )
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
             self.tangential_component(subdomains)
             @ self.plastic_displacement_jump(subdomains)
@@ -4444,18 +4417,9 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # The damage evolution coefficient is defined as the logarithm of the ratio of
         # the uniaxial compressive strength and the tangential component of the contact
         # traction.
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
-        f_log = Function(pp.ad.functions.log, "log", domain, range_)
+        f_log = Function(pp.ad.functions.log, "log", domain_and_range, domain_and_range)
 
         # Nondimensionlize, since the contact traction is nondimensionalized.
         dimensionless_strength = self.uniaxial_compressive_strength(
@@ -4486,22 +4450,13 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # contact. As used in this class, the below common factor is linear in traction.
         # Thus, the product with the log(1/traction) should indeed vanish in the limit
         # of zero traction.
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
             "clip_function",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
         t = self.normal_component(subdomains) @ f_clip(
             self.contact_traction(subdomains)
@@ -4621,21 +4576,12 @@ class FrictionDamage(pp.PorePyModel):
             Operator for nondimensionalized frictional damage.
 
         """
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
             "clip_function",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
         # Get the history variable. Guard against negative values.
         history = f_clip(self.friction_damage_history(subdomains))
@@ -4644,7 +4590,7 @@ class FrictionDamage(pp.PorePyModel):
         d0 = self.residual_friction_damage(subdomains)
 
         # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp", domain, range_)
+        f_exp = Function(pp.ad.functions.exp, "exp", domain_and_range, domain_and_range)
         one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
@@ -4730,22 +4676,13 @@ class DilationDamage(pp.PorePyModel):
             Operator for dimensionless dilation damage.
 
         """
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
             "clip_function",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
         # Get the history variable. Guard against negative values.
         history = f_clip(self.dilation_damage_history(subdomains))
@@ -4754,7 +4691,7 @@ class DilationDamage(pp.PorePyModel):
         d0 = self.residual_dilation_damage(subdomains)
 
         # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp", domain, range_)
+        f_exp = Function(pp.ad.functions.exp, "exp", domain_and_range, domain_and_range)
         one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
