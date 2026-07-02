@@ -514,12 +514,6 @@ def slow_test_buoyancy_flow_benchmark(
         ref_interp
     )
 
-    print(f"\nRelative L2 norm of saturation difference: {l2_norm:.4e}")
-    assert l2_norm < epsilon_saturation, (
-        f"L2 norm {l2_norm:.4e} exceeds tolerance {epsilon_saturation:.4e} "
-        f"for case rho_idx={rho_idx}"
-    )
-
     if run_plots:
         print(f"Plotting enabled. Saving plot for case rho_idx={rho_idx}...")
         plt.figure(figsize=(8, 5))
@@ -561,6 +555,11 @@ def slow_test_buoyancy_flow_benchmark(
         plt.close()
         print("Plot saved.")
 
+    print(f"\nRelative L2 norm of saturation difference: {l2_norm:.4e}")
+    assert l2_norm < epsilon_saturation, (
+        f"L2 norm {l2_norm:.4e} exceeds tolerance {epsilon_saturation:.4e} "
+        f"for case rho_idx={rho_idx}"
+    )
 
 @pytest.fixture
 def saturation_at_5_days():

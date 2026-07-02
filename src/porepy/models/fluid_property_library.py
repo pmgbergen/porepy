@@ -798,7 +798,7 @@ class FluidBuoyancy(pp.PorePyModel):
             Either ``"phase_potential"`` or ``"hybrid"``.
 
         """
-        scheme = self.params.get("buoyancy_upwinding", "phase_potential")
+        scheme = self.params.get("buoyancy_upwinding", "hybrid")
         if scheme not in self._valid_buoyancy_upwinding_schemes:
             raise ValueError(
                 f"Unknown buoyancy_upwinding scheme {scheme!r}. "
