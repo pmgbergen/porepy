@@ -60,10 +60,20 @@ _DELTA_RHO = 225.0
 _DT = 5.0 * _DAY / 304
 
 # Reference metrics per configuration (fractional_flow, buoyancy_upwinding), measured for
-# case 0 at CFL ~0.25. ``hybrid`` and ``phase_potential`` coincide in this pure-buoyancy
-# column (total velocity ~ 0), so they share a reference; ``fractional_flow=True`` is
-# sharper (lower L2). ``l2_tol`` bounds the relative L2 saturation error; ``iters`` is the
-# reference total Newton iteration count, asserted as an upper bound with _ITER_MARGIN.
+# case 0 at CFL ~0.25. ``fractional_flow=True`` is sharper (lower L2). ``l2_tol`` bounds
+# the relative L2 saturation error; ``iters`` is the reference total Newton iteration
+# count, asserted as an upper bound with _ITER_MARGIN.
+#
+# ``hybrid`` and ``phase_potential`` produce the SAME solution here, so they share a
+# reference. Reason: the phase-potential upwind direction is
+#     Psi_a = q_T + (rho_a - rho_mix) * G_f,
+# with q_T the total (viscous) flux and G_f the fixed-sign gravity flux on a face. In this
+# closed gravity column the counter-current segregation is volume-balanced, so q_T ~ 0 and
+# Psi_a reduces to its buoyant part. Since rho_mix is a convex combination of the phase
+# densities, sign(rho_a - rho_mix) = sign of the inter-phase buoyant direction that hybrid
+# upwinding uses; both schemes then pick the same upstream cell on every face -> identical
+# discretization. They diverge only once |q_T| exceeds the buoyant flux (appreciable
+# co-current flow), i.e. outside the window -f_delta < q_T / ((rho_g - rho_l) G_f) < f_g.
 _EXPECTED = {
     (False, "hybrid"): {"l2_tol": 4.50e-02, "iters": 915},
     (False, "phase_potential"): {"l2_tol": 4.50e-02, "iters": 915},
