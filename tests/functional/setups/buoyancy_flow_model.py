@@ -24,8 +24,18 @@ import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
 )
+
+
+def flow_template(fractional_flow: bool) -> type:
+    """Flow template selected by the ``fractional_flow`` model parameter."""
+    return (
+        CompositionalFractionalFlowTemplate
+        if fractional_flow
+        else CompositionalFlowTemplate
+    )
 
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)
@@ -423,9 +433,10 @@ class SecondaryEquations(LocalElimination):
         )
 
 
-class BaseFlowModel(
-    FlowTemplate,
-):
+class BaseFlowModel(pp.PorePyModel):
+    """Template-agnostic flow behaviour; the flow template is attached at build time
+    (see :func:`flow_template`) so ``fractional_flow`` can select it."""
+
     def __init__(self, params: dict):
         """Initialize flow model."""
         super().__init__(params)
@@ -727,16 +738,8 @@ class FlowModel2N(
         assert order(energy_loss) >= self.expected_order_loss
 
 
-class BuoyancyFlowModel2N(
-    FluidMixture2N,
-    InitialConditions2N,
-    BoundaryConditions,
-    SecondaryEquations2N,
-    FlowModel2N,
-):
-    """Complete 2N buoyancy model."""
-
-    pass
+# The concrete 2N/3N buoyancy models are assembled by :func:`buoyancy_flow_model` at the
+# end of this module, so the flow template can be selected via ``fractional_flow``.
 
 
 # constitutive description for N=3
@@ -1239,13 +1242,23 @@ class FlowModel3N(
         assert order_energy >= self.expected_order_loss
 
 
-class BuoyancyFlowModel3N(
-    FluidMixture3N,
-    InitialConditions3N,
-    BoundaryConditions,
-    SecondaryEquations3N,
-    FlowModel3N,
-):
-    """Complete 3N buoyancy model."""
+_PHASE_PARTS = {
+    2: (FluidMixture2N, InitialConditions2N, SecondaryEquations2N, FlowModel2N),
+    3: (FluidMixture3N, InitialConditions3N, SecondaryEquations3N, FlowModel3N),
+}
 
-    pass
+
+def buoyancy_flow_model(n_phases: int, fractional_flow: bool = True) -> type:
+    """Assemble the N-phase buoyancy model with the fractional_flow-selected template.
+
+    The template is attached below ``FlowModel*`` -> ``BaseFlowModel`` so ``BaseFlowModel``
+    (whose ``set_equations`` registers the buoyancy discretization parameters) precedes
+    the template's equation setters in the MRO.
+    """
+    fluid, ic, secondary, flow = _PHASE_PARTS[n_phases]
+    flow = type(flow.__name__, (flow, flow_template(fractional_flow)), {})
+    return type(
+        f"BuoyancyFlowModel{n_phases}N",
+        (fluid, ic, BoundaryConditions, secondary, flow),
+        {},
+    )

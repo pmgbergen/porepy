@@ -90,29 +90,29 @@ def _report_ad_graph_size(model: pp.PorePyModel, label: str) -> dict[str, int]:
         "num_equations": len(equations),
     }
 from tests.functional.setups.buoyancy_flow_model import (
-    BuoyancyFlowModel2N,
-    BuoyancyFlowModel3N,
     ModelGeometry2D,
     ModelGeometry3D,
     ModelMDGeometry2D,
     ModelMDGeometry3D,
+    buoyancy_flow_model,
     to_Mega,
 )
 
-# Parameterization list for both tests
+# Parameterization list for both tests: (number of phases/components, dimension, order).
 Parameterization = [
-    (BuoyancyFlowModel2N, 2, 4),
-    (BuoyancyFlowModel2N, 3, 4),
-    (BuoyancyFlowModel3N, 2, 4),
-    (BuoyancyFlowModel3N, 3, 4),
+    (2, 2, 4),
+    (2, 3, 4),
+    (3, 2, 4),
+    (3, 3, 4),
 ]
 
 
 def _run_buoyancy_model(
-    model_class: type,
+    n_phases: int,
     dim: Literal[2, 3],
     expected_order_loss: int,
     md: bool = False,
+    fractional_flow: bool = True,
 ) -> None:
     """Run buoyancy flow simulation for given parameters."""
 
@@ -121,7 +121,7 @@ def _run_buoyancy_model(
     # accumulates over the time steps (and grows with the vigour of the buoyant
     # overturning). Converging one decade below ``expected_order_loss`` keeps the residual
     # from polluting the conservation-order checks.
-    residual_tolerance = 10.0 ** (-(expected_order_loss + 0.75))
+    residual_tolerance = 10.0 ** (-(expected_order_loss + 1))
     day = 86400
     if md:
         tf = 0.5 * day
@@ -149,18 +149,19 @@ def _run_buoyancy_model(
         print_info=True,
     )
     model_params = {
-        # Fractional-flow formulation: total mass mobility is incorporated into the Darcy
-        # permeability tensor, and the buoyancy term consistently handle the explicit
-        # total-mobility factor.
-        "fractional_flow": True,
+        # fractional_flow=True -> total mass mobility is in the Darcy permeability tensor
+        # (CompositionalFractionalFlowTemplate); False -> standard formulation with an
+        # explicit total-mobility factor in the buoyancy term (CompositionalFlowTemplate).
+        "fractional_flow": fractional_flow,
         "enable_buoyancy_effects": True,
         "buoyancy_upwinding": "hybrid",
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "expected_order_loss": expected_order_loss,
     }
-    # Combine geometry with model class.
+    # Build the model with the fractional_flow-selected template, then mix in geometry.
     geometry_class = geometry2d if dim == 2 else geometry3d
+    model_class = buoyancy_flow_model(n_phases, fractional_flow)
     model_class = add_mixin(geometry_class, model_class)
     model = model_class(model_params)
     # Use a Lebesgue metric for the residual convergence criterion, since this will
@@ -186,8 +187,13 @@ def _run_buoyancy_model(
 
 
 #@pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize("model_class, dim, expected_order_loss", Parameterization)
+@pytest.mark.parametrize("fractional_flow", [True, False])
+@pytest.mark.parametrize("n_phases, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
-def test_buoyancy_model(model_class, dim: Literal[2, 3], expected_order_loss, md):
+def test_buoyancy_model(
+    n_phases, dim: Literal[2, 3], expected_order_loss, md, fractional_flow
+):
     """Test buoyancy-driven flow model (FD)."""
-    _run_buoyancy_model(model_class, dim, expected_order_loss, md=md)
+    _run_buoyancy_model(
+        n_phases, dim, expected_order_loss, md=md, fractional_flow=fractional_flow
+    )
