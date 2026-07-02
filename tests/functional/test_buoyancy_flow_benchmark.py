@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 from abc import abstractmethod
-from typing import Any, Callable, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,43 +26,81 @@ import porepy as pp
 from porepy.applications.test_utils import reference_arrays_buoyancy_discretization
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
 )
 
+_DAY = 86400.0  # seconds
 
-@pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize(
-    "rho_idx, delta_rho, epsilon_saturation",
-    [
-        (0, 225.0, 3.85e-02),
-        (1, 450.0, 4.39e-02),
-        (2, 900.0, 5.61e-02),
-    ],
-)
-# EK: This test is too computationally intensive to be run even among the skipped tests.
-# It is kept as an invaluable reference for future changes to the buoyancy model.
-def slow_test_buoyancy_flow_benchmark(
-    rho_idx, delta_rho, epsilon_saturation, saturation_at_5_days
-):
+
+def flow_template(fractional_flow: bool) -> type:
+    """Return the CF flow template matching the ``fractional_flow`` flag.
+
+    The fractional-flow template (``CompositionalFractionalFlowTemplate``) installs
+    fractional-flow boundary conditions that *require* ``fractional_flow=True`` -- they
+    raise ``CompositionalModellingError`` otherwise -- so template and flag must agree.
+    ``False`` selects the standard ``CompositionalFlowTemplate``.
     """
-    Tests the gravitational segregation of two immiscible fluids.
+    return (
+        CompositionalFractionalFlowTemplate
+        if fractional_flow
+        else CompositionalFlowTemplate
+    )
 
-    This test runs a 3D simulation of two-phase flow in a vertical column
-    under the effect of gravity. It is parameterized to run for three different
-    density contrasts between the two fluids.
 
-    The test validates the numerical results by comparing the final saturation
-    profile against a reference analytical solution from Hayek, M., et al. (2009),
-    "An analytical solution for one-dimensional, two-phase, immiscible flow in a
-    porous medium," published in Advances in Water Resources.
+# For each density contrast, ``dt`` targets a worst-case gravity CFL of ~0.25 while
+# dividing tf = 5 days exactly (dx = 0.005 m):
+#   v_max  = K/(phi*mu) * max_s|d/ds (kr_w kr_g / (kr_w + kr_g))| * delta_rho * g
+#   n_crit = v_max * tf / dx  (75.8 / 151.7 / 303.4);  n_steps = 4 * n_crit -> CFL ~ 0.25.
+# Since v_max is linear in delta_rho, n_steps doubles with delta_rho.
+# Density case 0 (delta_rho = 225) at CFL ~ 0.25: n_steps = 4 * n_crit with
+# n_crit = v_max * tf / dx = 75.8 (dx = 0.005 m); dt divides tf = 5 days exactly.
+_RHO_IDX = 0
+_DELTA_RHO = 225.0
+_DT = 5.0 * _DAY / 304
 
-    An assertion is made on the relative L2-norm of the difference between the
-    numerical and reference solutions.
+# Reference metrics per configuration (fractional_flow, buoyancy_upwinding), measured for
+# case 0 at CFL ~0.25. ``hybrid`` and ``phase_potential`` coincide in this pure-buoyancy
+# column (total velocity ~ 0), so they share a reference; ``fractional_flow=True`` is
+# sharper (lower L2). ``l2_tol`` bounds the relative L2 saturation error; ``iters`` is the
+# reference total Newton iteration count, asserted as an upper bound with _ITER_MARGIN.
+_EXPECTED = {
+    (False, "hybrid"): {"l2_tol": 4.50e-02, "iters": 915},
+    (False, "phase_potential"): {"l2_tol": 4.50e-02, "iters": 915},
+    (True, "hybrid"): {"l2_tol": 3.95e-02, "iters": 923},
+    (True, "phase_potential"): {"l2_tol": 3.95e-02, "iters": 923},
+}
+_ITER_MARGIN = 1.05  # allow the total iteration count up to 5% above its reference.
+
+
+def _run_buoyancy_case(
+    rho_idx,
+    delta_rho,
+    epsilon_saturation,
+    dt,
+    fractional_flow,
+    buoyancy_upwinding,
+    saturation_at_5_days,
+):
+    """Run one gravitational-segregation case and return its accuracy metrics.
+
+    Runs the 3D two-phase gravity-column simulation for a single density contrast and
+    discretization configuration, then compares the final saturation profile against the
+    Hayek et al. (2009) analytical reference ("An analytical solution for one-dimensional,
+    two-phase, immiscible flow in a porous medium", Advances in Water Resources).
 
     Args:
-        rho_idx (int): The index for the current test case.
-        delta_rho (float): The density difference between the light and heavy fluids.
-        epsilon_saturation (float): The tolerance for the L2-norm assertion.
+        rho_idx: Index of the density-contrast case (selects the reference profile).
+        delta_rho: Density difference between the light and heavy fluids.
+        epsilon_saturation: L2 tolerance (used by the caller's assertion, echoed here).
+        dt: Constant time step (seconds).
+        fractional_flow: Fractional-flow flag; selects the matching CF template.
+        buoyancy_upwinding: ``"hybrid"`` (HU) or ``"phase_potential"`` (PPU).
+        saturation_at_5_days: Reference saturation arrays fixture value.
+
+    Returns:
+        Tuple ``(l2_norm, total_iterations)``: the relative L2 saturation error and the
+        Newton iterations summed over all time steps.
     """
     # Check for environment variable to enable plotting
     run_plots = os.environ.get("RUN_PLOTS", "false").lower() in ("true", "1")
@@ -71,6 +109,12 @@ def slow_test_buoyancy_flow_benchmark(
     rho_l = 1000.0
     rho_g = rho_l - delta_rho
     to_Mega = 1.0e-6
+
+    # fractional_flow and buoyancy_upwinding are supplied by the caller. Select the CF
+    # template to match the flag (the fractional-flow BCs require it; see flow_template).
+    FlowTemplate = flow_template(fractional_flow)
+    # Configuration tag identifying this run in plot filenames and the L2 printout.
+    config_tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
 
     # geometry description
     class Geometry(pp.PorePyModel):
@@ -86,7 +130,7 @@ def slow_test_buoyancy_flow_benchmark(
 
     class ModelGeometry(Geometry):
         _sphere_radius: float = 0.005
-        _sphere_centre: np.ndarray = np.array([0.0025, 0.0025, 10.0])
+        _sphere_centre: np.ndarray = np.array([0.0025, 0.0025, 7.0])
 
         def set_domain(self) -> None:
             x_length = self.units.convert_units(0.005, "m")
@@ -380,8 +424,32 @@ def slow_test_buoyancy_flow_benchmark(
             return (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
 
         def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-            p_init = 10.0e6 * to_Mega
-            return np.ones(sd.num_cells) * p_init
+            # Hydrostatic initial pressure in equilibrium with the initial mixture
+            # density, anchored to p_top at the domain top (where the Dirichlet BC sits).
+            # A uniform IC leaves the whole gravity gradient unbalanced, so the first
+            # Newton step must build it in one solve -> bootstrap divergence at large dt.
+            p_top = 10.0e6 * to_Mega
+            g_val = self.units.convert_units(
+                pp.GRAVITY_ACCELERATION, "m*s^-2"
+            ) * to_Mega
+            zc = sd.cell_centers[2]
+            n = zc.size
+            if n == 0:
+                return np.zeros(0)
+            s_gas = self.ic_values_staturation(sd)
+            rho = s_gas * rho_g + (1.0 - s_gas) * rho_l  # mixture mass density
+            # Single vertical column: integrate rho * g downward from the top boundary
+            # to each cell centre (midpoint rule).
+            order = np.argsort(-zc)
+            zc_s = zc[order]
+            dz = (zc_s[0] - zc_s[-1]) / (n - 1) if n > 1 else 0.0
+            seg = np.empty(n)
+            seg[0] = 0.5 * dz  # top boundary to first cell centre
+            seg[1:] = zc_s[:-1] - zc_s[1:]
+            integ = np.cumsum(rho[order] * seg)
+            p = np.empty(n)
+            p[order] = p_top + g_val * integ
+            return p
 
         def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
             h = 1.0 + self.ic_values_overall_fraction(self.fluid.components[1], sd)
@@ -406,6 +474,12 @@ def slow_test_buoyancy_flow_benchmark(
         SecondaryEquations,
         FlowTemplate,
     ):
+        _total_iterations = 0  # Newton iterations accumulated over all time steps.
+
+        def after_nonlinear_convergence(self) -> None:
+            super().after_nonlinear_convergence()
+            self._total_iterations += self.nonlinear_solver_statistics.num_iterations
+
         def relative_permeability(
             self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
         ) -> pp.ad.Operator:
@@ -414,15 +488,8 @@ def slow_test_buoyancy_flow_benchmark(
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
-        def after_nonlinear_convergence(self) -> None:
-            super().after_nonlinear_convergence()
-            print(
-                "\nNumber of iterations: ",
-                self.nonlinear_solver_statistics.num_iterations,
-            )
-            print("Time value: ", self.time_manager.time)
-            print("Time index: ", self.time_manager.time_index)
-            print("")
+        def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
+            return pp.ad.TpfaAd(self.fourier_keyword, subdomains)
 
         def set_equations(self):
             super().set_equations()
@@ -450,7 +517,8 @@ def slow_test_buoyancy_flow_benchmark(
 
     day = 86400
     tf = 5.0 * day
-    dt = 0.02 * day
+    # dt is supplied by the parametrization: the largest constant step keeping the
+    # worst-case gravity CFL just below 1 (~0.998) while dividing tf exactly.
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
         dt_init=dt,
@@ -467,19 +535,17 @@ def slow_test_buoyancy_flow_benchmark(
         specific_heat_capacity=1000.0 * to_Mega,
     )
     material_constants = {"solid": solid_constants}
-    params = {
-        "fractional_flow": True,
+    model_params = {
+        # Selected above together with the matching template (flow_template).
+        "fractional_flow": fractional_flow,
         "enable_buoyancy_effects": True,
+        "buoyancy_upwinding": buoyancy_upwinding,
         "material_constants": material_constants,
         "time_manager": time_manager,
         "prepare_simulation": False,
-        "reduce_linear_system": False,
-        "nl_max_iterations": 25,
-        "nl_convergence_inc_atol": np.inf,
-        "nl_convergence_res_atol": 1.0e-8,
     }
 
-    model = FlowModel(params)
+    model = FlowModel(model_params)
     model.prepare_simulation()
 
     _, gas = model.fluid.phases
@@ -487,8 +553,24 @@ def slow_test_buoyancy_flow_benchmark(
         gas.saturation(model.mdg.subdomains())
     )
 
+    # Use a Lebesgue metric for the residual convergence criterion, since this will
+    # strictly bound the residual error in the mass conservation equations.
+    solver_params = {
+        # The model is prepared manually above (to read DoF/initial saturation), so the
+        # runner must not prepare it again.
+        "prepare_simulation": False,
+        "nl_convergence_criteria": {
+            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)
+            ),
+        },
+        "nl_divergence_criteria": {
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+        },
+    }
+
     print("\nTotal number of DoF: ", model.equation_system.num_dofs())
-    pp.ModelRunner(model, params).run()
+    pp.ModelRunner(model, solver_params).run()
 
     # retrieve data from fixture
     data = saturation_at_5_days[rho_idx]
@@ -551,15 +633,75 @@ def slow_test_buoyancy_flow_benchmark(
         plt.legend()
         plt.tight_layout()
 
-        plt.savefig(f"hayek_test_comparison_case_{rho_idx}.png", dpi=300)
+        plt.savefig(
+            f"hayek_test_comparison_case_{rho_idx}_{config_tag}.png", dpi=300
+        )
         plt.close()
         print("Plot saved.")
 
-    print(f"\nRelative L2 norm of saturation difference: {l2_norm:.4e}")
-    assert l2_norm < epsilon_saturation, (
-        f"L2 norm {l2_norm:.4e} exceeds tolerance {epsilon_saturation:.4e} "
-        f"for case rho_idx={rho_idx}"
+    n_steps = round(tf / dt)
+    total_iterations = model._total_iterations
+    print(
+        f"[buoyancy drho={delta_rho:.0f} {config_tag} n={n_steps} dt={dt / day:.4f}d] "
+        f"L2={l2_norm:.4e}  tol={epsilon_saturation:.2e}  iters={total_iterations}  "
+        f"{'PASS' if l2_norm < epsilon_saturation else 'FAIL'}"
     )
+    return l2_norm, total_iterations
+
+@pytest.mark.skipped  # reason: slow
+# EK: This test is too computationally intensive to be run even among the skipped tests.
+# It is kept as an invaluable reference for future changes to the buoyancy model.
+def test_buoyancy_flow_benchmark(saturation_at_5_days):
+    """Sweep the four discretization configurations for density case 0 (delta_rho=225).
+
+    For each configuration (fractional_flow x buoyancy upwinding) the case is run at
+    CFL ~0.25 and two metrics are collected into a dictionary: the relative L2 saturation
+    error against the Hayek analytical reference and the total number of Newton iterations
+    summed over all time steps. The test asserts, per configuration, that the L2 error is
+    within its tolerance and the iteration count does not exceed its reference by more
+    than _ITER_MARGIN.
+    """
+    results: dict[str, dict[str, float]] = {}
+    for (fractional_flow, buoyancy_upwinding), expected in _EXPECTED.items():
+        tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
+        l2_norm, total_iterations = _run_buoyancy_case(
+            _RHO_IDX,
+            _DELTA_RHO,
+            expected["l2_tol"],
+            _DT,
+            fractional_flow,
+            buoyancy_upwinding,
+            saturation_at_5_days,
+        )
+        results[tag] = {"l2": l2_norm, "iters": total_iterations}
+
+    print("\n===== buoyancy benchmark (case 0, delta_rho=225) =====")
+    for (fractional_flow, buoyancy_upwinding), expected in _EXPECTED.items():
+        tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
+        metrics = results[tag]
+        print(
+            f"  {tag}: L2={metrics['l2']:.4e} (tol {expected['l2_tol']:.2e})  "
+            f"iters={int(metrics['iters'])} (ref {expected['iters']})"
+        )
+
+    failures: list[str] = []
+    for (fractional_flow, buoyancy_upwinding), expected in _EXPECTED.items():
+        tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
+        metrics = results[tag]
+        if not metrics["l2"] < expected["l2_tol"]:
+            failures.append(
+                f"{tag}: L2={metrics['l2']:.4e} >= tol={expected['l2_tol']:.2e}"
+            )
+        iter_bound = int(expected["iters"] * _ITER_MARGIN)
+        if metrics["iters"] > iter_bound:
+            failures.append(
+                f"{tag}: iters={int(metrics['iters'])} > bound={iter_bound} "
+                f"(ref {expected['iters']})"
+            )
+    assert not failures, "buoyancy benchmark metrics out of range:\n" + "\n".join(
+        failures
+    )
+
 
 @pytest.fixture
 def saturation_at_5_days():
