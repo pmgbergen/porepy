@@ -116,20 +116,13 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
-        max_function = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
+        max_function = pp.ad.Function(
+            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
+        )
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells), "zeros_frac")
 
         # The complimentarity condition
@@ -211,20 +204,16 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
+        f_max = pp.ad.Function(
+            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
+        )
         f_norm = pp.ad.Function(
-            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+            domain_and_range,
         )
 
         # The numerical constant is used to loosen the sensitivity in the transition
@@ -569,28 +558,21 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         tol = self.numerical.open_state_tolerance
         # The characteristic function will evaluate to 1 if the argument is less than
         # the tolerance, and 0 otherwise.
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         f_characteristic = pp.ad.Function(
             partial(pp.ad.functions.characteristic_function, tol),
             "characteristic_function_for_zero_normal_traction",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
 
         # Composing b_p = max(friction_bound, 0).
         num_cells = sum([sd.num_cells for sd in subdomains])
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
+        f_max = pp.ad.Function(
+            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
+        )
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
@@ -715,20 +697,16 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Auxiliary functions.
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
+        f_max = pp.ad.Function(
+            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
+        )
         f_norm = pp.ad.Function(
-            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+            domain_and_range,
         )
         f_mask_by_threshold = pp.ad.Function(
             partial(
@@ -736,8 +714,8 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
                 self.numerical.open_state_tolerance,
             ),
             "mask_by_threshold_function",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
 
         # Augment the traction.

@@ -184,13 +184,10 @@ class LebesgueMetric:
             float: measure of values
 
         """
-        domain = (
-            OperatorSpace.from_domains(grids, {GridEntity.cells: 1}) if grids else None
+        domain_and_range = OperatorSpace.from_domains(grids, {GridEntity.cells: 1})
+        l2_norm = pp.ad.Function(
+            partial(pp.ad.l2_norm, dim), "l2_norm", domain_and_range, domain_and_range
         )
-        range_ = (
-            OperatorSpace.from_domains(grids, {GridEntity.cells: 1}) if grids else None
-        )
-        l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm", domain, range_)
         return np.sqrt(
             np.sum(
                 self.model.equation_system.evaluate(
