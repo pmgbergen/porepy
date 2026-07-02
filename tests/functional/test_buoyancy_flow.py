@@ -116,9 +116,12 @@ def _run_buoyancy_model(
 ) -> None:
     """Run buoyancy flow simulation for given parameters."""
 
-    # The residual tolerance for Newton should be related to the expected (requested)
-    # order loss.
-    residual_tolerance = 10.0 ** (-expected_order_loss)
+    # The residual tolerance for Newton must be *tighter* than the conservation target:
+    # the conservation loss checked below is bounded by the Newton residual, and it
+    # accumulates over the time steps (and grows with the vigour of the buoyant
+    # overturning). Converging one decade below ``expected_order_loss`` keeps the residual
+    # from polluting the conservation-order checks.
+    residual_tolerance = 10.0 ** (-(expected_order_loss + 0.75))
     day = 86400
     if md:
         tf = 0.5 * day
@@ -146,9 +149,9 @@ def _run_buoyancy_model(
         print_info=True,
     )
     model_params = {
-        # Fractional-flow formulation: total mass mobility is baked into the Darcy
-        # permeability tensor, and the buoyancy term consistently omits the explicit
-        # total-mobility factor, Now both are keyed off this single flag.
+        # Fractional-flow formulation: total mass mobility is incorporated into the Darcy
+        # permeability tensor, and the buoyancy term consistently handle the explicit
+        # total-mobility factor.
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "buoyancy_upwinding": "hybrid",
