@@ -464,10 +464,16 @@ class BaseFlowModel(
         super().__init__(params)
         self.expected_order_loss = params.get("expected_order_loss", 10)
 
+    @pp.ad.cached_method
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """kr = saturation."""
+        """kr = saturation.
+
+        Cached so every reference to a phase's relative permeability (mobility, fractional
+        mobility and buoyancy terms all pull it in) shares one operator subtree, keeping
+        the AD graph a DAG instead of duplicating the saturation subtree per use.
+        """
         return phase.saturation(domains)
 
     def set_equations(self):
@@ -485,8 +491,14 @@ class BaseFlowModel(
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
+    @pp.ad.cached_method
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Gravity magnitude field."""
+        """Gravity magnitude field.
+
+        Cached so the (constant) gravity array is built once per subdomain set and shared
+        by every consumer (Darcy vector source and each phase-pair buoyancy flux) instead
+        of allocating an identical dense array per reference.
+        """
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)

@@ -28,6 +28,67 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.models import add_mixin
+
+
+def _global_unique_ad_nodes(equations) -> int:
+    """Count unique operator nodes across *all* equations with one shared visited set.
+
+    Unlike summing :meth:`Operator.inspect` per equation, this deduplicates subtrees that
+    are shared *between* equations (e.g. a density or mobility reused by the mass, energy
+    and buoyancy equations because the constitutive laws use ``@cached_method``). It is
+    the truest measure of the assembled graph's size.
+    """
+    visited: set[int] = set()
+    stack = list(equations.values())
+    while stack:
+        node = stack.pop()
+        node_id = id(node)
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        stack.extend(node.children)
+    return len(visited)
+
+
+def _report_ad_graph_size(model: pp.PorePyModel, label: str) -> dict[str, int]:
+    """Report the size of the assembled AD operator graph.
+
+    Walks every equation registered on the model's equation system with
+    :meth:`porepy.numerics.ad.operators.Operator.inspect` (which is DAG-aware: a
+    subexpression shared across parents is counted once). Reports, per equation, the
+    sum over equations, and the *global* unique-node count (subtrees shared between
+    equations counted once), so the effect of graph-size reductions (e.g. sharing
+    subtrees via ``@cached_method``) is visible while running the test.
+
+    Parameters:
+        model: A prepared PorePy model (``prepare_simulation`` already called).
+        label: A short identifier for the model configuration, used in the printout.
+
+    Returns:
+        A dict with the per-equation node sum (``"total_nodes"``), the global unique-node
+        count (``"unique_nodes"``) and equation count (``"num_equations"``).
+
+    """
+    equations = model.equation_system.equations
+    total_nodes = 0
+    print(f"\n=== AD graph size [{label}] ===")
+    for name, eq in equations.items():
+        stats = eq.inspect(verbose=False)
+        total_nodes += stats["total_nodes"]
+        print(
+            f"  {name}: {stats['total_nodes']} nodes, "
+            f"depth {stats['max_depth']}, {len(stats['variables'])} variables"
+        )
+    unique_nodes = _global_unique_ad_nodes(equations)
+    print(
+        f"  --> {len(equations)} equations, {total_nodes} nodes summed per equation, "
+        f"{unique_nodes} globally-unique AD nodes"
+    )
+    return {
+        "total_nodes": total_nodes,
+        "unique_nodes": unique_nodes,
+        "num_equations": len(equations),
+    }
 from tests.functional.setups.buoyancy_flow_model import (
     BuoyancyFlowModel2N,
     BuoyancyFlowModel3N,
@@ -87,9 +148,10 @@ def _run_buoyancy_model(
     model_params = {
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
+        "buoyancy_upwinding": "hybrid",
+        "mass_mobility_weighted_permeability": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
-        "apply_schur_complement_reduction": False,
         "expected_order_loss": expected_order_loss,
     }
     # Combine geometry with model class.
@@ -109,10 +171,16 @@ def _run_buoyancy_model(
         },
     }
 
-    pp.ModelRunner(model, solver_params).run()
+    # Constructing the runner prepares the simulation (sets equations), so the AD graph
+    # is available for inspection before the (slow) run.
+    runner = pp.ModelRunner(model, solver_params)
+    _report_ad_graph_size(
+        model, f"{model_class.__name__} dim={dim} md={md}"
+    )
+    runner.run()
 
 
-@pytest.mark.skipped  # reason: slow
+#@pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("model_class, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
 def test_buoyancy_model(model_class, dim: Literal[2, 3], expected_order_loss, md):
