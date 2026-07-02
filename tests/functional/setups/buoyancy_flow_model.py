@@ -433,6 +433,22 @@ class SecondaryEquations(LocalElimination):
         )
 
 
+class _MemoizedSurrogateFactory(pp.ad.SurrogateFactory):
+    """SurrogateFactory returning one shared operator per domain set.
+
+    A phase property (density, enthalpy, ...) referenced many times then appears as a
+    single AD subtree instead of a rebuilt one. Bit-exact: values live in the data and
+    are re-read at parse time, so the shared operator always reflects the current state.
+    """
+
+    def __call__(self, domains):
+        cache = self.__dict__.setdefault("_op_cache", {})
+        key = tuple(domains)
+        if key not in cache:
+            cache[key] = super().__call__(domains)
+        return cache[key]
+
+
 class BaseFlowModel(pp.PorePyModel):
     """Template-agnostic flow behaviour; the flow template is attached at build time
     (see :func:`flow_template`) so ``fractional_flow`` can select it."""
@@ -441,6 +457,14 @@ class BaseFlowModel(pp.PorePyModel):
         """Initialize flow model."""
         super().__init__(params)
         self.expected_order_loss = params.get("expected_order_loss", 10)
+
+    def assign_thermodynamic_properties_to_phases(self) -> None:
+        """Memoize each phase-property surrogate so it is a single shared subtree."""
+        super().assign_thermodynamic_properties_to_phases()
+        for phase in self.fluid.phases:
+            for attr in vars(phase).values():
+                if isinstance(attr, pp.ad.SurrogateFactory):
+                    attr.__class__ = _MemoizedSurrogateFactory
 
     @pp.ad.cached_method
     def relative_permeability(

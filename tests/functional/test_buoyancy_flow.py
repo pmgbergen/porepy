@@ -180,13 +180,11 @@ def _run_buoyancy_model(
     # Constructing the runner prepares the simulation (sets equations), so the AD graph
     # is available for inspection before the (slow) run.
     runner = pp.ModelRunner(model, solver_params)
-    # _report_ad_graph_size(
-    #     model, f"{model_class.__name__} dim={dim} md={md}"
-    # )
+    _report_ad_graph_size( model, f"{model_class.__name__} dim={dim} md={md}")
     runner.run()
 
 
-@pytest.mark.skipped  # reason: slow
+# @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("fractional_flow", [True, False])
 @pytest.mark.parametrize("n_phases, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
