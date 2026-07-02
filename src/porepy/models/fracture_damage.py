@@ -423,19 +423,13 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
         u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
             time_step_index + 1
         )
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
         f_norm = pp.ad.Function(
-            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+            domain_and_range,
         )
 
         contribution = f_norm(u_t_increment)
@@ -504,17 +498,10 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         u_t_0 = u_t.previous_timestep(time_step_index)
 
         # Length is evaluated using the ramp function max(x, 0)
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        f_max = pp.ad.Function(
+            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
         )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain, range_)
         zero = pp.ad.Scalar(0.0)
         max_0 = f_max(
             tangential_to_scalar @ (m_t * u_t_0),
@@ -524,7 +511,9 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             tangential_to_scalar @ (m_t * u_t_1),
             zero,
         )
-        f_abs = pp.ad.Function(pp.ad.abs, "abs_function", domain, range_)
+        f_abs = pp.ad.Function(
+            pp.ad.abs, "abs_function", domain_and_range, domain_and_range
+        )
         contribution = f_abs(max_1 - max_0)
         # If time_step_index > 0, we can safely disregard the contribution if the
         # displacement increment is zero. Return increment for checking before adding
@@ -552,19 +541,13 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         # Compute the tangential plastic displacement jump.
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
 
-        domain = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
-        range_ = (
-            OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            if subdomains
-            else None
-        )
+        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
         # Define the functions for the norm and zero-division-safe power.
         f_norm = pp.ad.Function(
-            partial(pp.ad.l2_norm, self.nd - 1), "norm_function", domain, range_
+            partial(pp.ad.l2_norm, self.nd - 1),
+            "norm_function",
+            domain_and_range,
+            domain_and_range,
         )
         zero_tol = 1e-10 * cast(
             float,
@@ -573,8 +556,8 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         f_power = pp.ad.Function(
             partial(pp.ad.safe_power, -1, 1 / np.sqrt(self.nd - 1), zero_tol),
             "safe power",
-            domain,
-            range_,
+            domain_and_range,
+            domain_and_range,
         )
         # Compute normalized tangential displacement. First, compute the norm of the
         # displacement jump.
