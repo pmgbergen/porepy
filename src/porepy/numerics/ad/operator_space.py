@@ -126,9 +126,9 @@ class OperatorSpace:
     @classmethod
     def from_domains(
         cls,
-        domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
+        domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid] | None,
         dof_info: dict[GridEntity, int],
-    ) -> OperatorSpace:
+    ) -> OperatorSpace | None:
         """Construct an :class:`OperatorSpace` from a sequence of grids.
 
         Parameters:
@@ -145,6 +145,8 @@ class OperatorSpace:
             ValueError: If ``domains`` contains a mix of grid types.
 
         """
+        if domains is None:
+            return None
         if len(domains) == 0:
             return cls.scalar()
         grids = tuple(domains)
