@@ -205,20 +205,6 @@ def is_fractional_flow(model: pp.PorePyModel) -> bool:
     return bool(model.params.get("fractional_flow", False))
 
 
-def is_mass_mobility_weighted_permeability(model: pp.PorePyModel) -> bool:
-    """Checking the model parameters for the ``'mass_mobility_weighted_permeability'`` flag.
-
-    Parameters:
-        model: A PorePy model.
-
-    Returns:
-        True if ``model.params['mass_mobility_weighted_permeability'] == True``. Defaults
-        to False.
-
-    """
-    return bool(model.params.get("mass_mobility_weighted_permeability", False))
-
-
 def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     """Performs a log of some model parameters and properties relevant for the CF
     framework."""

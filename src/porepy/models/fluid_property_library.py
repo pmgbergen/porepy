@@ -965,7 +965,7 @@ class FluidBuoyancy(pp.PorePyModel):
         objects.
         """
         from porepy.models.compositional_flow import (
-            is_mass_mobility_weighted_permeability,
+            is_fractional_flow,
         )
 
         rho_gamma = gamma.density(domains)
@@ -976,7 +976,7 @@ class FluidBuoyancy(pp.PorePyModel):
         discr = self.hybrid_upwind_discretization(gamma, delta, domains)
         f_delta_upwind = discr.upwind_delta() @ f_delta
 
-        if is_mass_mobility_weighted_permeability(self):
+        if is_fractional_flow(self):
             lambda_upwind = None
         else:
             l_gamma = self._phase_mass_mobility(gamma, domains)
@@ -1017,7 +1017,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         """
         from porepy.models.compositional_flow import (
-            is_mass_mobility_weighted_permeability,
+            is_fractional_flow,
         )
 
         b_fluxes: List[pp.ad.Operator] = []
@@ -1046,7 +1046,7 @@ class FluidBuoyancy(pp.PorePyModel):
             advected_gamma_quantity * f_gamma
         )  # well-defined fractional flow on facets.
 
-        if is_mass_mobility_weighted_permeability(self):
+        if is_fractional_flow(self):
             b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
         else:
             b_flux_gamma_delta = (
@@ -1099,7 +1099,7 @@ class FluidBuoyancy(pp.PorePyModel):
             )
 
             # Compute interface contribution and project back to primary grid
-            if is_mass_mobility_weighted_permeability(self):
+            if is_fractional_flow(self):
                 interface_coupling_intf = (
                     gamma_interface * delta_interface
                 ) * intf_w_flux_gamma_delta
@@ -1212,9 +1212,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
             # Compute interface contribution and project back to secondary grid
             from porepy.models.compositional_flow import (
-            is_mass_mobility_weighted_permeability,
+            is_fractional_flow,
         )
-            if is_mass_mobility_weighted_permeability(self):
+            if is_fractional_flow(self):
                 interface_coupling_intf = (
                     gamma_interface * delta_interface
                 ) * intf_w_flux_gamma_delta

@@ -146,10 +146,12 @@ def _run_buoyancy_model(
         print_info=True,
     )
     model_params = {
+        # Fractional-flow formulation: total mass mobility is baked into the Darcy
+        # permeability tensor, and the buoyancy term consistently omits the explicit
+        # total-mobility factor, Now both are keyed off this single flag.
         "fractional_flow": True,
         "enable_buoyancy_effects": True,
         "buoyancy_upwinding": "hybrid",
-        "mass_mobility_weighted_permeability": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "expected_order_loss": expected_order_loss,
