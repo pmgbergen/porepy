@@ -38,6 +38,28 @@ logger = logging.getLogger(__name__)
 
 to_Mega = 1.0e-6
 
+class _CachingSurrogateFactory(pp.ad.SurrogateFactory):
+    """A ``SurrogateFactory`` that memoizes ``__call__`` per domain set.
+
+    A phase property -- notably ``phase.density`` -- is referenced by many equation builders
+    (the accumulation ``Sum_j s_j rho_j``, the mobilities, the fractional-flow density, the
+    buoyancy), and each ``phase.density(domains)`` call otherwise mints a FRESH
+    ``SurrogateOperator``. Because the AD parser keys on object identity, those structurally
+    identical duplicates are each re-evaluated -- a data fetch plus a sparse Jacobian assembly
+    over all cells -- on every assembly. Returning one shared operator per ``domains`` collapses
+    them to a single evaluation. Bit-exact: same operator, same data.
+    """
+
+    def __call__(self, domains):
+        key = tuple(id(g) for g in domains)
+        cache = self.__dict__.setdefault("_call_cache", {})
+        op = cache.get(key)
+        if op is None:
+            op = super().__call__(domains)
+            cache[key] = op
+        return op
+
+
 class FlowModelBase(FlowTemplate):
     # Trust-region state, persistent across nonlinear iterations (reset each time step).
     _trust_radius: float = None
@@ -66,6 +88,45 @@ class FlowModelBase(FlowTemplate):
             logger.warning("All linear systems will use the default direct solver instead.")
             logger.warning("To use iterative solvers, install PETSc with: pip install petsc petsc4py")
             self.use_petsc = False
+
+    # --- AD-graph dedup: cache the operator-builders SHARED across the mass / component /
+    #     energy equations. The AD parser keys on object identity (id(op)), so each equation's
+    #     ``advective_flux`` rebuilding these as fresh (structurally identical) objects makes
+    #     the parser re-evaluate the same subtree. ``@cached_method`` returns ONE shared object
+    #     per (args) -> evaluated once. Bit-exact (same operator, same math); model-level
+    #     overrides so porepy core stays untouched.
+    #     ``darcy_flux`` is the big one: ``advective_flux`` (constitutive_laws.py) calls it for
+    #     the mass flux, each component flux and the energy flux -> ~4 duplicate copies.
+    @pp.ad.cached_method
+    def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        return super().darcy_flux(domains)
+
+    @pp.ad.cached_method
+    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        return super().fluid_flux(domains)
+
+    @pp.ad.cached_method
+    def advection_weight_energy_balance(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return super().advection_weight_energy_balance(domains)
+
+    @pp.ad.cached_method
+    def advection_weight_component_mass_balance(
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return super().advection_weight_component_mass_balance(component, domains)
+
+    def density_of_phase(self, phase: pp.Phase) -> pp.ad.SurrogateFactory:
+        """Make the phase-density surrogate factory memoize its calls (retag to
+        :class:`_CachingSurrogateFactory`). ``phase.density`` is the only phase property
+        referenced many times per assembly (the diagnostic shows 12x/phase: accumulation,
+        mobilities, fractional-flow density, buoyancy); sharing one operator node per domain
+        set collapses those to a single surrogate evaluation. Bit-exact."""
+        factory = super().density_of_phase(phase)
+        if isinstance(factory, pp.ad.SurrogateFactory):
+            factory.__class__ = _CachingSurrogateFactory
+        return factory
 
     def solve_linear_system_petsc(self, A: sps.spmatrix, b: np.ndarray, preconditioner: str = "asm") -> np.ndarray:
         """
