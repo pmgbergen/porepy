@@ -60,12 +60,18 @@ class TimeDependentOperator:
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        *,
+        source: Optional[OperatorSpace],
+        target: Optional[OperatorSpace],
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            name=name, domains=domains, operation=operation, children=children
+            name=name,
+            operation=operation,
+            children=children,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
@@ -180,12 +186,17 @@ class IterativeOperator:
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        source: Optional[OperatorSpace] = None,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            name=name, domains=domains, operation=operation, children=children
+            name=name,
+            operation=operation,
+            children=children,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
@@ -312,12 +323,17 @@ class ReferenceOperator:
     def __init__(
         self,
         name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
+        source: Optional[OperatorSpace] = None,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
-            name=name, domains=domains, operation=operation, children=children
+            name=name,
+            operation=operation,
+            children=children,
+            source=source,
+            target=target,
         )
 
         self.original_operator: Operator
