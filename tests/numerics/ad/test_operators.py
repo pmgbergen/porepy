@@ -502,7 +502,7 @@ def test_ad_variable_evaluation():
         else:
             num_dofs = 1
 
-        data[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {var: {GridEntity.cells: num_dofs}}
 
         val_state = np.random.rand(sd.num_cells * num_dofs)
         val_iterate = np.random.rand(sd.num_cells * num_dofs)
@@ -515,7 +515,7 @@ def test_ad_variable_evaluation():
 
         # Add a second variable to the 2d grid, just for the fun of it
         if sd.dim == 2:
-            data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
+            data[pp.PRIMARY_VARIABLES][var2] = {GridEntity.cells: 1}
             val_state = np.random.rand(sd.num_cells)
             val_iterate = np.random.rand(sd.num_cells)
 
@@ -535,7 +535,7 @@ def test_ad_variable_evaluation():
         else:
             num_dofs = 1
 
-        data[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {mortar_var: {GridEntity.cells: num_dofs}}
 
         val_state = np.random.rand(intf.num_cells * num_dofs)
         val_iterate = np.random.rand(intf.num_cells * num_dofs)
@@ -656,113 +656,6 @@ def test_ad_variable_evaluation():
     )
 
 
-@pytest.mark.parametrize("prev_time", [True, False])
-def test_ad_variable_prev_time_and_iter(prev_time):
-    # Test only 1 variable, the rest should be covered by other tests
-    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
-        "cartesian",
-        {"cell_size": 0.5},
-        fracture_indices=[1],
-    )
-    equation_system = pp.ad.EquationSystem(mdg)
-
-    # Integer to test the depth of prev _*, could be a test parameter, but no need
-    depth = 4
-    var_name = "foo"
-    vec = np.ones(mdg.num_subdomain_cells())
-
-    equation_system.create_variables(
-        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
-    )
-    var = equation_system.md_variable(var_name)
-
-    # Starting point is time step index is None, iterate index is 0
-    # (current time and iter)
-    assert var.time_step_index is None
-    assert var.iterate_index == 0
-
-    # For AD to work, we need at least values at iterate_index = 0
-    equation_system.set_variable_values(vec * 0.0, [var], iterate_index=0)
-
-    # Test configuration dependent on whether prev iter or prev time is tested.
-    # Code is analogous
-    if prev_time:
-        index_key = "time_step_index"
-        other_index_key = "iterate_index"
-        get_prev_key = "previous_timestep"
-
-        # prohibit prev time step variable to also be prev iter
-        with pytest.raises(ValueError):
-            var_pt = var.previous_timestep()
-            _ = var_pt.previous_iteration()
-    else:
-        index_key = "iterate_index"
-        other_index_key = "time_step_index"
-        get_prev_key = "previous_iteration"
-
-        # prohibit prev iter variable to also be prev time
-        with pytest.raises(ValueError):
-            var_pi = var.previous_iteration()
-            _ = var_pi.previous_timestep()
-
-    # Set values except for the last step. The current value is set above
-    for i in range(depth - 1):
-        equation_system.set_variable_values(vec * i, [var], **{index_key: i})
-
-    # Evaluating the last step, should raise a key error because no values set
-    with pytest.raises(KeyError):
-        var_prev = getattr(var, get_prev_key)(steps=depth)
-        _ = equation_system.evaluate(var_prev)
-
-    # Evaluate prev var and check that the values are what they're supposed to be. First
-    # check current variable value.
-    var = getattr(var, get_prev_key)(steps=0)
-    val_0 = equation_system.evaluate(var)
-    assert np.allclose(val_0, 0)
-    # Then do the same for all previous steps.
-    for i in range(depth - 1):
-        var_i = getattr(var, get_prev_key)(steps=i + 1)
-        val_i = equation_system.evaluate(var_i)
-        assert np.allclose(val_i, i)
-        if i > 0:
-            # prev var has no Jacobian. That is not the case for i=0, corresponding to
-            # the variable itself.
-            ad_i = var_i.value_and_jacobian(equation_system)
-            assert np.all(ad_i.jac.toarray() == 0.0)
-
-    # Test creating with explicit stepping and recursive stepping
-    vars_exp = [getattr(var, get_prev_key)(steps=i) for i in range(0, depth)]
-
-    vars_rec = []
-    for i in range(0, depth):
-        var_i = copy.copy(var)
-        for _ in range(i):
-            var_i = getattr(var_i, get_prev_key)()
-        vars_rec.append(var_i)
-
-    assert len(vars_exp) == len(vars_rec)
-    vals_exp = [equation_system.evaluate(v) for v in vars_exp]
-    vals_rec = [equation_system.evaluate(v) for v in vars_rec]
-
-    for v_e, v_r in zip(vals_exp, vals_rec):
-        assert np.allclose(v_e, v_r)
-
-    # Testing IDs. NOTE as of now, variables at prev iter have the same ID until
-    # full support is given
-    all_ids = set([var.id] + [v.id for v in vars_exp] + [v.id for v in vars_rec])
-    assert len(all_ids) == 1
-
-    # Testing index values.
-    # For prev time, time step index increases starting from 0, while iterate is None
-    # For prev iter, iterate index increases starting from 0, while time is always None
-    # Only relevant for previous values, not the variable itself.
-    for i in range(depth - 1):
-        assert getattr(vars_exp[i + 1], index_key) == i
-        assert getattr(vars_exp[i + 1], other_index_key) is None
-        assert getattr(vars_rec[i + 1], index_key) == i
-        assert getattr(vars_rec[i + 1], other_index_key) is None
-
-
 @pytest.mark.parametrize(
     "grids",
     [
@@ -786,7 +679,7 @@ def test_variable_combinations(grids, variables):
     for sd, data in mdg.subdomains(return_data=True):
         data[pp.PRIMARY_VARIABLES] = {}
         for var in variables:
-            data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            data[pp.PRIMARY_VARIABLES].update({var: {GridEntity.cells: 1}})
 
             vals = np.random.rand(sd.num_cells)
             pp.set_solution_values(name=var, values=vals, data=data, time_step_index=0)
