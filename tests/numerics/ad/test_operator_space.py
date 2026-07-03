@@ -695,7 +695,7 @@ class TestSubdomainProjectionSpaces:
         op = proj.cell_restriction([])
         # Empty subset -> target is None
         assert op.source is not None
-        assert op.target is None
+        assert len(op.target.grids) == 0
 
     def test_cell_prolongation_spaces(self, fracture_mdg):
         mdg = fracture_mdg
@@ -750,9 +750,7 @@ class TestMortarProjectionSpaces:
         assert op.source is not None
         assert op.target is not None
         assert GridEntity.cells in op.source.dof_info  # interface cells
-        assert (
-            GridEntity.faces in op.target.dof_info
-        )  # subdomain faces (codim 1)
+        assert GridEntity.faces in op.target.dof_info  # subdomain faces (codim 1)
 
     def test_mortar_to_secondary_avg(self, fracture_mdg):
         mdg = fracture_mdg
@@ -763,9 +761,7 @@ class TestMortarProjectionSpaces:
         assert op.source is not None
         assert op.target is not None
         assert GridEntity.cells in op.source.dof_info  # interface cells
-        assert (
-            GridEntity.cells in op.target.dof_info
-        )  # subdomain cells (secondary)
+        assert GridEntity.cells in op.target.dof_info  # subdomain cells (secondary)
 
     def test_primary_to_mortar_avg(self, fracture_mdg):
         mdg = fracture_mdg
@@ -862,8 +858,8 @@ class TestTraceSpaces:
 
     def test_trace_empty(self):
         tr = pp.ad.Trace([], dim=1)
-        assert tr.trace.source is None
-        assert tr.trace.target is None
+        assert len(tr.trace.source.grids) == 0
+        assert len(tr.trace.target.grids) == 0
 
 
 class TestDivergenceSpaces:
@@ -885,8 +881,8 @@ class TestDivergenceSpaces:
 
     def test_divergence_empty(self):
         div = pp.ad.Divergence([], dim=1)
-        assert div.source is None
-        assert div.target is None
+        assert len(div.source.grids) == 0
+        assert len(div.target.grids) == 0
 
     @pytest.mark.parametrize("dim", [2, 3])
     def test_divergence_vector_field_dof_info(self, dim):

@@ -123,19 +123,17 @@ class Mpsa(Discretization):
     ) -> dict[pp.ad.GridEntity, int]:
         """Return row DOF info for the named Mpsa matrix.
 
-        All Mpsa matrices have ``nd`` DOFs per face in their rows (stress/traction
-        vectors live on faces).
-
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"stress"``).
-            nd: Spatial dimension; determines the number of DOFs per face.
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            ``{GridEntity.faces: nd}`` for all recognised keys, ``{}`` otherwise.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
-
         recognised = {
             "stress",
             "bound_stress",
@@ -143,7 +141,7 @@ class Mpsa(Discretization):
             "bound_displacement_face",
         }
         if matrix_key in recognised:
-            return {GridEntity.faces: nd}
+            return {pp.ad.GridEntity.faces: nd}
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for Mpsa discretization."
         )
@@ -157,18 +155,19 @@ class Mpsa(Discretization):
             matrix_key: Attribute-name fragment (e.g. ``"stress"``).
             nd: Spatial dimension.
 
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
 
         mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "stress": {GridEntity.cells: nd},
-            "bound_stress": {GridEntity.faces: nd},
-            "bound_displacement_cell": {GridEntity.cells: nd},
-            "bound_displacement_face": {GridEntity.faces: nd},
+            "stress": {pp.ad.GridEntity.cells: nd},
+            "bound_stress": {pp.ad.GridEntity.faces: nd},
+            "bound_displacement_cell": {pp.ad.GridEntity.cells: nd},
+            "bound_displacement_face": {pp.ad.GridEntity.faces: nd},
         }
         if matrix_key in mapping:
             return mapping[matrix_key]
