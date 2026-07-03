@@ -879,7 +879,9 @@ def model_setup_gravity(
             # Angle of zero means force vector of [0, -1]
             values[1] = self.units.convert_units(-np.cos(gravity_angle), "m*s^-2")
             values[0] = self.units.convert_units(np.sin(gravity_angle), "m*s^-2")
-            source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="gravity force")
+            source = pp.wrap_as_dense_ad_array(
+                values.ravel("F"), name="gravity force", grids=grids
+            )
             return source
 
         def _bound_sides(

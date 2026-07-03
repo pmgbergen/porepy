@@ -347,7 +347,7 @@ class DifferentiableTpfa:
             fracture_faces = np.hstack(is_internal)
 
         return pp.wrap_as_dense_ad_array(
-            fracture_faces, name="internal_boundary_filter"
+            fracture_faces, name="internal_boundary_filter", grids=subdomains
         )
 
     def tip_filter(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
@@ -376,7 +376,7 @@ class DifferentiableTpfa:
         else:
             tip_faces = np.hstack(is_tip)
 
-        return pp.wrap_as_dense_ad_array(tip_faces, name="tip_filter")
+        return pp.wrap_as_dense_ad_array(tip_faces, name="tip_filter", grids=subdomains)
 
     def _block_diagonal_grid_property_matrix(
         self,
@@ -725,7 +725,9 @@ class DifferentiableTpfa:
             sgn_unique[is_int] = 0
             bnd_sgn.append(sgn_unique)
 
-        return pp.wrap_as_dense_ad_array(np.hstack(bnd_sgn), name="boundary_sign")
+        return pp.wrap_as_dense_ad_array(
+            np.hstack(bnd_sgn), name="boundary_sign", grids=subdomains
+        )
 
     def nd_to_3d(
         self,

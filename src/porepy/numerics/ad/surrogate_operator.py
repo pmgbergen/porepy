@@ -510,7 +510,9 @@ class SurrogateFactory:
 
         # This is for completeness reasons, when calling equations on empty list
         if len(domains) == 0:
-            return pp.wrap_as_dense_ad_array(np.zeros((0,)), name=self.name)
+            return pp.wrap_as_dense_ad_array(
+                np.zeros((0,)), name=self.name, grids=domains
+            )
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
             return pp.ad.TimeDependentDenseArray(self.name, domains)

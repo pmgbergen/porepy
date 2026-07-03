@@ -158,7 +158,7 @@ class UnitTestAdTpfaFlux(
         test function.
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
 
         nc = sum([sd.num_cells for sd in subdomains])
         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -199,7 +199,9 @@ class UnitTestAdTpfaFlux(
         )
 
         return (
-            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
+            pp.wrap_as_dense_ad_array(
+                all_vals, name="Constant_permeability_component", grids=subdomains
+            )
             + cell_0_permeability
             + cell_1_permeability
         )
@@ -216,7 +218,7 @@ class UnitTestAdTpfaFlux(
         """
         arr = self.params["vector_source"]
 
-        v = pp.wrap_as_dense_ad_array(arr, name="Vector_source")
+        v = pp.wrap_as_dense_ad_array(arr, name="Vector_source", grids=subdomains)
         return v
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -616,7 +618,7 @@ class DiffTpfaGridsOfAllDimensions(
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor, the y-component depends on pressure."""
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
 
         nc = sum([sd.num_cells for sd in subdomains])
         # K is a second order tensor having nd^2 entries per cell. 3d:
@@ -634,7 +636,9 @@ class DiffTpfaGridsOfAllDimensions(
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
 
         return (
-            pp.wrap_as_dense_ad_array(all_vals, name="Constant_permeability_component")
+            pp.wrap_as_dense_ad_array(
+                all_vals, name="Constant_permeability_component", grids=subdomains
+            )
             + e_yy @ self.pressure(subdomains) ** 2
         )
 
@@ -730,7 +734,7 @@ class WithDiffTpfa(
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant permeability tensor."""
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
 
         nc = sum([sd.num_cells for sd in subdomains])
         tensor_dim = 3**2
@@ -741,7 +745,7 @@ class WithDiffTpfa(
         all_vals[8::tensor_dim] = 1
 
         return pp.wrap_as_dense_ad_array(
-            all_vals, name="Constant_permeability_component"
+            all_vals, name="Constant_permeability_component", grids=subdomains
         )
 
 
