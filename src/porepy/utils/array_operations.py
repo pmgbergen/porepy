@@ -642,7 +642,7 @@ def uniquify_point_set(points: np.ndarray, tol: float):
             points=points,
             sorted_idx=sorted_idx,
             cluster_start=cluster_start,
-            cluster_size=cluster_size,
+            cluster_size=int(cluster_size),
             tol=tol,
         )
         # Number of unique points in the cluster.
