@@ -6,7 +6,7 @@ from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollect
 
 @dataclass
 class NonlinearSolverStatus(ABC):
-    """A status object used to indicate the NewtonSolver (or LinearSolver) state. This
+    """A status object used to indicate the NewtonSolver state. This
     is an enum of two allowed states: either success or failure. Each state can have
     data associated with it. `NonlinearSolverStatusConverged` and
     `NonlinearSolverStatusFailed` can be subclassed to (i) introduce specific cases of
@@ -39,6 +39,7 @@ class NonlinearSolverStatusConverged(NonlinearSolverStatus):
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
+    num_nonlinear_iterations: int
 
     def serialize(self) -> str:
         return "successful"
@@ -50,6 +51,7 @@ class NonlinearSolverStatusFailed(NonlinearSolverStatus):
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
+    num_nonlinear_iterations: int
 
     def serialize(self) -> str:
         return "failed"

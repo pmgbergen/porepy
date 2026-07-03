@@ -15,6 +15,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusHistory,
 )
 from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
@@ -54,7 +55,7 @@ class DummySubdomain:
 
 def nonlinear_solver_status(
     status: Literal["converged", "failed"],
-) -> NonlinearSolverStatusConverged | NonlinearSolverStatusFailed:
+) -> NonlinearSolverStatus:
     """Create a nonlinear solver status for the tests."""
     if status == "converged":
         status_type = NonlinearSolverStatusConverged
@@ -63,6 +64,7 @@ def nonlinear_solver_status(
     else:
         raise ValueError(status)
     return status_type(
+        num_nonlinear_iterations=2,
         convergence_statuses=ConvergenceStatusCollection(),
         divergence_statuses=ConvergenceStatusCollection(),
     )
@@ -276,12 +278,14 @@ def test_solver_statistics_initialization():
     assert stats.simulation_status == TimeStepperStatusContinueIterating(
         attempt=-1,
         nonlinear_solver_status=NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
     )
     assert stats.simulation_status_history == []
     assert stats.solver_status == NonlinearSolverStatusConverged(
+        num_nonlinear_iterations=2,
         convergence_statuses=ConvergenceStatusCollection(),
         divergence_statuses=ConvergenceStatusCollection(),
     )

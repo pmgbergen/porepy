@@ -155,7 +155,6 @@ from porepy.models.model_runner import (
     run_time_dependent_model,
     run_stationary_model,
 )
-from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatus,

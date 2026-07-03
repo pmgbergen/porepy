@@ -20,13 +20,14 @@ from porepy.numerics.nonlinear.nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from porepy.numerics.nonlinear.nonlinear_solver_utils import summarize_solver_status
+from porepy.numerics.nonlinear.nonlinear_solvers import _summarize_solver_status
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.viz import solver_statistics
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
 
@@ -37,6 +38,7 @@ def time_step_success() -> TimeStepperStatusSuccess:
         time=1.0,
         dt=0.5,
         nonlinear_solver_status=NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
@@ -47,6 +49,7 @@ def time_step_failure() -> TimeStepperStatusFailure:
     """Create a failed time-step status for statistics tests."""
     return TimeStepperStatusFailure(
         nonlinear_solver_status=NonlinearSolverStatusFailed(
+            num_nonlinear_iterations=2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
@@ -59,6 +62,7 @@ def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
     return TimeStepperStatusContinueIterating(
         attempt=0,
         nonlinear_solver_status=NonlinearSolverStatusFailed(
+            num_nonlinear_iterations=2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
@@ -120,12 +124,18 @@ class MockModel:
         nonlinear_increment_history=None,
         residual_history=None,
         path=None,
+        is_nonlinear: bool = True,
     ):
-        self.nonlinear_solver_statistics = pp.NonlinearSolverStatistics(path=path)
+        self.nonlinear_solver_statistics = (
+            solver_statistics.SolverStatisticsFactory.create_statistics_type(
+                nonlinear=is_nonlinear, time_dependent=False
+            )(path=path)
+        )
         self.equation_system = MockEquationSystem()
         self.mdg = MockMdg()
         self.nonlinear_increment_history = nonlinear_increment_history
         self.residual_history = residual_history
+        self._is_nonlinear = is_nonlinear
 
     def before_nonlinear_loop(self):
         self.nonlinear_solver_statistics.increase_index()
@@ -155,7 +165,7 @@ class MockModel:
         return False
 
     def _is_nonlinear_problem(self):
-        return True
+        return self._is_nonlinear
 
 
 class TimeDependentMockModel(MockModel):
@@ -690,14 +700,16 @@ def test_summarize_solver_status(
     # Minimal mimicking of loop.
     model.nonlinear_solver_statistics.solver_status_history = [
         NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
     ]
 
-    solver_status = summarize_solver_status(
+    solver_status = _summarize_solver_status(
         ConvergenceStatusCollection({"convergence": convergence_status}),
         ConvergenceStatusCollection({"divergence": divergence_status}),
+        num_iterations=2,
     )
 
     # Check that the returned simulation status matches expected value.
@@ -914,3 +926,51 @@ def test_integration_nonlinear_iteration_count(num_iterations):
             len(model.nonlinear_solver_statistics.convergence_info[key])
             == num_iterations
         )
+
+
+@pytest.mark.parametrize("is_nonlinear", [False, True])
+def test_linear_nonlinear_model(is_nonlinear: bool):
+    """Tests that the nonlinear solver performs a single iteration if the problem is
+    linear, which is equivalent to a single linear solve. It then returns success
+    despite the nonlinear residual is still large (we don't want it to check it for a
+    linear problem).
+
+    """
+    model = MockModel(
+        # Residual is not small after the first iteration!
+        nonlinear_increment_history=[10, 0.05, 1e-22],
+        residual_history=[5, 0.02, 1e-23],
+        is_nonlinear=is_nonlinear,
+    )
+
+    # Creating a nonlinear solver with default convergence criteria. They must be
+    # different for nonlinear and linear cases.
+    solver = pp.NewtonSolver(is_nonlinear_problem=is_nonlinear, params=None)
+    status = solver.solve(model)
+    assert isinstance(status, NonlinearSolverStatusConverged)
+
+    # The solver will do 1 iteration for a linear problem and 3 for a nonlinear one.
+    expected_num_iterations = 3 if is_nonlinear else 1
+    assert status.num_nonlinear_iterations == expected_num_iterations
+
+
+@pytest.mark.xfail(
+    reason="This reproduces a bug https://github.com/pmgbergen/porepy/issues/1713.",
+    strict=True,
+)
+def test_linear_solver_fails():
+    """Creates a linear problem and a solver for it. The solver returns nans after the
+    first iteration. The solver must return failure status.
+
+    This test is marked as failing. If you are working on this issue, you should make
+    this test passing and remove the "xfail" decorator.
+
+    """
+    model = MockModel(
+        nonlinear_increment_history=[np.nan],
+        residual_history=[np.nan],
+        is_nonlinear=False,
+    )
+    solver = pp.NewtonSolver(is_nonlinear_problem=False, params=None)
+    status = solver.solve(model)
+    assert status.is_failed(), "Must return failure, but returns success instead."

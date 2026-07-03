@@ -71,6 +71,7 @@ class SolverStatistics:
     """Number of domains in each dimension."""
     solver_status: NonlinearSolverStatus = field(
         default_factory=lambda: NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=-1,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
@@ -82,6 +83,7 @@ class SolverStatistics:
         default_factory=lambda: TimeStepperStatusContinueIterating(
             attempt=-1,
             nonlinear_solver_status=NonlinearSolverStatusConverged(
+                num_nonlinear_iterations=-1,
                 convergence_statuses=ConvergenceStatusCollection(),
                 divergence_statuses=ConvergenceStatusCollection(),
             ),

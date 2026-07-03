@@ -6,9 +6,7 @@ import logging
 import warnings
 from abc import ABC
 from dataclasses import dataclass
-from typing import Optional
-
-import numpy as np
+from typing import Optional, cast
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
@@ -142,14 +140,9 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
 class ModelRunner:
     """Class for running PorePy models according to their configurations.
 
-    Sets the outer solver, linear or nonlinear, depending on `model._is_nonlinear`. In
-    the nonlinear case the solver can be customized by providing a solver type as
-    ``params["nonlinear_solver"]``.
-
     If ``params["prepare_simulation"]`` is ``True`` (default), calls the respective
     method during initialization. Otherwise it assumes it was already called **before**
     instantiating the runner.
-
 
     :meth:`~ModelRunner.run` runs the simulation, stationary or time dependent,
     depending on ``model.is_time_dependent.`
@@ -159,6 +152,11 @@ class ModelRunner:
         params: Parameters related to the solution procedure. Defaults to None.
         time_stepper: The object corresponding for making a single time step. Passing
             None (default) initializes the default PorePy time stepper.
+        nonlinear_solver: The solver for the discretized problem described by the PorePy
+            model). Passing None (default) initializes the default nonlinear solver with
+            a default set of convergence / divergence criteria. The default solver
+            may exploit model's linearity and apply shortcuts for it (e.g. avoid
+            expensive convergence checks).
 
     """
 
@@ -167,15 +165,13 @@ class ModelRunner:
         model: SolutionStrategy,
         params: Optional[dict] = None,
         time_stepper: Optional[TimeStepper] = None,
+        nonlinear_solver: Optional[pp.NewtonSolver] = None,
     ) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
 
         self.model = model
         """Model instance passed at instantiation."""
-
-        self.solver: pp.NewtonSolver | pp.LinearSolver
-        """Solver instance, set in :meth:`set_solver`."""
 
         # Construct the default if not provided. This time stepper is constructed even
         # for a stationary problem, but used only for time-dependent problems.
@@ -194,28 +190,15 @@ class ModelRunner:
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
 
-        self.set_solver()
+        self.solver: pp.NewtonSolver = _extract_nonlinear_solver_from_params(
+            nonlinear_solver=nonlinear_solver,
+            params=self.params,
+            is_nonlinear_problem=self._is_nonlinear,
+        )
+        """Solver instance."""
 
         if self._is_time_dependent:
             self.init_time_progressbar()
-
-    def set_solver(self) -> None:
-        """Choose between linear and non-linear solver and set :attr:`solver`.
-
-        Custom nonlinear solvers can be used by providing a solver type
-        as ``params["nonlinear_solver"]``. The default nonlinear solver is
-        :class:`~porepy.numerics.nonlinear.nonlinear_solvers.NewtonSolver`.
-
-        If the model is linear, sets :attr:`solver` to an instance of
-        :class:`~porepy.numerics.linear_solvers.LinearSolver`.
-
-        """
-        if self._is_nonlinear:
-            self.solver = self.params.get("nonlinear_solver", pp.NewtonSolver)(
-                self.params
-            )
-        else:
-            self.solver = pp.LinearSolver(self.params)
 
     def init_time_progressbar(self) -> None:
         """Initializes the a progressbar for logging according to
@@ -332,3 +315,38 @@ class ModelRunner:
     def _progressbar_postfix(self) -> str:
         """Formats a progressbar postfix string with dt."""
         return f"Δt={self.model.time_manager.dt:.1e}"
+
+
+def _extract_nonlinear_solver_from_params(
+    nonlinear_solver: Optional[pp.NewtonSolver],
+    params: dict,
+    is_nonlinear_problem: bool,
+) -> pp.NewtonSolver:
+    """A nonlinear solver may be passed directly or in the parameters dictionary. This
+    function extracts it and ensures it is not passed twice. If nothing is passed, it
+    constructs a default solver.
+
+    Parameters:
+        nonlinear_solver: A nonlinear solver from user.
+        params: A dictionary that may contain a key "nonlinear_solver".
+        is_nonlinear_solver: Used to construct a default solver.
+
+    """
+    solver_from_params = params.get("nonlinear_solver", None)
+    if solver_from_params is not None and nonlinear_solver is None:
+        logger.warning(
+            "You should pass the nonlinear solver directly to the ModelRunner: use "
+            "ModelRunner(nonlinear_solver=...). Passing it through params will be "
+            "deprecated."
+        )
+        return cast(pp.NewtonSolver, solver_from_params)
+    if solver_from_params is not None and nonlinear_solver is not None:
+        raise ValueError(
+            "You cannot pass the nonlinear solver both directly to the ModelRunner and "
+            "through params."
+        )
+
+    if nonlinear_solver is None:
+        return pp.NewtonSolver(is_nonlinear_problem=is_nonlinear_problem, params=params)
+    else:
+        return nonlinear_solver

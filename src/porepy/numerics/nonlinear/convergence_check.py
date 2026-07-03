@@ -144,6 +144,13 @@ ConvergenceInfo = float | dict[str, float]
 ConvergenceInfoCollection = dict[str, ConvergenceInfo]
 """Collection of convergence information for a collection of criteria."""
 
+ConvergenceMetricType = Callable[[np.ndarray], float | dict]
+"""Type annotation for a convergence metric function. It takes an array and returns
+either a single float or a dictionary of keys (e.g. equation / variable names) to float
+values.
+
+"""
+
 
 class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
     """Collection of convergence information with list at the leafs."""
@@ -292,7 +299,7 @@ class AbsoluteCriterion:
     def __init__(
         self,
         tol: float,
-        metric: Callable[[np.ndarray], ConvergenceInfo],
+        metric: ConvergenceMetricType,
     ) -> None:
         self.tol = tol
         """Tolerance for convergence - criterion in active if set to `np.inf`."""
@@ -365,7 +372,7 @@ class RelativeCriterion:
     def __init__(
         self,
         tol: float,
-        metric: Callable[[np.ndarray], ConvergenceInfo],
+        metric: ConvergenceMetricType,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.tol = tol
@@ -506,7 +513,7 @@ class CombinedCriterion:
         self,
         atol: float,
         rtol: float,
-        metric: Callable[[np.ndarray], ConvergenceInfo],
+        metric: ConvergenceMetricType,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.atol = atol
