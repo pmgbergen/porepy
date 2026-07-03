@@ -69,18 +69,17 @@ class FVElliptic(Discretization):
     ) -> dict[pp.ad.GridEntity, int]:
         """Return row DOF info for the named FVElliptic matrix.
 
-        All matrices produced by FVElliptic-based discretizations have one row per
-        face (and one DOF per face).
-
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"flux"``).
-            nd: Spatial dimension (unused for FVElliptic; all matrices are scalar).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            ``{GridEntity.faces: 1}`` for all recognised keys, ``{}`` otherwise.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
 
         recognised = {
             "flux",
@@ -91,7 +90,7 @@ class FVElliptic(Discretization):
             "bound_pressure_vector_source",
         }
         if matrix_key in recognised:
-            return {GridEntity.faces: 1}
+            return {pp.ad.GridEntity.faces: 1}
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for FVElliptic discretization."
         )
@@ -103,24 +102,23 @@ class FVElliptic(Discretization):
 
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"flux"``).
-            nd: Spatial dimension.  Used only for ``"vector_source"`` and
-                ``"bound_pressure_vector_source"`` which have ``nd`` DOFs per cell
-                (gravity components).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
 
         mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "flux": {GridEntity.cells: 1},
-            "bound_flux": {GridEntity.faces: 1},
-            "bound_pressure_cell": {GridEntity.cells: 1},
-            "bound_pressure_face": {GridEntity.faces: 1},
-            "vector_source": {GridEntity.cells: nd},
-            "bound_pressure_vector_source": {GridEntity.cells: nd},
+            "flux": {pp.ad.GridEntity.cells: 1},
+            "bound_flux": {pp.ad.GridEntity.faces: 1},
+            "bound_pressure_cell": {pp.ad.GridEntity.cells: 1},
+            "bound_pressure_face": {pp.ad.GridEntity.faces: 1},
+            "vector_source": {pp.ad.GridEntity.cells: nd},
+            "bound_pressure_vector_source": {pp.ad.GridEntity.cells: nd},
         }
         if matrix_key in mapping:
             return mapping[matrix_key]

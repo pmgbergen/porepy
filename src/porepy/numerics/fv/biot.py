@@ -30,6 +30,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.ad._grid_entity import GridEntity
 
 from . import _fvutils
 
@@ -134,19 +135,20 @@ class Biot(pp.Mpsa):
             matrix_key: Attribute-name fragment (e.g. ``"scalar_gradient"``).
             nd: Spatial dimension.
 
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
 
         biot_row_mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "displacement_divergence": {GridEntity.cells: 1},
-            "bound_displacement_divergence": {GridEntity.cells: 1},
-            "scalar_gradient": {GridEntity.faces: nd},
-            "consistency": {GridEntity.cells: 1},
-            "bound_pressure": {GridEntity.faces: nd},
+            "displacement_divergence": {pp.ad.GridEntity.cells: 1},
+            "bound_displacement_divergence": {pp.ad.GridEntity.cells: 1},
+            "scalar_gradient": {pp.ad.GridEntity.faces: nd},
+            "consistency": {pp.ad.GridEntity.cells: 1},
+            "bound_pressure": {pp.ad.GridEntity.faces: nd},
         }
         if matrix_key in biot_row_mapping:
             return biot_row_mapping[matrix_key]
@@ -164,19 +166,20 @@ class Biot(pp.Mpsa):
             matrix_key: Attribute-name fragment (e.g. ``"scalar_gradient"``).
             nd: Spatial dimension.
 
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
+
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
 
         biot_col_mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            "displacement_divergence": {GridEntity.cells: nd},
-            "bound_displacement_divergence": {GridEntity.faces: nd},
-            "scalar_gradient": {GridEntity.cells: 1},
-            "consistency": {GridEntity.cells: 1},
-            "bound_pressure": {GridEntity.cells: 1},
+            "displacement_divergence": {pp.ad.GridEntity.cells: nd},
+            "bound_displacement_divergence": {pp.ad.GridEntity.faces: nd},
+            "scalar_gradient": {pp.ad.GridEntity.cells: 1},
+            "consistency": {pp.ad.GridEntity.cells: 1},
+            "bound_pressure": {pp.ad.GridEntity.cells: 1},
         }
         if matrix_key in biot_col_mapping:
             return biot_col_mapping[matrix_key]

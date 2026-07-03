@@ -49,12 +49,16 @@ class HybridDualVEM:
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        return {}
+        """Placeholder method. This functionality is not supported for HybridDualVEM."""
+        raise NotImplementedError("HybridDualVEM does not provide row DOF information.")
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        return {}
+        """Placeholder method. This functionality is not supported for HybridDualVEM."""
+        raise NotImplementedError(
+            "HybridDualVEM does not provide column DOF information."
+        )
 
     def matrix_rhs(self, g, data):
         """

@@ -48,12 +48,20 @@ class DualScalarSource(Discretization):
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        return {}
+        """Placeholder method. This functionality is not supported for
+        DualScalarSource."""
+        raise NotImplementedError(
+            "DualScalarSource does not provide row DOF information."
+        )
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        return {}
+        """Placeholder method. This functionality is not supported for
+        DualScalarSource."""
+        raise NotImplementedError(
+            "DualScalarSource does not provide column DOF information."
+        )
 
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
