@@ -188,7 +188,7 @@ class DimensionReduction(pp.PorePyModel):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[])
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
 
         # The implementation here is not perfect, but it seems to be what is needed
@@ -200,7 +200,7 @@ class DimensionReduction(pp.PorePyModel):
 
         for i, sd in enumerate(subdomains):
             # First make the local aperture array.
-            a_loc = pp.wrap_as_dense_ad_array(self.grid_aperture(sd))
+            a_loc = pp.wrap_as_dense_ad_array(self.grid_aperture(sd), grids=[sd])
             # Expand to a global array.
             a_glob = projection.cell_prolongation([sd]) @ a_loc
             if i == 0:
@@ -230,7 +230,7 @@ class DimensionReduction(pp.PorePyModel):
 
         """
         if len(grids) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=[])
 
         if isinstance(grids[0], pp.MortarGrid):
             # For interfaces, the specific volume is inherited from the
@@ -270,6 +270,7 @@ class DimensionReduction(pp.PorePyModel):
                 1,
                 size=sum(g.num_cells for g in grids),
                 name="specific_volume_boundary_grids",
+                grids=grids,
             )
             return specific_volume
 
@@ -353,7 +354,10 @@ class DisplacementJumpAperture(DimensionReduction):
         # For the matrix, use unitary aperture in SI units, then convert to the model's
         # units.
         one = pp.wrap_as_dense_ad_array(
-            self.units.convert_units(1, "m"), size=num_cells_nd_subdomains, name="one"
+            self.units.convert_units(1, "m"),
+            size=num_cells_nd_subdomains,
+            name="one",
+            grids=nd_subdomains,
         )
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
@@ -405,7 +409,9 @@ class DisplacementJumpAperture(DimensionReduction):
                         # Wells. Aperture is given by well radius.
                         radii = [self.grid_aperture(sd) for sd in well_subdomains]
                         well_apertures = pp.wrap_as_dense_ad_array(
-                            np.hstack(radii), name="well apertures"
+                            np.hstack(radii),
+                            name="well apertures",
+                            grids=well_subdomains,
                         )
                         apertures = (
                             apertures
@@ -489,7 +495,9 @@ class DisplacementJumpAperture(DimensionReduction):
                 average_weights[nonzero] = 1 / average_weights[nonzero]
                 # Wrap as a DenseArray
                 divide_by_num_neighbors = pp.wrap_as_dense_ad_array(
-                    average_weights, name="average_weights"
+                    average_weights,
+                    name="average_weights",
+                    grids=parent_and_this_dim_subdomains,
                 )
 
                 # Project apertures from the parents and divide by the number of
@@ -540,7 +548,7 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0)
+            return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
         basis = self.basis(subdomains, 9)
         diagonal_indices = [0, 4, 8]
         permeability = pp.ad.sum_operator_list(
@@ -624,7 +632,7 @@ class ConstantPermeability(pp.PorePyModel):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.permeability, size, name="permeability"
+            self.solid.permeability, size, name="permeability", grids=subdomains
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -686,6 +694,7 @@ class MassWeightedPermeability(ConstantPermeability):
             self.solid.permeability,
             size=sum(sd.num_cells for sd in subdomains),
             name="absolute_permeability",
+            grids=subdomains,
         )
         op = self.total_mass_mobility(subdomains) * abs_perm
         op.set_name("isotropic_permeability")
@@ -812,7 +821,9 @@ class DimensionDependentPermeability(ConstantPermeability):
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
+        permeability = pp.wrap_as_dense_ad_array(
+            1, size, name="permeability", grids=subdomains
+        )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -830,7 +841,9 @@ class DimensionDependentPermeability(ConstantPermeability):
 
         """
         size = sum(sd.num_cells for sd in subdomains)
-        permeability = pp.wrap_as_dense_ad_array(1, size, name="permeability")
+        permeability = pp.wrap_as_dense_ad_array(
+            1, size, name="permeability", grids=subdomains
+        )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
@@ -2072,7 +2085,9 @@ class PeacemanWellFlux(pp.PorePyModel):
                 h_list.append(np.array([unused_val]))
             else:
                 h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
-        r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
+        r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(
+            np.concatenate(h_list), grids=subdomains
+        )
         r_e.set_name("equivalent_well_radius")
         return r_e
 
@@ -2140,7 +2155,9 @@ class PeacemanWellFlux(pp.PorePyModel):
             elevation_list.append(z)
 
         # Combine elevation for all subdomains.
-        elevations = pp.wrap_as_dense_ad_array(np.concatenate(elevation_list))
+        elevations = pp.wrap_as_dense_ad_array(
+            np.concatenate(elevation_list), grids=subdomains
+        )
 
         # Compute elevation difference: z_primary - z_secondary.
         delta_z = (
@@ -2307,7 +2324,7 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
             size = sum(sd.num_cells for sd in subdomains)
-            phi = phi * pp.wrap_as_dense_ad_array(1, size)
+            phi = phi * pp.wrap_as_dense_ad_array(1, size, grids=subdomains)
         conductivity = phi * self.fluid.thermal_conductivity(subdomains) + (
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
@@ -2564,7 +2581,9 @@ class FouriersLaw(pp.PorePyModel):
         """
         val = self.units.convert_units(0, "K * m^-1")
         size = int(sum(g.num_cells for g in grids) * self.nd)
-        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        source = pp.wrap_as_dense_ad_array(
+            val, size=size, name="zero_vector_source", grids=grids
+        )
         return source
 
     def interface_vector_source_fourier_flux(
@@ -2583,7 +2602,9 @@ class FouriersLaw(pp.PorePyModel):
         """
         val = self.units.convert_units(0, "K * m^-1")
         size = int(sum(g.num_cells for g in interfaces))
-        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        source = pp.wrap_as_dense_ad_array(
+            val, size=size, name="zero_vector_source", grids=interfaces
+        )
         return source
 
     def fourier_flux_discretization(
@@ -2932,7 +2953,7 @@ class GravityForce(pp.PorePyModel):
         val = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = int(sum(g.num_cells for g in grids))
         gravity: pp.ad.Operator
-        gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
+        gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity", grids=grids)
         if material == "fluid":
             rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
         elif material == "solid":
@@ -2976,7 +2997,9 @@ class ZeroGravityForce(pp.PorePyModel):
 
         """
         size = int(sum(g.num_cells for g in grids) * self.nd)
-        return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
+        return pp.wrap_as_dense_ad_array(
+            0, size=size, name="zero_vector_source", grids=grids
+        )
 
 
 class LinearElasticMechanicalStress(pp.PorePyModel):
@@ -3428,7 +3451,9 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0, name="first_lame_parameter")
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, name="first_lame_parameter", grids=subdomains
+            )
 
         mu = []
         for sd in subdomains:
@@ -3452,7 +3477,9 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0, name="second_lame_parameter")
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, name="second_lame_parameter", grids=subdomains
+            )
 
         lmbda = []
         for sd in subdomains:
@@ -4919,7 +4946,9 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections.
         size = sum(sd.num_cells for sd in subdomains_lower)
-        one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
+        one = pp.wrap_as_dense_ad_array(
+            1, size=size, name="one", grids=subdomains_lower
+        )
         phi_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
         )

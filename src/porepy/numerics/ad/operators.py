@@ -167,6 +167,9 @@ class Operations(Enum):
             ValueError: If both operands have specified spaces that are incompatible.
 
         """
+        if left is None or right is None:
+            breakpoint()
+
         # Plain Python scalars (int, float, np.number) may appear as operands,
         # e.g. `operator ** 2`. Treat them as the scalar space.
         if not isinstance(right, Operator):
@@ -311,6 +314,9 @@ class Operator:
     ) -> None:
         self._source: Optional[OperatorSpace] = source
         self._target: Optional[OperatorSpace] = target
+
+        assert source is not None
+        assert target is not None
 
         self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
@@ -2159,6 +2165,7 @@ def _ad_wrapper(
     as_array: bool,
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grids=None,
 ) -> DenseArray | pp.ad.SparseArray:
     """Create ad array or diagonal matrix.
 
@@ -2180,19 +2187,32 @@ def _ad_wrapper(
     else:
         value_array = vals
 
+    if size is None:
+        num_cells = sum(grid.num_cells for grid in grids)
+        size = int(value_array.size / num_cells) if num_cells > 0 else 1
+
+    domain_and_range = pp.ad.OperatorSpace.from_domains(
+        grids, {pp.ad.GridEntity.cells: size}
+    )
+
     if as_array:
-        return pp.ad.DenseArray(value_array, name)
+        return pp.ad.DenseArray(
+            value_array, name=name, source=domain_and_range, target=domain_and_range
+        )
     else:
         if size is None:
             size = value_array.size
         matrix = sps.diags(vals, shape=(size, size))
-        return pp.ad.SparseArray(matrix, name)
+        return pp.ad.SparseArray(
+            matrix, name=name, source=domain_and_range, target=domain_and_range
+        )
 
 
 def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grids=None,
 ) -> DenseArray:
     """Wrap a number or array as ad array.
 
@@ -2205,13 +2225,14 @@ def wrap_as_dense_ad_array(
         Values wrapped as an ad Array.
 
     """
-    return _ad_wrapper(vals, True, size=size, name=name)
+    return _ad_wrapper(vals, True, size=size, name=name, grids=grids)
 
 
 def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grids=None,
 ) -> SparseArray:
     """Wrap a number or array as ad matrix.
 
@@ -2224,7 +2245,7 @@ def wrap_as_sparse_ad_array(
         Values wrapped as an ad Matrix.
 
     """
-    return _ad_wrapper(vals, False, size=size, name=name)
+    return _ad_wrapper(vals, False, size=size, name=name, grids=grids)
 
 
 def sum_operator_list(
