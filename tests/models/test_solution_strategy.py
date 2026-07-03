@@ -29,6 +29,7 @@ from typing import Callable, Optional, cast
 import numpy as np
 import pytest
 import scipy.sparse as sps
+from scipy.sparse.linalg import spsolve
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
@@ -642,3 +643,17 @@ def test_schur_complement_inverter_on_model(
         )
         and np.all(approx_identity.shape == identity.shape)
     )
+
+    # Test that we expand the solution correctly. This is currently hard-coded in
+    # NewtonSolver.iteration. This test will be moved and restructured when a linear
+    # solver for the schur complement strategy is introduced.
+    assert model._apply_schur_complement_reduction()
+    nonlinear_solver = pp.NewtonSolver()
+    expanded_sol = nonlinear_solver.iteration(model)
+
+    # Solving the full matrix without taking the Schur complement as a reference.
+    mat, rhs = model.equation_system.assemble()
+    sol_expected = spsolve(mat, rhs)
+
+    assert expanded_sol.shape == sol_expected.shape, "Shapes must match."
+    np.testing.assert_allclose(sol_expected - expanded_sol, 0, atol=1e-9, rtol=0)

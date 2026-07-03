@@ -426,6 +426,15 @@ class NewtonSolver(NonlinearSolverBase):
         nonlinear_increment = self.linear_solver.solve_linear_system(
             mat=cast(csr_matrix, model.linear_system[0]), rhs=model.linear_system[1]
         )
+
+        # This is a temporary approach for compatability. It is a linear solver's
+        # responsibility and will be moved to a new linear solver class when tags and
+        # indexer are introduced.
+        if model._apply_schur_complement_reduction():
+            return model.equation_system.expand_schur_complement_solution(
+                nonlinear_increment
+            )
+
         return nonlinear_increment
 
     def after_nonlinear_iteration(
