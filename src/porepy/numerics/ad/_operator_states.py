@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from porepy.numerics.ad.operators import (
         Operations,
         Operator,
+        OperatorSpace,
         _IterativeOperator,
         _ReferenceOperator,
         _TimeDependentOperator,
