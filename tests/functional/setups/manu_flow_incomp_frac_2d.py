@@ -714,7 +714,9 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations)
                 values.append(self.exact_sol.matrix_source(sd_matrix=sd))
             else:
                 values.append(self.exact_sol.fracture_source(sd_frac=sd))
-        external_sources = pp.wrap_as_dense_ad_array(np.hstack(values))
+        external_sources = pp.wrap_as_dense_ad_array(
+            np.hstack(values), grids=subdomains
+        )
 
         # Add up both contributions
         source = internal_sources + external_sources

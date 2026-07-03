@@ -490,7 +490,7 @@ class BaseFlowModel(
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size, grids=subdomains)
         gravity_field.set_name("gravity_field")
         return gravity_field
 
@@ -708,20 +708,20 @@ class FlowModel2N(
             rho_g = phases[1].density([sd])
 
             ic_rho = (
-                pp.wrap_as_dense_ad_array(1.0 - ic_sg) * rho_l
-                + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+                pp.wrap_as_dense_ad_array(1.0 - ic_sg, grids=[sd]) * rho_l
+                + pp.wrap_as_dense_ad_array(ic_sg, grids=[sd]) * rho_g
             )
             ref_rho += norm_vol_int(ic_rho, sd)
 
             ic_z = self.ic_values_overall_fraction(components[1], sd)
-            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z)
+            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z, grids=[sd])
             ref_rho_z += norm_vol_int(ic_rho_z, sd)
 
             ic_p = self.ic_values_pressure(sd)
             ic_h = self.ic_values_enthalpy(sd)
             ic_energy = ic_rho * pp.wrap_as_dense_ad_array(
-                ic_h
-            ) - pp.wrap_as_dense_ad_array(ic_p)
+                ic_h, grids=[sd]
+            ) - pp.wrap_as_dense_ad_array(ic_p, grids=[sd])
             ref_energy += norm_vol_int(ic_energy, sd)
 
             cur_rho = self.fluid.density([sd])
@@ -1136,9 +1136,9 @@ class FlowModel3N(
 
             # Initial mixture density (AD)
             ic_rho = (
-                pp.wrap_as_dense_ad_array(ic_sw) * rho_w
-                + pp.wrap_as_dense_ad_array(ic_so) * rho_o
-                + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+                pp.wrap_as_dense_ad_array(ic_sw, grids=[sd]) * rho_w
+                + pp.wrap_as_dense_ad_array(ic_so, grids=[sd]) * rho_o
+                + pp.wrap_as_dense_ad_array(ic_sg, grids=[sd]) * rho_g
             )
 
             # Initial overall fractions for non-reference components
@@ -1159,7 +1159,9 @@ class FlowModel3N(
                 np.sum(
                     self.equation_system.evaluate(
                         self.volume_integral(
-                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c1), [sd], dim=1
+                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c1, grids=[sd]),
+                            [sd],
+                            dim=1,
                         )
                     )
                 )
@@ -1169,7 +1171,9 @@ class FlowModel3N(
                 np.sum(
                     self.equation_system.evaluate(
                         self.volume_integral(
-                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c2), [sd], dim=1
+                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c2, grids=[sd]),
+                            [sd],
+                            dim=1,
                         )
                     )
                 )
@@ -1180,8 +1184,8 @@ class FlowModel3N(
             ic_p = self.ic_values_pressure(sd)
             ic_h = self.ic_values_enthalpy(sd)
             ic_energy = ic_rho * pp.wrap_as_dense_ad_array(
-                ic_h
-            ) - pp.wrap_as_dense_ad_array(ic_p)
+                ic_h, grids=[sd]
+            ) - pp.wrap_as_dense_ad_array(ic_p, grids=[sd])
             ref_energy_integral += (
                 np.sum(
                     self.equation_system.evaluate(

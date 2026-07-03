@@ -592,7 +592,7 @@ class VariablesThreeFieldMomentumBalance:
         """
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(
-                0, size=0, name="empty_" + self.rotation_stress_variable
+                0, size=0, name="empty_" + self.rotation_stress_variable, grids=domains
             )
         # There should be no boundary condition for the rotation_stress variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):
@@ -621,7 +621,7 @@ class VariablesThreeFieldMomentumBalance:
         """
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(
-                0, size=0, name="empty_" + self.total_pressure_variable
+                0, size=0, name="empty_" + self.total_pressure_variable, grids=domains
             )
         # There should be no boundary condition for the total_pressure variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):

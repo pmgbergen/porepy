@@ -121,7 +121,7 @@ class PermeabilitySpecification(Permeability):
                 vals.append(kxx)  # This is just a placeholder, it will not be used.
 
         if len(subdomains) > 0:
-            permeability = pp.wrap_as_dense_ad_array(np.hstack(vals))
+            permeability = pp.wrap_as_dense_ad_array(np.hstack(vals), grids=subdomains)
         else:
             # This part is need it only to set up the model, not actually used.
             permeability = self.solid.permeability  # type:ignore
@@ -142,7 +142,10 @@ class PermeabilitySpecification(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability, size, name="intersection_permeability"
+            self.solid.fracture_permeability,
+            size,
+            name="intersection_permeability",
+            grids=subdomains,
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 

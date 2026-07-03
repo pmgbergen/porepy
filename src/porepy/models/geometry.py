@@ -415,7 +415,13 @@ class ModelGeometry(pp.PorePyModel):
             # For an empty list of grids, return an empty matrix
             vals = np.zeros(0)
 
-        array = pp.ad.DenseArray(vals)
+        num_cells = sum([g.num_cells for g in grids])
+        size = int(vals.size / num_cells) if num_cells > 0 else 1
+
+        domain_and_range = pp.ad.OperatorSpace.from_domains(
+            grids, {pp.ad.GridEntity.cells: size}
+        )
+        array = pp.ad.DenseArray(vals, source=domain_and_range, target=domain_and_range)
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
 
