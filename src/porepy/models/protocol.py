@@ -823,8 +823,10 @@ else:
             This method calls the model method with given ``name`` on given ``grids`` to
             create an operator ``A``. It then fetches the respective thermodynamic
             state value and wraps it into an AD scalar ``A_0``. The return value is an
-            operator
-            ``A - A_0``.
+            operator ``A - A_0``.
+
+            Use the operator-level perturbation method when the reference state is
+            stored in the equation system.
 
             Parameters:
                 name: Name of the quantity to be perturbed from a thermodynamic state
