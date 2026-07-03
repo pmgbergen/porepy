@@ -58,7 +58,7 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
     """Boundary conditions for the well setup."""
 
     def _bc_type(self, sd: pp.Grid, well_cond: str) -> pp.BoundaryCondition:
-        """Boundary condition type for Darcy flux.
+        """Boundary condition type for well-related boundaries.
 
         If `sd` has dimension 1, `well_cond` will be assigned on the top and bottom
         faces of `sd`. If `sd` has a different dimension, Dirichlet conditions are
@@ -66,9 +66,10 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.
+            well_cond: Boundary condition type to assign on well grids.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition object.
 
         """
         cond = well_cond if sd.dim == 1 else "dir"
@@ -78,13 +79,17 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
         return pp.BoundaryCondition(sd, domain_sides.top + domain_sides.bottom, cond)
 
     def _bc_values(self, bg: pp.BoundaryGrid, value: float) -> np.ndarray:
-        """
+        """Assign a boundary value on the top faces of well boundary grids.
+
+        For 0D boundary grids, values are assigned on the top face of the well.
+        All other boundary values are zero.
+
         Parameters:
             bg: Boundary grid for which to define boundary conditions.
             value: Value to assign.
 
         Returns:
-            bc: Boundary condition array.
+            Boundary condition values array.
 
         """
 
@@ -98,22 +103,25 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
-        Dirichlet boundary conditions are defined on the north and south boundaries.
+        Neumann boundary conditions are defined on the top and bottom boundaries
+        if `sd` has dimension 1. If `sd` has a different dimension, Dirichlet
+        conditions are assigned on the top and bottom faces.
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition object.
 
         """
         return self._bc_type(sd, "neu")
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Boundary condition values for Darcy flux.
+        """Boundary condition values for mobility-free Darcy flux.
 
-        Dirichlet boundary conditions are defined on the north and south boundaries,
-        with a constant value of 0 unless fluid's reference pressure is changed.
+        For 0D boundary grids, mobility-free Darcy-flux values are assigned
+        on the top face of the well. The value is taken from the `well_flux`
+        model parameter. All other boundary values are zero.
 
         Parameters:
             bg: Boundary grid for which to define boundary conditions.
@@ -122,24 +130,35 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
             Boundary condition values array.
 
         """
-        value = self.units.convert_units(
-            self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
-        )
+        value = self.units.convert_units(self.params.get("well_flux", -1), "Pa * m")
         return self._bc_values(bg, value)
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self._bc_type(sd, "dir")
+        """Boundary condition type for mass fluid flux.
 
-    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Boundary condition type for enthalpy.
-
-        Dirichlet boundary conditions are defined on the north and south boundaries.
+        Dirichlet boundary conditions are defined on the top and bottom boundaries
+        of the subdomain.
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition object.
+
+        """
+        return self._bc_type(sd, "dir")
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type for enthalpy flux.
+
+        Dirichlet boundary conditions are defined on the top and bottom boundaries
+        of the subdomain.
+
+        Parameters:
+            sd: Subdomain for which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
 
         """
         return self._bc_type(sd, "dir")
@@ -159,13 +178,15 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Fourier flux.
 
-        Dirichlet boundary conditions are defined on the north and south boundaries.
+        Neumann boundary conditions are defined on the top and bottom boundaries
+        if `sd` has dimension 1. If `sd` has a different dimension, Dirichlet
+        conditions are assigned on the top and bottom faces.
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.
 
         Returns:
-            bc: Boundary condition object.
+            Boundary condition object.
 
         """
         return self._bc_type(sd, "neu")

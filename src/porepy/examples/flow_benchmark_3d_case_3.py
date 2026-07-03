@@ -115,7 +115,7 @@ class BoundaryConditions(pp.PorePyModel):
             cc[2][domain_sides.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
-        val = self.units.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * Pa")
         values = np.zeros(bg.num_cells)
         values[inlet_faces] = val * bg.cell_volumes[inlet_faces]
         return values
@@ -131,8 +131,11 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     """Mixer class for case 3 from the 3d flow benchmark."""
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 3d case 3 example and return the model."""
+
+    models: list[pp.PorePyModel] = []
+
     params = {
         "material_constants": {
             "solid": solid_constants,
@@ -145,3 +148,11 @@ if __name__ == "__main__":
         "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
     }
     pp.run_time_dependent_model(model, solver_parameters)
+    models.append(model)
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

@@ -19,7 +19,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
-    SimulationStatus,
+    SolverStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
 
@@ -60,7 +60,7 @@ class LinearSolver:
         )
         """Divergence criterion used in the convergence check."""
 
-    def solve(self, model: SolutionStrategy) -> SimulationStatus:
+    def solve(self, model: SolutionStrategy) -> SolverStatus:
         """Solve a linear problem defined by the current state of the model.
 
         The linear solver performs only one iteration and checks whether it converged.
@@ -71,7 +71,7 @@ class LinearSolver:
             model: Model to be solved.
 
         Returns:
-            SimulationStatus: The status of the simulation.
+            The status of the solver.
 
         """
         # Prepare solving.
@@ -140,7 +140,7 @@ class LinearSolver:
         model: SolutionStrategy,
         convergence_status: ConvergenceStatusCollection,
         divergence_status: ConvergenceStatusCollection,
-    ) -> SimulationStatus:
+    ) -> SolverStatus:
         """Conclude on the overall solver status.
 
         NOTE: Convergence status takes precedence over divergence status.
@@ -151,15 +151,15 @@ class LinearSolver:
             divergence_status: Divergence statuses.
 
         Returns:
-            SimulationStatus: The overall status of the nonlinear solver.
+            SolverStatus: The overall status of the nonlinear solver.
 
         """
         if convergence_status.is_converged():
-            solver_status = SimulationStatus.SUCCESSFUL
+            solver_status = SolverStatus.SUCCESSFUL
             self.update_solver_statistics(model, solver_status)
             model.after_nonlinear_convergence()
         elif divergence_status.is_diverged():
-            solver_status = SimulationStatus.FAILED
+            solver_status = SolverStatus.FAILED
             self.update_solver_statistics(model, solver_status)
             model.after_nonlinear_failure()
             warn("Failed to solve the (non)linear problem.", UserWarning)
@@ -241,7 +241,7 @@ class LinearSolver:
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        solver_status: SimulationStatus,
+        solver_status: SolverStatus,
     ) -> None:
         """Update the solver statistics in the model.
 
@@ -252,7 +252,7 @@ class LinearSolver:
 
         """
         # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_simulation_status(solver_status)
+        model.nonlinear_solver_statistics.log_solver_status(solver_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
             assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)

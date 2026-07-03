@@ -899,7 +899,7 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, node_offset: float) -> int:
         if hasattr(sd, "tags") and key in sd.tags:
             sd.tags[key] = sd.tags[key][new_2_old_nodes].astype(bool)
 
-    return num_added
+    return int(num_added)
 
 
 def _avg_normal(sd: pp.Grid, faces: np.ndarray) -> np.ndarray:

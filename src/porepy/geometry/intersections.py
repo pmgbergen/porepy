@@ -2354,9 +2354,9 @@ def split_intersecting_segments_2d(
             loc_start = pt(unique_all_pt, ib[e[0, ei]])
             # Measure the distance of the points from the start. This can be used to
             # sort the points along the line
-            dist = np.sum((loc_pts - loc_start) ** 2, axis=0)
-            assert isinstance(dist, np.ndarray)  # Needed to appease mypy
-            order = np.argsort(dist)
+            loc_dist = np.sum((loc_pts - loc_start) ** 2, axis=0)
+            assert isinstance(loc_dist, np.ndarray)  # Needed to appease mypy
+            order = np.argsort(loc_dist)
             new_inds = inds[order]
             # All new segments share the tags of the old one.
             loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches, dtype=int)

@@ -77,4 +77,4 @@ jobs:
 
     - name: Run tests
       if: ${{always()}}
-      run: pytest tests -m "not tutorials"
+      run: pytest tests -m "not tutorials and not examples"

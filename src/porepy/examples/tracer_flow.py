@@ -119,8 +119,11 @@ class TracerFlowModel(  # type: ignore[misc]
     problem."""
 
 
-# If executed as main, run simulation
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run the tracer flow example and return the models."""
+
+    models: list[pp.PorePyModel] = []
+
     # Initial time step 60 seconds.
     dt_init = pp.MINUTE
     # Simulation time 20 minutes.
@@ -176,6 +179,8 @@ if __name__ == "__main__":
     model = TracerFlowModel(params)  # type: ignore[abstract]
     runner = pp.ModelRunner(model, params)
     runner.run()
+    models.append(model)
+
     pp.plot_grid(
         model.mdg,
         "pressure",
@@ -192,3 +197,10 @@ if __name__ == "__main__":
         title="Tracer distribution after 20 minutes",
         plot_2d=True,
     )
+
+    return models
+
+
+# If executed as main, run simulation
+if __name__ == "__main__":
+    run_example()

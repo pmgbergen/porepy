@@ -1,6 +1,11 @@
-"""This file is testing the functionality of `pp.BoundaryConditionMixin`."""
+"""This file is testing the functionality of `pp.BoundaryConditionMixin`.
 
-from typing import Sequence
+It also contains tests verifying that `bc_values_*` methods return arrays with their
+documented SI units.
+"""
+
+from dataclasses import dataclass, field
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pytest
@@ -10,6 +15,7 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
+from porepy.examples.tracer_flow import TracerFlowModel
 from porepy.models.momentum_balance import MomentumBalance
 
 
@@ -450,4 +456,469 @@ def test_robin_limit_case(
     assert all(
         np.allclose(rob_results[key], reference_results[key], atol=1e-7)
         for key in rob_results.keys()
+    )
+
+
+"""Tests that ``bc_values_*`` methods return arrays with their documented SI units, by
+exploiting :class:`porepy.Units` non-dimensionalization: a correctly unit-tagged BC
+produces a solution that, recovered to SI, is invariant under any choice of internal
+unit system.
+"""
+
+
+# Helpers for unit-invariance tests
+@dataclass(frozen=True)
+class _BCUnitInvarianceSpec:
+    """Specification for a single BC unit-invariance test."""
+
+    probe_model_class: type[pp.PorePyModel]
+    probe_label: str
+    observable_accessor: Callable[[pp.PorePyModel, pp.Grid], np.ndarray]
+    observable_si_unit: str
+    declared_bc_unit: str
+    extraction_subdomain_dim: int = 2
+
+
+#: Unit scalings probing each axis of the BC's SI dimensions.
+_DEFAULT_UNIT_SCALINGS: list[pp.Units] = [
+    pp.Units(m=10.0),
+    pp.Units(kg=0.01),
+    pp.Units(m=5.0, kg=12.0),
+    pp.Units(m=3, kg=7, K=0.23),
+]
+
+
+def _unit_scaling_label(units: pp.Units) -> str:
+    """Readable pytest parametrize-id for a :class:`pp.Units` instance."""
+
+    return f"m={units.m:g}_kg={units.kg:g}_K={units.K:g}"
+
+
+def _bc_spec_label(spec: _BCUnitInvarianceSpec) -> str:
+    """Readable pytest parametrize-id for a BC unit-invariance spec."""
+
+    return spec.probe_label
+
+
+def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.ndarray:
+    """Run the probe model under ``units``; return observable in SI."""
+
+    # Convert cell_size to internal units so the resolved mesh is invariant.
+    cell_size_si = 0.5
+    cell_size_internal = units.convert_units(cell_size_si, "m")
+
+    params: dict[str, Any] = {
+        "units": units,
+        "fracture_indices": [],
+        "meshing_arguments": {"cell_size": cell_size_internal},
+        "times_to_export": [],
+        "grid_type": "cartesian",
+    }
+
+    model = spec.probe_model_class(params)
+    pp.ModelRunner(model).run()
+
+    sd = model.mdg.subdomains(dim=spec.extraction_subdomain_dim)[0]
+    var_internal = spec.observable_accessor(model, sd)
+
+    var_si: np.ndarray = units.convert_units(
+        var_internal,
+        spec.observable_si_unit,
+        to_si=True,
+    )
+    return var_si
+
+
+def _assert_bc_unit_invariance(
+    spec: _BCUnitInvarianceSpec,
+    units: pp.Units,
+    rtol: float = 1e-10,
+    atol: float = 0.0,
+) -> None:
+    """Recovered SI observable must be invariant under unit rescaling."""
+
+    baseline = _run_and_recover_in_si(spec, pp.Units())
+
+    # Guard against trivially-passing tests: zero, NaN,
+    # or degenerate solution.
+    assert np.all(np.isfinite(baseline)), (
+        f"Baseline for '{spec.probe_label}' contains non-finite values."
+    )
+    assert np.max(np.abs(baseline)) > 0.0, (
+        f"Baseline for '{spec.probe_label}' is identically zero."
+    )
+
+    scaled = _run_and_recover_in_si(spec, units)
+
+    np.testing.assert_allclose(
+        scaled,
+        baseline,
+        rtol=rtol,
+        atol=atol,
+        err_msg=(
+            f"BC unit-invariance violated for '{spec.probe_label}' under "
+            f"scaling {_unit_scaling_label(units)}. Declared BC unit: "
+            f"'{spec.declared_bc_unit}'."
+        ),
+    )
+
+
+# ---------------------------------------------------------------
+# BC value: Darcy flux
+# ---------------------------------------------------------------
+
+
+# Empirically verified unit for bc_values_darcy_flux in 2D: integrated
+# Darcy flux is K*grad(p)*face_area, SI unit m^nd * Pa where nd is the
+# ambient dimension. In 2D, this gives m^2*Pa.
+_DARCY_FLUX_UNIT: str = "m^2*Pa"
+_DARCY_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _DarcyFluxBCProbe(SquareDomainOrthogonalFractures, MassBalance_):
+    """Single-phase flow: Dirichlet p=0 on west, Neumann Darcy flux on east."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _DARCY_FLUX_VALUE_SI,
+            _DARCY_FLUX_UNIT,
+        )
+        return vals
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_darcy_flux: probe model, primary variable
+# accessor (pressure on the matrix subdomain), and the declared BC unit.
+_DARCY_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_DarcyFluxBCProbe,
+    probe_label="darcy_flux",
+    observable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.pressure([sd])
+    ),
+    observable_si_unit="Pa",
+    declared_bc_unit=_DARCY_FLUX_UNIT,
+)
+
+
+# -----------------------------------------------------------------------------
+# Bc value: Fluid flux
+# -----------------------------------------------------------------------------
+
+
+# Empirically verified unit for bc_values_fluid_flux in 2D: integrated fluid mass
+# flux is rho/mu*K*grad(p)*face_area, and SI unit is kg*m^(nd-3)*s^-1, where nd
+# is the ambient dimension. In 2D, this gives kg*m^-1*s^-1.
+_FLUID_FLUX_UNIT: str = "kg*m^-1*s^-1"
+_FLUID_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _FluidFluxBCProbe(SquareDomainOrthogonalFractures, MassBalance_):
+    """Single-phase flow: Dirichlet p=0 on west, Neumann fluid flux on east."""
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_fluid_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _FLUID_FLUX_VALUE_SI,
+            _FLUID_FLUX_UNIT,
+        )
+        return vals
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_fluid_flux: probe model, primary variable
+# accessor (pressure on the matrix subdomain), and the declared BC unit.
+_FLUID_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_FluidFluxBCProbe,
+    probe_label="fluid_flux",
+    observable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.pressure([sd])
+    ),
+    observable_si_unit="Pa",
+    declared_bc_unit=_FLUID_FLUX_UNIT,
+)
+
+
+# -----------------------------------------------------------------------------
+# Bc value: stress
+# -----------------------------------------------------------------------------
+
+
+# Empirically verified unit for bc_values_stress in 2D: traction integrated over
+# the boundary face, and SI unit is Pa*m^(nd-1), where nd is the ambient dimension.
+# In 2D, this gives Pa*m.
+_STRESS_UNIT: str = "Pa*m"
+_STRESS_VALUE_SI: float = 1.0e-3
+
+
+class _StressBCProbe(CommonMomentumBalance):
+    """Linear elasticity: Dirichlet displacement on west and south,
+    Neumann stress on east.
+    """
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        sides = self.domain_boundary_sides(sd)
+        dir_sides = sides.west + sides.south
+        return pp.BoundaryConditionVectorial(sd, dir_sides, "dir")
+
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros((self.nd, bg.num_cells)).ravel("F")
+
+    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros((self.nd, bg.num_cells))
+        sides = self.domain_boundary_sides(bg)
+        vals[0, sides.east] = self.units.convert_units(
+            _STRESS_VALUE_SI,
+            _STRESS_UNIT,
+        )
+        return vals.ravel("F")
+
+
+# Test specification for bc_values_stress: probe model, primary variable
+# accessor (displacement on the matrix subdomain), and the declared BC unit.
+_STRESS_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_StressBCProbe,
+    probe_label="stress",
+    observable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.displacement([sd])
+    ),
+    observable_si_unit="m",
+    declared_bc_unit=_STRESS_UNIT,
+)
+
+
+# -----------------------------------------------------------------------------
+# Bc value: Fourier flux
+# -----------------------------------------------------------------------------
+
+
+# Empirically verified unit for bc_values_fourier_flux in 2D: integrated conducted
+# heat flux lambda * grad(T)* face_area, SI unit W * m^(nd-3) where nd is the
+# ambient dimension. In 2D this gives W * m^-1.
+_FOURIER_FLUX_UNIT: str = "W*m^-1"
+_FOURIER_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _FourierFluxBCProbe(SquareDomainOrthogonalFractures, pp.MassAndEnergyBalance):
+    """Mass + energy transport: Dirichlet p=0 and T=0 on west, Neumann zero flow
+    everywhere; Neumann Fourier flux on east. Pressure is pinned to isolate Fourier
+    conduction as the only driver of the temperature field.
+    """
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _FOURIER_FLUX_VALUE_SI,
+            _FOURIER_FLUX_UNIT,
+        )
+        return vals
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_fourier_flux: probe model, primary variable
+# accessor (temperature on the matrix subdomain), and the declared BC unit.
+_FOURIER_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_FourierFluxBCProbe,
+    probe_label="fourier_flux",
+    observable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.temperature([sd])
+    ),
+    observable_si_unit="K",
+    declared_bc_unit=_FOURIER_FLUX_UNIT,
+)
+
+
+# -----------------------------------------------------------------------------
+# Bc value: Enthalpy flux
+# -----------------------------------------------------------------------------
+
+
+# Empirically verified unit for bc_values_enthalpy_flux in 2D: integrated enthalpy
+# flux rho * enthalpy * volumetric_flux * face_area, SI unit W * m^(nd-3) where nd
+# is the ambient dimension. In 2D this gives W * m^-1.
+_ENTHALPY_FLUX_UNIT: str = "W*m^-1"
+_ENTHALPY_FLUX_VALUE_SI: float = 1.0e-3
+
+
+class _EnthalpyFluxBCProbe(SquareDomainOrthogonalFractures, pp.MassAndEnergyBalance):
+    """Mass + energy transport: Dirichlet T=0 on west, Neumann enthalpy flux on east.
+    Pressure pinned to zero everywhere so the Darcy flow that advects enthalpy is
+    driven only by the enthalpy BC's coupling, not by independent pressure forcing.
+    """
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.west, "dir")
+
+    def bc_values_enthalpy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.east] = self.units.convert_units(
+            _ENTHALPY_FLUX_VALUE_SI,
+            _ENTHALPY_FLUX_UNIT,
+        )
+        return vals
+
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_values_enthalpy(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd, sides.all_bf, "dir")
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+
+# Test specification for bc_values_enthalpy_flux: probe model, primary variable
+# accessor (temperature on the matrix subdomain), and the declared BC unit.
+_ENTHALPY_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_EnthalpyFluxBCProbe,
+    probe_label="enthalpy_flux",
+    observable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.temperature([sd])
+    ),
+    observable_si_unit="K",
+    declared_bc_unit=_ENTHALPY_FLUX_UNIT,
+)
+
+
+# -----------------------------------------------------------------------------
+# Bc value: Component flux
+# -----------------------------------------------------------------------------
+
+
+# Empirically verified unit for bc_values_component_flux in 2D: integrated component
+# mass flux, SI unit kg * m^(nd-3) * s^-1 where nd is the ambient dimension.
+# In 2D this gives kg * m^-1 * s^-1.
+_COMPONENT_FLUX_UNIT: str = "kg * m^-1 * s^-1"
+_TRACER_COMPONENT_FLUX_VALUE_SI: float = 1.0e-8
+_WATER_COMPONENT_FLUX_VALUE_SI: float = 9.0e-8
+
+
+class _ComponentFluxBCProbe(TracerFlowModel):
+    """Component transport: Neumann component mass flux on east.
+
+    East boundary receives prescribed inward component mass fluxes for both
+    the tracer and reference/water components. West is a pressure Dirichlet
+    outlet, while north and south are no-flow boundaries.
+    """
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, sides.all_bf, "neu")
+        bc.is_neu[sides.west] = False
+        bc.is_dir[sides.west] = True
+        return bc
+
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        vals[sides.west] = self.units.convert_units(2.0, "Pa")
+        return vals
+
+    def bc_values_overall_fraction(
+        self,
+        component: pp.Component,
+        bg: pp.BoundaryGrid,
+    ) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_values_component_flux(
+        self,
+        component: pp.Component,
+        bg: pp.BoundaryGrid,
+    ) -> np.ndarray:
+        vals = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+
+        if component.name == "tracer":
+            value_si = _TRACER_COMPONENT_FLUX_VALUE_SI
+        else:
+            value_si = _WATER_COMPONENT_FLUX_VALUE_SI
+
+        vals[sides.east] = -self.units.convert_units(
+            value_si,
+            _COMPONENT_FLUX_UNIT,
+        )
+        return vals
+
+
+# Test specification for bc_values_component_flux: probe model, derived variable
+# accessor (component_flux on the matrix subdomain), and the declared BC unit.
+_COMPONENT_FLUX_SPEC = _BCUnitInvarianceSpec(
+    probe_model_class=_ComponentFluxBCProbe,
+    probe_label="component_flux",
+    observable_accessor=lambda model, sd: model.equation_system.evaluate(
+        model.component_flux(model.fluid.components[1], [sd])
+    ),
+    observable_si_unit="kg * m^-1 * s^-1",
+    declared_bc_unit=_COMPONENT_FLUX_UNIT,
+)
+
+
+_BC_UNIT_INVARIANCE_SPECS: list[_BCUnitInvarianceSpec] = [
+    _DARCY_FLUX_SPEC,
+    _FLUID_FLUX_SPEC,
+    _STRESS_SPEC,
+    _FOURIER_FLUX_SPEC,
+    _ENTHALPY_FLUX_SPEC,
+    _COMPONENT_FLUX_SPEC,
+]
+
+
+@pytest.mark.skipped(reason="slow")
+@pytest.mark.parametrize(
+    "spec",
+    _BC_UNIT_INVARIANCE_SPECS,
+    ids=_bc_spec_label,
+)
+@pytest.mark.parametrize(
+    "units",
+    _DEFAULT_UNIT_SCALINGS,
+    ids=_unit_scaling_label,
+)
+def test_bc_values_unit_invariance(
+    spec: _BCUnitInvarianceSpec,
+    units: pp.Units,
+) -> None:
+    """Test that verifies the recovered SI observable is invariant
+    under unit rescaling.
+    """
+
+    _assert_bc_unit_invariance(
+        spec,
+        units,
+        atol=1e-10,
     )

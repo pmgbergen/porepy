@@ -157,10 +157,13 @@ class FlowBenchmark2dCase3bModel(  # type:ignore[misc]
     """Mixer class for case 3b (left-to-right flow) from the 2d flow benchmark."""
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 2d case 3 and return the models."""
+
+    models: list[pp.PorePyModel] = []
     for model_class, direction in zip(
-        [FlowBenchmark2dCase3aModel, FlowBenchmark2dCase3bModel], ["x", "y"]
+        [FlowBenchmark2dCase3aModel, FlowBenchmark2dCase3bModel],
+        ["x", "y"],
     ):
         model_params = {
             "material_constants": {"solid": solid_constants},
@@ -172,6 +175,8 @@ if __name__ == "__main__":
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
         pp.run_time_dependent_model(model, solver_parameters)
+        models.append(model)
+
         title = f"Pressure distribution. \n Flow in {direction}-direction."
         pp.plot_grid(
             model.mdg,
@@ -183,3 +188,10 @@ if __name__ == "__main__":
             fracturewidth_1d=3,
             linewidth=0.2,
         )
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

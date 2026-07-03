@@ -103,8 +103,8 @@ class BoundaryConditions:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
-        integrated over the boundary cell volumes. Since the inflow boundary contains
-        a fracture, the latter includes the fracture specific volume.
+        integrated over the boundary cell volumes. Since the inflow boundary contains a
+        fracture, the latter includes the fracture specific volume.
 
         Parameters:
             bg: Boundary grid.
@@ -116,7 +116,7 @@ class BoundaryConditions:
         domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros(bg.num_cells)
         # Inflow on the west boundary. Sign as per PorePy convention.
-        val = self.units.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * Pa")
         # Integrate over the boundary cell volumes.
         values[domain_sides.west] = val * bg.cell_volumes[domain_sides.west]
         # Scale with specific volume.
@@ -164,14 +164,17 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
     """Complete model class for case 1 from the 2d flow benchmark."""
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
-    # We run both the conductive and blocking fracture cases.
+def run_example() -> list[pp.PorePyModel]:
+    """Run the flow benchmark 2D case 1 example and return the models.
+
+    Both the conductive and blocking fracture cases are included.
+
+    """
     solid_constants = [
         solid_constants_blocking_fractures,
         solid_constants_conductive_fractures,
     ]
-
+    models: list[pp.PorePyModel] = []
     for solid_constant in solid_constants:
         model_params = {
             "material_constants": {"solid": solid_constant},
@@ -183,6 +186,7 @@ if __name__ == "__main__":
             "nl_convergence_res_atol": 1e-8,  # absolute tolerance on residuals
         }
         pp.run_time_dependent_model(model, solver_parameters)
+        models.append(model)
         title = (
             "Pressure distribution.\n"
             f"Fracture permeability {solid_constant.fracture_permeability:.0e}."
@@ -197,3 +201,9 @@ if __name__ == "__main__":
             fracturewidth_1d=3,
             linewidth=0.5,
         )
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()
