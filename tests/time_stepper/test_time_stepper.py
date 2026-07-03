@@ -205,7 +205,7 @@ def test_model_delegate_methods_called(
     else:
         raise ValueError
 
-    # initialize the real TimeStepper and the MockModel.
+    # Initialize the real TimeStepper and the MockModel.
     time_stepper = TimeStepper(
         time_manager=TimeManager(
             schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.1, 2)
@@ -527,9 +527,8 @@ def test_model_time_step_control(params: dict):
 
 def default_newton_solver(iter_converge: int):
     """Parameters:
-
-    iter_converge: Converge after this number of nonlinear iterations. After this,
-        will always converge, no matter what the time step is.
+        iter_converge: Converge after this number of nonlinear iterations. After this,
+            will always converge, no matter what the time step is.
 
     """
     return pp.NewtonSolver(
@@ -557,8 +556,8 @@ def default_newton_solver(iter_converge: int):
 
 @pytest.fixture
 def statistics_path(request):
-    """Fixture with cleanup of the file. Making the file name unique a test to make it
-    possible to run in parallel without collisions.
+    """Fixture with cleanup of the file. Making the file name unique for each test to
+    facilitate runing in parallel without collisions.
 
     """
     with tempfile.TemporaryDirectory() as tmpdir:

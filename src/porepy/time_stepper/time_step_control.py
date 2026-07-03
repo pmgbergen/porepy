@@ -470,10 +470,10 @@ class TimeManager:
         if not recompute_solution and self.final_time_reached():
             return None
 
-        # If the time step is constant, always return that value
-        # TimeStepper currently may ask to recompute dt even for the constant time step.
-        # This is temporary, the time manager soon to stop being responsible for
-        # recomputing the time step. Keeping the original behavior for now.
+        # If the time step is constant, always return that value. TimeStepper currently
+        # may ask to recompute dt even for the constant time step. This is temporary,
+        # the time manager will soon stop being responsible for recomputing the time
+        # step. Keeping the original behavior for now.
         if self.is_constant:
             # Some sanity checks
             if iterations is not None:
@@ -576,7 +576,7 @@ class TimeManager:
             )
             raise ValueError(msg)
 
-        # Raise a warning if iterations is not None
+        # Raise a warning if iterations is not None.
         if self._iters is not None:
             msg = "Number of iterations has no effect in recomputation."
             warnings.warn(msg)

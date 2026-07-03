@@ -1,8 +1,7 @@
 """Time-stepping strategies.
 
-Design mirrors pp.numerics.nonlinear.nonlinear_solvers.NewtonSolver.
-Main method perform_time_step() orchestrates the workflow and is
-called from the model runner.
+Design mirrors pp.numerics.nonlinear.nonlinear_solvers.NewtonSolver. Main method
+perform_time_step() orchestrates the workflow and is called from the model runner.
 
 """
 
@@ -105,7 +104,7 @@ class TimeStepper:
                 nonlinear_solver_status, model, attempt
             )
 
-            # Saving statistics
+            # Save statistics.
             self._update_time_statistics(model, time_step_status)
 
             # Return on success or error when there is no way to continue trying.
@@ -200,7 +199,6 @@ class TimeStepper:
             The nonlinear solver status (converged/failed).
 
         """
-
         # Execute trial time step.
         model.before_time_step()
         nonlinear_solver_status = solver.solve(model)  # type: ignore
