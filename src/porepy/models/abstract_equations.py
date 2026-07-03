@@ -524,6 +524,8 @@ class VariableMixin(pp.PorePyModel):
             It is distinct from
             :meth:`porepy.numerics.ad.operators.Operator.perturbation_from_reference`,
             which is the AD linearization reference and may be spatially heterogeneous.
+            Use the operator-level method when the reference state is stored in the
+            equation system.
 
         Parameters:
             name: Name of the quantity to be perturbed from a thermodynamic state

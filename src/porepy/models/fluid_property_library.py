@@ -107,6 +107,8 @@ class FluidDensityFromPressure(pp.PorePyModel):
         Extracted as a separate method to allow for easier combination with temperature
         dependent fluid density.
 
+        The perturbation is measured relative to the thermodynamic state values.
+
         Parameters:
             subdomains: List of subdomain grids.
 
@@ -174,6 +176,8 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         Extracted as a separate method to allow for easier combination with temperature
         dependent fluid density.
+
+        The perturbation is measured relative to the thermodynamic state values.
 
         Parameters:
             subdomains: List of subdomain grids.
