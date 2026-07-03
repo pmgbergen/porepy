@@ -568,7 +568,7 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
 
     """
     # Minimal setup.
-    model = MockModel(is_nonlinear=True, statistics_path=statistics_path)
+    model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=2)
     time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
     time_stepper = TimeStepper(time_manager=time_manager)
@@ -669,7 +669,7 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     correct behavior after failure, for a time-dependent model.
 
     """
-    model = MockModel(is_nonlinear=True, statistics_path=statistics_path)
+    model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=5)
     time_manager = TimeManager(
         schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)

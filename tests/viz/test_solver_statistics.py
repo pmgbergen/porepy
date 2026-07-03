@@ -278,14 +278,14 @@ def test_solver_statistics_initialization():
     assert stats.simulation_status == TimeStepperStatusContinueIterating(
         attempt=-1,
         nonlinear_solver_status=NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=2,
+            num_nonlinear_iterations=-1,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
     )
     assert stats.simulation_status_history == []
     assert stats.solver_status == NonlinearSolverStatusConverged(
-        num_nonlinear_iterations=2,
+        num_nonlinear_iterations=-1,
         convergence_statuses=ConvergenceStatusCollection(),
         divergence_statuses=ConvergenceStatusCollection(),
     )

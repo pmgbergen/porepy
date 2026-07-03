@@ -242,6 +242,7 @@ def test_init_criteria():
 )
 def test_nonlinear_solver_status_serialization(status_type, expected):
     status = status_type(
+        num_nonlinear_iterations=2,
         convergence_statuses=ConvergenceStatusCollection(),
         divergence_statuses=ConvergenceStatusCollection(),
     )

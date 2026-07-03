@@ -339,7 +339,7 @@ def _extract_nonlinear_solver_from_params(
             "ModelRunner(nonlinear_solver=...). Passing it through params will be "
             "deprecated."
         )
-        return cast(pp.NewtonSolver, solver_from_params)
+        return cast(type[pp.NewtonSolver], solver_from_params)(params)
     if solver_from_params is not None and nonlinear_solver is not None:
         raise ValueError(
             "You cannot pass the nonlinear solver both directly to the ModelRunner and "
