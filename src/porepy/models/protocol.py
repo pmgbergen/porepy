@@ -699,6 +699,9 @@ else:
 
             """
 
+        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+            """Method to be called after every non-linear iteration."""
+
         def after_nonlinear_convergence(self) -> None:
             """Called after a nonlinear solver loop converges.
 
@@ -725,6 +728,12 @@ else:
 
             """
 
+        def assemble_linear_system(self) -> None:
+            """Assemble the linearized system and store it in :attr:`linear_system`."""
+
+        def after_nonlinear_failure(self) -> None:
+            """Called after the solver converges."""
+
         def after_time_step_convergence(self) -> None:
             """Called once after a time step converges."""
 
@@ -736,22 +745,6 @@ else:
 
             This method is called before the discretization is performed. It is intended
             to be used to set the list of nonlinear discretizations.
-
-            """
-
-        def solve_linear_system(self) -> np.ndarray:
-            """Solve linear system.
-
-            Default method is a direct solver. The linear solver is chosen in the
-            initialize_linear_solver of this model. Implemented options are
-                - scipy.sparse.spsolve with and without call to umfpack
-                - pypardiso.spsolve
-
-            See also:
-                :meth:`initialize_linear_solver`
-
-            Returns:
-                np.ndarray: Solution vector.
 
             """
 

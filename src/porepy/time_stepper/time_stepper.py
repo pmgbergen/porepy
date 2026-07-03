@@ -71,10 +71,14 @@ class TimeStepper:
     def perform_time_step(
         self,
         model: pp.PorePyModel,
-        solver: pp.NewtonSolver,
+        solver: pp.NonlinearSolverBase,
     ) -> TimeStepperStatusSuccess | TimeStepperStatusFailure:
         """Perform a time step. If the nonlinear solver fails, alter the time step and
         retry.
+
+        Parameters:
+            model: The PorePy model to perform a time step on.
+            solver: The nonlinear solver to integrate the discretized problem.
 
         Returns:
             TimeStepperStatus: Success if criteria met, Failure if max retries exhausted
@@ -187,7 +191,7 @@ class TimeStepper:
     def _perform_trial_time_step(
         self,
         model: pp.PorePyModel,
-        solver: pp.NewtonSolver,
+        solver: pp.NonlinearSolverBase,
     ) -> NonlinearSolverStatus:
         """Perform a nonlinear solve to make the time step.
 
