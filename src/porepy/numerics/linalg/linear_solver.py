@@ -1,3 +1,11 @@
+"""Linear solvers to be used inside nonlinear sovlers.
+
+Implemented classes:
+    LinearSolverBase - abstract class describing the linear solver interface.
+    LinearSolverDirect - a direct solver.
+
+"""
+
 from abc import ABC, abstractmethod
 from logging import DEBUG, getLogger
 import time

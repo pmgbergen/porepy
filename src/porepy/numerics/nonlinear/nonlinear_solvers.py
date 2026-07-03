@@ -1,7 +1,9 @@
-"""
-Nonlinear solvers to be used with model classes.
-Implemented classes
-    NewtonSolver
+"""Nonlinear solvers to be used with PorePy models, ModelRunner and TimeStepper.
+
+Implemented classes:
+    NonlinearSolverBase - abstract class describing the nonlinear solver interface.
+    NewtonSolver - Newton's method.
+
 """
 
 from abc import ABC, abstractmethod
