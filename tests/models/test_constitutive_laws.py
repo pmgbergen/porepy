@@ -34,6 +34,7 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
 )
+from porepy.models.derived_models.biot import BiotPoromechanics
 
 solid_values = pp.solid_values.granite
 solid_values.update(
@@ -445,10 +446,10 @@ def test_evaluated_values(
         (models.MassAndEnergyBalance, ["pressure", "temperature"]),
     ],
 )
-def test_perturbation_from_reference(
+def test_perturbation_from_thermodynamic_state(
     model_class: type[models.MassAndEnergyBalance], quantities: list[str]
 ):
-    """Tests the evaluation of operators perturbed from reference values."""
+    """Tests the evaluation of operators perturbed from thermodynamic state values."""
 
     # Give some non-trivial reference values
     ref_vals = dict([(q, float(i + 1)) for i, q in enumerate(quantities)])
@@ -470,7 +471,7 @@ def test_perturbation_from_reference(
     )
 
     for q in quantities:
-        op = model.perturbation_from_reference(q, model.mdg.subdomains())
+        op = model.perturbation_from_thermodynamic_state(q, model.mdg.subdomains())
         # Calling value and jacobian to make sure there are no errors in parsing
         # but only value is checked.
         op_val = model.equation_system.evaluate(op, derivative=True)
@@ -832,174 +833,85 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     assert potential_trace.jac[fracture_faces_cart_ordering].data.size == 8
 
 
-# Auxiliary class for subsequent test.
-class _HeterogeneousCompressibleRockPorosity(c_l.CompressibleRockPorosity):
-    """Compressible rock with spatially varying reference porosity.
+@pytest.mark.parametrize(
+    "model_class, coefficient_method_name",
+    [
+        (models.Poromechanics, "_poromechanics_porosity_pressure_coefficient"),
+        (BiotPoromechanics, "specific_storage"),
+    ],
+)
+def test_porosity_change_from_pressure_uses_operator_reference(
+    model_class: type[models.Poromechanics] | type[BiotPoromechanics],
+    coefficient_method_name: str,
+) -> None:
+    """Test porosity pressure contributions based on pressure perturbation.
 
-    Reference porosity varies between top and bottom halves:
-    - Top half (y > y_mid): porosity = 0.2
-    - Bottom half (y <= y_mid): porosity = 0.1
-    """
-
-    def reference_porosity(self, subdomains):
-        """Spatially varying reference porosity (0.2 top, 0.1 bottom)."""
-        porosity_array = np.zeros(sum([sd.num_cells for sd in subdomains]))
-        offset = 0
-        for sd in subdomains:
-            num_cells = sd.num_cells
-            y_centers = sd.cell_centers[1, :]
-            y_mid = (y_centers.max() + y_centers.min()) / 2
-            porosity_array[offset : offset + num_cells] = np.where(
-                y_centers > y_mid, 0.2, 0.1
-            )
-            offset += num_cells
-        return pp.wrap_as_dense_ad_array(
-            porosity_array, name="heterogeneous_reference_porosity"
-        )
-
-
-@pytest.mark.parametrize("rock_compressibility", [0.0, 1e-8])
-@pytest.mark.parametrize("use_array_reference_porosity", [False, True])
-@pytest.mark.parametrize("use_reference_pressure", [False, True])
-@pytest.mark.parametrize("pressure_type", ["uniform", "hydrostatic"])
-def test_compressible_rock_porosity(
-    rock_compressibility: float,
-    use_reference_pressure: bool,
-    use_array_reference_porosity: bool,
-    pressure_type: str,
-):
-    """Test CompressibleRockPorosity evaluation and reference state.
-
-    Comprehensive test covering all combinations of:
-    - Reference porosity: scalar (0.2) or array (0.2 top / 0.1 bottom)
-    - Pressure field: uniform (1 MPa) or hydrostatic (rho*g*y)
-    - Reference pressure: implicit (zero) or explicit (0.5 MPa / y-dependent)
-    - Rock compressibility: incompressible (0.0) or compressible (1e-8 Pa^-1)
-
-    Tests:
-    1. Reference porosity operator returns correct values
-    2. Porosity evaluation: phi = phi_ref * exp(c_r * dp)
-    3. Perturbation from reference: inc_phi = phi - phi_ref
-    4. Jacobian: d(phi)/d(p) = phi_ref * c_r * exp(c_r * dp)
+    This is an integration test for existing constitutive laws. It checks that
+    ``porosity_change_from_pressure`` evaluates from current minus the operator-level
+    reference pressure stored in the equation system.
 
     """
-    # Model setup.
-    solid = pp.SolidConstants(
-        porosity=0.2,
-        rock_compressibility=rock_compressibility,
-    )
-    fluid = pp.FluidComponent(**pp.fluid_values.water)
+
+    # Biot assumes incompressible fluid (compressibility == 0).
+    fluid_values = pp.fluid_values.water.copy()
+    fluid_values["compressibility"] = 0.0
+    fluid = pp.FluidComponent(**fluid_values)
 
     params = {
-        "material_constants": {"solid": solid, "fluid": fluid},
-        "fracture_indices": [1],
+        "material_constants": {
+            "solid": pp.SolidConstants(specific_storage=3e-10),
+            "fluid": fluid,
+        },
         "times_to_export": [],
         "cartesian": True,
     }
 
-    # Select the porosity model based on parametrization
-    PorosityModel = (
-        _HeterogeneousCompressibleRockPorosity
-        if use_array_reference_porosity
-        else c_l.CompressibleRockPorosity
-    )
-
-    class LocalModel(PorosityModel, models.MassBalance):
-        pass
-
-    model = LocalModel(params)
+    model = model_class(params)
     model.prepare_simulation()
 
-    # Pressure setup.
-    subdomains = model.mdg.subdomains()
-    rho_g = 9.81e3  # Pa/m
+    matrix_subdomains = model.mdg.subdomains(dim=model.nd)
 
-    if pressure_type == "uniform":
-        # Uniform pressure field: 1 MPa everywhere.
-        pressure_vals_current = np.full(model.mdg.num_subdomain_cells(), 1e6)
-        if use_reference_pressure:
-            pressure_vals_reference = np.full(model.mdg.num_subdomain_cells(), 5e5)
-            pressure_perturbation = 5e5
-        else:
-            pressure_perturbation = 1e6
-    elif pressure_type == "hydrostatic":
-        # Hydrostatic pressure: based on y-coordinates.
-        pressure_vals_reference = np.zeros(model.mdg.num_subdomain_cells())
-        offset = 0
-        for sd in subdomains:
-            num_cells = sd.num_cells
-            y_centers = sd.cell_centers[1, :]
-            pressure_vals_reference[offset : offset + num_cells] = rho_g * y_centers
-            offset += num_cells
-        # Current pressure is 1 meter deeper (higher pressure).
-        pressure_vals_current = pressure_vals_reference + rho_g * 1.0
-        if use_reference_pressure:
-            pressure_perturbation = rho_g * 1.0
-        else:
-            pressure_perturbation = pressure_vals_current
-    else:
-        raise ValueError(f"Unknown pressure_type: {pressure_type}")
+    # Reference pressure is set in params. Set a uniform current pressure.
+    pressure_shift = 2e5
+    reference_vals = np.full(model.mdg.num_subdomain_cells(), 1e5)
+    current_vals = np.full(model.mdg.num_subdomain_cells(), 1e5 + pressure_shift)
 
-    # Set pressure values.
-    if use_reference_pressure:
-        model.equation_system.set_variable_values(
-            pressure_vals_reference,
-            [model.pressure_variable],
-            reference=True,
-        )
     model.equation_system.set_variable_values(
-        pressure_vals_current,
+        reference_vals,
+        [model.pressure_variable],
+        reference=True,
+    )
+    model.equation_system.set_variable_values(
+        current_vals,
         [model.pressure_variable],
         iterate_index=0,
     )
 
-    # Fetch porosity operator for later use.
-    porosity_op = model.porosity(subdomains)
-    ref_porosity_op = porosity_op.reference()
-    inc_porosity_op = porosity_op.perturbation_from_reference()
-
-    porosity_val = model.equation_system.evaluate(porosity_op)
-    porosity_ad = porosity_op.value_and_jacobian(model.equation_system)
-    ref_porosity_val = model.equation_system.evaluate(ref_porosity_op)
-    inc_porosity_val = model.equation_system.evaluate(inc_porosity_op)
-
-    # === Test 1: Reference porosity ===
-    # Expected: phi_ref.
-    expected_ref = model.equation_system.evaluate(model.reference_porosity(subdomains))
-    assert np.allclose(ref_porosity_val, expected_ref, rtol=1e-8, atol=1e-10), (
-        f"Expected reference porosity {expected_ref}, got {ref_porosity_val}"
+    op = model.porosity_change_from_pressure(matrix_subdomains)
+    op_val = model.equation_system.evaluate(op)
+    dp = model.equation_system.evaluate(
+        model.pressure(matrix_subdomains).perturbation_from_reference()
     )
+    assert np.allclose(dp, pressure_shift)
 
-    # === Test 2: Porosity Evaluation ===
-    # Expected: phi = phi_ref * exp(c_r * dp)
-    expected_val = expected_ref * np.exp(rock_compressibility * pressure_perturbation)
-    assert np.allclose(porosity_val, expected_val, rtol=1e-8, atol=1e-10), (
-        f"Expected {expected_val}, got {porosity_val}"
-    )
-
-    # === Test 3: Porosity Perturbation ===
-    expected_inc = expected_val - expected_ref
-    assert np.allclose(inc_porosity_val, expected_inc, rtol=1e-8, atol=1e-10), (
-        f"Expected perturbation {expected_inc}, got {inc_porosity_val}"
-    )
-
-    # === Test 4: Jacobian (Derivative) ===
-    if rock_compressibility > 0:
-        assert np.any(porosity_ad.jac.toarray() != 0), (
-            "Jacobian should be non-zero for non-zero rock compressibility"
-        )
-        # Expected: d(phi)/d(p) = phi_ref * c_r * exp(c_r * dp)
-        expected_jac_diag = (
-            expected_ref
-            * rock_compressibility
-            * np.exp(rock_compressibility * pressure_perturbation)
-        )
-        computed_jac_diag = np.diag(porosity_ad.jac.toarray())
-        assert np.allclose(
-            computed_jac_diag, expected_jac_diag, rtol=1e-8, atol=1e-10
-        ), f"Jacobian diagonal: expected ~{expected_jac_diag}, got {computed_jac_diag}"
+    if coefficient_method_name == "specific_storage":
+        coefficient_op = model.specific_storage(matrix_subdomains)
     else:
-        # For zero compressibility, porosity is constant
-        assert np.allclose(porosity_ad.jac.toarray(), 0, atol=1e-10), (
-            "Jacobian should be zero for zero rock compressibility"
+        coefficient_op = _poromechanics_porosity_pressure_coefficient(
+            model, matrix_subdomains
         )
+
+    coefficient = model.equation_system.evaluate(coefficient_op)
+    expected = coefficient * dp
+
+    assert np.allclose(op_val, expected, rtol=1e-8, atol=1e-10)
+
+
+def _poromechanics_porosity_pressure_coefficient(
+    model: models.Poromechanics, subdomains: list[pp.Grid]
+) -> pp.ad.Operator:
+    """Return the multiplicative pressure coefficient used by Poromechanics porosity."""
+    alpha = model.biot_coefficient(subdomains)
+    phi_ref = model.reference_porosity(subdomains)
+    bulk_modulus = model.bulk_modulus(subdomains)
+    return (alpha - phi_ref) * (pp.ad.Scalar(1) - alpha) / bulk_modulus
