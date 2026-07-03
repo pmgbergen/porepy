@@ -809,23 +809,26 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(
+        def perturbation_from_thermodynamic_state(
             self, variable_name: str, grids: list[pp.Grid]
         ) -> pp.ad.Operator:
-            """Perturbation of some quantity ``name`` from its reference value.
+            """Perturbation of some quantity ``name`` from its thermodynamic state.
 
             The parameter ``name`` should be the name of a mixed-in method, returning an
             AD operator for given ``grids``.
 
-            ``name`` should also be defined in the model's :attr:`reference_values`.
+            ``name`` should also be defined in the model's reference thermodynamic
+            values.
 
             This method calls the model method with given ``name`` on given ``grids`` to
-            create an operator ``A``. It then fetches the respective reference value and
-            wraps it into an AD scalar ``A_0``. The return value is an operator
+            create an operator ``A``. It then fetches the respective thermodynamic
+            state value and wraps it into an AD scalar ``A_0``. The return value is an
+            operator
             ``A - A_0``.
 
             Parameters:
-                name: Name of the quantity to be perturbed from a reference value.
+                name: Name of the quantity to be perturbed from a thermodynamic state
+                    value.
                 grids: List of subdomain or interface grids on which the quantity is
                     defined.
 
