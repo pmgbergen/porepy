@@ -352,24 +352,18 @@ class Tpsa(Discretization):
     ) -> dict[pp.ad.GridEntity, int]:
         """Return row DOF info for the named Tpsa matrix.
 
-        Tpsa produces three kinds of face-row matrices:
-        * Stress rows: ``nd`` DOFs per face (displacement/traction vectors).
-        * Rotation rows: ``nrot = 3 if nd == 3 else 1`` DOFs per face (scalar in 2d,
-          3-vector in 3d).
-        * Scalar rows: 1 DOF per face (mass/pressure quantities).
-
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix
                 (e.g. ``"stress_displacement"``).
-            nd: Spatial dimension; used to derive DOF counts per entity.
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
-
         nrot = 3 if nd == 3 else 1
 
         nd_rows = {
@@ -393,11 +387,11 @@ class Tpsa(Discretization):
             "bound_mass_displacement",
         }
         if matrix_key in nd_rows:
-            return {GridEntity.faces: nd}
+            return {pp.ad.GridEntity.faces: nd}
         if matrix_key in nrot_rows:
-            return {GridEntity.faces: nrot}
+            return {pp.ad.GridEntity.faces: nrot}
         if matrix_key in scalar_rows:
-            return {GridEntity.faces: 1}
+            return {pp.ad.GridEntity.faces: 1}
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
         )
@@ -410,38 +404,54 @@ class Tpsa(Discretization):
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix
                 (e.g. ``"stress_displacement"``).
-            nd: Spatial dimension; used to derive DOF counts per entity.
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
 
         nrot = 3 if nd == 3 else 1
 
-        mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
-            # Primary coupling matrices
-            "stress_displacement": {GridEntity.cells: nd},
-            "stress_rotation": {GridEntity.cells: nrot},
-            "stress_total_pressure": {GridEntity.cells: 1},
-            "rotation_displacement": {GridEntity.cells: nd},
-            "rotation_rotation": {GridEntity.cells: nrot},
-            "mass_total_pressure": {GridEntity.cells: 1},
-            "mass_displacement": {GridEntity.cells: nd},
-            # Boundary condition matrices
-            "bound_stress": {GridEntity.faces: nd},
-            "bound_rotation_displacement": {GridEntity.faces: nd},
-            "bound_mass_displacement": {GridEntity.faces: nd},
-            # Displacement reconstruction matrices
-            "bound_displacement_cell": {GridEntity.cells: nd},
-            "bound_displacement_face": {GridEntity.faces: nd},
-            "bound_displacement_rotation_cell": {GridEntity.cells: nrot},
-            "bound_displacement_solid_pressure_cell": {GridEntity.cells: 1},
+        nd_cols_cells = {
+            "stress_displacement",
+            "rotation_displacement",
+            "mass_displacement",
+            "bound_displacement_cell",
         }
-        if matrix_key in mapping:
-            return mapping[matrix_key]
+        nd_cols_faces = {
+            "bound_stress",
+            "bound_rotation_displacement",
+            "bound_mass_displacement",
+            "bound_displacement_face",
+        }
+        nrot_cols_cells = {
+            "stress_rotation",
+            "rotation_rotation",
+            "bound_displacement_rotation_cell",
+        }
+        nrot_cols_faces = {}
+        scalar_cols_cells = {
+            "stress_total_pressure",
+            "mass_total_pressure",
+            "bound_displacement_solid_pressure_cell",
+        }
+        scalar_cols_faces = {}
+        if matrix_key in nd_cols_cells:
+            return {pp.ad.GridEntity.cells: nd}
+        if matrix_key in nd_cols_faces:
+            return {pp.ad.GridEntity.faces: nd}
+        if matrix_key in nrot_cols_cells:
+            return {pp.ad.GridEntity.cells: nrot}
+        if matrix_key in nrot_cols_faces:
+            return {pp.ad.GridEntity.faces: nrot}
+        if matrix_key in scalar_cols_cells:
+            return {pp.ad.GridEntity.cells: 1}
+        if matrix_key in scalar_cols_faces:
+            return {pp.ad.GridEntity.faces: 1}
         raise ValueError(
             f"Unrecognized matrix key '{matrix_key}' for Tpsa discretization."
         )

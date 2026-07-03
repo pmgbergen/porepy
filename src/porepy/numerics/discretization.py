@@ -127,29 +127,19 @@ class Discretization(abc.ABC):
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        """Return the DOF information for the rows (range) of a discretization matrix.
-
-        This method is used to construct an :class:`~porepy.numerics.ad.OperatorSpace`
-        for the range of the discretization.  The default implementation returns an
-        empty dictionary, meaning the range is unspecified.  Subclasses override this
-        to provide precise range information for each matrix produced by the
-        discretization.
+        """Return the DOF information for the rows of a discretization matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
-                for the attribute ``flux_matrix_key``).  An empty string (the default)
-                is used when called without a specific key.
+                for the attribute ``flux_matrix_key``).
             nd: Spatial dimension of the grids the discretization is applied to.
-                Needed for vector-valued discretizations (e.g. MPSA) where the number
-                of DOFs per entity equals ``nd``.
 
         Raises:
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
             A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the rows of the named matrix.  Returns
-            ``{}`` (unspecified) when the key is not recognised.
+            DOFs per grid entity that occupy the rows of the named matrix.
 
         """
         pass
@@ -158,18 +148,11 @@ class Discretization(abc.ABC):
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        """Return the DOF information for the columns (domain) of a discretization matrix.
-
-        This method is used to construct an :class:`~porepy.numerics.ad.OperatorSpace`
-        for the domain of the discretization.  The default implementation returns an
-        empty dictionary, meaning the domain is unspecified.  Subclasses override this
-        to provide precise domain information for each matrix produced by the
-        discretization.
+        """Return the DOF information for the columns of a discretization matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
-                for the attribute ``flux_matrix_key``).  An empty string (the default)
-                is used when called without a specific key.
+                for the attribute ``flux_matrix_key``).
             nd: Spatial dimension of the grids the discretization is applied to.
                 Needed for vector-valued discretizations (e.g. MPSA) where the number
                 of DOFs per entity equals ``nd``.
@@ -179,8 +162,7 @@ class Discretization(abc.ABC):
 
         Returns:
             A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the columns of the named matrix.  Returns
-            ``{}`` (unspecified) when the key is not recognised.
+            DOFs per grid entity that occupy the columns of the named matrix.
 
         """
         pass
@@ -224,27 +206,17 @@ class InterfaceDiscretization(abc.ABC):
     ) -> dict["GridEntity", int]:
         """Return the DOF information for the rows (range) of a discretization matrix.
 
-        This method is used to construct an :class:`~porepy.numerics.ad.OperatorSpace`
-        for the range of the discretization.  The default implementation returns an
-        empty dictionary, meaning the range is unspecified.  Subclasses override this
-        to provide precise range information for each matrix produced by the
-        discretization.
-
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
-                for the attribute ``flux_matrix_key``).  An empty string (the default)
-                is used when called without a specific key.
+                for the attribute ``flux_matrix_key``).
             nd: Spatial dimension of the grids the discretization is applied to.
-                Needed for vector-valued discretizations (e.g. MPSA) where the number
-                of DOFs per entity equals ``nd``.
 
         Raises:
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
             A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the rows of the named matrix.  Returns
-            ``{}`` (unspecified) when the key is not recognised.
+            DOFs per grid entity that occupy the rows of the named matrix.
 
         """
         pass
@@ -255,27 +227,17 @@ class InterfaceDiscretization(abc.ABC):
     ) -> dict["GridEntity", int]:
         """Return the DOF information for the columns (domain) of a discretization matrix.
 
-        This method is used to construct an :class:`~porepy.numerics.ad.OperatorSpace`
-        for the domain of the discretization.  The default implementation returns an
-        empty dictionary, meaning the domain is unspecified.  Subclasses override this
-        to provide precise domain information for each matrix produced by the
-        discretization.
-
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
-                for the attribute ``flux_matrix_key``).  An empty string (the default)
-                is used when called without a specific key.
+                for the attribute ``flux_matrix_key``).
             nd: Spatial dimension of the grids the discretization is applied to.
-                Needed for vector-valued discretizations (e.g. MPSA) where the number
-                of DOFs per entity equals ``nd``.
 
         Raises:
             ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
             A mapping from :class:`~porepy.numerics.ad.GridEntity` to the number of
-            DOFs per grid entity that occupy the columns of the named matrix.  Returns
-            ``{}`` (unspecified) when the key is not recognised.
+            DOFs per grid entity that occupy the columns of the named matrix.
 
         """
         pass
