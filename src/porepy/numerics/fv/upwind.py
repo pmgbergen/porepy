@@ -672,3 +672,193 @@ class UpwindCoupling(InterfaceDiscretization):
 
         matrix += cc
         return matrix, rhs
+
+
+def _single_point_upwind_matrices(
+    sd: pp.Grid,
+    flux_array: np.ndarray,
+    bc: pp.BoundaryCondition,
+    num_components: int,
+) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix]:
+    """Single-point upstream-weighting matrices for one signed flux array.
+
+    Faithful extraction of :meth:`Upwind.discretize` so it can be reused for *two*
+    directions in one discretization (see :class:`HUpwind`). Returns
+    ``(upwind, bound_transport_dir, bound_transport_neu)``.
+    """
+    if sd.dim == 0:
+        return (
+            sps.csr_matrix((0, num_components)),
+            sps.csr_matrix((0, 0)),
+            sps.csr_matrix((0, 0)),
+        )
+    sign_flux = np.sign(flux_array)
+    pos_flux = sign_flux >= 0
+    neg_flux = np.logical_not(pos_flux)
+
+    cf_dense = sd.cell_faces_as_dense()
+
+    neumann_ind = np.where(bc.is_neu)[0]
+    inflow_ind = np.where(
+        np.logical_and(
+            bc.is_dir,
+            np.logical_or(
+                np.logical_and(pos_flux, cf_dense[0] < 0),
+                np.logical_and(neg_flux, cf_dense[1] < 0),
+            ),
+        )
+    )[0]
+    drop_face = np.zeros(sd.num_faces, dtype=bool)
+    drop_face[np.r_[neumann_ind, inflow_ind]] = True
+
+    # FIXED-SPARSITY single-point upwinding: every face keeps a STRUCTURAL entry for BOTH of
+    # its neighbour cells, carrying weight 1 on the upstream cell and an explicit 0 on the
+    # downstream cell. The pattern is then purely geometric and does NOT change when the flow
+    # direction flips (only the data swaps), while ``upwind @ x`` is bit-identical to the
+    # classic one-entry-per-face form (the explicit zero contributes nothing). This lets a
+    # compiled assembler bake the Jacobian structure once instead of recompiling per iterate.
+    faces = np.arange(sd.num_faces)
+    row = np.concatenate([faces, faces])
+    col = np.concatenate([cf_dense[0], cf_dense[1]])
+    values = np.concatenate([pos_flux.astype(float), neg_flux.astype(float)])
+    keep = (col >= 0) & ~drop_face[row]  # drop exterior "cells" and BC-handled faces
+    upstream_mat = sps.coo_matrix(
+        (values[keep], (row[keep], col[keep])), shape=(sd.num_faces, sd.num_cells)
+    ).tocsr()
+    upstream_mat.sort_indices()  # canonical, stable pattern
+    upwind = sps.kron(upstream_mat, sps.eye(num_components)).tocsr()
+
+    sgn_div = np.asarray(sd.divergence(dim=1).sum(axis=0)).squeeze()
+    bc_discr_neu = sps.coo_matrix(
+        (sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
+        shape=(sd.num_faces, sd.num_faces),
+    ).tocsr()
+    bc_discr_dir = sps.coo_matrix(
+        (np.ones(inflow_ind.size), (inflow_ind, inflow_ind)),
+        shape=(sd.num_faces, sd.num_faces),
+    ).tocsr()
+    rhs_neu = sps.kron(bc_discr_neu, sps.eye(num_components)).tocsr()
+    rhs_dir = sps.kron(bc_discr_dir, sps.eye(num_components)).tocsr()
+    return upwind, rhs_dir, rhs_neu
+
+
+class HUpwind(Upwind):
+    """Two-direction upwinding for the simplicial buoyancy term.
+
+    Stores **two** direction arrays and, in :meth:`discretize`, builds one single-point
+    upwind matrix (plus its boundary matrices) per direction:
+
+    - ``upwind_gamma`` / ``bound_transport_{dir,neu}_gamma`` -- upstream by ``gamma_flux``;
+    - ``upwind_delta`` / ``bound_transport_{dir,neu}_delta`` -- upstream by ``delta_flux``.
+
+    The model sets the two directions per scheme (see
+    :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.update_buoyancy_driven_fluxes`):
+    hybrid upwinding (HU) stores the inter-phase gravity flux with opposite signs
+    (``+ddf(rho_gamma - rho_delta)`` / ``-ddf(...)``); phase-potential upwinding (PPU)
+    stores each phase's own potential flux (``Psi_gamma`` / ``Psi_delta``). The matrix
+    keys are exposed as AD methods by :func:`~porepy.numerics.ad.ad_utils.wrap_discretization`
+    (see :class:`~porepy.numerics.ad.discretizations.HUpwindAd`).
+    """
+
+    def __init__(self, keyword: str = "hybrid_upwind") -> None:
+        super().__init__(keyword)
+        # gamma reuses the base Upwind keys; delta gets its own.
+        self.upwind_matrix_key = "transport_gamma"
+        self.bound_transport_dir_matrix_key = "rhs_dir_gamma"
+        self.bound_transport_neu_matrix_key = "rhs_neu_gamma"
+        self.upwind_gamma_matrix_key = "transport_gamma"
+        self.bound_transport_dir_gamma_matrix_key = "rhs_dir_gamma"
+        self.bound_transport_neu_gamma_matrix_key = "rhs_neu_gamma"
+        self.upwind_delta_matrix_key = "transport_delta"
+        self.bound_transport_dir_delta_matrix_key = "rhs_dir_delta"
+        self.bound_transport_neu_delta_matrix_key = "rhs_neu_delta"
+        self._gamma_flux_key = "hybrid_gamma_flux"
+        self._delta_flux_key = "hybrid_delta_flux"
+
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        num_components: int = parameter_dictionary.get("num_components", 1)
+
+        if "bc" in parameter_dictionary:
+            bc = parameter_dictionary["bc"]
+        else:
+            bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
+
+        # gamma upstream by gamma_flux, delta by delta_flux (two independent directions).
+        gamma_dir = np.asarray(parameter_dictionary[self._gamma_flux_key])
+        delta_dir = np.asarray(parameter_dictionary[self._delta_flux_key])
+        up_g, dir_g, neu_g = _single_point_upwind_matrices(
+            sd, gamma_dir, bc, num_components
+        )
+        up_d, dir_d, neu_d = _single_point_upwind_matrices(
+            sd, delta_dir, bc, num_components
+        )
+        matrix_dictionary["transport_gamma"] = up_g
+        matrix_dictionary["rhs_dir_gamma"] = dir_g
+        matrix_dictionary["rhs_neu_gamma"] = neu_g
+        matrix_dictionary["transport_delta"] = up_d
+        matrix_dictionary["rhs_dir_delta"] = dir_d
+        matrix_dictionary["rhs_neu_delta"] = neu_d
+
+
+class HUpwindCoupling(UpwindCoupling):
+    """Interface (mortar) counterpart of :class:`HUpwind`: two directions.
+
+    Builds, per stored direction, the mortar upwind matrices
+    ``upwind_{primary,secondary}_gamma`` (from ``gamma_flux``) and
+    ``upwind_{primary,secondary}_delta`` (from ``delta_flux``), plus the signed ``flux``,
+    in one :meth:`discretize`. The geometric ``trace`` / ``inv_trace`` / ``mortar_discr``
+    matrices are built once and shared.
+    """
+
+    def __init__(self, keyword: str) -> None:
+        super().__init__(keyword)
+        # Geometric / shared matrices keep the base keys.
+        self.trace_primary_matrix_key = "trace"
+        self.inv_trace_primary_matrix_key = "inv_trace"
+        self.mortar_discr_matrix_key = "mortar_discr"
+        # gamma reuses the base direction-dependent keys; delta gets its own.
+        self.upwind_primary_matrix_key = "upwind_primary_gamma"
+        self.upwind_secondary_matrix_key = "upwind_secondary_gamma"
+        self.flux_matrix_key = "flux_gamma"
+        self.upwind_primary_gamma_matrix_key = "upwind_primary_gamma"
+        self.upwind_secondary_gamma_matrix_key = "upwind_secondary_gamma"
+        self.flux_gamma_matrix_key = "flux_gamma"
+        self.upwind_primary_delta_matrix_key = "upwind_primary_delta"
+        self.upwind_secondary_delta_matrix_key = "upwind_secondary_delta"
+        self.flux_delta_matrix_key = "flux_delta"
+        self._gamma_flux_key = "hybrid_gamma_flux"
+        self._delta_flux_key = "hybrid_delta_flux"
+
+    def discretize(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: dict,
+        data_secondary: dict,
+        data_intf: dict,
+    ) -> None:
+        if sd_primary.dim - sd_secondary.dim not in [1, 2]:
+            raise ValueError(
+                "Implementation is only valid for grids one dimension apart."
+            )
+        matrix_dictionary = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data_intf[pp.PARAMETERS][self.keyword]
+
+        inv_trace_h = np.abs(sd_primary.divergence(dim=1))
+        matrix_dictionary["inv_trace"] = inv_trace_h
+        matrix_dictionary["trace"] = inv_trace_h.T
+        matrix_dictionary["mortar_discr"] = sps.eye(intf.num_cells)
+
+        # gamma rides gamma_flux, delta rides delta_flux (two independent directions).
+        for suffix, key in (
+            ("gamma", self._gamma_flux_key),
+            ("delta", self._delta_flux_key),
+        ):
+            lf = np.sign(parameter_dictionary[key])
+            flag = (lf > 0).astype(float)
+            matrix_dictionary[f"upwind_primary_{suffix}"] = sps.diags(flag)
+            matrix_dictionary[f"upwind_secondary_{suffix}"] = sps.diags(1.0 - flag)
+            matrix_dictionary[f"flux_{suffix}"] = sps.diags(lf)

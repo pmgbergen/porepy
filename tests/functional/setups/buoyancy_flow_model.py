@@ -24,8 +24,18 @@ import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
 )
+
+
+def flow_template(fractional_flow: bool) -> type:
+    """Flow template selected by the ``fractional_flow`` model parameter."""
+    return (
+        CompositionalFractionalFlowTemplate
+        if fractional_flow
+        else CompositionalFlowTemplate
+    )
 
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)
@@ -55,35 +65,59 @@ class Geometry(pp.PorePyModel):
     """
 
     @abstractmethod
-    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> tuple[np.ndarray]:
+    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         """Return Dirichlet facet indices."""
         pass
 
-    @staticmethod
-    def harvest_sphere_members(xc: np.ndarray, rc: float, x: np.ndarray) -> np.ndarray:
-        """
-        Select points inside a sphere defined by center and radius.
+    def _dirichlet_anchor_facet(
+        self, sd: pp.Grid | pp.BoundaryGrid, axis: int
+    ) -> np.ndarray:
+        """Single pressure-anchor facet on the domain's maximum-``axis`` plane.
 
-        Args:
-            xc (np.ndarray): Coordinates of the sphere center.
-            rc (float): Radius of the sphere.
-            x (np.ndarray): Array of points to test.
+        A pure coordinate bounding box on the face centers selects the facets lying on
+        that plane -- which, unlike PorePy's ``domain_boundary_sides``, also captures
+        fracture-tip boundary facets -- and the one nearest the plane center is returned.
+
+        The opening is deliberately kept to a single facet: this incompressible
+        fractional-flow system needs a pressure anchor, but any larger open Dirichlet
+        boundary lets buoyancy drive mass across it and pollutes the conservation checks.
+
+        Parameters:
+            sd: A subdomain grid or its boundary grid.
+            axis: Coordinate axis (0=x, 1=y, 2=z) whose maximum defines the plane.
 
         Returns:
-            np.ndarray: Boolean mask array indicating points inside the sphere.
+            The index of the anchor facet (empty if the subdomain has no facet on the
+            plane, e.g. a fracture not reaching the boundary).
+
         """
-        dx = x - xc
-        r = np.linalg.norm(dx, axis=1)
-        return np.where(r < rc, True, False)
+        if isinstance(sd, pp.Grid):
+            coords = sd.face_centers
+        elif isinstance(sd, pp.BoundaryGrid):
+            coords = sd.cell_centers
+        else:
+            raise ValueError("Type not expected.")
+
+        bounding_box = self._domain.bounding_box
+        on_plane = np.where(
+            np.isclose(coords[axis], bounding_box[("xmax", "ymax", "zmax")[axis]])
+        )[0]
+        if on_plane.size <= 1:
+            return on_plane
+        # Of the plane facets, pick the one closest to the plane center. The transverse
+        # axes are exactly those below the (last) maximum axis.
+        dist2 = np.zeros(on_plane.size)
+        for a in range(axis):
+            center = 0.5 * (
+                bounding_box[("xmin", "ymin", "zmin")[a]]
+                + bounding_box[("xmax", "ymax", "zmax")[a]]
+            )
+            dist2 += (coords[a, on_plane] - center) ** 2
+        return on_plane[[int(np.argmin(dist2))]]
 
 
 class ModelGeometry2D(Geometry):
     """2D Cartesian domain."""
-
-    _sphere_radius: float = 1.0
-    _sphere_center: np.ndarray = np.array(
-        [2.5, 5.0, 0.0]
-    )  # renamed from _sphere_centre
 
     def set_domain(self) -> None:
         """Set square domain."""
@@ -101,54 +135,25 @@ class ModelGeometry2D(Geometry):
         return mesh_args
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-        if isinstance(sd, pp.Grid):
-            face_centers = sd.face_centers.T
-        elif isinstance(sd, pp.BoundaryGrid):
-            face_centers = sd.cell_centers.T
-        else:
-            raise ValueError("Type not expected.")
-
-        boundary_faces = self.domain_boundary_sides(sd)
-        bf_indices = boundary_faces.all_bf
-
-        def find_facets(center: np.ndarray) -> np.ndarray:
-            logical = Geometry.harvest_sphere_members(
-                center, self._sphere_radius, face_centers[bf_indices]
-            )
-            return bf_indices[logical]
-
-        return find_facets(self._sphere_center)
+        """Single pressure-anchor facet at the center of the ``ymax`` edge."""
+        return self._dirichlet_anchor_facet(sd, axis=1)
 
 
 class ModelMDGeometry2D(ModelGeometry2D):
-    """2D mixed-dimensional domain."""
+    """2D mixed-dimensional domain: [0, 2]^2 (2x2), two fractures crossing at (1, 1)."""
+
+    def set_domain(self) -> None:
+        length = self.units.convert_units(2.0, "m")
+        self._domain = pp.Domain({"xmax": length, "ymax": length})
 
     def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        points = np.array([[1.0, 0.0], [1.0, 2.0], [0.0, 1.0], [2.0, 1.0]]).T
+        fracs = np.array([[0, 1], [2, 3]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
 
 class ModelGeometry3D(Geometry):
     """3D Cartesian domain."""
-
-    _sphere_radius: float = 1.0
-    _sphere_center: np.ndarray = np.array(
-        [2.5, 2.5, 5.0]
-    )  # renamed from _sphere_centre
 
     def set_domain(self) -> None:
         """Set a 3D cubic domain."""
@@ -171,52 +176,24 @@ class ModelGeometry3D(Geometry):
         return mesh_args
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-        if isinstance(sd, pp.Grid):
-            face_centers = sd.face_centers.T
-        elif isinstance(sd, pp.BoundaryGrid):
-            face_centers = sd.cell_centers.T
-        else:
-            raise ValueError("Type not expected.")
-
-        boundary_faces = self.domain_boundary_sides(sd)
-        bf_indices = boundary_faces.all_bf
-
-        def find_facets(center: np.ndarray) -> np.ndarray:
-            logical = Geometry.harvest_sphere_members(
-                center, self._sphere_radius, face_centers[bf_indices]
-            )
-            return bf_indices[logical]
-
-        return find_facets(self._sphere_center)
+        """Single pressure-anchor facet at the center of the ``zmax`` face."""
+        return self._dirichlet_anchor_facet(sd, axis=2)
 
 
 class ModelMDGeometry3D(ModelGeometry3D):
-    """3D mixed-dimensional domain."""
+    """3D mixed-dimensional domain: [0, 2]^3 (2x2x2), three planes crossing at (1, 1, 1)."""
+
+    def set_domain(self) -> None:
+        length = self.units.convert_units(2.0, "m")
+        self._domain = pp.Domain(
+            {"xmax": length, "ymax": length, "zmax": length}
+        )
 
     def set_fractures(self) -> None:
-        kind_1_square_u = np.array([1.0, 1.0, 4.0, 4.0])
-        kind_1_square_v = np.array([1.0, 4.0, 4.0, 1.0])
-
-        kind_2_square_u = np.array([2.0, 2.0, 4.0, 4.0])
-        kind_2_square_v = np.array([2.0, 4.0, 4.0, 2.0])
-
-        # normal along z from z = 2.0
-        f1 = np.vstack([kind_1_square_u, kind_1_square_v, np.full(4, 2.0)])
-
-        # normal along y from y = 1.0
-        f2 = np.vstack([kind_1_square_u, np.full(4, 1.0), kind_1_square_v])
-
-        # normal along y from y = 4.0
-        f3 = np.vstack([kind_1_square_u, np.full(4, 4.0), kind_1_square_v])
-
-        # normal along y from y = 3.0
-        f4 = np.vstack([kind_1_square_u, np.full(4, 3.0), kind_1_square_v])
-
-        # normal along x from x = 2.0
-        f5 = np.vstack([np.full(4, 2.0), kind_2_square_u, kind_2_square_v])
-
-        disjoint_set = [f1, f2, f3, f4, f5]
-        self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
+        fx = np.vstack([[1.0, 1.0, 1.0, 1.0], [0, 2, 2, 0], [0, 0, 2, 2]])
+        fy = np.vstack([[0, 2, 2, 0], [1.0, 1.0, 1.0, 1.0], [0, 0, 2, 2]])
+        fz = np.vstack([[0, 2, 2, 0], [0, 0, 2, 2], [1.0, 1.0, 1.0, 1.0]])
+        self._fractures = [pp.PlaneFracture(f) for f in (fx, fy, fz)]
 
 
 class BaseEOS(pp.compositional.EquationOfState):
@@ -456,18 +433,49 @@ class SecondaryEquations(LocalElimination):
         )
 
 
-class BaseFlowModel(
-    FlowTemplate,
-):
+class _MemoizedSurrogateFactory(pp.ad.SurrogateFactory):
+    """SurrogateFactory returning one shared operator per domain set.
+
+    A phase property (density, enthalpy, ...) referenced many times then appears as a
+    single AD subtree instead of a rebuilt one. Bit-exact: values live in the data and
+    are re-read at parse time, so the shared operator always reflects the current state.
+    """
+
+    def __call__(self, domains):
+        cache = self.__dict__.setdefault("_op_cache", {})
+        key = tuple(domains)
+        if key not in cache:
+            cache[key] = super().__call__(domains)
+        return cache[key]
+
+
+class BaseFlowModel(pp.PorePyModel):
+    """Template-agnostic flow behaviour; the flow template is attached at build time
+    (see :func:`flow_template`) so ``fractional_flow`` can select it."""
+
     def __init__(self, params: dict):
         """Initialize flow model."""
         super().__init__(params)
         self.expected_order_loss = params.get("expected_order_loss", 10)
 
+    def assign_thermodynamic_properties_to_phases(self) -> None:
+        """Memoize each phase-property surrogate so it is a single shared subtree."""
+        super().assign_thermodynamic_properties_to_phases()
+        for phase in self.fluid.phases:
+            for attr in vars(phase).values():
+                if isinstance(attr, pp.ad.SurrogateFactory):
+                    attr.__class__ = _MemoizedSurrogateFactory
+
+    @pp.ad.cached_method
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """kr = saturation."""
+        """kr = saturation.
+
+        Cached so every reference to a phase's relative permeability (mobility, fractional
+        mobility and buoyancy terms all pull it in) shares one operator subtree, keeping
+        the AD graph a DAG instead of duplicating the saturation subtree per use.
+        """
         return phase.saturation(domains)
 
     def set_equations(self):
@@ -485,8 +493,14 @@ class BaseFlowModel(
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
+    @pp.ad.cached_method
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Gravity magnitude field."""
+        """Gravity magnitude field.
+
+        Cached so the (constant) gravity array is built once per subdomain set and shared
+        by every consumer (Darcy vector source and each phase-pair buoyancy flux) instead
+        of allocating an identical dense array per reference.
+        """
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
@@ -649,12 +663,14 @@ class InitialConditions2N(pp.PorePyModel):
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        xc = sd.cell_centers.T
-        z = (
-            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        # Horizontally layered initial condition: the composition depends only on the
+        # vertical (gravity) coordinate -- y in 2D, z in 3D -- so every horizontal layer
+        # is laterally uniform. This keeps the density constant along any horizontal
+        # boundary plane, which makes the conservation checks agnostic to the number of
+        # fixed-pressure facets on that plane.
+        vert = sd.cell_centers[self.nd - 1]
+        z = np.where((vert >= 1.0) & (vert <= 2.0), 0.5, 0.0) + np.where(
+            (vert >= 3.0) & (vert <= 4.0), 0.5, 0.0
         )
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
@@ -746,16 +762,8 @@ class FlowModel2N(
         assert order(energy_loss) >= self.expected_order_loss
 
 
-class BuoyancyFlowModel2N(
-    FluidMixture2N,
-    InitialConditions2N,
-    BoundaryConditions,
-    SecondaryEquations2N,
-    FlowModel2N,
-):
-    """Complete 2N buoyancy model."""
-
-    pass
+# The concrete 2N/3N buoyancy models are assembled by :func:`buoyancy_flow_model` at the
+# end of this module, so the flow template can be selected via ``fractional_flow``.
 
 
 # constitutive description for N=3
@@ -1067,18 +1075,27 @@ class InitialConditions3N(pp.PorePyModel):
         return np.ones(sd.num_cells) * p_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1.0
-        return np.ones(sd.num_cells) * h
+        # Mass-weighted mixture specific enthalpy, consistent with the initial
+        # saturations: h = (Σ s_i ρ_i h_i) / (Σ s_i ρ_i). A constant value would be
+        # inconsistent with the initial phase distribution and spoils energy
+        # conservation.
+        s_o = self.ic_values_saturation_oil(sd)
+        s_g = self.ic_values_saturation_gas(sd)
+        s_w = 1.0 - s_o - s_g
+        ic_rho = s_w * rho_w + s_o * rho_o + s_g * rho_g
+        return (
+            s_w * h_w * rho_w + s_o * h_o * rho_o + s_g * h_g * rho_g
+        ) / ic_rho
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        xc = sd.cell_centers.T
-        z = (
-            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 1 / 6.0, 0.0)
-            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1 / 6.0, 0.0)
-            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1 / 6.0, 0.0)
-            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1 / 6.0, 0.0)
+        # Horizontally layered initial condition: the composition depends only on the
+        # vertical (gravity) coordinate -- y in 2D, z in 3D -- so every horizontal layer
+        # is laterally uniform (see the 2N counterpart for the rationale).
+        vert = sd.cell_centers[self.nd - 1]
+        z = np.where((vert >= 1.0) & (vert <= 2.0), 1 / 6.0, 0.0) + np.where(
+            (vert >= 3.0) & (vert <= 4.0), 1 / 6.0, 0.0
         )
         return z * np.ones(sd.num_cells)
 
@@ -1249,13 +1266,23 @@ class FlowModel3N(
         assert order_energy >= self.expected_order_loss
 
 
-class BuoyancyFlowModel3N(
-    FluidMixture3N,
-    InitialConditions3N,
-    BoundaryConditions,
-    SecondaryEquations3N,
-    FlowModel3N,
-):
-    """Complete 3N buoyancy model."""
+_PHASE_PARTS = {
+    2: (FluidMixture2N, InitialConditions2N, SecondaryEquations2N, FlowModel2N),
+    3: (FluidMixture3N, InitialConditions3N, SecondaryEquations3N, FlowModel3N),
+}
 
-    pass
+
+def buoyancy_flow_model(n_phases: int, fractional_flow: bool = True) -> type:
+    """Assemble the N-phase buoyancy model with the fractional_flow-selected template.
+
+    The template is attached below ``FlowModel*`` -> ``BaseFlowModel`` so ``BaseFlowModel``
+    (whose ``set_equations`` registers the buoyancy discretization parameters) precedes
+    the template's equation setters in the MRO.
+    """
+    fluid, ic, secondary, flow = _PHASE_PARTS[n_phases]
+    flow = type(flow.__name__, (flow, flow_template(fractional_flow)), {})
+    return type(
+        f"BuoyancyFlowModel{n_phases}N",
+        (fluid, ic, BoundaryConditions, secondary, flow),
+        {},
+    )
