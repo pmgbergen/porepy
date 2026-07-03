@@ -12,6 +12,7 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
@@ -513,23 +514,27 @@ model_params = {
 }
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
-    # Run a selected fracture damage example.
+def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
+    """Run a selected fracture damage example and return the model.
 
-    # This executable block provides a lightweight demonstration of running a fracture
-    # damage model. The model is the momentum balance model of fracture damage with
-    # time-dependent displacement boundary conditions set by the key
-    # "north_displacements" in the parameter dictionary.
+    This function provides a lightweight demonstration of running a fracture damage
+    model. The model is the momentum balance model including fracture damage with
+    time-dependent displacement boundary conditions set by the key "north_displacements"
+    in the parameter dictionary.
 
-    # The parameter `regimes` controls which mechanisms will be activated. Three regimes
-    # are available: "dilation", "friction", or both, set to "dilation" below.
+    Parameters:
+        regimes: A list of strings specifying which damage mechanisms to activate.
+            Options are "dilation", "friction", or both. Defaults to ["dilation"].
+
+    Returns:
+        A list containing the model(s) used in the simulation. Length of the list equals
+        the number of regimes specified.
+    """
+
+    models: list[pp.PorePyModel] = []
 
     dim = 2  # 2D case
     time_steps = 5
-    # Choose damage regimes: "dilation", "friction", or both. Set to "dilation" for the
-    # executable example.
-    regimes = ["dilation"]
 
     model_params.update(
         {
@@ -570,3 +575,12 @@ if __name__ == "__main__":
         "constraint_violation_tolerance": 1e-5,
     }
     pp.ModelRunner(model, solver_params).run()
+
+    models.append(model)
+
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

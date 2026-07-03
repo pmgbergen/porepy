@@ -283,14 +283,24 @@ def test_targeted_rediscretization(model_class):
     rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
     full_model: pp.PorePyModel = rediscretization_model_class(model_params)
-    pp.ModelRunner(full_model, solver_params).run()
+    try:
+        pp.ModelRunner(full_model, solver_params).run()
+    except RuntimeError:
+        # RuntimeError expected due to unattainable convergence criteria
+        # with only two iterations and zero tolerances. Allow RuntimeError without
+        # stopping the test.
+        pass
 
     # A model object with targeted rediscretization.
     targeted_model_params = model_params.copy()
     targeted_model_params["full_rediscretization"] = False
     # Set up the model.
     targeted_model = rediscretization_model_class(targeted_model_params)
-    pp.ModelRunner(targeted_model, solver_params).run()
+    try:
+        pp.ModelRunner(targeted_model, solver_params).run()
+    except RuntimeError:
+        # See comment above.
+        pass
 
     # Check that the linear systems are the same.
     assert len(full_model.stored_linear_system) == 2

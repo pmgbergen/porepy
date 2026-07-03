@@ -209,7 +209,7 @@ def project_points_to_line(
     sort_ind = np.argsort(coord_1d)[0]
     sorted_coord = coord_1d[0, sort_ind]
 
-    return sorted_coord, rot, active_dimension, sort_ind
+    return sorted_coord, rot, active_dimension[0], sort_ind
 
 
 def project_plane_matrix(
