@@ -962,7 +962,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_flux_jumps: List[pp.ad.Operator] = []
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero"
+            np.zeros(size), name="component_buoyancy_jump_zero", grids=domains
         )
         b_flux_jumps.append(zero)
 
@@ -1115,7 +1115,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero"
+            np.zeros(size), name="component_buoyancy_jump_zero", grids=domains
         )
         b_fluxes.append(zero)
         for phase in self.fluid.phases:
@@ -1144,7 +1144,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_fluxes: List[pp.ad.Operator] = []
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="enthalpy_buoyancy_jump_zero"
+            np.zeros(size), name="enthalpy_buoyancy_jump_zero", grids=domains
         )
         b_fluxes.append(zero)
         for phase in self.fluid.phases:
