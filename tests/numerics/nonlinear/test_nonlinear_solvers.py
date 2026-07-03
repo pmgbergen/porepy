@@ -3,10 +3,12 @@
 import copy
 import json
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pytest
 from deepdiff import DeepDiff
+from scipy.sparse import csr_matrix
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -69,8 +71,10 @@ def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
     )
 
 
-@pytest.fixture
-def default_newton_solver():
+def default_newton_solver(nonlinear_increment_history: Optional[np.ndarray] = None):
+    # TODO
+    if nonlinear_increment_history is None:
+        nonlinear_increment_history = np.ndarray(shape=())
     return pp.NewtonSolver(
         params={
             "nl_convergence_criteria": {
@@ -92,11 +96,15 @@ def default_newton_solver():
                 "inc_nan": pp.IncrementBasedNanCriterion(),
                 "res_nan": pp.ResidualBasedNanCriterion(),
             },
-        }
+        },
+        linear_solver=MockLinearSolver(nonlinear_increment_history),
     )
 
 
 class MockEquationSystem:
+    residual: np.ndarray
+    """Will be set from the outside in tests."""
+
     def get_variable_values(self, **wkwargs):
         return np.array([1.0])
 
@@ -121,9 +129,8 @@ class MockModel:
 
     def __init__(
         self,
-        nonlinear_increment_history=None,
-        residual_history=None,
-        path=None,
+        residual_history: Optional[np.ndarray] = None,
+        path: Optional[Path] = None,
         is_nonlinear: bool = True,
     ):
         self.nonlinear_solver_statistics = (
@@ -133,7 +140,8 @@ class MockModel:
         )
         self.equation_system = MockEquationSystem()
         self.mdg = MockMdg()
-        self.nonlinear_increment_history = nonlinear_increment_history
+        if residual_history is None:
+            residual_history = np.ndarray(shape=())
         self.residual_history = residual_history
         self._is_nonlinear = is_nonlinear
 
@@ -141,8 +149,6 @@ class MockModel:
         self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self):
-        self.nonlinear_increment = np.array(self.nonlinear_increment_history[0])
-        self.nonlinear_increment_history = self.nonlinear_increment_history[1:]
         self.equation_system.residual = np.array(self.residual_history[0])
         self.residual_history = self.residual_history[1:]
 
@@ -156,10 +162,7 @@ class MockModel:
         self.nonlinear_solver_statistics.save()
 
     def assemble_linear_system(self):
-        pass
-
-    def solve_linear_system(self):
-        return self.nonlinear_increment
+        self.linear_system = csr_matrix((0, 0)), np.zeros(shape=())
 
     def _is_time_dependent(self):
         return False
@@ -168,20 +171,31 @@ class MockModel:
         return self._is_nonlinear
 
 
+class MockLinearSolver(pp.LinearSolverBase):
+    """A mockup class for a linear solver. Each call to solve_linear_system returns next
+    value of the `nonlinear_increment_history` array.
+
+    """
+
+    def __init__(self, nonlinear_increment_history: np.ndarray):
+        self.nonlinear_increment_history = nonlinear_increment_history
+        self.iteration_counter = -1
+        """Counts the number of times solve_linear_system was called."""
+
+    def solve_linear_system(self, mat: csr_matrix, rhs: np.ndarray) -> np.ndarray:
+        self.iteration_counter += 1
+        return np.array(self.nonlinear_increment_history[self.iteration_counter])
+
+
 class TimeDependentMockModel(MockModel):
     """Use nested lists for convergence history and adapted statistics."""
 
     def __init__(
         self,
-        nonlinear_increment_history=None,
         residual_history=None,
         path=None,
     ):
-        super().__init__(
-            nonlinear_increment_history=nonlinear_increment_history,
-            residual_history=residual_history,
-            path=path,
-        )
+        super().__init__(residual_history=residual_history, path=path)
         self.nonlinear_solver_statistics = pp.NonlinearSolverAndTimeStatistics(
             path=path
         )
@@ -191,14 +205,10 @@ class TimeDependentMockModel(MockModel):
 
     def before_nonlinear_loop(self):
         super().before_nonlinear_loop()
-        self.nonlinear_increments = self.nonlinear_increment_history[0]
-        self.nonlinear_increment_history = self.nonlinear_increment_history[1:]
         self.residuals = self.residual_history[0]
         self.residual_history = self.residual_history[1:]
 
     def before_nonlinear_iteration(self):
-        self.nonlinear_increment = np.array(self.nonlinear_increments[0])
-        self.nonlinear_increments = self.nonlinear_increments[1:]
         self.equation_system.residual = np.array(self.residuals[0])
         self.residuals = self.residuals[1:]
 
@@ -261,11 +271,11 @@ def test_time_stepper_status_serialization(status, expected):
     assert status.serialize() == expected
 
 
-def test_init_criteria_valid_max_iterations(default_newton_solver):
+def test_init_criteria_valid_max_iterations():
     """Test that max_iterations attribute is correctly fetched."""
     solver = pp.NewtonSolver()
     assert solver.max_iterations == 10  # From default params.
-    assert default_newton_solver.max_iterations == 3  # From criteria.
+    assert default_newton_solver().max_iterations == 3  # From criteria.
 
 
 @pytest.mark.parametrize(
@@ -321,10 +331,10 @@ def test_init_divergence_criteria_sanity_check(key, value):
         )
 
 
-def test_increase_iteration_index(default_newton_solver):
+def test_increase_iteration_index():
     """Unit test for the advance_iteration method of the Newton solver."""
     # Init solver.
-    solver = default_newton_solver
+    solver = default_newton_solver()
 
     # Advance iteration count.
     assert solver.iteration_index == 0
@@ -334,14 +344,11 @@ def test_increase_iteration_index(default_newton_solver):
     assert solver.iteration_index == 2
 
 
-def test_solve_convergence(default_newton_solver: pp.NewtonSolver):
+def test_solve_convergence():
     """Test that the solver returns SUCCESSFUL on convergence."""
     # Init model with convergence after two iterations.
-    model = MockModel(
-        nonlinear_increment_history=[2.0, 0.5],
-        residual_history=[1.0, 0.5],
-    )
-    solver = default_newton_solver
+    model = MockModel(residual_history=[1.0, 0.5])
+    solver = default_newton_solver(nonlinear_increment_history=[2.0, 0.5])
 
     # Call solve.
     solver_status = solver.solve(model)
@@ -350,7 +357,7 @@ def test_solve_convergence(default_newton_solver: pp.NewtonSolver):
     assert solver_status.is_converged()
 
 
-def test_solve_convergence_statistics(default_newton_solver):
+def test_solve_convergence_statistics():
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after convergence.
 
@@ -359,11 +366,10 @@ def test_solve_convergence_statistics(default_newton_solver):
         Path("solver_statistics.json").unlink()
     # Init model with convergence after two iterations.
     model = MockModel(
-        nonlinear_increment_history=[2.0, 0.5],
         residual_history=[1.0, 0.5],
         path=Path("solver_statistics.json"),
     )
-    solver = default_newton_solver
+    solver = default_newton_solver(nonlinear_increment_history=[2.0, 0.5])
 
     # Call solve.
     _ = solver.solve(model)
@@ -430,14 +436,13 @@ def test_solve_convergence_statistics(default_newton_solver):
     Path("solver_statistics.json").unlink()
 
 
-def test_solve_convergence_time_dependent(default_newton_solver: pp.NewtonSolver):
+def test_solve_convergence_time_dependent():
     """Test that the solver returns SUCCESSFUL for converged time-dependent model."""
     # Minimal setup.
-    model = TimeDependentMockModel(
-        nonlinear_increment_history=[[2.0, 0.5], [2.0, 1.0, 0.5]],
-        residual_history=[[1.0, 0.5], [1.0, 1.0, 0.5]],
+    model = TimeDependentMockModel(residual_history=[[1.0, 0.5], [1.0, 1.0, 0.5]])
+    solver = default_newton_solver(
+        nonlinear_increment_history=[2.0, 0.5, 2.0, 1.0, 0.5]
     )
-    solver = default_newton_solver
 
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
@@ -456,32 +461,28 @@ def test_solve_convergence_time_dependent(default_newton_solver: pp.NewtonSolver
     assert solver_status.is_converged()
 
 
-def test_solve_failure(default_newton_solver: pp.NewtonSolver):
+def test_solve_failure():
     """Test that the solver returns FAILED on divergence."""
     # Minimal setup for failure after two iterations.
-    model = MockModel(
-        nonlinear_increment_history=[2.0, 100.0],
-        residual_history=[1.0, np.nan],
-    )
-    solver = default_newton_solver
+    model = MockModel(residual_history=[1.0, np.nan])
+    solver = default_newton_solver(nonlinear_increment_history=[2.0, 100.0])
     solver_status = solver.solve(model)
 
     # Check simulation status.
     assert solver_status.is_failed()
 
 
-def test_solve_failure_statistics(default_newton_solver: pp.NewtonSolver):
+def test_solve_failure_statistics():
     """Test that the solver statistics are updated correctly on convergence to check
     correct behavior after failure.
 
     """
     # Minimal setup for failure after two iterations.
     model = MockModel(
-        nonlinear_increment_history=[2.0, 100.0],
         residual_history=[1.0, np.nan],
         path=Path("solver_statistics.json"),
     )
-    solver = default_newton_solver
+    solver = default_newton_solver(nonlinear_increment_history=[2.0, 100.0])
     solver_status = solver.solve(model)
 
     # Check simulation status.
@@ -546,14 +547,15 @@ def test_solve_failure_statistics(default_newton_solver: pp.NewtonSolver):
     Path("solver_statistics.json").unlink()
 
 
-def test_solve_failure_time_dependent(default_newton_solver: pp.NewtonSolver):
+def test_solve_failure_time_dependent():
     """Test that the solver returns FAILED on divergence for a time-dependent model,"""
     # Minimal setup for failure for first of three iterations - last two identical.
     model = TimeDependentMockModel(
-        nonlinear_increment_history=[[2.0, 100.0], [2.0, 1.0, 0.5], [2.0, 1.0, 0.5]],
         residual_history=[[1.0, np.nan], [1.0, 1.0, 0.5], [1.0, 1.0, 0.5]],
     )
-    solver = default_newton_solver
+    solver = default_newton_solver(
+        nonlinear_increment_history=[2.0, 100.0, 2.0, 1.0, 0.5, 2.0, 1.0, 0.5]
+    )
 
     # First time step - advance time to log the time step.
     model.time_manager.increase_time()
@@ -581,7 +583,7 @@ def test_solve_failure_time_dependent(default_newton_solver: pp.NewtonSolver):
     assert solver_status.is_converged()
 
 
-def test_before_nonlinear_loop(default_newton_solver: pp.NewtonSolver):
+def test_before_nonlinear_loop():
     """Unit test for the before_nonlinear_loop method of the Newton solver.
 
     Mainly check correct management of indices.
@@ -589,7 +591,7 @@ def test_before_nonlinear_loop(default_newton_solver: pp.NewtonSolver):
     """
     # Init model and solver.
     model = MockModel()
-    solver = default_newton_solver
+    solver = default_newton_solver()
 
     # Mock a situation in the midst of a simulation (after some time step).
     solver.iteration_index = 10
@@ -621,13 +623,10 @@ def test_nonlinear_loop(
     res_history,
     is_converged,
     is_failed,
-    default_newton_solver: pp.NewtonSolver,
 ):
     """Test that the Newton loop exits correctly."""
-    model = MockModel(
-        nonlinear_increment_history=inc_history, residual_history=res_history
-    )
-    solver = default_newton_solver
+    model = MockModel(residual_history=res_history)
+    solver = default_newton_solver(nonlinear_increment_history=inc_history)
 
     # Identify number of iterations from history.
     num_iter = len(inc_history)
@@ -687,12 +686,11 @@ def test_summarize_solver_status(
     convergence_status,
     divergence_status,
     expected_solver_status: type[NonlinearSolverStatus],
-    default_newton_solver: pp.NewtonSolver,
 ):
     """Unit test for the summarize_solver_status method of the Newton solver."""
     # Init model and solver.
     model = MockModel()
-    solver = default_newton_solver
+    solver = default_newton_solver()
 
     # Mock the solver progressbar. Usually it is initialized in
     # NewtonSolver.before_nonlinear_loop, which is never called in this test.
@@ -717,11 +715,11 @@ def test_summarize_solver_status(
     assert isinstance(solver_status, expected_solver_status)
 
 
-def test_before_nonlinear_iteration(default_newton_solver: pp.NewtonSolver):
+def test_before_nonlinear_iteration():
     """Unit test for the before_nonlinear_iteration method of the Newton solver."""
     # Init model and solver.
-    model = MockModel(nonlinear_increment_history=[2.0], residual_history=[1.0])
-    solver = default_newton_solver
+    model = MockModel(residual_history=[1.0])
+    solver = default_newton_solver(nonlinear_increment_history=[2.0])
 
     # Mock the solver progressbar. Usually it is initialized in
     # NewtonSolver.before_nonlinear_loop, which is never called in this test.
@@ -758,12 +756,11 @@ def test_after_nonlinear_iteration(
     iteration_index,
     is_converged,
     is_failed,
-    default_newton_solver: pp.NewtonSolver,
 ):
     """Test the after_nonlinear_iteration method of the Newton solver."""
     # Init model and solver.
     model = MockModel()
-    solver = default_newton_solver
+    solver = default_newton_solver()
 
     # Mock the solver progressbar. Usually it is initialized in
     # NewtonSolver.before_nonlinear_loop, which is never called in this test.
@@ -816,12 +813,11 @@ def test_check_convergence(
     iteration_index,
     is_converged,
     is_failed,
-    default_newton_solver: pp.NewtonSolver,
 ):
     """Test the check_convergence method of the Newton solver."""
     # Init model and solver.
     model = MockModel()
-    solver = default_newton_solver
+    solver = default_newton_solver()
 
     # Mock the nonlinear increment and residual for the last iteration.
     model.nonlinear_increment = np.array([inc])
@@ -854,10 +850,10 @@ def test_check_convergence(
     )
 
 
-def test_update_solver_statistics(default_newton_solver: pp.NewtonSolver):
+def test_update_solver_statistics():
     """Unit test for the update_solver_statistics method of the Newton solver."""
     model = MockModel()
-    solver = default_newton_solver
+    solver = default_newton_solver()
 
     # Prepare model for updating solver statistics.
     model.before_nonlinear_loop()
@@ -939,14 +935,17 @@ def test_linear_nonlinear_model(is_nonlinear: bool):
     """
     model = MockModel(
         # Residual is not small after the first iteration!
-        nonlinear_increment_history=[10, 0.05, 1e-22],
         residual_history=[5, 0.02, 1e-23],
         is_nonlinear=is_nonlinear,
     )
 
     # Creating a nonlinear solver with default convergence criteria. They must be
     # different for nonlinear and linear cases.
-    solver = pp.NewtonSolver(is_nonlinear_problem=is_nonlinear, params=None)
+    solver = pp.NewtonSolver(
+        is_nonlinear_problem=is_nonlinear,
+        params=None,
+        linear_solver=MockLinearSolver([10, 0.05, 1e-22]),
+    )
     status = solver.solve(model)
     assert isinstance(status, NonlinearSolverStatusConverged)
 
@@ -968,10 +967,13 @@ def test_linear_solver_fails():
 
     """
     model = MockModel(
-        nonlinear_increment_history=[np.nan],
         residual_history=[np.nan],
         is_nonlinear=False,
     )
-    solver = pp.NewtonSolver(is_nonlinear_problem=False, params=None)
+    solver = pp.NewtonSolver(
+        is_nonlinear_problem=False,
+        params=None,
+        linear_solver=MockLinearSolver([np.nan]),
+    )
     status = solver.solve(model)
     assert status.is_failed(), "Must return failure, but returns success instead."
