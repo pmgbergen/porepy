@@ -8,6 +8,7 @@ from typing import Literal, Optional
 import numpy as np
 import pytest
 from deepdiff import DeepDiff
+from scipy.sparse import csr_matrix
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -92,10 +93,7 @@ class MockModel(PorePyModel):
 
     def assemble_linear_system(self):
         self.sequence_of_calls.append("assemble_linear_system")
-
-    def solve_linear_system(self):
-        self.sequence_of_calls.append("solve_linear_system")
-        return np.ones(5)
+        self.linear_system = csr_matrix((0, 0)), np.ndarray(shape=0)
 
     def after_nonlinear_iteration(self, nonlinear_increment):
         self.sequence_of_calls.append("after_nonlinear_iteration")
@@ -113,7 +111,20 @@ class MockModel(PorePyModel):
         self.sequence_of_calls.append("after_time_step_failure")
 
 
-class MockNonlinearSolver:
+class MockLinearSolver(pp.LinearSolverBase):
+    """A mockup object for a linear solver. Always returns an array of ones of a given
+    shape.
+
+    """
+
+    def __init__(self, num_dofs: int) -> None:
+        self.num_dofs = num_dofs
+
+    def solve_linear_system(self, mat, rhs) -> np.ndarray:
+        return np.ones(self.num_dofs)
+
+
+class MockNonlinearSolver(pp.NonlinearSolverBase):
     """Used in test_model_delegate_methods_called, read the test docstring."""
 
     def __init__(self, num_iters_for_success: int):
@@ -189,7 +200,9 @@ def test_model_delegate_methods_called(
 
     # Initialize the solver.
     if solver_type == "nonlinear":
-        solver = NewtonSolver(params=solver_params)
+        solver = NewtonSolver(
+            params=solver_params, linear_solver=MockLinearSolver(num_dofs=4)
+        )
     elif solver_type == "mock":
         solver = MockNonlinearSolver(num_iters_for_success=5)
     else:
@@ -214,7 +227,6 @@ def test_model_delegate_methods_called(
     main_loop = [
         "before_nonlinear_iteration",
         "assemble_linear_system",
-        "solve_linear_system",
         "after_nonlinear_iteration",
     ]
     after_main_loop_success = [
@@ -301,10 +313,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
     # Minimizing computational expenses.
     def assemble_linear_system(self) -> None:
-        pass
-
-    def solve_linear_system(self) -> np.ndarray:
-        return np.ones(self.equation_system.num_dofs())
+        self.linear_system = csr_matrix((0, 0)), np.ndarray(shape=())
 
 
 class DynamicNewtonSolver(NewtonSolver):
@@ -492,15 +501,22 @@ def test_model_time_step_control(params: dict):
         },
     )
     solver_params = {
-        "nonlinear_solver": DynamicNewtonSolver,
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": MAX_NONLINEAR_ITER,
+        "prepare_simulation": False,
     }
+    model.prepare_simulation()
+    nonlinear_solver = DynamicNewtonSolver(
+        params=solver_params,
+        linear_solver=MockLinearSolver(num_dofs=model.equation_system.num_dofs()),
+    )
     if not should_fail:
-        status = ModelRunner(model, solver_params).run()
+        status = ModelRunner(
+            model, solver_params, nonlinear_solver=nonlinear_solver
+        ).run()
     else:
         try:
-            ModelRunner(model, solver_params).run()
+            ModelRunner(model, solver_params, nonlinear_solver=nonlinear_solver).run()
         except RuntimeError as e:
             status = e.args[0]
         else:
@@ -544,7 +560,8 @@ def default_newton_solver(iter_converge: int):
                 "inc_nan": pp.IncrementBasedNanCriterion(),
                 "res_nan": pp.ResidualBasedNanCriterion(),
             },
-        }
+        },
+        linear_solver=MockLinearSolver(num_dofs=4),
     )
 
 
