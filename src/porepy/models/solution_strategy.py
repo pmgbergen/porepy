@@ -160,6 +160,7 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        self.initialize_operator_reference_values_from_initial_state()
         self.initialize_previous_iterate_and_time_step_values()
 
         # Initialize time dependent ad arrays, including those for boundary values.
@@ -194,6 +195,48 @@ class SolutionStrategy(pp.PorePyModel):
             self.equation_system.set_variable_values(
                 val,
                 time_step_index=time_step_index,
+            )
+
+    def initialize_operator_reference_values_from_initial_state(self) -> None:
+        """Initialize AD operator reference values from iterate-0 state.
+
+        This compatibility step aligns linearization references used by
+        :meth:`porepy.numerics.ad.operators.Operator.perturbation_from_reference`
+        with initialized primary-variable values for pressure and temperature.
+
+        The behavior can be disabled by setting
+        ``params['initialize_operator_reference_from_initial_values'] = False``.
+
+        """
+        if not self.params.get(
+            "initialize_operator_reference_from_initial_values", True
+        ):
+            return
+
+        for quantity_name in ("pressure", "temperature"):
+            variable_attr = f"{quantity_name}_variable"
+            if not hasattr(self, variable_attr):
+                continue
+
+            reference_value = cast(
+                pp.number, getattr(self.reference_variable_values, quantity_name, 0.0)
+            )
+            if np.isclose(reference_value, 0.0):
+                continue
+
+            variable_name = getattr(self, variable_attr)
+            domains = cast(list[pp.GridLike], self.mdg.subdomains())
+            variables = self.equation_system.get_variables(
+                [variable_name], domains
+            )
+            if len(variables) == 0:
+                continue
+
+            values = self.equation_system.get_variable_values(
+                variables=variables, iterate_index=0
+            )
+            self.equation_system.set_variable_values(
+                values, variables=variables, reference=True
             )
 
     def set_equation_system_manager(self) -> None:
