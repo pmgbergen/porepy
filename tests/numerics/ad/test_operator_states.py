@@ -99,7 +99,7 @@ class TestTimeDependentAndIterative:
         timestep afterwards.
 
         """
-        index_key, other_index_key, prev_method, other_prev_method = (
+        _, _, prev_method, other_prev_method = (
             self._get_index_keys(time_dependent)
         )
         with pytest.raises(ValueError):
@@ -114,7 +114,7 @@ class TestTimeDependentAndIterative:
         previous_iteration."""
         operator = self._get_operator(operator_type)
 
-        index_key, _, prev_method, _ = self._get_index_keys(time_dependent)
+        _, _, prev_method, _ = self._get_index_keys(time_dependent)
 
         for sd, data in self.mdg.subdomains(return_data=True):
             op = getattr(operator, prev_method)(steps=0)
@@ -141,9 +141,9 @@ class TestTimeDependentAndIterative:
         """
         operator = self._get_operator(operator_type)
 
-        index_key, _, prev_method, _ = self._get_index_keys(time_dependent)
+        _, _, prev_method, _ = self._get_index_keys(time_dependent)
 
-        # Test creating with explicit stepping and recursive stepping
+        # Test creating with explicit stepping and recursive stepping.
         vars_exp = [
             getattr(operator, prev_method)(steps=i) for i in range(0, self.depth)
         ]
@@ -172,7 +172,7 @@ class TestReferenceOperator:
     The following terminology is used in parametrization:
       - op_type: Which operator type to test. Can be "dense"
         (pp.ad.TimeDependentDenseArray), "variable" (pp.ad.MixedDimensionalVariable) or
-        "combined" (an operator three formed as a combination of the two previous
+        "combined" (an operator tree formed as a combination of the two previous
         types).
       - state: Which state of the operator to test. Can be "current" (the current
         approximation), "previous_timestep" or "previous_iteration", where the two
