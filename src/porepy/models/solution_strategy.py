@@ -207,6 +207,9 @@ class SolutionStrategy(pp.PorePyModel):
         The behavior can be disabled by setting
         ``params['initialize_operator_reference_from_initial_values'] = False``.
 
+        NOTE: This method is intended as a temporary bridge from PR #1696 until
+        downstream PRs on initialization have been merged.
+
         """
         if not self.params.get(
             "initialize_operator_reference_from_initial_values", True
