@@ -2,7 +2,7 @@
 
 Implemented classes:
     LinearSolverBase - abstract class describing the linear solver interface.
-    LinearSolverDirect - a direct solver.
+    LinearSolverDirect - a direct solver with multiple supported backends.
 
 """
 

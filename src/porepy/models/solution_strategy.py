@@ -39,11 +39,20 @@ class SolutionStrategy(pp.PorePyModel):
         if params is None:
             params = {}
 
+        # Print deprecation warning for an old parameter.
+        if "linear_solver" in params:
+            logger.warning(
+                "Linear solver was moved outside the PorePy model. If you previously "
+                "passed 'linear_solver' backend string (e.g. 'pypardiso') in model "
+                "params, replace it with "
+                "pp.NewtonSolver(linear_solver=LinearSolverDirect(backend='pypardiso'))"
+                ". The current passed value is ignored."
+            )
+
         # Set default parameters, these will be overwritten by any parameters passed.
         default_params = {
             "folder_name": "visualization",
             "file_name": "data",
-            "linear_solver": "pypardiso",
         }
 
         default_params.update(params)
