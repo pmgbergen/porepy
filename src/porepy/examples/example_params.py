@@ -28,7 +28,6 @@ units = pp.Units()
 # the default models by 'not invoked by default'.
 
 model_params = {
-    "linear_solver": "pypardiso",
     "units": units,
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
     "reference_variable_values": pp.ReferenceVariableValues(**reference_values),  # type: ignore[arg-type]
