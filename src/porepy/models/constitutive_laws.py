@@ -2839,7 +2839,9 @@ class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
 
         """
         c = self.solid_specific_heat_capacity(subdomains)
-        enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
+        enthalpy = c * self.perturbation_from_thermodynamic_state(
+            "temperature", subdomains
+        )
         enthalpy.set_name("solid_enthalpy")
         return enthalpy
 
@@ -3563,7 +3565,7 @@ class PressureStress(LinearElasticMechanicalStress):
         # sd_primary, thus there is no need for a subdomain projection.
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.darcy_keyword
-        ) @ self.perturbation_from_reference("pressure", subdomains)
+        ) @ self.pressure(subdomains).perturbation_from_reference()
         stress.set_name("pressure_stress")
         return stress
 
@@ -3711,7 +3713,7 @@ class ThermoPressureStress(PressureStress):
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.enthalpy_keyword
-        ) @ self.perturbation_from_reference("temperature", subdomains)
+        ) @ self.temperature(subdomains).perturbation_from_reference()
         stress.set_name("thermal_stress")
         return stress
 
@@ -4741,68 +4743,6 @@ class ConstantPorosity(pp.PorePyModel):
         return Scalar(self.solid.porosity, "porosity")
 
 
-class CompressibleRockPorosity(pp.PorePyModel):
-    """Porosity with rock compressibility.
-
-    When one-way poromechanical coupling is sufficient, the effective changes in
-    porosity due to rock deformation can be captured by a porosity model which
-    accounts for the reference porosity and the changes due to compressibility.
-
-    """
-
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
-
-    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference porosity.
-
-        Parameters:
-            subdomains: List of subdomains where the reference porosity is defined.
-
-        Returns:
-            Reference porosity operator.
-
-        """
-        return Scalar(self.solid.porosity, "reference_porosity")
-
-    def rock_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Rock compressibility [1/Pa].
-
-        Parameters:
-            subdomains: List of subdomains where the rock compressibility is defined.
-
-        Returns:
-            Rock compressibility operator.
-
-        """
-        return Scalar(self.solid.rock_compressibility, "rock_compressibility")
-
-    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Porosity with rock compressibility [-].
-
-        The porosity consists of a reference porosity and changes due to rock
-        compressibility.
-
-        Parameters:
-            subdomains: List of subdomains where the porosity is defined.
-
-        Returns:
-            The porosity represented as an Ad operator. The value is constant for all
-            subdomains.
-
-        """
-        reference_porosity = self.reference_porosity(subdomains)
-        c_r = self.rock_compressibility(subdomains)
-        dp = self.pressure(subdomains).perturbation_from_reference()
-        f_exp = Function(pp.ad.functions.exp, "exp")
-        phi = reference_porosity * f_exp(c_r * dp)
-        phi.set_name("porosity")
-        return phi
-
-
 class PoroMechanicsPorosity(pp.PorePyModel):
     r"""Porosity for poromechanical models.
 
@@ -4977,7 +4917,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         bulk_modulus = self.bulk_modulus(subdomains)
 
         # Pressure changes
-        dp = self.perturbation_from_reference("pressure", subdomains)
+        dp = self.pressure(subdomains).perturbation_from_reference()
 
         # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
         n_inv = (alpha - phi_ref) * (Scalar(1) - alpha) / bulk_modulus
@@ -5098,7 +5038,10 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # The consistency is based on perturbation. If the variable is used directly,
         # results will not match if the reference state is not zero, see
         # :func:`test_without_fracture` in test_poromechanics.py.
-        dp = self.perturbation_from_reference(variable_name, subdomains)
+        variable = cast(
+            Callable[[list[pp.Grid]], pp.ad.Operator], getattr(self, variable_name)
+        )
+        dp = variable(subdomains).perturbation_from_reference()
         consistency_integrated = discr.consistency(physics_name) @ dp
 
         # Divide by cell volumes to counteract integration.
@@ -5129,6 +5072,11 @@ class BiotPoroMechanicsPorosity(pp.PorePyModel):
     :class:`~porepy.models.constitutive_laws.SpecificStorage`.
 
     """
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
 
     def porosity_change_from_pressure(
         self, subdomains: list[pp.Grid]
@@ -5143,7 +5091,7 @@ class BiotPoroMechanicsPorosity(pp.PorePyModel):
 
         """
         specific_storage = self.specific_storage(subdomains)
-        dp = self.perturbation_from_reference("pressure", subdomains)
+        dp = self.pressure(subdomains).perturbation_from_reference()
 
         # Pressure change contribution
         pressure_contribution = specific_storage * dp
@@ -5168,6 +5116,11 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Biot coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+
+    """
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Temperature variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
     temperature_variable: str
@@ -5209,7 +5162,7 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         """
         if not all([sd.dim == self.nd for sd in subdomains]):
             raise ValueError("Subdomains must be of dimension nd.")
-        dtemperature = self.perturbation_from_reference("temperature", subdomains)
+        dtemperature = self.temperature(subdomains).perturbation_from_reference()
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion_coefficient(subdomains)
         alpha = self.biot_coefficient(subdomains)
