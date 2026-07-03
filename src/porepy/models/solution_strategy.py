@@ -45,8 +45,8 @@ class SolutionStrategy(pp.PorePyModel):
                 "Linear solver was moved outside the PorePy model. If you previously "
                 "passed 'linear_solver' backend string (e.g. 'pypardiso') in model "
                 "params, replace it with "
-                "pp.NewtonSolver(linear_solver=LinearSolverDirect(backend='pypardiso'))"
-                ". The current passed value is ignored."
+                "pp.NewtonSolver(linear_solver=pp.LinearSolverDirect(backend='pypardiso"
+                "')). The current passed value is ignored."
             )
 
         # Set default parameters, these will be overwritten by any parameters passed.
