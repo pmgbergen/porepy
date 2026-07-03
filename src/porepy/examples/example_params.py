@@ -37,6 +37,7 @@ model_params = {
         "fluid": pp.FluidComponent(**water),  # type: ignore[arg-type]
         "numerical": pp.NumericalConstants(**numerical_values),  # type: ignore[arg-type]
     },
+    "initialize_operator_reference_from_initial_values": True,
     # Meshing
     "grid_type": "cartesian",
     # Depending on the grid type, some subset of the meshing arguments below are used.
