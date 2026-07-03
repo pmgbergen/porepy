@@ -77,7 +77,12 @@ def model(
         model = Model3bWithEffectivePermeability(model_params)
     else:
         ValueError("Parameter combination not admissible.")
-    pp.ModelRunner(model).run()
+    solver_params = {
+        "nl_max_iterations": 100,
+        "nl_convergence_res_atol": 1e-6,
+        "nl_convergence_inc_atol": 1e-6,
+    }
+    pp.ModelRunner(model, solver_params).run()
     return model
 
 

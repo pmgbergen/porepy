@@ -514,9 +514,14 @@ def _run_and_recover_in_si(spec: _BCUnitInvarianceSpec, units: pp.Units) -> np.n
         "times_to_export": [],
         "grid_type": "cartesian",
     }
+    solver_params = {
+        "nl_max_iterations": 100,
+        "nl_convergence_res_atol": 1e-6,
+        "nl_convergence_inc_atol": 1e-6,
+    }
 
     model = spec.probe_model_class(params)
-    pp.ModelRunner(model).run()
+    pp.ModelRunner(model, solver_params).run()
 
     sd = model.mdg.subdomains(dim=spec.extraction_subdomain_dim)[0]
     var_internal = spec.observable_accessor(model, sd)

@@ -63,7 +63,11 @@ def model_conductive(
         "flux_discretization": flux_discretization,
         "times_to_export": [],  # Suppress output for tests
     }
-    solver_params = {"nl_convergence_res_atol": 1e-9}
+    solver_params = {
+        "nl_max_iterations": 100,
+        "nl_convergence_res_atol": 1e-4,
+        "nl_convergence_inc_atol": 1e-4,
+    }
     model = ModelWithEffectivePermeability(model_params)
     pp.ModelRunner(model, solver_params).run()
     return model
@@ -88,7 +92,12 @@ def model_blocking(
         "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
-    pp.ModelRunner(model).run()
+    solver_params = {
+        "nl_max_iterations": 100,
+        "nl_convergence_res_atol": 1e-6,
+        "nl_convergence_inc_atol": 1e-6,
+    }
+    pp.ModelRunner(model, solver_params).run()
     return model
 
 
