@@ -82,8 +82,8 @@ class AbstractFunction(Operator):
             name=name,
             operation=pp.ad.operators.Operations.evaluate,
             children=children,
-            source=None,
-            target=None,
+            source=source,
+            target=target,
         )
 
     def __call__(self, *args: pp.ad.Operator) -> pp.ad.Operator:
@@ -110,8 +110,8 @@ class AbstractFunction(Operator):
             name=f"{self.name}{[a.name for a in args]}",
             operation=pp.ad.operators.Operations.evaluate,
             children=args,
-            source=None,
-            target=None,
+            source=self._source,
+            target=self._target,
         )
         # Assigning the functional representation by the implementation of this instance
         op.func = self.func  # type: ignore
