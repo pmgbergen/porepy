@@ -430,7 +430,10 @@ class NewtonSolver(NonlinearSolverBase):
         # This is a temporary approach for compatability. It is a linear solver's
         # responsibility and will be moved to a new linear solver class when tags and
         # indexer are introduced.
-        if model._apply_schur_complement_reduction():
+        if (
+            hasattr(model, "_apply_schur_complement_reduction")
+            and model._apply_schur_complement_reduction()
+        ):
             return model.equation_system.expand_schur_complement_solution(
                 nonlinear_increment
             )
