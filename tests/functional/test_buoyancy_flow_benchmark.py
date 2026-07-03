@@ -661,7 +661,7 @@ def _run_buoyancy_case(
 @pytest.mark.skipped  # reason: slow
 # EK: This test is too computationally intensive to be run even among the skipped tests.
 # It is kept as an invaluable reference for future changes to the buoyancy model.
-def test_buoyancy_flow_benchmark(saturation_at_5_days):
+def slow_test_buoyancy_flow_benchmark(saturation_at_5_days):
     """Sweep the four discretization configurations for density case 0 (delta_rho=225).
 
     For each configuration (fractional_flow x buoyancy upwinding) the case is run at
