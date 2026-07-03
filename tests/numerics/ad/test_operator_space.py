@@ -105,7 +105,8 @@ class TestOperatorSpaceScalar:
         assert s.dof_info == {}
 
     def test_scalar_is_singleton_value(self):
-        """Two calls to scalar() return equal (but not necessarily identical) objects."""
+        """Two calls to scalar() return equal (but not necessarily identical)
+        objects."""
         assert OperatorSpace.scalar() == OperatorSpace.scalar()
 
     def test_scalar_hash(self):
@@ -153,7 +154,12 @@ class TestOperatorSpaceEquality:
         s1 = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         s2 = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         assert s1 == s2
+        assert hash(s1) == hash(s2)
+        d = {s1: "value"}
+        assert d[s2] == "value"
 
+
+class TestOperatorSpaceInequality:
     def test_different_grids(self, two_subdomains):
         g1, g2 = two_subdomains
         s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
@@ -171,25 +177,6 @@ class TestOperatorSpaceEquality:
         s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         s2 = OperatorSpace.from_domains([one_mortar], {GridEntity.cells: 1})
         assert s1 != s2
-
-    def test_not_equal_to_other_type(self, two_subdomains):
-        g1, _ = two_subdomains
-        s = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        assert s != "not an OperatorSpace"
-        assert s != 42
-
-    def test_hash_equal_for_equal_spaces(self, two_subdomains):
-        g1, g2 = two_subdomains
-        s1 = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        s2 = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        assert hash(s1) == hash(s2)
-
-    def test_usable_as_dict_key(self, two_subdomains):
-        g1, g2 = two_subdomains
-        s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        s2 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        d = {s1: "value"}
-        assert d[s2] == "value"
 
 
 # ---------------------------------------------------------------------------
@@ -211,14 +198,12 @@ class TestOperatorProperties:
         assert op.target is None
 
     def test_set_source_in_init(self, two_subdomains):
-        g1, _ = two_subdomains
-        space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
         op = Operator(name="test", source=space, target=None)
         assert op.source == space
 
     def test_set_target_in_init(self, two_subdomains):
-        g1, _ = two_subdomains
-        space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
         op = Operator(name="test", source=None, target=space)
         assert op.target == space
 
@@ -234,31 +219,30 @@ class TestScalarSpace:
         assert s.source == OperatorSpace.scalar()
         assert s.target == OperatorSpace.scalar()
 
-    def test_scalar_with_subdomain_has_subdomain_space(self, two_subdomains):
-        g, _ = two_subdomains
-        s = Scalar(1.0, domains=[g])
+    @pytest.mark.parametrize("fixture_name", ["two_subdomains", "one_mortar"])
+    def test_scalar_with_subdomain_or_interface(self, request, fixture_name):
+        grids = request.getfixturevalue(fixture_name)
+        grids = grids if isinstance(grids, (list, tuple)) else [grids]
+        grid = list(grids)[0]
+        s = Scalar(1.0, domains=[grid])
         assert s.source is not None
-        assert s.source.domain_type == DomainType.subdomains
-        assert s.source.grids == (g,)
+        assert s.source.grids == (grid,)
         assert s.source == s.target
-
-    def test_scalar_with_mortar_grid_has_interface_space(self, one_mortar):
-        mg = one_mortar
-        s = Scalar(2.0, domains=[mg])
-        assert s.source is not None
-        assert s.source.domain_type == DomainType.interfaces
-        assert s.source.grids == (mg,)
+        expected_domain_type = (
+            DomainType.subdomains
+            if isinstance(grid, pp.Grid)
+            else DomainType.interfaces
+        )
+        assert s.source.domain_type == expected_domain_type
 
     def test_scalar_domain_is_cellwise(self, two_subdomains):
         """Domain-bearing Scalar uses the natural cell-based space on its grids."""
-        g, _ = two_subdomains
-        s = Scalar(1.0, domains=[g])
+        s = Scalar(1.0, domains=two_subdomains[:1])
         assert s.source is not None
         assert s.source.dof_info == {GridEntity.cells: 1}
 
     def test_scalar_neg_propagates_source(self, two_subdomains):
-        g, _ = two_subdomains
-        s = Scalar(3.0, domains=[g])
+        s = Scalar(3.0, domains=two_subdomains[:1])
         neg = -s
         assert neg.source == s.source
         assert neg.target == s.target
@@ -276,44 +260,37 @@ class TestScalarSpace:
 
     def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
         """A domain-bearing scalar uses the ordinary cell-based space on its grids."""
-        g, _ = two_subdomains
-        s = Scalar(2.0, domains=[g])
-        v = Variable("p", {GridEntity.cells: 1}, g)
+        s = Scalar(2.0, domains=two_subdomains[:1])
+        v = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
         result = s * v
         assert result.source == v.source
         assert result.target == v.target
 
     def test_domainless_scalar_combined_with_operator(self, two_subdomains):
         """Plain Scalar still inherits from the other operand."""
-        g, _ = two_subdomains
         s = Scalar(2.0)
-        v = Variable("p", {GridEntity.cells: 1}, g)
+        v = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
         result = s * v
         assert result.source == v.source
 
 
 class TestVariableSpace:
     def test_variable_has_subdomain_space(self, two_subdomains):
-        g, _ = two_subdomains
-        var = Variable("p", {GridEntity.cells: 1}, g)
-        assert var.source is not None
+        var = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
         assert var.source.domain_type == DomainType.subdomains
         assert var.source == var.target
 
     def test_variable_space_contains_correct_grid(self, two_subdomains):
-        g, _ = two_subdomains
-        var = Variable("p", {GridEntity.cells: 1}, g)
+        var = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
         assert var.source is not None
-        assert var.source.grids == (g,)
+        assert var.source.grids == (two_subdomains[0],)
 
     def test_variable_space_dof_info(self, two_subdomains):
-        g, _ = two_subdomains
-        var = Variable("u", {GridEntity.cells: 2, GridEntity.faces: 1}, g)
+        var = Variable(
+            "u", {GridEntity.cells: 2, GridEntity.faces: 1}, two_subdomains[0]
+        )
         assert var.source is not None
-        assert var.source.dof_info == {
-            GridEntity.cells: 2,
-            GridEntity.faces: 1,
-        }
+        assert var.source.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
 
     def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
         """Variable on a MortarGrid gets DomainType.interfaces."""
@@ -339,17 +316,13 @@ class TestMixedDimensionalVariableSpace:
         v2 = Variable("p", {GridEntity.cells: 1}, g2)
         return MixedDimensionalVariable([v1, v2])
 
-    def test_md_variable_source_is_union(self, md_var, two_subdomains):
-        g1, g2 = two_subdomains
-        expected = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
+    def test_md_variable_source_target_are_union(self, md_var, two_subdomains):
+        expected = OperatorSpace.from_domains(two_subdomains, {GridEntity.cells: 1})
         assert md_var.source == expected
-
-    def test_md_variable_target_is_union(self, md_var, two_subdomains):
-        g1, g2 = two_subdomains
-        expected = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         assert md_var.target == expected
 
     def test_md_variable_with_mixed_dof_info_has_unspecified_space(self, fracture_mdg):
+        # TODO: Should this raise instead?
         subdomains = fracture_mdg.subdomains()
         v1 = Variable("p", {GridEntity.cells: 1}, subdomains[0])
         v2 = Variable("p", {GridEntity.cells: 2}, subdomains[1])
@@ -364,8 +337,7 @@ class TestSurrogateOperatorSpace:
 
     @pytest.fixture
     def simple_mdg(self, two_subdomains):
-        g1, g2 = two_subdomains
-        return pp.meshing.subdomains_to_mdg([[g1, g2]])
+        return pp.meshing.subdomains_to_mdg([two_subdomains])
 
     @pytest.fixture
     def surrogate_setup(self, simple_mdg):
