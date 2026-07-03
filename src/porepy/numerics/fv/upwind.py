@@ -70,14 +70,15 @@ class Upwind(Discretization):
     ) -> dict[pp.ad.GridEntity, int]:
         """Return row DOF info for the named Upwind matrix.
 
-        All Upwind matrices have one DOF per face in their rows (fluxes on faces).
-
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"upwind"``).
-            nd: Spatial dimension (unused; Upwind is always scalar).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            ``{GridEntity.faces: 1}`` for all recognised keys, ``{}`` otherwise.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
         from porepy.numerics.ad._grid_entity import GridEntity
@@ -96,11 +97,13 @@ class Upwind(Discretization):
 
         Parameters:
             matrix_key: Attribute-name fragment (e.g. ``"upwind"``).
-            nd: Spatial dimension (unused; Upwind is always scalar).
+            nd: Spatial dimension.
+
+        Raises:
+            ValueError: If the matrix_key is not recognized by this discretization.
 
         Returns:
-            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity,
-            or ``{}`` for unrecognised keys.
+            A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
         from porepy.numerics.ad._grid_entity import GridEntity
