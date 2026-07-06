@@ -2188,20 +2188,37 @@ def _ad_wrapper(
         value_array = vals
 
     if size is None:
-        num_cells = sum(grid.num_cells for grid in grids)
-        size = int(value_array.size / num_cells) if num_cells > 0 else 1
+        size = value_array.size
 
-    domain_and_range = pp.ad.OperatorSpace.from_domains(
-        grids, {pp.ad.GridEntity.cells: size}
-    )
+    domain_and_range: Optional[OperatorSpace] = None
+    if grids:
+        if grid_entity == GridEntity.faces:
+            num_entities = sum(
+                grid.num_faces for grid in grids if isinstance(grid, pp.Grid)
+            )
+        elif grid_entity == GridEntity.nodes:
+            num_entities = sum(
+                grid.num_nodes
+                for grid in grids
+                if isinstance(grid, (pp.Grid, pp.MortarGrid))
+            )
+        else:
+            num_entities = sum(grid.num_cells for grid in grids)
+        dofs_per_entity = (
+            int(value_array.size / num_entities) if num_entities > 0 else 1
+        )
+        domain_and_range = pp.ad.OperatorSpace.from_domains(
+            grids, {grid_entity: dofs_per_entity}
+        )
+    elif grids is not None:
+        # Empty sequence of grids: interpret as the scalar space.
+        domain_and_range = pp.ad.OperatorSpace.scalar()
 
     if as_array:
         return pp.ad.DenseArray(
             value_array, name=name, source=domain_and_range, target=domain_and_range
         )
     else:
-        if size is None:
-            size = value_array.size
         matrix = sps.diags(vals, shape=(size, size))
         return pp.ad.SparseArray(
             matrix, name=name, source=domain_and_range, target=domain_and_range
@@ -2212,7 +2229,8 @@ def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids=None,
+    grids: Optional[Sequence[GridLike]] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray:
     """Wrap a number or array as ad array.
 
@@ -2220,19 +2238,26 @@ def wrap_as_dense_ad_array(
         vals: Values to be wrapped. Floats are broadcast to an np array.
         size: Size of the array. If not set, the size is inferred from vals.
         name: Name of ad object.
+        grids: Grids on which the wrapped array is defined. Used to construct the
+            source/target space of the returned operator.
+        grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
+            associated with. Defaults to cells.
 
     Returns:
         Values wrapped as an ad Array.
 
     """
-    return _ad_wrapper(vals, True, size=size, name=name, grids=grids)
+    return _ad_wrapper(
+        vals, True, size=size, name=name, grids=grids, grid_entity=grid_entity
+    )
 
 
 def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids=None,
+    grids: Optional[Sequence[GridLike]] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> SparseArray:
     """Wrap a number or array as ad matrix.
 
@@ -2240,12 +2265,18 @@ def wrap_as_sparse_ad_array(
         vals: Values to be wrapped. Floats are broadcast to an np array.
         size: Size of the array. If not set, the size is inferred from vals.
         name: Name of ad object.
+        grids: Grids on which the wrapped array is defined. Used to construct the
+            source/target space of the returned operator.
+        grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
+            associated with. Defaults to cells.
 
     Returns:
         Values wrapped as an ad Matrix.
 
     """
-    return _ad_wrapper(vals, False, size=size, name=name, grids=grids)
+    return _ad_wrapper(
+        vals, False, size=size, name=name, grids=grids, grid_entity=grid_entity
+    )
 
 
 def sum_operator_list(
