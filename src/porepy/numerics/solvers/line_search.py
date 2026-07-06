@@ -760,8 +760,13 @@ class ConstraintLineSearch:
         for i in range(10):
             # Only consider dofs where the constraint indicator has changed sign.
             violation = violation_tol * np.sign(f_1)
+            constraint_grids = (
+                constraint_function.target.grids
+                if constraint_function.target is not None
+                else None
+            )
             f = constraint_function - pp.wrap_as_dense_ad_array(
-                violation, constraint_function.range.grids
+                violation, grids=constraint_grids
             )
             # Absolute tolerance should be safe, as constraints are assumed to be
             # scaled to approximately 1.
