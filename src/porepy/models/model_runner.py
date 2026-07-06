@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import logging
 import warnings
+from copy import deepcopy
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceCriteria,
+    ConvergenceStatusCollection,
+    DivergenceCriteria,
+    SolverStatus,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -246,6 +254,44 @@ class ModelRunner:
         else:
             self.time_progressbar = DummyProgressBar()
 
+    def initialize(self) -> None:
+        """Initializes the model for a steady-state or time-dependent simulation.
+
+        Raises:
+            ValueError: If an invalid mode is provided.
+
+        """
+        # Sanity check.
+        if not self._is_time_dependent:
+            raise ValueError("Initialization for steady-state mode is not supported.")
+
+        # Set default initialization parameters.
+        self.params.setdefault("initialization", {"mode": "steady-state"})
+
+        # Choose initialization class based on mode.
+        mode = self.params["initialization"]["mode"]
+        if mode == "steady-state":
+            Initialization = SteadyStateInitialization
+        elif mode == "steady-reference-state":
+            Initialization = (
+                SteadyStateInitialization  # Placeholder for future implementation
+            )
+        else:
+            raise ValueError(f"Invalid initialization mode: {mode}")
+
+        # Run the initialization procedure.
+        Initialization(
+            self.model,
+            self.solver,
+            self.params["initialization"],
+        ).run()
+
+        # Export the initialized state.
+        # TODO: This does not overwrite the exported initial (computational) state
+        # for counter 0, but advances the exporting counter. Fix this when revising
+        # the exporting logic.
+        self.model.save_data_time_step()
+
     def run(self, *args, **kwargs) -> None:
         """Runs the model as specified."""
 
@@ -374,7 +420,7 @@ class ModelRunner:
                     self.logging(simulation_status)
 
         else:
-            raise ValueError(f"Unrecognized solver stats {solver_status}.")
+            raise ValueError(f"Unrecognized solver status {solver_status}.")
 
         if simulation_status.is_stopped():
             logger.warning("Simulation stopped.")
@@ -420,3 +466,242 @@ class ModelRunner:
                 self.model.time_manager.dt,
                 self.model.time_manager.final_time_reached(),
             )
+
+
+# NOTE: Initialization has the same structure as a time loop.
+# The only/main difference is the "convergence check" which does not
+# check the end of time, but the steady state convergence.
+# Furthermore subtle differences in the time manager, e.g., the time is not
+# updated in the same way.
+# TODO: Refactor and unify the time loop and initialization loop,
+# once upgrade of time stepping is finished.
+
+
+@dataclass
+class InitializationParameters:
+    """Dataclass to hold initialization parameters."""
+
+    convergence_criteria: ConvergenceCriteria
+    divergence_criteria: DivergenceCriteria
+    pseudo_dt_init: float
+    pseudo_dt_max: float
+
+    @classmethod
+    def from_dict(cls, params: dict) -> InitializationParameters:
+        """Create an InitializationParameters instance from a dictionary.
+
+        Parameters:
+            params: A dictionary containing initialization parameters.
+            - "steady_state_convergence_criteria": ConvergenceCriteria
+            - "steady_state_divergence_criteria": DivergenceCriteria
+            - "pseudo_dt_init": float
+            - "pseudo_dt_max": float
+
+        Returns:
+            An instance of InitializationParameters with the specified or
+            default values.
+
+        """
+        default_config = {
+            "steady_state_convergence_criteria": ConvergenceCriteria(
+                {
+                    "inc": pp.IncrementBasedAbsoluteCriterion(
+                        tol=1e-10, metric=pp.EuclideanMetric()
+                    )
+                }
+            ),
+            "steady_state_divergence_criteria": DivergenceCriteria(
+                {
+                    "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+                    "inc_nan": pp.IncrementBasedNanCriterion(),
+                    "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+                        tol=1e14, metric=pp.EuclideanMetric()
+                    ),
+                }
+            ),
+            "pseudo_dt_init": 1000 * pp.YEAR,
+            "pseudo_dt_max": 100000 * pp.YEAR,
+        }
+        return cls(
+            convergence_criteria=params.get(
+                "steady_state_convergence_criteria",
+                default_config["steady_state_convergence_criteria"],
+            ),
+            divergence_criteria=params.get(
+                "steady_state_divergence_criteria",
+                default_config["steady_state_divergence_criteria"],
+            ),
+            pseudo_dt_init=params.get(
+                "pseudo_dt_init", default_config["pseudo_dt_init"]
+            ),
+            pseudo_dt_max=params.get("pseudo_dt_max", default_config["pseudo_dt_max"]),
+        )
+
+
+class SteadyStateInitialization:
+    """Class to perform iterative pseudo time stepping for initialization."""
+
+    def __init__(
+        self,
+        model: pp.SolutionStrategy,
+        solver: pp.NewtonSolver | pp.LinearSolver,
+        params: dict,
+    ):
+        self.model = model
+        """Model instance passed at instantiation."""
+        self.solver = solver
+        """Solver instance, set in :meth:`set_solver`."""
+        self.config = InitializationParameters.from_dict(params)
+        """Initialization parameters."""
+        self.iteration = 0
+        """Number of pseudo time stepping iterations performed during initialization."""
+
+    def run(self) -> None:
+        """Run the iterative pseudo time stepping for initialization."""
+        # Artificial time control for quasi-static initialization.
+        copy_time_manager = deepcopy(self.model.time_manager)
+        self.setup_pseudo_time_manager(
+            self.config.pseudo_dt_init, self.config.pseudo_dt_max
+        )
+
+        # Perform a pseudo time stepping to initialize the reference state.
+        self.iteration = 0
+        while True:
+            # Advance iter.
+            self.iteration += 1
+            logger.info("Initialization iteration %d", self.iteration)
+
+            # Communicate dt to the model and update time-dependent arrays and
+            # derived quantities.
+            self.model.before_time_step()
+
+            # Solve pseudo time step.
+            # TODO: needed?
+            # self.model.initialize_nonlinear_solution()
+            solver_status = self.solver.solve(self.model)
+
+            # Check initialization status.
+            initialization_status = self.check_initialization_status(solver_status)
+
+            # React to successful solver status.
+            if solver_status.is_successful():
+                self.after_successful_step()
+
+            if (
+                initialization_status.is_successful()
+                or initialization_status.is_stopped()
+            ):
+                break
+
+        logger.info(
+            "Initialization status: %s; after %d iterations",
+            initialization_status,
+            self.iteration,
+        )
+
+        # Restore time manager.
+        self.model.time_manager = copy_time_manager
+
+    def setup_pseudo_time_manager(
+        self, pseudo_dt_init: float, pseudo_dt_max: float
+    ) -> None:
+        """Setup pseudo time manager for initialization.
+
+        Hook to set custom time manager.
+
+        Parameters:
+            pseudo_dt_init: Initial time step to use for the pseudo time stepping during
+                initialization.
+            pseudo_dt_max: Maximum time step to use for the pseudo time stepping during
+                initialization.
+
+        """
+        self.model.time_manager = pp.TimeManager(
+            schedule=[
+                self.model.time_manager.time_init,
+                self.model.time_manager.time_final + pseudo_dt_max,
+            ],
+            dt_init=pseudo_dt_init,
+            constant_dt=False,
+            dt_min_max=(self.model.time_manager.dt_min_max[0], pseudo_dt_max),
+            iter_max=self.model.time_manager.iter_max,
+            iter_optimal_range=self.model.time_manager.iter_optimal_range,
+            iter_relax_factors=self.model.time_manager.iter_relax_factors,
+            recomp_factor=self.model.time_manager.recomp_factor,
+            recomp_max=self.model.time_manager.recomp_max,
+        )
+
+    def check_initialization_status(
+        self, solver_status: SolverStatus
+    ) -> SimulationStatus:
+        """Check the initialization status based on the solver status.
+
+        Args:
+            solver_status: The status of the solver.
+
+        Returns:
+            SimulationStatus: The initialization status.
+
+        """
+        # React to solver_status.
+        if solver_status.is_successful():
+            # Evaluate whether steady state has been reached.
+            steady_state_status = self.check_steady_state()
+
+            # Conclude with initialization status.
+            if steady_state_status.is_converged():
+                initialization_status = SimulationStatus.SUCCESSFUL
+            else:
+                initialization_status = SimulationStatus.IN_PROGRESS
+
+            # Update the time step magnitude if the dynamic scheme is used.
+            if not self.model.time_manager.is_constant:
+                assert isinstance(
+                    self.model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+                )  # For type checking, to ensure the method is available.
+                self.model.time_manager.compute_time_step(
+                    iterations=self.model.nonlinear_solver_statistics.num_iterations
+                )
+
+        elif solver_status.is_failed():
+            if self.model.time_manager.is_constant:
+                initialization_status = SimulationStatus.STOPPED
+
+            else:
+                try:
+                    initialization_status = SimulationStatus.FAILED
+                    self.model.time_manager.compute_time_step(recompute_solution=True)
+                except Exception as e:
+                    logger.warning(str(e))
+                    initialization_status = SimulationStatus.STOPPED
+        elif solver_status.is_stopped():
+            initialization_status = SimulationStatus.STOPPED
+
+        else:
+            raise ValueError("Unrecognized solver status.")
+
+        return initialization_status
+
+    def check_steady_state(self) -> ConvergenceStatusCollection:
+        """Check steady state convergence.
+
+        Returns:
+            ConvergenceStatusCollection: Status whether the current state is a steady
+                state.
+
+        """
+        # Define the increment in time.
+        state = self.model.equation_system.get_variable_values(iterate_index=0)
+        prev_state = self.model.equation_system.get_variable_values(time_step_index=0)
+        time_increment = state - prev_state
+
+        # Convergence equals steady state.
+        convergence_status, convergence_info = self.config.convergence_criteria.check(
+            increment=time_increment, reference_increment=state
+        )
+
+        return convergence_status
+
+    def after_successful_step(self) -> None:
+        # Shift solution for next computation.
+        self.model.update_time_step_solution()
