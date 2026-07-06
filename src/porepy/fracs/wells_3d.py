@@ -25,7 +25,6 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
