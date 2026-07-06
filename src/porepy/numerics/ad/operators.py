@@ -1580,6 +1580,10 @@ class MixedDimensionalVariable(Variable):
             assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
                 "Cannot create md-variable from variables at different iterates."
             )
+            assert len(set(reference)) == 1, (
+                "Cannot create md-variable from variables with different reference "
+                "states."
+            )
             assert len(set(names)) == 1, (
                 "Cannot create md-variable from variables with different names."
             )
