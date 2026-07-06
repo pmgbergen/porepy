@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class WellFractureIntersection(NamedTuple):
-    """Container class to store representation between a well and a fracture."""
+    """Container class to store intersection between a well and a fracture."""
 
     coord: np.ndarray
     """Coordinates of the intersection point."""
@@ -44,7 +44,7 @@ class WellNetwork3d:
     """Collection of :class:`~Well` classes with geometrical information.
 
     Facilitates meshing of all wells in the network and their addition to a
-    mixed-dimensional grid, see e.g., :meth:`~mesh` method.
+    mixed-dimensional grid, see e.g. :meth:`~mesh` method.
 
     Parameters:
         domain: Domain specification.
@@ -81,7 +81,7 @@ class WellNetwork3d:
             w._index = i
 
         self.parameters: dict = {}
-        """Dictionary of parameters, e.g. for the meshing process passed at
+        """Dictionary of parameters, e.g. for the meshing process, passed at
         instantiation. """
         if parameters is not None:
             self.parameters = parameters
@@ -89,7 +89,7 @@ class WellNetwork3d:
         self.tol: float = tol
         """Geometric tolerance used in computations."""
 
-        # Assign an empty tag dictionary
+        # Assign an empty tag dictionary.
         self.tags: dict[str, list[bool]] = dict()
 
     def mesh(
@@ -118,7 +118,7 @@ class WellNetwork3d:
         intersections, wells, fractures = self.intersect_well_fractures(
             fracture_network.fractures, fracture_network.nd
         )
-        # Generate a mesh for the well network, transfer the generated subdomains and
+        # Generate a mesh for the well network and transfer the generated subdomains and
         # interfaces to the mixed-dimensional grid.
         well_mdg = _generate_well_mesh(intersections, wells, mesh_args)
         orig_0d_domain_id = _add_well_subdomains(mdg, well_mdg, self.tol, self.domain)
@@ -147,7 +147,7 @@ class WellNetwork3d:
             nd: Ambient dimension of the problem.
 
         Returns:
-            intersections: List of well-fracture intersection, grouped in a tailored
+            intersections: List of well-fracture intersections, grouped in a tailored
                 class.
             wells: List of GmshEntity objects corresponding to the wells.
             fractures: List of GmshEntity objects corresponding to the fractures.
@@ -190,7 +190,7 @@ class WellNetwork3d:
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
-                csv_writer.writerow("# Well network exported from porepy.")
+                csv_writer.writerow("# Well network exported from PorePy.")
                 csv_writer.writerow(
                     "# The first line may contain a 6-item bounding box for the domain"
                     " in the format X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX."
@@ -204,7 +204,7 @@ class WellNetwork3d:
             if self.domain is not None:
                 self.domain.to_csv(csv_writer)
 
-            # write all the wells
+            # Write all the wells.
             for w in self.wells:
                 csv_writer.writerow(w.pts.ravel(order="F"))
 
@@ -404,8 +404,8 @@ def _well_kink_points(
 
     Returns:
         Dictionary mapping (point index, well index) to a set of fracture indices. The
-            set will be empty, since these are well kink points, not well-fracture
-            intersection points.
+        set will be empty, since these are well kink points, not well-fracture
+        intersection points.
     """
     # Dictionary that maps (point index, well index) to a set of fracture indices.
     kinks: dict[tuple[int, int], set[int]] = {}
@@ -416,8 +416,8 @@ def _well_kink_points(
         duplicate_indices = np.where(np.bincount(loc_points) > 1)[0].astype(int)
         for p in duplicate_indices:
             if (p, wi) in well_fracture_common:
-                # This is an intersection point, so we do not want to register it as
-                # a kink.
+                # This is an intersection point, so we do not want to register it as a
+                # kink.
                 continue
             kinks[(p, wi)] = set()
 

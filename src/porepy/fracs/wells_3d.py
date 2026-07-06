@@ -103,7 +103,8 @@ class Well:
             yield segment_inds, endpoints
 
     def num_points(self) -> int:
-        """
+        """Get number of points of the well.
+
         Returns:
             The number of points on the polyline well.
         """
@@ -133,7 +134,8 @@ class Well:
         return segment_inds
 
     def copy(self) -> Well:
-        """
+        """Create a deep copy of the well.
+
         Warning:
             The original points (as given when the fracture was initialized) will
             *not* be preserved.
@@ -197,7 +199,7 @@ def compute_well_rock_matrix_intersections(
             Geometric tolerance used in the computations.
 
     """
-    # Extract the dimension of the rock matrix, assumed to be of highest dimension
+    # Extract the dimension of the rock matrix, assumed to be of highest dimension.
     dim_max: int = mdg.dim_max()
     # We assume only one single higher dimensional grid, needed for the ADTree.
     sd_max: pp.Grid = mdg.subdomains(dim=dim_max)[0]
@@ -215,7 +217,7 @@ def compute_well_rock_matrix_intersections(
     for sd_w in well_subdomains:
         sd_w_cn = sd_w.cell_nodes()
         sd_w_cells = np.arange(sd_w.num_cells)
-        # get the cells of the 0d as segments (start, end)
+        # Get the cells of the 0d as segments (start, end).
         first = sd_w_cn.indptr[sd_w_cells]
         second = sd_w_cn.indptr[sd_w_cells + 1]
 
@@ -275,7 +277,7 @@ def compute_well_rock_matrix_intersections(
                     primary_secondary_J += [c]
                     primary_secondary_data += ratio.tolist()
 
-        # primary to secondary map
+        # Primary to secondary map.
         primary_secondary_map = sps.csc_matrix(
             (primary_secondary_data, (primary_secondary_I, primary_secondary_J)),
             shape=(sd_w.num_cells, sd_max.num_cells),

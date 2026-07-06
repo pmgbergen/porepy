@@ -228,19 +228,19 @@ def test_to_from_csv(dim: int):
                 "zmax": 1,
             }
         )
-    # Write to csv
+    # Write to csv.
     file_name = f"domain_{dim}d.csv"
     with open(file_name, "w", newline="") as csv_file:
         writer = csv.writer(csv_file, delimiter=",")
         domain.to_csv(writer)
-    # Read from csv
+    # Read from csv.
     with open(file_name, "r", newline="") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
         line = next(reader)
         domain_from_csv = pp.Domain.from_numpy_array(line)
 
-    # Check that the two domains are equal
+    # Check that the two domains are equal.
     assert domain == domain_from_csv
 
-    # Delete the file after the test
+    # Delete the file after the test.
     os.remove(file_name)

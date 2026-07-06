@@ -24,14 +24,14 @@ import porepy as pp
 def test_add_one_well_with_matrix(get_mdg) -> None:
     """Compute intersection between one well and the rock matrix mesh."""
     mdg = get_mdg([], [1])
-    # add the coupling between the rock matrix and the well
+    # Add the coupling between the rock matrix and the well.
     pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
-    # check the number of subdomains and interfaces
+    # Check the number of subdomains and interfaces.
     assert mdg.num_subdomains() == 2
     assert mdg.num_interfaces() == 1
 
-    # check the well grid
+    # Check the well grid.
     for well_grid in mdg.subdomains(dim=1):
         np.testing.assert_allclose(well_grid.nodes[2].max(), 1)
         np.testing.assert_allclose(well_grid.nodes[2].min(), 0.2)
