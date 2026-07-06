@@ -522,7 +522,7 @@ time_manager = pp.TimeManager(
 # )
 
 # Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 4
+export_every_n_steps = 32
 
 # Build times_to_export as multiples of dt. Include t=0 and final time tf.
 times = list(np.arange(0.0, tf, dt * export_every_n_steps))
@@ -540,12 +540,6 @@ solid_constants = pp.SolidConstants(
 params = {
     "fractional_flow": False,
     "mass_mobility_weighted_permeability": False,
-    # Represent these secondary quantities as AD functions (SurrogateFactory) substituted
-    # directly into the equations, instead of eliminating them as independent variables +
-    # local equations -> drops their DOFs and elimination equations (smaller/faster).
-    # Subset of {"saturation", "partial_fraction"}; [] reproduces the classic elimination.
-    # NOTE: temperature is deliberately not included (grad(T) under MPFA, see
-    # SecondaryEquations3N docstring).
     # "substitute_as_function": ["saturation", "partial_fraction"],
     "enable_buoyancy_effects": True,
     # buoyancy scheme: "hybrid" (HU), "phase_potential" (PPU), or your simplicial-PPU
@@ -569,8 +563,8 @@ params = {
     # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
     # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
     # importable in the active environment (pip install -e on the sparsa repo).
-    "ad_backend": "sparsa",
-    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
+    "ad_backend": "native",
+    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "cpr",
     # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
 }
