@@ -99,9 +99,7 @@ class TestTimeDependentAndIterative:
         timestep afterwards.
 
         """
-        _, _, prev_method, other_prev_method = (
-            self._get_index_keys(time_dependent)
-        )
+        _, _, prev_method, other_prev_method = self._get_index_keys(time_dependent)
         with pytest.raises(ValueError):
             var_pt = getattr(self.var, prev_method)()
             _ = getattr(var_pt, other_prev_method)()
@@ -116,21 +114,20 @@ class TestTimeDependentAndIterative:
 
         _, _, prev_method, _ = self._get_index_keys(time_dependent)
 
-        for sd, data in self.mdg.subdomains(return_data=True):
-            op = getattr(operator, prev_method)(steps=0)
-            val_current = self.equation_system.evaluate(op)
+        op = getattr(operator, prev_method)(steps=0)
+        val_current = self.equation_system.evaluate(op)
 
-            for i in range(0, self.depth - 1):
-                op_prev = getattr(op, prev_method)(steps=i + 1)
-                val_prev = self.equation_system.evaluate(op_prev, derivative=True)
-                if operator_type == "dense" and not time_dependent:
-                    # The dense array is not a function of the current approximation, so
-                    # the jacobian should be zero.
-                    np.testing.assert_allclose(val_prev.jac.data, 0)
-                else:
-                    np.testing.assert_allclose(val_prev.val, i)
-                if i > 0:
-                    np.testing.assert_allclose(val_prev.jac.data, 0)
+        for i in range(0, self.depth - 1):
+            op_prev = getattr(op, prev_method)(steps=i + 1)
+            val_prev = self.equation_system.evaluate(op_prev, derivative=True)
+            if operator_type == "dense" and not time_dependent:
+                # The dense array is not a function of the current approximation, so
+                # the jacobian should be zero.
+                np.testing.assert_allclose(val_prev.jac.data, 0)
+            else:
+                np.testing.assert_allclose(val_prev.val, i)
+            if i > 0:
+                np.testing.assert_allclose(val_prev.jac.data, 0)
 
     @pytest.mark.parametrize("operator_type", ["variable", "dense"])
     def test_time_and_iterative_recursive_vs_direct(
@@ -213,7 +210,9 @@ class TestReferenceOperator:
             name=name, domains=self.mdg.subdomains()
         )
 
-        # The default value for the reference operator.
+        # The default value for the reference operator. This is set equal to the default
+        # in the method used to evaluate reference states of operators (in the code
+        # proper).
         self.default_reference_value = 0
         # The values to use for the current approximation, previous time step and
         # previous iteration.
@@ -243,67 +242,6 @@ class TestReferenceOperator:
                 name=name, values=self.ref_val * vec, data=sd_data, reference=True
             )
 
-    def _expected_reference(self, op_type, state):
-        """Helper method to get the expected reference value for a given operator type
-        and state.
-        """
-        return self._adjust_combined_expectence(self.ref_val, op_type)
-
-    def _adjust_combined_expectence(self, val, op_type):
-        """Helper method to adjust the expected value for a combined operator."""
-        if op_type == "combined":
-            val *= 1 + self.combined_multiplier
-        return val
-
-    def _expected(self, op_type, state):
-        """Helper method to get the expected value and jacobian for a given operator
-        type and state. Assumes that the reference values have not been changed - in
-        that case, use the _change_reference_values method to administer the change and
-        get the expected value.
-        """
-        if (op_type == "variable" or op_type == "combined") and state == "current":
-            # The derivative is non-zero only in this case.
-            jac_val = 1.0
-        else:
-            jac_val = 0.0
-
-        if state == "current":
-            val = self.iter_value
-        elif state == "previous_timestep":
-            val = self.time_value
-        elif state == "previous_iteration":
-            val = self.iter_value
-        else:
-            raise NotImplementedError(f"State {state} not implemented.")
-
-        val = self._adjust_combined_expectence(val, op_type)
-        return val, jac_val
-
-    def _change_reference_values(self, op_type, change_type):
-        """Helper method to administer changes to the reference values and return the
-        expected value according to the change type.
-        """
-        vec = np.ones(self.num_cells)
-
-        if change_type is "delete":
-            # TODO: Should we rather erase here, so that the reference will return
-            # default?
-            for _, data in self.mdg.subdomains(return_data=True):
-                del data[pp.REFERENCE_SOLUTIONS][self.var.name]
-                val = self.default_reference_value
-        elif change_type == "set":
-            # Explicitly set the reference values.
-            self.equation_system.set_variable_values(
-                vec * self.time_value, [self.var], reference=True
-            )
-            val = self.time_value
-        elif change_type == "shift":
-            # Shift current approximation to reference values.
-            for _, data in self.mdg.subdomains(return_data=True):
-                pp.shift_solution_values(self.var.name, data, pp.REFERENCE_SOLUTIONS)
-            val = self.iter_value
-        return self._adjust_combined_expectence(val, op_type)
-
     def _operator(self, op_type):
         """For a given operator type, return the corresponding operator."""
         if op_type == "dense":
@@ -320,6 +258,77 @@ class TestReferenceOperator:
         op = self._operator(op_type)
         return getattr(op, state)() if state is not "current" else op
 
+    def _expected_reference(self, op_type):
+        """Helper method to get the expected reference value for a given operator
+        type."""
+        # The reference value is ref_val for the dense and variable operators, but not
+        # for the combined operator. Send ref_val through the
+        # _adjust_combined_expectance method to get the correct expected value also for
+        # the combined operator.
+        return self._adjust_combined_expectance(self.ref_val, op_type)
+
+    def _adjust_combined_expectance(self, val, op_type):
+        """Helper method to adjust the expected value for a combined operator."""
+        # Adjust the value for the combined operator, all other operators are unchanged.
+        if op_type == "combined":
+            # This mirrors the logic in the method _operator, where the combined
+            # operator is defined.
+            val *= 1 + self.combined_multiplier
+        return val
+
+    def _expected(self, op_type, state):
+        """Helper method to get the expected value and jacobian for a given operator
+        type and state. Assumes that the reference values have not been changed - in
+        that case, use the _change_reference_values method to administer the change and
+        get the expected value.
+        """
+        # Set the expected value according to the operator type and state. This mirrors
+        # the logic in the setup_method's loop over the subdomains where the values are
+        # set.
+        if state == "current":
+            val = self.iter_value
+        elif state == "previous_timestep":
+            val = self.time_value
+        elif state == "previous_iteration":
+            val = self.iter_value
+        else:
+            raise NotImplementedError(f"State {state} not implemented.")
+        # If this is the combined operator, adjust the expected value accordingly.
+        val = self._adjust_combined_expectance(val, op_type)
+
+        # The derivative is only non-zero for operators that contain variables and are
+        # at the current state.
+        if (op_type == "variable" or op_type == "combined") and state == "current":
+            # The derivative is non-zero only in this case.
+            jac_val = 1.0
+        else:
+            jac_val = 0.0
+
+        return val, jac_val
+
+    def _change_reference_values_return_expected(self, op_type, change_type):
+        """Helper method to administer changes to the reference values and return the
+        expected value according to the change type.
+        """
+        vec = np.ones(self.num_cells)
+
+        if change_type is "delete":
+            for _, data in self.mdg.subdomains(return_data=True):
+                del data[pp.REFERENCE_SOLUTIONS][self.var.name]
+                val = self.default_reference_value
+        elif change_type == "set":
+            # Explicitly set the reference values.
+            self.equation_system.set_variable_values(
+                vec * self.time_value, [self.var], reference=True
+            )
+            val = self.time_value
+        elif change_type == "shift":
+            # Shift current approximation to reference values.
+            for _, data in self.mdg.subdomains(return_data=True):
+                pp.shift_solution_values(self.var.name, data, pp.REFERENCE_SOLUTIONS)
+            val = self.iter_value
+        return self._adjust_combined_expectance(val, op_type)
+
     @pytest.mark.parametrize("op_type", operator_types)
     @pytest.mark.parametrize("state", state_list)
     def test_reference_on_current_timelag_and_iterates(self, op_type, state):
@@ -331,7 +340,7 @@ class TestReferenceOperator:
         """
         op_ref = self._operator_to_state(op_type, state).reference()
         val = self.equation_system.evaluate(op_ref, derivative=True)
-        np.testing.assert_allclose(val.val, self._expected_reference(op_type, state))
+        np.testing.assert_allclose(val.val, self._expected_reference(op_type))
         # The Jacobian should always be zero, since the reference operator is not a
         # function of the current approximation.
         np.testing.assert_allclose(val.jac.data, 0.0)
@@ -347,7 +356,10 @@ class TestReferenceOperator:
 
         """
         op_ref = self._operator_to_state(op_type, state).reference()
-        expected = self._change_reference_values(op_type, change_type)
+        # Here we cannot use the standard _expected method, but instead call the
+        # _change_reference_values method, which administers the change and returns the
+        # expected value according to the change type.
+        expected = self._change_reference_values_return_expected(op_type, change_type)
 
         val = self.equation_system.evaluate(op_ref, derivative=True)
         np.testing.assert_allclose(val.val, expected)
@@ -369,7 +381,7 @@ class TestReferenceOperator:
         expected_val, expected_jac = self._expected(op_type, state)
 
         np.testing.assert_allclose(
-            pert_val.val, expected_val - self._expected_reference(op_type, state)
+            pert_val.val, expected_val - self._expected_reference(op_type)
         )
         np.testing.assert_allclose(pert_val.jac.data, expected_jac)
 
