@@ -34,6 +34,7 @@ DISCRETIZATION_MATRICES = "discretization_matrices"
 # Used in data dictionary to store the system state, e.g. primary variables.
 TIME_STEP_SOLUTIONS = "time_step_solutions"
 ITERATE_SOLUTIONS = "iterate_solutions"
+REFERENCE_SOLUTIONS = "reference_solutions"
 
 """ Units """
 # SI Prefixes
