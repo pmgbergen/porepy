@@ -8,8 +8,8 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
-from warnings import warn
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
@@ -19,12 +19,17 @@ from porepy.numerics.nonlinear.convergence_check import (
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
-    SolverStatus,
 )
-from porepy.viz.solver_statistics import TimeStatistics
+from porepy.numerics.nonlinear.nonlinear_solver_status import NonlinearSolverStatus
+from porepy.numerics.nonlinear.nonlinear_solver_utils import (
+    summarize_solver_status,
+    update_solver_statistics_after_nonlinear_solve,
+)
 
 if TYPE_CHECKING:
     import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class LinearSolver:
@@ -60,7 +65,7 @@ class LinearSolver:
         )
         """Divergence criterion used in the convergence check."""
 
-    def solve(self, model: SolutionStrategy) -> SolverStatus:
+    def solve(self, model: SolutionStrategy) -> NonlinearSolverStatus:
         """Solve a linear problem defined by the current state of the model.
 
         The linear solver performs only one iteration and checks whether it converged.
@@ -86,9 +91,17 @@ class LinearSolver:
         convergence_status, divergence_status = self.linear_solve(model)
 
         # Conclude on the solver status.
-        solver_status = self.summarize_solver_status(
-            model, convergence_status, divergence_status
+        solver_status = summarize_solver_status(convergence_status, divergence_status)
+
+        # Logging statistics.
+        update_solver_statistics_after_nonlinear_solve(
+            model=model, solver_status=solver_status
         )
+
+        if solver_status.is_converged():
+            model.after_nonlinear_convergence()
+        else:
+            model.after_nonlinear_failure()
 
         return solver_status
 
@@ -134,42 +147,6 @@ class LinearSolver:
         )
 
         return convergence_status, divergence_status
-
-    def summarize_solver_status(
-        self,
-        model: SolutionStrategy,
-        convergence_status: ConvergenceStatusCollection,
-        divergence_status: ConvergenceStatusCollection,
-    ) -> SolverStatus:
-        """Conclude on the overall solver status.
-
-        NOTE: Convergence status takes precedence over divergence status.
-
-        Parameters:
-            model: The model instance specifying the problem to be solved.
-            convergence_status: Convergence statuses.
-            divergence_status: Divergence statuses.
-
-        Returns:
-            SolverStatus: The overall status of the nonlinear solver.
-
-        """
-        if convergence_status.is_converged():
-            solver_status = SolverStatus.SUCCESSFUL
-            self.update_solver_statistics(model, solver_status)
-            model.after_nonlinear_convergence()
-        elif divergence_status.is_diverged():
-            solver_status = SolverStatus.FAILED
-            self.update_solver_statistics(model, solver_status)
-            model.after_nonlinear_failure()
-            warn("Failed to solve the (non)linear problem.", UserWarning)
-        else:
-            raise ValueError(
-                "Invalid convergence status: "
-                f"{convergence_status.union(divergence_status)}"
-            )
-
-        return solver_status
 
     def after_linear_iteration(
         self, model: SolutionStrategy, nonlinear_increment: np.ndarray
@@ -223,42 +200,27 @@ class LinearSolver:
         """
         # Fetch the residual.
         residual = model.equation_system.assemble(evaluate_jacobian=False)
+        iterate = model.equation_system.get_variable_values(iterate_index=0)
 
         # Check convergence status based on current iteration.
         convergence_status, convergence_info = self.convergence_criteria.check(
             increment=nonlinear_increment,
             residual=residual,
+            # Reference values don't make sense for a linear solver, but passed to
+            # conform the interface defined by the NewtonSolver.
+            reference_increment=iterate,
+            reference_residual=residual,
         )
 
         # Check divergence status based on current iteration.
         divergence_status = self.divergence_criteria.check(
             increment=nonlinear_increment,
             residual=residual,
+            # Reference values and num_iterations don't make sense for a linear solver,
+            # but passed to conform the interface defined by the NewtonSolver.
+            reference_increment=iterate,
+            reference_residual=residual,
+            num_iterations=1,
         )
 
         return convergence_status, divergence_status, convergence_info
-
-    def update_solver_statistics(
-        self,
-        model: SolutionStrategy,
-        solver_status: SolverStatus,
-    ) -> None:
-        """Update the solver statistics in the model.
-
-        Parameters:
-            model: The model instance specifying the problem to be solved.
-            solver_status: Simulation status of the solver.
-            info: Dictionary containing norms and other information.
-
-        """
-        # Basic discretization-related information and overall simulation status.
-        model.nonlinear_solver_statistics.log_solver_status(solver_status)
-        model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
-        if model._is_time_dependent():
-            assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
-            model.nonlinear_solver_statistics.log_time_information(
-                model.time_manager.time_index,
-                model.time_manager.time,
-                model.time_manager.dt,
-                model.time_manager.final_time_reached(),
-            )

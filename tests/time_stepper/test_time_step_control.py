@@ -21,11 +21,6 @@ import pytest
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceInfoCollection,
-    ConvergenceStatus,
-    ConvergenceStatusCollection,
-)
 
 
 class TestParameterInputs:
@@ -464,33 +459,6 @@ class TestTimeControl:
             time_manager.compute_time_step(recompute_solution=True)
         assert str(record[0].message) == msg
 
-    def test_non_recomputed_solution_conditions(self):
-        """Test behaviour of the algorithm when the solution should NOT be recomputed"""
-        # Check if internal flag _recomp_sol remains unchanged when
-        # recompute_solution=False regardless of the number of iterations provided by
-        # the user
-        time_manager = pp.TimeManager([0, 1], 0.1)
-        time_manager.compute_time_step(iterations=5)
-        assert not time_manager._recomp_sol
-        time_manager.compute_time_step(iterations=1000)
-        assert not time_manager._recomp_sol
-        # Check if _recomp_num resets to zero when solution is NOT recomputed
-        time_manager = pp.TimeManager([0, 1], 0.1)
-        time_manager._recomp_num = 3  # manually change recomputation attempts
-        time_manager.compute_time_step(iterations=5)
-        assert time_manager._recomp_num == 0
-        # Assume recompute_solution=True, but we reach or exceeded maximum number of
-        # attempts
-        time_manager = pp.TimeManager([0, 1], 0.1, recomp_max=5)
-        time_manager._recomp_num = 5
-        with pytest.raises(ValueError) as excinfo:
-            msg = (
-                f"Solution did not converge after {time_manager.recomp_max} recomputing"
-                " attempts."
-            )
-            time_manager.compute_time_step(iterations=5, recompute_solution=True)
-        assert time_manager._recomp_sol and (msg in str(excinfo.value))
-
     def test_recompute_solution_false_by_default(self):
         """Checks if recompute solution is False by default"""
         time_manager = pp.TimeManager([0, 1], 0.1)
@@ -507,17 +475,22 @@ class TestTimeControl:
         time_manager.dt = 1
         time_manager._recomp_num = 6
         time_manager.compute_time_step(iterations=1000, recompute_solution=True)
+        # YZ: This logic was originally expected from the TimeManager class:
         # We expect the following actions to occur:
         #     time to be reduced by old dt (time = 5 - 1 = 4)
         #     time index to be reduced by one (time_index = 13 - 1 = 12)
         #     new dt to be half of the old one (dt = 1 * 0.5 = 0.5)
         #     recomputation flag set to True (_recomp_flag = True)
         #     recomputation counter to increase by 1 (_recomp_num = 6 + 1 = 7)
-        assert time_manager.time == 4.0
-        assert time_manager.time_index == 12
+
+        # YZ: Now none of this is the responsibility of the time manager. It only
+        # updates dt, and does not track the state. This is a temporary state of things
+        # for migrating towards the new TimeStepper class.
+        assert time_manager.time == 5.0  # Was 4.0
+        assert time_manager.time_index == 13  # Was 14
         assert time_manager.dt == 0.5
         assert time_manager._recomp_sol
-        assert time_manager._recomp_num == 7
+        assert time_manager._recomp_num == 6  # Was 7
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
@@ -768,189 +741,3 @@ class TestTimeControl:
         )
         # Remove temporary file.
         pth.unlink()
-
-
-class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
-    """A mockup model that overrides `check_convergence` and predefines convergence
-    behavior after each nonlinear iteration.
-
-    See the description of the input parameters at `test_model_time_step_control`.
-
-    """
-
-    def __init__(
-        self,
-        num_nonlinear_iterations: list[int],
-        time_step_converged: list,
-        params: dict,
-    ):
-        super().__init__(params)
-        self.time_step_idx: int = -1
-        self.num_nonlinear_iters: int = 0
-        self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
-        self.time_step_converged: list = time_step_converged
-        self.time_step_history: list = []
-
-    def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()  # The AD time step is expected to update here.
-        self.time_step_idx += 1
-        self.num_nonlinear_iters = 0
-        self.time_step_history.append(self.time_manager.dt)
-
-    def before_nonlinear_iteration(self):
-        super().before_nonlinear_iteration()
-
-        # The AD time step should not change throughout the Newton iterations.
-        assert (
-            self.equation_system.evaluate(self.ad_time_step) == self.time_manager.dt
-        ), "The AD time step value conflicts with the value from the time_manager."
-
-        # The initial guess for the unknown time step values should be equal to the
-        # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.
-        if self.num_nonlinear_iters == 0:
-            iterate_values = self.equation_system.get_variable_values(iterate_index=0)
-            state_values = self.equation_system.get_variable_values(time_step_index=0)
-            assert np.all(iterate_values == state_values), (
-                "Likely, 'iterate' was not reset after the unsuccessful time step."
-            )
-
-        self.num_nonlinear_iters += 1
-
-    def _is_nonlinear_problem(self):
-        return True
-
-    # Minimizing computational expenses.
-    def assemble_linear_system(self) -> None:
-        pass
-
-    def solve_linear_system(self) -> np.ndarray:
-        return np.ones(self.equation_system.num_dofs())
-
-
-MAX_NONLINEAR_ITER = 10
-
-
-@pytest.mark.parametrize(
-    "params",
-    [
-        # Case 1: A successful simulation run with dynamic time stepping.
-        # Covers these situations:
-        # - decrease the time step after diverged
-        # - decrease the time step after iteration limit
-        # - increase the time step due to few nonlinear iterations
-        # - keep the time step due to expected number of nonlinear iterations
-        # - decrease the time step due to many nonlinear iterations (after convergence)
-        # - decrease the time step to meet the schedule (last time step)
-        {
-            # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
-            # takes 3 nonlinear iterations, etc.
-            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
-            # Time step 0 diverged after 4 iterations, time step 1 converged after 3
-            # iterations, etc. "unreachable" means that the convergence check should not
-            # be called due to exceeding the iteration limit.
-            "time_step_converged": [False, True, "unreachable"] + [True] * 5,
-            # Time step magnitudes to compare with. These are known values produced with
-            # the settings of the TimeStepper found in the test function below.
-            "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
-        },
-        # Case 2: constant_dt. Should fail after nonlinear divergence.
-        {
-            "constant_dt": True,
-            "num_nonlinear_iterations": [2, 3],
-            "time_step_converged": [True, False],
-            "exported_dt_expected": [1, 1],
-        },
-        # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
-        # minimal time step and should fail.
-        {
-            "num_nonlinear_iterations": [1, 1, 1],
-            "time_step_converged": [False, False, False],
-            "exported_dt_expected": [1, 0.3, 0.1],
-        },
-        # Case 4: The time step fails right before the schedule point. Expected to
-        # decrease dt and meet the schedule regardless.
-        {
-            "num_nonlinear_iterations": [1, 1, 1, 1, 1],
-            "time_step_converged": [True, False, True, True, True],
-            "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
-        },
-    ],
-)
-def test_model_time_step_control(params: dict):
-    """The integration test of the `TimeManager` class into PorePy models."""
-    constant_dt = params.get("constant_dt", False)
-    num_nonlinear_iterations = params["num_nonlinear_iterations"]
-    time_step_converged = params["time_step_converged"]
-    exported_dt_expected = params["exported_dt_expected"]
-
-    schedule_end = 2 if constant_dt else 1.35
-    time_manager = pp.TimeManager(
-        schedule=(0, schedule_end),
-        dt_init=1,
-        constant_dt=constant_dt,
-        dt_min_max=(0.1, 5),
-        iter_relax_factors=(0.4, 2),
-        iter_optimal_range=(4, 7),
-        recomp_factor=0.3,
-    )
-
-    class DynamicNewtonSolver(pp.NewtonSolver):
-        def check_convergence(
-            self, model, nonlinear_increment
-        ) -> tuple[
-            ConvergenceStatusCollection,
-            ConvergenceStatusCollection,
-            ConvergenceInfoCollection,
-        ]:
-            if (
-                model.nonlinear_solver_statistics.num_iterations
-                < model.num_nonlinear_iterations[model.time_step_idx] - 1
-            ):
-                return (
-                    ConvergenceStatusCollection(
-                        {"crit": ConvergenceStatus.NOT_CONVERGED}
-                    ),
-                    ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.CONVERGED}
-                    ),
-                    ConvergenceInfoCollection({"crit": 1.0}),
-                )
-            if model.time_step_converged[model.time_step_idx] is True:
-                return (
-                    ConvergenceStatusCollection({"crit": ConvergenceStatus.CONVERGED}),
-                    ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.CONVERGED}
-                    ),
-                    ConvergenceInfoCollection({"crit": 0.0}),
-                )
-            else:
-                return (
-                    ConvergenceStatusCollection(
-                        {"crit": ConvergenceStatus.NOT_CONVERGED}
-                    ),
-                    ConvergenceStatusCollection(
-                        {"div_crit": ConvergenceStatus.DIVERGED}
-                    ),
-                    ConvergenceInfoCollection({"crit": np.nan}),
-                )
-
-    model = DynamicTimeStepTestCaseModel(
-        num_nonlinear_iterations=num_nonlinear_iterations,
-        time_step_converged=time_step_converged,
-        params={
-            "time_manager": time_manager,
-            "times_to_export": [],  # Suspends export
-        },
-    )
-    solver_params = {
-        "nonlinear_solver": DynamicNewtonSolver,
-        "nl_convergence_inc_atol": 1e-6,
-        "nl_max_iterations": MAX_NONLINEAR_ITER,
-    }
-    # If simulation failes, check error is raised.
-    if not time_step_converged[-1]:
-        with pytest.raises(RuntimeError):
-            pp.ModelRunner(model, solver_params).run()
-    else:
-        pp.ModelRunner(model, solver_params).run()
-    assert np.allclose(model.time_step_history, exported_dt_expected)
