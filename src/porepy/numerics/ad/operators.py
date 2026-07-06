@@ -2166,6 +2166,8 @@ def _ad_wrapper(
     as_array: Literal[False],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grids: Optional[Sequence[GridLike]] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> SparseArray:
     # See md_grid for explanation of overloading and type hints.
     ...
@@ -2177,6 +2179,8 @@ def _ad_wrapper(
     as_array: Literal[True],
     size: Optional[int] = None,
     name: Optional[str] = None,
+    grids: Optional[Sequence[GridLike]] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray: ...
 
 
@@ -2185,7 +2189,8 @@ def _ad_wrapper(
     as_array: bool,
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids=None,
+    grids: Optional[Sequence[GridLike]] = None,
+    grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray | pp.ad.SparseArray:
     """Create ad array or diagonal matrix.
 
@@ -2196,6 +2201,12 @@ def _ad_wrapper(
         array: Whether to return a matrix or vector.
         size: Size of the array or matrix. If not set, the size is inferred from vals.
         name: Name of ad object.
+        grids: Grids on which the wrapped object is defined. Used to construct the
+            source/target :class:`~porepy.numerics.ad.operator_space.OperatorSpace`
+            of the returned operator. If not provided (or empty), the returned
+            operator has no associated source/target space.
+        grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
+            associated with. Defaults to cells.
 
     Returns:
         Values wrapped as an Ad object.
