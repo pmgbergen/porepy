@@ -128,6 +128,7 @@ class OperatorSpace:
         cls,
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid] | None,
         dof_info: dict[GridEntity, int],
+        domain_type: DomainType | None = None,
     ) -> OperatorSpace | None:
         """Construct an :class:`OperatorSpace` from a sequence of grids.
 
@@ -137,6 +138,12 @@ class OperatorSpace:
                 or all :class:`~porepy.BoundaryGrid`).
             dof_info: Mapping from :class:`~porepy.numerics.ad.GridEntity` to
                 the number of DOFs per entity.
+            domain_type: If given, the returned space is forced to have this
+                domain type, and an empty ``domains`` sequence will *not* be
+                interpreted as a scalar space. This is needed by grid operators
+                (e.g. :class:`~porepy.numerics.ad.grid_operators.Trace`) whose
+                domain type is known from context even if they happen to be
+                constructed on an empty list of grids.
 
         Returns:
             A new :class:`OperatorSpace`.
@@ -147,6 +154,8 @@ class OperatorSpace:
         """
         if domains is None:
             return None
+        if domain_type is not None:
+            return cls(domain_type, tuple(domains), dict(dof_info))
         if len(domains) == 0:
             return cls.scalar()
         grids = tuple(domains)
