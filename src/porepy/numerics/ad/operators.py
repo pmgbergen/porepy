@@ -167,17 +167,33 @@ class Operations(Enum):
             ValueError: If both operands have specified spaces that are incompatible.
 
         """
-        if left is None or right is None:
-            breakpoint()
-
         # Plain Python scalars (int, float, np.number) may appear as operands,
         # e.g. `operator ** 2`. Treat them as the scalar space.
         if not isinstance(right, Operator):
             return left._source, left._target
 
         def _spaces_compatible(a: OperatorSpace, b: OperatorSpace) -> bool:
-            """Return True if a and b are exactly the same operator space."""
-            return a == b
+            """Return True if a and b represent the same operator space.
+
+            Two spaces defined on an empty set of grids are considered compatible
+            regardless of their exact domain type, since they both carry zero actual
+            degrees of freedom (e.g. a discretization defined on an empty list of
+            interfaces, as can happen for well couplings in a model without wells,
+            must be compatible with a genuinely scalar operator).
+
+            """
+            if a == b:
+                return True
+            return len(a.grids) == 0 and len(b.grids) == 0
+
+        def _is_vacuous(space: Optional[OperatorSpace]) -> bool:
+            """Return True if the space carries no grids, and hence no actual dofs.
+
+            This includes the scalar space, but also spaces with a non-scalar
+            domain_type that happen to be defined on an empty grid list.
+
+            """
+            return space is not None and len(space.grids) == 0
 
         def _pick_target(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
@@ -201,6 +217,10 @@ class Operations(Enum):
             ):
                 return OperatorSpace.unclear()
             if a != b:
+                if _is_vacuous(a) and _is_vacuous(b):
+                    # Both spaces carry no actual dofs, so their exact domain type is
+                    # immaterial; arbitrarily keep the left operand's space.
+                    return a
                 return OperatorSpace.unclear()
             return a
 
