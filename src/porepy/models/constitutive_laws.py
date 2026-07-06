@@ -1133,7 +1133,7 @@ class DarcysLaw(pp.PorePyModel):
             Discretization of the Darcy flux.
 
         """
-        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+        return pp.ad.MpfaAd(self.darcy_keyword, subdomains, nd=self.nd)
 
     def vector_source_darcy_flux(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
@@ -2619,7 +2619,7 @@ class FouriersLaw(pp.PorePyModel):
             Discretization object for the Fourier flux.
 
         """
-        return pp.ad.MpfaAd(self.fourier_keyword, list(subdomains))
+        return pp.ad.MpfaAd(self.fourier_keyword, list(subdomains), nd=self.nd)
 
 
 class FouriersLawAd(AdTpfaFlux):
@@ -3209,7 +3209,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
             Discretization operator for the stress tensor.
 
         """
-        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+        return pp.ad.MpsaAd(self.stress_keyword, subdomains, self.nd)
 
 
 class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
@@ -3317,7 +3317,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             A Tpsa discretization object for the grids.
 
         """
-        return pp.ad.TpsaAd(self.stress_keyword, subdomains)
+        return pp.ad.TpsaAd(self.stress_keyword, subdomains, self.nd)
 
     def total_rotation(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Total rotation operator. Can be thought of as a (generalized) flux of
@@ -3625,7 +3625,7 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # No need to accommodate different discretizations for the stress tensor, as we
         # have only one.
-        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, self.nd)
         # The stress is simply found by the scalar_gradient operator, multiplied with
         # the pressure perturbation. The reference pressure is only defined on
         # sd_primary, thus there is no need for a subdomain projection.
@@ -3709,7 +3709,7 @@ class PressureStress(LinearElasticMechanicalStress):
             Discretization operator of the stress tensor.
 
         """
-        return pp.ad.BiotAd(self.stress_keyword, subdomains)
+        return pp.ad.BiotAd(self.stress_keyword, subdomains, self.nd)
 
 
 class ThermoPressureStress(PressureStress):
@@ -3777,7 +3777,7 @@ class ThermoPressureStress(PressureStress):
             if sd.dim != self.nd:
                 raise ValueError("Subdomains must be of dimension nd.")
 
-        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, self.nd)
         stress: pp.ad.Operator = (
             discr.scalar_gradient(self.enthalpy_keyword)
             @ self.temperature(subdomains).perturbation_from_reference()
@@ -5080,7 +5080,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         # Mock discretization (empty `discretize` method), used to access discretization
         # matrices computed by Biot discretization.
-        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, self.nd)
         # Projections
         sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
         mortar_projection = pp.ad.MortarProjections(
@@ -5138,7 +5138,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         if not all(sd.dim == self.nd for sd in subdomains):
             raise ValueError("Mpsa consistency only defined in nd.")
 
-        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains, self.nd)
 
         # The consistency is based on perturbation. If the variable is used directly,
         # results will not match if the reference state is not zero, see
