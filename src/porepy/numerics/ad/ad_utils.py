@@ -60,6 +60,7 @@ def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
 def wrap_discretization(
     obj: pp.ad.DiscretizationAd,
     discr: Discretization | InterfaceDiscretization,
+    nd: int,
     subdomains: Optional[list[pp.Grid]] = None,
     interfaces: Optional[list[pp.MortarGrid]] = None,
     coupling_terms: Optional[list[str]] = None,
@@ -90,6 +91,9 @@ def wrap_discretization(
             discretization. For instance, for a Biot discretization, this would be
             ['displacement_divergence', 'bound_displacement_divergence',
             'bound_pressure', 'consistency', 'scalar_gradient'].
+
+        nd: Ambient dimension used to determine the number of vector-valued degrees of
+            freedom.
 
         The coupling keywords and coupling terms are combined in this wrapper, so that
         if ``obj`` has coupling terms ``foo`` and ``bar``, with a coupling keywords
@@ -166,6 +170,7 @@ def wrap_discretization(
                 discretization_matrix_key=discretization_key,
                 physics_key=discr.keyword,
                 domains=domains,
+                nd=nd,
             )
             # Store the new
             operators[discretization_key].update({discr.keyword: op})
@@ -189,6 +194,7 @@ def wrap_discretization(
                 physics_key=discr.keyword,
                 inner_physics_key=inner_physics_key,
                 domains=domains,
+                nd=nd,
             )
             return op
 
@@ -313,6 +319,7 @@ class MergedOperator(operators.Operator):
         discr: pp.discretization_type,
         discretization_matrix_key: str,
         physics_key: str,
+        nd: int,
         inner_physics_key: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
     ) -> None:
@@ -325,6 +332,8 @@ class MergedOperator(operators.Operator):
                 matrix, e.g. for a class with an attribute foo_matrix_key, the key
                 will be foo.
             physics_key: Keyword used to access discretization matrices.
+            nd: Ambient dimension, used to determine the number of degrees of freedom
+                for vector-valued discretization terms.
             inner_physics_key: For nested matrix dicts, the inner key.
             domains: Domains on which the discretization is defined.
 
@@ -338,11 +347,6 @@ class MergedOperator(operators.Operator):
         op_target: Optional[operators.OperatorSpace] = None
         if domains:
             domain_list = list(domains)
-            nd = (
-                domain_list[0].dim
-                if domain_list and hasattr(domain_list[0], "dim")
-                else 1
-            )
             row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
             col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
 
