@@ -3563,9 +3563,10 @@ class PressureStress(LinearElasticMechanicalStress):
         # The stress is simply found by the scalar_gradient operator, multiplied with
         # the pressure perturbation. The reference pressure is only defined on
         # sd_primary, thus there is no need for a subdomain projection.
-        stress: pp.ad.Operator = discr.scalar_gradient(
-            self.darcy_keyword
-        ) @ self.pressure(subdomains).perturbation_from_reference()
+        stress: pp.ad.Operator = (
+            discr.scalar_gradient(self.darcy_keyword)
+            @ self.pressure(subdomains).perturbation_from_reference()
+        )
         stress.set_name("pressure_stress")
         return stress
 
@@ -3711,9 +3712,10 @@ class ThermoPressureStress(PressureStress):
                 raise ValueError("Subdomains must be of dimension nd.")
 
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        stress: pp.ad.Operator = discr.scalar_gradient(
-            self.enthalpy_keyword
-        ) @ self.temperature(subdomains).perturbation_from_reference()
+        stress: pp.ad.Operator = (
+            discr.scalar_gradient(self.enthalpy_keyword)
+            @ self.temperature(subdomains).perturbation_from_reference()
+        )
         stress.set_name("thermal_stress")
         return stress
 
