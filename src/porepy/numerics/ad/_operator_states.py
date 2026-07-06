@@ -14,7 +14,7 @@ When combining the mixins, their behavior is prioritized as follows:
     return the operator in a reference state, independent of the original state (default
     state, previous iterate, previous timestep) of the operator.
   - Taking the previous time step or previous iterate of an operator which is a
-    ReferenceOperator will return the operator itself. Taking the reference is a one-way
+    ReferenceOperator will return the reference operator itself. Taking the reference is a one-way
     operation.
   - Taking the previous time step of an operator at a previous iterate will raise an
     error.
