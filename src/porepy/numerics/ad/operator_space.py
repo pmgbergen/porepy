@@ -74,16 +74,16 @@ class OperatorSpace:
             self.dof_info = {}
             return
 
-        if not self.grids:
-            raise ValueError(
-                f"{self.domain_type.value.capitalize()} spaces must define grids."
-            )
         if not self.dof_info:
             raise ValueError(
                 f"{self.domain_type.value.capitalize()} spaces must define dof_info."
             )
         self.dof_info = dict(self.dof_info)
 
+        # Note: self.grids may legitimately be empty here, e.g. for grid operators
+        # (Trace, Divergence, SubdomainProjections, MortarProjections, etc.) that are
+        # constructed on an empty list of subdomains/interfaces/boundary grids, but
+        # whose domain_type is nonetheless known from the context of construction.
         if self.domain_type == DomainType.subdomains and not all(
             isinstance(g, pp.Grid) for g in self.grids
         ):
