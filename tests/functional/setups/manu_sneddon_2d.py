@@ -440,7 +440,7 @@ class ManuSneddonConstitutiveLaws(pp.constitutive_laws.PressureStress):
             The MPSA discretization in Ad operator form.
 
         """
-        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+        return pp.ad.MpsaAd(self.stress_keyword, subdomains, nd=self.nd)
 
 
 class ManuSneddonModel2d(
