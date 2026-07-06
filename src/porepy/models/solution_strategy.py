@@ -229,9 +229,7 @@ class SolutionStrategy(pp.PorePyModel):
 
             variable_name = getattr(self, variable_attr)
             domains = cast(list[pp.GridLike], self.mdg.subdomains())
-            variables = self.equation_system.get_variables(
-                [variable_name], domains
-            )
+            variables = self.equation_system.get_variables([variable_name], domains)
             if len(variables) == 0:
                 continue
 

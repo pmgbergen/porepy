@@ -190,9 +190,7 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
-        dtemp = self.perturbation_from_thermodynamic_state(
-            "temperature", subdomains
-        )
+        dtemp = self.perturbation_from_thermodynamic_state("temperature", subdomains)
         c = self.fluid_thermal_expansion(subdomains)
         return exp(Scalar(-1) * c * dtemp)
 
