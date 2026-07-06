@@ -740,6 +740,7 @@ class TestMergedOperatorSpaces:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="flux",
+            nd=1,
             physics_key="mechanics",
             domains=[g1, g2],
         )
@@ -774,6 +775,7 @@ class TestMergedOperatorSpaces:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="flux",
+            nd=1,
             physics_key="flow",
             domains=[g1, g2],
         )
@@ -826,6 +828,7 @@ class TestMergedOperatorSpaces:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="mortar_flux",
+            nd=1,
             physics_key="coupling",
             domains=[intf],
         )
@@ -1234,6 +1237,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="flux",
+            nd=2,
             physics_key="flow",
             domains=[g1, g2],
         )
@@ -1251,6 +1255,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="bound_flux",
+            nd=2,
             physics_key="flow",
             domains=[g1, g2],
         )
@@ -1264,6 +1269,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="stress",
+            nd=2,
             physics_key="mech",
             domains=[g1, g2],
         )
@@ -1278,6 +1284,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         discr = pp.Upwind("flow")
         op = MergedOperator(
             discr=discr,
+            nd=1,
             discretization_matrix_key="upwind",
             physics_key="flow",
             domains=[g1, g2],
@@ -1288,7 +1295,7 @@ class TestMergedOperatorWithConcreteDiscretization:
     def test_mpfa_via_ad_wrapper(self, two_subdomains):
         """Using MpfaAd wrapper (wrap_discretization path) produces correct spaces."""
         g1, g2 = two_subdomains
-        discr = pp.ad.MpfaAd("flow", [g1, g2])
+        discr = pp.ad.MpfaAd("flow", [g1, g2], nd=2)
         flux_op = discr.flux()
         assert flux_op.source is not None
         assert flux_op.target is not None
@@ -1298,7 +1305,7 @@ class TestMergedOperatorWithConcreteDiscretization:
     def test_tpfa_via_ad_wrapper(self, two_subdomains):
         """Using TpfaAd wrapper produces correct spaces for flux."""
         g1, g2 = two_subdomains
-        discr = pp.ad.TpfaAd("flow", [g1, g2])
+        discr = pp.ad.TpfaAd("flow", [g1, g2], nd=2)
         flux_op = discr.flux()
         assert flux_op.source.dof_info == {GridEntity.cells: 1}
         assert flux_op.target.dof_info == {GridEntity.faces: 1}
@@ -1306,7 +1313,7 @@ class TestMergedOperatorWithConcreteDiscretization:
     def test_mpfa_bound_flux_ad_wrapper(self, two_subdomains):
         """MpfaAd.bound_flux() has face-domain and face-range."""
         g1, g2 = two_subdomains
-        discr = pp.ad.MpfaAd("flow", [g1, g2])
+        discr = pp.ad.MpfaAd("flow", [g1, g2], nd=2)
         op = discr.bound_flux()
         assert op.source.dof_info == {GridEntity.faces: 1}
         assert op.target.dof_info == {GridEntity.faces: 1}
@@ -1318,6 +1325,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="vector_source",
+            nd=2,
             physics_key="flow",
             domains=[g1, g2],
         )
@@ -1333,6 +1341,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="stress_displacement",
+            nd=2,
             physics_key="mech",
             domains=[g1, g2],
         )
@@ -1350,6 +1359,7 @@ class TestMergedOperatorWithConcreteDiscretization:
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="rotation_displacement",
+            nd=2,
             physics_key="mech",
             domains=[g1, g2],
         )
