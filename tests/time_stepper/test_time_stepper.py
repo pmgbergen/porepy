@@ -526,7 +526,9 @@ def test_model_time_step_control(params: dict):
 
 
 def default_newton_solver(iter_converge: int):
-    """Parameters:
+    """Initialize the Newton solver with convergence criteria used in test.
+
+    Parameters:
         iter_converge: Converge after this number of nonlinear iterations. After this,
             will always converge, no matter what the time step is.
 
