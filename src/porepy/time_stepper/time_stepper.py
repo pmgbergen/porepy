@@ -38,10 +38,11 @@ class TimeStepper:
 
     Workflow:
     1. For each retry (up to max_retries):
-       a. Execute trial with current dt
-       b. If success: update time, adapt dt for next step, return
-       c. If rejected: reduce dt, loop
-    2. If all retries exhausted: stop
+        a. Update trial time;
+        b. Execute trial with current dt;
+        c. If success: update solution values, adapt dt for next step, return;
+        d. If rejected: reduce dt, loop, revert trial time.
+    2. If all retries exhausted: return.
 
     The constant dt case is supported internally by setting max_retries = 1.
 

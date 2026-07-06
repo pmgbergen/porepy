@@ -468,8 +468,19 @@ MAX_NONLINEAR_ITER = 10
     ],
 )
 def test_model_time_step_control(params: dict):
-    """The integration test for the `TimeStepper` - how it interacts with a real PorePy
-    model."""
+    """Test time-step control of a PorePy simulation through using:
+    - real ModelRunner;
+    - real TimeStepper;
+    - mock nonlinear solver;
+    - mock PorePy model.
+
+    Prescribed nonlinear iteration counts and convergence outcomes test time-step
+    adaptation, schedule alignment, admissible step-size bounds, constant time
+    steps, and terminal failures. The test also verifies state rollback after failed
+    attempts, synchronization of the AD time step, the time-step history, and the final
+    runner status.
+
+    """
     constant_dt = params.get("constant_dt", False)
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
@@ -522,7 +533,7 @@ def test_model_time_step_control(params: dict):
         assert status.is_success()
 
 
-# # MARK: Statistics
+# MARK: Statistics
 
 
 def default_newton_solver(iter_converge: int):

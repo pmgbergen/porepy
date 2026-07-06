@@ -75,9 +75,9 @@ class SolverStatistics:
             divergence_statuses=ConvergenceStatusCollection(),
         )
     )
-    """Nonlinear solver status history."""
-    solver_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
     """Nonlinear solver status."""
+    solver_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
+    """Nonlinear solver status history."""
     simulation_status: TimeStepperStatus = field(
         default_factory=lambda: TimeStepperStatusContinueIterating(
             attempt=-1,

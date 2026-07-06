@@ -381,7 +381,13 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_variables = [n for n in names]
 
     def before_time_step(self) -> None:
-        """Called at the start of each time step by model runners.
+        """Called from the outside of the model at the start of each time step.
+
+        The model must prepare its state for the target simulation time ``t``,
+        available through :attr:`time_manager`. The nonlinear solver then attempts
+        to advance the discretized problem to that time. If the solve fails, it may
+        be retried with a different time-step size, so this method may be called
+        multiple times with different target times.
 
         The base method does the following:
 
@@ -397,8 +403,12 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_derived_quantities()
 
     def before_nonlinear_loop(self) -> None:
-        """Called before entering a nonlinear solver loop if the model is flagged
-        as nonlinear.
+        """Called before entering a nonlinear solver loop.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop so this method is called once after ``before_time_step``. More advanced
+        solvers may use multiple nonlinear loops per time step and call this method
+        before each one.
 
         The base method does the following:
 
@@ -435,10 +445,27 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_derived_quantities()
 
     def after_nonlinear_convergence(self) -> None:
-        """Called after the solver converges."""
+        """Called after a nonlinear solver loop converges.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop, so this method is called exactly once, before
+        ``after_time_step_convergence``. More advanced solvers may use multiple
+        nonlinear loops per time step and call this method after each converged
+        loop.
+
+        Use this method for loop-specific post-processing.
+
+        """
 
     def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge."""
+        """Called after a nonlinear solver loop fails to converge.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop, so this method is called exactly once, before
+        ``after_time_step_failure``. More advanced solvers may use multiple
+        nonlinear loops per time step and call this method after each failed loop.
+
+        """
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
