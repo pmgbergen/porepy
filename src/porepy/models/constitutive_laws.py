@@ -1401,9 +1401,7 @@ class AdTpfaFlux(pp.PorePyModel):
 
             # Define the Ad function for the flux, including the impact of boundary
             # conditions internal and external.
-            domain_and_range = OperatorSpace.from_domains(
-                domains, {GridEntity.cells: 1}
-            )
+            range_ = OperatorSpace.from_domains(domains, {GridEntity.faces: 1})
             flux_p = pp.ad.Function(
                 # Mypy raises an error here since functool.partial returns a 'partial',
                 # while pp.ad.Function expects a Callable. partial.__call__ is a
@@ -1413,8 +1411,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_flux_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-                domain_and_range,
-                domain_and_range,
+                source=OperatorSpace.from_domains(domains, {GridEntity.cells: 1}),
+                target=range_,
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
             vector_source_d = Function(
@@ -1422,8 +1420,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_vector_source_discretization, base_discr
                 ),
                 "differentiable_mpfa_vector_source",
-                domain_and_range,
-                domain_and_range,
+                source=OperatorSpace.from_domains(domains, {GridEntity.cells: self.nd}),
+                target=range_,
             )(t_f, vector_source_difference, vector_source_cells)
 
         else:
@@ -1510,7 +1508,7 @@ class AdTpfaFlux(pp.PorePyModel):
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
             domain_and_range = OperatorSpace.from_domains(
-                subdomains, {GridEntity.cells: 1}
+                subdomains, {GridEntity.faces: 1}
             )
             boundary_value_contribution = Function(
                 # See comment in diffusive_flux method for explanation why the type
