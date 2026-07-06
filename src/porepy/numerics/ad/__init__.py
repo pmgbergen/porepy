@@ -10,24 +10,24 @@ etc.
 __all__ = []
 
 from . import (
-    get_set_values,
     ad_utils,
     discretizations,
     equation_system,
     forward_mode,
     functions,
+    get_set_values,
     grid_operators,
     operator_functions,
     operators,
     surrogate_operator,
     time_derivatives,
 )
-from .get_set_values import *
 from .ad_utils import *
 from .discretizations import *
 from .equation_system import *
 from .forward_mode import *
 from .functions import *
+from .get_set_values import *
 from .grid_operators import *
 from .operator_functions import *
 from .operators import *
