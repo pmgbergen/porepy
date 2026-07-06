@@ -2,9 +2,17 @@
 
 Reproduces Example 6.3 / Fig. 5 of Bosma, Hamon, Mallison & Tchelepi, "Smooth implicit
 hybrid upwinding for compositional multiphase flow in porous media", CMAME 388 (2022)
-114288: a 100 m x 100 m closed vertical box in which a heavy fluid (initially top 10%),
-a light fluid (bottom 10%) and an intermediate fluid (the rest) segregate by gravity
-through a field of horizontal impermeable barriers with openings.
+114288: a 100 m x 100 m closed vertical box (100 x 100 cells of 1 m) in which a heavy fluid
+(water, rho=1500, initially top 10%), a light fluid (gas, rho=500, bottom 10%) and an
+intermediate fluid (oil, rho=1000, the rest) segregate by gravity through SEVEN horizontal
+impermeable barrier layers with openings.
+
+The barriers sit at figure depth-rows 16, 23, 38, 45, 58, 74, 82 (of 100; row 0 = top,
+gravity downward), with 5, 2, 5, 2, 4, 6, 3 open-ended segments respectively (bottom -> top:
+3, 6, 4, 2, 5, 2, 5). They are re-extracted at pixel resolution from Fig. 5(a) and defined in
+``model_configuration/geometry_description/geometry_market.py`` (``_BARRIER_LAYERS_FIG``,
+consumed by ``GeometryBarriers2D.barrier_cell_mask``); the extraction / verification lives in
+``benchmark_figures_data/wahu_fig5_digitized/fig5_barriers_and_saturations.py``.
 
 Structure follows ``tp_tc_gravitational_segregation.py`` (inline constant-property EOS,
 ``FlowModelBase``, ``pp.ModelRunner``).  The 3-phase / 3-component IMMISCIBLE machinery
@@ -48,12 +56,13 @@ rho_w, rho_o, rho_g = 1500.0, 1000.0, 500.0
 # all phases mu = 0.001 kg/(m.s) = 1 cP  (scaled by to_Mega -> MPa.s in the model)
 mu_w = mu_o = mu_g = 1.0e-3
 # specific enthalpies [MJ/kg]: isothermal immiscible -> arbitrary but distinct
-h_w, h_o, h_g = 1.0, 1.5, 2.0
+#h_w, h_o, h_g = 1.0, 1.5, 2.0
+h_w, h_o, h_g = 1.0, 1.0, 1.0
 
 milli_darcy = 9.869233e-16          # 1 mD in m^2
 k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
 porosity = 0.3
-BARRIER_K_FACTOR = 1.0e-8           # barrier cells get k * this (effectively impermeable)
+BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively impermeable)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -486,6 +495,37 @@ class FlowModel(
         permeability = pp.wrap_as_dense_ad_array(vals, size, name="permeability")
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Hydrostatic initial pressure, consistent with the top-boundary Dirichlet pressure
+        AND with the initial phase layering (top 10% water, middle 80% oil, bottom 10% gas).
+
+        In mechanical equilibrium the pressure gradient balances gravity,
+        ``dp/d(depth) = rho_column * g``. Integrating downward from the top boundary
+        (``p = p_top`` at height ``y = H``), with the piecewise-constant column density set by
+        the initial phase distribution, gives
+
+            ``p(y) = p_top + g * INT_y^H rho(y') dy'``.
+
+        This uses the SAME gravity as :meth:`gravity_field`
+        (``convert_units(GRAVITY_ACCELERATION) * to_Mega``) and the UNSCALED phase densities,
+        so at t = 0 the Darcy potential ``grad p - rho_m g`` vanishes within each layer -- no
+        spurious pressure-driven flow; only the density contrast across the layer interfaces
+        drives the buoyant segregation. ``p_top = _p_ref`` equals the closed BC's top Dirichlet
+        value, so the IC and the boundary agree at ``y = H``.
+        """
+        y = sd.cell_centers[1]                                       # height (0 bottom, H top)
+        H = self.units.convert_units(self._height, "m")             # box height (= 100 m)
+        g = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2") * to_Mega
+        y_wo = 0.9 * H                                               # water / oil interface
+        y_og = 0.1 * H                                              # oil / gas interface
+        # column density integrated from height y up to the top boundary H
+        column = (
+            rho_w * (H - np.maximum(y, y_wo))                       # water band [0.9H, H]
+            + rho_o * np.maximum(0.0, y_wo - np.maximum(y, y_og))   # oil band  [0.1H, 0.9H]
+            + rho_g * np.maximum(0.0, y_og - y)                     # gas band  [0, 0.1H]
+        )
+        return self._p_ref + g * column
+
 
 # --------------------------------------------------------------------------------------- #
 #  Run configuration (module level), mirroring tp_tc_gravitational_segregation.py
@@ -501,7 +541,7 @@ day = 86400.0
 # )
 
 dt = 0.03125 * day
-tf = 571.0 * day
+tf = 78.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,                                 # NOTE: tune dt for convergence/cost

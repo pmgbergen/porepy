@@ -465,13 +465,19 @@ class Figure8Geometry2D(Geometry):
 # (2022, CMAME 388:114288) Fig. 5(a). Keys = FIGURE rows (top = 0, gravity downward) on a
 # 100-cell grid; values = inclusive barrier-cell column ranges. Columns NOT listed are the
 # openings in that layer. (Exact layout is in ref [39]; this is a faithful read of Fig. 5a.)
+#
+# SEVEN layers, re-extracted at pixel resolution from fig5_raw_a.png (see
+# benchmark_figures_data/wahu_fig5_digitized/fig5_barriers_and_saturations.py). Subregion
+# (segment) counts per layer, bottom -> top: 3, 6, 4, 2, 5, 2, 5. (The prior read had only
+# 6 layers -- the depth-23 layer was missing -- and over-merged several openings.)
 _BARRIER_LAYERS_FIG = {
-    16: [(4, 19), (40, 59), (70, 99)],
-    38: [(0, 9), (17, 25), (38, 49), (54, 74), (90, 94)],
-    45: [(23, 59), (63, 70)],
-    58: [(1, 17), (22, 29), (48, 59), (70, 99)],
-    74: [(0, 15), (19, 53), (58, 70), (84, 92)],
-    82: [(4, 18), (24, 42), (58, 94)],
+    16: [(5, 19), (23, 25), (40, 59), (70, 79), (82, 99)],                    # 5 subregions
+    23: [(18, 44), (62, 84)],                                                 # 2
+    38: [(0, 9), (18, 25), (38, 49), (55, 74), (90, 94)],                     # 5
+    45: [(23, 59), (63, 70)],                                                 # 2
+    58: [(2, 17), (22, 29), (48, 59), (70, 99)],                             # 4
+    74: [(0, 15), (19, 22), (24, 53), (58, 70), (75, 76), (84, 92)],          # 6
+    82: [(5, 18), (24, 42), (58, 94)],                                       # 3 (bottom)
 }
 
 
