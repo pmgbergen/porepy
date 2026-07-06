@@ -16,19 +16,15 @@ mixed-dimensional grid by
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterator, NamedTuple, Optional
+from typing import Iterator, Optional
 
 import gmsh
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
-from .gmsh_interface import PhysicalNames
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
