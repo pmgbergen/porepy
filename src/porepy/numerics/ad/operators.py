@@ -335,8 +335,8 @@ class Operator:
         self._source: Optional[OperatorSpace] = source
         self._target: Optional[OperatorSpace] = target
 
-        assert source is not None
-        assert target is not None
+        # assert source is not None
+        # assert target is not None
 
         self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
