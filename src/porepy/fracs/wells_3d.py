@@ -51,7 +51,7 @@ class Well:
     def __init__(
         self,
         points: np.ndarray,
-        index: Optional[int] = None,
+        index: int = -1,
         tags: Optional[dict] = None,
     ) -> None:
         self.pts: np.ndarray = np.asarray(points, dtype=float)
@@ -75,8 +75,8 @@ class Well:
         else:
             self.tags = tags
 
-        self._index: int = -1
-        """Private index attribute. To be accessed by the property."""
+        self._index: int = index
+        """Index attribute."""
 
     def segments(self) -> Iterator[tuple[tuple[int, int], np.ndarray]]:
         """Iterate over the segments defined through segment indices and endpoints.

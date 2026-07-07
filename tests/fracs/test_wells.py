@@ -1,13 +1,11 @@
 """
-Tests of the well class. In particular, functionality for constructing the
-well network and the resulting updates to the mixed-dimensional grid are tested.
+Tests of the well class and well-matrix intersection functionality.
 
 Content:
-  * Addition of one well to mdgs with one or two 2d fractures.
-  * Addition of two wells to mdgs with one or three 2d fractures.
-Both tests check for number of grids, number of edges and three types of face
-tags. Grid node ordering is tacitly assumed - if the assumption is broken, the
-well implementation should also be revisited.
+  - TestWellClass: Simple tests for the well class, mainly covering construction.
+  - test_compute_well_rock_matrix_intersections: Test the computation of intersections
+    between a well and the rock matrix mesh. The tested method is not in active use and
+    the test is marked as expected to fail pending updates to code and test.
 
 """
 
@@ -20,8 +18,50 @@ import pytest
 import porepy as pp
 
 
+class TestWellClass:
+    @pytest.mark.parametrize(
+        "coords",
+        [
+            np.array([[0, 0], [0, 1]]),
+            np.array([[1, 1], [1, 2], [1, 3]]),
+        ],
+    )
+    def test_single_well(self, coords) -> None:
+        """Test the creation of a well object."""
+        # Define the well coordinates.
+
+        # Create a well object.
+        well = pp.Well(coords, index=0)
+        assert well._index == 0
+        # Check that the well object has the correct attributes.
+        assert isinstance(well, pp.Well)
+        assert np.allclose(well.pts, coords)
+        assert well.num_segments() == coords.shape[1] - 1
+
+        for seg_ind, seg_coord in well.segments():
+            # Check that the segment coordinates are correct.
+            assert np.allclose(
+                seg_coord,
+                coords[:, seg_ind[0] : seg_ind[1] + 2],
+            )
+
+    def test_multiple_wells(self) -> None:
+        """Test the creation of multiple well objects. Nothing special should happen."""
+        # Define the well coordinates.
+        coords1 = np.array([[0, 0], [0, 1]])
+        coords2 = np.array([[1, 1], [1, 2], [1, 3]])
+
+        # Create multiple well objects.
+        well1 = pp.Well(coords1, index=0)
+        well2 = pp.Well(coords2, index=1)
+
+        # Check that the well objects have the correct attributes.
+        assert np.allclose(well1.pts, coords1)
+        assert np.allclose(well2.pts, coords2)
+
+
 @pytest.mark.xfail(reason="Well-matrix functionality has not been updated")
-def test_add_one_well_with_matrix(get_mdg) -> None:
+def test_compute_well_rock_matrix_intersections(get_mdg) -> None:
     """Compute intersection between one well and the rock matrix mesh."""
     mdg = get_mdg([], [1])
     # Add the coupling between the rock matrix and the well.
