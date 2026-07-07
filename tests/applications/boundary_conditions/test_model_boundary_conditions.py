@@ -34,7 +34,7 @@ def _geometry_mixin(model_dim: int):
 
 
 @pytest.fixture(params=[2, 3], ids=["2d", "3d"])
-def momentum_boundary_model(request):
+def momentum_model(request):
     model_dim = request.param
     geometry_mixin_type = _geometry_mixin(model_dim)
 
@@ -52,9 +52,9 @@ def momentum_boundary_model(request):
 
 
 @pytest.fixture
-def momentum_boundary_matrix_grid(momentum_boundary_model):
+def momentum_boundary_matrix_grid(momentum_model):
     matrix_grids = [
-        sd for sd in momentum_boundary_model.mdg.subdomains() if sd.dim == momentum_boundary_model.nd
+        sd for sd in momentum_model.mdg.subdomains() if sd.dim == momentum_model.nd
     ]
     assert len(matrix_grids) == 1
     return matrix_grids[0]
@@ -178,10 +178,10 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
         )
 
 
-def test_lithostatic_boundary_stress_values(momentum_boundary_model):
+def test_lithostatic_boundary_stress_values(momentum_model):
     # Scaling of the lithostatic stress.
     stress_multipliers = np.array([1, 2, 0.1])
-    model = momentum_boundary_model
+    model = momentum_model
     model.params.update({"lithostatic_stress_multipliers": stress_multipliers})
 
     # Lithostatic boundary condition requires non-zero time.
@@ -250,7 +250,7 @@ def test_lithostatic_boundary_stress_values(momentum_boundary_model):
 
 
 def test_mechanics_bcs_neumann(
-    momentum_boundary_model,
+    momentum_model,
     momentum_boundary_matrix_grid,
 ):
     """Test anchor ordering and component constraints for Neumann mechanics BCs.
@@ -260,9 +260,9 @@ def test_mechanics_bcs_neumann(
 
     """
     sd = momentum_boundary_matrix_grid
-    sides = momentum_boundary_model.domain_boundary_sides(sd)
-    bc = momentum_boundary_model.bc_type_mechanics(sd)
-    faces = momentum_boundary_model.faces_to_fix(sd)
+    sides = momentum_model.domain_boundary_sides(sd)
+    bc = momentum_model.bc_type_mechanics(sd)
+    faces = momentum_model.faces_to_fix(sd)
 
     assert len(faces) == 3
     assert np.any(bc.is_dir)
@@ -282,7 +282,7 @@ def test_mechanics_bcs_neumann(
     np.testing.assert_array_equal(south_mask[:2], np.array([True, False]))
     np.testing.assert_array_equal(east_mask[:2], np.array([False, True]))
 
-    if momentum_boundary_model.nd == 3:
+    if momentum_model.nd == 3:
         assert west_mask[2]
         assert south_mask[2]
         assert east_mask[2]

@@ -384,7 +384,8 @@ class BoundaryConditionsMechanicsNeumann:
                 np.array([False, True, True]),
             ]
         raise NotImplementedError(
-            f"BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, got nd={self.nd}."
+            "BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, "
+            + f" got nd={self.nd}."
         )
 
     def faces_to_fix(self, sd: pp.Grid) -> list[np.int64]:
@@ -457,7 +458,8 @@ class BoundaryConditionsMechanicsNeumann:
             return [ind_1, ind_2, ind_3]
 
         raise NotImplementedError(
-            f"BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, got nd={self.nd}."
+            "BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, "
+            + f" got nd={self.nd}."
         )
 
 
