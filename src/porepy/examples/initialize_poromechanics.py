@@ -19,15 +19,16 @@ from porepy.applications.initial_conditions.model_initial_conditions import (
 )
 # from porepy.models.contact_mechanics import RadialReturnTangentialContactMechanicsEquation
 
-# Set up logging (uncomment to see info messages from the solver)
-# Uncomment for debugging purposes. Note that this will produce a lot of output.
+# Set up logging. Uncomment for debugging purposes. Note that this will produce a lot of
+# output.
 # import logging
 # logging.basicConfig(level=logging.INFO)
 
 
 # --- Geometry modification ---
-class ModifiedGeometry:
+class DiagonalLineFractureGeometry:
     """Simple 2D square domain with a single diagonal fracture."""
+    units: pp.Units
 
     def set_domain(self) -> None:
         # Define 2D square domain of size 100 m x 100 m and put it 1000 m below surface.
@@ -55,6 +56,7 @@ class ModifiedGeometry:
 # --- Hydrostatic initial and boundary conditions ---
 
 # TODO: Integrate in the core module and extend to cover 2D and 3D?
+# TODO: Consider plane-strain and plane-stress assumptions for 2D problems.
 
 
 class BoundaryConditionsMechanicsNeumann2D(BoundaryConditionsMechanicsNeumann):
@@ -254,22 +256,24 @@ class LithostaticBoundaryStressValues2D(LithostaticBoundaryStressValues):
         return values.ravel("F")
 
 
-class MatplotlibExporting:
+class MatplotlibExportingPoromechanics:
     """Auxiliary class to enable visualization in this notebook."""
+    displacement_variable: str
+    mdg: pp.MixedDimensionalGrid
+    pressure_variable: str
+    time_manager: pp.TimeManager
 
-    # --- Auxiliary plotting function ---
-    @staticmethod
-    def plot_model(model: pp.SolutionStrategy) -> None:
+    def plot_model(self) -> None:
         """Plot pressure and displacement distribution of the model."""
         pp.plot_grid(
-            model.mdg,
-            cell_value=model.pressure_variable,
-            vector_value=model.displacement_variable,
+            self.mdg,
+            cell_value=self.pressure_variable,
+            vector_value=self.displacement_variable,
             figsize=(10, 8),
             linewidth=0.25,
             title=(
                 """Pressure and displacement distribution at """
-                f"""time {model.time_manager.time // 3600} hrs"""
+                f"""time {self.time_manager.time // 3600} hrs"""
             ),
             plot_2d=True,
             color_map_limits=[0, 0.00012],
@@ -277,21 +281,21 @@ class MatplotlibExporting:
 
     def after_time_step_convergence(self) -> None:
         """Export results after each time step convergence."""
-        MatplotlibExporting.plot_model(self)
-        super().after_time_step_convergence()
+        self.plot_model()
+        super().after_time_step_convergence()  # type:ignore[safe-super]
 
 
 class ModelWithInitialization(
     # Our fractured domain
-    ModifiedGeometry,
+    DiagonalLineFractureGeometry,
     # Initial conditions for flow
     InitialConditionHydrostaticPressureValues,
     # Boundary conditions for flow
-    pp.applications.boundary_conditions.model_boundary_conditions.HydrostaticBoundaryPressureValues,
+    HydrostaticBoundaryPressureValues,
     # Boundary conditions for mechanics
     BoundaryConditionsMechanicsNeumann2D,
     LithostaticBoundaryStressValues2D,
-    MatplotlibExporting,
+    MatplotlibExportingPoromechanics,
     # Base model
     pp.constitutive_laws.CharacteristicDisplacementFromTraction,
     pp.constitutive_laws.GravityForce,
