@@ -122,7 +122,7 @@ class TimeStepper:
         return TimeStepperStatusFailure(
             reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
             nonlinear_solver_status=NonlinearSolverStatusFailed(
-                num_nonlinear_iterations=-1,
+                linear_solver_statuses=[],
                 convergence_statuses=ConvergenceStatusCollection(),
                 divergence_statuses=ConvergenceStatusCollection(),
             ),
@@ -150,7 +150,7 @@ class TimeStepper:
         if isinstance(nonlinear_solver_status, NonlinearSolverStatusConverged):
             # For accepted steps, we may want to increase dt for the next step.
             # This logic can be based on solver performance (e.g., #iterations).
-            num_iterations = nonlinear_solver_status.num_nonlinear_iterations
+            num_iterations = len(nonlinear_solver_status.linear_solver_statuses)
             current_dt = self.time_manager.dt
             new_time = self.time_manager.time
             self.time_manager.compute_time_step(iterations=num_iterations)

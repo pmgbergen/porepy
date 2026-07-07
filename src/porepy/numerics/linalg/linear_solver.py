@@ -10,8 +10,10 @@ from abc import ABC, abstractmethod
 from logging import DEBUG, getLogger
 import time
 from typing import Literal
+from dataclasses import dataclass
 
 import numpy as np
+import porepy as pp
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
 
@@ -39,6 +41,25 @@ DirectSolverBackends = Literal[
 ]
 
 
+@dataclass
+class LinearSolverStatus(ABC):
+    """TODO YZ"""
+
+
+@dataclass
+class LinearSolverStatusSuccess(LinearSolverStatus):
+    """TODO YZ"""
+
+    solve_time: float
+
+
+@dataclass
+class LinearSolverStatusFailure(LinearSolverStatus):
+    """TODO YZ"""
+
+    reason: str
+
+
 class LinearSolverBase(ABC):
     """Abstract base class defining the interface for linear solvers.
 
@@ -47,13 +68,18 @@ class LinearSolverBase(ABC):
 
     """
 
+    def initialize_with_model(self, model: pp.PorePyModel):
+        """Do something model related. TODO YZ"""
+
     @abstractmethod
-    def solve_linear_system(self, mat: csr_matrix, rhs: np.ndarray) -> np.ndarray:
+    def solve_linear_system(
+        self, mat: csr_matrix, rhs: np.ndarray
+    ) -> tuple[np.ndarray, LinearSolverStatus]:
         """Solver a linear system defined by a matrix `mat` and a right-hand side vector
         `rhs`.
 
         Returns:
-            np.ndarray: Solution vector.
+            np.ndarray: Solution vector. TODO YZ
 
         """
 
@@ -88,11 +114,13 @@ class LinearSolverDirect(LinearSolverBase):
         self.backend: DirectSolverBackends = backend
         """String specifying a direct linear solver implementation."""
 
-    def solve_linear_system(self, mat: csr_matrix, rhs: np.ndarray) -> np.ndarray:
+    def solve_linear_system(
+        self, mat: csr_matrix, rhs: np.ndarray
+    ) -> tuple[np.ndarray, LinearSolverStatus]:
         """Solve linear system with a direct solver.
 
         Returns:
-            np.ndarray: Solution vector.
+            np.ndarray: Solution vector. TODO YZ
 
         """
         t_0 = time.time()
@@ -107,22 +135,27 @@ class LinearSolverDirect(LinearSolverBase):
                 f"Max {np.max(row_sums):.2e} and min {np.min(row_sums):.2e} A sum."
             )
 
-        if self.backend == "pypardiso":
-            assert IS_PYPARDISO_INSTALLED
-            x = pypardiso_spsolve(mat, rhs)
-
-        elif self.backend == "umfpack":
-            assert IS_UMFPACK_INSTALLED
-            # Following may be needed:
-            # A.indices = A.indices.astype(np.int64)
-            # A.indptr = A.indptr.astype(np.int64)
-            x = spsolve(mat, rhs, use_umfpack=True)
-        elif self.backend == "scipy_sparse":
-            x = spsolve(mat, rhs, use_umfpack=False)
-        else:
+        if self.backend not in ["pypardiso", "umfpack", "scipy_sparse"]:
             raise ValueError(f"Unknown linear solver backend: {self.backend}")
+        try:
+            if self.backend == "pypardiso":
+                assert IS_PYPARDISO_INSTALLED
+                x = pypardiso_spsolve(mat, rhs)
 
-        x = np.atleast_1d(x)
+            elif self.backend == "umfpack":
+                assert IS_UMFPACK_INSTALLED
+                # Following may be needed:
+                # A.indices = A.indices.astype(np.int64)
+                # A.indptr = A.indptr.astype(np.int64)
+                x = spsolve(mat, rhs, use_umfpack=True)
+            else:
+                x = spsolve(mat, rhs, use_umfpack=False)
+        except Exception as e:
+            logger.exception(e)
+            return np.full_like(rhs, np.nan), LinearSolverStatusFailure(
+                reason=f"{type(e).__name__}: {e}"
+            )
 
-        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
-        return x
+        solve_time = time.time() - t_0
+        logger.info(f"Solved linear system in {solve_time:.2e} seconds.")
+        return np.atleast_1d(x), LinearSolverStatusSuccess(solve_time=solve_time)
