@@ -37,7 +37,7 @@ def test_add_one_well_with_matrix(get_mdg) -> None:
         np.testing.assert_allclose(well_grid.nodes[2].min(), 0.2)
 
     # EK: The idea behind the test is sound, but the known numbers must be revisited
-    # after an update of the well meshing procedures.
+    # after the well-matrix functionality has been updated/brought back to life.
     # for intf in mdg.interfaces():
     #     assert intf.num_sides() == 1
     #     assert intf.num_cells == 1

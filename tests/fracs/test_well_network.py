@@ -79,7 +79,7 @@ def _infer_dimension_from_fractures(fractures: list[pp.Fracture]) -> int:
     return 2 if isinstance(fractures[0], pp.LineFracture) else 3
 
 
-# ----- Region: 3D and 2D fracture and well factories for test cases ---
+# MARK: 3D and 2D fracture and well factories for test cases ---
 
 
 # 3D fractures factories (PlaneFracture for ambient dim = 3)
@@ -226,7 +226,7 @@ def _make_well_2d(
     return pp.Well(np.array(points).T, well_index)
 
 
-# ----- Region: Define test cases and expected results ---
+# MARK: Define test cases and expected results ---
 
 
 BASIC_GEOMETRY_CASES = (
@@ -464,7 +464,7 @@ def _find_intersections(case: IntersectionCase) -> tuple:
     well_network = WellNetwork3d(case.wells, None)
     fracture_network = pp.create_fracture_network(case.fractures, domain=None)
 
-    return well_network.intersect_well_fractures(
+    return well_network.compute_well_fracture_intersections(
         fracture_network.fractures, fracture_network.nd
     )[0]
 
@@ -474,13 +474,26 @@ def _assert_intersection_detection_result(
     result: tuple,
     expected: list[tuple[np.ndarray, int, list[int]]],
 ) -> None:
+    """Check that the intersection detection result matches the expected intersections.
+
+    The test is two-stage:
+      1. For all expected intersections that involve at least one fracture, check that
+         the intersection is present in the result and that the coordinates match.
+      2. For all identified intersections that do not involve any fractures, check that
+         the identified intersection is present among the expected coordinates, with the
+        correct well index.
+
+    Parameters:
+        case: The IntersectionCase being tested.
+        result: The actual result from the intersection detection function.
+        expected: The expected intersections, as a list of tuples containing the
+            intersection coordinate, the well index, and a list of fracture indices.
+
+    """
     assert len(result) == len(expected), (
         f"Case '{case.name}': expected {len(expected)} intersections, "
         f"got {len(result)}."
     )
-    """Check that the intersection detection result matches the expected intersections.
-    """
-
     # List of points that belong to no fractures. These are checked separately.
     empty_fracture_list = []
 
@@ -640,14 +653,14 @@ def _generate_mesh_make_assertions(
     )
 
 
-# ----- Region: Tests for well-fracture intersection identification -----
+# MARK: Tests for well-fracture intersection identification -----
 
 
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)
-def test_intersect_well_fractures_basic_geometries(case: IntersectionCase) -> None:
+def test_well_fracture_intersections_basic_geometries(case: IntersectionCase) -> None:
     """
-    Test for `intersect_well_fractures` covering both 2D and 3D cases, as well as
-    single- and multi-segment wells.
+    Test for `compute_well_fracture_intersections` covering both 2D and 3D cases, as
+    well as single- and multi-segment wells.
 
     The test verifies that:
         Intersection coordinates are computed correctly.
@@ -758,7 +771,7 @@ def test_2d_multiple_fractures_same_point():
     np.testing.assert_allclose(coord, expected_coord, atol=TOL)
 
 
-# ----- Region: Tests for meshing of well-fracture intersections -----
+# MARK: Tests for meshing of well-fracture intersections -----
 
 
 @pytest.mark.parametrize("case", BASIC_GEOMETRY_CASES, ids=lambda case: case.name)

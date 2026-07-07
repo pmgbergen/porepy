@@ -1,3 +1,12 @@
+"""Collection of classes for the representation of a network of wells in 3d.
+
+The main classes are:
+  - WellNetwork3d: Used to represent a collection of wells. Currently mainly used for
+    meshing of the wells and their addition to a mixed-dimensional grid.
+  - WellFractureIntersection: Used to store information about the intersection between a
+    well and a fracture. Primarily intended for internal use during meshing.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -66,7 +75,6 @@ class WellNetwork3d:
         wells: list[Well],
         domain: pp.Domain,
         tol: float = 1e-8,
-        parameters: Optional[dict] = None,
     ) -> None:
         self.domain: pp.Domain = domain
         """Domain specification."""
@@ -79,12 +87,6 @@ class WellNetwork3d:
 
         for i, w in enumerate(self.wells):
             w._index = i
-
-        self.parameters: dict = {}
-        """Dictionary of parameters, e.g. for the meshing process, passed at
-        instantiation. """
-        if parameters is not None:
-            self.parameters = parameters
 
         self.tol: float = tol
         """Geometric tolerance used in computations."""
@@ -115,25 +117,25 @@ class WellNetwork3d:
 
         # Process well-fracture intersections. This will also generate a gmsh
         # representation of fractures and wells.
-        intersections, wells, fractures = self.intersect_well_fractures(
+        intersections, wells, _ = self.compute_well_fracture_intersections(
             fracture_network.fractures, fracture_network.nd
         )
         # Generate a mesh for the well network and transfer the generated subdomains and
         # interfaces to the mixed-dimensional grid.
         well_mdg = _generate_well_mesh(intersections, wells, mesh_args)
-        orig_0d_domain_id = _add_well_subdomains(mdg, well_mdg, self.tol, self.domain)
+        orig_0d_domain_ids = _add_well_subdomains(mdg, well_mdg, self.tol, self.domain)
 
         if len(intersections) == 0:
             return mdg
 
         # Add new interfaces between the well subdomains and the fracture subdomains.
         _add_well_fracture_interfaces(
-            mdg, well_mdg, intersections, orig_0d_domain_id, self.tol
+            mdg, well_mdg, intersections, orig_0d_domain_ids, self.tol
         )
 
         return mdg
 
-    def intersect_well_fractures(
+    def compute_well_fracture_intersections(
         self,
         fractures: list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture],
         nd: int,
@@ -153,7 +155,6 @@ class WellNetwork3d:
             fractures: List of GmshEntity objects corresponding to the fractures.
 
         """
-        wells = self.wells
         if not gmsh.is_initialized():
             gmsh.initialize()
 
@@ -179,6 +180,9 @@ class WellNetwork3d:
             file_name: Path to the csv file to which to export the well network.
             write_header: Whether to write a header row to the csv file.
 
+        Raises:
+            ValueError: If the domain is not boxed.
+
         """
         file_name = file_name.with_suffix(".csv")
 
@@ -191,17 +195,23 @@ class WellNetwork3d:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
                 csv_writer.writerow("# Well network exported from PorePy.")
+                # Note: non-box domains will raise an error below.
                 csv_writer.writerow(
                     "# The first line may contain a 6-item bounding box for the domain"
                     " in the format X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX."
                 )
                 csv_writer.writerow(
-                    "# Each row contains the coordinates of the endpoints of each well "
-                    "segment, ordered as (x1, y1, z1, x2, y2, z2, ...)."
+                    "# Each row contains the coordinates of the endpoints of all well "
+                    "segments of one well, ordered as (x1, y1, z1, x2, y2, z2, ...)."
                 )
 
             # Write the domain bounding box.
             if self.domain is not None:
+                if not self.domain.is_boxed:
+                    # This should be possible to relax if needed.
+                    raise ValueError(
+                        "The domain must be boxed to export the well network to csv."
+                    )
                 self.domain.to_csv(csv_writer)
 
             # Write all the wells.
@@ -209,19 +219,41 @@ class WellNetwork3d:
                 csv_writer.writerow(w.pts.ravel(order="F"))
 
     @classmethod
-    def from_csv(cls, file_name: Path) -> WellNetwork3d:
+    def from_csv(
+        cls, file_name: Path, has_domain: bool = True, domain: pp.Domain = None
+    ) -> WellNetwork3d:
         """Import a well network from a csv file.
 
         Parameters:
             file_name: Path to the csv file from which to import the well network. The
                 csv file should have the same format as the one exported by the
                 ``to_csv`` method.
+            has_domain: Whether the csv file contains a domain bounding box.
+            domain: The domain to which the well network belongs. If not provided, the
+                domain will be inferred from the csv file.
+
+            The domain must either be provided as an argument (domain is not None) or be
+            inferred from the csv file (has_domain is True).
+
+        Raises:
+            ValueError: If the csv file does not contain a domain bounding box and the
+                domain is not provided as an argument, or if the csv file contains a
+                domain bounding box and the domain is provided as an argument.
 
         Returns:
             A new instance of the WellNetwork3d class initialized with the wells from
             the csv file.
 
         """
+        if has_domain and domain is not None:
+            raise ValueError(
+                "If has_domain is True, the domain must be inferred from the csv file."
+            )
+        if not has_domain and domain is None:
+            raise ValueError(
+                "If has_domain is False, the domain must be provided as an argument."
+            )
+
         wells = []
         with open(file_name, "r") as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=",")
@@ -257,7 +289,7 @@ class WellNetwork3d:
         return s
 
 
-# --- Region: Export to Gmsh ---
+# MARK: Export to Gmsh
 
 
 def _fractures_to_gmsh(
@@ -311,7 +343,7 @@ def _wells_to_gmsh(wells: list[Well]) -> list[GmshLine]:
     return entities
 
 
-# --- Region: Processing of fracture-well intersection information ---
+# MARK: Processing of fracture-well intersection information ---
 
 
 def _intersections_from_points(
@@ -329,7 +361,7 @@ def _intersections_from_points(
         between wells and fractures.
     """
     # Find points that are shared between wells and fractures, and points that are
-    # shared between wells (kinks).
+    # shared between well segments.
     common_points = _match_well_and_fracture_points(well_points, fracture_points)
     kink_points = _well_kink_points(well_points, common_points)
 
@@ -424,7 +456,7 @@ def _well_kink_points(
     return kinks
 
 
-# --- Region: Gmsh mesh generation ---
+# MARK: Gmsh mesh generation ---
 
 
 def _set_physical_names(
@@ -518,14 +550,14 @@ def _generate_well_mesh(
     return well_mdg
 
 
-# --- Region: Adding well subdomains and interfaces to the mixed-dimensional grid ---
+# MARK: Adding well subdomains and interfaces to the mixed-dimensional grid ---
 
 
 def _add_well_fracture_interfaces(
     mdg: pp.MixedDimensionalGrid,
     well_mdg: pp.MixedDimensionalGrid,
     intersections: Sequence[WellFractureIntersection],
-    orig_0d_domain_id: list[int],
+    orig_0d_domain_ids: list[int],
     tol: float,
 ) -> None:
     """Add interfaces between the well subdomains and the fracture subdomains.
@@ -534,7 +566,7 @@ def _add_well_fracture_interfaces(
         mdg: Mixed-dimensional grid to which the well subdomains will be added.
         well_mdg: Mixed-dimensional grid containing the well subdomains.
         intersections: List of well-fracture intersection points.
-        orig_0d_domain_id: List of original (before the introduction of well subdomains)
+        orig_0d_domain_ids: List of original (before the introduction of well subdomains)
             0-dimensional domain IDs.
         tol: Geometric tolerance used in computations.
 
@@ -558,7 +590,7 @@ def _add_well_fracture_interfaces(
         """
         found = False
         for sd in mdg.subdomains(dim=0):
-            if sd.id in orig_0d_domain_id and np.isclose(
+            if sd.id in orig_0d_domain_ids and np.isclose(
                 np.linalg.norm(sd.cell_centers - isect.coord), 0, atol=tol
             ):
                 found = True
@@ -688,7 +720,7 @@ def _add_well_subdomains(
     # at the moment.
     _check_overlapping_point_grids(mdg, well_mdg, tol)
 
-    orig_0d_domain_id = [sd.id for sd in mdg.subdomains(dim=0)]
+    orig_0d_domain_ids = [sd.id for sd in mdg.subdomains(dim=0)]
 
     # Transfer the subdomains and interfaces from the well mdg to the main mdg. This
     # leaves out the well-fracture interfaces, which are added later.
@@ -701,7 +733,7 @@ def _add_well_subdomains(
     for wg in well_mdg.subdomains(dim=1):
         _update_well_grid_tags_and_boundary_grid(wg, domain, mdg)
 
-    return orig_0d_domain_id
+    return orig_0d_domain_ids
 
 
 def _check_overlapping_point_grids(

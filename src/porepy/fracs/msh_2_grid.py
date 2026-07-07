@@ -365,14 +365,21 @@ def create_1d_grids(
         elif line_type == line_tag[:-1]:
             # Read the cell-node relation from meshio and reconstruct the cell-face
             # relation.
+
+            # Uniquify the points of this line grid. Variable indices gives the mapping
+            # back to the full set of nodes and is used for the cell-face relation
+            # below (exploiting that the face-node relation is an identity mapping).
             loc_pts_1d, indices = np.unique(loc_line_pts.ravel(), return_inverse=True)
             loc_coord = pts[loc_pts_1d, :].transpose()
             num_faces = np.unique(loc_line_pts).size
             num_cells = loc_line_pts.shape[0]
+            # The face-node relation is an identity mapping.
             face_nodes = sps.dia_matrix(
                 (np.ones(num_faces, dtype=bool), 0), shape=(num_faces, num_faces)
             ).tocsc()
             indptr = np.arange(0, 2 * num_cells + 1, 2, dtype=int)
+            # Arbitrarily assign a positive and negative orientation of the faces. This
+            # will be reflected in the direction of the computed normal vectors.
             data = np.vstack((np.ones(num_cells), -np.ones(num_cells))).ravel(order="F")
             cell_faces = sps.csc_matrix(
                 (data, indices, indptr), shape=(num_faces, num_cells)

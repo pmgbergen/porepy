@@ -114,6 +114,11 @@ class Well:
         return self.num_points() - 1
 
     def to_gmsh(self) -> list[int]:
+        """Export the well to GMSH as a polyline.
+
+        Returns:
+            List of GMSH line tags corresponding to the segments of the well.
+        """
         num_points = self.pts.shape[1]
         point_tags = []
         for i in range(num_points):
