@@ -81,6 +81,9 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
+        def create_well_mesh(self) -> None:
+            """Create well mesh and add to mixed-dimensional grid."""
+
         def set_wells(self) -> None:
             """Add wells to the mixed-dimensional grid."""
 

@@ -54,6 +54,7 @@ class ModelGeometry(pp.PorePyModel):
         # Set up well network and add wells to the mixed-dimensional grid.
         self.set_wells()
         self.set_well_network()
+        self.create_well_mesh()
 
         # Move cell centers if requested.
         self.move_cell_centers()
@@ -124,6 +125,13 @@ class ModelGeometry(pp.PorePyModel):
 
         """
         self.well_network = pp.WellNetwork3d(self._wells, domain=self._domain)
+
+    def create_well_mesh(self) -> None:
+        """Create well mesh and add them to the mixed-dimensional grid.
+
+        Raises:
+            NotImplementedError: If the model is 2D and wells are defined.
+        """
         if len(self._wells) > 0 and self.nd == 2:
             raise NotImplementedError(
                 "Well-fracture intersection meshing is not implemented for 2D cases."
@@ -941,8 +949,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         # Create well network and mesh.
-
         self.set_well_network()
+        self.create_well_mesh()
 
     def fracture_csv_file_name(self) -> Path:
         """Name of the file used for input and output of fracture network csv files.

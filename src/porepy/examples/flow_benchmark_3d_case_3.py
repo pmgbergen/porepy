@@ -58,6 +58,7 @@ class Geometry(pp.PorePyModel):
         # Set up well network and add wells to the mixed-dimensional grid.
         self.set_wells()
         self.set_well_network()
+        self.create_well_mesh()
 
 
 class IntersectionPermeability(Permeability):
