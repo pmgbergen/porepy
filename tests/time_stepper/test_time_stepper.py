@@ -204,7 +204,7 @@ def test_model_delegate_methods_called(
     model = MockModel()
 
     # Do the time step.
-    time_stepper.perform_time_step(model=model, solver=solver)  # TODO: Interface
+    time_stepper.perform_time_step(model=model, solver=solver)
 
     # Build an array of expected results.
     before_main_loop = [
