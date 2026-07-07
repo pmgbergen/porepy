@@ -13,7 +13,6 @@ import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
-from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriterion,
     ConvergenceInfoCollection,
@@ -22,6 +21,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     MaxIterationsCriterion,
 )
 from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
@@ -58,31 +58,24 @@ class MockMixedDimensionalGrid:
 class MockModel(PorePyModel):
     """Used in test_model_delegate_methods_called, read the test docstring."""
 
-    def __init__(self, is_nonlinear: bool, statistics_path: Optional[Path] = None):
+    def __init__(self, statistics_path: Optional[Path] = None):
         self.sequence_of_calls: list[str] = []
         """Each delegate method of the mock model writes its name here when called."""
-
-        self.is_nonlinear: bool = is_nonlinear
-        """Used by the LinearSolver class to raise an exception if we are nonlinear."""
 
         self.equation_system = MockEquationSystem()
         """Used to evaluate convergence criteria."""
 
         self.mdg = MockMixedDimensionalGrid()
-        """Used in LinearSolver.update_solver_statistics."""
+        """Used in _update_solver_statistics_after_nonlinear_solve."""
 
         self.nonlinear_solver_statistics = (
             SolverStatisticsFactory.create_statistics_type(
-                nonlinear=is_nonlinear, time_dependent=True
+                nonlinear=True, time_dependent=True
             )()
         )
         if statistics_path:
             self.nonlinear_solver_statistics.path = Path(statistics_path)
-        """Used by the TimeStepper and the NewtonSolver / LinearSolver"""
-
-    def _is_nonlinear_problem(self):
-        """Used by the LinearSolver class to raise an exception if we are nonlinear."""
-        return self.is_nonlinear
+        """Used by the TimeStepper and the NewtonSolver."""
 
     def before_time_step(self):
         self.sequence_of_calls.append("before_time_step")
@@ -129,7 +122,7 @@ class MockNonlinearSolver:
         self.num_iters_for_success: int = num_iters_for_success
         """Number of times solve must be called to return success."""
 
-    def solve(self, model) -> ConvergenceStatus:
+    def solve(self, model) -> NonlinearSolverStatus:
         # We need to do it, otherwise will fail with IndexError on attempt to write
         # statistics. This is called in model.before_nonlinear_loop.
         model.nonlinear_solver_statistics.increase_index()
@@ -137,10 +130,12 @@ class MockNonlinearSolver:
         self._iter += 1
         if self._iter < self.num_iters_for_success:
             return NonlinearSolverStatusFailed(
+                num_nonlinear_iterations=self._iter,
                 convergence_statuses=ConvergenceStatusCollection(),
                 divergence_statuses=ConvergenceStatusCollection(),
             )
         return NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=self._iter,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
@@ -162,9 +157,9 @@ class MaxIterationsConvergenceCriterion(ConvergenceCriterion):
             return ConvergenceStatus.CONVERGED, 0
 
 
-@pytest.mark.parametrize("solver_type", ["nonlinear", "linear", "mock"])
+@pytest.mark.parametrize("solver_type", ["nonlinear", "mock"])
 def test_model_delegate_methods_called(
-    solver_type: Literal["nonlinear", "linear", "mock"],
+    solver_type: Literal["nonlinear", "mock"],
 ):
     """This integration test is an attempt to solidify the API between the PorePy model
     and the objects that control it from the outside (TimeStepper and/or NewtonSolver).
@@ -177,7 +172,6 @@ def test_model_delegate_methods_called(
     The test covers:
     - NewtonSolver: fails 2 times, each after 2 unsuccessful nonlinear iterations. Then
         converges.
-    - LinearSolver: fails 4 times after unsuccessful linear solve. Then converges.
     - MockSolver: fails 2 times then converges. The purpose is that it does not call the
         delegate methods, so we check that the TimeStepper called only those delegate
         methods it is supposed to.
@@ -194,11 +188,7 @@ def test_model_delegate_methods_called(
     }
 
     # Initialize the solver.
-    is_nonlinear = True
-    if solver_type == "linear":
-        solver = LinearSolver(params=solver_params)
-        is_nonlinear = False
-    elif solver_type == "nonlinear":
+    if solver_type == "nonlinear":
         solver = NewtonSolver(params=solver_params)
     elif solver_type == "mock":
         solver = MockNonlinearSolver(num_iters_for_success=5)
@@ -211,7 +201,7 @@ def test_model_delegate_methods_called(
             schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.1, 2)
         )
     )
-    model = MockModel(is_nonlinear=is_nonlinear)
+    model = MockModel()
 
     # Do the time step.
     time_stepper.perform_time_step(model=model, solver=solver)
@@ -236,16 +226,7 @@ def test_model_delegate_methods_called(
         "after_time_step_failure",
     ]
 
-    if solver_type == "linear":
-        expected_result = (
-            # Four unsuccessful attempts with cutting the time step.
-            (before_main_loop + main_loop + after_main_loop_failure) * 4
-            # And a single successful time step
-            + before_main_loop
-            + main_loop
-            + after_main_loop_success
-        )
-    elif solver_type == "nonlinear":
+    if solver_type == "nonlinear":
         expected_result = (
             # Two unsuccessful time steps, each with 2 nonlinear solves.
             (before_main_loop + main_loop * 2 + after_main_loop_failure) * 2
@@ -587,7 +568,7 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
 
     """
     # Minimal setup.
-    model = MockModel(is_nonlinear=True, statistics_path=statistics_path)
+    model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=2)
     time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
     time_stepper = TimeStepper(time_manager=time_manager)
@@ -688,7 +669,7 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     correct behavior after failure, for a time-dependent model.
 
     """
-    model = MockModel(is_nonlinear=True, statistics_path=statistics_path)
+    model = MockModel(statistics_path=statistics_path)
     solver = default_newton_solver(iter_converge=5)
     time_manager = TimeManager(
         schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)

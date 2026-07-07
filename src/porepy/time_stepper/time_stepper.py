@@ -71,7 +71,7 @@ class TimeStepper:
     def perform_time_step(
         self,
         model: pp.PorePyModel,
-        solver: pp.NewtonSolver | pp.LinearSolver,
+        solver: pp.NewtonSolver,
     ) -> TimeStepperStatusSuccess | TimeStepperStatusFailure:
         """Perform a time step. If the nonlinear solver fails, alter the time step and
         retry.
@@ -118,6 +118,7 @@ class TimeStepper:
         return TimeStepperStatusFailure(
             reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
             nonlinear_solver_status=NonlinearSolverStatusFailed(
+                num_nonlinear_iterations=-1,
                 convergence_statuses=ConvergenceStatusCollection(),
                 divergence_statuses=ConvergenceStatusCollection(),
             ),
@@ -145,13 +146,7 @@ class TimeStepper:
         if isinstance(nonlinear_solver_status, NonlinearSolverStatusConverged):
             # For accepted steps, we may want to increase dt for the next step.
             # This logic can be based on solver performance (e.g., #iterations).
-            if isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics):
-                # The problem is nonlinear.
-                num_iterations = model.nonlinear_solver_statistics.num_iterations
-            else:
-                # The problem is time-dependent and linear.
-                num_iterations = 1
-
+            num_iterations = nonlinear_solver_status.num_nonlinear_iterations
             current_dt = self.time_manager.dt
             new_time = self.time_manager.time
             self.time_manager.compute_time_step(iterations=num_iterations)
@@ -192,7 +187,7 @@ class TimeStepper:
     def _perform_trial_time_step(
         self,
         model: pp.PorePyModel,
-        solver: pp.LinearSolver | pp.NewtonSolver,
+        solver: pp.NewtonSolver,
     ) -> NonlinearSolverStatus:
         """Perform a nonlinear solve to make the time step.
 
