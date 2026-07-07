@@ -238,15 +238,14 @@ def test_lithostatic_boundary_stress_values(momentum_boundary_model):
             np.testing.assert_allclose(values[south][1::3], expected_south)
 
         # For this geometry, some sides contain no cells for the fracture boundary.
-        east_value = values[east].mean() if np.any(east) else 0
-        west_value = values[west].mean() if np.any(west) else 0
-        if model.nd == 3:
-            north_value = values[north].mean()
-            south_value = values[south].mean()
+        east_value = values[east].mean() if np.any(east) else 0.0
+        west_value = values[west].mean() if np.any(west) else 0.0
 
         # Forces on opposite sides should equilibrate each other, the domain is static.
         np.testing.assert_almost_equal(east_value + west_value, 0)
-        if model_dim == 3:
+        if model.nd == 3:
+            north_value = float(values[north].mean())
+            south_value = float(values[south].mean())
             np.testing.assert_almost_equal(north_value + south_value, 0)
 
 
@@ -283,7 +282,7 @@ def test_mechanics_bcs_neumann(
     np.testing.assert_array_equal(south_mask[:2], np.array([True, False]))
     np.testing.assert_array_equal(east_mask[:2], np.array([False, True]))
 
-    if momentum_boundary_model.model_dim == 3:
+    if momentum_boundary_model.nd == 3:
         assert west_mask[2]
         assert south_mask[2]
         assert east_mask[2]
