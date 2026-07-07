@@ -237,7 +237,9 @@ class SolutionStrategy(pp.PorePyModel):
                 variables=variables, iterate_index=0
             )
             self.equation_system.set_variable_values(
-                values, variables=variables, reference=True
+                np.full_like(values, reference_value),
+                variables=variables,
+                reference=True,
             )
 
     def set_equation_system_manager(self) -> None:
