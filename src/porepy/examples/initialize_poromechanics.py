@@ -350,3 +350,22 @@ def set_model_parameters() -> dict:
         "lithostatic_stress_multipliers": lithostatic_stress_multipliers,
     }
     return model_params
+
+def set_solver_parameters(model) -> dict:
+
+    solver_params = {
+        "nl_convergence_criteria": {
+            "inc_rel": pp.IncrementBasedRelativeCriterion(
+                tol=1e-6, metric=pp.VariableBasedEuclideanMetric(model)
+            ),
+            "res_rel": pp.ResidualBasedRelativeCriterion(
+                tol=1e-6, metric=pp.EquationBasedEuclideanMetric(model)
+            ),
+        },
+        "nl_divergence_criteria": {
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=25),
+            "inc_nan": pp.IncrementBasedNanCriterion(),
+            "res_nan": pp.ResidualBasedNanCriterion(),
+        },
+    }
+    return solver_params
