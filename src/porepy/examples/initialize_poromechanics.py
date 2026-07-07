@@ -31,12 +31,12 @@ class DiagonalLineFractureGeometry:
     units: pp.Units
 
     def set_domain(self) -> None:
-        # Define 2D square domain of size 100 m x 100 m and put it 1000 m below surface.
+        """Define 2D square domain of size 100 m x 100 m."""
         size = self.units.convert_units(100.0, "m")
         self._domain = nd_cube_domain(2, size)
 
     def set_fractures(self) -> None:
-        # Add diagonal fracture
+        """Define a single diagonal fracture from (40, 40) to (60, 60) in the domain."""
         frac_1_points = self.units.convert_units(
             np.array([[40.0, 60.0], [40.0, 60.0]]), "m"
         )
@@ -44,16 +44,20 @@ class DiagonalLineFractureGeometry:
         self._fractures = [frac_1]
 
     def grid_type(self) -> str:
-        # Use simplex grid (non-Cartesian due to fracture)
+        # Use simplex grid (non-Cartesian due to fracture).
         return "simplex"
 
     def meshing_arguments(self) -> dict:
-        # Set mesh cell size
+        """Set mesh cell size.
+
+        Returns:
+            Dictionary with meshing arguments.
+        """
         cell_size = self.units.convert_units(10, "m")
         return {"cell_size": cell_size}
 
 
-# --- Hydrostatic initial and boundary conditions ---
+# --- Lithostatic initial and boundary conditions ---
 
 # TODO: Integrate in the core module and extend to cover 2D and 3D?
 # TODO: Consider plane-strain and plane-stress assumptions for 2D problems.
