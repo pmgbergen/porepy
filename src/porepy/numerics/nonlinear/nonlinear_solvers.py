@@ -31,6 +31,7 @@ from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.numerics.linalg.linear_solver import LinearSolverStatus
 from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
@@ -107,6 +108,8 @@ class NewtonSolver(NonlinearSolverBase):
             linear_solver = LinearSolverDirect(backend="pypardiso")
         self.linear_solver: LinearSolverBase = linear_solver
         """Linear solver object to solve the Jacobian linear systems."""
+        self._linear_solver_initialized = False
+        """TODO YZ"""
 
         self.init_convergence_criteria(is_nonlinear_problem=is_nonlinear_problem)
         self.init_divergence_criteria(is_nonlinear_problem=is_nonlinear_problem)
@@ -297,16 +300,25 @@ class NewtonSolver(NonlinearSolverBase):
             The status of the nonlinear solver.
 
         """
+        # TODO YZ
+        if not self._linear_solver_initialized:
+            self.linear_solver.initialize_with_model(model)
+            self._linear_solver_initialized = True
+
         # Prepare for nonlinear loop.
         self.before_nonlinear_loop(model)
 
         # Actual Newton loop.
-        convergence_status, divergence_status = self.nonlinear_loop(model)
+        convergence_status, divergence_status, linear_solver_statuses = (
+            self.nonlinear_loop(model)
+        )
 
         # Summarizing the convergence message from multiple criteria into an overall
         # status.
         solver_status = _summarize_solver_status(
-            convergence_status, divergence_status, num_iterations=self.iteration_index
+            convergence_status,
+            divergence_status,
+            linear_solver_statuses=linear_solver_statuses,
         )
 
         # Logging basic discretization-related information and overall simulation status
@@ -345,7 +357,11 @@ class NewtonSolver(NonlinearSolverBase):
 
     def nonlinear_loop(
         self, model: pp.PorePyModel
-    ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+    ) -> tuple[
+        ConvergenceStatusCollection,
+        ConvergenceStatusCollection,
+        list[LinearSolverStatus],
+    ]:
         """Perform the nonlinear loop (Newton iterations).
 
         Parameters:
@@ -356,6 +372,7 @@ class NewtonSolver(NonlinearSolverBase):
                 Convergence and divergence status.
 
         """
+        linear_solver_statuses: list[LinearSolverStatus] = []
         # Redirect all loggers to not interfere with the progressbar.
         with logging_redirect_tqdm([logging.root]):
             # Perform at least one Newton iteration.
@@ -364,7 +381,10 @@ class NewtonSolver(NonlinearSolverBase):
                 self.before_nonlinear_iteration(model)
 
                 # Perform nonlinear iteration and obtain increment.
-                nonlinear_increment = self.nonlinear_iteration(model)
+                nonlinear_increment, linear_solver_status = self.nonlinear_iteration(
+                    model
+                )
+                linear_solver_statuses.append(linear_solver_status)
 
                 # Finalize nonlinear iteration and determine status.
                 convergence_status, divergence_status = self.after_nonlinear_iteration(
@@ -375,7 +395,7 @@ class NewtonSolver(NonlinearSolverBase):
                 if convergence_status.is_converged() or divergence_status.is_failed():
                     break
 
-        return convergence_status, divergence_status
+        return convergence_status, divergence_status, linear_solver_statuses
 
     def after_nonlinear_loop(self) -> None:
         """Finalize the nonlinear loop."""
@@ -395,7 +415,9 @@ class NewtonSolver(NonlinearSolverBase):
         # Prepare model for a nonlinear iteration.
         model.before_nonlinear_iteration()
 
-    def nonlinear_iteration(self, model: pp.PorePyModel) -> np.ndarray:
+    def nonlinear_iteration(
+        self, model: pp.PorePyModel
+    ) -> tuple[np.ndarray, LinearSolverStatus]:
         """Perform a single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate
@@ -408,10 +430,10 @@ class NewtonSolver(NonlinearSolverBase):
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
-        nonlinear_increment = self.iteration(model)
-        return nonlinear_increment
+        nonlinear_increment, linear_solver_status = self.iteration(model)
+        return nonlinear_increment, linear_solver_status
 
-    def iteration(self, model: pp.PorePyModel) -> np.ndarray:
+    def iteration(self, model: pp.PorePyModel) -> tuple[np.ndarray, LinearSolverStatus]:
         """A single linearization step.
 
         Parameters:
@@ -423,8 +445,10 @@ class NewtonSolver(NonlinearSolverBase):
         """
         model.assemble_linear_system()
         assert isinstance(model.linear_system[0], csr_matrix), "Expecting a csr matrix."
-        nonlinear_increment = self.linear_solver.solve_linear_system(
-            mat=cast(csr_matrix, model.linear_system[0]), rhs=model.linear_system[1]
+        nonlinear_increment, linear_solver_status = (
+            self.linear_solver.solve_linear_system(
+                mat=cast(csr_matrix, model.linear_system[0]), rhs=model.linear_system[1]
+            )
         )
 
         # This is a temporary approach for compatability. It is a linear solver's
@@ -436,9 +460,9 @@ class NewtonSolver(NonlinearSolverBase):
         ):
             return model.equation_system.expand_schur_complement_solution(
                 nonlinear_increment
-            )
+            ), linear_solver_status
 
-        return nonlinear_increment
+        return nonlinear_increment, linear_solver_status
 
     def after_nonlinear_iteration(
         self, model: pp.PorePyModel, nonlinear_increment: np.ndarray
@@ -657,7 +681,7 @@ def _update_solver_statistics_after_nonlinear_solve(
 def _summarize_solver_status(
     convergence_status: ConvergenceStatusCollection,
     divergence_status: ConvergenceStatusCollection,
-    num_iterations: int,
+    linear_solver_statuses: list[LinearSolverStatus],
 ) -> NonlinearSolverStatus:
     """Called by the nonlinear solver after the nonlinear iteration is done. Considers a
     collection of convergence and divergence statuses from multiple criteria and makes a
@@ -683,14 +707,14 @@ def _summarize_solver_status(
                 "divergence at the same time. Accepting this solution."
             )
         return NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=num_iterations,
+            linear_solver_statuses=linear_solver_statuses,
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
         )
     elif is_failed:
         logger.warning("Failed to solve the nonlinear problem.")
         return NonlinearSolverStatusFailed(
-            num_nonlinear_iterations=num_iterations,
+            linear_solver_statuses=linear_solver_statuses,
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
         )
@@ -700,7 +724,7 @@ def _summarize_solver_status(
             "accept the solution. Treating it as a failure."
         )
         return NonlinearSolverStatusFailed(
-            num_nonlinear_iterations=num_iterations,
+            linear_solver_statuses=linear_solver_statuses,
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
         )

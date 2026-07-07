@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from porepy.numerics.linalg.linear_solver import LinearSolverStatus
 from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
 
 
@@ -33,13 +34,16 @@ class NonlinearSolverStatus(ABC):
         return isinstance(self, NonlinearSolverStatusFailed)
 
 
+# TODO YZ: Will all nonlinear solvers have these fields???
+
+
 @dataclass
 class NonlinearSolverStatusConverged(NonlinearSolverStatus):
     """The NewtonSolver solved the problem successfully."""
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
-    num_nonlinear_iterations: int
+    linear_solver_statuses: list[LinearSolverStatus]
 
     def serialize(self) -> str:
         return "successful"
@@ -51,7 +55,7 @@ class NonlinearSolverStatusFailed(NonlinearSolverStatus):
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
-    num_nonlinear_iterations: int
+    linear_solver_statuses: list[LinearSolverStatus]
 
     def serialize(self) -> str:
         return "failed"
