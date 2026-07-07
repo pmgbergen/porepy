@@ -84,9 +84,6 @@ class NewtonSolver:
     def init_convergence_criteria(self, is_nonlinear_problem: bool) -> None:
         """Parse and initialize convergence criteria.
 
-        Parameters:
-            is_nonlinear_problem: Whether the underlying problem is nonlinear.
-
         Convergence criteria can either be provided as a dictionary in the
         'nl_convergence_criteria' parameter, or default criteria are used
         controlled by individual tolerance parameters based on the following template.
@@ -104,6 +101,9 @@ class NewtonSolver:
 
         Default convergence criteria for a linear problem:
         - None, it accepts any solution after a single iteration if not diverged.
+
+        Parameters:
+            is_nonlinear_problem: Whether the underlying problem is nonlinear.
 
         """
 
@@ -145,8 +145,6 @@ class NewtonSolver:
     def init_divergence_criteria(self, is_nonlinear_problem: bool) -> None:
         """Parse and initialize divergence criteria.
 
-        Parameters:
-            is_nonlinear_problem: Whether the underlying problem is nonlinear.
 
         Divergence criteria can either be provided as a dictionary in the
         'nl_divergence_criteria' parameter, or default criteria are used based on
@@ -163,6 +161,9 @@ class NewtonSolver:
 
         Default divergence criteria for a linear problem:
         - Residual and increment are not nans.
+
+        Parameters:
+            is_nonlinear_problem: Whether the underlying problem is nonlinear.
 
         """
 
@@ -186,8 +187,8 @@ class NewtonSolver:
                 + "individual divergence tolerances."
             )
 
-            # Fetch max iterations from the provided criteria. Note, it may not
-            # be provided. Using the default value if not provided.
+            # Fetch max iterations from the provided criteria, falling back on
+            # the default.
             max_iterations = DEFAULT_NEWTON_MAX_ITERATIONS
             for c in self.params["nl_divergence_criteria"].values():
                 if isinstance(c, pp.MaxIterationsCriterion):
@@ -541,18 +542,16 @@ class NewtonSolver:
 
 def _default_convergence_criteria(
     is_nonlinear_problem: bool,
-    inc_atol=1e-10,
-    inc_rtol=np.inf,
-    res_atol=1e-10,
-    res_rtol=np.inf,
-    metric: Optional[ConvergenceMetricType] = None,
+    inc_atol: float,
+    inc_rtol: float,
+    res_atol: float,
+    res_rtol: float,
+    metric: ConvergenceMetricType,
 ) -> dict:
     """A convenience factory for the default convergence criteria. Returns different
     criteria based on whether the problem is nonlinear.
 
     """
-    if metric is None:
-        metric = pp.EuclideanMetric()
     if is_nonlinear_problem:
         return {
             "inc_abs": pp.IncrementBasedAbsoluteCriterion(tol=inc_atol, metric=metric),
@@ -566,17 +565,15 @@ def _default_convergence_criteria(
 
 def _default_divergence_criteria(
     is_nonlinear_problem: bool,
-    max_iterations=10,
-    inc_div_atol=np.inf,
-    res_div_atol=np.inf,
-    metric: Optional[ConvergenceMetricType] = None,
+    max_iterations: int,
+    inc_div_atol: float,
+    res_div_atol: float,
+    metric: ConvergenceMetricType,
 ) -> dict:
     """A convenience factory for the default divergence criteria. Returns different
     criteria based on whether the problem is nonlinear.
 
     """
-    if metric is None:
-        metric = pp.EuclideanMetric()
     if is_nonlinear_problem:
         return {
             "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),

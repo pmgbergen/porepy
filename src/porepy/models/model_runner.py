@@ -156,7 +156,8 @@ class ModelRunner:
             model). Passing None (default) initializes the default nonlinear solver with
             a default set of convergence / divergence criteria. The default solver
             may exploit model's linearity and apply shortcuts for it (e.g. avoid
-            expensive convergence checks).
+            expensive convergence checks). The reverse is also true: You can pass a
+            customized solver that treats the problem as linear even if it is not.
 
     """
 
@@ -330,6 +331,13 @@ def _extract_nonlinear_solver_from_params(
         nonlinear_solver: A nonlinear solver from user.
         params: A dictionary that may contain a key "nonlinear_solver".
         is_nonlinear_solver: Used to construct a default solver.
+
+    Raises:
+        ValueError: If two nonlinear solvers are passed both directly and through
+            params.
+
+    Returns:
+        An instantiated nonlinear solver object.
 
     """
     solver_from_params = params.get("nonlinear_solver", None)
