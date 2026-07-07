@@ -309,7 +309,7 @@ def get_primary_variables_cf(
 
     if isinstance(model, pp.energy_balance.VariablesEnergyBalance):
         if model.has_fluid_internal_energy_variable and use_extensives:
-            var_names += [model.specific_internal_energy_variable]
+            var_names += [model.specific_fluid_internal_energy_variable]
         elif model.has_fluid_enthalpy_variable and use_extensives:
             var_names += [model.specific_fluid_enthalpy_variable]
         else:
@@ -390,15 +390,22 @@ class VolumeBalanceFormulation(pp.PorePyModel):
                 e = self.specific_fluid_internal_energy(
                     subdomains
                 ) / self.specific_fluid_volume(subdomains)
-            else:
-                if self.has_fluid_enthalpy_variable:
-                    e = self.specific_fluid_enthalpy(subdomains)
-                else:
-                    e = self.fluid.specific_enthalpy(subdomains)
-
-                e = e / self.specific_fluid_volume(subdomains) - self.pressure(
+            elif self.has_fluid_enthalpy_variable:
+                e = self.specific_fluid_enthalpy(
                     subdomains
-                )
+                ) / self.specific_fluid_volume(subdomains) - self.pressure(subdomains)
+            else:
+                e = self.fluid.specific_internal_energy(
+                    subdomains
+                ) / self.specific_fluid_volume(subdomains)
+                # if self.has_fluid_enthalpy_variable:
+                #     e = self.specific_fluid_enthalpy(subdomains)
+                # else:
+                #     e = self.fluid.specific_enthalpy(subdomains)
+
+                # e = e / self.specific_fluid_volume(subdomains) - self.pressure(
+                #     subdomains
+                # )
 
             energy = self.porosity(subdomains) * e
             energy.set_name("fluid_internal_energy")
@@ -527,13 +534,13 @@ class EnergyBasedEnergyBalanceEquations(pp.energy_balance.TotalEnergyBalanceEqua
         )
 
         if self.has_fluid_internal_energy_variable:
-            e = self.fluid.density(subdomains) * self.specific_fluid_enthalpy(
-                subdomains
-            ) - self.pressure(subdomains)
-        elif self.has_fluid_enthalpy_variable:
             e = self.fluid.density(subdomains) * self.specific_fluid_internal_energy(
                 subdomains
             )
+        elif self.has_fluid_enthalpy_variable:
+            e = self.fluid.density(subdomains) * self.specific_fluid_enthalpy(
+                subdomains
+            ) - self.pressure(subdomains)
         # Covers case where neither enthalpy nor internal energy are variables.
         else:
             return super().fluid_internal_energy(subdomains)

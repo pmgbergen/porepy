@@ -16,7 +16,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
@@ -47,7 +47,7 @@ from porepy.models.compositional_flow_with_equilibrium import CFLEModelTemplate
 
 max_iterations = 30
 iter_range = (15, 25)
-newton_tol_res = 1e-7
+newton_tol_res = 1e-5
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
 
@@ -77,15 +77,9 @@ solver_params["atol_objective"] = newton_tol_res
 solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
-solver_params["volume_clip"] = (0.9, 1.1)  # (0.8, 1.2)
+solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
+solver_params["energy_clip"] = (0.95, 1.05)
 model_params["use_logp_nonlinear_rpc"] = False
-if (
-    model_params["use_logp_nonlinear_rpc"]
-    and solver_params["pressure_clip"] is not None
-):
-    solver_params["pressure_clip"] = tuple(
-        [np.log(c) for c in solver_params["pressure_clip"]]
-    )
 
 solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
@@ -139,12 +133,14 @@ if __name__ == "__main__":
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
-    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 2)]
+    from porepy.examples.cold_injection.run_case2a import JUMP_TIME
+    APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 1.1)]
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
         time_schedule = modify_schedule(time_schedule)
+        time_schedule[25] = JUMP_TIME - 15
     else:
         ajump = None
 
@@ -198,7 +194,12 @@ if __name__ == "__main__":
     set_schur_complement(model, use_extensives=E_PRIMARY)  # type:ignore[arg-type]
     solver_params.update(
         get_default_convergence_criteria(
-            model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug
+            model,
+            max_iterations,
+            newton_tol_res,
+            newton_tol_inc,
+            newton_tol_res_isofug,
+            atol_div=1e12,
         )
     )
 

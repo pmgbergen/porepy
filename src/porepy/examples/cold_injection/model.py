@@ -22,6 +22,7 @@ import scipy.sparse as sps
 from numpy.typing import NDArray
 
 import porepy as pp
+import porepy.compositional as pc
 import porepy.compositional.flash as pf
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
@@ -50,6 +51,13 @@ class FluidPoreInteraction(ModelConfig):
         porosity = self.porosity(subdomains)
 
         return cell_volumes * aperture * porosity
+
+    def skeleton_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        cell_volumes = self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1)
+        aperture = self.aperture(subdomains)
+        porosity = self.porosity(subdomains)
+
+        return cell_volumes * aperture * (pp.ad.Scalar(1.0) - porosity)
 
     def pore_volume_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         pore_volume = self.pore_volume(subdomains)
@@ -85,6 +93,34 @@ class FluidPoreInteraction(ModelConfig):
                 f = fi
 
         return f
+
+    def u_estimate(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Estimate of the specific internal energy of the fluid after a pore volume
+        alteration, assuming no change in solid energy density.
+        """
+        us: pp.ad.Operator = self.solid_density(subdomains) * self.solid_enthalpy(
+            subdomains
+        )
+
+        sv = self.skeleton_volume(subdomains)
+        pv = self.pore_volume(subdomains)
+        u = self.fluid.specific_internal_energy(subdomains)
+        v = self.fluid.specific_volume(subdomains)
+        if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+            if self.has_fluid_internal_energy_variable:
+                u = self.specific_fluid_internal_energy(subdomains)
+        if isinstance(self, pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+            if self.has_fluid_volume_variable:
+                v = self.specific_fluid_volume(subdomains)
+
+        u_est = (
+            u.previous_timestep()
+            + v.previous_timestep()
+            / pv.previous_timestep()
+            * us.previous_timestep()
+            * (sv.previous_timestep() - sv)
+        )
+        return cast(np.ndarray, self.equation_system.evaluate(u_est))
 
 
 class FluidEoS(pr.CompiledPengRobinson):
@@ -156,7 +192,7 @@ class FluidMixture(ModelConfig):
     ) -> pp.ExtendedDomainFunctionType:
 
         def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            op = phase.specific_internal_energy(domains) - self.pressure(
+            op = phase.specific_internal_energy(domains) + self.pressure(
                 domains
             ) * phase.specific_volume(domains)
             op.set_name(f"phase_{phase.name}_specific_enthalpy")
@@ -291,6 +327,12 @@ class SolutionStrategy(ModelConfig):
 
         atol = self.params["flash_params"]["solver_params"]["atol_res"]
 
+        global_spec = [
+            s
+            for s in pc.get_equilibrium_specifications(self)
+            if isinstance(s, pc.FlashSpec)
+        ][0]
+
         for grid in self.mdg.subdomains():
             if 0 < grid.dim < self.nd and isinstance(self, FluidPoreInteraction):
                 v_jump_factor = self.equation_system.evaluate(
@@ -316,14 +358,12 @@ class SolutionStrategy(ModelConfig):
                             T=self.equation_system.evaluate(self.temperature([grid])),
                         )
                     elif self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vu:
-                        if self.has_fluid_internal_energy_variable:
-                            u = self.equation_system.evaluate(
-                                self.specific_fluid_internal_energy([grid])
-                            )
-                        else:
-                            u = self.equation_system.evaluate(
-                                self.fluid.specific_internal_energy([grid])
-                            )
+                        u_op = self.fluid.specific_internal_energy([grid])
+                        if isinstance(self, pp.energy_balance.VariablesEnergyBalance):
+                            if self.has_fluid_internal_energy_variable:
+                                u_op = self.specific_fluid_internal_energy([grid])
+                        u = self.equation_system.evaluate(u_op)
+                        # u = self.u_estimate([grid])
                         equ_spec = pf.IsochoricSpecifications(
                             v=v,
                             u=u,
@@ -343,14 +383,32 @@ class SolutionStrategy(ModelConfig):
                             update_secondary_quantities=True,
                         )
                     )
+
+                    if self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vu:
+                        self.update_secondary_quantities_from_flash_result(
+                            [grid], res[0], res[0].exitcode <= 2
+                        )
                     if self.has_fluid_volume_variable:
                         self.equation_system.set_variable_values(
                             res[0].v,
                             [self.specific_fluid_volume([grid])],  # type:ignore[arg-type]
                             iterate_index=0,
                         )
+
+                    if (
+                        isinstance(self, pp.energy_balance.VariablesEnergyBalance)
+                        and self._ISOCHORIC_NPC_SPEC == pf.FlashSpec.vu
+                    ):
+                        if self.has_fluid_internal_energy_variable:
+                            self.equation_system.set_variable_values(
+                                res[0].u,
+                                [self.specific_fluid_internal_energy([grid])],  # type:ignore[arg-type]
+                                iterate_index=0,
+                            )
                     self.isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
+                    # if global_spec != self._ISOCHORIC_NPC_SPEC:
+                    #     self.local_equilibrium(grid)
 
         if self.isochoric_npc_done:
             self.update_derived_quantities()

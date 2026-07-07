@@ -88,13 +88,6 @@ solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 solver_params["volume_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 model_params["use_logp_nonlinear_rpc"] = False
-if (
-    model_params["use_logp_nonlinear_rpc"]
-    and solver_params["pressure_clip"] is not None
-):
-    solver_params["pressure_clip"] = tuple(
-        [np.log(c) for c in solver_params["pressure_clip"]]
-    )
 
 solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
@@ -206,7 +199,8 @@ class Case2DataCollection(pp.PorePyModel):
                 )
 
             # if np.linalg.norm(self._p_before_drop - p_now_vals) <= 1e-2:
-            # NOTE l2 norm gives the longest transient period, folloed by eucledian 2 norm, and max(abs())
+            # NOTE l2 norm gives the longest transient period, folloed by eucledian 2
+            # norm, and max(abs())
             # np.allclose(p_now_vals, self._p_before_drop) gives the shortest.
             if delta_p_l2 < 1 and not self._p_transient_over:
                 self._p_transient_over = True

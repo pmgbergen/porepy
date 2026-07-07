@@ -229,7 +229,7 @@ for i, ad in enumerate(plot_data["case2b"]["ajump"].items()):
     x_vals.append(x)
     y_vals.append(y)
     colors.append(vT_cmap[i])
-    labels.append(f"vT(vT)-{a}")
+    labels.append(f"i-vT(vT)-{a}")
 
 xm = np.max(x_max)
 x_factor = 1 / 60
@@ -288,7 +288,7 @@ imgs += ax.plot(
     # marker="*",
     # markersize=MS,
     color="black",
-    label=r"vT(vT)",
+    label=r"i-vT(vT)",
 )
 
 ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
@@ -333,7 +333,7 @@ idx1 = (x1 >= T_MIN) & (x1 <= T_MAX)
 x1 = x1[idx1]
 y1 = plot_data["case2a"]["no_npc"]["sat_frac"][idx1]
 yr1 = plot_data["case2a"]["no_npc"]["dts"][idx1]
-label1 = f"pT-{get_a(plot_data['case2a']['no_npc'])}"
+label1 = f"i-pT-{get_a(plot_data['case2a']['no_npc'])}"
 
 # pT vT npc
 x2 = plot_data["case2a"]["ajump"]["times"]
@@ -341,7 +341,7 @@ idx2 = (x2 >= T_MIN) & (x2 <= T_MAX)
 x2 = x2[idx2]
 y2 = plot_data["case2a"]["ajump"]["sat_frac"][idx2]
 yr2 = plot_data["case2a"]["ajump"]["dts"][idx2]
-label2 = f"pT(vT)-{get_a(plot_data['case2a']['ajump'])}"
+label2 = f"i-pT(vT)-{get_a(plot_data['case2a']['ajump'])}"
 
 # vT no npc
 x3 = plot_data["case2a"]["no_npc"]["times"]
@@ -349,7 +349,7 @@ idx3 = (x3 >= T_MIN) & (x3 <= T_MAX)
 x3 = x3[idx3]
 y3 = plot_data["case2a"]["no_npc"]["sat_frac"][idx3]
 yr3 = plot_data["case2a"]["no_npc"]["dts"][idx3]
-label3 = f"vT-{get_a(plot_data['case2a']['no_npc'])}"
+label3 = f"i-vT-{get_a(plot_data['case2a']['no_npc'])}"
 
 # vT vT npc
 _a = int(np.max(list(plot_data["case2b"]["ajump"].keys())))
@@ -358,7 +358,7 @@ idx4 = (x4 >= T_MIN) & (x4 <= T_MAX)
 x4 = x4[idx4]
 y4 = plot_data["case2b"]["ajump"][_a]["sat_frac"][idx4]
 yr4 = plot_data["case2b"]["ajump"][_a]["dts"][idx4]
-label4 = f"vT(vT)-{_a}"
+label4 = f"i-vT(vT)-{_a}"
 
 xs = [x1, x2, x3, x4]
 ys = [y1, y2, y3, y4]
@@ -474,7 +474,7 @@ imgs += ax.plot(
     # marker="*",
     # markersize=MS,
     color="black",
-    label=r"$vT(vT)-L_2$",
+    label=r"$i-vT(vT)-L_2$",
 )
 
 imgrs += axr.plot(
@@ -485,7 +485,7 @@ imgrs += axr.plot(
     # marker="*",
     # markersize=MS,
     color=color_right,
-    label=r"$vT(vT)-\infty$",
+    label=r"$i-vT(vT)-\infty$",
 )
 
 
@@ -549,7 +549,7 @@ for i, ad in enumerate(plot_data["case2b"]["ajump"].items()):
     x_max.append(np.max(x_vals[-1]))
     y_vals.append(y)
     colors.append(vT_cmap[i])
-    labels.append(f"vT(vT)-{a}")
+    labels.append(f"i-vT(vT)-{a}")
 
 xm = np.max(x_max)
 x_factor = 1 / 3600
@@ -638,7 +638,7 @@ bar_width = group_width / n_params
 bar_spacing = 0.9
 
 centers = np.arange(n_models)
-models = ["vT(vT)", "uv(uv)"]
+models = ["i-vT(vT)", "i-uv(uv)"]
 colors = {
     "assembly": "tab:blue",
     "linsolve": "tab:green",
@@ -816,7 +816,7 @@ bar_width = group_width / n_params
 bar_spacing = 0.9
 
 centers = np.arange(n_models)
-models = ["vT(vT)", "uv(uv)"]
+models = ["i-vT(vT)", "uv(uv)"]
 colors = {
     "ts": "tab:blue",
     "gi": "tab:green",

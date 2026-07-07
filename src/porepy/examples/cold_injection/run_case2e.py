@@ -1,9 +1,11 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Thermal vT-based model with nonlinear preconditioning using the uv flash.
+Thermal model with nonlinear preconditioning using the uv flash.
 Temperature is initially constant, during injection and on the boundary.
 Temperature drop is expected when fracture opens.
+
+Full uv-based model with volume and internal energy as primary variables.
 
 """
 
@@ -60,14 +62,14 @@ model_params["phase_property_params"] = eos_params
 model_params["flash_params"]["global_iteration_stride"] = None
 model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
 model_params["flash_params"]["solver_params"]["max_iterations"] = 80
+model_params["flash_params"]["solver_params"]["rpc_p"] = -1
 
 model_params["equilibrium_specification"] = (
-    pp.compositional.FlashSpec.vT,
+    pp.compositional.FlashSpec.vu,
     "persistent-variables",
 )
 model_params["flash_params"]["compile_args"] = (
     pp.compositional.FlashSpec.pT,
-    pp.compositional.FlashSpec.vT,
     pp.compositional.FlashSpec.vu,
 )
 
@@ -76,7 +78,7 @@ solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
-solver_params["energy_clip"] = (0.95, 1.05)
+solver_params["energy_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 model_params["use_logp_nonlinear_rpc"] = False
 
 solver_params["do_armijo_line_search"] = False
@@ -107,7 +109,7 @@ class ModelClass(  # type:ignore
 
 
 model_params["create_fluid_volume_variable"] = True
-model_params["create_fluid_internal_energy_variable"] = False
+model_params["create_fluid_internal_energy_variable"] = True
 model_params["create_fluid_enthalpy_variable"] = False
 
 
@@ -127,18 +129,19 @@ ModelClass._z_IN = {"H2O": 1.0}
 
 
 if __name__ == "__main__":
-    parser = get_case2_argparser("CI Case 2c.")
+    parser = get_case2_argparser("CI Case 2e.")
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
     from porepy.examples.cold_injection.run_case2a import JUMP_TIME
-    APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 1.1)]
+
+    APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
         time_schedule = modify_schedule(time_schedule)
-        time_schedule[25] = JUMP_TIME - 15
+        time_schedule[25] = JUMP_TIME - 5.0
     else:
         ajump = None
 
@@ -161,7 +164,7 @@ if __name__ == "__main__":
 
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     sub_folder = (
-        f"CI_CASE2C/"
+        f"CI_CASE2E/"
         f"{timestamp}"
         f"_AJUMP_{ajump}"
         f"_ICHOR_{bool(ISOCHORIC_NPC)}"

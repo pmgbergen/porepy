@@ -162,6 +162,42 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         self.equation_system.set_equation(intf_adv, codim_1_interfaces, {"cells": 1})
         self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
 
+    def alt_acc(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        accumulation = self.volume_integral(
+            self.fluid_internal_energy(subdomains), subdomains, dim=1
+        )
+        cell_volumes = self.wrap_grid_attribute(subdomains, "cell_volumes", dim=1)
+
+        subdomain_projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        specific_volume: pp.ad.Operator = None  # type: ignore
+
+        # Loop over dimensions, and add the contribution from each subdomain within
+        # that dimension.
+        # NOTE: The loop is reversed, to ensure that the subdomains are processed in the
+        # same order as will be returned by an iteration over the subdomains of the
+        # mixed-dimensional grid. If the order in input argument subdomains is
+        # different, the result will likely be wrong.
+        for dim in range(self.nd, -1, -1):
+            sd_dim = [sd for sd in subdomains if sd.dim == dim]
+            if len(sd_dim) == 0:
+                continue
+            a_loc = pp.constitutive_laws.DimensionReduction.aperture(self, sd_dim)
+            specific_volume_loc = a_loc ** pp.ad.Scalar(self.nd - dim)
+            specific_volume_glob = (
+                subdomain_projection.cell_prolongation(sd_dim) @ specific_volume_loc
+            )
+            if specific_volume is None:
+                specific_volume = specific_volume_glob
+            else:
+                specific_volume = specific_volume + specific_volume_glob
+
+        specific_volume.set_name("specific_volume")
+
+        accumulation += (
+            cell_volumes * specific_volume * self.solid_internal_energy(subdomains)
+        )
+        return accumulation
+
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy balance equation for subdomains.
 
@@ -493,7 +529,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
     """Name of the primary variable representing the specific fluid enthalpy.
     Normally defined in :class:`SolutionStrategyEnergyBalance`.
     """
-    specific_internal_energy_variable: str
+    specific_fluid_internal_energy_variable: str
     """Name of the primary variable representing the specific fluid internal energy.
     Normally defined in :class:`SolutionStrategyEnergyBalance`.
     """
@@ -563,7 +599,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
 
         if self.has_fluid_internal_energy_variable:
             self.equation_system.create_variables(
-                self.specific_internal_energy_variable,
+                self.specific_fluid_internal_energy_variable,
                 subdomains=self.mdg.subdomains(),
                 tags={"si_units": "J * kg^-1"},
             )
@@ -722,7 +758,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
 
         if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.specific_internal_energy_variable,
+                name=self.specific_fluid_internal_energy_variable,
                 domains=domains,  # type: ignore[arg-type]
             )
 
@@ -735,7 +771,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
         domains = cast(list[pp.Grid], domains)
 
         return self.equation_system.md_variable(
-            self.specific_internal_energy_variable, domains
+            self.specific_fluid_internal_energy_variable, domains
         )
 
 
@@ -1134,7 +1170,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
 
-        self.specific_internal_energy_variable: str
+        self.specific_fluid_internal_energy_variable: str
         """Name of the primary variable representing the specific fluid internal energy
         on all subdomains.
         
@@ -1147,7 +1183,9 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             self.specific_fluid_enthalpy_variable = "specific_fluid_enthalpy"
 
         if self.params.get("create_fluid_internal_energy_variable", False):
-            self.specific_internal_energy_variable = "specific_fluid_internal_energy"
+            self.specific_fluid_internal_energy_variable = (
+                "specific_fluid_internal_energy"
+            )
 
         # Discretization.
         self.fourier_keyword: str = "fourier_discretization"

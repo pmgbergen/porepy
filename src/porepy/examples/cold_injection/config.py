@@ -276,6 +276,8 @@ CFLEModel: TypeAlias = cfle.CFLEModelTemplate | cfle.CFFLEModelTemplate
 def get_default_params(
     *,
     base_permeability: float = 1e-14,
+    p_ref: float = 10e6,
+    T_ref: float = pp.compositional.THD_REF.T,
 ) -> tuple[dict, dict]:
     """Get default parametrization for example.
 
@@ -328,6 +330,9 @@ def get_default_params(
         "fractional_flow": False,
         "material_constants": material_params,
         "enable_buoyancy_effects": False,
+        "reference_variable_values": pp.ReferenceVariableValues(
+            pressure=p_ref, temperature=T_ref
+        ),
     }
 
     MODEL_PARAMS.update(phase_property_params)
@@ -392,6 +397,9 @@ def get_rpc(model: CIModel) -> Callable[[list[sps.csr_matrix]], list[sps.csr_mat
             "specific_fluid_internal_energy": np.float64(522987.17597210075),
             "well_flux": 1e-4,  # 1e-5
             "interface_darcy_flux": 1e-6,  # 1e-5
+            "interface_fourier_flux": 10.0,
+            "interface_enthalpy_flux": 1e8,
+            "well_enthalpy_flux": 0.5e6,
         }
 
         ncol = model.equation_system.num_dofs()

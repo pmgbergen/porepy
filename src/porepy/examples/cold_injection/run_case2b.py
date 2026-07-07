@@ -1,7 +1,7 @@
 """2D, 2-phase water flow through horizontal fracture domain with temporal aperture
 jump.
 
-Isothermal model with nonlinear preconditioning using the vT flash.
+Isothermal vT-based model with nonlinear preconditioning using the vT flash.
 
 """
 
@@ -76,13 +76,6 @@ solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 solver_params["volume_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 model_params["use_logp_nonlinear_rpc"] = False
-if (
-    model_params["use_logp_nonlinear_rpc"]
-    and solver_params["pressure_clip"] is not None
-):
-    solver_params["pressure_clip"] = tuple(
-        [np.log(c) for c in solver_params["pressure_clip"]]
-    )
 
 solver_params["do_armijo_line_search"] = False
 solver_params["armijo_line_search_weight"] = 0.9
@@ -134,7 +127,8 @@ if __name__ == "__main__":
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
-    # APERTURE_JUMP_SCHEDULE = [(25 * pp.DAY, 2)]
+    # from porepy.examples.cold_injection.run_case2a import JUMP_TIME
+    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
     # E_PRIMARY = False
 
     ajump: float | None

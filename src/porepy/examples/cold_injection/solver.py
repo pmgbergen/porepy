@@ -65,6 +65,14 @@ class CFSolverParams(TypedDict):
         value.
     
     """
+
+    volume_clip: tuple[float, float] | tuple[float, float, float] | None
+    """Analogous to pressure clipping. Allows additionally to define a lower value
+    for volume. Updates going below that will be clipped."""
+
+    energy_clip: tuple[float, float] | None
+    """Analogous to pressure clipping for energy-related variables."""
+
     newton_chop: float | None
     """Global chop for raw Newton update."""
     appleyard_chop: float | None
@@ -288,6 +296,8 @@ class CFLESolver(pp.NewtonSolver):
     def default_params() -> CFSolverParams:
         return CFSolverParams(
             pressure_clip=None,
+            volume_clip=None,
+            energy_clip=None,
             newton_chop=None,
             appleyard_chop=None,
             atol_objective=1e-7,
@@ -344,7 +354,7 @@ class CFLESolver(pp.NewtonSolver):
         model.plot_from_vec(vec, "pressure", is_update, suffix)  # type:ignore
         model.plot_from_vec(vec, "specific_fluid_volume", is_update, suffix)  # type:ignore
         model.plot_from_vec(vec, "s_G", is_update, suffix)  # type:ignore
-        # model.plot_from_vec(vec, "y_G", is_update, suffix)
+        # model.plot_from_vec(vec, "temperature", is_update, suffix)
 
     @no_type_check
     def _print_cond_p_block(self, model: CIModel):
@@ -547,7 +557,28 @@ class CFLESolver(pp.NewtonSolver):
         if self.params["pressure_clip"] is not None:
             self.pressure_clip(model, dx)
         if self.params["volume_clip"] is not None and model.has_fluid_volume_variable:
-            self.volume_clip(model, dx)
+            self.relative_clip(
+                model,
+                dx,
+                self.params["volume_clip"],
+                model.specific_fluid_volume_variable,
+            )
+        if self.params["energy_clip"] is not None and isinstance(
+            model, pp.energy_balance.VariablesEnergyBalance
+        ):
+            if model.has_fluid_internal_energy_variable:
+                name = model.specific_fluid_internal_energy_variable
+            elif model.has_fluid_enthalpy_variable:
+                name = model.specific_fluid_enthalpy_variable
+            else:
+                name = model.temperature_variable
+
+            self.relative_clip(
+                model,
+                dx,
+                self.params["energy_clip"],
+                name,
+            )
 
     def appleyard_chop(self, model: CIModel, dx: np.ndarray) -> None:
         """Simple chopping of updates for saturatons and phase fractions such that their
@@ -594,31 +625,37 @@ class CFLESolver(pp.NewtonSolver):
 
         dofs = model.equation_system.dofs_of([model.pressure_variable])
 
-        if model._uses_logp():
-            dx[dofs] = np.clip(dx[dofs], c[0], c[1])
+        if model._uses_logp() and not self.params["in_physical_space"]:
+            dx[dofs] = np.clip(dx[dofs], np.log(c[0]), np.log(c[1]))
         else:
             p_k = self._xk[dofs]
             dxs = model._scale_back_state(dx, is_increment=True)
             dxs[dofs] = np.clip(dxs[dofs], (c[0] - 1) * p_k, (c[1] - 1) * p_k)
             dx[dofs] = model._scale_state(dxs, is_increment=True)[dofs]
 
-    def volume_clip(self, model: CIModel, dx: np.ndarray) -> None:
-        """Applies the volume clip.
+    def relative_clip(
+        self, model: CIModel, dx: np.ndarray, c: tuple[float, ...], name: str
+    ) -> None:
+        """Applies the relative clip for a variable.
 
         Parameters:
             model: A CFLE model.
             dx: Global nonlinear increment.
+            c: Tuple containing change limits (lower and upper) relative to current
+                iterate state.
+            name: Variable name.
 
         """
-        c = cast(tuple[float, float], self.params["volume_clip"])
-        assert 0 < c[0] < 1, "Lower v-clip must be in (0, 1)."
-        assert 1 < c[1], "Upper v-clip must be greater than 1."
+        assert 0 < c[0] < 1, "Lower relative clip must be in (0, 1)."
+        assert 1 < c[1], "Upper relative clip must be greater than 1."
 
-        dofs = model.equation_system.dofs_of([model.specific_fluid_volume_variable])  # type:ignore
+        dofs = model.equation_system.dofs_of([name])  # type:ignore
 
         v_k = self._xk[dofs]
         dxs = model._scale_back_state(dx, is_increment=True)
         dxs[dofs] = np.clip(dxs[dofs], (c[0] - 1) * v_k, (c[1] - 1) * v_k)
+        if len(c) > 2:
+            dxs[dofs] = np.maximum(dxs[dofs], c[2] - v_k)
         dx[dofs] = model._scale_state(dxs, is_increment=True)[dofs]
 
     def armijo_line_search(self, model: CIModel, dx: np.ndarray) -> np.ndarray:
@@ -731,7 +768,7 @@ class CFLESolver(pp.NewtonSolver):
                 if model.has_fluid_enthalpy_variable:
                     apply_scale(model.specific_fluid_enthalpy_variable)
                 if model.has_fluid_internal_energy_variable:
-                    apply_scale(model.specific_internal_energy_variable)
+                    apply_scale(model.specific_fluid_internal_energy_variable)
 
             dx_ns /= scales
             g = self._grad_pot * scales
@@ -877,6 +914,8 @@ class CFLESolver(pp.NewtonSolver):
                 update_secondary_quantities=False,
                 state=xk1p,
             )
+            # if results.specification == FlashSpec.vu:
+            #     mask[results.exitcode < 3] = True
             self.populate_state_with_flash_results(model, xk1p_e, results, [grid], mask)
 
         _, sec_vars = self.primary_secondary_thermodynamic_variable_names(model)
