@@ -108,11 +108,8 @@ from porepy.fracs.fracture_network_creation import create_fracture_network
 from porepy.grids.mdg_generation import create_mdg
 
 # Wells
-from porepy.fracs.wells_3d import (
-    Well,
-    WellNetwork3d,
-    compute_well_fracture_intersections,
-)
+from porepy.fracs.wells_3d import Well
+from porepy.fracs.well_network import WellNetwork3d
 
 # Numerics
 

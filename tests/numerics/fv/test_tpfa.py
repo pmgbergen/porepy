@@ -141,7 +141,6 @@ class UnitTestAdTpfaFlux(
         mdg.set_boundary_grid_projections()
         self.mdg = mdg
         self.nd = 2
-        self.set_well_network()
 
     def _cell_projection(self, cell_id: int) -> sps.csr_matrix:
         if cell_id == 0:

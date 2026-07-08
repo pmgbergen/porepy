@@ -162,7 +162,8 @@ class FractureNetwork2d(FractureNetwork):
             representing the meshed fracture network.
 
         """
-        gmsh.initialize()
+        if not gmsh.is_initialized():
+            gmsh.initialize()
         # Prepare the mesh inputs. Also set some Gmsh options, see the method for
         # details.
         file_name, constraints = self._prepare_mesh_inputs(
@@ -772,9 +773,7 @@ class FractureNetwork2d(FractureNetwork):
                         "DOMAIN_YMAX",
                     ]
                     csv_writer.writerow(header)
-                order = ["xmin", "ymin", "xmax", "ymax"]
-                # Write the domain bounding box.
-                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
+                self.domain.to_csv(csv_writer)
             if write_header:
                 header = [
                     "# FRACTURE COORDINATES",
