@@ -8,13 +8,15 @@ Implemented classes:
 """
 
 import time
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import DEBUG, getLogger
 from typing import Literal, Optional
+
 import numpy as np
 from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import MatrixRankWarning, spsolve
 
 import porepy as pp
 
@@ -201,18 +203,20 @@ class LinearSolverDirect(LinearSolverBase):
         if self.backend not in ["pypardiso", "umfpack", "scipy_sparse"]:
             raise ValueError(f"Unknown linear solver backend: {self.backend}")
         try:
-            if self.backend == "pypardiso":
-                assert IS_PYPARDISO_INSTALLED
-                x = pypardiso_spsolve(mat, rhs)
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", MatrixRankWarning)
+                if self.backend == "pypardiso":
+                    assert IS_PYPARDISO_INSTALLED
+                    x = pypardiso_spsolve(mat, rhs)
 
-            elif self.backend == "umfpack":
-                assert IS_UMFPACK_INSTALLED
-                # Following may be needed:
-                # A.indices = A.indices.astype(np.int64)
-                # A.indptr = A.indptr.astype(np.int64)
-                x = spsolve(mat, rhs, use_umfpack=True)
-            else:
-                x = spsolve(mat, rhs, use_umfpack=False)
+                elif self.backend == "umfpack":
+                    assert IS_UMFPACK_INSTALLED
+                    # Following may be needed:
+                    # A.indices = A.indices.astype(np.int64)
+                    # A.indptr = A.indptr.astype(np.int64)
+                    x = spsolve(mat, rhs, use_umfpack=True)
+                else:
+                    x = spsolve(mat, rhs, use_umfpack=False)
         except Exception as e:
             logger.exception(e)
             return np.full_like(rhs, np.nan), LinearSolverStatusFailure(

@@ -113,7 +113,9 @@ class NewtonSolver(NonlinearSolverBase):
         """Linear solver object to solve the Jacobian linear systems."""
         self._linear_solver_initialized = False
         """Whether model-dependent linear solver state has been initialized.
-        Initialization is done once at :meth:`solve`.
+        Initialization is done once at :meth:`solve`. It is now assumed that this class
+        must be used with the same model, and should not be reused for a different
+        model.
 
         """
 
