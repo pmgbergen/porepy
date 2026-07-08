@@ -78,6 +78,11 @@ class Well:
         self._index: int = index
         """Index attribute."""
 
+    @property
+    def index(self) -> int:
+        """Get the index of the well."""
+        return self._index
+
     def segments(self) -> Iterator[tuple[tuple[int, int], np.ndarray]]:
         """Iterate over the segments defined through segment indices and endpoints.
 

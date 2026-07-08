@@ -32,7 +32,7 @@ class TestWellClass:
 
         # Create a well object.
         well = pp.Well(coords, index=0)
-        assert well._index == 0
+        assert well.index == 0
         # Check that the well object has the correct attributes.
         assert isinstance(well, pp.Well)
         assert np.allclose(well.pts, coords)
