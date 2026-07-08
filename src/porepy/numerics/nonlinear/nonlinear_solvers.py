@@ -465,12 +465,9 @@ class NewtonSolver(NonlinearSolverBase):
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
-        model.assemble_linear_system()
-        assert isinstance(model.linear_system[0], csr_matrix), "Expecting a csr matrix."
+        linear_system = model.assemble_linear_system()
         nonlinear_increment, linear_solver_status = (
-            self.linear_solver.solve_linear_system(
-                mat=cast(csr_matrix, model.linear_system[0]), rhs=model.linear_system[1]
-            )
+            self.linear_solver.solve_linear_system(linear_system)
         )
 
         # This is a temporary approach for compatability. It is a linear solver's

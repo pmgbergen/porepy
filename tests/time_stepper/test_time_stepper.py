@@ -91,9 +91,9 @@ class MockModel(PorePyModel):
     def before_nonlinear_iteration(self):
         self.sequence_of_calls.append("before_nonlinear_iteration")
 
-    def assemble_linear_system(self):
+    def assemble_linear_system(self) -> pp.LinearSystem:
         self.sequence_of_calls.append("assemble_linear_system")
-        self.linear_system = csr_matrix((0, 0)), np.ndarray(shape=0)
+        return pp.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=0))
 
     def after_nonlinear_iteration(self, nonlinear_increment):
         self.sequence_of_calls.append("after_nonlinear_iteration")
@@ -120,7 +120,9 @@ class MockLinearSolver(pp.LinearSolverBase):
     def __init__(self, num_dofs: int) -> None:
         self.num_dofs = num_dofs
 
-    def solve_linear_system(self, mat, rhs) -> tuple[np.ndarray, pp.LinearSolverStatus]:
+    def solve_linear_system(
+        self, linear_system: pp.LinearSystem
+    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
         return np.ones(self.num_dofs), pp.LinearSolverStatusSuccess(solve_time=0)
 
 
@@ -312,8 +314,8 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         return True
 
     # Minimizing computational expenses.
-    def assemble_linear_system(self) -> None:
-        self.linear_system = csr_matrix((0, 0)), np.ndarray(shape=())
+    def assemble_linear_system(self) -> pp.LinearSystem:
+        return pp.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=()))
 
 
 class DynamicNewtonSolver(NewtonSolver):

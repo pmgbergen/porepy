@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.linalg.linear_solver import LinearSystem
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -779,8 +780,8 @@ class SolutionStrategy(pp.PorePyModel):
         """Run at the end of simulation. Can be used for cleanup etc."""
         pass
 
-    def assemble_linear_system(self) -> None:
-        """Assemble the linearized system and store it in :attr:`linear_system`.
+    def assemble_linear_system(self) -> LinearSystem:
+        """Assemble and return the linearized system.
 
         The linear system is defined by the current state of the model.
 
@@ -803,6 +804,9 @@ class SolutionStrategy(pp.PorePyModel):
               assemble_schur_complement_system`
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
 
+        Returns:
+            The assembled matrix and right-hand side vector.
+
         """
         t_0 = time.time()
 
@@ -813,7 +817,7 @@ class SolutionStrategy(pp.PorePyModel):
             assert self.schur_complement_primary_equations, (
                 "Primary row block for Schur technique not defined."
             )
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
+            mat, rhs = self.equation_system.assemble_schur_complement_system(
                 self.schur_complement_primary_equations,
                 self.schur_complement_primary_variables,
                 inverter=cast(
@@ -822,10 +826,11 @@ class SolutionStrategy(pp.PorePyModel):
                 ),
             )
         else:
-            self.linear_system = self.equation_system.assemble()
+            mat, rhs = self.equation_system.assemble()
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+        return LinearSystem(matrix=mat, rhs=rhs)
 
     def solve_linear_system(self) -> Never:
         raise AttributeError(

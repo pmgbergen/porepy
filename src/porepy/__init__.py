@@ -60,6 +60,7 @@ from porepy.numerics.linalg.linear_solver import (
     LinearSolverStatus,
     LinearSolverStatusFailure,
     LinearSolverStatusSuccess,
+    LinearSystem,
 )
 
 # Geometry
