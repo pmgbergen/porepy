@@ -6,16 +6,17 @@ Implemented classes:
 
 """
 
-from abc import ABC, abstractmethod
-from logging import DEBUG, getLogger
 import time
-from typing import Literal
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from logging import DEBUG, getLogger
+from typing import Literal
 
 import numpy as np
-import porepy as pp
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
+
+import porepy as pp
 
 try:
     import scikits.umfpack  # type: ignore
