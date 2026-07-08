@@ -180,7 +180,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         self.update_discretization_parameters()
         self.discretize()
-        # self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
         # Export initial condition (only if time-dependent)
