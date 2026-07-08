@@ -177,7 +177,8 @@ class VTKSampler:
             # If conversion fails, continue — sampling may still work.
             pass
         self._boundary_surface = self._search_space.extract_surface(
-            pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0
+            pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0,
+            algorithm="dataset_surface",  # explicit current default -> silences future-change warning
         )
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)

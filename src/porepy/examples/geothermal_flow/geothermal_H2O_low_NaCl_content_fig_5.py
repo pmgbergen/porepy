@@ -48,7 +48,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_lP"
-geometry_case = "vertical"
+geometry_case = "horizontal"
 
 # Buoyancy upwinding scheme:
 #   "phase_potential" -> phase-potential upwinding (PPU)
@@ -122,26 +122,16 @@ solid_constants = pp.SolidConstants(
 )
 material_constants = {"solid": solid_constants}
 params = {
-    "ad_backend": "sparsa",
+    "ad_backend": "native",
     "fractional_flow": False,
+    "mass_mobility_weighted_permeability": False,
     "enable_buoyancy_effects": True,
     "buoyancy_upwinding": buoyancy_upwinding,
-    "lag_buoyancy_direction": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
     # Persist per-time-step solver statistics (iterations, status, residuals) to JSON.
     "solver_statistics_file_name": f"solver_statistics_fig_5_{buoyancy_upwinding}",
-    "prepare_simulation": False,
-    "apply_schur_complement_reduction": False,
-    "nl_convergence_inc_atol": np.inf,
-    "nl_convergence_inc_rtol": np.inf,
-    "nl_convergence_res_atol": 9.0e-5,
-    "nl_convergence_res_rtol": np.inf,
-    "flag_failure_as_diverged": False,
-    # Maximum number of nonlinear iterations (was incorrectly set as
-    # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
-    "nl_max_iterations": 20,
     # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
     # "global_line_search": 1,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
@@ -196,18 +186,6 @@ folder_prefix = "src/porepy/examples/geothermal_flow/"
 file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )
-# file_name_phz = (
-#     file_name_prefix
-#     + "XHP_l"
-#     + str(parametric_space_ref_level)
-#     + "_modified_low_salt_content.vtk"
-# )
-# file_name_ptz = (
-#     file_name_prefix
-#     + "XTP_l"
-#     + str(parametric_space_ref_level)
-#     + "_modified_low_salt_content.vtk"
-# )
 
 file_name_phz = (
     file_name_prefix
@@ -232,8 +210,23 @@ brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
 model.vtk_sampler_ptz = brine_sampler_ptz
 
 
+# Nonlinear-solver criteria: residual-based absolute convergence (tol) + max-iterations
+# divergence. This replaces the deprecated ``pp.run_time_dependent_model`` wrapper (which
+# calls ``warnings.deprecated``, a Python 3.13-only API) with ``pp.ModelRunner``.
+solver_params = {
+    "nl_convergence_criteria": {
+        "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)
+        ),
+    },
+    "nl_divergence_criteria": {
+        "max_iter": pp.MaxIterationsCriterion(max_iterations=30),
+    },
+}
+# Construct the runner first: it prepares the simulation (the VTK samplers set on the model
+# above are needed by prepare_simulation, so they must already be in place).
 tb = time.time()
-model.prepare_simulation()
+runner = pp.ModelRunner(model, solver_params)
 te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
@@ -248,9 +241,9 @@ model.schur_complement_primary_variables = (
 # print geometry
 model.exporter.write_vtu()
 tb = time.time()
-pp.run_time_dependent_model(model, params)
+runner.run()
 te = time.time()
-print("Elapsed time run_time_dependent_model: ", te - tb)
+print("Elapsed time run: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)
 

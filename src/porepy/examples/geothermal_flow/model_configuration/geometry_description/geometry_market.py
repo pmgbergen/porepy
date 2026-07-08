@@ -219,7 +219,10 @@ class SimpleGeometryHorizontal(Geometry):
 
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(self._ref_level * 10.0, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        # Thin horizontal strip -- 1 cell across y. Set cell_size_y = domain height so the
+        # mesher does not clamp it (which warns "cell_size_y > domain").
+        y_length = self.units.convert_units(self._ref_level * 5.0, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": y_length}
         return mesh_args
 
     def get_inlet_outlet_sides(
@@ -265,7 +268,10 @@ class SimpleGeometryVertical(Geometry):
 
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(self._ref_level  * 10.0, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        # Thin vertical strip -- 1 cell across x. Set cell_size_x = domain width so the
+        # mesher does not clamp it (which warns "cell_size_x > domain").
+        x_length = self.units.convert_units(self._ref_level * 5.0, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_x": x_length}
         return mesh_args
 
     def get_inlet_outlet_sides(

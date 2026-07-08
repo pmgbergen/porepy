@@ -680,11 +680,11 @@ if __name__ == "__main__":
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)
+                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=25),
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=30),
         },
     }
     # Construct the runner first (this prepares the simulation), so the system size can
