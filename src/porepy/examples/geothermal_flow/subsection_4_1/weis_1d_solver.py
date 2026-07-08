@@ -1,4 +1,7 @@
-"""Independent 1-D finite-volume solver reproducing PorePy's geothermal fig-5D column.
+"""Independent 1-D finite-volume solver (engine) for the Weis (2014) fig-5 benchmark.
+
+Importable module: the ``fig_weis_*`` scripts in this folder drive :func:`run` and
+:func:`load_reference` to build the figures of subsection 4.1; this file has no CLI.
 
 Independent of PorePy (only ``numpy`` + ``scipy`` + ``pyvista`` + ``matplotlib``). It
 re-implements, in vectorised numpy, the exact discrete model that
@@ -47,9 +50,12 @@ import scipy.sparse.linalg as spla
 #  Paths / physical constants (SI) -- values from geothermal_H2O_low_NaCl_content_fig_5.py
 # --------------------------------------------------------------------------------------- #
 HERE = os.path.dirname(os.path.abspath(__file__))
-VTK_DIR = os.path.join(HERE, "model_configuration", "constitutive_description",
+# The constitutive .vtr tables and digitized reference CSVs live in the parent geothermal_flow
+# directory (this engine module lives in the subsection_4_1/ sub-folder).
+_PARENT = os.path.dirname(HERE)
+VTK_DIR = os.path.join(_PARENT, "model_configuration", "constitutive_description",
                        "driesner_vtk_files")
-REF_DIR = os.path.join(HERE, "benchmark_figures_data")
+REF_DIR = os.path.join(_PARENT, "benchmark_figures_data")
 
 TABLE_LEVEL = 5       # Driesner opensowat table refinement level: 0 (coarsest) .. 5 (finest)
 
@@ -84,13 +90,11 @@ T_REF = 500.0         # K
 
 BUOY_SCALE = 1.0      # debug knob for the enthalpy-buoyancy term (1=on, 0=off, -1=flip)
 
-# Gravity-term density weighting on internal faces (see ``residual``):
-#   arithmetic (default)  -> face average 0.5*(rho_i + rho_{i+1})
-#   upstream              -> Weis (2014, Eq.25 p.352): fluid props in the gravity term taken
-#                            from the lagged phase-upwind node (fully-upstream, as in CSMP++).
-# Identical when g=0 (horizontal 5B); only changes the vertical (5D) case. Selected per run via
-# the 4th CLI argument, e.g.:
-#   python geothermal_H2O_low_NaCl_content_1D_fig_5.py ppu 200 vertical upstream
+# Gravity-term density weighting on internal faces (see ``residual``), via run(grav_upstream=):
+#   grav_upstream=False (default) -> face average 0.5*(rho_i + rho_{i+1})  (consistent, Rem.gc)
+#   grav_upstream=True            -> Weis (2014, Eq.25 p.352): fluid props in the gravity term
+#                                    taken from the lagged phase-upwind node (fully-upstream).
+# Identical when g=0 (horizontal 5B); only changes the vertical (5D) case.
 
 # fig-5D boundary / initial data (SI)
 P_BOT, P_TOP = 20.0e6, 1.0e6      # Pa  (inlet y=0 / outlet y=2000)
@@ -258,6 +262,15 @@ def _upwind_idx(direction):
     return np.where(direction >= 0.0, i, i + 1)
 
 
+def _harmonic_face(lam):
+    """Harmonic average of a cell field ``lam`` onto internal faces: 2 lL lR/(lL+lR), 0 where the
+    sum vanishes. This is the joint lambda*K face transmissibility weight of the mobility-weighted
+    (HU-mw) discretisation (paper Remark 3.2)."""
+    lam_L = lam[:-1]; lam_R = lam[1:]
+    s = lam_L + lam_R
+    return np.where(s > 0.0, 2.0 * lam_L * lam_R / np.where(s > 0.0, s, 1.0), 0.0)
+
+
 def buoyancy_directions(geom, p, pr, scheme):
     """Per-internal-face LAGGED upstream cell indices ``(i_liq, i_gas, i_tot)``.
 
@@ -311,7 +324,7 @@ def accumulation_old(x_old, geom, table):
 
 
 def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut,
-             grav_upstream=False, weighted_perm=False):
+             grav_upstream=False, weighted_perm=False, lag_upwind=False, lam_face_old=None):
     """Full 2N residual, interleaved [mass_0, energy_0, mass_1, ...].
 
     ``acc_*_o`` are the (precomputed, step-constant) old-time accumulations.
@@ -321,6 +334,14 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
       "ppu"  -> genuine per-phase potential upwinding of the FULL phase flux
                 F=sum_g Psi_g upwind(w_g) (buoyancy intrinsic; Weis fig-5 reference).
     Only "ppu" takes the genuine-PPU branch below; "hu" takes the simplicial branch.
+
+    ``lag_upwind`` selects a single, scheme-uniform treatment of the advective nonlinear weight:
+      False -> current iterate (fully implicit): PPU recomputes its phase-potential upwind
+               directions here, HU takes sign(V_T), HU-mw reassembles the harmonic lambda*K
+               each Newton iteration.
+      True  -> old state (once per step): PPU uses the lagged ug/ud, HU uses the lagged total
+               direction ut, and HU-mw uses ``lam_face_old`` (a single multipoint assembly per
+               step). ``lam_face_old`` is the old-state harmonic lambda*K face weight.
     """
     N = geom.N
     p = x[0::2]; h = x[1::2]
@@ -337,16 +358,22 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
 
     if scheme == "ppu":
         # genuine phase-potential upwinding: each phase rides its OWN potential flux
-        # Psi_g = T_f(p_L-p_U) - K A rho_g g, mobility/enthalpy upwinded by sign(Psi_g)
-        # (lagged in ug/ud). Buoyancy is intrinsic to Psi_g (no separate term). With
-        # grav_upstream the gravity density is the lagged phase-upwind node, so
-        # -GA*rho_g[ug]*mm_g[ug] = -GA*upstream(rho_g^2 k_r/mu) exactly (Weis Eq.25).
-        rho_l_p = pr.rho_l[ug] if grav_upstream else rho_l_f
-        rho_v_p = pr.rho_v[ud] if grav_upstream else rho_v_f
+        # Psi_g = T_f(p_L-p_U) - K A rho_g g, mobility/enthalpy upwinded by sign(Psi_g). The upwind
+        # direction is the current iterate (fully implicit, carrying the phase-potential switch) when
+        # lag_upwind=False, else the lagged ug/ud (frozen per step). Buoyancy is intrinsic to Psi_g
+        # (no separate term). With grav_upstream the gravity density is the phase-upwind node, so
+        # -GA*rho_g[iu]*mm_g[iu] = -GA*upstream(rho_g^2 k_r/mu) exactly (Weis Eq.25).
+        if lag_upwind:
+            iu_l, iu_v = ug, ud
+        else:
+            iu_l = _upwind_idx(geom.Tf * dp_face - geom.GA * rho_l_f)
+            iu_v = _upwind_idx(geom.Tf * dp_face - geom.GA * rho_v_f)
+        rho_l_p = pr.rho_l[iu_l] if grav_upstream else rho_l_f
+        rho_v_p = pr.rho_v[iu_v] if grav_upstream else rho_v_f
         Psi_l = geom.Tf * dp_face - geom.GA * rho_l_p
         Psi_v = geom.Tf * dp_face - geom.GA * rho_v_p
-        F_mass = Psi_l * pr.mm_l[ug] + Psi_v * pr.mm_v[ud]
-        F_en = F_four + Psi_l * (pr.h_l[ug] * pr.mm_l[ug]) + Psi_v * (pr.h_v[ud] * pr.mm_v[ud])
+        F_mass = Psi_l * pr.mm_l[iu_l] + Psi_v * pr.mm_v[iu_v]
+        F_en = F_four + Psi_l * (pr.h_l[iu_l] * pr.mm_l[iu_l]) + Psi_v * (pr.h_v[iu_v] * pr.mm_v[iu_v])
     else:
         # HU: total-velocity advection + simplicial buoyancy.
         # grav_upstream upstreams ONLY the advective gravity density rho_ff in V_T (lagged ut).
@@ -356,19 +383,24 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
         rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
         rho_ff_g = pr.rho_ff[ut] if grav_upstream else rho_ff_f
         V_T = geom.Tf * dp_face - geom.GA * rho_ff_g
-        up = np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
+        # Advective total-velocity upwind direction, uniform with the other schemes via lag_upwind:
+        #   False -> current iterate sign(V_T), i.e. the m_e=0 switch of the upwinded total mobility
+        #            (paper Remark 3.2), live inside the Newton loop;
+        #   True  -> the lagged direction ut (frozen per step, no switch inside the Newton loop).
+        up = ut if lag_upwind else np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
         # Total-mobility placement in m_e = <lambda>(pi + w) (paper Remark 3.2):
         #   weighted_perm=False -> upwind the total mobility (separate weight, geometric T_f;
         #                          the standard HU setting, with a switch at m_e=0);
         #   weighted_perm=True  -> fold lambda into K, i.e. the HARMONIC face average of lambda_T
-        #                          (joint lambda*K MPFA), reassembled each Newton iteration and
-        #                          smooth in the state. Only affects m_e; the buoyant fluxes are
-        #                          untouched. The energy advection q_a = <hbar> m_e (Table 2)
-        #                          inherits the placement (hbar upwinded, m_e harmonic).
+        #                          (joint lambda*K MPFA). With lag_upwind=False it is reassembled
+        #                          from the current iterate each Newton step (smooth in the state);
+        #                          with lag_upwind=True it is frozen at the old state (lam_face_old)
+        #                          -> ONE multipoint assembly per time step. Only affects m_e; the
+        #                          buoyant fluxes are untouched. The energy advection
+        #                          q_a = <hbar> m_e (Table 2) inherits the placement.
         if weighted_perm:
-            lam_L = pr.lam_T[:-1]; lam_R = pr.lam_T[1:]
-            s_lam = lam_L + lam_R
-            lam_face = np.where(s_lam > 0.0, 2.0 * lam_L * lam_R / np.where(s_lam > 0.0, s_lam, 1.0), 0.0)
+            lam_face = (lam_face_old if (lag_upwind and lam_face_old is not None)
+                        else _harmonic_face(pr.lam_T))
             F_mass = V_T * lam_face
             hbar_up = pr.adv_h[up] / np.where(pr.lam_T[up] > 0.0, pr.lam_T[up], 1.0)   # <hbar>
             F_en_adv = hbar_up * F_mass                                                # <hbar> m_e
@@ -484,15 +516,16 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 # --------------------------------------------------------------------------------------- #
 def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
                 rtol=1e-6, atol=1e-7, maxit=25, verbose=False, grav_upstream=False,
-                weighted_perm=False):
+                weighted_perm=False, lag_upwind=False):
     p_old = x_old[0::2]; h_old = x_old[1::2]
     pr_old = eval_props(table, p_old, h_old)                  # x_old props: ONE eval
     ug, ud, ut = buoyancy_directions(geom, p_old, pr_old, scheme)  # lagged per step
+    lam_face_old = _harmonic_face(pr_old.lam_T)   # old-state harmonic lambda*K (HU-mw lag_upwind)
     acc_mass_o = geom.Vcell * PHI * pr_old.rho_mix
     acc_en_o = geom.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
                              + (1 - PHI) * RHO_S * C_S * pr_old.T)
     args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut,
-            grav_upstream, weighted_perm)
+            grav_upstream, weighted_perm, lag_upwind, lam_face_old)
     pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
     hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
 
@@ -531,7 +564,7 @@ CASES = {"vertical": dict(g=G, tf_yr=1000.0), "horizontal": dict(g=0.0, tf_yr=20
 
 def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
         adaptive=True, verbose=True, grav_upstream=False, weighted_perm=False,
-        level=TABLE_LEVEL):
+        level=TABLE_LEVEL, lag_upwind=False):
     """Integrate the fig-5 column with the chosen buoyancy scheme.
 
     ``case`` selects fig 5D (vertical, gravity on, 1000 yr) or fig 5B (horizontal,
@@ -541,6 +574,10 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
     ``weighted_perm`` folds the total mobility into the permeability (harmonic face average of
     lambda*K in m_e, paper Remark 3.2) instead of upwinding it. It is a total-velocity notion,
     so it is INCOMPATIBLE with ``scheme='ppu'`` (which has no single total mobility).
+    ``lag_upwind`` selects, uniformly across all schemes, whether the advective nonlinear weight is
+    taken at the current iterate (False, fully implicit) or at the old state, frozen once per step
+    (True). For HU-mw this is precisely whether the harmonic lambda*K multipoint is reassembled each
+    Newton iteration (False) or assembled a single time per step (True).
     ``level`` selects the Driesner opensowat ``.vtr`` table refinement level (0..5).
     """
     if case not in CASES:
@@ -558,6 +595,7 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
         print(f"  table: opensowat l_{level} (.vtr)   gravity-term density: "
               f"{'UPSTREAM (Weis Eq.25)' if grav_upstream else 'arithmetic face-avg'}"
               f"   total mobility: {'weighted_perm (harmonic lambda*K)' if weighted_perm else 'upwind'}"
+              f"   advective weight: {'lagged/once-per-step' if lag_upwind else 'current iterate'}"
               f"  (g={cfg['g']:.4g})")
 
     h_bot = float(xpt("H", T_BOT - 273.15, P_BOT)[0])
@@ -575,18 +613,26 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
     tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0
     total_it = 0                                    # all Newton iterations (incl. retries)
+    nit_hist = []                                   # per-accepted-step Newton count (diagnostics)
     while t < tf - 1e-6:
         dt = min(dt, tf - t)
         x_old = x.copy()
         xn, nit, nrm, ok = newton_step(x, x_old, dt, geom, table, bbot, btop, scheme, plan,
-                                       grav_upstream=grav_upstream, weighted_perm=weighted_perm)
+                                       grav_upstream=grav_upstream, weighted_perm=weighted_perm,
+                                       lag_upwind=lag_upwind)
         total_it += nit
-        if not ok and adaptive and dt > dt0 / 64:
-            dt *= 0.5                                  # retry with smaller step
-            continue
-        x = xn; t += dt; step += 1
+        if not ok and dt > dt0 / 64:
+            dt *= 0.5                                  # NEVER accept a non-converged step: retry
+            continue                                   # with a smaller dt (fixed AND adaptive mode).
+        #                                                Accepting non-converged steps under a fixed
+        #                                                dt silently corrupts the solution (the front
+        #                                                drifts) wherever Newton stalls.
+        x = xn; t += dt; step += 1; nit_hist.append(nit)
         if adaptive and ok and nit < 5 and dt < dt0:
-            dt = min(dt * 2.0, dt0)
+            dt = min(dt * 2.0, dt0)                     # adaptive: grow back gradually after a cut
+        elif not adaptive:
+            dt = dt0                                    # fixed dt: restore the nominal step (so dt
+        #                                                equals dt0 except at the rare hard points)
         if verbose and (step % 50 == 0 or not ok):
             print(f"  t={t/YEAR:7.1f} yr  dt={dt/YEAR:.4f}  nit={nit}  |r|={nrm:.1e}"
                   f"  {'' if ok else 'NOT CONVERGED'}")
@@ -596,7 +642,9 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
     return {"y": y, "p": x[0::2], "h": x[1::2], "T": pr.T, "s_gas": pr.s_v,
             "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N, "case": case,
             "n_steps": step, "total_it": total_it, "avg_it": avg_it,
-            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "level": level}
+            "nit_hist": np.asarray(nit_hist, dtype=int),
+            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "level": level,
+            "lag_upwind": lag_upwind}
 
 
 # --------------------------------------------------------------------------------------- #
@@ -608,38 +656,22 @@ def _load_ref_csv(name):
     return d[:, 0], d[:, 1]      # distance[km], value
 
 
-def plot_comparison(results, save_path, case="vertical"):
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+# Digitized Weis (2014) fig-5 reference: field -> CSV basename template (``{tag}`` = orientation).
+_REF_CSV = {
+    "T": "fig_5_{tag}_temperature_raw.csv",
+    "p": "fig_5_{tag}_pressured_raw.csv",
+    "s_liq": "fig_5_{tag}_saturation_liq_raw.csv",
+}
 
+
+def load_reference(case, field):
+    """Digitized Weis (2014) fig-5 reference curve.
+
+    ``field`` in {'T', 'p', 's_liq'}, ``case`` in {'vertical', 'horizontal'}. Returns
+    ``(distance_km, value)`` in plotted units: T [degC], p [MPa], s_liq [-].
+    """
     tag = "vertical" if case == "vertical" else "horizontal"
-    panel = "5D (vertical, gravity)" if case == "vertical" else "5B (horizontal, no gravity)"
-    refs = {
-        "T": (f"fig_5_{tag}_temperature_raw.csv", "Temperature [°C]"),
-        "p": (f"fig_5_{tag}_pressured_raw.csv", "Pressure [MPa]"),
-        "s_liq": (f"fig_5_{tag}_saturation_liq_raw.csv", "Liquid saturation [-]"),
-    }
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
-    colors = {"hu": "tab:blue", "ppu": "tab:red"}
-    labels = {"hu": "HU", "ppu": "PPU"}
-    for ax, key in zip(axes, ("T", "p", "s_liq")):
-        csv, ylabel = refs[key]
-        xr, yr = _load_ref_csv(csv)
-        ax.plot(xr, yr, "ks", ms=4, mfc="none", label="Weis et al. (digitized)")
-        for sch, res in results.items():
-            y_km = res["y"] / 1000.0
-            val = {"T": res["T"] - 273.15, "p": res["p"] / 1e6, "s_liq": res["s_liq"]}[key]
-            ax.plot(y_km, val, "-", color=colors.get(sch, None), lw=1.8,
-                    label=f"{labels.get(sch, sch.upper())} (avg. it. {res['avg_it']:.2f}, "
-                          f"total it. {res['total_it']})")
-        ax.set_xlabel("Distance [km]"); ax.set_ylabel(ylabel)
-        ax.set_xlim(0, 2); ax.grid(alpha=0.3)
-    axes[0].legend(fontsize=8, loc="best")
-    fig.suptitle(f"Figure {panel} — independent 1D solver vs digitized reference")
-    fig.tight_layout()
-    fig.savefig(save_path, dpi=130)
-    print(f"wrote {save_path}")
+    return _load_ref_csv(_REF_CSV[field].format(tag=tag))
 
 
 # --------------------------------------------------------------------------------------- #
@@ -669,66 +701,9 @@ def selftest():
     print("  selftest passed\n")
 
 
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Independent 1D finite-volume solver for the Weis (2014) fig-5 benchmark.")
-    parser.add_argument("schemes", nargs="?", default="hu,ppu",
-                        help="comma-separated buoyancy schemes: hu, ppu "
-                             "(default: %(default)s)")
-    parser.add_argument("N", nargs="?", type=int, default=200,
-                        help="number of cells (default: %(default)s)")
-    parser.add_argument("case", nargs="?", default="vertical",
-                        choices=("vertical", "horizontal"),
-                        help="vertical = fig 5D (gravity on), horizontal = fig 5B (gravity off) "
-                             "(default: %(default)s)")
-    parser.add_argument("gravity", nargs="?", default="arithmetic",
-                        choices=("arithmetic", "upstream"),
-                        help="internal-face gravity-term density: 'arithmetic' face-average or "
-                             "'upstream' (Weis 2014, Eq.25 fully-upstream) (default: %(default)s)")
-    parser.add_argument("mobility", nargs="?", default="upwind",
-                        choices=("upwind", "weighted_perm"),
-                        help="total-mobility placement in m_e: 'upwind' (separate weight) or "
-                             "'weighted_perm' (harmonic lambda*K, paper Remark 3.2; hu only, "
-                             "not ppu) (default: %(default)s)")
-    parser.add_argument("--level", type=int, default=TABLE_LEVEL, choices=range(6),
-                        help="Driesner opensowat .vtr table refinement level 0..5 "
-                             "(coarsest..finest) (default: %(default)s)")
-    parser.add_argument("--nsteps", type=int, default=None,
-                        help="cap the number of time steps (quick test; default: full t_final)")
-    args = parser.parse_args()
-
-    selftest()
-    schemes = args.schemes.split(",")
-    grav_upstream = args.gravity == "upstream"
-    weighted_perm = args.mobility == "weighted_perm"
-    if weighted_perm and "ppu" in schemes:
-        print("  [note] weighted_perm is incompatible with PPU (no single total mobility); "
-              "PPU runs with the default 'upwind' mobility, hu with weighted_perm.")
-    panel = "5D" if args.case == "vertical" else "5B"
-    suffix = ((f"_l{args.level}" if args.level != TABLE_LEVEL else "")
-              + ("_gravUP" if grav_upstream else "") + ("_wperm" if weighted_perm else ""))
-    out_dir = os.path.join(HERE, "visualization_1D_fig_5")
-    os.makedirs(out_dir, exist_ok=True)
-
-    results = {}
-    for sch in schemes:
-        sch_wperm = weighted_perm and sch != "ppu"    # PPU has no total mobility -> force upwind
-        mob = "weighted_perm" if sch_wperm else "upwind"
-        print(f"--- running scheme={sch}, N={args.N}, case={args.case}, gravity={args.gravity}, "
-              f"mobility={mob}, level={args.level} (fig {panel}) ---")
-        res = run(scheme=sch, N=args.N, case=args.case, n_steps=args.nsteps, verbose=True,
-                  grav_upstream=grav_upstream, weighted_perm=sch_wperm, level=args.level)
-        results[sch] = res
-        band = np.where((res["s_gas"] > 1e-3) & (res["s_gas"] < 1 - 1e-3))[0]
-        print(f"  {sch}: T {res['T'][0]-273.15:.0f}->{res['T'][-1]-273.15:.0f} C, "
-              f"p {res['p'][0]/1e6:.1f}->{res['p'][-1]/1e6:.2f} MPa, "
-              f"band y=[{res['y'][band[0]]:.0f},{res['y'][band[-1]]:.0f}]m" if band.size
-              else f"  {sch}: no two-phase band")
-    plot_comparison(results, os.path.join(out_dir, f"fig{panel}_compare_N{args.N}{suffix}.png"),
-                    case=args.case)
-
-
-if __name__ == "__main__":
-    main()
+def prebuild_table_caches(level=TABLE_LEVEL):
+    """Build the ``.npz`` caches for the xph/xpt tables at ``level`` serially, so that a
+    subsequent parallel sweep of :func:`run` hits the fast cache path in every worker."""
+    xph_path, xpt_path = table_paths(level)
+    Table(xph_path, _XPH_FIELDS, a_in=1e-6, b_in=1e-6)
+    Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6)

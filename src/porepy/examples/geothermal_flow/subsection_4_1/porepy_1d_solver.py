@@ -48,7 +48,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_lP"
-geometry_case = "horizontal"
+geometry_case = "vertical"
 
 # Buoyancy upwinding scheme:
 #   "phase_potential" -> phase-potential upwinding (PPU)
@@ -100,19 +100,6 @@ time_manager = pp.TimeManager(
     print_info=True,
 )
 
-# time_manager = pp.TimeManager(
-#     schedule=[0.0, tf],
-#     dt_init=dt,
-#     constant_dt=False,
-#     dt_min_max=((1.0/365.0) * dt, 1.0 * dt),
-#     iter_relax_factors=(0.5, 2.0),
-#     iter_optimal_range=(3, 8),
-#     recomp_factor=0.3,
-#     print_info=True,
-# )
-
-
-
 solid_constants = pp.SolidConstants(
     permeability=1e-15,
     porosity=0.1,
@@ -159,18 +146,6 @@ params = {
     # CFL-aware dynamic radius adjustment (acts as dynamic CFL limiter)
     "trust_region_cfl_max_target": 10.0,              # Target CFL for expansion
 }
-# params = {
-#     "material_constants": material_constants,
-#     "fractional_flow": True,
-#     "buoyancy_on": True,
-#     "time_manager": time_manager,
-#     "prepare_simulation": False,
-#     "apply_schur_complement_reduction": False,
-#     "nl_convergence_tol": np.inf,
-#     "nl_convergence_tol_res": 1.0e-4,
-#     "max_iterations": 500,
-# }
-
 
 class GeothermalWaterFlowModel(
     ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
@@ -181,23 +156,23 @@ class GeothermalWaterFlowModel(
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 2
+parametric_space_ref_level = 5
 folder_prefix = "src/porepy/examples/geothermal_flow/"
 file_name_prefix = (
-    "model_configuration/constitutive_description/driesner_vtk_files/"
+    "../model_configuration/constitutive_description/driesner_vtk_files/"
 )
 
 file_name_phz = (
     file_name_prefix
     + "opensowat_xph_l_"
     + str(parametric_space_ref_level)
-    + "_grads.vtk"
+    + "_grads.vtr"
 )
 file_name_ptz = (
     file_name_prefix
     + "opensowat_xpt_l_"
     + str(parametric_space_ref_level)
-    + "_grads.vtk"
+    + "_grads.vtr"
 )
 
 brine_sampler_phz = VTKSampler(file_name_phz)
