@@ -357,6 +357,9 @@ def set_model_params():
             "cell_size": length_scale / 5.0,
             "cell_size_fracture": fracture_size * length_scale / 2.5,
         },
+        "well_meshing_arguments": {
+            "cell_size": length_scale / 10.0,
+        },
         "fracture_params": {  # Other options are available in the geometry mixin.
             "fracture_major_axes": np.array(
                 (fracture_size, fracture_size)
