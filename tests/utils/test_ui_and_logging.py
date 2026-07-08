@@ -2,8 +2,8 @@ import logging
 from typing import Any
 
 import numpy as np
-from scipy.sparse import csr_matrix
 import pytest
+from scipy.sparse import csr_matrix
 
 import porepy as pp
 

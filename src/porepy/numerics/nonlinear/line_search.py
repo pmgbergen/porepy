@@ -92,7 +92,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
 
         # Update the solution
         sol = relaxation_vector * dx
-        model._current_update = sol
+        model._current_update = sol  # type: ignore[attr-defined]
         return sol, linear_solver_status
 
     def nonlinear_line_search(self, model, dx: np.ndarray) -> np.ndarray:

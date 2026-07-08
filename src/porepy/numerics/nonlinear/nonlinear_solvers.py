@@ -6,15 +6,19 @@ Implemented classes:
 
 """
 
-from abc import ABC, abstractmethod
 import logging
+from abc import ABC, abstractmethod
 from typing import Optional, cast
 
 import numpy as np
 from scipy.sparse import csr_matrix
 
 import porepy as pp
-from porepy.numerics.linalg.linear_solver import LinearSolverDirect, LinearSolverBase
+from porepy.numerics.linalg.linear_solver import (
+    LinearSolverBase,
+    LinearSolverDirect,
+    LinearSolverStatus,
+)
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
@@ -31,7 +35,6 @@ from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.numerics.linalg.linear_solver import LinearSolverStatus
 from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
