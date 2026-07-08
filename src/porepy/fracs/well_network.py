@@ -220,7 +220,7 @@ class WellNetwork3d:
 
     @classmethod
     def from_csv(
-        cls, file_name: Path, has_domain: bool = True, domain: pp.Domain = None
+        cls, file_name: Path, has_domain: bool = True, domain: pp.Domain | None = None
     ) -> WellNetwork3d:
         """Import a well network from a csv file.
 
@@ -566,8 +566,8 @@ def _add_well_fracture_interfaces(
         mdg: Mixed-dimensional grid to which the well subdomains will be added.
         well_mdg: Mixed-dimensional grid containing the well subdomains.
         intersections: List of well-fracture intersection points.
-        orig_0d_domain_ids: List of original (before the introduction of well subdomains)
-            0-dimensional domain IDs.
+        orig_0d_domain_ids: List of original (before the introduction of well
+            subdomains) 0-dimensional domain IDs.
         tol: Geometric tolerance used in computations.
 
     Raises:
