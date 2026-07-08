@@ -536,7 +536,8 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     dim = 2  # 2D case
     time_steps = 5
 
-    model_params.update(
+    params = copy.deepcopy(model_params)
+    params.update(
         {
             "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
         }
@@ -559,11 +560,11 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
         )
 
     # Parameter setup for the momentum balance model.
-    model_params["exact_solution"] = ExactSolutionIsotropic
+    params["exact_solution"] = ExactSolutionIsotropic
     # Only pass active dimensions.
-    model_params["north_displacements"] = model_params["north_displacements"][:dim]  # type: ignore[index]
+    params["north_displacements"] = params["north_displacements"][:dim]
 
-    model = model_class(model_params)  # type: ignore[abstract]
+    model = model_class(params)  # type: ignore[abstract]
     # In some cases, the momentum balance model cannot converge with the default solver
     # settings. A relaxed nonlinear solver setting is used for the executable example.
     solver_params = {
