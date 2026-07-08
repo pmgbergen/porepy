@@ -146,6 +146,22 @@ class NewtonSolver(NonlinearSolverBase):
 
         """
 
+        # Check for old parameter keys in self.params, replace them with new keys and
+        # give a deprecation warning.
+        for old_key in ["nl_convergence_tol_res", "nl_convergence_tol"]:
+            old_to_new = {
+                "nl_convergence_tol_res": "nl_convergence_res_atol",
+                "nl_convergence_tol": "nl_convergence_inc_atol",
+            }
+            if old_key in self.params:
+                new_key = old_to_new[old_key]
+                logger.warning(
+                    f"You are using a parameter name that has been changed: '{old_key}'"
+                    f". Replace it with '{new_key}'. Currently replacing it "
+                    "automatically, but it will not always be the case."
+                )
+                self.params[new_key] = self.params[old_key]
+
         if "nl_convergence_criteria" in self.params:
             # Use user-provided convergence criteria.
             convergence_criteria = self.params["nl_convergence_criteria"]
