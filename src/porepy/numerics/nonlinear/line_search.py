@@ -66,7 +66,9 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         """Minimum weight for the line search weights."""
         return self.params.get("min_line_search_weight", 1e-10)
 
-    def iteration(self, model) -> np.ndarray:
+    def iteration(
+        self, model: pp.PorePyModel
+    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
         """A single nonlinear iteration.
 
         Add line search to the iteration method. First, call the super method to compute
@@ -77,16 +79,21 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             model: The simulation model.
 
         Returns:
-            The solution update.
+            The relaxed solution update and the linear solver status.
 
         """
-        dx = super().iteration(model)
+        dx, linear_solver_status = super().iteration(model)
+
+        # If the linear solver failed, not performing relaxation.
+        if linear_solver_status.is_failure():
+            return dx, linear_solver_status
+
         relaxation_vector = self.nonlinear_line_search(model, dx)
 
         # Update the solution
         sol = relaxation_vector * dx
         model._current_update = sol
-        return sol
+        return sol, linear_solver_status
 
     def nonlinear_line_search(self, model, dx: np.ndarray) -> np.ndarray:
         """Perform a line search along the Newton step.

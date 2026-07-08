@@ -43,21 +43,36 @@ DirectSolverBackends = Literal[
 
 @dataclass
 class LinearSolverStatus(ABC):
-    """TODO YZ"""
+    """Base class for information produced by a linear solver invocation."""
+
+    def is_success(self) -> bool:
+        # Developer note: This breaks the OOP principle that the base class should not
+        # know of its children, but we agreed on having these methods (is_success and
+        # is_failure) for convenience. One can think of LinearSolverStatus as a
+        # closed enum of two cases (success and failure), which in this case justifies
+        # this binding with child classes.
+        """Whether the linear system is solved successfully."""
+        return isinstance(self, LinearSolverStatusSuccess)
+
+    def is_failure(self) -> bool:
+        """Whether the linear system is not solved successfully."""
+        return isinstance(self, LinearSolverStatusFailure)
 
 
 @dataclass
 class LinearSolverStatusSuccess(LinearSolverStatus):
-    """TODO YZ"""
+    """Status returned when a linear system was solved successfully."""
 
     solve_time: float
+    """Wall-clock time spent solving the linear system, in seconds."""
 
 
 @dataclass
 class LinearSolverStatusFailure(LinearSolverStatus):
-    """TODO YZ"""
+    """Status returned when a linear solver failed."""
 
     reason: str
+    """Human-readable description of the failure."""
 
 
 class LinearSolverBase(ABC):
@@ -68,18 +83,28 @@ class LinearSolverBase(ABC):
 
     """
 
-    def initialize_with_model(self, model: pp.PorePyModel):
-        """Do something model related. TODO YZ"""
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        """Initialize model-dependent solver state.
+
+        Solvers without model-dependent state may use this default no-op implementation.
+
+        Note: This is needed in practice to construct a dof manager from a model in
+        the iterative solver. Due to the foreseen changes (introducing tags and indexers
+        on porepy side), this api might change.
+
+        Parameters:
+            model: Model whose linearized systems will be solved.
+
+        """
 
     @abstractmethod
     def solve_linear_system(
         self, mat: csr_matrix, rhs: np.ndarray
     ) -> tuple[np.ndarray, LinearSolverStatus]:
-        """Solver a linear system defined by a matrix `mat` and a right-hand side vector
-        `rhs`.
+        """Solve a linear system defined by ``mat`` and ``rhs``.
 
         Returns:
-            np.ndarray: Solution vector. TODO YZ
+            The solution vector and a status describing the solver outcome.
 
         """
 
@@ -120,7 +145,7 @@ class LinearSolverDirect(LinearSolverBase):
         """Solve linear system with a direct solver.
 
         Returns:
-            np.ndarray: Solution vector. TODO YZ
+            The solution vector and a status describing the solver outcome.
 
         """
         t_0 = time.time()

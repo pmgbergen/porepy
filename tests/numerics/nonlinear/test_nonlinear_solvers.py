@@ -34,13 +34,17 @@ from porepy.viz import solver_statistics
 # ! ---- Auxiliary fixtures and classes ---- ! #
 
 
+def linear_solver_statuses(num_statuses: int):
+    return [pp.LinearSolverStatusSuccess(solve_time=1.0)] * num_statuses
+
+
 def time_step_success() -> TimeStepperStatusSuccess:
     """Create a successful time-step status for statistics tests."""
     return TimeStepperStatusSuccess(
         time=1.0,
         dt=0.5,
         nonlinear_solver_status=NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=2,
+            linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
@@ -51,7 +55,7 @@ def time_step_failure() -> TimeStepperStatusFailure:
     """Create a failed time-step status for statistics tests."""
     return TimeStepperStatusFailure(
         nonlinear_solver_status=NonlinearSolverStatusFailed(
-            num_nonlinear_iterations=2,
+            linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
@@ -64,7 +68,7 @@ def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
     return TimeStepperStatusContinueIterating(
         attempt=0,
         nonlinear_solver_status=NonlinearSolverStatusFailed(
-            num_nonlinear_iterations=2,
+            linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
@@ -182,9 +186,12 @@ class MockLinearSolver(pp.LinearSolverBase):
         self.iteration_counter = -1
         """Counts the number of times solve_linear_system was called."""
 
-    def solve_linear_system(self, mat: csr_matrix, rhs: np.ndarray) -> np.ndarray:
+    def solve_linear_system(
+        self, mat: csr_matrix, rhs: np.ndarray
+    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
         self.iteration_counter += 1
-        return np.array(self.nonlinear_increment_history[self.iteration_counter])
+        increment = np.array(self.nonlinear_increment_history[self.iteration_counter])
+        return increment, pp.LinearSolverStatusSuccess(solve_time=0)
 
 
 class TimeDependentMockModel(MockModel):
@@ -252,7 +259,7 @@ def test_init_criteria():
 )
 def test_nonlinear_solver_status_serialization(status_type, expected):
     status = status_type(
-        num_nonlinear_iterations=2,
+        linear_solver_statuses=linear_solver_statuses(2),
         convergence_statuses=ConvergenceStatusCollection(),
         divergence_statuses=ConvergenceStatusCollection(),
     )
@@ -636,7 +643,9 @@ def test_nonlinear_loop(
 
     # Perform Newton loop.
     try:
-        convergence_status, divergence_status = solver.nonlinear_loop(model)
+        convergence_status, divergence_status, linear_solver_statuses = (
+            solver.nonlinear_loop(model)
+        )
 
         # Check that the returned statuses match expected values
         if is_converged:
@@ -648,8 +657,9 @@ def test_nonlinear_loop(
         else:
             assert divergence_status.is_converged()
 
-        # Check that the number of iterations is as expected.
+        # Check that the number of iterations and recorded linear solves is as expected.
         assert solver.iteration_index == num_iter
+        assert len(linear_solver_statuses) == num_iter
 
     except Exception as e:
         # Newton loop only stops on convergence or divergence.
@@ -699,7 +709,7 @@ def test_summarize_solver_status(
     # Minimal mimicking of loop.
     model.nonlinear_solver_statistics.solver_status_history = [
         NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=2,
+            linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
@@ -708,7 +718,7 @@ def test_summarize_solver_status(
     solver_status = _summarize_solver_status(
         ConvergenceStatusCollection({"convergence": convergence_status}),
         ConvergenceStatusCollection({"divergence": divergence_status}),
-        num_iterations=2,
+        linear_solver_statuses=linear_solver_statuses(2),
     )
 
     # Check that the returned simulation status matches expected value.
@@ -951,7 +961,7 @@ def test_linear_nonlinear_model(is_nonlinear: bool):
 
     # The solver will do 1 iteration for a linear problem and 3 for a nonlinear one.
     expected_num_iterations = 3 if is_nonlinear else 1
-    assert status.num_nonlinear_iterations == expected_num_iterations
+    assert len(status.linear_solver_statuses) == expected_num_iterations
 
 
 @pytest.mark.xfail(

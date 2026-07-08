@@ -54,7 +54,13 @@ from porepy.utils.interpolation_tables import (
 )
 from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
-from porepy.numerics.linalg.linear_solver import LinearSolverDirect, LinearSolverBase
+from porepy.numerics.linalg.linear_solver import (
+    LinearSolverBase,
+    LinearSolverDirect,
+    LinearSolverStatus,
+    LinearSolverStatusFailure,
+    LinearSolverStatusSuccess,
+)
 
 # Geometry
 from porepy.geometry import (

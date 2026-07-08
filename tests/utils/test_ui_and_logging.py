@@ -43,7 +43,6 @@ class MockModel:
     """
 
     def __init__(self, num_time_steps: int):
-        # TODO YZ docstring
         self.mdg = MockMDG()
         self.equation_system = MockEquationSystem()
         self.nonlinear_solver_statistics = pp.NonlinearSolverAndTimeStatistics()
@@ -100,13 +99,16 @@ class MockLinearSolver(pp.LinearSolverBase):
         self.num_nl_iterations = num_nl_iterations
         self.iteration_count = 0
 
-    def solve_linear_system(self, mat: csr_matrix, rhs: np.ndarray) -> np.ndarray:
+    def solve_linear_system(
+        self, mat: csr_matrix, rhs: np.ndarray
+    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
         self.iteration_count += 1
         if self.iteration_count < self.num_nl_iterations:
-            return np.array([1.0])
+            increment = np.array([1.0])
         else:
             self.iteration_count = 0
-            return np.array([1e-11])
+            increment = np.array([1e-11])
+        return increment, pp.LinearSolverStatusSuccess(solve_time=0.0)
 
 
 @pytest.fixture(scope="module")

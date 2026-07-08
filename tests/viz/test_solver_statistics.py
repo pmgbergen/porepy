@@ -58,16 +58,19 @@ def nonlinear_solver_status(
 ) -> NonlinearSolverStatus:
     """Create a nonlinear solver status for the tests."""
     if status == "converged":
-        status_type = NonlinearSolverStatusConverged
+        return NonlinearSolverStatusConverged(
+            linear_solver_statuses=[pp.LinearSolverStatusSuccess(solve_time=0.0)] * 2,
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
     elif status == "failed":
-        status_type = NonlinearSolverStatusFailed
+        return NonlinearSolverStatusFailed(
+            linear_solver_statuses=[pp.LinearSolverStatusFailure(reason="")] * 2,
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
     else:
         raise ValueError(status)
-    return status_type(
-        num_nonlinear_iterations=2,
-        convergence_statuses=ConvergenceStatusCollection(),
-        divergence_statuses=ConvergenceStatusCollection(),
-    )
 
 
 def time_stepper_status(
@@ -278,14 +281,14 @@ def test_solver_statistics_initialization():
     assert stats.simulation_status == TimeStepperStatusContinueIterating(
         attempt=-1,
         nonlinear_solver_status=NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=-1,
+            linear_solver_statuses=[],
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         ),
     )
     assert stats.simulation_status_history == []
     assert stats.solver_status == NonlinearSolverStatusConverged(
-        num_nonlinear_iterations=-1,
+        linear_solver_statuses=[],
         convergence_statuses=ConvergenceStatusCollection(),
         divergence_statuses=ConvergenceStatusCollection(),
     )
