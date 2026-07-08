@@ -218,12 +218,13 @@ class RediscretizationTest(pp.PorePyModel):
         else:
             return super().rediscretize()
 
-    def assemble_linear_system(self) -> None:
+    def assemble_linear_system(self) -> pp.LinearSystem:
         """Store all assembled linear systems for later comparison."""
-        super().assemble_linear_system()
+        linear_system = super().assemble_linear_system()
         if not hasattr(self, "stored_linear_system"):
             self.stored_linear_system = []
-        self.stored_linear_system.append(copy.deepcopy(self.linear_system))
+        self.stored_linear_system.append(copy.deepcopy(linear_system))
+        return linear_system
 
 
 # Non-trivial solution achieved through BCs.
@@ -307,17 +308,25 @@ def test_targeted_rediscretization(model_class):
     assert len(full_model.stored_linear_system) == 2
     assert len(targeted_model.stored_linear_system) == 2
     for i in range(len(full_model.stored_linear_system)):
-        A_full, b_full = full_model.stored_linear_system[i]
-        A_targeted, b_targeted = targeted_model.stored_linear_system[i]
+        full_system = full_model.stored_linear_system[i]
+        targeted_system = targeted_model.stored_linear_system[i]
+        A_full, b_full = full_system.matrix, full_system.rhs
+        A_targeted, b_targeted = targeted_system.matrix, targeted_system.rhs
 
         # Convert to dense array to ensure the matrices are identical.
+        assert A_full is not None
+        assert A_targeted is not None
         assert np.allclose(A_full.toarray(), A_targeted.toarray())
         assert np.allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this
     # check, missing rediscretization may go unnoticed.
     tol = 1e-2
-    diff = full_model.stored_linear_system[0][0] - full_model.stored_linear_system[1][0]
+    first_matrix = full_model.stored_linear_system[0].matrix
+    second_matrix = full_model.stored_linear_system[1].matrix
+    assert first_matrix is not None
+    assert second_matrix is not None
+    diff = first_matrix - second_matrix
     assert np.linalg.norm(diff.todense()) > tol
 
 

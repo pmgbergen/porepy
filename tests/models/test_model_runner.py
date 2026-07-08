@@ -27,7 +27,7 @@ def test_failed_nonlinear_solve_dynamic_time_step():
             values = np.full(self.equation_system.num_dofs(), STATE_VALUE)
             self.equation_system.set_variable_values(values, iterate_index=0)
 
-        def assemble_linear_system(self) -> None:
+        def assemble_linear_system(self) -> pp.LinearSystem:
             # The iterate array should be equal to the state array, since we never
             # proceed further than the 0-th Newton iteration.
             nonlocal num_times_visited_assemble_linear_system
@@ -41,12 +41,13 @@ def test_failed_nonlinear_solve_dynamic_time_step():
 
     class MockLinearSolver(pp.LinearSolverBase):
         def solve_linear_system(
-            self, mat, rhs
+            self, linear_system: pp.LinearSystem
         ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
             nonlocal num_times_visited_solve_linear_system
             num_times_visited_solve_linear_system += 1
 
             # Nans from the previous iteration must not propagate here.
+            rhs = linear_system.rhs
             assert not np.any(np.isnan(rhs))
             # The linear solver failed and returned an array of nans.
             return np.full_like(rhs, np.nan), pp.LinearSolverStatusFailure(
