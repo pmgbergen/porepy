@@ -281,7 +281,7 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
 
 def set_model_params():
     # Adjust solid values, while using default values for water.
-    solid_values = cast(dict[str, float], pp.solid_values.basalt)
+    solid_values = cast(dict[str, float], pp.solid_values.basalt.copy())
     solid_values.update(
         {
             "dilation_angle": 0.1,  # [rad]
