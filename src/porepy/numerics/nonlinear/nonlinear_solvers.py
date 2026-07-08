@@ -109,7 +109,10 @@ class NewtonSolver(NonlinearSolverBase):
         self.linear_solver: LinearSolverBase = linear_solver
         """Linear solver object to solve the Jacobian linear systems."""
         self._linear_solver_initialized = False
-        """TODO YZ"""
+        """Whether model-dependent linear solver state has been initialized.
+        Initialization is done once at :meth:`solve`.
+
+        """
 
         self.init_convergence_criteria(is_nonlinear_problem=is_nonlinear_problem)
         self.init_divergence_criteria(is_nonlinear_problem=is_nonlinear_problem)
@@ -300,7 +303,7 @@ class NewtonSolver(NonlinearSolverBase):
             The status of the nonlinear solver.
 
         """
-        # TODO YZ
+        # Model-dependent setup of a linear solver is done once.
         if not self._linear_solver_initialized:
             self.linear_solver.initialize_with_model(model)
             self._linear_solver_initialized = True

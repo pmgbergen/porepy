@@ -649,7 +649,8 @@ def test_schur_complement_inverter_on_model(
     # solver for the schur complement strategy is introduced.
     assert model._apply_schur_complement_reduction()
     nonlinear_solver = pp.NewtonSolver()
-    expanded_sol = nonlinear_solver.iteration(model)
+    expanded_sol, status = nonlinear_solver.iteration(model)
+    assert status.is_success()
 
     # Solving the full matrix without taking the Schur complement as a reference.
     mat, rhs = model.equation_system.assemble()

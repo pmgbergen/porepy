@@ -40,14 +40,18 @@ def test_failed_nonlinear_solve_dynamic_time_step():
             return super().assemble_linear_system()
 
     class MockLinearSolver(pp.LinearSolverBase):
-        def solve_linear_system(self, mat, rhs) -> np.ndarray:
+        def solve_linear_system(
+            self, mat, rhs
+        ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
             nonlocal num_times_visited_solve_linear_system
             num_times_visited_solve_linear_system += 1
 
             # Nans from the previous iteration must not propagate here.
             assert not np.any(np.isnan(rhs))
             # The linear solver failed and returned an array of nans.
-            return np.full_like(rhs, np.nan)
+            return np.full_like(rhs, np.nan), pp.LinearSolverStatusFailure(
+                reason="Mock linear solver failure"
+            )
 
     model_params = {
         "time_manager": pp.TimeManager(
@@ -63,7 +67,9 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     model_runner = pp.ModelRunner(
         model,
         params=runner_params,
-        nonlinear_solver=pp.NewtonSolver(linear_solver=MockLinearSolver()),
+        nonlinear_solver=pp.NewtonSolver(
+            params=runner_params, linear_solver=MockLinearSolver()
+        ),
     )
     with pytest.raises(RuntimeError):
         model_runner.run()
