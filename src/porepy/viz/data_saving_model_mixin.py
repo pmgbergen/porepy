@@ -345,7 +345,7 @@ class IterationExporting(pp.PorePyModel):
         iterate subdictionary.
 
         """
-        super().after_nonlinear_iteration(solution_vector)  # type: ignore[misc]
+        super().after_nonlinear_iteration(solution_vector)  # type: ignore[safe-super]
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
 

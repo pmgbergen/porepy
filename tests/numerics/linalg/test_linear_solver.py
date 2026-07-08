@@ -2,9 +2,10 @@
 
 from typing import Literal
 
+import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
-import numpy as np
+
 from porepy.numerics.linalg.linear_solver import LinearSolverDirect
 
 

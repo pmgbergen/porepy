@@ -728,12 +728,6 @@ else:
 
             """
 
-        def assemble_linear_system(self) -> None:
-            """Assemble the linearized system and store it in :attr:`linear_system`."""
-
-        def after_nonlinear_failure(self) -> None:
-            """Called after the solver converges."""
-
         def after_time_step_convergence(self) -> None:
             """Called once after a time step converges."""
 
