@@ -287,7 +287,7 @@ class TwoWells3d(SubsurfaceCuboidDomain):
 
     def well_meshing_arguments(self) -> dict:
         *_, dz = self.domain_sizes()
-        mesh_size = self.params.get("well_mesh_size", {"mesh_size": 0.1 * dz})
+        mesh_size = self.params.get("well_meshing_arguments", {"cell_size": 0.1 * dz})
         return mesh_size
 
 
