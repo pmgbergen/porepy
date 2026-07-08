@@ -34,9 +34,6 @@ class NonlinearSolverStatus(ABC):
         return isinstance(self, NonlinearSolverStatusFailed)
 
 
-# TODO YZ: Will all nonlinear solvers have these fields???
-
-
 @dataclass
 class NonlinearSolverStatusConverged(NonlinearSolverStatus):
     """The NewtonSolver solved the problem successfully."""

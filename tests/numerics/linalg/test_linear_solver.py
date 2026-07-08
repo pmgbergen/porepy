@@ -51,13 +51,14 @@ def test_linear_solver_direct(case: str, backend: str):
     mat, rhs = make_linear_system(case=case)
     linear_solver = LinearSolverDirect(backend=backend)
     if backend != "unknown_backend":
-        sol = linear_solver.solve_linear_system(mat=mat, rhs=rhs)
+        sol, status = linear_solver.solve_linear_system(mat=mat, rhs=rhs)
     else:
         with pytest.raises(ValueError):
             linear_solver.solve_linear_system(mat=mat, rhs=rhs)
         return
 
     if case == "nonsingular":
+        assert status.is_success()
         assert np.allclose(mat @ sol - rhs, 0, rtol=0, atol=1e-10)
     elif case == "singular":
         # Returned array can have anything inside, but with the right shape and dtype.

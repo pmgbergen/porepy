@@ -120,8 +120,8 @@ class MockLinearSolver(pp.LinearSolverBase):
     def __init__(self, num_dofs: int) -> None:
         self.num_dofs = num_dofs
 
-    def solve_linear_system(self, mat, rhs) -> np.ndarray:
-        return np.ones(self.num_dofs)
+    def solve_linear_system(self, mat, rhs) -> tuple[np.ndarray, pp.LinearSolverStatus]:
+        return np.ones(self.num_dofs), pp.LinearSolverStatusSuccess(solve_time=0)
 
 
 class MockNonlinearSolver(pp.NonlinearSolverBase):
@@ -141,12 +141,12 @@ class MockNonlinearSolver(pp.NonlinearSolverBase):
         self._iter += 1
         if self._iter < self.num_iters_for_success:
             return NonlinearSolverStatusFailed(
-                num_nonlinear_iterations=self._iter,
+                linear_solver_statuses=[pp.LinearSolverStatusSuccess(0)] * (self._iter),
                 convergence_statuses=ConvergenceStatusCollection(),
                 divergence_statuses=ConvergenceStatusCollection(),
             )
         return NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=self._iter,
+            linear_solver_statuses=[pp.LinearSolverStatusSuccess(0)] * (self._iter),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
