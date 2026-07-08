@@ -15,7 +15,7 @@ class PoromechanicsWithDiagnostics(DiagnosticsMixin, Poromechanics):
 
 
 @pytest.fixture
-def model() -> PoromechanicsWithDiagnostic:
+def model() -> PoromechanicsWithDiagnostics:
     """Assembles test PorePy model."""
     model = PoromechanicsWithDiagnostics()
     # Common preprocessing is done to assemble the linear system.
