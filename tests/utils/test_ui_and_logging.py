@@ -90,8 +90,8 @@ class MockModel:
     def after_nonlinear_failure(self):
         pass
 
-    def assemble_linear_system(self) -> None:
-        self.linear_system = csr_matrix((0, 0)), np.ones(shape=())
+    def assemble_linear_system(self) -> pp.LinearSystem:
+        return pp.LinearSystem(csr_matrix((0, 0)), np.ones(shape=()))
 
 
 class MockLinearSolver(pp.LinearSolverBase):
@@ -100,7 +100,7 @@ class MockLinearSolver(pp.LinearSolverBase):
         self.iteration_count = 0
 
     def solve_linear_system(
-        self, mat: csr_matrix, rhs: np.ndarray
+        self, linear_system: pp.LinearSystem
     ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
         self.iteration_count += 1
         if self.iteration_count < self.num_nl_iterations:

@@ -1,6 +1,7 @@
 """Linear solvers to be used inside nonlinear sovlers.
 
 Implemented classes:
+    LinearSystem - container for an assembled matrix and right-hand side.
     LinearSolverBase - abstract class describing the linear solver interface.
     LinearSolverDirect - a direct solver with multiple supported backends.
 
@@ -10,8 +11,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import DEBUG, getLogger
-from typing import Literal
-
+from typing import Literal, Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
@@ -76,6 +76,33 @@ class LinearSolverStatusFailure(LinearSolverStatus):
     """Human-readable description of the failure."""
 
 
+@dataclass
+class LinearSystem:
+    """Container for an assembled matrix and right-hand side vector.
+
+    The matrix may be released to reduce memory use, so callers should check that
+    :attr:`matrix` is not ``None`` before using it.
+
+    To actually deallocate the matrix and free the memory, you need to ensure that no
+    other Python object has a reference to :attr:`matrix`. Having a reference to the
+    ``LinearSystem`` object is fine. Use :meth:`release_matrix_reference` to remove the
+    matrix from this container.
+
+    """
+
+    matrix: Optional[csr_matrix]
+    rhs: np.ndarray
+
+    def release_matrix_reference(self) -> None:
+        """Release this container's reference to the matrix.
+
+        This method does not invoke garbage collection. The caller is responsible for
+        triggering garbage collection if needed.
+
+        """
+        self.matrix = None
+
+
 class LinearSolverBase(ABC):
     """Abstract base class defining the interface for linear solvers.
 
@@ -100,9 +127,12 @@ class LinearSolverBase(ABC):
 
     @abstractmethod
     def solve_linear_system(
-        self, mat: csr_matrix, rhs: np.ndarray
+        self, linear_system: LinearSystem
     ) -> tuple[np.ndarray, LinearSolverStatus]:
-        """Solve a linear system defined by ``mat`` and ``rhs``.
+        """Solve an assembled linear system.
+
+        Parameters:
+            linear_system: System containing the matrix and right-hand side vector.
 
         Returns:
             The solution vector and a status describing the solver outcome.
@@ -141,15 +171,22 @@ class LinearSolverDirect(LinearSolverBase):
         """String specifying a direct linear solver implementation."""
 
     def solve_linear_system(
-        self, mat: csr_matrix, rhs: np.ndarray
+        self, linear_system: LinearSystem
     ) -> tuple[np.ndarray, LinearSolverStatus]:
         """Solve linear system with a direct solver.
+
+        Parameters:
+            linear_system: System containing the matrix and right-hand side vector.
 
         Returns:
             The solution vector and a status describing the solver outcome.
 
         """
         t_0 = time.time()
+        mat = linear_system.matrix
+        rhs = linear_system.rhs
+        if mat is None:
+            raise ValueError("Cannot solve a linear system whose matrix was released.")
 
         # Log debugging statistics. Can be expensive for large matrices, so computing
         # only if needed.

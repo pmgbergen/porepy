@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence
 import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.sparse import csr_matrix, spmatrix
+from scipy.sparse import spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
@@ -19,6 +19,7 @@ from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
+from porepy.numerics.linalg.linear_solver import LinearSystem
 
 if TYPE_CHECKING:
     from porepy import GridLike
@@ -65,28 +66,27 @@ class DiagnosticsMixin:
         >>>     pass
         >>> model = MandelDiagnostics(params={})
         >>> porepy.ModelRunner(model).run()
-        >>> model.run_diagnostics()
+        >>> linear_system = model.assemble_linear_system()
+        >>> model.run_diagnostics(linear_system)
 
     """
 
     # The mixin expects the model to have these properties defined.
-    linear_system: tuple[csr_matrix, np.ndarray]
     equation_system: EquationSystem
     mdg: MixedDimensionalGrid
 
     def run_diagnostics(
         self,
+        linear_system: LinearSystem,
         grouping: (
             GridGroupingType | Literal["dense", "subdomains", "interfaces"] | None
         ) = None,
         default_handlers: Sequence[Literal["cond", "max"]] = ("max",),
         additional_handlers: Optional[dict[str, SubmatrixHandlerType]] = None,
     ) -> DiagnosticsData:
-        """Collects and plots diagnostics from the last assembled Jacobian matrix stored
-        in :attr:`~self.linear_system`.
+        """Collect and plot diagnostics for an assembled Jacobian matrix.
 
-        It is assumed that the full Jacobian matrix is stored in `self.linear_system`,
-        and full information about the matrix indices is stored in
+        It is assumed that full information about the matrix indices is stored in
         `self.equation_system.equation_image_space_composition`.
 
         Note:
@@ -94,6 +94,7 @@ class DiagnosticsMixin:
             are semantically the same variable.
 
         Parameters:
+            linear_system: The assembled system whose matrix is to be analyzed.
             grouping (optional): Supports gathering the data related to one equation /
                 variable from grids of interest. For this, pass a list of grid blocks.
                 Each grid block must be a list of grids. Pass `None` to treat all grids
@@ -164,7 +165,10 @@ class DiagnosticsMixin:
         # The type is checked one line earlier.
         grouping_: GridGroupingType = grouping  # type: ignore
 
-        full_matrix: csr_matrix = self.linear_system[0]
+        full_matrix = linear_system.matrix
+        assert full_matrix is not None, (
+            "Cannot diagnose a linear system whose matrix was freed."
+        )
 
         # Validating default_handlers.
         assert all(x in ("cond", "max") for x in default_handlers)

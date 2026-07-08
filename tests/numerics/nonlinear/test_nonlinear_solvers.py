@@ -165,8 +165,8 @@ class MockModel:
     def after_nonlinear_failure(self):
         self.nonlinear_solver_statistics.save()
 
-    def assemble_linear_system(self):
-        self.linear_system = csr_matrix((0, 0)), np.zeros(shape=())
+    def assemble_linear_system(self) -> pp.LinearSystem:
+        return pp.LinearSystem(csr_matrix((0, 0)), np.zeros(shape=()))
 
     def _is_time_dependent(self):
         return False
@@ -187,7 +187,7 @@ class MockLinearSolver(pp.LinearSolverBase):
         """Counts the number of times solve_linear_system was called."""
 
     def solve_linear_system(
-        self, mat: csr_matrix, rhs: np.ndarray
+        self, linear_system: pp.LinearSystem
     ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
         self.iteration_counter += 1
         increment = np.array(self.nonlinear_increment_history[self.iteration_counter])
