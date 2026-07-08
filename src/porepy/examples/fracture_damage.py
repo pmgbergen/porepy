@@ -562,7 +562,8 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     # Parameter setup for the momentum balance model.
     params["exact_solution"] = ExactSolutionIsotropic
     # Only pass active dimensions.
-    params["north_displacements"] = params["north_displacements"][:dim]
+    active_dimensions = params["north_displacements"][:dim]  # type: ignore[index]
+    params["north_displacements"] = active_dimensions
 
     model = model_class(params)  # type: ignore[abstract]
     # In some cases, the momentum balance model cannot converge with the default solver
