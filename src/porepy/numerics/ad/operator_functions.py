@@ -76,8 +76,7 @@ class AbstractFunction(Operator):
         # NOTE Constructor is overwritten to have a consistent signature
         # But the operation is always overwritten to point to evaluate.
         # Done for reasons of multiple inheritance.
-        # Space intentionally unspecified: function wrappers do not know the grid/dof
-        # context of their future arguments at construction time.
+
         super().__init__(
             name=name,
             operation=pp.ad.operators.Operations.evaluate,
@@ -271,7 +270,14 @@ class DiagonalJacobianFunction(AbstractFunction):
         multipliers: float | list[float],
         name: str,
     ):
-        super().__init__(name=name)
+        # For now, use unclear() for source and target, since the function is not aware
+        # of the grid/dof context of its arguments. This should be improved if this
+        # code is brought back to shape at some point.
+        if source is None:
+            source = OperatorSpace.unclear()
+        if target is None:
+            target = OperatorSpace.unclear()
+        super().__init__(name=name, source=source, target=target)
         # check and format input for further use
         if isinstance(multipliers, list):
             self._multipliers = [float(val) for val in multipliers]
@@ -385,7 +391,14 @@ class InterpolatedFunction(AbstractFunction):
         order: int = 1,
         preval: bool = False,
     ):
-        super().__init__(name=name)
+        # For now, use unclear() for source and target, since the function is not aware
+        # of the grid/dof context of its arguments. This should be improved if this
+        # code is brought back to shape at some point.
+        if source is None:
+            source = OperatorSpace.unclear()
+        if target is None:
+            target = OperatorSpace.unclear()
+        super().__init__(name=name, source=source, target=target)
 
         ### PUBLIC
         self.order: int = order
