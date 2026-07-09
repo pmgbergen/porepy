@@ -156,7 +156,10 @@ class BoundaryConditionMixin(pp.PorePyModel):
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
             raise ValueError("Domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(
-            name=name, domains=domains, dof_info={pp.ad.GridEntity.cells: dim}
+            name=name,
+            domains=domains,
+            dof_info={pp.ad.GridEntity.cells: dim},
+            domain_type=pp.ad.DomainType.boundary_grids,
         )
 
     def _combine_boundary_operators(
@@ -199,11 +202,13 @@ class BoundaryConditionMixin(pp.PorePyModel):
                 name=(name + "_filter_dir"),
                 domains=boundary_grids,
                 dof_info={pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
             ),
             "neumann": pp.ad.TimeDependentDenseArray(
                 name=(name + "_filter_neu"),
                 domains=boundary_grids,
                 dof_info={pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
             ),
         }
 
@@ -215,6 +220,7 @@ class BoundaryConditionMixin(pp.PorePyModel):
                 name=(name + "_filter_rob"),
                 domains=boundary_grids,
                 dof_info={pp.ad.GridEntity.cells: dim},
+                domain_type=pp.ad.DomainType.boundary_grids,
             )
 
         # Adding bc_type function to local storage to evaluate it before every time step

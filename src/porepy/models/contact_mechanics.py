@@ -301,6 +301,7 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             self.interface_displacement_parameter_key,
             interfaces,
             dof_info={pp.ad.GridEntity.cells: self.nd},
+            domain_type=pp.ad.DomainType.interfaces,
         )
 
     def interface_displacement_parameter_values(
