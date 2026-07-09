@@ -39,6 +39,29 @@ def _grid_for_dim(dim: int) -> pp.Grid:
     return g
 
 
+def _zeros_for(space: OperatorSpace) -> np.ndarray:
+    """A zero array whose size matches ``space``'s actual DOF count.
+
+    Used throughout this test module so that constructing a ``DenseArray``
+    with a given (grid-based) space always passes the shape-consistency
+    check added to :class:`DenseArray`/:class:`SparseArray`, regardless of
+    the concrete grids used to build that space.
+    """
+    return np.zeros(space.num_dofs())
+
+
+def _ones_for(space: OperatorSpace) -> np.ndarray:
+    """Like :func:`_zeros_for`, but filled with ones."""
+    return np.ones(space.num_dofs())
+
+
+def _eye_for(target: OperatorSpace, source: OperatorSpace) -> sps.spmatrix:
+    """An identity-like (possibly rectangular) sparse matrix whose shape matches
+    ``(target.num_dofs(), source.num_dofs())``, for use with :class:`SparseArray`.
+    """
+    return sps.eye(target.num_dofs(), source.num_dofs(), format="csr")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -420,7 +443,7 @@ class TestDenseArraySpace:
     def test_dense_array_with_explicit_space(self, two_subdomains):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        arr = DenseArray(np.ones(5), source=space, target=space)
+        arr = DenseArray(_ones_for(space), source=space, target=space)
         assert arr.source == space
         assert arr.target == space
 
@@ -439,6 +462,90 @@ class TestSparseArraySpace:
         op = SparseArray(mat, source=space, target=space)
         assert op.source == space
         assert op.target == space
+
+
+class TestShapeConsistencyCheck:
+    """Tests for the shape-consistency safety net added to
+    :class:`SparseArray`/:class:`DenseArray` (Step 1 of the "activate strict
+    operator spaces" plan). This check verifies, at construction time, that a
+    grid-based ``source``/``target`` space actually predicts the same number
+    of degrees of freedom as the wrapped array/matrix's shape -- catching bugs
+    where the space's ``dof_info``/``grids`` do not match the real data.
+    """
+
+    def test_dense_array_consistent_shape_passes(self, two_subdomains):
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        # g has 4 cells; this must not raise.
+        DenseArray(np.ones(g.num_cells), source=space, target=space)
+
+    def test_dense_array_inconsistent_shape_raises(self, two_subdomains):
+        g, _ = two_subdomains
+        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            # g has 4 cells, not 5.
+            DenseArray(np.ones(g.num_cells + 1), source=space, target=space)
+
+    def test_dense_array_inconsistent_source_raises(self, two_subdomains):
+        """Source and target need not be equal, but each must independently be
+        consistent with the array's size."""
+        g, _ = two_subdomains
+        target_space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        wrong_source_space = OperatorSpace.from_domains(
+            [g], {GridEntity.faces: 1}
+        )
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            DenseArray(
+                np.ones(g.num_cells),
+                source=wrong_source_space,
+                target=target_space,
+            )
+
+    def test_sparse_array_consistent_shape_passes(self, two_subdomains):
+        g, _ = two_subdomains
+        cell_space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        face_space = OperatorSpace.from_domains([g], {GridEntity.faces: 1})
+        mat = sps.eye(g.num_cells, g.num_faces, format="csr")
+        # Rows (target) match cell_space, columns (source) match face_space.
+        SparseArray(mat, source=face_space, target=cell_space)
+
+    def test_sparse_array_inconsistent_target_raises(self, two_subdomains):
+        g, _ = two_subdomains
+        cell_space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        face_space = OperatorSpace.from_domains([g], {GridEntity.faces: 1})
+        # Shape's row count (g.num_faces) does not match cell_space's DOF count.
+        mat = sps.eye(g.num_faces, g.num_faces, format="csr")
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            SparseArray(mat, source=face_space, target=cell_space)
+
+    def test_sparse_array_inconsistent_source_raises(self, two_subdomains):
+        g, _ = two_subdomains
+        cell_space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
+        # Shape's column count (g.num_cells) does not match cell_space's DOF
+        # count when used as the source alongside itself as target, unless
+        # g happens to have as many cells as faces -- use a deliberately wrong
+        # source space (faces) against a square cells-shaped matrix instead.
+        face_space = OperatorSpace.from_domains([g], {GridEntity.faces: 1})
+        mat = sps.eye(g.num_cells, g.num_cells, format="csr")
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            SparseArray(mat, source=face_space, target=cell_space)
+
+    def test_none_space_skips_check(self):
+        """A None source/target must not trigger the shape check (needed for the
+        ongoing, partial migration -- see the strict-operator-spaces plan)."""
+        DenseArray(np.ones(7))
+        SparseArray(sps.eye(3, 5, format="csr"))
+
+    def test_scalar_space_skips_check(self):
+        """Scalar spaces carry no grid-based size prediction, so any array size
+        is accepted."""
+        scalar = OperatorSpace.scalar()
+        DenseArray(np.ones(7), source=scalar, target=scalar)
+
+    def test_unclear_space_skips_check(self):
+        """Unclear spaces carry no grid-based size prediction either."""
+        unclear = OperatorSpace.unclear()
+        DenseArray(np.ones(7), source=unclear, target=unclear)
 
 
 # ---------------------------------------------------------------------------
@@ -522,8 +629,8 @@ class TestDomainRangePropagation:
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
         # A maps s1 -> s2, B maps s2 -> s1
-        A = SparseArray(sps.eye(4, format="csr"), source=s1, target=s2)
-        B = SparseArray(sps.eye(4, format="csr"), source=s2, target=s1)
+        A = SparseArray(_eye_for(s2, s1), source=s1, target=s2)
+        B = SparseArray(_eye_for(s1, s2), source=s2, target=s1)
         result = A @ B
         assert result.source == s2
         assert result.target == s2
@@ -534,8 +641,8 @@ class TestDomainRangePropagation:
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
         # A.source=s1, B.target=s2 -> incompatible
-        A = SparseArray(sps.eye(4, format="csr"), source=s1, target=s2)
-        B = SparseArray(sps.eye(4, format="csr"), source=s1, target=s2)
+        A = SparseArray(_eye_for(s2, s1), source=s1, target=s2)
+        B = SparseArray(_eye_for(s2, s1), source=s1, target=s2)
         with pytest.raises(ValueError, match="[Ii]ncompat"):
             _ = A @ B
 
@@ -857,12 +964,12 @@ class TestInferDomainRange:
     @pytest.fixture
     def cell_op(self, cell_space):
         """A leaf operator with source=target=cell_space."""
-        return DenseArray(np.zeros(3), source=cell_space, target=cell_space)
+        return DenseArray(_zeros_for(cell_space), source=cell_space, target=cell_space)
 
     @pytest.fixture
     def face_op(self, face_space):
         """A leaf operator with source=target=face_space."""
-        return DenseArray(np.zeros(3), source=face_space, target=face_space)
+        return DenseArray(_zeros_for(face_space), source=face_space, target=face_space)
 
     # --- elementwise: compatible operands ---
 
@@ -894,8 +1001,10 @@ class TestInferDomainRange:
         self, cell_op, face_op, binary_op
     ):
         """Elementwise ops with different domains get the unclear-domain sentinel."""
-        projected = DenseArray(
-            np.zeros(3), source=face_op.source, target=cell_op.target
+        projected = SparseArray(
+            _eye_for(cell_op.target, face_op.source),
+            source=face_op.source,
+            target=cell_op.target,
         )
         result = binary_op(cell_op, projected)
         assert result.source == OperatorSpace.unclear()
@@ -907,8 +1016,10 @@ class TestInferDomainRange:
         top_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         union_space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
 
-        local = DenseArray(np.zeros(3), source=top_space, target=top_space)
-        projected = DenseArray(np.zeros(3), source=union_space, target=top_space)
+        local = DenseArray(_zeros_for(top_space), source=top_space, target=top_space)
+        projected = SparseArray(
+            _eye_for(top_space, union_space), source=union_space, target=top_space
+        )
 
         result = local * projected
 
@@ -920,8 +1031,10 @@ class TestInferDomainRange:
         g1, g2 = two_subdomains
         left_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         right_space = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
-        left = DenseArray(np.zeros(3), source=left_space, target=left_space)
-        right = DenseArray(np.zeros(3), source=right_space, target=left_space)
+        left = DenseArray(_zeros_for(left_space), source=left_space, target=left_space)
+        right = SparseArray(
+            _eye_for(left_space, right_space), source=right_space, target=left_space
+        )
 
         result = left + right
 
@@ -930,10 +1043,14 @@ class TestInferDomainRange:
 
     def test_elementwise_unclear_domain_propagates(self, cell_space, face_space):
         """Once unclear, the elementwise result remains unclear."""
-        unclear = DenseArray(
-            np.zeros(3), source=OperatorSpace.unclear(), target=cell_space
+        unclear = SparseArray(
+            _eye_for(cell_space, cell_space),
+            source=OperatorSpace.unclear(),
+            target=cell_space,
         )
-        known = DenseArray(np.zeros(3), source=face_space, target=cell_space)
+        known = SparseArray(
+            _eye_for(cell_space, face_space), source=face_space, target=cell_space
+        )
 
         result = unclear + known
 
@@ -950,8 +1067,8 @@ class TestInferDomainRange:
         # A: faces → cells (source=face_sp, target=cell_sp)
         # B: cells → faces (source=cell_sp, target=face_sp)
         # A @ B: target(B)=face_sp == source(A)=face_sp → valid
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
         result = A @ B
         assert result.source == cell_sp
         assert result.target == cell_sp
@@ -962,8 +1079,8 @@ class TestInferDomainRange:
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
         face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
         # A: faces → cells, B: faces → cells (target(B)=cells != source(A)=faces)
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        B = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        B = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = A @ B
 
@@ -974,8 +1091,14 @@ class TestInferDomainRange:
         right_range = OperatorSpace.from_domains([g2], {GridEntity.faces: 1})
         left_range = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         right_domain = OperatorSpace.from_domains([g2], {GridEntity.cells: 1})
-        left = SparseArray(sps.eye(3), source=left_domain, target=left_range)
-        right = SparseArray(sps.eye(3), source=right_domain, target=right_range)
+        left = SparseArray(
+            _eye_for(left_range, left_domain), source=left_domain, target=left_range
+        )
+        right = SparseArray(
+            _eye_for(right_range, right_domain),
+            source=right_domain,
+            target=right_range,
+        )
 
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = left @ right
@@ -983,9 +1106,11 @@ class TestInferDomainRange:
     def test_matmul_with_unclear_left_source_raises(self, cell_space, face_space):
         """A left operand with unclear source cannot be used in matmul."""
         unclear = SparseArray(
-            sps.eye(3), source=OperatorSpace.unclear(), target=cell_space
+            sps.eye(cell_space.num_dofs(), format="csr"),
+            source=OperatorSpace.unclear(),
+            target=cell_space,
         )
-        rhs = DenseArray(np.zeros(3), source=face_space, target=face_space)
+        rhs = DenseArray(_zeros_for(face_space), source=face_space, target=face_space)
 
         with pytest.raises(ValueError, match="left operand.*source is unclear"):
             _ = unclear @ rhs
@@ -993,9 +1118,13 @@ class TestInferDomainRange:
     def test_rmatmul_with_unclear_right_operand_raises(self, cell_space, face_space):
         """The operator on the right-hand side of rmatmul cannot have unclear source."""
         unclear = SparseArray(
-            sps.eye(3), source=OperatorSpace.unclear(), target=cell_space
+            sps.eye(cell_space.num_dofs(), format="csr"),
+            source=OperatorSpace.unclear(),
+            target=cell_space,
         )
-        lhs = SparseArray(sps.eye(3), source=face_space, target=face_space)
+        lhs = SparseArray(
+            _eye_for(face_space, face_space), source=face_space, target=face_space
+        )
 
         with pytest.raises(ValueError, match="right operand.*source is unclear"):
             _ = unclear.__rmatmul__(lhs)
@@ -1032,7 +1161,7 @@ class TestInferDomainRange:
     def test_none_plus_known_inherits_known(self, cell_space):
         """Operator with None domain + operator with known domain → inherits known."""
         unknown = DenseArray(np.zeros(3))  # source=None
-        known = DenseArray(np.zeros(3), source=cell_space, target=cell_space)
+        known = DenseArray(_zeros_for(cell_space), source=cell_space, target=cell_space)
         result = unknown + known
         assert result.source == cell_space
         assert result.target == cell_space
@@ -1089,8 +1218,8 @@ class TestCompoundOperatorSpaces:
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         # A maps faces→cells; B maps cells→faces; A@B maps cells→cells
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
         result = A @ B
         assert result.source == cell_sp
         assert result.target == cell_sp
@@ -1101,9 +1230,9 @@ class TestCompoundOperatorSpaces:
         cell_sp, face_sp = spaces
         # A: face→cell, B: cell→face → A@B: cell→cell
         # C: face→cell → (A@B)@C requires target(C)==source(A@B)=cell_sp ✓ → face→cell
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
-        C = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
+        C = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
         AB = A @ B
         assert AB.source == cell_sp
         assert AB.target == cell_sp
@@ -1116,10 +1245,10 @@ class TestCompoundOperatorSpaces:
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
         # A@B: cell→cell (see test_three_way_matmul); C has target=face_sp != cell_sp
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        B = SparseArray(sps.eye(3), source=cell_sp, target=face_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
         AB = A @ B  # source=cell_sp, target=cell_sp
-        C = SparseArray(sps.eye(3), source=face_sp, target=face_sp)
+        C = SparseArray(_eye_for(face_sp, face_sp), source=face_sp, target=face_sp)
         with pytest.raises(ValueError, match="matrix multiplication"):
             _ = AB @ C
 
@@ -1127,10 +1256,10 @@ class TestCompoundOperatorSpaces:
         """(A @ v) + (B @ w) where both results have the same range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        v = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
-        B = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        w = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        v = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
+        B = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        w = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
         Av = A @ v
         Bw = B @ w
         result = Av + Bw
@@ -1141,12 +1270,12 @@ class TestCompoundOperatorSpaces:
         """(A @ v) + (B @ w) where ranges differ raises ValueError."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        v = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        v = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
         Av = A @ v  # target=cell_sp
         # B maps faces→faces, so B@w has target=face_sp
-        B = SparseArray(sps.eye(3), source=face_sp, target=face_sp)
-        w = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
+        B = SparseArray(_eye_for(face_sp, face_sp), source=face_sp, target=face_sp)
+        w = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
         Bw = B @ w
         with pytest.raises(ValueError):
             _ = Av + Bw
@@ -1157,8 +1286,8 @@ class TestCompoundOperatorSpaces:
         """Scalar(k) * (A @ v) preserves A's range as the result range."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
-        v = DenseArray(np.zeros(3), source=face_sp, target=face_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
+        v = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
         Av = A @ v
         result = Scalar(2.0) * Av
         assert result.source == face_sp
@@ -1168,7 +1297,7 @@ class TestCompoundOperatorSpaces:
         """Unary minus on SparseArray preserves source/target."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        A = SparseArray(sps.eye(3), source=face_sp, target=cell_sp)
+        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
         result = -A
         assert result.source == face_sp
         assert result.target == cell_sp
@@ -1177,7 +1306,7 @@ class TestCompoundOperatorSpaces:
         """DenseArray.__neg__ must also preserve source/target (separate code path)."""
         g1, g2 = two_subdomains
         cell_sp, face_sp = spaces
-        arr = DenseArray(np.ones(3), source=cell_sp, target=cell_sp)
+        arr = DenseArray(_ones_for(cell_sp), source=cell_sp, target=cell_sp)
         result = -arr
         assert result.source == cell_sp
         assert result.target == cell_sp
@@ -1208,7 +1337,7 @@ class TestCompoundOperatorSpaces:
         cell_sp, face_sp = spaces
         # unknown_op has no space info
         unknown_op = DenseArray(np.zeros(3))
-        known_op = DenseArray(np.zeros(3), source=cell_sp, target=cell_sp)
+        known_op = DenseArray(_zeros_for(cell_sp), source=cell_sp, target=cell_sp)
         # Adding unknown + known: no error, result inherits known's spaces
         result = unknown_op + known_op
         assert result.source == cell_sp
@@ -1218,8 +1347,8 @@ class TestCompoundOperatorSpaces:
         """Even when domain == range, they are stored as independent attributes."""
         g1, g2 = two_subdomains
         cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        a = DenseArray(np.zeros(3), source=cell_sp, target=cell_sp)
-        b = DenseArray(np.zeros(3), source=cell_sp, target=cell_sp)
+        a = DenseArray(_zeros_for(cell_sp), source=cell_sp, target=cell_sp)
+        b = DenseArray(_zeros_for(cell_sp), source=cell_sp, target=cell_sp)
         result = a + b
         # source and target are equal in value, but are independent objects
         assert result.source == result.target
