@@ -2536,8 +2536,35 @@ def sum_projection_list(
 
             # Create a copy of the second (rightmost) slicer, since we will modify it.
             slicer_1_copy = slicer_1.copy()
+            # NOTE: ArraySlicer.__matmul__ uses delayed evaluation when both operands
+            # are ArraySlicers: `slicer_0 @ slicer_1_copy` returns `slicer_1_copy`
+            # itself (with `slicer_0` attached as a pending operand to be applied once
+            # the slicer eventually acts on an array/matrix). Consequently, the
+            # `domain_size`/`range_size` of the returned object are *not* updated to
+            # reflect the full composed operator: `domain_size` stays correct (it
+            # equals the domain of the rightmost slicer, which is unaffected by the
+            # leftmost operand), but `range_size` remains the rightmost slicer's own
+            # (pre-composition) range, not the true composed range. The true composed
+            # range is the leftmost slicer's own range (`slicer_0.range_size`), since
+            # a matrix product's number of rows equals the number of rows of the left
+            # operand.
             prod = slicer_0 @ slicer_1_copy
             child_1._slicer = prod
+            # child_1 (i.e. the second/right Projection of the matmul) is repurposed
+            # to represent the *entire* composed operator `op`, not just its own
+            # original sub-slicer. Its source is unchanged (matmul's source is the
+            # right operand's source), but its target must be updated from its own
+            # target (the left operand `op.children[0]`'s source) to the composed
+            # operator's target (the left operand's target) to stay consistent with
+            # the new, combined slicer.
+            child_1._source = op.source
+            child_1._target = op.target
+            _check_space_shape_consistency(
+                child_1._source, slicer_1.domain_size, "source", "Projection"
+            )
+            _check_space_shape_consistency(
+                child_1._target, slicer_0.range_size, "target", "Projection"
+            )
             # Child is now a representation of the combined projection.
             new_operators.append(child_1)
 
