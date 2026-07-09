@@ -505,9 +505,7 @@ class TestShapeConsistencyCheck:
         consistent with the array's size."""
         g, _ = two_subdomains
         target_space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        wrong_source_space = OperatorSpace.from_domains(
-            [g], {GridEntity.faces: 1}
-        )
+        wrong_source_space = OperatorSpace.from_domains([g], {GridEntity.faces: 1})
         with pytest.raises(ValueError, match="degrees of freedom"):
             DenseArray(
                 np.ones(g.num_cells),
@@ -821,6 +819,43 @@ class TestGridOperatorSpaces:
 
         assert div.source.dof_info == {GridEntity.faces: proj_dims}
         assert div.target.dof_info == {GridEntity.cells: proj_dims}
+
+    @pytest.mark.parametrize("target_dims", [[1], []])
+    def test_sign_of_mortar_sides_spaces(self, fracture_mdg, target_dims):
+        """MortarProjections.sign_of_mortar_sides has a typed-but-empty space (not
+        None) when there are no interfaces.
+        """
+        mdg = fracture_mdg
+        interfaces = [intf for tg in target_dims for intf in mdg.interfaces(dim=tg)]
+        subdomains = list(
+            set(
+                sd
+                for intf in interfaces
+                for sd in mdg.interface_to_subdomain_pair(intf)
+            )
+        )
+        proj = pp.ad.MortarProjections(
+            mdg=mdg, subdomains=subdomains, interfaces=interfaces, dim=1
+        )
+        op = proj.sign_of_mortar_sides()
+        for domain in [op.source, op.target]:
+            assert domain is not None
+            assert domain.domain_type == DomainType.interfaces
+            assert domain.grids == tuple(interfaces)
+            assert domain.dof_info == {GridEntity.cells: 1}
+
+    def test_boundary_projection_spaces_no_subdomains(self, fracture_mdg):
+        """BoundaryProjection has a typed-but-empty space (not None) when there are no
+        subdomains."""
+        mdg = fracture_mdg
+        bp = pp.ad.BoundaryProjection(mdg, [], dim=1)
+        op = bp.subdomain_to_boundary
+        assert op.source is not None
+        assert op.source.domain_type == DomainType.subdomains
+        assert op.source.grids == ()
+        assert op.target is not None
+        assert op.target.domain_type == DomainType.boundary_grids
+        assert op.target.grids == ()
 
 
 # ---------------------------------------------------------------------------
