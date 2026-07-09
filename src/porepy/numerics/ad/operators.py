@@ -1343,7 +1343,10 @@ class SparseArray(Operator):
 
     def transpose(self) -> SparseArray:
         """Returns an AD operator representing the transposed matrix."""
-        return SparseArray(self._mat.transpose())
+        # Transposing swaps source and target.
+        return SparseArray(
+            self._mat.transpose(), source=self._target, target=self._source
+        )
 
     @property
     def T(self) -> SparseArray:
