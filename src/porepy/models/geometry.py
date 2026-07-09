@@ -360,6 +360,7 @@ class ModelGeometry(pp.PorePyModel):
         attr: str,
         *,
         dim: int,
+        grid_entity: pp.ad.GridEntity = pp.ad.GridEntity.cells,
     ) -> pp.ad.DenseArray:
         """Wrap a grid attribute as an ad matrix.
 
@@ -372,6 +373,8 @@ class ModelGeometry(pp.PorePyModel):
                 exclude the z-component of a vector attribute in 2d, to achieve
                 compatibility with code which is explicitly 2d (e.g. fv
                 discretizations).
+            grid_entity: The grid entity (cells, faces, or nodes) that ``attr`` is
+                actually defined on.
 
         Returns:
             class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
@@ -415,12 +418,17 @@ class ModelGeometry(pp.PorePyModel):
             # For an empty list of grids, return an empty matrix
             vals = np.zeros(0)
 
-        num_cells = sum([g.num_cells for g in grids])
-        size = int(vals.size / num_cells) if num_cells > 0 else 1
+        if grid_entity == pp.ad.GridEntity.faces:
+            num_entities = sum(g.num_faces for g in grids if isinstance(g, pp.Grid))
+        elif grid_entity == pp.ad.GridEntity.nodes:
+            num_entities = sum(
+                g.num_nodes for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))
+            )
+        else:
+            num_entities = sum(g.num_cells for g in grids)
+        size = int(vals.size / num_entities) if num_entities > 0 else 1
 
-        domain_and_range = pp.ad.OperatorSpace.from_domains(
-            grids, {pp.ad.GridEntity.cells: size}
-        )
+        domain_and_range = pp.ad.OperatorSpace.from_domains(grids, {grid_entity: size})
         array = pp.ad.DenseArray(vals, source=domain_and_range, target=domain_and_range)
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
@@ -830,7 +838,10 @@ class ModelGeometry(pp.PorePyModel):
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=self.nd
+            primary_subdomains,
+            "face_normals",
+            dim=self.nd,
+            grid_entity=pp.ad.GridEntity.faces,
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.

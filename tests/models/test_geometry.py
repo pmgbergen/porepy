@@ -245,6 +245,7 @@ class TestGeometry:
                 # to test that a zero matrix is returned.
                 attr_list = ["cell_centers"]
                 dim_list = [nd]
+                entity_list = [pp.ad.GridEntity.cells]
             else:
                 # All relevant attributes for subdomain grids
                 attr_list = [
@@ -256,12 +257,22 @@ class TestGeometry:
                 ]
                 # List of dimensions, corresponding to the order in attr_list.
                 dim_list = [nd, nd, nd, 1, 1]
+                # The grid entity each attribute above is actually defined on.
+                entity_list = [
+                    pp.ad.GridEntity.cells,
+                    pp.ad.GridEntity.faces,
+                    pp.ad.GridEntity.faces,
+                    pp.ad.GridEntity.cells,
+                    pp.ad.GridEntity.faces,
+                ]
 
-            # Loop over attributes and corresponding dimensions.
-            for attr, dim in zip(attr_list, dim_list):
+            # Loop over attributes, corresponding dimensions and grid entities.
+            for attr, dim, grid_entity in zip(attr_list, dim_list, entity_list):
                 # Get hold of the wrapped attribute and the wrapping.
                 wrapped_value = equation_system.evaluate(
-                    geometry_model.wrap_grid_attribute(grids, attr, dim=dim)
+                    geometry_model.wrap_grid_attribute(
+                        grids, attr, dim=dim, grid_entity=grid_entity
+                    )
                 )
 
                 # Check that the wrapped attribute is a matrix.
