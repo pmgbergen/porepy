@@ -181,7 +181,9 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
         # individual basis vectors can be represented as projection matrices of shape
@@ -682,7 +684,9 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
         # Basis vectors for the tangential components.
-        tangential_basis = self.basis(subdomains, self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors.
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)

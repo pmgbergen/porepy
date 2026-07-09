@@ -723,7 +723,12 @@ class FluidBuoyancy(pp.PorePyModel):
             fractionally_weighted_rho = self.fractionally_weighted_density(
                 subdomains_list
             )
-            e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+            e_n = self.e_i(
+                subdomains_list,
+                i=self.nd - 1,
+                dim=self.nd,
+                domain_type=pp.ad.DomainType.subdomains,
+            )
             overall_gravity_flux = (
                 pp.ad.Scalar(-1)
                 * e_n
@@ -761,7 +766,12 @@ class FluidBuoyancy(pp.PorePyModel):
             raise TypeError("density_driven_flux expects only subdomain grids.")
         subdomains_list = cast(list[pp.Grid], list(subdomains))
 
-        e_n = self.e_i(subdomains_list, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomains_list,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         gravity_flux = (
             pp.ad.Scalar(-1)
             * e_n
@@ -800,7 +810,12 @@ class FluidBuoyancy(pp.PorePyModel):
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
 
-        e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomain_neighbors,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         gravity_flux = (
             pp.ad.Scalar(-1)
             * e_n
@@ -811,7 +826,12 @@ class FluidBuoyancy(pp.PorePyModel):
 
         normals_times_source = normals * intf_vector_source
         nd_to_scalar_sum = pp.ad.sum_projection_list(
-            [e.T for e in self.basis(interfaces, dim=self.nd)]
+            [
+                e.T
+                for e in self.basis(
+                    interfaces, dim=self.nd, domain_type=pp.ad.DomainType.interfaces
+                )
+            ]
         )
         w_flux = self.volume_integral(
             self.normal_permeability(interfaces)
