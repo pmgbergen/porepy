@@ -1117,6 +1117,45 @@ class Operator:
             raise ValueError(f"Cannot parse {other} as an AD operator")
 
 
+def _check_space_shape_consistency(
+    space: Optional[OperatorSpace], actual_size: int, role: str, class_name: str
+) -> None:
+    """Verify that ``space`` (if given, and if grid-based) predicts ``actual_size``
+    degrees of freedom.
+
+    Used by :class:`SparseArray`/:class:`DenseArray` to catch cases where the
+    ``dof_info``/``grids`` passed in for ``source``/``target`` do not actually
+    match the shape of the wrapped array/matrix.
+
+    Parameters:
+        space: The candidate source or target space, or ``None`` if not given.
+        actual_size: The actual size (number of rows, columns, or vector
+            entries) of the wrapped array/matrix along the dimension
+            associated with ``space``.
+        role: Either ``"source"`` or ``"target"``, used only for the error
+            message.
+        class_name: Name of the calling class, used only for the error message.
+
+    Raises:
+        ValueError: If ``space`` is grid-based (not scalar/unclear/``None``)
+            and its predicted DOF count does not match ``actual_size``.
+
+    """
+    if space is None or space.domain_type in (DomainType.scalar, DomainType.unclear):
+        # Scalar/unclear spaces carry no grid-based size prediction; a `None`
+        # space means the check simply cannot be performed (yet) for this
+        # construction site.
+        return
+    expected_size = space.num_dofs()
+    if expected_size != actual_size:
+        raise ValueError(
+            f"{class_name}: {role} space predicts {expected_size} degrees of "
+            f"freedom (domain_type={space.domain_type}, grids={space.grids}, "
+            f"dof_info={space.dof_info}), but the wrapped array/matrix has "
+            f"{actual_size} along that dimension."
+        )
+
+
 class SparseArray(Operator):
     """Ad representation of a sparse matrix.
 
@@ -1138,6 +1177,9 @@ class SparseArray(Operator):
         source: Optional[OperatorSpace] = None,
         target: Optional[OperatorSpace] = None,
     ) -> None:
+        _check_space_shape_consistency(source, mat.shape[1], "source", "SparseArray")
+        _check_space_shape_consistency(target, mat.shape[0], "target", "SparseArray")
+
         self._mat = mat
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
@@ -1308,6 +1350,9 @@ class DenseArray(Operator):
             values: Numpy array to be represented.
 
         """
+        _check_space_shape_consistency(source, values.size, "source", "DenseArray")
+        _check_space_shape_consistency(target, values.size, "target", "DenseArray")
+
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
