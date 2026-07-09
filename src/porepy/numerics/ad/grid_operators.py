@@ -393,8 +393,19 @@ class MortarProjections:
             return self._sign_of_mortar_sides
 
         if len(self._interfaces) == 0:
-            # Shortcut for the case where there are no interfaces.
-            block_mat = SparseArray(sps.bmat([[None]]), name="SignOfMortarSides")
+            # Shortcut for the case where there are no interfaces. The domain type is
+            # known from context (this class only ever deals with interfaces).
+            intf_space = OperatorSpace.from_domains(
+                list(self._interfaces),
+                {GridEntity.cells: self.dim},
+                domain_type=DomainType.interfaces,
+            )
+            block_mat = SparseArray(
+                sps.bmat([[None]]),
+                name="SignOfMortarSides",
+                source=intf_space,
+                target=intf_space,
+            )
         else:
             mats = []
             for intf in self._interfaces:
@@ -911,10 +922,14 @@ class BoundaryProjection:
 
         sd_list = list(subdomains)
         self._subdomain_face_space: Optional[OperatorSpace] = (
-            OperatorSpace.from_domains(sd_list, {GridEntity.faces: dim})
+            OperatorSpace.from_domains(
+                sd_list, {GridEntity.faces: dim}, domain_type=DomainType.subdomains
+            )
         )
         self._boundary_cell_space: Optional[OperatorSpace] = OperatorSpace.from_domains(
-            boundary_grids, {GridEntity.cells: dim}
+            boundary_grids,
+            {GridEntity.cells: dim},
+            domain_type=DomainType.boundary_grids,
         )
 
     @property
