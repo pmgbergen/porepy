@@ -172,6 +172,19 @@ class Operations(Enum):
         if not isinstance(right, Operator):
             return left._source, left._target
 
+        def _is_cellwise_scalar(space: OperatorSpace) -> bool:
+            """Return True if space represents exactly one DOF per grid entity.
+
+            Such a space numerically broadcasts against any other space defined on the
+            same grids *and the same grid entity* (e.g. cells). This mirrors the
+            broadcast already granted to :class:`Scalar` operators, but applies to any
+            operator whose computed space happens to carry a single DOF per entity. This
+            does *not* make e.g. a cell-based space broadcastable against a face-based
+            space: the grid entity keys must still match (see ``_spaces_compatible``).
+
+            """
+            return len(space.dof_info) == 1 and set(space.dof_info.values()) == {1}
+
         def _spaces_compatible(a: OperatorSpace, b: OperatorSpace) -> bool:
             """Return True if a and b represent the same operator space.
 
@@ -184,7 +197,17 @@ class Operations(Enum):
             """
             if a == b:
                 return True
-            return len(a.grids) == 0 and len(b.grids) == 0
+            if len(a.grids) == 0 and len(b.grids) == 0:
+                return True
+            if (
+                a.domain_type == b.domain_type
+                and a.grids == b.grids
+                and set(a.dof_info.keys()) == set(b.dof_info.keys())
+                and len(a.dof_info) == 1
+            ):
+                if _is_cellwise_scalar(a) or _is_cellwise_scalar(b):
+                    return True
+            return False
 
         def _is_vacuous(space: Optional[OperatorSpace]) -> bool:
             """Return True if the space carries no grids, and hence no actual dofs.
@@ -198,10 +221,21 @@ class Operations(Enum):
         def _pick_target(
             a: Optional[OperatorSpace], b: Optional[OperatorSpace]
         ) -> Optional[OperatorSpace]:
-            """Return the known space when one side is unspecified."""
+            """Return the known space when one side is unspecified.
+
+            When one operand is a cellwise-scalar broadcast (see
+            ``_is_cellwise_scalar``), the result should carry the *other*
+            operand's (non-broadcast) space, since that is where the actual
+            degrees of freedom of the result live.
+
+            """
             if a is None:
                 return b
             if b is None:
+                return a
+            if _is_cellwise_scalar(a) and not _is_cellwise_scalar(b):
+                return b
+            if _is_cellwise_scalar(b) and not _is_cellwise_scalar(a):
                 return a
             return a
 
@@ -221,13 +255,30 @@ class Operations(Enum):
                     # Both spaces carry no actual dofs, so their exact domain type is
                     # immaterial; arbitrarily keep the left operand's space.
                     return a
+                if (
+                    a.domain_type == b.domain_type
+                    and a.grids == b.grids
+                    and set(a.dof_info.keys()) == set(b.dof_info.keys())
+                    and len(a.dof_info) == 1
+                ):
+                    # Same grids/domain type/entity key, differing only in the
+                    # per-entity DOF count (e.g. one side is a cellwise-scalar
+                    # broadcast): resolve the same way as the target, keeping the
+                    # non-broadcast space when possible.
+                    return _pick_target(a, b)
                 return OperatorSpace.unclear()
             return a
 
-        left_is_scalar = (
+        # A Scalar operator always parses to a plain Python float (see
+        # `Scalar.parse`), regardless of whether it was constructed with a
+        # `domains` argument. Such domain-bearing scalars carry a non-scalar
+        # `OperatorSpace` (see `Scalar.__init__`) purely for provenance/error
+        # message purposes, but are numerically compatible with (broadcastable
+        # against) any other operand, exactly like a "true" scalar space.
+        left_is_scalar = isinstance(left, Scalar) or (
             left.source is not None and left.source.domain_type == DomainType.scalar
         )
-        right_is_scalar = (
+        right_is_scalar = isinstance(right, Scalar) or (
             right.source is not None and right.source.domain_type == DomainType.scalar
         )
 
@@ -242,7 +293,9 @@ class Operations(Enum):
                     "its source is unclear."
                 )
             if (
-                left.source is not None
+                # TODO EK: I don't think we allow for matmul with scalars. Check later.
+                not right_is_scalar
+                and left.source is not None
                 and right.target is not None
                 and not _spaces_compatible(left.source, right.target)
             ):
@@ -264,7 +317,8 @@ class Operations(Enum):
                     "its source is unclear."
                 )
             if (
-                right.source is not None
+                not right_is_scalar
+                and right.source is not None
                 and left.target is not None
                 and not _spaces_compatible(right.source, left.target)
             ):
@@ -277,6 +331,30 @@ class Operations(Enum):
         else:
             # Elementwise operations
             if left_is_scalar and right_is_scalar:
+                # Both operands are numerically scalar (broadcastable), but either
+                # may still carry a non-scalar, domain-bearing space (see the
+                # docstring note on `Scalar` above), e.g. a material property
+                # `Scalar` constructed with `domains=subdomains`. When that is the
+                # case, the result should inherit that domain information rather
+                # than collapsing to the plain scalar space, so that the domain
+                # provenance survives arithmetic between domain-bearing scalars.
+                left_has_domain = (
+                    left.source is not None
+                    and left.source.domain_type != DomainType.scalar
+                )
+                right_has_domain = (
+                    right.source is not None
+                    and right.source.domain_type != DomainType.scalar
+                )
+                if left_has_domain and right_has_domain:
+                    return (
+                        _pick_source(left.source, right.source),
+                        _pick_target(left.target, right.target),
+                    )
+                elif left_has_domain:
+                    return left.source, left.target
+                elif right_has_domain:
+                    return right.source, right.target
                 return OperatorSpace.scalar(), OperatorSpace.scalar()
             elif left_is_scalar:
                 return right.source, right.target
