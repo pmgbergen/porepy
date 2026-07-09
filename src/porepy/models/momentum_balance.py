@@ -295,9 +295,14 @@ class AngularMomentumEquation:
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.rotation_dimension()}
+        )
         return pp.ad.DenseArray(
             np.zeros(num_cells * self.rotation_dimension()),
             "zero angular momentum source",
+            source=space,
+            target=space,
         )
 
 
@@ -387,7 +392,15 @@ class SolidMassEquation:
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
-        return pp.ad.DenseArray(np.zeros(num_cells), "zero solid mass source")
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: 1}
+        )
+        return pp.ad.DenseArray(
+            np.zeros(num_cells),
+            "zero solid mass source",
+            source=space,
+            target=space,
+        )
 
 
 class ConstitutiveLawsMomentumBalance(

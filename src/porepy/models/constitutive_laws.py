@@ -1367,8 +1367,25 @@ class AdTpfaFlux(pp.PorePyModel):
         # distance in the denominator of the half-face transmissibility. Fourth, map
         # from half-faces to faces, using a mapping with signs, thereby taking the
         # difference between the two vector sources.
+        cell_vector_space = pp.ad.OperatorSpace.from_domains(
+            domains,
+            {pp.ad.GridEntity.cells: self.nd},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
+        face_scalar_space = pp.ad.OperatorSpace.from_domains(
+            domains,
+            {pp.ad.GridEntity.faces: 1},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
+        cell_scalar_space = pp.ad.OperatorSpace.from_domains(
+            domains,
+            {pp.ad.GridEntity.cells: 1},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         vector_source_c_to_f = pp.ad.SparseArray(
-            hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d
+            hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d,
+            source=cell_vector_space,
+            target=face_scalar_space,
         )
 
         # Fetch the constitutive law for the vector source.
@@ -1377,7 +1394,9 @@ class AdTpfaFlux(pp.PorePyModel):
         # Compute the difference in pressure and vector source between the two cells on
         # the sides of each face.
         potential_difference = pp.ad.SparseArray(
-            diff_discr.face_pairing_from_cell_array(domains)
+            diff_discr.face_pairing_from_cell_array(domains),
+            source=cell_scalar_space,
+            target=face_scalar_space,
         ) @ potential(domains)
         vector_source_difference = vector_source_c_to_f @ vector_source_cells
 
@@ -2180,7 +2199,10 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         # Extract the component in the gravity direction (last coordinate).
         e_n = self.e_i(
-            subdomains, i=self.nd - 1, dim=self.nd, domain_type=pp.ad.DomainType.subdomains
+            subdomains,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
         )
         rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
 
@@ -3486,7 +3508,12 @@ class ThreeFieldLinearElasticMechanicalStress:
             stiffness = self.stiffness_tensor(sd)
             mu.append(np.repeat(stiffness.mu, self.rotation_dimension()))
 
-        return pp.ad.DenseArray(np.hstack(mu), name="first_lame_parameter")
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.rotation_dimension()}
+        )
+        return pp.ad.DenseArray(
+            np.hstack(mu), name="first_lame_parameter", source=space, target=space
+        )
 
     def second_lame_parameter(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Wrap the second Lame parameter as an Ad operator.
@@ -3512,7 +3539,12 @@ class ThreeFieldLinearElasticMechanicalStress:
             stiffness = self.stiffness_tensor(sd)
             lmbda.append(stiffness.lmbda)
 
-        return pp.ad.DenseArray(np.hstack(lmbda), name="second_lame_parameter")
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: 1}
+        )
+        return pp.ad.DenseArray(
+            np.hstack(lmbda), name="second_lame_parameter", source=space, target=space
+        )
 
 
 class ConstitutiveLawsTpsaPoromechanics:
@@ -4187,7 +4219,15 @@ class BartonBandis(pp.PorePyModel):
         val = self.equation_system.evaluate(maximum_opening)
         if np.any(val == 0):
             num_cells = sum(sd.num_cells for sd in subdomains)
-            return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
+            space = pp.ad.OperatorSpace.from_domains(
+                subdomains, {pp.ad.GridEntity.cells: 1}
+            )
+            return pp.ad.DenseArray(
+                np.zeros(num_cells),
+                "zero_Barton-Bandis_opening",
+                source=space,
+                target=space,
+            )
         elif np.any(val < 0):
             raise ValueError("The maximum opening must be non-negative.")
 
@@ -4371,7 +4411,14 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
             # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
             # are used to avoid numerical issues, but allowing for a float value.
             num_cells = sum(sd.num_cells for sd in subdomains)
-            zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
+            tangential_space = pp.ad.OperatorSpace.from_domains(
+                subdomains, {pp.ad.GridEntity.cells: self.nd - 1}
+            )
+            zero_u_t = pp.ad.DenseArray(
+                np.zeros((self.nd - 1) * num_cells),
+                source=tangential_space,
+                target=tangential_space,
+            )
             zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
             return zero_u_t
         # Since contact traction is nondimensional, the stiffness must be scaled by the
