@@ -1875,8 +1875,15 @@ class MixedDimensionalVariable(Variable):
             reference.append(var.is_reference)
             names.append(var.name)
             domains.append(var.domains[0])
-            if var.source is not None:
-                dof_infos.append(var.source.dof_info)
+            # Every Variable (atomic or itself a MixedDimensionalVariable) is
+            # guaranteed a non-None source by its own constructor (see
+            # Variable.__init__ and the else-branch below for the 0-variable case),
+            # so this should always succeed; the assert documents and guards the
+            # invariant rather than silently tolerating a None source.
+            assert var.source is not None, (
+                "Internal error: every Variable must have a populated source space."
+            )
+            dof_infos.append(var.source.dof_info)
 
         # check assumptions
         if len(variables) > 0:
@@ -1906,13 +1913,14 @@ class MixedDimensionalVariable(Variable):
                 or all(isinstance(grid, pp.MortarGrid) for grid in domains)
                 or all(isinstance(grid, pp.BoundaryGrid) for grid in domains)
             )
-            op_space = None
-            if (
-                len(dof_sets) == 1
-                and all_same_grid_class
-                and len(dof_infos) == len(variables)
-            ):
+            if len(dof_sets) == 1 and all_same_grid_class:
                 op_space = OperatorSpace.from_domains(domains, dof_infos[0])
+            else:
+                # The sub-variables genuinely disagree on dof_info and/or grid class:
+                # there is no single OperatorSpace that correctly describes this
+                # md-variable, so mark it unclear rather than silently using None.
+                # TODO: Consider to raise here instead.
+                op_space = OperatorSpace.unclear()
 
         # Default values for empty md variable
         else:
