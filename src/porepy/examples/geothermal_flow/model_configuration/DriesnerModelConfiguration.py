@@ -6,10 +6,8 @@ import porepy as pp
 import porepy.compositional as ppc
 
 from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceCriteria,
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
-    DivergenceCriteria,
 )
 from .flow_model_base import _FlowModelBaseCore
 from porepy.models.compositional_flow import (
@@ -131,16 +129,25 @@ class _DriesnerBrineBase(  # type:ignore[misc]
     _FlowModelBaseCore,
 ):
 
+    def _liquid_relative_permeability(self, s_liq: pp.ad.Operator) -> pp.ad.Operator:
+        """Weis (2014) liquid relative permeability with residual liquid saturation S_rl = 0.3:
+        k_rl = max((s_l - 0.3)/0.7, 0), written as the smooth ReLU 0.5*(sqrt(x^2) + x)."""
+        sr = pp.ad.Scalar(0.3)
+        s_red = (s_liq - sr) / (pp.ad.Scalar(1.0) - sr)
+        return pp.ad.Scalar(0.5) * ((s_red**2) ** 0.5 + s_red)
+
     def relative_permeability(
         self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
+        # Weis (2014) fig-5 pure-water two-phase (liq/gas) relative permeabilities:
+        #   k_rl = max((s_l - 0.3)/0.7, 0),   k_rv = 1 - k_rl   (residual vapor R_v = 0, so
+        #   k_rl + k_rv = 1). The previous vapor branch returned s_gas, which is NOT the Weis
+        #   closure and delayed/widened the vapor front.
         if phase.name == "liq":
-            sr = pp.ad.Scalar(0.3)
-            s_red = (phase.saturation(domains) - sr) / (pp.ad.Scalar(1.0) - sr)
-            kr = pp.ad.Scalar(0.5) * ((s_red**2) ** 0.5 + s_red)
-        else:
-            kr = phase.saturation(domains)
-        return kr
+            return self._liquid_relative_permeability(phase.saturation(domains))
+        # Vapor: complement of the liquid curve at s_l = 1 - s_gas (exact two-phase closure).
+        s_liq = pp.ad.Scalar(1.0) - phase.saturation(domains)
+        return pp.ad.Scalar(1.0) - self._liquid_relative_permeability(s_liq)
 
     @property
     def vtk_sampler(self):
