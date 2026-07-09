@@ -33,8 +33,17 @@ import numpy as np
 import scipy
 
 import porepy as pp
+from .nonlinear_solvers import NewtonSolver
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "NonFiniteSampleError",
+    "LineSearchNewtonSolver",
+    "SplineInterpolationLineSearch",
+    "ConstraintLineSearch",
+    "ConstraintLineSearchNonlinearSolver",
+]
 
 
 class NonFiniteSampleError(FloatingPointError):
@@ -50,7 +59,7 @@ class NonFiniteSampleError(FloatingPointError):
         self.x_good = float(x_good)
 
 
-class LineSearchNewtonSolver(pp.NewtonSolver):
+class LineSearchNewtonSolver(NewtonSolver):
     """Class for relaxing a nonlinear iteration update using a line search.
 
     This class extends the iteration method to include a line search and implements a
@@ -68,7 +77,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
 
     def iteration(
         self, model: pp.PorePyModel
-    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
         """A single nonlinear iteration.
 
         Add line search to the iteration method. First, call the super method to compute

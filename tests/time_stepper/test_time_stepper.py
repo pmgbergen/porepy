@@ -91,9 +91,9 @@ class MockModel(PorePyModel):
     def before_nonlinear_iteration(self):
         self.sequence_of_calls.append("before_nonlinear_iteration")
 
-    def assemble_linear_system(self) -> pp.LinearSystem:
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
         self.sequence_of_calls.append("assemble_linear_system")
-        return pp.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=0))
+        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=0))
 
     def after_nonlinear_iteration(self, nonlinear_increment):
         self.sequence_of_calls.append("after_nonlinear_iteration")
@@ -111,7 +111,7 @@ class MockModel(PorePyModel):
         self.sequence_of_calls.append("after_time_step_failure")
 
 
-class MockLinearSolver(pp.LinearSolverBase):
+class MockLinearSolver(pp.solvers.LinearSolverBase):
     """A mockup object for a linear solver. Always returns an array of ones of a given
     shape.
 
@@ -121,12 +121,14 @@ class MockLinearSolver(pp.LinearSolverBase):
         self.num_dofs = num_dofs
 
     def solve_linear_system(
-        self, linear_system: pp.LinearSystem
-    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
-        return np.ones(self.num_dofs), pp.LinearSolverStatusSuccess(solve_time=0)
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        return np.ones(self.num_dofs), pp.solvers.LinearSolverStatusSuccess(
+            solve_time=0
+        )
 
 
-class MockNonlinearSolver(pp.NonlinearSolverBase):
+class MockNonlinearSolver(pp.solvers.NonlinearSolverBase):
     """Used in test_model_delegate_methods_called, read the test docstring."""
 
     def __init__(self, num_iters_for_success: int):
@@ -143,12 +145,14 @@ class MockNonlinearSolver(pp.NonlinearSolverBase):
         self._iter += 1
         if self._iter < self.num_iters_for_success:
             return NonlinearSolverStatusFailed(
-                linear_solver_statuses=[pp.LinearSolverStatusSuccess(0)] * (self._iter),
+                linear_solver_statuses=[pp.solvers.LinearSolverStatusSuccess(0)]
+                * (self._iter),
                 convergence_statuses=ConvergenceStatusCollection(),
                 divergence_statuses=ConvergenceStatusCollection(),
             )
         return NonlinearSolverStatusConverged(
-            linear_solver_statuses=[pp.LinearSolverStatusSuccess(0)] * (self._iter),
+            linear_solver_statuses=[pp.solvers.LinearSolverStatusSuccess(0)]
+            * (self._iter),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
@@ -314,8 +318,8 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         return True
 
     # Minimizing computational expenses.
-    def assemble_linear_system(self) -> pp.LinearSystem:
-        return pp.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=()))
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=()))
 
 
 class DynamicNewtonSolver(NewtonSolver):
@@ -543,7 +547,7 @@ def default_newton_solver(iter_converge: int):
             will always converge, no matter what the time step is.
 
     """
-    return pp.NewtonSolver(
+    return pp.solvers.NewtonSolver(
         params={
             # MockModel does not decrease residual, so we use mock convergence criteria
             # here. To test statistics writing, we use two of them. Keys are arbitrary.

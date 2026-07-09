@@ -218,7 +218,7 @@ class RediscretizationTest(pp.PorePyModel):
         else:
             return super().rediscretize()
 
-    def assemble_linear_system(self) -> pp.LinearSystem:
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
         """Store all assembled linear systems for later comparison."""
         linear_system = super().assemble_linear_system()
         if not hasattr(self, "stored_linear_system"):
@@ -657,7 +657,7 @@ def test_schur_complement_inverter_on_model(
     # NewtonSolver.iteration. This test will be moved and restructured when a linear
     # solver for the schur complement strategy is introduced.
     assert model._apply_schur_complement_reduction()
-    nonlinear_solver = pp.NewtonSolver()
+    nonlinear_solver = pp.solvers.NewtonSolver()
     expanded_sol, status = nonlinear_solver.iteration(model)
     assert status.is_success()
 

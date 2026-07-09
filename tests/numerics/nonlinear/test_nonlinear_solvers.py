@@ -35,7 +35,7 @@ from porepy.viz import solver_statistics
 
 
 def linear_solver_statuses(num_statuses: int):
-    return [pp.LinearSolverStatusSuccess(solve_time=1.0)] * num_statuses
+    return [pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)] * num_statuses
 
 
 def time_step_success() -> TimeStepperStatusSuccess:
@@ -88,7 +88,7 @@ def default_newton_solver(nonlinear_increment_history: Optional[np.ndarray] = No
     """
     if nonlinear_increment_history is None:
         nonlinear_increment_history = np.ndarray(shape=())
-    return pp.NewtonSolver(
+    return pp.solvers.NewtonSolver(
         params={
             "nl_convergence_criteria": {
                 "inc_abs": pp.IncrementBasedAbsoluteCriterion(
@@ -174,8 +174,8 @@ class MockModel:
     def after_nonlinear_failure(self):
         self.nonlinear_solver_statistics.save()
 
-    def assemble_linear_system(self) -> pp.LinearSystem:
-        return pp.LinearSystem(csr_matrix((0, 0)), np.zeros(shape=()))
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.zeros(shape=()))
 
     def _is_time_dependent(self):
         return False
@@ -184,7 +184,7 @@ class MockModel:
         return self._is_nonlinear
 
 
-class MockLinearSolver(pp.LinearSolverBase):
+class MockLinearSolver(pp.solvers.LinearSolverBase):
     """A mockup class for a linear solver. Each call to solve_linear_system returns next
     value of the `nonlinear_increment_history` array.
 
@@ -196,11 +196,11 @@ class MockLinearSolver(pp.LinearSolverBase):
         """Counts the number of times solve_linear_system was called."""
 
     def solve_linear_system(
-        self, linear_system: pp.LinearSystem
-    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
         self.iteration_counter += 1
         increment = np.array(self.nonlinear_increment_history[self.iteration_counter])
-        return increment, pp.LinearSolverStatusSuccess(solve_time=0)
+        return increment, pp.solvers.LinearSolverStatusSuccess(solve_time=0)
 
 
 class TimeDependentMockModel(MockModel):
@@ -249,7 +249,7 @@ def test_init_criteria():
         "inc_nan": pp.IncrementBasedNanCriterion(),
         "res_nan": pp.ResidualBasedNanCriterion(),
     }
-    solver = pp.NewtonSolver(
+    solver = pp.solvers.NewtonSolver(
         params={
             "nl_convergence_criteria": custom_conv_criteria,
             "nl_divergence_criteria": custom_div_criteria,
@@ -289,7 +289,7 @@ def test_time_stepper_status_serialization(status, expected):
 
 def test_init_criteria_valid_max_iterations():
     """Test that max_iterations attribute is correctly fetched."""
-    solver = pp.NewtonSolver()
+    solver = pp.solvers.NewtonSolver()
     assert solver.max_iterations == 10  # From default params.
     assert default_newton_solver().max_iterations == 3  # From criteria.
 
@@ -306,7 +306,7 @@ def test_init_criteria_valid_max_iterations():
 def test_init_convergence_criteria_sanity_check(key, value):
     """Test sanity check in convergence criteria."""
     with pytest.raises(AssertionError) as e:
-        pp.NewtonSolver(
+        pp.solvers.NewtonSolver(
             params={
                 key: value,
                 "nl_convergence_criteria": {
@@ -333,7 +333,7 @@ def test_init_convergence_criteria_sanity_check(key, value):
 def test_init_divergence_criteria_sanity_check(key, value):
     """Test sanity check in divergence criteria."""
     with pytest.raises(AssertionError) as e:
-        pp.NewtonSolver(
+        pp.solvers.NewtonSolver(
             params={
                 key: value,
                 "nl_divergence_criteria": {
@@ -960,7 +960,7 @@ def test_linear_nonlinear_model(is_nonlinear: bool):
 
     # Creating a nonlinear solver with default convergence criteria. They must be
     # different for nonlinear and linear cases.
-    solver = pp.NewtonSolver(
+    solver = pp.solvers.NewtonSolver(
         is_nonlinear_problem=is_nonlinear,
         params=None,
         linear_solver=MockLinearSolver([10, 0.05, 1e-22]),
@@ -989,7 +989,7 @@ def test_linear_solver_fails():
         residual_history=[np.nan],
         is_nonlinear=False,
     )
-    solver = pp.NewtonSolver(
+    solver = pp.solvers.NewtonSolver(
         is_nonlinear_problem=False,
         params=None,
         linear_solver=MockLinearSolver([np.nan]),

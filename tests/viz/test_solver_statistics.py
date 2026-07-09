@@ -59,13 +59,17 @@ def nonlinear_solver_status(
     """Create a nonlinear solver status for the tests."""
     if status == "converged":
         return NonlinearSolverStatusConverged(
-            linear_solver_statuses=[pp.LinearSolverStatusSuccess(solve_time=0.0)] * 2,
+            linear_solver_statuses=[
+                pp.solvers.LinearSolverStatusSuccess(solve_time=0.0)
+            ]
+            * 2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )
     elif status == "failed":
         return NonlinearSolverStatusFailed(
-            linear_solver_statuses=[pp.LinearSolverStatusFailure(reason="")] * 2,
+            linear_solver_statuses=[pp.solvers.LinearSolverStatusFailure(reason="")]
+            * 2,
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
         )

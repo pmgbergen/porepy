@@ -45,6 +45,15 @@ DirectSolverBackends = Literal[
     "scipy_sparse",
 ]
 
+__all__ = [
+    "LinearSolverStatus",
+    "LinearSolverStatusSuccess",
+    "LinearSolverStatusFailure",
+    "LinearSystem",
+    "LinearSolverBase",
+    "LinearSolverDirect",
+]
+
 
 @dataclass
 class LinearSolverStatus(ABC):

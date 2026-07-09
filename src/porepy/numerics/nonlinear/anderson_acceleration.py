@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.linalg import lstsq
 
+__all__ = [
+    "AndersonAcceleration",
+]
+
 
 class AndersonAcceleration:
     """Anderson acceleration Algorithm 4 as described by An and Jia and Walker in
