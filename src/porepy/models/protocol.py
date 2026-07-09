@@ -274,7 +274,10 @@ else:
             """
 
         def basis(
-            self, grids: Sequence[pp.GridLike], dim: int
+            self,
+            grids: Sequence[pp.GridLike],
+            dim: int,
+            domain_type: Optional[pp.ad.DomainType] = None,
         ) -> list[pp.ad.Projection]:
             """Return a cell-wise basis for all subdomains.
 
@@ -298,6 +301,11 @@ else:
             Parameters:
                 grids: List of grids on which the basis is defined.
                 dim: Dimension of the basis.
+                domain_type: If given, forces the source/target :class:`~porepy.numerics
+                    .ad.operator_space.OperatorSpace` of the returned projections to
+                    this domain type, even if ``grids`` is empty. If ``None``, the
+                    domain type is inferred from ``grids`` (and will be a scalar space
+                    if ``grids`` is empty).
 
             Returns:
                 List of pp.ad.SparseArray, each of which represents a basis
@@ -306,7 +314,12 @@ else:
             """
 
         def e_i(
-            self, grids: Sequence[pp.GridLike], *, i: int, dim: int
+            self,
+            grids: Sequence[pp.GridLike],
+            *,
+            i: int,
+            dim: int,
+            domain_type: Optional[pp.ad.DomainType] = None,
         ) -> pp.ad.Projection:
             """Return a cell-wise basis function in a specified dimension.
 
@@ -332,6 +345,11 @@ else:
                 grids: List of grids on which the basis vector is defined.
                 i: Index of the basis function. Note: Counts from 0.
                 dim: Dimension of the functions.
+                domain_type: If given, forces the source/target :class:`~porepy.numerics
+                    .ad.operator_space.OperatorSpace` of the returned projection to this
+                    domain type, even if ``grids`` is empty. If ``None``, the domain
+                    type is inferred from ``grids`` (and will be a scalar space if
+                    ``grids`` is empty).
 
             Returns:
                 Ad projection that represents a basis function.
