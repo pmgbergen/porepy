@@ -123,7 +123,12 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         max_function = pp.ad.Function(
             pp.ad.maximum, "max_function", domain_and_range, domain_and_range
         )
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells), "zeros_frac")
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells),
+            "zeros_frac",
+            source=domain_and_range,
+            target=domain_and_range,
+        )
 
         # The complimentarity condition
         equation: pp.ad.Operator = t_n + max_function(
@@ -203,10 +208,18 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Vectors needed to express the governing equations
-        ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
-
+        tangential_domain = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.nd - 1}
+        )
+        ones_frac = pp.ad.DenseArray(
+            np.ones(num_cells * (self.nd - 1)),
+            source=tangential_domain,
+            target=tangential_domain,
+        )
         domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
 
         f_max = pp.ad.Function(
             pp.ad.maximum, "max_function", domain_and_range, domain_and_range
@@ -572,7 +585,9 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
 
         # Composing b_p = max(friction_bound, 0).
         num_cells = sum([sd.num_cells for sd in subdomains])
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
         f_max = pp.ad.Function(
             pp.ad.maximum, "max_function", domain_and_range, domain_and_range
         )
@@ -734,7 +749,9 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         norm_t_t_trial.set_name("norm_t_t_trial")
 
         # Friction bound - cut off negative values to avoid open state.
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
 
         # Define the traction to be the linear radial return projection of the augmented

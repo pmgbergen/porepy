@@ -685,7 +685,10 @@ class ModelGeometry(pp.PorePyModel):
         else:
             # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
-        return pp.ad.SparseArray(local_coord_proj)
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains, {pp.ad.GridEntity.cells: self.nd}
+        )
+        return pp.ad.SparseArray(local_coord_proj, source=space, target=space)
 
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
@@ -827,9 +830,16 @@ class ModelGeometry(pp.PorePyModel):
             Operator with flipped signs if normal vector points inwards.
 
         """
+        space = pp.ad.OperatorSpace.from_domains(
+            subdomains,
+            {pp.ad.GridEntity.faces: dim},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         if len(subdomains) == 0:
             # Special case if no interfaces.
-            sign_flipper = pp.ad.SparseArray(sps.csr_matrix((0, 0)))
+            sign_flipper = pp.ad.SparseArray(
+                sps.csr_matrix((0, 0)), source=space, target=space
+            )
         else:
             # There is already a method to construct a switcher matrix in grid_utils,
             # so we use that. Loop over all subdomains, construct a local switcher
@@ -850,7 +860,9 @@ class ModelGeometry(pp.PorePyModel):
 
             # Construct the block diagonal matrix.
             sign_flipper = pp.ad.SparseArray(
-                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices)
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices),
+                source=space,
+                target=space,
             )
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
@@ -876,7 +888,12 @@ class ModelGeometry(pp.PorePyModel):
         """
         if len(interfaces) == 0:
             # Special case if no interfaces.
-            return pp.ad.DenseArray(np.zeros(0))
+            space = pp.ad.OperatorSpace.from_domains(
+                interfaces,
+                {pp.ad.GridEntity.cells: self.nd},
+                domain_type=pp.ad.DomainType.interfaces,
+            )
+            return pp.ad.DenseArray(np.zeros(0), source=space, target=space)
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
