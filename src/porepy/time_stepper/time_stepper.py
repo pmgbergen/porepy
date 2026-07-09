@@ -71,7 +71,7 @@ class TimeStepper:
     def perform_time_step(
         self,
         model: pp.PorePyModel,
-        solver: pp.NonlinearSolverBase,
+        solver: pp.solvers.NonlinearSolverBase,
     ) -> TimeStepperStatusSuccess | TimeStepperStatusFailure:
         """Perform a time step. If the nonlinear solver fails, alter the time step and
         retry.
@@ -191,7 +191,7 @@ class TimeStepper:
     def _perform_trial_time_step(
         self,
         model: pp.PorePyModel,
-        solver: pp.NonlinearSolverBase,
+        solver: pp.solvers.NonlinearSolverBase,
     ) -> NonlinearSolverStatus:
         """Perform a nonlinear solve to make the time step.
 

@@ -54,14 +54,7 @@ from porepy.utils.interpolation_tables import (
 )
 from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
-from porepy.numerics.linalg.linear_solver import (
-    LinearSolverBase,
-    LinearSolverDirect,
-    LinearSolverStatus,
-    LinearSolverStatusFailure,
-    LinearSolverStatusSuccess,
-    LinearSystem,
-)
+
 
 # Geometry
 from porepy.geometry import (
@@ -160,15 +153,7 @@ from porepy.models.model_runner import (
     run_time_dependent_model,
     run_stationary_model,
 )
-from porepy.numerics.nonlinear.nonlinear_solvers import (
-    NewtonSolver,
-    NonlinearSolverBase,
-)
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
-)
+from porepy.numerics import nonlinear as solvers
 
 
 from porepy.numerics import ad

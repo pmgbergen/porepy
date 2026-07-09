@@ -90,25 +90,25 @@ class MockModel:
     def after_nonlinear_failure(self):
         pass
 
-    def assemble_linear_system(self) -> pp.LinearSystem:
-        return pp.LinearSystem(csr_matrix((0, 0)), np.ones(shape=()))
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.ones(shape=()))
 
 
-class MockLinearSolver(pp.LinearSolverBase):
+class MockLinearSolver(pp.solvers.LinearSolverBase):
     def __init__(self, num_nl_iterations: int):
         self.num_nl_iterations = num_nl_iterations
         self.iteration_count = 0
 
     def solve_linear_system(
-        self, linear_system: pp.LinearSystem
-    ) -> tuple[np.ndarray, pp.LinearSolverStatus]:
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
         self.iteration_count += 1
         if self.iteration_count < self.num_nl_iterations:
             increment = np.array([1.0])
         else:
             self.iteration_count = 0
             increment = np.array([1e-11])
-        return increment, pp.LinearSolverStatusSuccess(solve_time=0.0)
+        return increment, pp.solvers.LinearSolverStatusSuccess(solve_time=0.0)
 
 
 @pytest.fixture(scope="module")
@@ -148,7 +148,7 @@ def run_model_and_save_output(
 
     model = MockModel(num_time_steps)
     params = {"progressbars": progressbars}
-    nonlinear_solver = pp.NewtonSolver(
+    nonlinear_solver = pp.solvers.NewtonSolver(
         params=params, linear_solver=MockLinearSolver(num_nl_iterations)
     )
 

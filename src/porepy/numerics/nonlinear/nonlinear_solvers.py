@@ -11,7 +11,6 @@ from abc import ABC, abstractmethod
 from typing import Optional, cast
 
 import numpy as np
-from scipy.sparse import csr_matrix
 
 import porepy as pp
 from porepy.numerics.linalg.linear_solver import (
@@ -39,6 +38,11 @@ from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "NonlinearSolverBase",
+    "NewtonSolver",
+]
 
 
 class NonlinearSolverBase(ABC):

@@ -708,7 +708,7 @@ else:
 
             """
 
-        def assemble_linear_system(self) -> pp.LinearSystem:
+        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
             """Assemble and return the linearized system."""
 
         def after_nonlinear_failure(self) -> None:

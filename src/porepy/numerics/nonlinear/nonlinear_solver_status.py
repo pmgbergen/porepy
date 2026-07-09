@@ -5,6 +5,13 @@ from porepy.numerics.linalg.linear_solver import LinearSolverStatus
 from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
 
 
+__all__ = [
+    "NonlinearSolverStatus",
+    "NonlinearSolverStatusConverged",
+    "NonlinearSolverStatusFailed",
+]
+
+
 @dataclass
 class NonlinearSolverStatus(ABC):
     """A status object used to indicate the NewtonSolver state. This
