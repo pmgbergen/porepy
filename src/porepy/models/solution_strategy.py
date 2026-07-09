@@ -964,7 +964,9 @@ class ContactIndicators(pp.PorePyModel):
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -1030,7 +1032,9 @@ class ContactIndicators(pp.PorePyModel):
 
         """
         t: pp.ad.Operator = self.contact_traction(subdomains)
-        e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
+        e_n = self.e_i(
+            subdomains, dim=self.nd, i=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)

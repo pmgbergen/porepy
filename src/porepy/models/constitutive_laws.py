@@ -109,8 +109,12 @@ class DisplacementJump(pp.PorePyModel):
         # The jumps are defined in local coordinates. Prepare to project the tangential
         # and normal components of the displacement jump from (nd-1) and 1 dimensions,
         # respectively, to nd dimensions.
-        basis = self.basis(subdomains, dim=self.nd)
-        local_basis = self.basis(subdomains, dim=self.nd - 1)
+        basis = self.basis(
+            subdomains, dim=self.nd, domain_type=pp.ad.DomainType.subdomains
+        )
+        local_basis = self.basis(
+            subdomains, dim=self.nd - 1, domain_type=pp.ad.DomainType.subdomains
+        )
         tangential_to_nd = pp.ad.sum_projection_list(
             [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
         )
@@ -549,7 +553,7 @@ class SecondOrderTensorUtils(pp.PorePyModel):
         """
         if len(subdomains) == 0:
             return pp.wrap_as_dense_ad_array(0, size=0, grids=subdomains)
-        basis = self.basis(subdomains, 9)
+        basis = self.basis(subdomains, 9, domain_type=pp.ad.DomainType.subdomains)
         diagonal_indices = [0, 4, 8]
         permeability = pp.ad.sum_operator_list(
             [basis[i] @ permeability for i in diagonal_indices]
@@ -1187,7 +1191,12 @@ class DarcysLaw(pp.PorePyModel):
         normals_times_source = normals * vector_source
         # Then sum over the nd dimensions. The result will in effect be a matrix.
         nd_to_scalar_sum = pp.ad.sum_projection_list(
-            [e.T for e in self.basis(interfaces, dim=self.nd)]
+            [
+                e.T
+                for e in self.basis(
+                    interfaces, dim=self.nd, domain_type=pp.ad.DomainType.interfaces
+                )
+            ]
         )
         # Finally, the dot product between normal vectors and the vector source. This
         # must be implemented as a matrix-vector product (yes, this is confusing).
@@ -1599,7 +1608,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # The cell-wise permeability tensor is represented as an Ad operator which
         # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
         # volume.
-        basis = self.basis(subdomains, dim=9)
+        basis = self.basis(subdomains, dim=9, domain_type=pp.ad.DomainType.subdomains)
         volumes = pp.ad.sum_operator_list(
             [e @ self.specific_volume(subdomains) for e in basis]
         )
@@ -2003,7 +2012,9 @@ class PeacemanWellFlux(pp.PorePyModel):
         )
 
         # We assume isotropic permeability and extract xx component.
-        e_i = self.e_i(subdomains, i=0, dim=9).T
+        e_i = self.e_i(
+            subdomains, i=0, dim=9, domain_type=pp.ad.DomainType.subdomains
+        ).T
 
         # To get a transmissivity, we multiply the permeability with the length of the
         # well within one cell. For a 0d-2d coupling, this will be the aperture of the
@@ -2168,7 +2179,12 @@ class PeacemanWellFlux(pp.PorePyModel):
         gravity_vector = self.gravity_force(subdomains, "fluid")
 
         # Extract the component in the gravity direction (last coordinate).
-        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(
+            subdomains,
+            i=self.nd - 1,
+            dim=self.nd,
+            domain_type=pp.ad.DomainType.subdomains,
+        )
         rho_g = projection.primary_to_mortar_avg() @ (e_n.T @ gravity_vector)
 
         # Gravity correction: rho * g * delta_z
@@ -3180,7 +3196,11 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # Expand the cell-wise scalar characteristic traction to an nd-vector before
         # scaling the local fracture traction.
         scalar_to_nd = pp.ad.sum_projection_list(
-            self.basis(fracture_subdomains, dim=self.nd)
+            self.basis(
+                fracture_subdomains,
+                dim=self.nd,
+                domain_type=pp.ad.DomainType.subdomains,
+            )
         )
         scaled_traction = (
             scalar_to_nd @ self.characteristic_contact_traction(fracture_subdomains)
@@ -3684,7 +3704,9 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        scalar_to_nd = pp.ad.sum_projection_list(self.basis(interfaces, dim=self.nd))
+        scalar_to_nd = pp.ad.sum_projection_list(
+            self.basis(interfaces, dim=self.nd, domain_type=pp.ad.DomainType.interfaces)
+        )
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = outwards_normal * (
@@ -4475,7 +4497,12 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # contact. As used in this class, the below common factor is linear in traction.
         # Thus, the product with the log(1/traction) should indeed vanish in the limit
         # of zero traction.
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        # NOTE: The clip function is applied to the full nd-dimensional contact
+        # traction (not just its normal component), so its domain and range must
+        # match the dof count of `contact_traction`, i.e. `self.nd`, not 1.
+        domain_and_range = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.nd}
+        )
 
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
