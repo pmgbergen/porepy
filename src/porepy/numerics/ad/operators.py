@@ -2152,6 +2152,8 @@ class Projection(Operator):
         domain_size: int,
         range_size: int,
         name: Optional[str] = None,
+        source: Optional[OperatorSpace] = None,
+        target: Optional[OperatorSpace] = None,
     ):
         """Construct a projection operator.
 
@@ -2161,6 +2163,17 @@ class Projection(Operator):
             domain_size: Size of the domain space.
             range_size: Size of the range space.
             name: Name of the operator. Default is None.
+            source: The operator space of the domain, if known from the grid/dof
+                context the projection was built from. Its
+                :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.num_dofs` must
+                match *domain_size*. Defaults to ``None`` for callers with no grid
+                context (index-only projections).
+            target: The operator space of the range, analogous to *source*. Its
+                ``num_dofs()`` must match *range_size*.
+
+        Raises:
+            ValueError: If *source*/*target* is given and its ``num_dofs()`` does not
+                match *domain_size*/*range_size*.
 
         """
         self._slicer: pp.matrix_operations.ArraySlicer = (
@@ -2171,9 +2184,9 @@ class Projection(Operator):
                 domain_size=domain_size,
             )
         )
-        # Space intentionally unspecified: the projection only knows local index sizes,
-        # not the grid/dof metadata needed to form an OperatorSpace.
-        super().__init__(name=name, source=None, target=None)
+        _check_space_shape_consistency(source, domain_size, "source", "Projection")
+        _check_space_shape_consistency(target, range_size, "target", "Projection")
+        super().__init__(name=name, source=source, target=target)
 
     def transpose(self) -> Projection:
         """Return the transpose of the operator."""
@@ -2184,6 +2197,8 @@ class Projection(Operator):
             range_size=self._slicer.domain_size,
             domain_size=self._slicer.range_size,
             name=self.name + "transpose",
+            source=self.target,
+            target=self.source,
         )
 
     def __repr__(self) -> str:
@@ -2267,10 +2282,26 @@ class ProjectionList(Operator):
                 operations (e.g., subtraction) are not supported.
             name: Optional name for the projection list.
 
+        Raises:
+            ValueError: If the operators in the list do not all share the same
+                source, or do not all share the same target.
+
         """
-        # Space intentionally unspecified: this wrapper only aggregates projections and
-        # does not know the underlying grid/dof metadata.
-        super().__init__(name=name, children=operators, source=None, target=None)
+        sources = {op.source for op in operators}
+        targets = {op.target for op in operators}
+        if len(sources) > 1:
+            raise ValueError(
+                "Cannot build a ProjectionList from operators with different "
+                f"sources: {sources}."
+            )
+        if len(targets) > 1:
+            raise ValueError(
+                "Cannot build a ProjectionList from operators with different "
+                f"targets: {targets}."
+            )
+        source = sources.pop() if sources else None
+        target = targets.pop() if targets else None
+        super().__init__(name=name, children=operators, source=source, target=target)
 
     def _key(self) -> str:
         if self._cached_key is None:
