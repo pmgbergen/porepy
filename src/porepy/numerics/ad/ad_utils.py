@@ -120,6 +120,7 @@ def wrap_discretization(
 
     # Process the domains
     domains: pp.GridLikeSequence
+    domain_type: pp.ad.DomainType
     if subdomains is None:
         # This is an interface discretization
         if interfaces is None:
@@ -128,11 +129,13 @@ def wrap_discretization(
             raise ValueError("Interfaces must be a list")
 
         domains = interfaces
+        domain_type = pp.ad.DomainType.interfaces
     elif interfaces is None:
         # This is a subdomain discretization
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains must be a list")
         domains = subdomains
+        domain_type = pp.ad.DomainType.subdomains
     else:
         raise ValueError("Either subdomains or interfaces must be provided, not both")
 
@@ -170,6 +173,7 @@ def wrap_discretization(
                 discretization_matrix_key=discretization_key,
                 physics_key=discr.keyword,
                 domains=domains,
+                domain_type=domain_type,
                 nd=nd,
             )
             # Store the new
@@ -194,6 +198,7 @@ def wrap_discretization(
                 physics_key=discr.keyword,
                 inner_physics_key=inner_physics_key,
                 domains=domains,
+                domain_type=domain_type,
                 nd=nd,
             )
             return op
@@ -322,6 +327,7 @@ class MergedOperator(operators.Operator):
         nd: int,
         inner_physics_key: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
+        domain_type: Optional[operators.DomainType] = None,
     ) -> None:
         """Initiate a merged discretization.
 
@@ -336,6 +342,10 @@ class MergedOperator(operators.Operator):
                 for vector-valued discretization terms.
             inner_physics_key: For nested matrix dicts, the inner key.
             domains: Domains on which the discretization is defined.
+            domain_type: The type of domain (subdomains or interfaces) that
+                ``domains`` represents. Known to the caller (``wrap_discretization``)
+                even when ``domains`` is empty, and is used to build a typed-but-empty
+                :class:`~porepy.numerics.ad.operator_space.OperatorSpace` in that case.
 
         """
         name = discr.__class__.__name__
@@ -345,15 +355,19 @@ class MergedOperator(operators.Operator):
         # discretization.
         op_source: Optional[operators.OperatorSpace] = None
         op_target: Optional[operators.OperatorSpace] = None
-        if domains:
-            domain_list = list(domains)
+        domain_list: list[pp.GridLike] = list(domains) if domains else []
+        if domains or domain_type is not None:
             row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
             col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
 
             if col_dof:
-                op_source = operators.OperatorSpace.from_domains(list(domains), col_dof)
+                op_source = operators.OperatorSpace.from_domains(
+                    domain_list, col_dof, domain_type=domain_type
+                )
             if row_dof:
-                op_target = operators.OperatorSpace.from_domains(list(domains), row_dof)
+                op_target = operators.OperatorSpace.from_domains(
+                    domain_list, row_dof, domain_type=domain_type
+                )
 
         super().__init__(name=name, source=op_source, target=op_target)
 
