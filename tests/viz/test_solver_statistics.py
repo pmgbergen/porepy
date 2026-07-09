@@ -8,6 +8,7 @@ import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
+from porepy.numerics.solvers import ConvergenceInfoHistory
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
@@ -20,7 +21,6 @@ from porepy.viz.solver_statistics import (
     SolverStatisticsFactory,
     TimeStatistics,
 )
-from porepy.numerics.solvers import ConvergenceInfoHistory
 
 # ! ---- Helper classes ---- !
 
