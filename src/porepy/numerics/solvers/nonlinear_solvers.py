@@ -13,19 +13,19 @@ from typing import Optional, cast
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.linalg.linear_solver import (
+from .linear_solver import (
     LinearSolverBase,
     LinearSolverDirect,
     LinearSolverStatus,
 )
-from porepy.numerics.nonlinear.convergence_check import (
+from .convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
     ConvergenceMetricType,
     ConvergenceStatusCollection,
     DivergenceCriteria,
 )
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
+from .nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
@@ -252,7 +252,7 @@ class NewtonSolver(NonlinearSolverBase):
             # the default.
             max_iterations = DEFAULT_NEWTON_MAX_ITERATIONS
             for c in self.params["nl_divergence_criteria"].values():
-                if isinstance(c, pp.MaxIterationsCriterion):
+                if isinstance(c, pp.solvers.MaxIterationsCriterion):
                     max_iterations = c.max_iterations
         else:
             # Default parameters for divergence criteria.
@@ -648,10 +648,18 @@ def _default_convergence_criteria(
     """
     if is_nonlinear_problem:
         return {
-            "inc_abs": pp.IncrementBasedAbsoluteCriterion(tol=inc_atol, metric=metric),
-            "inc_rel": pp.IncrementBasedRelativeCriterion(tol=inc_rtol, metric=metric),
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(tol=res_atol, metric=metric),
-            "res_rel": pp.ResidualBasedRelativeCriterion(tol=res_rtol, metric=metric),
+            "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
+                tol=inc_atol, metric=metric
+            ),
+            "inc_rel": pp.solvers.IncrementBasedRelativeCriterion(
+                tol=inc_rtol, metric=metric
+            ),
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+                tol=res_atol, metric=metric
+            ),
+            "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
+                tol=res_rtol, metric=metric
+            ),
         }
     else:
         return {}
@@ -670,20 +678,22 @@ def _default_divergence_criteria(
     """
     if is_nonlinear_problem:
         return {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
-            "inc_nan": pp.IncrementBasedNanCriterion(),
-            "res_nan": pp.ResidualBasedNanCriterion(),
-            "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+            "max_iter": pp.solvers.MaxIterationsCriterion(
+                max_iterations=max_iterations
+            ),
+            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+            "res_nan": pp.solvers.ResidualBasedNanCriterion(),
+            "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
                 tol=inc_div_atol, metric=metric
             ),
-            "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+            "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
                 tol=res_div_atol, metric=metric
             ),
         }
     else:
         return {
-            "inc_nan": pp.IncrementBasedNanCriterion(),
-            "res_nan": pp.ResidualBasedNanCriterion(),
+            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+            "res_nan": pp.solvers.ResidualBasedNanCriterion(),
         }
 
 

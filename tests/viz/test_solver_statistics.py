@@ -8,17 +8,6 @@ import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceInfoCollection,
-    ConvergenceInfoHistory,
-    ConvergenceStatusCollection,
-    ConvergenceStatusHistory,
-)
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
-)
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
@@ -58,20 +47,20 @@ def nonlinear_solver_status(
 ) -> NonlinearSolverStatus:
     """Create a nonlinear solver status for the tests."""
     if status == "converged":
-        return NonlinearSolverStatusConverged(
+        return pp.solvers.NonlinearSolverStatusConverged(
             linear_solver_statuses=[
                 pp.solvers.LinearSolverStatusSuccess(solve_time=0.0)
             ]
             * 2,
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
+            convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+            divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
         )
     elif status == "failed":
-        return NonlinearSolverStatusFailed(
+        return pp.solvers.NonlinearSolverStatusFailed(
             linear_solver_statuses=[pp.solvers.LinearSolverStatusFailure(reason="")]
             * 2,
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
+            convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+            divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
         )
     else:
         raise ValueError(status)
@@ -83,7 +72,7 @@ def time_stepper_status(
     """Create a time-stepper status equivalent to an old convergence status."""
     if status == "converged":
         solver_status = nonlinear_solver_status(status)
-        assert isinstance(solver_status, NonlinearSolverStatusConverged)
+        assert isinstance(solver_status, pp.solvers.NonlinearSolverStatusConverged)
         return TimeStepperStatusSuccess(
             time=1.0, dt=0.5, nonlinear_solver_status=solver_status
         )
@@ -284,17 +273,17 @@ def test_solver_statistics_initialization():
     assert stats.num_domains == {}
     assert stats.simulation_status == TimeStepperStatusContinueIterating(
         attempt=-1,
-        nonlinear_solver_status=NonlinearSolverStatusConverged(
+        nonlinear_solver_status=pp.solvers.NonlinearSolverStatusConverged(
             linear_solver_statuses=[],
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
+            convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+            divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
         ),
     )
     assert stats.simulation_status_history == []
-    assert stats.solver_status == NonlinearSolverStatusConverged(
+    assert stats.solver_status == pp.solvers.NonlinearSolverStatusConverged(
         linear_solver_statuses=[],
-        convergence_statuses=ConvergenceStatusCollection(),
-        divergence_statuses=ConvergenceStatusCollection(),
+        convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+        divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
     )
     assert stats.solver_status_history == []
     assert stats.custom_data == {}
@@ -706,12 +695,14 @@ def test_nonlinear_solver_statistics_log_convergence_status():
 
     # 1. Iteration
     stats.log_convergence_status(
-        ConvergenceStatusCollection({"crit1": "converged", "crit2": "failed"})
+        pp.solvers.ConvergenceStatusCollection(
+            {"crit1": "converged", "crit2": "failed"}
+        )
     )
     assert (
         DeepDiff(
             stats.convergence_status,
-            ConvergenceStatusHistory(
+            pp.solvers.ConvergenceStatusHistory(
                 {
                     "crit1": ["converged"],
                     "crit2": ["failed"],
@@ -724,7 +715,7 @@ def test_nonlinear_solver_statistics_log_convergence_status():
 
     # 2. Iteration
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "continue_iterating",
                 "crit2": "converged",
@@ -734,7 +725,7 @@ def test_nonlinear_solver_statistics_log_convergence_status():
     assert (
         DeepDiff(
             stats.convergence_status,
-            ConvergenceStatusHistory(
+            pp.solvers.ConvergenceStatusHistory(
                 {
                     "crit1": [
                         "converged",
@@ -754,7 +745,9 @@ def test_nonlinear_solver_statistics_log_convergence_info():
     stats = NonlinearSolverStatistics()
 
     #  1. Iteration
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0})
+    )
     assert (
         DeepDiff(
             stats.convergence_info,
@@ -764,7 +757,9 @@ def test_nonlinear_solver_statistics_log_convergence_info():
     )
 
     # 2. Iteration
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5})
+    )
     assert (
         DeepDiff(
             stats.convergence_info,
@@ -804,7 +799,7 @@ def test_nonlinear_solver_statistics_append_global_data():
     stats.num_iterations_history = [2, 1]
     stats.index = 1
     stats.num_iterations = 1
-    stats.convergence_status = ConvergenceStatusHistory(
+    stats.convergence_status = pp.solvers.ConvergenceStatusHistory(
         {
             "crit1": [
                 "continue_iterating",
@@ -840,7 +835,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
         time_stepper_status("failed"),
     ]
     stats.solver_status_history = [nonlinear_solver_status("failed")]
-    stats.convergence_status = ConvergenceStatusHistory(
+    stats.convergence_status = pp.solvers.ConvergenceStatusHistory(
         {
             "crit1": ["continue_iterating", "failed"],
             "crit2": [
@@ -894,28 +889,32 @@ def test_nonlinear_solver_statistics_append_data():
     stats.log_simulation_status(time_stepper_status("continue_iterating"))
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "continue_iterating",
                 "crit2": "continue_iterating",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0})
+    )
 
     # 2. sub-iteration of FAILED iteration
     stats.log_mesh_information(subdomains)
     stats.log_simulation_status(time_stepper_status("failed"))
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "failed",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5})
+    )
 
     # Append data.
     data = {}
@@ -929,14 +928,16 @@ def test_nonlinear_solver_statistics_append_data():
     stats.log_simulation_status(time_stepper_status("converged"))
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "converged",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2})
+    )
 
     # Save to file.
     data = stats.append_data(data)
@@ -972,7 +973,7 @@ def test_nonlinear_solver_statistics_save():
     stats.index = 1
     stats.num_iterations_history = [2, 1]
     stats.num_iterations = 1
-    stats.convergence_status = ConvergenceStatusHistory(
+    stats.convergence_status = pp.solvers.ConvergenceStatusHistory(
         {
             "crit1": ["converged"],
             "crit2": ["converged"],
@@ -1032,28 +1033,32 @@ def test_nonlinear_solver_statistics_integration():
     stats.log_simulation_status(time_stepper_status("continue_iterating"))
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "continue_iterating",
                 "crit2": "continue_iterating",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0})
+    )
 
     # 2. sub-iteration of FAILED iteration
     stats.log_mesh_information(subdomains)
     stats.log_simulation_status(time_stepper_status("failed"))
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "failed",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5})
+    )
 
     # Save to file.
     stats.save()
@@ -1066,14 +1071,16 @@ def test_nonlinear_solver_statistics_integration():
     stats.log_simulation_status(time_stepper_status("converged"))
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "converged",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2})
+    )
 
     # Save to file.
     stats.save()
@@ -1493,14 +1500,16 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     stats.log_simulation_status(time_stepper_status("continue_iterating"))
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "continue_iterating",
                 "crit2": "continue_iterating",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0})
+    )
     stats.log_time_information(0, 2.0, 2.0, False)
 
     # 2. iteration of FAILED time step
@@ -1508,14 +1517,16 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     stats.log_simulation_status(time_stepper_status("failed"))
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "failed",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5})
+    )
     stats.log_time_information(0, 2.0, 2.0, False)
 
     # Append data.
@@ -1528,14 +1539,16 @@ def test_nonlinear_solver_and_time_statistics_append_data():
     stats.log_simulation_status(time_stepper_status("converged"))
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "converged",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2})
+    )
     stats.log_time_information(1, 2.5, 2.5, True)
 
     # Append data.
@@ -1579,7 +1592,7 @@ def test_nonlinear_solver_and_time_statistics_save():
     stats.dt = 2.5
     stats.final_time_reached = True
     stats.num_iterations = 1
-    stats.convergence_status = ConvergenceStatusHistory(
+    stats.convergence_status = pp.solvers.ConvergenceStatusHistory(
         {
             "crit1": ["converged"],
             "crit2": ["converged"],
@@ -1642,14 +1655,16 @@ def test_nonlinear_solver_and_time_statistics_integration():
     stats.log_simulation_status(time_stepper_status("continue_iterating"))
     stats.log_custom_data(append=True, **{"foo": "bar1"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "continue_iterating",
                 "crit2": "continue_iterating",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 1.0, "crit2": 2.0})
+    )
     stats.log_time_information(0, 2.0, 2.0, False)
 
     # 2. iteration of FAILED time step
@@ -1657,14 +1672,16 @@ def test_nonlinear_solver_and_time_statistics_integration():
     stats.log_simulation_status(time_stepper_status("failed"))
     stats.log_custom_data(append=True, **{"foo": "bar2"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "failed",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.5, "crit2": 1.5})
+    )
     stats.log_time_information(0, 2.0, 2.0, False)
 
     # Save to file.
@@ -1676,14 +1693,16 @@ def test_nonlinear_solver_and_time_statistics_integration():
     stats.log_simulation_status(time_stepper_status("converged"))
     stats.log_custom_data(append=True, **{"foo": "bar3"})
     stats.log_convergence_status(
-        ConvergenceStatusCollection(
+        pp.solvers.ConvergenceStatusCollection(
             {
                 "crit1": "converged",
                 "crit2": "converged",
             }
         )
     )
-    stats.log_convergence_info(ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2}))
+    stats.log_convergence_info(
+        pp.solvers.ConvergenceInfoCollection({"crit1": 0.1, "crit2": 0.2})
+    )
     stats.log_time_information(1, 2.5, 2.5, True)
 
     # Save to file.

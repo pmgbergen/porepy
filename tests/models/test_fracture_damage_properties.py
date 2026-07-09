@@ -39,7 +39,7 @@ from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.examples import fracture_damage as damage_examples
 from porepy.models import fracture_damage as damage_models
-from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
+from porepy.numerics.solvers.line_search import ConstraintLineSearchNonlinearSolver
 
 # ---------------------------------------------------------------------------
 # Internal helpers

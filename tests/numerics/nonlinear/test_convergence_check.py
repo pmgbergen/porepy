@@ -18,7 +18,7 @@ from deepdiff import DeepDiff
 import porepy as pp
 
 # Import "non-public" classes.
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     AbsoluteConvergenceCriterion,
     AbsoluteDivergenceCriterion,
     CombinedConvergenceCriterion,
@@ -312,8 +312,8 @@ def test_convergence_info_history():
     ("CriterionClass", "key"),
     [
         (NanDivergenceCriterion, "value"),
-        (pp.IncrementBasedNanCriterion, "increment"),
-        (pp.ResidualBasedNanCriterion, "residual"),
+        (pp.solvers.IncrementBasedNanCriterion, "increment"),
+        (pp.solvers.ResidualBasedNanCriterion, "residual"),
     ],
 )
 @pytest.mark.parametrize(
@@ -339,7 +339,7 @@ def test_nan_divergence_criterion(CriterionClass, key, value, expected_status):
 )
 def test_max_iterations_criterion(iteration_index, max_iterations, expected_status):
     """Test of the MaxIterationsCriterion."""
-    crit = pp.MaxIterationsCriterion(max_iterations=max_iterations)
+    crit = pp.solvers.MaxIterationsCriterion(max_iterations=max_iterations)
     status = crit.check(num_iterations=iteration_index)
     assert status == expected_status
 
@@ -358,8 +358,8 @@ def test_max_iterations_criterion(iteration_index, max_iterations, expected_stat
     ("CriterionClass", "key"),
     [
         (AbsoluteConvergenceCriterion, "value"),
-        (pp.IncrementBasedAbsoluteCriterion, "increment"),
-        (pp.ResidualBasedAbsoluteCriterion, "residual"),
+        (pp.solvers.IncrementBasedAbsoluteCriterion, "increment"),
+        (pp.solvers.ResidualBasedAbsoluteCriterion, "residual"),
     ],
 )
 @pytest.mark.parametrize(
@@ -395,8 +395,8 @@ def test_absolute_convergence_criterion(
     ("CriterionClass", "key"),
     [
         (AbsoluteDivergenceCriterion, "value"),
-        (pp.IncrementBasedAbsoluteDivergenceCriterion, "increment"),
-        (pp.ResidualBasedAbsoluteDivergenceCriterion, "residual"),
+        (pp.solvers.IncrementBasedAbsoluteDivergenceCriterion, "increment"),
+        (pp.solvers.ResidualBasedAbsoluteDivergenceCriterion, "residual"),
     ],
 )
 @pytest.mark.parametrize(
@@ -419,8 +419,12 @@ def test_absolute_divergence_criterion(
     ("CriterionClass", "key", "reference_key"),
     [
         (RelativeConvergenceCriterion, "value", "reference"),
-        (pp.IncrementBasedRelativeCriterion, "increment", "reference_increment"),
-        (pp.ResidualBasedRelativeCriterion, "residual", "reference_residual"),
+        (
+            pp.solvers.IncrementBasedRelativeCriterion,
+            "increment",
+            "reference_increment",
+        ),
+        (pp.solvers.ResidualBasedRelativeCriterion, "residual", "reference_residual"),
     ],
 )
 @pytest.mark.parametrize(
@@ -463,8 +467,12 @@ def test_relative_convergence_criterion_single_physics(
     ("CriterionClass", "key", "reference_key"),
     [
         (RelativeConvergenceCriterion, "value", "reference"),
-        (pp.IncrementBasedRelativeCriterion, "increment", "reference_increment"),
-        (pp.ResidualBasedRelativeCriterion, "residual", "reference_residual"),
+        (
+            pp.solvers.IncrementBasedRelativeCriterion,
+            "increment",
+            "reference_increment",
+        ),
+        (pp.solvers.ResidualBasedRelativeCriterion, "residual", "reference_residual"),
     ],
 )
 @pytest.mark.parametrize(
@@ -511,11 +519,15 @@ def test_relative_convergence_criterion_multiphysics(
     [
         (RelativeDivergenceCriterion, "value", "reference"),
         (
-            pp.IncrementBasedRelativeDivergenceCriterion,
+            pp.solvers.IncrementBasedRelativeDivergenceCriterion,
             "increment",
             "reference_increment",
         ),
-        (pp.ResidualBasedRelativeDivergenceCriterion, "residual", "reference_residual"),
+        (
+            pp.solvers.ResidualBasedRelativeDivergenceCriterion,
+            "residual",
+            "reference_residual",
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -552,8 +564,8 @@ def test_relative_divergence_criterion(
     ("CriterionClass", "key", "reference_key"),
     [
         (CombinedConvergenceCriterion, "value", "reference"),
-        (pp.IncrementBasedCombinedCriterion, "increment", "reference_increment"),
-        (pp.ResidualBasedCombinedCriterion, "residual", "reference_residual"),
+        (pp.solvers.IncrementBasedCombinedCriterion, "increment", "reference_increment"),
+        (pp.solvers.ResidualBasedCombinedCriterion, "residual", "reference_residual"),
     ],
 )
 @pytest.mark.parametrize(
@@ -601,11 +613,15 @@ def test_combined_convergence_criterion(
     [
         (CombinedDivergenceCriterion, "value", "reference"),
         (
-            pp.IncrementBasedCombinedDivergenceCriterion,
+            pp.solvers.IncrementBasedCombinedDivergenceCriterion,
             "increment",
             "reference_increment",
         ),
-        (pp.ResidualBasedCombinedDivergenceCriterion, "residual", "reference_residual"),
+        (
+            pp.solvers.ResidualBasedCombinedDivergenceCriterion,
+            "residual",
+            "reference_residual",
+        ),
     ],
 )
 @pytest.mark.parametrize(

@@ -34,7 +34,6 @@ from porepy.applications.md_grids.model_geometries import (
     TwoEllipticFractures3d,
     TwoWells3d,
 )
-from porepy.numerics.nonlinear import line_search
 from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 logger = logging.getLogger(__name__)
@@ -393,7 +392,7 @@ def set_solver_params():
         # improving the robustness of the nonlinear solver at the cost of some
         # additional computational overhead. Delete/comment the following lines for the
         # default Newton's method.
-        "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
         # Set to 1 to use turn on a residual-based line search. This involves some extra
         # residual evaluations and may be quite costly.
         "global_line_search": 0,

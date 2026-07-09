@@ -16,7 +16,6 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
-from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
 
 class TimeDependentDamageBCs:
@@ -572,7 +571,7 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
         "nl_convergence_inc_atol": 1e-6,
         "nl_convergence_res_atol": 1e-6,
         "nl_max_iterations": 35,
-        "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
         "local_line_search": True,
         "constraint_violation_tolerance": 1e-5,
     }

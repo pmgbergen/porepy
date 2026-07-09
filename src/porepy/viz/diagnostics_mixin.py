@@ -19,7 +19,7 @@ from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
-from porepy.numerics.linalg.linear_solver import LinearSystem
+from porepy import solvers
 
 if TYPE_CHECKING:
     from porepy import GridLike
@@ -77,7 +77,7 @@ class DiagnosticsMixin:
 
     def run_diagnostics(
         self,
-        linear_system: LinearSystem,
+        linear_system: solvers.LinearSystem,
         grouping: (
             GridGroupingType | Literal["dense", "subdomains", "interfaces"] | None
         ) = None,

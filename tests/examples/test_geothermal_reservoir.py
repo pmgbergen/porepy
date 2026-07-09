@@ -20,7 +20,7 @@ from porepy.examples.geothermal_reservoir import (
     set_model_params,
     set_solver_params,
 )
-from porepy.numerics.nonlinear import line_search
+from porepy.numerics.solvers import line_search
 
 
 class FastMeshingMixin:

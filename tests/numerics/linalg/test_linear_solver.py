@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from porepy.numerics.linalg.linear_solver import LinearSolverDirect, LinearSystem
+from porepy.numerics.solvers.linear_solver import LinearSolverDirect, LinearSystem
 
 
 def make_linear_system(case: Literal["nonsingular", "singular"]) -> LinearSystem:
