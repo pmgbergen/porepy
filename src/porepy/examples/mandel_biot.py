@@ -1442,8 +1442,10 @@ class MandelModel(  # type: ignore[misc]
     """
 
 
-# If executed as main, run simulation.
-if __name__ == "__main__":
+def run_example() -> list[pp.PorePyModel]:
+    """Run Mandel's consolidation example and return the model."""
+    models: list[pp.PorePyModel] = []
+
     # Set material constants.
     material_constants = {
         "solid": pp.SolidConstants(**mandel_solid_constants),  # type: ignore[arg-type]
@@ -1476,3 +1478,10 @@ if __name__ == "__main__":
 
     model = MandelModel(params=model_params)  # type: ignore[abstract]
     pp.run_time_dependent_model(model=model)
+    models.append(model)
+    return models
+
+
+# If executed as main, run simulation.
+if __name__ == "__main__":
+    run_example()

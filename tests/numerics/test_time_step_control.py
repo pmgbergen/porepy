@@ -947,5 +947,10 @@ def test_model_time_step_control(params: dict):
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": MAX_NONLINEAR_ITER,
     }
-    pp.ModelRunner(model, solver_params).run()
+    # If simulation failes, check error is raised.
+    if not time_step_converged[-1]:
+        with pytest.raises(RuntimeError):
+            pp.ModelRunner(model, solver_params).run()
+    else:
+        pp.ModelRunner(model, solver_params).run()
     assert np.allclose(model.time_step_history, exported_dt_expected)
