@@ -5,6 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
@@ -145,15 +146,6 @@ class EquationSystem:
 
         Private to avoid users setting equations directly and circumventing the current
         set-method which includes information about the image space.
-
-        """
-
-        self._simplified_equations: dict[str, Operator] = dict()
-        """Cache of constant-folded / fused equation trees, keyed by equation name.
-
-        Filled lazily on first :meth:`assemble` and reused across assembles (the trees are
-        static for a fixed equation set). Invalidated entry-wise in :meth:`set_equation`
-        and :meth:`remove_equation`.
 
         """
 
@@ -866,6 +858,8 @@ class EquationSystem:
         self._variable_num_dofs = np.concatenate(
             [self._variable_num_dofs, np.array([num_dofs], dtype=int)]
         )
+        # Clear cache since the global variable dofs have changed.
+        self._global_variable_dofs.cache_clear()
 
     def _cluster_dofs_gridwise(self) -> None:
         """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense
@@ -909,6 +903,8 @@ class EquationSystem:
         # Replace old block order
         self._variable_num_dofs = np.array(new_block_dofs, dtype=int)
         self._variable_numbers = new_variable_numbers
+        # Clear cache since the global variable dofs have changed.
+        self._global_variable_dofs.cache_clear()
 
     def _parse_variable_type(self, variables: Optional[VariableList]) -> list[Variable]:
         """Parse the input argument for the variable type.
@@ -991,7 +987,7 @@ class EquationSystem:
 
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
-        return int(sum(self._variable_num_dofs))  # cast numpy.int64 into Python int
+        return self._global_variable_dofs()[-1]
 
     def projection_to(self, variables: Optional[VariableList] = None) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
@@ -1032,6 +1028,17 @@ class EquationSystem:
         else:
             return sps.csr_matrix((0, num_dofs))
 
+    @lru_cache
+    def _global_variable_dofs(self) -> np.ndarray:
+        """Compute the global DOF indices for each variable block.
+
+        Returns:
+            An array of indices corresponding to the global DOF indices for each
+            variable block.
+
+        """
+        return np.hstack((0, np.cumsum(self._variable_num_dofs)))
+
     def dofs_of(self, variables: VariableList) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variables.
 
@@ -1047,7 +1054,7 @@ class EquationSystem:
 
         """
         variables = self._parse_variable_type(variables)
-        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
+        global_variable_dofs = self._global_variable_dofs()
 
         indices: list[np.ndarray] = []
 
@@ -1094,7 +1101,7 @@ class EquationSystem:
         if not (0 <= dof < num_dofs):  # indices go from 0 to num_dofs - 1
             raise KeyError("Dof index out of range.")
 
-        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
+        global_variable_dofs = self._global_variable_dofs()
         # Find the variable number belonging to this index
         variable_number = np.argmax(global_variable_dofs > dof) - 1
         # Get the variable key from _variable_numbers
@@ -1244,8 +1251,6 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
-        # Invalidate any cached simplified tree for this (re)set equation.
-        self._simplified_equations.pop(name, None)
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
@@ -1261,8 +1266,6 @@ class EquationSystem:
         if name in self._equations:
             # Remove the equation from the storage
             equ = self._equations.pop(name)
-            # Invalidate any cached simplified tree for this equation.
-            self._simplified_equations.pop(name, None)
             # Remove the image space information.
             # Note that there is no need to modify the numbering of the other equations,
             # since this is a local (to the equation) numbering.
@@ -1343,6 +1346,8 @@ class EquationSystem:
 
             # Update local counting
             self._variable_num_dofs[self._variable_numbers[id_]] = num_dofs
+        # Clear cache since the global variable dofs have changed.
+        self._global_variable_dofs.cache_clear()
 
     ### System assembly and discretization ---------------------------------------------
 
@@ -1607,6 +1612,8 @@ class EquationSystem:
         # Uniquify to save computational time, then discretize.
         unique_discr = pp.ad.uniquify_discretization_list(discr)
         pp.ad.discretize_from_list(unique_discr, self.mdg)
+        # Reduce the memory footprint of discretization matrices.
+        pp.matrix_operations.prune_discretization_matrices(self.mdg)
 
     @overload
     def assemble(
@@ -1695,72 +1702,49 @@ class EquationSystem:
         mat: list[sps.spmatrix] = []
         rhs: list[np.ndarray] = []
 
-        # Keep track of DOFs for each equation/block
+        # Keep track of DOFs for each equation/block.
         ind_start = 0
 
-        # Store the indices of the assembled equations only if the Jacobian is
-        # requested.
-        if evaluate_jacobian:
-            self.assembled_equation_indices = dict()
+        # Store the indices of the assembled equations.
+        self.assembled_equation_indices = {}
 
-        # The simplified (constant-folded / fused) equation trees are STATIC for a fixed
-        # equation set, so simplify once per equation and reuse across assembles instead
-        # of re-simplifying on every residual/Jacobian evaluation (the custom Newton loop
-        # assembles several times per iteration). The cache is invalidated whenever an
-        # equation is set or removed (see set_equation / remove_equation). simplify only
-        # folds genuinely-constant data (Scalar/DenseArray/SparseArray); discretization
-        # matrices, boundary/time arrays and variable values remain live leaves read at
-        # parse time, so a re-discretization or a state/time change is still reflected.
-        for name in equ_blocks:
-            if name not in self._simplified_equations:
-                self._simplified_equations[name] = self._equations[name].simplify(
-                    self.mdg
-                )
-        eqs: list[pp.ad.Operator] = [
-            self._simplified_equations[name] for name in equ_blocks
-        ]
+        eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
         rows = list(equ_blocks.values())
 
-        # Evaluate synchronously. (A previous ThreadPoolExecutor submitted a single task
-        # and blocked on it -- zero parallelism, only pool create/join overhead per
-        # assemble; the Python-level Ad tree walk is GIL-bound so threads do not help.)
-        if not evaluate_jacobian:
-            values = self.evaluate(eqs, False, state)
-        else:
-            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
+        # Ignore impenetrable mypy error here, the overloaded signatures are correctly
+        # defined.
+        values = self.evaluate(  # type: ignore[call-overload]
+            eqs,
+            derivative=evaluate_jacobian,
+            state=state,
+        )
 
-        # Process results based on what's requested
-        if not evaluate_jacobian:
-            for row, val in zip(rows, values):
-                # The residual of individual equations can be a scalar or an array.
-                # Forcing to array to ensure consistent handling.
-                val = np.asarray(val)
-                if row is not None:
-                    rhs.append(val[row])
-                else:
-                    rhs.append(val)
-        else:
-            for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
-                if row is not None:
-                    # If restriction to grid-related row blocks was made, perform row
-                    # slicing based on information we have obtained from parsing.
-                    mat.append(ad.jac.tocsr()[row])
-                    rhs.append(ad.val[row])
-                    block_length = len(rhs[-1])
-                else:
-                    # If no grid-related row restriction was made, append the whole
-                    # thing.
-                    mat.append(ad.jac)
-                    rhs.append(ad.val)
-                    block_length = len(ad.val)
+        for row, equ_name, value in zip(rows, equ_blocks, values):
+            # Extract residual vector and possibly Jacobian matrix.
+            rhs_value = value.val if evaluate_jacobian else value
+            jac = value.jac if evaluate_jacobian else None
+            if row is not None:
+                # If restriction to grid-related row blocks was made, perform row
+                # slicing based on information we have obtained from parsing.
+                rhs.append(rhs_value[row])
+                block_length = len(rhs[-1])
+                if evaluate_jacobian:
+                    assert jac is not None  # mypy
+                    mat.append(jac[row])
+            else:
+                # If no grid-related row restriction was made, append the whole thing.
+                rhs.append(rhs_value)
+                block_length = len(rhs[-1])
+                if evaluate_jacobian:
+                    mat.append(jac)
 
-                # Create indices range and shift to correct position.
-                block_indices = np.arange(block_length) + ind_start
-                # Extract last index and add 1 to get the starting point for next block
-                # of indices.
-                self.assembled_equation_indices.update({equ_name: block_indices})
-                if block_length > 0:
-                    ind_start = block_indices[-1] + 1
+            # Create indices range and shift to correct position.
+            block_indices = np.arange(block_length) + ind_start
+            self.assembled_equation_indices.update({equ_name: block_indices})
+            # Extract last index and add 1 to get the starting point for next block
+            # of indices.
+            if block_length > 0:
+                ind_start = block_indices[-1] + 1
 
         # Concatenate results equation-wise.
         if len(rhs) > 0:
@@ -1893,7 +1877,7 @@ class EquationSystem:
 
         # Keep track of indices or primary block.
         ind_start = 0
-        assembled_equation_indices = dict()
+        self.assembled_equation_indices = dict()
 
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
@@ -1916,14 +1900,14 @@ class EquationSystem:
                     A_prim.append(A_temp)
                     b_prim.append(b_temp)
 
-                # Track indices of block rows. Only primary equations are included.
-                row_idx = np.arange(b_prim[-1].size, dtype=int)
-                indices = row_idx + ind_start
-                ind_start += row_idx.size
-                assembled_equation_indices.update({name: indices})
-
-        # store the assembled row indices for the primary block only (Schur)
-        self.assembled_equation_indices = assembled_equation_indices
+                block_length = b_prim[-1].size
+                # Create indices range and shift to correct position.
+                block_indices = np.arange(block_length) + ind_start
+                # Extract last index and add 1 to get the starting point for next block
+                # of indices.
+                self.assembled_equation_indices.update({name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
         # We loop again over stored equation to ensure a correct order
         # but process only secondary equations.
@@ -1934,6 +1918,12 @@ class EquationSystem:
                 A_temp, b_temp = self.assemble(equations=[name], state=state)
                 A_sec.append(A_temp)
                 b_sec.append(b_temp)
+
+                block_length = b_sec[-1].size
+                block_indices = np.arange(block_length) + ind_start
+                self.assembled_equation_indices.update({name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
         # stack the results
         A_p = sps.vstack(A_prim, format="csr")
@@ -2114,7 +2104,7 @@ class EquationSystem:
         self,
         operator: pp.ad.Operator,
         derivative: Literal[True],
-        state: Optional[np.ndarray],
+        state: np.ndarray | None,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -2122,7 +2112,7 @@ class EquationSystem:
         self,
         operator: list[pp.ad.Operator],
         derivative: Literal[True],
-        state: Optional[np.ndarray],
+        state: np.ndarray | None,
     ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(
