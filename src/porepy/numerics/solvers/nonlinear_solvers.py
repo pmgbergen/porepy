@@ -13,11 +13,12 @@ from typing import Optional, cast
 import numpy as np
 
 import porepy as pp
-from .linear_solver import (
-    LinearSolverBase,
-    LinearSolverDirect,
-    LinearSolverStatus,
+from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import (
+    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
+
 from .convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
@@ -25,16 +26,12 @@ from .convergence_check import (
     ConvergenceStatusCollection,
     DivergenceCriteria,
 )
+from .linear_solver import LinearSolverBase, LinearSolverDirect, LinearSolverStatus
 from .nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from porepy.utils.ui_and_logging import DummyProgressBar
-from porepy.utils.ui_and_logging import (
-    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
-)
-from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

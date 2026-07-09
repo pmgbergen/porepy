@@ -58,7 +58,7 @@ def test_example_params_up_to_date():
     directories_params = [
         pp_path / "models",
         pp_path / "viz",
-        pp_path / "numerics/nonlinear",
+        pp_path / "numerics/solvers",
     ]
     # There are two distinct dictionaries of parameters: for the model and for the
     # solver. There's no way to statically detect what belongs to which dict.

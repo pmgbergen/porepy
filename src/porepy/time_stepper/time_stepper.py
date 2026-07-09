@@ -11,7 +11,6 @@ import logging
 
 import porepy as pp
 from porepy.numerics import solvers
-
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
