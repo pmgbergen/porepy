@@ -974,9 +974,10 @@ class ContactIndicators(pp.PorePyModel):
         u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
-
         domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        zeros_frac = pp.ad.DenseArray(
+            np.zeros(num_cells), source=domain_and_range, target=domain_and_range
+        )
 
         f_max = pp.ad.Function(
             pp.ad.maximum, "max_function", domain_and_range, domain_and_range
