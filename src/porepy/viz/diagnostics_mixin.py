@@ -15,11 +15,11 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
+from porepy import solvers
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.operators import Variable
-from porepy import solvers
 
 if TYPE_CHECKING:
     from porepy import GridLike

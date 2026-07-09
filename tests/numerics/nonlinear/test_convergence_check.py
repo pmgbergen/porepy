@@ -564,7 +564,11 @@ def test_relative_divergence_criterion(
     ("CriterionClass", "key", "reference_key"),
     [
         (CombinedConvergenceCriterion, "value", "reference"),
-        (pp.solvers.IncrementBasedCombinedCriterion, "increment", "reference_increment"),
+        (
+            pp.solvers.IncrementBasedCombinedCriterion,
+            "increment",
+            "reference_increment",
+        ),
         (pp.solvers.ResidualBasedCombinedCriterion, "residual", "reference_residual"),
     ],
 )

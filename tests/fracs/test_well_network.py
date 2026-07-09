@@ -562,7 +562,6 @@ def _generate_mesh_make_assertions(
     case: IntersectionCase,
     expected: list[tuple[np.ndarray, int, list[int]]],
 ) -> None:
-
     nd = _infer_dimension_from_fractures(case.fractures)
 
     box = {"xmin": -5.0, "xmax": 5.0, "ymin": -5.0, "ymax": 5.0}

@@ -1,18 +1,19 @@
 __all__ = []
 
-from . import anderson_acceleration
-from . import convergence_check
-from . import line_search
-from . import nonlinear_solver_status
-from . import nonlinear_solvers
-from . import linear_solver
-
+from . import (
+    anderson_acceleration,
+    convergence_check,
+    line_search,
+    linear_solver,
+    nonlinear_solver_status,
+    nonlinear_solvers,
+)
 from .anderson_acceleration import *
 from .convergence_check import *
 from .line_search import *
+from .linear_solver import *
 from .nonlinear_solver_status import *
 from .nonlinear_solvers import *
-from .linear_solver import *
 
 __all__.extend(anderson_acceleration.__all__)
 __all__.extend(convergence_check.__all__)

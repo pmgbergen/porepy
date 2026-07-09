@@ -20,6 +20,7 @@ from porepy.viz.solver_statistics import (
     SolverStatisticsFactory,
     TimeStatistics,
 )
+from porepy.numerics.solvers import ConvergenceInfoHistory
 
 # ! ---- Helper classes ---- !
 
@@ -44,7 +45,7 @@ class DummySubdomain:
 
 def nonlinear_solver_status(
     status: Literal["converged", "failed"],
-) -> NonlinearSolverStatus:
+) -> pp.solvers.NonlinearSolverStatus:
     """Create a nonlinear solver status for the tests."""
     if status == "converged":
         return pp.solvers.NonlinearSolverStatusConverged(
