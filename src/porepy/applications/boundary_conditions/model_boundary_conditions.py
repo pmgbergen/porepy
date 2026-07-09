@@ -348,7 +348,7 @@ class BoundaryConditionsMechanicsNeumann:
             return bc
         bc.internal_to_dirichlet(sd)
         faces_to_fix = self.faces_to_fix(sd)
-        dir_masks = self.anchor_dirichlet_component_masks()
+        dir_masks = self._anchor_dirichlet_component_masks()
         if len(faces_to_fix) != len(dir_masks):
             raise ValueError("Number of anchor faces and component masks must match.")
         for face, mask in zip(faces_to_fix, dir_masks):
@@ -360,7 +360,7 @@ class BoundaryConditionsMechanicsNeumann:
             bc.is_neu[:, face] = ~mask  # Negate for Neumann
         return bc
 
-    def anchor_dirichlet_component_masks(self) -> list[np.ndarray]:
+    def _anchor_dirichlet_component_masks(self) -> list[np.ndarray]:
         """Return Dirichlet component masks for anchor faces.
 
         Returns:
@@ -405,28 +405,25 @@ class BoundaryConditionsMechanicsNeumann:
 
         x_mean = 0.5 * (box["xmax"] + box["xmin"])
 
+        def face_index(side, point):
+            """For a given side of a domain and a target point, find the index of the
+            face closest to the point."""
+            side_mask = domain_sides.__getattribute__(side)
+            points_on_side = sd.face_centers[: self.nd, side_mask]
+            return side_mask.nonzero()[0][
+                np.argmin(pp.distances.point_pointset(point, points_on_side))
+            ]
+
         if self.nd == 2:
             y_mean = 0.5 * (box["ymax"] + box["ymin"])
             # Point 1: center on west boundary.
-            point_1 = np.array([box["xmin"], y_mean])
-            pts = sd.face_centers[:2, domain_sides.west]
-            ind_1 = domain_sides.west.nonzero()[0][
-                np.argmin(pp.distances.point_pointset(point_1, pts))
-            ]
+            ind_1 = face_index("west", np.array([box["xmin"], y_mean]))
 
             # Point 2: center of south boundary.
-            point_2 = np.array([x_mean, box["ymin"]])
-            pts = sd.face_centers[:2, domain_sides.south]
-            ind_2 = domain_sides.south.nonzero()[0][
-                np.argmin(pp.distances.point_pointset(point_2, pts))
-            ]
+            ind_2 = face_index("south", np.array([x_mean, box["ymin"]]))
 
             # Point 3: center on east boundary.
-            point_3 = np.array([box["xmax"], y_mean])
-            pts = sd.face_centers[:2, domain_sides.east]
-            ind_3 = domain_sides.east.nonzero()[0][
-                np.argmin(pp.distances.point_pointset(point_3, pts))
-            ]
+            ind_3 = face_index("east", np.array([box["xmax"], y_mean]))
             return [ind_1, ind_2, ind_3]
 
         if self.nd == 3:
@@ -436,25 +433,13 @@ class BoundaryConditionsMechanicsNeumann:
             h = np.mean(np.sqrt(sd.face_areas[domain_sides.west]))
             y_high = box["ymax"] - 0.5 * h
             z_max = box["zmax"]
-            point_1 = np.array([box["xmin"], y_high, z_max])
-            pts = sd.face_centers[:, domain_sides.west]
-            ind_1 = domain_sides.west.nonzero()[0][
-                np.argmin(pp.distances.point_pointset(point_1, pts))
-            ]
+            ind_1 = face_index("west", np.array([box["xmin"], y_high, z_max]))
 
             # Point 2 is on the center top of the south boundary.
-            point_2 = np.array([x_mean, box["ymin"], z_max])
-            pts = sd.face_centers[:, domain_sides.south]
-            ind_2 = domain_sides.south.nonzero()[0][
-                np.argmin(pp.distances.point_pointset(point_2, pts))
-            ]
+            ind_2 = face_index("south", np.array([x_mean, box["ymin"], z_max]))
 
             # Point 3 is on the center top of the east boundary.
-            point_3 = np.array([box["xmax"], y_high, z_max])
-            pts = sd.face_centers[:, domain_sides.east]
-            ind_3 = domain_sides.east.nonzero()[0][
-                np.argmin(pp.distances.point_pointset(point_3, pts))
-            ]
+            ind_3 = face_index("east", np.array([box["xmax"], y_high, z_max]))
             return [ind_1, ind_2, ind_3]
 
         raise NotImplementedError(
