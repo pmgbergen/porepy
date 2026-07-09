@@ -130,8 +130,9 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
+from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
-from .operators import IterativeOperator, Operations, TimeDependentOperator
+from .operators import Operations, Operator
 
 __all__ = [
     "SurrogateOperator",
@@ -139,10 +140,7 @@ __all__ = [
 ]
 
 
-class SurrogateOperator(
-    TimeDependentOperator,
-    IterativeOperator,
-):
+class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
     """Operator representing a :class:`SurrogateFactory` in AD operator form on
     specified subdomains or interfaces, at a time or iterate index.
 

@@ -76,10 +76,6 @@ jobs:
         pip install .[testing]
         pip freeze
 
-    - name: Install pypardiso
-      run: |
-        pip install pypardiso
-
     - name: all tests
       if: ${{always()}}
       run: pytest --run-skipped -m "not tutorials"

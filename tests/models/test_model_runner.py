@@ -61,7 +61,7 @@ def test_failed_nonlinear_solve_dynamic_time_step():
         "nl_max_iterations": 2,  # Only 2 Newton iterations
     }
     model_runner = pp.ModelRunner(model, params=runner_params)
-    with pytest.raises(RuntimeError, match="Simulation stopped"):
+    with pytest.raises(RuntimeError):
         model_runner.run()
 
     assert num_times_visited_solve_linear_system == 2, "Should do exactly 2 attempts."

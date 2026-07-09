@@ -632,6 +632,7 @@ class EquationSystem:
         variables: Optional[VariableList] = None,
         time_step_index: Optional[int] = None,
         iterate_index: Optional[int] = None,
+        reference: bool = False,
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
@@ -681,6 +682,7 @@ class EquationSystem:
                     data_cache[domain],
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
+                    reference=reference,
                 )
                 # NOTE get_solution_values already returns a copy
                 values.append(val)
@@ -696,6 +698,7 @@ class EquationSystem:
         time_step_index: Optional[int] = None,
         iterate_index: Optional[int] = None,
         additive: bool = False,
+        reference: bool = False,
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
 
@@ -755,6 +758,7 @@ class EquationSystem:
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                     additive=additive,
+                    reference=reference,
                 )
 
                 # 3. Move dissection forward.

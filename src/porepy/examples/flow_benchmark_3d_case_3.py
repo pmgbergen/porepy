@@ -55,16 +55,10 @@ class Geometry(pp.PorePyModel):
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
+        # Set up well network and add wells to the mixed-dimensional grid.
+        self.set_wells()
         self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
+        self.create_well_mesh()
 
 
 class IntersectionPermeability(Permeability):

@@ -318,15 +318,9 @@ def test_geothermal_reservoir():
             # Identifying injection and production well subdomains, one well can be
             # defined on multiple subdomains.
             all_wells = [sd for sd in mdg.subdomains() if self.is_well_grid(sd)]
-            injection_wells = [
-                well
-                for well in all_wells
-                if well.tags["parent_well_index"] == inj_well_index
-            ]
+            injection_wells = [sd for sd in all_wells if sd.well_num == inj_well_index]
             production_wells = [
-                well
-                for well in all_wells
-                if well.tags["parent_well_index"] == prod_well_index
+                sd for sd in all_wells if sd.well_num == prod_well_index
             ]
             # Fluxes are defined along normal vectors. Below, we check whether fluxes
             # point upwards or downwards along the z axis. Hence, we multiply the flux
@@ -334,41 +328,28 @@ def test_geothermal_reservoir():
             injection_signs = [np.sign(sd.face_normals[2]) for sd in injection_wells]
             production_signs = [np.sign(sd.face_normals[2]) for sd in production_wells]
 
-            def identify_well_fracture(parent_well_index):
+            def identify_well_fracture(well_index: int) -> pp.Subdomain:
                 # Identifying the fracture corresponding to this well index.
 
-                # Getting the intersections well-fracture.
-                intersections_0d = mdg.subdomains(dim=0)
-                # Getting the intersection that corresponds to the this well.
-                injection_intersection_0d = [
-                    x
-                    for x in intersections_0d
-                    if x.tags["parent_well_index"] == parent_well_index
+                # Pick the well subdomain (1d) with the given well index.
+                sd_well = [
+                    sd for sd in mdg.subdomains(dim=1) if sd.well_num == well_index
                 ][0]
-                # Getting the corresponding interfaces. It's 3 interfaces: two codim==1
-                # (with the well subdomains above and below the intersection) and one
-                # codim==2 (with the fracture). The latter is what we need.
-                interfaces_of_0d_sd = self.mdg.subdomain_to_interfaces(
-                    injection_intersection_0d
+                # To get the connected fracture, we first get the neighboring 0d
+                # subdomain at the well-fracture intersection, then get all its
+                # neighboring subdomains (should be the well and the fracture), and
+                # finally pick the one with dim == nd - 1 (the fracture).
+                sd_0d = mdg.neighboring_subdomains(sd_well, only_lower=True)[0]
+                neighbors = mdg.neighboring_subdomains(sd_0d, only_higher=True)
+                injection_fracture = [sd for sd in neighbors if sd.dim == self.nd - 1]
+                # Safeguarding.
+                assert len(injection_fracture) == 1, (
+                    "There should be exactly one fracture neighboring the well."
                 )
-                intf_codim_2 = [x for x in interfaces_of_0d_sd if x.codim == 2][0]
-                # Getting subdomains of this interface (well intersection and fracture.)
-                fracture_and_intersection = self.mdg.interface_to_subdomain_pair(
-                    intf_codim_2
-                )
-                # Keeping only the fracture (it should be one element in this list).
-                injection_fractures = [
-                    x for x in fracture_and_intersection if x.dim == self.nd - 1
-                ]
-                assert len(injection_fractures) == 1
-                return injection_fractures
+                return injection_fracture
 
-            injection_fractures = identify_well_fracture(
-                parent_well_index=inj_well_index
-            )
-            production_fractures = identify_well_fracture(
-                parent_well_index=prod_well_index
-            )
+            injection_fractures = identify_well_fracture(well_index=inj_well_index)
+            production_fractures = identify_well_fracture(well_index=prod_well_index)
 
             # Saving the data for the tests.
             pressure_data_injection_well.append(

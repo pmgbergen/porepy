@@ -341,6 +341,8 @@ class FluidDensityFromPressure(pp.PorePyModel):
         Extracted as a separate method to allow for easier combination with temperature
         dependent fluid density.
 
+        The perturbation is measured relative to the thermodynamic state values.
+
         Parameters:
             subdomains: List of subdomain grids.
 
@@ -352,7 +354,7 @@ class FluidDensityFromPressure(pp.PorePyModel):
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
-        dp = self.perturbation_from_reference("pressure", subdomains)
+        dp = self.perturbation_from_thermodynamic_state("pressure", subdomains)
 
         # Wrap compressibility from fluid class as matrix (left multiplication with dp).
         c = self.fluid_compressibility(subdomains)
@@ -409,6 +411,8 @@ class FluidDensityFromTemperature(pp.PorePyModel):
         Extracted as a separate method to allow for easier combination with temperature
         dependent fluid density.
 
+        The perturbation is measured relative to the thermodynamic state values.
+
         Parameters:
             subdomains: List of subdomain grids.
 
@@ -420,7 +424,7 @@ class FluidDensityFromTemperature(pp.PorePyModel):
 
         # Reference variables are defined in a variables class which is assumed to be
         # available by mixin.
-        dtemp = self.perturbation_from_reference("temperature", subdomains)
+        dtemp = self.perturbation_from_thermodynamic_state("temperature", subdomains)
         c = self.fluid_thermal_expansion(subdomains)
         return exp(Scalar(-1) * c * dtemp)
 
@@ -1884,7 +1888,7 @@ class FluidEnthalpyFromTemperature(pp.PorePyModel):
 
         def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             c = self.fluid_specific_heat_capacity(cast(list[pp.Grid], domains))
-            enthalpy = c * self.perturbation_from_reference(
+            enthalpy = c * self.perturbation_from_thermodynamic_state(
                 "temperature", cast(list[pp.Grid], domains)
             )
             enthalpy.set_name("fluid_enthalpy")

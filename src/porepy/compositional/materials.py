@@ -363,6 +363,7 @@ class SolidConstants(Constants):
             "permeability": "m^2",
             "porosity": "-",
             "residual_aperture": "m",
+            "rock_compressibility": "Pa^-1",
             "shear_modulus": "Pa",
             "skin_factor": "-",
             "specific_heat_capacity": "J * kg^-1 * K^-1",
@@ -407,6 +408,8 @@ class SolidConstants(Constants):
     porosity: number = 0.1
 
     residual_aperture: number = 0.1
+
+    rock_compressibility: number = 0.0
 
     shear_modulus: number = 1.0
 

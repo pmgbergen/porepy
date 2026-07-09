@@ -34,6 +34,7 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
 )
+from porepy.models.derived_models.biot import BiotPoromechanics
 
 solid_values = pp.solid_values.granite
 solid_values.update(
@@ -445,10 +446,10 @@ def test_evaluated_values(
         (models.MassAndEnergyBalance, ["pressure", "temperature"]),
     ],
 )
-def test_perturbation_from_reference(
+def test_perturbation_from_thermodynamic_state(
     model_class: type[models.MassAndEnergyBalance], quantities: list[str]
 ):
-    """Tests the evaluation of operators perturbed from reference values."""
+    """Tests the evaluation of operators perturbed from thermodynamic state values."""
 
     # Give some non-trivial reference values
     ref_vals = dict([(q, float(i + 1)) for i, q in enumerate(quantities)])
@@ -470,7 +471,7 @@ def test_perturbation_from_reference(
     )
 
     for q in quantities:
-        op = model.perturbation_from_reference(q, model.mdg.subdomains())
+        op = model.perturbation_from_thermodynamic_state(q, model.mdg.subdomains())
         # Calling value and jacobian to make sure there are no errors in parsing
         # but only value is checked.
         op_val = model.equation_system.evaluate(op, derivative=True)
@@ -830,3 +831,87 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # elements that are essentially zero; EK would not have been surprised if that
     # turned out to be needed for Mpfa, but it seems to work without.
     assert potential_trace.jac[fracture_faces_cart_ordering].data.size == 8
+
+
+@pytest.mark.parametrize(
+    "model_class, coefficient_method_name",
+    [
+        (models.Poromechanics, "_poromechanics_porosity_pressure_coefficient"),
+        (BiotPoromechanics, "specific_storage"),
+    ],
+)
+def test_porosity_change_from_pressure_uses_operator_reference(
+    model_class: type[models.Poromechanics] | type[BiotPoromechanics],
+    coefficient_method_name: str,
+) -> None:
+    """Test porosity pressure contributions based on pressure perturbation.
+
+    This is an integration test for existing constitutive laws. It checks that
+    ``porosity_change_from_pressure`` evaluates from current minus the operator-level
+    reference pressure stored in the equation system.
+
+    """
+
+    # Biot assumes incompressible fluid (compressibility == 0).
+    fluid_values = pp.fluid_values.water.copy()
+    fluid_values["compressibility"] = 0.0
+    fluid = pp.FluidComponent(**fluid_values)
+
+    params = {
+        "material_constants": {
+            "solid": pp.SolidConstants(specific_storage=3e-10),
+            "fluid": fluid,
+        },
+        "times_to_export": [],
+        "cartesian": True,
+    }
+
+    model = model_class(params)
+    model.prepare_simulation()
+
+    matrix_subdomains = model.mdg.subdomains(dim=model.nd)
+
+    # Reference pressure is set in params. Set a uniform current pressure.
+    pressure_shift = 2e5
+    reference_vals = np.full(model.mdg.num_subdomain_cells(), 1e5)
+    current_vals = np.full(model.mdg.num_subdomain_cells(), 1e5 + pressure_shift)
+
+    model.equation_system.set_variable_values(
+        reference_vals,
+        [model.pressure_variable],
+        reference=True,
+    )
+    model.equation_system.set_variable_values(
+        current_vals,
+        [model.pressure_variable],
+        iterate_index=0,
+    )
+
+    op = model.porosity_change_from_pressure(matrix_subdomains)
+    op_val = model.equation_system.evaluate(op)
+    dp = model.equation_system.evaluate(
+        model.pressure(matrix_subdomains).perturbation_from_reference()
+    )
+    assert np.allclose(dp, pressure_shift)
+
+    if coefficient_method_name == "specific_storage":
+        coefficient_op = model.specific_storage(matrix_subdomains)
+    else:
+        coefficient_op = _poromechanics_porosity_pressure_coefficient(
+            model, matrix_subdomains
+        )
+
+    coefficient = model.equation_system.evaluate(coefficient_op)
+    expected = coefficient * dp
+
+    assert np.allclose(op_val, expected, rtol=1e-8, atol=1e-10)
+
+
+def _poromechanics_porosity_pressure_coefficient(
+    model: models.Poromechanics, subdomains: list[pp.Grid]
+) -> pp.ad.Operator:
+    """Return the multiplicative pressure coefficient used by Poromechanics porosity."""
+    alpha = model.biot_coefficient(subdomains)
+    phi_ref = model.reference_porosity(subdomains)
+    bulk_modulus = model.bulk_modulus(subdomains)
+    return (alpha - phi_ref) * (pp.ad.Scalar(1) - alpha) / bulk_modulus

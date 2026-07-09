@@ -869,7 +869,7 @@ class TracerFlowModel_3p(
 
         def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             c = self.fluid_specific_heat_capacity(cast(list[pp.Grid], domains))
-            enthalpy = c * self.perturbation_from_reference(
+            enthalpy = c * self.perturbation_from_thermodynamic_state(
                 "temperature", cast(list[pp.Grid], domains)
             )
             enthalpy.set_name("fluid_enthalpy")

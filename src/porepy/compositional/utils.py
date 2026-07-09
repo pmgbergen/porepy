@@ -111,7 +111,7 @@ def _chainrule_fractional_derivatives_parallel(
     """Parallelized version of :func:`_chainrule_fractional_derivatives` to take
     vectorized input."""
     df_dx = np.empty(df_dxn.shape)
-    for i in nb.prange(df_dxn.shape[1]):
+    for i in nb.prange(df_dxn.shape[1]):  # type:ignore[attr-defined]
         df_dx[:, i] = _chainrule_fractional_derivatives(df_dxn[:, i], x[:, i])
     return df_dx
 
@@ -230,7 +230,7 @@ def _compute_saturations_parallel(
 ) -> np.ndarray:
     """Parallelized version of :func:`_compute_saturations` to take vectorized input."""
     s = np.empty(y.shape)
-    for i in nb.prange(y.shape[1]):
+    for i in nb.prange(y.shape[1]):  # type:ignore[attr-defined]
         s[:, i] = _compute_saturations(y[:, i], rho[:, i], eps)
     return s
 

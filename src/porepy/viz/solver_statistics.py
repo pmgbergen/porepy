@@ -10,14 +10,20 @@ from typing import Any, Optional, Type
 
 import numpy as np
 
-from porepy.models.model_runner import SimulationStatus
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceInfoHistory,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
-    SolverStatus,
     _recursive_append,
+)
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+)
+from porepy.time_stepper.time_step_status import (
+    TimeStepperStatus,
+    TimeStepperStatusContinueIterating,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,14 +69,29 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
-    """Last logged simulation status."""
-    simulation_status_history: list[SimulationStatus] = field(default_factory=list)
-    """Simulation status history."""
-    solver_status: SolverStatus = field(default=SolverStatus.IN_PROGRESS)
-    """Last logged solver status."""
-    solver_status_history: list[SolverStatus] = field(default_factory=list)
-    """Solver status history."""
+    solver_status: NonlinearSolverStatus = field(
+        default_factory=lambda: NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=-1,
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
+    )
+    """Nonlinear solver status."""
+    solver_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
+    """Nonlinear solver status history."""
+    simulation_status: TimeStepperStatus = field(
+        default_factory=lambda: TimeStepperStatusContinueIterating(
+            attempt=-1,
+            nonlinear_solver_status=NonlinearSolverStatusConverged(
+                num_nonlinear_iterations=-1,
+                convergence_statuses=ConvergenceStatusCollection(),
+                divergence_statuses=ConvergenceStatusCollection(),
+            ),
+        )
+    )
+    """Simulation time step status."""
+    simulation_status_history: list[TimeStepperStatus] = field(default_factory=list)
+    """Simulation time step status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
@@ -103,7 +124,7 @@ class SolverStatistics:
             self.num_domains[dim_str] += 1
 
     def log_simulation_status(
-        self, simulation_status: SimulationStatus, **kwargs
+        self, simulation_status: TimeStepperStatus, **kwargs
     ) -> None:
         """Log the status of the simulation.
 
@@ -119,7 +140,7 @@ class SolverStatistics:
             else:
                 self.simulation_status_history[-1] = self.simulation_status
 
-    def log_solver_status(self, solver_status: SolverStatus, **kwargs) -> None:
+    def log_solver_status(self, solver_status: NonlinearSolverStatus, **kwargs) -> None:
         """Log the status of the solver.
 
         Parameters:
@@ -163,7 +184,9 @@ class SolverStatistics:
 
         """
 
-        str_simulation_status_history = [str(s) for s in self.simulation_status_history]
+        str_simulation_status_history = [
+            status.serialize() for status in self.simulation_status_history
+        ]
         final_str_simulation_status = (
             None
             if len(self.simulation_status_history) == 0
@@ -205,8 +228,8 @@ class SolverStatistics:
         """
         data[str(self.index)].update(
             {
-                "simulation_status": str(self.simulation_status),
-                "solver_status": str(self.solver_status),
+                "simulation_status": self.simulation_status.serialize(),
+                "solver_status": self.solver_status.serialize(),
             }
         )
         return data
@@ -375,7 +398,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
         ):
-            if not simulation_status.is_successful():
+            if not simulation_status.is_success():
                 total_num_waisted_iterations += num_iterations
 
         # Update global data.
@@ -392,7 +415,9 @@ class NonlinearSolverStatistics(SolverStatistics):
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary at current index."""
 
-        str_solver_status_history = [str(s) for s in self.solver_status_history]
+        str_solver_status_history = [
+            status.serialize() for status in self.solver_status_history
+        ]
         str_solver_status = (
             None
             if len(self.solver_status_history) == 0
@@ -403,10 +428,10 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.index)].update(
             {
                 "num_iterations": self.num_iterations,
-                "simulation_status": str(
+                "simulation_status": (
                     None
                     if len(self.simulation_status_history) == 0
-                    else self.simulation_status_history[-1]
+                    else self.simulation_status_history[-1].serialize()
                 ),
                 "solver_status_history": str_solver_status_history,
                 "solver_status": str_solver_status,
@@ -481,7 +506,7 @@ class TimeStatistics(SolverStatistics):
         # TODO: Rethink during upgrade of time integration.
         for simulation_status in self.simulation_status_history:
             total_num_time_steps += 1
-            if not simulation_status.is_successful():
+            if not simulation_status.is_success():
                 total_num_failed_time_steps += 1
 
         # Update global data.

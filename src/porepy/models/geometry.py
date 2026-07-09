@@ -52,8 +52,9 @@ class ModelGeometry(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         # Set up well network and add wells to the mixed-dimensional grid.
+        self.set_wells()
         self.set_well_network()
-        self.add_wells_to_mdg()
+        self.create_well_mesh()
 
         # Move cell centers if requested.
         self.move_cell_centers()
@@ -103,21 +104,41 @@ class ModelGeometry(pp.PorePyModel):
             **self.meshing_kwargs(),
         )
 
-    def set_well_network(self) -> None:
-        """Assign well network class."""
-        self.well_network = pp.WellNetwork3d(domain=self._domain)
+    @property
+    def wells(self) -> list[pp.Well]:
+        """Wells of the problem."""
+        return self._wells
 
-    def add_wells_to_mdg(self) -> None:
-        """Add wells to the mixed-dimensional grid."""
-        if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
+    def set_wells(self) -> None:
+        """Set wells in the well network.
+
+        Override this method to define a geometry with wells.
+
+        """
+        self._wells: list[pp.Well] = []
+
+    def set_well_network(self) -> None:
+        """Assign well network class.
+
+        Raises:
+            NotImplementedError: If the model is 2D and wells are defined.
+
+        """
+        self.well_network = pp.WellNetwork3d(self._wells, domain=self._domain)
+
+    def create_well_mesh(self) -> None:
+        """Create well mesh and add them to the mixed-dimensional grid.
+
+        Raises:
+            NotImplementedError: If the model is 2D and wells are defined.
+        """
+        if len(self._wells) > 0 and self.nd == 2:
+            raise NotImplementedError(
+                "Well-fracture intersection meshing is not implemented for 2D cases."
             )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
+        self.well_network.mesh(
+            self.fracture_network, self.mdg, self.well_meshing_arguments()
+        )
 
     def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
@@ -159,6 +180,21 @@ class ModelGeometry(pp.PorePyModel):
         # If meshing arguments are provided in the params, they should already be
         # scaled by the length unit.
         return self.params.get("meshing_arguments", default_meshing_args)
+
+    def well_meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for well meshing.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.fracs.well_network.WellNetwork3d.mesh`.
+
+        """
+        # Default value of 1/2, scaled by the length unit.
+        cell_size = self.units.convert_units(0.5, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be
+        # scaled by the length unit.
+        return self.params.get("well_meshing_arguments", default_meshing_args)
 
     def meshing_kwargs(self) -> dict:
         """Keyword arguments for md-grid creation.
@@ -868,7 +904,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         folder_path = file_name.parent
         msh_path = (folder_path / file_name.stem).with_suffix(".msh")
         geo_path = (folder_path / file_name.stem).with_suffix(".geo_unrolled")
-        fracture_network_path = folder_path / self.csv_file_name()
+        fracture_network_path = folder_path / self.fracture_csv_file_name()
+        well_network_path = folder_path / self.well_csv_file_name()
 
         # Check whether the msh or geo file exists. If used as in the docstring example,
         # both exist and the msh file is used to avoid remeshing unnecessarily.
@@ -892,11 +929,13 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Set file permissions. This turned out to be important for GH actions.
         msh_path.chmod(777)
         fracture_network_path.chmod(777)
+        well_network_path.chmod(777)
 
         # Load mixed-dimensional grid from geo or msh file.
         self.fracture_network = pp.fracture_importer.network_from_csv(
             fracture_network_path
         )
+        self.well_network = pp.WellNetwork3d.from_csv(well_network_path)
         self.nd = self.fracture_network.nd
 
         self.mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
@@ -904,22 +943,32 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Obtain domain and fracture list directly from the fracture network.
         self._domain = cast(pp.Domain, self.fracture_network.domain)
         self._fractures = self.fracture_network.fractures
+        self._wells = self.well_network.wells
 
         # Create projection between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
         # Create well network and mesh.
         self.set_well_network()
-        self.add_wells_to_mdg()
+        self.create_well_mesh()
 
-    def csv_file_name(self) -> Path:
+    def fracture_csv_file_name(self) -> Path:
         """Name of the file used for input and output of fracture network csv files.
 
         Returns:
             Name of the fracture network csv file.
 
         """
-        return Path(self.params.get("csv_file_name", "fracture_network.csv"))
+        return Path(self.params.get("fracture_csv_file_name", "fracture_network.csv"))
+
+    def well_csv_file_name(self) -> Path:
+        """Name of the file used for input and output of well network csv files.
+
+        Returns:
+            Name of the well network csv file.
+
+        """
+        return Path(self.params.get("well_csv_file_name", "well_network.csv"))
 
     def create_and_export_geometry(self, set_geometry_class=None) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
@@ -946,10 +995,16 @@ class LoadGeometryMixin(pp.PorePyModel):
         set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
 
         # In addition, save the fracture network.
-        folder_path = Path(self.csv_file_name()).parent.absolute()
-        csv_file_name = Path(self.csv_file_name())
-        fracture_network_path = folder_path / csv_file_name
+        folder_path = Path(self.fracture_csv_file_name()).parent.absolute()
+        fracture_csv_file_name = Path(self.fracture_csv_file_name())
+        fracture_network_path = folder_path / fracture_csv_file_name
         self.fracture_network.to_csv(fracture_network_path)
+
+        # Also save the well network.
+        folder_path = Path(self.well_csv_file_name()).parent.absolute()
+        well_csv_file_name = Path(self.well_csv_file_name())
+        well_network_path = folder_path / well_csv_file_name
+        self.well_network.to_csv(well_network_path)
 
     def meshing_kwargs(self) -> dict:
         """Provide default meshing kwargs for storing and loading `mdg` and the fracture
@@ -965,7 +1020,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Add kwargs related to storing the geometry files to the meshing kwargs of
         # ``ModelGeometry``.
         default_meshing_kwargs = {
-            "csv_file_name": self.csv_file_name(),
+            "fracture_csv_file_name": self.fracture_csv_file_name(),
+            "well_csv_file_name": self.well_csv_file_name(),
         }
         meshing_kwargs = super().meshing_kwargs()  # type: ignore[safe-super]
         default_meshing_kwargs.update(meshing_kwargs)

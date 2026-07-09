@@ -29,20 +29,31 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from ._operator_states import (
+    IterativeOperator,
+    ReferenceOperator,
+    TimeDependentOperator,
+    _get_previous_time_or_iterate,
+    _get_reference,
+)
 from .forward_mode import AdArray
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
+    _TimeDependentOperator = TypeVar(
+        "_TimeDependentOperator", bound=TimeDependentOperator
+    )
+    _IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
+    _ReferenceOperator = TypeVar("_ReferenceOperator", bound=ReferenceOperator)
+
+
 __all__ = [
     "Operator",
-    "TimeDependentOperator",
-    "IterativeOperator",
     "SparseArray",
     "DenseArray",
     "TimeDependentDenseArray",
     "Scalar",
-    "TimeDependentScalar",
     "Variable",
     "MixedDimensionalVariable",
     "Projection",
@@ -51,61 +62,6 @@ __all__ = [
     "sum_projection_list",
     "cached_method",
 ]
-
-
-def _get_previous_time_or_iterate(
-    op: Operator, prev_time: bool = True, steps: int = 1
-) -> Operator:
-    """Helper function which traverses an operator's tree recursively to get a
-    copy of it and it's children, representing ``op`` at a previous time or
-    iteration.
-
-    Parameters:
-        op: Some operator whose tree should be traversed.
-        prev_time: ``default=True``
-
-            If True, it calls :meth:`Operator.previous_timestep`, otherwise it calls
-            :meth:`Operator.previous_iteration`.
-
-            This is the only difference in the recursion and we can avoid duplicate
-            code.
-        steps: ``default=1``
-
-            Number of steps backwards in time or iterate sense.
-
-    Returns:
-        A copy of the operator and its children, representing the previous time or
-        iteration.
-
-    """
-    if steps == 0:
-        return op
-    # The recursion reached an atomic operator, which has some time- or
-    # iterate-dependent behaviour
-    if isinstance(op, TimeDependentOperator) and prev_time:
-        return op.previous_timestep(steps=steps)
-    elif isinstance(op, IterativeOperator) and not prev_time:
-        return op.previous_iteration(steps=steps)
-    # NOTE The previous_iteration of a time-dependent operator will return the operator
-    # itself. Vice-versa, the previous_timestep of an Iterative operator will return
-    # itself. Holds only if the operator is original (no previous_* operation performed)
-
-    # The recursion reached an operator without children and without time- or iterate-
-    # dependent behaviour
-    elif op.is_leaf():
-        return op
-    # Else we are in the middle of the operator tree and need to go deeper, creating
-    # copies along.
-    else:
-        # Create new operator from the tree, with the only difference being the new
-        # children, for which the recursion is invoked
-        # NOTE copy takes care of references to original_operator and func
-        new_op = copy.copy(op)
-        new_op.children = [
-            _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
-            for child in op.children
-        ]
-        return new_op
 
 
 class Operations(Enum):
@@ -431,6 +387,19 @@ class Operator:
 
         """
         return _get_previous_time_or_iterate(self, prev_time=False, steps=steps)
+
+    def reference(self) -> pp.ad.Operator:
+        """Base method to trigger a recursion over the operator tree and create a
+        shallow copy of this operator with reference behaviour.
+
+        For more information, see :class:`ReferenceOperator`.
+
+        """
+        return _get_reference(self)
+
+    def perturbation_from_reference(self) -> pp.ad.Operator:
+        """Returns the perturbation of this operator from its reference value."""
+        return self - self.reference()
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
@@ -912,16 +881,6 @@ class Operator:
             if self.operation == Operations.void or len(self.children) == 0:
                 raise ValueError("Base class operator must represent an operation.")
             tmp = [self.operation.value] + [child._key() for child in self.children]
-            # An ``evaluate`` node wraps a numerical function (operator function /
-            # surrogate factory) whose identity is NOT captured by the operation and
-            # children alone. Two DIFFERENT functions evaluated on the SAME arguments
-            # would otherwise produce identical keys, hash equal and compare equal, and
-            # collide in operator caches (e.g. ``cached_method`` returning the wrong
-            # cached operator -- this silently breaks the buoyancy flux when saturations /
-            # partial fractions are represented as surrogate functions). The operator
-            # name of an evaluate node encodes the function identity, so include it.
-            if self.operation == Operations.evaluate:
-                tmp.append(f"func={self.name}")
             self._cached_key = " ".join(tmp)
         return self._cached_key
 
@@ -944,519 +903,6 @@ class Operator:
             return [self, other]
         else:
             raise ValueError(f"Cannot parse {other} as an AD operator")
-
-    def inspect(self, verbose: bool = True) -> dict[str, Any]:
-        """
-        Analyzes the AD graph starting from this node to find optimization candidates.
-
-        Parameters:
-            verbose: If True, prints a summary of the inspection to stdout.
-
-        Returns:
-            A dictionary containing graph statistics.
-        """
-        stats = {
-            "total_nodes": 0,
-            "max_depth": 0,
-            "node_types": {},
-            "constant_subtrees": 0,
-            "variables": set(),
-        }
-
-        visited = set()
-
-        def _walk(node: Operator, depth: int) -> bool:
-            # Handle shared references (DAGs)
-            node_id = id(node)
-            if node_id in visited:
-                # If we've seen it, we assume it's constant if it was constant before.
-                # (Simplification for stats; accurate topological sort is costlier)
-                return True
-            visited.add(node_id)
-
-            # Update Stats
-            stats["total_nodes"] += 1
-            stats["max_depth"] = max(stats["max_depth"], depth)
-
-            t_name = type(node).__name__
-            stats["node_types"][t_name] = stats["node_types"].get(t_name, 0) + 1
-
-            # Check if this node is a Variable (Dynamic)
-            # We use string checks to avoid NameError if Variable isn't defined yet
-            if isinstance(node, (Variable, TimeDependentOperator)) and not isinstance(node, DenseArray):
-                if hasattr(node, "name"):
-                    stats["variables"].add(node.name)
-                return False  # Dynamic nodes are never constant
-
-            # Leaf check
-            if len(node.children) == 0:
-                return True
-
-            # Recursion
-            is_const = True
-            for child in node.children:
-                child_is_const = _walk(child, depth + 1)
-                if not child_is_const:
-                    is_const = False
-
-            if is_const:
-                stats["constant_subtrees"] += 1
-
-            return is_const
-
-        _walk(self, 0)
-
-        if verbose:
-            print("=== AD Graph Inspection ===")
-            print(f"Total Nodes: {stats['total_nodes']}")
-            print(f"Max Depth:   {stats['max_depth']}")
-            print(f"Unique Variables: {list(stats['variables'])}")
-            print(f"Optimization Candidates: {stats['constant_subtrees']}")
-            print("Node Breakdown:")
-            for k, v in stats["node_types"].items():
-                print(f"  - {k}: {v}")
-
-        return stats
-
-    def simplify(self, mdg: pp.MixedDimensionalGrid, memo=None) -> Operator:
-        """
-        Returns a fully simplified Operator tree.
-
-        Order of optimizations:
-        1. Associative Flattening (Structure)
-        2. Recursion (Children)
-        3. Constant Folding (Data)
-        4. Linear Fusion (Matrices)
-        5. Algebraic Identities (Cleanup)
-        """
-        # --- 0. Memoization ---
-        if memo is None: memo = {}
-        if id(self) in memo: return memo[id(self)]
-
-        # --- STRATEGY 1: Eager Associative Flattening (Add Only) ---
-        # We handle 'Add' nodes specially to group constants BEFORE recursion
-        if self.operation == Operations.add:
-            # 1. Flatten: Collect all terms from nested additions
-            terms = []
-            stack = [self]  # Start with self, but don't recurse blindly yet
-
-            # We need to peek if children are Adds.
-            # If self is Add, we decompose it.
-            # NOTE: We must be careful not to flatten things that shouldn't be flattened.
-            # Instead of a stack of raw nodes, let's collect terms from 'self' structure.
-
-            to_process = [self]
-
-            while to_process:
-                curr = to_process.pop()
-                if curr.operation == Operations.add:
-                    to_process.extend(curr.children)
-                else:
-                    terms.append(curr)
-
-            # 2. Simplify Terms & Separate Constants
-            # We treat the flattened list as the new children
-            simplified_terms = [t.simplify(mdg, memo) for t in terms]
-
-            constants = []
-            variables = []
-            data_types = (Scalar, DenseArray, SparseArray)
-
-            for t in simplified_terms:
-                # Treat time-dependent leaves (e.g. TimeDependentScalar, a Scalar
-                # subclass) as NON-constant: their value changes between assembles and
-                # must stay a live leaf read at parse time, never folded into a frozen
-                # constant (this also keeps the cached simplified tree correct).
-                if isinstance(t, data_types) and not isinstance(
-                    t, TimeDependentOperator
-                ):
-                    constants.append(t)
-                else:
-                    variables.append(t)
-
-            # 3. Consolidate Constants (The "Value Change" you requested)
-            total_constant = None
-            if constants:
-                try:
-                    # Sum all constant values immediately
-                    raw_val = sum(c.parse(mdg) for c in constants)
-
-                    # Wrap result
-                    name = "folded_const"
-                    if sps.issparse(raw_val):
-                        total_constant = SparseArray(raw_val, name=name)
-                    elif isinstance(raw_val, np.ndarray):
-                        total_constant = DenseArray(raw_val, name=name)
-                    else:
-                        total_constant = Scalar(float(raw_val), name=name)
-                except:
-                    # If shapes mismatch (e.g. vector + scalar), put them back in variables
-                    variables.extend(constants)
-                    total_constant = None
-
-            # 4. Rebuild the Tree
-            # We now have a list of simplified variables and maybe one constant.
-            final_terms = variables
-            if total_constant is not None:
-                # Optimization: If constant is 0 and we have variables, drop it (Identity)
-                is_zero = False
-                try:
-                    if isinstance(total_constant, Scalar) and np.isclose(total_constant.parse(None), 0.0):
-                        is_zero = True
-                except:
-                    pass
-
-                if not is_zero or not final_terms:
-                    final_terms.append(total_constant)
-
-            # Helper: Balanced Sum Construction
-            def balanced_sum(ops):
-                if not ops: return Scalar(0.0)  # Should be covered by empty check logic
-                if len(ops) == 1: return ops[0]
-                if len(ops) == 2: return ops[0] + ops[1]
-                mid = len(ops) // 2
-                return balanced_sum(ops[:mid]) + balanced_sum(ops[mid:])
-
-            if not final_terms:
-                result = Scalar(0.0)
-            else:
-                result = balanced_sum(final_terms)
-
-            memo[id(self)] = result
-            return result
-
-        # --- STRATEGY 2: Standard Recursion ---
-        # For non-Add nodes, we simplify children first
-        try:
-            new_children = [child.simplify(mdg, memo) for child in self.children]
-        except RecursionError:
-            import sys
-            sys.setrecursionlimit(max(sys.getrecursionlimit(), 5000))
-            new_children = [child.simplify(mdg, memo) for child in self.children]
-
-        # Detect changes
-        if any(c is not self.children[i] for i, c in enumerate(new_children)):
-            curr_op = copy.copy(self)
-            curr_op.children = new_children
-            curr_op._cached_key = None
-        else:
-            curr_op = self
-
-        result = curr_op
-
-        # --- STRATEGY 3: Constant Folding ---
-        # Time-dependent leaves are excluded: their value changes between assembles, so a
-        # node depending on one must not be folded into a frozen constant (keeps the
-        # cached simplified tree correct across time steps).
-        data_types = (Scalar, DenseArray, SparseArray)
-        if (
-            len(curr_op.children) > 0
-            and all(isinstance(c, data_types) for c in curr_op.children)
-            and not any(
-                isinstance(c, TimeDependentOperator) for c in curr_op.children
-            )
-        ):
-            try:
-                raw_values = [c.parse(mdg) for c in curr_op.children]
-                res = None
-                op = curr_op.operation
-
-                if op == Operations.sub:
-                    res = raw_values[0] - raw_values[1]
-                elif op == Operations.mul:
-                    res = raw_values[0] * raw_values[1]
-                elif op == Operations.div:
-                    res = raw_values[0] / raw_values[1]
-                elif op == Operations.pow:
-                    res = raw_values[0] ** raw_values[1]
-                elif op == Operations.matmul:
-                    res = raw_values[0] @ raw_values[1]
-                # Note: Add is handled by Strategy 1, but we leave this for safety
-                elif op == Operations.add:
-                    res = raw_values[0] + raw_values[1]
-
-                if res is not None:
-                    name = f"folded_{curr_op.name}" if curr_op.name else "folded"
-                    if sps.issparse(res):
-                        result = SparseArray(res, name=name)
-                    elif isinstance(res, np.ndarray):
-                        result = DenseArray(res, name=name)
-                    elif isinstance(res, (float, int, np.number)):
-                        result = Scalar(float(res), name=name)
-            except Exception:
-                pass
-
-        # --- STRATEGY 4: Linear Operator Fusion ---
-        elif curr_op.operation == Operations.matmul:
-            left, right = curr_op.children[0], curr_op.children[1]
-            if isinstance(left, (SparseArray, DenseArray)) and right.operation == Operations.matmul:
-                r_left = right.children[0]
-                r_right = right.children[1]
-                if isinstance(r_left, (SparseArray, DenseArray)):
-                    try:
-                        C_val = left.parse(mdg) @ r_left.parse(mdg)
-                        new_name = f"fused_{left.name}_{r_left.name}"
-                        if sps.issparse(C_val):
-                            C_op = SparseArray(C_val, name=new_name)
-                        else:
-                            C_op = DenseArray(C_val, name=new_name)
-
-                        # Recurse on the new structure immediately
-                        result = (C_op @ r_right).simplify(mdg, memo)
-                    except:
-                        pass
-
-        # --- STRATEGY 5: Algebraic Identities ---
-        # (Handling Mul/Sub identities. Add identities are handled in Strategy 1 cleanup)
-        elif curr_op.operation in (Operations.mul, Operations.rmul, Operations.sub):
-            left = curr_op.children[0]
-            right = curr_op.children[1]
-
-            def is_val(node, val):
-                return isinstance(node, Scalar) and np.isclose(node.parse(None), val)
-
-            if curr_op.operation in (Operations.mul, Operations.rmul):
-                if is_val(left, 1.0):
-                    result = right
-                elif is_val(right, 1.0):
-                    result = left
-                # Optional: 0 * x -> 0 (Requires shape check, skipped for safety)
-
-            elif curr_op.operation == Operations.sub:
-                if is_val(right, 0.0): result = left
-
-        memo[id(self)] = result
-        return result
-
-
-class TimeDependentOperator(Operator):
-    """Intermediate parent class for operator classes, which can have a time-dependent
-    representation.
-
-    Implements the notion of time step indices, as well as a method to create a
-    representation of an operator instance at a previous time.
-
-    Operators created via constructor always start at the current time.
-
-    """
-
-    def __init__(
-        self,
-        name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operations] = None,
-        children: Optional[Sequence[Operator]] = None,
-    ) -> None:
-        super().__init__(
-            name=name, domains=domains, operation=operation, children=children
-        )
-
-        self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
-        iterate.
-
-        This attribute is only available in operators representing previous time steps.
-
-        """
-
-        self._time_step_index: int = -1
-        """Time step index, starting with 0 (current time) and increasing for previous
-        time steps."""
-
-    @property
-    def is_previous_time(self) -> bool:
-        """True, if the operator represents a previous time-step."""
-        return True if self._time_step_index >= 0 else False
-
-    @property
-    def time_step_index(self) -> int | None:
-        """Returns the time step index this instance represents.
-
-        - None indicates the current time (unknown value)
-        - 0 indicates this is an operator at the first previous time step
-        - 1 at the time step before
-        - ...
-
-        """
-        if self._time_step_index < 0:
-            return None
-        else:
-            return self._time_step_index
-
-    def previous_timestep(
-        self: _TimeDependentOperator, steps: int = 1
-    ) -> _TimeDependentOperator:
-        """Returns a copy of the time-dependent operator with an advanced time-step
-        index.
-
-        Time-dependent operators do not invoke the recursion (like the base class), but
-        represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous time step from operators which
-            are at some previous iterate. Use the :attr:`original_operator` instead.
-
-        Parameters:
-            steps: ``default=1``
-
-                Number of steps backwards in time. If steps=0, the current time is
-                represented.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous iterate.
-            ValueError: If ``steps`` is not non-negative.
-
-        """
-        if isinstance(self, IterativeOperator):
-            if self.is_previous_iterate:
-                raise ValueError(
-                    "Cannot create an operator representing a previous time step,"
-                    + " if it already represents a previous iterate."
-                )
-
-        if steps < 0:
-            raise ValueError("Number of steps backwards must be non-negative.")
-        # TODO copy or deepcopy? Is this enough for every operator class?
-        op = copy.copy(self)
-        # Delete the cached key, so that this must be regenerated for the new operator,
-        # which is different from the original one.
-        op._cached_key = None
-
-        # NOTE Use private time step index, because it is always an integer
-        # The public time step index is NONE for current time
-        # (which translates to -1 for the private index)
-        op._time_step_index = self._time_step_index + int(steps)
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
-        return op
-
-
-_TimeDependentOperator = TypeVar("_TimeDependentOperator", bound=TimeDependentOperator)
-
-
-class IterativeOperator(Operator):
-    """Intermediate parent class for operator classes, which can have multiple
-    representations in the iterative sense.
-
-    Implements the notion of iterate indices, as well as a method to create a
-    representation of an operator instance at a iterate time.
-
-    Operators created via constructor always start at the current iterate.
-
-    Note:
-        Operators which represents some previous iterate represent also
-        always the current time.
-
-    """
-
-    def __init__(
-        self,
-        name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operations] = None,
-        children: Optional[Sequence[Operator]] = None,
-    ) -> None:
-        super().__init__(
-            name=name, domains=domains, operation=operation, children=children
-        )
-
-        self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
-        iterate.
-
-        This attribute is only available in operators representing previous time steps.
-
-        """
-
-        self._iterate_index: int = -1
-        """Iterate index, starting with 0 (current iterate at current time) and
-        increasing for previous iterates."""
-
-    @property
-    def is_previous_iterate(self) -> bool:
-        """True, if the operator represents a previous iterate."""
-        return True if self._iterate_index >= 0 else False
-
-    @property
-    def iterate_index(self) -> int | None:
-        """Returns the iterate index this instance represents, at the current time.
-
-        - None indicates this instance is at a previous time
-        - 0 represents the most recently computed iterate.
-        - 1 represents the iterate before that
-        - ...
-
-        Note:
-            Operators at current time (unknown value) also have the index 0, since those
-            values are used to linearize the system and construct the Jacobian.
-
-        """
-        # Operators at previous time have no iterate indices
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                return None
-
-        # operators representing at current time use the values stored at index 0
-        # in that case the private index is -1
-        if self._iterate_index < 0:
-            return 0
-        # return respective index
-        else:
-            return self._iterate_index
-
-    def previous_iteration(
-        self: _IterativeOperator, steps: int = 1
-    ) -> _IterativeOperator:
-        """Returns a copy of the iterative operator with an advanced iterate index.
-
-        Iterative operators do not invoke the recursion (like the base class),
-        but represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous iterates from operators which
-            are at some previous time step. Use the :attr:`original_operator` instead.
-
-        Parameters:
-            steps: ``default=1``
-
-                Number of steps backwards in the iterate sense. If ``steps`` is 0, the
-                current iterate is returned.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous time step.
-            ValueError: If ``steps`` is not non-negative.
-
-        """
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                raise ValueError(
-                    "Cannot create an operator representing a previous iterate,"
-                    + " if it already represents a previous time step."
-                )
-        if steps < 0:
-            raise ValueError("Number of steps backwards must be non-negative.")
-        # See TODO in TimeDependentOperator.previous_timestep
-        op = copy.copy(self)
-        # Delete the cached key, so that this must be regenerated for the new operator,
-        # which is different from the original one.
-        op._cached_key = None
-        op._iterate_index = self._iterate_index + int(steps)
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
-        return op
-
-
-_IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
 
 
 class SparseArray(Operator):
@@ -1688,7 +1134,7 @@ class DenseArray(Operator):
         return self._values
 
 
-class TimeDependentDenseArray(TimeDependentOperator):
+class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1734,9 +1180,10 @@ class TimeDependentDenseArray(TimeDependentOperator):
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
             key = (
-                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids} "
-                f"previous_time={self.is_previous_time},"
-                f"time_step_index={self.time_step_index})"
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids}\n"
+                f"previous_time={self.is_previous_time}, "
+                f"time_step_index={self.time_step_index}), "
+                f"reference={self.is_reference})"
             )
             self._cached_key = key
         return self._cached_key
@@ -1758,9 +1205,14 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
         """
         vals = []
-        if self.is_previous_time:
+        if self.is_reference:
+            reference = True
+            index_kwarg = {}
+        elif self.is_previous_time:
+            reference = False
             index_kwarg = {"time_step_index": self.time_step_index}
         else:
+            reference = False
             index_kwarg = {"iterate_index": 0}
 
         for grid in self._domains:
@@ -1777,7 +1229,9 @@ class TimeDependentDenseArray(TimeDependentOperator):
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
 
             vals.append(
-                pp.get_solution_values(name=self._name, data=data, **index_kwarg)
+                pp.get_solution_values(
+                    name=self._name, data=data, reference=reference, **index_kwarg
+                )
             )
 
         if len(vals) > 0:
@@ -1872,67 +1326,7 @@ class Scalar(Operator):
         self._value = value
 
 
-class TimeDependentScalar(Scalar, TimeDependentOperator):
-    """Time-dependent scalar value, storing history of scalar values locally"""
-
-    def __init__(self, value: float, depth: int, name: str | None = None):
-        super().__init__(value=value, name=name)
-
-        self._history: deque[float] = deque([float(value)], maxlen=int(depth))
-        """Historic values shared accross instances of this object in time.
-        
-        IMPORTANT: Mechanism will likely break if shallow-copy-approach in
-        TimeDependentOperator is changed.
-        """
-
-    def __neg__(self):
-        """Ensures to fetch the correct value in time during negation."""
-        op = super().__neg__()
-
-        if self.is_previous_time:
-            assert isinstance(self.time_step_index, int)
-            op.set_value(-self._history[-(1 + self.time_step_index)])
-
-        return op
-
-    def _key(self) -> str:
-        if self._cached_key is None:
-            self._cached_key = f"(time-dependent scalar, {self._name}, {self._value})"
-        return self._cached_key
-
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
-        """See :meth:`Operator.parse`.
-
-        Returns:
-            The number corresponding to the time step index.
-
-        """
-        if self.is_previous_time:
-            assert isinstance(self.time_step_index, int)
-            value = self._history[-(1 + self.time_step_index)]
-        else:
-            value = self._value
-
-        return value
-
-    def set_value(self, value: float, new_time: bool = True) -> None:
-        """Set the value of this scalar at the current time.
-
-        Parameters:
-            value: The new value in time.
-            new_time: ``default=True``
-
-                If True, the passed value is treated as the new value in time, and the
-                current value is stored as a previous value in time (including shift of
-                other previous values).
-
-        """
-        if new_time:
-            self._history.append(self._value)
-        self._value = value
-
-
-class Variable(TimeDependentOperator, IterativeOperator):
+class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Operator):
     """AD operator representing a variable defined on a single grid or mortar grid.
 
     For combinations of variables on different subdomains, see
@@ -2089,6 +1483,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
             data,
             iterate_index=self.iterate_index,
             time_step_index=self.time_step_index,
+            reference=self.is_reference,
         )
 
     def __repr__(self) -> str:
@@ -2101,7 +1496,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
         )
-        if self.is_previous_iterate:
+        if self.is_reference:
+            s += f"Evaluated at the reference solution.\n"
+        elif self.is_previous_iterate:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
         elif self.is_previous_time:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -2159,6 +1556,7 @@ class MixedDimensionalVariable(Variable):
         time_indices = []
         iter_indices = []
         current_iter = []
+        reference = []
         names = []
         domains = []
 
@@ -2166,6 +1564,7 @@ class MixedDimensionalVariable(Variable):
             time_indices.append(var.time_step_index)
             iter_indices.append(var.iterate_index)
             current_iter.append(var.is_current_iterate)
+            reference.append(var.is_reference)
             names.append(var.name)
             domains.append(var.domain)
 
@@ -2181,6 +1580,10 @@ class MixedDimensionalVariable(Variable):
             assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
                 "Cannot create md-variable from variables at different iterates."
             )
+            assert len(set(reference)) == 1, (
+                "Cannot create md-variable from variables with different reference "
+                "states."
+            )
             assert len(set(names)) == 1, (
                 "Cannot create md-variable from variables with different names."
             )
@@ -2191,8 +1594,9 @@ class MixedDimensionalVariable(Variable):
         else:
             time_indices = [-1]
             iter_indices = [None]
-            names = ["empty_md_variable"]
             current_iter = [True]
+            reference = [False]
+            names = ["empty_md_variable"]
 
         # NOTE everything below here is redundent with a proper super() call
         # See top comment in constructor
@@ -2213,6 +1617,9 @@ class MixedDimensionalVariable(Variable):
             # can be None if variables at previous time. Set iterate index to default
             # value.
             self._iterate_index = -1 if iter_indices[0] is None else iter_indices[0]
+
+        # Check if reference
+        self._is_reference = reference[0]
 
         self._name = names[0]
 
@@ -2321,6 +1728,13 @@ class MixedDimensionalVariable(Variable):
         obtained at the previous iteration."""
         op = super().previous_iteration(steps=steps)
         op.sub_vars = [var.previous_iteration(steps=steps) for var in self.sub_vars]
+        return op
+
+    def reference(self) -> MixedDimensionalVariable:
+        """Mixed-dimensional variables have sub-variables which also need to be
+        obtained as reference."""
+        op = super().reference()
+        op.sub_vars = [var.reference() for var in self.sub_vars]
         return op
 
 

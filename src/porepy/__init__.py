@@ -108,11 +108,8 @@ from porepy.fracs.fracture_network_creation import create_fracture_network
 from porepy.grids.mdg_generation import create_mdg
 
 # Wells
-from porepy.fracs.wells_3d import (
-    Well,
-    WellNetwork3d,
-    compute_well_fracture_intersections,
-)
+from porepy.fracs.wells_3d import Well
+from porepy.fracs.well_network import WellNetwork3d
 
 # Numerics
 
@@ -148,25 +145,40 @@ from porepy.models.protocol import PorePyModel
 
 # Related to models and solvers
 from porepy.models.model_runner import (
+    ModelRunnerStatus,
+    ModelRunnerStatusFailure,
+    ModelRunnerStatusSuccess,
     ModelRunner,
     run_time_dependent_model,
     run_stationary_model,
 )
-from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
 
 
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad.ad_utils import (
+from porepy.numerics.ad.get_set_values import (
     get_solution_values,
     set_solution_values,
     shift_solution_values,
 )
 
 # Time stepping control
-from porepy.numerics.time_step_control import TimeManager
+from porepy import time_stepper
+from porepy.time_stepper.time_step_status import (
+    TimeStepperStatus,
+    TimeStepperStatusContinueIterating,
+    TimeStepperStatusFailure,
+    TimeStepperStatusSuccess,
+)
+from porepy.time_stepper.time_stepper import TimeStepper
+from porepy.time_stepper.time_step_control import TimeManager
 
 from porepy import models
 from porepy.models.abstract_equations import (
