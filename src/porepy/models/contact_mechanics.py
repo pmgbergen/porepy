@@ -627,7 +627,7 @@ class RadialReturnTangentialContactMechanicsEquation:
     tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Mapping from a full vector to the tangential component."""
 
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.Projection]]
+    basis: Callable[..., list[pp.ad.Projection]]
     """Basis vectors for the tangential components."""
 
     nd: int
