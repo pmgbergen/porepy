@@ -273,10 +273,8 @@ class DiagonalJacobianFunction(AbstractFunction):
         # For now, use unclear() for source and target, since the function is not aware
         # of the grid/dof context of its arguments. This should be improved if this
         # code is brought back to shape at some point.
-        if source is None:
-            source = OperatorSpace.unclear()
-        if target is None:
-            target = OperatorSpace.unclear()
+        source = OperatorSpace.unclear()
+        target = OperatorSpace.unclear()
         super().__init__(name=name, source=source, target=target)
         # check and format input for further use
         if isinstance(multipliers, list):
@@ -394,10 +392,8 @@ class InterpolatedFunction(AbstractFunction):
         # For now, use unclear() for source and target, since the function is not aware
         # of the grid/dof context of its arguments. This should be improved if this
         # code is brought back to shape at some point.
-        if source is None:
-            source = OperatorSpace.unclear()
-        if target is None:
-            target = OperatorSpace.unclear()
+        source = OperatorSpace.unclear()
+        target = OperatorSpace.unclear()
         super().__init__(name=name, source=source, target=target)
 
         ### PUBLIC
