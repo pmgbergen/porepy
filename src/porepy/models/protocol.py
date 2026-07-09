@@ -243,6 +243,7 @@ else:
             attr: str,
             *,
             dim: int,
+            grid_entity: pp.ad.GridEntity = pp.ad.GridEntity.cells,
         ) -> pp.ad.DenseArray:
             """Wrap a grid attribute as an ad matrix.
 
@@ -255,6 +256,8 @@ else:
                     exclude the z-component of a vector attribute in 2d, to achieve
                     compatibility with code which is explicitly 2d (e.g. fv
                     discretizations).
+                grid_entity: The grid entity (cells, faces, or nodes) that ``attr``
+                    is actually defined on.
 
             Returns:
                 class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
