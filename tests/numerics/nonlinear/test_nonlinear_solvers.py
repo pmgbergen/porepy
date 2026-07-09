@@ -76,7 +76,16 @@ def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
 
 
 def default_newton_solver(nonlinear_increment_history: Optional[np.ndarray] = None):
-    # TODO
+    """Create a Newton solver with a mock linear solver.
+
+    Parameters:
+        nonlinear_increment_history: Sequence of increments returned by successive
+            calls to the mock linear solver. Tests use this to control the nonlinear
+            increment norm on each Newton iteration and thereby trigger convergence
+            or divergence criteria. If omitted, the mock solver receives an empty
+            history.
+
+    """
     if nonlinear_increment_history is None:
         nonlinear_increment_history = np.ndarray(shape=())
     return pp.NewtonSolver(

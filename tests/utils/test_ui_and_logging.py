@@ -152,12 +152,7 @@ def run_model_and_save_output(
         params=params, linear_solver=MockLinearSolver(num_nl_iterations)
     )
 
-    # MockModel has the wrong type. Ignore mypy.
-    pp.ModelRunner(
-        model,  # type: ignore
-        params,
-        nonlinear_solver=nonlinear_solver,
-    ).run()
+    pp.ModelRunner(model, params, nonlinear_solver=nonlinear_solver).run()
 
     captured_stderr = capsys.readouterr().err
     captured_logging_records = caplog.records
