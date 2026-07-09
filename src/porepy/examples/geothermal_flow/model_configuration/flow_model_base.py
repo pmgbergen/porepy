@@ -9,7 +9,8 @@ from typing import Callable, Optional, cast, Any
 
 import porepy as pp
 from porepy.models.compositional_flow import (
-    CompositionalFlowTemplate as FlowTemplate,
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
 )
 
 # PETSc imports (only if available)
@@ -60,7 +61,11 @@ class _CachingSurrogateFactory(pp.ad.SurrogateFactory):
         return op
 
 
-class FlowModelBase(FlowTemplate):
+class _FlowModelBaseCore:
+    """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
+    with one of the two compositional-flow templates below to form a concrete base; its ``super()``
+    calls resolve to whichever template is mixed in after it in the concrete class's MRO."""
+
     # Trust-region state, persistent across nonlinear iterations (reset each time step).
     _trust_radius: float = None
 
@@ -1414,3 +1419,13 @@ class FlowModelBase(FlowTemplate):
         if self.newton_iterations_per_timestep:
             avg_iterations = self.total_newton_iterations / len(self.newton_iterations_per_timestep)
         print(f"Average iterations per timestep: {avg_iterations:.2f}")
+
+
+class FlowModelBase(_FlowModelBaseCore, CompositionalFlowTemplate):
+    """Flow-model base with the STANDARD primary equations (upwinded total mobility) -- the HU
+    discretisation. Public name kept for backward compatibility; other example scripts inherit it."""
+
+
+class FractionalFlowModelBase(_FlowModelBaseCore, CompositionalFractionalFlowTemplate):
+    """Flow-model base with the FRACTIONAL-FLOW primary equations (mobility-weighted) -- the HU-mw
+    discretisation. Select this template for ``mass_mobility_weighted_permeability``/HU-mw runs."""

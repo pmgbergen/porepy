@@ -33,7 +33,8 @@ from porepy.examples.geothermal_flow.model_configuration.geometry_description.ge
     SimpleGeometryVertical as ModelGeometryV,
 )
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
-    DriesnerBrineFlowModel as FlowModel,
+    DriesnerBrineFlowModel,               # HU  (standard primary equations)
+    DriesnerBrineFractionalFlowModel,     # HU-mw (fractional-flow primary equations)
 )
 from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
     BC_two_phase_moderate_pressure as BC,
@@ -90,8 +91,7 @@ def run_case(geometry_case: str, weighted_perm: bool) -> dict:
     times_to_export = list(np.arange(0.0, tf, DT * EXPORT_EVERY)) + [tf]
     params = {
         "ad_backend": "native",
-        "fractional_flow": False,
-        "mass_mobility_weighted_permeability": weighted_perm,
+        "fractional_flow": weighted_perm,
         "enable_buoyancy_effects": True,
         "buoyancy_upwinding": "hybrid",
         "material_constants": {"solid": solid},
@@ -103,6 +103,9 @@ def run_case(geometry_case: str, weighted_perm: bool) -> dict:
     }
 
     ModelGeometry = GEOMETRY[geometry_case]
+    # HU-mw uses the fractional-flow template, HU the standard one -- the discretisation distinction
+    # is the base template, not a runtime parameter.
+    FlowModel = DriesnerBrineFractionalFlowModel if weighted_perm else DriesnerBrineFlowModel
 
     class GeothermalWaterFlowModel(ModelGeometry, BC, IC, FlowModel):
         pass
@@ -160,8 +163,9 @@ def run_case(geometry_case: str, weighted_perm: bool) -> dict:
 
 
 def main() -> None:
-    for geometry_case in ("horizontal", "vertical"):
-        for weighted_perm in (False, True):
+    # for geometry_case in ("horizontal", "vertical"):
+    for geometry_case in ["horizontal"]:   # trailing comma -> 1-element tuple, not a string
+        for weighted_perm in [False, True]:
             run_case(geometry_case, weighted_perm)
 
 

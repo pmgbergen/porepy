@@ -10,9 +10,12 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
     DivergenceCriteria,
-    SimulationStatus,
 )
-from .flow_model_base import FlowModelBase
+from .flow_model_base import _FlowModelBaseCore
+from porepy.models.compositional_flow import (
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
+)
 
 from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
@@ -119,13 +122,13 @@ class InitialConditions(pp.PorePyModel):
         return z * np.ones(sd.num_cells)
 
 
-class DriesnerBrineFlowModel(  # type:ignore[misc]
+class _DriesnerBrineBase(  # type:ignore[misc]
     ModelGeometry,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
     SecondaryEquations,
-    FlowModelBase,
+    _FlowModelBaseCore,
 ):
 
     def relative_permeability(
@@ -578,4 +581,16 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         te = time.time()
         print("Elapsed time for postprocessing thermal overshoots: ", te - tb)
         return
+
+
+class DriesnerBrineFlowModel(_DriesnerBrineBase, CompositionalFlowTemplate):  # type: ignore[misc]
+    """Driesner brine model with the STANDARD primary equations -- HU (upwinded total mobility).
+    Public name kept for backward compatibility; other example scripts inherit it."""
+
+
+class DriesnerBrineFractionalFlowModel(  # type: ignore[misc]
+    _DriesnerBrineBase, CompositionalFractionalFlowTemplate
+):
+    """Driesner brine model with the FRACTIONAL-FLOW primary equations -- HU-mw (mobility-weighted).
+    Select this for ``weighted_perm=True`` runs."""
 
