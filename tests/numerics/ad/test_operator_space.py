@@ -348,15 +348,29 @@ class TestMixedDimensionalVariableSpace:
         assert md_var.source == expected
         assert md_var.target == expected
 
-    def test_md_variable_with_mixed_dof_info_has_unspecified_space(self, fracture_mdg):
-        # TODO: Should this raise instead?
+    def test_md_variable_with_mixed_dof_info_is_unclear(self, fracture_mdg):
+        """Sub-variables genuinely disagreeing on dof_info yields an ``unclear()``
+        space, not ``None`` (Step 3 of the strict-operator-spaces plan)."""
         subdomains = fracture_mdg.subdomains()
         v1 = Variable("p", {GridEntity.cells: 1}, subdomains[0])
         v2 = Variable("p", {GridEntity.cells: 2}, subdomains[1])
         md_var = MixedDimensionalVariable([v1, v2])
 
-        assert md_var.source is None
-        assert md_var.target is None
+        assert md_var.source == OperatorSpace.unclear()
+        assert md_var.target == OperatorSpace.unclear()
+
+    def test_md_variable_with_mixed_grid_classes_is_unclear(
+        self, two_subdomains, one_mortar
+    ):
+        """Sub-variables on genuinely different grid classes (a subdomain and an
+        interface) yields an ``unclear()`` space, not ``None``."""
+        g1, _ = two_subdomains
+        v1 = Variable("p", {GridEntity.cells: 1}, g1)
+        v2 = Variable("p", {GridEntity.cells: 1}, one_mortar)
+        md_var = MixedDimensionalVariable([v1, v2])
+
+        assert md_var.source == OperatorSpace.unclear()
+        assert md_var.target == OperatorSpace.unclear()
 
 
 class TestSurrogateOperatorSpace:
