@@ -32,6 +32,7 @@ LAG_UPWIND = False                   # advective weight: False = current iterate
 CASES = (("horizontal", r"(a) horizontal orientation, $200$ years"),
          ("vertical",   r"(b) vertical orientation, $1000$ years"))
 FIELDS = ("T", "p", "s_liq")
+EXTRA_N = 200          # 4th curve (vertical only): PPU with UPWINDED gravity densities at this N
 OUT_DIR = os.path.join(m.HERE, "figures")
 
 
@@ -112,17 +113,39 @@ def compute(N=N, level=LEVEL, lag_upwind=LAG_UPWIND, n_steps=None, parallel=True
     return out
 
 
+def compute_extra(N=EXTRA_N, level=LEVEL, cache=True):
+    """4th curve for fig_weis_profiles_b: PPU in the Weis (2014) setup -- UPWINDED gravity densities
+    (Eq.25) AND lagged upwind directions (frozen once per time step) -- at N=EXTRA_N, vertical. This
+    matches Weis's IMPES-style treatment: freezing the directions removes the well-balancedness
+    instability that makes the fully-implicit current-iterate variant intractable, and the profile
+    is expected to track the published curves closely. Per-run cached with an 'up_lag' tag."""
+    path = os.path.join(CACHE_DIR, f"profiles_vertical_up_lag_ppu_N{N}_l{level}.pkl")
+    if cache and os.path.exists(path):
+        with open(path, "rb") as f:
+            print(f"[profiles] loaded extra {os.path.basename(path)}")
+            return pickle.load(f)
+    m.prebuild_table_caches(level)
+    res = m.run(scheme="ppu", weighted_perm=False, grav_upstream=True, N=N, case="vertical",
+                level=level, lag_upwind=True, verbose=False)
+    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it")}
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(path, "wb") as f:
+        pickle.dump(keep, f)
+    return keep
+
+
 FIG_W_HALF = 0.49 * ps.TEXTWIDTH_IN     # width of one subfigure (two share the text width)
 _P_LS = (0, (4, 2))                     # pressure dashed, to read against solid temperature
 _WEIS_T, _WEIS_P = "#8B0000", "#00008B"  # Weis reference markers: dark red (T), dark blue (p)
+_EXTRA_C = "#984EA3"                     # 4th curve (PPU, upwinded densities): purple
 
 
-def _plot_one(out, case, stem):
+def _plot_one(out, case, stem, extra=None):
     """One orientation -> one figure. Top panel merges temperature (left axis, solid) and pressure
     (right axis, dashed): the three schemes keep their own colours, the Weis reference is dark red
     (T) / dark blue (p), and each y-axis is coloured to match its Weis reference. The per-scheme
-    iteration legend lives in the saturation panel below. No sub-caption (the LaTeX subfigure gives
-    it)."""
+    iteration legend lives in the saturation panel below. ``extra`` (if given) adds a 4th curve --
+    PPU with upwinded densities. No sub-caption (the LaTeX subfigure gives it)."""
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
@@ -144,6 +167,12 @@ def _plot_one(out, case, stem):
         ax_p.plot(*ps.to_plot_units(r, "p"), color=cfg["color"], ls=_P_LS, lw=1.1)   # p: scheme colour
         ax_s.plot(*ps.to_plot_units(r, "s_liq"), color=cfg["color"], lw=1.3,
                   label=fr"{cfg['label']} (${r['total_it']}$ it.)")
+
+    if extra is not None:   # 4th curve (vertical only): PPU with upwinded gravity densities
+        ax_tp.plot(*ps.to_plot_units(extra, "T"), color=_EXTRA_C, ls="-", lw=1.4)
+        ax_p.plot(*ps.to_plot_units(extra, "p"), color=_EXTRA_C, ls=_P_LS, lw=1.2)
+        ax_s.plot(*ps.to_plot_units(extra, "s_liq"), color=_EXTRA_C, lw=1.4,
+                  label=r"PPU, upw.\ $\rho$")
 
     # colour each y-axis (label, ticks, spine) to match its quantity
     ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=_WEIS_T)
@@ -173,17 +202,19 @@ def _plot_one(out, case, stem):
     plt.close(fig)
 
 
-def plot(out, stem="fig_weis_profiles"):
+def plot(out, extra_vertical=None, stem="fig_weis_profiles"):
     """Render each orientation as a SEPARATE figure (no sub-captions -- the LaTeX subfigure supplies
-    '(a)'/'(b)'): ``{stem}_a`` = horizontal, ``{stem}_b`` = vertical."""
+    '(a)'/'(b)'): ``{stem}_a`` = horizontal, ``{stem}_b`` = vertical. ``extra_vertical`` adds the
+    upwinded-density PPU curve to the vertical figure only."""
     ps.apply_style()
     suffix = {"horizontal": "a", "vertical": "b"}
     for case, _sub in CASES:
-        _plot_one(out, case, f"{stem}_{suffix[case]}")
+        ex = extra_vertical if case == "vertical" else None
+        _plot_one(out, case, f"{stem}_{suffix[case]}", extra=ex)
 
 
 def main():
-    plot(compute())
+    plot(compute(), extra_vertical=compute_extra())
 
 
 if __name__ == "__main__":

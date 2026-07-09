@@ -245,7 +245,9 @@ def plot(spatial, obl, stem="fig_weis_reference"):
     ps.savefig(fig, f"{stem}_a", OUT_DIR)
     plt.close(fig)
 
-    # (b) parametric OBL convergence -> {stem}_b
+    # (b) parametric OBL convergence -> {stem}_b. Log axis; error of each level against the finest
+    # table (level 5), which is the reference (error 0) and thus not plotted -- the panel shows the
+    # coarse-to-fine table convergence over levels 0..4.
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_HALF, 2.9))
     L_all = sorted({lv for (_, lv) in obl})
     L_ref = max(L_all)
