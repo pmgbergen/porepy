@@ -6,9 +6,10 @@ from enum import Enum
 
 import porepy as pp
 
+from ._grid_entity import GridEntity
+
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
-    from ._grid_entity import GridEntity
 
 
 __all__ = [
@@ -112,6 +113,59 @@ class OperatorSpace:
 
     def __hash__(self) -> int:
         return hash((self.domain_type, self.grids, frozenset(self.dof_info.items())))
+
+    def num_dofs(self) -> int:
+        """Total number of degrees of freedom represented by this space.
+
+        Computed as the sum, over all grids in :attr:`grids`, of the number of
+        grid entities of each type (cells, faces nodes) times the number of DOFs per
+        entity of that type.
+
+        This is used by the shape-consistency check in
+        :class:`~porepy.numerics.ad.operators.SparseArray`/
+        :class:`~porepy.numerics.ad.operators.DenseArray` to catch
+        constructor calls where the supplied space does not actually match the
+        shape of the wrapped array/matrix.
+
+        Returns:
+            The total number of DOFs.
+
+        Raises:
+            ValueError: If this space is :attr:`DomainType.scalar` or
+                :attr:`DomainType.unclear`.
+
+        """
+        if self.domain_type in (DomainType.scalar, DomainType.unclear):
+            raise ValueError(
+                f"{self.domain_type.value.capitalize()} spaces have no "
+                "grid-based DOF count."
+            )
+        total = 0
+        for grid in self.grids:
+            for entity, num_per_entity in self.dof_info.items():
+                if entity == GridEntity.cells:
+                    total += num_per_entity * grid.num_cells
+                elif entity == GridEntity.faces:
+                    if isinstance(grid, pp.Grid):
+                        total += num_per_entity * grid.num_faces
+                    elif num_per_entity:
+                        raise ValueError(
+                            f"{type(grid).__name__} has no faces, but dof_info "
+                            f"specifies {num_per_entity} DOFs per face."
+                        )
+                elif entity == GridEntity.nodes:
+                    if isinstance(grid, (pp.Grid, pp.MortarGrid)):
+                        total += num_per_entity * grid.num_nodes
+                    elif num_per_entity:
+                        raise ValueError(
+                            f"{type(grid).__name__} has no nodes, but dof_info "
+                            f"specifies {num_per_entity} DOFs per node."
+                        )
+                elif entity == GridEntity.void:
+                    continue
+                else:
+                    raise ValueError(f"Unknown grid entity {entity}.")
+        return total
 
     @classmethod
     def scalar(cls) -> OperatorSpace:
