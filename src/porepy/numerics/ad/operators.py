@@ -1178,9 +1178,27 @@ class Operator:
         if isinstance(other, float) or isinstance(other, int):
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
-            return [self, DenseArray(other)]
+            # TODO EK: Can this be removed?
+            # A raw ndarray operand carries no grid/domain context whatsoever;
+            # this is a genuine domain ambiguity, not merely an unspecified one.
+            return [
+                self,
+                DenseArray(
+                    other,
+                    source=OperatorSpace.unclear(),
+                    target=OperatorSpace.unclear(),
+                ),
+            ]
         elif isinstance(other, (sps.spmatrix, sps.sparray)):
-            return [self, SparseArray(other)]
+            # TODO EK: Can this be removed?
+            return [
+                self,
+                SparseArray(
+                    other,
+                    source=OperatorSpace.unclear(),
+                    target=OperatorSpace.unclear(),
+                ),
+            ]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
