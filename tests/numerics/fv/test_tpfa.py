@@ -819,7 +819,7 @@ class DiffTpfaNewtonPerformanceGeometry(
             return super().permeability(subdomains)
         else:
             domain = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
-            range_ = OperatorSpace.from_domains(subdomains, {GridEntity.faces: 1})
+            range_ = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
 
             f_max = pp.ad.Function(pp.ad.maximum, "maximum_function", domain, range_)
             permeability = pp.ad.Scalar(self.solid.permeability) * f_max(
