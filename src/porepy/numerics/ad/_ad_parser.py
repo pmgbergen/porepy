@@ -33,10 +33,9 @@ class AdParser:
         self._cache: dict[int, Any] = {}
         """Per-evaluation memoization of parsed operators, keyed by ``id(op)``.
 
-        The operator graph is a DAG: subexpressions shared across or within equations are
-        evaluated once per :meth:`evaluate` call instead of once per parent reference. The
-        cache is cleared after each top-level evaluation, so object identities cannot be
-        reused across calls.
+        The operator graph is a DAG; each unique node is parsed once per evaluation. The
+        cache is cleared after every top-level evaluation, so identities never leak
+        across calls.
         """
 
     def clear_cache(self) -> None:
@@ -120,48 +119,50 @@ class AdParser:
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
         # Evaluate the operators. A single operator is treated as a list to simplify the
-        # post-processing below.
-        if isinstance(op, list):
-            result_list = [
-                self._evaluate_single(o, ad_base, equation_system) for o in op
-            ]
-        else:
-            result_list = [self._evaluate_single(op, ad_base, equation_system)]
+        # post-processing below. The cache is cleared in a finally block so DAG
+        # memoization never leaks object identities across evaluations, even on error.
+        try:
+            if isinstance(op, list):
+                result_list = [
+                    self._evaluate_single(o, ad_base, equation_system) for o in op
+                ]
+            else:
+                result_list = [self._evaluate_single(op, ad_base, equation_system)]
 
-        # If the derivative is requested, the results should be AdArrays. Enforce this.
-        if derivative:
-            for index, res in enumerate(result_list):
-                if isinstance(res, (int, float)):
-                    # First convert scalars to numpy arrays. No need to update
-                    # result_list, since res will also be operated on by the next if.
-                    res = np.array([res])
-                if isinstance(res, np.ndarray) and len(res.shape) == 1:
-                    # Convert numpy arrays to AdArrays and update result_list.
-                    result_list[index] = pp.ad.AdArray(
-                        res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
-                    )
-                elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
-                    # This will cover numpy arrays of higher dimensions (> 1) and sparse
-                    # matrices.
-                    #
-                    # The Ad framework is not designed to handle multidimensional states
-                    # (e.g., one represented by a 2-tensor, which would have a 3-tensor
-                    # Jacobian). If evalutaion ends up here, it is most likely that the
-                    # operator to be evaluated violates this assumption. However, it is
-                    # also possible to arrive here by creating a pp.ad.SparseMatrix, and
-                    # evaluting it and also requesting the Jacobian. Though this is in a
-                    # sense a reasonable request, the SparseMatrix can also be evaluated
-                    # by calling _parse() directly, and this is the recommended way to
-                    # handle this case.
-                    raise NotImplementedError(
-                        f"The Jacobian of {type(res)} is not implemented because it is "
-                        "multidimensional."
-                    )
-
-        # Clear the cache after each evaluation. For the moment, this seems like the
-        # safest option, although it should be possible to safely cache some results
-        # also between evaluations.
-        self.clear_cache()
+            # If the derivative is requested, the results should be AdArrays. Enforce
+            # this.
+            if derivative:
+                for index, res in enumerate(result_list):
+                    if isinstance(res, (int, float)):
+                        # First convert scalars to numpy arrays. No need to update
+                        # result_list, since res will also be operated on by the next if.
+                        res = np.array([res])
+                    if isinstance(res, np.ndarray) and len(res.shape) == 1:
+                        # Convert numpy arrays to AdArrays and update result_list.
+                        result_list[index] = pp.ad.AdArray(
+                            res,
+                            sps.csr_matrix((res.shape[0], equation_system.num_dofs())),
+                        )
+                    elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
+                        # This will cover numpy arrays of higher dimensions (> 1) and
+                        # sparse matrices.
+                        #
+                        # The Ad framework is not designed to handle multidimensional
+                        # states (e.g., one represented by a 2-tensor, which would have a
+                        # 3-tensor Jacobian). If evalutaion ends up here, it is most
+                        # likely that the operator to be evaluated violates this
+                        # assumption. However, it is also possible to arrive here by
+                        # creating a pp.ad.SparseMatrix, and evaluting it and also
+                        # requesting the Jacobian. Though this is in a sense a reasonable
+                        # request, the SparseMatrix can also be evaluated by calling
+                        # _parse() directly, and this is the recommended way to handle
+                        # this case.
+                        raise NotImplementedError(
+                            f"The Jacobian of {type(res)} is not implemented because it "
+                            "is multidimensional."
+                        )
+        finally:
+            self.clear_cache()
 
         if isinstance(op, list):
             return result_list
@@ -174,52 +175,21 @@ class AdParser:
         ad_base: np.ndarray | pp.ad.AdArray,
         equation_system: pp.EquationSystem,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-        """Evaluate a single operator, memoizing shared subtrees within one evaluation.
-
-        The operator graph is a DAG: a subexpression shared across (or within) equations
-        -- e.g. ``darcy_flux`` reused in the mass and energy balances, which is the SAME
-        object because constitutive laws use ``@cached_method`` -- would otherwise be
-        re-evaluated once per parent reference. Each operator's result is cached, keyed by
-        ``id(op)`` (object identity), so every unique subtree is evaluated once per
-        :meth:`evaluate` call; the cache is cleared between calls.
-
-        Identity keying is used (not the structural ``op._key()``) because it is O(1) and
-        unconditionally correct: the structural key omits the callable of operator-function
-        (``Operations.evaluate``) nodes, so two different functions on identical argument
-        trees would collide. Sharing the cached result is safe because the parser only
-        uses binary operations that return new arrays (the forward-mode ``AdArray`` has no
-        in-place arithmetic).
-
-        Parameters:
-            op: The operator to evaluate.
-            ad_base: The base for the automatic differentiation. This should be an
-                AdArray if the derivative is requested, and a numpy array if not.
-            equation_system: The EquationSystem wherein the system state is defined.
-
-        Returns:
-            A numpy array or an AdArray representation of the operator op, depending on
-                whether the derivative is requested.
-
-        """
-        op_id = id(op)
-        if op_id in self._cache:
-            return self._cache[op_id]
-        res = self._evaluate_single_uncached(op, ad_base, equation_system)
-        self._cache[op_id] = res
+        """Parse an operator, memoizing shared subtrees within one evaluation."""
+        key = id(op)
+        if key in self._cache:
+            return self._cache[key]
+        res = self._parse(op, ad_base, equation_system)
+        self._cache[key] = res
         return res
 
-    def _evaluate_single_uncached(
+    def _parse(
         self,
         op: pp.ad.Operator,
         ad_base: np.ndarray | pp.ad.AdArray,
         equation_system: pp.EquationSystem,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-        """Parse a single operator by recursion (no memoization).
-
-        See :meth:`_evaluate_single`, which wraps this with per-evaluation memoization;
-        recursive child evaluations go back through that wrapper so shared subtrees hit the
-        cache.
-        """
+        """Parse a single operator by recursion (see :meth:`_evaluate_single`)."""
         # Parse the operator by recursion:
         # 1. If the operator is a leaf (has no children), parse the leaf.
         # 2. If the operator is a composite operator, parse the children and combine

@@ -904,6 +904,79 @@ class Operator:
         else:
             raise ValueError(f"Cannot parse {other} as an AD operator")
 
+    def inspect(self, verbose: bool = True) -> dict[str, Any]:
+        """
+        Analyzes the AD graph starting from this node to find optimization candidates.
+
+        Parameters:
+            verbose: If True, prints a summary of the inspection to stdout.
+
+        Returns:
+            A dictionary containing graph statistics.
+        """
+        stats = {
+            "total_nodes": 0,
+            "max_depth": 0,
+            "node_types": {},
+            "constant_subtrees": 0,
+            "variables": set(),
+        }
+
+        visited = set()
+
+        def _walk(node: Operator, depth: int) -> bool:
+            # Handle shared references (DAGs)
+            node_id = id(node)
+            if node_id in visited:
+                # If we've seen it, we assume it's constant if it was constant before.
+                # (Simplification for stats; accurate topological sort is costlier)
+                return True
+            visited.add(node_id)
+
+            # Update Stats
+            stats["total_nodes"] += 1
+            stats["max_depth"] = max(stats["max_depth"], depth)
+
+            t_name = type(node).__name__
+            stats["node_types"][t_name] = stats["node_types"].get(t_name, 0) + 1
+
+            # Check if this node is a Variable (Dynamic)
+            # We use string checks to avoid NameError if Variable isn't defined yet
+            if isinstance(node, (Variable, TimeDependentOperator)) and not isinstance(node, DenseArray):
+                if hasattr(node, "name"):
+                    stats["variables"].add(node.name)
+                return False  # Dynamic nodes are never constant
+
+            # Leaf check
+            if len(node.children) == 0:
+                return True
+
+            # Recursion
+            is_const = True
+            for child in node.children:
+                child_is_const = _walk(child, depth + 1)
+                if not child_is_const:
+                    is_const = False
+
+            if is_const:
+                stats["constant_subtrees"] += 1
+
+            return is_const
+
+        _walk(self, 0)
+
+        if verbose:
+            print("=== AD Graph Inspection ===")
+            print(f"Total Nodes: {stats['total_nodes']}")
+            print(f"Max Depth:   {stats['max_depth']}")
+            print(f"Unique Variables: {list(stats['variables'])}")
+            print(f"Optimization Candidates: {stats['constant_subtrees']}")
+            print("Node Breakdown:")
+            for k, v in stats["node_types"].items():
+                print(f"  - {k}: {v}")
+
+        return stats
+
 
 class SparseArray(Operator):
     """Ad representation of a sparse matrix.
