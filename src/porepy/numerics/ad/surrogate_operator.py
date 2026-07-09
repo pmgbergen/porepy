@@ -162,7 +162,11 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domains: Arguments to its call.
         children: The first-order dependencies of the called
             :class:`SurrogateFactory` in AD form (defined on the same ``domains``).
-
+        dof_info: Optional mapping from :class:`GridEntity` to the number of DOFs per
+            grid entity. Defaults to ``{GridEntity.cells: 1}``.
+        domain_type: The type of domain (subdomains or interfaces) that *domains*
+            represents. If not given, it is inferred from the grid types found in
+            *domains*.
     """
 
     def __init__(
@@ -171,12 +175,14 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
         dof_info: Optional[dict[GridEntity, int]] = None,
+        domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
         op_space: Optional[pp.ad.OperatorSpace]
-        if len(domains) > 0:
+        if len(domains) > 0 or domain_type is not None:
             op_space = pp.ad.OperatorSpace.from_domains(
                 list(domains),
                 dof_info if dof_info is not None else {GridEntity.cells: 1},
+                domain_type=domain_type,
             )
         else:
             op_space = None
@@ -515,7 +521,10 @@ class SurrogateFactory:
             )
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
-            return pp.ad.TimeDependentDenseArray(self.name, domains)
+            # TODO: domains should be non-empty. Can we drop domain_type here?
+            return pp.ad.TimeDependentDenseArray(
+                self.name, domains, domain_type=pp.ad.DomainType.boundary_grids
+            )
         # On subdomains or interfaces, create the surrogate operators
         elif all(isinstance(grid, pp.Grid) for grid in domains) or all(
             isinstance(grid, pp.MortarGrid) for grid in domains
