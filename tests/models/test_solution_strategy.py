@@ -41,7 +41,7 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.models.metric import EuclideanMetric
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
     ConvergenceStatus,
     DivergenceCriteria,
@@ -454,14 +454,18 @@ def test_check_convergence(
     metric = EuclideanMetric()
     convergence_criteria = ConvergenceCriteria(
         {
-            "inc_abs": pp.IncrementBasedAbsoluteCriterion(tol=1e-5, metric=metric),
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+            "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
+                tol=1e-5, metric=metric
+            ),
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+                tol=1e-5, metric=metric
+            ),
         }
     )
     divergence_criteria = DivergenceCriteria(
         {
-            "inc_nan": pp.IncrementBasedNanCriterion(),
-            "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+            "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
                 tol=1e4, metric=metric
             ),
         }

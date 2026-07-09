@@ -18,7 +18,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.linalg.linear_solver import LinearSystem
+from porepy.numerics import solvers
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -779,7 +779,7 @@ class SolutionStrategy(pp.PorePyModel):
         """Run at the end of simulation. Can be used for cleanup etc."""
         pass
 
-    def assemble_linear_system(self) -> LinearSystem:
+    def assemble_linear_system(self) -> solvers.LinearSystem:
         """Assemble and return the linearized system.
 
         The linear system is defined by the current state of the model.
@@ -829,7 +829,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
-        return LinearSystem(matrix=mat, rhs=rhs)
+        return solvers.LinearSystem(matrix=mat, rhs=rhs)
 
     def solve_linear_system(self) -> Never:
         raise AttributeError(

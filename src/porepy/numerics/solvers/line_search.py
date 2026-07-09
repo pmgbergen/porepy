@@ -156,7 +156,7 @@ class LineSearchNewtonSolver(NewtonSolver):
         # function is the l2 norm of the residual, the relative residual criterion here
         # is consistent with the absolute residual criterion
         # in :class:`~porepy.numerics.nonlinear.nonlinear_solvers.check_convergence.`
-        # using a `pp.ResidualBasedAbsoluteCriterion` with a `pp.EuclideanMetric`.
+        # using a `pp.solvers.ResidualBasedAbsoluteCriterion` with a `pp.EuclideanMetric`.
         relative_residual = f_1 / np.linalg.norm(dx.size)
         tol_residual = self.params.get("nl_convergence_res_atol", 1e-10)
         if relative_residual < tol_residual:

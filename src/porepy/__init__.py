@@ -153,7 +153,7 @@ from porepy.models.model_runner import (
     run_time_dependent_model,
     run_stationary_model,
 )
-from porepy.numerics import nonlinear as solvers
+from porepy.numerics import solvers
 
 
 from porepy.numerics import ad
@@ -272,27 +272,4 @@ from porepy.models.metric import (
     EquationBasedEuclideanMetric,
     VariableBasedLebesgueMetric,
     EquationBasedLebesgueMetric,
-)
-
-# Divergence criteria
-from porepy.numerics.nonlinear.convergence_check import (
-    MaxIterationsCriterion,
-    IncrementBasedNanCriterion,
-    ResidualBasedNanCriterion,
-    IncrementBasedAbsoluteDivergenceCriterion,
-    IncrementBasedRelativeDivergenceCriterion,
-    IncrementBasedCombinedDivergenceCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
-    ResidualBasedRelativeDivergenceCriterion,
-    ResidualBasedCombinedDivergenceCriterion,
-)
-
-# Convergence criteria
-from porepy.numerics.nonlinear.convergence_check import (
-    IncrementBasedAbsoluteCriterion,
-    IncrementBasedRelativeCriterion,
-    IncrementBasedCombinedCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedRelativeCriterion,
-    ResidualBasedCombinedCriterion,
 )

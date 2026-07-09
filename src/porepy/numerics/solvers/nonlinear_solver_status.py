@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from porepy.numerics.linalg.linear_solver import LinearSolverStatus
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
+from .linear_solver import LinearSolverStatus
+from .convergence_check import ConvergenceStatusCollection
 
 
 __all__ = [

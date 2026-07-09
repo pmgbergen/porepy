@@ -10,12 +10,8 @@ from __future__ import annotations
 import logging
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
-)
+from porepy.numerics import solvers
+
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
@@ -121,16 +117,16 @@ class TimeStepper:
         # We should never reach this code, but it is added as a safeguard.
         return TimeStepperStatusFailure(
             reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
-            nonlinear_solver_status=NonlinearSolverStatusFailed(
+            nonlinear_solver_status=solvers.NonlinearSolverStatusFailed(
                 linear_solver_statuses=[],
-                convergence_statuses=ConvergenceStatusCollection(),
-                divergence_statuses=ConvergenceStatusCollection(),
+                convergence_statuses=solvers.ConvergenceStatusCollection(),
+                divergence_statuses=solvers.ConvergenceStatusCollection(),
             ),
         )
 
     def _compute_next_time_step(
         self,
-        nonlinear_solver_status: NonlinearSolverStatus,
+        nonlinear_solver_status: solvers.NonlinearSolverStatus,
         model: pp.PorePyModel,
         attempt: int,
     ) -> TimeStepperStatus:
@@ -147,7 +143,7 @@ class TimeStepper:
         # YZ: This currently uses time_manager, but this logic is to be outsourced and
         # will be more elegant.
 
-        if isinstance(nonlinear_solver_status, NonlinearSolverStatusConverged):
+        if isinstance(nonlinear_solver_status, solvers.NonlinearSolverStatusConverged):
             # For accepted steps, we may want to increase dt for the next step.
             # This logic can be based on solver performance (e.g., #iterations).
             num_iterations = len(nonlinear_solver_status.linear_solver_statuses)
@@ -160,7 +156,7 @@ class TimeStepper:
                 nonlinear_solver_status=nonlinear_solver_status,
             )
 
-        elif isinstance(nonlinear_solver_status, NonlinearSolverStatusFailed):
+        elif isinstance(nonlinear_solver_status, solvers.NonlinearSolverStatusFailed):
             if attempt >= (self.max_attempts - 1):
                 # Limit of attempts was reached, failing.
                 return TimeStepperStatusFailure(
@@ -192,7 +188,7 @@ class TimeStepper:
         self,
         model: pp.PorePyModel,
         solver: pp.solvers.NonlinearSolverBase,
-    ) -> NonlinearSolverStatus:
+    ) -> solvers.NonlinearSolverStatus:
         """Perform a nonlinear solve to make the time step.
 
         Returns:

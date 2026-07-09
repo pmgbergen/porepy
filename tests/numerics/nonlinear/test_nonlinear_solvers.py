@@ -12,17 +12,17 @@ from scipy.sparse import csr_matrix
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
 )
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
+from porepy.numerics.solvers.nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from porepy.numerics.nonlinear.nonlinear_solvers import _summarize_solver_status
+from porepy.numerics.solvers.nonlinear_solvers import _summarize_solver_status
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
@@ -91,23 +91,23 @@ def default_newton_solver(nonlinear_increment_history: Optional[np.ndarray] = No
     return pp.solvers.NewtonSolver(
         params={
             "nl_convergence_criteria": {
-                "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+                "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
                     tol=1.0, metric=pp.EuclideanMetric()
                 ),
-                "res_abs": pp.ResidualBasedAbsoluteCriterion(
+                "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                     tol=1.0, metric=pp.EuclideanMetric()
                 ),
             },
             "nl_divergence_criteria": {
-                "max_iter": pp.MaxIterationsCriterion(max_iterations=3),
-                "inc_inf": pp.IncrementBasedAbsoluteDivergenceCriterion(
+                "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=3),
+                "inc_inf": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
                     tol=10.0, metric=pp.EuclideanMetric()
                 ),
-                "res_inf": pp.ResidualBasedAbsoluteDivergenceCriterion(
+                "res_inf": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
                     tol=10.0, metric=pp.EuclideanMetric()
                 ),
-                "inc_nan": pp.IncrementBasedNanCriterion(),
-                "res_nan": pp.ResidualBasedNanCriterion(),
+                "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+                "res_nan": pp.solvers.ResidualBasedNanCriterion(),
             },
         },
         linear_solver=MockLinearSolver(nonlinear_increment_history),
@@ -241,13 +241,13 @@ class TimeDependentMockModel(MockModel):
 def test_init_criteria():
     """Test that custom convergence and divergence criteria are set correctly."""
     custom_conv_criteria = {
-        "residual_based": pp.ResidualBasedAbsoluteCriterion(
+        "residual_based": pp.solvers.ResidualBasedAbsoluteCriterion(
             tol=1e-6, metric=pp.EuclideanMetric()
         ),
     }
     custom_div_criteria = {
-        "inc_nan": pp.IncrementBasedNanCriterion(),
-        "res_nan": pp.ResidualBasedNanCriterion(),
+        "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+        "res_nan": pp.solvers.ResidualBasedNanCriterion(),
     }
     solver = pp.solvers.NewtonSolver(
         params={
@@ -310,7 +310,7 @@ def test_init_convergence_criteria_sanity_check(key, value):
             params={
                 key: value,
                 "nl_convergence_criteria": {
-                    "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+                    "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
                         tol=1e-1, metric=pp.EuclideanMetric()
                     ),
                 },
@@ -337,7 +337,7 @@ def test_init_divergence_criteria_sanity_check(key, value):
             params={
                 key: value,
                 "nl_divergence_criteria": {
-                    "max_iter": pp.MaxIterationsCriterion(max_iterations=2)
+                    "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=2)
                 },
             }
         )
