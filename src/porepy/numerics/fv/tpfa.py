@@ -320,10 +320,14 @@ class DifferentiableTpfa:
 
         """
         dir_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_dir"), domains=boundary_grids
+            name=(name + "_filter_dir"),
+            domains=boundary_grids,
+            domain_type=pp.ad.DomainType.boundary_grids,
         )
         neu_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_neu"), domains=boundary_grids
+            name=(name + "_filter_neu"),
+            domains=boundary_grids,
+            domain_type=pp.ad.DomainType.boundary_grids,
         )
         proj = pp.ad.BoundaryProjection(mdg, subdomains, dim=1).boundary_to_subdomain
         return proj @ dir_filter, proj @ neu_filter

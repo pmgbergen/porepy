@@ -1433,10 +1433,10 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             ``data[pp.TIME_STEP_SOLUTIONS]``.
         domains: Subdomains or interfaces on which the array is defined.
         dof_info: Optional mapping from :class:`GridEntity` to the number of DOFs per
-            grid entity. When provided, the operator's :attr:`source` and
-            :attr:`target` are populated with an :class:`OperatorSpace` built from
-            *domains* and *dof_info*. When ``None`` (the default), the source and target
-            are left unspecified.
+            grid entity. Defaults to ``{GridEntity.cells: 1}``.
+        domain_type: The type of domain (subdomains, interfaces, or boundary grids)
+            that *domains* represents. If not given, it is inferred from the grid
+            types found in *domains*.
 
     Attributes:
         previous_timestep: If True, the array will be evaluated using
@@ -1454,11 +1454,12 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
         name: str,
         domains: GridLikeSequence,
         dof_info: Optional[dict[GridEntity, int]] = None,
+        domain_type: Optional[DomainType] = None,
     ):
-        if domains:
+        resolved_dof_info = dof_info if dof_info is not None else {GridEntity.cells: 1}
+        if domains or domain_type is not None:
             space = OperatorSpace.from_domains(
-                list(domains),
-                dof_info if dof_info is not None else {GridEntity.cells: 1},
+                list(domains), resolved_dof_info, domain_type=domain_type
             )
         else:
             space = None
