@@ -269,6 +269,61 @@ class Domain:
 
         return polytope
 
+    def to_csv(self, writer) -> None:
+        """Write the domain to a csv file.
+
+        Parameters:
+            writer: CSV writer to use for writing the domain.
+
+        """
+        if not self.is_boxed:
+            raise NotImplementedError(
+                "This function is only implemented for boxed domains."
+            )
+        if self.dim == 2:
+            order = ["xmin", "ymin", "xmax", "ymax"]
+        else:
+            order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
+        writer.writerow([self.bounding_box[o] for o in order])
+
+    @classmethod
+    def from_numpy_array(cls, arr) -> Domain:
+        """Read the domain from numpy array.
+
+        Convenience method used for I/O of domains, typically for csv files.
+
+        Parameters:
+            arr: Numpy array containing the domain information. Should have shape (4,)
+                for 2d domains and (6,) for 3d domains. The order of the entries should
+                be ``[xmin, ymin, xmax, ymax]`` for 2d and ``[xmin, ymin, zmin, xmax,
+                ymax, zmax]`` for 3d.
+
+        Returns:
+            Domain object read from the array.
+        """
+        if len(arr) == 4:
+            bounding_box = {
+                "xmin": float(arr[0]),
+                "ymin": float(arr[1]),
+                "xmax": float(arr[2]),
+                "ymax": float(arr[3]),
+            }
+        elif len(arr) == 6:
+            bounding_box = {
+                "xmin": float(arr[0]),
+                "ymin": float(arr[1]),
+                "zmin": float(arr[2]),
+                "xmax": float(arr[3]),
+                "ymax": float(arr[4]),
+                "zmax": float(arr[5]),
+            }
+        else:
+            raise ValueError(
+                f"Invalid number of columns in the csv file: {len(arr)}. "
+                f"Expected 4 or 6."
+            )
+        return cls(bounding_box=bounding_box)
+
     def _polygon_from_bounding_box(self) -> list[np.ndarray]:
         """Compute the polygon associated with a two-dimensional bounding box.
 

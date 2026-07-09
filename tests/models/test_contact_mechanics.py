@@ -173,9 +173,7 @@ def test_contact_mechanics_convergence(nd, formulation):
     model_class = add_mixin(grid_classes[nd], tester_classes[formulation])
     model = model_class(params)
 
-    # Run and capture solver info.
-    pp.ModelRunner(model).run()
+    # Run the simulation.
+    status = pp.ModelRunner(model).run()
 
-    # Fetch convergence status from statistics.
-    status = model.nonlinear_solver_statistics.simulation_status
-    assert status.is_successful()
+    assert status.is_success()

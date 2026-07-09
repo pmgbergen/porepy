@@ -195,7 +195,7 @@ def _run_iterative_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def _choose_solver(model, params: dict) -> Union[pp.LinearSolver, pp.NewtonSolver]:
+def _choose_solver(model, params: dict) -> pp.NewtonSolver:
     """Choose between linear and non-linear solver.
 
     Parameters:
@@ -207,8 +207,8 @@ def _choose_solver(model, params: dict) -> Union[pp.LinearSolver, pp.NewtonSolve
     """
     if "nonlinear_solver" in params:
         solver = params["nonlinear_solver"](params)
-    elif model._is_nonlinear_problem():
-        solver = pp.NewtonSolver(params)
     else:
-        solver = pp.LinearSolver(params)
+        solver = pp.NewtonSolver(
+            is_nonlinear_problem=model._is_nonlinear_problem(), params=params
+        )
     return solver

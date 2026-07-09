@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import SolverStatus
 
 mock_logger = logging.getLogger(__name__)
 
@@ -88,11 +87,8 @@ class MockModel:
     def after_nonlinear_convergence(self) -> None:
         pass
 
-    def after_nonlinear_failure(self) -> SolverStatus:
-        if self.time_manager.is_constant:
-            return SolverStatus.STOPPED
-        else:
-            return SolverStatus.FAILED
+    def after_nonlinear_failure(self):
+        pass
 
     def assemble_linear_system(self) -> None:
         pass

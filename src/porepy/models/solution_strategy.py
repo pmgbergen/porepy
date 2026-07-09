@@ -104,7 +104,7 @@ class SolutionStrategy(pp.PorePyModel):
                 # Path to json file (of type pathlib.Path) containing evolution of
                 # exported time steps and used time step size at that time. If 'None'
                 # a default value is used internally, as defined in
-                # :class:`~porepy.numerics.time_step_control.TimeManager.
+                # :class:`~porepy.time_stepper.time_step_control.TimeManager.
                 "time_index": -1,
                 # Index addressing history in times_file; only relevant if "vtu_files"
                 # is not 'None' or "is_mdg_pvd" is 'True'. The index corresponds to
@@ -160,6 +160,7 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        self.initialize_operator_reference_values_from_initial_state()
         self.initialize_previous_iterate_and_time_step_values()
 
         # Initialize time dependent ad arrays, including those for boundary values.
@@ -194,6 +195,51 @@ class SolutionStrategy(pp.PorePyModel):
             self.equation_system.set_variable_values(
                 val,
                 time_step_index=time_step_index,
+            )
+
+    def initialize_operator_reference_values_from_initial_state(self) -> None:
+        """Initialize AD operator reference values from iterate-0 state.
+
+        This compatibility step aligns linearization references used by
+        :meth:`porepy.numerics.ad.operators.Operator.perturbation_from_reference`
+        with initialized primary-variable values for pressure and temperature.
+
+        The behavior can be disabled by setting
+        ``params['initialize_operator_reference_from_initial_values'] = False``.
+
+        NOTE: This method is intended as a temporary bridge from PR #1696 until
+        downstream PRs on initialization have been merged.
+
+        """
+        if not self.params.get(
+            "initialize_operator_reference_from_initial_values", True
+        ):
+            return
+
+        for quantity_name in ("pressure", "temperature"):
+            variable_attr = f"{quantity_name}_variable"
+            if not hasattr(self, variable_attr):
+                continue
+
+            reference_value = cast(
+                pp.number, getattr(self.reference_variable_values, quantity_name, 0.0)
+            )
+            if np.isclose(reference_value, 0.0):
+                continue
+
+            variable_name = getattr(self, variable_attr)
+            domains = cast(list[pp.GridLike], self.mdg.subdomains())
+            variables = self.equation_system.get_variables([variable_name], domains)
+            if len(variables) == 0:
+                continue
+
+            values = self.equation_system.get_variable_values(
+                variables=variables, iterate_index=0
+            )
+            self.equation_system.set_variable_values(
+                np.full_like(values, reference_value),
+                variables=variables,
+                reference=True,
             )
 
     def set_equation_system_manager(self) -> None:
@@ -337,7 +383,13 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_variables = [n for n in names]
 
     def before_time_step(self) -> None:
-        """Called at the start of each time step by model runners.
+        """Called from the outside of the model at the start of each time step.
+
+        The model must prepare its state for the target simulation time ``t``,
+        available through :attr:`time_manager`. The nonlinear solver then attempts
+        to advance the discretized problem to that time. If the solve fails, it may
+        be retried with a different time-step size, so this method may be called
+        multiple times with different target times.
 
         The base method does the following:
 
@@ -353,8 +405,12 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_derived_quantities()
 
     def before_nonlinear_loop(self) -> None:
-        """Called before entering a nonlinear solver loop if the model is flagged
-        as nonlinear.
+        """Called before entering a nonlinear solver loop.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop so this method is called once after ``before_time_step``. More advanced
+        solvers may use multiple nonlinear loops per time step and call this method
+        before each one.
 
         The base method does the following:
 
@@ -391,10 +447,27 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_derived_quantities()
 
     def after_nonlinear_convergence(self) -> None:
-        """Called after the solver converges."""
+        """Called after a nonlinear solver loop converges.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop, so this method is called exactly once, before
+        ``after_time_step_convergence``. More advanced solvers may use multiple
+        nonlinear loops per time step and call this method after each converged
+        loop.
+
+        Use this method for loop-specific post-processing.
+
+        """
 
     def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge."""
+        """Called after a nonlinear solver loop fails to converge.
+
+        With the default ``NewtonSolver``, each time step has a single nonlinear
+        loop, so this method is called exactly once, before
+        ``after_time_step_failure``. More advanced solvers may use multiple
+        nonlinear loops per time step and call this method after each failed loop.
+
+        """
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.

@@ -1,0 +1,800 @@
+"""Integration tests for the TimeStepper class."""
+
+import json
+import tempfile
+from pathlib import Path
+from typing import Literal, Optional
+
+import numpy as np
+import pytest
+from deepdiff import DeepDiff
+
+import porepy as pp
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
+from porepy.models.protocol import PorePyModel
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceCriterion,
+    ConvergenceInfoCollection,
+    ConvergenceStatus,
+    ConvergenceStatusCollection,
+    MaxIterationsCriterion,
+)
+from porepy.numerics.nonlinear.nonlinear_solver_status import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
+)
+from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
+from porepy.time_stepper.time_step_control import TimeManager
+from porepy.time_stepper.time_stepper import TimeStepper
+from porepy.viz.solver_statistics import (
+    NonlinearSolverAndTimeStatistics,
+    SolverStatisticsFactory,
+)
+
+# MARK: test_model_delegate_methods_called
+
+
+class MockEquationSystem:
+    """Used internally in MockModel."""
+
+    def assemble(self, evaluate_jacobian: bool):
+        assert evaluate_jacobian == False
+        return np.ones(5)
+
+    def get_variable_values(self, iterate_index: int):
+        assert iterate_index == 0
+        return np.ones(5)
+
+
+class MockMixedDimensionalGrid:
+    """Used internally in MockModel."""
+
+    def subdomains(self):
+        return []
+
+
+class MockModel(PorePyModel):
+    """Used in test_model_delegate_methods_called, read the test docstring."""
+
+    def __init__(self, statistics_path: Optional[Path] = None):
+        self.sequence_of_calls: list[str] = []
+        """Each delegate method of the mock model writes its name here when called."""
+
+        self.equation_system = MockEquationSystem()
+        """Used to evaluate convergence criteria."""
+
+        self.mdg = MockMixedDimensionalGrid()
+        """Used in _update_solver_statistics_after_nonlinear_solve."""
+
+        self.nonlinear_solver_statistics = (
+            SolverStatisticsFactory.create_statistics_type(
+                nonlinear=True, time_dependent=True
+            )()
+        )
+        if statistics_path:
+            self.nonlinear_solver_statistics.path = Path(statistics_path)
+        """Used by the TimeStepper and the NewtonSolver."""
+
+    def before_time_step(self):
+        self.sequence_of_calls.append("before_time_step")
+
+    def before_nonlinear_loop(self):
+        self.sequence_of_calls.append("before_nonlinear_loop")
+
+        # We need to do it, otherwise will fail with IndexError on attempt to write
+        # statistics.
+        self.nonlinear_solver_statistics.increase_index()
+
+    def before_nonlinear_iteration(self):
+        self.sequence_of_calls.append("before_nonlinear_iteration")
+
+    def assemble_linear_system(self):
+        self.sequence_of_calls.append("assemble_linear_system")
+
+    def solve_linear_system(self):
+        self.sequence_of_calls.append("solve_linear_system")
+        return np.ones(5)
+
+    def after_nonlinear_iteration(self, nonlinear_increment):
+        self.sequence_of_calls.append("after_nonlinear_iteration")
+
+    def after_nonlinear_convergence(self):
+        self.sequence_of_calls.append("after_nonlinear_convergence")
+
+    def after_nonlinear_failure(self):
+        self.sequence_of_calls.append("after_nonlinear_failure")
+
+    def after_time_step_convergence(self):
+        self.sequence_of_calls.append("after_time_step_convergence")
+
+    def after_time_step_failure(self):
+        self.sequence_of_calls.append("after_time_step_failure")
+
+
+class MockNonlinearSolver:
+    """Used in test_model_delegate_methods_called, read the test docstring."""
+
+    def __init__(self, num_iters_for_success: int):
+        self._iter = 0
+        """Number of times solve was called."""
+        self.num_iters_for_success: int = num_iters_for_success
+        """Number of times solve must be called to return success."""
+
+    def solve(self, model) -> NonlinearSolverStatus:
+        # We need to do it, otherwise will fail with IndexError on attempt to write
+        # statistics. This is called in model.before_nonlinear_loop.
+        model.nonlinear_solver_statistics.increase_index()
+
+        self._iter += 1
+        if self._iter < self.num_iters_for_success:
+            return NonlinearSolverStatusFailed(
+                num_nonlinear_iterations=self._iter,
+                convergence_statuses=ConvergenceStatusCollection(),
+                divergence_statuses=ConvergenceStatusCollection(),
+            )
+        return NonlinearSolverStatusConverged(
+            num_nonlinear_iterations=self._iter,
+            convergence_statuses=ConvergenceStatusCollection(),
+            divergence_statuses=ConvergenceStatusCollection(),
+        )
+
+
+class MaxIterationsConvergenceCriterion(ConvergenceCriterion):
+    """Accepts solution after the given number of iterations"""
+
+    def __init__(self, max_iter: int) -> None:
+        self.max_iter = max_iter
+        self.num_iter = 0
+
+    def check(self, **kwargs):
+        self.num_iter += 1
+        if self.num_iter < self.max_iter:
+            # Second value is an arbitrary non-zero number.
+            return ConvergenceStatus.CONTINUE_ITERATING, 0.1
+        else:
+            return ConvergenceStatus.CONVERGED, 0
+
+
+@pytest.mark.parametrize("solver_type", ["nonlinear", "mock"])
+def test_model_delegate_methods_called(
+    solver_type: Literal["nonlinear", "mock"],
+):
+    """This integration test is an attempt to solidify the API between the PorePy model
+    and the objects that control it from the outside (TimeStepper and/or NewtonSolver).
+
+    PorePy model exposes multiple delegate methods (named before_* and after_*). This
+    test replaces a real PorePy model with a MockModel that remembers the order in which
+    we called these methods. We make a single time step with TimeStepper and ensure that
+    the methods are called in the right order and amount.
+
+    The test covers:
+    - NewtonSolver: fails 2 times, each after 2 unsuccessful nonlinear iterations. Then
+        converges.
+    - MockSolver: fails 2 times then converges. The purpose is that it does not call the
+        delegate methods, so we check that the TimeStepper called only those delegate
+        methods it is supposed to.
+
+    """
+    # Customize convergence criteria.
+    solver_params = {
+        "nl_convergence_criteria": {
+            "accept_num_iter": MaxIterationsConvergenceCriterion(max_iter=5)
+        },
+        "nl_divergence_criteria": {
+            "reject_num_iter": MaxIterationsCriterion(max_iterations=2)
+        },
+    }
+
+    # Initialize the solver.
+    if solver_type == "nonlinear":
+        solver = NewtonSolver(params=solver_params)
+    elif solver_type == "mock":
+        solver = MockNonlinearSolver(num_iters_for_success=5)
+    else:
+        raise ValueError
+
+    # Initialize the real TimeStepper and the MockModel.
+    time_stepper = TimeStepper(
+        time_manager=TimeManager(
+            schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.1, 2)
+        )
+    )
+    model = MockModel()
+
+    # Do the time step.
+    time_stepper.perform_time_step(model=model, solver=solver)
+
+    # Build an array of expected results.
+    before_main_loop = [
+        "before_time_step",
+        "before_nonlinear_loop",
+    ]
+    main_loop = [
+        "before_nonlinear_iteration",
+        "assemble_linear_system",
+        "solve_linear_system",
+        "after_nonlinear_iteration",
+    ]
+    after_main_loop_success = [
+        "after_nonlinear_convergence",
+        "after_time_step_convergence",
+    ]
+    after_main_loop_failure = [
+        "after_nonlinear_failure",
+        "after_time_step_failure",
+    ]
+
+    if solver_type == "nonlinear":
+        expected_result = (
+            # Two unsuccessful time steps, each with 2 nonlinear solves.
+            (before_main_loop + main_loop * 2 + after_main_loop_failure) * 2
+            # And a single successful time step.
+            + before_main_loop
+            + main_loop
+            + after_main_loop_success
+        )
+    elif solver_type == "mock":
+        expected_result = ["before_time_step", "after_time_step_failure"] * 4 + [
+            "before_time_step",
+            "after_time_step_convergence",
+        ]
+    else:
+        raise ValueError
+
+    # Compare with expected.
+    assert model.sequence_of_calls == expected_result
+
+
+# MARK: test_model_time_step_control
+
+
+class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
+    """A mockup model that stores the lists that control when to converge, when to
+    diverge, etc. Used by DynamicNewtonSolver.
+
+    See the description of the input parameters at `test_model_time_step_control`.
+
+    """
+
+    def __init__(
+        self,
+        num_nonlinear_iterations: list[int],
+        time_step_converged: list,
+        params: dict,
+    ):
+        super().__init__(params)
+        self.time_step_idx: int = -1
+        self.num_nonlinear_iters: int = 0
+        self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
+        self.time_step_converged: list = time_step_converged
+        self.time_step_history: list = []
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()  # The AD time step is expected to update here.
+        self.time_step_idx += 1
+        self.num_nonlinear_iters = 0
+        self.time_step_history.append(self.time_manager.dt)
+
+    def before_nonlinear_iteration(self):
+        super().before_nonlinear_iteration()
+
+        # The AD time step should not change throughout the Newton iterations.
+        assert (
+            self.equation_system.evaluate(self.ad_time_step) == self.time_manager.dt
+        ), "The AD time step value conflicts with the value from the time_manager."
+
+        # The initial guess for the unknown time step values should be equal to the
+        # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.
+        if self.num_nonlinear_iters == 0:
+            iterate_values = self.equation_system.get_variable_values(iterate_index=0)
+            state_values = self.equation_system.get_variable_values(time_step_index=0)
+            assert np.all(iterate_values == state_values), (
+                "Likely, 'iterate' was not reset after the unsuccessful time step."
+            )
+
+        self.num_nonlinear_iters += 1
+
+    def _is_nonlinear_problem(self):
+        return True
+
+    # Minimizing computational expenses.
+    def assemble_linear_system(self) -> None:
+        pass
+
+    def solve_linear_system(self) -> np.ndarray:
+        return np.ones(self.equation_system.num_dofs())
+
+
+class DynamicNewtonSolver(NewtonSolver):
+    """A mockup Newton solver that returns convergence or divergence based on what
+    DynamicTimeStepTestCaseModel prescribes. Used in `test_model_time_step_control`.
+
+    """
+
+    def check_convergence(
+        self, model: DynamicTimeStepTestCaseModel, nonlinear_increment
+    ) -> tuple[
+        ConvergenceStatusCollection,
+        ConvergenceStatusCollection,
+        ConvergenceInfoCollection,
+    ]:
+        assert isinstance(
+            model.nonlinear_solver_statistics, NonlinearSolverAndTimeStatistics
+        )
+        if (
+            model.nonlinear_solver_statistics.num_iterations
+            < model.num_nonlinear_iterations[model.time_step_idx] - 1
+        ):
+            return (
+                ConvergenceStatusCollection(
+                    {"crit": ConvergenceStatus.CONTINUE_ITERATING}
+                ),
+                ConvergenceStatusCollection(
+                    {"div_crit": ConvergenceStatus.CONTINUE_ITERATING}
+                ),
+                ConvergenceInfoCollection({"crit": 1.0}),
+            )
+        if model.time_step_converged[model.time_step_idx] is True:
+            return (
+                ConvergenceStatusCollection({"crit": ConvergenceStatus.CONVERGED}),
+                ConvergenceStatusCollection(
+                    {"div_crit": ConvergenceStatus.CONTINUE_ITERATING}
+                ),
+                ConvergenceInfoCollection({"crit": 0.0}),
+            )
+        else:
+            return (
+                ConvergenceStatusCollection(
+                    {"crit": ConvergenceStatus.CONTINUE_ITERATING}
+                ),
+                ConvergenceStatusCollection({"div_crit": ConvergenceStatus.FAILED}),
+                ConvergenceInfoCollection({"crit": np.nan}),
+            )
+
+
+MAX_NONLINEAR_ITER = 10
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Case 1: A successful simulation run with dynamic time stepping.
+        # Covers these situations:
+        # - decrease the time step after diverged
+        # - decrease the time step after iteration limit
+        # - increase the time step due to few nonlinear iterations
+        # - keep the time step due to expected number of nonlinear iterations
+        # - decrease the time step due to many nonlinear iterations (after convergence)
+        # - decrease the time step to meet the schedule (last time step)
+        {
+            # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
+            # takes 3 nonlinear iterations, etc.
+            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
+            # Time step 0 diverged after 4 iterations, time step 1 converged after 3
+            # iterations, etc. "unreachable" means that the convergence check should not
+            # be called due to exceeding the iteration limit.
+            "time_step_converged": [False, True, "unreachable"] + [True] * 5,
+            # Time step magnitudes to compare with. These are known values produced with
+            # the settings of the TimeStepper found in the test function below.
+            "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
+        },
+        # Case 2: constant_dt. Should fail after nonlinear divergence.
+        {
+            "constant_dt": True,
+            "num_nonlinear_iterations": [2, 3],
+            "time_step_converged": [True, False],
+            "exported_dt_expected": [1, 1],
+            "schedule_end": 2,  # Matches the constant dt = 1.
+            "failure_reason": "Max retries (1)",
+        },
+        # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
+        # minimal time step and should fail.
+        {
+            "num_nonlinear_iterations": [1, 1, 1],
+            "time_step_converged": [False, False, False],
+            "exported_dt_expected": [1, 0.3, 0.1],
+            "failure_reason": "time step achieved its minimum admissible value",
+        },
+        # Case 4: The time step fails right before the schedule point. Expected to
+        # decrease dt and meet the schedule regardless.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1],
+            "time_step_converged": [True, False, True, True, True],
+            "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
+        },
+        # Case 5: Fail because we reach the limit of attempts to cut the time step.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1, 1],
+            "time_step_converged": [True, True, False, False, False, False],
+            "exported_dt_expected": [1, 2, 4, 1.2, 0.36, 0.108],
+            "schedule_end": 10,  # Far beyond possible dt to avoid dt_max clipping.
+            "failure_reason": "Max retries (4)",
+        },
+        # Case 6: All time steps are successful so dt reaches dt_max and remains it.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1, 1],
+            "time_step_converged": [True, True, True, True, True, True],
+            "exported_dt_expected": [1, 2, 4, 5, 5, 0.1],
+            "schedule_end": 17.1,
+        },
+        # Case 7: All time steps are successful, but take too many nonlinear iterations,
+        # so dt reaches dt_min and remains it.
+        {
+            "num_nonlinear_iterations": [8, 8, 8, 8, 8, 8],
+            "time_step_converged": [True, True, True, True, True, True],
+            "exported_dt_expected": [1, 0.4, 0.16, 0.1, 0.1, 0.1],
+            "schedule_end": 1.86,
+        },
+        # Case 8: Time step we need to make to meet the schedule is below minimal dt.
+        # The current behavior is that we ignore dt_min to meet the schedule.
+        # This implies that if we hit this in the middle of the simulation, next dt will
+        # be dt_min, which is quite sub-optimal.
+        {
+            "num_nonlinear_iterations": [1, 1],
+            "time_step_converged": [True, True],
+            "exported_dt_expected": [1, 1e-5],
+            "schedule_end": 1 + 1e-5,
+        },
+        # Case 9: Successful constant_dt simulation, but Newton makes either too few or
+        # to many interations. Check that dt remains the same.
+        {
+            "constant_dt": True,
+            "num_nonlinear_iterations": [1, 8, 1],
+            "time_step_converged": [True, True, True],
+            "exported_dt_expected": [1, 1, 1],
+            "schedule_end": 3,
+        },
+    ],
+)
+def test_model_time_step_control(params: dict):
+    """Test time-step control of a PorePy simulation through using:
+    - real ModelRunner;
+    - real TimeStepper;
+    - mock nonlinear solver;
+    - mock PorePy model.
+
+    Prescribed nonlinear iteration counts and convergence outcomes test time-step
+    adaptation, schedule alignment, admissible step-size bounds, constant time
+    steps, and terminal failures. The test also verifies state rollback after failed
+    attempts, synchronization of the AD time step, the time-step history, and the final
+    runner status.
+
+    """
+    constant_dt = params.get("constant_dt", False)
+    num_nonlinear_iterations = params["num_nonlinear_iterations"]
+    time_step_converged = params["time_step_converged"]
+    exported_dt_expected = params["exported_dt_expected"]
+    failure_reason = params.get("failure_reason", "")
+    # 1.35 is the default value assumed by most of the tests. It is arbitrary.
+    schedule_end = params.get("schedule_end", 1.35)
+
+    should_fail = len(failure_reason) != 0
+
+    time_manager = TimeManager(
+        schedule=(0, schedule_end),
+        dt_init=1,
+        constant_dt=constant_dt,
+        dt_min_max=(0.1, 5),
+        iter_relax_factors=(0.4, 2),
+        iter_optimal_range=(4, 7),
+        recomp_factor=0.3,
+        recomp_max=3,  # Max 3 retries <=> max 4 attempts.
+    )
+
+    model = DynamicTimeStepTestCaseModel(
+        num_nonlinear_iterations=num_nonlinear_iterations,
+        time_step_converged=time_step_converged,
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
+    )
+    solver_params = {
+        "nonlinear_solver": DynamicNewtonSolver,
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": MAX_NONLINEAR_ITER,
+    }
+    if not should_fail:
+        status = ModelRunner(model, solver_params).run()
+    else:
+        try:
+            ModelRunner(model, solver_params).run()
+        except RuntimeError as e:
+            status = e.args[0]
+        else:
+            assert False
+    assert np.allclose(model.time_step_history, exported_dt_expected)
+    assert model.time_manager.final_time_reached() != should_fail
+    if should_fail:
+        assert isinstance(status, ModelRunnerStatusFailure)
+        assert status.reason.find(failure_reason) != -1
+    else:
+        assert status.is_success()
+
+
+# MARK: Statistics
+
+
+def default_newton_solver(iter_converge: int):
+    """Initialize the Newton solver with convergence criteria used in test.
+
+    Parameters:
+        iter_converge: Converge after this number of nonlinear iterations. After this,
+            will always converge, no matter what the time step is.
+
+    """
+    return pp.NewtonSolver(
+        params={
+            # MockModel does not decrease residual, so we use mock convergence criteria
+            # here. To test statistics writing, we use two of them. Keys are arbitrary.
+            "nl_convergence_criteria": {
+                "crit1": MaxIterationsConvergenceCriterion(max_iter=1),
+                "crit2": MaxIterationsConvergenceCriterion(max_iter=iter_converge),
+            },
+            "nl_divergence_criteria": {
+                "max_iter": pp.MaxIterationsCriterion(max_iterations=2),
+                "inc_inf": pp.IncrementBasedAbsoluteDivergenceCriterion(
+                    tol=10.0, metric=pp.EuclideanMetric()
+                ),
+                "res_inf": pp.ResidualBasedAbsoluteDivergenceCriterion(
+                    tol=10.0, metric=pp.EuclideanMetric()
+                ),
+                "inc_nan": pp.IncrementBasedNanCriterion(),
+                "res_nan": pp.ResidualBasedNanCriterion(),
+            },
+        }
+    )
+
+
+@pytest.fixture
+def statistics_path(request):
+    """Fixture with cleanup of the file. Making the file name unique for each test to
+    facilitate runing in parallel without collisions.
+
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        statistics_path = (
+            Path(tmpdir) / f"solver_and_time_statistics_{request.node.nodeid}.json"
+        )
+        yield statistics_path
+
+
+def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
+    """Test that the solver statistics are updated correctly on convergence to check
+    correct behavior after convergence, for a time-dependent model. The test is moved
+    from test_nonlinear_solvers.py
+
+    """
+    # Minimal setup.
+    model = MockModel(statistics_path=statistics_path)
+    solver = default_newton_solver(iter_converge=2)
+    time_manager = TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    time_stepper = TimeStepper(time_manager=time_manager)
+
+    # Define the reference solver statistics, for two time steps.
+    reference_data = {
+        "global": {
+            "num_cells": {},
+            "num_domains": {},
+            "simulation_status_history": [
+                "successful",
+                "successful",
+            ],
+            "final_simulation_status": "successful",
+            "num_entries": 2,
+            "final_time_reached": 1,
+            "total_num_time_steps": 2,
+            "total_num_failed_time_steps": 0,
+            "num_iterations_history": [2, 1],
+            "total_num_iterations": 3,
+            "total_num_waisted_iterations": 0,
+            "final_convergence_status": {
+                "crit1": "converged",
+                "crit2": "converged",
+                "max_iter": "converged",
+                "inc_inf": "converged",
+                "res_inf": "converged",
+                "inc_nan": "converged",
+                "res_nan": "converged",
+            },
+        },
+        "0": {
+            "final_time_reached": 0,
+            "time_index": 1,
+            "time": 0.5,
+            "dt": 0.5,
+            "num_iterations": 2,
+            "simulation_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
+            "convergence_status": {
+                "crit1": ["converged", "converged"],
+                "crit2": ["continue_iterating", "converged"],
+                # Note that we both converge and fail, but the current logic treats it
+                # as success.
+                "max_iter": ["converged", "failed"],
+                "inc_inf": ["converged", "converged"],
+                "res_inf": ["converged", "converged"],
+                "inc_nan": ["converged", "converged"],
+                "res_nan": ["converged", "converged"],
+            },
+            "convergence_info": {"crit1": [0, 0], "crit2": [0.1, 0]},
+        },
+        "1": {
+            "final_time_reached": 1,
+            "time_index": 2,
+            "time": 1.0,
+            "dt": 0.5,
+            "num_iterations": 1,
+            "simulation_status": "successful",
+            "solver_status_history": ["successful"],
+            "solver_status": "successful",
+            "convergence_status": {
+                "crit1": ["converged"],
+                "crit2": ["converged"],
+                "max_iter": ["converged"],
+                "inc_inf": ["converged"],
+                "res_inf": ["converged"],
+                "inc_nan": ["converged"],
+                "res_nan": ["converged"],
+            },
+            "convergence_info": {
+                "crit1": [0],
+                "crit2": [0],
+            },
+        },
+    }
+
+    # Making two time steps.
+    status = time_stepper.perform_time_step(model=model, solver=solver)
+    assert status.is_success()
+    model.nonlinear_solver_statistics.save()
+
+    status = time_stepper.perform_time_step(model=model, solver=solver)
+    assert status.is_success()
+    model.nonlinear_solver_statistics.save()
+
+    # Check solver statistics.
+    with open(statistics_path, "r") as f:
+        data = json.load(f)
+
+    # Check for both time steps.
+    assert DeepDiff(data, reference_data) == {}
+
+
+def test_solve_failure_time_dependent_statistics(statistics_path: Path):
+    """Test that the solver statistics are updated correctly on convergence to check
+    correct behavior after failure, for a time-dependent model.
+
+    """
+    model = MockModel(statistics_path=statistics_path)
+    solver = default_newton_solver(iter_converge=5)
+    time_manager = TimeManager(
+        schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.5, 1)
+    )
+    time_stepper = TimeStepper(time_manager=time_manager)
+
+    # It will attempt to make a time step twice here, with dt=1 and dt=0.5. Both will
+    # fail after two unsuccessful nonlinear iterations.
+    status = time_stepper.perform_time_step(model=model, solver=solver)
+    assert status.is_failure()
+    # Note that the first attempt (with dt=1) will not be saved in the file. The second
+    # attempt overrides it, because `model.save_data_time_step()` is not called in
+    # `model.after_time_step_failure()` in the SolutionStrategy. This behavior is
+    # inconsistent, but EK and YZ decided to keep it for compatability. This must be
+    # revisited when the whole statistics logging is reconsidered.
+    model.nonlinear_solver_statistics.save()
+
+    # The time stepper gave up and the real simulation would be stopped at this moment.
+    # But we use a mock convergence criterion, so we can try one more time with the same
+    # dt=0.5. This time, the time step will converge after 1 nonlinear iteration.
+    status = time_stepper.perform_time_step(model=model, solver=solver)
+    assert status.is_success()
+    model.nonlinear_solver_statistics.save()
+
+    # The 4th time step will converge after 1 iteration with dt=4.
+    status = time_stepper.perform_time_step(model=model, solver=solver)
+    assert status.is_success()
+    model.nonlinear_solver_statistics.save()
+
+    # Check solver statistics.
+    with open(statistics_path, "r") as f:
+        data = json.load(f)
+
+    # Define the reference solver statistics, for 3 time steps.
+    reference_data = {
+        "global": {
+            "num_cells": {},
+            "num_domains": {},
+            # Four time stemp attempts, 0th failed (the time stepper retried), 1st
+            # failed (the time stepper gave up), 2nd and 3rd succeeded.
+            "simulation_status_history": [
+                "in_progress",
+                "failed",
+                "successful",
+                "successful",
+            ],
+            "final_simulation_status": "successful",
+            "num_entries": 4,
+            "final_time_reached": 1,
+            "total_num_time_steps": 4,
+            "total_num_failed_time_steps": 2,
+            "num_iterations_history": [2, 2, 1, 1],
+            "total_num_iterations": 6,
+            "total_num_waisted_iterations": 4,
+            "final_convergence_status": {
+                "crit1": "converged",
+                "crit2": "converged",
+                "max_iter": "converged",
+                "inc_inf": "converged",
+                "res_inf": "converged",
+                "inc_nan": "converged",
+                "res_nan": "converged",
+            },
+        },
+        # Note that the key "0" is abscent. See the comment above for details.
+        "1": {
+            "simulation_status": "failed",
+            "solver_status": "failed",
+            "final_time_reached": 0,
+            "time_index": 0,
+            "time": 0,
+            "dt": 0.5,
+            "num_iterations": 2,
+            "solver_status_history": ["failed"],
+            "convergence_status": {
+                "crit1": ["converged", "converged"],
+                "crit2": ["continue_iterating", "continue_iterating"],
+                "max_iter": ["converged", "failed"],
+                "inc_inf": ["converged", "converged"],
+                "res_inf": ["converged", "converged"],
+                "inc_nan": ["converged", "converged"],
+                "res_nan": ["converged", "converged"],
+            },
+            "convergence_info": {"crit1": [0, 0], "crit2": [0.1, 0.1]},
+        },
+        "2": {
+            "simulation_status": "successful",
+            "solver_status": "successful",
+            "final_time_reached": 0,
+            "time_index": 1,
+            "time": 0.5,
+            "dt": 0.5,
+            "num_iterations": 1,
+            "solver_status_history": ["successful"],
+            "convergence_status": {
+                "crit1": ["converged"],
+                "crit2": ["converged"],
+                "max_iter": ["converged"],
+                "inc_inf": ["converged"],
+                "res_inf": ["converged"],
+                "inc_nan": ["converged"],
+                "res_nan": ["converged"],
+            },
+            "convergence_info": {"crit1": [0], "crit2": [0]},
+        },
+        "3": {
+            "simulation_status": "successful",
+            "solver_status": "successful",
+            "final_time_reached": 1,
+            "time_index": 2,
+            "time": 1.0,
+            "dt": 0.5,
+            "num_iterations": 1,
+            "solver_status_history": ["successful"],
+            "convergence_status": {
+                "crit1": ["converged"],
+                "crit2": ["converged"],
+                "max_iter": ["converged"],
+                "inc_inf": ["converged"],
+                "res_inf": ["converged"],
+                "inc_nan": ["converged"],
+                "res_nan": ["converged"],
+            },
+            "convergence_info": {"crit1": [0], "crit2": [0]},
+        },
+    }
+
+    assert DeepDiff(data, reference_data) == {}

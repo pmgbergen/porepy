@@ -38,7 +38,6 @@ if numba_available:
 
         @njit("f8[::1](b1,f8[::1],i4[::1],i4[::1],i4[::1])", cache=True, parallel=True)
         def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-
             # Construction of simple data structures (low complexity). Indices for block
             # positions, flattened inverse block positions and nonzeros. Expanded block
             # positions.

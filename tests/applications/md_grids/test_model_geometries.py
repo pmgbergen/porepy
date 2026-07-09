@@ -63,8 +63,9 @@ def test_created_well_network():
     }
     model = TwoWells3dModel(params)
     model.set_domain()
-    model.set_well_network()
-    wells = model.well_network.wells
+    model.set_wells()
+
+    wells = model._wells
     names = [well.tags["well_name"] for well in wells]
 
     assert len(wells) == 2

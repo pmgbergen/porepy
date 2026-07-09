@@ -22,47 +22,18 @@ logger = logging.getLogger(__name__)
 # Status and info classes
 
 
-class SolverStatus(StrEnum):
-    """Enumeration of potential simulation statuses."""
-
-    IN_PROGRESS = "in_progress"
-    """Simulation is currently in progress and in a nominal state."""
-    SUCCESSFUL = "successful"
-    """Simulation completed with success."""
-    FAILED = "failed"
-    """Simulation is currently in progress and in a failed state."""
-    STOPPED = "stopped"
-    """Simulation was stopped due to an error."""
-
-    def __str__(self):
-        return self.value
-
-    def is_in_progress(self) -> bool:
-        """Check if the status indicates an ongoing simulation."""
-        return self == SolverStatus.IN_PROGRESS
-
-    def is_successful(self) -> bool:
-        """Check if the status indicates a successful simulation."""
-        return self == SolverStatus.SUCCESSFUL
-
-    def is_failed(self) -> bool:
-        """Check if the status indicates a failed simulation."""
-        return self == SolverStatus.FAILED
-
-    def is_stopped(self) -> bool:
-        """Check if the status indicates a stopped simulation."""
-        return self == SolverStatus.STOPPED
-
-
 class ConvergenceStatus(StrEnum):
     """Enumeration of potential convergence statuses."""
 
     CONVERGED = "converged"
-    """Convergence criterion is satisfied / Divergence criterion is not satisfied."""
-    NOT_CONVERGED = "not_converged"
-    """Convergence criterion is not satisfied."""
-    DIVERGED = "diverged"
-    """Divergence criterion is satisfied."""
+    """Convergence criterion is satisfied."""
+    CONTINUE_ITERATING = "continue_iterating"
+    """We neither succeeded nor failed: should continue iterating."""
+    FAILED = "failed"
+    """Divergence criterion flags a failure: divergence, exception, iteration limit,
+    etc.
+
+    """
 
     def __str__(self):
         return self.value
@@ -71,13 +42,13 @@ class ConvergenceStatus(StrEnum):
         """Check if the status indicates convergence."""
         return self == ConvergenceStatus.CONVERGED
 
-    def is_not_converged(self) -> bool:
-        """Check if the status indicates not converged."""
-        return self == ConvergenceStatus.NOT_CONVERGED
+    def is_iterating(self) -> bool:
+        """Check if the status indicates neither converged nor failed."""
+        return self == ConvergenceStatus.CONTINUE_ITERATING
 
-    def is_diverged(self) -> bool:
+    def is_failed(self) -> bool:
         """Check if the status indicates divergence."""
-        return self == ConvergenceStatus.DIVERGED
+        return self == ConvergenceStatus.FAILED
 
 
 class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
@@ -87,13 +58,13 @@ class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
         """Check if all statuses indicate convergence."""
         return all(status.is_converged() for status in self.values())
 
-    def is_not_converged(self) -> bool:
+    def is_iterating(self) -> bool:
         """Check if any status indicates not converged."""
-        return any(status.is_not_converged() for status in self.values())
+        return any(status.is_iterating() for status in self.values())
 
-    def is_diverged(self) -> bool:
+    def is_failed(self) -> bool:
         """Check if any status indicates divergence."""
-        return any(status.is_diverged() for status in self.values())
+        return any(status.is_failed() for status in self.values())
 
     def union(
         self, other: "ConvergenceStatusCollection"
@@ -172,6 +143,13 @@ ConvergenceInfo = float | dict[str, float]
 
 ConvergenceInfoCollection = dict[str, ConvergenceInfo]
 """Collection of convergence information for a collection of criteria."""
+
+ConvergenceMetricType = Callable[[np.ndarray], float | dict]
+"""Type annotation for a convergence metric function. It takes an array and returns
+either a single float or a dictionary of keys (e.g. equation / variable names) to float
+values.
+
+"""
 
 
 class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
@@ -313,7 +291,7 @@ class NanDivergenceCriterion(DivergenceCriterion):
         """
         if np.isnan(kwargs["value"]).any():
             logger.info(self.divergence_msg())
-            return ConvergenceStatus.DIVERGED
+            return ConvergenceStatus.FAILED
         return ConvergenceStatus.CONVERGED
 
 
@@ -321,7 +299,7 @@ class AbsoluteCriterion:
     def __init__(
         self,
         tol: float,
-        metric: Callable[[np.ndarray], ConvergenceInfo],
+        metric: ConvergenceMetricType,
     ) -> None:
         self.tol = tol
         """Tolerance for convergence - criterion in active if set to `np.inf`."""
@@ -355,13 +333,13 @@ class AbsoluteConvergenceCriterion(AbsoluteCriterion, ConvergenceCriterion):
             status = (
                 ConvergenceStatus.CONVERGED
                 if all(v < self.tol for v in metric_value.values())
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         else:
             status = (
                 ConvergenceStatus.CONVERGED
                 if metric_value < self.tol
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         return status, metric_value
 
@@ -382,9 +360,11 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
         status, _ = AbsoluteConvergenceCriterion.check(
             cast(AbsoluteConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_not_converged():
-            status = ConvergenceStatus.DIVERGED
+        if status.is_iterating():
+            status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
+        elif status.is_converged():
+            status = ConvergenceStatus.CONVERGED
         return status
 
 
@@ -392,7 +372,7 @@ class RelativeCriterion:
     def __init__(
         self,
         tol: float,
-        metric: Callable[[np.ndarray], ConvergenceInfo],
+        metric: ConvergenceMetricType,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.tol = tol
@@ -475,7 +455,7 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
                     for key, val in metric_value.items()
                     if key in self.reference_value
                 )
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
             relative_metric_value: ConvergenceInfo = {
                 key: val / self.reference_value[key]
@@ -487,7 +467,7 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
             status = (
                 ConvergenceStatus.CONVERGED
                 if metric_value < self.tol * self.reference_value
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
             relative_metric_value = metric_value / self.reference_value
         return status, relative_metric_value
@@ -515,8 +495,8 @@ class RelativeDivergenceCriterion(RelativeCriterion, DivergenceCriterion):
         status, _ = RelativeConvergenceCriterion.check(
             cast(RelativeConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_not_converged():
-            status = ConvergenceStatus.DIVERGED
+        if status.is_iterating():
+            status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
 
@@ -533,7 +513,7 @@ class CombinedCriterion:
         self,
         atol: float,
         rtol: float,
-        metric: Callable[[np.ndarray], ConvergenceInfo],
+        metric: ConvergenceMetricType,
         reference_value: ConvergenceInfo | None = None,
     ) -> None:
         self.atol = atol
@@ -595,14 +575,14 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
                     for key, v in metric_value.items()
                     if key in self.reference_value
                 )
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         else:
             assert isinstance(self.reference_value, float)
             status = (
                 ConvergenceStatus.CONVERGED
                 if metric_value < self.atol + self.rtol * self.reference_value
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONTINUE_ITERATING
             )
         return status, metric_value
 
@@ -627,8 +607,8 @@ class CombinedDivergenceCriterion(CombinedCriterion, DivergenceCriterion):
         status, _ = CombinedConvergenceCriterion.check(
             cast(CombinedConvergenceCriterion, self), *args, **kwargs
         )
-        if status.is_not_converged():
-            status = ConvergenceStatus.DIVERGED
+        if status.is_iterating():
+            status = ConvergenceStatus.FAILED
             logger.info(self.divergence_msg())
         return status
 
@@ -917,6 +897,6 @@ class MaxIterationsCriterion(DivergenceCriterion):
         """
         if num_iterations >= self.max_iterations:
             logger.info(self.divergence_msg())
-            return ConvergenceStatus.DIVERGED
+            return ConvergenceStatus.FAILED
         else:
             return ConvergenceStatus.CONVERGED

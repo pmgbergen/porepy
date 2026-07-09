@@ -29,15 +29,27 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from ._operator_states import (
+    IterativeOperator,
+    ReferenceOperator,
+    TimeDependentOperator,
+    _get_previous_time_or_iterate,
+    _get_reference,
+)
 from .forward_mode import AdArray
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
+    _TimeDependentOperator = TypeVar(
+        "_TimeDependentOperator", bound=TimeDependentOperator
+    )
+    _IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
+    _ReferenceOperator = TypeVar("_ReferenceOperator", bound=ReferenceOperator)
+
+
 __all__ = [
     "Operator",
-    "TimeDependentOperator",
-    "IterativeOperator",
     "SparseArray",
     "DenseArray",
     "TimeDependentDenseArray",
@@ -50,61 +62,6 @@ __all__ = [
     "sum_projection_list",
     "cached_method",
 ]
-
-
-def _get_previous_time_or_iterate(
-    op: Operator, prev_time: bool = True, steps: int = 1
-) -> Operator:
-    """Helper function which traverses an operator's tree recursively to get a
-    copy of it and it's children, representing ``op`` at a previous time or
-    iteration.
-
-    Parameters:
-        op: Some operator whose tree should be traversed.
-        prev_time: ``default=True``
-
-            If True, it calls :meth:`Operator.previous_timestep`, otherwise it calls
-            :meth:`Operator.previous_iteration`.
-
-            This is the only difference in the recursion and we can avoid duplicate
-            code.
-        steps: ``default=1``
-
-            Number of steps backwards in time or iterate sense.
-
-    Returns:
-        A copy of the operator and its children, representing the previous time or
-        iteration.
-
-    """
-    if steps == 0:
-        return op
-    # The recursion reached an atomic operator, which has some time- or
-    # iterate-dependent behaviour
-    if isinstance(op, TimeDependentOperator) and prev_time:
-        return op.previous_timestep(steps=steps)
-    elif isinstance(op, IterativeOperator) and not prev_time:
-        return op.previous_iteration(steps=steps)
-    # NOTE The previous_iteration of a time-dependent operator will return the operator
-    # itself. Vice-versa, the previous_timestep of an Iterative operator will return
-    # itself. Holds only if the operator is original (no previous_* operation performed)
-
-    # The recursion reached an operator without children and without time- or iterate-
-    # dependent behaviour
-    elif op.is_leaf():
-        return op
-    # Else we are in the middle of the operator tree and need to go deeper, creating
-    # copies along.
-    else:
-        # Create new operator from the tree, with the only difference being the new
-        # children, for which the recursion is invoked
-        # NOTE copy takes care of references to original_operator and func
-        new_op = copy.copy(op)
-        new_op.children = [
-            _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
-            for child in op.children
-        ]
-        return new_op
 
 
 class Operations(Enum):
@@ -430,6 +387,19 @@ class Operator:
 
         """
         return _get_previous_time_or_iterate(self, prev_time=False, steps=steps)
+
+    def reference(self) -> pp.ad.Operator:
+        """Base method to trigger a recursion over the operator tree and create a
+        shallow copy of this operator with reference behaviour.
+
+        For more information, see :class:`ReferenceOperator`.
+
+        """
+        return _get_reference(self)
+
+    def perturbation_from_reference(self) -> pp.ad.Operator:
+        """Returns the perturbation of this operator from its reference value."""
+        return self - self.reference()
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
@@ -1008,236 +978,6 @@ class Operator:
         return stats
 
 
-class TimeDependentOperator(Operator):
-    """Intermediate parent class for operator classes, which can have a time-dependent
-    representation.
-
-    Implements the notion of time step indices, as well as a method to create a
-    representation of an operator instance at a previous time.
-
-    Operators created via constructor always start at the current time.
-
-    """
-
-    def __init__(
-        self,
-        name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operations] = None,
-        children: Optional[Sequence[Operator]] = None,
-    ) -> None:
-        super().__init__(
-            name=name, domains=domains, operation=operation, children=children
-        )
-
-        self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
-        iterate.
-
-        This attribute is only available in operators representing previous time steps.
-
-        """
-
-        self._time_step_index: int = -1
-        """Time step index, starting with 0 (current time) and increasing for previous
-        time steps."""
-
-    @property
-    def is_previous_time(self) -> bool:
-        """True, if the operator represents a previous time-step."""
-        return True if self._time_step_index >= 0 else False
-
-    @property
-    def time_step_index(self) -> int | None:
-        """Returns the time step index this instance represents.
-
-        - None indicates the current time (unknown value)
-        - 0 indicates this is an operator at the first previous time step
-        - 1 at the time step before
-        - ...
-
-        """
-        if self._time_step_index < 0:
-            return None
-        else:
-            return self._time_step_index
-
-    def previous_timestep(
-        self: _TimeDependentOperator, steps: int = 1
-    ) -> _TimeDependentOperator:
-        """Returns a copy of the time-dependent operator with an advanced time-step
-        index.
-
-        Time-dependent operators do not invoke the recursion (like the base class), but
-        represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous time step from operators which
-            are at some previous iterate. Use the :attr:`original_operator` instead.
-
-        Parameters:
-            steps: ``default=1``
-
-                Number of steps backwards in time. If steps=0, the current time is
-                represented.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous iterate.
-            ValueError: If ``steps`` is not non-negative.
-
-        """
-        if isinstance(self, IterativeOperator):
-            if self.is_previous_iterate:
-                raise ValueError(
-                    "Cannot create an operator representing a previous time step,"
-                    + " if it already represents a previous iterate."
-                )
-
-        if steps < 0:
-            raise ValueError("Number of steps backwards must be non-negative.")
-        # TODO copy or deepcopy? Is this enough for every operator class?
-        op = copy.copy(self)
-        # Delete the cached key, so that this must be regenerated for the new operator,
-        # which is different from the original one.
-        op._cached_key = None
-
-        # NOTE Use private time step index, because it is always an integer
-        # The public time step index is NONE for current time
-        # (which translates to -1 for the private index)
-        op._time_step_index = self._time_step_index + int(steps)
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
-        return op
-
-
-_TimeDependentOperator = TypeVar("_TimeDependentOperator", bound=TimeDependentOperator)
-
-
-class IterativeOperator(Operator):
-    """Intermediate parent class for operator classes, which can have multiple
-    representations in the iterative sense.
-
-    Implements the notion of iterate indices, as well as a method to create a
-    representation of an operator instance at a iterate time.
-
-    Operators created via constructor always start at the current iterate.
-
-    Note:
-        Operators which represents some previous iterate represent also
-        always the current time.
-
-    """
-
-    def __init__(
-        self,
-        name: str | None = None,
-        domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operations] = None,
-        children: Optional[Sequence[Operator]] = None,
-    ) -> None:
-        super().__init__(
-            name=name, domains=domains, operation=operation, children=children
-        )
-
-        self.original_operator: Operator
-        """Reference to the operator representing this operator at the current time amd
-        iterate.
-
-        This attribute is only available in operators representing previous time steps.
-
-        """
-
-        self._iterate_index: int = -1
-        """Iterate index, starting with 0 (current iterate at current time) and
-        increasing for previous iterates."""
-
-    @property
-    def is_previous_iterate(self) -> bool:
-        """True, if the operator represents a previous iterate."""
-        return True if self._iterate_index >= 0 else False
-
-    @property
-    def iterate_index(self) -> int | None:
-        """Returns the iterate index this instance represents, at the current time.
-
-        - None indicates this instance is at a previous time
-        - 0 represents the most recently computed iterate.
-        - 1 represents the iterate before that
-        - ...
-
-        Note:
-            Operators at current time (unknown value) also have the index 0, since those
-            values are used to linearize the system and construct the Jacobian.
-
-        """
-        # Operators at previous time have no iterate indices
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                return None
-
-        # operators representing at current time use the values stored at index 0
-        # in that case the private index is -1
-        if self._iterate_index < 0:
-            return 0
-        # return respective index
-        else:
-            return self._iterate_index
-
-    def previous_iteration(
-        self: _IterativeOperator, steps: int = 1
-    ) -> _IterativeOperator:
-        """Returns a copy of the iterative operator with an advanced iterate index.
-
-        Iterative operators do not invoke the recursion (like the base class),
-        but represent a leaf in the recursion tree.
-
-        Note:
-            You cannot create operators at the previous iterates from operators which
-            are at some previous time step. Use the :attr:`original_operator` instead.
-
-        Parameters:
-            steps: ``default=1``
-
-                Number of steps backwards in the iterate sense. If ``steps`` is 0, the
-                current iterate is returned.
-
-        Raises:
-            ValueError: If this instance represents an operator at a previous time step.
-            ValueError: If ``steps`` is not non-negative.
-
-        """
-        if isinstance(self, TimeDependentOperator):
-            if self.is_previous_time:
-                raise ValueError(
-                    "Cannot create an operator representing a previous iterate,"
-                    + " if it already represents a previous time step."
-                )
-        if steps < 0:
-            raise ValueError("Number of steps backwards must be non-negative.")
-        # See TODO in TimeDependentOperator.previous_timestep
-        op = copy.copy(self)
-        # Delete the cached key, so that this must be regenerated for the new operator,
-        # which is different from the original one.
-        op._cached_key = None
-        op._iterate_index = self._iterate_index + int(steps)
-
-        # keeping track to the very first one
-        if self.is_current_iterate:
-            op.original_operator = self
-        else:
-            op.original_operator = self.original_operator
-
-        return op
-
-
-_IterativeOperator = TypeVar("_IterativeOperator", bound=IterativeOperator)
-
-
 class SparseArray(Operator):
     """Ad representation of a sparse matrix.
 
@@ -1467,7 +1207,7 @@ class DenseArray(Operator):
         return self._values
 
 
-class TimeDependentDenseArray(TimeDependentOperator):
+class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator):
     """An Ad-wrapper around a time-dependent numpy array.
 
     The array is tied to a MixedDimensionalGrid, and is distributed among the data
@@ -1513,9 +1253,10 @@ class TimeDependentDenseArray(TimeDependentOperator):
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
             key = (
-                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids} "
-                f"previous_time={self.is_previous_time},"
-                f"time_step_index={self.time_step_index})"
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids}\n"
+                f"previous_time={self.is_previous_time}, "
+                f"time_step_index={self.time_step_index}), "
+                f"reference={self.is_reference})"
             )
             self._cached_key = key
         return self._cached_key
@@ -1537,9 +1278,14 @@ class TimeDependentDenseArray(TimeDependentOperator):
 
         """
         vals = []
-        if self.is_previous_time:
+        if self.is_reference:
+            reference = True
+            index_kwarg = {}
+        elif self.is_previous_time:
+            reference = False
             index_kwarg = {"time_step_index": self.time_step_index}
         else:
+            reference = False
             index_kwarg = {"iterate_index": 0}
 
         for grid in self._domains:
@@ -1556,7 +1302,9 @@ class TimeDependentDenseArray(TimeDependentOperator):
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
 
             vals.append(
-                pp.get_solution_values(name=self._name, data=data, **index_kwarg)
+                pp.get_solution_values(
+                    name=self._name, data=data, reference=reference, **index_kwarg
+                )
             )
 
         if len(vals) > 0:
@@ -1651,7 +1399,7 @@ class Scalar(Operator):
         self._value = value
 
 
-class Variable(TimeDependentOperator, IterativeOperator):
+class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Operator):
     """AD operator representing a variable defined on a single grid or mortar grid.
 
     For combinations of variables on different subdomains, see
@@ -1808,6 +1556,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
             data,
             iterate_index=self.iterate_index,
             time_step_index=self.time_step_index,
+            reference=self.is_reference,
         )
 
     def __repr__(self) -> str:
@@ -1820,7 +1569,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
         )
-        if self.is_previous_iterate:
+        if self.is_reference:
+            s += f"Evaluated at the reference solution.\n"
+        elif self.is_previous_iterate:
             s += f"Evaluated at the previous iteration {self.iterate_index}.\n"
         elif self.is_previous_time:
             s += f"Evaluated at the previous time step {self.time_step_index}.\n"
@@ -1878,6 +1629,7 @@ class MixedDimensionalVariable(Variable):
         time_indices = []
         iter_indices = []
         current_iter = []
+        reference = []
         names = []
         domains = []
 
@@ -1885,6 +1637,7 @@ class MixedDimensionalVariable(Variable):
             time_indices.append(var.time_step_index)
             iter_indices.append(var.iterate_index)
             current_iter.append(var.is_current_iterate)
+            reference.append(var.is_reference)
             names.append(var.name)
             domains.append(var.domain)
 
@@ -1900,6 +1653,10 @@ class MixedDimensionalVariable(Variable):
             assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
                 "Cannot create md-variable from variables at different iterates."
             )
+            assert len(set(reference)) == 1, (
+                "Cannot create md-variable from variables with different reference "
+                "states."
+            )
             assert len(set(names)) == 1, (
                 "Cannot create md-variable from variables with different names."
             )
@@ -1910,8 +1667,9 @@ class MixedDimensionalVariable(Variable):
         else:
             time_indices = [-1]
             iter_indices = [None]
-            names = ["empty_md_variable"]
             current_iter = [True]
+            reference = [False]
+            names = ["empty_md_variable"]
 
         # NOTE everything below here is redundent with a proper super() call
         # See top comment in constructor
@@ -1932,6 +1690,9 @@ class MixedDimensionalVariable(Variable):
             # can be None if variables at previous time. Set iterate index to default
             # value.
             self._iterate_index = -1 if iter_indices[0] is None else iter_indices[0]
+
+        # Check if reference
+        self._is_reference = reference[0]
 
         self._name = names[0]
 
@@ -2040,6 +1801,13 @@ class MixedDimensionalVariable(Variable):
         obtained at the previous iteration."""
         op = super().previous_iteration(steps=steps)
         op.sub_vars = [var.previous_iteration(steps=steps) for var in self.sub_vars]
+        return op
+
+    def reference(self) -> MixedDimensionalVariable:
+        """Mixed-dimensional variables have sub-variables which also need to be
+        obtained as reference."""
+        op = super().reference()
+        op.sub_vars = [var.reference() for var in self.sub_vars]
         return op
 
 

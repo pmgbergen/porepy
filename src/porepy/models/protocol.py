@@ -81,7 +81,10 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
-        def add_wells_to_mdg(self) -> None:
+        def create_well_mesh(self) -> None:
+            """Create well mesh and add to mixed-dimensional grid."""
+
+        def set_wells(self) -> None:
             """Add wells to the mixed-dimensional grid."""
 
         def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
@@ -666,11 +669,26 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
-        def before_nonlinear_loop(self) -> None:
-            """Method to be called before the non-linear loop.
+        def before_time_step(self) -> None:
+            """Called from the outside of the model at the start of each time step.
 
-            Possible usage is to initialize the non-linear solver, set up the
-            discretization, etc.
+            The model must prepare its state for the target simulation time ``t``,
+            available through ``model.time_manager``. The nonlinear solver then attempts
+            to advance the discretized problem to that time. If the solve fails, it may
+            be retried with a different time-step size, so this method may be called
+            multiple times with different target times.
+
+            """
+
+        def before_nonlinear_loop(self) -> None:
+            """Called before entering a nonlinear solver loop.
+
+            With the default ``NewtonSolver``, each time step has a single nonlinear
+            loop so this method is called once after ``before_time_step``. More advanced
+            solvers may use multiple nonlinear loops per time step and call this method
+            before each one.
+
+            Use this method for loop-specific setup, such as updating discretizations.
 
             """
 
@@ -682,12 +700,36 @@ else:
             """
 
         def after_nonlinear_convergence(self) -> None:
-            """Method to be called after every non-linear iteration.
+            """Called after a nonlinear solver loop converges.
 
-            Possible usage is to distribute information on the solution, visualization,
-            etc.
+            With the default ``NewtonSolver``, each time step has a single nonlinear
+            loop, so this method is called exactly once, before
+            ``after_time_step_convergence``. More advanced solvers may use multiple
+            nonlinear loops per time step and call this method after each converged
+            loop.
+
+            Use this method for loop-specific post-processing.
 
             """
+
+        def assemble_linear_system(self) -> None:
+            """Assemble the linearized system and store it in :attr:`linear_system`."""
+
+        def after_nonlinear_failure(self) -> None:
+            """Called after a nonlinear solver loop fails to converge.
+
+            With the default ``NewtonSolver``, each time step has a single nonlinear
+            loop, so this method is called exactly once, before
+            ``after_time_step_failure``. More advanced solvers may use multiple
+            nonlinear loops per time step and call this method after each failed loop.
+
+            """
+
+        def after_time_step_convergence(self) -> None:
+            """Called once after a time step converges."""
+
+        def after_time_step_failure(self) -> None:
+            """Called once after a time step fails to converge."""
 
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.
@@ -809,23 +851,28 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(
+        def perturbation_from_thermodynamic_state(
             self, variable_name: str, grids: list[pp.Grid]
         ) -> pp.ad.Operator:
-            """Perturbation of some quantity ``name`` from its reference value.
+            """Perturbation of some quantity ``name`` from its thermodynamic state.
 
             The parameter ``name`` should be the name of a mixed-in method, returning an
             AD operator for given ``grids``.
 
-            ``name`` should also be defined in the model's :attr:`reference_values`.
+            ``name`` should also be defined in the model's reference thermodynamic
+            values.
 
             This method calls the model method with given ``name`` on given ``grids`` to
-            create an operator ``A``. It then fetches the respective reference value and
-            wraps it into an AD scalar ``A_0``. The return value is an operator
-            ``A - A_0``.
+            create an operator ``A``. It then fetches the respective thermodynamic
+            state value and wraps it into an AD scalar ``A_0``. The return value is an
+            operator ``A - A_0``.
+
+            Use the operator-level perturbation method when the reference state is
+            stored in the equation system.
 
             Parameters:
-                name: Name of the quantity to be perturbed from a reference value.
+                name: Name of the quantity to be perturbed from a thermodynamic state
+                    value.
                 grids: List of subdomain or interface grids on which the quantity is
                     defined.
 
