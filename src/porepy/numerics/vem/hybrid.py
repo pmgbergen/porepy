@@ -14,7 +14,7 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad._grid_entity import GridEntity
+    from porepy.numerics.ad.grid_entity import GridEntity
 
 
 class HybridDualVEM:
