@@ -301,11 +301,8 @@ else:
             Parameters:
                 grids: List of grids on which the basis is defined.
                 dim: Dimension of the basis.
-                domain_type: If given, forces the source/target :class:`~porepy.numerics
-                    .ad.operator_space.OperatorSpace` of the returned projections to
-                    this domain type, even if ``grids`` is empty. If ``None``, the
-                    domain type is inferred from ``grids`` (and will be a scalar space
-                    if ``grids`` is empty).
+                domain_type: The type of domain (subdomains, interfaces, or boundary
+                    grids) that *grids* represents. See :meth:`basis` for details.
 
             Returns:
                 List of pp.ad.SparseArray, each of which represents a basis
@@ -345,11 +342,8 @@ else:
                 grids: List of grids on which the basis vector is defined.
                 i: Index of the basis function. Note: Counts from 0.
                 dim: Dimension of the functions.
-                domain_type: If given, forces the source/target :class:`~porepy.numerics
-                    .ad.operator_space.OperatorSpace` of the returned projection to this
-                    domain type, even if ``grids`` is empty. If ``None``, the domain
-                    type is inferred from ``grids`` (and will be a scalar space if
-                    ``grids`` is empty).
+                domain_type: The type of domain (subdomains, interfaces, or boundary
+                    grids) that *grids* represents. See :meth:`basis` for details.
 
             Returns:
                 Ad projection that represents a basis function.
