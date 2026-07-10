@@ -433,13 +433,13 @@ class Tpsa(Discretization):
             "rotation_rotation",
             "bound_displacement_rotation_cell",
         }
-        nrot_cols_faces = {}
+        nrot_cols_faces: dict[pp.ad.GridEntity, int] = {}
         scalar_cols_cells = {
             "stress_total_pressure",
             "mass_total_pressure",
             "bound_displacement_solid_pressure_cell",
         }
-        scalar_cols_faces = {}
+        scalar_cols_faces: dict[pp.ad.GridEntity, int] = {}
         if matrix_key in nd_cols_cells:
             return {pp.ad.GridEntity.cells: nd}
         if matrix_key in nd_cols_faces:
