@@ -90,10 +90,9 @@ class OperatorSpace:
             )
         self.dof_info = dict(self.dof_info)
 
-        # Note: self.grids may legitimately be empty here, e.g. for grid operators
-        # (Trace, Divergence, SubdomainProjections, MortarProjections, etc.) that are
-        # constructed on an empty list of subdomains/interfaces/boundary grids, but
-        # whose domain_type is nonetheless known from the context of construction.
+        # Note: self.grids may legitimately be empty for operators that are constructed
+        # on an empty list of subdomains/interfaces/boundary grids, but whose
+        # domain_type is nonetheless known from the context of construction.
         if self.domain_type == DomainType.subdomains and not all(
             isinstance(g, pp.Grid) for g in self.grids
         ):
@@ -140,11 +139,15 @@ class OperatorSpace:
             The total number of DOFs.
 
         Raises:
-            ValueError: If this space is :attr:`DomainType.scalar` or
-                :attr:`DomainType.unclear`.
+            ValueError: If this space is :attr:`DomainType.scalar`,
+                :attr:`DomainType.unclear` or :attr:`DomainType.waived`.
 
         """
-        if self.domain_type in (DomainType.scalar, DomainType.unclear):
+        if self.domain_type in (
+            DomainType.scalar,
+            DomainType.unclear,
+            DomainType.waived,
+        ):
             raise ValueError(
                 f"{self.domain_type.value.capitalize()} spaces have no "
                 "grid-based DOF count."
