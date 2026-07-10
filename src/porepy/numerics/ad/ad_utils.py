@@ -347,6 +347,9 @@ class MergedOperator(operators.Operator):
                 even when ``domains`` is empty, and is used to build a typed-but-empty
                 :class:`~porepy.numerics.ad.operator_space.OperatorSpace` in that case.
 
+        Raises:
+            ValueError: If ``domains`` is empty and ``domain_type`` is not provided.
+
         """
         name = discr.__class__.__name__
         self._merged_domains: list[pp.GridLike] = list(domains) if domains else []
@@ -356,18 +359,22 @@ class MergedOperator(operators.Operator):
         op_source: operators.OperatorSpace
         op_target: operators.OperatorSpace
         domain_list: list[pp.GridLike] = list(domains) if domains else []
-        if domains or domain_type is not None:
-            row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
-            col_dof = discr.get_col_dof_info(discretization_matrix_key, nd=nd)
+        if not (domains or domain_type is not None):
+            raise ValueError(
+                "If domains is empty, domain_type must be provided to construct "
+                "the operator spaces."
+            )
 
-            if col_dof:
-                op_source = operators.OperatorSpace.from_domains(
-                    domain_list, col_dof, domain_type=domain_type
-                )
-            if row_dof:
-                op_target = operators.OperatorSpace.from_domains(
-                    domain_list, row_dof, domain_type=domain_type
-                )
+        op_source = operators.OperatorSpace.from_domains(
+            domain_list,
+            discr.get_col_dof_info(discretization_matrix_key, nd=nd),
+            domain_type=domain_type,
+        )
+        op_target = operators.OperatorSpace.from_domains(
+            domain_list,
+            discr.get_row_dof_info(discretization_matrix_key, nd=nd),
+            domain_type=domain_type,
+        )
 
         super().__init__(name=name, source=op_source, target=op_target)
 
