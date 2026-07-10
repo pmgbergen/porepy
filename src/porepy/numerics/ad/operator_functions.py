@@ -69,8 +69,9 @@ class AbstractFunction(Operator):
         name: Optional[str] = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        source: Optional[OperatorSpace] = None,
-        target: Optional[OperatorSpace] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
@@ -321,8 +322,8 @@ class Function(AbstractFunction):
         self,
         func: Callable[..., FloatType],
         name: str,
-        source: OperatorSpace | None,
-        target: OperatorSpace | None,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(name=name, source=source, target=target)
 

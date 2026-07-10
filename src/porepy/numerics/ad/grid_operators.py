@@ -837,8 +837,8 @@ class MortarProjections:
             domain_type=DomainType.subdomains,
         )
         if to_mortar:
-            op_source: Optional[OperatorSpace] = sd_space
-            op_target: Optional[OperatorSpace] = intf_space
+            op_source: OperatorSpace = sd_space
+            op_target: OperatorSpace = intf_space
         else:
             op_source = intf_space
             op_target = sd_space
@@ -858,13 +858,7 @@ class MortarProjections:
                 target=op_target,
             )
 
-    def _bmat(
-        self,
-        matrices,
-        name,
-        source: Optional["OperatorSpace"] = None,
-        target: Optional["OperatorSpace"] = None,
-    ):
+    def _bmat(self, matrices, name, source: OperatorSpace, target: OperatorSpace):
         # Create block matrix, convert it to optimized storage format.
         if len(matrices[0]) == 0:
             block_matrix = sps.csr_matrix((0, 0))
@@ -921,12 +915,10 @@ class BoundaryProjection:
             self._projection = sps.csr_matrix((0, 0))
 
         sd_list = list(subdomains)
-        self._subdomain_face_space: Optional[OperatorSpace] = (
-            OperatorSpace.from_domains(
-                sd_list, {GridEntity.faces: dim}, domain_type=DomainType.subdomains
-            )
+        self._subdomain_face_space: OperatorSpace = OperatorSpace.from_domains(
+            sd_list, {GridEntity.faces: dim}, domain_type=DomainType.subdomains
         )
-        self._boundary_cell_space: Optional[OperatorSpace] = OperatorSpace.from_domains(
+        self._boundary_cell_space: OperatorSpace = OperatorSpace.from_domains(
             boundary_grids,
             {GridEntity.cells: dim},
             domain_type=DomainType.boundary_grids,
