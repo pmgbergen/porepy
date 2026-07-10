@@ -68,7 +68,7 @@ def test_elementary_operations(operator):
     assert id(c.children[1]) == id(b)
 
 
-def test_copy_operator_tree():
+class TestCopyOperatorTree:
     """Test that copying of an operator tree works as expected.
 
     The test makes a simple tree by combining a scalar and a numpy array. The intention
@@ -76,79 +76,93 @@ def test_copy_operator_tree():
     should be done elsewhere.
 
     """
-    # To verify the difference between copy and deepcopy, keep pointers to the data
-    # structures to be wrapped
-    a_val = 42
-    a = pp.ad.Scalar(a_val)
 
-    b_arr = np.arange(3)
-    b = pp.ad.DenseArray(b_arr)
+    def setup_method(self):
+        # To verify the difference between copy and deepcopy, keep pointers to the data
+        # structures to be wrapped
+        self.a_val = 42
+        self.a = pp.ad.Scalar(self.a_val)
+        # Use an unclear operator space here since we do not care about the actual
+        # domain of the DenseArray (tests of this is carried out elsewhere).
+        space = pp.ad.OperatorSpace.unclear()
+        b_val = np.arange(3)
+        self.b = pp.ad.DenseArray(b_val, source=space, target=space)
 
-    # The combined operator, and two copies
-    c = a + b
-    c_copy = copy.copy(c)
-    c_deepcopy = copy.deepcopy(c)
+        # The combined operator, and two copies
+        self.c = self.a + self.b
+        self.c_copy = copy.copy(self.c)
+        self.c_deepcopy = copy.deepcopy(self.c)
+        # Create an EquationSystem defined on a MixedDimensionalGrid (not really used)
+        # for parsing the operators.
+        mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian",
+            {"cell_size": 0.5},
+            fracture_indices=[],
+        )
+        self.equation_system = pp.ad.EquationSystem(mdg)
 
-    # First check that the two copies have behaved as they should.
-    # The operators should be the same for all trees.
-    assert c.operation == c_copy.operation
-    assert c.operation == c_deepcopy.operation
+    def test_operator_properties(self):
+        """Unit tests involving no parsing."""
 
-    # The operator version of scalars and dense arrays calculates the hash based on the
-    # value of the underlying object, hence the comparison operator for pp.ad.Operator
-    # should evaluate for True for both the copy and the deepcopy. The id of the
-    # underlying object should be the same for the copy, but different for the deepcopy.
-    for c1, c2 in zip(c.children, c_copy.children):
-        assert c1 == c2
-        assert id(c1) == id(c2)
-    for c1, c2 in zip(c.children, c_deepcopy.children):
-        assert c1 == c2
-        assert id(c1) != id(c2)
+        # First check that the two copies have behaved as they should.
+        # The operators should be the same for all trees.
+        for item in ["operation", "source", "target"]:
+            assert getattr(self.c, item) == getattr(self.c_copy, item)
+            assert getattr(self.c, item) == getattr(self.c_deepcopy, item)
 
-    # As a second test, also validate that the operators are parsed correctly.
-    # This should not be strictly necessary - the above test should be sufficient,
-    # but better safe than sorry.
-    # Some boilerplate is needed before the expression can be evaluated.
-    mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
-        "cartesian",
-        {"cell_size": 0.2},
-        fracture_indices=[1],
-    )
-    equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {GridEntity.cells: 1}, mdg.subdomains())
-    equation_system.set_variable_values(
-        np.zeros(equation_system.num_dofs()), iterate_index=0, time_step_index=0
-    )
+        # The operator version of scalars and dense arrays calculates the hash based on
+        # the value of the underlying object, hence the comparison operator for
+        # pp.ad.Operator should evaluate for True for both the copy and the deepcopy.
+        # The id of the underlying object should be the same for the copy, but different
+        # for the deepcopy.
+        for c1, c2 in zip(self.c.children, self.c_copy.children):
+            assert c1 == c2
+            assert id(c1) == id(c2)
+        for c1, c2 in zip(self.c.children, self.c_deepcopy.children):
+            assert c1 == c2
+            assert id(c1) != id(c2)
 
-    # In their initial state, all operators should have the same values
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_parsed_evaluation_no_changes(self):
+        """Validate that the operators are parsed correctly through an
+        EquationSystem."""
 
-    # Increase the value of the scalar. This should have no effect, since the scalar
-    # wrapps an immutable, see comment in pp.ad.Scalar
-    a_val += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy),
+        )
 
-    # Increase the value of the Scalar. This will be seen by the copy, but not the
-    # deepcopy.
-    a._value += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_changing_scalar_outside_operator_has_no_impact(self):
+        """Increase the value of the scalar used to construct the operators. This should
+        have no effect, since the scalar wrapps an immutable, see comment in
+        pp.ad.Scalar.
+        """
+        self.a_val += 1
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        assert np.allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy),
+        )
 
-    # Next increase the values in the array. This changes the shallow copy, but not the
-    # deep one.
-    b_arr += 1
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(
-        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
-    )
+    def test_changing_scalar_operator_not_seen_by_deep_copy(self):
+        """Increase the value of the scalar used to construct the operators. This should
+        not be seen by the deep copy, since it is a separate object.
+        """
+        self.a._value += 1
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_copy),
+        )
+        np.testing.assert_allclose(
+            self.equation_system.evaluate(self.c),
+            self.equation_system.evaluate(self.c_deepcopy) + 1,
+        )
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
