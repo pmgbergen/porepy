@@ -134,7 +134,7 @@ class Operations(Enum):
         self,
         left: Operator,
         right: Operator | int | float,
-    ) -> tuple[Optional[OperatorSpace], Optional[OperatorSpace]]:
+    ) -> tuple[OperatorSpace, OperatorSpace]:
         """Validate operand spaces and infer the source/target of the result.
 
         For matrix multiplication (``matmul``), the target of the *right* operand must
@@ -160,8 +160,7 @@ class Operations(Enum):
         Returns:
             A 2-tuple ``(source, target)`` where ``source`` is the inferred
             :class:`OperatorSpace` for the source and ``target`` is the inferred
-            :class:`OperatorSpace` for the target. Either may be ``None`` if it cannot
-            be determined.
+            :class:`OperatorSpace` for the target.
 
         Raises:
             ValueError: If both operands have specified spaces that are incompatible.
@@ -209,18 +208,16 @@ class Operations(Enum):
                     return True
             return False
 
-        def _is_vacuous(space: Optional[OperatorSpace]) -> bool:
+        def _is_vacuous(space: OperatorSpace) -> bool:
             """Return True if the space carries no grids, and hence no actual dofs.
 
             This includes the scalar space, but also spaces with a non-scalar
             domain_type that happen to be defined on an empty grid list.
 
             """
-            return space is not None and len(space.grids) == 0
+            return len(space.grids) == 0
 
-        def _pick_target(
-            a: Optional[OperatorSpace], b: Optional[OperatorSpace]
-        ) -> Optional[OperatorSpace]:
+        def _pick_target(a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
             """Return the known space when one side is unspecified.
 
             When one operand is a cellwise-scalar broadcast (see
@@ -239,9 +236,7 @@ class Operations(Enum):
                 return a
             return a
 
-        def _pick_source(
-            a: Optional[OperatorSpace], b: Optional[OperatorSpace]
-        ) -> Optional[OperatorSpace]:
+        def _pick_source(a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
             if a is None or b is None:
                 # Piggyback on the target picking logic.
                 return _pick_target(a, b)
@@ -405,11 +400,11 @@ class Operator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         *,
-        source: Optional[OperatorSpace],
-        target: Optional[OperatorSpace],
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
-        self._source: Optional[OperatorSpace] = source
-        self._target: Optional[OperatorSpace] = target
+        self._source: OperatorSpace = source
+        self._target: OperatorSpace = target
 
         if source is None or target is None:
             raise TypeError(
@@ -457,13 +452,13 @@ class Operator:
         self._cached_key: Optional[str] = None
 
     @property
-    def source(self) -> Optional[OperatorSpace]:
-        """The algebraic source space of this operator, or ``None`` if unspecified."""
+    def source(self) -> OperatorSpace:
+        """The algebraic source space of this operator."""
         return self._source
 
     @property
-    def target(self) -> Optional[OperatorSpace]:
-        """The algebraic target space of this operator, or ``None`` if unspecified."""
+    def target(self) -> OperatorSpace:
+        """The algebraic target space of this operator."""
         return self._target
 
     @property
@@ -1268,6 +1263,8 @@ class SparseArray(Operator):
     Parameters:
         mat: Sparse matrix to be wrapped as an AD operator.
         name: Name of this operator
+        source: Source space of this operator.
+        target: Target space of this operator.
 
     """
 
@@ -1275,8 +1272,9 @@ class SparseArray(Operator):
         self,
         mat: sps.spmatrix,
         name: Optional[str] = None,
-        source: Optional[OperatorSpace] = None,
-        target: Optional[OperatorSpace] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         _check_space_shape_consistency(source, mat.shape[1], "source", "SparseArray")
         _check_space_shape_consistency(target, mat.shape[0], "target", "SparseArray")
@@ -1438,6 +1436,9 @@ class DenseArray(Operator):
 
     Parameters:
         values: Numpy array to be represented.
+        name: Name of the DenseArray.
+        source: Source space of the DenseArray.
+        target: Target space of the DenseArray.
 
     """
 
@@ -1445,15 +1446,10 @@ class DenseArray(Operator):
         self,
         values: np.ndarray,
         name: Optional[str] = None,
-        source: Optional[OperatorSpace] = None,
-        target: Optional[OperatorSpace] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
-        """Construct an Ad representation of a numpy array.
-
-        Parameters:
-            values: Numpy array to be represented.
-
-        """
         _check_space_shape_consistency(source, values.size, "source", "DenseArray")
         _check_space_shape_consistency(target, values.size, "target", "DenseArray")
 
@@ -2066,8 +2062,8 @@ class MixedDimensionalVariable(Variable):
 
         self._name = names[0]
 
-        self._source: Optional[OperatorSpace] = op_space
-        self._target: Optional[OperatorSpace] = op_space
+        self._source: OperatorSpace = op_space
+        self._target: OperatorSpace = op_space
 
         # If someone attempts to create a prev time or iter md-variable using
         # atomic variables at prev time and iter, we have a missing reference to the
@@ -2182,10 +2178,10 @@ class Projection(Operator):
         domain_indices: np.ndarray,
         range_indices: np.ndarray,
         domain_size: int,
+        source: OperatorSpace,
+        target: OperatorSpace,
         range_size: int,
         name: Optional[str] = None,
-        source: Optional[OperatorSpace] = None,
-        target: Optional[OperatorSpace] = None,
     ):
         """Construct a projection operator.
 
@@ -2194,14 +2190,13 @@ class Projection(Operator):
             range_indices: Indices of the range space.
             domain_size: Size of the domain space.
             range_size: Size of the range space.
-            name: Name of the operator. Default is None.
             source: The operator space of the domain, if known from the grid/dof
                 context the projection was built from. Its
                 :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.num_dofs` must
-                match *domain_size*. Defaults to ``None`` for callers with no grid
-                context (index-only projections).
+                match *domain_size*.
             target: The operator space of the range, analogous to *source*. Its
                 ``num_dofs()`` must match *range_size*.
+            name: Name of the operator. Default is None.
 
         Raises:
             ValueError: If *source*/*target* is given and its ``num_dofs()`` does not
@@ -2331,8 +2326,8 @@ class ProjectionList(Operator):
                 "Cannot build a ProjectionList from operators with different "
                 f"targets: {targets}."
             )
-        source = sources.pop() if sources else None
-        target = targets.pop() if targets else None
+        source = sources.pop()
+        target = targets.pop()
         super().__init__(name=name, children=operators, source=source, target=target)
 
     def _key(self) -> str:
@@ -2416,7 +2411,7 @@ def _ad_wrapper(
     if size is None:
         size = value_array.size
 
-    domain_and_range: Optional[OperatorSpace] = None
+    domain_and_range: OperatorSpace
     if grids:
         if grid_entity == GridEntity.faces:
             num_entities = sum(
