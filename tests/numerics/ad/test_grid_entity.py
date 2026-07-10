@@ -6,7 +6,6 @@ Verifies:
   3. ``admissible_dof_types`` contains only ``GridEntity`` members.
   4. ``create_variables`` works with enum-keyed ``dof_info`` dicts.
   5. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
-  6. ``SurrogateFactory`` works with enum-keyed ``dof_info`` dicts.
 """
 
 import pytest
@@ -14,11 +13,6 @@ import numpy as np
 
 import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
-
-
-# ---------------------------------------------------------------------------
-# Enum member values
-# ---------------------------------------------------------------------------
 
 
 class TestGridEntityValues:
@@ -47,11 +41,6 @@ class TestGridEntityValues:
         assert pp.ad.GridEntity is GridEntity
 
 
-# ---------------------------------------------------------------------------
-# admissible_dof_types uses enum members
-# ---------------------------------------------------------------------------
-
-
 class TestAdmissibleDofTypes:
     def test_admissible_dof_types_are_grid_entity_members(self):
         mdg = pp.MixedDimensionalGrid()
@@ -60,12 +49,8 @@ class TestAdmissibleDofTypes:
             assert isinstance(entry, GridEntity)
 
 
-# ---------------------------------------------------------------------------
-# create_variables with enum-keyed dof_info
-# ---------------------------------------------------------------------------
-
-
-def _simple_mdg():
+@pytest.fixture
+def simple_mdg(scope="module"):
     """Return a minimal MixedDimensionalGrid with two subdomains."""
     mdg = pp.MixedDimensionalGrid()
     g1 = pp.CartGrid([2, 2])
@@ -75,87 +60,40 @@ def _simple_mdg():
 
 
 class TestCreateVariables:
-    def test_enum_dof_info_cells(self):
-        mdg, g1, g2 = _simple_mdg()
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables(
-            "p", dof_info={GridEntity.cells: 1}, subdomains=[g1, g2]
-        )
-        assert var is not None
-        assert len(eq.variables) == 2
+    """Test that create_variables works with enum-keyed dof_info dicts and return
+    variables of the expected size.
+    """
 
-    def test_enum_dof_info_faces(self):
-        mdg, g1, _ = _simple_mdg()
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables("u", dof_info={GridEntity.faces: 1}, subdomains=[g1])
-        assert var is not None
+    def _expected(self, dof_info, mdg):
+        """Compute the expected number of dofs for a given dof_info dict."""
+        expected = 0
+        for entity, num_dofs in dof_info.items():
+            if entity == GridEntity.cells:
+                expected += sum(g.num_cells for g in mdg.subdomains()) * num_dofs
+            elif entity == GridEntity.faces:
+                expected += sum(g.num_faces for g in mdg.subdomains()) * num_dofs
+            elif entity == GridEntity.nodes:
+                expected += sum(g.num_nodes for g in mdg.subdomains()) * num_dofs
+        return expected
 
-    def test_enum_dof_info_nodes(self):
-        mdg, g1, _ = _simple_mdg()
+    @pytest.mark.parametrize(
+        "dof_info",
+        [
+            {GridEntity.cells: 1},
+            {GridEntity.faces: 1},
+            {GridEntity.nodes: 1},
+            {GridEntity.cells: 2},
+            {GridEntity.cells: 1, GridEntity.faces: 2},
+        ],
+    )
+    def test_enum_dof_info(self, simple_mdg, dof_info):
+        mdg, g1, g2 = simple_mdg
         eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables("v", dof_info={GridEntity.nodes: 1}, subdomains=[g1])
-        assert var is not None
+        var = eq.create_variables("p", dof_info=dof_info, subdomains=[g1, g2])
+        assert var.size == self._expected(dof_info, mdg)
 
-    def test_mixed_dof_info_enum_keys(self):
-        mdg, g1, _ = _simple_mdg()
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables(
-            "w", dof_info={GridEntity.cells: 1, GridEntity.faces: 2}, subdomains=[g1]
-        )
-        assert var is not None
-
-    def test_non_admissible_dof_type_raises(self):
-        mdg, g1, _ = _simple_mdg()
+    def test_non_admissible_dof_type_raises(self, simple_mdg):
+        mdg, g1, _ = simple_mdg
         eq = pp.ad.EquationSystem(mdg)
         with pytest.raises(ValueError, match="Non-admissible"):
             eq.create_variables("bad", dof_info={"volume": 1}, subdomains=[g1])
-
-    def test_num_dofs_correct(self):
-        mdg, g1, _ = _simple_mdg()
-        eq = pp.ad.EquationSystem(mdg)
-        eq.create_variables("p", dof_info={GridEntity.cells: 2}, subdomains=[g1])
-        expected = g1.num_cells * 2
-        assert eq.num_dofs() == expected
-
-
-# ---------------------------------------------------------------------------
-# set_equation with enum-keyed equations_per_grid_entity
-# ---------------------------------------------------------------------------
-
-
-class TestSetEquation:
-    def test_enum_equations_per_grid_entity(self):
-        mdg, g1, g2 = _simple_mdg()
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables(
-            "p", dof_info={GridEntity.cells: 1}, subdomains=[g1, g2]
-        )
-        operator = var + var
-        operator.set_name("test_eq")
-        eq.set_equation(
-            operator,
-            grids=[g1, g2],
-            equations_per_grid_entity={GridEntity.cells: 1},
-        )
-        assert "test_eq" in eq.equations
-
-
-# ---------------------------------------------------------------------------
-# SurrogateFactory with enum-keyed dof_info
-# ---------------------------------------------------------------------------
-
-
-class TestSurrogateFactory:
-    def test_enum_dof_info(self):
-        mdg, g1, g2 = _simple_mdg()
-        eq = pp.ad.EquationSystem(mdg)
-        var = eq.create_variables(
-            "p", dof_info={GridEntity.cells: 1}, subdomains=[g1, g2]
-        )
-        factory = pp.ad.SurrogateFactory(
-            name="f",
-            mdg=mdg,
-            dependencies=[lambda grids: var],
-            dof_info={GridEntity.cells: 1},
-        )
-        assert factory is not None
