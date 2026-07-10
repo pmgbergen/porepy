@@ -381,15 +381,14 @@ class DisplacementJumpAperture(DimensionReduction):
                 normal_jump = self.normal_component(
                     subdomains_of_dim
                 ) @ self.displacement_jump(subdomains_of_dim)
+                domain_and_range = OperatorSpace.from_domains(
+                    subdomains_of_dim, {GridEntity.cells: 1}
+                )
                 # The jump should be bounded below by gap function. This is not
                 # guaranteed in the non-converged state. As this (especially
                 # non-positive values) may give significant trouble in the aperture.
                 # Insert safeguard by taking maximum of the jump and a residual
                 # aperture.
-                domain_and_range = OperatorSpace.from_domains(
-                    subdomains_of_dim, {GridEntity.cells: 1}
-                )
-
                 f_max = Function(
                     pp.ad.maximum,
                     "maximum_function",
@@ -1358,15 +1357,6 @@ class AdTpfaFlux(pp.PorePyModel):
             domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
         )
 
-        # Build a mapping for the cell-wise vector source, unravelled from the right:
-        # First, map the vector source from nd to 3d. Second, map from cells to
-        # half-faces. Third, project the vector source onto the vector from cell center
-        # to half-face center (this is the vector which Tpfa uses as a proxy for the
-        # full gradient, see comments in the method __transmissibility_matrix). As the
-        # rows of d_vec have length equal to the distance, this compensates for the
-        # distance in the denominator of the half-face transmissibility. Fourth, map
-        # from half-faces to faces, using a mapping with signs, thereby taking the
-        # difference between the two vector sources.
         cell_vector_space = pp.ad.OperatorSpace.from_domains(
             domains,
             {pp.ad.GridEntity.cells: self.nd},
@@ -1382,6 +1372,15 @@ class AdTpfaFlux(pp.PorePyModel):
             {pp.ad.GridEntity.cells: 1},
             domain_type=pp.ad.DomainType.subdomains,
         )
+        # Build a mapping for the cell-wise vector source, unravelled from the right:
+        # First, map the vector source from nd to 3d. Second, map from cells to
+        # half-faces. Third, project the vector source onto the vector from cell center
+        # to half-face center (this is the vector which Tpfa uses as a proxy for the
+        # full gradient, see comments in the method __transmissibility_matrix). As the
+        # rows of d_vec have length equal to the distance, this compensates for the
+        # distance in the denominator of the half-face transmissibility. Fourth, map
+        # from half-faces to faces, using a mapping with signs, thereby taking the
+        # difference between the two vector sources.
         vector_source_c_to_f = pp.ad.SparseArray(
             hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d,
             source=cell_vector_space,
@@ -1429,7 +1428,7 @@ class AdTpfaFlux(pp.PorePyModel):
 
             # Define the Ad function for the flux, including the impact of boundary
             # conditions internal and external.
-            range_ = OperatorSpace.from_domains(domains, {GridEntity.faces: 1})
+            target = OperatorSpace.from_domains(domains, {GridEntity.faces: 1})
             flux_p = pp.ad.Function(
                 # Mypy raises an error here since functool.partial returns a 'partial',
                 # while pp.ad.Function expects a Callable. partial.__call__ is a
@@ -1440,7 +1439,7 @@ class AdTpfaFlux(pp.PorePyModel):
                 ),
                 "differentiable_mpfa",
                 source=OperatorSpace.from_domains(domains, {GridEntity.cells: 1}),
-                target=range_,
+                target=target,
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
             vector_source_d = Function(
@@ -1449,7 +1448,7 @@ class AdTpfaFlux(pp.PorePyModel):
                 ),
                 "differentiable_mpfa_vector_source",
                 source=OperatorSpace.from_domains(domains, {GridEntity.cells: self.nd}),
-                target=range_,
+                target=target,
             )(t_f, vector_source_difference, vector_source_cells)
 
         else:
@@ -1535,9 +1534,7 @@ class AdTpfaFlux(pp.PorePyModel):
         if isinstance(base_discr, pp.ad.MpfaAd):
             # Approximate the derivative of the transmissibility matrix with respect to
             # permeability by a Tpfa-style discretization.
-            domain_and_range = OperatorSpace.from_domains(
-                subdomains, {GridEntity.faces: 1}
-            )
+            space = OperatorSpace.from_domains(subdomains, {GridEntity.faces: 1})
             boundary_value_contribution = Function(
                 # See comment in diffusive_flux method for explanation why the type
                 # ignore is needed.
@@ -1545,8 +1542,8 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_bound_pressure_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-                domain_and_range,
-                domain_and_range,
+                space,
+                space,
             )(
                 bound_pressure_face_discr,
                 projected_internal_flux,
@@ -4562,6 +4559,9 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         Returns:
             Operator for the positive normal traction.
         """
+        domain_and_range = OperatorSpace.from_domains(
+            subdomains, {GridEntity.cells: self.nd}
+        )
         # Clip the contact traction to avoid division by zero. The clip is set to
         # negative values, since the contact traction is negative when the fracture is
         # in contact, and the dilation effect is only relevant when the fracture is in
@@ -4571,10 +4571,6 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # NOTE: The clip function is applied to the full nd-dimensional contact
         # traction (not just its normal component), so its domain and range must
         # match the dof count of `contact_traction`, i.e. `self.nd`, not 1.
-        domain_and_range = OperatorSpace.from_domains(
-            subdomains, {GridEntity.cells: self.nd}
-        )
-
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
             "clip_function",

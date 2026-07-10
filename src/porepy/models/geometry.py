@@ -463,9 +463,7 @@ class ModelGeometry(pp.PorePyModel):
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
             domain_type: The type of domain (subdomains, interfaces, or boundary
-                grids) that *grids* represents. If not given, it is inferred from the
-                grid types found in *grids*.
-
+                grids) that *grids* represents.
         Returns:
             List of pp.ad.SparseArray, each of which represents a basis
             function.
@@ -542,14 +540,8 @@ class ModelGeometry(pp.PorePyModel):
                 or all(isinstance(g, pp.BoundaryGrid) for g in grids)
             )
         ):
-            # The grids genuinely mix subdomains, interfaces, and/or boundary grids
-            # (a use case explicitly supported by this method, e.g. to construct a
-            # basis jointly over subdomains and interfaces). This is a case of
-            # combining operators with genuinely different domains, so the source
-            # and target are marked as having an unclear domain type, rather than
-            # raising (which is what OperatorSpace.from_domains would otherwise do
-            # for a list of grids with mixed types).
-            # TODO EK: I think this option is invalid for other reasons.
+            # The grids mix subdomains, interfaces, and/or boundary grids, as is
+            # supported by this method. Mark the operator space as unclear.
             source: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
             target: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
         else:
