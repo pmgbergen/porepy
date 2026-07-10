@@ -9,11 +9,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
 )
-from .flow_model_base import _FlowModelBaseCore
-from porepy.models.compositional_flow import (
-    CompositionalFlowTemplate,
-    CompositionalFractionalFlowTemplate,
-)
+from .flow_model_base import FlowModelBase, FractionalFlowModelBase
 
 from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
@@ -126,7 +122,6 @@ class _DriesnerBrineBase(  # type:ignore[misc]
     InitialConditions,
     BoundaryConditions,
     SecondaryEquations,
-    _FlowModelBaseCore,
 ):
 
     def _liquid_relative_permeability(self, s_liq: pp.ad.Operator) -> pp.ad.Operator:
@@ -590,14 +585,13 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         return
 
 
-class DriesnerBrineFlowModel(_DriesnerBrineBase, CompositionalFlowTemplate):  # type: ignore[misc]
+class DriesnerBrineFlowModel(_DriesnerBrineBase, FlowModelBase):  # type: ignore[misc]
     """Driesner brine model with the STANDARD primary equations -- HU (upwinded total mobility).
-    Public name kept for backward compatibility; other example scripts inherit it."""
+    Inherits FlowModelBase (= core + CompositionalFlowTemplate) so the core's solver overrides
+    keep MRO precedence over the template's SolutionStrategy. Public name kept for backward compat."""
 
 
-class DriesnerBrineFractionalFlowModel(  # type: ignore[misc]
-    _DriesnerBrineBase, CompositionalFractionalFlowTemplate
-):
-    """Driesner brine model with the FRACTIONAL-FLOW primary equations -- HU-mw (mobility-weighted).
-    Select this for ``weighted_perm=True`` runs."""
+class DriesnerBrineFractionalFlowModel(_DriesnerBrineBase, FractionalFlowModelBase):  # type: ignore[misc]
+    """Driesner brine model with the FRACTIONAL-FLOW primary equations -- HU-mw (mobility-weighted);
+    inherits FractionalFlowModelBase (= core + CompositionalFractionalFlowTemplate). weighted_perm=True."""
 

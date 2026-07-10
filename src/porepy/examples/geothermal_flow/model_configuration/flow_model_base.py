@@ -5,6 +5,7 @@ import csv
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse.csgraph import reverse_cuthill_mckee
+from dataclasses import dataclass, field
 from typing import Callable, Optional, cast, Any
 
 import porepy as pp
@@ -61,6 +62,51 @@ class _CachingSurrogateFactory(pp.ad.SurrogateFactory):
         return op
 
 
+@dataclass
+class NonlinearRunStats:
+    """Picklable summary of a simulation's nonlinear-solver behaviour.
+
+    Collected by :class:`_FlowModelBaseCore` over the course of a run and returned by
+    :meth:`_FlowModelBaseCore.collect_run_stats`. It holds only plain Python types (ints, a float
+    property and a list), so it pickles cleanly and carries no reference to the model or to PorePy
+    internals -- unlike ``pp``'s own ``NonlinearSolverStatistics``, which embeds dict-subclass
+    convergence histories and whose JSON persistence is currently broken."""
+
+    n_accepted_steps: int = 0
+    """Number of accepted time steps (each contributes one entry to ``iterations_per_step``)."""
+    n_time_step_cuts: int = 0
+    """Failed Newton loops -- how many times a step was rejected and the time step cut."""
+    total_newton_iterations: int = 0
+    """Newton iterations summed over the accepted steps (failed attempts are not counted)."""
+    max_newton_iterations: int = 0
+    """Newton iterations of the worst accepted step (0 if there are none)."""
+    iterations_per_step: list[int] = field(default_factory=list)
+    """Per-accepted-step Newton-iteration counts, in solve order."""
+
+    @property
+    def avg_newton_iterations(self) -> float:
+        """Mean Newton iterations per accepted step (0.0 if no steps were accepted)."""
+        return self.total_newton_iterations / self.n_accepted_steps if self.n_accepted_steps else 0.0
+
+    def as_text(self) -> str:
+        """Render a self-documenting, human-readable summary (used for ``.txt`` dumps)."""
+        cut = " => dt WAS cut" if self.n_time_step_cuts else "; no dt-cuts"
+        lines = [
+            "# nonlinear-solver run statistics",
+            f"# accepted steps: {self.n_accepted_steps} "
+            f"(rejected/cut loops: {self.n_time_step_cuts}{cut})  "
+            f"total Newton iterations (accepted): {self.total_newton_iterations}",
+            f"accepted_steps    {self.n_accepted_steps}",
+            f"time_step_cuts    {self.n_time_step_cuts}",
+            f"total_newton_it   {self.total_newton_iterations}",
+            f"avg_newton_it     {self.avg_newton_iterations:.3f}",
+            f"max_newton_it     {self.max_newton_iterations}",
+            "# step_index  newton_iterations",
+        ]
+        lines += [f"{i} {it}" for i, it in enumerate(self.iterations_per_step)]
+        return "\n".join(lines) + "\n"
+
+
 class _FlowModelBaseCore:
     """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
@@ -73,6 +119,8 @@ class _FlowModelBaseCore:
         super().__init__(params)
         self.newton_iterations_per_timestep = []
         self.total_newton_iterations = 0
+        # Rejected nonlinear loops (time-step cuts); incremented in after_nonlinear_failure.
+        self.n_time_step_cuts = 0
         # Flag to use PETSc with MUMPS solver
         self.use_petsc = params.get("use_petsc", False)
 
@@ -1385,6 +1433,26 @@ class _FlowModelBaseCore:
         print("Time index: ", self.time_manager.time_index)
         print("*" * 60)
         print("")
+
+    def after_nonlinear_failure(self) -> None:
+        """Count a rejected nonlinear loop (a time-step cut) before deferring to the template."""
+        self.n_time_step_cuts = getattr(self, "n_time_step_cuts", 0) + 1
+        super().after_nonlinear_failure()
+
+    def collect_run_stats(self) -> NonlinearRunStats:
+        """Return a picklable :class:`NonlinearRunStats` snapshot of the run.
+
+        Any model deriving from this base gets the feature for free; call it after the time loop
+        (e.g. in ``after_simulation`` or right after ``run_time_dependent_model``) to persist or
+        inspect the solver behaviour without touching PorePy's non-picklable statistics object."""
+        hist = list(self.newton_iterations_per_timestep)
+        return NonlinearRunStats(
+            n_accepted_steps=len(hist),
+            n_time_step_cuts=getattr(self, "n_time_step_cuts", 0),
+            total_newton_iterations=int(self.total_newton_iterations),
+            max_newton_iterations=max(hist) if hist else 0,
+            iterations_per_step=hist,
+        )
 
     def write_newton_iterations_to_csv(self, filename="newton_iterations.csv"):
         """Write Newton iteration data to CSV file."""

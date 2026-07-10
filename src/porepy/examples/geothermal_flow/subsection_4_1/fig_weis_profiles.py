@@ -19,6 +19,8 @@ import pickle
 import sys
 import time
 
+import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import weis_1d_solver as m  # noqa: E402
 import plot_style as ps     # noqa: E402
@@ -136,8 +138,17 @@ def compute_extra(N=EXTRA_N, level=LEVEL, cache=True):
 
 FIG_W_HALF = 0.49 * ps.TEXTWIDTH_IN     # width of one subfigure (two share the text width)
 _P_LS = (0, (4, 2))                     # pressure dashed, to read against solid temperature
-_WEIS_T, _WEIS_P = "#8B0000", "#00008B"  # Weis reference markers: dark red (T), dark blue (p)
+_WEIS_T, _WEIS_P = "#8B0000", "#00008B"  # Weis reference / axis colours: dark red (T), dark blue (p)
+_WEIS_T_LIGHT, _WEIS_P_LIGHT = "#F0A8A8", "#A6AEF0"  # Weis reference BAND: light red (T)/blue (p)
+_REF_LW = 3.4                            # thick reference band underneath the scheme curves
 _EXTRA_C = "#984EA3"                     # 4th curve (PPU, upwinded densities): purple
+
+
+def _ref_line(case, field):
+    """Digitized Weis (2014) reference sorted by distance, for drawing as a continuous band."""
+    x, v = m.load_reference(case, field)
+    o = np.argsort(x)
+    return x[o], v[o]
 
 
 def _plot_one(out, case, stem, extra=None):
@@ -153,19 +164,17 @@ def _plot_one(out, case, stem, extra=None):
                                       gridspec_kw=dict(height_ratios=[1.4, 1.0]))
     ax_p = ax_tp.twinx(); ax_p.grid(False)                 # right axis = pressure
 
-    # Weis references: T dark-red squares (left), p dark-blue circles (right), s_liq grey (labelled)
-    ref_T = dict(ps.REF_KW); ref_T.update(mec=_WEIS_T); ref_T.pop("label", None)
-    ref_p = dict(ps.REF_KW); ref_p.update(marker="o", mec=_WEIS_P); ref_p.pop("label", None)
-    ref_s = dict(ps.REF_KW); ref_s.pop("label", None)   # markers kept; reference cited in the text
-    ax_tp.plot(*m.load_reference(case, "T"), **ref_T)
-    ax_p.plot(*m.load_reference(case, "p"), **ref_p)
-    ax_s.plot(*m.load_reference(case, "s_liq"), **ref_s)
+    # Weis (2014) reference as a THICK LIGHT band underneath (experiment: was open markers) -- light
+    # red (T, left), light blue (p, right), light grey (s_liq); the scheme curves ride on top.
+    ax_tp.plot(*_ref_line(case, "T"), color=_WEIS_T_LIGHT, ls="-", lw=_REF_LW, zorder=1)
+    ax_p.plot(*_ref_line(case, "p"), color=_WEIS_P_LIGHT, ls=_P_LS, lw=_REF_LW, zorder=1)
+    ax_s.plot(*_ref_line(case, "s_liq"), color="0.78", ls="-", lw=_REF_LW, zorder=1)
 
     for sk, cfg in ps.SCHEMES.items():
         r = out[(sk, case)]
-        ax_tp.plot(*ps.to_plot_units(r, "T"), color=cfg["color"], ls="-", lw=1.3)    # T: scheme colour
-        ax_p.plot(*ps.to_plot_units(r, "p"), color=cfg["color"], ls=_P_LS, lw=1.1)   # p: scheme colour
-        ax_s.plot(*ps.to_plot_units(r, "s_liq"), color=cfg["color"], lw=1.3,
+        ax_tp.plot(*ps.to_plot_units(r, "T"), color=cfg["color"], ls="-", lw=1.3, zorder=3)   # T
+        ax_p.plot(*ps.to_plot_units(r, "p"), color=cfg["color"], ls=_P_LS, lw=1.1, zorder=3)  # p
+        ax_s.plot(*ps.to_plot_units(r, "s_liq"), color=cfg["color"], lw=1.3, zorder=3,
                   label=fr"{cfg['label']} (${r['total_it']}$ it.)")
 
     if extra is not None:   # 4th curve (vertical only): PPU with upwinded gravity densities

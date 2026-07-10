@@ -22,6 +22,8 @@ import pickle
 import sys
 import time
 
+import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import weis_1d_solver as m  # noqa: E402
 import plot_style as ps     # noqa: E402
@@ -128,6 +130,110 @@ def load_porepy(case=CASE):
     return None
 
 
+# ------------------------------------------------------------------------------------------- #
+#  Horizontal verification: the PorePy 2D run vs. the corresponding Weis 1D-solver profile
+# ------------------------------------------------------------------------------------------- #
+def load_porepy_case(case, scheme, N=800, level=LEVEL):
+    """Load the PorePy 2D overlay pickle ``porepy_{case}_{scheme}_N{N}_l{level}.pkl`` from _cache/.
+
+    Returned normalized to the weis_1d_solver SI convention so ``plot_style.to_plot_units`` applies
+    unchanged: PorePy's pressure primary variable is in the model's MPa units, so it is rescaled to
+    Pa (x1e6). ``y``[m], ``T``[K], ``s_liq``[-] are already SI. Returns the dict, or None."""
+    path = os.path.join(CACHE_DIR, f"porepy_{case}_{scheme}_N{N}_l{level}.pkl")
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        d = dict(pickle.load(f))
+    d["p"] = d["p"] * 1.0e6                     # MPa (PorePy native) -> Pa (SI, as the 1D solver)
+    return d
+
+
+def load_weis_case(case, scheme, N=800, level=LEVEL):
+    """Load the corresponding Weis 1D-solver profile (averaged density, current iterate) from the
+    profiles cache ``profiles_{case}_avg_cur_{scheme}_N{N}_l{level}.pkl``. Returns the dict
+    (``y``[m], ``T``[K], ``p``[Pa], ``s_liq``[-]) or None."""
+    path = os.path.join(CACHE_DIR, f"profiles_{case}_avg_cur_{scheme}_N{N}_l{level}.pkl")
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+
+FIG_W_HALF = 0.49 * ps.TEXTWIDTH_IN     # width of one subfigure (two share the text width)
+_P_LS = (0, (4, 2))                     # pressure dashed, to read against solid temperature
+# Per-scheme colours (this figure): the 1D reference is a THICK, LIGHT band drawn underneath and the
+# PorePy solution a THIN, DARK solid line on top -- so overlapping curves read as a dark line riding
+# inside a pale band, and any divergence stands out immediately.
+_HU_DARK, _HUMW_DARK = "#8B0000", "#00008B"     # PorePy (on top): dark red / dark blue
+_HU_LIGHT, _HUMW_LIGHT = "#F0A8A8", "#A6AEF0"   # 1D reference (underneath): light red / light blue
+_REF_LW, _PP_LW = 3.4, 1.3                      # reference thick / PorePy thin
+
+
+def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
+    """fig_weis_profiles-style verification for one orientation -> one figure. Top panel merges
+    temperature (left axis, solid) and pressure (right axis, dashed); the bottom panel is liquid
+    saturation. The REFERENCES are the Weis 1D-solver solutions (lines, per-scheme colour) -- HU and
+    HU-mw -- and the PorePy 2D solutions are overlaid as open markers (same colour) that should lie
+    on them. No digitized Weis (2014) reference in this figure. Reads only cached pickles; a scheme
+    with no PorePy cache is drawn as its 1D reference line alone."""
+    if stem is None:
+        stem = f"fig_weis_verification_{case}"
+    ps.apply_style()
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    data = {}                                           # scheme -> (weis_dict|None, porepy_dict|None)
+    for scheme in schemes:
+        data[scheme] = (load_weis_case(case, scheme), load_porepy_case(case, scheme))
+        if data[scheme][0] is None:
+            print(f"[verification] no Weis 1D profile cache for {case}/{scheme}")
+        if data[scheme][1] is None:
+            print(f"[verification] no PorePy cache for {case}/{scheme}")
+
+    fig, (ax_tp, ax_s) = plt.subplots(2, 1, figsize=(FIG_W_HALF, 4.5), sharex=True,
+                                      gridspec_kw=dict(height_ratios=[1.4, 1.0]))
+    ax_p = ax_tp.twinx(); ax_p.grid(False)              # right axis = pressure
+
+    dark = {"hu": _HU_DARK, "hu_mw": _HUMW_DARK}        # PorePy: thin dark solid, on top
+    light = {"hu": _HU_LIGHT, "hu_mw": _HUMW_LIGHT}     # 1D reference: thick light band, underneath
+    for scheme in schemes:
+        cfg = ps.SCHEMES[scheme]
+        cd, cl = dark[scheme], light[scheme]
+        weis, pp_ = data[scheme]
+        if weis is not None:                            # 1D solver = THICK LIGHT reference band
+            ax_tp.plot(*ps.to_plot_units(weis, "T"), color=cl, ls="-", lw=_REF_LW, zorder=2)
+            ax_p.plot(*ps.to_plot_units(weis, "p"), color=cl, ls=_P_LS, lw=_REF_LW, zorder=2)
+            ax_s.plot(*ps.to_plot_units(weis, "s_liq"), color=cl, ls="-", lw=_REF_LW, zorder=2,
+                      label=fr"{cfg['label']} (1D)")
+        if pp_ is not None:                             # PorePy 2D = THIN DARK solid, on top
+            ax_tp.plot(*ps.to_plot_units(pp_, "T"), color=cd, ls="-", lw=_PP_LW, zorder=4)
+            ax_p.plot(*ps.to_plot_units(pp_, "p"), color=cd, ls=_P_LS, lw=_PP_LW, zorder=4)
+            ax_s.plot(*ps.to_plot_units(pp_, "s_liq"), color=cd, ls="-", lw=_PP_LW, zorder=4,
+                      label=fr"{cfg['label']} (PorePy)")
+
+    # y-axes in default black (colour now encodes the scheme: HU dark red, HU-mw dark blue)
+    ax_tp.set_ylabel(ps.FIELD_LABEL["T"])
+    ax_tp.tick_params(axis="y", which="both", right=False)
+    ax_p.set_ylabel(ps.FIELD_LABEL["p"])
+    ax_s.set_ylabel(ps.FIELD_LABEL["s_liq"]); ax_s.set_xlabel(ps.DIST_LABEL)
+    ax_tp.set_xlim(0.0, 2.0)
+
+    # T/p line-style key in BLACK -- refers to the reference lines (solid = T, dashed = p)
+    style_key = [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
+                 Line2D([0], [0], color="black", ls=_P_LS, label=r"$p$ (right)")]
+    key = ax_tp.legend(handles=style_key, loc="upper right", handlelength=2.0, fontsize=8,
+                       borderaxespad=0.5, borderpad=0.5, frameon=True, fancybox=True,
+                       framealpha=1.0, edgecolor="0.6")
+    key.get_frame().set_boxstyle("round,pad=0.3,rounding_size=0.4")
+
+    # scheme legend (1D line vs PorePy markers) in a rounded box below, from the saturation panel
+    handles, labels = ax_s.get_legend_handles_labels()
+    fig.tight_layout()
+    ps.bottom_legend(fig, handles, labels, ncol=2)
+    ps.savefig(fig, stem, OUT_DIR)
+    plt.close(fig)
+
+
 def plot(out, stem="fig_weis_verification"):
     ps.apply_style()
     import matplotlib.pyplot as plt
@@ -175,7 +281,10 @@ def plot(out, stem="fig_weis_verification"):
 
 
 def main():
-    plot(compute())
+    # PorePy 2D vs. the corresponding Weis 1D solver, per orientation (cache-only, fast). A scheme
+    # missing its PorePy pickle is shown as the 1D reference line alone.
+    for case in ("horizontal", "vertical"):
+        plot_verification(case, schemes=("hu", "hu_mw"))
 
 
 if __name__ == "__main__":

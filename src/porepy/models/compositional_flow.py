@@ -218,19 +218,6 @@ def is_fractional_flow(model: pp.PorePyModel) -> bool:
     return bool(model.params.get("fractional_flow", False))
 
 
-def is_mass_mobility_weighted_permeability(model: pp.PorePyModel) -> bool:
-    """Checking the model parameters for the ``'mass_mobility_weighted_permeability'`` flag.
-
-    Parameters:
-        model: A PorePy model.
-
-    Returns:
-        True if ``model.params['mass_mobility_weighted_permeability'] == True``. Defaults to False.
-
-    """
-    return bool(model.params.get("mass_mobility_weighted_permeability", False))
-
-
 
 def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     """Performs a log of some model parameters and properties relevant for the CF
@@ -360,7 +347,7 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             Whatever :attr:`darcy_flux` returns.
 
         """
-        if is_mass_mobility_weighted_permeability(self):
+        if is_fractional_flow(self):
             return self.darcy_flux(domains)
         else:
             return super().fluid_flux(domains)
@@ -376,7 +363,7 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             Whatever :attr:`interface_darcy_flux` returns.
 
         """
-        if is_mass_mobility_weighted_permeability(self):
+        if is_fractional_flow(self):
             return self.interface_darcy_flux(interfaces)
         else:
             return super().interface_fluid_flux(interfaces)
@@ -392,7 +379,7 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             Whatever :attr:`well_flux` returns.
 
         """
-        if is_mass_mobility_weighted_permeability(self):
+        if is_fractional_flow(self):
             return self.well_flux(interfaces)
         else:
             return super().well_fluid_flux(interfaces)
@@ -1886,7 +1873,7 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
     def add_nonlinear_darcy_flux_discretization(self) -> None:
         """If the fractional flow formulation is used, the nonlinear Darcy flux
         discretization is added by default for all subdomains to the update routine."""
-        if is_mass_mobility_weighted_permeability(self):
+        if is_fractional_flow(self):
             self.add_nonlinear_diffusive_flux_discretization(
                 self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
             )
