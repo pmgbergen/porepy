@@ -16,7 +16,7 @@ import porepy as pp
 from porepy.numerics.discretization import Discretization
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad._grid_entity import GridEntity
+    from porepy.numerics.ad.grid_entity import GridEntity
 
 
 class DualScalarSource(Discretization):

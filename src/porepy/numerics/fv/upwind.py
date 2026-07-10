@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad._grid_entity import GridEntity
+from porepy.numerics.ad.grid_entity import GridEntity
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
@@ -81,8 +81,6 @@ class Upwind(Discretization):
             A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
-
         recognised = {"upwind", "bound_transport_dir", "bound_transport_neu"}
         if matrix_key in recognised:
             return {GridEntity.faces: 1}
@@ -106,8 +104,6 @@ class Upwind(Discretization):
             A mapping from :class:`~porepy.numerics.ad.GridEntity` to DOFs/entity.
 
         """
-        from porepy.numerics.ad._grid_entity import GridEntity
-
         mapping: dict[str, dict[pp.ad.GridEntity, int]] = {
             "upwind": {GridEntity.cells: 1},
             "bound_transport_dir": {GridEntity.faces: 1},

@@ -16,7 +16,7 @@ from porepy.numerics.discretization import Discretization
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad._grid_entity import GridEntity
+    from porepy.numerics.ad.grid_entity import GridEntity
 
 
 def project_flux(

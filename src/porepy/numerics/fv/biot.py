@@ -30,7 +30,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad._grid_entity import GridEntity
+from porepy.numerics.ad.grid_entity import GridEntity
 
 from . import _fvutils
 
