@@ -24,6 +24,30 @@ class AllSubdomains(DomainTag):
 
 
 @dataclass(frozen=True)
+class MatrixSubdomains(DomainTag):
+    def domains(self, model: pp.PorePyModel) -> pp.GridLikeSequence:
+        return model.mdg.subdomains(dim=model.nd)
+
+
+@dataclass(frozen=True)
+class FractureSubdomains(DomainTag):
+    def domains(self, model: pp.PorePyModel) -> pp.GridLikeSequence:
+        return model.mdg.subdomains(dim=model.nd - 1)
+
+
+@dataclass(frozen=True)
+class CodimensionOneInterfaces(DomainTag):
+    def domains(self, model: pp.PorePyModel) -> pp.GridLikeSequence:
+        return model.mdg.interfaces(codim=1)
+
+
+@dataclass(frozen=True)
+class CodimensionTwoInterfaces(DomainTag):
+    def domains(self, model: pp.PorePyModel) -> pp.GridLikeSequence:
+        return model.mdg.interfaces(codim=2)
+
+
+@dataclass(frozen=True)
 class EquationTag:
     name: str
     defined_on: DomainTag
@@ -36,19 +60,116 @@ class VariableTag:
 
 
 class DefaultEquationTags:
+    # Mass balance
     mass_balance = EquationTag(
         name=pp.SinglePhaseFlow.primary_equation_name(),
         defined_on=AllSubdomains(),
     )
+    interface_darcy_flux = EquationTag(
+        name="interface_darcy_flux_equation",
+        defined_on=CodimensionOneInterfaces(),
+    )
+    well_flux = EquationTag(
+        name="well_flux_equation",
+        defined_on=CodimensionTwoInterfaces(),
+    )
+    # Energy balance
     energy_balance = EquationTag(
         name=pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
         defined_on=AllSubdomains(),
     )
+    interface_fourier_flux = EquationTag(
+        name="interface_fourier_flux_equation",
+        defined_on=CodimensionOneInterfaces(),
+    )
+    interface_enthalpy_flux = EquationTag(
+        name="interface_enthalpy_flux_equation",
+        defined_on=CodimensionOneInterfaces(),
+    )
+    well_enthalpy_flux = EquationTag(
+        name="well_enthalpy_flux_equation",
+        defined_on=CodimensionTwoInterfaces(),
+    )
+    # Momentum balance MPSA
+    momentum_balance = EquationTag(
+        name="momentum_balance_equation",
+        defined_on=MatrixSubdomains(),
+    )
+    # Momentum balance TPSA
+    angular_momentum_balance = EquationTag(
+        name="angular_momentum_balance_equation",
+        defined_on=MatrixSubdomains(),
+    )
+    solid_mass = EquationTag(
+        name="solid_mass_equation",
+        defined_on=MatrixSubdomains(),
+    )
+    poromechanics_solid_mass = EquationTag(
+        name="Solid_mass_equation_poromechanics",
+        defined_on=MatrixSubdomains(),
+    )
+    # Contact mechanics
+    normal_fracture_deformation = EquationTag(
+        name="normal_fracture_deformation_equation",
+        defined_on=FractureSubdomains(),
+    )
+    tangential_fracture_deformation = EquationTag(
+        name="tangential_fracture_deformation_equation",
+        defined_on=FractureSubdomains(),
+    )
+    interface_force_balance = EquationTag(
+        name="interface_force_balance_equation",
+        defined_on=CodimensionOneInterfaces(),
+    )
+    # Fracture damage (?)
+    dilation_damage = EquationTag(
+        name="dilation_damage_equation",
+        defined_on=FractureSubdomains(),
+    )
+    friction_damage = EquationTag(
+        name="friction_damage_equation",
+        defined_on=FractureSubdomains(),
+    )
 
 
 class DefaultVariableTags:
+    # Mass balance
     pressure = VariableTag(name="pressure", defined_on=AllSubdomains())
+    interface_darcy_flux = VariableTag(
+        name="interface_darcy_flux", defined_on=CodimensionOneInterfaces()
+    )
+    well_flux = VariableTag(name="well_flux", defined_on=CodimensionTwoInterfaces())
+    # Energy balance
     temperature = VariableTag(name="temperature", defined_on=AllSubdomains())
+    enthalpy = VariableTag(name="enthalpy", defined_on=AllSubdomains())
+    interface_fourier_flux = VariableTag(
+        name="interface_fourier_flux", defined_on=CodimensionOneInterfaces()
+    )
+    interface_enthalpy_flux = VariableTag(
+        name="interface_enthalpy_flux", defined_on=CodimensionOneInterfaces()
+    )
+    well_enthalpy_flux = VariableTag(
+        name="well_enthalpy_flux", defined_on=CodimensionTwoInterfaces()
+    )
+    # Momentum balance MPSA and TPSA
+    displacement = VariableTag(name="u", defined_on=MatrixSubdomains())
+    # Momentum balance TPSA
+    rotation_stress = VariableTag(name="rotation_stress", defined_on=MatrixSubdomains())
+    total_pressure = VariableTag(name="total_pressure", defined_on=MatrixSubdomains())
+    # Contact mechanics
+    interface_displacement = VariableTag(
+        name="u_interface", defined_on=CodimensionOneInterfaces()
+    )
+    contact_traction = VariableTag(
+        name="contact_traction", defined_on=FractureSubdomains()
+    )
+    # Fracture damage (?)
+    dilation_damage_history = VariableTag(
+        name="dilation_damage_history", defined_on=FractureSubdomains()
+    )
+    friction_damage_history = VariableTag(
+        name="friction_damage_history", defined_on=FractureSubdomains()
+    )
 
 
 class Indexer:
@@ -420,7 +541,6 @@ def main():
 
     eq_tags = [DefaultEquationTags.energy_balance, DefaultEquationTags.mass_balance]
     var_tags = [DefaultVariableTags.temperature, DefaultVariableTags.pressure]
-
 
     indexer = assemble_indexer(model=model, eq_tags=eq_tags, var_tags=var_tags)
 
