@@ -1,8 +1,4 @@
-"""GridEntity enum for identifying grid entities (cells, faces, nodes).
-
-Placed in its own module to avoid circular imports between ``operators.py`` and
-``equation_system.py``.
-"""
+"""GridEntity enum for identifying grid entities (cells, faces, nodes)."""
 
 from __future__ import annotations
 
@@ -21,11 +17,8 @@ class GridEntity(enum.Enum):
         cells: Degrees of freedom located at cell centres.
         faces: Degrees of freedom located at cell faces.
         nodes: Degrees of freedom located at grid nodes (vertices).
-        void: Sentinel value representing the absence of grid entities.
-            Used for scalar or domain-less operators.
     """
 
     cells = "cells"
     faces = "faces"
     nodes = "nodes"
-    void = "void"
