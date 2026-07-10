@@ -52,8 +52,9 @@ def test_elementary_operations(operator):
     The test does not consider evaluation of the numerical values of the operators.
     """
     # Generate two generic operators
-    a = pp.ad.Operator(source=None, target=None)
-    b = pp.ad.Operator(source=None, target=None)
+    space = pp.ad.OperatorSpace.scalar()
+    a = pp.ad.Operator(source=space, target=space)
+    b = pp.ad.Operator(source=space, target=space)
 
     # Combine the operators with the provided operation.
     c = eval(f"a {operator[0]} b")
@@ -258,8 +259,11 @@ def test_ad_operator_unary_minus_parsing():
     """
     mat1 = sps.csr_matrix(np.random.rand(3))
     mat2 = sps.csr_matrix(np.random.rand(3))
-    sp_array1 = pp.ad.SparseArray(mat1)
-    sp_array2 = pp.ad.SparseArray(mat2)
+    # Use an unclear operator space here since we do not care about the actual domain of
+    # the SparseArray (tests of this is carried out elsewhere).
+    space = pp.ad.OperatorSpace.unclear()
+    sp_array1 = pp.ad.SparseArray(mat1, source=space, target=space)
+    sp_array2 = pp.ad.SparseArray(mat2, source=space, target=space)
     equation_system = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
     assert np.allclose(equation_system.evaluate(-op, None).data, -(mat1 + mat2).data)
@@ -744,6 +748,7 @@ def test_variable_combinations(grids, variables):
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
     # same name, and with different name).
+    target = pp.ad.OperatorSpace.from_domains(grids, dof_info={GridEntity.cells: 1})
     for sd in grids:
         for var in ad_vars:
             nc = var.size
@@ -759,11 +764,16 @@ def test_variable_combinations(grids, variables):
                 ind = mv_grids.index(var.domains[0])
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
+                source = pp.ad.OperatorSpace.from_domains(
+                    var.domains, dof_info={GridEntity.cells: 1}
+                )
                 P = pp.ad.SparseArray(
-                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc))
+                    sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)),
+                    source=source,
+                    target=target,
                 )
 
-                eq = eq = mv + P @ var
+                eq = mv + P @ var
                 expr = eq.value_and_jacobian(equation_system)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == equation_system.num_dofs()
@@ -982,19 +992,22 @@ def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
         return scalar
 
 
-def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
+def _get_dense_array(wrapped: bool, mdg) -> np.ndarray | pp.ad.DenseArray:
     """Helper to set a dense array (numpy array). Expected values in the test are
     hardcoded with respect to this value. The array is either returned as-is, or wrapped
     as an Ad DenseArray."""
     array = np.array([1, 2, 3]).astype(float)
+    space = pp.ad.OperatorSpace.from_domains(
+        mdg.subdomains(), dof_info={GridEntity.cells: 1}
+    )
     if wrapped:
-        return pp.ad.DenseArray(array)
+        return pp.ad.DenseArray(array, source=space, target=space)
     else:
         return array
 
 
 def _get_sparse_array(
-    wrapped: bool, use_csr_matrix: bool
+    wrapped: bool, use_csr_matrix: bool, mdg
 ) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
     """Helper to set a sparse array (scipy sparse array). Expected values in the test
     are hardcoded with respect to this value. The array is either returned as-is, or
@@ -1002,14 +1015,18 @@ def _get_sparse_array(
     inner = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
     mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
     mat = mat.astype(float)
+
+    space = pp.ad.OperatorSpace.from_domains(
+        mdg.subdomains(), dof_info={GridEntity.cells: 1}
+    )
     if wrapped:
-        return pp.ad.SparseArray(mat)
+        return pp.ad.SparseArray(mat, source=space, target=space)
     else:
         return mat
 
 
 def _get_ad_array(
-    wrapped: bool,
+    wrapped: bool, mdg
 ) -> pp.ad.AdArray | tuple[pp.ad.AdArray, pp.ad.EquationSystem]:
     """Get an AdArray object which can be used in the tests."""
 
@@ -1037,20 +1054,21 @@ def _get_ad_array(
     expression_val = jac @ variable_val
 
     if wrapped:
-        g = pp.CartGrid([3, 1])
-        mdg = pp.MixedDimensionalGrid()
-        mdg.add_subdomains([g])
-
         equation_system = pp.ad.EquationSystem(mdg)
-        equation_system.create_variables("foo", subdomains=[g])
+        equation_system.create_variables(
+            "foo", subdomains=mdg.subdomains(), dof_info={GridEntity.cells: 1}
+        )
         var = equation_system.variables[0]
-        d = mdg.subdomain_data(g)
+        d = mdg.subdomain_data(mdg.subdomains()[0])
 
         pp.set_solution_values(
             name="foo", values=variable_val, data=d, time_step_index=0
         )
         pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
-        mat = pp.ad.SparseArray(jac)
+        space = pp.ad.OperatorSpace.from_domains(
+            mdg.subdomains(), dof_info={GridEntity.cells: 1}
+        )
+        mat = pp.ad.SparseArray(jac, source=space, target=space)
 
         return mat @ var, equation_system
 
@@ -1506,17 +1524,24 @@ def test_arithmetic_operations_on_ad_objects(
         # is okay, thus we do not skip if wrapped is True.
         return
 
+    # TODO: This can be made into a fixture, but that should be part of a full
+    # restructuring of this test file, which will be done as part of an ongoing
+    # extension to cell-wise AdArrays.
+    g = pp.CartGrid([3, 1])
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains([g])
+
     def _var_from_string(v, do_wrap: bool):
         if v == "scalar":
             return _get_scalar(do_wrap)
         elif v == "dense":
-            return _get_dense_array(do_wrap)
+            return _get_dense_array(do_wrap, mdg)
         elif v == "sparse_matrix":
-            return _get_sparse_array(do_wrap, use_csr_matrix=True)
+            return _get_sparse_array(do_wrap, use_csr_matrix=True, mdg=mdg)
         elif v == "sparse_array":
-            return _get_sparse_array(do_wrap, use_csr_matrix=False)
+            return _get_sparse_array(do_wrap, use_csr_matrix=False, mdg=mdg)
         elif v == "ad":
-            return _get_ad_array(do_wrap)
+            return _get_ad_array(do_wrap, mdg)
         else:
             raise ValueError("Unknown variable type")
 
