@@ -169,7 +169,7 @@ class Operations(Enum):
         # Plain Python scalars (int, float, np.number) may appear as operands,
         # e.g. `operator ** 2`. Treat them as the scalar space.
         if not isinstance(right, Operator):
-            return left._source, left._target
+            return left.source, left.target
 
         def _is_cellwise_scalar(space: OperatorSpace) -> bool:
             """Return True if space represents exactly one DOF per grid entity.
@@ -226,10 +226,6 @@ class Operations(Enum):
             degrees of freedom of the result live.
 
             """
-            if a is None:
-                return b
-            if b is None:
-                return a
             if _is_cellwise_scalar(a) and not _is_cellwise_scalar(b):
                 return b
             if _is_cellwise_scalar(b) and not _is_cellwise_scalar(a):
@@ -237,9 +233,6 @@ class Operations(Enum):
             return a
 
         def _pick_source(a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
-            if a is None or b is None:
-                # Piggyback on the target picking logic.
-                return _pick_target(a, b)
             if (
                 a.domain_type == DomainType.unclear
                 or b.domain_type == DomainType.unclear
@@ -271,18 +264,15 @@ class Operations(Enum):
         # message purposes, but are numerically compatible with (broadcastable
         # against) any other operand, exactly like a "true" scalar space.
         left_is_scalar = isinstance(left, Scalar) or (
-            left.source is not None and left.source.domain_type == DomainType.scalar
+            left.source.domain_type == DomainType.scalar
         )
         right_is_scalar = isinstance(right, Scalar) or (
-            right.source is not None and right.source.domain_type == DomainType.scalar
+            right.source.domain_type == DomainType.scalar
         )
 
         if self == Operations.matmul:
             # left @ right: target(right) must equal source(left)
-            if (
-                left.source is not None
-                and left.source.domain_type == DomainType.unclear
-            ):
+            if left.source.domain_type == DomainType.unclear:
                 raise ValueError(
                     f"Cannot matrix multiply with {left!r} as the left operand: "
                     "its source is unclear."
@@ -290,8 +280,6 @@ class Operations(Enum):
             if (
                 # TODO EK: I don't think we allow for matmul with scalars. Check later.
                 not right_is_scalar
-                and left.source is not None
-                and right.target is not None
                 and not _spaces_compatible(left.source, right.target)
             ):
                 raise ValueError(
@@ -303,19 +291,13 @@ class Operations(Enum):
         elif self == Operations.rmatmul:
             # right @ left (dispatched as left.__rmatmul__(right)):
             # target(left) must equal source(right)
-            if (
-                left.source is not None
-                and left.source.domain_type == DomainType.unclear
-            ):
+            if left.source.domain_type == DomainType.unclear:
                 raise ValueError(
                     f"Cannot matrix multiply with {left!r} as the right operand: "
                     "its source is unclear."
                 )
-            if (
-                not right_is_scalar
-                and right.source is not None
-                and left.target is not None
-                and not _spaces_compatible(right.source, left.target)
+            if not right_is_scalar and not _spaces_compatible(
+                right.source, left.target
             ):
                 raise ValueError(
                     f"Incompatible matrix multiplication: the target of {left!r} "
@@ -333,14 +315,8 @@ class Operations(Enum):
                 # case, the result should inherit that domain information rather
                 # than collapsing to the plain scalar space, so that the domain
                 # provenance survives arithmetic between domain-bearing scalars.
-                left_has_domain = (
-                    left.source is not None
-                    and left.source.domain_type != DomainType.scalar
-                )
-                right_has_domain = (
-                    right.source is not None
-                    and right.source.domain_type != DomainType.scalar
-                )
+                left_has_domain = left.source.domain_type != DomainType.scalar
+                right_has_domain = right.source.domain_type != DomainType.scalar
                 if left_has_domain and right_has_domain:
                     return (
                         _pick_source(left.source, right.source),
@@ -358,11 +334,7 @@ class Operations(Enum):
             else:
                 # We need compatibility between the targets (since this is where the
                 # quantity of interest lives), but the sources can be different.
-                if (
-                    left.target is not None
-                    and right.target is not None
-                    and not _spaces_compatible(left.target, right.target)
-                ):
+                if not _spaces_compatible(left.target, right.target):
                     raise ValueError(
                         f"Incompatible operator targets: {left.target} vs {right.target}."
                     )
