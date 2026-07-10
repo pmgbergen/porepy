@@ -444,11 +444,6 @@ class TestSurrogateOperatorSpace:
 
 
 class TestDenseArraySpace:
-    def test_dense_array_no_space_by_default(self):
-        arr = DenseArray(np.ones(5))
-        assert arr.source is None
-        assert arr.target is None
-
     def test_dense_array_with_explicit_space(self, two_subdomains):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
@@ -458,12 +453,6 @@ class TestDenseArraySpace:
 
 
 class TestSparseArraySpace:
-    def test_sparse_array_no_space_by_default(self):
-        mat = sps.eye(4, format="csr")
-        op = SparseArray(mat)
-        assert op.source is None
-        assert op.target is None
-
     def test_sparse_array_with_explicit_space(self, two_subdomains):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
@@ -537,22 +526,16 @@ class TestShapeConsistencyCheck:
         with pytest.raises(ValueError, match="degrees of freedom"):
             SparseArray(mat, source=face_space, target=cell_space)
 
-    def test_none_space_skips_check(self):
-        """A None source/target must not trigger the shape check (needed for the
-        ongoing, partial migration -- see the strict-operator-spaces plan)."""
-        DenseArray(np.ones(7))
-        SparseArray(sps.eye(3, 5, format="csr"))
-
-    def test_scalar_space_skips_check(self):
-        """Scalar spaces carry no grid-based size prediction, so any array size
-        is accepted."""
-        scalar = OperatorSpace.scalar()
-        DenseArray(np.ones(7), source=scalar, target=scalar)
-
-    def test_unclear_space_skips_check(self):
-        """Unclear spaces carry no grid-based size prediction either."""
-        unclear = OperatorSpace.unclear()
-        DenseArray(np.ones(7), source=unclear, target=unclear)
+    @pytest.mark.parametrize(
+        "space",
+        [OperatorSpace.scalar(), OperatorSpace.unclear(), OperatorSpace.waived()],
+    )
+    def test_spaces_skip_check(self, space):
+        """Spaces that are not grid-based (scalar, unclear) skip the shape check."""
+        arr = np.ones(2)
+        DenseArray(arr, source=space, target=space)
+        mat = sps.eye(7, format="csr")
+        SparseArray(mat, source=space, target=space)
 
 
 # ---------------------------------------------------------------------------
@@ -672,10 +655,11 @@ class TestTimeDependentDenseArraySpaces:
         assert arr.source is not None
         assert arr.source.dof_info == {GridEntity.faces: 2}
 
-    def test_empty_domains_ignores_dof_info(self):
-        arr = pp.ad.TimeDependentDenseArray("x", [], dof_info={GridEntity.cells: 1})
-        assert arr.source is None
-        assert arr.target is None
+    def test_empty_domains_and_domain_type_raises(self):
+        with pytest.raises(
+            ValueError, match="Either domains or domain_type must be provided"
+        ):
+            pp.ad.TimeDependentDenseArray("x", [], dof_info={GridEntity.cells: 1})
 
 
 class TestGridOperatorSpaces:
@@ -846,42 +830,6 @@ class TestMergedOperatorSpaces:
     """Tests that MergedOperator inherits source/range from the
     underlying discretization's get_row/col_dof_info methods."""
 
-    def test_default_discr_gives_none(self, two_subdomains):
-        """With stub get_row/col_dof_info (returns {}), operator spaces stay
-        unspecified."""
-
-        class StubDiscr(Discretization):
-            def __init__(self):
-                self.keyword = "mechanics"
-                self.flux_matrix_key = "flux"
-
-            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
-                return {}
-
-            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
-                return {}
-
-            def ndof(self, sd):
-                return sd.num_cells
-
-            def discretize(self, sd, data):
-                pass
-
-            def assemble_matrix_rhs(self, sd, data):
-                pass
-
-        g1, g2 = two_subdomains
-        discr = StubDiscr()
-        op = MergedOperator(
-            discr=discr,
-            discretization_matrix_key="flux",
-            nd=1,
-            physics_key="mechanics",
-            domains=[g1, g2],
-        )
-        assert op.source is None
-        assert op.target is None
-
     def test_custom_dof_info_gives_space(self, two_subdomains):
         """A discretization that overrides get_row/col_dof_info populates spaces."""
 
@@ -920,55 +868,6 @@ class TestMergedOperatorSpaces:
         assert GridEntity.cells in op.target.dof_info
         assert set(op.source.grids) == {g1, g2}
         assert set(op.target.grids) == {g1, g2}
-
-    def test_interface_discr_gives_none(self, one_mortar):
-        """InterfaceDiscretization: no get_row/col_dof_info leaves spaces
-        unspecified."""
-
-        class MockInterfaceDiscr(InterfaceDiscretization):
-            def __init__(self):
-                self.keyword = "coupling"
-                self.mortar_flux_matrix_key = "mortar_flux"
-
-            def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
-                return {}
-
-            def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
-                return {}
-
-            def discretize(
-                self,
-                sd_primary,
-                sd_secondary,
-                intf,
-                data_primary,
-                data_secondary,
-                data_coupling,
-            ):
-                pass
-
-            def assemble_matrix_rhs(
-                self,
-                sd_primary,
-                sd_secondary,
-                intf,
-                data_primary,
-                data_secondary,
-                data_coupling,
-            ):
-                pass
-
-        intf = one_mortar
-        discr = MockInterfaceDiscr()
-        op = MergedOperator(
-            discr=discr,
-            discretization_matrix_key="mortar_flux",
-            nd=1,
-            physics_key="coupling",
-            domains=[intf],
-        )
-        assert op.source is None
-        assert op.target is None
 
 
 # ---------------------------------------------------------------------------
@@ -1339,21 +1238,6 @@ class TestCompoundOperatorSpaces:
         assert GridEntity.faces in div.source.dof_info
         assert div.target is not None
         assert GridEntity.cells in div.target.dof_info
-
-    def test_compound_inherits_none_when_one_operand_has_none(
-        self, two_subdomains, spaces
-    ):
-        """When one operand in a chain has None domain, the chain can still succeed
-        if the other operand provides the domain."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        # unknown_op has no space info
-        unknown_op = DenseArray(np.zeros(3))
-        known_op = DenseArray(_zeros_for(cell_sp), source=cell_sp, target=cell_sp)
-        # Adding unknown + known: no error, result inherits known's spaces
-        result = unknown_op + known_op
-        assert result.source == cell_sp
-        assert result.target == cell_sp
 
     def test_source_and_target_stored_independently(self, two_subdomains):
         """Even when domain == range, they are stored as independent attributes."""
