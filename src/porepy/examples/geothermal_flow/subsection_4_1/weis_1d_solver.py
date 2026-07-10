@@ -57,7 +57,7 @@ VTK_DIR = os.path.join(_PARENT, "model_configuration", "constitutive_description
                        "driesner_vtk_files")
 REF_DIR = os.path.join(_PARENT, "benchmark_figures_data")
 
-TABLE_LEVEL = 5       # Driesner opensowat table refinement level: 0 (coarsest) .. 5 (finest)
+TABLE_LEVEL = 3       # Driesner opensowat table refinement level: 0 (coarsest) .. 3 (finest)
 
 
 def table_paths(level=TABLE_LEVEL):
@@ -81,14 +81,12 @@ S_R_LIQ = 0.3         # residual liquid saturation
 L_COLUMN = 2000.0     # column height [m]
 DX = 10.0             # lateral cross-section [m] (cancels in the solution)
 YEAR = 365.0 * 86400.0
-DT0 = 0.125 * YEAR    # reference time step (for equation row-scaling)
+DT0 = 0.25 * YEAR     # nominal time step; also the reference used to row-scale residuals to O(1)
 
 # Reference scales used to row-scale the mass/energy residuals to O(1). Without this the
 # mass (~kg/s) and energy (~W) equations differ by ~1e13 and the Jacobian is unsolvable.
 RHO_REF = 800.0       # kg/m^3
 T_REF = 500.0         # K
-
-BUOY_SCALE = 1.0      # debug knob for the enthalpy-buoyancy term (1=on, 0=off, -1=flip)
 
 # Gravity-term density weighting on internal faces (see ``residual``), via run(grav_upstream=):
 #   grav_upstream=False (default) -> face average 0.5*(rho_i + rho_{i+1})  (consistent, Rem.gc)
@@ -409,7 +407,7 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
             F_en_adv = V_T * pr.adv_h[up]
         w_flux = -geom.GA * (rho_l_f - rho_v_f)      # face-centered buoyant driving force
         common = pr.f_l[ug] * pr.f_v[ud] * (pr.mm_l[ug] + pr.mm_v[ud])
-        F_buoy = BUOY_SCALE * common * w_flux * (pr.h_l[ug] - pr.h_v[ud])
+        F_buoy = common * w_flux * (pr.h_l[ug] - pr.h_v[ud])
         F_en = F_four + F_en_adv + F_buoy
 
     # ---- boundary faces (Dirichlet p, T->h_bc) ----
@@ -515,7 +513,7 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 #  Newton time stepping
 # --------------------------------------------------------------------------------------- #
 def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
-                rtol=1e-6, atol=1e-7, maxit=25, verbose=False, grav_upstream=False,
+                rtol=0.0, atol=1e-5, maxit=25, verbose=False, grav_upstream=False,
                 weighted_perm=False, lag_upwind=False):
     p_old = x_old[0::2]; h_old = x_old[1::2]
     pr_old = eval_props(table, p_old, h_old)                  # x_old props: ONE eval
@@ -529,15 +527,23 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
     pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
     hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
 
+    # Stop criterion: mirror PorePy's ResidualBasedAbsoluteCriterion + EquationBasedLebesgueMetric --
+    # ABSOLUTE and PER-EQUATION, i.e. converged only when EVERY equation's normalised residual is
+    # below ``atol`` (``all(v < tol)``). ``_metric`` = the larger of the two per-equation RMS
+    # residuals (mass eq = r[0::2], energy eq = r[1::2]); the residual is already row-scaled to O(1),
+    # comparable to PorePy's volume-normalised intensive residual. ``rtol`` is kept only for API
+    # compatibility (no longer used -- the criterion is absolute, like PorePy's).
+    sqrtN = np.sqrt(geom.N)
+    _metric = lambda rr: max(np.linalg.norm(rr[0::2]), np.linalg.norm(rr[1::2])) / sqrtN
     x = x0.copy()
     r = residual(x, *args)
-    nrm = nrm0 = np.linalg.norm(r)
-    tol = rtol * nrm0 + atol * np.sqrt(2 * geom.N)
+    nrm = np.linalg.norm(r)                       # combined norm -> line-search monotonicity only
     for it in range(maxit):
+        m = _metric(r)
         if verbose:
-            print(f"    newton {it}: |r|={nrm:.3e}")
-        if nrm <= tol:
-            return x, it, nrm, True
+            print(f"    newton {it}: |r|_eq={m:.3e}")
+        if m <= atol:
+            return x, it, m, True
         ab = jacobian_fd(x, r, args, plan)
         try:
             dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)   # O(N) banded solve
@@ -553,7 +559,7 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
                 break
             step *= 0.5
         x = xn; r = r_new; nrm = nrm_new
-    return x, maxit, nrm, nrm <= 1e-3 * nrm0
+    return x, maxit, _metric(r), False           # not converged within maxit -> retry with smaller dt
 
 
 # Per-case settings: gravity along the column and the benchmark final time.
@@ -609,24 +615,22 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
     x = np.empty(2 * N); x[0::2] = p0; x[1::2] = h0
 
     plan = build_jac_plan(N)                       # sparsity/colour plan built ONCE
-    dt0 = dt if dt is not None else 0.125 * YEAR
+    dt0 = dt if dt is not None else DT0             # nominal step = 0.25 yr (see DT0)
     tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0
-    total_it = 0                                    # all Newton iterations (incl. retries)
-    nit_hist = []                                   # per-accepted-step Newton count (diagnostics)
+    n_cuts = 0                                      # rejected Newton loops (== dt-cuts); PorePy: n_time_step_cuts
+    it_wasted = 0                                   # Newton iterations spent on the rejected loops
+    nit_hist = []                                   # per-ACCEPTED-step Newton count
     while t < tf - 1e-6:
         dt = min(dt, tf - t)
         x_old = x.copy()
         xn, nit, nrm, ok = newton_step(x, x_old, dt, geom, table, bbot, btop, scheme, plan,
                                        grav_upstream=grav_upstream, weighted_perm=weighted_perm,
                                        lag_upwind=lag_upwind)
-        total_it += nit
         if not ok and dt > dt0 / 64:
-            dt *= 0.5                                  # NEVER accept a non-converged step: retry
-            continue                                   # with a smaller dt (fixed AND adaptive mode).
-        #                                                Accepting non-converged steps under a fixed
-        #                                                dt silently corrupts the solution (the front
-        #                                                drifts) wherever Newton stalls.
+            n_cuts += 1; it_wasted += nit              # reject: NEVER accept a non-converged step --
+            dt *= 0.5                                   # retry with a smaller dt (fixed AND adaptive).
+            continue                                    # (Accepting a stalled step corrupts the front.)
         x = xn; t += dt; step += 1; nit_hist.append(nit)
         if adaptive and ok and nit < 5 and dt < dt0:
             dt = min(dt * 2.0, dt0)                     # adaptive: grow back gradually after a cut
@@ -637,12 +641,22 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
             print(f"  t={t/YEAR:7.1f} yr  dt={dt/YEAR:.4f}  nit={nit}  |r|={nrm:.1e}"
                   f"  {'' if ok else 'NOT CONVERGED'}")
 
+    # Report the SAME iteration quantity as the PorePy solver (NonlinearRunStats): the total counts
+    # only the ACCEPTED steps (rejected/retried loops are tallied separately as n_time_step_cuts, NOT
+    # in total_it) -- so the two solvers' `total_it` are directly comparable.
+    hist = np.asarray(nit_hist, dtype=int)
+    total_it = int(hist.sum())                      # accepted-step Newton iters   (PorePy: total_it)
     avg_it = total_it / step if step else 0.0
     pr = eval_props(table, x[0::2], x[1::2])
     return {"y": y, "p": x[0::2], "h": x[1::2], "T": pr.T, "s_gas": pr.s_v,
             "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N, "case": case,
-            "n_steps": step, "total_it": total_it, "avg_it": avg_it,
-            "nit_hist": np.asarray(nit_hist, dtype=int),
+            "n_steps": step,                        # accepted time steps       (PorePy: n_accepted_steps)
+            "total_it": total_it,                   # accepted-step Newton iters (PorePy: total_it)
+            "avg_it": avg_it,
+            "max_it": int(hist.max()) if hist.size else 0,   # PorePy: max_newton_iterations
+            "n_time_step_cuts": n_cuts,             # rejected loops / dt-cuts   (PorePy: n_time_step_cuts)
+            "it_wasted": it_wasted,                 # Newton iters spent on the rejected loops
+            "nit_hist": hist,                       # per-accepted-step         (PorePy: iterations_per_step)
             "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "level": level,
             "lag_upwind": lag_upwind}
 

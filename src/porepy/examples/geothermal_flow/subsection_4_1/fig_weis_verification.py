@@ -72,7 +72,7 @@ def _run(args):
     res = m.run(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
                 grav_upstream=den["grav_upstream"], N=N, case=case, level=level,
                 n_steps=n_steps, verbose=False, lag_upwind=lag_upwind)
-    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it")}
+    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(keep, f)
@@ -169,6 +169,39 @@ _HU_LIGHT, _HUMW_LIGHT = "#F0A8A8", "#A6AEF0"   # 1D reference (underneath): lig
 _REF_LW, _PP_LW = 3.4, 1.3                      # reference thick / PorePy thin
 
 
+def _it_suffix(result: dict) -> str:
+    """``', N it.'`` from a result dict's total Newton-iteration count (``total_it``), else ``''``."""
+    n = result.get("total_it") if isinstance(result, dict) else None
+    return fr", ${int(n)}$ it." if n else ""
+
+
+# Fixed output canvas [in] so the horizontal and vertical figures come out at EXACTLY the same size.
+# (Their tight bboxes otherwise differ: the vertical legend is wider because its iteration counts have
+# more digits.) Chosen a touch larger than the widest tight content so nothing is clipped.
+_FIG_SIZE_IN = (4.05, 5.25)
+
+
+def _savefig_fixed(fig, stem, out_dir, size_in=_FIG_SIZE_IN):
+    """Save PDF+PNG with the tight content centred inside a FIXED ``size_in`` canvas, so figures
+    saved by different calls are byte-for-byte the same dimensions."""
+    import matplotlib.pyplot as plt
+    from matplotlib.transforms import Bbox
+    os.makedirs(out_dir, exist_ok=True)
+    fig.canvas.draw()
+    tb = fig.get_tightbbox(fig.canvas.get_renderer())          # tight content extent [in]
+    w, h = size_in
+    if tb.width > w or tb.height > h:                          # guard: would clip -> warn, don't lie
+        print(f"[verification] WARNING: content {tb.width:.2f}x{tb.height:.2f} exceeds fixed "
+              f"canvas {w}x{h} in for {stem}; increase _FIG_SIZE_IN")
+    padx, pady = (w - tb.width) / 2.0, (h - tb.height) / 2.0
+    bb = Bbox.from_extents(tb.x0 - padx, tb.y0 - pady, tb.x1 + padx, tb.y1 + pady)
+    for ext in ("pdf", "png"):
+        p = os.path.join(out_dir, f"{stem}.{ext}")
+        fig.savefig(p, bbox_inches=bb)
+        print(f"wrote {p}")
+    plt.close(fig)
+
+
 def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
     """fig_weis_profiles-style verification for one orientation -> one figure. Top panel merges
     temperature (left axis, solid) and pressure (right axis, dashed); the bottom panel is liquid
@@ -201,15 +234,17 @@ def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
         cd, cl = dark[scheme], light[scheme]
         weis, pp_ = data[scheme]
         if weis is not None:                            # 1D solver = THICK LIGHT reference band
+            wlab = fr"{cfg['label']} (1D{_it_suffix(weis)})"
             ax_tp.plot(*ps.to_plot_units(weis, "T"), color=cl, ls="-", lw=_REF_LW, zorder=2)
             ax_p.plot(*ps.to_plot_units(weis, "p"), color=cl, ls=_P_LS, lw=_REF_LW, zorder=2)
             ax_s.plot(*ps.to_plot_units(weis, "s_liq"), color=cl, ls="-", lw=_REF_LW, zorder=2,
-                      label=fr"{cfg['label']} (1D)")
+                      label=wlab)
         if pp_ is not None:                             # PorePy 2D = THIN DARK solid, on top
+            plab = fr"{cfg['label']} (PorePy{_it_suffix(pp_)})"
             ax_tp.plot(*ps.to_plot_units(pp_, "T"), color=cd, ls="-", lw=_PP_LW, zorder=4)
             ax_p.plot(*ps.to_plot_units(pp_, "p"), color=cd, ls=_P_LS, lw=_PP_LW, zorder=4)
             ax_s.plot(*ps.to_plot_units(pp_, "s_liq"), color=cd, ls="-", lw=_PP_LW, zorder=4,
-                      label=fr"{cfg['label']} (PorePy)")
+                      label=plab)
 
     # y-axes in default black (colour now encodes the scheme: HU dark red, HU-mw dark blue)
     ax_tp.set_ylabel(ps.FIELD_LABEL["T"])
@@ -230,8 +265,7 @@ def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
     handles, labels = ax_s.get_legend_handles_labels()
     fig.tight_layout()
     ps.bottom_legend(fig, handles, labels, ncol=2)
-    ps.savefig(fig, stem, OUT_DIR)
-    plt.close(fig)
+    _savefig_fixed(fig, stem, OUT_DIR)
 
 
 def plot(out, stem="fig_weis_verification"):

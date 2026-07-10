@@ -68,7 +68,7 @@ def _run_one(args):
     t0 = time.time()
     res = m.run(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"], grav_upstream=False,
                 N=N, case=case, level=level, n_steps=n_steps, verbose=False, lag_upwind=lag_upwind)
-    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it")}
+    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(keep, f)
@@ -129,7 +129,7 @@ def compute_extra(N=EXTRA_N, level=LEVEL, cache=True):
     m.prebuild_table_caches(level)
     res = m.run(scheme="ppu", weighted_perm=False, grav_upstream=True, N=N, case="vertical",
                 level=level, lag_upwind=True, verbose=False)
-    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it")}
+    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(keep, f)

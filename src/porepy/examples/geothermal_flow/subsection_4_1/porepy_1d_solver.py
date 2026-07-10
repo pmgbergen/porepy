@@ -1,7 +1,7 @@
 """PorePy 2D column (Weis 2014, Figure 5) for the subsection 4.1 overlay.
 
 Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {HU, HU-mw} -- at the
-geometry's native N=800 and fixed dt = 0.125 yr, level-5 Driesner tables, and writes each converged
+geometry's native N=800 and nominal dt = 0.25 yr, level-5 Driesner tables, and writes each converged
 1D profile (distance, T, p, s_liq) extracted from the live model to
 
     subsection_4_1/_cache/porepy_{case}_{scheme}_N800_l5.pkl
@@ -49,8 +49,8 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 # --------------------------------------------------------------------------------------------- #
 DAY = 86400.0
 TO_MEGA = 1.0e-6
-DT = 0.125 * 365.0 * DAY                  # fixed time step: 0.125 yr (matches the 1D solver DT0)
-TABLE_LEVEL = 5                           # Driesner opensowat .vtr level
+DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
+TABLE_LEVEL = 3                           # Driesner opensowat .vtr level (0..3; finest available)
 EXPORT_EVERY = 8                          # VTU snapshot cadence (in time steps)
 
 FINAL_TIME_DAYS = {"horizontal": 73000.0, "vertical": 365000.0}   # 200 yr / 1000 yr
@@ -87,7 +87,7 @@ def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int,
     the dataclass to ``_stats.pkl`` and write its ``as_text()`` -- prefixed with the run context
     (case, N, level, nominal-step count) -- to ``_stats.txt``. Returns ``(nominal, n_extra)``, the
     fixed-dt step count and how many extra accepted sub-steps the dt-cuts produced."""
-    nominal = int(round(tf / DT))                        # steps if dt had stayed at the 0.125 yr cap
+    nominal = int(round(tf / DT))                        # steps if dt had stayed at the 0.25 yr cap
     n_extra = max(0, stats.n_accepted_steps - nominal)   # extra accepted steps from dt-cuts
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(_stats_pkl_path(geometry_case, scheme), "wb") as f:
@@ -131,7 +131,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
         return keep
     tf = FINAL_TIME_DAYS[geometry_case] * DAY
 
-    # Adaptive dt CAPPED at DT (0.125 yr): it stays at DT on easy steps (dt_min_max max = DT means
+    # Adaptive dt CAPPED at DT (0.25 yr): it stays at DT on easy steps (dt_min_max max = DT means
     # it never grows above the cap) and only cuts -- by recomp_factor=0.5, down to DT/64, up to
     # recomp_max retries -- through hard steps such as the ~169 yr transition. The schedule end tf
     # is always hit exactly, so the extracted final-time profile is unaffected.
@@ -151,10 +151,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
         "material_constants": {"solid": solid},
         "time_manager": time_manager,
         "times_to_export": times_to_export,
-        # NOTE: solver_statistics_file_name intentionally omitted -- the develop-side
-        # nonlinear_solver_statistics.save() crashes on json.load of its own (growing) JSON at ~step
-        # 993. The in-memory statistics (num_iterations, used by the per-step report) are unaffected.
-        "use_petsc": True,
+        "use_petsc": False,
         "step_control_method": "None",
     }
 
@@ -179,7 +176,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)),
+                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.MaxIterationsCriterion(max_iterations=20),
@@ -187,7 +184,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     }
 
     print(f"\n=== PorePy {geometry_case} / {scheme}  "
-          f"(tf={tf / (365.0 * DAY):.0f} yr, dt=0.125 yr, level {TABLE_LEVEL}) ===", flush=True)
+          f"(tf={tf / (365.0 * DAY):.0f} yr, dt=0.25 yr, level {TABLE_LEVEL}) ===", flush=True)
     runner = pp.ModelRunner(model, solver_params)
     print("  DoF:", model.equation_system.num_dofs())
     model.schur_complement_primary_equations = (
@@ -234,7 +231,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
 
 
 def main() -> None:
-    for geometry_case in ["horizontal", "vertical"]:
+    for geometry_case in ["vertical"]:
         for weighted_perm in [True, False]:
             run_case(geometry_case, weighted_perm)
 

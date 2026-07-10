@@ -40,8 +40,8 @@ LAG_UPWIND = False                     # advective nonlinear weight, UNIFORM acr
 #                                        Tagged (cur/lag) into the cache names below.
 N_LEVELS = [100, 200, 400, 800]        # spatial refinement ladder; finest is the reference
 DT_FIXED = m.DT0 / 4.0                 # fixed, small time step so the spatial error dominates
-OBL_LEVELS = [0, 1, 2, 3, 4, 5]        # Driesner table refinement levels; finest (5) is the reference
-# Panel (b) uses the SAME-N reference (error = level L vs level 5 at this same N), so the spatial
+OBL_LEVELS = [0, 1, 2, 3, 4]           # Driesner table refinement levels; finest (4) is the reference
+# Panel (b) uses the SAME-N reference (error = level L vs level 4 at this same N), so the spatial
 # error cancels and the pure OBL/table error is isolated at ANY N. Finer N only shrinks the
 # residual near-front contamination; N=1600 is cleanest but its 18 runs cost ~4x those at N=400.
 N_OBL = 800                            # spatial resolution for the OBL-convergence sweep (knob)
@@ -99,7 +99,8 @@ def _run(args):
     res = m.run(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
                 grav_upstream=grav_upstream, N=N, case=case, level=level, dt=dt,
                 adaptive=False, n_steps=n_steps, verbose=False, lag_upwind=lag_upwind)
-    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_steps")}
+    keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_steps",
+                                "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(keep, f)
@@ -246,8 +247,10 @@ def plot(spatial, obl, stem="fig_weis_reference"):
     plt.close(fig)
 
     # (b) parametric OBL convergence -> {stem}_b. Log axis; error of each level against the finest
-    # table (level 5), which is the reference (error 0) and thus not plotted -- the panel shows the
-    # coarse-to-fine table convergence over levels 0..4.
+    # table (level 4), which is the reference (error 0) and thus not plotted -- the panel shows the
+    # coarse-to-fine table convergence over levels 0..3. Its purpose: demonstrate that level 3 (used
+    # by the production solvers) is already close enough to level 4 that the finer (and much larger:
+    # ~1.4 GB) table is NOT needed.
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_HALF, 2.9))
     L_all = sorted({lv for (_, lv) in obl})
     L_ref = max(L_all)

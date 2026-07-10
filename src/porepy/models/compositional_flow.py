@@ -1082,6 +1082,14 @@ class ConstitutiveLawsCF(
     """
 
 
+class ConstitutiveLawsCFF(
+    ConstitutiveLawsCF,
+    :class:`ConstitutiveLawsCF` but with the differentiable-tensor Darcy flux
+    (:class:`~porepy.constitutive_laws.DarcysLawAd`). The phase-segregation buoyancy terms are
+    unaffected (they use a separate HUpwind discretization); for a mobility-independent tensor (the
+    standard/HU setting) this reduces to the ordinary discretization."""
+
+
 # endregion
 # region Boundary condition mixins.
 
@@ -1963,7 +1971,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
 
 
 class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
-    ConstitutiveLawsCF,
+    ConstitutiveLawsCFF,
     PrimaryEquationsCFF,
     VariablesCF,
     BoundaryConditionsCFF,
