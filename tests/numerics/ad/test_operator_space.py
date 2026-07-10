@@ -216,22 +216,17 @@ class TestOperatorProperties:
         with pytest.raises(TypeError):
             Operator(name="test")
 
-    def test_source_accepts_explicit_none(self):
-        op = Operator(name="test", source=None, target=None)
-        assert op.source is None
-
-    def test_target_accepts_explicit_none(self):
-        op = Operator(name="test", source=None, target=None)
-        assert op.target is None
-
-    def test_set_source_in_init(self, two_subdomains):
+    def test_none_source_target_raises(self, two_subdomains):
         space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
-        op = Operator(name="test", source=space, target=None)
+        with pytest.raises(TypeError):
+            Operator(name="test", source=None, target=space)
+        with pytest.raises(TypeError):
+            Operator(name="test", source=space, target=None)
+
+    def test_set_source_target_in_init(self, two_subdomains):
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
+        op = Operator(name="test", source=space, target=space)
         assert op.source == space
-
-    def test_set_target_in_init(self, two_subdomains):
-        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
-        op = Operator(name="test", source=None, target=space)
         assert op.target == space
 
 
@@ -609,22 +604,6 @@ class TestDomainRangePropagation:
         result = s1 + s2
         assert result.source == OperatorSpace.scalar()
         assert result.target == OperatorSpace.scalar()
-
-    def test_none_space_propagates_other(self, two_subdomains):
-        """An operand with None space should not block inference from the other."""
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        a = DenseArray(np.ones(4), source=space, target=space)
-        b = DenseArray(np.ones(4))  # no space
-        result = a + b
-        assert result.source == space
-
-    def test_both_none_gives_none(self):
-        a = DenseArray(np.ones(4))
-        b = DenseArray(np.ones(4))
-        result = a + b
-        assert result.source is None
-        assert result.target is None
 
     def test_incompatible_domains_raises(self, two_subdomains):
         g1, g2 = two_subdomains
@@ -1207,22 +1186,6 @@ class TestInferDomainRange:
 
     # --- None source/target: skips validation (backward compat) ---
 
-    def test_none_plus_known_inherits_known(self, cell_space):
-        """Operator with None domain + operator with known domain → inherits known."""
-        unknown = DenseArray(np.zeros(3))  # source=None
-        known = DenseArray(_zeros_for(cell_space), source=cell_space, target=cell_space)
-        result = unknown + known
-        assert result.source == cell_space
-        assert result.target == cell_space
-
-    def test_both_none_stays_none(self):
-        """Two operators with no source/target → result also has None."""
-        a = DenseArray(np.zeros(3))
-        b = DenseArray(np.zeros(3))
-        result = a + b
-        assert result.source is None
-        assert result.target is None
-
     def test_plain_python_scalar_exponent(self, cell_op, cell_space):
         """op ** 2 (plain Python int) should preserve source/target."""
         result = cell_op**2
@@ -1584,13 +1547,3 @@ class TestSumOperatorListSpace:
         b = DenseArray(np.ones(9), source=s2, target=s2)
         with pytest.raises(ValueError):
             sum_operator_list([a, b])
-
-    def test_sum_none_space_inherits_known(self, two_subdomains):
-        """sum_operator_list with one operand lacking a space still propagates the other."""
-        g, _ = two_subdomains
-        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        a = DenseArray(np.ones(4), source=space, target=space)
-        b = DenseArray(np.ones(4))  # no space
-        result = sum_operator_list([a, b])
-        assert result.source == space
-        assert result.target == space
