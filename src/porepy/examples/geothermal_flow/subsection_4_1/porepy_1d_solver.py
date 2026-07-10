@@ -42,7 +42,7 @@ from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_marke
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_two_phase_moderate_pressure as IC,
 )
-from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
 
 # --------------------------------------------------------------------------------------------- #
 #  Fixed benchmark parameters (shared by all four cases)
@@ -50,8 +50,12 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 DAY = 86400.0
 TO_MEGA = 1.0e-6
 DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
-TABLE_LEVEL = 3                           # Driesner opensowat .vtr level (0..3; finest available)
-EXPORT_EVERY = 8                          # VTU snapshot cadence (in time steps)
+TABLE_LEVEL = 4                           # Driesner opensowat .vtr level (0..3; finest available)
+EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
+USE_SPLINE = True                         # OBL sampler backend: True -> NSplineSampler (value and
+#                                           gradient from one C2 tensor spline; consistent Jacobian);
+#                                           False -> VTKSampler (probe of the stored value/grad_ fields).
+_SAMPLER_SUFFIX = "_spline" if USE_SPLINE else ""   # keep spline vs VTK output caches distinct
 
 FINAL_TIME_DAYS = {"horizontal": 73000.0, "vertical": 365000.0}   # 200 yr / 1000 yr
 GEOMETRY = {"horizontal": ModelGeometryH, "vertical": ModelGeometryV}
@@ -67,19 +71,19 @@ _TABLE_DIR = os.path.join(
 def _pickle_path(geometry_case: str, scheme: str) -> str:
     """Per-case output pickle path in _cache/ (keyed by orientation, scheme, N, table level)."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
+        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}{_SAMPLER_SUFFIX}.pkl")
 
 
 def _stats_path(geometry_case: str, scheme: str) -> str:
     """Companion human-readable solver-statistics text file next to the pickle."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.txt")
+        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}{_SAMPLER_SUFFIX}_stats.txt")
 
 
 def _stats_pkl_path(geometry_case: str, scheme: str) -> str:
     """Companion pickle holding the model's :class:`NonlinearRunStats` dataclass."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.pkl")
+        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}{_SAMPLER_SUFFIX}_stats.pkl")
 
 
 def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int, int]:
@@ -103,14 +107,17 @@ def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int,
 
 
 def _attach_samplers(model) -> None:
-    """Attach the level-``TABLE_LEVEL`` Driesner VTK samplers (phz + ptz) to ``model``."""
-    phz = VTKSampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}_grads.vtr"))
+    """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz) to ``model``. Backend is
+    ``NSplineSampler`` (value and gradient from one C2 tensor spline -> consistent Jacobian) when
+    ``USE_SPLINE`` else ``VTKSampler`` (pyvista probe of the stored value/``grad_`` fields)."""
+    Sampler = NSplineSampler if USE_SPLINE else VTKSampler
+    phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}_grads.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
-    model.vtk_sampler = phz
-    ptz = VTKSampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}_grads.vtr"))
+    model.obl_sampler = phz
+    ptz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}_grads.vtr"))
     ptz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, t, p)
     ptz.translation_factors = (0.0, -273.15, 0.0)            # T in degC -> K in the sampler
-    model.vtk_sampler_ptz = ptz
+    model.obl_sampler_ptz = ptz
 
 
 def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dict:
@@ -231,7 +238,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
 
 
 def main() -> None:
-    for geometry_case in ["vertical"]:
+    for geometry_case in ["horizontal","vertical"]:
         for weighted_perm in [True, False]:
             run_case(geometry_case, weighted_perm)
 
