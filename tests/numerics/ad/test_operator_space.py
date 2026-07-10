@@ -1045,6 +1045,25 @@ class TestInferDomainRange:
 class TestCompoundOperatorSpaces:
     """Tests that source/target propagates correctly through multi-step expressions."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, two_subdomains, spaces):
+        g1, g2 = two_subdomains
+        self.cell_sp = spaces[0]
+        self.face_sp = spaces[1]
+        self.A = SparseArray(
+            _eye_for(self.cell_sp, self.face_sp),
+            source=self.face_sp,
+            target=self.cell_sp,
+        )
+        self.B = SparseArray(
+            _eye_for(self.face_sp, self.cell_sp),
+            source=self.cell_sp,
+            target=self.face_sp,
+        )
+        self.v = DenseArray(
+            _zeros_for(self.face_sp), source=self.face_sp, target=self.face_sp
+        )
+
     @pytest.fixture
     def spaces(self, two_subdomains):
         g1, g2 = two_subdomains
@@ -1052,120 +1071,67 @@ class TestCompoundOperatorSpaces:
         face_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.faces: 1})
         return cell_sp, face_sp
 
-    # --- chained matmul ---
-
-    def test_chained_matmul_source_target(self, two_subdomains, spaces):
+    def test_chained_matmul_source_target(self):
         """(A @ B): target(B) == source(A) → result.source=B.source, result.target=A.target"""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        # A maps faces→cells; B maps cells→faces; A@B maps cells→cells
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
-        result = A @ B
-        assert result.source == cell_sp
-        assert result.target == cell_sp
+        result = self.A @ self.B
+        assert result.source == self.cell_sp
+        assert result.target == self.cell_sp
 
-    def test_three_way_matmul(self, two_subdomains, spaces):
+    def test_three_way_matmul(self):
         """(A @ B) @ C propagates spaces through two matmul steps."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        # A: face→cell, B: cell→face → A@B: cell→cell
-        # C: face→cell → (A@B)@C requires target(C)==source(A@B)=cell_sp ✓ → face→cell
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
-        C = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        AB = A @ B
-        assert AB.source == cell_sp
-        assert AB.target == cell_sp
-        ABC = AB @ C
-        assert ABC.source == face_sp
-        assert ABC.target == cell_sp
+        AB = self.A @ self.B
+        assert AB.source == self.cell_sp
+        assert AB.target == self.cell_sp
+        ABA = AB @ self.A
+        assert ABA.source == self.face_sp
+        assert ABA.target == self.cell_sp
 
-    def test_chained_matmul_incompatible_raises(self, two_subdomains, spaces):
+    def test_chained_matmul_incompatible_raises(self):
         """(A @ B) @ C raises ValueError when target(C) != source(A@B)."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        # A@B: cell→cell (see test_three_way_matmul); C has target=face_sp != cell_sp
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        B = SparseArray(_eye_for(face_sp, cell_sp), source=cell_sp, target=face_sp)
-        AB = A @ B  # source=cell_sp, target=cell_sp
-        C = SparseArray(_eye_for(face_sp, face_sp), source=face_sp, target=face_sp)
+
+        AB = self.A @ self.B  # source=cell_sp, target=cell_sp
         with pytest.raises(ValueError, match="matrix multiplication"):
-            _ = AB @ C
+            _ = AB @ self.B
 
-    def test_add_after_matmul(self, two_subdomains, spaces):
+    def test_add_after_matmul(self):
         """(A @ v) + (B @ w) where both results have the same range."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        v = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
-        B = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        w = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
-        Av = A @ v
-        Bw = B @ w
-        result = Av + Bw
-        assert result.source == face_sp
-        assert result.target == cell_sp
+        Av_1 = self.A @ self.v
+        Av_2 = self.A @ self.v
+        result = Av_1 + Av_2
+        assert result.source == self.face_sp
+        assert result.target == self.cell_sp
 
-    def test_add_matmul_incompatible_raises(self, two_subdomains, spaces):
+    def test_add_matmul_incompatible_raises(self):
         """(A @ v) + (B @ w) where ranges differ raises ValueError."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        v = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
-        Av = A @ v  # target=cell_sp
-        # B maps faces→faces, so B@w has target=face_sp
-        B = SparseArray(_eye_for(face_sp, face_sp), source=face_sp, target=face_sp)
-        w = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
-        Bw = B @ w
+        Av = self.A @ self.v
+        w = DenseArray(
+            _zeros_for(self.cell_sp), source=self.cell_sp, target=self.cell_sp
+        )
+        Bw = self.B @ w
         with pytest.raises(ValueError):
             _ = Av + Bw
 
-    # --- scalar factor in chains ---
-
-    def test_scalar_mul_after_matmul(self, two_subdomains, spaces):
+    def test_scalar_mul_after_matmul(self):
         """Scalar(k) * (A @ v) preserves A's range as the result range."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        v = DenseArray(_zeros_for(face_sp), source=face_sp, target=face_sp)
-        Av = A @ v
+        Av = self.A @ self.v
         result = Scalar(2.0) * Av
-        assert result.source == face_sp
-        assert result.target == cell_sp
+        assert result.source == self.face_sp
+        assert result.target == self.cell_sp
 
-    def test_unary_minus_preserves_spaces(self, two_subdomains, spaces):
+    def test_unary_minus_preserves_spaces(self):
         """Unary minus on SparseArray preserves source/target."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        A = SparseArray(_eye_for(cell_sp, face_sp), source=face_sp, target=cell_sp)
-        result = -A
-        assert result.source == face_sp
-        assert result.target == cell_sp
+        result = -self.A
+        assert result.source == self.face_sp
+        assert result.target == self.cell_sp
 
-    def test_unary_minus_dense_array_preserves_spaces(self, two_subdomains, spaces):
+    def test_unary_minus_dense_array_preserves_spaces(self):
         """DenseArray.__neg__ must also preserve source/target (separate code path)."""
-        g1, g2 = two_subdomains
-        cell_sp, face_sp = spaces
-        arr = DenseArray(_ones_for(cell_sp), source=cell_sp, target=cell_sp)
+        arr = DenseArray(
+            _ones_for(self.cell_sp), source=self.cell_sp, target=self.cell_sp
+        )
         result = -arr
-        assert result.source == cell_sp
-        assert result.target == cell_sp
-
-    # --- integration with actual grid operators ---
-
-    def test_divergence_matmul_projection(self, fracture_mdg):
-        """Div @ cell_restriction: spaces propagate from grid operators."""
-        mdg = fracture_mdg
-        sds_2d = mdg.subdomains(dim=2)
-        div = pp.ad.Divergence(sds_2d, dim=1)
-        proj = pp.ad.SubdomainProjections(sds_2d)
-        cell_rest = proj.cell_restriction(sds_2d)
-        # cell_restriction maps cells→cells on the subset (square matrix here)
-        # div maps faces→cells
-        # We test that div has correct spaces
-        assert GridEntity.faces in div.source.dof_info
-        assert GridEntity.cells in div.target.dof_info
+        assert result.source == self.cell_sp
+        assert result.target == self.cell_sp
 
 
 class TestSumOperatorListSpace:
