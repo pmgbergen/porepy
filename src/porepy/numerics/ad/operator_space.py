@@ -170,8 +170,6 @@ class OperatorSpace:
                             f"{type(grid).__name__} has no nodes, but dof_info "
                             f"specifies {num_per_entity} DOFs per node."
                         )
-                elif entity == GridEntity.void:
-                    continue
                 else:
                     raise ValueError(f"Unknown grid entity {entity}.")
         return total
