@@ -428,7 +428,10 @@ class ManuSneddonConstitutiveLaws(pp.constitutive_laws.PressureStress):
 
         """
         p = self.params["p0"] * np.ones(sum((grid.num_cells for grid in domains)))
-        return pp.ad.DenseArray(p)
+        space = pp.ad.OperatorSpace.from_domains(
+            domains, {pp.ad.GridEntity.cells: 1}
+        )
+        return pp.ad.DenseArray(p, source=space, target=space)
 
     def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpsaAd:
         """Discretization class for the stress tensor.
