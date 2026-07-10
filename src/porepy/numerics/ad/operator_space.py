@@ -6,7 +6,7 @@ from enum import Enum
 
 import porepy as pp
 
-from ._grid_entity import GridEntity
+from .grid_entity import GridEntity
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
