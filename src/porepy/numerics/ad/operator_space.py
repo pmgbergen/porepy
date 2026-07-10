@@ -226,6 +226,8 @@ class OperatorSpace:
         if domain_type is not None:
             return cls(domain_type, tuple(domains), dict(dof_info))
         if len(domains) == 0:
+            # TODO EK: We could get much more safety by requiring that the domain_type
+            # if the domain list is empty. This would require more code, though.
             return cls.scalar()
         grids = tuple(domains)
         if all(isinstance(g, pp.Grid) for g in grids):
