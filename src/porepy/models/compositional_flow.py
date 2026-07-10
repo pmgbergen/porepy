@@ -1083,7 +1083,10 @@ class ConstitutiveLawsCF(
 
 
 class ConstitutiveLawsCFF(
+    pp.constitutive_laws.DarcysLawAd,
     ConstitutiveLawsCF,
+):
+    """Constitutive laws for the fractional-flow (CFF) setting: identical to
     :class:`ConstitutiveLawsCF` but with the differentiable-tensor Darcy flux
     (:class:`~porepy.constitutive_laws.DarcysLawAd`). The phase-segregation buoyancy terms are
     unaffected (they use a separate HUpwind discretization); for a mobility-independent tensor (the

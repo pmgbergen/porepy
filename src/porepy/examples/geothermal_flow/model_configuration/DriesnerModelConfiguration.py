@@ -11,7 +11,7 @@ from porepy.numerics.nonlinear.convergence_check import (
 )
 from .flow_model_base import FlowModelBase, FractionalFlowModelBase
 
-from ..vtk_sampler import VTKSampler
+from ..obl_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
     FluidMixture,
     SecondaryEquations,
@@ -22,7 +22,7 @@ from .geometry_description.geometry_market import SimpleGeometry as ModelGeometr
 class BoundaryConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
     get_inlet_outlet_sides: Callable[
         [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
     ]
@@ -63,8 +63,8 @@ class BoundaryConditions(pp.PorePyModel):
         t = self.bc_values_temperature(boundary_grid)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        self.obl_sampler_ptz.sample_at(par_points)
+        h = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h
 
     def bc_values_overall_fraction(
@@ -86,7 +86,7 @@ class BoundaryConditions(pp.PorePyModel):
 class InitialConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 50.0
@@ -105,8 +105,8 @@ class InitialConditions(pp.PorePyModel):
         t = self.ic_values_temperature(sd)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        self.obl_sampler_ptz.sample_at(par_points)
+        h_init = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h_init
 
     def ic_values_overall_fraction(
@@ -145,20 +145,20 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         return pp.ad.Scalar(1.0) - self._liquid_relative_permeability(s_liq)
 
     @property
-    def vtk_sampler(self):
-        return self._vtk_sampler
+    def obl_sampler(self):
+        return self._obl_sampler
 
-    @vtk_sampler.setter
-    def vtk_sampler(self, vtk_sampler):
-        self._vtk_sampler = vtk_sampler
+    @obl_sampler.setter
+    def obl_sampler(self, obl_sampler):
+        self._obl_sampler = obl_sampler
 
     @property
-    def vtk_sampler_ptz(self):
-        return self._vtk_sampler_ptz
+    def obl_sampler_ptz(self):
+        return self._obl_sampler_ptz
 
-    @vtk_sampler_ptz.setter
-    def vtk_sampler_ptz(self, vtk_sampler):
-        self._vtk_sampler_ptz = vtk_sampler
+    @obl_sampler_ptz.setter
+    def obl_sampler_ptz(self, obl_sampler):
+        self._obl_sampler_ptz = obl_sampler
 
     # def after_simulation(self):
     #     self.exporter.write_pvd()
@@ -441,12 +441,12 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         inside_ratio = lambda arr, min_v, max_v: 1.0 - np.mean((arr < min_v) | (arr > max_v))
 
 
-        _, _, tmin, tmax, _, _ = self.vtk_sampler_ptz.search_space.bounds
-        tmin -= self.vtk_sampler_ptz.translation_factors[1]
-        tmax -= self.vtk_sampler_ptz.translation_factors[1]
+        _, _, tmin, tmax, _, _ = self.obl_sampler_ptz.search_space.bounds
+        tmin -= self.obl_sampler_ptz.translation_factors[1]
+        tmax -= self.obl_sampler_ptz.translation_factors[1]
 
-        zmin, zmax, hmin, hmax, pmin, pmax = self.vtk_sampler.search_space.bounds
-        z_scale, h_scale, p_scale = self.vtk_sampler.conversion_factors
+        zmin, zmax, hmin, hmax, pmin, pmax = self.obl_sampler.search_space.bounds
+        z_scale, h_scale, p_scale = self.obl_sampler.conversion_factors
         zmin /= z_scale
         zmax /= z_scale
         hmin /= h_scale
@@ -545,11 +545,11 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         # if idx_mp.size != 0:
         #     # correct saturation and temperature from enthalpy
         #     par_points = np.array((z_0[idx_mp], h_0[idx_mp], p_0[idx_mp])).T
-        #     self.vtk_sampler.sample_at(par_points)
+        #     self.obl_sampler.sample_at(par_points)
         #
-        #     star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
+        #     star_t = self.obl_sampler.sampled_could.point_data["Temperature"]
         #     delta_x[t_dof_idx[idx_mp]] = star_t - t_0[idx_mp]
-        #     star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
+        #     star_s = self.obl_sampler.sampled_could.point_data["S_v"]
         #     delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
 
         if len(alg_exceeds) != 0:
@@ -557,26 +557,26 @@ class _DriesnerBrineBase(  # type:ignore[misc]
             idx_temp = alg_exceeds.get('temperature', np.array([], dtype=int))
             if len(idx_temp) != 0:
                 par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
-                self.vtk_sampler.sample_at(par_points)
-                star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
+                self.obl_sampler.sample_at(par_points)
+                star_t = self.obl_sampler.sampled_could.point_data["Temperature"]
                 delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
-                star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
+                star_s = self.obl_sampler.sampled_could.point_data["S_v"]
                 delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
 
             idx_sat = alg_exceeds.get('saturation', np.array([], dtype=int))
             if len(idx_sat) !=0:
                 par_points = np.array((new_z[idx_sat], new_h[idx_sat], new_p[idx_sat])).T
-                self.vtk_sampler.sample_at(par_points)
-                star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
+                self.obl_sampler.sample_at(par_points)
+                star_s = self.obl_sampler.sampled_could.point_data["S_v"]
                 delta_x[s_dof_idx[idx_sat]] = star_s - s_0[idx_sat]
 
         # if idx_sp.size != 0:
         #     # correct enthalpy from temperature
         #     par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
-        #     self.vtk_sampler_ptz.sample_at(par_points)
-        #     star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        #     self.obl_sampler_ptz.sample_at(par_points)
+        #     star_h = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         #     delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
-        #     star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
+        #     star_s = self.obl_sampler_ptz.sampled_could.point_data["S_v"]
         #     delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
 
 

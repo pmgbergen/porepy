@@ -4,7 +4,7 @@ import numpy as np
 
 import porepy as pp
 
-from ...vtk_sampler import VTKSampler
+from ...obl_sampler import VTKSampler
 
 class BCBase(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -12,7 +12,7 @@ class BCBase(pp.PorePyModel):
     get_inlet_outlet_sides: Callable[
         [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
     ]
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -33,8 +33,8 @@ class BCBase(pp.PorePyModel):
         t = self.bc_values_temperature(boundary_grid)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        self.obl_sampler_ptz.sample_at(par_points)
+        h = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h
 
     def bc_values_overall_fraction(

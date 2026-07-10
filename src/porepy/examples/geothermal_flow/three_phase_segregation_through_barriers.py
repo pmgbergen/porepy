@@ -34,7 +34,7 @@ import porepy as pp  # noqa: E402
 from porepy.models.abstract_equations import LocalElimination  # noqa: E402
 
 # Absolute imports (like geothermal_H2O_low_NaCl_content_fig_5.py) so the market modules'
-# internal ``from ...vtk_sampler import VTKSampler`` resolves. Requires porepy importable.
+# internal ``from ...obl_sampler import VTKSampler`` resolves. Requires porepy importable.
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import FlowModelBase  # noqa: E402,E501
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E402,E501
     GeometryBarriers2D,

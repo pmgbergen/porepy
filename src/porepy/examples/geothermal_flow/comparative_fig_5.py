@@ -3,7 +3,7 @@ import pyvista as pv
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
 # --- Configuration ---
 figure_type = "vertical"

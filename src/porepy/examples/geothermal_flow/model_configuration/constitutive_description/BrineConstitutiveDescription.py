@@ -7,17 +7,17 @@ import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 
-from ...vtk_sampler import VTKSampler
+from ...obl_sampler import VTKSampler
 
 
 class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
     @property
-    def vtk_sampler(self) -> VTKSampler:
-        return self._vtk_sampler
+    def obl_sampler(self) -> VTKSampler:
+        return self._obl_sampler
 
-    @vtk_sampler.setter
-    def vtk_sampler(self, vtk_sampler: VTKSampler) -> None:
-        self._vtk_sampler = vtk_sampler
+    @obl_sampler.setter
+    def obl_sampler(self, obl_sampler: VTKSampler) -> None:
+        self._obl_sampler = obl_sampler
 
     def kappa(
         self,
@@ -39,35 +39,35 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
         """
-        if not hasattr(self, "_vtk_sampler"):
+        if not hasattr(self, "_obl_sampler"):
             raise AttributeError(
-                "Instance of the vtk_sampler attribute is not present."
+                "Instance of the obl_sampler attribute is not present."
             )
 
         p, h, z_NaCl = thermodynamic_input
         par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
+        self.obl_sampler.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
         # Mass density of phase
-        rho = self.vtk_sampler.sampled_could.point_data["Rho_l"]
-        drhodz = self.vtk_sampler.sampled_could.point_data["grad_Rho_l"][:, 0]
-        drhodH = self.vtk_sampler.sampled_could.point_data["grad_Rho_l"][:, 1]
-        drhodp = self.vtk_sampler.sampled_could.point_data["grad_Rho_l"][:, 2]
+        rho = self.obl_sampler.sampled_could.point_data["Rho_l"]
+        drhodz = self.obl_sampler.sampled_could.point_data["grad_Rho_l"][:, 0]
+        drhodH = self.obl_sampler.sampled_could.point_data["grad_Rho_l"][:, 1]
+        drhodp = self.obl_sampler.sampled_could.point_data["grad_Rho_l"][:, 2]
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_l"] * 1.0e-3
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0] * 1.0e-3
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1] * 1.0e-3
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 2] * 1.0e-3
+        h = self.obl_sampler.sampled_could.point_data["H_l"] * 1.0e-3
+        dhdz = self.obl_sampler.sampled_could.point_data["grad_H_l"][:, 0] * 1.0e-3
+        dhdH = self.obl_sampler.sampled_could.point_data["grad_H_l"][:, 1] * 1.0e-3
+        dhdp = self.obl_sampler.sampled_could.point_data["grad_H_l"][:, 2] * 1.0e-3
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
-        mu = self.vtk_sampler.sampled_could.point_data["mu_l"] * 1.0e-6
-        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 0] * 1.0e-6
-        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 1] * 1.0e-6
-        dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 2] * 1.0e-6
+        mu = self.obl_sampler.sampled_could.point_data["mu_l"] * 1.0e-6
+        dmudz = self.obl_sampler.sampled_could.point_data["grad_mu_l"][:, 0] * 1.0e-6
+        dmudH = self.obl_sampler.sampled_could.point_data["grad_mu_l"][:, 1] * 1.0e-6
+        dmudp = self.obl_sampler.sampled_could.point_data["grad_mu_l"][:, 2] * 1.0e-6
         dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
@@ -98,12 +98,12 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
 
 class GasDriesnerCorrelations(pp.compositional.EquationOfState):
     @property
-    def vtk_sampler(self) -> VTKSampler:
-        return self._vtk_sampler
+    def obl_sampler(self) -> VTKSampler:
+        return self._obl_sampler
 
-    @vtk_sampler.setter
-    def vtk_sampler(self, vtk_sampler: VTKSampler) -> None:
-        self._vtk_sampler = vtk_sampler
+    @obl_sampler.setter
+    def obl_sampler(self, obl_sampler: VTKSampler) -> None:
+        self._obl_sampler = obl_sampler
 
     def kappa(
         self,
@@ -126,35 +126,35 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         ``thermodynamic_dependencies`` are as defined by the user.
         """
 
-        if not hasattr(self, "_vtk_sampler"):
+        if not hasattr(self, "_obl_sampler"):
             raise AttributeError(
-                "Instance of the vtk_sampler attribute is not present."
+                "Instance of the obl_sampler attribute is not present."
             )
 
         p, h, z_NaCl = thermodynamic_input
         par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
+        self.obl_sampler.sample_at(par_points)
         n = len(p)  # same for all input (number of cells)
 
         # Mass density of phase
-        rho = self.vtk_sampler.sampled_could.point_data["Rho_v"]
-        drhodz = self.vtk_sampler.sampled_could.point_data["grad_Rho_v"][:, 0]
-        drhodH = self.vtk_sampler.sampled_could.point_data["grad_Rho_v"][:, 1]
-        drhodp = self.vtk_sampler.sampled_could.point_data["grad_Rho_v"][:, 2]
+        rho = self.obl_sampler.sampled_could.point_data["Rho_v"]
+        drhodz = self.obl_sampler.sampled_could.point_data["grad_Rho_v"][:, 0]
+        drhodH = self.obl_sampler.sampled_could.point_data["grad_Rho_v"][:, 1]
+        drhodp = self.obl_sampler.sampled_could.point_data["grad_Rho_v"][:, 2]
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_v"] * 1.0e-3
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0] * 1.0e-3
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1] * 1.0e-3
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 2] * 1.0e-3
+        h = self.obl_sampler.sampled_could.point_data["H_v"] * 1.0e-3
+        dhdz = self.obl_sampler.sampled_could.point_data["grad_H_v"][:, 0] * 1.0e-3
+        dhdH = self.obl_sampler.sampled_could.point_data["grad_H_v"][:, 1] * 1.0e-3
+        dhdp = self.obl_sampler.sampled_could.point_data["grad_H_v"][:, 2] * 1.0e-3
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
-        mu = self.vtk_sampler.sampled_could.point_data["mu_v"] * 1.0e-6
-        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 0] * 1.0e-6
-        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 1] * 1.0e-6
-        dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 2] * 1.0e-6
+        mu = self.obl_sampler.sampled_could.point_data["mu_v"] * 1.0e-6
+        dmudz = self.obl_sampler.sampled_could.point_data["grad_mu_v"][:, 0] * 1.0e-6
+        dmudH = self.obl_sampler.sampled_could.point_data["grad_mu_v"][:, 1] * 1.0e-6
+        dmudp = self.obl_sampler.sampled_could.point_data["grad_mu_v"][:, 2] * 1.0e-6
         dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
@@ -189,7 +189,7 @@ class FluidMixture(pp.PorePyModel):
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-    vtk_sampler: VTKSampler
+    obl_sampler: VTKSampler
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
         """Setting H20 as first component in Sequence makes it the reference component.
@@ -203,9 +203,9 @@ class FluidMixture(pp.PorePyModel):
     ]:
         eos_L = LiquidDriesnerCorrelations(components)
         eos_G = GasDriesnerCorrelations(components)
-        # assign common vtk_sampler object
-        eos_L.vtk_sampler = self.vtk_sampler
-        eos_G.vtk_sampler = self.vtk_sampler
+        # assign common obl_sampler object
+        eos_L.obl_sampler = self.obl_sampler
+        eos_G.obl_sampler = self.obl_sampler
         return [
             (pp.compositional.PhysicalState.liquid, "liq", eos_L),
             (pp.compositional.PhysicalState.gas, "gas", eos_G),
@@ -242,7 +242,7 @@ class SecondaryEquations(LocalElimination):
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
-    vtk_sampler: VTKSampler
+    obl_sampler: VTKSampler
 
     has_independent_partial_fraction: Callable[
         [pp.compositional.Component, pp.compositional.Phase], bool
@@ -256,13 +256,13 @@ class SecondaryEquations(LocalElimination):
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
+        self.obl_sampler.sample_at(par_points)
 
         # Gas saturation
-        S_v = self.vtk_sampler.sampled_could.point_data["S_v"]
-        dS_vdz = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 0]
-        dS_vdH = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 1]
-        dS_vdp = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 2]
+        S_v = self.obl_sampler.sampled_could.point_data["S_v"]
+        dS_vdz = self.obl_sampler.sampled_could.point_data["grad_S_v"][:, 0]
+        dS_vdH = self.obl_sampler.sampled_could.point_data["grad_S_v"][:, 1]
+        dS_vdp = self.obl_sampler.sampled_could.point_data["grad_S_v"][:, 2]
         dS_v = np.vstack((dS_vdp, dS_vdH, dS_vdz))
         S_v = np.clip(S_v, 0.0, 1.0)
         return S_v, dS_v
@@ -274,13 +274,13 @@ class SecondaryEquations(LocalElimination):
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
+        self.obl_sampler.sample_at(par_points)
 
         # Overall temperature
-        T = self.vtk_sampler.sampled_could.point_data["Temperature"]  # [K]
-        dTdz = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 0]
-        dTdH = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 1]
-        dTdp = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 2]
+        T = self.obl_sampler.sampled_could.point_data["Temperature"]  # [K]
+        dTdz = self.obl_sampler.sampled_could.point_data["grad_Temperature"][:, 0]
+        dTdH = self.obl_sampler.sampled_could.point_data["grad_Temperature"][:, 1]
+        dTdp = self.obl_sampler.sampled_could.point_data["grad_Temperature"][:, 2]
         dT = np.vstack((dTdp, dTdH, dTdz))
         return T, dT
 
@@ -291,13 +291,13 @@ class SecondaryEquations(LocalElimination):
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
+        self.obl_sampler.sample_at(par_points)
 
         # Partial fraction of salt in liquid phase
-        X_s = self.vtk_sampler.sampled_could.point_data["Xl"]
-        dX_sdz = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 0]
-        dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
-        dX_sdp = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 2]
+        X_s = self.obl_sampler.sampled_could.point_data["Xl"]
+        dX_sdz = self.obl_sampler.sampled_could.point_data["grad_Xl"][:, 0]
+        dX_sdH = self.obl_sampler.sampled_could.point_data["grad_Xl"][:, 1]
+        dX_sdp = self.obl_sampler.sampled_could.point_data["grad_Xl"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
         X_s = np.clip(X_s, 0.0, 1.0)
         return X_s, dX_s
@@ -309,13 +309,13 @@ class SecondaryEquations(LocalElimination):
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
+        self.obl_sampler.sample_at(par_points)
 
         # Partial fraction of salt in vapor phase
-        X_s = self.vtk_sampler.sampled_could.point_data["Xv"]
-        dX_sdz = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 0]
-        dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
-        dX_sdp = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 2]
+        X_s = self.obl_sampler.sampled_could.point_data["Xv"]
+        dX_sdz = self.obl_sampler.sampled_could.point_data["grad_Xv"][:, 0]
+        dX_sdH = self.obl_sampler.sampled_could.point_data["grad_Xv"][:, 1]
+        dX_sdp = self.obl_sampler.sampled_could.point_data["grad_Xv"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
         X_s = np.clip(X_s, 0.0, 1.0)
         return X_s, dX_s

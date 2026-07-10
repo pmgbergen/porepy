@@ -2,13 +2,13 @@ import numpy as np
 
 import porepy as pp
 
-from ...vtk_sampler import VTKSampler
+from ...obl_sampler import VTKSampler
 
 
 class IC_Base(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def initial_condition(self) -> None:
         super().initial_condition()
@@ -32,9 +32,9 @@ class IC_Base(pp.PorePyModel):
         t = self.ic_values_temperature(sd)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        x_CO2_liq = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["Xl"], 0, 1.0)
-        x_CO2_gas = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["Xv"], 0, 1.0)
+        self.obl_sampler_ptz.sample_at(par_points)
+        x_CO2_liq = np.clip(self.obl_sampler_ptz.sampled_could.point_data["Xl"], 0, 1.0)
+        x_CO2_gas = np.clip(self.obl_sampler_ptz.sampled_could.point_data["Xv"], 0, 1.0)
         return x_CO2_liq, x_CO2_gas
 
     def ic_values_gas_saturation(self, sd: pp.Grid) -> np.ndarray:
@@ -42,8 +42,8 @@ class IC_Base(pp.PorePyModel):
         t = self.ic_values_temperature(sd)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        s_init = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["S_v"], 0, 1.0)
+        self.obl_sampler_ptz.sample_at(par_points)
+        s_init = np.clip(self.obl_sampler_ptz.sampled_could.point_data["S_v"], 0, 1.0)
         return s_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
@@ -51,15 +51,15 @@ class IC_Base(pp.PorePyModel):
         t = self.ic_values_temperature(sd)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        self.obl_sampler_ptz.sample_at(par_points)
+        h_init = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
         return h_init
 
 
 class IC_single_phase_high_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 50.0
@@ -86,7 +86,7 @@ class IC_single_phase_high_pressure(IC_Base):
 class IC_single_phase_moderate_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 40.0
@@ -113,7 +113,7 @@ class IC_single_phase_moderate_pressure(IC_Base):
 class IC_single_phase_low_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 15.0
@@ -140,7 +140,7 @@ class IC_single_phase_low_pressure(IC_Base):
 class IC_two_phase_moderate_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 20.0
@@ -160,7 +160,7 @@ class IC_two_phase_moderate_pressure(IC_Base):
 class IC_two_phase_low_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 5.0
@@ -180,7 +180,7 @@ class IC_two_phase_low_pressure(IC_Base):
 class IC_two_phase_Figure_8_left_panel(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 5.0
@@ -200,7 +200,7 @@ class IC_two_phase_Figure_8_left_panel(IC_Base):
 class IC_two_phase_steady_state(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    vtk_sampler_ptz: VTKSampler
+    obl_sampler_ptz: VTKSampler
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 15.0

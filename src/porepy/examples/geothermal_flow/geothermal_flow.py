@@ -25,7 +25,7 @@ import porepy as pp
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
     DriesnerBrineFlowModel as FlowModel,
 )
-from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
 day = 86400
 tf = 0.00005 * day  # final time
@@ -88,12 +88,12 @@ file_name_ptz = (
 
 brine_sampler_phz = VTKSampler(file_name_phz)
 brine_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
-model.vtk_sampler = brine_sampler_phz
+model.obl_sampler = brine_sampler_phz
 
 brine_sampler_ptz = VTKSampler(file_name_ptz)
 brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
 brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
-model.vtk_sampler_ptz = brine_sampler_ptz
+model.obl_sampler_ptz = brine_sampler_ptz
 
 
 tb = time.time()

@@ -36,7 +36,7 @@ from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_marke
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_two_phase_Figure_8_left_panel as IC,
 )
-from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
 # Main directives
 case_name = "condition_1"
@@ -206,12 +206,12 @@ file_name_ptz = (
 
 brine_sampler_phz = VTKSampler(file_name_phz)
 brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
-model.vtk_sampler = brine_sampler_phz
+model.obl_sampler = brine_sampler_phz
 
 brine_sampler_ptz = VTKSampler(file_name_ptz)
 brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0)  # (z,t,p)
 brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
-model.vtk_sampler_ptz = brine_sampler_ptz
+model.obl_sampler_ptz = brine_sampler_ptz
 
 
 tb = time.time()

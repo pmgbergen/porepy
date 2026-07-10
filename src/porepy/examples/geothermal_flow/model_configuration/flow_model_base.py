@@ -1152,9 +1152,9 @@ class _FlowModelBaseCore:
     #     # Build sampling points and sample thermo state
     #     try:
     #         par_points = np.vstack((z0, h0, p0)).T
-    #         self.vtk_sampler.sample_at(par_points)
+    #         self.obl_sampler.sample_at(par_points)
     #
-    #         sampled = self.vtk_sampler.sampled_could.point_data
+    #         sampled = self.obl_sampler.sampled_could.point_data
     #
     #         # Update temperature if available
     #         if "Temperature" in sampled and t_dof_idx.size:
