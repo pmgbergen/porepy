@@ -30,6 +30,11 @@ class DomainType(Enum):
     scalar = "scalar"
     unclear = "unclear"
     """Used for composits formed by operators with different domains."""
+    waived = "waived"
+    """Used to explicitly waive the domain/range check for an operator.  This should
+    only be used in special cases that would require a more complex domain/range check
+    than the current implementation can handle.
+    """
 
 
 @dataclasses.dataclass(eq=False)
@@ -61,7 +66,11 @@ class OperatorSpace:
     def __post_init__(self) -> None:
         self.grids = tuple(self.grids)
 
-        if self.domain_type in (DomainType.scalar, DomainType.unclear):
+        if self.domain_type in (
+            DomainType.scalar,
+            DomainType.unclear,
+            DomainType.waived,
+        ):
             if self.grids:
                 raise ValueError(
                     f"{self.domain_type.value.capitalize()} spaces cannot have grids."
@@ -176,6 +185,11 @@ class OperatorSpace:
     def unclear(cls) -> OperatorSpace:
         """Return a sentinel space for operators with no clear mathematical domain."""
         return cls(DomainType.unclear, (), {})
+
+    @classmethod
+    def waived(cls) -> OperatorSpace:
+        """Return a sentinel space for operators whose domain/range check is waived."""
+        return cls(DomainType.waived, (), {})
 
     @classmethod
     def from_domains(
