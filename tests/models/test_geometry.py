@@ -518,7 +518,12 @@ class TestGeometry:
         # Left multiply with dim-vector defined on the interface. This should give a
         # vector of length dim * num_intf_cells.
         size = dim * sum([intf.num_cells for intf in interfaces])
-        dim_vec = pp.ad.DenseArray(np.ones(size))
+        dim_vec_space = pp.ad.OperatorSpace.from_domains(
+            interfaces, {pp.ad.GridEntity.cells: dim}
+        )
+        dim_vec = pp.ad.DenseArray(
+            np.ones(size), source=dim_vec_space, target=dim_vec_space
+        )
 
         # Left multiply with the normal operator; in essense this extracts the normal
         # vector (in the geometric sense) as a vector (in the algebraic sense).
