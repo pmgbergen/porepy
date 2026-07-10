@@ -186,7 +186,15 @@ def test_elementary_wrappers(field):
 
     """
     obj = field[1]
-    wrapped_obj = field[0](obj, name="foo")
+    if field[0] == pp.ad.Scalar:
+        wrapped_obj = field[0](obj, name="foo")
+    else:
+        wrapped_obj = field[0](
+            obj,
+            name="foo",
+            source=pp.ad.OperatorSpace.unclear(),
+            target=pp.ad.OperatorSpace.unclear(),
+        )
 
     # Evaluate the Ad wrapper using parse, which will act directly on the wrapper
     # (as oposed to evaluate, which will invoke the full evaluation machinery of the
@@ -237,7 +245,15 @@ def test_ad_arrays_unary_minus_parsing(field):
 
     """
     obj = field[1]
-    wrapped_obj = -field[0](obj, name="foo")  # Using the __neg__ method
+    if field[0] == pp.ad.Scalar:
+        wrapped_obj = -field[0](obj, name="foo")
+    else:
+        wrapped_obj = -field[0](
+            obj,
+            name="foo",
+            source=pp.ad.OperatorSpace.unclear(),
+            target=pp.ad.OperatorSpace.unclear(),
+        )
     stored_obj = wrapped_obj.parse(None)
 
     def compare(one, other):
@@ -367,7 +383,9 @@ def test_time_dependent_array():
 
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
-    empty_array = pp.ad.TimeDependentDenseArray("none", domains=[])
+    empty_array = pp.ad.TimeDependentDenseArray(
+        "none", domains=[], domain_type=DomainType.subdomains
+    )
     # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
@@ -976,10 +994,10 @@ class _MockDiscretization:
         self.keyword = key
 
     def get_row_dof_info(self, matrix_key: str = "", nd: int = 1):
-        return {}
+        return {GridEntity.cells: 1}
 
     def get_col_dof_info(self, matrix_key: str = "", nd: int = 1):
-        return {}
+        return {GridEntity.faces: 1}
 
 
 def _get_scalar(wrapped: bool) -> float | pp.ad.Scalar:
@@ -1738,7 +1756,10 @@ def test_hashing_sparse_array(two_spmatrices):
     almost identical, but it is crucial to distinguish between them.
 
     """
-    m1, m2 = [pp.ad.SparseArray(mat) for mat in two_spmatrices]
+    space = pp.ad.OperatorSpace.unclear()
+    m1, m2 = [
+        pp.ad.SparseArray(mat, source=space, target=space) for mat in two_spmatrices
+    ]
     assert hash(m1) != hash(m2)
 
 
