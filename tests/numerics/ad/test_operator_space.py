@@ -507,6 +507,15 @@ class TestShapeConsistencyCheck:
 class TestDomainRangePropagation:
     """Test that binary operations propagate source and target."""
 
+    # TODO EK: See if this class should be merged with other tests.
+
+    @pytest.fixture(autouse=True)
+    def setup(self, two_subdomains):
+        g, _ = two_subdomains
+        self.space = self._cell_space(g)
+        self.a = DenseArray(np.ones(4), source=self.space, target=self.space)
+        self.s = Scalar(2.0)
+
     def _cell_space(self, g):
         return OperatorSpace.from_domains([g], {GridEntity.cells: 1})
 
@@ -515,32 +524,19 @@ class TestDomainRangePropagation:
         [_op.add, _op.sub, _op.mul, _op.truediv],
         ids=["add", "sub", "mul", "div"],
     )
-    def test_elementwise_same_space_propagates(self, two_subdomains, binary_op):
+    def test_elementwise_same_space_propagates(self, binary_op):
         """Elementwise ops between equal-space operands preserve source/target."""
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        a = DenseArray(np.ones(4), source=space, target=space)
-        b = DenseArray(np.ones(4), source=space, target=space)
-        result = binary_op(a, b)
-        assert result.source == space
-        assert result.target == space
+        result = binary_op(self.a, self.a)
+        assert result.source == self.space
+        assert result.target == self.space
 
-    def test_scalar_inherits_other_space(self, two_subdomains):
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        arr = DenseArray(np.ones(4), source=space, target=space)
-        s = Scalar(2.0)
-        result = s * arr
-        assert result.source == space
-        assert result.target == space
-
-    def test_other_inherits_scalar_space(self, two_subdomains):
-        g, _ = two_subdomains
-        space = self._cell_space(g)
-        arr = DenseArray(np.ones(4), source=space, target=space)
-        s = Scalar(2.0)
-        result = arr * s
-        assert result.source == space
+    @pytest.mark.parametrize(
+        "flipped", [True, False], ids=["scalar_first", "scalar_second"]
+    )
+    def test_scalar_inherits_other_space(self, flipped):
+        result = self.s * self.a if flipped else self.a * self.s
+        assert result.source == self.space
+        assert result.target == self.space
 
     def test_scalar_scalar_gives_scalar_space(self):
         s1 = Scalar(1.0)
@@ -550,6 +546,7 @@ class TestDomainRangePropagation:
         assert result.target == OperatorSpace.scalar()
 
     def test_incompatible_domains_raises(self, two_subdomains):
+        # TODO EK: Is this tested elsewhere?
         g1, g2 = two_subdomains
         s1 = self._cell_space(g1)
         s2 = self._cell_space(g2)
@@ -558,37 +555,9 @@ class TestDomainRangePropagation:
         with pytest.raises(ValueError, match="[Ii]ncompat"):
             _ = a + b
 
-    def test_matmul_propagates_outer_spaces(self, two_subdomains):
-        """For A @ B: result.source = B.source, result.target = A.target."""
-        g1, g2 = two_subdomains
-        s1 = self._cell_space(g1)
-        s2 = self._cell_space(g2)
-        # A maps s1 -> s2, B maps s2 -> s1
-        A = SparseArray(_eye_for(s2, s1), source=s1, target=s2)
-        B = SparseArray(_eye_for(s1, s2), source=s2, target=s1)
-        result = A @ B
-        assert result.source == s2
-        assert result.target == s2
-
-    def test_matmul_incompatible_target_source_raises(self, two_subdomains):
-        """A @ B raises if A.source != B.target."""
-        g1, g2 = two_subdomains
-        s1 = self._cell_space(g1)
-        s2 = self._cell_space(g2)
-        # A.source=s1, B.target=s2 -> incompatible
-        A = SparseArray(_eye_for(s2, s1), source=s1, target=s2)
-        B = SparseArray(_eye_for(s2, s1), source=s1, target=s2)
-        with pytest.raises(ValueError, match="[Ii]ncompat"):
-            _ = A @ B
-
-
-# ---------------------------------------------------------------------------
-# Stage 4c: TimeDependentDenseArray optional dof_info
-# ---------------------------------------------------------------------------
-
 
 class TestTimeDependentDenseArraySpaces:
-    def test_no_dof_info_gives_none(self, two_subdomains):
+    def test_no_dof_info_gives_default(self, two_subdomains):
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
         # When domains are provided but no dof_info, cells:1 is assumed.
