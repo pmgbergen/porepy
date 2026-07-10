@@ -16,7 +16,7 @@ from typing_extensions import TypeAlias
 import porepy as pp
 
 from . import _ad_parser
-from ._grid_entity import GridEntity
+from .grid_entity import GridEntity
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem", "GridEntity"]
