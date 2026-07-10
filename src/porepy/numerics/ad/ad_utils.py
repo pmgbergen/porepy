@@ -353,8 +353,8 @@ class MergedOperator(operators.Operator):
 
         # Infer operator source (column space) and target (row space) from the
         # discretization.
-        op_source: Optional[operators.OperatorSpace] = None
-        op_target: Optional[operators.OperatorSpace] = None
+        op_source: operators.OperatorSpace
+        op_target: operators.OperatorSpace
         domain_list: list[pp.GridLike] = list(domains) if domains else []
         if domains or domain_type is not None:
             row_dof = discr.get_row_dof_info(discretization_matrix_key, nd=nd)
