@@ -1237,7 +1237,11 @@ def _check_space_shape_consistency(
             and its predicted DOF count does not match ``actual_size``.
 
     """
-    if space is None or space.domain_type in (DomainType.scalar, DomainType.unclear):
+    if space is None or space.domain_type in (
+        DomainType.scalar,
+        DomainType.unclear,
+        DomainType.waived,
+    ):
         # Scalar/unclear spaces carry no grid-based size prediction; a `None`
         # space means the check simply cannot be performed (yet) for this
         # construction site.
