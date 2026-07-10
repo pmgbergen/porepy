@@ -1,10 +1,10 @@
 """PorePy 2D column (Weis 2014, Figure 5) for the subsection 4.1 overlay.
 
 Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {HU, HU-mw} -- at the
-geometry's native N=800 and nominal dt = 0.25 yr, level-5 Driesner tables, and writes each converged
-1D profile (distance, T, p, s_liq) extracted from the live model to
+geometry's native N=800 and nominal dt = 0.25 yr, level-3 Driesner tables (matching weis_1d_solver),
+and writes each converged 1D profile (distance, T, p, s_liq) extracted from the live model to
 
-    subsection_4_1/_cache/porepy_{case}_{scheme}_N800_l5.pkl
+    subsection_4_1/_cache/porepy_{case}_{scheme}_N800_l3[_spline].pkl
 
 with keys y[m], T[K], p[Pa], s_liq -- exactly what plot_style.to_plot_units consumes. PorePy still
 writes its usual VTU/PVD output alongside (periodic snapshots).
@@ -50,7 +50,7 @@ from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampl
 DAY = 86400.0
 TO_MEGA = 1.0e-6
 DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
-TABLE_LEVEL = 4                           # Driesner opensowat .vtr level (0..3; finest available)
+TABLE_LEVEL = 3                           # Driesner opensowat .vtr level (0..4 available; 3 matches weis_1d_solver)
 EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
 USE_SPLINE = True                         # OBL sampler backend: True -> NSplineSampler (value and
 #                                           gradient from one C2 tensor spline; consistent Jacobian);
