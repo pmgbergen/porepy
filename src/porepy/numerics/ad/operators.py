@@ -1549,6 +1549,8 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
+        ValueError: If the domain type cannot be inferred from the grids or from the
+            provided domain_type.
 
     """
 
@@ -1565,7 +1567,11 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
                 list(domains), resolved_dof_info, domain_type=domain_type
             )
         else:
-            space = None
+            f = (
+                "TimeDependentDenseArray: Either domains or domain_type must be"
+                " provided."
+            )
+            raise ValueError(f)
         super().__init__(name=name, source=space, target=space)
 
     def _key(self) -> str:
