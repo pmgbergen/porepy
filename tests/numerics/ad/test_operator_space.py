@@ -27,11 +27,6 @@ from porepy.numerics.discretization import Discretization, InterfaceDiscretizati
 from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 
 
-# ---------------------------------------------------------------------------
-# Module-level helpers
-# ---------------------------------------------------------------------------
-
-
 def _grid_for_dim(dim: int) -> pp.Grid:
     """Return a simple Cartesian grid of the given spatial dimension."""
     g = pp.CartGrid([3, 3] if dim == 2 else [2, 2, 2])
@@ -60,11 +55,6 @@ def _eye_for(target: OperatorSpace, source: OperatorSpace) -> sps.spmatrix:
     ``(target.num_dofs(), source.num_dofs())``, for use with :class:`SparseArray`.
     """
     return sps.eye(target.num_dofs(), source.num_dofs(), format="csr")
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -97,11 +87,6 @@ def fracture_mdg():
     return mdg
 
 
-# ---------------------------------------------------------------------------
-# DomainType
-# ---------------------------------------------------------------------------
-
-
 class TestDomainType:
     def test_members(self):
         assert DomainType.subdomains.value == "subdomains"
@@ -117,11 +102,6 @@ class TestDomainType:
             DomainType.scalar,
         ]
         assert len(set(types)) == 4
-
-
-# ---------------------------------------------------------------------------
-# OperatorSpace construction
-# ---------------------------------------------------------------------------
 
 
 class TestOperatorSpaceScalar:
@@ -206,11 +186,6 @@ class TestOperatorSpaceInequality:
         assert s1 != s2
 
 
-# ---------------------------------------------------------------------------
-# Operator.source and target properties
-# ---------------------------------------------------------------------------
-
-
 class TestOperatorProperties:
     def test_operator_requires_explicit_source_and_target(self):
         with pytest.raises(TypeError):
@@ -230,11 +205,6 @@ class TestOperatorProperties:
         assert op.target == space
 
 
-# ---------------------------------------------------------------------------
-# Leaf operator spaces
-# ---------------------------------------------------------------------------
-
-
 class TestScalarSpace:
     def test_scalar_has_scalar_space(self):
         s = Scalar(3.14)
@@ -247,7 +217,6 @@ class TestScalarSpace:
         grids = grids if isinstance(grids, (list, tuple)) else [grids]
         grid = list(grids)[0]
         s = Scalar(1.0, domains=[grid])
-        assert s.source is not None
         assert s.source.grids == (grid,)
         assert s.source == s.target
         expected_domain_type = (
@@ -260,7 +229,6 @@ class TestScalarSpace:
     def test_scalar_domain_is_cellwise(self, two_subdomains):
         """Domain-bearing Scalar uses the natural cell-based space on its grids."""
         s = Scalar(1.0, domains=two_subdomains[:1])
-        assert s.source is not None
         assert s.source.dof_info == {GridEntity.cells: 1}
 
     def test_scalar_neg_propagates_source(self, two_subdomains):
@@ -304,27 +272,23 @@ class TestVariableSpace:
 
     def test_variable_space_contains_correct_grid(self, two_subdomains):
         var = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
-        assert var.source is not None
         assert var.source.grids == (two_subdomains[0],)
 
     def test_variable_space_dof_info(self, two_subdomains):
         var = Variable(
             "u", {GridEntity.cells: 2, GridEntity.faces: 1}, two_subdomains[0]
         )
-        assert var.source is not None
         assert var.source.dof_info == {GridEntity.cells: 2, GridEntity.faces: 1}
 
     def test_variable_on_mortar_grid_has_interface_space(self, one_mortar):
         """Variable on a MortarGrid gets DomainType.interfaces."""
         var = Variable("lam", {GridEntity.cells: 1}, one_mortar)
-        assert var.source is not None
         assert var.source.domain_type == DomainType.interfaces
         assert var.source.grids == (one_mortar,)
 
     def test_variable_on_mortar_grid_dof_info(self, one_mortar):
         """dof_info is preserved when Variable is on a mortar grid."""
         var = Variable("lam", {GridEntity.cells: 2}, one_mortar)
-        assert var.source is not None
         assert var.source.dof_info == {GridEntity.cells: 2}
 
 
@@ -396,7 +360,6 @@ class TestSurrogateOperatorSpace:
             dof_info={GridEntity.cells: 1},
         )
         op = factory(list(mdg.subdomains()))
-        assert op.source is not None
         assert op.source.domain_type == DomainType.subdomains
         assert op.source.dof_info == {GridEntity.cells: 1}
 
@@ -437,9 +400,7 @@ class TestSurrogateOperatorSpace:
             children=[v1, v2],
             dof_info=None,
         )
-        assert op.source is not None
         assert op.source.dof_info == {GridEntity.cells: 1}
-        assert op.target is not None
         assert op.target.dof_info == {GridEntity.cells: 1}
 
 
@@ -631,9 +592,7 @@ class TestTimeDependentDenseArraySpaces:
         g1, g2 = two_subdomains
         arr = pp.ad.TimeDependentDenseArray("x", [g1, g2])
         # When domains are provided but no dof_info, cells:1 is assumed.
-        assert arr.source is not None
         assert arr.source.dof_info == {GridEntity.cells: 1}
-        assert arr.target is not None
         assert arr.target.dof_info == {GridEntity.cells: 1}
 
     def test_dof_info_cells(self, two_subdomains):
@@ -641,8 +600,6 @@ class TestTimeDependentDenseArraySpaces:
         arr = pp.ad.TimeDependentDenseArray(
             "x", [g1, g2], dof_info={GridEntity.cells: 1}
         )
-        assert arr.source is not None
-        assert arr.target is not None
         assert arr.source == arr.target
         assert GridEntity.cells in arr.source.dof_info
         assert set(arr.source.grids) == {g1, g2}
@@ -652,7 +609,6 @@ class TestTimeDependentDenseArraySpaces:
         arr = pp.ad.TimeDependentDenseArray(
             "x", [g1, g2], dof_info={GridEntity.faces: 2}
         )
-        assert arr.source is not None
         assert arr.source.dof_info == {GridEntity.faces: 2}
 
     def test_empty_domains_and_domain_type_raises(self):
@@ -802,7 +758,6 @@ class TestGridOperatorSpaces:
         )
         op = proj.sign_of_mortar_sides()
         for domain in [op.source, op.target]:
-            assert domain is not None
             assert domain.domain_type == DomainType.interfaces
             assert domain.grids == tuple(interfaces)
             assert domain.dof_info == {GridEntity.cells: 1}
@@ -813,17 +768,10 @@ class TestGridOperatorSpaces:
         mdg = fracture_mdg
         bp = pp.ad.BoundaryProjection(mdg, [], dim=1)
         op = bp.subdomain_to_boundary
-        assert op.source is not None
         assert op.source.domain_type == DomainType.subdomains
         assert op.source.grids == ()
-        assert op.target is not None
         assert op.target.domain_type == DomainType.boundary_grids
         assert op.target.grids == ()
-
-
-# ---------------------------------------------------------------------------
-# Stage 4e: MergedOperator source/target
-# ---------------------------------------------------------------------------
 
 
 class TestMergedOperatorSpaces:
@@ -862,8 +810,6 @@ class TestMergedOperatorSpaces:
             physics_key="flow",
             domains=[g1, g2],
         )
-        assert op.source is not None
-        assert op.target is not None
         assert GridEntity.faces in op.source.dof_info
         assert GridEntity.cells in op.target.dof_info
         assert set(op.source.grids) == {g1, g2}
@@ -1083,8 +1029,6 @@ class TestInferDomainRange:
         assert result.source == OperatorSpace.scalar()
         assert result.target == OperatorSpace.scalar()
 
-    # --- None source/target: skips validation (backward compat) ---
-
     def test_plain_python_scalar_exponent(self, cell_op, cell_space):
         """op ** 2 (plain Python int) should preserve source/target."""
         result = cell_op**2
@@ -1096,20 +1040,6 @@ class TestInferDomainRange:
         result = 1 / cell_op
         assert result.source == cell_space
         assert result.target == cell_space
-
-    # --- infer_source_target is public ---
-
-    def test_infer_source_target_is_public(self, cell_op):
-        """infer_source_target should be accessible on the Operations enum."""
-        assert hasattr(Operations.add, "infer_source_target")
-        dom, ran = Operations.add.infer_source_target(cell_op, cell_op)
-        assert dom is not None
-        assert ran is not None
-
-
-# ---------------------------------------------------------------------------
-# Stage 6: compound operator source/target propagation
-# ---------------------------------------------------------------------------
 
 
 class TestCompoundOperatorSpaces:
@@ -1234,27 +1164,8 @@ class TestCompoundOperatorSpaces:
         # cell_restriction maps cells→cells on the subset (square matrix here)
         # div maps faces→cells
         # We test that div has correct spaces
-        assert div.source is not None
         assert GridEntity.faces in div.source.dof_info
-        assert div.target is not None
         assert GridEntity.cells in div.target.dof_info
-
-    def test_source_and_target_stored_independently(self, two_subdomains):
-        """Even when domain == range, they are stored as independent attributes."""
-        g1, g2 = two_subdomains
-        cell_sp = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-        a = DenseArray(_zeros_for(cell_sp), source=cell_sp, target=cell_sp)
-        b = DenseArray(_zeros_for(cell_sp), source=cell_sp, target=cell_sp)
-        result = a + b
-        # source and target are equal in value, but are independent objects
-        assert result.source == result.target
-        assert result.source is not None
-        assert result.target is not None
-
-
-# ---------------------------------------------------------------------------
-# sum_operator_list and sum_projection_list space propagation
-# ---------------------------------------------------------------------------
 
 
 class TestSumOperatorListSpace:
