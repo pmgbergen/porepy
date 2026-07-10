@@ -550,8 +550,8 @@ class ModelGeometry(pp.PorePyModel):
             # raising (which is what OperatorSpace.from_domains would otherwise do
             # for a list of grids with mixed types).
             # TODO EK: I think this option is invalid for other reasons.
-            source: Optional[pp.ad.OperatorSpace] = pp.ad.OperatorSpace.unclear()
-            target: Optional[pp.ad.OperatorSpace] = pp.ad.OperatorSpace.unclear()
+            source: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
+            target: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
         else:
             source = pp.ad.OperatorSpace.from_domains(
                 list(grids), {pp.ad.GridEntity.cells: 1}, domain_type=domain_type
