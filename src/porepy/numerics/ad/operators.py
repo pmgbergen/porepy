@@ -394,10 +394,8 @@ class Operator:
             operator. Defaults to void operation.
         children (optional): List of children, other AD operators. Defaults to empty
             list.
-        source: Algebraic source space of this operator. Pass ``None`` explicitly if the
-            space is intentionally unspecified.
-        target: Algebraic target space of this operator. Pass ``None`` explicitly if the
-            space is intentionally unspecified.
+        source: Algebraic source space of this operator.
+        target: Algebraic target space of this operator.
 
     """
 
@@ -413,8 +411,11 @@ class Operator:
         self._source: Optional[OperatorSpace] = source
         self._target: Optional[OperatorSpace] = target
 
-        # assert source is not None
-        # assert target is not None
+        if source is None or target is None:
+            raise TypeError(
+                f"{self.__class__.__name__} must be constructed with a non-None "
+                "source and target OperatorSpace."
+            )
 
         self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
