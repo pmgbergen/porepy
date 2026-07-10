@@ -33,18 +33,14 @@ class TestGridEntityValues:
     def test_nodes_value(self):
         assert GridEntity.nodes.value == "nodes"
 
-    def test_void_value(self):
-        assert GridEntity.void.value == "void"
-
-    def test_enum_has_four_members(self):
-        assert len(GridEntity) == 4
+    def test_enum_has_three_members(self):
+        assert len(GridEntity) == 3
 
     def test_construction_from_string(self):
         """GridEntity('cells') == GridEntity.cells."""
         assert GridEntity("cells") is GridEntity.cells
         assert GridEntity("faces") is GridEntity.faces
         assert GridEntity("nodes") is GridEntity.nodes
-        assert GridEntity("void") is GridEntity.void
 
     def test_accessible_via_pp_ad(self):
         """GridEntity is accessible as pp.ad.GridEntity."""
