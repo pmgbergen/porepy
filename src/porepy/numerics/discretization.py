@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad._grid_entity import GridEntity
+    from porepy.numerics.ad.grid_entity import GridEntity
 
 
 class Discretization(abc.ABC):

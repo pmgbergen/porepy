@@ -37,7 +37,7 @@ from ._operator_states import (
     _get_previous_time_or_iterate,
     _get_reference,
 )
-from ._grid_entity import GridEntity
+from .grid_entity import GridEntity
 from .forward_mode import AdArray
 from .operator_space import DomainType, OperatorSpace
 
