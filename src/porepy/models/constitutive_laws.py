@@ -1650,7 +1650,22 @@ class AdTpfaFlux(pp.PorePyModel):
         # for a harmonic mean between the two half-face transmissibilities on ecah side
         # of a face.
         one = pp.ad.Scalar(1)
-        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+
+        hf_source = pp.ad.OperatorSpace.from_domains(
+            subdomains,
+            {pp.ad.GridEntity.cells: 9},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
+        # The number of half-transmissibilities equals two times the number of internal
+        # faces plus the number of external faces. This cannot be expressed by the
+        # current OperatorSpaces, so we explicitly disable the compatibility checks
+        # here.
+        t_hf_inv = one / (
+            pp.ad.SparseArray(
+                d_n_by_dist, source=hf_source, target=pp.ad.OperatorSpace.waived()
+            )
+            @ k_c
+        )
 
         # Compose full-face transmissibilities
         # Sum over half-faces to get transmissibility on faces.
@@ -1659,8 +1674,20 @@ class AdTpfaFlux(pp.PorePyModel):
         hf_to_f = diff_discr.half_face_map(
             subdomains, to_entity="faces", with_sign=True
         )
-        # Take the harmonic mean of the two half-face transmissibilities.
-        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+        hf_target = pp.ad.OperatorSpace.from_domains(
+            subdomains,
+            {pp.ad.GridEntity.faces: 1},
+            domain_type=pp.ad.DomainType.subdomains,
+        )
+
+        # Take the harmonic mean of the two half-face transmissibilities. See above
+        # comment on waiving the compatibility check for half-face transmissibilities.
+        t_f_full = one / (
+            pp.ad.SparseArray(
+                hf_to_f, source=pp.ad.OperatorSpace.waived(), target=hf_target
+            )
+            @ t_hf_inv
+        )
         t_f_full.set_name("transmissibility matrix")
         return t_f_full, diff_discr, hf_to_f, d_vec
 
