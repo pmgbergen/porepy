@@ -1206,6 +1206,7 @@ class EquationSystem:
         # We loop over the subdomains and interfaces in that order to assert a correct
         # indexation according to the global order (for grid in subdomains, for grid in
         # interfaces). The user does not have to care about the order in grids.
+        sorted_grids = []  # TODO YZ explain why
         for sd in self.mdg.subdomains():
             if sd in grids:
                 # Equations on subdomains can be defined on any grid quantity.
@@ -1223,6 +1224,7 @@ class EquationSystem:
                 # Remove the subdomain from the domain list.
                 # Ignore mypy error here, since we know that sd is in grids.
                 grids.remove(sd)  # type: ignore
+                sorted_grids.append(sd)  # TODO YZ explain why
 
         for intf in self.mdg.interfaces():
             if intf in grids:
@@ -1239,6 +1241,11 @@ class EquationSystem:
                 # Remove the grid from the domain list
                 # Ignore mypy error here, since we know that intf is in grids.
                 grids.remove(intf)  # type: ignore
+                sorted_grids.append(intf)  # TODO YZ explain why
+
+        # TODO YZ explain why
+        assert equation.domains is None or len(equation.domains) == 0
+        equation._domains = sorted_grids  # type: ignore
 
         # Assert the equation is not defined on an unknown domain.
         assert len(grids) == 0
