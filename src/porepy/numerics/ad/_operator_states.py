@@ -64,8 +64,8 @@ class TimeDependentOperator:
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         *,
-        source: Optional[OperatorSpace],
-        target: Optional[OperatorSpace],
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
             name=name,
@@ -189,8 +189,9 @@ class IterativeOperator:
         name: str | None = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        source: Optional[OperatorSpace] = None,
-        target: Optional[OperatorSpace] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
             name=name,
@@ -326,8 +327,9 @@ class ReferenceOperator:
         name: str | None = None,
         operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
-        source: Optional[OperatorSpace] = None,
-        target: Optional[OperatorSpace] = None,
+        *,
+        source: OperatorSpace,
+        target: OperatorSpace,
     ) -> None:
         super().__init__(  # type: ignore[call-arg]
             name=name,

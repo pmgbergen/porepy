@@ -177,15 +177,11 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         dof_info: Optional[dict[GridEntity, int]] = None,
         domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
-        op_space: Optional[pp.ad.OperatorSpace]
-        if len(domains) > 0 or domain_type is not None:
-            op_space = pp.ad.OperatorSpace.from_domains(
-                list(domains),
-                dof_info if dof_info is not None else {GridEntity.cells: 1},
-                domain_type=domain_type,
-            )
-        else:
-            op_space = None
+        op_space = pp.ad.OperatorSpace.from_domains(
+            list(domains),
+            dof_info if dof_info is not None else {GridEntity.cells: 1},
+            domain_type=domain_type,
+        )
 
         super().__init__(
             name=name,
