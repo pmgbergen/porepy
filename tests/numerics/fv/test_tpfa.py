@@ -143,13 +143,17 @@ class UnitTestAdTpfaFlux(
         self.mdg = mdg
         self.nd = 2
 
-    def _cell_projection(self, cell_id: int) -> sps.csr_matrix:
+    def _cell_projection(
+        self, cell_id: int, subdomains: list[pp.Grid]
+    ) -> pp.ad.SparseArray:
+        space = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
         if cell_id == 0:
-            return pp.ad.SparseArray(sps.csr_matrix(np.array([[1, 0], [0, 0]])))
+            mat = sps.csr_matrix(np.array([[1, 0], [0, 0]]))
         elif cell_id == 1:
-            return pp.ad.SparseArray(sps.csr_matrix(np.array([[0, 0], [0, 1]])))
+            mat = sps.csr_matrix(np.array([[0, 0], [0, 1]]))
         else:
             raise ValueError(f"Cell id {cell_id} is not valid.")
+        return pp.ad.SparseArray(mat, source=space, target=space)
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Non-constant permeability tensor. Depends on pressure.
@@ -183,8 +187,8 @@ class UnitTestAdTpfaFlux(
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
         p = self.pressure(subdomains)
 
-        cell_0_projection = self._cell_projection(0)
-        cell_1_projection = self._cell_projection(1)
+        cell_0_projection = self._cell_projection(0, subdomains)
+        cell_1_projection = self._cell_projection(1, subdomains)
 
         # Non-constant component of the permeability in cell 0
         cell_0_permeability = (
