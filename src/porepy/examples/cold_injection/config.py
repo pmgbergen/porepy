@@ -29,52 +29,50 @@ CIModel: TypeAlias = (
 )
 
 
-class RelaxedCFLEResidualCriterion(pp.ResidualBasedAbsoluteCriterion):
+class RelaxedCFLEResidualCriterion(pp.ResidualBasedCombinedCriterion):
     """Relaxed residual-based convergence criterion applying a separate tolerance
     for isofugacity constraints."""
 
     def __init__(
         self,
-        tol: float,
+        atol: float,
+        rtol: float,
         metric: Callable[[np.ndarray], ConvergenceInfo],
-        tol_isofug: float | None = None,
+        reference_value: ConvergenceInfo | None = None,
+        atol_isofug: float | None = None,
     ):
-        super().__init__(tol, metric)
-        self.tol_isofug = tol_isofug if tol_isofug is not None else tol
+        super().__init__(atol, rtol, metric, reference_value=reference_value)
+        self.atol_isofug = atol_isofug if atol_isofug is not None else atol
 
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence using :attr:`tol_isofug` for isofugacity constraints, and
-        :attr:`tol` for all other equations.
+        :attr:`tol` for all other equations."""
 
-        Parameters:
-            args: Positional arguments for the convergence check.
-            kwargs: Quantities to check for convergence.
-                - value: The value to check for convergence.
-
-        Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of
-                the non-linear iteration and information about the convergence check.
-
-        """
+        reference_value = self.metric(kwargs["reference_residual"])
         metric_value = self.metric(kwargs["residual"])
+        if reference_value is not None:
+            self.set_reference_value(reference_value)
+
         if isinstance(metric_value, dict):
+            assert isinstance(self.reference_value, dict)
             status = (
                 ConvergenceStatus.CONVERGED
                 if all(
-                    [
-                        v < self.tol_isofug if "isofugacity" in k else v < self.tol
-                        for k, v in metric_value.items()
-                    ]
+                    v
+                    < (self.atol_isofug if "isofugacity" in key else self.atol)
+                    + self.rtol * self.reference_value[key]
+                    for key, v in metric_value.items()
+                    if key in self.reference_value
                 )
                 else ConvergenceStatus.NOT_CONVERGED
             )
         else:
+            assert isinstance(self.reference_value, float)
             status = (
                 ConvergenceStatus.CONVERGED
-                if metric_value < self.tol
+                if metric_value < self.atol + self.rtol * self.reference_value
                 else ConvergenceStatus.NOT_CONVERGED
             )
-
         return status, metric_value
 
 
@@ -354,6 +352,7 @@ def get_default_convergence_criteria(
     atol_inc: float,
     atol_res_isofug: float,
     atol_div: float = 1e8,
+    rtol_res: float = 0.0,
 ) -> dict:
     """Returns the default convergence criteria for the CFLE setup."""
 
@@ -364,9 +363,10 @@ def get_default_convergence_criteria(
                 tol=atol_inc, metric=pp.VariableBasedLebesgueMetric(model)
             ),
             "res_abs": RelaxedCFLEResidualCriterion(
-                tol=atol_res,
+                atol=atol_res,
+                rtol=rtol_res,
                 metric=pp.EquationBasedLebesgueMetric(model),
-                tol_isofug=atol_res_isofug,
+                atol_isofug=atol_res_isofug,
             ),
         },
         "nl_divergence_criteria": {

@@ -468,17 +468,23 @@ class CFLESolver(pp.NewtonSolver):
 
         # Catch initial bad iterates. Goal is to trigger nan-divergence criterion early
         # enough if any method failes.
-        if np.any(np.isnan(dx)) or np.any(np.isinf(dx)):
+        diverged: bool | np.bool_ = np.any(np.isnan(dx)) or np.any(np.isinf(dx))
+        if diverged:
             return np.full_like(dx, np.nan)  # Trigger NanDivergence criterion.
-        diverged: bool | np.bool | np.bool_ = False
+
+        self._xk = model.equation_system.get_variable_values(iterate_index=0)
+        self._xks_norm = np.linalg.norm(model._scale_state(self._xk))
+
+        self.apply_chops(model, dx)
+        change = self.identify_phase_change(model, dx)
+
+        if change:
+            dx = self.get_equilibrated_trial_step(model, dx)
 
         do_armijo = self.params["do_armijo_line_search"]
         do_anderson = self.params["do_anderson_acceleration"]
         do_ntrdc = self.params["do_ntrdc"]
         least_squares = self.params["armijo_least_squares_form"]
-
-        self._xk = model.equation_system.get_variable_values(iterate_index=0)
-        self._xks_norm = np.linalg.norm(model._scale_state(self._xk))
 
         if do_ntrdc or (do_armijo and not least_squares):
             A, b = model.equation_system.assemble(evaluate_jacobian=True)
@@ -495,12 +501,9 @@ class CFLESolver(pp.NewtonSolver):
             self._F_norm = np.linalg.norm(self._F)
             self._pot = self._F_norm**2 * 0.5
 
-        self.apply_chops(model, dx)
-
-        dx = self.get_equilibrated_trial_step(model, dx)
         # self.resolve_md_flux_update(model, dx)
-
-        if do_ntrdc:
+        diverged = np.any(np.isnan(dx))
+        if do_ntrdc and not diverged:
             dx = self.ntrdc(model, dx)
             diverged = np.any(np.isnan(dx))
 
@@ -579,6 +582,38 @@ class CFLESolver(pp.NewtonSolver):
                 self.params["energy_clip"],
                 name,
             )
+
+    def identify_phase_change(
+        self, model: CIModel, dx: np.ndarray
+    ) -> list[tuple[pp.Grid, NDArray[np.bool_]]]:
+        """Returns per grid a boolean array identifying cells where the active set
+        of phases changed with ``self._xk + dx``."""
+        xk = self._xk
+        xk1 = xk + model._scale_back_state(dx, is_increment=True)
+
+        tol_p = 1e-8  # Tolerance for flagging phase present
+        tol_a = 1e-10  # Tolerance for flagging phase absent
+        change: list[tuple[pp.Grid, NDArray[np.bool_]]] = []
+
+        for grid in model.mdg.subdomains():
+            idx = np.zeros(grid.num_cells, dtype=np.bool_)
+
+            for phase in model.fluid.phases:
+                yk = model.equation_system.evaluate(phase.fraction([grid]), state=xk)
+                yk1 = model.equation_system.evaluate(phase.fraction([grid]), state=xk1)
+
+                # Phase appearing
+                idx = idx | ((yk1 > tol_p) & (yk < tol_p))
+                # Phase disappearing
+                idx = idx | ((yk1 < tol_p) & (yk > tol_p))
+
+            if np.any(idx):
+                logger.info(
+                    f"Detected phase change in {idx.sum()} cells on grid {grid.id}"
+                )
+                change.append((grid, idx))
+
+        return change
 
     def appleyard_chop(self, model: CIModel, dx: np.ndarray) -> None:
         """Simple chopping of updates for saturatons and phase fractions such that their

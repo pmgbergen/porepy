@@ -46,6 +46,7 @@ from porepy.models.compositional_flow_with_equilibrium import CFLEModelTemplate
 max_iterations = 30
 iter_range = (15, 25)
 newton_tol_res = 1e-5
+newton_rtol_res = 1e-2
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
 
@@ -76,7 +77,7 @@ solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
-solver_params["energy_clip"] = (0.95, 1.05)
+solver_params["energy_clip"] = (0.9, 1.1)
 model_params["use_logp_nonlinear_rpc"] = False
 
 solver_params["do_armijo_line_search"] = False
@@ -132,7 +133,8 @@ if __name__ == "__main__":
 
     # NOTE for debugging
     from porepy.examples.cold_injection.run_case2a import JUMP_TIME
-    APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 1.1)]
+
+    APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
@@ -197,7 +199,8 @@ if __name__ == "__main__":
             newton_tol_res,
             newton_tol_inc,
             newton_tol_res_isofug,
-            atol_div=1e12,
+            atol_div=1e10,
+            rtol_res=newton_rtol_res,
         )
     )
 

@@ -1348,7 +1348,7 @@ class SolutionStrategyEquilibrium(cf.SolutionStrategyPhaseProperties):
             )
 
         logger.info(
-            f"Fluid equilibrated on grid {grid.id}: "
+            f"Fluid {results.specification.name}-equilibrated on grid {grid.id}: "
             + f"t= {self.time_manager.time:.3e} "
             + f"i= {self.nonlinear_solver_statistics.num_iterations}"  # type: ignore[attr-defined]
         )

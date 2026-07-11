@@ -141,7 +141,7 @@ if __name__ == "__main__":
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
         time_schedule = modify_schedule(time_schedule)
-        time_schedule[25] = JUMP_TIME - 5.0
+        time_schedule[25] = JUMP_TIME - 15.0
     else:
         ajump = None
 

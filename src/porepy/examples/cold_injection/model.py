@@ -407,8 +407,8 @@ class SolutionStrategy(ModelConfig):
                             )
                     self.isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
-                    # if global_spec != self._ISOCHORIC_NPC_SPEC:
-                    #     self.local_equilibrium(grid)
+                    if global_spec != self._ISOCHORIC_NPC_SPEC:
+                        self.local_equilibrium(grid)
 
         if self.isochoric_npc_done:
             self.update_derived_quantities()
@@ -960,7 +960,7 @@ class BoundaryConditions(ModelConfig):
         return vals
 
 
-class Permeability(ModelConfig):
+class RockProperties(ModelConfig):
     """Custom permeability with a higher absolute permability around the wells and a
     constant permeability of 1 in the wells.
 
@@ -1065,6 +1065,32 @@ class Permeability(ModelConfig):
         K = self.isotropic_second_order_tensor(subdomains, K_)
         K.set_name("well_permeability")
         return K
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity is set to 1 in the wells and fractures.
+
+        Constant reference value for the rock matrix is used.
+        """
+        subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
+        subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        # Constant unitary porosity in fractures and wells, reference value elsewhere.
+
+        phi_nd = projection.cell_prolongation(
+            subdomains_nd
+        ) @ pp.wrap_as_dense_ad_array(
+            self.solid.porosity,
+            size=sum(sd.num_cells for sd in subdomains_nd),
+            name="reference_porosity",
+        )
+        phi_lower = projection.cell_prolongation(
+            subdomains_lower
+        ) @ pp.wrap_as_dense_ad_array(
+            1, size=sum(sd.num_cells for sd in subdomains_lower), name="one"
+        )
+        phi = phi_nd + phi_lower
+        phi.set_name("porosity")
+        return phi
 
 
 class DataCollectionMixin(pp.PorePyModel):
@@ -1212,9 +1238,9 @@ class DataCollectionMixin(pp.PorePyModel):
         self.equation_system.set_variable_values(xn, time_step_index=0)
 
 
-class ColdInjectionMixins(
+class ColdInjectionMixins(  # type:ignore[misc]
     DataCollectionMixin,
-    Permeability,
+    RockProperties,
     AdjustedPointWellModel,
     FluidMixture,
     InitialConditions,

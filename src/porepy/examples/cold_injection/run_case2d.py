@@ -45,9 +45,10 @@ from porepy.examples.cold_injection.run_case2a import (
 )
 from porepy.models.compositional_flow_with_equilibrium import CFLEModelTemplate
 
-max_iterations = 30
-iter_range = (15, 25)
-newton_tol_res = 1e-5
+max_iterations = 80
+iter_range = (30, 70)
+newton_tol_res = 1e-4
+newton_rtol_res = 1e-2
 newton_tol_res_isofug = 1e-2
 newton_tol_inc = 1.0
 
@@ -59,8 +60,8 @@ model_params, solver_params = get_default_params()
 model_params["flash_params"]["gen_arg_params"] = eos_params
 model_params["flash_params"]["phase_property_params"] = eos_params
 model_params["phase_property_params"] = eos_params
-model_params["flash_params"]["global_iteration_stride"] = None
-model_params["flash_params"]["solver_params"]["atol_res"] = 1e-5
+model_params["flash_params"]["global_iteration_stride"] = 3
+model_params["flash_params"]["solver_params"]["atol_res"] = 1e-3
 model_params["flash_params"]["solver_params"]["max_iterations"] = 80
 
 model_params["equilibrium_specification"] = (
@@ -74,11 +75,11 @@ model_params["flash_params"]["compile_args"] = (
 )
 
 solver_params["atol_objective"] = newton_tol_res
-solver_params["newton_chop"] = None
+solver_params["newton_chop"] = 0.4
 solver_params["appleyard_chop"] = 0.3
-solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
-solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
-solver_params["energy_clip"] = (0.95, 1.05)
+# solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
+# solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
+# solver_params["energy_clip"] = (0.9, 1.1)
 model_params["use_logp_nonlinear_rpc"] = False
 
 solver_params["do_armijo_line_search"] = False
@@ -133,14 +134,14 @@ if __name__ == "__main__":
     APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
-    from porepy.examples.cold_injection.run_case2a import JUMP_TIME
-    APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 1.1)]
+    # from porepy.examples.cold_injection.run_case2a import JUMP_TIME
+    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
         time_schedule = modify_schedule(time_schedule)
-        time_schedule[25] = JUMP_TIME - 15
+        # time_schedule[25] = JUMP_TIME - 15
     else:
         ajump = None
 
@@ -199,7 +200,8 @@ if __name__ == "__main__":
             newton_tol_res,
             newton_tol_inc,
             newton_tol_res_isofug,
-            atol_div=1e12,
+            atol_div=1e10,
+            rtol_res=newton_rtol_res,
         )
     )
 

@@ -129,7 +129,6 @@ if __name__ == "__main__":
     # NOTE for debugging
     # from porepy.examples.cold_injection.run_case2a import JUMP_TIME
     # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
-    # E_PRIMARY = False
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:

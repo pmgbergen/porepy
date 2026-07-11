@@ -57,7 +57,12 @@ def modify_schedule(old_schedule: list[float]) -> list[float]:
     t_after: list[float] = t[t > JUMP_TIME].tolist()
     if t_before[-1] < T_BEFORE_JUMP:
         t_before += [T_BEFORE_JUMP]
-    return t_before + np.arange(JUMP_TIME, t_after[0], pp.HOUR).tolist() + t_after
+    if t_after[0] > JUMP_TIME + pp.HOUR:
+        t_before += (
+            np.arange(JUMP_TIME, JUMP_TIME + pp.HOUR, pp.MINUTE).tolist()
+            + np.arange(JUMP_TIME + pp.HOUR, t_after[0], pp.HOUR).tolist()
+        )
+    return t_before + t_after
 
 
 model_params, solver_params = get_default_params()
@@ -321,7 +326,6 @@ class ModelClass(  # type:ignore
 model_params["create_fluid_volume_variable"] = False
 
 
-# ModelClass._PRESSURE_BOUNDARY_ON = False
 ModelClass._COMPONENT_NAMES = ["H2O"]
 ModelClass._IDEAL_COMPONENTS = [pp.compositional.ideal.IdealH2O]
 # NOTE water density in mol / m^3 at 15 MPa and 300 K using Peng-Robinson.
