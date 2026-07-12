@@ -37,8 +37,8 @@ Unknowns per cell: pressure ``p`` and the two independent saturations ``s_w``, `
     phase w mass:  phi |c| (s_w - s_w^old)/dt + sum_faces q_w = 0
     phase g mass:  phi |c| (s_g - s_g^old)/dt + sum_faces q_g = 0
 
-Three schemes (``scheme=``)
----------------------------
+Four schemes (``scheme=``)
+--------------------------
 ``"hu"``   -- hybrid upwinding: viscous part ``q_T = lambda_T[up] V_T`` (total mobility
               upwinded by sign(V_T)); buoyant part = the simplicial counter-current term summed
               over the three phase pairs, each pair upwinded along its own inter-phase gravity
@@ -48,6 +48,13 @@ Three schemes (``scheme=``)
 ``"hu-mw"``-- like ``"hu"`` but the total mobility is folded into the face transmissibility as a
               HARMONIC face average ``q_T = harmonic(lambda_T)^face V_T`` (mobility-weighted /
               "K*lambda" placement, paper Remark 3.2); buoyancy identical to ``"hu"``.
+``"hu-wa"``-- EXACTLY ``"hu"`` (total-flux viscous split + counter-current simplicial pairs), EXCEPT
+              the buoyant pair flux uses the MOBILITY-PRODUCT form ``lambda_a lambda_b / lambda_T``
+              (classical Lee/Hamon ``U^HU``) instead of the fractional-flow ``f_a f_b lambda_T``.
+              Dropping the fractional-flow total-mobility normalization is what sharpens the fronts
+              to PPU level (Bosma ``U = Lambda_L Lambda_R U^HU``); eps on the ``lambda_T`` denominator
+              (=0 at fully-segregated faces). SHARP but less robust than ``"hu"`` -- the
+              mobility-product form lacks the simplicial monotonicity guarantee.
 
 Newton upwind DIRECTIONS are frozen per time step from the previous converged state
 (Bosma/Weis: "use the old velocity field to define the upwind nodes"); the mobility MAGNITUDES
@@ -320,17 +327,22 @@ def _face_fluxes(x, grid, dirs):
         upT = dirs.upT
         if dirs.scheme == "hu-mw":
             qT = _harmonic_face(lamT, fL, fR) * V_T       # total mobility in transmissibility
-        else:
-            qT = lamT[upT] * V_T                          # total mobility upwinded
+        else:                                             # "hu" and "hu-wa": total mobility upwinded
+            qT = lamT[upT] * V_T
         for a in (W, O, GG):
-            q[a] = f[a][upT] * qT                         # viscous fractional-flow split
-        for (a, b) in _PAIRS:                             # simplicial buoyancy, +to a / -to b
+            q[a] = f[a][upT] * qT                         # viscous fractional-flow split (total flux)
+        for (a, b) in _PAIRS:                             # buoyancy, +to a / -to b
             e = ({W, O, GG} - {a, b}).pop()
-            ia, ib = dirs.pair_up[(a, b)]
+            ia, ib = dirs.pair_up[(a, b)]                 # counter-current density-driven directions
             wflux = -GC * (RHO[a] - RHO[b])
             lam_up = (lam[a][ia] + lam[b][ib]
                       + CHI * lam[e][ia] + (1.0 - CHI) * lam[e][ib])   # reconstruct lambda_T
-            b_ab = f[a][ia] * f[b][ib] * lam_up * wflux
+            if dirs.scheme == "hu-wa":                    # mobility-product form: U^HU = la*lb / lam_T
+                # lam_up is the total mobility in the DENOMINATOR; it can vanish at fully-segregated
+                # faces, so a tiny eps keeps it non-zero (negligible vs the ~1e3 mobility scale).
+                b_ab = (lam[a][ia] * lam[b][ib] / (lam_up + 1.0e-30)) * wflux
+            else:                                         # simplicial fractional-flow form: fa*fb*lam_T
+                b_ab = f[a][ia] * f[b][ib] * lam_up * wflux
             q[a] = q[a] + b_ab
             q[b] = q[b] - b_ab
     return qT, q[W], q[GG]
@@ -613,7 +625,7 @@ def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=Non
     ``stats`` a :class:`RunStats`.
     """
     scheme = scheme.lower()
-    assert scheme in ("hu", "ppu", "hu-mw"), scheme
+    assert scheme in ("hu", "ppu", "hu-mw", "hu-wa"), scheme
     t_end = (t_end_days if t_end_days is not None else max(snap_days)) * DAY
     grid = make_grid(nx, ny)
     pattern = sparsity_pattern(grid)
@@ -774,7 +786,7 @@ def _parse_args(argv=None):
     p = argparse.ArgumentParser(
         description="2-D three-phase gravity segregation through barriers "
                     "(Bosma et al. 2022, Ex. 6.3). Writes per-snapshot .vtr + a stats .txt.")
-    p.add_argument("--scheme", default="all", choices=["hu", "ppu", "hu-mw", "all"],
+    p.add_argument("--scheme", default="all", choices=["hu", "ppu", "hu-mw", "hu-wa", "all"],
                    help="upwinding scheme (default: all three)")
     p.add_argument("--nx", type=int, default=100, help="cells in x (default 100)")
     p.add_argument("--ny", type=int, default=100, help="cells in y (default 100)")
@@ -800,7 +812,7 @@ if __name__ == "__main__":
     args = _parse_args()
     HERE = os.path.dirname(os.path.abspath(__file__))
     OUT = args.out or os.path.join(HERE, "vtr")
-    schemes = ("hu", "ppu", "hu-mw") if args.scheme == "all" else (args.scheme,)
+    schemes = ("hu", "ppu", "hu-mw", "hu-wa") if args.scheme == "all" else (args.scheme,)
     results = {}
     for scheme in schemes:
         grid, snaps, stats = run(scheme, nx=args.nx, ny=args.ny, dt_days=args.dt_days,
