@@ -53,16 +53,17 @@ buoyant-pair form and the total-mobility placement:
 
 ``"hu"``   = HU-BM(ff) -- simplicial FRACTIONAL-FLOW buoyancy ``f_a f_b lambda_T``; viscous part
               ``q_T = lambda_T[up] V_T`` (total mobility upwinded by sign(V_T)).
-``"hu-mw"``= HU-BM(mw) -- FRACTIONAL-FLOW buoyancy (identical to (ff)), but the viscous total
-              mobility is folded into the face transmissibility as a HARMONIC (mobility-weighted)
-              face average ``q_T = harmonic(lambda_T)^face V_T`` ("K*lambda" placement, Remark 3.2).
 ``"hu-mp"``= HU-BM(mp) -- MOBILITY-PRODUCT buoyancy ``lambda_a lambda_b / lambda_T`` (classical
-              Lee/Hamon ``U^HU``) instead of the fractional-flow ``f_a f_b lambda_T``; viscous split
-              as in (ff). Dropping the fractional-flow total-mobility normalization sharpens the
-              fronts to PPU level (Bosma ``U = Lambda_L Lambda_R U^HU``); eps on the ``lambda_T``
-              denominator (=0 at fully-segregated faces). At N=2 the background is void and HU-BM(mp)
-              reduces EXACTLY to Lee (2015). SHARP but less robust than (ff) -- the mobility-product
-              form lacks the simplicial monotonicity guarantee.
+              Lee/Hamon ``U^HU``) instead of the fractional-flow ``f_a f_b lambda_T``; SAME upwind
+              viscous split as (ff). Dropping the fractional-flow normalization sharpens the fronts
+              to PPU level (Bosma ``U = Lambda_L Lambda_R U^HU``); eps on the ``lambda_T`` denominator
+              (=0 at fully-segregated faces). At N=2 the background is void and HU-BM(mp) reduces
+              EXACTLY to Lee (2015).
+``"hu-mw"``= HU-BM(mw) -- the EXACT (mp) mobility-product buoyant term, but the viscous total
+              mobility is folded into the face transmissibility as a HARMONIC (mobility-weighted)
+              face average ``q_T = harmonic(lambda_T)^face V_T`` ("K*lambda" placement, Remark 3.2)
+              instead of upwinded. Best corner of two orthogonal levers: mp buoyancy = PPU-sharp
+              fronts; harmonic viscous = differentiable (no m_e=0 switch) => fewest Newton iterations.
 ``"ppu"``  -- phase-potential upwinding (NOT an HU-BM member): each phase rides its OWN potential,
               ``q_a = lambda_a[up_a] Phi_a`` with ``up_a = sign(Phi_a)``; buoyancy intrinsic.
 
@@ -136,7 +137,7 @@ def set_phase_system(nphase: int):
 SCHEME_LABELS = {
     "hu":    "HU-BM(ff)",   # simplicial fractional-flow buoyancy  f_a f_b lambda_T
     "hu-mp": "HU-BM(mp)",   # mobility-product buoyancy  lambda_a lambda_b / lambda_T  (= Lee at N=2)
-    "hu-mw": "HU-BM(mw)",   # fractional-flow buoyancy, harmonic (mobility-weighted) face lambda_T
+    "hu-mw": "HU-BM(mw)",   # mobility-product buoyancy + harmonic (mobility-weighted) face lambda_T
     "ppu":   "PPU",         # phase-potential upwinding (not an HU-BM member)
 }
 
@@ -416,7 +417,9 @@ def _face_fluxes(x, grid, dirs):
             # pairwise HU to any N -- for N=3 it is the single third phase).
             bg = sum(CHI * lam[e][ia] + (1.0 - CHI) * lam[e][ib] for e in passive)
             lam_up = lam[a][ia] + lam[b][ib] + bg          # reconstruct lambda_T (pair + background)
-            if dirs.scheme == "hu-mp":                    # HU-BM(mp): mobility-product U^HU = la*lb / lam_T
+            if dirs.scheme in ("hu-mp", "hu-mw"):         # mobility-product buoyancy U^HU = la*lb / lam_T
+                # HU-BM(mp) and HU-BM(mw) share the EXACT simplicial mobility-product buoyant term;
+                # they differ only in the viscous total-mobility placement (upwind vs harmonic above).
                 # lam_up (total mobility, DENOMINATOR) can vanish at fully-segregated faces -> eps.
                 b_ab = (lam[a][ia] * lam[b][ib] / (lam_up + 1.0e-30)) * wflux
             else:                                         # HU-BM(ff): fractional-flow form fa*fb*lam_T
