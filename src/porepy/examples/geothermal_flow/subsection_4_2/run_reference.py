@@ -15,6 +15,7 @@ Usage:
     python run_reference.py                # run everything (needs the `porepy` env active)
     python run_reference.py --dry-run      # print the planned runs, execute nothing
     python run_reference.py --step 2       # run only step 2 (or --step 1)
+    python run_reference.py --scheme hu-mp # run only one scheme (hu / ppu / hu-mw / hu-mp)
 
 Wall time is a few minutes on one core with the default CPR iterative solver (the direct
 factorization of the Lagrange bordered system was far slower).
@@ -38,10 +39,10 @@ def _plan(step):
     """Return the list of (label, scheme, out_dir, run_kwargs) for the requested step(s)."""
     plan = []
     if step in ("1", "all"):                                        # Step 1: full reference
-        for scheme in ("hu", "ppu", "hu-mw"):                       # (defaults -> 100^2, 571 d)
+        for scheme in ("hu", "ppu", "hu-mw", "hu-mp"):              # (defaults -> 100^2, 571 d)
             plan.append(("step1", scheme, os.path.join(HERE, "vtr"), dict(nx=100, ny=100)))
     if step in ("2", "all"):                                        # Step 2: 200^2, early time
-        for scheme in ("ppu", "hu", "hu-mw"):
+        for scheme in ("ppu", "hu", "hu-mw", "hu-mp"):
             out = os.path.join(HERE, f"output_ref_{scheme.replace('-', '_')}")
             plan.append(("step2", scheme, out,
                          dict(nx=200, ny=200, t_end_days=78, snap_days=(0.0, 78.0))))
@@ -63,17 +64,25 @@ def main(argv=None):
         description="Run the subsection 4.2 reference simulations (Bosma 2022 Ex. 6.3).")
     ap.add_argument("--step", choices=["1", "2", "all"], default="all",
                     help="which step(s) to run (default: all)")
+    ap.add_argument("--scheme", choices=["hu", "ppu", "hu-mw", "hu-mp", "all"], default="all",
+                    help="run only this scheme (default: all)")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the planned runs without executing them")
     ap.add_argument("--linear-solver", default="cpr", choices=["cpr", "scipy"],
                     help="Newton linear solver (default: cpr = FGMRES + CPR two-stage "
                          "preconditioner, iterative and fast at scale; 'scipy' = spsolve/SuperLU "
                          "on the Lagrange bordered system).")
+    ap.add_argument("--dir-lag", default="iteration", choices=["iteration", "step"],
+                    help="upwind-direction lagging: 'iteration' (default, refresh each Newton "
+                         "iterate) or 'step' (freeze once per time step).")
     args = ap.parse_args(argv)
 
     plan = _plan(args.step)
-    for _, _, _, kw in plan:                         # apply the chosen linear solver to every run
+    if args.scheme != "all":                         # keep only the requested scheme
+        plan = [row for row in plan if row[1] == args.scheme]
+    for _, _, _, kw in plan:                         # apply the chosen solver + lag to every run
         kw["linear_solver"] = args.linear_solver
+        kw["dir_lag"] = args.dir_lag
     if args.dry_run:
         for label, scheme, out_dir, kw in plan:
             print(f"{label}: run(scheme={scheme!r}, out={os.path.relpath(out_dir, HERE)!r}, "

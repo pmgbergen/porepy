@@ -9,10 +9,9 @@ Two figures (both saved to ``figures/``):
           (BLUE = heavy/water, RED = light/gas, WHITE = intermediate/oil), barriers overlaid in
           dark grey, depth (0 at top) on the y-axis. One figure per scheme.
 
-  --gas   (from step-2 output ``output_ref_<scheme>/``): a 3-panel comparison of the GAS
-          saturation at 78 days -- ppu (left), hu (middle), hu-mw (right) -- each panel titled
-          with that scheme's total Newton iterations and number of time-step cuts (read from
-          ``stats_<scheme>.txt``).
+  --gas   (from step-2 output ``output_ref_<scheme>/``): a comparison of the GAS saturation at
+          78 days -- ppu, hu, hu-mw, hu-mp -- each panel titled with that scheme's
+          total Newton iterations and number of time-step cuts (read from ``stats_<scheme>.txt``).
 
 Usage:
     python plot_reference.py               # both figures (needs run_reference.py output)
@@ -45,7 +44,7 @@ except ImportError:                          # seaborn optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LX = LY = 100.0                              # domain [m]
-SCHEMES = ("hu", "ppu", "hu-mw")
+SCHEMES = ("hu", "ppu", "hu-mw", "hu-mp")
 DEFAULT_DAYS = (0, 78, 571)
 _ABC = "abcdefghijklmnop"
 
@@ -163,7 +162,7 @@ def plot_maps(scheme, vtr_dir, days, out_dir, cmap="vlag"):
 # --------------------------------------------------------------------------------------- #
 def plot_gas_comparison(base, schemes, day, out_dir, cmap="vlag"):
     cm = _cmap(cmap)
-    order = ["ppu", "hu", "hu-mw"]                          # left -> right, as requested
+    order = ["ppu", "hu", "hu-mw", "hu-mp"]                 # left -> right, as requested
     schemes = [s for s in order if s in schemes] or order
     fig, axes = plt.subplots(1, len(schemes), figsize=(4.4 * len(schemes), 4.8))
     if len(schemes) == 1:

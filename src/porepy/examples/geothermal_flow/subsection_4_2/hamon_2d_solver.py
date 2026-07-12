@@ -48,7 +48,7 @@ Four schemes (``scheme=``)
 ``"hu-mw"``-- like ``"hu"`` but the total mobility is folded into the face transmissibility as a
               HARMONIC face average ``q_T = harmonic(lambda_T)^face V_T`` (mobility-weighted /
               "K*lambda" placement, paper Remark 3.2); buoyancy identical to ``"hu"``.
-``"hu-wa"``-- EXACTLY ``"hu"`` (total-flux viscous split + counter-current simplicial pairs), EXCEPT
+``"hu-mp"``-- EXACTLY ``"hu"`` (total-flux viscous split + counter-current simplicial pairs), EXCEPT
               the buoyant pair flux uses the MOBILITY-PRODUCT form ``lambda_a lambda_b / lambda_T``
               (classical Lee/Hamon ``U^HU``) instead of the fractional-flow ``f_a f_b lambda_T``.
               Dropping the fractional-flow total-mobility normalization is what sharpens the fronts
@@ -56,10 +56,13 @@ Four schemes (``scheme=``)
               (=0 at fully-segregated faces). SHARP but less robust than ``"hu"`` -- the
               mobility-product form lacks the simplicial monotonicity guarantee.
 
-Newton upwind DIRECTIONS are frozen per time step from the previous converged state
-(Bosma/Weis: "use the old velocity field to define the upwind nodes"); the mobility MAGNITUDES
-are at the current iterate (fully implicit).  The Jacobian is a sparse finite difference
-(5-point stencil sparsity, coloured by ``scipy``).
+Newton upwind DIRECTIONS are lagged, held fixed WITHIN each linear solve (so the FD Jacobian
+never differentiates the upwind switch); ``dir_lag`` sets the refresh cadence -- ``"iteration"``
+(default) re-lags them from the current iterate every Newton step (fully-implicit upwinding via a
+fixed point on the directions), ``"step"`` freezes them once per time step from the previous
+converged state (semi-implicit, Bosma/Weis "old velocity field"). Mobility MAGNITUDES are always at
+the current iterate. The Jacobian is a sparse finite difference (5-point stencil, coloured by
+``scipy``).
 
 Output: each requested snapshot is written as a VTK RectilinearGrid ``.vtr`` (cell data:
 ``s_w``, ``s_o``, ``s_g``, ``p``, ``barrier``) for visualization.
@@ -327,7 +330,7 @@ def _face_fluxes(x, grid, dirs):
         upT = dirs.upT
         if dirs.scheme == "hu-mw":
             qT = _harmonic_face(lamT, fL, fR) * V_T       # total mobility in transmissibility
-        else:                                             # "hu" and "hu-wa": total mobility upwinded
+        else:                                             # "hu" and "hu-mp": total mobility upwinded
             qT = lamT[upT] * V_T
         for a in (W, O, GG):
             q[a] = f[a][upT] * qT                         # viscous fractional-flow split (total flux)
@@ -337,7 +340,7 @@ def _face_fluxes(x, grid, dirs):
             wflux = -GC * (RHO[a] - RHO[b])
             lam_up = (lam[a][ia] + lam[b][ib]
                       + CHI * lam[e][ia] + (1.0 - CHI) * lam[e][ib])   # reconstruct lambda_T
-            if dirs.scheme == "hu-wa":                    # mobility-product form: U^HU = la*lb / lam_T
+            if dirs.scheme == "hu-mp":                    # mobility-product form: U^HU = la*lb / lam_T
                 # lam_up is the total mobility in the DENOMINATOR; it can vanish at fully-segregated
                 # faces, so a tiny eps keeps it non-zero (negligible vs the ~1e3 mobility scale).
                 b_ab = (lam[a][ia] * lam[b][ib] / (lam_up + 1.0e-30)) * wflux
@@ -515,7 +518,7 @@ def _project_simplex(sw, sg):
     return sw * scale, sg * scale
 
 
-def newton(r, x0, pattern, grid, dt, atol=1e-5, maxit=20, linsolve=None):
+def newton(r, x0, pattern, grid, dt, atol=1e-5, maxit=20, linsolve=None, relag=None):
     """Newton for the CLOSED domain, with a LAGRANGE-MULTIPLIER pressure datum.
 
     ``r`` is the raw residual, whose pressure block is singular (null space = constant
@@ -530,6 +533,12 @@ def newton(r, x0, pattern, grid, dt, atol=1e-5, maxit=20, linsolve=None):
     there is no point-source artifact and total mass is conserved exactly. Backtracking line
     search on the physical residual; PorePy-style absolute per-equation stop. ``lam`` is ~0 at
     convergence and is not returned. Returns ``(x, n_iter, metric, converged)``.
+
+    ``relag(x)``, if given, refreshes the lagged upwind DIRECTIONS from the current iterate (called
+    at ``x0`` and after each accepted step) -- per-Newton-iteration lagging. The directions stay
+    fixed WITHIN a single linear solve, so the finite-difference Jacobian never differentiates the
+    upwind switch. With ``relag=None`` the directions are whatever ``r`` was built with (lagged
+    once per time step).
     """
     if linsolve is None:
         linsolve = lambda A, b: spsolve(A.tocsr(), b)
@@ -556,6 +565,8 @@ def newton(r, x0, pattern, grid, dt, atol=1e-5, maxit=20, linsolve=None):
 
     x = x0.copy()
     lam = 0.0
+    if relag is not None:
+        relag(x)                                       # lag directions at the initial iterate
     rp = phys(x, lam)
     nrm = np.linalg.norm(rp)
     for it in range(maxit):
@@ -580,7 +591,13 @@ def newton(r, x0, pattern, grid, dt, atol=1e-5, maxit=20, linsolve=None):
             if nn < nrm or step < 1.0e-3:
                 break
             step *= 0.5
-        x, lam, rp, nrm = xn, lam + step * dlam, rpn, nn
+        x, lam = xn, lam + step * dlam
+        if relag is not None:                          # refresh directions at the new iterate,
+            relag(x)                                   # then re-evaluate the residual under them
+            rp = phys(x, lam)
+            nrm = np.linalg.norm(rp)
+        else:
+            rp, nrm = rpn, nn
     return x, maxit, metric(rp), False                 # not converged -> retry with smaller dt
 
 
@@ -608,24 +625,29 @@ class RunStats:
 
 
 def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=None,
-        atol=1e-5, linear_solver="cpr", verbose=True):
+        atol=1e-5, linear_solver="cpr", dir_lag="iteration", verbose=True):
     """Advance the three-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``t_end_days`` sets the run horizon in days; when ``None`` it defaults to ``max(snap_days)``
     so the report times and the horizon can never drift apart. Snapshot instants beyond the
     horizon are simply never reached.
 
-    Fully-implicit backward Euler; the Newton upwind directions are lagged per step. A step
-    that does not converge within the Newton cap is REJECTED -- NEVER accepted, since a stalled
-    step corrupts the segregation fronts (see ``weis_1d_solver``): it is halved and retried,
-    down to a floor of ``dt0 / 64``; ``dt`` then grows back gradually. ``total_it`` counts
-    accepted steps only, so it is directly comparable to ``weis_1d_solver`` / PorePy.
+    Fully-implicit backward Euler. ``dir_lag`` controls when the upwind DIRECTIONS are lagged:
+    ``"iteration"`` (default) refreshes them from the current iterate every Newton iteration
+    (fully-implicit upwinding via a fixed-point on the directions); ``"step"`` freezes them once
+    per time step from the previous converged state (semi-implicit, Bosma/Weis "old velocity
+    field"). Either way the directions are held fixed inside each linear solve (smooth FD
+    Jacobian); only the cadence of refreshing differs. A step that does not converge within the
+    Newton cap is REJECTED -- NEVER accepted, since a stalled step corrupts the segregation fronts
+    (see ``weis_1d_solver``): it is halved and retried, down to a floor of ``dt0 / 64``; ``dt``
+    then grows back gradually. ``total_it`` counts accepted steps only.
 
     Returns ``(grid, snapshots, stats)`` with ``snapshots[day] = dict(sw, so, sg, p)`` and
     ``stats`` a :class:`RunStats`.
     """
     scheme = scheme.lower()
-    assert scheme in ("hu", "ppu", "hu-mw", "hu-wa"), scheme
+    assert scheme in ("hu", "ppu", "hu-mw", "hu-mp"), scheme
+    assert dir_lag in ("iteration", "step"), dir_lag
     t_end = (t_end_days if t_end_days is not None else max(snap_days)) * DAY
     grid = make_grid(nx, ny)
     pattern = sparsity_pattern(grid)
@@ -658,9 +680,15 @@ def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=Non
                 step_dt = min(step_dt, d * DAY - t)
                 break
         sw_old, sg_old = x[nc:2 * nc].copy(), x[2 * nc:].copy()
-        dirs = frozen_directions(x, grid, scheme)        # lagged directions (last accepted state)
+        dirs = frozen_directions(x, grid, scheme)        # directions at the last accepted state
         r = make_residual(grid, step_dt, sw_old, sg_old, dirs)
-        x_new, its, m, ok = newton(r, x, pattern, grid, step_dt, atol=atol, linsolve=linsolve)
+        relag = None
+        if dir_lag == "iteration":                       # refresh directions every Newton iterate,
+            def relag(xx, _d=dirs):                      #   mutating the dirs that ``r`` captured
+                nd = frozen_directions(xx, grid, scheme)
+                _d.upT, _d.up_phase, _d.pair_up = nd.upT, nd.up_phase, nd.pair_up
+        x_new, its, m, ok = newton(r, x, pattern, grid, step_dt, atol=atol, linsolve=linsolve,
+                                   relag=relag)
 
         if not ok and step_dt > dt_floor + 1e-30:        # REJECT: never advance on a stalled step
             n_cuts += 1
@@ -786,7 +814,7 @@ def _parse_args(argv=None):
     p = argparse.ArgumentParser(
         description="2-D three-phase gravity segregation through barriers "
                     "(Bosma et al. 2022, Ex. 6.3). Writes per-snapshot .vtr + a stats .txt.")
-    p.add_argument("--scheme", default="all", choices=["hu", "ppu", "hu-mw", "hu-wa", "all"],
+    p.add_argument("--scheme", default="all", choices=["hu", "ppu", "hu-mw", "hu-mp", "all"],
                    help="upwinding scheme (default: all three)")
     p.add_argument("--nx", type=int, default=100, help="cells in x (default 100)")
     p.add_argument("--ny", type=int, default=100, help="cells in y (default 100)")
@@ -802,6 +830,10 @@ def _parse_args(argv=None):
                    help="Newton linear solver: 'cpr' (FGMRES + CPR two-stage preconditioner on the "
                         "sparse singular system -- iterative, fast at scale) or 'scipy' "
                         "(spsolve/SuperLU on the Lagrange bordered system). Default cpr.")
+    p.add_argument("--dir-lag", default="iteration", choices=["iteration", "step"],
+                   help="when to lag the upwind directions: 'iteration' (default, refresh each "
+                        "Newton iterate -- fully-implicit upwinding) or 'step' (freeze once per "
+                        "time step from the previous converged state -- semi-implicit).")
     p.add_argument("--out", default=None,
                    help="output directory for .vtr / stats (default: ./vtr next to this file)")
     p.add_argument("--quiet", action="store_true", help="suppress per-step progress")
@@ -812,13 +844,13 @@ if __name__ == "__main__":
     args = _parse_args()
     HERE = os.path.dirname(os.path.abspath(__file__))
     OUT = args.out or os.path.join(HERE, "vtr")
-    schemes = ("hu", "ppu", "hu-mw", "hu-wa") if args.scheme == "all" else (args.scheme,)
+    schemes = ("hu", "ppu", "hu-mw", "hu-mp") if args.scheme == "all" else (args.scheme,)
     results = {}
     for scheme in schemes:
         grid, snaps, stats = run(scheme, nx=args.nx, ny=args.ny, dt_days=args.dt_days,
                                  snap_days=tuple(args.snap_days), t_end_days=args.t_end_days,
                                  atol=args.atol, linear_solver=args.linear_solver,
-                                 verbose=not args.quiet)
+                                 dir_lag=args.dir_lag, verbose=not args.quiet)
         paths = write_snapshots_vtr(OUT, scheme, grid, snaps)
         paths.append(write_stats(OUT, stats))
         results[scheme] = stats
