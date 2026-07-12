@@ -107,7 +107,7 @@ def compute(N=N, level=LEVEL, case=CASE, lag_upwind=LAG_UPWIND, n_steps=None,
     """Run the 5 (scheme, density) combinations for the vertical verification. Resumable per-run
     cache in _cache/ (avg/up and cur/lag tagged); aggregate cached."""
     path = os.path.join(
-        m.HERE, f"_cache_verification_{case}_{_lag_tag(lag_upwind)}_N{N}_l{level}.pkl")
+        CACHE_DIR, f"aggregate_verification_{case}_{_lag_tag(lag_upwind)}_N{N}_l{level}.pkl")
     if cache and os.path.exists(path):
         with open(path, "rb") as f:
             print(f"[verification] loaded aggregate {os.path.basename(path)}")
@@ -139,13 +139,16 @@ def load_porepy_case(case, scheme, N=800, level=LEVEL):
     Returned normalized to the weis_1d_solver SI convention so ``plot_style.to_plot_units`` applies
     unchanged: PorePy's pressure primary variable is in the model's MPa units, so it is rescaled to
     Pa (x1e6). ``y``[m], ``T``[K], ``s_liq``[-] are already SI. Returns the dict, or None."""
-    path = os.path.join(CACHE_DIR, f"porepy_{case}_{scheme}_N{N}_l{level}.pkl")
-    if not os.path.exists(path):
-        return None
-    with open(path, "rb") as f:
-        d = dict(pickle.load(f))
-    d["p"] = d["p"] * 1.0e6                     # MPa (PorePy native) -> Pa (SI, as the 1D solver)
-    return d
+    # porepy_1d_solver names its output with the OBL-sampler suffix ("_spline" when USE_SPLINE,
+    # "" for the VTK probe); prefer the spline run, fall back to the plain (VTK) name.
+    for suffix in ("_spline", ""):
+        path = os.path.join(CACHE_DIR, f"porepy_{case}_{scheme}_N{N}_l{level}{suffix}.pkl")
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                d = dict(pickle.load(f))
+            d["p"] = d["p"] * 1.0e6            # MPa (PorePy native) -> Pa (SI, as the 1D solver)
+            return d
+    return None
 
 
 def load_weis_case(case, scheme, N=800, level=LEVEL):

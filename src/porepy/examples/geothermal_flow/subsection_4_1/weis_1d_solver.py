@@ -11,12 +11,16 @@ exercise the two buoyancy upwinding schemes without the cost of the full PorePy 
 
 Two buoyancy options (``scheme``):
     * ``"hu"``  -- Hybrid Upwinding: the inter-phase gravity flux ``+/- ddf(rho_l - rho_v)``
-                   sets the two upwind directions.
+                   sets the two upwind directions; the buoyancy magnitude is the MOBILITY-PRODUCT
+                   ``b = lambda_g^up lambda_d^up / (lambda_g^up + lambda_d^up) * w_flux`` -- the
+                   classical Lee/Hamon ``U^HU``, i.e. HU-BM(mp) (two-phase => void background, so
+                   the pair total mobility is the bare upwinded sum).
     * ``"ppu"`` -- Phase-Potential Upwinding: each phase's own potential
-                   ``Psi_g = T_f (p_L - p_U) - K A rho_g g`` sets its upwind direction.
-Only the upwind *direction* differs; the buoyancy magnitude
-``b = f_g^up f_d^up (lambda_g^up + lambda_d^up) w_flux`` is identical, exactly as in PorePy's
-``__entity_buoyancy_flux`` (non-mass-mobility-weighted branch, which fig_5 uses).
+                   ``Psi_g = T_f (p_L - p_U) - K A rho_g g`` sets its upwind direction; buoyancy is
+                   intrinsic to ``Psi_g`` (no separate magnitude).
+NOTE: the ``"hu"`` buoyancy magnitude is the mobility-product form, NOT the fractional-flow
+``f_g f_d (lambda_g + lambda_d)`` of PorePy's ``__entity_buoyancy_flux`` -- the two differ by the
+Bosma ``Lambda_L Lambda_R`` rescaling.
 
 Model (per cell, 2 conservation laws; primaries p[Pa], h[J/kg]; z_NaCl = 0)
 --------------------------------------------------------------------------
@@ -406,7 +410,12 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
             F_mass = V_T * pr.lam_T[up]
             F_en_adv = V_T * pr.adv_h[up]
         w_flux = -geom.GA * (rho_l_f - rho_v_f)      # face-centered buoyant driving force
-        common = pr.f_l[ug] * pr.f_v[ud] * (pr.mm_l[ug] + pr.mm_v[ud])
+        # HU-BM(mp): MOBILITY-PRODUCT buoyancy magnitude  lambda_l lambda_v / lambda_T  (the classical
+        # Lee/Hamon U^HU), NOT the fractional-flow  f_l f_v (lambda_l + lambda_v).  Two-phase => the
+        # pair total mobility is the bare upwinded sum (background void); eps guards fully-segregated
+        # faces where it vanishes.  Matches hamon_2d_solver.py's "hu-mp" (= HU-BM(mp)); label stays "hu".
+        lam_pair = pr.mm_l[ug] + pr.mm_v[ud]
+        common = pr.mm_l[ug] * pr.mm_v[ud] / (lam_pair + 1.0e-30)
         F_buoy = common * w_flux * (pr.h_l[ug] - pr.h_v[ud])
         F_en = F_four + F_en_adv + F_buoy
 
@@ -513,7 +522,7 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 #  Newton time stepping
 # --------------------------------------------------------------------------------------- #
 def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
-                rtol=0.0, atol=1e-5, maxit=25, verbose=False, grav_upstream=False,
+                rtol=0.0, atol=1e-5, maxit=20, verbose=False, grav_upstream=False,
                 weighted_perm=False, lag_upwind=False):
     p_old = x_old[0::2]; h_old = x_old[1::2]
     pr_old = eval_props(table, p_old, h_old)                  # x_old props: ONE eval

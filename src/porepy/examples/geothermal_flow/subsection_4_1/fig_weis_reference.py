@@ -159,8 +159,8 @@ def compute_spatial(N_levels=N_LEVELS, dt=DT_FIXED, level=LEVEL_SPATIAL, case=CA
     reloads the per-run caches in _cache/ and only runs what is missing. The gravity-density
     (avg/up) and advective (cur/lag) treatments are tagged into all cache names, so they coexist."""
     path = os.path.join(
-        m.HERE,
-        f"_cache_spatial_{case}_{_dens_tag(grav_upstream)}_{_lag_tag(lag_upwind)}"
+        CACHE_DIR,
+        f"aggregate_spatial_{case}_{_dens_tag(grav_upstream)}_{_lag_tag(lag_upwind)}"
         f"_l{level}_dt{dt / m.YEAR:.5g}yr.pkl")
     expected = [(sk, N) for sk in ps.SCHEMES for N in N_levels]
     if cache:
@@ -183,7 +183,7 @@ def compute_obl(levels=OBL_LEVELS, N=N_OBL, dt=DT_FIXED, case=CASE,
     """3 schemes x OBL levels at fixed N -> {(scheme_key, level): result}. Resumable; density
     (avg/up) and advective (cur/lag) treatments tagged into the cache names."""
     path = os.path.join(
-        m.HERE, f"_cache_obl_{case}_{_dens_tag(grav_upstream)}_{_lag_tag(lag_upwind)}"
+        CACHE_DIR, f"aggregate_obl_{case}_{_dens_tag(grav_upstream)}_{_lag_tag(lag_upwind)}"
         f"_N{N}_dt{dt / m.YEAR:.5g}yr.pkl")
     expected = [(sk, lv) for sk in ps.SCHEMES for lv in levels]
     if cache:

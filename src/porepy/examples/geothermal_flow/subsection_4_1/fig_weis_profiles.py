@@ -38,11 +38,11 @@ EXTRA_N = 200          # 4th curve (vertical only): PPU with UPWINDED gravity de
 OUT_DIR = os.path.join(m.HERE, "figures")
 
 
+CACHE_DIR = os.path.join(m.HERE, "_cache")     # per-run + aggregate caches (resumable + observable)
+
+
 def _cache_path(N, level, lag_upwind):
-    return os.path.join(m.HERE, f"_cache_profiles_{_lag_tag(lag_upwind)}_N{N}_l{level}.pkl")
-
-
-CACHE_DIR = os.path.join(m.HERE, "_cache")     # per-run caches (resumable + observable)
+    return os.path.join(CACHE_DIR, f"aggregate_profiles_{_lag_tag(lag_upwind)}_N{N}_l{level}.pkl")
 
 
 def _lag_tag(lag_upwind):
