@@ -38,7 +38,7 @@ from porepy.models.compositional_flow_with_equilibrium import (
 )
 
 JUMP_TIME = 25 * pp.DAY
-T_BEFORE_JUMP = JUMP_TIME - pp.HOUR
+T_BEFORE_JUMP = JUMP_TIME - 2 * pp.HOUR
 T_END_DAYS = 50
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 dt_init = pp.DAY * 0.5
@@ -68,7 +68,6 @@ def modify_schedule(old_schedule: list[float]) -> list[float]:
 model_params, solver_params = get_default_params()
 
 # model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
-# model_params["times_to_export"] = time_schedule
 
 eos_params = [1e-4, 1e-2, 1e-3, 10.0]
 model_params["flash_params"]["gen_arg_params"] = eos_params
@@ -246,7 +245,7 @@ class Case2DataCollection(pp.PorePyModel):
                         to_global=True, T_transient_end_time=t
                     )
 
-                self._transient_over = self._transient_over and self._T_transient_over
+                # self._transient_over = self._transient_over and self._T_transient_over
 
             if self._transient_over:
                 self.nonlinear_solver_statistics.log_custom_data(
@@ -291,7 +290,7 @@ def resolve_args(
         else:
             ajump = args.aperture
         ajump = float(ajump)
-        assert ajump >= 1, f"Expecting aperture jump factor >1. Got {ajump}."
+        assert ajump >= 1, f"Expecting aperture jump factor >=1. Got {ajump}."
         if ajump > 1:
             schedule = [(JUMP_TIME, ajump)]
         else:
@@ -346,8 +345,8 @@ if __name__ == "__main__":
     E_PRIMARY = False
 
     # NOTE for debugging
-    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 10)]
-    # ISOCHORIC_NPC = True
+    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
+    # ISOCHORIC_NPC = False
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
@@ -369,6 +368,7 @@ if __name__ == "__main__":
         print_info=True,
         atol=5e-15,
     )
+    model_params["times_to_export"] = time_schedule
 
     if ISOCHORIC_NPC:
         ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT

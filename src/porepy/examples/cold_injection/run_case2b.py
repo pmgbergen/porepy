@@ -52,7 +52,6 @@ iter_range = (15, max_iterations)
 model_params, solver_params = get_default_params()
 
 # model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
-# model_params["times_to_export"] = time_schedule
 
 model_params["flash_params"]["gen_arg_params"] = eos_params
 model_params["flash_params"]["phase_property_params"] = eos_params
@@ -129,6 +128,7 @@ if __name__ == "__main__":
     # NOTE for debugging
     # from porepy.examples.cold_injection.run_case2a import JUMP_TIME
     # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
+    # ISOCHORIC_NPC = True
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
@@ -150,6 +150,7 @@ if __name__ == "__main__":
         print_info=True,
         atol=5e-15,
     )
+    model_params["times_to_export"] = time_schedule
 
     if ISOCHORIC_NPC:
         ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT

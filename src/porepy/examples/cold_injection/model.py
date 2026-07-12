@@ -244,7 +244,14 @@ class SolutionStrategy(ModelConfig):
                 )
 
             elif do_default_flash:
-                self.local_equilibrium(grid)
+                try:
+                    self.local_equilibrium(grid)
+                except:
+                    logger.warning(
+                        f"Flash preconditioning failed at t={self.time_manager.time}"
+                        f" and iter={self.nonlinear_solver_statistics.num_iterations}"
+                    )
+                    continue
 
     def update_interface_fluxes(self) -> None:
         interfaces = self.mdg.interfaces(codim=1)
@@ -407,8 +414,8 @@ class SolutionStrategy(ModelConfig):
                             )
                     self.isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
-                    if global_spec != self._ISOCHORIC_NPC_SPEC:
-                        self.local_equilibrium(grid)
+                    # if global_spec != self._ISOCHORIC_NPC_SPEC:
+                    # self.local_equilibrium(grid)
 
         if self.isochoric_npc_done:
             self.update_derived_quantities()

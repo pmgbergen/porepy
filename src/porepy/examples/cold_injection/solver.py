@@ -460,7 +460,15 @@ class CFLESolver(pp.NewtonSolver):
 
         in_physical_space = self.params["in_physical_space"]
         # Raw Newton update.
-        dx = super().iteration(model)  # type:ignore[arg-type]
+        try:
+            dx = super().iteration(model)  # type:ignore[arg-type]
+        except:
+            logger.warning(
+                f"Assembly or lin-solve failure at t={model.time_manager.time} and "
+                f"iter={self.iteration_index}"
+            )
+            dx = np.full((model.equation_system.num_dofs(),), np.nan)
+
         if in_physical_space:
             dx = model._scale_back_state(dx, is_increment=True)
             model.current_column_scales = None
@@ -479,7 +487,14 @@ class CFLESolver(pp.NewtonSolver):
         change = self.identify_phase_change(model, dx)
 
         if change:
-            dx = self.get_equilibrated_trial_step(model, dx)
+            try:
+                dx = self.get_equilibrated_trial_step(model, dx)
+            except:
+                logger.warning(
+                    f"Trial step equilibration failure at t={model.time_manager.time}"
+                    f" and iter={self.iteration_index}"
+                )
+                dx = np.full((model.equation_system.num_dofs(),), np.nan)
 
         do_armijo = self.params["do_armijo_line_search"]
         do_anderson = self.params["do_anderson_acceleration"]

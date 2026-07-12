@@ -1411,10 +1411,11 @@ def invert_diagonal_blocks(
                 # Reshape flattened block to squared dense block of size[ib]
                 dense_block = np.reshape(flat_block, (sz[ib + 1], sz[ib + 1]))
                 # Perform inversion and assigning values from a 1-D ravelled array
-                if np.linalg.matrix_rank(dense_block) < sz[ib + 1]:
-                    inv_block = np.linalg.pinv(dense_block, rcond=1e-14)
-                else:
-                    inv_block = np.linalg.inv(dense_block)
+                inv_block = np.linalg.pinv(dense_block, rcond=1e-14)
+                # if np.linalg.matrix_rank(dense_block) < sz[ib + 1]:
+                #     inv_block = np.linalg.pinv(dense_block, rcond=1e-14)
+                # else:
+                #     inv_block = np.linalg.inv(dense_block)
                 v[v_range] = np.ravel(inv_block)
             return v
 

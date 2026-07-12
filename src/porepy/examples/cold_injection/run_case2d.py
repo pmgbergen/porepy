@@ -55,7 +55,6 @@ newton_tol_inc = 1.0
 model_params, solver_params = get_default_params()
 
 # model_params["linear_solver"] = "pypardiso"  # scipy_sparse default
-# model_params["times_to_export"] = time_schedule
 
 model_params["flash_params"]["gen_arg_params"] = eos_params
 model_params["flash_params"]["phase_property_params"] = eos_params
@@ -75,11 +74,11 @@ model_params["flash_params"]["compile_args"] = (
 )
 
 solver_params["atol_objective"] = newton_tol_res
-solver_params["newton_chop"] = 0.4
+solver_params["newton_chop"] = None
 solver_params["appleyard_chop"] = 0.3
-# solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
+# solver_params["pressure_clip"] = (0.8, 1.2)  # (0.8, 1.2)
 # solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
-# solver_params["energy_clip"] = (0.9, 1.1)
+# solver_params["energy_clip"] = (0.8, 1.2)
 model_params["use_logp_nonlinear_rpc"] = False
 
 solver_params["do_armijo_line_search"] = False
@@ -135,13 +134,13 @@ if __name__ == "__main__":
 
     # NOTE for debugging
     # from porepy.examples.cold_injection.run_case2a import JUMP_TIME
-    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
+    # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 2.0)]
+    # ISOCHORIC_NPC = True
 
     ajump: float | None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
         time_schedule = modify_schedule(time_schedule)
-        # time_schedule[25] = JUMP_TIME - 15
     else:
         ajump = None
 
@@ -158,6 +157,7 @@ if __name__ == "__main__":
         print_info=True,
         atol=5e-15,
     )
+    model_params["times_to_export"] = time_schedule
 
     if ISOCHORIC_NPC:
         ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu

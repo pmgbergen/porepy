@@ -38,12 +38,18 @@ FOLDER = "visualization/"
 # Fetching data stored in directories.
 c2a_dir: str = "visualization/CI_CASE2A/"
 c2b_dir: str = "visualization/CI_CASE2B/"
+c2c_dir: str = "visualization/CI_CASE2C/"
+c2d_dir: str = "visualization/CI_CASE2D/"
 
 c2a_sims = [p.name for p in Path(c2a_dir).iterdir() if p.is_dir()]
 c2b_sims = [p.name for p in Path(c2b_dir).iterdir() if p.is_dir()]
+c2c_sims = [p.name for p in Path(c2c_dir).iterdir() if p.is_dir()]
+c2d_sims = [p.name for p in Path(c2d_dir).iterdir() if p.is_dir()]
 
 print("Found Case 2a dirs:\n" + "\n".join(c2a_sims))
 print("Found Case 2b dirs:\n" + "\n".join(c2b_sims))
+print("Found Case 2c dirs:\n" + "\n".join(c2c_sims))
+print("Found Case 2d dirs:\n" + "\n".join(c2d_sims))
 
 
 # region Read data
@@ -72,22 +78,16 @@ def collect_from_raw(data: dict) -> dict:
     d["_folder"] = data["_folder"]
     d["_subfolder"] = data["_subfolder"]
 
-    d["transient_times"] = np.array(data["global"]["transient_t"])
-    d["transient_end_time"] = data["global"]["transient_end_time"]
-    d["gas_disappears_time"] = data["global"]["gas_disappears_time"]
-    d["p_transient_end_time"] = data["global"]["p_transient_end_time"]
-    d["delta_p_l2_transient"] = np.array(data["global"]["delta_p_l2_transient"])
-    d["delta_p_max_transient"] = np.array(data["global"]["delta_p_max_transient"])
-
-    if thermal:
-        d["delta_T_l2_transient"] = np.array(data["global"]["delta_T_l2_transient"])
-        d["delta_T_max_transient"] = np.array(data["global"]["delta_T_max_transient"])
-        d["T_transient_end_time"] = data["global"]["T_transient_end_time"]
+    d["success"] = (
+        True
+        if (
+            data["global"]["final_simulation_status"] == "successful"
+            and bool(int(data["global"]["final_time_reached"]))
+        )
+        else False
+    )
 
     d["num_cells"] = sum([int(_) for _ in data["global"]["num_cells"].values()])
-    d["success"] = (
-        True if data["global"]["final_simulation_status"] == "successful" else False
-    )
     d["total_global_iter"] = int(data["global"]["total_num_iterations"])
     d["wasted_global_iter"] = int(data["global"]["total_num_waisted_iterations"])
     d["total_time_steps"] = int(data["global"]["total_num_time_steps"])
@@ -146,6 +146,35 @@ def collect_from_raw(data: dict) -> dict:
         np.array(times_of_halvings["count"]),
     )
 
+    dg = data["global"]
+
+    d["transient_times"] = np.zeros((0,))
+    d["delta_p_l2_transient"] = np.zeros((0,))
+    d["delta_p_max_transient"] = np.zeros((0,))
+    d["delta_T_l2_transient"] = np.zeros((0,))
+    d["delta_T_max_transient"] = np.zeros((0,))
+    d["transient_end_time"] = np.nan
+    d["gas_disappears_time"] = np.nan
+    d["p_transient_end_time"] = np.nan
+    d["T_transient_end_time"] = np.nan
+
+    if "transient_t" in dg:
+        d["transient_times"] = np.array(dg["transient_t"])
+        d["delta_p_l2_transient"] = np.array(dg["delta_p_l2_transient"])
+        d["delta_p_max_transient"] = np.array(dg["delta_p_max_transient"])
+        if thermal:
+            d["delta_T_l2_transient"] = np.array(dg["delta_T_l2_transient"])
+            d["delta_T_max_transient"] = np.array(dg["delta_T_max_transient"])
+
+    if "transient_end_time" in dg:
+        d["transient_end_time"] = dg["transient_end_time"]
+    if "gas_disappears_time" in dg:
+        d["gas_disappears_time"] = dg["gas_disappears_time"]
+    if "p_transient_end_time" in dg:
+        d["p_transient_end_time"] = dg["p_transient_end_time"]
+    if thermal and "T_transient_end_time" in dg:
+        d["T_transient_end_time"] = dg["T_transient_end_time"]
+
     return d
 
 
@@ -156,18 +185,27 @@ def get_a(data: dict) -> float:
     return float(name[i + 7 : j])
 
 
-c2b_ajump = [
-    fetch(c2b_dir, p) for p in c2b_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
-]
-c2b_e = [fetch(c2b_dir, p) for p in c2b_sims if "EPRIM_False" in p][0]
-c2b_npc = [fetch(c2b_dir, p) for p in c2b_sims if "ICHOR_False" in p][0]
-
 c2a_ajump = [
     fetch(c2a_dir, p) for p in c2a_sims if ("EPRIM_False" in p) and ("ICHOR_True" in p)
 ][0]
 c2a_npc = [
     fetch(c2a_dir, p) for p in c2a_sims if ("EPRIM_False" in p) and ("ICHOR_False" in p)
 ][0]
+
+c2b_ajump = [
+    fetch(c2b_dir, p) for p in c2b_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
+]
+c2b_npc = [fetch(c2b_dir, p) for p in c2b_sims if "ICHOR_False" in p][0]
+
+c2c_ajump = [
+    fetch(c2c_dir, p) for p in c2c_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
+]
+c2c_npc = [fetch(c2c_dir, p) for p in c2c_sims if "ICHOR_False" in p][0]
+
+c2d_ajump = [
+    fetch(c2d_dir, p) for p in c2d_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
+]
+c2d_npc = [fetch(c2d_dir, p) for p in c2d_sims if "ICHOR_False" in p][0]
 
 plot_data = {}
 
@@ -179,17 +217,50 @@ plot_data["case2a"]["no_npc"] = collect_from_raw(c2a_npc)
 # Case 2b data
 plot_data["case2b"] = {}
 plot_data["case2b"]["no_npc"] = collect_from_raw(c2b_npc)
-# plot_data["case2b"]["ext_elim"] = collect_from_raw(c2b_e)
 plot_data["case2b"]["ajump"] = {}
 
-c2b_plot: dict[float, tuple[np.ndarray, np.ndarray]] = {}
 for data in c2b_ajump:
-    a = get_a(data)
-    plot_data["case2b"]["ajump"][a] = collect_from_raw(data)
+    plot_data["case2b"]["ajump"][get_a(data)] = collect_from_raw(data)
+
+# Case 2c data
+plot_data["case2c"] = {}
+plot_data["case2c"]["no_npc"] = collect_from_raw(c2c_npc)
+plot_data["case2c"]["ajump"] = {}
+for data in c2c_ajump:
+    plot_data["case2c"]["ajump"][get_a(data)] = collect_from_raw(data)
+
+# Case 2d data
+plot_data["case2d"] = {}
+plot_data["case2d"]["no_npc"] = collect_from_raw(c2d_npc)
+plot_data["case2d"]["ajump"] = {}
+for data in c2d_ajump:
+    plot_data["case2d"]["ajump"][get_a(data)] = collect_from_raw(data)
 
 # Sort with aperture jump
 plot_data["case2b"]["ajump"] = dict(sorted(plot_data["case2b"]["ajump"].items()))
+plot_data["case2c"]["ajump"] = dict(sorted(plot_data["case2c"]["ajump"].items()))
+plot_data["case2d"]["ajump"] = dict(sorted(plot_data["case2d"]["ajump"].items()))
 
+# Check success of simulations
+print("Simulation success:")
+print("Case 2a no npc: ", plot_data["case2a"]["no_npc"]["success"])
+print(
+    f"Case 2a jump {get_a(plot_data['case2a']['ajump'])}: ",
+    plot_data["case2a"]["ajump"]["success"],
+)
+
+print("Case 2b no npc: ", plot_data["case2b"]["no_npc"]["success"])
+for a, data in plot_data["case2b"]["ajump"].items():
+    print(f"Case 2b jump {a}: ", data["success"])
+
+print("Case 2c no npc: ", plot_data["case2c"]["no_npc"]["success"])
+for a, data in plot_data["case2c"]["ajump"].items():
+    print(f"Case 2c jump {a}: ", data["success"])
+
+print("Case 2d no npc: ", plot_data["case2d"]["no_npc"]["success"])
+for a, data in plot_data["case2d"]["ajump"].items():
+    print(f"Case 2d jump {a}: ", data["success"])
+print("---")
 # endregion
 
 frac_tol = 1e-10  # Below this, gas is considered absent.
