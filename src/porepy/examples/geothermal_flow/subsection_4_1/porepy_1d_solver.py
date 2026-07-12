@@ -239,7 +239,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
 
 def main() -> None:
     for geometry_case in ["horizontal","vertical"]:
-        for weighted_perm in [True, False]:
+        for weighted_perm in [True,False]:
             run_case(geometry_case, weighted_perm)
 
 
