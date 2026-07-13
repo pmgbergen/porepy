@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -667,17 +667,47 @@ class UpwindCoupling(InterfaceDiscretization):
         return matrix, rhs
 
 
+def _dirichlet_inflow(
+    bc: pp.BoundaryCondition,
+    pos_flux: np.ndarray,
+    neg_flux: np.ndarray,
+    cf_dense: np.ndarray,
+) -> np.ndarray:
+    """Dirichlet boundary faces that are INFLOW for the given flux direction (the upstream cell is
+    the exterior). These are dropped from the transport matrix -- handled by the boundary term."""
+    return np.where(
+        np.logical_and(
+            bc.is_dir,
+            np.logical_or(
+                np.logical_and(pos_flux, cf_dense[0] < 0),
+                np.logical_and(neg_flux, cf_dense[1] < 0),
+            ),
+        )
+    )[0]
+
+
 def _single_point_upwind_matrices(
     sd: pp.Grid,
     flux_array: np.ndarray,
     bc: pp.BoundaryCondition,
     num_components: int,
+    cache: Optional[dict] = None,
 ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix]:
     """Single-point upstream-weighting matrices for one signed flux array.
 
     Faithful extraction of :meth:`Upwind.discretize` so it can be reused for *two*
     directions in one discretization (see :class:`HUpwind`). Returns
     ``(upwind, bound_transport_dir, bound_transport_neu)``.
+
+    DATA-ONLY FAST PATH. The upwind sparsity is FIXED (fixed-sparsity weighting below + fixed
+    geometry + fixed Neumann set), so re-discretization only changes the per-face *data* (which
+    neighbour is upstream). If a caller-owned ``cache`` dict is supplied, the first call builds and
+    stores the CSR structure plus the ``values -> data`` scatter map; subsequent calls with an
+    UNCHANGED drop-mask skip the COO / ``tocsr`` / sort entirely and just scatter the new data into
+    the cached structure. When a Dirichlet face flips inflow/outflow (the only way the mask can
+    change) the structure is rebuilt and re-cached. ``cache=None`` (default) always does the full
+    build, preserving the original behaviour for other callers. The fast path is bit-identical to
+    the full build; it is enabled only for the common ``num_components == 1`` case.
     """
     if sd.dim == 0:
         return (
@@ -689,18 +719,37 @@ def _single_point_upwind_matrices(
     pos_flux = sign_flux >= 0
     neg_flux = np.logical_not(pos_flux)
 
+    # ---- data-only fast path (cached structure, single component, unchanged drop-mask) ----
+    st = cache.get("struct") if (cache is not None and num_components == 1) else None
+    if st is not None:
+        if not st["has_dir"]:
+            bc_dir = st["bc_dir"]  # no Dirichlet faces -> the drop-mask is fixed
+            fast = True
+        else:
+            inflow = _dirichlet_inflow(bc, pos_flux, neg_flux, st["cf_dense"])
+            drop = st["drop_neu"].copy()
+            drop[inflow] = True
+            fast = bool(np.array_equal(st["col_ok"] & ~drop[st["row"]], st["keep"]))
+            if fast:  # inflow set unchanged too -> refresh only the (small) boundary matrix
+                bc_dir = sps.coo_matrix(
+                    (np.ones(inflow.size), (inflow, inflow)),
+                    shape=(sd.num_faces, sd.num_faces),
+                ).tocsr()
+        if fast:
+            values = np.concatenate([pos_flux.astype(float), neg_flux.astype(float)])
+            upwind = sps.csr_matrix(
+                (values[st["data_src"]], st["indices"], st["indptr"]),
+                shape=st["shape"],
+                copy=False,
+            )
+            upwind.has_sorted_indices = True  # cached indices are sorted -> no re-sort/mutation
+            return upwind, bc_dir, st["bc_neu"]
+
+    # ---- full build (first call, changed structure, no cache, or num_components != 1) ----
     cf_dense = sd.cell_faces_as_dense()
 
     neumann_ind = np.where(bc.is_neu)[0]
-    inflow_ind = np.where(
-        np.logical_and(
-            bc.is_dir,
-            np.logical_or(
-                np.logical_and(pos_flux, cf_dense[0] < 0),
-                np.logical_and(neg_flux, cf_dense[1] < 0),
-            ),
-        )
-    )[0]
+    inflow_ind = _dirichlet_inflow(bc, pos_flux, neg_flux, cf_dense)
     drop_face = np.zeros(sd.num_faces, dtype=bool)
     drop_face[np.r_[neumann_ind, inflow_ind]] = True
 
@@ -714,12 +763,12 @@ def _single_point_upwind_matrices(
     row = np.concatenate([faces, faces])
     col = np.concatenate([cf_dense[0], cf_dense[1]])
     values = np.concatenate([pos_flux.astype(float), neg_flux.astype(float)])
-    keep = (col >= 0) & ~drop_face[row]  # drop exterior "cells" and BC-handled faces
+    col_ok = col >= 0
+    keep = col_ok & ~drop_face[row]  # drop exterior "cells" and BC-handled faces
     upstream_mat = sps.coo_matrix(
         (values[keep], (row[keep], col[keep])), shape=(sd.num_faces, sd.num_cells)
     ).tocsr()
     upstream_mat.sort_indices()  # canonical, stable pattern
-    upwind = sps.kron(upstream_mat, sps.eye(num_components)).tocsr()
 
     sgn_div = np.asarray(sd.divergence(dim=1).sum(axis=0)).squeeze()
     bc_discr_neu = sps.coo_matrix(
@@ -730,6 +779,37 @@ def _single_point_upwind_matrices(
         (np.ones(inflow_ind.size), (inflow_ind, inflow_ind)),
         shape=(sd.num_faces, sd.num_faces),
     ).tocsr()
+
+    # ``kron(M, eye(1))`` is a no-op; skip it in the (common) single-component case.
+    if num_components == 1:
+        if cache is not None:
+            # Capture the COO -> sorted-CSR scatter: ``upstream_mat.data == values[data_src]``.
+            # Each (face, cell) pair is unique, so tocsr is a pure permutation (no summation),
+            # and building the same COO with the value-indices as data recovers that permutation.
+            keep_idx = np.nonzero(keep)[0]
+            perm = sps.coo_matrix(
+                (keep_idx.astype(float), (row[keep], col[keep])),
+                shape=(sd.num_faces, sd.num_cells),
+            ).tocsr()
+            perm.sort_indices()
+            drop_neu = np.zeros(sd.num_faces, dtype=bool)
+            drop_neu[neumann_ind] = True
+            cache["struct"] = {
+                "indptr": upstream_mat.indptr,
+                "indices": upstream_mat.indices,
+                "shape": upstream_mat.shape,
+                "data_src": perm.data.astype(np.intp),
+                "keep": keep,
+                "has_dir": bool(np.any(bc.is_dir)),
+                "col_ok": col_ok,
+                "row": row,
+                "drop_neu": drop_neu,
+                "cf_dense": cf_dense,
+                "bc_dir": bc_discr_dir,
+                "bc_neu": bc_discr_neu,
+            }
+        return upstream_mat, bc_discr_dir, bc_discr_neu
+    upwind = sps.kron(upstream_mat, sps.eye(num_components)).tocsr()
     rhs_neu = sps.kron(bc_discr_neu, sps.eye(num_components)).tocsr()
     rhs_dir = sps.kron(bc_discr_dir, sps.eye(num_components)).tocsr()
     return upwind, rhs_dir, rhs_neu
@@ -781,11 +861,17 @@ class HUpwind(Upwind):
         # gamma upstream by gamma_flux, delta by delta_flux (two independent directions).
         gamma_dir = np.asarray(parameter_dictionary[self._gamma_flux_key])
         delta_dir = np.asarray(parameter_dictionary[self._delta_flux_key])
+        # Per-direction data-only caches, persisted in the (per-grid) ``data`` dict so they are
+        # reused across re-discretizations. Keyed by this discretization's keyword so distinct
+        # HUpwind instances sharing a grid do not collide.
+        fast = data.setdefault("_hu_upwind_fast_cache", {})
         up_g, dir_g, neu_g = _single_point_upwind_matrices(
-            sd, gamma_dir, bc, num_components
+            sd, gamma_dir, bc, num_components,
+            cache=fast.setdefault(self.keyword + ":gamma", {}),
         )
         up_d, dir_d, neu_d = _single_point_upwind_matrices(
-            sd, delta_dir, bc, num_components
+            sd, delta_dir, bc, num_components,
+            cache=fast.setdefault(self.keyword + ":delta", {}),
         )
         matrix_dictionary["transport_gamma"] = up_g
         matrix_dictionary["rhs_dir_gamma"] = dir_g
