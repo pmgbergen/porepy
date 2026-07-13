@@ -35,12 +35,16 @@ version are flagged with NOTE.
 """
 from __future__ import annotations
 
+import logging
 import os
+import time
 
 from typing import Callable, Optional, Sequence, cast  # noqa: E402
 
 import numpy as np  # noqa: E402
 import porepy as pp  # noqa: E402
+
+logger = logging.getLogger(__name__)
 from porepy.models.abstract_equations import LocalElimination  # noqa: E402
 
 # Absolute imports (like geothermal_H2O_low_NaCl_content_fig_5.py) so the market modules'
@@ -68,7 +72,12 @@ to_Mega = 1.0e-6
 # [1500, 1167, 833, 500].  The immiscible one-component-per-phase machinery and the analytic
 # z -> s inversion  s_i = (z_i / rho_i) / sum_j (z_j / rho_j)  generalize to any N.
 MU = 1.0e-3                     # phase viscosity [kg/(m.s)] = 1 cP (all phases; scaled to_Mega)
-H_PHASE = 1.0                   # specific enthalpy [MJ/kg] (isothermal immiscible -> uniform)
+H_PHASE = 1.0                   # phase specific enthalpy [MJ/kg]
+C_P = 1.0                       # caloric coupling  h = C_P * T  ->  T = h / C_P. Un-pins T (it is
+#                                 no longer set to 0): the conduction K_e grad(T) = (K_e/C_P) grad(h)
+#                                 makes temperature a genuine elliptic unknown, but that block is
+#                                 regularized by the energy accumulation d(U)/dh, so it stays
+#                                 solvable -- only the incompressible pressure block is constrained.
 
 
 def _phase_names(n: int) -> list[str]:
@@ -235,8 +244,15 @@ configure_phase_system(NPHASE)   # N=3 default (Bosma): {"oil","gas"} + C5H12/CH
 
 
 def temperature_func(*deps):
+    """Caloric closure ``T = h / C_P`` (``deps = p, h, z_1..z_{N-1}``). NOT pinned to a constant:
+    the non-zero ``dT/dh = 1/C_P`` couples temperature to enthalpy in the Jacobian, so the energy
+    balance + Fourier conduction ``K_e grad(T)`` make T a genuine elliptic unknown. That block is
+    regularized by the energy accumulation (``d(U)/dh``), so it needs no constraint -- only the
+    incompressible pressure block does (see :class:`_LagrangeConstrainedSolve`)."""
     nc = len(deps[0])
-    return np.zeros(nc), np.zeros((len(deps), nc))   # isothermal: T == 0 (decouples energy)
+    d = np.zeros((len(deps), nc))
+    d[1, :] = 1.0 / C_P                              # dT/dh = 1/C_P (h is deps[1])
+    return deps[1] / C_P, d
 
 
 # --------------------------------------------------------------------------------------- #
@@ -486,14 +502,20 @@ class IC_NphaseSegregation(pp.PorePyModel):
 
     def _band_bounds(self) -> list:
         """Descending y-boundaries ``[H, 0.9H, ..., 0.1H, 0]`` (length NPHASE+1); band ``k``
-        spans ``(b[k+1], b[k]]`` (band 0 = top 10 % heaviest, band N-1 = bottom 10 % lightest)."""
+        spans ``(b[k+1], b[k]]`` (band 0 = top 10 % heaviest, band N-1 = bottom 10 % lightest).
+
+        Mirrors ``hamon_2d_solver._band_boundaries`` EXACTLY: the loop already ends at the last
+        interior boundary ``0.1H`` (k = N-2 gives ``0.9H - 0.8H = 0.1H``), so only the bottom
+        boundary ``0.0`` is appended.  (A previous ``+= [0.1H, 0.0]`` double-counted ``0.1H``,
+        which collapsed the lightest phase's band to empty and left the bottom 10 % uncovered ->
+        filled by the reference component; gas was absent from the IC.)"""
         H = self.units.convert_units(self._height, "m")
         if NPHASE == 2:
             return [H, 0.5 * H, 0.0]
         b = [H, 0.9 * H]
         w = 0.8 * H / (NPHASE - 2)
         b += [0.9 * H - k * w for k in range(1, NPHASE - 1)]
-        b += [0.1 * H, 0.0]
+        b.append(0.0)
         return b
 
     def _band_masks(self, sd: pp.Grid) -> list:
@@ -501,8 +523,8 @@ class IC_NphaseSegregation(pp.PorePyModel):
         b = self._band_bounds()
         return [(y <= b[k]) & (y > b[k + 1]) for k in range(NPHASE)]
 
-    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        return np.full(sd.num_cells, self._p_ref)
+    # NOTE: the initial PRESSURE is hydrostatic (FlowModel.ic_values_pressure, consistent with
+    # the layering so grad(p) - rho g = 0 within each band); no constant-pressure IC here.
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         return np.ones(sd.num_cells)          # isothermal/decoupled energy placeholder
@@ -537,13 +559,348 @@ class IC_NphaseSegregation(pp.PorePyModel):
 
 
 # --------------------------------------------------------------------------------------- #
+#  All-Neumann (closed) BCs for BOTH the Darcy (pressure) and Fourier (temperature) fluxes,
+#  so the singular pressure block is fixed by the solver's null-mean constraint.
+# --------------------------------------------------------------------------------------- #
+class BC_all_neumann(BC_three_phase_closed):
+    """No-flow (all-Neumann) BCs on every boundary for the Darcy AND Fourier fluxes -- removes the
+    pressure and temperature Dirichlet data. Under all-Neumann the pressure block (incompressible,
+    no accumulation) is singular in its constant mode; the enthalpy/temperature block, though also
+    elliptic (Fourier conduction), is regularized by the energy accumulation and stays solvable. So
+    a single null-mean constraint, ``Sum(p) = 0``, makes the whole system solvable (see the solver)."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)          # no Dirichlet facets -> all Neumann (no-flow)
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)          # all Neumann (no conductive flux across bdry)
+
+
+# --------------------------------------------------------------------------------------- #
+#  Null-mean-constrained linear solve (localized here). Assemble the NORMAL (pressure-singular)
+#  system, then add one zero-mean constraint -- Sum(dp)=0 at the pressure DOF indices -- to fix
+#  the constant-pressure nullspace, and solve. CPR/PETSc mirrors hamon_2d_solver.
+# --------------------------------------------------------------------------------------- #
+class _LagrangeConstrainedSolve(pp.PorePyModel):
+    """Override :meth:`solve_linear_system` for the all-Neumann system.
+
+    Under all-Neumann the pressure block (incompressible, no accumulation) is elliptic and singular
+    in its constant mode; the enthalpy/temperature block, though elliptic too, is regularized by the
+    energy accumulation and stays solvable (verified: the measured nullspace of ``A`` is 1-D and
+    lives entirely in pressure). This solve borders the assembled ``A`` with one zero-mean
+    constraint row/col per variable in ``params['null_mean_variables']`` (default ``['pressure']``)
+    -- an indicator of that variable's DOFs from ``equation_system.dofs_of`` -- so ``Sum(dp)=0``
+    removes the constant-pressure direction, then solves. Set ``params['report_nullspace']`` to have
+    the FIRST call report the numerically-measured nullspace dimension of ``A``.
+    """
+
+    def _null_mean_dof_indices(self) -> list:
+        """Global DOF indices for each null-mean-constrained (elliptic) variable in
+        ``params['null_mean_variables']`` (default ``['pressure']`` -- the only singular block)."""
+        es = self.equation_system
+        sds = self.mdg.subdomains()
+        names = self.params.get("null_mean_variables", ["pressure"])
+        return [np.asarray(es.dofs_of([es.md_variable(nm, sds)]), dtype=int) for nm in names]
+
+    def solve_linear_system(self) -> np.ndarray:
+        A, b = self.linear_system
+        A = A.tocsr()
+        n = A.shape[0]
+        null_mean_dofs = self._null_mean_dof_indices()
+
+        if self.params.get("report_nullspace", False) and not getattr(
+            self, "_nullspace_reported", False
+        ):
+            self._nullspace_reported = True
+            es = self.equation_system
+            sds = self.mdg.subdomains()
+            blocks = {nm: np.asarray(es.dofs_of([es.md_variable(nm, sds)]), dtype=int)
+                      for nm in ("pressure", "enthalpy", "temperature")}
+            _, sv, Vt = np.linalg.svd(A.toarray())              # coarse-grid diagnostic only
+            nz = int((sv < 1.0e-8 * sv[0]).sum())
+            v = Vt[-1]                                          # smallest right singular vector
+            vn = np.linalg.norm(v)
+            supp = {nm: np.linalg.norm(v[idx]) / vn for nm, idx in blocks.items()}
+            print(f"  [null-mean-diag] ndof={n}  nullspace_dim(A)={nz}  "
+                  f"n_constraints={len(null_mean_dofs)}",
+                  flush=True)
+            print(f"    smallest 5 sv/max = {np.array2string(sv[-5:]/sv[0], precision=2)}",
+                  flush=True)
+            print(f"    nullvector norm-fraction per block: "
+                  f"pressure={supp['pressure']:.3f} enthalpy={supp['enthalpy']:.3f} "
+                  f"temperature={supp['temperature']:.3f}", flush=True)
+
+        b = np.asarray(b, dtype=float)
+        if self.params.get("lagrange_linear_solver", "cpr") == "cpr":
+            try:
+                # _schur_cpr_solve validates its own (projected) accuracy and raises on failure.
+                return self._schur_cpr_solve(A, b)
+            except Exception as exc:
+                if not getattr(self, "_cpr_fallback_warned", False):
+                    self._cpr_fallback_warned = True
+                    print(f"  [warn] Schur-reduced CPR unavailable ({exc!r}); falling back "
+                          f"to the SciPy bordered solve for this run", flush=True)
+        return self._scipy_bordered_solve(A, b, null_mean_dofs)
+
+    @staticmethod
+    def _equation_for_variable(varname: str, eq_names: list) -> Optional[str]:
+        """The equation that determines ``varname`` (PorePy names them independently of variables):
+        pressure<->mass_balance, enthalpy<->energy_balance, z_<c><->component_mass_balance_<c>, and
+        every locally-eliminated variable <-> its ``elimination_of_<var>_on_grids_...`` equation."""
+        if varname == "pressure":
+            return "mass_balance_equation"
+        if varname == "enthalpy":
+            return "energy_balance_equation"
+        if varname.startswith("z_"):
+            return "component_mass_balance_equation_" + varname[2:]
+        cands = [e for e in eq_names if e.startswith(f"elimination_of_{varname}_on_grids")]
+        return cands[0] if cands else None
+
+    # The ELLIPTIC variables -> the AMG block: pressure (Darcy Laplacian) and enthalpy (once the
+    # local T = h/C_P closure is Schur-eliminated, the conduction K_e grad(T) = (K_e/C_P) grad(h)
+    # is a genuine Laplacian in h). Everything else -> the ILU block. NOTE: this is the correct AMG
+    # set for the SCHUR-REDUCED (p, h, z) system; on the raw un-reduced Jacobian the h-Laplacian is
+    # still buried in the temperature columns, so GAMG cannot see it and the CPR falls back.
+    _ELLIPTIC_VARS = ("pressure", "enthalpy")
+
+    def _primary_secondary_indices(self, n: int):
+        """Partition the assembled DOFs into PRIMARY (p, h, z -- balance equations) and SECONDARY
+        (T, s, x -- local elimination equations), each aligned equation-row <-> variable-column
+        (PorePy does not align them). Primary is ordered ELLIPTIC-first ({p, h}), so the Schur
+        complement's leading ``n_elliptic`` block is the {p, h} elliptic system for AMG and ``z`` --
+        after it -- goes to ILU. Returns (primary_cols, primary_rows, secondary_cols, secondary_rows,
+        n_pressure, n_elliptic)."""
+        es = self.equation_system
+        sds = self.mdg.subdomains()
+        aei = es.assembled_equation_indices
+        eq_names = list(aei.keys())
+        var_names = sorted({v.name for v in es.variables})
+
+        def eq_of(v):
+            return self._equation_for_variable(v, eq_names)
+
+        def is_secondary(v):
+            eq = eq_of(v)
+            return eq is not None and eq.startswith("elimination_of_")
+
+        elliptic = [v for v in self._ELLIPTIC_VARS if v in var_names]
+        primary_vars = elliptic + [
+            v for v in var_names if v not in elliptic and not is_secondary(v)]
+        secondary_vars = [v for v in var_names if is_secondary(v)]
+
+        def cols(vs):
+            return [np.asarray(es.dofs_of([es.md_variable(v, sds)]), dtype=int) for v in vs]
+
+        def rows(vs):
+            return [np.asarray(aei[eq_of(v)], dtype=int) for v in vs]
+
+        p_cols, p_rows = cols(primary_vars), rows(primary_vars)
+        s_cols, s_rows = cols(secondary_vars), rows(secondary_vars)
+        primary_cols = np.concatenate(p_cols)
+        primary_rows = np.concatenate(p_rows)
+        secondary_cols = np.concatenate(s_cols) if s_cols else np.zeros(0, dtype=int)
+        secondary_rows = np.concatenate(s_rows) if s_rows else np.zeros(0, dtype=int)
+        if not (np.array_equal(np.sort(np.concatenate([primary_cols, secondary_cols])), np.arange(n))
+                and np.array_equal(
+                    np.sort(np.concatenate([primary_rows, secondary_rows])), np.arange(n))):
+            raise RuntimeError("Schur partition: primary+secondary indices do not partition [0,n)")
+        n_pressure = len(p_cols[0])
+        n_elliptic = sum(len(p_cols[i]) for i in range(len(elliptic)))
+        return (primary_cols, primary_rows, secondary_cols, secondary_rows, n_pressure, n_elliptic)
+
+    def _schur_cpr_solve(self, A, b) -> np.ndarray:
+        """Pure-algebraic Schur reduction of the LOCAL secondary closures (T, s, x), then CPR on the
+        reduced (p, h, z) primary system, then back-substitution. The secondary block ``A_ss`` is
+        local (block-diagonal per cell) so its factorization is cheap and the Schur complement stays
+        sparse. Eliminating T substitutes ``K_e grad(T) -> (K_e/C_P) grad(h)``, so the reduced energy
+        equation is a genuine h-Laplacian and ``{p, h} -> GAMG`` becomes effective (the reason the
+        raw un-reduced CPR could not work)."""
+        import scipy.sparse as sps
+        from scipy.sparse.linalg import splu, spsolve
+
+        t0 = time.perf_counter()
+        n = A.shape[0]
+        pc, pr, sc, sr, n_p, n_ell = self._primary_secondary_indices(n)
+        A = A.tocsc()
+        App = A[pr][:, pc].tocsr()
+        Aps = A[pr][:, sc].tocsr()
+        Asp = A[sr][:, pc].tocsc()
+        Ass = A[sr][:, sc].tocsc()
+        bp, bs = b[pr], b[sr]
+        t_blocks = time.perf_counter()
+
+        # The secondary block A_ss is the Jacobian of the LOCAL closures ``var - func(primary) = 0``:
+        # its diagonal is the identity and it has no secondary<->secondary coupling, so A_ss == I (the
+        # eliminations depend only on primary DOFs).  Detect that and skip the factorization entirely;
+        # fall back to a sparse LU only if some closure is non-trivial.
+        Ass = Ass.tocsr()
+        is_identity = (Ass.shape[0] == Ass.nnz
+                       and np.allclose(Ass.data, 1.0)
+                       and np.array_equal(Ass.indices, np.arange(Ass.shape[0])))
+        if is_identity:
+            Ainv_Asp = Asp                                     # A_ss^{-1} = I
+            Ainv_bs = bs
+            lu = None
+        else:
+            lu = splu(Ass.tocsc())                             # local block-diagonal -> still cheap
+            Ainv_Asp = spsolve(Ass.tocsc(), Asp)
+            if not sps.issparse(Ainv_Asp):
+                Ainv_Asp = sps.csc_matrix(Ainv_Asp)
+            Ainv_bs = lu.solve(bs)
+        t_fact = time.perf_counter()
+
+        S = (App - Aps @ Ainv_Asp).tocsr()                     # Schur complement (p, h, z)
+        g = bp - Aps @ Ainv_bs                                 # reduced RHS
+        t_schur = time.perf_counter()
+
+        xp, cpr_its = self._cpr_petsc_solve(S, g, n_p, n_ell)  # CPR on the reduced primary system
+        t_cpr = time.perf_counter()
+
+        # Honest accuracy gate.  During Newton the reduced system is genuinely INCONSISTENT: v = [1_p;
+        # 0] is BOTH the right nullvector (constant pressure) AND the left nullvector (summing the mass
+        # rows = boundary flux = 0), so v^T g = the not-yet-converged total-mass imbalance is nonzero.
+        # The null-mean solution -- exactly like SciPy's bordered solve -- therefore leaves an
+        # IRREDUCIBLE raw residual |v^T g| along v; only the residual with that conservation direction
+        # PROJECTED OUT measures solver error.  A correct CPR drives it to ~1e-11 (matches the bordered
+        # solution to ~1e-12); a GAMG that ignores the singular {p, h} mode stalls near ~1e-4.
+        r = S @ xp - g
+        vp = np.zeros(len(xp)); vp[:n_p] = 1.0
+        r_proj = r - (vp @ r) / (vp @ vp) * vp
+        rel = np.linalg.norm(r_proj) / max(np.linalg.norm(g), 1.0e-30)
+        if rel > 1.0e-8:
+            raise RuntimeError(f"CPR projected residual too large for Newton (rel={rel:.1e})")
+
+        rhs_s = bs - Asp @ xp
+        xs = rhs_s if lu is None else lu.solve(rhs_s)          # back-substitute the secondaries
+        t_end = time.perf_counter()
+
+        logger.info(
+            "Schur-CPR linear solve: %.3fs total | blocks %.3fs, A_ss %s %.3fs, "
+            "Schur %.3fs, CPR %.3fs (%d KSP its, proj_res %.1e), back-sub %.3fs "
+            "[reduced %d = {p,h} %d + z %d, secondary %d]",
+            t_end - t0, t_blocks - t0, "==I" if is_identity else "LU", t_fact - t_blocks,
+            t_schur - t_fact, t_cpr - t_schur, cpr_its, rel, t_end - t_cpr,
+            S.shape[0], n_ell, S.shape[0] - n_ell, len(sr),
+        )
+
+        x = np.empty(n, dtype=float)
+        x[pc] = xp
+        x[sc] = xs
+        return x
+
+    @staticmethod
+    def _scipy_bordered_solve(A, b, null_mean_dofs) -> np.ndarray:
+        """SciPy direct solve of the bordered saddle-point ``[[A, C^T],[C, 0]] [dx; lam] = [b; 0]``,
+        one null-mean constraint row (indicator of the block DOFs) per entry of ``null_mean_dofs``.
+        Returns ``dx``."""
+        from scipy.sparse import csr_matrix, bmat
+        from scipy.sparse.linalg import spsolve
+
+        n = A.shape[0]
+        nd = len(null_mean_dofs)
+        C = np.zeros((nd, n))
+        for k, dofs in enumerate(null_mean_dofs):
+            C[k, dofs] = 1.0                                     # Sum(d<var>) = 0 null-mean row
+        Cs = csr_matrix(C)
+        M = bmat([[A, Cs.T], [Cs, None]], format="csr")         # bordered saddle-point
+        rhs = np.concatenate([b, np.zeros(nd)])
+        return np.asarray(spsolve(M, rhs)[:n])                  # drop the multipliers
+
+    @staticmethod
+    def _cpr_petsc_solve(S, g, n_p, n_ell, rtol=1.0e-10, maxit=300) -> np.ndarray:
+        """PETSc FGMRES + CPR THREE-field split on the (elliptic-first ordered) reduced primary system
+        ``S x = g``: pressure ``p`` [0, n_p) -> GAMG (+ constant null space -- it is singular in the
+        constant mode), enthalpy ``h`` [n_p, n_ell) -> GAMG (elliptic h-Laplacian, regular), and the
+        transported ``z`` [n_ell, n) -> ILU(0).  Splitting p and h into SEPARATE scalar GAMG fields is
+        ~8x cheaper than one combined ``{p, h}`` block (25 vs ~200 FGMRES iterations at 1e4 cells):
+        each is a clean scalar elliptic operator GAMG coarsens well, whereas the interleaved 2-field
+        block defeats its coarse space.  The constant-pressure null space (first ``n_p`` DOFs) is
+        attached to the global operator so no dense border is formed; that makes FGMRES return the
+        null-space-orthogonal solution, i.e. ``sum(x_p) = 0`` -- exactly the null-mean gauge of the
+        SciPy bordered solve.  Returns ``(x, n_iterations)``."""
+        from petsc4py import PETSc
+
+        S = S.tocsr()
+        S.sort_indices()
+        n = S.shape[0]
+        mat = PETSc.Mat().createAIJ(
+            size=(n, n),
+            csr=(S.indptr.astype(PETSc.IntType), S.indices.astype(PETSc.IntType),
+                 np.ascontiguousarray(S.data, dtype=PETSc.ScalarType)),
+            comm=PETSc.COMM_SELF,
+        )
+        mat.assemble()
+
+        def const_p_nullspace(m, upto):
+            """One-vector NullSpace [1..1 on [0, upto), 0 else], normalized -- the constant-pressure
+            singular mode of ``m``."""
+            w = m.createVecRight()
+            a = w.getArray()
+            a[:] = 0.0
+            a[:upto] = 1.0
+            w.assemble()
+            w.normalize()
+            return PETSc.NullSpace().create(constant=False, vectors=[w], comm=PETSc.COMM_SELF)
+
+        nsp = const_p_nullspace(mat, n_p)                       # global constant-pressure null space
+        mat.setNullSpace(nsp)
+
+        ksp = PETSc.KSP().create(PETSc.COMM_SELF)
+        ksp.setOperators(mat)
+        ksp.setType("fgmres")                                   # flexible: CPR is a nonlinear PC
+        ksp.setTolerances(rtol=rtol, atol=1.0e-50, max_it=maxit)
+
+        pc = ksp.getPC()
+        pc.setType("fieldsplit")
+        is_p = PETSc.IS().createGeneral(
+            np.arange(0, n_p, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
+        is_h = PETSc.IS().createGeneral(
+            np.arange(n_p, n_ell, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
+        is_z = PETSc.IS().createGeneral(
+            np.arange(n_ell, n, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
+        pc.setFieldSplitIS(("p", is_p), ("h", is_h), ("z", is_z))
+        pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+        pc.setUp()
+        kp, kh, kz = pc.getFieldSplitSubKSP()
+        # pressure: elliptic Darcy operator, singular in the constant mode (S_pp 1 = 0) -> GAMG must be
+        # told, else its coarse space is singular there and FGMRES meets rtol on a solution that still
+        # carries an O(1e-4) constant-pressure error.
+        kp.setType("preonly")
+        kp.getPC().setType("gamg")
+        App_block = kp.getOperators()[0]
+        p_nsp = const_p_nullspace(App_block, n_p)              # whole block is pressure -> constant
+        App_block.setNullSpace(p_nsp)
+        App_block.setNearNullSpace(p_nsp)                      # GAMG coarse-space interpolation
+        # enthalpy: after the T = h/C_P elimination the conduction is a genuine h-Laplacian, regular
+        # (energy accumulation d(U)/dh regularizes it) -> its own scalar GAMG.
+        kh.setType("preonly")
+        kh.getPC().setType("gamg")
+        # transported overall fractions z: hyperbolic -> ILU(0).
+        kz.setType("preonly")
+        kz.getPC().setType("ilu")
+
+        xv = mat.createVecRight()
+        bv = mat.createVecLeft()
+        bv.setArray(np.ascontiguousarray(g, dtype=PETSc.ScalarType))
+        # v is BOTH the right and left nullvector, so removing its component projects g onto range(S) --
+        # the consistent RHS whose solution equals SciPy's bordered null-mean solution (sum(dp) = 0).
+        nsp.remove(bv)
+        ksp.solve(bv, xv)
+        if ksp.getConvergedReason() < 0:
+            raise RuntimeError(f"PETSc CPR KSP diverged (reason {ksp.getConvergedReason()}, "
+                               f"its={ksp.getIterationNumber()})")
+        return xv.getArray().copy(), ksp.getIterationNumber()
+
+
+# --------------------------------------------------------------------------------------- #
 #  The model
 # --------------------------------------------------------------------------------------- #
 class FlowModel(
+    _LagrangeConstrainedSolve,
     GeometryBarriers2D,
     FluidMixture3N,
     IC_NphaseSegregation,
-    BC_three_phase_closed,
+    BC_all_neumann,
     SecondaryEquations3N,
     FlowModelBase,
 ):
@@ -646,43 +1003,54 @@ class FlowModel(
 #  Run configuration (module level), mirroring tp_tc_gravitational_segregation.py
 # --------------------------------------------------------------------------------------- #
 day = 86400.0
-# Fig. 5 snapshots are at 0, 78 and 571 days. constant_dt steps and exports at the schedule.
-# time_manager = pp.TimeManager(
-#     schedule=[0.0, 78.0 * day, 571.0 * day],
-#     dt_init=1.0 * day,                                 # NOTE: tune dt for convergence/cost
-#     constant_dt=True,
-#     iter_max=50,
-#     print_info=True,
-# )
 
-dt = 0.03125 * day
-tf = 78.0 * day
-time_manager = pp.TimeManager(
-    schedule=[0.0, tf],
-    dt_init=dt,                                 # NOTE: tune dt for convergence/cost
-    constant_dt=True,
-    iter_max=50,
-    print_info=True,
-)
+# --------------------------------------------------------------------------------------- #
+#  Time stepping -- mirrors hamon_2d_solver.run(): backward Euler, nominal 1-day step,
+#  reject-and-halve a non-converged step down to dt0/64 and grow it back toward dt0, and --
+#  crucially -- hit the Fig-5 snapshot instants (0, 78, 571 days) EXACTLY.  The snapshot days
+#  are placed in the TimeManager SCHEDULE: PorePy clips any step that would overshoot a
+#  scheduled time (dt := t_sched - t; see time_step_control.py), so ``time_manager.time`` lands
+#  on 78 d and 571 d to machine precision, and ``times_to_export`` (matched with ``np.isclose``
+#  against ``time_manager.time`` in data_saving_model_mixin) then writes the VTU there exactly.
+#  This is the robust cure for "adaptive dt exports at the wrong instants": the must-hit times
+#  are SCHEDULED, not left to the adaptive cadence.
+# --------------------------------------------------------------------------------------- #
+T_END_DAYS = 78.0                        # hamon T_END
+SNAP_DAYS = (0.0, 78.0)            # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
+DT_DAYS = 1.0                             # hamon dt_days (nominal 1-day step)
 
-# time_manager = pp.TimeManager(
-#     schedule=[0.0, tf],
-#     dt_init=dt,
-#     constant_dt=False,
-#     dt_min_max=(0.01 * dt, 1.0 * dt),
-#     iter_relax_factors=(0.5, 2.0),
-#     iter_optimal_range=(3, 8),
-#     recomp_factor=0.3,
-#     print_info=True,
-# )
 
-# Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 32
+def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
+                      snap_days: Sequence[float] = SNAP_DAYS,
+                      constant_dt: bool = False) -> pp.TimeManager:
+    """A FRESH TimeManager per run (it is stateful -> must never be shared between models).
 
-# Build times_to_export as multiples of dt. Include t=0 and final time tf.
-times = list(np.arange(0.0, tf, dt * export_every_n_steps))
-times.append(tf)
-times_to_export = times
+    The snapshot instants + the horizon go into the schedule so they are hit exactly.
+    ``constant_dt=True`` is a pure 1-day march (``dt_init`` must divide every schedule interval;
+    1 d divides 78 and 571-78=493, so it is valid) -- fully deterministic, but a non-converged
+    step aborts the run (no cut).  ``constant_dt=False`` (default) is the faithful hamon analog:
+    dt starts at ``dt_days`` (also the CAP, so it never exceeds the nominal step), HALVES on a
+    non-converged step down to ``dt_days/64``, then grows back -- and still hits the snapshots.
+    """
+    dt0 = dt_days * day
+    sched = sorted({0.0, *(d * day for d in snap_days if d <= t_end_days + 1e-9),
+                    t_end_days * day})
+    if constant_dt:
+        return pp.TimeManager(schedule=sched, dt_init=dt0, constant_dt=True,
+                              iter_max=20, print_info=True)
+    return pp.TimeManager(
+        schedule=sched, dt_init=dt0, constant_dt=False,
+        dt_min_max=(dt0 / 64.0, dt0),          # hamon floor dt0/64, cap dt0 (never overshoot 1 d)
+        iter_optimal_range=(4, 10),            # grow dt when Newton is easy, shrink when it is hard
+        iter_relax_factors=(0.5, 2.0),         # halve on a cut / double on grow-back (hamon *0.5, *2)
+        recomp_factor=0.5, recomp_max=8,       # reject-and-halve, up to 8 consecutive cuts
+        iter_max=20, print_info=True,          # hamon Newton cap = 20
+    )
+
+
+def make_times_to_export(snap_days: Sequence[float] = SNAP_DAYS) -> list:
+    """VTU/PVD written exactly at each snapshot instant (matched to ``time_manager.time``)."""
+    return [d * day for d in snap_days]
 
 solid_constants = pp.SolidConstants(
     permeability=k_rock,                               # 1 mD
@@ -701,12 +1069,17 @@ _SCHEME_CONFIG = {
 }
 
 
-def build_params(nphase: int = 3, scheme: str = "hu", **overrides) -> dict:
+def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_END_DAYS,
+                 dt_days: float = DT_DAYS, snap_days: Sequence[float] = SNAP_DAYS,
+                 constant_dt: bool = False, **overrides) -> dict:
     """Assemble run parameters for ``nphase`` phases and the named HU-BM ``scheme``.
 
     Configures the module's phase system (so mixture / closures / IC build for ``nphase``) and
-    returns the params dict. ``scheme="hu"`` maps to HU-BM(mp). Extra keyword ``overrides`` are
-    merged last (e.g. a different ``time_manager`` or ``use_petsc=False``).
+    returns the params dict. ``scheme="hu"`` maps to HU-BM(mp). The time stepping mirrors
+    ``hamon_2d_solver`` (nominal ``dt_days``-day backward-Euler step to ``t_end_days``, snapshots
+    at ``snap_days`` hit exactly via the schedule; ``constant_dt`` toggles pure-constant vs the
+    reject-and-halve adaptive analog).  Extra keyword ``overrides`` are merged last (e.g. a
+    different ``time_manager`` for a short test run, or ``use_petsc=False``).
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"unknown scheme {scheme!r}; options: {list(_SCHEME_CONFIG)}")
@@ -715,8 +1088,8 @@ def build_params(nphase: int = 3, scheme: str = "hu", **overrides) -> dict:
         enable_buoyancy_effects=True,
         lag_buoyancy_direction=False,
         material_constants={"solid": solid_constants},
-        time_manager=time_manager,
-        times_to_export=times_to_export,
+        time_manager=make_time_manager(t_end_days, dt_days, snap_days, constant_dt),
+        times_to_export=make_times_to_export(snap_days),
         grid_type="cartesian",
         prepare_simulation=False,
         folder_name=f"visualization_barriers_{scheme}_N{nphase}",
@@ -727,8 +1100,6 @@ def build_params(nphase: int = 3, scheme: str = "hu", **overrides) -> dict:
         activate_step_control_after_iter=2,
         # AD backend: "native" (PorePy parser) or "sparsa" (external, ~5x faster; needs sparsa).
         ad_backend="native",
-        use_petsc=True,
-        petsc_preconditioner="cpr",
     )
     params.update(_SCHEME_CONFIG[scheme])
     params.update(overrides)
@@ -814,17 +1185,26 @@ if __name__ == "__main__":
                     help="number of phases (default 3; 4 splits oil into mid-heavy + mid-light)")
     ap.add_argument("--scheme", default="hu", choices=list(_SCHEME_CONFIG),
                     help="HU-BM scheme (default 'hu' = HU-BM(mp))")
+    ap.add_argument("--days", type=float, default=T_END_DAYS,
+                    help=f"run horizon in days (default {T_END_DAYS:g} = hamon T_END)")
+    ap.add_argument("--dt-days", type=float, default=DT_DAYS,
+                    help=f"nominal time step in days (default {DT_DAYS:g} = hamon dt_days)")
+    ap.add_argument("--constant-dt", action="store_true",
+                    help="pure constant 1-day march (else reject-and-halve adaptive, hamon-like)")
     args = ap.parse_args()
 
-    model = FlowModel(build_params(args.nphase, args.scheme))
+    snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
+    model = FlowModel(build_params(
+        args.nphase, args.scheme, t_end_days=args.days, dt_days=args.dt_days,
+        snap_days=snaps, constant_dt=args.constant_dt))
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)
+                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-5
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=30),
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=20),      # hamon Newton cap = 20
         },
     }
     # Construct the runner first (this prepares the simulation), so the system size can
