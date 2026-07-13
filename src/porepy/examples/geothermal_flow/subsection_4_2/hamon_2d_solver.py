@@ -2,7 +2,7 @@
 
 Companion to ``subsection_4_1/weis_1d_solver.py``: a small, self-contained finite-volume
 reference carrying the SAME upwinding options exercised in the paper, so the PorePy result
-(``three_phase_segregation_through_barriers.py``) can be overlaid on an independent implementation.
+(``porepy_2d_solver.py``, in this folder) can be overlaid on an independent implementation.
 
 The whole HU-BM family -- HU-BM(ff) = ``hu`` / HU-BM(mw) = ``hu-mw`` / HU-BM(mp) = ``hu-mp``, plus
 ``ppu`` -- extends to ANY number of phases with no structural change -- ``run(nphase=N)``

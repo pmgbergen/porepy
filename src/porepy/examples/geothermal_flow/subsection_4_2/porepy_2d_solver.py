@@ -1,11 +1,21 @@
-"""Immiscible three-phase gravity segregation through impermeable barriers.
+"""Immiscible N-phase gravity segregation through impermeable barriers (PorePy CF model).
 
-Reproduces Example 6.3 / Fig. 5 of Bosma, Hamon, Mallison & Tchelepi, "Smooth implicit
-hybrid upwinding for compositional multiphase flow in porous media", CMAME 388 (2022)
-114288: a 100 m x 100 m closed vertical box (100 x 100 cells of 1 m) in which a heavy fluid
-(water, rho=1500, initially top 10%), a light fluid (gas, rho=500, bottom 10%) and an
-intermediate fluid (oil, rho=1000, the rest) segregate by gravity through SEVEN horizontal
+PorePy compositional-flow reference for subsection 4.2 -- the model to overlay against the
+independent ``hamon_2d_solver.py`` in this folder. Reproduces Example 6.3 / Fig. 5 of Bosma,
+Hamon, Mallison & Tchelepi, "Smooth implicit hybrid upwinding for compositional multiphase flow
+in porous media", CMAME 388 (2022) 114288: a 100 m x 100 m closed vertical box (100 x 100 cells
+of 1 m) in which a heavy fluid (water, rho=1500, initially top 10%), a light fluid (gas,
+rho=500, bottom 10%) and the intermediate fluid(s) segregate by gravity through SEVEN horizontal
 impermeable barrier layers with openings.
+
+Parametrized by the phase count via ``build_params(nphase, scheme)`` / ``configure_phase_system``:
+N=3 reproduces Bosma exactly; N=4 splits the oil into a mid-heavy + mid-light phase (densities
+evenly spaced 1500..500). The immiscible one-component-per-phase machinery and the analytic
+z -> s inversion  s_i = (z_i / rho_i) / sum_j (z_j / rho_j)  generalize to any N. The buoyancy
+scheme ``"hu"`` = HU-BM(mp): the mobility-product buoyant term (classical Lee/Hamon U^HU),
+obtained with ``fractional_flow=False`` + ``buoyancy_upwinding="hybrid"``.
+
+    Run:  python porepy_2d_solver.py [--nphase N] [--scheme hu]   (NOT auto-run; heavy).
 
 The barriers sit at figure depth-rows 16, 23, 38, 45, 58, 74, 82 (of 100; row 0 = top,
 gravity downward), with 5, 2, 5, 2, 4, 6, 3 open-ended segments respectively (bottom -> top:
@@ -42,22 +52,45 @@ from porepy.examples.geothermal_flow.model_configuration.geometry_description.ge
 from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E402
     BC_three_phase_closed,
 )
-from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E402
-    IC_three_phase_segregation,
-)
+# The initial condition is defined inline (IC_NphaseSegregation) so it generalizes to any N;
+# the 3-phase market class ``IC_three_phase_segregation`` is its N=3 special case.
 
 # --------------------------------------------------------------------------------------- #
 #  Fluid + rock constants (WA-HU Ex. 6.3).  Mega-scaled units: p[MPa], mu[MPa.s], rho[kg/m3].
 # --------------------------------------------------------------------------------------- #
 to_Mega = 1.0e-6
 
-# phase densities [kg/m^3]: water = heavy, oil = intermediate, gas = light
+# --------------------------------------------------------------------------------------- #
+#  Phase system (N phases; reconfigured by configure_phase_system / build_params(nphase=...))
+# --------------------------------------------------------------------------------------- #
+# Densities are evenly spaced heaviest -> lightest, so N=3 reproduces Bosma [1500, 1000, 500]
+# EXACTLY and N=4 splits the intermediate (oil) into a MID-HEAVY + MID-LIGHT phase
+# [1500, 1167, 833, 500].  The immiscible one-component-per-phase machinery and the analytic
+# z -> s inversion  s_i = (z_i / rho_i) / sum_j (z_j / rho_j)  generalize to any N.
+MU = 1.0e-3                     # phase viscosity [kg/(m.s)] = 1 cP (all phases; scaled to_Mega)
+H_PHASE = 1.0                   # specific enthalpy [MJ/kg] (isothermal immiscible -> uniform)
+
+
+def _phase_names(n: int) -> list[str]:
+    if n == 3:
+        return ["water", "oil", "gas"]        # Bosma names (N=3 back-compat)
+    return ["water"] + [f"oil{k}" for k in range(1, n - 1)] + ["gas"]
+
+
+def _component_names(n: int) -> list[str]:
+    if n == 3:
+        return ["H2O", "C5H12", "CH4"]        # Bosma names (N=3 back-compat)
+    return ["H2O"] + [f"C{k}" for k in range(1, n)]
+
+
+NPHASE = 3
+RHO = np.linspace(1500.0, 500.0, NPHASE)      # [kg/m^3], phase 0 heaviest .. N-1 lightest
+PHASE_NAMES = _phase_names(NPHASE)
+COMPONENT_NAMES = _component_names(NPHASE)
+# N=3 back-compat scalar density/viscosity/enthalpy aliases (used by WaterEOS/OilEOS/GasEOS).
 rho_w, rho_o, rho_g = 1500.0, 1000.0, 500.0
-# all phases mu = 0.001 kg/(m.s) = 1 cP  (scaled by to_Mega -> MPa.s in the model)
-mu_w = mu_o = mu_g = 1.0e-3
-# specific enthalpies [MJ/kg]: isothermal immiscible -> arbitrary but distinct
-#h_w, h_o, h_g = 1.0, 1.5, 2.0
-h_w, h_o, h_g = 1.0, 1.0, 1.0
+mu_w = mu_o = mu_g = MU
+h_w, h_o, h_g = H_PHASE, H_PHASE, H_PHASE
 
 milli_darcy = 9.869233e-16          # 1 mD in m^2
 k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
@@ -117,49 +150,49 @@ class GasEOS(BaseEOS):
     _rho, _mu, _h = rho_g, mu_g, h_g
 
 
+def make_eos(components, rho: float, mu: float = MU, h: float = H_PHASE) -> BaseEOS:
+    """Constant-property EOS instance for one phase with the given density (N-phase path)."""
+    class _PhaseEOS(BaseEOS):
+        _rho, _mu, _h = rho, mu, h
+    return _PhaseEOS(components)
+
+
 # --------------------------------------------------------------------------------------- #
 #  Local-elimination closures (mirror buoyancy_flow_model.py): dependent saturations from
 #  the overall fractions z, immiscibility chi = 1/0, and temperature == 0.
 #  deps = (pressure, enthalpy, z_C5H12, z_CH4).  Each returns (values, zero-derivatives).
 # --------------------------------------------------------------------------------------- #
-def _sat_denominator(z_oil, z_gas):
-    return (
-        -((-1.0 + z_oil + z_gas) * rho_g * rho_o)
-        + z_oil * rho_g * rho_w
-        + z_gas * rho_o * rho_w
-    )
-
-
-def _clip_to_simplex(z_oil, z_gas):
-    """Project the overall fractions onto the valid simplex ``z_oil, z_gas >= 0`` and
-    ``z_oil + z_gas <= 1`` (so ``z_water = 1 - z_oil - z_gas >= 0``).
-
-    With ``z`` on the simplex the three derived phase saturations are guaranteed to form a
-    valid partition -- each in ``[0, 1]`` and summing to 1, *including* the by-unity water
-    saturation ``s_water = 1 - s_oil - s_gas``.  Clipping ``s_oil`` / ``s_gas``
-    independently does NOT guarantee this: when a Newton iterate strays off the simplex
-    the two clipped saturations can sum to more than 1, making ``s_water`` negative.
-    Clipping the evaluation here prevents the incorrect (negative) saturations.
-    """
-    z_oil = np.clip(z_oil, 0.0, 1.0)
-    z_gas = np.clip(z_gas, 0.0, 1.0)
-    total = z_oil + z_gas
+def _clip_to_simplex(z_indep: list) -> list:
+    """Project the independent overall fractions ``[z_1, ..., z_{N-1}]`` onto the valid simplex
+    (each ``>= 0``, ``sum <= 1`` so the by-unity reference ``z_0 = 1 - sum >= 0``). Clipping each
+    ``z_i`` independently would let a stray Newton iterate push the derived saturations off the
+    partition; projecting here keeps every derived saturation in ``[0, 1]`` and summing to 1."""
+    z = [np.clip(zk, 0.0, 1.0) for zk in z_indep]
+    total = sum(z) if z else 0.0
     scale = np.where(total > 1.0, 1.0 / np.maximum(total, 1.0e-30), 1.0)
-    return z_oil * scale, z_gas * scale
+    return [zk * scale for zk in z]
 
 
-def oil_saturation_func(*deps):
-    z_oil, z_gas = _clip_to_simplex(deps[2], deps[3])
-    nc = len(z_oil)
-    vals = np.clip((z_oil * rho_g * rho_w) / _sat_denominator(z_oil, z_gas), 0.0, 1.0)
-    return vals, np.zeros((len(deps), nc))
+def _saturations_from_z(z_indep: list) -> list:
+    """N-phase immiscible ``z -> s`` inversion (one component per phase):
+    ``s_i = (z_i / rho_i) / sum_j (z_j / rho_j)``, with the reference fraction
+    ``z_0 = 1 - sum(z_1..z_{N-1})``. Reproduces the hardcoded 3-phase formula exactly."""
+    z = _clip_to_simplex(list(z_indep))
+    z0 = np.clip(1.0 - (sum(z) if z else 0.0), 0.0, 1.0)
+    z_all = [z0] + z
+    weighted = [z_all[j] / RHO[j] for j in range(NPHASE)]
+    denom = sum(weighted)
+    denom = np.where(denom > 0.0, denom, 1.0)
+    return [np.clip(weighted[i] / denom, 0.0, 1.0) for i in range(NPHASE)]
 
 
-def gas_saturation_func(*deps):
-    z_oil, z_gas = _clip_to_simplex(deps[2], deps[3])
-    nc = len(z_oil)
-    vals = np.clip((z_gas * rho_o * rho_w) / _sat_denominator(z_oil, z_gas), 0.0, 1.0)
-    return vals, np.zeros((len(deps), nc))
+def _make_saturation_func(i: int):
+    """Closure: phase ``i``'s saturation from ``deps = (p, h, z_1, ..., z_{N-1})``."""
+    def f(*deps):
+        s = _saturations_from_z(list(deps[2:2 + NPHASE - 1]))
+        nc = len(deps[0])
+        return s[i], np.zeros((len(deps), nc))
+    return f
 
 
 def _chi(active: bool):
@@ -172,13 +205,33 @@ def _chi(active: bool):
     return f
 
 
-# immiscibility map: C5H12 lives only in oil, CH4 only in gas (H2O reference -> closure)
-chi_functions_map = {
-    "C5H12_water": _chi(False), "C5H12_oil": _chi(True), "C5H12_gas": _chi(False),
-    "CH4_water": _chi(False), "CH4_oil": _chi(False), "CH4_gas": _chi(True),
-}
+# Immiscibility + z->s maps, rebuilt for the active N by ``configure_phase_system``. Component i
+# (>= 1) lives only in phase i; phase 0 (water) is the reference (by-unity saturation).
+saturation_functions_map: dict = {}
+chi_functions_map: dict = {}
 
-saturation_functions_map = {"oil": oil_saturation_func, "gas": gas_saturation_func}
+
+def configure_phase_system(nphase: int) -> None:
+    """Configure the module for ``nphase`` phases: evenly-spaced densities, phase/component
+    names, and the (name-keyed) saturation + immiscibility maps consumed by
+    :class:`SecondaryEquations3N`. N=3 reproduces the Bosma names/maps exactly; N=4 splits the
+    oil into a mid-heavy + mid-light phase."""
+    global NPHASE, RHO, PHASE_NAMES, COMPONENT_NAMES
+    global saturation_functions_map, chi_functions_map
+    NPHASE = int(nphase)
+    RHO = np.linspace(1500.0, 500.0, NPHASE)
+    PHASE_NAMES = _phase_names(NPHASE)
+    COMPONENT_NAMES = _component_names(NPHASE)
+    saturation_functions_map = {
+        PHASE_NAMES[i]: _make_saturation_func(i) for i in range(1, NPHASE)
+    }
+    chi_functions_map = {
+        f"{COMPONENT_NAMES[i]}_{PHASE_NAMES[j]}": _chi(i == j)
+        for i in range(1, NPHASE) for j in range(NPHASE)
+    }
+
+
+configure_phase_system(NPHASE)   # N=3 default (Bosma): {"oil","gas"} + C5H12/CH4 chi map
 
 
 def temperature_func(*deps):
@@ -191,20 +244,19 @@ def temperature_func(*deps):
 # --------------------------------------------------------------------------------------- #
 class FluidMixture3N(pp.PorePyModel):
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        # H2O = reference (dependent z); C5H12, CH4 are the independent overall fractions.
-        return [
-            pp.FluidComponent(name="H2O"),
-            pp.FluidComponent(name="C5H12"),
-            pp.FluidComponent(name="CH4"),
-        ]
+        # COMPONENT_NAMES[0] (H2O) = reference (dependent z); the rest are the independent
+        # overall fractions. Rebuilt for the active N by configure_phase_system.
+        return [pp.FluidComponent(name=n) for n in COMPONENT_NAMES]
 
     def get_phase_configuration(self, components):
-        # first phase (water) is the reference phase (dependent saturation).
-        return [
-            (pp.compositional.PhysicalState.liquid, "water", WaterEOS(components)),
-            (pp.compositional.PhysicalState.liquid, "oil", OilEOS(components)),
-            (pp.compositional.PhysicalState.gas, "gas", GasEOS(components)),
-        ]
+        # first phase (water, PHASE_NAMES[0]) is the reference phase (dependent saturation);
+        # the lightest phase is the gas state, the rest liquid; densities from RHO.
+        cfg = []
+        for i in range(NPHASE):
+            state = (pp.compositional.PhysicalState.gas if i == NPHASE - 1
+                     else pp.compositional.PhysicalState.liquid)
+            cfg.append((state, PHASE_NAMES[i], make_eos(components, float(RHO[i]))))
+        return cfg
 
     def dependencies_of_phase_properties(self, phase):
         z = [
@@ -418,12 +470,79 @@ class SecondaryEquations3N(LocalElimination):
 
 
 # --------------------------------------------------------------------------------------- #
+#  N-phase initial condition (generalizes IC_three_phase_segregation to any N)
+# --------------------------------------------------------------------------------------- #
+class IC_NphaseSegregation(pp.PorePyModel):
+    """N-phase gravity-segregation initial condition.
+
+    Heaviest phase (phase 0) fills the top 10 % band, lightest (phase N-1) the bottom 10 %, and
+    the N-2 interior phases split the middle 80 % equally. Immiscible: component ``i >= 1`` fills
+    band ``i`` entirely, so the reference component (H2O) fills the top band by unity. At N=3
+    this is exactly the Bosma layering (water top, oil middle, gas bottom).
+    """
+
+    _height = 100.0          # m, vertical (y) extent of the box
+    _p_ref = 10.0            # reference pressure [MPa] (closed incompressible -> arbitrary)
+
+    def _band_bounds(self) -> list:
+        """Descending y-boundaries ``[H, 0.9H, ..., 0.1H, 0]`` (length NPHASE+1); band ``k``
+        spans ``(b[k+1], b[k]]`` (band 0 = top 10 % heaviest, band N-1 = bottom 10 % lightest)."""
+        H = self.units.convert_units(self._height, "m")
+        if NPHASE == 2:
+            return [H, 0.5 * H, 0.0]
+        b = [H, 0.9 * H]
+        w = 0.8 * H / (NPHASE - 2)
+        b += [0.9 * H - k * w for k in range(1, NPHASE - 1)]
+        b += [0.1 * H, 0.0]
+        return b
+
+    def _band_masks(self, sd: pp.Grid) -> list:
+        y = sd.cell_centers[1]
+        b = self._band_bounds()
+        return [(y <= b[k]) & (y > b[k + 1]) for k in range(NPHASE)]
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        return np.full(sd.num_cells, self._p_ref)
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        return np.ones(sd.num_cells)          # isothermal/decoupled energy placeholder
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        masks = self._band_masks(sd)
+        comps = self.fluid.components
+        z = np.zeros(sd.num_cells)
+        for i in range(1, NPHASE):            # non-reference component i -> band i
+            if component == comps[i]:
+                z[masks[i]] = 1.0
+        return z                              # reference (H2O) = 1 - sum (top band)
+
+    def ic_values_saturation(self, sd: pp.Grid) -> list:
+        masks = self._band_masks(sd)
+        return [np.where(masks[i], 1.0, 0.0) for i in range(1, NPHASE)]   # s_1..s_{N-1}
+
+    def initial_condition(self) -> None:
+        super().initial_condition()
+        phases = list(self.fluid.phases)
+        for sd in self.mdg.subdomains():
+            s_list = self.ic_values_saturation(sd)      # [s_1, ..., s_{N-1}]
+            for i in range(1, NPHASE):
+                ph = phases[i]
+                # Seed only quantities that are still independent variables (a substituted
+                # saturation is computed from z -> no variable to seed).
+                if self.has_independent_saturation(ph):
+                    self.equation_system.set_variable_values(
+                        s_list[i - 1], [ph.saturation([sd])], 0, 0)
+
+
+# --------------------------------------------------------------------------------------- #
 #  The model
 # --------------------------------------------------------------------------------------- #
 class FlowModel(
     GeometryBarriers2D,
     FluidMixture3N,
-    IC_three_phase_segregation,
+    IC_NphaseSegregation,
     BC_three_phase_closed,
     SecondaryEquations3N,
     FlowModelBase,
@@ -514,16 +633,12 @@ class FlowModel(
         value, so the IC and the boundary agree at ``y = H``.
         """
         y = sd.cell_centers[1]                                       # height (0 bottom, H top)
-        H = self.units.convert_units(self._height, "m")             # box height (= 100 m)
         g = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2") * to_Mega
-        y_wo = 0.9 * H                                               # water / oil interface
-        y_og = 0.1 * H                                              # oil / gas interface
-        # column density integrated from height y up to the top boundary H
-        column = (
-            rho_w * (H - np.maximum(y, y_wo))                       # water band [0.9H, H]
-            + rho_o * np.maximum(0.0, y_wo - np.maximum(y, y_og))   # oil band  [0.1H, 0.9H]
-            + rho_g * np.maximum(0.0, y_og - y)                     # gas band  [0, 0.1H]
-        )
+        b = self._band_bounds()                                     # descending [H, ..., 0]
+        # column density integrated from height y up to the top boundary H, over the N bands
+        column = np.zeros_like(np.asarray(y, dtype=float))
+        for k in range(NPHASE):                                     # band k spans (b[k+1], b[k]]
+            column = column + RHO[k] * np.maximum(0.0, b[k] - np.maximum(y, b[k + 1]))
         return self._p_ref + g * column
 
 
@@ -577,37 +692,51 @@ solid_constants = pp.SolidConstants(
     specific_heat_capacity=1000.0 * to_Mega,
 )
 
-params = {
-    "fractional_flow": False,
-    "mass_mobility_weighted_permeability": False,
-    # "substitute_as_function": ["saturation", "partial_fraction"],
-    "enable_buoyancy_effects": True,
-    # buoyancy scheme: "hybrid" (HU), "phase_potential" (PPU), or your simplicial-PPU
-    "buoyancy_upwinding": "hybrid",
-    "lag_buoyancy_direction": False,
-    "material_constants": {"solid": solid_constants},
-    "time_manager": time_manager,
-    "times_to_export": times_to_export,
-    "grid_type": "cartesian",
-    "prepare_simulation": False,
-    "folder_name": "visualization_three_phase_barriers",
-    "file_name": "three_phase_barriers",
-    # Step control method options:
-    # - "LS": Line Search (backtracking with Armijo condition)
-    # - "TR": Trust Region with CFL-aware dynamic radius adjustment
-    # - "TR-LS": Trust Region + Line Search refinement
-    # - "None": Plain Newton (no step control)
-    "step_control_method": "None",
-    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
-    "activate_step_control_after_iter": 2,  # Activate after this many iterations
-    # AD backend: "reference" (PorePy's parser, default) or "sparsa" (external sparsa
-    # engine via the adapter -- bit-exact, ~5x faster assembly). Requires `sparsa`
-    # importable in the active environment (pip install -e on the sparsa repo).
-    "ad_backend": "native",
-    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
-    "petsc_preconditioner": "cpr",
-    # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
+# HU-BM scheme -> model parametrization. "hu" = HU-BM(mp): the mobility-product buoyant term
+# (classical Lee/Hamon U^HU), reached via ``fractional_flow=False`` (the total-mass formulation,
+# whose FluidBuoyancy non-fractional branch is the mobility-product form) + hybrid upwinding.
+_SCHEME_CONFIG = {
+    "hu": dict(fractional_flow=False, mass_mobility_weighted_permeability=False,
+               buoyancy_upwinding="hybrid"),
 }
+
+
+def build_params(nphase: int = 3, scheme: str = "hu", **overrides) -> dict:
+    """Assemble run parameters for ``nphase`` phases and the named HU-BM ``scheme``.
+
+    Configures the module's phase system (so mixture / closures / IC build for ``nphase``) and
+    returns the params dict. ``scheme="hu"`` maps to HU-BM(mp). Extra keyword ``overrides`` are
+    merged last (e.g. a different ``time_manager`` or ``use_petsc=False``).
+    """
+    if scheme not in _SCHEME_CONFIG:
+        raise ValueError(f"unknown scheme {scheme!r}; options: {list(_SCHEME_CONFIG)}")
+    configure_phase_system(nphase)
+    params = dict(
+        enable_buoyancy_effects=True,
+        lag_buoyancy_direction=False,
+        material_constants={"solid": solid_constants},
+        time_manager=time_manager,
+        times_to_export=times_to_export,
+        grid_type="cartesian",
+        prepare_simulation=False,
+        folder_name=f"visualization_barriers_{scheme}_N{nphase}",
+        file_name=f"barriers_{scheme}_N{nphase}",
+        # Step control: "LS" (line search) / "TR" (trust region) / "TR-LS" / "None" (plain Newton)
+        step_control_method="None",
+        step_control_alpha_min=1.0e-5,
+        activate_step_control_after_iter=2,
+        # AD backend: "native" (PorePy parser) or "sparsa" (external, ~5x faster; needs sparsa).
+        ad_backend="native",
+        use_petsc=True,
+        petsc_preconditioner="cpr",
+    )
+    params.update(_SCHEME_CONFIG[scheme])
+    params.update(overrides)
+    return params
+
+
+# Back-compat module-level default params (N=3, "hu" = HU-BM(mp)).
+params = build_params(3, "hu")
 
 def report_system_size(model) -> int:
     """Print the system size and a table of registered variables: their dof count, role,
@@ -676,7 +805,18 @@ def report_system_size(model) -> int:
 
 
 if __name__ == "__main__":
-    model = FlowModel(params)
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        description="PorePy N-phase gravity segregation through barriers (Bosma Ex. 6.3 at "
+                    "--nphase 3). scheme 'hu' = HU-BM(mp).")
+    ap.add_argument("--nphase", type=int, default=3,
+                    help="number of phases (default 3; 4 splits oil into mid-heavy + mid-light)")
+    ap.add_argument("--scheme", default="hu", choices=list(_SCHEME_CONFIG),
+                    help="HU-BM scheme (default 'hu' = HU-BM(mp))")
+    args = ap.parse_args()
+
+    model = FlowModel(build_params(args.nphase, args.scheme))
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.ResidualBasedAbsoluteCriterion(
