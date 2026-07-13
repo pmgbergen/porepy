@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Final, Optional
+from typing import Final, Optional, TypeVar
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -39,6 +39,12 @@ class FractureSubdomains(DomainTag):
 class CodimensionOneInterfaces(DomainTag):
     def domains(self, model: pp.PorePyModel) -> pp.GridLikeSequence:
         return model.mdg.interfaces(codim=1)
+
+
+@dataclass(frozen=True)
+class InterfacesMatrixFracture(DomainTag):
+    def domains(self, model: pp.PorePyModel) -> pp.GridLikeSequence:
+        return model.mdg.interfaces(codim=1, dim=model.nd - 1)
 
 
 @dataclass(frozen=True)
@@ -119,7 +125,7 @@ class DefaultEquationTags:
     )
     interface_force_balance = EquationTag(
         name="interface_force_balance_equation",
-        defined_on=CodimensionOneInterfaces(),
+        defined_on=InterfacesMatrixFracture(),
     )
     # Fracture damage (?)
     dilation_damage = EquationTag(
@@ -158,7 +164,7 @@ class DefaultVariableTags:
     total_pressure = VariableTag(name="total_pressure", defined_on=MatrixSubdomains())
     # Contact mechanics
     interface_displacement = VariableTag(
-        name="u_interface", defined_on=CodimensionOneInterfaces()
+        name="u_interface", defined_on=InterfacesMatrixFracture()
     )
     contact_traction = VariableTag(
         name="contact_traction", defined_on=FractureSubdomains()
@@ -172,6 +178,20 @@ class DefaultVariableTags:
     )
 
 
+T = TypeVar("T")
+
+
+def apply_cumulative_dof_offsets(
+    dict_of_dofs: dict[T, np.ndarray],
+) -> dict[T, np.ndarray]:
+    result: dict[T, np.ndarray] = {}
+    offset = 0
+    for key, dofs in dict_of_dofs.items():
+        result[key] = dofs + offset
+        offset += len(dofs)
+    return result
+
+
 class Indexer:
     def __init__(
         self,
@@ -180,8 +200,15 @@ class Indexer:
         equations_in_porepy_arrangement: Optional[dict[EquationTag, bool]] = None,
         variables_in_porepy_arrangement: Optional[dict[VariableTag, bool]] = None,
     ) -> None:
-        self._equations_dofs = equations_dofs
-        self._variables_dofs = variables_dofs
+        self.equations_dofs: Final[dict[EquationTag, np.ndarray]] = equations_dofs
+        self.equations_dofs_cumulative: Final[dict[EquationTag, np.ndarray]] = (
+            apply_cumulative_dof_offsets(equations_dofs)
+        )
+
+        self.variables_dofs: Final[dict[VariableTag, np.ndarray]] = variables_dofs
+        self.variables_dofs_cumulative: Final[dict[VariableTag, np.ndarray]] = (
+            apply_cumulative_dof_offsets(variables_dofs)
+        )
 
         if equations_in_porepy_arrangement is None:
             equations_in_porepy_arrangement = {tag: False for tag in equations_dofs}
@@ -195,32 +222,10 @@ class Indexer:
         )
 
     def equation_tags(self) -> list[EquationTag]:
-        return list(self._equations_dofs.keys())
+        return list(self.equations_dofs.keys())
 
     def variable_tags(self) -> list[VariableTag]:
-        return list(self._variables_dofs.keys())
-
-    def equations_dofs(self, tags: list[EquationTag]) -> list[np.ndarray]:
-        result: list[np.ndarray] = []
-        offset = 0
-        for tag in tags:
-            if tag not in self._equations_dofs:
-                raise ValueError(tag)
-            dofs = self._equations_dofs[tag]
-            result.append(dofs + offset)
-            offset += len(dofs)
-        return result
-
-    def variables_dofs(self, tags: list[VariableTag]) -> list[np.ndarray]:
-        result: list[np.ndarray] = []
-        offset = 0
-        for tag in tags:
-            if tag not in self._variables_dofs:
-                raise ValueError(tag)
-            dofs = self._variables_dofs[tag]
-            result.append(dofs + offset)
-            offset += len(dofs)
-        return result
+        return list(self.variables_dofs.keys())
 
 
 """
@@ -280,11 +285,12 @@ def construct_rearrange(
 ):
     # TODO YZ docstring, comments
     requested_domains = tag.defined_on.domains(model)
-    assert len(operator_domains) > 0 and operator_domains is not None
-    assert len(requested_domains) > 0
-
     for domain in requested_domains:
         assert domain in operator_domains
+
+    if len(operator_domains) == 0:
+        print(f"No domains in equation tag: {tag}")
+        return np.zeros(0), True
 
     offset = 0
     original_order: dict[pp.GridLike, np.ndarray] = {}
@@ -363,17 +369,24 @@ def construct_variable_rearrange(model: pp.PorePyModel, var_tags: list[VariableT
     variable_name_domains: dict[str, pp.GridLikeSequence] = {}
     for var_tag in var_tags:
         domains = var_tag.defined_on.domains(model)
+        if len(domains) == 0:
+            print(f"No domains for variable tag {var_tag}")
+            variable_dofs[var_tag] = np.zeros(0)
+            continue
+
         variable_name_domains[var_tag.name] = domains
-        assert len(domains) > 0
         dofs_list: list[np.ndarray] = []
         for d in domains:
-            requested_vars.append(
-                next(
-                    v
-                    for v in available_variables
-                    if v.name == var_tag.name and v.domain == d
+            try:
+                requested_vars.append(
+                    next(
+                        v
+                        for v in available_variables
+                        if v.name == var_tag.name and v.domain == d
+                    )
                 )
-            )
+            except StopIteration:
+                raise ValueError(f"Not found variable tag '{var_tag.name}' on {d}.")
             dofs_list.append(original_vars_order[var_tag.name, d])
         vals = np.concatenate(dofs_list)
         variable_dofs[var_tag] = vals
@@ -411,7 +424,7 @@ def assemble_residual(
 
         assert eq_tag in indexer.equations_in_porepy_arrangement
         if not indexer.equations_in_porepy_arrangement[eq_tag]:
-            permutation = indexer.equations_dofs([eq_tag])[0]
+            permutation = indexer.equations_dofs[eq_tag]
             res = res[permutation]
 
         residuals.append(res)
@@ -439,7 +452,7 @@ def assemble_solution(
 
         assert var_tag in indexer.variables_in_porepy_arrangement
         if not indexer.variables_in_porepy_arrangement[var_tag]:
-            permutation = indexer.variables_dofs([var_tag])[0]
+            permutation = indexer.variables_dofs[var_tag]
             sol = sol[permutation]
 
         solution.append(sol)
@@ -458,7 +471,9 @@ def assemble_residual_jacobian(
     ):
         variable_permutation = None
     else:
-        variable_permutation = indexer.variables_dofs(var_tags)
+        variable_permutation = [
+            indexer.variables_dofs_cumulative[tag] for tag in var_tags
+        ]
         assert len(variable_permutation) > 0
         variable_permutation = np.concatenate(variable_permutation)
 
@@ -482,9 +497,9 @@ def assemble_residual_jacobian(
 
         assert eq_tag in indexer.equations_in_porepy_arrangement
         if not indexer.equations_in_porepy_arrangement[eq_tag]:
-            eq_permutation = indexer.equations_dofs([eq_tag])[0]
+            eq_permutation = indexer.equations_dofs[eq_tag]
             res = res[eq_permutation]
-            jac = res[eq_permutation]
+            jac = jac[eq_permutation]
         if variable_permutation is not None:
             jac = jac[:, variable_permutation]
 
@@ -514,6 +529,7 @@ def assemble_indexer(
         equation = model.equation_system.equations.get(eq_tag.name, None)
         if equation is None:
             raise ValueError(eq_tag.name)
+        assert equation.domains is not None
         eq_dofs, is_porepy_arrangmement = construct_rearrange(
             model=model,
             operator_domains=equation.domains,
@@ -539,10 +555,20 @@ def main():
     model.before_nonlinear_loop()
     model.before_nonlinear_iteration()
 
-    eq_tags = [DefaultEquationTags.energy_balance, DefaultEquationTags.mass_balance]
-    var_tags = [DefaultVariableTags.temperature, DefaultVariableTags.pressure]
+    indexer = assemble_indexer(
+        model=model,
+        eq_tags=model.equation_system.equation_tags,
+        var_tags=model.equation_system.variable_tags,
+    )
 
-    indexer = assemble_indexer(model=model, eq_tags=eq_tags, var_tags=var_tags)
+    eq_tags = [
+        pp.DefaultEquationTags.energy_balance,
+        pp.DefaultEquationTags.mass_balance,
+    ]
+    var_tags = [
+        pp.DefaultVariableTags.temperature,
+        pp.DefaultVariableTags.pressure,
+    ]
 
     # assemble residual
     res = assemble_residual(model=model, indexer=indexer, eq_tags=eq_tags)

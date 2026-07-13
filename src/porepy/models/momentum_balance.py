@@ -75,9 +75,17 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         intf_eq = self.interface_force_balance_equation(interfaces)
         self.equation_system.set_equation(
-            matrix_eq, matrix_subdomains, {"cells": self.nd}
+            matrix_eq,
+            pp.DefaultEquationTags.momentum_balance,
+            matrix_subdomains,
+            {"cells": self.nd},
         )
-        self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
+        self.equation_system.set_equation(
+            intf_eq,
+            pp.DefaultEquationTags.interface_force_balance,
+            interfaces,
+            {"cells": self.nd},
+        )
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
@@ -244,7 +252,10 @@ class AngularMomentumEquation:
 
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
         self.equation_system.set_equation(
-            angular_momentum, matrix_subdomains, {"cells": self.rotation_dimension()}
+            angular_momentum,
+            pp.DefaultEquationTags.angular_momentum_balance,
+            matrix_subdomains,
+            {"cells": self.rotation_dimension()},
         )
 
     def angular_momentum_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -339,7 +350,17 @@ class SolidMassEquation:
 
         solid_mass = self.solid_mass_equation(matrix_subdomains)
 
-        self.equation_system.set_equation(solid_mass, matrix_subdomains, {"cells": 1})
+        equation_tag = (
+            pp.DefaultEquationTags.poromechanics_solid_mass
+            if solid_mass.name == pp.DefaultEquationTags.poromechanics_solid_mass.name
+            else pp.DefaultEquationTags.solid_mass
+        )
+        self.equation_system.set_equation(
+            solid_mass,
+            equation_tag,
+            matrix_subdomains,
+            {"cells": 1},
+        )
 
     def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the solid mass conservation equation and add it to the EquationSystem.
@@ -430,13 +451,13 @@ class VariablesMomentumBalance(VariableMixin):
 
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
-            name=self.displacement_variable,
+            var_tag=pp.DefaultVariableTags.displacement,
             subdomains=self.mdg.subdomains(dim=self.nd),
             tags={"si_units": "m"},
         )
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
-            name=self.interface_displacement_variable,
+            var_tag=pp.DefaultVariableTags.interface_displacement,
             interfaces=self.mdg.interfaces(dim=self.nd - 1, codim=1),
             tags={"si_units": "m"},
         )
@@ -557,13 +578,13 @@ class VariablesThreeFieldMomentumBalance:
 
         self.equation_system.create_variables(
             dof_info={"cells": self.rotation_dimension()},
-            name=self.rotation_stress_variable,
+            var_tag=pp.DefaultVariableTags.rotation_stress,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
         )
         self.equation_system.create_variables(
             dof_info={"cells": 1},
-            name=self.total_pressure_variable,
+            var_tag=pp.DefaultVariableTags.total_pressure,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
         )

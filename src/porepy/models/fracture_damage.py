@@ -162,7 +162,7 @@ class DilationDamageVariable(FractureDamageVariables):
 
         self.equation_system.create_variables(
             dof_info={"cells": 1},
-            name=self.dilation_damage_history_variable,
+            var_tag=pp.DefaultVariableTags.dilation_damage_history,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
         )
@@ -200,7 +200,7 @@ class FrictionDamageVariable(FractureDamageVariables):
 
         self.equation_system.create_variables(
             dof_info={"cells": 1},
-            name=self.friction_damage_history_variable,
+            var_tag=pp.DefaultVariableTags.friction_damage_history,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
         )
@@ -287,7 +287,9 @@ class DilationDamageEquation(FractureDamageEquations):
 
         dilation_eq = self.dilation_damage_equation(fractures)
         dilation_eq.set_name(self.dilation_damage_equation_name)
-        self.equation_system.set_equation(dilation_eq, fractures, {"cells": 1})
+        self.equation_system.set_equation(
+            dilation_eq, pp.DefaultEquationTags.dilation_damage, fractures, {"cells": 1}
+        )
 
     def before_nonlinear_loop(self):
         """Update the dilation damage equation to include new term."""
@@ -342,7 +344,9 @@ class FrictionDamageEquation(FractureDamageEquations):
 
         friction_eq = self.friction_damage_equation(fractures)
         friction_eq.set_name(self.friction_damage_equation_name)
-        self.equation_system.set_equation(friction_eq, fractures, {"cells": 1})
+        self.equation_system.set_equation(
+            friction_eq, pp.DefaultEquationTags.friction_damage, fractures, {"cells": 1}
+        )
 
     def before_nonlinear_loop(self):
         """Update the friction damage equation to include new term."""

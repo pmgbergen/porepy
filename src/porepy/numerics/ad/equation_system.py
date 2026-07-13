@@ -6,7 +6,17 @@ using the AD framework.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+    overload,
+)
 
 import numpy as np
 import scipy.sparse as sps
@@ -16,6 +26,9 @@ import porepy as pp
 
 from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
+
+if TYPE_CHECKING:
+    from porepy.models.equation_variable_tags import EquationTag, VariableTag
 
 __all__ = ["EquationSystem"]
 
@@ -138,6 +151,11 @@ class EquationSystem:
         (argument ``evaluate_jacobian=True``) If only the residual vector is assembled,
         the indices is not updated.
         """
+        self.equation_tags: list[EquationTag] = []
+        """Tags passed when equations are registered, in registration order."""
+
+        self.variable_tags: list[VariableTag] = []
+        """Tags passed when variables are created, in creation order."""
 
         ### PRIVATE
 
@@ -397,7 +415,7 @@ class EquationSystem:
 
     def create_variables(
         self,
-        name: str,
+        var_tag: VariableTag,
         dof_info: Optional[dict[GridEntity, int]] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
@@ -414,16 +432,18 @@ class EquationSystem:
 
             .. code:: Python
 
-                p = equation_system.create_variables('pressure',
-                                                     subdomains=mdg.subdomains())
+                p = equation_system.create_variables(
+                    VariableTag('pressure', AllSubdomains()),
+                    subdomains=mdg.subdomains(),
+                )
 
         Parameters:
-            name: Name of the variable.
+            var_tag: Tag identifying the variable and the domains where it is defined.
             dof_info: Dictionary containing information about number of DOFs per
                 admissible type. Defaults to ``{'cells':1}``.
             subdomains (optional): List of subdomains on which the variable is defined.
                 If None, then it will not be defined on any subdomain.
-            interfaces (optional): list of interfaces on which the variable is defined.
+            interfaces (optional): List of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
             tags (optional): dictionary containing tags for the variables. The tags are
                 assigned to all variables created by this method and can be updated
@@ -453,7 +473,7 @@ class EquationSystem:
         # Container for all grid variables.
         variables = []
 
-        # Merge subdomains and interfaces into a single list.
+        name = var_tag.name
         grids: Sequence[pp.GridLike]
         if subdomains is not None and interfaces is None:
             grids = subdomains
@@ -473,8 +493,10 @@ class EquationSystem:
             if var.name == name and var.domain in grids:
                 raise KeyError(f"Variable {name} already defined on {var.domain}.")
 
+        self.variable_tags.append(var_tag)
+
         for grid in grids:
-            if subdomains:
+            if subdomains is not None:
                 assert isinstance(grid, pp.Grid)  # mypy
                 data = self.mdg.subdomain_data(grid)
 
@@ -1121,6 +1143,7 @@ class EquationSystem:
     def set_equation(
         self,
         equation: Operator,
+        eq_tag: EquationTag,
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
@@ -1142,6 +1165,7 @@ class EquationSystem:
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
+            eq_tag: Tag identifying the equation and the grids where it is defined.
             grids: A list of subdomain *or* interface grids on which the equation is
                 defined.
             equations_per_grid_entity: a dictionary describing how many equations
@@ -1159,8 +1183,8 @@ class EquationSystem:
                 number as per evaluation of operator.
 
         """
-        # The grid list is changed in place, so we need to make a copy
         grids = grids[:]
+        equation.set_name(eq_tag.name)
         # The function loops over all grids the operator is defined on and calculate the
         # number of equations per grid quantity (cell, face, node). This information
         # is then stored together with the equation itself.
@@ -1168,7 +1192,7 @@ class EquationSystem:
         total_num_equ = 0
 
         # The domain of this equation is the set of grids on which it is defined
-        name = equation.name
+        name = eq_tag.name
         if name in self._equations:
             raise ValueError(
                 "The name of the equation operator is already used by another equation:"
@@ -1184,6 +1208,7 @@ class EquationSystem:
             self._equation_image_size_info.update({name: equations_per_grid_entity})
             # Store the equation itself.
             self._equations.update({name: equation})
+            self.equation_tags.append(eq_tag)
             return
 
         # We require that equations are defined either on a set of subdomains, or a set
@@ -1258,6 +1283,7 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
+        self.equation_tags.append(eq_tag)
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
@@ -1277,6 +1303,7 @@ class EquationSystem:
             # Note that there is no need to modify the numbering of the other equations,
             # since this is a local (to the equation) numbering.
             del self._equation_image_space_composition[name]
+            equ._domains = []
             return equ
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
@@ -1320,6 +1347,7 @@ class EquationSystem:
         new_equation.set_name(equation_name)
         self.set_equation(
             equation=new_equation,
+            eq_tag=next(tag for tag in self.equation_tags if tag.name == equation_name),
             grids=grids,
             equations_per_grid_entity=equations_per_grid_entity,
         )

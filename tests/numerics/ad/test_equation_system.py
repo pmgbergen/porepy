@@ -47,7 +47,9 @@ def test_evaluate_variables():
 
     # Define variables
     var_name = "foo"
-    equation_system.create_variables(var_name, subdomains=[g_1, g_2])
+    equation_system.create_variables(
+        pp.VariableTag(var_name, pp.AllSubdomains()), subdomains=[g_1, g_2]
+    )
 
     for sd, d in mdg.subdomains(return_data=True):
         vals_sol = np.ones([sd.num_cells])
@@ -134,13 +136,17 @@ def test_variable_creation():
     # Define one variable on all subdomains, one on a single subdomain, and one on
     # all interfaces (there is only one interface in this grid).
     subdomain_variable = equation_system.create_variables(
-        "var_1", dof_info_sd, subdomains=subdomains
+        pp.VariableTag("var_1", pp.AllSubdomains()), dof_info_sd, subdomains=subdomains
     )
     single_subdomain_variable = equation_system.create_variables(
-        "var_2", dof_info_sd, subdomains=single_subdomain
+        pp.VariableTag("var_2", pp.AllSubdomains()),
+        dof_info_sd,
+        subdomains=single_subdomain,
     )
     interface_variable = equation_system.create_variables(
-        "var_3", dof_info_intf, interfaces=interfaces
+        pp.VariableTag("var_3", pp.AllSubdomains()),
+        dof_info_intf,
+        interfaces=interfaces,
     )
 
     # Check that the variable storage in the EquationSystem is correct.
@@ -233,13 +239,17 @@ def test_remove_variables(variable_to_be_removed):
     # Define one variable on all subdomains, one on a single subdomain, and one on all
     # interfaces (there is only one interface in this grid).
     var_1 = equation_system.create_variables(
-        "var_1", dof_info_sd, subdomains=subdomains
+        pp.VariableTag("var_1", pp.AllSubdomains()), dof_info_sd, subdomains=subdomains
     )
     var_2 = equation_system.create_variables(
-        "var_2", dof_info_sd, subdomains=single_subdomain
+        pp.VariableTag("var_2", pp.AllSubdomains()),
+        dof_info_sd,
+        subdomains=single_subdomain,
     )
     var_3 = equation_system.create_variables(
-        "var_3", dof_info_intf, interfaces=interfaces
+        pp.VariableTag("var_3", pp.AllSubdomains()),
+        dof_info_intf,
+        interfaces=interfaces,
     )
 
     if variable_to_be_removed:
@@ -296,10 +306,15 @@ def test_variable_tags():
     # Define one variable on all subdomains, one on a single subdomain, and one on
     # all interfaces (there is only one interface in this grid).
     var_1 = equation_system.create_variables(
-        "var_1", dof_info, subdomains=subdomains, tags={"tag_1": 1}
+        pp.VariableTag("var_1", pp.AllSubdomains()),
+        dof_info,
+        subdomains=subdomains,
+        tags={"tag_1": 1},
     )
     var_2 = equation_system.create_variables(
-        "var_2", dof_info, subdomains=single_subdomain
+        pp.VariableTag("var_2", pp.AllSubdomains()),
+        dof_info,
+        subdomains=single_subdomain,
     )
 
     assert var_1.tags == {"tag_1": 1}
@@ -414,24 +429,30 @@ class EquationSystemMockModel:
 
         self.name_sd_variable = "x"
         self.sd_variable = equation_system.create_variables(
-            self.name_sd_variable, subdomains=subdomains
+            pp.VariableTag(self.name_sd_variable, pp.AllSubdomains()),
+            subdomains=subdomains,
         )
 
         # Let interface variables have size 2, this gives us a bit more to play with
         # in the testing of assembly.
         self.name_intf_variable = "y"
         self.intf_variable = equation_system.create_variables(
-            self.name_intf_variable, dof_info={"cells": 2}, interfaces=interfaces
+            pp.VariableTag(self.name_intf_variable, pp.AllSubdomains()),
+            dof_info={"cells": 2},
+            interfaces=interfaces,
         )
 
         self.name_sd_top_variable = "z"
         self.sd_top_variable = equation_system.create_variables(
-            self.name_sd_top_variable, subdomains=[sd_top]
+            pp.VariableTag(self.name_sd_top_variable, pp.AllSubdomains()),
+            subdomains=[sd_top],
         )
 
         self.name_intf_top_variable = "w"
         self.intf_top_variable = equation_system.create_variables(
-            self.name_intf_top_variable, dof_info={"cells": 2}, interfaces=[intf_top]
+            pp.VariableTag(self.name_intf_top_variable, pp.AllSubdomains()),
+            dof_info={"cells": 2},
+            interfaces=[intf_top],
         )
 
         # Set the time step and iterate solution values for the variables.
@@ -482,11 +503,13 @@ class EquationSystemMockModel:
 
         equation_system.set_equation(
             self.eq_all_subdomains,
+            eq_tag=pp.EquationTag(self.eq_all_subdomains.name, pp.AllSubdomains()),
             grids=subdomains,
             equations_per_grid_entity=dof_all_subdomains,
         )
         equation_system.set_equation(
             self.eq_single_subdomain,
+            eq_tag=pp.EquationTag(self.eq_single_subdomain.name, pp.AllSubdomains()),
             grids=[sd_top],
             equations_per_grid_entity=dof_single_subdomain,
         )
@@ -504,11 +527,13 @@ class EquationSystemMockModel:
         dof_single_interface = {"cells": 2}
         equation_system.set_equation(
             self.eq_all_interfaces,
+            eq_tag=pp.EquationTag(self.eq_all_interfaces.name, pp.AllSubdomains()),
             grids=interfaces,
             equations_per_grid_entity=dof_all_interfaces,
         )
         equation_system.set_equation(
             self.eq_single_interface,
+            eq_tag=pp.EquationTag(self.eq_single_interface.name, pp.AllSubdomains()),
             grids=[intf_top],
             equations_per_grid_entity=dof_single_interface,
         )
@@ -527,7 +552,10 @@ class EquationSystemMockModel:
             self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
             equation_system.set_equation(
-                self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
+                self.eq_combined,
+                eq_tag=pp.EquationTag(self.eq_combined.name, pp.AllSubdomains()),
+                grids=[sd_top],
+                equations_per_grid_entity=dof_combined,
             )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
@@ -597,12 +625,15 @@ class EquationSystemMockModel:
     def add_equation_on_empty_domain(self):
         # Add an equation on an empty domain to the equation system.
         empty_var = self.equation_system.create_variables(
-            name="empty_var", subdomains=[]
+            pp.VariableTag("empty_var", pp.AllSubdomains()), subdomains=[]
         )
         empty_equation = empty_var * empty_var
         empty_equation.set_name("empty_equation")
         self.equation_system.set_equation(
-            empty_equation, grids=[], equations_per_grid_entity={"cells": 1}
+            empty_equation,
+            eq_tag=pp.EquationTag(empty_equation.name, pp.AllSubdomains()),
+            grids=[],
+            equations_per_grid_entity={"cells": 1},
         )
 
 
@@ -935,6 +966,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     with pytest.raises(ValueError):
         equation_system.set_equation(
             model.eq_all_subdomains,
+            eq_tag=pp.EquationTag(model.eq_all_subdomains.name, pp.AllSubdomains()),
             grids=model.subdomains,
             equations_per_grid_entity=dof_info_subdomain,
         )
@@ -951,6 +983,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Now set the equation again.
     equation_system.set_equation(
         model.eq_single_subdomain,
+        eq_tag=pp.EquationTag(model.eq_single_subdomain.name, pp.AllSubdomains()),
         grids=[model.sd_top],
         equations_per_grid_entity=dof_info_subdomain,
     )
@@ -973,6 +1006,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Add a second equation, defined on both subdomains
     equation_system.set_equation(
         model.eq_all_subdomains,
+        eq_tag=pp.EquationTag(model.eq_all_subdomains.name, pp.AllSubdomains()),
         grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
     )
@@ -990,6 +1024,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # mdg.interfaces()
     equation_system.set_equation(
         model.eq_all_interfaces,
+        eq_tag=pp.EquationTag(model.eq_all_interfaces.name, pp.AllSubdomains()),
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
     )

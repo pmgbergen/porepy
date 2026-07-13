@@ -157,10 +157,27 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         intf_adv = self.interface_enthalpy_flux_equation(codim_1_interfaces)
         well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
 
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_cond, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(intf_adv, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(
+            sd_eq, pp.DefaultEquationTags.energy_balance, subdomains, {"cells": 1}
+        )
+        self.equation_system.set_equation(
+            intf_cond,
+            pp.DefaultEquationTags.interface_fourier_flux,
+            codim_1_interfaces,
+            {"cells": 1},
+        )
+        self.equation_system.set_equation(
+            intf_adv,
+            pp.DefaultEquationTags.interface_enthalpy_flux,
+            codim_1_interfaces,
+            {"cells": 1},
+        )
+        self.equation_system.set_equation(
+            well_eq,
+            pp.DefaultEquationTags.well_enthalpy_flux,
+            codim_2_interfaces,
+            {"cells": 1},
+        )
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy balance equation for subdomains.
@@ -501,23 +518,23 @@ class VariablesEnergyBalance(pp.VariableMixin):
         super().create_variables()
 
         self.equation_system.create_variables(
-            self.temperature_variable,
+            pp.DefaultVariableTags.temperature,
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "K"},
         )
         # Flux variables are extensive (surface integrated) and thus have units of W.
         self.equation_system.create_variables(
-            self.interface_fourier_flux_variable,
+            pp.DefaultVariableTags.interface_fourier_flux,
             interfaces=self.mdg.interfaces(codim=1),
             tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
-            self.interface_enthalpy_flux_variable,
+            pp.DefaultVariableTags.interface_enthalpy_flux,
             interfaces=self.mdg.interfaces(codim=1),
             tags={"si_units": f"W * m^{self.nd - 3}"},
         )
         self.equation_system.create_variables(
-            self.well_enthalpy_flux_variable,
+            pp.DefaultVariableTags.well_enthalpy_flux,
             interfaces=self.mdg.interfaces(codim=2),
             tags={"si_units": f"W * m^{self.nd - 3}"},
         )
@@ -629,7 +646,7 @@ class EnthalpyVariable(pp.VariableMixin):
 
         # enthalpy variable
         self.equation_system.create_variables(
-            self.enthalpy_variable,
+            pp.DefaultVariableTags.enthalpy,
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "J * kg^-1"},
         )

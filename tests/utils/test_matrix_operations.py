@@ -959,15 +959,29 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     equation_system = pp.ad.EquationSystem(mdg)
 
     # Create four “subdomain” variables (p1, p2, s1, s2), one DOF per cell.
-    p1 = equation_system.create_variables(name="p1", subdomains=mdg.subdomains())
-    p2 = equation_system.create_variables(name="p2", subdomains=mdg.subdomains())
-    s1 = equation_system.create_variables(name="s1", subdomains=mdg.subdomains())
-    s2 = equation_system.create_variables(name="s2", subdomains=mdg.subdomains())
+    p1 = equation_system.create_variables(
+        var_tag=pp.VariableTag("p1", pp.AllSubdomains()), subdomains=mdg.subdomains()
+    )
+    p2 = equation_system.create_variables(
+        var_tag=pp.VariableTag("p2", pp.AllSubdomains()), subdomains=mdg.subdomains()
+    )
+    s1 = equation_system.create_variables(
+        var_tag=pp.VariableTag("s1", pp.AllSubdomains()), subdomains=mdg.subdomains()
+    )
+    s2 = equation_system.create_variables(
+        var_tag=pp.VariableTag("s2", pp.AllSubdomains()), subdomains=mdg.subdomains()
+    )
 
     # Create three “interface” variables (pf, sf1, sf2), one DOF per interface cell.
-    pf = equation_system.create_variables(name="pf", interfaces=mdg.interfaces())
-    sf1 = equation_system.create_variables(name="sf1", interfaces=mdg.interfaces())
-    sf2 = equation_system.create_variables(name="sf2", interfaces=mdg.interfaces())
+    pf = equation_system.create_variables(
+        var_tag=pp.VariableTag("pf", pp.AllSubdomains()), interfaces=mdg.interfaces()
+    )
+    sf1 = equation_system.create_variables(
+        var_tag=pp.VariableTag("sf1", pp.AllSubdomains()), interfaces=mdg.interfaces()
+    )
+    sf2 = equation_system.create_variables(
+        var_tag=pp.VariableTag("sf2", pp.AllSubdomains()), interfaces=mdg.interfaces()
+    )
 
     # Define equation‐to‐grid-entity mapping: one equation per cell.
     eq_per_gridEntity = {"cells": 1, "faces": 0, "nodes": 0}
@@ -976,32 +990,67 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     Scalar = pp.ad.Scalar
     expr_p1 = p1 + s1 * Scalar(2.0) - Scalar(1.0)
     expr_p1.set_name("eq_p1")
-    equation_system.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(
+        expr_p1,
+        pp.EquationTag(expr_p1.name, pp.AllSubdomains()),
+        mdg.subdomains(),
+        eq_per_gridEntity,
+    )
 
     expr_p2 = p2 * Scalar(1.0) + s2 * Scalar(2.0) - Scalar(2.0)
     expr_p2.set_name("eq_p2")
-    equation_system.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(
+        expr_p2,
+        pp.EquationTag(expr_p2.name, pp.AllSubdomains()),
+        mdg.subdomains(),
+        eq_per_gridEntity,
+    )
 
     expr_s1 = p1 * Scalar(3.0) + s1 * Scalar(1.0) - Scalar(3.0)
     expr_s1.set_name("eq_s1")
-    equation_system.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(
+        expr_s1,
+        pp.EquationTag(expr_s1.name, pp.AllSubdomains()),
+        mdg.subdomains(),
+        eq_per_gridEntity,
+    )
 
     expr_s2 = p2 * Scalar(3.0) + s2 * Scalar(1.0) - Scalar(4.0)
     expr_s2.set_name("eq_s2")
-    equation_system.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(
+        expr_s2,
+        pp.EquationTag(expr_s2.name, pp.AllSubdomains()),
+        mdg.subdomains(),
+        eq_per_gridEntity,
+    )
 
     # On each interface, register 3 equations.
     eq_pf = pf ** Scalar(2.0) - Scalar(2.0)
     eq_pf.set_name("eq_p_f")
-    equation_system.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(
+        eq_pf,
+        pp.EquationTag(eq_pf.name, pp.CodimensionOneInterfaces()),
+        mdg.interfaces(),
+        eq_per_gridEntity,
+    )
 
     eq_sf1 = pf + sf2 + sf1 * Scalar(2.5) - Scalar(1.0)
     eq_sf1.set_name("eq_s_f_1")
-    equation_system.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(
+        eq_sf1,
+        pp.EquationTag(eq_sf1.name, pp.CodimensionOneInterfaces()),
+        mdg.interfaces(),
+        eq_per_gridEntity,
+    )
 
     eq_sf2 = pf + sf2 * sf1 + sf1 - Scalar(10.0)
     eq_sf2.set_name("eq_s_f_2")
-    equation_system.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(
+        eq_sf2,
+        pp.EquationTag(eq_sf2.name, pp.CodimensionOneInterfaces()),
+        mdg.interfaces(),
+        eq_per_gridEntity,
+    )
 
     # Define "secondary" list of equations & variables.
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]

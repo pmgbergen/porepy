@@ -433,7 +433,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         # create the variable.
         if name not in set([var.name for var in self.equation_system.variables]):
             self.equation_system.create_variables(
-                name=name,
+                var_tag=pp.VariableTag(name, pp.AllSubdomains()),
                 subdomains=self.equation_system.mdg.subdomains(),
                 tags={"si_units": "-"},
             )

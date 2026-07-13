@@ -113,7 +113,9 @@ def test_copy_operator_tree():
         fracture_indices=[1],
     )
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables(
+        pp.VariableTag("foo", pp.AllSubdomains()), {"cells": 1}, mdg.subdomains()
+    )
     equation_system.set_variable_values(
         np.zeros(equation_system.num_dofs()), iterate_index=0, time_step_index=0
     )
@@ -381,7 +383,9 @@ def test_ad_variable_creation():
         fracture_indices=[1],
     )
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables(
+        pp.VariableTag("foo", pp.AllSubdomains()), {"cells": 1}, mdg.subdomains()
+    )
 
     var_1 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
     var_2 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
@@ -471,23 +475,35 @@ def test_ad_variable_evaluation():
     # It should be possible to avoid this by using dof-indices of the subdomains, but EK
     # cannot wrap his head around this at the moment (it is Friday afternoon).
     equation_system.create_variables(
-        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+        pp.VariableTag(var, pp.AllSubdomains()),
+        dof_info={"cells": 1},
+        subdomains=mdg.subdomains(dim=2),
     )
     equation_system.create_variables(
-        var, dof_info={"cells": 2}, subdomains=mdg.subdomains(dim=1)
+        pp.VariableTag(var, pp.AllSubdomains()),
+        dof_info={"cells": 2},
+        subdomains=mdg.subdomains(dim=1),
     )
     equation_system.create_variables(
-        var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=0)
+        pp.VariableTag(var, pp.AllSubdomains()),
+        dof_info={"cells": 1},
+        subdomains=mdg.subdomains(dim=0),
     )
     equation_system.create_variables(
-        var2, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
+        pp.VariableTag(var2, pp.AllSubdomains()),
+        dof_info={"cells": 1},
+        subdomains=mdg.subdomains(dim=2),
     )
     # Next create interface variables.
     equation_system.create_variables(
-        mortar_var, dof_info={"cells": 2}, interfaces=mdg.interfaces(dim=1)
+        pp.VariableTag(mortar_var, pp.AllSubdomains()),
+        dof_info={"cells": 2},
+        interfaces=mdg.interfaces(dim=1),
     )
     equation_system.create_variables(
-        mortar_var, dof_info={"cells": 1}, interfaces=mdg.interfaces(dim=0)
+        pp.VariableTag(mortar_var, pp.AllSubdomains()),
+        dof_info={"cells": 1},
+        interfaces=mdg.interfaces(dim=0),
     )
 
     for sd, data in mdg.subdomains(return_data=True):
@@ -681,7 +697,9 @@ def test_variable_combinations(grids, variables):
     # Ad boilerplate
     equation_system = pp.ad.EquationSystem(mdg)
     for var in variables:
-        equation_system.create_variables(var, {"cells": 1}, mdg.subdomains())
+        equation_system.create_variables(
+            pp.VariableTag(var, pp.AllSubdomains()), {"cells": 1}, mdg.subdomains()
+        )
         equation_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
@@ -815,7 +833,9 @@ def test_time_differentiation():
         )
 
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.create_variables(
+        pp.VariableTag("foo", pp.AllSubdomains()), {"cells": 1}, mdg.subdomains()
+    )
     # The time step, represented as a scalar.
     ts = 2
     time_step = pp.ad.Scalar(ts)
@@ -1016,7 +1036,9 @@ def _get_ad_array(
         mdg.add_subdomains([g])
 
         equation_system = pp.ad.EquationSystem(mdg)
-        equation_system.create_variables("foo", subdomains=[g])
+        equation_system.create_variables(
+            pp.VariableTag("foo", pp.AllSubdomains()), subdomains=[g]
+        )
         var = equation_system.variables[0]
         d = mdg.subdomain_data(g)
 

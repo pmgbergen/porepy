@@ -71,10 +71,16 @@ class ContactMechanicsEquations(pp.BalanceEquation):
             fracture_subdomains
         )
         self.equation_system.set_equation(
-            fracture_eq_normal, fracture_subdomains, {"cells": 1}
+            fracture_eq_normal,
+            pp.DefaultEquationTags.normal_fracture_deformation,
+            fracture_subdomains,
+            {"cells": 1},
         )
         self.equation_system.set_equation(
-            fracture_eq_tangential, fracture_subdomains, {"cells": self.nd - 1}
+            fracture_eq_tangential,
+            pp.DefaultEquationTags.tangential_fracture_deformation,
+            fracture_subdomains,
+            {"cells": self.nd - 1},
         )
 
     def normal_fracture_deformation_equation(
@@ -362,7 +368,7 @@ class ContactTractionVariable(VariableMixin):
 
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
-            name=self.contact_traction_variable,
+            var_tag=pp.DefaultVariableTags.contact_traction,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
         )

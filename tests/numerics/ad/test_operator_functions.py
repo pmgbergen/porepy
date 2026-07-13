@@ -34,7 +34,9 @@ def test_ad_function():
 
     subdomains = mdg.subdomains()
     equation_system = pp.ad.EquationSystem(mdg)
-    equation_system.create_variables("foo", {"cells": 1}, subdomains)
+    equation_system.create_variables(
+        pp.VariableTag("foo", pp.AllSubdomains()), {"cells": 1}, subdomains
+    )
 
     var = equation_system.md_variable("foo", subdomains)
 

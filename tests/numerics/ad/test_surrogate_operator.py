@@ -43,9 +43,21 @@ def equation_system() -> pp.ad.EquationSystem:
 
     equation_system = pp.ad.EquationSystem(mdg)
 
-    equation_system.create_variables(VAR1_NAME, {"cells": 1}, subdomains=subdomains)
-    equation_system.create_variables(VAR2_NAME, {"cells": 1}, subdomains=subdomains)
-    equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=interfaces)
+    equation_system.create_variables(
+        pp.VariableTag(VAR1_NAME, pp.AllSubdomains()),
+        {"cells": 1},
+        subdomains=subdomains,
+    )
+    equation_system.create_variables(
+        pp.VariableTag(VAR2_NAME, pp.AllSubdomains()),
+        {"cells": 1},
+        subdomains=subdomains,
+    )
+    equation_system.create_variables(
+        pp.VariableTag(INTFVAR_NAME, pp.AllSubdomains()),
+        {"cells": 1},
+        interfaces=interfaces,
+    )
 
     # set zero values at current iterate to kickstart AD
     equation_system.set_variable_values(

@@ -312,6 +312,7 @@ class LocalElimination(EquationMixin):
         local_equ.set_name(equ_name)
         self.equation_system.set_equation(
             local_equ,
+            pp.EquationTag(equ_name, pp.AllSubdomains()),
             cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
             equations_per_grid_entity,
         )

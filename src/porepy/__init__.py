@@ -234,6 +234,18 @@ from porepy.models.compositional_flow import (
     CompositionalFlowTemplate,
     CompositionalFractionalFlowTemplate,
 )
+from porepy.models.equation_variable_tags import (
+    AllSubdomains,
+    CodimensionOneInterfaces,
+    CodimensionTwoInterfaces,
+    DefaultEquationTags,
+    DefaultVariableTags,
+    DomainTag,
+    EquationTag,
+    FractureSubdomains,
+    MatrixSubdomains,
+    VariableTag,
+)
 
 
 # Visualization

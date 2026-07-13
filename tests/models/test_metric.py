@@ -269,12 +269,12 @@ class DummyVariables(pp.VariableMixin):
     def create_variables(self) -> None:
         """Create dummy variables associated with spatial coordinates."""
         self.equation_system.create_variables(
-            "dummy_variable_x",
+            pp.VariableTag("dummy_variable_x", pp.AllSubdomains()),
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "-"},
         )
         self.equation_system.create_variables(
-            "dummy_variable_y",
+            pp.VariableTag("dummy_variable_y", pp.AllSubdomains()),
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "-"},
         )
@@ -322,7 +322,12 @@ class DummyEquations(pp.PorePyModel):
         """Set dummy equations based on the polynomial expression."""
         subdomains = self.mdg.subdomains()
         sd_eq = self.sd_eq(subdomains)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(
+            sd_eq,
+            pp.EquationTag(sd_eq.name, pp.AllSubdomains()),
+            subdomains,
+            {"cells": 1},
+        )
 
 
 class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):

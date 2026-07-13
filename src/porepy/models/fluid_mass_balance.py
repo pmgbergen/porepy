@@ -140,9 +140,21 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
         well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        self.equation_system.set_equation(
+            sd_eq, pp.DefaultEquationTags.mass_balance, subdomains, {"cells": 1}
+        )
+        self.equation_system.set_equation(
+            intf_eq,
+            pp.DefaultEquationTags.interface_darcy_flux,
+            codim_1_interfaces,
+            {"cells": 1},
+        )
+        self.equation_system.set_equation(
+            well_eq,
+            pp.DefaultEquationTags.well_flux,
+            codim_2_interfaces,
+            {"cells": 1},
+        )
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
@@ -734,7 +746,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         super().create_variables()
 
         self.equation_system.create_variables(
-            self.pressure_variable,
+            pp.DefaultVariableTags.pressure,
             subdomains=self.mdg.subdomains(),
             tags={"si_units": "Pa"},
         )
@@ -744,12 +756,12 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         # then be inferred by solving the below equation for `int_flux_units`:
         # kg * s^-1 = [kg * (m^nd)^-1] * [Pa * s]^-1 * intf_flux_units
         self.equation_system.create_variables(
-            self.interface_darcy_flux_variable,
+            pp.DefaultVariableTags.interface_darcy_flux,
             interfaces=self.mdg.interfaces(codim=1),
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
         self.equation_system.create_variables(
-            self.well_flux_variable,
+            pp.DefaultVariableTags.well_flux,
             interfaces=self.mdg.interfaces(codim=2),
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
