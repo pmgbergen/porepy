@@ -1079,31 +1079,46 @@ day = 86400.0
 #  are SCHEDULED, not left to the adaptive cadence.
 # --------------------------------------------------------------------------------------- #
 T_END_DAYS = 78.0                        # hamon T_END
-SNAP_DAYS = (0.0, 78.0)            # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
-DT_DAYS = 0.125                             # nominal time step
+SNAP_DAYS = (0.0, 78.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
+DT_DAYS = 2.0                             # nominal step [days] -- the constant-dt march value
+DT_INIT_DAYS = 0.125                       # INITIAL adaptive step [days] -- start small on the stiff,
+#                                           fully density-inverted IC (denser fluid over lighter)
+DT_MAX_DAYS = 2.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
+#                                           the floor is DT_MAX_DAYS/64
 
 
 def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
                       snap_days: Sequence[float] = SNAP_DAYS,
-                      constant_dt: bool = False) -> pp.TimeManager:
+                      constant_dt: bool = False,
+                      dt_init_days: float = DT_INIT_DAYS,
+                      dt_max_days: float = DT_MAX_DAYS) -> pp.TimeManager:
     """A FRESH TimeManager per run (it is stateful -> must never be shared between models).
 
     The snapshot instants + the horizon go into the schedule so they are hit exactly.
-    ``constant_dt=True`` is a pure 1-day march (``dt_init`` must divide every schedule interval;
-    1 d divides 78 and 571-78=493, so it is valid) -- fully deterministic, but a non-converged
-    step aborts the run (no cut).  ``constant_dt=False`` (default) is the faithful hamon analog:
-    dt starts at ``dt_days`` (also the CAP, so it never exceeds the nominal step), HALVES on a
-    non-converged step down to ``dt_days/64``, then grows back -- and still hits the snapshots.
+    ``constant_dt=True`` is a pure ``dt_days``-day march (``dt_days`` must divide every schedule
+    interval) -- fully deterministic, but a non-converged step aborts the run (no cut).
+    ``constant_dt=False`` (default) is the hamon analog: the step STARTS at ``dt_init_days``, may
+    GROW to the CAP ``dt_max_days`` when Newton is easy, HALVES on a non-converged step down to
+    ``dt_max_days/64``, then grows back -- and still hits the snapshots.
+
+    Time-step controls (all in DAYS; module defaults ``DT_*_DAYS``):
+      * ``dt_days``      -- the CONSTANT-dt march value (only used when ``constant_dt=True``).
+      * ``dt_init_days`` -- INITIAL adaptive step (default ``DT_INIT_DAYS``).  Small on a stiff IC.
+      * ``dt_max_days``  -- MAXIMUM adaptive step / cap (default ``DT_MAX_DAYS``); never exceeded.
+    The adaptive floor is ``dt_max_days/64`` (but never above ``dt_init_days``, so it stays valid).
     """
-    dt0 = dt_days * day
     sched = sorted({0.0, *(d * day for d in snap_days if d <= t_end_days + 1e-9),
                     t_end_days * day})
-    if constant_dt:
-        return pp.TimeManager(schedule=sched, dt_init=dt0, constant_dt=True,
+    if constant_dt:                                  # pure constant march at dt_days
+        return pp.TimeManager(schedule=sched, dt_init=dt_days * day, constant_dt=True,
                               iter_max=20, print_info=True)
+    dt_init = dt_init_days * day
+    dt_max = dt_max_days * day
+    dt_min = min(dt_max / 64.0, dt_init)             # floor; keep dt_init within [dt_min, dt_max]
+    dt_init = min(max(dt_init, dt_min), dt_max)      # clamp the initial step into [dt_min, dt_max]
     return pp.TimeManager(
-        schedule=sched, dt_init=dt0, constant_dt=False,
-        dt_min_max=(dt0 / 64.0, dt0),          # hamon floor dt0/64, cap dt0 (never overshoot 1 d)
+        schedule=sched, dt_init=dt_init, constant_dt=False,
+        dt_min_max=(dt_min, dt_max),           # floor dt_max/64, cap dt_max (never overshoot it)
         iter_optimal_range=(4, 10),            # grow dt when Newton is easy, shrink when it is hard
         iter_relax_factors=(0.5, 2.0),         # halve on a cut / double on grow-back (hamon *0.5, *2)
         recomp_factor=0.5, recomp_max=8,       # reject-and-halve, up to 8 consecutive cuts
@@ -1133,16 +1148,19 @@ _SCHEME_CONFIG = {
 
 
 def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_END_DAYS,
-                 dt_days: float = DT_DAYS, snap_days: Sequence[float] = SNAP_DAYS,
+                 dt_days: float = DT_DAYS, dt_init_days: float = DT_INIT_DAYS,
+                 dt_max_days: float = DT_MAX_DAYS, snap_days: Sequence[float] = SNAP_DAYS,
                  constant_dt: bool = False, **overrides) -> dict:
     """Assemble run parameters for ``nphase`` phases and the named HU-BM ``scheme``.
 
     Configures the module's phase system (so mixture / closures / IC build for ``nphase``) and
     returns the params dict. ``scheme="hu"`` maps to HU-BM(mp). The time stepping mirrors
-    ``hamon_2d_solver`` (nominal ``dt_days``-day backward-Euler step to ``t_end_days``, snapshots
-    at ``snap_days`` hit exactly via the schedule; ``constant_dt`` toggles pure-constant vs the
-    reject-and-halve adaptive analog).  Extra keyword ``overrides`` are merged last (e.g. a
-    different ``time_manager`` for a short test run, or ``use_petsc=False``).
+    ``hamon_2d_solver`` (backward-Euler to ``t_end_days``, snapshots at ``snap_days`` hit exactly
+    via the schedule; ``constant_dt`` toggles pure-constant vs the reject-and-halve adaptive
+    analog).  Time-step size (days): ``dt_days`` is the nominal default for both the INITIAL step
+    and the CAP; pass ``dt_init_days`` and/or ``dt_max_days`` to control them independently (start
+    small on a stiff IC and let the step grow up to ``dt_max_days``).  Extra keyword ``overrides``
+    are merged last (e.g. a different ``time_manager`` for a short test run, or ``use_petsc=False``).
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"unknown scheme {scheme!r}; options: {list(_SCHEME_CONFIG)}")
@@ -1151,7 +1169,8 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
         enable_buoyancy_effects=True,
         lag_buoyancy_direction=False,
         material_constants={"solid": solid_constants},
-        time_manager=make_time_manager(t_end_days, dt_days, snap_days, constant_dt),
+        time_manager=make_time_manager(t_end_days, dt_days, snap_days, constant_dt,
+                                       dt_init_days=dt_init_days, dt_max_days=dt_max_days),
         times_to_export=make_times_to_export(snap_days),
         grid_type="cartesian",
         prepare_simulation=False,
@@ -1251,14 +1270,22 @@ if __name__ == "__main__":
     ap.add_argument("--days", type=float, default=T_END_DAYS,
                     help=f"run horizon in days (default {T_END_DAYS:g} = hamon T_END)")
     ap.add_argument("--dt-days", type=float, default=DT_DAYS,
-                    help=f"nominal time step in days (default {DT_DAYS:g} = hamon dt_days)")
+                    help=f"CONSTANT-dt march step in days (only with --constant-dt; default "
+                         f"{DT_DAYS:g})")
+    ap.add_argument("--dt-init-days", type=float, default=DT_INIT_DAYS,
+                    help=f"INITIAL adaptive step in days (default {DT_INIT_DAYS:g}); small on a "
+                         f"stiff IC")
+    ap.add_argument("--dt-max-days", type=float, default=DT_MAX_DAYS,
+                    help=f"MAXIMUM (cap) adaptive step in days (default {DT_MAX_DAYS:g}); never "
+                         f"exceeded, floor is dt-max/64")
     ap.add_argument("--constant-dt", action="store_true",
-                    help="pure constant 1-day march (else reject-and-halve adaptive, hamon-like)")
+                    help="pure constant march at --dt-days (else reject-and-halve adaptive)")
     args = ap.parse_args()
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
     model = FlowModel(build_params(
         args.nphase, args.scheme, t_end_days=args.days, dt_days=args.dt_days,
+        dt_init_days=args.dt_init_days, dt_max_days=args.dt_max_days,
         snap_days=snaps, constant_dt=args.constant_dt))
     solver_params = {
         "nl_convergence_criteria": {
