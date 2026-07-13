@@ -73,8 +73,13 @@ to_Mega = 1.0e-6
 # [1500, 1167, 833, 500].  The immiscible one-component-per-phase machinery and the analytic
 # z -> s inversion  s_i = (z_i / rho_i) / sum_j (z_j / rho_j)  generalize to any N.
 MU = 1.0e-3                     # phase viscosity [kg/(m.s)] = 1 cP (all phases; scaled to_Mega)
-H_PHASE = 1.0                   # phase specific enthalpy [MJ/kg]
-C_P = 1.0                       # caloric coupling  h = C_P * T  ->  T = h / C_P. Un-pins T (it is
+# Per-phase CONSTANT specific enthalpies [MJ/kg], evenly spaced in [H_MIN, H_MAX].  DENSER phase
+# -> LOWER enthalpy, so the per-phase array ``H_PHASE`` is ASCENDING while ``RHO`` is DESCENDING
+# (phase 0 densest -> H_MIN, phase N-1 lightest -> H_MAX).  This makes the initial enthalpy a
+# function of the saturation layering + phase densities (see ic_values_enthalpy) and, via the
+# caloric closure T = h/C_P, the initial temperature too (denser phase -> colder).
+H_MIN, H_MAX = 1.0, 3.0         # phase specific-enthalpy bounds [MJ/kg]
+C_P = 0.0035                       # caloric coupling  h = C_P * T  ->  T = h / C_P. Un-pins T (it is
 #                                 no longer set to 0): the conduction K_e grad(T) = (K_e/C_P) grad(h)
 #                                 makes temperature a genuine elliptic unknown, but that block is
 #                                 regularized by the energy accumulation d(U)/dh, so it stays
@@ -95,12 +100,13 @@ def _component_names(n: int) -> list[str]:
 
 NPHASE = 3
 RHO = np.linspace(1500.0, 500.0, NPHASE)      # [kg/m^3], phase 0 heaviest .. N-1 lightest
+H_PHASE = np.linspace(H_MIN, H_MAX, NPHASE)   # [MJ/kg] per phase, ASCENDING (phase 0 densest -> H_MIN)
 PHASE_NAMES = _phase_names(NPHASE)
 COMPONENT_NAMES = _component_names(NPHASE)
 # N=3 back-compat scalar density/viscosity/enthalpy aliases (used by WaterEOS/OilEOS/GasEOS).
 rho_w, rho_o, rho_g = 1500.0, 1000.0, 500.0
 mu_w = mu_o = mu_g = MU
-h_w, h_o, h_g = H_PHASE, H_PHASE, H_PHASE
+h_w, h_o, h_g = float(H_PHASE[0]), float(H_PHASE[1]), float(H_PHASE[2])   # 0.5, 1.0, 1.5
 
 milli_darcy = 9.869233e-16          # 1 mD in m^2
 k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD)
@@ -160,8 +166,9 @@ class GasEOS(BaseEOS):
     _rho, _mu, _h = rho_g, mu_g, h_g
 
 
-def make_eos(components, rho: float, mu: float = MU, h: float = H_PHASE) -> BaseEOS:
-    """Constant-property EOS instance for one phase with the given density (N-phase path)."""
+def make_eos(components, rho: float, mu: float = MU, h: float = 1.0) -> BaseEOS:
+    """Constant-property EOS instance for one phase with the given density and specific enthalpy
+    (N-phase path). ``h`` defaults to the midpoint; callers pass the per-phase ``H_PHASE[i]``."""
     class _PhaseEOS(BaseEOS):
         _rho, _mu, _h = rho, mu, h
     return _PhaseEOS(components)
@@ -226,10 +233,11 @@ def configure_phase_system(nphase: int) -> None:
     names, and the (name-keyed) saturation + immiscibility maps consumed by
     :class:`SecondaryEquations3N`. N=3 reproduces the Bosma names/maps exactly; N=4 splits the
     oil into a mid-heavy + mid-light phase."""
-    global NPHASE, RHO, PHASE_NAMES, COMPONENT_NAMES
+    global NPHASE, RHO, H_PHASE, PHASE_NAMES, COMPONENT_NAMES
     global saturation_functions_map, chi_functions_map
     NPHASE = int(nphase)
     RHO = np.linspace(1500.0, 500.0, NPHASE)
+    H_PHASE = np.linspace(H_MIN, H_MAX, NPHASE)     # ascending: denser phase -> lower enthalpy
     PHASE_NAMES = _phase_names(NPHASE)
     COMPONENT_NAMES = _component_names(NPHASE)
     saturation_functions_map = {
@@ -272,7 +280,8 @@ class FluidMixture3N(pp.PorePyModel):
         for i in range(NPHASE):
             state = (pp.compositional.PhysicalState.gas if i == NPHASE - 1
                      else pp.compositional.PhysicalState.liquid)
-            cfg.append((state, PHASE_NAMES[i], make_eos(components, float(RHO[i]))))
+            cfg.append((state, PHASE_NAMES[i],
+                        make_eos(components, float(RHO[i]), h=float(H_PHASE[i]))))
         return cfg
 
     def dependencies_of_phase_properties(self, phase):
@@ -528,7 +537,21 @@ class IC_NphaseSegregation(pp.PorePyModel):
     # the layering so grad(p) - rho g = 0 within each band); no constant-pressure IC here.
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        return np.ones(sd.num_cells)          # isothermal/decoupled energy placeholder
+        """Initial mixture specific enthalpy from the layered saturations, phase densities and
+        per-phase enthalpies -- the mass-weighted mean
+
+            h = sum_k (rho_k s_k h_k) / sum_k (rho_k s_k).
+
+        With the layered IC (one phase per band, s_k = 1 in band k) this is exactly h_k = H_PHASE[k]
+        inside band k, so the initial enthalpy is a step profile in y (denser top phase -> lower h).
+        The caloric closure T = h/C_P then sets the initial temperature (denser phase -> colder)."""
+        masks = self._band_masks(sd)                    # s_k = 1 in band k (partition of the domain)
+        num = np.zeros(sd.num_cells)
+        den = np.zeros(sd.num_cells)
+        for k in range(NPHASE):
+            num[masks[k]] += RHO[k] * H_PHASE[k]        # rho_k s_k h_k
+            den[masks[k]] += RHO[k]                      # rho_k s_k
+        return num / den
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
@@ -1057,7 +1080,7 @@ day = 86400.0
 # --------------------------------------------------------------------------------------- #
 T_END_DAYS = 78.0                        # hamon T_END
 SNAP_DAYS = (0.0, 78.0)            # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
-DT_DAYS = 1.0                             # hamon dt_days (nominal 1-day step)
+DT_DAYS = 0.125                             # nominal time step
 
 
 def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
