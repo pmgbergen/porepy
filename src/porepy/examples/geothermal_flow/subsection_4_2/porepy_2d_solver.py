@@ -52,6 +52,7 @@ from porepy.models.abstract_equations import LocalElimination  # noqa: E402
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import FlowModelBase  # noqa: E402,E501
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E402,E501
     GeometryBarriers2D,
+    _BARRIER_LAYERS_FIG,
 )
 from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E402
     BC_three_phase_closed,
@@ -893,11 +894,50 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
 
 # --------------------------------------------------------------------------------------- #
+#  Barriers by physical BOUNDING BOXES (refinement-independent), mirroring hamon_2d_solver
+# --------------------------------------------------------------------------------------- #
+class BarriersBoundingBox2D(GeometryBarriers2D):
+    """``GeometryBarriers2D`` with a REFINEMENT-INDEPENDENT barrier mask.
+
+    The base class places each barrier on a single index/figure ROW and index-scales the
+    columns, so under mesh refinement the barriers thin out (a 1 m layer is 1 cell = 0.5 m thick
+    at 200x200) and openings shift by half a cell.  Here every digitized segment is instead a
+    FIXED PHYSICAL BOUNDING BOX derived from the 100-cell reference layout, and a cell is a
+    barrier iff its CENTRE lies in any box -- exactly ``hamon_2d_solver.barrier_mask``.  So a 1 m
+    layer stays 1 m thick at any resolution (2 cells at 200x200) and every opening keeps its exact
+    x-span; at 100x100 this reproduces the base class mask cell-for-cell.
+    """
+
+    def _barrier_boxes(self) -> list:
+        """Physical boxes ``(x_lo, x_hi, y_lo, y_hi)`` of every barrier segment, from the 100-cell
+        digitized ``_BARRIER_LAYERS_FIG`` (figure row 0 = top, gravity down).  Figure row ``fig_r``
+        is the physical band ``y in [L - (fig_r+1) dref, L - fig_r dref]``; inclusive columns
+        ``[a, b]`` span ``x in [a dref, (b+1) dref]`` (``dref = L/100`` = one reference cell)."""
+        length = self.units.convert_units(self._length, "m")     # square domain (both = _length)
+        dref = length / 100.0                                    # one 100-cell reference cell
+        boxes = []
+        for fig_r, segments in _BARRIER_LAYERS_FIG.items():
+            y_lo = length - (fig_r + 1) * dref
+            y_hi = length - fig_r * dref
+            for a, b in segments:
+                boxes.append((a * dref, (b + 1) * dref, y_lo, y_hi))
+        return boxes
+
+    def barrier_cell_mask(self, sd: pp.Grid) -> np.ndarray:
+        xc = sd.cell_centers[0]
+        yc = sd.cell_centers[1]                                  # 0 = bottom, increases UPWARD
+        mask = np.zeros(sd.num_cells, dtype=bool)
+        for x_lo, x_hi, y_lo, y_hi in self._barrier_boxes():
+            mask |= (xc >= x_lo) & (xc <= x_hi) & (yc >= y_lo) & (yc <= y_hi)
+        return mask
+
+
+# --------------------------------------------------------------------------------------- #
 #  The model
 # --------------------------------------------------------------------------------------- #
 class FlowModel(
     _LagrangeConstrainedSolve,
-    GeometryBarriers2D,
+    BarriersBoundingBox2D,
     FluidMixture3N,
     IC_NphaseSegregation,
     BC_all_neumann,
