@@ -370,6 +370,8 @@ def build_params(
     fractures: bool = True,
     box_cell_size: float = 0.05,
     geometry_scale: float = 1.0,
+    linear_solver: str = "direct",
+    gravity: bool = True,
     **overrides,
 ) -> dict:
     """Assemble the params dict for one (scheme, refinement) 3D geothermal benchmark run.
@@ -379,9 +381,21 @@ def build_params(
     ignored.  ``geometry_scale`` multiplies all coordinates (e.g. 1000 -> a 1x2.25x1 km box) so
     the geothermal buoyancy (~rho g dz over the scaled height) becomes physically significant; the
     cell count is unchanged.
+
+    ``linear_solver`` selects the linear solver: "direct" (SciPy sparse LU; default), "cpr"
+    (Schur-reduced CPR, iterative; PETSc), or "lu" (direct LU via MUMPS; PETSc).
+    ``gravity=False`` sets g=0 (removes buoyancy AND the hydrostatic Darcy term).
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"scheme must be one of {sorted(_SCHEME_CONFIG)}, got {scheme!r}")
+    _linear_solvers = {
+        "direct": dict(use_petsc=False),
+        "cpr": dict(use_petsc=True, petsc_preconditioner="cpr"),
+        "lu": dict(use_petsc=True, petsc_preconditioner="lu"),
+    }
+    if linear_solver not in _linear_solvers:
+        raise ValueError(
+            f"linear_solver must be one of {sorted(_linear_solvers)}, got {linear_solver!r}")
 
     tf = t_end_days * DAY
     dt = dt_days * DAY
@@ -398,7 +412,7 @@ def build_params(
 
     params = dict(
         ad_backend=ad_backend,
-        enable_buoyancy_effects=True,
+        enable_buoyancy_effects=gravity,
         lag_buoyancy_direction=False,
         material_constants={"solid": solid},
         time_manager=time_manager,
@@ -406,9 +420,10 @@ def build_params(
         fractures=fractures,
         box_cell_size=box_cell_size,
         geometry_scale=geometry_scale,
-        use_petsc=False,
+        gravity=gravity,
         step_control_method="None",
     )
+    params.update(_linear_solvers[linear_solver])
     params.update(_SCHEME_CONFIG[scheme])
     params.update(overrides)
     return params
@@ -442,7 +457,8 @@ def _solver_params(model) -> dict:
 
 def check(scheme: str = "HU", refinement_level: int = 0,
           fractures: bool = True, box_cell_size: float = 0.1,
-          geometry_scale: float = 1.0) -> None:
+          geometry_scale: float = 1.0, linear_solver: str = "direct",
+          gravity: bool = True) -> None:
     """Build the model, prepare the simulation, and assemble the residual + Jacobian ONCE.
 
     A cheap structural smoke test: confirms the grid (mixed-dimensional benchmark-3, or the
@@ -454,7 +470,8 @@ def check(scheme: str = "HU", refinement_level: int = 0,
           f"refinement_level={refinement_level}, geometry_scale={geometry_scale} ===", flush=True)
     model = build_model(scheme, refinement_level=refinement_level,
                         fractures=fractures, box_cell_size=box_cell_size,
-                        geometry_scale=geometry_scale)
+                        geometry_scale=geometry_scale, linear_solver=linear_solver,
+                        gravity=gravity)
     t0 = time.time()
     model.prepare_simulation()
     print(f"  prepare_simulation: {time.time() - t0:.1f}s", flush=True)
@@ -489,15 +506,18 @@ def check(scheme: str = "HU", refinement_level: int = 0,
 def run(scheme: str = "HU", refinement_level: int = 0,
         t_end_days: float = 100.0, dt_days: float = 10.0,
         ad_backend: str = "native", fractures: bool = True,
-        box_cell_size: float = 0.05, geometry_scale: float = 1.0) -> None:
+        box_cell_size: float = 0.05, geometry_scale: float = 1.0,
+        linear_solver: str = "direct", gravity: bool = True) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     print(f"\n=== 3D benchmark run: scheme={scheme}, fractures={fractures}, "
           f"level={refinement_level}, scale={geometry_scale}, tf={t_end_days} d, "
-          f"dt={dt_days} d, backend={ad_backend} ===", flush=True)
+          f"dt={dt_days} d, backend={ad_backend}, linear_solver={linear_solver}, "
+          f"gravity={gravity} ===", flush=True)
     model = build_model(scheme, refinement_level=refinement_level,
                         t_end_days=t_end_days, dt_days=dt_days, ad_backend=ad_backend,
                         fractures=fractures, box_cell_size=box_cell_size,
-                        geometry_scale=geometry_scale)
+                        geometry_scale=geometry_scale, linear_solver=linear_solver,
+                        gravity=gravity)
     runner = pp.ModelRunner(model, _solver_params(model))
     print("  DoF:", model.equation_system.num_dofs(), flush=True)
     model.schur_complement_primary_equations = (
@@ -528,6 +548,11 @@ def _cli() -> argparse.Namespace:
     p.add_argument("--days", type=float, default=100.0, help="end time [days]")
     p.add_argument("--dt-days", type=float, default=10.0, help="nominal time step [days]")
     p.add_argument("--ad-backend", choices=["native", "sparsa"], default="native")
+    p.add_argument("--linear-solver", choices=["direct", "cpr", "lu"], default="direct",
+                   help="linear solver: direct (SciPy LU, default), cpr (Schur-reduced CPR, "
+                        "iterative/PETSc), or lu (direct LU via MUMPS/PETSc)")
+    p.add_argument("--no-gravity", dest="gravity", action="store_false",
+                   help="set g=0 (removes buoyancy AND the hydrostatic Darcy term)")
     p.add_argument("--check", action="store_true",
                    help="build + assemble once (structural smoke test), no transient solve")
     return p.parse_args()
@@ -537,10 +562,11 @@ def main() -> None:
     args = _cli()
     if args.check:
         check(args.scheme, args.refinement_level, args.fractures, args.box_cell_size,
-              args.geometry_scale)
+              args.geometry_scale, args.linear_solver, args.gravity)
     else:
         run(args.scheme, args.refinement_level, args.days, args.dt_days, args.ad_backend,
-            args.fractures, args.box_cell_size, args.geometry_scale)
+            args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
+            args.gravity)
 
 
 if __name__ == "__main__":

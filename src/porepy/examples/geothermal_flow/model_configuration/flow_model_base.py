@@ -124,12 +124,14 @@ class _FlowModelBaseCore:
         # Flag to use PETSc with MUMPS solver
         self.use_petsc = params.get("use_petsc", False)
 
-        # Preconditioner selection for PETSc solver
+        # Linear solver selection for the PETSc path.  Only two options are supported:
+        #   "cpr" -- Schur-reduced CPR (iterative; default), and
+        #   "lu"  -- direct LU via MUMPS.
         self.petsc_preconditioner = params.get("petsc_preconditioner", "cpr")
-        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre","ilu0","lu", "cpr"}
+        valid_preconditioners = {"lu", "cpr"}
         if self.petsc_preconditioner not in valid_preconditioners:
-            logger.warning(f"Invalid preconditioner '{self.petsc_preconditioner}'. Using 'bjacobi' as default.")
-            self.petsc_preconditioner = "bjacobi"
+            logger.warning(f"Invalid linear solver '{self.petsc_preconditioner}'. Using 'cpr' as default.")
+            self.petsc_preconditioner = "cpr"
 
         # Flag to enable Cuthill-McKee permutation for bandwidth reduction
         self.use_cuthill_mckee = params.get("use_cuthill_mckee", True)
@@ -188,11 +190,16 @@ class _FlowModelBaseCore:
         if not PETSC_AVAILABLE:
             raise RuntimeError("PETSc is not available")
 
-        # Validate preconditioner
-        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre", "ilu0", "lu", "cpr"}
-        if preconditioner not in valid_preconditioners:
-            logger.warning(f"Invalid preconditioner '{preconditioner}'. Using 'lu' as default.")
-            preconditioner = "lu"
+        # Only two linear solvers are supported: "cpr" (Schur-reduced CPR, iterative) and
+        # "lu" (direct LU via MUMPS).
+        if preconditioner not in {"lu", "cpr"}:
+            logger.warning(f"Invalid linear solver '{preconditioner}'. Using 'cpr' as default.")
+            preconditioner = "cpr"
+
+        # CPR is a self-contained Schur reduction + fieldsplit (it does its own DOF partition,
+        # so it needs neither the equation permutation nor the matrix scaling below).
+        if preconditioner == "cpr":
+            return self._schur_cpr_solve(A.tocsr(), np.asarray(b, dtype=float))
 
         logger.info(f"Solving linear system with PETSc {preconditioner.upper()}")
 
@@ -439,6 +446,272 @@ class _FlowModelBaseCore:
         if is_t: is_t.destroy()
 
         return solution
+
+    # ----------------------------------------------------------------------------------------- #
+    #  Schur-reduced CPR -- the iterative solver.  Ported from subsection_4_2/porepy_2d_solver.py.
+    #  The constant-pressure null-mean gauge is OPTIONAL, controlled by
+    #  ``params["null_mean_pressure"]`` (default False): OFF for the usual Dirichlet inlet/outlet
+    #  problem (non-singular pressure block -> plain CPR); ON for a fully closed / all-Neumann
+    #  domain (singular constant-pressure mode -> Sum(dp_matrix)=0 pinned on the matrix rows).
+    # ----------------------------------------------------------------------------------------- #
+    _ELLIPTIC_VARS = ("pressure", "enthalpy")
+
+    @staticmethod
+    def _equation_for_variable(varname: str, eq_names: list):
+        """Equation that determines ``varname`` (PorePy names equations independently of the
+        variables): pressure<->mass_balance, enthalpy<->energy_balance,
+        z_<c><->component_mass_balance_<c>, each interface flux <-> its <var>_equation, and each
+        locally-eliminated variable <-> its elimination_of_<var>_on_grids_... equation."""
+        if varname == "pressure":
+            return "mass_balance_equation"
+        if varname == "enthalpy":
+            return "energy_balance_equation"
+        if varname.startswith("z_"):
+            return "component_mass_balance_equation_" + varname[2:]
+        if varname.startswith("interface_"):
+            return varname + "_equation"
+        cands = [e for e in eq_names if e.startswith(f"elimination_of_{varname}_on_grids")]
+        return cands[0] if cands else None
+
+    def _primary_secondary_indices(self, n: int):
+        """Partition assembled DOFs into PRIMARY (p, h, z -- balance equations; elliptic {p, h}
+        first, interface_darcy_flux last) and SECONDARY (T, s, x -- local eliminations), each with
+        aligned equation-rows and variable-columns. Returns (primary_cols, primary_rows,
+        secondary_cols, secondary_rows, n_pressure, n_elliptic, n_darcy, matrix_p_pos)."""
+        es = self.equation_system
+        aei = es.assembled_equation_indices
+        eq_names = list(aei.keys())
+        vars_by_name: dict = {}
+        for v in es.variables:                          # atomic Variable objects, one per grid
+            vars_by_name.setdefault(v.name, []).append(v)
+        var_names = sorted(vars_by_name)
+
+        def eq_of(v):
+            return self._equation_for_variable(v, eq_names)
+
+        def is_secondary(v):
+            eq = eq_of(v)
+            return eq is not None and eq.startswith("elimination_of_")
+
+        # PRIMARY order: [pressure, enthalpy] (elliptic, lead the GAMG fields) + [z, thermal interface
+        # fluxes] + [interface_darcy_flux LAST] (so the second Schur can cheaply eliminate it).
+        elliptic = [v for v in self._ELLIPTIC_VARS if v in var_names]
+        darcy = [v for v in var_names if v == "interface_darcy_flux"]
+        middle = [v for v in var_names
+                  if v not in elliptic and v not in darcy and not is_secondary(v)]
+        primary_vars = elliptic + middle + darcy
+        secondary_vars = [v for v in var_names if is_secondary(v)]
+
+        def cols(vs):
+            # Gather each variable's global DOFs by NAME across ALL grids (subdomains AND interfaces).
+            return [np.asarray(es.dofs_of(vars_by_name[v]), dtype=int) for v in vs]
+
+        def rows(vs):
+            return [np.asarray(aei[eq_of(v)], dtype=int) for v in vs]
+
+        p_cols, p_rows = cols(primary_vars), rows(primary_vars)
+        s_cols, s_rows = cols(secondary_vars), rows(secondary_vars)
+        primary_cols = np.concatenate(p_cols)
+        primary_rows = np.concatenate(p_rows)
+        secondary_cols = np.concatenate(s_cols) if s_cols else np.zeros(0, dtype=int)
+        secondary_rows = np.concatenate(s_rows) if s_rows else np.zeros(0, dtype=int)
+        if not (np.array_equal(np.sort(np.concatenate([primary_cols, secondary_cols])), np.arange(n))
+                and np.array_equal(
+                    np.sort(np.concatenate([primary_rows, secondary_rows])), np.arange(n))):
+            raise RuntimeError("Schur partition: primary+secondary indices do not partition [0,n)")
+        n_pressure = len(p_cols[0])
+        n_elliptic = sum(len(p_cols[i]) for i in range(len(elliptic)))
+        n_darcy = sum(len(p_cols[len(elliptic) + len(middle) + i]) for i in range(len(darcy)))
+        # Positions of the equidimensional-MATRIX pressure DOFs within the pressure block; the
+        # optional null-mean gauge pins Sum(dp_matrix)=0 on these.
+        matrix_p = np.asarray(
+            es.dofs_of([es.md_variable("pressure", [self.mdg.subdomains(dim=self.nd)[0]])]), dtype=int)
+        matrix_p_pos = np.nonzero(np.isin(p_cols[0], matrix_p))[0]
+        return (primary_cols, primary_rows, secondary_cols, secondary_rows,
+                n_pressure, n_elliptic, n_darcy, matrix_p_pos)
+
+    def _schur_cpr_solve(self, A, b) -> np.ndarray:
+        """Algebraic Schur reduction of the LOCAL secondary closures (T, s, x), then CPR on the
+        reduced (p, h, z) primary system, then back-substitution. ``A_ss`` is block-diagonal per
+        cell (== I when the closures depend only on primaries) so its elimination is cheap;
+        eliminating T substitutes ``K_e grad(T) -> (K_e/C_P) grad(h)`` so the reduced energy
+        equation is a genuine h-Laplacian and ``{p, h} -> GAMG`` becomes effective."""
+        import scipy.sparse as sps
+        from scipy.sparse.linalg import splu, spsolve
+
+        t0 = time.perf_counter()
+        n = A.shape[0]
+        pc, pr, sc, sr, n_p, n_ell, n_darcy, matrix_p_pos = self._primary_secondary_indices(n)
+        null_mean = bool(self.params.get("null_mean_pressure", False))
+        A = A.tocsc()
+        App = A[pr][:, pc].tocsr()
+        Aps = A[pr][:, sc].tocsr()
+        Asp = A[sr][:, pc].tocsc()
+        Ass = A[sr][:, sc].tocsr()
+        bp, bs = b[pr], b[sr]
+
+        # A_ss is the Jacobian of ``var - func(primary) = 0``: diagonal identity, no secondary<->
+        # secondary coupling -> A_ss == I. Detect and skip the factorization; LU only if non-trivial.
+        is_identity = (Ass.shape[0] == Ass.nnz
+                       and np.allclose(Ass.data, 1.0)
+                       and np.array_equal(Ass.indices, np.arange(Ass.shape[0])))
+        if is_identity:
+            Ainv_Asp = Asp
+            Ainv_bs = bs
+            lu = None
+        else:
+            lu = splu(Ass.tocsc())
+            Ainv_Asp = spsolve(Ass.tocsc(), Asp)
+            if not sps.issparse(Ainv_Asp):
+                Ainv_Asp = sps.csc_matrix(Ainv_Asp)
+            Ainv_bs = lu.solve(bs)
+
+        S = (App - Aps @ Ainv_Asp).tocsr()                  # Schur complement (p, h, z, interface)
+        g = bp - Aps @ Ainv_bs
+
+        # Second (exact) Schur: eliminate the trailing interface_darcy_flux block (diagonal), folding
+        # the matrix<->fracture pressure coupling into the pressure block. n_darcy == 0 -> no-op.
+        m = S.shape[0] - n_darcy
+        if n_darcy:
+            Skl = S[:m, m:]
+            Slk = S[m:, :m]
+            dll = S[m:, m:].diagonal()
+            Sc = (S[:m, :m] - Skl @ sps.diags(1.0 / dll) @ Slk).tocsr()
+            gk, gl = g[:m], g[m:]
+            gc = gk - Skl @ (gl / dll)
+        else:
+            Sc, gc = S, g
+
+        xk, cpr_its = self._cpr_petsc_solve(
+            Sc, gc, n_p, n_ell, matrix_p_pos, null_mean,
+            lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 20000)))
+        xp = np.concatenate([xk, (gl - Slk @ xk) / dll]) if n_darcy else xk
+
+        # Accuracy gate.  Dirichlet: plain residual.  Null-mean: the system is singular AND
+        # inconsistent (the mass imbalance lies along the constant-p mode), so measure the residual
+        # with that direction projected out (matches the bordered null-mean solution).
+        r = S @ xp - g
+        if null_mean:
+            vp = np.zeros(len(xp)); vp[matrix_p_pos] = 1.0
+            r = r - (vp @ r) / (vp @ vp) * vp
+        rel = np.linalg.norm(r) / max(np.linalg.norm(g), 1.0e-30)
+        if rel > 1.0e-6:
+            raise RuntimeError(f"CPR residual too large for Newton (rel={rel:.1e})")
+
+        rhs_s = bs - Asp @ xp
+        xs = rhs_s if lu is None else lu.solve(rhs_s)       # back-substitute the secondaries
+
+        logger.info(
+            "Schur-CPR solve: %.3fs (%d KSP its, res %.1e%s) "
+            "[reduced %d = p %d (AMG) + transport %d (ILU), secondary %d eliminated]",
+            time.perf_counter() - t0, cpr_its, rel, ", null-mean" if null_mean else "",
+            S.shape[0], n_p, S.shape[0] - n_p, len(sr))
+
+        x = np.empty(n, dtype=float)
+        x[pc] = xp
+        x[sc] = xs
+        return x
+
+    @staticmethod
+    def _cpr_petsc_solve(S, g, n_p, n_ell, matrix_p_pos, null_mean=False,
+                         lu_pressure_max=20000, rtol=1.0e-8, maxit=300):
+        """PETSc FGMRES + CPR field split on the reduced primary system ``S x = g``.
+
+        Only the PRESSURE block ``[0, n_p)`` is elliptic (Darcy) -> algebraic multigrid; the
+        ENTHALPY ``[n_p, n_ell)`` and overall-fraction ``z [n_ell, n)`` blocks are
+        advection-dominated in the geothermal model -> ILU(0).  (Putting enthalpy on AMG is what
+        made a naive ``{p, h}`` CPR stall: an AMG coarse space cannot represent the transported
+        enthalpy.)  The pressure PC is a direct LU (MUMPS) when the block is small, else BoomerAMG
+        so it scales.  With ``null_mean`` the pressure block is singular in its constant mode
+        (closed / all-Neumann): pin ``Sum(dp_matrix)=0`` on the matrix rows, attach the
+        constant-pressure null space, and use GAMG (LU cannot factor a singular block).  Returns
+        ``(x, n_iterations)``."""
+        from petsc4py import PETSc
+
+        g = np.array(g, dtype=float)
+        if null_mean:
+            g[matrix_p_pos] -= g[:n_p].sum() / len(matrix_p_pos)
+
+        S = S.tocsr()
+        S.sort_indices()
+        n = S.shape[0]
+        mat = PETSc.Mat().createAIJ(
+            size=(n, n),
+            csr=(S.indptr.astype(PETSc.IntType), S.indices.astype(PETSc.IntType),
+                 np.ascontiguousarray(S.data, dtype=PETSc.ScalarType)),
+            comm=PETSc.COMM_SELF)
+        mat.assemble()
+
+        def const_p_vec(operator):
+            """Normalized [1..1 on [0, n_p), 0 else] -- the constant-pressure mode."""
+            w = operator.createVecRight()
+            a = w.getArray(); a[:] = 0.0; a[:n_p] = 1.0
+            w.assemble(); w.normalize()
+            return w
+
+        nsp = None
+        if null_mean:
+            nsp = PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(mat)],
+                                           comm=PETSc.COMM_SELF)
+            mat.setNullSpace(nsp)
+
+        ksp = PETSc.KSP().create(PETSc.COMM_SELF)
+        ksp.setOperators(mat)
+        ksp.setType("fgmres")
+        ksp.setTolerances(rtol=rtol, atol=1.0e-50, max_it=maxit)
+
+        pc = ksp.getPC()
+        pc.setType("fieldsplit")
+        fields = [
+            ("p", PETSc.IS().createGeneral(np.arange(0, n_p, dtype=PETSc.IntType),
+                                           comm=PETSc.COMM_SELF)),
+            ("h", PETSc.IS().createGeneral(np.arange(n_p, n_ell, dtype=PETSc.IntType),
+                                           comm=PETSc.COMM_SELF)),
+        ]
+        if n_ell < n:
+            fields.append(
+                ("z", PETSc.IS().createGeneral(np.arange(n_ell, n, dtype=PETSc.IntType),
+                                               comm=PETSc.COMM_SELF)))
+        pc.setFieldSplitIS(*fields)
+        pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+        pc.setUp()
+        subksps = pc.getFieldSplitSubKSP()
+
+        # PRESSURE block (elliptic Darcy): direct LU (MUMPS) when small, else BoomerAMG so it
+        # scales; GAMG + constant null space when the block is singular (null_mean).
+        kp = subksps[0]
+        kp.setType("preonly")
+        App_block = kp.getOperators()[0]
+        if null_mean:
+            p_nsp = PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(App_block)],
+                                             comm=PETSc.COMM_SELF)
+            kp.getPC().setType("gamg")
+            App_block.setNullSpace(p_nsp)
+            App_block.setNearNullSpace(p_nsp)
+        elif n_p < lu_pressure_max:
+            kp.getPC().setType("lu")
+            kp.getPC().setFactorSolverType("mumps")
+        else:
+            kp.getPC().setType("hypre")
+            kp.getPC().setHYPREType("boomeramg")
+            App_block.setNearNullSpace(
+                PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(App_block)],
+                                         comm=PETSc.COMM_SELF))
+        # ENTHALPY + overall fractions (advection-dominated transport) -> ILU(0).
+        for k in subksps[1:]:
+            k.setType("preonly")
+            k.getPC().setType("ilu")
+
+        xv = mat.createVecRight()
+        bv = mat.createVecLeft()
+        bv.setArray(np.ascontiguousarray(g, dtype=PETSc.ScalarType))
+        if null_mean:
+            nsp.remove(bv)
+        ksp.solve(bv, xv)
+        if ksp.getConvergedReason() < 0:
+            raise RuntimeError(f"PETSc CPR KSP diverged (reason {ksp.getConvergedReason()}, "
+                               f"its={ksp.getIterationNumber()})")
+        return xv.getArray().copy(), ksp.getIterationNumber()
 
     def _apply_matrix_scaling(self, A_csr, b):
         """
@@ -1214,7 +1487,9 @@ class _FlowModelBaseCore:
     #     self.rediscretize()
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
+        # ``params["gravity"]=False`` (or 0) sets g=0 -- removes BOTH the buoyant phase
+        # segregation and the hydrostatic term from the Darcy flux (gravity-free flow).
+        g_constant = pp.GRAVITY_ACCELERATION if self.params.get("gravity", True) else 0.0
         val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
         gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
