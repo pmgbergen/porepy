@@ -334,12 +334,6 @@ class SolutionStrategy(ModelConfig):
 
         atol = self.params["flash_params"]["solver_params"]["atol_res"]
 
-        global_spec = [
-            s
-            for s in pc.get_equilibrium_specifications(self)
-            if isinstance(s, pc.FlashSpec)
-        ][0]
-
         for grid in self.mdg.subdomains():
             if 0 < grid.dim < self.nd and isinstance(self, FluidPoreInteraction):
                 v_jump_factor = self.equation_system.evaluate(
@@ -414,8 +408,6 @@ class SolutionStrategy(ModelConfig):
                             )
                     self.isochoric_npc_done = True
                     self.params["flash_params"]["solver_params"]["atol_res"] = atol
-                    # if global_spec != self._ISOCHORIC_NPC_SPEC:
-                    # self.local_equilibrium(grid)
 
         if self.isochoric_npc_done:
             self.update_derived_quantities()
