@@ -196,10 +196,20 @@ class _FlowModelBaseCore:
             logger.warning(f"Invalid linear solver '{preconditioner}'. Using 'cpr' as default.")
             preconditioner = "cpr"
 
-        # CPR is a self-contained Schur reduction + fieldsplit (it does its own DOF partition,
-        # so it needs neither the equation permutation nor the matrix scaling below).
+        # CPR is a self-contained Schur reduction + CPR (its own DOF partition, so it needs neither
+        # the equation permutation nor the matrix scaling below).  It converges well when the
+        # transport is not strongly advection-dominated (fracture-free / low-flow cases); on the
+        # high-contrast fractured MD system the coupled advection-diffusion transport defeats the ILU
+        # smoother, so fall back to the direct MUMPS LU rather than fail the Newton step.  (Manually
+        # Schur-eliminating the local secondaries before the LU does NOT help: MUMPS already handles
+        # the identity secondary block with zero fill, and the Schur complement only adds fill.)
         if preconditioner == "cpr":
-            return self._schur_cpr_solve(A.tocsr(), np.asarray(b, dtype=float))
+            try:
+                return self._schur_cpr_solve(A.tocsr(), np.asarray(b, dtype=float))
+            except Exception as exc:
+                logger.warning("Schur-CPR did not converge (%s); falling back to direct LU (MUMPS).",
+                               exc)
+                preconditioner = "lu"
 
         logger.info(f"Solving linear system with PETSc {preconditioner.upper()}")
 
@@ -454,7 +464,7 @@ class _FlowModelBaseCore:
     #  problem (non-singular pressure block -> plain CPR); ON for a fully closed / all-Neumann
     #  domain (singular constant-pressure mode -> Sum(dp_matrix)=0 pinned on the matrix rows).
     # ----------------------------------------------------------------------------------------- #
-    _ELLIPTIC_VARS = ("pressure", "enthalpy")
+    _ELLIPTIC_VARS = ("pressure",)   # only pressure is elliptic; enthalpy is advective (-> ILU)
 
     @staticmethod
     def _equation_for_variable(varname: str, eq_names: list):
@@ -474,10 +484,12 @@ class _FlowModelBaseCore:
         return cands[0] if cands else None
 
     def _primary_secondary_indices(self, n: int):
-        """Partition assembled DOFs into PRIMARY (p, h, z -- balance equations; elliptic {p, h}
-        first, interface_darcy_flux last) and SECONDARY (T, s, x -- local eliminations), each with
-        aligned equation-rows and variable-columns. Returns (primary_cols, primary_rows,
-        secondary_cols, secondary_rows, n_pressure, n_elliptic, n_darcy, matrix_p_pos)."""
+        """Partition assembled DOFs into three groups, each equation-row aligned with its variable
+        column: SUBDOMAIN primaries (pressure -- elliptic, FIRST -- then enthalpy and the overall
+        fractions z), the INTERFACE mortar fluxes (interface_darcy/enthalpy/fourier -- the
+        mixed-dimensional coupling block), and the local SECONDARY closures (T, s, x). Returns
+        ``(subdomain_cols, subdomain_rows, interface_cols, interface_rows, secondary_cols,
+        secondary_rows, n_pressure, matrix_p_pos)``."""
         es = self.equation_system
         aei = es.assembled_equation_indices
         eq_names = list(aei.keys())
@@ -493,13 +505,13 @@ class _FlowModelBaseCore:
             eq = eq_of(v)
             return eq is not None and eq.startswith("elimination_of_")
 
-        # PRIMARY order: [pressure, enthalpy] (elliptic, lead the GAMG fields) + [z, thermal interface
-        # fluxes] + [interface_darcy_flux LAST] (so the second Schur can cheaply eliminate it).
+        # SUBDOMAIN primaries: pressure (elliptic, first, -> AMG field) + enthalpy + z (-> ILU).
+        # INTERFACE: every mortar flux (darcy/enthalpy/fourier), eliminated in the second Schur.
+        interface_vars = [v for v in var_names if v.startswith("interface_")]
         elliptic = [v for v in self._ELLIPTIC_VARS if v in var_names]
-        darcy = [v for v in var_names if v == "interface_darcy_flux"]
         middle = [v for v in var_names
-                  if v not in elliptic and v not in darcy and not is_secondary(v)]
-        primary_vars = elliptic + middle + darcy
+                  if v not in elliptic and v not in interface_vars and not is_secondary(v)]
+        subdomain_vars = elliptic + middle
         secondary_vars = [v for v in var_names if is_secondary(v)]
 
         def cols(vs):
@@ -509,40 +521,54 @@ class _FlowModelBaseCore:
         def rows(vs):
             return [np.asarray(aei[eq_of(v)], dtype=int) for v in vs]
 
-        p_cols, p_rows = cols(primary_vars), rows(primary_vars)
+        d_cols, d_rows = cols(subdomain_vars), rows(subdomain_vars)
+        i_cols, i_rows = cols(interface_vars), rows(interface_vars)
         s_cols, s_rows = cols(secondary_vars), rows(secondary_vars)
-        primary_cols = np.concatenate(p_cols)
-        primary_rows = np.concatenate(p_rows)
-        secondary_cols = np.concatenate(s_cols) if s_cols else np.zeros(0, dtype=int)
-        secondary_rows = np.concatenate(s_rows) if s_rows else np.zeros(0, dtype=int)
-        if not (np.array_equal(np.sort(np.concatenate([primary_cols, secondary_cols])), np.arange(n))
+
+        def cat(parts):
+            return np.concatenate(parts) if parts else np.zeros(0, dtype=int)
+
+        subdomain_cols, subdomain_rows = cat(d_cols), cat(d_rows)
+        interface_cols, interface_rows = cat(i_cols), cat(i_rows)
+        secondary_cols, secondary_rows = cat(s_cols), cat(s_rows)
+        if not (np.array_equal(
+                    np.sort(np.concatenate([subdomain_cols, interface_cols, secondary_cols])),
+                    np.arange(n))
                 and np.array_equal(
-                    np.sort(np.concatenate([primary_rows, secondary_rows])), np.arange(n))):
-            raise RuntimeError("Schur partition: primary+secondary indices do not partition [0,n)")
-        n_pressure = len(p_cols[0])
-        n_elliptic = sum(len(p_cols[i]) for i in range(len(elliptic)))
-        n_darcy = sum(len(p_cols[len(elliptic) + len(middle) + i]) for i in range(len(darcy)))
+                    np.sort(np.concatenate([subdomain_rows, interface_rows, secondary_rows])),
+                    np.arange(n))):
+            raise RuntimeError("Schur partition: subdomain+interface+secondary do not partition [0,n)")
+        n_pressure = len(d_cols[0])
         # Positions of the equidimensional-MATRIX pressure DOFs within the pressure block; the
         # optional null-mean gauge pins Sum(dp_matrix)=0 on these.
         matrix_p = np.asarray(
             es.dofs_of([es.md_variable("pressure", [self.mdg.subdomains(dim=self.nd)[0]])]), dtype=int)
-        matrix_p_pos = np.nonzero(np.isin(p_cols[0], matrix_p))[0]
-        return (primary_cols, primary_rows, secondary_cols, secondary_rows,
-                n_pressure, n_elliptic, n_darcy, matrix_p_pos)
+        matrix_p_pos = np.nonzero(np.isin(d_cols[0], matrix_p))[0]
+        return (subdomain_cols, subdomain_rows, interface_cols, interface_rows,
+                secondary_cols, secondary_rows, n_pressure, matrix_p_pos)
 
     def _schur_cpr_solve(self, A, b) -> np.ndarray:
-        """Algebraic Schur reduction of the LOCAL secondary closures (T, s, x), then CPR on the
-        reduced (p, h, z) primary system, then back-substitution. ``A_ss`` is block-diagonal per
-        cell (== I when the closures depend only on primaries) so its elimination is cheap;
-        eliminating T substitutes ``K_e grad(T) -> (K_e/C_P) grad(h)`` so the reduced energy
-        equation is a genuine h-Laplacian and ``{p, h} -> GAMG`` becomes effective."""
+        """Two exact Schur reductions to a clean per-variable mixed-dimensional (p, h, z) subdomain
+        system, then CPR, then back-substitution.
+
+        (1) Eliminate the LOCAL secondary closures (T, s, x): ``A_ss`` is block-diagonal per cell
+        (== I when the closures depend only on primaries), so its factorization is cheap.
+        (2) Eliminate the INTERFACE mortar fluxes (interface_darcy/enthalpy/fourier) via a sparse LU
+        of their (near-block-diagonal per interface) self-block.  Folding this coupling into the
+        SUBDOMAIN blocks makes pressure a CONNECTED mixed-dimensional Darcy Laplacian (matrix +
+        fractures + intersections) that AMG coarsens, and leaves enthalpy/z as clean advection
+        operators for ILU.  Left in place, the interface fluxes are saddle-point constraints that
+        make even an exact pressure solve diverge."""
         import scipy.sparse as sps
         from scipy.sparse.linalg import splu, spsolve
 
         t0 = time.perf_counter()
         n = A.shape[0]
-        pc, pr, sc, sr, n_p, n_ell, n_darcy, matrix_p_pos = self._primary_secondary_indices(n)
+        dc, dr, ic, ir, sc, sr, n_p, matrix_p_pos = self._primary_secondary_indices(n)
         null_mean = bool(self.params.get("null_mean_pressure", False))
+        n_i = len(ic)
+        # PRIMARY = subdomain + interface (interface trailing); SECONDARY = local closures.
+        pc = np.concatenate([dc, ic]); pr = np.concatenate([dr, ir])
         A = A.tocsc()
         App = A[pr][:, pc].tocsr()
         Aps = A[pr][:, sc].tocsr()
@@ -550,7 +576,7 @@ class _FlowModelBaseCore:
         Ass = A[sr][:, sc].tocsr()
         bp, bs = b[pr], b[sr]
 
-        # A_ss is the Jacobian of ``var - func(primary) = 0``: diagonal identity, no secondary<->
+        # (1) A_ss = Jacobian of ``var - func(primary) = 0``: diagonal identity, no secondary<->
         # secondary coupling -> A_ss == I. Detect and skip the factorization; LU only if non-trivial.
         is_identity = (Ass.shape[0] == Ass.nnz
                        and np.allclose(Ass.data, 1.0)
@@ -566,26 +592,31 @@ class _FlowModelBaseCore:
                 Ainv_Asp = sps.csc_matrix(Ainv_Asp)
             Ainv_bs = lu.solve(bs)
 
-        S = (App - Aps @ Ainv_Asp).tocsr()                  # Schur complement (p, h, z, interface)
+        S = (App - Aps @ Ainv_Asp).tocsr()                  # (subdomain + interface) system
         g = bp - Aps @ Ainv_bs
 
-        # Second (exact) Schur: eliminate the trailing interface_darcy_flux block (diagonal), folding
-        # the matrix<->fracture pressure coupling into the pressure block. n_darcy == 0 -> no-op.
-        m = S.shape[0] - n_darcy
-        if n_darcy:
+        # (2) Eliminate the trailing INTERFACE block via a sparse LU of its self-block (unit diagonal
+        # + local coupling -> invertible; near-block-diagonal per interface -> cheap). n_i == 0 (no
+        # fractures) -> no-op.
+        m = S.shape[0] - n_i
+        if n_i:
             Skl = S[:m, m:]
-            Slk = S[m:, :m]
-            dll = S[m:, m:].diagonal()
-            Sc = (S[:m, :m] - Skl @ sps.diags(1.0 / dll) @ Slk).tocsr()
+            Slk = S[m:, :m].tocsc()
+            Sll = S[m:, m:].tocsc()
+            lu_i = splu(Sll)
+            Sll_inv_Slk = spsolve(Sll, Slk)
+            if not sps.issparse(Sll_inv_Slk):
+                Sll_inv_Slk = sps.csc_matrix(Sll_inv_Slk)
+            Sc = (S[:m, :m] - Skl @ Sll_inv_Slk).tocsr()
             gk, gl = g[:m], g[m:]
-            gc = gk - Skl @ (gl / dll)
+            gc = gk - Skl @ lu_i.solve(gl)
         else:
             Sc, gc = S, g
 
         xk, cpr_its = self._cpr_petsc_solve(
-            Sc, gc, n_p, n_ell, matrix_p_pos, null_mean,
-            lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 20000)))
-        xp = np.concatenate([xk, (gl - Slk @ xk) / dll]) if n_darcy else xk
+            Sc, gc, n_p, matrix_p_pos, null_mean,
+            lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 60000)))
+        xp = np.concatenate([xk, lu_i.solve(gl - Slk @ xk)]) if n_i else xk
 
         # Accuracy gate.  Dirichlet: plain residual.  Null-mean: the system is singular AND
         # inconsistent (the mass imbalance lies along the constant-p mode), so measure the residual
@@ -603,9 +634,9 @@ class _FlowModelBaseCore:
 
         logger.info(
             "Schur-CPR solve: %.3fs (%d KSP its, res %.1e%s) "
-            "[reduced %d = p %d (AMG) + transport %d (ILU), secondary %d eliminated]",
+            "[reduced %d = p %d (AMG) + transport %d (ILU); %d interface + %d secondary eliminated]",
             time.perf_counter() - t0, cpr_its, rel, ", null-mean" if null_mean else "",
-            S.shape[0], n_p, S.shape[0] - n_p, len(sr))
+            m, n_p, m - n_p, n_i, len(sr))
 
         x = np.empty(n, dtype=float)
         x[pc] = xp
@@ -613,94 +644,120 @@ class _FlowModelBaseCore:
         return x
 
     @staticmethod
-    def _cpr_petsc_solve(S, g, n_p, n_ell, matrix_p_pos, null_mean=False,
-                         lu_pressure_max=20000, rtol=1.0e-8, maxit=300):
-        """PETSc FGMRES + CPR field split on the reduced primary system ``S x = g``.
+    def _cpr_petsc_solve(S, g, n_p, matrix_p_pos, null_mean=False,
+                         lu_pressure_max=60000, rtol=1.0e-8, maxit=300):
+        """CPR on the reduced subdomain system ``S x = g`` (interface mortar fluxes and local
+        secondaries already Schur-eliminated): a THREE-field (pressure | enthalpy | composition)
+        block preconditioner with a per-cell block decoupling, driven by full GMRES.
 
-        Only the PRESSURE block ``[0, n_p)`` is elliptic (Darcy) -> algebraic multigrid; the
-        ENTHALPY ``[n_p, n_ell)`` and overall-fraction ``z [n_ell, n)`` blocks are
-        advection-dominated in the geothermal model -> ILU(0).  (Putting enthalpy on AMG is what
-        made a naive ``{p, h}`` CPR stall: an AMG coarse space cannot represent the transported
-        enthalpy.)  The pressure PC is a direct LU (MUMPS) when the block is small, else BoomerAMG
-        so it scales.  With ``null_mean`` the pressure block is singular in its constant mode
-        (closed / all-Neumann): pin ``Sum(dp_matrix)=0`` on the matrix rows, attach the
-        constant-pressure null space, and use GAMG (LU cannot factor a singular block).  Returns
-        ``(x, n_iterations)``."""
+        The reduced system carries one DOF per cell for each subdomain variable -- pressure
+        (elliptic Darcy), enthalpy (advection-diffusion), the overall fractions z (pure advection) --
+        so it is ``nvar = 2 + n_comp`` blocks of ``N = n_p`` cells each.
+
+        (1) ABF DECOUPLING: left-multiply by the inverse of the per-cell ``nvar x nvar`` block of
+            LOCAL couplings -- the compressible EOS makes density (hence every equation) depend on
+            p, h and z WITHIN each cell, and that is the dominant coupling that makes a naive block
+            split diverge.  The block is nonsingular, so the solution is unchanged.
+        (2) THREE-field MULTIPLICATIVE block preconditioner: pressure -> AMG (direct LU/MUMPS when
+            small, else BoomerAMG -- the connected MD Darcy Laplacian over 3D+2D+1D pressures);
+            enthalpy -> direct LU (advection-diffusion, the hard block); composition z -> ILU(0)
+            (a pure-advection DAG, for which ILU is ~exact).
+        (3) FULL (un-restarted) GMRES -- essential: a restart discards the Krylov modes that resolve
+            the residual inter-field (spatial advective) coupling, and the solve stalls at ~1e-1.
+
+        ``null_mean`` handles a singular (closed / all-Neumann) pressure block: pin
+        ``Sum(dp_matrix)=0`` on the matrix rows and attach the constant-pressure null space.
+        Returns ``(x, n_iterations)``."""
+        import scipy.sparse as sps
         from petsc4py import PETSc
 
+        S = S.tocsr(); S.sort_indices()
+        n = S.shape[0]
         g = np.array(g, dtype=float)
         if null_mean:
             g[matrix_p_pos] -= g[:n_p].sum() / len(matrix_p_pos)
 
-        S = S.tocsr()
-        S.sort_indices()
-        n = S.shape[0]
+        N = n_p                                          # cells per subdomain variable
+        nvar = n // N if N else 0                        # 2 + n_comp  (pressure, enthalpy, z...)
+
+        # (1) ABF: invert the per-cell block of local (EOS) couplings and left-multiply.
+        if nvar >= 2 and n == nvar * N:
+            ar = np.arange(N)
+            blk = np.empty((N, nvar, nvar))
+            for a in range(nvar):
+                for b in range(nvar):
+                    blk[:, a, b] = S[a * N:(a + 1) * N, b * N:(b + 1) * N].diagonal()
+            binv = np.linalg.inv(blk)
+            rows, cols, data = [], [], []
+            for a in range(nvar):
+                for b in range(nvar):
+                    rows.append(a * N + ar); cols.append(b * N + ar); data.append(binv[:, a, b])
+            dinv = sps.csr_matrix(
+                (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))), shape=(n, n))
+            S = (dinv @ S).tocsr(); S.sort_indices()
+            g = dinv @ g
+
+        M = S.tocsr(); M.sort_indices()
         mat = PETSc.Mat().createAIJ(
             size=(n, n),
-            csr=(S.indptr.astype(PETSc.IntType), S.indices.astype(PETSc.IntType),
-                 np.ascontiguousarray(S.data, dtype=PETSc.ScalarType)),
+            csr=(M.indptr.astype(PETSc.IntType), M.indices.astype(PETSc.IntType),
+                 np.ascontiguousarray(M.data, dtype=PETSc.ScalarType)),
             comm=PETSc.COMM_SELF)
         mat.assemble()
 
         def const_p_vec(operator):
-            """Normalized [1..1 on [0, n_p), 0 else] -- the constant-pressure mode."""
             w = operator.createVecRight()
             a = w.getArray(); a[:] = 0.0; a[:n_p] = 1.0
             w.assemble(); w.normalize()
             return w
 
+        ksp = PETSc.KSP().create(PETSc.COMM_SELF)
+        ksp.setOperators(mat)
+        ksp.setType("gmres")
+        ksp.setGMRESRestart(maxit)                       # (3) FULL GMRES -- no restart
+        ksp.setTolerances(rtol=rtol, atol=1.0e-50, max_it=maxit)
         nsp = None
         if null_mean:
             nsp = PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(mat)],
                                            comm=PETSc.COMM_SELF)
             mat.setNullSpace(nsp)
 
-        ksp = PETSc.KSP().create(PETSc.COMM_SELF)
-        ksp.setOperators(mat)
-        ksp.setType("fgmres")
-        ksp.setTolerances(rtol=rtol, atol=1.0e-50, max_it=maxit)
-
+        # (2) three-field multiplicative block preconditioner.
         pc = ksp.getPC()
         pc.setType("fieldsplit")
-        fields = [
-            ("p", PETSc.IS().createGeneral(np.arange(0, n_p, dtype=PETSc.IntType),
-                                           comm=PETSc.COMM_SELF)),
-            ("h", PETSc.IS().createGeneral(np.arange(n_p, n_ell, dtype=PETSc.IntType),
-                                           comm=PETSc.COMM_SELF)),
-        ]
-        if n_ell < n:
-            fields.append(
-                ("z", PETSc.IS().createGeneral(np.arange(n_ell, n, dtype=PETSc.IntType),
-                                               comm=PETSc.COMM_SELF)))
+        fields = [("p", PETSc.IS().createStride(N, first=0, step=1, comm=PETSc.COMM_SELF))]
+        if nvar >= 2:
+            fields.append(("h", PETSc.IS().createStride(N, first=N, step=1, comm=PETSc.COMM_SELF)))
+        if nvar >= 3:
+            fields.append(("z", PETSc.IS().createGeneral(
+                np.arange(2 * N, n, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)))
         pc.setFieldSplitIS(*fields)
         pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
         pc.setUp()
         subksps = pc.getFieldSplitSubKSP()
 
-        # PRESSURE block (elliptic Darcy): direct LU (MUMPS) when small, else BoomerAMG so it
-        # scales; GAMG + constant null space when the block is singular (null_mean).
-        kp = subksps[0]
-        kp.setType("preonly")
+        # pressure (elliptic Darcy) -> LU (MUMPS) when small, else BoomerAMG; GAMG + null space if the
+        # block is singular (null_mean).
+        kp = subksps[0]; kp.setType("preonly")
         App_block = kp.getOperators()[0]
         if null_mean:
             p_nsp = PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(App_block)],
                                              comm=PETSc.COMM_SELF)
             kp.getPC().setType("gamg")
-            App_block.setNullSpace(p_nsp)
-            App_block.setNearNullSpace(p_nsp)
+            App_block.setNullSpace(p_nsp); App_block.setNearNullSpace(p_nsp)
         elif n_p < lu_pressure_max:
-            kp.getPC().setType("lu")
-            kp.getPC().setFactorSolverType("mumps")
+            kp.getPC().setType("lu"); kp.getPC().setFactorSolverType("mumps")
         else:
-            kp.getPC().setType("hypre")
-            kp.getPC().setHYPREType("boomeramg")
-            App_block.setNearNullSpace(
-                PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(App_block)],
-                                         comm=PETSc.COMM_SELF))
-        # ENTHALPY + overall fractions (advection-dominated transport) -> ILU(0).
-        for k in subksps[1:]:
-            k.setType("preonly")
-            k.getPC().setType("ilu")
+            kp.getPC().setType("hypre"); kp.getPC().setHYPREType("boomeramg")
+            App_block.setNearNullSpace(PETSc.NullSpace().create(
+                constant=False, vectors=[const_p_vec(App_block)], comm=PETSc.COMM_SELF))
+        # enthalpy (advection-diffusion, the hard block) -> direct LU.
+        if len(subksps) >= 2:
+            kh = subksps[1]; kh.setType("preonly")
+            kh.getPC().setType("lu"); kh.getPC().setFactorSolverType("mumps")
+        # composition z (pure advection -- a flow DAG for which ILU is ~exact) -> ILU(0).
+        for kz in subksps[2:]:
+            kz.setType("preonly"); kz.getPC().setType("ilu")
 
         xv = mat.createVecRight()
         bv = mat.createVecLeft()
