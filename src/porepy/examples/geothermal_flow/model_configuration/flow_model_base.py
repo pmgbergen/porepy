@@ -604,10 +604,26 @@ class _FlowModelBaseCore:
             Slk = S[m:, :m].tocsc()
             Sll = S[m:, m:].tocsc()
             lu_i = splu(Sll)
-            Sll_inv_Slk = spsolve(Sll, Slk)
-            if not sps.issparse(Sll_inv_Slk):
-                Sll_inv_Slk = sps.csc_matrix(Sll_inv_Slk)
-            Sc = (S[:m, :m] - Skl @ Sll_inv_Slk).tocsr()
+            # Sll^-1 @ Slk (needed as a SPARSE matrix): scipy spsolve(Sll, Slk) with a sparse RHS is
+            # catastrophically slow (~80s), and a dense back-solve of every nonzero column is also
+            # slow (~18s) since it densifies a result that is actually sparse.  Instead exploit that
+            # ``Sll`` is unit-diagonal + a small off-diagonal coupling (near diagonally dominant): a
+            # few Jacobi/Richardson sweeps (all sparse mat-mats) give ``Sll^-1 @ Slk`` exactly and
+            # fast.  (Vector solves -- the RHS fold and the back-substitution -- still use ``lu_i``.)
+            Slk = Slk.tocsr()
+            d_inv = sps.diags(1.0 / Sll.diagonal())
+            W = (d_inv @ Slk).tocsr()                                  # Jacobi initial guess
+            scale = np.abs(Slk.data).max() if Slk.nnz else 1.0
+            converged = False
+            for _ in range(30):
+                R = Slk - Sll @ W
+                if R.nnz == 0 or np.abs(R.data).max() <= 1.0e-12 * scale:
+                    converged = True
+                    break
+                W = (W + d_inv @ R).tocsr()
+            if not converged:                                          # not diagonally dominant
+                raise RuntimeError("interface Schur fold (Jacobi) did not converge")
+            Sc = (S[:m, :m] - Skl @ W).tocsr()
             gk, gl = g[:m], g[m:]
             gc = gk - Skl @ lu_i.solve(gl)
         else:
