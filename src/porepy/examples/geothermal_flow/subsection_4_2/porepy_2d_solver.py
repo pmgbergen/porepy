@@ -727,12 +727,17 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             eq = eq_of(v)
             return eq is not None and eq.startswith("elimination_of_")
 
-        # ELLIPTIC (-> AMG): pressure + enthalpy, on ALL subdomains (matrix + fractures).  Interface
-        # mortar-flux variables (interface_darcy/fourier/enthalpy_flux) are NON-elliptic, NON-secondary
-        # -> primary, so they land in the reduced system's ILU (z) tail with the transported z.
+        # PRIMARY ordering:  [pressure, enthalpy, <z + interface_fourier/enthalpy fluxes>,
+        # interface_darcy_flux LAST].  Elliptic {p, h} lead (for the GAMG fields); interface_darcy_flux
+        # is placed as the trailing block so :meth:`_schur_cpr_solve` can cheaply eliminate it from the
+        # REDUCED system (where it is diagonal, ``lambda = func(p, h, z)``), FOLDING the matrix<->fracture
+        # pressure coupling into the pressure block -> the reduced-reduced {p, h} operator is a genuine
+        # CONNECTED mixed-dimensional Darcy Laplacian that GAMG coarsens with a single constant.
         elliptic = [v for v in self._ELLIPTIC_VARS if v in var_names]
-        primary_vars = elliptic + [
-            v for v in var_names if v not in elliptic and not is_secondary(v)]
+        darcy = [v for v in var_names if v == "interface_darcy_flux"]     # eliminated LAST (if present)
+        middle = [v for v in var_names
+                  if v not in elliptic and v not in darcy and not is_secondary(v)]
+        primary_vars = elliptic + middle + darcy
         secondary_vars = [v for v in var_names if is_secondary(v)]
 
         def cols(vs):
@@ -756,7 +761,14 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             raise RuntimeError("Schur partition: primary+secondary indices do not partition [0,n)")
         n_pressure = len(p_cols[0])
         n_elliptic = sum(len(p_cols[i]) for i in range(len(elliptic)))
-        return (primary_cols, primary_rows, secondary_cols, secondary_rows, n_pressure, n_elliptic)
+        n_darcy = sum(len(p_cols[len(elliptic) + len(middle) + i]) for i in range(len(darcy)))
+        # Positions of the MATRIX pressure DOFs within the pressure block [0, n_pressure): the CPR puts
+        # the Newton mass-imbalance on these rows only (the Sum(dp_matrix)=0 constraint).
+        matrix_p = np.asarray(
+            es.dofs_of([es.md_variable("pressure", [self.mdg.subdomains(dim=self.nd)[0]])]), dtype=int)
+        matrix_p_pos = np.nonzero(np.isin(p_cols[0], matrix_p))[0]
+        return (primary_cols, primary_rows, secondary_cols, secondary_rows,
+                n_pressure, n_elliptic, n_darcy, matrix_p_pos)
 
     def _schur_cpr_solve(self, A, b) -> np.ndarray:
         """Pure-algebraic Schur reduction of the LOCAL secondary closures (T, s, x), then CPR on the
@@ -770,7 +782,7 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
         t0 = time.perf_counter()
         n = A.shape[0]
-        pc, pr, sc, sr, n_p, n_ell = self._primary_secondary_indices(n)
+        pc, pr, sc, sr, n_p, n_ell, n_darcy, matrix_p_pos = self._primary_secondary_indices(n)
         A = A.tocsc()
         App = A[pr][:, pc].tocsr()
         Aps = A[pr][:, sc].tocsr()
@@ -799,11 +811,32 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             Ainv_bs = lu.solve(bs)
         t_fact = time.perf_counter()
 
-        S = (App - Aps @ Ainv_Asp).tocsr()                     # Schur complement (p, h, z)
+        S = (App - Aps @ Ainv_Asp).tocsr()                     # Schur complement (p, h, z, interface)
         g = bp - Aps @ Ainv_bs                                 # reduced RHS
         t_schur = time.perf_counter()
 
-        xp, cpr_its = self._cpr_petsc_solve(S, g, n_p, n_ell)  # CPR on the reduced primary system
+        # SECOND (cheap, EXACT) Schur: eliminate the trailing interface_darcy_flux block from the
+        # reduced system.  The local closures do NOT depend on it, so its self-block ``S_ll`` is the
+        # identity; eliminating it just FOLDS the matrix<->fracture pressure coupling into the pressure
+        # block, so the reduced-reduced ``{p, h}`` operator is a CONNECTED mixed-dimensional Darcy
+        # Laplacian (single constant null space) that GAMG coarsens.  (Fixed-dimensional: n_darcy == 0
+        # -> no-op, identical to before.)
+        m = S.shape[0] - n_darcy
+        if n_darcy:
+            Skl = S[:m, m:]                                    # kept rows x lambda cols
+            Slk = S[m:, :m]                                    # lambda rows x kept cols
+            dll = S[m:, m:].diagonal()                         # lambda self-block is diagonal (== I)
+            Sc = (S[:m, :m] - Skl @ sps.diags(1.0 / dll) @ Slk).tocsr()
+            gk, gl = g[:m], g[m:]
+            gc = gk - Skl @ (gl / dll)
+        else:
+            Sc, gc = S, g
+
+        xk, cpr_its = self._cpr_petsc_solve(Sc, gc, n_p, n_ell, matrix_p_pos)  # CPR, connected system
+        if n_darcy:
+            xp = np.concatenate([xk, (gl - Slk @ xk) / dll])    # back-substitute interface_darcy_flux
+        else:
+            xp = xk
         t_cpr = time.perf_counter()
 
         # Honest accuracy gate.  During Newton the reduced system is genuinely INCONSISTENT: v = [1_p;
@@ -814,7 +847,7 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         # PROJECTED OUT measures solver error.  A correct CPR drives it to ~1e-11 (matches the bordered
         # solution to ~1e-12); a GAMG that ignores the singular {p, h} mode stalls near ~1e-4.
         r = S @ xp - g
-        vp = np.zeros(len(xp)); vp[:n_p] = 1.0
+        vp = np.zeros(len(xp)); vp[matrix_p_pos] = 1.0     # irreducible imbalance now sits on MATRIX rows
         r_proj = r - (vp @ r) / (vp @ vp) * vp
         rel = np.linalg.norm(r_proj) / max(np.linalg.norm(g), 1.0e-30)
         if rel > 1.0e-8:
@@ -857,18 +890,29 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         return np.asarray(spsolve(M, rhs)[:n])                  # drop the multipliers
 
     @staticmethod
-    def _cpr_petsc_solve(S, g, n_p, n_ell, rtol=1.0e-10, maxit=300) -> np.ndarray:
+    def _cpr_petsc_solve(S, g, n_p, n_ell, matrix_p_pos, rtol=1.0e-10, maxit=300) -> np.ndarray:
         """PETSc FGMRES + CPR THREE-field split on the (elliptic-first ordered) reduced primary system
         ``S x = g``: pressure ``p`` [0, n_p) -> GAMG (+ constant null space -- it is singular in the
         constant mode), enthalpy ``h`` [n_p, n_ell) -> GAMG (elliptic h-Laplacian, regular), and the
         transported ``z`` [n_ell, n) -> ILU(0).  Splitting p and h into SEPARATE scalar GAMG fields is
         ~8x cheaper than one combined ``{p, h}`` block (25 vs ~200 FGMRES iterations at 1e4 cells):
         each is a clean scalar elliptic operator GAMG coarsens well, whereas the interleaved 2-field
-        block defeats its coarse space.  The constant-pressure null space (first ``n_p`` DOFs) is
-        attached to the global operator so no dense border is formed; that makes FGMRES return the
-        null-space-orthogonal solution, i.e. ``sum(x_p) = 0`` -- exactly the null-mean gauge of the
-        SciPy bordered solve.  Returns ``(x, n_iterations)``."""
+        block defeats its coarse space.
+
+        CONSTRAINT (must MATCH the SciPy bordered solve exactly): during Newton the system is singular
+        (right null vector = constant pressure) AND inconsistent (the not-yet-converged total mass
+        imbalance lies along that same direction).  A raw null-space projection would push the imbalance
+        onto the null-space-orthogonal complement -- spreading it over ALL mass rows, matrix AND fracture
+        -- which corrupts the sensitive fracture cells and diverges.  The bordered solve instead pins it
+        onto the MATRIX mass rows (``Sum(dp_matrix) = 0``).  We reproduce that by subtracting a single
+        constant on the matrix pressure rows so the RHS is consistent (orthogonal to the constant-p null
+        vector), leaving the residual on the matrix rows only.  Fixed-dimensional: matrix_p_pos == all
+        pressure -> this is exactly the mean removal.  Returns ``(x, n_iterations)``."""
         from petsc4py import PETSc
+
+        # Pin the (irreducible) Newton mass imbalance onto the MATRIX pressure rows -> Sum(dp_matrix)=0.
+        g = np.array(g, dtype=float)
+        g[matrix_p_pos] -= g[:n_p].sum() / len(matrix_p_pos)
 
         S = S.tocsr()
         S.sort_indices()
@@ -918,7 +962,9 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         kp.setType("preonly")
         kp.getPC().setType("gamg")
         App_block = kp.getOperators()[0]
-        p_nsp = const_p_nullspace(App_block, n_p)              # whole block is pressure -> constant
+        # The reduced pressure block is CONNECTED (matrix + fractures, once interface_darcy_flux is
+        # folded in), singular only in the single global constant.
+        p_nsp = const_p_nullspace(App_block, n_p)
         App_block.setNullSpace(p_nsp)
         App_block.setNearNullSpace(p_nsp)                      # GAMG coarse-space interpolation
         # enthalpy: after the T = h/C_P elimination the conduction is a genuine h-Laplacian, regular
@@ -1184,7 +1230,7 @@ day = 86400.0
 T_END_DAYS = 78.0                        # hamon T_END
 SNAP_DAYS = (0.0, 78.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
 DT_DAYS = 1.0                             # nominal step [days] -- the constant-dt march value
-DT_INIT_DAYS = 0.01                      # INITIAL adaptive step [days] -- start small on the stiff,
+DT_INIT_DAYS = 0.125                      # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
 DT_MAX_DAYS = 1.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
