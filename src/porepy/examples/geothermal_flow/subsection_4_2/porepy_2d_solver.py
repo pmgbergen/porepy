@@ -113,6 +113,11 @@ k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD
 porosity = 0.3
 BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively impermeable)
 
+# Optional mixed-dimensional CONDUCTIVE fractures (params["fractures"]=True; --md).  The
+# equi-dimensional barriers are UNCHANGED; the fractures are 1D lines embedded in the 2D matrix.
+FRACTURE_K_FACTOR = 1.0           # fracture (dim<nd) permeability = k * this (1000x matrix)
+FRACTURE_APERTURE = 1.0e-6          # fracture aperture [m] -> specific volume of the 1D fracture
+
 
 # --------------------------------------------------------------------------------------- #
 #  Constant-property EOS, one per phase (mirrors buoyancy_flow_model.py BaseEOS)
@@ -620,11 +625,21 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
     def _null_mean_dof_indices(self) -> list:
         """Global DOF indices for each null-mean-constrained (elliptic) variable in
-        ``params['null_mean_variables']`` (default ``['pressure']`` -- the only singular block)."""
+        ``params['null_mean_variables']`` (default ``['pressure']``), taken on the EQUIDIMENSIONAL
+        MATRIX subdomain only.
+
+        The closed (all-Neumann) domain has a SINGLE floating pressure level: the whole matrix +
+        fracture network shifts together by one constant (the 1-D kernel of the Jacobian).  The
+        FRACTURE pressures are NOT independently singular -- each is pinned to the matrix through the
+        Robin-type interface (mortar) Darcy coupling.  So a single ``Sum(dp_matrix)=0`` on the matrix
+        pressure fixes that one constant (the matrix indicator has a non-zero component along the
+        kernel), and the fracture pressures follow from the coupling; there is no reason to include
+        them in the constraint.  In the fixed-dimensional case (matrix is the only subdomain) this is
+        exactly the original single constraint."""
         es = self.equation_system
-        sds = self.mdg.subdomains()
+        matrix = self.mdg.subdomains(dim=self.nd)          # equidimensional matrix only
         names = self.params.get("null_mean_variables", ["pressure"])
-        return [np.asarray(es.dofs_of([es.md_variable(nm, sds)]), dtype=int) for nm in names]
+        return [np.asarray(es.dofs_of([es.md_variable(nm, matrix)]), dtype=int) for nm in names]
 
     def solve_linear_system(self) -> np.ndarray:
         A, b = self.linear_system
@@ -669,7 +684,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
     @staticmethod
     def _equation_for_variable(varname: str, eq_names: list) -> Optional[str]:
         """The equation that determines ``varname`` (PorePy names them independently of variables):
-        pressure<->mass_balance, enthalpy<->energy_balance, z_<c><->component_mass_balance_<c>, and
+        pressure<->mass_balance, enthalpy<->energy_balance, z_<c><->component_mass_balance_<c>, each
+        interface (mortar) flux <-> its ``<var>_equation`` (present once fractures are added), and
         every locally-eliminated variable <-> its ``elimination_of_<var>_on_grids_...`` equation."""
         if varname == "pressure":
             return "mass_balance_equation"
@@ -677,6 +693,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             return "energy_balance_equation"
         if varname.startswith("z_"):
             return "component_mass_balance_equation_" + varname[2:]
+        if varname.startswith("interface_"):          # interface_darcy_flux -> ..._equation, etc.
+            return varname + "_equation"
         cands = [e for e in eq_names if e.startswith(f"elimination_of_{varname}_on_grids")]
         return cands[0] if cands else None
 
@@ -695,10 +713,12 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         after it -- goes to ILU. Returns (primary_cols, primary_rows, secondary_cols, secondary_rows,
         n_pressure, n_elliptic)."""
         es = self.equation_system
-        sds = self.mdg.subdomains()
         aei = es.assembled_equation_indices
         eq_names = list(aei.keys())
-        var_names = sorted({v.name for v in es.variables})
+        vars_by_name: dict = {}
+        for v in es.variables:                          # atomic Variable objects, one per grid
+            vars_by_name.setdefault(v.name, []).append(v)
+        var_names = sorted(vars_by_name)
 
         def eq_of(v):
             return self._equation_for_variable(v, eq_names)
@@ -707,13 +727,19 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             eq = eq_of(v)
             return eq is not None and eq.startswith("elimination_of_")
 
+        # ELLIPTIC (-> AMG): pressure + enthalpy, on ALL subdomains (matrix + fractures).  Interface
+        # mortar-flux variables (interface_darcy/fourier/enthalpy_flux) are NON-elliptic, NON-secondary
+        # -> primary, so they land in the reduced system's ILU (z) tail with the transported z.
         elliptic = [v for v in self._ELLIPTIC_VARS if v in var_names]
         primary_vars = elliptic + [
             v for v in var_names if v not in elliptic and not is_secondary(v)]
         secondary_vars = [v for v in var_names if is_secondary(v)]
 
         def cols(vs):
-            return [np.asarray(es.dofs_of([es.md_variable(v, sds)]), dtype=int) for v in vs]
+            # Gather each variable's global DOFs by NAME across ALL grids -- subdomains AND interfaces.
+            # (md_variable(name, subdomains) would miss the interface mortar variables that fractures
+            # add; pressure/enthalpy/z/secondaries automatically span matrix + fracture subdomains.)
+            return [np.asarray(es.dofs_of(vars_by_name[v]), dtype=int) for v in vs]
 
         def rows(vs):
             return [np.asarray(aei[eq_of(v)], dtype=int) for v in vs]
@@ -917,6 +943,32 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
 
 # --------------------------------------------------------------------------------------- #
+#  Interior CONDUCTIVE fractures (endpoints in reference metres on the 100-cell grid, so they lie
+#  on cell faces and stay conforming under any cell_size = 1/k refinement -- nx a multiple of 100).
+#  5 VERTICAL fractures cross the horizontal barriers PERPENDICULARLY; 5 HORIZONTAL fractures sit in
+#  barrier-free bands (they never touch a barrier).  None reach the domain boundary and none intersect
+#  each other, so the mixed-dimensional grid is exactly 2D matrix + ten 1D fractures (NO 0D points).
+#  Validated against _BARRIER_LAYERS_FIG (see frac placement check).  Each entry is (x0, y0, x1, y1).
+# --------------------------------------------------------------------------------------- #
+# The horizontal fractures stay INSIDE the middle (oil) phase band (10 < y < 90) so no interface
+# straddles an initial phase boundary -- H1/H5 are at y=88/12, NOT the band edges y=90/10, which
+# otherwise put an oil fracture next to water (top) / a gas fracture next to oil (bottom) and made the
+# advective enthalpy/component coupling blow up on the adjacent matrix cells at the first Newton step.
+_FRACTURES_REF = [
+    (20.0, 56.0, 20.0, 74.0),   # V1  crosses barrier at y~61.5
+    (48.0, 44.0, 48.0, 68.0),   # V2  crosses barriers at y~54.5 and y~61.5
+    (72.0, 35.0, 72.0, 50.0),   # V3  crosses barrier at y~41.5
+    (30.0, 20.0, 30.0, 38.0),   # V4  crosses barrier at y~25.5
+    (85.0, 12.0, 85.0, 30.0),   # V5  crosses barriers at y~17.5 and y~25.5
+    (8.0, 88.0, 44.0, 88.0),    # H1  barrier-free, inside the oil band (below the y=90 water/oil edge)
+    (56.0, 70.0, 92.0, 70.0),   # H2  barrier-free band
+    (8.0, 48.0, 44.0, 48.0),    # H3  barrier-free band
+    (56.0, 33.0, 92.0, 33.0),   # H4  barrier-free band
+    (28.0, 12.0, 72.0, 12.0),   # H5  barrier-free, inside the oil band (above the y=10 oil/gas edge)
+]
+
+
+# --------------------------------------------------------------------------------------- #
 #  Barriers by physical BOUNDING BOXES (refinement-independent), mirroring hamon_2d_solver
 # --------------------------------------------------------------------------------------- #
 class BarriersBoundingBox2D(GeometryBarriers2D):
@@ -953,6 +1005,27 @@ class BarriersBoundingBox2D(GeometryBarriers2D):
         for x_lo, x_hi, y_lo, y_hi in self._barrier_boxes():
             mask |= (xc >= x_lo) & (xc <= x_hi) & (yc >= y_lo) & (yc <= y_hi)
         return mask
+
+    def meshing_arguments(self) -> dict:
+        """Honour ``params['cell_size']`` (metres) so the mesh can be refined; default 1 m (100x100).
+        Use ``cell_size = 1/k`` (nx a multiple of 100) to keep the barriers AND the integer-metre
+        fracture endpoints exactly on cell faces."""
+        cell = self.params.get("cell_size", self._cell)
+        return {"cell_size": self.units.convert_units(cell, "m")}
+
+    def set_fractures(self) -> None:
+        """Ten conductive 1D fractures (only when ``params['fractures']``), conforming to the base
+        mesh.  Reference-metre endpoints (``_FRACTURES_REF``) are scaled by the metre unit exactly
+        as the domain/cell size, so they land on cell faces at any ``cell_size = 1/k`` resolution.
+        The equi-dimensional barriers are untouched; these add the mixed-dimensional structure."""
+        if not self.params.get("fractures", False):
+            self._fractures = []
+            return
+        scale = self.units.convert_units(1.0, "m")               # 1 reference metre in solver units
+        self._fractures = [
+            pp.LineFracture(np.array([[x0, x1], [y0, y1]], dtype=float) * scale)
+            for (x0, y0, x1, y1) in _FRACTURES_REF
+        ]
 
 
 # --------------------------------------------------------------------------------------- #
@@ -1017,22 +1090,52 @@ class FlowModel(
     def fourier_flux_discretization(self, subdomains: Sequence[pp.Grid]) -> pp.ad.TpfaAd:
         return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains))
 
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Homogeneous rock permeability with impermeable barrier cells.
-
-        Mirrors ConstantPermeability.permeability but uses a cell-wise array: barrier
-        cells (from the geometry's ``barrier_cell_mask``) get k * BARRIER_K_FACTOR.
-        """
+    def _rock_permeability_values(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Cell-wise ROCK permeability (no mobility weighting), branching on dimension:
+          * 2D matrix (``sd.dim == self.nd``): k, with barrier cells (``barrier_cell_mask``) set to
+            k * BARRIER_K_FACTOR.
+          * lower-dim fractures (``sd.dim < self.nd``): k * FRACTURE_K_FACTOR (fully conductive); the
+            barrier mask is NOT applied (a fracture cell whose centre falls in a barrier box must stay
+            conductive).
+        Shared by :meth:`permeability` (subdomain tensor) and :meth:`normal_permeability` (interface),
+        so both use the SAME rock permeability -- the total-mass (HU-BM(mp)) formulation applies the
+        fluid mobility separately via the upwind mobility terms, never baked into the permeability."""
         size = sum(sd.num_cells for sd in subdomains)
         vals = np.full(size, self.solid.permeability)
         offset = 0
         for sd in subdomains:
-            mask = self.barrier_cell_mask(sd)          # provided by GeometryBarriers2D
             cell_vals = vals[offset:offset + sd.num_cells]
-            cell_vals[mask] = self.solid.permeability * BARRIER_K_FACTOR
+            if sd.dim == self.nd:                       # 2D matrix: barrier-masked rock
+                cell_vals[self.barrier_cell_mask(sd)] = self.solid.permeability * BARRIER_K_FACTOR
+            else:                                       # 1D/0D fractures: fully conductive
+                cell_vals[:] = self.solid.permeability * FRACTURE_K_FACTOR
             offset += sd.num_cells
-        permeability = pp.wrap_as_dense_ad_array(vals, size, name="permeability")
-        return self.isotropic_second_order_tensor(subdomains, permeability)
+        return pp.wrap_as_dense_ad_array(vals, size, name="permeability")
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Homogeneous rock permeability with impermeable barrier cells, plus (when fractures are
+        enabled) fully-conductive 1D fractures.  See :meth:`_rock_permeability_values`."""
+        return self.isotropic_second_order_tensor(
+            subdomains, self._rock_permeability_values(subdomains))
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Interface (normal) permeability = the lower-dimensional subdomain's ROCK permeability,
+        projected to the mortar -- WITHOUT the total-mass-mobility weighting.
+
+        The base ``MassWeightedPermeability.normal_permeability`` unconditionally returns
+        ``total_mass_mobility * k`` (the fractional-flow diffusive tensor).  But this model runs the
+        NON-fractional HU-BM(mp) formulation, whose subdomain :meth:`permeability` is rock-only and
+        which applies the mobility separately (the mp buoyancy multiplies by
+        ``lambda_gamma lambda_delta / lambda_T``, and the interface mobility is upwinded).  Keeping
+        the mobility in ``normal_permeability`` therefore counts it TWICE on the matrix-fracture
+        interface, making the interface buoyancy flux ``total_mass_mobility`` (~1e13) times too large
+        and driving the adjacent matrix cells to zero saturation (``1/total_mobility`` -> NaN).  Using
+        the rock permeability here matches the subdomain and removes the double weighting."""
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        kn = projection.secondary_to_mortar_avg() @ self._rock_permeability_values(subdomains)
+        kn.set_name("normal_permeability")
+        return kn
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Hydrostatic initial pressure, consistent with the top-boundary Dirichlet pressure
@@ -1080,10 +1183,10 @@ day = 86400.0
 # --------------------------------------------------------------------------------------- #
 T_END_DAYS = 78.0                        # hamon T_END
 SNAP_DAYS = (0.0, 78.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
-DT_DAYS = 2.0                             # nominal step [days] -- the constant-dt march value
-DT_INIT_DAYS = 0.125                       # INITIAL adaptive step [days] -- start small on the stiff,
+DT_DAYS = 1.0                             # nominal step [days] -- the constant-dt march value
+DT_INIT_DAYS = 0.01                      # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
-DT_MAX_DAYS = 2.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
+DT_MAX_DAYS = 1.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
 
 
@@ -1136,6 +1239,7 @@ solid_constants = pp.SolidConstants(
     thermal_conductivity=2.0 * to_Mega,                # unused (isothermal)
     density=2500.0,
     specific_heat_capacity=1000.0 * to_Mega,
+    residual_aperture=FRACTURE_APERTURE,               # 1D fracture aperture (no effect without fractures)
 )
 
 # HU-BM scheme -> model parametrization. "hu" = HU-BM(mp): the mobility-product buoyant term
@@ -1150,7 +1254,8 @@ _SCHEME_CONFIG = {
 def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_END_DAYS,
                  dt_days: float = DT_DAYS, dt_init_days: float = DT_INIT_DAYS,
                  dt_max_days: float = DT_MAX_DAYS, snap_days: Sequence[float] = SNAP_DAYS,
-                 constant_dt: bool = False, **overrides) -> dict:
+                 constant_dt: bool = False, fractures: bool = False,
+                 ad_backend: Optional[str] = None, **overrides) -> dict:
     """Assemble run parameters for ``nphase`` phases and the named HU-BM ``scheme``.
 
     Configures the module's phase system (so mixture / closures / IC build for ``nphase``) and
@@ -1165,23 +1270,29 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"unknown scheme {scheme!r}; options: {list(_SCHEME_CONFIG)}")
     configure_phase_system(nphase)
+    frac_tag = "_frac" if fractures else ""
+    if ad_backend is None:
+        # The sparsa backend does not yet handle multi-subdomain (mixed-dimensional) variable
+        # slices, so the fractured runs use the native PorePy parser; single-domain runs keep sparsa.
+        ad_backend = "native" if fractures else "sparsa"
     params = dict(
         enable_buoyancy_effects=True,
         lag_buoyancy_direction=False,
         material_constants={"solid": solid_constants},
+        fractures=fractures,                            # -> geometry.set_fractures (10 conductive 1D lines)
         time_manager=make_time_manager(t_end_days, dt_days, snap_days, constant_dt,
                                        dt_init_days=dt_init_days, dt_max_days=dt_max_days),
         times_to_export=make_times_to_export(snap_days),
         grid_type="cartesian",
         prepare_simulation=False,
-        folder_name=f"visualization_barriers_{scheme}_N{nphase}",
-        file_name=f"barriers_{scheme}_N{nphase}",
+        folder_name=f"visualization_barriers{frac_tag}_{scheme}_N{nphase}",
+        file_name=f"barriers{frac_tag}_{scheme}_N{nphase}",
         # Step control: "LS" (line search) / "TR" (trust region) / "TR-LS" / "None" (plain Newton)
         step_control_method="None",
         step_control_alpha_min=1.0e-5,
         activate_step_control_after_iter=2,
         # AD backend: "native" (PorePy parser) or "sparsa" (external, ~5x faster; needs sparsa).
-        ad_backend="native",
+        ad_backend=ad_backend,
     )
     params.update(_SCHEME_CONFIG[scheme])
     params.update(overrides)
@@ -1280,17 +1391,25 @@ if __name__ == "__main__":
                          f"exceeded, floor is dt-max/64")
     ap.add_argument("--constant-dt", action="store_true",
                     help="pure constant march at --dt-days (else reject-and-halve adaptive)")
+    ap.add_argument("--md", action="store_true",
+                    help="mixed-dimensional: add 10 conductive fractures (k*%g), conforming to the "
+                         "mesh: 5 vertical crossing the barriers, 5 horizontal in barrier-free bands"
+                         % FRACTURE_K_FACTOR)
+    ap.add_argument("--linear-solver", default="cpr", choices=["cpr", "scipy"],
+                    help="null-mean linear solver: 'cpr' (PETSc Schur+CPR) or 'scipy' (direct "
+                         "bordered solve -- isolates/bypasses the PETSc CPR)")
     args = ap.parse_args()
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
     model = FlowModel(build_params(
         args.nphase, args.scheme, t_end_days=args.days, dt_days=args.dt_days,
         dt_init_days=args.dt_init_days, dt_max_days=args.dt_max_days,
-        snap_days=snaps, constant_dt=args.constant_dt))
+        snap_days=snaps, constant_dt=args.constant_dt, fractures=args.md,
+        lagrange_linear_solver=args.linear_solver))
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-5
+                tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-4
             ),
         },
         "nl_divergence_criteria": {

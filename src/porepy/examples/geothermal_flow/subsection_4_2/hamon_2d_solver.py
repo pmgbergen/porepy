@@ -595,7 +595,7 @@ def _project_simplex(s):
     return s * scale
 
 
-def newton(r, x0, pattern, grid, dt, atol=1e-5, maxit=20, linsolve=None, relag=None):
+def newton(r, x0, pattern, grid, dt, atol=1e-4, maxit=20, linsolve=None, relag=None):
     """Newton for the CLOSED domain, with a LAGRANGE-MULTIPLIER pressure datum.
 
     ``r`` is the raw residual, whose pressure block is singular (null space = constant
@@ -701,7 +701,7 @@ class RunStats:
 
 
 def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=None,
-        atol=1e-5, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True):
+        atol=1e-4, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True):
     """Advance the ``nphase``-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``nphase=3`` reproduces Bosma Fig. 5; ``nphase=4`` splits oil into a mid-heavy + mid-light
@@ -912,8 +912,8 @@ def _parse_args(argv=None):
                    help="run horizon in days (default: the largest snapshot time)")
     p.add_argument("--snap-days", type=float, nargs="+", default=list(SNAP_DAYS),
                    metavar="DAY", help="report/snapshot instants in days (default: 0 78 571)")
-    p.add_argument("--atol", type=float, default=1e-5,
-                   help="absolute per-equation Newton tolerance (default 1e-5)")
+    p.add_argument("--atol", type=float, default=1e-4,
+                   help="absolute per-equation Newton tolerance (default 1e-4)")
     p.add_argument("--linear-solver", default="cpr", choices=["cpr", "scipy"],
                    help="Newton linear solver: 'cpr' (FGMRES + CPR two-stage preconditioner on the "
                         "sparse singular system -- iterative, fast at scale) or 'scipy' "

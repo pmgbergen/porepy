@@ -950,7 +950,7 @@ class FluidBuoyancy(pp.PorePyModel):
             xi * l_background_gamma_interface
             + xi_complement * l_background_delta_interface
         )
-        return l_gamma_interface + l_delta_interface + l_background_interface
+        return l_gamma_interface + l_delta_interface + l_background_interface + pp.ad.Scalar(1.0e-15)
 
     def __interface_mp_coupling(
         self,
