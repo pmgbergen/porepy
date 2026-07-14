@@ -116,7 +116,7 @@ BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively im
 # Optional mixed-dimensional CONDUCTIVE fractures (params["fractures"]=True; --md).  The
 # equi-dimensional barriers are UNCHANGED; the fractures are 1D lines embedded in the 2D matrix.
 FRACTURE_K_FACTOR = 1.0           # fracture (dim<nd) permeability = k * this (1000x matrix)
-FRACTURE_APERTURE = 1.0e-6          # fracture aperture [m] -> specific volume of the 1D fracture
+FRACTURE_APERTURE = 1.0e-7          # fracture aperture [m] -> specific volume of the 1D fracture
 
 
 # --------------------------------------------------------------------------------------- #
@@ -1230,7 +1230,7 @@ day = 86400.0
 T_END_DAYS = 78.0                        # hamon T_END
 SNAP_DAYS = (0.0, 78.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
 DT_DAYS = 1.0                             # nominal step [days] -- the constant-dt march value
-DT_INIT_DAYS = 0.125                      # INITIAL adaptive step [days] -- start small on the stiff,
+DT_INIT_DAYS = 0.125                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
 DT_MAX_DAYS = 1.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
@@ -1318,9 +1318,12 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
     configure_phase_system(nphase)
     frac_tag = "_frac" if fractures else ""
     if ad_backend is None:
-        # The sparsa backend does not yet handle multi-subdomain (mixed-dimensional) variable
-        # slices, so the fractured runs use the native PorePy parser; single-domain runs keep sparsa.
-        ad_backend = "native" if fractures else "sparsa"
+        # sparsa handles mixed-dimensional (multi-subdomain) variables too now -- a md variable lowers
+        # to a `concat` of its per-grid sub-variables -- so it is the default for BOTH fixed- and
+        # mixed-dimensional runs (bit-exact vs native).  Pass ad_backend="native" to override.
+        # (Note: the numba-compiled path does not lower `concat` yet, so md runs use the Program.run
+        # replay; the fixed-dimensional runs still use the fully compiled path.)
+        ad_backend = "native"
     params = dict(
         enable_buoyancy_effects=True,
         lag_buoyancy_direction=False,

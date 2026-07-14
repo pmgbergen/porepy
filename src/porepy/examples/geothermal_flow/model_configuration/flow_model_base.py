@@ -125,7 +125,7 @@ class _FlowModelBaseCore:
         self.use_petsc = params.get("use_petsc", False)
 
         # Preconditioner selection for PETSc solver
-        self.petsc_preconditioner = params.get("petsc_preconditioner", "bjacobi")
+        self.petsc_preconditioner = params.get("petsc_preconditioner", "cpr")
         valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre","ilu0","lu", "cpr"}
         if self.petsc_preconditioner not in valid_preconditioners:
             logger.warning(f"Invalid preconditioner '{self.petsc_preconditioner}'. Using 'bjacobi' as default.")
@@ -181,7 +181,7 @@ class _FlowModelBaseCore:
             factory.__class__ = _CachingSurrogateFactory
         return factory
 
-    def solve_linear_system_petsc(self, A: sps.spmatrix, b: np.ndarray, preconditioner: str = "asm") -> np.ndarray:
+    def solve_linear_system_petsc(self, A: sps.spmatrix, b: np.ndarray, preconditioner: str = "lu") -> np.ndarray:
         """
         Solve linear system using PETSc with selectable preconditioners and detailed logging.
         """

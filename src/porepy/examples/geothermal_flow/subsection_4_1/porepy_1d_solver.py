@@ -42,6 +42,9 @@ from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_marke
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_two_phase_moderate_pressure as IC,
 )
+from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
+    DriesnerPhaseExport,
+)
 from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
 
 # --------------------------------------------------------------------------------------------- #
@@ -167,7 +170,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     # is the base template, not a runtime parameter.
     FlowModel = DriesnerBrineFractionalFlowModel if weighted_perm else DriesnerBrineFlowModel
 
-    class GeothermalWaterFlowModel(ModelGeometry, BC, IC, FlowModel):
+    class GeothermalWaterFlowModel(DriesnerPhaseExport, ModelGeometry, BC, IC, FlowModel):
 
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
