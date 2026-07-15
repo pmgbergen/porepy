@@ -31,19 +31,25 @@ Regime (forced flow, faithful to benchmark 3)
     outlet face, through the fracture network along the long (y) axis.  Gravity acts along +z
     (the box's 1 m axis); the HU-BM(mp) buoyancy is a correction to the forced flow.
 
-Scheme knob (``--scheme``)
+Scheme knob (``--scheme``), mirroring ``subsection_4_1/porepy_1d_solver.py``'s HU vs HU-mw
     HU     -> HU-BM(mp): ``fractional_flow=False``, ``buoyancy_upwinding='hybrid'`` (the
               mobility-product buoyant term lambda_g lambda_d / lambda_T; DEFAULT).
-    HU-mw  -> mobility-weighted: fractional-flow template + ``fractional_flow=True``.
+    HU-mw  -> mobility-weighted: the fractional-flow template (``DriesnerBrineFractionalFlowModel``)
+              + ``fractional_flow=True``.  The SUBDOMAIN permeability becomes the base
+              ``MassWeightedPermeability`` weighting ``total_mass_mobility * k`` (as in the 1D
+              solver), while the interface stays rock-only (see below).
     PPU    -> phase-potential upwinding: ``buoyancy_upwinding='phase_potential'``.
 
-Mixed-dimensional buoyancy fix
-    The Driesner model pulls in ``MassWeightedPermeability`` whose ``normal_permeability``
-    is *unconditionally* mobility-weighted (constitutive_laws.py:721).  On the
-    matrix-fracture interfaces that counts the fluid mobility twice for the non-fractional
-    HU-BM(mp) buoyancy (interface flux ~1e13x too large -> NaN).  We override
-    ``permeability`` / ``normal_permeability`` to be rock-only (matrix ``k``, fractures
-    ``k * FRACTURE_K_FACTOR``), exactly as ``subsection_4_2/porepy_2d_solver.py`` does.
+Mixed-dimensional permeability fix
+    The Driesner model pulls in ``MassWeightedPermeability`` whose ``normal_permeability`` is
+    *unconditionally* mobility-weighted (constitutive_laws.py:721).  On the highly conductive
+    matrix-fracture interfaces of this benchmark that weighting is unstable: for HU-BM(mp) it
+    double-counts the separately-applied mobility (interface flux ~1e13x -> NaN); for HU-mw it
+    makes the interface enthalpy-advection flux blow the Newton iteration up (residual -> inf).
+    So we override the interface ``normal_permeability`` to be rock-only (matrix ``k``, fractures
+    ``k * FRACTURE_K_FACTOR``) for EVERY scheme -- as ``subsection_4_2/porepy_2d_solver.py`` does --
+    and keep the SUBDOMAIN ``permeability`` scheme-dependent (rock-only for HU/PPU, mobility-
+    weighted for HU-mw).  The fractional mobility upwinding still enters via the subdomain flux.
 
 Run
     ``python porepy_3d_solver.py --scheme HU --refinement-level 0 --check``   (build+assemble only)
