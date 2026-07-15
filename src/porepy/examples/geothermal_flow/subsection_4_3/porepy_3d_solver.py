@@ -302,13 +302,13 @@ def _build_model_class(FlowModel):
         def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains))
 
-        # ---- rock-only, dimension-dependent permeability (MD buoyancy fix) ----
+        # ---- dimension-dependent permeability (conductive fractures) with a scheme-dependent
+        #      mobility weighting (MD buoyancy fix) ----
         def _rock_permeability_values(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
             """Cell-wise ROCK permeability (no mobility weighting): matrix (``sd.dim == nd``)
-            = ``k``; lower-dim fractures + intersections = ``k * FRACTURE_K_FACTOR``.  Shared by
-            :meth:`permeability` and :meth:`normal_permeability` so both use the SAME rock
-            permeability -- the total-mass HU-BM(mp) formulation applies the fluid mobility
-            separately (upwinded), never baked into the permeability tensor."""
+            = ``k``; lower-dim fractures + intersections = ``k * FRACTURE_K_FACTOR``.  This is the
+            fracture-aware absolute permeability that the base ``MassWeightedPermeability`` lacks
+            (it uses a single uniform ``solid.permeability``)."""
             size = sum(sd.num_cells for sd in subdomains)
             vals = np.full(size, self.solid.permeability)
             offset = 0
@@ -318,22 +318,45 @@ def _build_model_class(FlowModel):
                 offset += sd.num_cells
             return pp.wrap_as_dense_ad_array(vals, size, name="permeability")
 
+        def _subdomain_permeability_scalar(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+            """Scalar isotropic SUBDOMAIN permeability, selected by the scheme -- mirrors the 1D
+            solver's HU vs HU-mw distinction (which is interface-free):
+
+            * HU / PPU (``fractional_flow=False``) -> ROCK permeability only.  The total-mass
+              HU-BM(mp) formulation applies the fluid mobility SEPARATELY (upwinded; the mp
+              buoyancy multiplies by lambda_g lambda_d / lambda_T), so mobility is never baked into
+              the tensor.
+            * HU-mw (``fractional_flow=True``) -> ``total_mass_mobility * rock_k``: the base
+              ``MassWeightedPermeability`` weighting, but on the fracture-aware rock ``k`` (the base
+              uses a single uniform ``solid.permeability``).  This is exactly what the 1D solver's
+              HU-mw uses -- the fractional-flow mass balance carries the mobility here.
+            """
+            rock = self._rock_permeability_values(subdomains)
+            if pp.compositional_flow.is_fractional_flow(self):        # HU-mw
+                scalar = self.total_mass_mobility(subdomains) * rock
+                scalar.set_name("mass_mobility_weighted_permeability")
+                return scalar
+            return rock                                              # HU / PPU
+
         def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Rock permeability tensor: matrix ``k``, conductive fractures ``k*FRACTURE_K_FACTOR``.
-            See :meth:`_rock_permeability_values`."""
+            """Subdomain permeability tensor: matrix ``k``, conductive fractures
+            ``k*FRACTURE_K_FACTOR``; mobility-weighted for HU-mw.  See
+            :meth:`_subdomain_permeability_scalar`."""
             return self.isotropic_second_order_tensor(
-                subdomains, self._rock_permeability_values(subdomains))
+                subdomains, self._subdomain_permeability_scalar(subdomains))
 
         def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
             """Interface (normal) permeability = the lower-dimensional subdomain's ROCK
-            permeability, projected to the mortar -- WITHOUT the total-mass-mobility weighting.
+            permeability, projected to the mortar -- WITHOUT the mobility weighting, for EVERY
+            scheme.
 
-            The base ``MassWeightedPermeability.normal_permeability`` unconditionally returns
-            ``total_mass_mobility * k``.  In the NON-fractional HU-BM(mp) formulation the mobility
-            is applied separately (the mp buoyancy multiplies by lambda_g lambda_d / lambda_T, and
-            the interface mobility is upwinded), so keeping it here would count the mobility TWICE
-            on the matrix-fracture interface (~1e13x too large -> NaN).  Rock ``k`` matches the
-            subdomain :meth:`permeability` and removes the double weighting.
+            The base ``MassWeightedPermeability.normal_permeability`` returns
+            ``total_mass_mobility * k``.  On the highly conductive matrix-fracture interfaces of
+            this geothermal benchmark that weighting is unstable: for HU-BM(mp) it double-counts
+            the separately-applied mobility (~1e13x -> NaN), and for HU-mw it makes the interface
+            enthalpy-advection flux blow the Newton iteration up (residual -> inf).  Rock ``k``
+            (fracture-aware) keeps the matrix<->fracture Darcy coupling well-scaled; the fractional
+            mobility upwinding still enters through the subdomain flux discretisation.
             """
             subdomains = self.interfaces_to_subdomains(interfaces)
             projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -372,6 +395,9 @@ def build_params(
     geometry_scale: float = 1.0,
     linear_solver: str = "direct",
     gravity: bool = True,
+    cpr_rtol: float = 1.0e-8,
+    cpr_maxit: int = 300,
+    cpr_accuracy_tol: float = 1.0e-6,
     **overrides,
 ) -> dict:
     """Assemble the params dict for one (scheme, refinement) 3D geothermal benchmark run.
@@ -385,6 +411,13 @@ def build_params(
     ``linear_solver`` selects the linear solver: "direct" (SciPy sparse LU; default), "cpr"
     (Schur-reduced CPR, iterative; PETSc), or "lu" (direct LU via MUMPS; PETSc).
     ``gravity=False`` sets g=0 (removes buoyancy AND the hydrostatic Darcy term).
+
+    CPR iterative controls (used only with ``linear_solver="cpr"``):
+      ``cpr_rtol``          -- GMRES relative residual tolerance for the reduced (p,h,z) solve.
+      ``cpr_maxit``         -- max (un-restarted) GMRES iterations before the solve is abandoned.
+      ``cpr_accuracy_tol``  -- post-solve gate on the full-system relative residual; above it the
+                               step falls back to a direct LU (MUMPS) solve so Newton never
+                               advances on an under-converged linear solve.
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"scheme must be one of {sorted(_SCHEME_CONFIG)}, got {scheme!r}")
@@ -421,6 +454,9 @@ def build_params(
         box_cell_size=box_cell_size,
         geometry_scale=geometry_scale,
         gravity=gravity,
+        cpr_rtol=cpr_rtol,
+        cpr_maxit=cpr_maxit,
+        cpr_accuracy_tol=cpr_accuracy_tol,
         step_control_method="None",
     )
     params.update(_linear_solvers[linear_solver])
@@ -507,17 +543,23 @@ def run(scheme: str = "HU", refinement_level: int = 0,
         t_end_days: float = 100.0, dt_days: float = 10.0,
         ad_backend: str = "native", fractures: bool = True,
         box_cell_size: float = 0.05, geometry_scale: float = 1.0,
-        linear_solver: str = "direct", gravity: bool = True) -> None:
+        linear_solver: str = "direct", gravity: bool = True,
+        cpr_rtol: float = 1.0e-8, cpr_maxit: int = 300,
+        cpr_accuracy_tol: float = 1.0e-6) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     print(f"\n=== 3D benchmark run: scheme={scheme}, fractures={fractures}, "
           f"level={refinement_level}, scale={geometry_scale}, tf={t_end_days} d, "
           f"dt={dt_days} d, backend={ad_backend}, linear_solver={linear_solver}, "
-          f"gravity={gravity} ===", flush=True)
+          f"gravity={gravity}"
+          + (f", cpr_rtol={cpr_rtol:.1e}, cpr_maxit={cpr_maxit}, "
+             f"cpr_accuracy_tol={cpr_accuracy_tol:.1e}" if linear_solver == "cpr" else "")
+          + " ===", flush=True)
     model = build_model(scheme, refinement_level=refinement_level,
                         t_end_days=t_end_days, dt_days=dt_days, ad_backend=ad_backend,
                         fractures=fractures, box_cell_size=box_cell_size,
                         geometry_scale=geometry_scale, linear_solver=linear_solver,
-                        gravity=gravity)
+                        gravity=gravity, cpr_rtol=cpr_rtol, cpr_maxit=cpr_maxit,
+                        cpr_accuracy_tol=cpr_accuracy_tol)
     runner = pp.ModelRunner(model, _solver_params(model))
     print("  DoF:", model.equation_system.num_dofs(), flush=True)
     model.schur_complement_primary_equations = (
@@ -551,6 +593,14 @@ def _cli() -> argparse.Namespace:
     p.add_argument("--linear-solver", choices=["direct", "cpr", "lu"], default="direct",
                    help="linear solver: direct (SciPy LU, default), cpr (Schur-reduced CPR, "
                         "iterative/PETSc), or lu (direct LU via MUMPS/PETSc)")
+    p.add_argument("--cpr-rtol", type=float, default=1.0e-5,
+                   help="CPR GMRES relative residual tolerance (only with --linear-solver cpr)")
+    p.add_argument("--cpr-maxit", type=int, default=200,
+                   help="CPR GMRES max iterations before abandoning the iterative solve "
+                        "(only with --linear-solver cpr)")
+    p.add_argument("--cpr-accuracy-tol", type=float, default=1.0e-2,
+                   help="post-solve full-residual gate; above it the step falls back to direct "
+                        "LU/MUMPS (only with --linear-solver cpr)")
     p.add_argument("--no-gravity", dest="gravity", action="store_false",
                    help="set g=0 (removes buoyancy AND the hydrostatic Darcy term)")
     p.add_argument("--check", action="store_true",
@@ -566,7 +616,7 @@ def main() -> None:
     else:
         run(args.scheme, args.refinement_level, args.days, args.dt_days, args.ad_backend,
             args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
-            args.gravity)
+            args.gravity, args.cpr_rtol, args.cpr_maxit, args.cpr_accuracy_tol)
 
 
 if __name__ == "__main__":

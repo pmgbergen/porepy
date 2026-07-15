@@ -631,7 +631,9 @@ class _FlowModelBaseCore:
 
         xk, cpr_its = self._cpr_petsc_solve(
             Sc, gc, n_p, matrix_p_pos, null_mean,
-            lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 60000)))
+            lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 60000)),
+            rtol=float(self.params.get("cpr_rtol", 1.0e-8)),
+            maxit=int(self.params.get("cpr_maxit", 300)))
         xp = np.concatenate([xk, lu_i.solve(gl - Slk @ xk)]) if n_i else xk
 
         # Accuracy gate.  Dirichlet: plain residual.  Null-mean: the system is singular AND
@@ -642,8 +644,10 @@ class _FlowModelBaseCore:
             vp = np.zeros(len(xp)); vp[matrix_p_pos] = 1.0
             r = r - (vp @ r) / (vp @ vp) * vp
         rel = np.linalg.norm(r) / max(np.linalg.norm(g), 1.0e-30)
-        if rel > 1.0e-6:
-            raise RuntimeError(f"CPR residual too large for Newton (rel={rel:.1e})")
+        acc_tol = float(self.params.get("cpr_accuracy_tol", 1.0e-6))
+        if rel > acc_tol:
+            raise RuntimeError(
+                f"CPR residual too large for Newton (rel={rel:.1e} > {acc_tol:.1e})")
 
         rhs_s = bs - Asp @ xp
         xs = rhs_s if lu is None else lu.solve(rhs_s)       # back-substitute the secondaries
