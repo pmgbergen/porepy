@@ -183,6 +183,68 @@ class _FlowModelBaseCore:
             factory.__class__ = _CachingSurrogateFactory
         return factory
 
+    def update_derived_quantities(self) -> None:
+        """Install (once) a memoized full-iterate fetch on the equation system, then update.
+
+        Every per-grid "flash" inside the after-iteration update re-fetches the ENTIRE system
+        state.  There are TWO such grid-by-grid loops, and they run in different classes:
+          * the phase-property update (density, enthalpy) in ``compositional_flow.py``, and
+          * the locally-eliminated secondaries (T, s, x) in ``abstract_equations.LocalElimination``.
+        Both evaluate their dependencies per grid with ``state=None``, so ``_ad_parser.evaluate``
+        calls ``equation_system.get_variable_values(iterate_index=0)`` -- ALL variables on ALL
+        subdomains, a ``numpy.copy`` per sub-variable -- for EVERY grid.  On a many-subdomain
+        fracture network this is O(n_subdomains^2) and dominates the step (profiled: ~4.3s of a ~5s
+        Newton step on the 62-subdomain Cartesian MD case; millions of array copies).
+
+        ``LocalElimination.update_derived_quantities`` is the MRO entry point and runs its loop
+        AFTER its ``super()`` call, so we cannot wrap it from here with a scoped patch.  Instead we
+        install a PERSISTENT memoization of the full-iterate fetch (:meth:`_install_full_iterate_cache`),
+        invalidated by a generation counter bumped on every variable-value write.  The primaries do
+        not change during a single update and every flash dependency is a primary, so all flashes
+        in one update share one fetch -- bit-exact, O(n_subdomains^2) -> O(n_subdomains).
+        """
+        self._install_full_iterate_cache()
+        super().update_derived_quantities()
+
+    def _install_full_iterate_cache(self) -> None:
+        """Wrap ``equation_system.get_variable_values`` so the full-iterate fetch
+        (``iterate_index=0``, no variable subset) is memoized until the next variable-value write.
+
+        ``set_variable_values`` / ``shift_iterate_values`` bump a generation counter that
+        invalidates the cache; all other fetches (subsets, other indices, reference values) pass
+        through unchanged.  Idempotent (installs once per equation system).  A fresh copy is
+        returned per call, so callers that mutate the result stay correct."""
+        es = self.equation_system
+        if getattr(es, "_full_iterate_cache", None) is not None:
+            return
+        cache = {"gen": 0, "cached_gen": -1, "value": None}
+        es._full_iterate_cache = cache
+        _get, _set, _shift = (
+            es.get_variable_values, es.set_variable_values, es.shift_iterate_values)
+
+        def get_variable_values(variables=None, time_step_index=None, iterate_index=None,
+                                reference=False):
+            if (variables is None and time_step_index is None
+                    and iterate_index == 0 and not reference):
+                if cache["cached_gen"] != cache["gen"]:
+                    cache["value"] = _get(iterate_index=0)
+                    cache["cached_gen"] = cache["gen"]
+                return cache["value"].copy()
+            return _get(variables=variables, time_step_index=time_step_index,
+                        iterate_index=iterate_index, reference=reference)
+
+        def set_variable_values(*args, **kwargs):
+            cache["gen"] += 1
+            return _set(*args, **kwargs)
+
+        def shift_iterate_values(*args, **kwargs):
+            cache["gen"] += 1
+            return _shift(*args, **kwargs)
+
+        es.get_variable_values = get_variable_values     # type: ignore[method-assign]
+        es.set_variable_values = set_variable_values     # type: ignore[method-assign]
+        es.shift_iterate_values = shift_iterate_values   # type: ignore[method-assign]
+
     def solve_linear_system_petsc(self, A: sps.spmatrix, b: np.ndarray, preconditioner: str = "lu") -> np.ndarray:
         """
         Solve linear system using PETSc with selectable preconditioners and detailed logging.
