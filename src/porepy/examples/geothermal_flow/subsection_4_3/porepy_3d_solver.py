@@ -84,6 +84,7 @@ from __future__ import annotations
 import argparse
 import os
 import time
+from typing import Sequence
 
 import numpy as np
 
@@ -510,6 +511,11 @@ _DEFAULT_AD_BACKEND = "native"
 _DEFAULT_CPR_RTOL = 1.0e-4             # CPR GMRES relative tolerance
 _DEFAULT_CPR_MAXIT = 200              # CPR GMRES iteration cap
 _DEFAULT_CPR_ACCURACY_TOL = 1.0e-3   # post-solve gate -> fall back to direct above this
+# VTU snapshot schedule [days]: the transient writes VTU/PVD ONLY at these instants (not every
+# step), mirroring subsection_4_2/porepy_2d_solver.  They are placed in the TimeManager schedule so
+# adaptive dt lands on them exactly, and become ``times_to_export``.  0 (the initial state) is
+# always added.  Default: 0 + every 20 yr over the ~200 yr horizon.
+_DEFAULT_SNAP_DAYS = (0.0, 7300.0, 14600.0, 29200.0, 43800.0, 58400.0, 73000.0)
 
 
 def build_params(
@@ -527,6 +533,7 @@ def build_params(
     cpr_rtol: float = _DEFAULT_CPR_RTOL,
     cpr_maxit: int = _DEFAULT_CPR_MAXIT,
     cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL,
+    snap_days: Sequence[float] = _DEFAULT_SNAP_DAYS,
     **overrides,
 ) -> dict:
     """Assemble the params dict for one 3D geothermal benchmark run.
@@ -575,8 +582,15 @@ def build_params(
 
     tf = t_end_days * DAY
     dt = dt_days * DAY
+    # VTU export schedule (mirrors subsection_4_2/porepy_2d_solver): the snapshot instants (<= tf),
+    # plus 0 and tf, go into the TimeManager SCHEDULE so adaptive dt lands on them EXACTLY (PorePy
+    # clips any step that would overshoot a scheduled time); the SAME instants become
+    # ``times_to_export`` so the runner writes VTU ONLY there, not on every time step.
+    snap_seconds = sorted(d * DAY for d in snap_days if 0.0 <= d * DAY <= tf + 1.0e-6)
+    schedule = sorted({0.0, tf, *snap_seconds})
+    times_to_export = sorted({*snap_seconds, tf}) if snap_seconds else [0.0, tf]
     time_manager = pp.TimeManager(
-        schedule=[0.0, tf], dt_init=dt, constant_dt=False,
+        schedule=schedule, dt_init=dt, constant_dt=False,
         dt_min_max=(dt / 64.0, dt), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
 
@@ -610,6 +624,7 @@ def build_params(
         cpr_rtol=cpr_rtol,
         cpr_maxit=cpr_maxit,
         cpr_accuracy_tol=cpr_accuracy_tol,
+        times_to_export=times_to_export,       # write VTU only at the scheduled snapshots
         folder_name=os.path.join("output", name),
         file_name=name,
         step_control_method="None",
@@ -702,7 +717,8 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
         linear_solver: str = _DEFAULT_LINEAR_SOLVER, gravity: bool = _DEFAULT_GRAVITY,
         gravity_constant: float | None = None,
         cpr_rtol: float = _DEFAULT_CPR_RTOL, cpr_maxit: int = _DEFAULT_CPR_MAXIT,
-        cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL) -> None:
+        cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL,
+        snap_days: Sequence[float] = _DEFAULT_SNAP_DAYS) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     name = _output_name(scheme, gravity, fractures)
     g_value = 0.0 if not gravity else (
@@ -721,7 +737,9 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
                         geometry_scale=geometry_scale, linear_solver=linear_solver,
                         gravity=gravity, gravity_constant=gravity_constant,
                         cpr_rtol=cpr_rtol, cpr_maxit=cpr_maxit,
-                        cpr_accuracy_tol=cpr_accuracy_tol)
+                        cpr_accuracy_tol=cpr_accuracy_tol, snap_days=snap_days)
+    snaps = [d for d in snap_days if 0.0 <= d <= t_end_days + 1e-6]
+    print(f"  VTU export at snapshots [days]: {snaps if snaps else [0.0, t_end_days]}", flush=True)
     runner = pp.ModelRunner(model, _solver_params(model))
     print("  DoF:", model.equation_system.num_dofs(), flush=True)
     model.schur_complement_primary_equations = (
@@ -754,6 +772,10 @@ def _cli() -> argparse.Namespace:
     p.add_argument("--days", type=float, default=_DEFAULT_T_END_DAYS, help="end time [days]")
     p.add_argument("--dt-days", type=float, default=_DEFAULT_DT_DAYS,
                    help="nominal (adaptive) time step [days]")
+    p.add_argument("--snap-days", type=str, default=None, metavar="D0,D1,...",
+                   help="comma-separated days at which to write VTU snapshots (placed in the "
+                        "schedule so adaptive dt hits them exactly; default: 0 + every 20 yr).  "
+                        "VTU is written ONLY at these instants, not every step.")
     p.add_argument("--ad-backend", choices=["native", "sparsa"], default=_DEFAULT_AD_BACKEND)
     p.add_argument("--linear-solver", choices=["direct", "cpr", "lu"],
                    default=_DEFAULT_LINEAR_SOLVER,
@@ -783,10 +805,12 @@ def main() -> None:
         check(args.scheme, args.refinement_level, args.fractures, args.box_cell_size,
               args.geometry_scale, args.linear_solver, args.gravity)
     else:
+        snap_days = (tuple(float(d) for d in args.snap_days.split(",") if d.strip())
+                     if args.snap_days else _DEFAULT_SNAP_DAYS)
         run(args.scheme, args.refinement_level, args.days, args.dt_days, args.ad_backend,
             args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
             args.gravity, args.gravity_constant, args.cpr_rtol, args.cpr_maxit,
-            args.cpr_accuracy_tol)
+            args.cpr_accuracy_tol, snap_days)
 
 
 if __name__ == "__main__":
