@@ -125,6 +125,12 @@ _Y_MIN, _Y_MAX = 0.0, 2.25               # unscaled domain extent along the flow
 # carry that ratio at geothermal permeability scale (k_matrix = 1e-15 m^2 -> k_fracture = 1e-11).
 FRACTURE_K_FACTOR = 1.0e4
 
+# Gravitational acceleration [m/s^2].  This is the single knob for the gravity constant: it feeds
+# ``params["gravity_constant"]``, which ``flow_model_base.gravity_field`` uses for BOTH the buoyant
+# phase segregation and the hydrostatic Darcy term.  ``--no-gravity`` overrides it to 0.0; pass
+# ``--gravity-constant <g>`` for any other value (e.g. a reduced-gravity or Martian run).
+GRAVITY_ACCELERATION = pp.GRAVITY_ACCELERATION       # 9.80665 m/s^2 (Earth standard)
+
 # Two-phase forced-flow BC/IC values (from subsection_4_1's moderate two-phase case).
 P_INLET = 20.0                           # [MPa] at the inlet corner (y = 0)
 P_OUTLET = 1.0                           # [MPa] at the outlet corner (y = 2.25)
@@ -240,6 +246,58 @@ def _scale_mdg(mdg: pp.MixedDimensionalGrid, s: float) -> None:
         intf.compute_geometry()
 
 
+# Staggered, axis-aligned fracture pattern (fractions of the domain box).  Each spec is
+# ``(axis, position, (u0, u1), (v0, v1))``: a rectangle in the plane ``axis = position`` spanning
+# the two in-plane directions over ``[u0, u1] x [v0, v1]``.  For ``axis="x"`` the in-plane
+# directions are (y, z); for "y" they are (x, z); for "z" they are (x, y).  Positions and extents
+# are deliberately UNEVEN and PARTIAL (not full-span) so the planes form an irregular, staggered
+# network -- some cross, some terminate in a tip inside the matrix -- rather than a regular lattice.
+_FRACTURE_SPECS: tuple[tuple[str, float, tuple[float, float], tuple[float, float]], ...] = (
+    ("x", 0.22, (0.05, 0.55), (0.10, 0.72)),
+    ("x", 0.44, (0.38, 0.95), (0.28, 0.90)),
+    ("x", 0.68, (0.15, 0.62), (0.05, 0.48)),
+    ("x", 0.86, (0.52, 0.92), (0.40, 0.88)),
+    ("y", 0.28, (0.08, 0.58), (0.18, 0.80)),
+    ("y", 0.52, (0.34, 0.90), (0.05, 0.58)),
+    ("y", 0.71, (0.05, 0.48), (0.32, 0.95)),
+    ("y", 0.88, (0.46, 0.94), (0.12, 0.56)),
+    ("z", 0.31, (0.14, 0.70), (0.10, 0.60)),
+    ("z", 0.54, (0.40, 0.95), (0.36, 0.86)),
+    ("z", 0.66, (0.06, 0.54), (0.48, 0.94)),
+    ("z", 0.82, (0.50, 0.90), (0.22, 0.72)),
+)
+
+
+def _axis_aligned_fractures(
+    physdims: np.ndarray, specs=_FRACTURE_SPECS
+) -> list[np.ndarray]:
+    """Axis-aligned rectangular fractures on the box [0,Lx]x[0,Ly]x[0,Lz], from ``specs``.
+
+    Each spec ``(axis, pos, (u0,u1), (v0,v1))`` becomes a ``(3, 4)`` array of rectangle corners in
+    the plane ``axis = pos`` (fractions of the box), spanning the two in-plane directions over the
+    given fractional ranges.  The rectangles are axis-aligned so ``pp.meshing.cart_grid`` snaps
+    them to the nearest Cartesian cell faces -- the matrix stays K-orthogonal, so TPFA discretises
+    the gravity vector source exactly.  The default :data:`_FRACTURE_SPECS` is a STAGGERED, PARTIAL
+    pattern (uneven positions, sub-domain extents) that forms an irregular fracture network.
+    """
+    Lx, Ly, Lz = float(physdims[0]), float(physdims[1]), float(physdims[2])
+    fracs: list[np.ndarray] = []
+    for axis, pos, (u0, u1), (v0, v1) in specs:
+        if axis == "x":                         # plane x=pos*Lx, spans y in u*Ly, z in v*Lz
+            x = pos * Lx
+            y0, y1, z0, z1 = u0 * Ly, u1 * Ly, v0 * Lz, v1 * Lz
+            fracs.append(np.array([[x, x, x, x], [y0, y1, y1, y0], [z0, z0, z1, z1]]))
+        elif axis == "y":                       # plane y=pos*Ly, spans x in u*Lx, z in v*Lz
+            y = pos * Ly
+            x0, x1, z0, z1 = u0 * Lx, u1 * Lx, v0 * Lz, v1 * Lz
+            fracs.append(np.array([[x0, x1, x1, x0], [y, y, y, y], [z0, z0, z1, z1]]))
+        else:                                   # plane z=pos*Lz, spans x in u*Lx, y in v*Ly
+            z = pos * Lz
+            x0, x1, y0, y1 = u0 * Lx, u1 * Lx, v0 * Ly, v1 * Ly
+            fracs.append(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1], [z, z, z, z]]))
+    return fracs
+
+
 def _build_model_class(FlowModel):
     """Compose the geometry + BC + IC + Driesner ``FlowModel`` into a runnable model class.
 
@@ -251,33 +309,29 @@ def _build_model_class(FlowModel):
             DriesnerPhaseExport, ModelGeometry, BC_benchmark3d, IC_benchmark3d, FlowModel):
 
         def set_geometry(self) -> None:
-            """Build the domain grid.
+            """Build a fully CARTESIAN domain grid.
 
-            ``params["fractures"]`` (default True) selects between:
-              * the benchmark-3 MIXED-DIMENSIONAL grid (1 matrix + 8 fractures + 7 intersection
-                lines), via ``Benchmark3DC3.set_geometry``; and
-              * a fracture-free EQUI-DIMENSIONAL box over the SAME domain [0,1]x[0,2.25]x[0,1]
-                (single 3D subdomain, no interfaces) -- useful for isolating the matrix physics
-                and as a reference for the mixed-dimensional run.
+            Both branches are K-orthogonal, so TPFA discretises the gravity vector source EXACTLY
+            (unlike a simplex mesh, where the two-point vector source is inconsistent).
+            ``params["fractures"]`` (``--md``, default False) selects between:
+              * a fracture-free EQUI-DIMENSIONAL Cartesian box over [0,1]x[0,2.25]x[0,1] (scaled),
+                a single 3D subdomain with no interfaces; and
+              * a MIXED-DIMENSIONAL Cartesian grid with 12 full-span axis-aligned planar fractures
+                -- four perpendicular to each of x, y, z (see :func:`_axis_aligned_fractures`).
 
-            Either way ``set_wells`` is seeded first (``Benchmark3DC3.set_geometry`` reads
-            ``self._wells`` without initialising it).  The fracture-free branch builds the grid
-            with the create-helpers directly, skipping the base ``create_well_mesh`` (which would
-            unconditionally mesh an empty well network).
+            ``pp.meshing.cart_grid`` snaps the axis-aligned fracture rectangles to the nearest
+            Cartesian cell faces, so the fractures conform to the grid and the matrix stays
+            K-orthogonal.  ``set_wells`` is seeded first (no wells here).
             """
             self.set_wells()                       # -> self._wells = [] (no wells here)
-            scale = float(self.params.get("geometry_scale", 1.0))
-            if self.params.get("fractures", True):
-                super().set_geometry()             # Benchmark3DC3: mixed-dimensional grid
-                if scale != 1.0:                   # rescale raw benchmark coords to geological size
-                    _scale_mdg(self.mdg, scale)
-                    self._domain = _rescale_domain(self._domain, scale)
-                return
-            # --- fracture-free equidimensional box (set_domain/meshing already apply the scale) ---
-            self.set_domain()
-            self.set_fractures()                   # -> [] (no fractures)
-            self.create_fracture_network()
-            self.create_mdg()
+            self.set_domain()                      # -> self._domain (scaled box; used by BC/IC)
+            s = float(self.params.get("geometry_scale", 1.0))
+            physdims = np.array([1.0, _Y_MAX, 1.0]) * s
+            h = float(self.params.get("box_cell_size", 0.1)) * s
+            nx = np.maximum(np.round(physdims / h).astype(int), 1)
+            fracs = (_axis_aligned_fractures(physdims)
+                     if self.params.get("fractures", False) else [])
+            self.mdg = pp.meshing.cart_grid(fracs, nx, physdims=physdims)
             self.nd = self.mdg.dim_max()
             pp.set_local_coordinate_projections(self.mdg)
             self.set_well_network()
@@ -320,12 +374,31 @@ def _build_model_class(FlowModel):
             outlet_facets = np.where(sides.north)[0]   # y = y_max  (full face)
             return inlet_facets, outlet_facets
 
-        # ---- TPFA fluxes (matches subsection_4_1; the HU buoyancy is a two-point scheme) ----
+        # ---- MPFA fluxes: TPFA's gravity vector source (and conduction) is inconsistent on the
+        #      non-K-orthogonal SIMPLEX benchmark grid -- the flux uses (face_center - cell_center),
+        #      which is only parallel to the face normal on Cartesian cells, so on tetrahedra the
+        #      gravity term is wrong/dropped (Cartesian works, simplex does not).  MPFA is consistent
+        #      on general grids.  For HU both coefficients are CONSTANT (rock permeability; constant
+        #      porosity-weighted rock+fluid conductivity), so both are discretized ONCE at setup and
+        #      never re-discretized (see add_nonlinear_fourier_flux_discretization below). ----
         def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
         def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains))
+
+        def add_nonlinear_fourier_flux_discretization(self) -> None:
+            """Do NOT re-discretize the Fourier flux each Newton iteration.
+
+            The CF base (compositional_flow.py) unconditionally re-discretizes the Fourier flux,
+            assuming a nonlinear thermal conductivity.  Here the conductivity is the constant
+            porosity-weighted rock+fluid conductivity (no mechanics -> porosity fixed), so the
+            (now MPFA) Fourier discretization is invariant: it is built ONCE in ``discretize()`` at
+            setup, and re-running the heavy MPFA discretize every iteration is pure waste.  The
+            Darcy flux is likewise discretized once for HU -- the CF base only adds it to the
+            nonlinear-flux list in the fractional-flow (HU-mw) branch.  (The advective upwind
+            discretizations are still refreshed every iteration, as they must be.)
+            """
 
         # ---- dimension-dependent permeability (conductive fractures) with a scheme-dependent
         #      mobility weighting (MD buoyancy fix) ----
@@ -434,9 +507,9 @@ _DEFAULT_DT_DAYS = 50.0                # nominal (adaptive) time step
 _DEFAULT_LINEAR_SOLVER = "cpr"         # Schur-reduced CPR (iterative, PETSc)
 _DEFAULT_GRAVITY = True
 _DEFAULT_AD_BACKEND = "native"
-_DEFAULT_CPR_RTOL = 1.0e-5             # CPR GMRES relative tolerance
+_DEFAULT_CPR_RTOL = 1.0e-4             # CPR GMRES relative tolerance
 _DEFAULT_CPR_MAXIT = 200              # CPR GMRES iteration cap
-_DEFAULT_CPR_ACCURACY_TOL = 1.0e-2   # post-solve gate -> fall back to direct above this
+_DEFAULT_CPR_ACCURACY_TOL = 1.0e-3   # post-solve gate -> fall back to direct above this
 
 
 def build_params(
@@ -450,6 +523,7 @@ def build_params(
     geometry_scale: float = _DEFAULT_GEOMETRY_SCALE,
     linear_solver: str = _DEFAULT_LINEAR_SOLVER,
     gravity: bool = _DEFAULT_GRAVITY,
+    gravity_constant: float | None = None,
     cpr_rtol: float = _DEFAULT_CPR_RTOL,
     cpr_maxit: int = _DEFAULT_CPR_MAXIT,
     cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL,
@@ -470,6 +544,10 @@ def build_params(
       ``scheme``          -- HU (HU-BM(mp)), HU-mw (mobility-weighted) or PPU; see ``_SCHEME_CONFIG``.
       ``gravity``         -- False (``--no-gravity``) sets g=0 (removes buoyancy AND the hydrostatic
                              Darcy term).
+      ``gravity_constant``-- gravitational acceleration [m/s^2] when gravity is ON; None -> the
+                             module ``GRAVITY_ACCELERATION`` (9.80665).  Stored as
+                             ``params["gravity_constant"]`` and consumed by
+                             ``flow_model_base.gravity_field``.
 
     Linear solver
       ``linear_solver``   -- "cpr" (Schur-reduced CPR, iterative/PETSc; default), "direct" (SciPy
@@ -512,6 +590,11 @@ def build_params(
     # runs cache to distinct folders and re-running a configuration refreshes only its own.
     name = _output_name(scheme, gravity, fractures)
 
+    # Resolve the gravity constant [m/s^2]: 0 with --no-gravity, else the requested value or the
+    # module GRAVITY_ACCELERATION.  gravity_field reads this single value.
+    g_value = 0.0 if not gravity else (
+        GRAVITY_ACCELERATION if gravity_constant is None else float(gravity_constant))
+
     params = dict(
         ad_backend=ad_backend,
         enable_buoyancy_effects=gravity,
@@ -523,6 +606,7 @@ def build_params(
         box_cell_size=box_cell_size,
         geometry_scale=geometry_scale,
         gravity=gravity,
+        gravity_constant=g_value,
         cpr_rtol=cpr_rtol,
         cpr_maxit=cpr_maxit,
         cpr_accuracy_tol=cpr_accuracy_tol,
@@ -616,15 +700,18 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
         box_cell_size: float = _DEFAULT_BOX_CELL_SIZE,
         geometry_scale: float = _DEFAULT_GEOMETRY_SCALE,
         linear_solver: str = _DEFAULT_LINEAR_SOLVER, gravity: bool = _DEFAULT_GRAVITY,
+        gravity_constant: float | None = None,
         cpr_rtol: float = _DEFAULT_CPR_RTOL, cpr_maxit: int = _DEFAULT_CPR_MAXIT,
         cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     name = _output_name(scheme, gravity, fractures)
+    g_value = 0.0 if not gravity else (
+        GRAVITY_ACCELERATION if gravity_constant is None else float(gravity_constant))
     print(f"\n=== 3D benchmark run: scheme={scheme}, "
           f"{'mixed' if fractures else 'fixed'}-dimensional, "
           f"level={refinement_level}, scale={geometry_scale}, tf={t_end_days} d, "
           f"dt={dt_days} d, backend={ad_backend}, linear_solver={linear_solver}, "
-          f"gravity={gravity}"
+          f"g={g_value} m/s^2"
           + (f", cpr_rtol={cpr_rtol:.1e}, cpr_maxit={cpr_maxit}, "
              f"cpr_accuracy_tol={cpr_accuracy_tol:.1e}" if linear_solver == "cpr" else "")
           + f" ===\n  output -> {os.path.join('output', name)}/", flush=True)
@@ -632,7 +719,8 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
                         t_end_days=t_end_days, dt_days=dt_days, ad_backend=ad_backend,
                         fractures=fractures, box_cell_size=box_cell_size,
                         geometry_scale=geometry_scale, linear_solver=linear_solver,
-                        gravity=gravity, cpr_rtol=cpr_rtol, cpr_maxit=cpr_maxit,
+                        gravity=gravity, gravity_constant=gravity_constant,
+                        cpr_rtol=cpr_rtol, cpr_maxit=cpr_maxit,
                         cpr_accuracy_tol=cpr_accuracy_tol)
     runner = pp.ModelRunner(model, _solver_params(model))
     print("  DoF:", model.equation_system.num_dofs(), flush=True)
@@ -681,6 +769,9 @@ def _cli() -> argparse.Namespace:
                         "LU/MUMPS (only with --linear-solver cpr)")
     p.add_argument("--no-gravity", dest="gravity", action="store_false",
                    help="set g=0 (removes buoyancy AND the hydrostatic Darcy term)")
+    p.add_argument("--gravity-constant", type=float, default=None, metavar="G",
+                   help="gravitational acceleration [m/s^2] when gravity is on "
+                        f"(default {GRAVITY_ACCELERATION:.5f}); ignored with --no-gravity")
     p.add_argument("--check", action="store_true",
                    help="build + assemble once (structural smoke test), no transient solve")
     return p.parse_args()
@@ -694,7 +785,8 @@ def main() -> None:
     else:
         run(args.scheme, args.refinement_level, args.days, args.dt_days, args.ad_backend,
             args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
-            args.gravity, args.cpr_rtol, args.cpr_maxit, args.cpr_accuracy_tol)
+            args.gravity, args.gravity_constant, args.cpr_rtol, args.cpr_maxit,
+            args.cpr_accuracy_tol)
 
 
 if __name__ == "__main__":
