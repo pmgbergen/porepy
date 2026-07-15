@@ -39,7 +39,11 @@ from porepy.models.compositional_flow_with_equilibrium import (
 
 JUMP_TIME = 25 * pp.DAY
 T_BEFORE_JUMP = JUMP_TIME - 2 * pp.HOUR
+T_BEFORE_JUMP_ANALYSIS = JUMP_TIME - pp.SECOND
 T_END_DAYS = 50
+EXPECTED_TRANSIENT_TIME = 2 * pp.HOUR + 30 * pp.MINUTE
+dt_ANALYSIS = pp.MINUTE
+
 time_schedule = [i * pp.DAY for i in range(T_END_DAYS)]
 dt_init = pp.DAY * 0.5
 dt_min = pp.SECOND
@@ -51,17 +55,30 @@ max_iterations = 25
 iter_range = (15, max_iterations)
 
 
-def modify_schedule(old_schedule: list[float]) -> list[float]:
+def modify_schedule(
+    old_schedule: list[float], ajump: float | None, analysis: bool
+) -> list[float]:
     t = np.array(old_schedule).copy()
     t_before: list[float] = t[t < JUMP_TIME].tolist()
     t_after: list[float] = t[t > JUMP_TIME].tolist()
+
     if t_before[-1] < T_BEFORE_JUMP:
-        t_before += [T_BEFORE_JUMP]
-    if t_after[0] > JUMP_TIME + pp.HOUR:
-        t_before += (
-            np.arange(JUMP_TIME, JUMP_TIME + pp.HOUR, pp.MINUTE).tolist()
-            + np.arange(JUMP_TIME + pp.HOUR, t_after[0], pp.HOUR).tolist()
+        assert T_BEFORE_JUMP_ANALYSIS > T_BEFORE_JUMP, (
+            "Expecting T_BEFORE_JUMP_ANALYSIS > T_BEFORE_JUMP."
         )
+        if analysis:
+            t_before += [T_BEFORE_JUMP_ANALYSIS]
+        elif ajump is not None:
+            t_before += [T_BEFORE_JUMP]
+
+    if analysis and t_after[0] > JUMP_TIME + EXPECTED_TRANSIENT_TIME:
+        t_after = (
+            np.arange(
+                JUMP_TIME, JUMP_TIME + EXPECTED_TRANSIENT_TIME, dt_ANALYSIS
+            ).tolist()
+            + t_after
+        )
+
     return t_before + t_after
 
 
@@ -92,12 +109,6 @@ solver_params["appleyard_chop"] = 0.3
 solver_params["pressure_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 solver_params["volume_clip"] = (0.9, 1.1)  # (0.8, 1.2)
 model_params["use_logp_nonlinear_rpc"] = False
-
-solver_params["do_armijo_line_search"] = False
-solver_params["armijo_line_search_weight"] = 0.9
-solver_params["armijo_line_search_incline"] = 1e-4
-solver_params["armijo_line_search_max_iterations"] = 20
-solver_params["armijo_stop_after_residual_reaches"] = 1e-5
 
 solver_params["do_ntrdc"] = True
 solver_params["ntrdc_scale_with_inf"] = True
@@ -258,22 +269,22 @@ class Case2DataCollection(pp.PorePyModel):
 def get_case2_argparser(prog: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="Cold CO2 injection run script")
     parser.add_argument(
-        "-a",
-        "--aperture",
+        "-j",
+        "--jump",
         nargs=1,
         default=1.0,
         type=float,
-        help="Aperture jump factor (float > 1).",
+        help="Aperture jump factor (float >= 1).",
     )
     parser.add_argument(
-        "-e",
-        "--extensive",
+        "-a",
+        "--analysis",
         action="store_true",
-        help="Eliminate the extensive state variables",
+        help="Simulation for analysis including refined time stepping schedule.",
     )
     parser.add_argument(
-        "-p",
-        "--precondition",
+        "-n",
+        "--no-precondition",
         action="store_true",
         help="Deactivate isochoric preconditioning.",
     )
@@ -284,31 +295,31 @@ def get_case2_argparser(prog: str) -> argparse.ArgumentParser:
 def resolve_args(
     args: argparse.Namespace,
 ) -> tuple[list[tuple[float, float]], bool, bool]:
-    if args.aperture:
-        if isinstance(args.aperture, list):
-            ajump = args.aperture[0]
+    if args.jump:
+        if isinstance(args.jump, list):
+            jump = args.jump[0]
         else:
-            ajump = args.aperture
-        ajump = float(ajump)
-        assert ajump >= 1, f"Expecting aperture jump factor >=1. Got {ajump}."
-        if ajump > 1:
-            schedule = [(JUMP_TIME, ajump)]
+            jump = args.jump
+        jump = float(jump)
+        assert jump >= 1, f"Expecting aperture jump factor >=1. Got {jump}."
+        if jump > 1:
+            schedule = [(JUMP_TIME, jump)]
         else:
             schedule = []
     else:
         schedule = []
 
-    if args.extensive:
-        e_prim = False
+    if args.analysis:
+        analysis = True
     else:
-        e_prim = True
+        analysis = False
 
-    if args.precondition:
+    if args.no_precondition:
         npc = False
     else:
         npc = True
 
-    return schedule, e_prim, npc
+    return schedule, analysis, npc
 
 
 class ModelClass(  # type:ignore
@@ -341,21 +352,23 @@ ModelClass._z_IN = {"H2O": 1.0}
 
 if __name__ == "__main__":
     parser = get_case2_argparser("CI Case 2a.")
-    APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
-    E_PRIMARY = False
+    APERTURE_JUMP_SCHEDULE, ANALYSIS, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
     # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
     # ISOCHORIC_NPC = False
 
-    ajump: float | None
+    ajump: float | None = None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
-        time_schedule = modify_schedule(time_schedule)
-    else:
-        ajump = None
+    time_schedule = modify_schedule(time_schedule, ajump, ANALYSIS)
 
     ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
+    if ANALYSIS:
+        model_params["times_to_export"] = time_schedule
+    if ISOCHORIC_NPC:
+        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT
+
     model_params["time_manager"] = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
@@ -368,27 +381,22 @@ if __name__ == "__main__":
         print_info=True,
         atol=5e-15,
     )
-    model_params["times_to_export"] = time_schedule
-
-    if ISOCHORIC_NPC:
-        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vT
 
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     sub_folder = (
         "CI_CASE2A/"
         f"{timestamp}"
         f"_AJUMP_{ajump}"
-        f"_ICHOR_{bool(ISOCHORIC_NPC)}"
-        # f"_STRIDE_{model_params["flash_params"]["global_iteration_stride"]}"
-        f"_EPRIM_{bool(E_PRIMARY)}"
+        f"_NPC_{bool(ISOCHORIC_NPC)}"
+        f"_A_{bool(ANALYSIS)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
     print(
         f"\nStarting simulation : {sub_folder}\n"
         f"Aperture jump: {ajump}\n"
-        f"Extensives primary: {E_PRIMARY}\n"
-        f"Do isochoric NPC: {ISOCHORIC_NPC}\n"
+        f"Isochoric NPC: {ISOCHORIC_NPC}\n"
+        f"Analysis: {ANALYSIS}\n"
     )
 
     model = ModelClass(model_params)  # type:ignore[abstract]
@@ -403,7 +411,7 @@ if __name__ == "__main__":
     model.params["linear_right_preconditioner"] = get_rpc(model)  # type:ignore
 
     # Defining sub system for Schur complement reduction.
-    set_schur_complement(model, use_extensives=E_PRIMARY)  # type:ignore[arg-type]
+    set_schur_complement(model, use_extensives=False)  # type:ignore[arg-type]
     solver_params.update(
         get_default_convergence_criteria(
             model, max_iterations, newton_tol_res, newton_tol_inc, newton_tol_res_isofug

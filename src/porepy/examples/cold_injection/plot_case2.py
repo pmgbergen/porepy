@@ -183,86 +183,81 @@ def collect_from_raw(data: dict) -> dict:
 def get_a(data: dict) -> float:
     name: str = data["_subfolder"]
     i = name.find("_AJUMP_")
-    j = name.find("_ICHOR_")
+    j = name.find("_NPC_")
     return float(name[i + 7 : j])
 
 
-c2a_ajump = [
-    fetch(c2a_dir, p) for p in c2a_sims if ("EPRIM_False" in p) and ("ICHOR_True" in p)
-][0]
-c2a_npc = [
-    fetch(c2a_dir, p) for p in c2a_sims if ("EPRIM_False" in p) and ("ICHOR_False" in p)
-][0]
+def fetch_all(
+    d: str, sims: list[str], ajump: bool = True
+) -> tuple[list[dict], dict, dict] | tuple[dict, dict]:
+    c_npc = [fetch(d, p) for p in sims if "_NPC_True" in p and "_A_False" in p][0]
+    c_no_npc = [fetch(d, p) for p in sims if "_NPC_False" in p and "_A_False" in p][0]
 
-c2b_ajump = [
-    fetch(c2b_dir, p) for p in c2b_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
-]
-c2b_npc = [fetch(c2b_dir, p) for p in c2b_sims if "ICHOR_False" in p][0]
+    if ajump:
+        c_a = [fetch(d, p) for p in sims if "_NPC_True" in p and "_A_True" in p]
+        return c_a, c_npc, c_no_npc
+    else:
+        return c_npc, c_no_npc
 
-c2c_ajump = [
-    fetch(c2c_dir, p) for p in c2c_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
-]
-c2c_npc = [fetch(c2c_dir, p) for p in c2c_sims if "ICHOR_False" in p][0]
 
-c2d_ajump = [
-    fetch(c2d_dir, p) for p in c2d_sims if ("EPRIM_True" in p) and ("ICHOR_True" in p)
-]
-c2d_npc = [fetch(c2d_dir, p) for p in c2d_sims if "ICHOR_False" in p][0]
+c2a_npc, c2a_no_npc = fetch_all(c2a_dir, c2a_sims, ajump=False)
+c2b_ajump, c2b_npc, c2b_no_npc = fetch_all(c2b_dir, c2b_sims)
+c2c_ajump, c2c_npc, c2c_no_npc = fetch_all(c2c_dir, c2c_sims)
+c2d_ajump, c2d_npc, c2d_no_npc = fetch_all(c2d_dir, c2d_sims)
 
 plot_data = {}
 
-# Case 2a data
-plot_data["case2a"] = {}
-plot_data["case2a"]["ajump"] = collect_from_raw(c2a_ajump)
-plot_data["case2a"]["no_npc"] = collect_from_raw(c2a_npc)
+plot_data["case2a"] = {
+    "npc": collect_from_raw(c2a_npc),
+    "no_npc": collect_from_raw(c2a_no_npc),
+}
 
-# Case 2b data
-plot_data["case2b"] = {}
-plot_data["case2b"]["no_npc"] = collect_from_raw(c2b_npc)
-plot_data["case2b"]["ajump"] = {}
+plot_data["case2b"] = {
+    "npc": collect_from_raw(c2b_npc),
+    "no_npc": collect_from_raw(c2b_no_npc),
+    "ajump": dict([(get_a(data), collect_from_raw(data)) for data in c2b_ajump]),
+}
 
-for data in c2b_ajump:
-    plot_data["case2b"]["ajump"][get_a(data)] = collect_from_raw(data)
+plot_data["case2c"] = {
+    "npc": collect_from_raw(c2c_npc),
+    "no_npc": collect_from_raw(c2c_no_npc),
+    "ajump": dict([(get_a(data), collect_from_raw(data)) for data in c2c_ajump]),
+}
 
-# Case 2c data
-plot_data["case2c"] = {}
-plot_data["case2c"]["no_npc"] = collect_from_raw(c2c_npc)
-plot_data["case2c"]["ajump"] = {}
-for data in c2c_ajump:
-    plot_data["case2c"]["ajump"][get_a(data)] = collect_from_raw(data)
+plot_data["case2d"] = {
+    "npc": collect_from_raw(c2d_npc),
+    "no_npc": collect_from_raw(c2d_no_npc),
+    "ajump": dict([(get_a(data), collect_from_raw(data)) for data in c2d_ajump]),
+}
 
-# Case 2d data
-plot_data["case2d"] = {}
-plot_data["case2d"]["no_npc"] = collect_from_raw(c2d_npc)
-plot_data["case2d"]["ajump"] = {}
-for data in c2d_ajump:
-    plot_data["case2d"]["ajump"][get_a(data)] = collect_from_raw(data)
-
-# Sort with aperture jump
 plot_data["case2b"]["ajump"] = dict(sorted(plot_data["case2b"]["ajump"].items()))
 plot_data["case2c"]["ajump"] = dict(sorted(plot_data["case2c"]["ajump"].items()))
 plot_data["case2d"]["ajump"] = dict(sorted(plot_data["case2d"]["ajump"].items()))
 
 # Check success of simulations
 print("Simulation success:")
-print("Case 2a no npc: ", plot_data["case2a"]["no_npc"]["success"])
-print(
-    f"Case 2a jump {get_a(plot_data['case2a']['ajump'])}: ",
-    plot_data["case2a"]["ajump"]["success"],
-)
+print("\tCase 2a:")
+print("\t\tNPC: ", plot_data["case2a"]["npc"]["success"])
+print("\t\tNo NPC: ", plot_data["case2a"]["no_npc"]["success"])
 
-print("Case 2b no npc: ", plot_data["case2b"]["no_npc"]["success"])
+print("\tCase 2b:")
+print("\t\tNPC: ", plot_data["case2b"]["npc"]["success"])
+print("\t\tNo NPC: ", plot_data["case2b"]["no_npc"]["success"])
 for a, data in plot_data["case2b"]["ajump"].items():
-    print(f"Case 2b jump {a}: ", data["success"])
+    print(f"\t\tJump {a}: ", data["success"])
 
-print("Case 2c no npc: ", plot_data["case2c"]["no_npc"]["success"])
+print("\tCase 2c:")
+print("\t\tNPC: ", plot_data["case2c"]["npc"]["success"])
+print("\t\tNo NPC: ", plot_data["case2c"]["no_npc"]["success"])
 for a, data in plot_data["case2c"]["ajump"].items():
-    print(f"Case 2c jump {a}: ", data["success"])
+    print(f"\t\tJump {a}: ", data["success"])
 
-print("Case 2d no npc: ", plot_data["case2d"]["no_npc"]["success"])
+print("\tCase 2d:")
+print("\t\tNPC: ", plot_data["case2d"]["npc"]["success"])
+print("\t\tNo NPC: ", plot_data["case2d"]["no_npc"]["success"])
 for a, data in plot_data["case2d"]["ajump"].items():
-    print(f"Case 2d jump {a}: ", data["success"])
-print("---")
+    print(f"\t\tJump {a}: ", data["success"])
+
 # endregion
 
 frac_tol = 1e-10  # Below this, gas is considered absent.
@@ -281,6 +276,19 @@ def format_nums(nums):
     return "[" + ", ".join(f"{x:.2f}" for x in nums) + "]"
 
 
+T_MIN = T_BEFORE_JUMP - dt_min
+T_MAX = JUMP_TIME + 4 * 3600
+
+
+def get_t_s_dt(data: dict) -> tuple[np.ndarray, np.ndarray]:
+    x_ = data["times"]
+    idx_ = (x_ >= T_MIN) & (x_ <= T_MAX)
+    x_ = x_[idx_]
+    y_ = data["sat_frac"][idx_]
+    yr_ = data["dts"][idx_]
+    return x_, y_, yr_
+
+
 # region Time steps and gas transients for isothermal cases.
 fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
@@ -294,44 +302,29 @@ TAU_G_MAX = (
 ) / 60
 T_MAX = JUMP_TIME + TAU_G_MAX + 3 * 3600
 
-# pT no npc
-x1 = plot_data["case2a"]["no_npc"]["times"]
-idx1 = (x1 >= T_MIN) & (x1 <= T_MAX)
-x1 = x1[idx1]
-y1 = plot_data["case2a"]["no_npc"]["sat_frac"][idx1]
-yr1 = plot_data["case2a"]["no_npc"]["dts"][idx1]
-label1 = f"i-pT-{get_a(plot_data['case2a']['no_npc'])}"
-
-# pT vT npc
-x2 = plot_data["case2a"]["ajump"]["times"]
-idx2 = (x2 >= T_MIN) & (x2 <= T_MAX)
-x2 = x2[idx2]
-y2 = plot_data["case2a"]["ajump"]["sat_frac"][idx2]
-yr2 = plot_data["case2a"]["ajump"]["dts"][idx2]
-label2 = f"i-pT(vT)-{get_a(plot_data['case2a']['ajump'])}"
-
-# vT no npc
-x3 = plot_data["case2a"]["no_npc"]["times"]
-idx3 = (x3 >= T_MIN) & (x3 <= T_MAX)
-x3 = x3[idx3]
-y3 = plot_data["case2a"]["no_npc"]["sat_frac"][idx3]
-yr3 = plot_data["case2a"]["no_npc"]["dts"][idx3]
-label3 = f"i-vT-{get_a(plot_data['case2a']['no_npc'])}"
-
-# vT vT npc
-x4 = plot_data["case2b"]["ajump"][JUMP_MAX]["times"]
-idx4 = (x4 >= T_MIN) & (x4 <= T_MAX)
-x4 = x4[idx4]
-y4 = plot_data["case2b"]["ajump"][JUMP_MAX]["sat_frac"][idx4]
-yr4 = plot_data["case2b"]["ajump"][JUMP_MAX]["dts"][idx4]
-label4 = f"i-vT(vT)-{JUMP_MAX}"
-
-xs = [x1, x2, x3, x4]
-ys = [y1, y2, y3, y4]
-yrs = [yr1, yr2, yr3, yr4]
-labels = [label1, label2, label3, label4]
-colors = ["orange", "red", "purple", "black"]
+xs = []
+ys = []
+yrs = []
 markers = [8, 9, 10, ""]
+colors = ["cyan", "blue", "gray", "black"]
+
+for data in [
+    plot_data["case2a"]["no_npc"],
+    plot_data["case2a"]["npc"],
+    plot_data["case2b"]["no_npc"],
+    plot_data["case2b"]["npc"],
+]:
+    x_, y_, yr_ = get_t_s_dt(data)
+    xs.append(x_)
+    ys.append(y_)
+    yrs.append(yr_)
+
+labels = [
+    f"i-pT-{JUMP_MAX}",
+    f"i-pT(vT)-{JUMP_MAX}",
+    f"i-vT-{JUMP_MAX}",
+    f"i-vT(vT)-{JUMP_MAX}",
+]
 
 Lneg = JUMP_TIME - T_BEFORE_JUMP
 Lpos = T_MAX
@@ -392,7 +385,6 @@ axr.set_yticks(
     ticks=[10, 60, 3600, 24 * 3600],
     labels=[r"$10$ s", r"$1$ min", r"$1$ h", r"$1$ d"],
 )
-
 ax.set_xticks(
     ticks=xtrans([T_BEFORE_JUMP - JUMP_TIME, 0, 3600, 3 * 3600]),
     labels=[-1, 0, 1, 3],
@@ -421,80 +413,29 @@ axr = ax.twinx()
 imgs = []
 imgrs = []
 
-TAU_G_MAX_thermal = np.array(
-    [
-        d["gas_disappears_time"] - JUMP_TIME
-        for d in [
-            plot_data["case2c"]["no_npc"],
-            plot_data["case2c"]["ajump"][JUMP_MAX],
-            plot_data["case2d"]["no_npc"],
-            plot_data["case2d"]["ajump"][JUMP_MAX],
-        ]
-    ]
-).max()
-T_MIN = T_BEFORE_JUMP - dt_min
-T_MAX = JUMP_TIME + TAU_G_MAX_thermal + 3 * 3600
+xs = []
+ys = []
+yrs = []
+markers = [8, 9, 10, ""]
+colors = ["gray", "black", "cyan", "blue"]
 
-# vT no npc
-x1 = plot_data["case2c"]["no_npc"]["times"]
-idx1 = (x1 >= T_MIN) & (x1 <= T_MAX)
-x1 = x1[idx1]
-y1 = plot_data["case2c"]["no_npc"]["sat_frac"][idx1]
-yr1 = plot_data["case2c"]["no_npc"]["dts"][idx1]
-label1 = f"vT-{get_a(plot_data['case2c']['no_npc'])}"
+for data in [
+    plot_data["case2c"]["no_npc"],
+    plot_data["case2c"]["npc"],
+    plot_data["case2d"]["no_npc"],
+    plot_data["case2d"]["npc"],
+]:
+    x_, y_, yr_ = get_t_s_dt(data)
+    xs.append(x_)
+    ys.append(y_)
+    yrs.append(yr_)
 
-# vT vu npc
-x2 = plot_data["case2c"]["ajump"][JUMP_MAX]["times"]
-idx2 = (x2 >= T_MIN) & (x2 <= T_MAX)
-x2 = x2[idx2]
-y2 = plot_data["case2c"]["ajump"][JUMP_MAX]["sat_frac"][idx2]
-yr2 = plot_data["case2c"]["ajump"][JUMP_MAX]["dts"][idx2]
-label2 = f"vT(uv)-{JUMP_MAX}"
-
-# ph no npc
-x3 = plot_data["case2d"]["no_npc"]["times"]
-idx3 = (x3 >= T_MIN) & (x3 <= T_MAX)
-x3 = x3[idx3]
-y3 = plot_data["case2d"]["no_npc"]["sat_frac"][idx3]
-yr3 = plot_data["case2d"]["no_npc"]["dts"][idx3]
-label3 = f"ph-{get_a(plot_data['case2d']['no_npc'])}"
-
-# ph vu npc
-x4 = plot_data["case2d"]["ajump"][JUMP_MAX]["times"]
-idx4 = (x4 >= T_MIN) & (x4 <= T_MAX)
-x4 = x4[idx4]
-y4 = plot_data["case2d"]["ajump"][JUMP_MAX]["sat_frac"][idx4]
-yr4 = plot_data["case2d"]["ajump"][JUMP_MAX]["dts"][idx4]
-label4 = f"ph(uv)-{JUMP_MAX}"
-
-xs = [x1, x2, x3, x4]
-ys = [y1, y2, y3, y4]
-yrs = [yr1, yr2, yr3, yr4]
-labels = [label1, label2, label3, label4]
-colors = ["purple", "black", "orange", "red"]
-markers = [8, 9, 10, 11]
-
-Lneg = JUMP_TIME - T_BEFORE_JUMP
-Lpos = T_MAX
-frac = 0.05
-
-# scale factor for the positive logarithmic part
-A = (1 - frac) / np.log10(1 + Lpos / Lneg)
-
-
-def xtrans(x):
-    x = np.asarray(x, dtype=float)
-
-    y = np.empty_like(x)
-
-    neg = x <= 0
-    y[neg] = frac * x[neg] / Lneg
-
-    pos = ~neg
-    y[pos] = A * np.log10(1 + x[pos] / Lneg)
-
-    return y
-
+labels = [
+    f"vT-{JUMP_MAX}",
+    f"vT(uv)-{JUMP_MAX}",
+    f"ph-{JUMP_MAX}",
+    f"ph(uv)-{JUMP_MAX}",
+]
 
 for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
     imgs += ax.plot(
@@ -504,7 +445,7 @@ for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
         linewidth=LW,
         color=c,
         marker=m,
-        markersize=1.5 * MS if "pT" in l else MS,
+        markersize=1.5 * MS if "ph" in l else MS,
         label=l,
         markevery=0.15,
     )
@@ -516,7 +457,7 @@ for x, y, l, c, m in zip(xs, yrs, labels, colors, markers):
         linestyle="dotted",
         linewidth=LW,
         marker=m,
-        markersize=1.5 * MS if "pT" in l else MS,
+        markersize=1.5 * MS if "ph" in l else MS,
         color=c,
         label=l,
         markevery=0.15,
@@ -533,7 +474,6 @@ axr.set_yticks(
     ticks=[10, 60, 3600, 24 * 3600],
     labels=[r"$10$ s", r"$1$ min", r"$1$ h", r"$1$ d"],
 )
-
 ax.set_xticks(
     ticks=xtrans([T_BEFORE_JUMP - JUMP_TIME, 0, 3600, 3 * 3600]),
     labels=[-1, 0, 1, 3],
@@ -749,7 +689,9 @@ imgs += ax.plot(
     y,
     linestyle="dashed",
     linewidth=LW,
-    marker="X",
+    marker="o",
+    markerfacecolor="none",
+    markeredgecolor="purple",
     markersize=MS,
     color="purple",
     label=r"ph(uv)",
@@ -760,7 +702,7 @@ imgrs += axr.plot(
     yr,
     linestyle="dotted",
     linewidth=LW,
-    marker="x",
+    marker="o",
     markersize=MS,
     color="purple",
     label=r"ph(uv)",
@@ -1007,7 +949,9 @@ imgs += ax.plot(
     y,
     linestyle="dashed",
     linewidth=LW,
-    marker="X",
+    marker="o",
+    markerfacecolor="none",
+    markeredgecolor="purple",
     markersize=MS,
     color="purple",
     label="ph(uv)",
@@ -1018,7 +962,7 @@ imgrs += axr.plot(
     yr,
     linestyle="dotted",
     linewidth=LW,
-    marker="x",
+    marker="o",
     markersize=MS,
     color="purple",
     label="ph(uv)",
@@ -1187,7 +1131,9 @@ imgs += ax.plot(
     y,
     linestyle="dashed",
     linewidth=LW,
-    marker="X",
+    marker="o",
+    markerfacecolor="none",
+    markeredgecolor="purple",
     markersize=MS,
     color="purple",
     label="ph(uv)",
@@ -1198,7 +1144,7 @@ imgrs += axr.plot(
     yr,
     linestyle="dotted",
     linewidth=LW,
-    marker="x",
+    marker="o",
     markersize=MS,
     color="purple",
     label="ph(uv)",
@@ -1424,7 +1370,7 @@ for x, y, l, c in zip(x_vals, y_vals, labels, colors):
     imgs += ax.plot(
         x[idx] * x_factor,
         y[idx],
-        linestyle="solid",
+        linestyle="dotted" if "ph" in l else "solid",
         linewidth=LW - 1,
         # marker="*",
         # markersize=MS,
@@ -1575,7 +1521,7 @@ for x, y, l, c in zip(x_vals, y_vals, labels, colors):
     imgs += ax.plot(
         x[idx] * x_factor,
         y[idx],
-        linestyle="solid",
+        linestyle="dotted" if "ph" in l else "solid",
         linewidth=LW - 1,
         # marker="*",
         # markersize=MS,

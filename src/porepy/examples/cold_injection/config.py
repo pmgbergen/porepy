@@ -462,7 +462,7 @@ def get_rpc(model: CIModel) -> Callable[[list[sps.csr_matrix]], list[sps.csr_mat
     return rpc
 
 
-def set_schur_complement(model: CIModel, use_extensives: bool = False) -> None:
+def set_schur_complement(model: CIModel, use_extensives: bool = True) -> None:
     """Sets primary and secondary variables for the eliminating the local equilibrium
     DOFs."""
 

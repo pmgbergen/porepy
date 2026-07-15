@@ -79,12 +79,6 @@ solver_params["volume_clip"] = (0.9, 1.1, 2e-5)  # (0.8, 1.2)
 solver_params["energy_clip"] = (0.9, 1.1)
 model_params["use_logp_nonlinear_rpc"] = False
 
-solver_params["do_armijo_line_search"] = False
-solver_params["armijo_line_search_weight"] = 0.9
-solver_params["armijo_line_search_incline"] = 1e-4
-solver_params["armijo_line_search_max_iterations"] = 20
-solver_params["armijo_stop_after_residual_reaches"] = 1e-5
-
 solver_params["do_ntrdc"] = True
 solver_params["ntrdc_scale_with_inf"] = True
 solver_params["ntrdc_return_nan"] = False
@@ -128,21 +122,24 @@ ModelClass._z_IN = {"H2O": 1.0}
 
 if __name__ == "__main__":
     parser = get_case2_argparser("CI Case 2c.")
-    APERTURE_JUMP_SCHEDULE, E_PRIMARY, ISOCHORIC_NPC = resolve_args(parser.parse_args())
+    APERTURE_JUMP_SCHEDULE, ANALYSIS, ISOCHORIC_NPC = resolve_args(parser.parse_args())
 
     # NOTE for debugging
     # from porepy.examples.cold_injection.run_case2a import JUMP_TIME
     # APERTURE_JUMP_SCHEDULE = [(JUMP_TIME, 3.0)]
     # ISOCHORIC_NPC = False
 
-    ajump: float | None
+    ajump: float | None = None
     if APERTURE_JUMP_SCHEDULE:
         ajump = APERTURE_JUMP_SCHEDULE[0][1]
-        time_schedule = modify_schedule(time_schedule)
-    else:
-        ajump = None
+    time_schedule = modify_schedule(time_schedule, ajump, ANALYSIS)
 
     ModelClass._APERTURE_FACTOR_AFTER_TIME = APERTURE_JUMP_SCHEDULE
+    if ANALYSIS:
+        model_params["times_to_export"] = time_schedule
+    if ISOCHORIC_NPC:
+        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
+
     model_params["time_manager"] = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
@@ -155,27 +152,22 @@ if __name__ == "__main__":
         print_info=True,
         atol=5e-15,
     )
-    model_params["times_to_export"] = time_schedule
-
-    if ISOCHORIC_NPC:
-        ModelClass._ISOCHORIC_NPC_SPEC = pp.compositional.FlashSpec.vu
 
     timestamp = datetime.today().strftime("%d%B%Y_%H-%M-%S")
     sub_folder = (
         f"CI_CASE2C/"
         f"{timestamp}"
         f"_AJUMP_{ajump}"
-        f"_ICHOR_{bool(ISOCHORIC_NPC)}"
-        # f"_STRIDE_{model_params["flash_params"]["global_iteration_stride"]}"
-        f"_EPRIM_{bool(E_PRIMARY)}"
+        f"_NPC_{bool(ISOCHORIC_NPC)}"
+        f"_A_{bool(ANALYSIS)}"
     )
     model_params["folder_name"] = f"visualization/{sub_folder}"
 
     print(
         f"\nStarting simulation : {sub_folder}\n"
         f"Aperture jump: {ajump}\n"
-        f"Extensives primary: {E_PRIMARY}\n"
-        f"Do isochoric NPC: {ISOCHORIC_NPC}\n"
+        f"Isochoric NPC: {ISOCHORIC_NPC}\n"
+        f"Analysis: {ANALYSIS}\n"
     )
 
     model = ModelClass(model_params)  # type:ignore[abstract]
@@ -190,7 +182,7 @@ if __name__ == "__main__":
     model.params["linear_right_preconditioner"] = get_rpc(model)  # type:ignore
 
     # Defining sub system for Schur complement reduction.
-    set_schur_complement(model, use_extensives=E_PRIMARY)  # type:ignore[arg-type]
+    set_schur_complement(model)  # type:ignore[arg-type]
     solver_params.update(
         get_default_convergence_criteria(
             model,
