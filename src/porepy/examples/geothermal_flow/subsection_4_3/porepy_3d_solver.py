@@ -51,9 +51,28 @@ Mixed-dimensional permeability fix
     and keep the SUBDOMAIN ``permeability`` scheme-dependent (rock-only for HU/PPU, mobility-
     weighted for HU-mw).  The fractional mobility upwinding still enters via the subdomain flux.
 
+Geometry knob (``--md``)
+    By DEFAULT the run is FIXED-DIMENSIONAL: a single fracture-free 3D box over the domain (no
+    fractures, no interfaces; ``--box-cell-size`` sets the Cartesian cell size).  Pass ``--md`` to
+    switch to the MIXED-DIMENSIONAL benchmark-3 grid (8 conductive fractures + intersections + the
+    mortar interfaces); ``--refinement-level`` then selects the mesh density.
+
+Defaults (production configuration)
+    ``--scheme HU  --md(off -> fixed-dim)  --refinement-level 0  --scale 1000  --linear-solver cpr
+    --days 73000  --dt-days 50``  with gravity ON.  Override any of these on the command line.
+
+Output naming / caching (``--scheme``, ``--no-gravity``, ``--md``)
+    Each run writes its VTU visualization to a folder named for the three physical switches, so
+    distinct configurations never clobber one another and re-running a configuration refreshes its
+    own folder:  ``output/<scheme>_<dim>_<grav>/<scheme>_<dim>_<grav>_<step>.vtu`` where
+    ``dim = md`` (mixed-dimensional, ``--md``) or ``fd`` (fixed-dimensional, default) and
+    ``grav = gravity`` (default) or ``nogravity`` (``--no-gravity``).  E.g.
+    ``output/HU_fd_gravity/`` (default) or ``output/HU-mw_md_nogravity/``.  See :func:`_output_name`.
+
 Run
-    ``python porepy_3d_solver.py --scheme HU --refinement-level 0 --check``   (build+assemble only)
-    ``python porepy_3d_solver.py --scheme HU --refinement-level 0 --days 100 --dt-days 10``
+    ``python porepy_3d_solver.py --check``                     (build+assemble smoke test only)
+    ``python porepy_3d_solver.py``                             (defaults: HU, fixed-dim, cpr, 73000 d)
+    ``python porepy_3d_solver.py --md --scheme HU-mw --no-gravity``   (mixed-dim HU-mw, g=0)
 
 References
     [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Glaeser, D., Keilegavlen, E.,
@@ -390,40 +409,80 @@ def _attach_samplers(model) -> None:
     model.obl_sampler_ptz = ptz
 
 
+def _output_name(scheme: str, gravity: bool, fractures: bool) -> str:
+    """Deterministic output basename encoding the three physical switches ``--scheme``,
+    ``--no-gravity`` and ``--md`` -- e.g. ``HU_fd_gravity`` or ``HU-mw_md_nogravity``.
+
+    ``dim``  = ``md`` (mixed-dimensional, fractures) or ``fd`` (fixed-dimensional box).
+    ``grav`` = ``gravity`` (g on) or ``nogravity`` (g = 0).
+    Used for BOTH the VTU folder (``output/<name>/``) and the file prefix, so every configuration
+    caches to its own folder and never overwrites another (see :func:`build_params`).
+    """
+    dim = "md" if fractures else "fd"
+    grav = "gravity" if gravity else "nogravity"
+    return f"{scheme}_{dim}_{grav}"
+
+
+# Production defaults (the configuration the paper runs); every one is overridable on the CLI.
+_DEFAULT_SCHEME = "HU"                    # HU = HU-BM(mp)
+_DEFAULT_REFINEMENT_LEVEL = 0            # benchmark-3 mesh density (only used with --md)
+_DEFAULT_FRACTURES = False              # fixed-dimensional box by default; --md -> mixed-dimensional
+_DEFAULT_BOX_CELL_SIZE = 0.1            # Cartesian cell size of the fixed-dimensional box
+_DEFAULT_GEOMETRY_SCALE = 1000.0       # 1 x 2.25 x 1 km box (buoyancy becomes significant)
+_DEFAULT_T_END_DAYS = 73000.0          # ~200 yr transient
+_DEFAULT_DT_DAYS = 50.0                # nominal (adaptive) time step
+_DEFAULT_LINEAR_SOLVER = "cpr"         # Schur-reduced CPR (iterative, PETSc)
+_DEFAULT_GRAVITY = True
+_DEFAULT_AD_BACKEND = "native"
+_DEFAULT_CPR_RTOL = 1.0e-5             # CPR GMRES relative tolerance
+_DEFAULT_CPR_MAXIT = 200              # CPR GMRES iteration cap
+_DEFAULT_CPR_ACCURACY_TOL = 1.0e-2   # post-solve gate -> fall back to direct above this
+
+
 def build_params(
-    scheme: str = "HU",
-    refinement_level: int = 0,
-    t_end_days: float = 100.0,
-    dt_days: float = 10.0,
-    ad_backend: str = "native",
-    fractures: bool = True,
-    box_cell_size: float = 0.05,
-    geometry_scale: float = 1.0,
-    linear_solver: str = "direct",
-    gravity: bool = True,
-    cpr_rtol: float = 1.0e-8,
-    cpr_maxit: int = 300,
-    cpr_accuracy_tol: float = 1.0e-6,
+    scheme: str = _DEFAULT_SCHEME,
+    refinement_level: int = _DEFAULT_REFINEMENT_LEVEL,
+    t_end_days: float = _DEFAULT_T_END_DAYS,
+    dt_days: float = _DEFAULT_DT_DAYS,
+    ad_backend: str = _DEFAULT_AD_BACKEND,
+    fractures: bool = _DEFAULT_FRACTURES,
+    box_cell_size: float = _DEFAULT_BOX_CELL_SIZE,
+    geometry_scale: float = _DEFAULT_GEOMETRY_SCALE,
+    linear_solver: str = _DEFAULT_LINEAR_SOLVER,
+    gravity: bool = _DEFAULT_GRAVITY,
+    cpr_rtol: float = _DEFAULT_CPR_RTOL,
+    cpr_maxit: int = _DEFAULT_CPR_MAXIT,
+    cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL,
     **overrides,
 ) -> dict:
-    """Assemble the params dict for one (scheme, refinement) 3D geothermal benchmark run.
+    """Assemble the params dict for one 3D geothermal benchmark run.
 
-    ``fractures=False`` builds a fracture-free equidimensional box over the same domain
-    (``box_cell_size`` sets the Cartesian cell size); the benchmark ``refinement_level`` is then
-    ignored.  ``geometry_scale`` multiplies all coordinates (e.g. 1000 -> a 1x2.25x1 km box) so
-    the geothermal buoyancy (~rho g dz over the scaled height) becomes physically significant; the
-    cell count is unchanged.
+    Geometry
+      ``fractures``       -- True (``--md``) = the mixed-dimensional benchmark-3 grid (8 conductive
+                             fractures + intersections + mortars); False (default) = a fracture-free
+                             equidimensional box (``box_cell_size`` sets the Cartesian cell size,
+                             ``refinement_level`` is then ignored).
+      ``geometry_scale``  -- multiplies all coordinates (default 1000 -> a 1x2.25x1 km box) so the
+                             geothermal buoyancy (~rho g dz over the scaled height) is significant;
+                             the cell count is unchanged.
 
-    ``linear_solver`` selects the linear solver: "direct" (SciPy sparse LU; default), "cpr"
-    (Schur-reduced CPR, iterative; PETSc), or "lu" (direct LU via MUMPS; PETSc).
-    ``gravity=False`` sets g=0 (removes buoyancy AND the hydrostatic Darcy term).
+    Physics
+      ``scheme``          -- HU (HU-BM(mp)), HU-mw (mobility-weighted) or PPU; see ``_SCHEME_CONFIG``.
+      ``gravity``         -- False (``--no-gravity``) sets g=0 (removes buoyancy AND the hydrostatic
+                             Darcy term).
 
-    CPR iterative controls (used only with ``linear_solver="cpr"``):
-      ``cpr_rtol``          -- GMRES relative residual tolerance for the reduced (p,h,z) solve.
-      ``cpr_maxit``         -- max (un-restarted) GMRES iterations before the solve is abandoned.
-      ``cpr_accuracy_tol``  -- post-solve gate on the full-system relative residual; above it the
-                               step falls back to a direct LU (MUMPS) solve so Newton never
-                               advances on an under-converged linear solve.
+    Linear solver
+      ``linear_solver``   -- "cpr" (Schur-reduced CPR, iterative/PETSc; default), "direct" (SciPy
+                             sparse LU) or "lu" (direct LU via MUMPS/PETSc).
+      ``cpr_rtol``        -- CPR GMRES relative residual tolerance for the reduced (p,h,z) solve.
+      ``cpr_maxit``       -- max (un-restarted) GMRES iterations before the solve is abandoned.
+      ``cpr_accuracy_tol``-- post-solve gate on the full-system relative residual; above it the step
+                             falls back to a direct LU (MUMPS) solve so Newton never advances on an
+                             under-converged linear solve.
+
+    Output
+      ``folder_name`` / ``file_name`` are set to ``output/<name>`` / ``<name>`` where ``<name>`` =
+      :func:`_output_name` (``<scheme>_<dim>_<grav>``), unless overridden via ``**overrides``.
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"scheme must be one of {sorted(_SCHEME_CONFIG)}, got {scheme!r}")
@@ -449,6 +508,10 @@ def build_params(
         thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
         specific_heat_capacity=880.0 * TO_MEGA)
 
+    # Per-configuration output: folder AND file prefix encode (scheme, gravity, md) so distinct
+    # runs cache to distinct folders and re-running a configuration refreshes only its own.
+    name = _output_name(scheme, gravity, fractures)
+
     params = dict(
         ad_backend=ad_backend,
         enable_buoyancy_effects=gravity,
@@ -463,6 +526,8 @@ def build_params(
         cpr_rtol=cpr_rtol,
         cpr_maxit=cpr_maxit,
         cpr_accuracy_tol=cpr_accuracy_tol,
+        folder_name=os.path.join("output", name),
+        file_name=name,
         step_control_method="None",
     )
     params.update(_linear_solvers[linear_solver])
@@ -497,14 +562,14 @@ def _solver_params(model) -> dict:
     }
 
 
-def check(scheme: str = "HU", refinement_level: int = 0,
-          fractures: bool = True, box_cell_size: float = 0.1,
-          geometry_scale: float = 1.0, linear_solver: str = "direct",
-          gravity: bool = True) -> None:
+def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEMENT_LEVEL,
+          fractures: bool = _DEFAULT_FRACTURES, box_cell_size: float = _DEFAULT_BOX_CELL_SIZE,
+          geometry_scale: float = _DEFAULT_GEOMETRY_SCALE,
+          linear_solver: str = _DEFAULT_LINEAR_SOLVER, gravity: bool = _DEFAULT_GRAVITY) -> None:
     """Build the model, prepare the simulation, and assemble the residual + Jacobian ONCE.
 
-    A cheap structural smoke test: confirms the grid (mixed-dimensional benchmark-3, or the
-    fracture-free box when ``fractures=False``) + Driesner EOS + HU-BM(mp) buoyancy compose,
+    A cheap structural smoke test: confirms the grid (mixed-dimensional benchmark-3 with ``--md``,
+    or the fracture-free box by default) + Driesner EOS + the selected buoyancy scheme compose,
     seed a finite initial state, and produce a finite, correctly-shaped linear system -- without
     paying for a full transient solve.
     """
@@ -545,21 +610,24 @@ def check(scheme: str = "HU", refinement_level: int = 0,
     print("  OK -- model builds and assembles a finite linear system.", flush=True)
 
 
-def run(scheme: str = "HU", refinement_level: int = 0,
-        t_end_days: float = 100.0, dt_days: float = 10.0,
-        ad_backend: str = "native", fractures: bool = True,
-        box_cell_size: float = 0.05, geometry_scale: float = 1.0,
-        linear_solver: str = "direct", gravity: bool = True,
-        cpr_rtol: float = 1.0e-8, cpr_maxit: int = 300,
-        cpr_accuracy_tol: float = 1.0e-6) -> None:
+def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEMENT_LEVEL,
+        t_end_days: float = _DEFAULT_T_END_DAYS, dt_days: float = _DEFAULT_DT_DAYS,
+        ad_backend: str = _DEFAULT_AD_BACKEND, fractures: bool = _DEFAULT_FRACTURES,
+        box_cell_size: float = _DEFAULT_BOX_CELL_SIZE,
+        geometry_scale: float = _DEFAULT_GEOMETRY_SCALE,
+        linear_solver: str = _DEFAULT_LINEAR_SOLVER, gravity: bool = _DEFAULT_GRAVITY,
+        cpr_rtol: float = _DEFAULT_CPR_RTOL, cpr_maxit: int = _DEFAULT_CPR_MAXIT,
+        cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
-    print(f"\n=== 3D benchmark run: scheme={scheme}, fractures={fractures}, "
+    name = _output_name(scheme, gravity, fractures)
+    print(f"\n=== 3D benchmark run: scheme={scheme}, "
+          f"{'mixed' if fractures else 'fixed'}-dimensional, "
           f"level={refinement_level}, scale={geometry_scale}, tf={t_end_days} d, "
           f"dt={dt_days} d, backend={ad_backend}, linear_solver={linear_solver}, "
           f"gravity={gravity}"
           + (f", cpr_rtol={cpr_rtol:.1e}, cpr_maxit={cpr_maxit}, "
              f"cpr_accuracy_tol={cpr_accuracy_tol:.1e}" if linear_solver == "cpr" else "")
-          + " ===", flush=True)
+          + f" ===\n  output -> {os.path.join('output', name)}/", flush=True)
     model = build_model(scheme, refinement_level=refinement_level,
                         t_end_days=t_end_days, dt_days=dt_days, ad_backend=ad_backend,
                         fractures=fractures, box_cell_size=box_cell_size,
@@ -580,31 +648,35 @@ def run(scheme: str = "HU", refinement_level: int = 0,
 
 def _cli() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="3D geothermal solver on benchmark-3 geometry.")
-    p.add_argument("--scheme", choices=sorted(_SCHEME_CONFIG), default="HU",
-                   help="buoyancy scheme (HU = HU-BM(mp), default)")
-    p.add_argument("--refinement-level", type=int, choices=[0, 1, 2, 3], default=0,
+    p.add_argument("--scheme", choices=sorted(_SCHEME_CONFIG), default=_DEFAULT_SCHEME,
+                   help="buoyancy scheme (HU = HU-BM(mp), default; HU-mw = mobility-weighted; PPU)")
+    p.add_argument("--md", dest="fractures", action="store_true", default=_DEFAULT_FRACTURES,
+                   help="MIXED-dimensional: use the benchmark-3 grid with 8 conductive fractures "
+                        "(+ intersections + mortar interfaces).  Without --md (default) the run is "
+                        "FIXED-dimensional: a single fracture-free box over the same domain.")
+    p.add_argument("--refinement-level", type=int, choices=[0, 1, 2, 3],
+                   default=_DEFAULT_REFINEMENT_LEVEL,
                    help="benchmark mesh refinement (0 ~ 30K tets, ..., 3 ~ 500K); "
-                        "ignored with --no-fractures")
-    p.add_argument("--no-fractures", dest="fractures", action="store_false",
-                   help="disable fractures: solve on a fracture-free equidimensional box "
-                        "over the same domain (single 3D subdomain, no interfaces)")
-    p.add_argument("--box-cell-size", type=float, default=0.1,
-                   help="Cartesian cell size for the fracture-free box (only with --no-fractures)")
-    p.add_argument("--scale", type=float, default=1.0, dest="geometry_scale",
+                        "only used with --md")
+    p.add_argument("--box-cell-size", type=float, default=_DEFAULT_BOX_CELL_SIZE,
+                   help="Cartesian cell size for the fixed-dimensional box (ignored with --md)")
+    p.add_argument("--scale", type=float, default=_DEFAULT_GEOMETRY_SCALE, dest="geometry_scale",
                    help="multiply all geometry coordinates by this factor "
-                        "(e.g. 1000 -> a 1x2.25x1 km box); cell count is unchanged")
-    p.add_argument("--days", type=float, default=100.0, help="end time [days]")
-    p.add_argument("--dt-days", type=float, default=10.0, help="nominal time step [days]")
-    p.add_argument("--ad-backend", choices=["native", "sparsa"], default="native")
-    p.add_argument("--linear-solver", choices=["direct", "cpr", "lu"], default="direct",
-                   help="linear solver: direct (SciPy LU, default), cpr (Schur-reduced CPR, "
-                        "iterative/PETSc), or lu (direct LU via MUMPS/PETSc)")
-    p.add_argument("--cpr-rtol", type=float, default=1.0e-5,
+                        "(default 1000 -> a 1x2.25x1 km box); cell count is unchanged")
+    p.add_argument("--days", type=float, default=_DEFAULT_T_END_DAYS, help="end time [days]")
+    p.add_argument("--dt-days", type=float, default=_DEFAULT_DT_DAYS,
+                   help="nominal (adaptive) time step [days]")
+    p.add_argument("--ad-backend", choices=["native", "sparsa"], default=_DEFAULT_AD_BACKEND)
+    p.add_argument("--linear-solver", choices=["direct", "cpr", "lu"],
+                   default=_DEFAULT_LINEAR_SOLVER,
+                   help="linear solver: cpr (Schur-reduced CPR, iterative/PETSc; default), "
+                        "direct (SciPy LU), or lu (direct LU via MUMPS/PETSc)")
+    p.add_argument("--cpr-rtol", type=float, default=_DEFAULT_CPR_RTOL,
                    help="CPR GMRES relative residual tolerance (only with --linear-solver cpr)")
-    p.add_argument("--cpr-maxit", type=int, default=200,
+    p.add_argument("--cpr-maxit", type=int, default=_DEFAULT_CPR_MAXIT,
                    help="CPR GMRES max iterations before abandoning the iterative solve "
                         "(only with --linear-solver cpr)")
-    p.add_argument("--cpr-accuracy-tol", type=float, default=1.0e-2,
+    p.add_argument("--cpr-accuracy-tol", type=float, default=_DEFAULT_CPR_ACCURACY_TOL,
                    help="post-solve full-residual gate; above it the step falls back to direct "
                         "LU/MUMPS (only with --linear-solver cpr)")
     p.add_argument("--no-gravity", dest="gravity", action="store_false",
@@ -628,5 +700,8 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-# working
-# python porepy_3d_solver.py --scheme HU --refinement-level 0 --days 73000 --dt-days 50.0 --no-fractures --scale 1000
+# Examples (all defaults are the production configuration -- HU, fixed-dim, cpr, scale 1000,
+# 73000 d, dt 50 d, gravity on):
+#   python porepy_3d_solver.py                          # -> output/HU_fd_gravity/
+#   python porepy_3d_solver.py --md                     # -> output/HU_md_gravity/  (fractured)
+#   python porepy_3d_solver.py --md --scheme HU-mw --no-gravity   # -> output/HU-mw_md_nogravity/
