@@ -13,6 +13,7 @@ from porepy.models.compositional_flow import (
     CompositionalFlowTemplate,
     CompositionalFractionalFlowTemplate,
 )
+from .transport_predictor import ReorderedTransportPredictor
 
 # PETSc imports (only if available)
 try:
@@ -107,7 +108,55 @@ class NonlinearRunStats:
         return "\n".join(lines) + "\n"
 
 
-class _FlowModelBaseCore:
+@dataclass
+class DofSummary:
+    """Picklable summary of the model's degrees of freedom.
+
+    Holds the cells per subdomain dimension and, per variable, its total dof count and whether it
+    is a PRIMARY unknown or a locally-eliminated SECONDARY (algebraic) variable.  Built by
+    :meth:`_FlowModelBaseCore.dof_summary` and printed at the start and end of a run.  Only plain
+    Python types, so it pickles cleanly and carries no reference to the model."""
+
+    n_dofs: int = 0
+    n_subdomains: int = 0
+    n_interfaces: int = 0
+    cells_per_dim: dict[int, tuple[int, int]] = field(default_factory=dict)
+    """``dimension -> (number of subdomains, total number of cells)``."""
+    variables: list[tuple[str, int, str]] = field(default_factory=list)
+    """``(variable name, total ndof over all grids, 'primary' | 'secondary')`` per variable."""
+
+    @property
+    def n_primary_dofs(self) -> int:
+        """Total dof over the primary (non-eliminated) variables."""
+        return sum(nd for _, nd, kind in self.variables if kind == "primary")
+
+    @property
+    def n_secondary_dofs(self) -> int:
+        """Total dof over the locally-eliminated (secondary/algebraic) variables."""
+        return sum(nd for _, nd, kind in self.variables if kind == "secondary")
+
+    def as_text(self) -> str:
+        """Render a self-documenting, human-readable summary (used for logging / ``.txt`` dumps)."""
+        lines = [
+            "# degrees-of-freedom summary",
+            f"total DoF: {self.n_dofs}   "
+            f"(subdomains: {self.n_subdomains}, interfaces: {self.n_interfaces})",
+            "# cells per subdomain, by dimension:",
+            "  dim   n_subdomains      n_cells",
+        ]
+        for d in sorted(self.cells_per_dim, reverse=True):
+            n_sub, n_cell = self.cells_per_dim[d]
+            lines.append(f"  {d}D    {n_sub:>10}   {n_cell:>10}")
+        lines += ["# variables:", f"  {'name':<26} {'ndof':>10}   type"]
+        for name, ndof, kind in self.variables:
+            lines.append(f"  {name:<26} {ndof:>10}   {kind}")
+        lines.append(
+            f"# primary dof: {self.n_primary_dofs}   "
+            f"secondary (eliminated) dof: {self.n_secondary_dofs}")
+        return "\n".join(lines) + "\n"
+
+
+class _FlowModelBaseCore(ReorderedTransportPredictor):
     """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
     calls resolve to whichever template is mixed in after it in the concrete class's MRO."""
@@ -269,8 +318,8 @@ class _FlowModelBaseCore:
             try:
                 return self._schur_cpr_solve(A.tocsr(), np.asarray(b, dtype=float))
             except Exception as exc:
-                logger.warning("Schur-CPR did not converge (%s); falling back to direct LU (MUMPS).",
-                               exc)
+                logger.warning("Schur-CPR did not converge; falling back to direct LU (MUMPS).")
+                logger.warning("  reason: %s", exc)
                 preconditioner = "lu"
 
         logger.info(f"Solving linear system with PETSc {preconditioner.upper()}")
@@ -715,10 +764,10 @@ class _FlowModelBaseCore:
         xs = rhs_s if lu is None else lu.solve(rhs_s)       # back-substitute the secondaries
 
         logger.info(
-            "Schur-CPR solve: %.3fs (%d KSP its, res %.1e%s) "
-            "[reduced %d = p %d (AMG) + transport %d (ILU); %d interface + %d secondary eliminated]",
-            time.perf_counter() - t0, cpr_its, rel, ", null-mean" if null_mean else "",
-            m, n_p, m - n_p, n_i, len(sr))
+            "Schur-CPR solve: %.3fs (%d KSP its, res %.1e%s)",
+            time.perf_counter() - t0, cpr_its, rel, ", null-mean" if null_mean else "")
+        logger.info("  reduced %d = p %d (AMG) + transport %d (ILU)", m, n_p, m - n_p)
+        logger.info("  eliminated: %d interface + %d secondary", n_i, len(sr))
 
         x = np.empty(n, dtype=float)
         x[pc] = xp
@@ -1753,6 +1802,66 @@ class _FlowModelBaseCore:
             max_newton_iterations=max(hist) if hist else 0,
             iterations_per_step=hist,
         )
+
+    def dof_summary(self) -> DofSummary:
+        """Return a :class:`DofSummary` of the current equation system.
+
+        Available to every derived model.  Reports the cells per subdomain dimension and, per
+        variable, its total dof count and PRIMARY/SECONDARY type -- SECONDARY meaning locally
+        eliminated (algebraic), discovered from the ``elimination_of_<var>_on_grids_...`` equation
+        names, so no variable names are hardcoded.  Requires the equation system to be set up (call
+        after ``prepare_simulation``)."""
+        es = self.equation_system
+        mdg = self.mdg
+
+        # Cells per subdomain, grouped by dimension: dim -> (n_subdomains, total cells).
+        cells_per_dim: dict[int, tuple[int, int]] = {}
+        for d in range(mdg.dim_max() + 1):
+            sds = mdg.subdomains(dim=d)
+            if sds:
+                cells_per_dim[d] = (len(sds), int(sum(sd.num_cells for sd in sds)))
+
+        # Locally-eliminated (secondary) variable names, from the elimination equations.
+        prefix = "elimination_of_"
+        secondary = {
+            name[len(prefix):].rsplit("_on_grids", 1)[0]
+            for name in es.equations if name.startswith(prefix)
+        }
+
+        # Total dof per variable NAME (summed over its grids), preserving first-seen order.
+        vars_by_name: dict[str, list] = {}
+        for var in es.variables:
+            vars_by_name.setdefault(var.name, []).append(var)
+        variables = [
+            (name, int(es.dofs_of(vs).size),
+             "secondary" if name in secondary else "primary")
+            for name, vs in vars_by_name.items()
+        ]
+
+        return DofSummary(
+            n_dofs=int(es.num_dofs()),
+            n_subdomains=mdg.num_subdomains(),
+            n_interfaces=mdg.num_interfaces(),
+            cells_per_dim=cells_per_dim,
+            variables=variables,
+        )
+
+    def report_dof_summary(self, label: str = "") -> DofSummary:
+        """Build and print the :class:`DofSummary`; also returns it for further use."""
+        summary = self.dof_summary()
+        header = f" DoF summary{(' -- ' + label) if label else ''} "
+        print("\n" + header.center(64, "=") + "\n" + summary.as_text(), flush=True)
+        return summary
+
+    def prepare_simulation(self) -> None:
+        """Set up the model, then report the initial DoF summary."""
+        super().prepare_simulation()
+        self.report_dof_summary("initial")
+
+    def after_simulation(self) -> None:
+        """Report the final DoF summary at the end of the time loop."""
+        super().after_simulation()
+        self.report_dof_summary("final")
 
     def write_newton_iterations_to_csv(self, filename="newton_iterations.csv"):
         """Write Newton iteration data to CSV file."""

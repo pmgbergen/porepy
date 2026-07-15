@@ -328,7 +328,9 @@ def _build_model_class(FlowModel):
             self.set_domain()                      # -> self._domain (scaled box; used by BC/IC)
             s = float(self.params.get("geometry_scale", 1.0))
             physdims = np.array([1.0, _Y_MAX, 1.0]) * s
-            h = float(self.params.get("box_cell_size", 0.1)) * s
+            # Refinement: each level halves the cell size (2**level cells per direction per level).
+            level = int(self.params.get("refinement_level", 0))
+            h = float(self.params.get("box_cell_size", 0.1)) / (2 ** level) * s
             nx = np.maximum(np.round(physdims / h).astype(int), 1)
             fracs = (_axis_aligned_fractures(physdims)
                      if self.params.get("fractures", False) else [])
@@ -499,12 +501,14 @@ def _output_name(scheme: str, gravity: bool, fractures: bool) -> str:
 
 # Production defaults (the configuration the paper runs); every one is overridable on the CLI.
 _DEFAULT_SCHEME = "HU"                    # HU = HU-BM(mp)
-_DEFAULT_REFINEMENT_LEVEL = 0            # benchmark-3 mesh density (only used with --md)
+_DEFAULT_REFINEMENT_LEVEL = 0            # mesh refinement: effective cell size = box_cell_size /
+#                                         2**level (level 0 = base; each level HALVES h -> ~8x cells
+#                                         per level in 3D).  Applies to BOTH the box and --md.
 _DEFAULT_FRACTURES = False              # fixed-dimensional box by default; --md -> mixed-dimensional
-_DEFAULT_BOX_CELL_SIZE = 0.1            # Cartesian cell size of the fixed-dimensional box
+_DEFAULT_BOX_CELL_SIZE = 0.1            # base Cartesian cell size (before refinement)
 _DEFAULT_GEOMETRY_SCALE = 1000.0       # 1 x 2.25 x 1 km box (buoyancy becomes significant)
 _DEFAULT_T_END_DAYS = 73000.0          # ~200 yr transient
-_DEFAULT_DT_DAYS = 50.0                # nominal (adaptive) time step
+_DEFAULT_DT_DAYS = 182.5                # nominal (adaptive) time step
 _DEFAULT_LINEAR_SOLVER = "cpr"         # Schur-reduced CPR (iterative, PETSc)
 _DEFAULT_GRAVITY = True
 _DEFAULT_AD_BACKEND = "native"
@@ -538,11 +542,13 @@ def build_params(
 ) -> dict:
     """Assemble the params dict for one 3D geothermal benchmark run.
 
-    Geometry
-      ``fractures``       -- True (``--md``) = the mixed-dimensional benchmark-3 grid (8 conductive
-                             fractures + intersections + mortars); False (default) = a fracture-free
-                             equidimensional box (``box_cell_size`` sets the Cartesian cell size,
-                             ``refinement_level`` is then ignored).
+    Geometry (both branches are fully Cartesian, built with ``pp.meshing.cart_grid``)
+      ``fractures``       -- True (``--md``) = mixed-dimensional grid with 12 staggered axis-aligned
+                             fractures; False (default) = a fracture-free equidimensional box.
+      ``box_cell_size``   -- the BASE Cartesian cell size (matrix), before refinement.
+      ``refinement_level``-- effective cell size = ``box_cell_size / 2**refinement_level`` (level 0 =
+                             base; each level halves h -> ~8x cells per level in 3D).  Applies to
+                             BOTH branches.
       ``geometry_scale``  -- multiplies all coordinates (default 1000 -> a 1x2.25x1 km box) so the
                              geothermal buoyancy (~rho g dz over the scaled height) is significant;
                              the cell count is unchanged.
@@ -591,7 +597,7 @@ def build_params(
     times_to_export = sorted({*snap_seconds, tf}) if snap_seconds else [0.0, tf]
     time_manager = pp.TimeManager(
         schedule=schedule, dt_init=dt, constant_dt=False,
-        dt_min_max=(dt / 64.0, dt), iter_max=20, iter_optimal_range=(3, 10),
+        dt_min_max=(dt / 128.0, dt * 12), iter_max=11, iter_optimal_range=(3, 6),
         recomp_factor=0.5, recomp_max=10, print_info=True)
 
     # Geothermal rock (matches subsection_4_1) + benchmark-3 aperture (eps_2 = 1e-2 m).
@@ -656,7 +662,7 @@ def _solver_params(model) -> dict:
                 tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=20),
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=11),
         },
     }
 
@@ -718,26 +724,34 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
         gravity_constant: float | None = None,
         cpr_rtol: float = _DEFAULT_CPR_RTOL, cpr_maxit: int = _DEFAULT_CPR_MAXIT,
         cpr_accuracy_tol: float = _DEFAULT_CPR_ACCURACY_TOL,
-        snap_days: Sequence[float] = _DEFAULT_SNAP_DAYS) -> None:
+        snap_days: Sequence[float] = _DEFAULT_SNAP_DAYS,
+        transport_predictor: bool = False) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     name = _output_name(scheme, gravity, fractures)
     g_value = 0.0 if not gravity else (
         GRAVITY_ACCELERATION if gravity_constant is None else float(gravity_constant))
-    print(f"\n=== 3D benchmark run: scheme={scheme}, "
-          f"{'mixed' if fractures else 'fixed'}-dimensional, "
-          f"level={refinement_level}, scale={geometry_scale}, tf={t_end_days} d, "
-          f"dt={dt_days} d, backend={ad_backend}, linear_solver={linear_solver}, "
-          f"g={g_value} m/s^2"
-          + (f", cpr_rtol={cpr_rtol:.1e}, cpr_maxit={cpr_maxit}, "
-             f"cpr_accuracy_tol={cpr_accuracy_tol:.1e}" if linear_solver == "cpr" else "")
-          + f" ===\n  output -> {os.path.join('output', name)}/", flush=True)
+    solver = linear_solver + (
+        f" (rtol={cpr_rtol:.1e}, maxit={cpr_maxit}, acc_tol={cpr_accuracy_tol:.1e})"
+        if linear_solver == "cpr" else "")
+    lines = [
+        f"\n=== 3D benchmark run: scheme={scheme}, "
+        f"{'mixed' if fractures else 'fixed'}-dimensional, "
+        f"level={refinement_level}, scale={geometry_scale} ===",
+        f"  time:   tf={t_end_days} d, dt={dt_days} d",
+        f"  solver: backend={ad_backend}, linear_solver={solver}, g={g_value} m/s^2",
+    ]
+    if transport_predictor:
+        lines.append("  extras: transport-predictor=ON")
+    lines.append(f"  output -> {os.path.join('output', name)}/")
+    print("\n".join(lines), flush=True)
     model = build_model(scheme, refinement_level=refinement_level,
                         t_end_days=t_end_days, dt_days=dt_days, ad_backend=ad_backend,
                         fractures=fractures, box_cell_size=box_cell_size,
                         geometry_scale=geometry_scale, linear_solver=linear_solver,
                         gravity=gravity, gravity_constant=gravity_constant,
                         cpr_rtol=cpr_rtol, cpr_maxit=cpr_maxit,
-                        cpr_accuracy_tol=cpr_accuracy_tol, snap_days=snap_days)
+                        cpr_accuracy_tol=cpr_accuracy_tol, snap_days=snap_days,
+                        transport_predictor=transport_predictor)
     snaps = [d for d in snap_days if 0.0 <= d <= t_end_days + 1e-6]
     print(f"  VTU export at snapshots [days]: {snaps if snaps else [0.0, t_end_days]}", flush=True)
     runner = pp.ModelRunner(model, _solver_params(model))
@@ -762,10 +776,12 @@ def _cli() -> argparse.Namespace:
                         "FIXED-dimensional: a single fracture-free box over the same domain.")
     p.add_argument("--refinement-level", type=int, choices=[0, 1, 2, 3],
                    default=_DEFAULT_REFINEMENT_LEVEL,
-                   help="benchmark mesh refinement (0 ~ 30K tets, ..., 3 ~ 500K); "
-                        "only used with --md")
+                   help="mesh refinement: effective cell size = --box-cell-size / 2**level "
+                        "(level 0 = base; each level halves h -> ~8x cells per level in 3D). "
+                        "Applies to both the box and --md.")
     p.add_argument("--box-cell-size", type=float, default=_DEFAULT_BOX_CELL_SIZE,
-                   help="Cartesian cell size for the fixed-dimensional box (ignored with --md)")
+                   help="base Cartesian cell size (before --refinement-level), for both the box "
+                        "and the --md matrix")
     p.add_argument("--scale", type=float, default=_DEFAULT_GEOMETRY_SCALE, dest="geometry_scale",
                    help="multiply all geometry coordinates by this factor "
                         "(default 1000 -> a 1x2.25x1 km box); cell count is unchanged")
@@ -794,6 +810,11 @@ def _cli() -> argparse.Namespace:
     p.add_argument("--gravity-constant", type=float, default=None, metavar="G",
                    help="gravitational acceleration [m/s^2] when gravity is on "
                         f"(default {GRAVITY_ACCELERATION:.5f}); ignored with --no-gravity")
+    p.add_argument("--transport-predictor", dest="transport_predictor", action="store_true",
+                   default=False,
+                   help="warm-start each FI Newton step with a cheap flow-order (reordered) "
+                        "advective transport sweep for (h, z); only helps advection-dominated "
+                        "high-CFL regions (fractures/intersections), off by default")
     p.add_argument("--check", action="store_true",
                    help="build + assemble once (structural smoke test), no transient solve")
     return p.parse_args()
@@ -810,7 +831,7 @@ def main() -> None:
         run(args.scheme, args.refinement_level, args.days, args.dt_days, args.ad_backend,
             args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
             args.gravity, args.gravity_constant, args.cpr_rtol, args.cpr_maxit,
-            args.cpr_accuracy_tol, snap_days)
+            args.cpr_accuracy_tol, snap_days, args.transport_predictor)
 
 
 if __name__ == "__main__":
