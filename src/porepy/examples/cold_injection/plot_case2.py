@@ -31,7 +31,7 @@ plt.rcParams["font.size"] = 28
 DPI = 400  # Figure resolution.
 WIDTH = 10.0  # Figure width.
 PAD = 0.05  # Figure pad to borders.
-MS = 10  # Marker size.
+MS = 15  # Marker size.
 LW = 3  # line width.
 FOLDER = "visualization/"
 
@@ -267,7 +267,7 @@ vT_cmap = plt.colormaps["bone_r"](
 uv_cmap = plt.colormaps["autumn_r"](
     np.linspace(0.1, 1, len(plot_data["case2c"]["ajump"]), endpoint=True)
 )
-ph_cmap = plt.colormaps["cool"](
+ph_cmap = plt.colormaps["cool_r"](
     np.linspace(0, 1, len(plot_data["case2d"]["ajump"]), endpoint=True)
 )
 
@@ -296,35 +296,34 @@ axr = ax.twinx()
 imgs = []
 imgrs = []
 
-T_MIN = T_BEFORE_JUMP - dt_min
-TAU_G_MAX = (
-    plot_data["case2b"]["ajump"][JUMP_MAX]["gas_disappears_time"] - JUMP_TIME
-) / 60
-T_MAX = JUMP_TIME + TAU_G_MAX + 3 * 3600
-
 xs = []
 ys = []
 yrs = []
-markers = [8, 9, 10, ""]
-colors = ["cyan", "blue", "gray", "black"]
+markers = [4, 5, 6, 7]
+markers_dt = ["1", "2", "3", "4"]
+colors = ["gray", "black", "blue", "cyan"]
+labels = [
+    rf"i-vT-{JUMP_MAX}",
+    rf"i-vT(vT)-{JUMP_MAX}",
+    rf"i-pT-{JUMP_MAX}",
+    rf"i-pT(vT)-{JUMP_MAX}",
+]
 
+xmax = []
+xmin = []
 for data in [
-    plot_data["case2a"]["no_npc"],
-    plot_data["case2a"]["npc"],
     plot_data["case2b"]["no_npc"],
     plot_data["case2b"]["npc"],
+    plot_data["case2a"]["no_npc"],
+    plot_data["case2a"]["npc"],
 ]:
     x_, y_, yr_ = get_t_s_dt(data)
     xs.append(x_)
     ys.append(y_)
     yrs.append(yr_)
-
-labels = [
-    f"i-pT-{JUMP_MAX}",
-    f"i-pT(vT)-{JUMP_MAX}",
-    f"i-vT-{JUMP_MAX}",
-    f"i-vT(vT)-{JUMP_MAX}",
-]
+    if x_.size > 2:
+        xmax.append(x_.max())
+        xmin.append(x_.min())
 
 Lneg = JUMP_TIME - T_BEFORE_JUMP
 Lpos = T_MAX
@@ -348,31 +347,57 @@ def xtrans(x):
     return y
 
 
-for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
-    imgs += ax.plot(
-        xtrans(x - JUMP_TIME),
-        y,
-        linestyle="solid",
+lo = 0
+for x, y, l, c, m in zip(xs, yrs, labels, colors, markers_dt):
+    kwargs = dict(
+        linestyle=(lo, (1, 4)),
         linewidth=LW,
-        color=c,
-        marker=m,
-        markersize=1.5 * MS if "pT" in l else MS,
-        label=l,
-        markevery=0.15,
     )
 
-for x, y, l, c, m in zip(xs, yrs, labels, colors, markers):
+    if x.size < 2:
+        x_ = np.linspace(min(xmin), max(xmax), 10)
+        y_ = np.ones_like(x_) * y[0]
+    else:
+        x_ = x
+        y_ = y
+        kwargs["marker"] = m
+        kwargs["markersize"] = 2 * MS
+        kwargs["markevery"] = 0.1
+
     imgrs += axr.plot(
-        xtrans(x - JUMP_TIME),
-        y,
-        linestyle="dotted",
-        linewidth=LW,
-        marker=m,
-        markersize=1.5 * MS if "pT" in l else MS,
+        xtrans(x_ - JUMP_TIME),
+        y_,
         color=c,
         label=l,
-        markevery=0.15,
+        **kwargs,
     )
+    lo += 1
+
+lo = 0
+for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
+    kwargs = dict(
+        linestyle=(lo, (5, 10)),
+        linewidth=LW,
+    )
+
+    if x.size < 2:
+        x_ = np.linspace(min(xmin), max(xmax), 10)
+        y_ = np.ones_like(x_) * y[0]
+    else:
+        x_ = x
+        y_ = y
+        kwargs["marker"] = m
+        kwargs["markersize"] = MS
+        kwargs["markevery"] = 0.1
+
+    imgs += ax.plot(
+        xtrans(x_ - JUMP_TIME),
+        y_,
+        color=c,
+        label=l,
+        **kwargs,
+    )
+    lo += 2
 
 ax.set_xlabel(r"$t - t_{\ast}$ [h]")
 ax.set_ylabel(r"$s_{\text{frac}}$")
@@ -391,15 +416,21 @@ ax.set_xticks(
 )
 
 ax.legend(
-    handles=imgs, loc="upper left", bbox_to_anchor=(1.2, 1), title=r"$s_{\text{frac}}$"
+    handles=imgs,
+    loc="upper left",
+    bbox_to_anchor=(1.2, 1),
+    title=r"$s_{\text{frac}}$",
 )
 axr.legend(
-    handles=imgrs, loc="upper left", bbox_to_anchor=(1.2, 0.4), title=r"$\Delta t$"
+    handles=imgrs,
+    loc="upper left",
+    bbox_to_anchor=(1.2, 0.4),
+    title=r"$\Delta t$",
 )
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
-    f"{FOLDER}dt_tau_G_case_ab.png",
+    f"{FOLDER}dt_tau_g_case_ab.png",
     format="png",
     dpi=DPI,
     bbox_inches="tight",
@@ -416,9 +447,18 @@ imgrs = []
 xs = []
 ys = []
 yrs = []
-markers = [8, 9, 10, ""]
-colors = ["gray", "black", "cyan", "blue"]
+markers = [4, 5, 6, 7]
+markers_dt = ["1", "2", "3", "4"]
+colors = ["gray", "black", "blue", "cyan"]
+labels = [
+    rf"vT-{JUMP_MAX}",
+    rf"vT(uv)-{JUMP_MAX}",
+    rf"ph-{JUMP_MAX}",
+    rf"ph(uv)-{JUMP_MAX}",
+]
 
+xmax = []
+xmin = []
 for data in [
     plot_data["case2c"]["no_npc"],
     plot_data["case2c"]["npc"],
@@ -429,39 +469,61 @@ for data in [
     xs.append(x_)
     ys.append(y_)
     yrs.append(yr_)
+    if x_.size > 2:
+        xmax.append(x_.max())
+        xmin.append(x_.min())
 
-labels = [
-    f"vT-{JUMP_MAX}",
-    f"vT(uv)-{JUMP_MAX}",
-    f"ph-{JUMP_MAX}",
-    f"ph(uv)-{JUMP_MAX}",
-]
-
-for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
-    imgs += ax.plot(
-        xtrans(x - JUMP_TIME),
-        y,
-        linestyle="solid",
+lo = 0
+for x, y, l, c, m in zip(xs, yrs, labels, colors, markers_dt):
+    kwargs = dict(
+        linestyle=(lo, (1, 4)),
         linewidth=LW,
-        color=c,
-        marker=m,
-        markersize=1.5 * MS if "ph" in l else MS,
-        label=l,
-        markevery=0.15,
     )
 
-for x, y, l, c, m in zip(xs, yrs, labels, colors, markers):
+    if x.size < 2:
+        x_ = np.linspace(min(xmin), max(xmax), 10)
+        y_ = np.ones_like(x_) * y[0]
+    else:
+        x_ = x
+        y_ = y
+        kwargs["marker"] = m
+        kwargs["markersize"] = 2 * MS
+        kwargs["markevery"] = 0.1
+
     imgrs += axr.plot(
-        xtrans(x - JUMP_TIME),
-        y,
-        linestyle="dotted",
-        linewidth=LW,
-        marker=m,
-        markersize=1.5 * MS if "ph" in l else MS,
+        xtrans(x_ - JUMP_TIME),
+        y_,
         color=c,
         label=l,
-        markevery=0.15,
+        **kwargs,
     )
+    lo += 1
+
+lo = 0
+for x, y, l, c, m in zip(xs, ys, labels, colors, markers):
+    kwargs = dict(
+        linestyle=(lo, (5, 10)),
+        linewidth=LW,
+    )
+
+    if x.size < 2:
+        x_ = np.linspace(min(xmin), max(xmax), 10)
+        y_ = np.ones_like(x_) * y[0]
+    else:
+        x_ = x
+        y_ = y
+        kwargs["marker"] = m
+        kwargs["markersize"] = MS
+        kwargs["markevery"] = 0.1
+
+    imgs += ax.plot(
+        xtrans(x_ - JUMP_TIME),
+        y_,
+        color=c,
+        label=l,
+        **kwargs,
+    )
+    lo += 2
 
 ax.set_xlabel(r"$t - t_{\ast}$ [h]")
 ax.set_ylabel(r"$s_{\text{frac}}$")
@@ -480,117 +542,21 @@ ax.set_xticks(
 )
 
 ax.legend(
-    handles=imgs, loc="upper left", bbox_to_anchor=(1.2, 1), title=r"$s_{\text{frac}}$"
-)
-axr.legend(
-    handles=imgrs, loc="upper left", bbox_to_anchor=(1.2, 0.4), title=r"$\Delta t$"
-)
-
-fig.tight_layout(pad=PAD)
-fig.savefig(
-    f"{FOLDER}dt_tau_G_case_cd.png",
-    format="png",
-    dpi=DPI,
-    bbox_inches="tight",
-    pad_inches=0.01,
-)
-# endregion
-# region Transient duration per aperture for cases bc
-fig = plt.figure(figsize=(WIDTH, 0.5 * WIDTH))
-ax = fig.add_subplot(111)
-axr = ax.twinx()
-imgs = []
-imgrs = []
-
-x = []
-y = []
-yr = []
-
-for a, d in plot_data["case2b"]["ajump"].items():
-    x.append(a)
-    y.append((d["p_transient_end_time"] - JUMP_TIME) / 3600)
-    yr.append((d["gas_disappears_time"] - JUMP_TIME) / 60)
-
-imgs += ax.plot(
-    x,
-    y,
-    linestyle="dashed",
-    linewidth=LW,
-    marker="P",
-    markersize=MS,
-    color="black",
-    label=r"i-vT(vT)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="+",
-    markersize=MS,
-    color="black",
-    label=r"i-vT(vT)",
-)
-
-x = []
-y = []
-yr = []
-
-for a, d in plot_data["case2c"]["ajump"].items():
-    x.append(a)
-    y.append((d["p_transient_end_time"] - JUMP_TIME) / 3600)
-    yr.append((d["gas_disappears_time"] - JUMP_TIME) / 60)
-
-imgs += ax.plot(
-    x,
-    y,
-    linestyle="dashed",
-    linewidth=LW,
-    marker="X",
-    markersize=MS,
-    color="red",
-    label=r"vT(uv)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="x",
-    markersize=MS,
-    color="red",
-    label=r"vT(uv)",
-)
-
-ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
-ax.set_ylabel(r"$\tau_p$")
-axr.set_ylabel(r"$\tau_G$")
-
-ax.set_xticks(x)
-ax.grid(axis="x")
-ax.grid(axis="y", which="major", alpha=0.5)
-axr.grid(axis="y", which="major", alpha=0.5, linestyle="dashed")
-ax.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: rf"${y:.2f}$"))
-axr.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: rf"${y:.1f}$"))
-
-ax.legend(
     handles=imgs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 1),
-    title=r"$\tau_p$ [h]",
+    bbox_to_anchor=(1.2, 1),
+    title=r"$s_{\text{frac}}$",
 )
 axr.legend(
     handles=imgrs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 0.5),
-    title=r"$\tau_G$ [min]",
+    bbox_to_anchor=(1.2, 0.4),
+    title=r"$\Delta t$",
 )
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
-    f"{FOLDER}tau_per_a_case_bc.png",
+    f"{FOLDER}dt_tau_g_case_cd.png",
     format="png",
     dpi=DPI,
     bbox_inches="tight",
@@ -598,7 +564,7 @@ fig.savefig(
 )
 # endregion
 # region Transient duration per aperture for cases bcd
-fig = plt.figure(figsize=(WIDTH, 0.5 * WIDTH))
+fig = plt.figure(figsize=(1.1 * WIDTH, 0.5 * WIDTH))
 ax = fig.add_subplot(111)
 axr = ax.twinx()
 imgs = []
@@ -638,7 +604,7 @@ imgrs += axr.plot(
 print(f"Transient durations per jump: {format_nums(x)}")
 print("\tCase i-vT(vT):")
 print(f"\t\ttau_p: {format_nums(y)}")
-print(f"\t\ttau_G: {format_nums(yr)}")
+print(f"\t\ttau_g: {format_nums(yr)}")
 
 x = []
 y = []
@@ -673,7 +639,7 @@ imgrs += axr.plot(
 
 print("\tCase vT(uv):")
 print(f"\t\ttau_p: {format_nums(y)}")
-print(f"\t\ttau_G: {format_nums(yr)}")
+print(f"\t\ttau_g: {format_nums(yr)}")
 
 x = []
 y = []
@@ -687,7 +653,18 @@ for a, d in plot_data["case2d"]["ajump"].items():
 imgs += ax.plot(
     x,
     y,
-    linestyle="dashed",
+    linestyle=(0, (5, 10)),
+    linewidth=LW,
+    marker=".",
+    markersize=MS,
+    color="purple",
+    label=r"ph(uv)",
+)
+
+imgrs += axr.plot(
+    x,
+    yr,
+    linestyle=(2, (1, 5)),
     linewidth=LW,
     marker="o",
     markerfacecolor="none",
@@ -697,24 +674,13 @@ imgs += ax.plot(
     label=r"ph(uv)",
 )
 
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="o",
-    markersize=MS,
-    color="purple",
-    label=r"ph(uv)",
-)
-
 print("\tCase ph(uv):")
 print(f"\t\ttau_p: {format_nums(y)}")
-print(f"\t\ttau_G: {format_nums(yr)}")
+print(f"\t\ttau_g: {format_nums(yr)}")
 
 ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
 ax.set_ylabel(r"$\tau_p$")
-axr.set_ylabel(r"$\tau_G$")
+axr.set_ylabel(r"$\tau_g$")
 
 ax.set_xticks(x)
 ax.grid(axis="x")
@@ -726,14 +692,16 @@ axr.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: rf"${y:.1f}$"))
 ax.legend(
     handles=imgs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 1.1),
+    bbox_to_anchor=(1.25, 1.0),
     title=r"$\tau_p$ [h]",
+    fontsize=24,
 )
 axr.legend(
     handles=imgrs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 0.4),
-    title=r"$\tau_G$ [min]",
+    bbox_to_anchor=(1.25, 0.4),
+    title=r"$\tau_g$ [min]",
+    fontsize=24,
 )
 
 fig.tight_layout(pad=PAD)
@@ -745,114 +713,9 @@ fig.savefig(
     pad_inches=0.01,
 )
 # endregion
-# region Pressure drop per aperture jump for cases bc
-
-fig = plt.figure(figsize=(WIDTH, 0.5 * WIDTH))
-ax = fig.add_subplot(111)
-axr = ax.twinx()
-imgs = []
-imgrs = []
-
-x = []
-y = []
-yr = []
-
-for a, d in plot_data["case2b"]["ajump"].items():
-    p_l2 = d["delta_p_l2_transient"][0]
-    p_max = d["delta_p_max_transient"][0]
-    x.append(a)
-    y.append(p_l2)
-    yr.append(p_max)
-
-imgs += ax.plot(
-    x,
-    y,
-    linestyle="dashed",
-    linewidth=LW,
-    marker="P",
-    markersize=MS,
-    color="black",
-    label="i-vT(vT)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="+",
-    markersize=MS,
-    color="black",
-    label="i-vT(vT)",
-)
-
-x = []
-y = []
-yr = []
-
-for a, d in plot_data["case2c"]["ajump"].items():
-    p_l2 = d["delta_p_l2_transient"][0]
-    p_max = d["delta_p_max_transient"][0]
-    x.append(a)
-    y.append(p_l2)
-    yr.append(p_max)
-
-imgs += ax.plot(
-    x,
-    y,
-    linestyle="dashed",
-    linewidth=LW,
-    marker="X",
-    markersize=MS,
-    color="red",
-    label="vT(uv)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="x",
-    markersize=MS,
-    color="red",
-    label="vT(uv)",
-)
-
-ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
-ax.set_ylabel(r"$\lVert p(t_{\ast}) - p(t_{-1})\rVert_{L^2(\Omega)}$")
-axr.set_ylabel(r"$\lvert p(t_{\ast}) - p(t_{-1})\rvert_{\infty}$")
-
-ax.set_xticks(x)
-ax.grid(axis="x")
-ax.grid(axis="y", which="major", alpha=0.5)
-axr.grid(axis="y", which="major", alpha=0.5, linestyle="dashed")
-
-ax.legend(
-    handles=imgs,
-    loc="upper left",
-    bbox_to_anchor=(1.3, 1),
-    title=r"$\lVert\cdot\rVert_{L^2(\Omega)}$",
-)
-axr.legend(
-    handles=imgrs,
-    loc="upper left",
-    bbox_to_anchor=(1.3, 0.5),
-    title=r"$\lvert\cdot\rvert_{\infty}$ [MPa]",
-)
-
-fig.tight_layout(pad=PAD)
-fig.savefig(
-    f"{FOLDER}p_drop_per_a_case_bc.png",
-    format="png",
-    dpi=DPI,
-    bbox_inches="tight",
-    pad_inches=0.01,
-)
-# endregion
 # region Pressure drop per aperture jump for cases bcd
 
-fig = plt.figure(figsize=(WIDTH, 0.5 * WIDTH))
+fig = plt.figure(figsize=(1.1 * WIDTH, 0.5 * WIDTH))
 ax = fig.add_subplot(111)
 axr = ax.twinx()
 imgs = []
@@ -877,7 +740,7 @@ imgs += ax.plot(
     marker="P",
     markersize=MS,
     color="black",
-    label="i-vT(vT)",
+    label=r"i-vT(vT)",
 )
 
 imgrs += axr.plot(
@@ -888,7 +751,7 @@ imgrs += axr.plot(
     marker="+",
     markersize=MS,
     color="black",
-    label="i-vT(vT)",
+    label=r"i-vT(vT)",
 )
 
 print(f"Pressure drop per jump: {format_nums(x)}")
@@ -915,7 +778,7 @@ imgs += ax.plot(
     marker="X",
     markersize=MS,
     color="red",
-    label="vT(uv)",
+    label=r"vT(uv)",
 )
 
 imgrs += axr.plot(
@@ -926,7 +789,7 @@ imgrs += axr.plot(
     marker="x",
     markersize=MS,
     color="red",
-    label="vT(uv)",
+    label=r"vT(uv)",
 )
 
 print("\tCase vT(uv):")
@@ -947,25 +810,25 @@ for a, d in plot_data["case2d"]["ajump"].items():
 imgs += ax.plot(
     x,
     y,
-    linestyle="dashed",
+    linestyle=(0, (5, 10)),
+    linewidth=LW,
+    marker=".",
+    markersize=MS,
+    color="purple",
+    label=r"ph(uv)",
+)
+
+imgrs += axr.plot(
+    x,
+    yr,
+    linestyle=(2, (1, 5)),
     linewidth=LW,
     marker="o",
     markerfacecolor="none",
     markeredgecolor="purple",
     markersize=MS,
     color="purple",
-    label="ph(uv)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="o",
-    markersize=MS,
-    color="purple",
-    label="ph(uv)",
+    label=r"ph(uv)",
 )
 
 print("\tCase ph(uv):")
@@ -984,14 +847,16 @@ axr.grid(axis="y", which="major", alpha=0.5, linestyle="dashed")
 ax.legend(
     handles=imgs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 1.1),
+    bbox_to_anchor=(1.25, 1.0),
     title=r"$\lVert\cdot\rVert_{L^2(\Omega)}$",
+    fontsize=24,
 )
 axr.legend(
     handles=imgrs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 0.4),
+    bbox_to_anchor=(1.25, 0.4),
     title=r"$\lvert\cdot\rvert_{\infty}$ [MPa]",
+    fontsize=24,
 )
 
 fig.tight_layout(pad=PAD)
@@ -1003,7 +868,7 @@ fig.savefig(
     pad_inches=0.01,
 )
 # endregion
-# region Temperature drop per aperture jump for case c
+# region Temperature drop per aperture jump for cases cd
 
 fig = plt.figure(figsize=(0.7 * WIDTH, 0.5 * WIDTH))
 ax = fig.add_subplot(111)
@@ -1029,8 +894,8 @@ imgs += ax.plot(
     linewidth=LW,
     marker="X",
     markersize=MS,
-    color="black",
-    label="vT(uv)",
+    color="red",
+    label=r"vT(uv)",
 )
 
 imgrs += axr.plot(
@@ -1041,73 +906,7 @@ imgrs += axr.plot(
     marker="x",
     markersize=MS,
     color="red",
-    label="vT(uv)",
-)
-
-ax.set_xlabel(r"$a(t_{\ast})/a(t_{-1})$")
-ax.set_ylabel(r"$\lVert T(t_{\ast}) - T(t_{-1})\rVert_{L^2(\Omega)}$")
-axr.set_ylabel(r"$\lvert T(t_{\ast}) - T(t_{-1})\rvert_{\infty}$ [K]")
-
-ax.set_xticks(x)
-ax.set_yticks(y)
-ax.grid(axis="x")
-# ax.grid(axis="y", which="major", alpha=0.5)
-# axr.grid(axis="y", which="major", alpha=0.5, linestyle="dashed", color="red")
-axr.tick_params(axis="y", colors="red")
-axr.spines["right"].set_color("red")
-axr.yaxis.label.set_color("red")
-axr.set_yticks(yr)
-ax.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: f"{y:.2f}"))
-axr.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: f"{y:.2f}"))
-
-fig.tight_layout(pad=PAD)
-fig.savefig(
-    f"{FOLDER}T_drop_per_a_case_c.png",
-    format="png",
-    dpi=DPI,
-    bbox_inches="tight",
-    pad_inches=0.01,
-)
-# endregion
-# region Temperature drop per aperture jump for cases cd
-
-fig = plt.figure(figsize=(WIDTH, 0.5 * WIDTH))
-ax = fig.add_subplot(111)
-axr = ax.twinx()
-imgs = []
-imgrs = []
-
-x = []
-y = []
-yr = []
-
-for a, d in plot_data["case2c"]["ajump"].items():
-    p_l2 = d["delta_T_l2_transient"][0]
-    p_max = d["delta_T_max_transient"][0]
-    x.append(a)
-    y.append(p_l2)
-    yr.append(p_max)
-
-imgs += ax.plot(
-    x,
-    y,
-    linestyle="dashed",
-    linewidth=LW,
-    marker="X",
-    markersize=MS,
-    color="red",
-    label="vT(uv)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="x",
-    markersize=MS,
-    color="red",
-    label="vT(uv)",
+    label=r"vT(uv)",
 )
 
 print(f"Temperature drops per jump: {format_nums(x)}")
@@ -1129,25 +928,27 @@ for a, d in plot_data["case2d"]["ajump"].items():
 imgs += ax.plot(
     x,
     y,
-    linestyle="dashed",
+    linestyle=(0, (5, 10)),
+    linewidth=LW,
+    marker=".",
+    # markerfacecolor="none",
+    # markeredgecolor="purple",
+    markersize=MS,
+    color="purple",
+    label=r"ph(uv)",
+)
+
+imgrs += axr.plot(
+    x,
+    yr,
+    linestyle=(2, (1, 5)),
     linewidth=LW,
     marker="o",
     markerfacecolor="none",
     markeredgecolor="purple",
     markersize=MS,
     color="purple",
-    label="ph(uv)",
-)
-
-imgrs += axr.plot(
-    x,
-    yr,
-    linestyle="dotted",
-    linewidth=LW,
-    marker="o",
-    markersize=MS,
-    color="purple",
-    label="ph(uv)",
+    label=r"ph(uv)",
 )
 print("\tCase ph(uv):")
 print(f"\t\tL2: {format_nums(y)}")
@@ -1167,14 +968,16 @@ axr.yaxis.set_major_formatter(FuncFormatter(lambda y, pos: f"{y:.1f}"))
 ax.legend(
     handles=imgs,
     loc="upper left",
-    bbox_to_anchor=(1.3, 1.1),
+    bbox_to_anchor=(-0.02, 1.02),
     title=r"$\lVert\cdot\rVert_{L^2(\Omega)}$",
+    fontsize=24,
 )
 axr.legend(
     handles=imgrs,
-    loc="upper left",
-    bbox_to_anchor=(1.3, 0.4),
+    loc="lower right",
+    bbox_to_anchor=(1.02, -0.02),
     title=r"$\lvert\cdot\rvert_{\infty}$ [K]",
+    fontsize=24,
 )
 
 fig.tight_layout(pad=PAD)
@@ -1186,94 +989,8 @@ fig.savefig(
     pad_inches=0.01,
 )
 # endregion
-# region Gas content during transient for cases bc
-fig = plt.figure(figsize=(1.5 * WIDTH, 0.5 * WIDTH))
-ax = fig.add_subplot(111)
-imgs = []
-
-x_max = []
-x_vals = []
-y_vals = []
-labels = []
-colors = []
-
-for i, ad in enumerate(plot_data["case2b"]["ajump"].items()):
-    a, d = ad
-    x = d["times"]
-    y = d["sat_frac"]
-    x_idx = x > (JUMP_TIME - dt_min / 10)
-    idx = (y > frac_tol) & x_idx
-
-    if np.any(idx):
-        j = np.where(idx)[0].max()
-        idx[j + 1] = True
-    x = x[idx] - JUMP_TIME
-    y = y[idx]
-    if np.any(x):
-        x_max.append(x.max())
-
-    x_vals.append(x)
-    y_vals.append(y)
-    colors.append(vT_cmap[i])
-    labels.append(f"i-vT(vT)-{a}")
-
-for i, ad in enumerate(plot_data["case2c"]["ajump"].items()):
-    a, d = ad
-    x = d["times"]
-    y = d["sat_frac"]
-    x_idx = x > (JUMP_TIME - dt_min / 10)
-    idx = (y > frac_tol) & x_idx
-
-    if np.any(idx):
-        j = np.where(idx)[0].max()
-        idx[j + 1] = True
-    x = x[idx] - JUMP_TIME
-    y = y[idx]
-    if np.any(x):
-        x_max.append(x.max())
-
-    x_vals.append(x)
-    y_vals.append(y)
-    colors.append(uv_cmap[i])
-    labels.append(f"vT(uv)-{a}")
-
-xm = np.max(x_max)
-x_factor = 1 / 60
-for x, y, l, c in zip(x_vals, y_vals, labels, colors):
-    if not np.any(y):
-        x = np.linspace(0, xm, 10, endpoint=True)
-        y = np.zeros_like(x)
-
-    idx = x <= xm
-    imgs += ax.plot(
-        x[idx] * x_factor,
-        y[idx],
-        linestyle="solid",
-        linewidth=LW - 1,
-        # marker="*",
-        # markersize=MS,
-        color=c,
-        label=l,
-    )
-
-ax.set_xlabel(r"$t - t_{\ast}$ [min]")
-ax.set_ylabel(r"$s_{\text{frac}}$")
-ax.set_xlim(0.0, np.max(x_max) * x_factor)
-
-ax.grid(axis="y", alpha=0.5)
-ax.legend(handles=imgs, loc="upper left", bbox_to_anchor=(1.01, 1), ncols=2)
-
-fig.tight_layout(pad=PAD)
-fig.savefig(
-    f"{FOLDER}sat_frac_over_tau_case_bc.png",
-    format="png",
-    dpi=DPI,
-    bbox_inches="tight",
-    pad_inches=0.01,
-)
-# endregion
 # region Gas content during transient for cases bcd
-fig = plt.figure(figsize=(1.5 * WIDTH, 0.5 * WIDTH))
+fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
 imgs = []
 
@@ -1303,7 +1020,7 @@ for i, ad in enumerate(plot_data["case2b"]["ajump"].items()):
     x_vals.append(x)
     y_vals.append(y)
     colors.append(vT_cmap[i])
-    labels.append(f"i-vT(vT)-{a}")
+    labels.append(rf"i-vT(vT)-{a}")
     if y.size > 0:
         print(f"\t\ta={a}: {y[0] * 100:.2f}%")
     else:
@@ -1328,7 +1045,7 @@ for i, ad in enumerate(plot_data["case2c"]["ajump"].items()):
     x_vals.append(x)
     y_vals.append(y)
     colors.append(uv_cmap[i])
-    labels.append(f"vT(uv)-{a}")
+    labels.append(rf"vT(uv)-{a}")
     if y.size > 0:
         print(f"\t\ta={a}: {y[0] * 100:.2f}%")
     else:
@@ -1353,7 +1070,7 @@ for i, ad in enumerate(plot_data["case2d"]["ajump"].items()):
     x_vals.append(x)
     y_vals.append(y)
     colors.append(ph_cmap[i])
-    labels.append(f"ph(uv)-{a}")
+    labels.append(rf"ph(uv)-{a}")
     if y.size > 0:
         print(f"\t\ta={a}: {y[0] * 100:.2f}%")
     else:
@@ -1370,8 +1087,8 @@ for x, y, l, c in zip(x_vals, y_vals, labels, colors):
     imgs += ax.plot(
         x[idx] * x_factor,
         y[idx],
-        linestyle="dotted" if "ph" in l else "solid",
-        linewidth=LW - 1,
+        linestyle=(0, (5, 8)) if "ph" in l else "solid",
+        linewidth=LW,
         # marker="*",
         # markersize=MS,
         color=c,
@@ -1383,7 +1100,13 @@ ax.set_ylabel(r"$s_{\text{frac}}$")
 ax.set_xlim(0.0, np.max(x_max) * x_factor)
 
 ax.grid(axis="y", alpha=0.5)
-ax.legend(handles=imgs, loc="upper left", bbox_to_anchor=(1.01, 1), ncols=3)
+ax.legend(
+    handles=imgs,
+    loc="upper left",
+    bbox_to_anchor=(0.3, 1.0),
+    ncols=3,
+    fontsize=24,
+)
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
@@ -1394,80 +1117,8 @@ fig.savefig(
     pad_inches=0.01,
 )
 # endregion
-# region p-L2 during transient for cases bc.
-fig = plt.figure(figsize=(1.5 * WIDTH, 0.5 * WIDTH))
-ax = fig.add_subplot(111)
-imgs = []
-
-x_max = []
-x_vals = []
-y_vals = []
-labels = []
-colors = []
-
-for i, ad in enumerate(plot_data["case2b"]["ajump"].items()):
-    a, d = ad
-    x = d["transient_times"]
-    y = d["delta_p_l2_transient"]
-
-    x_vals.append(x - JUMP_TIME)
-    x_max.append(np.max(x_vals[-1]))
-    y_vals.append(y)
-    colors.append(vT_cmap[i])
-    labels.append(f"i-vT(vT)-{a}")
-
-for i, ad in enumerate(plot_data["case2c"]["ajump"].items()):
-    a, d = ad
-    x = d["transient_times"]
-    y = d["delta_p_l2_transient"]
-
-    x_vals.append(x - JUMP_TIME)
-    x_max.append(np.max(x_vals[-1]))
-    y_vals.append(y)
-    colors.append(uv_cmap[i])
-    labels.append(f"vT(uv)-{a}")
-
-xm = np.max(x_max)
-x_factor = 1 / 3600
-for x, y, l, c in zip(x_vals, y_vals, labels, colors):
-    if not np.any(y):
-        x = np.linspace(0, xm, 10, endpoint=True)
-        y = np.zeros_like(x)
-
-    idx = x <= xm
-    imgs += ax.plot(
-        x[idx] * x_factor,
-        y[idx],
-        linestyle="solid",
-        linewidth=LW - 1,
-        # marker="*",
-        # markersize=MS,
-        color=c,
-        label=l,
-    )
-
-ax.set_xlabel(r"$t - t_{\ast}$ [h]")
-ax.set_ylabel(r"$\lVert p(t \geq t_{\ast}) - p(t_{-1})\rVert_{L^2(\Omega)}$")
-ax.set_xlim(0.0, np.max(x_max) * x_factor)
-
-ax.grid(axis="y", alpha=0.5)
-ax.set_ylim(1, ax.get_ylim()[1])
-
-ax.set_yscale("log")
-
-ax.legend(handles=imgs, loc="upper left", ncols=2, bbox_to_anchor=(1.01, 1))
-
-fig.tight_layout(pad=PAD)
-fig.savefig(
-    f"{FOLDER}p_l2_over_tau_case_bc.png",
-    format="png",
-    dpi=DPI,
-    bbox_inches="tight",
-    pad_inches=0.01,
-)
-# endregion
 # region p-L2 during transient for cases bcd.
-fig = plt.figure(figsize=(1.5 * WIDTH, 0.5 * WIDTH))
+fig = plt.figure(figsize=(1.5 * WIDTH, 0.7 * WIDTH))
 ax = fig.add_subplot(111)
 imgs = []
 
@@ -1486,7 +1137,7 @@ for i, ad in enumerate(plot_data["case2b"]["ajump"].items()):
     x_max.append(np.max(x_vals[-1]))
     y_vals.append(y)
     colors.append(vT_cmap[i])
-    labels.append(f"i-vT(vT)-{a}")
+    labels.append(rf"i-vT(vT)-{a}")
 
 for i, ad in enumerate(plot_data["case2c"]["ajump"].items()):
     a, d = ad
@@ -1497,7 +1148,7 @@ for i, ad in enumerate(plot_data["case2c"]["ajump"].items()):
     x_max.append(np.max(x_vals[-1]))
     y_vals.append(y)
     colors.append(uv_cmap[i])
-    labels.append(f"vT(uv)-{a}")
+    labels.append(rf"vT(uv)-{a}")
 
 for i, ad in enumerate(plot_data["case2d"]["ajump"].items()):
     a, d = ad
@@ -1508,7 +1159,7 @@ for i, ad in enumerate(plot_data["case2d"]["ajump"].items()):
     x_max.append(np.max(x_vals[-1]))
     y_vals.append(y)
     colors.append(ph_cmap[i])
-    labels.append(f"ph(uv)-{a}")
+    labels.append(rf"ph(uv)-{a}")
 
 xm = np.max(x_max)
 x_factor = 1 / 3600
@@ -1521,8 +1172,8 @@ for x, y, l, c in zip(x_vals, y_vals, labels, colors):
     imgs += ax.plot(
         x[idx] * x_factor,
         y[idx],
-        linestyle="dotted" if "ph" in l else "solid",
-        linewidth=LW - 1,
+        linestyle=(0, (5, 8)) if "ph" in l else "solid",
+        linewidth=LW,
         # marker="*",
         # markersize=MS,
         color=c,
@@ -1538,7 +1189,21 @@ ax.set_ylim(1, ax.get_ylim()[1])
 
 ax.set_yscale("log")
 
-ax.legend(handles=imgs, loc="upper left", ncols=3, bbox_to_anchor=(1.01, 1))
+leg_1 = ax.legend(
+    handles=imgs[:5],
+    loc="upper left",
+    bbox_to_anchor=(0.76, 1.02),
+    ncols=1,
+    fontsize=22,
+)
+ax.add_artist(leg_1)
+leg_2 = ax.legend(
+    handles=imgs[5:],
+    loc="upper left",
+    bbox_to_anchor=(0.99, 1.02),
+    ncols=1,
+    fontsize=22,
+)
 
 fig.tight_layout(pad=PAD)
 fig.savefig(
