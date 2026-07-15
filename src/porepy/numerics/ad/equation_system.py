@@ -675,6 +675,17 @@ class EquationSystem:
         """
         # Normalize the variable input.
         variables = self._parse_variable_type(variables)
+
+        # TODO YZ: Remove this before merging
+        if variables == self.variables:
+            pass
+        elif len(variables) == 1:
+            pass
+        elif len(set(var.name for var in variables)) == 1:
+            pass
+        else:
+            assert False
+
         var_ids = {var.id for var in variables}
 
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
