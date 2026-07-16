@@ -401,55 +401,41 @@ class NullMeanPressureSolve(pp.PorePyModel):
         return np.asarray(es.dofs_of([es.md_variable("pressure", matrix)]), dtype=int)
 
 
-class NullMeanPressureLinearSolver(pp.solvers.LinearSolverBase):
-    """Direct solver for the null-mean-bordered system of :class:`NullMeanPressureSolve`,
-    with an internal Schur elimination of the local secondary block.
+class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
+    """Direct solver with an internal Schur elimination of the local secondary block.
 
     The local-elimination equations (``elimination_of_*``) couple each eliminated variable
     only to unknowns in its OWN cell, so the secondary block ``A_ss`` is a permuted
     block-diagonal matrix with tiny local blocks -- cheap to invert (the equation system's
     default inverter caches the permutation).  The full system is assembled ONCE through
-    the standard fast path (per-equation assembly of the framework's Schur flag would
-    defeat the shared-subtree AD evaluation); this solver then reduces algebraically:
+    the standard fast path (per-equation assembly of the framework's
+    ``apply_schur_complement_reduction`` flag would defeat the shared-subtree AD
+    evaluation); this solver then reduces algebraically:
 
         ``S = A_pp - A_ps inv(A_ss) A_sp``,  ``rhs = b_p - A_ps inv(A_ss) b_s``,
 
-    solves the null-mean-bordered reduced system ``[[S, C^T], [C, 0]] [dx_p; lam] =
-    [rhs; 0]`` (``C`` indexing the matrix pressure DOFs in reduced numbering), discards
-    the multiplier, and back-substitutes ``dx_s = inv(A_ss)(b_s - A_sp dx_p)``.
+    solves the reduced primary system via :meth:`_solve_primary` and back-substitutes
+    ``dx_s = inv(A_ss)(b_s - A_sp dx_p)``.  Subclasses may override
+    :meth:`_solve_primary` (e.g. to add the null-mean gauge row).
 
-    The model (pressure-kernel DOFs, elimination bookkeeping) is provided by the
-    ``NewtonSolver`` through :meth:`initialize_with_model`.
+    The model (elimination bookkeeping) is provided by the ``NewtonSolver`` through
+    :meth:`initialize_with_model`.
     """
 
     def initialize_with_model(self, model: pp.PorePyModel) -> None:
         self._model = model
 
-    @staticmethod
-    def _bordered_null_mean_solve(A, b: np.ndarray, dofs: np.ndarray) -> np.ndarray:
-        """Solve ``[[A, C^T], [C, 0]] [dx; lam] = [b; 0]`` and return ``dx``.
-
-        ``C`` is one row summing the entries at ``dofs`` (the null-mean gauge).  The
-        multiplier absorbs the iterate's own mass drift and vanishes as Newton converges;
-        its converged size is controlled by :class:`NullSpaceDriftCriterion`, so no
-        per-solve heuristic check on ``lam`` is needed here.
-        """
-        from scipy.sparse import bmat, csr_matrix
+    def _solve_primary(self, S, rhs: np.ndarray, prim_cols: np.ndarray) -> np.ndarray:
+        """Direct solve of the reduced primary system; ``prim_cols`` are the global DOF
+        indices of the primary columns (for subclasses that need reduced numbering)."""
         from scipy.sparse.linalg import spsolve
 
-        n = A.shape[0]
-        C = csr_matrix(
-            (np.ones(dofs.size), (np.zeros(dofs.size, dtype=int), dofs)), shape=(1, n)
-        )
-        M = bmat([[A, C.T], [C, None]], format="csc")
-        rhs = np.concatenate([np.asarray(b, dtype=float), np.zeros(1)])
-        x = np.atleast_1d(np.asarray(spsolve(M, rhs), dtype=float))
-        return x[:n]  # drop the Lagrange multiplier
+        return np.atleast_1d(np.asarray(spsolve(S.tocsc(), rhs), dtype=float))
 
     def solve_linear_system(
         self, linear_system: pp.solvers.LinearSystem
     ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
-        """Schur-reduce the local secondary block, solve the bordered reduced system,
+        """Schur-reduce the local secondary block, solve the reduced primary system,
         back-substitute; returns the full increment ``dx``."""
         import time
 
@@ -461,11 +447,10 @@ class NullMeanPressureLinearSolver(pp.solvers.LinearSolverBase):
         n = A.shape[0]
         model = self._model
         es = model.equation_system
-        p_dofs = model.null_mean_pressure_dofs()
 
         eliminations = getattr(model, "_LocalElimination__local_eliminations", {})
         if not eliminations:
-            dx = self._bordered_null_mean_solve(A, b, p_dofs)
+            dx = self._solve_primary(A, b, np.arange(n))
             return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
 
         # Partition into primary/secondary rows (equations) and columns (variables).
@@ -491,17 +476,44 @@ class NullMeanPressureLinearSolver(pp.solvers.LinearSolverBase):
         b_p, b_s = b[prim_rows], b[sec_rows]
         rhs = b_p - A_ps @ (inv_ss @ b_s)
 
+        dx_p = self._solve_primary(S, rhs, prim_cols)
+        dx = np.zeros(n)
+        dx[prim_cols] = dx_p
+        dx[sec_cols] = inv_ss @ (b_s - A_sp @ dx_p)
+        return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
+
+
+class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
+    """Schur-eliminating direct solver with the null-mean pressure gauge of
+    :class:`NullMeanPressureSolve`.
+
+    The reduced primary system is solved in bordered form ``[[S, C^T], [C, 0]]
+    [dx_p; lam] = [rhs; 0]``, where ``C`` is one row summing the matrix pressure DOFs
+    (in reduced numbering); the Lagrange multiplier is discarded.  The multiplier absorbs
+    the iterate's own mass drift and vanishes as Newton converges; its converged size is
+    controlled by :class:`NullSpaceDriftCriterion`, so no per-solve heuristic check on
+    ``lam`` is needed here.
+    """
+
+    def _solve_primary(self, S, rhs: np.ndarray, prim_cols: np.ndarray) -> np.ndarray:
+        from scipy.sparse import bmat, csr_matrix
+        from scipy.sparse.linalg import spsolve
+
         # Pressure DOFs in the reduced numbering: rank among the sorted primary columns.
+        p_dofs = self._model.null_mean_pressure_dofs()
         red = np.searchsorted(prim_cols, p_dofs)
         assert np.all(prim_cols[red] == p_dofs), (
             "pressure DOFs are not part of the primary block"
         )
 
-        dx_p = self._bordered_null_mean_solve(S, rhs, red)
-        dx = np.zeros(n)
-        dx[prim_cols] = dx_p
-        dx[sec_cols] = inv_ss @ (b_s - A_sp @ dx_p)
-        return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
+        n = S.shape[0]
+        C = csr_matrix(
+            (np.ones(red.size), (np.zeros(red.size, dtype=int), red)), shape=(1, n)
+        )
+        M = bmat([[S, C.T], [C, None]], format="csc")
+        rhs_b = np.concatenate([np.asarray(rhs, dtype=float), np.zeros(1)])
+        x = np.atleast_1d(np.asarray(spsolve(M, rhs_b), dtype=float))
+        return x[:n]  # drop the Lagrange multiplier
 
 
 class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
@@ -659,7 +671,93 @@ class _MemoizedSurrogateFactory(pp.ad.SurrogateFactory):
         return cache[key]
 
 
-class BaseFlowModel(pp.PorePyModel):
+class FullIterateCacheMixin(pp.PorePyModel):
+    """Memoize the full-iterate state fetch during the after-iteration update.
+
+    Reusable across the buoyancy test models (see :meth:`update_derived_quantities`).
+    """
+
+    def update_derived_quantities(self) -> None:
+        """Install (once) a memoized full-iterate fetch on the equation system, then update.
+
+        Every per-grid "flash" inside the after-iteration update re-fetches the ENTIRE system
+        state.  There are TWO such grid-by-grid loops, and they run in different classes:
+          * the phase-property update (density, enthalpy) in ``compositional_flow.py``, and
+          * the locally-eliminated secondaries (T, s, x) in
+            ``abstract_equations.LocalElimination``.
+        Both evaluate their dependencies per grid with ``state=None``, so ``_ad_parser.evaluate``
+        calls ``equation_system.get_variable_values(iterate_index=0)`` -- ALL variables on ALL
+        subdomains, a ``numpy.copy`` per sub-variable -- for EVERY grid: O(n_subdomains^2).
+
+        ``LocalElimination.update_derived_quantities`` is the MRO entry point and runs its loop
+        AFTER its ``super()`` call, so a scoped (install/teardown) patch placed here would be torn
+        down too early.  Instead a PERSISTENT memoization of the full-iterate fetch is installed
+        (:meth:`_install_full_iterate_cache`), invalidated by a generation counter bumped on every
+        variable-value write.  The primaries do not change during a single update and every flash
+        dependency is a primary, so all flashes in one update share one fetch -- bit-exact,
+        O(n_subdomains^2) -> O(n_subdomains).
+        """
+        self._install_full_iterate_cache()
+        super().update_derived_quantities()
+
+    def _install_full_iterate_cache(self) -> None:
+        """Wrap ``equation_system.get_variable_values`` so the full-iterate fetch
+        (``iterate_index=0``, no variable subset) is memoized until the next variable-value
+        write.
+
+        ``set_variable_values`` / ``shift_iterate_values`` bump a generation counter that
+        invalidates the cache (``shift_time_step_values`` only moves iterate storage to
+        time-step storage and never alters iterate 0, so it needs no wrap); all other fetches
+        (subsets, other indices, reference values) pass through unchanged.  Idempotent
+        (installs once per equation system).  A fresh copy is returned per call, so callers
+        that mutate the result stay correct.
+        """
+        es = self.equation_system
+        if getattr(es, "_full_iterate_cache", None) is not None:
+            return
+        cache: dict = {"gen": 0, "cached_gen": -1, "value": None}
+        es._full_iterate_cache = cache
+        _get, _set, _shift = (
+            es.get_variable_values,
+            es.set_variable_values,
+            es.shift_iterate_values,
+        )
+
+        def get_variable_values(
+            variables=None, time_step_index=None, iterate_index=None, reference=False
+        ):
+            if (
+                variables is None
+                and time_step_index is None
+                and iterate_index == 0
+                and not reference
+            ):
+                if cache["cached_gen"] != cache["gen"]:
+                    cache["value"] = _get(iterate_index=0)
+                    cache["cached_gen"] = cache["gen"]
+                return cache["value"].copy()
+            return _get(
+                variables=variables,
+                time_step_index=time_step_index,
+                iterate_index=iterate_index,
+                reference=reference,
+            )
+
+        def set_variable_values(*args, **kwargs):
+            cache["gen"] += 1
+            return _set(*args, **kwargs)
+
+        def shift_iterate_values(*args, **kwargs):
+            cache["gen"] += 1
+            return _shift(*args, **kwargs)
+
+        es.get_variable_values = get_variable_values  # type: ignore[method-assign]
+        es.set_variable_values = set_variable_values  # type: ignore[method-assign]
+        es.shift_iterate_values = shift_iterate_values  # type: ignore[method-assign]
+
+
+
+class BaseFlowModel(FullIterateCacheMixin):
     """Template-agnostic flow behaviour; the flow template is attached by the concrete
     ``BuoyancyFlowModel*`` classes (see :func:`buoyancy_flow_model`), one statically
     declared per ``fractional_flow`` template."""
@@ -895,84 +993,6 @@ class BaseFlowModel(pp.PorePyModel):
         """Conservation only means something if the phases actually moved."""
         super().after_simulation()
         self.assert_saturations_evolved()
-
-    def update_derived_quantities(self) -> None:
-        """Install (once) a memoized full-iterate fetch on the equation system, then update.
-
-        Every per-grid "flash" inside the after-iteration update re-fetches the ENTIRE system
-        state.  There are TWO such grid-by-grid loops, and they run in different classes:
-          * the phase-property update (density, enthalpy) in ``compositional_flow.py``, and
-          * the locally-eliminated secondaries (T, s, x) in
-            ``abstract_equations.LocalElimination``.
-        Both evaluate their dependencies per grid with ``state=None``, so ``_ad_parser.evaluate``
-        calls ``equation_system.get_variable_values(iterate_index=0)`` -- ALL variables on ALL
-        subdomains, a ``numpy.copy`` per sub-variable -- for EVERY grid: O(n_subdomains^2).
-
-        ``LocalElimination.update_derived_quantities`` is the MRO entry point and runs its loop
-        AFTER its ``super()`` call, so a scoped (install/teardown) patch placed here would be torn
-        down too early.  Instead a PERSISTENT memoization of the full-iterate fetch is installed
-        (:meth:`_install_full_iterate_cache`), invalidated by a generation counter bumped on every
-        variable-value write.  The primaries do not change during a single update and every flash
-        dependency is a primary, so all flashes in one update share one fetch -- bit-exact,
-        O(n_subdomains^2) -> O(n_subdomains).
-        """
-        self._install_full_iterate_cache()
-        super().update_derived_quantities()
-
-    def _install_full_iterate_cache(self) -> None:
-        """Wrap ``equation_system.get_variable_values`` so the full-iterate fetch
-        (``iterate_index=0``, no variable subset) is memoized until the next variable-value
-        write.
-
-        ``set_variable_values`` / ``shift_iterate_values`` bump a generation counter that
-        invalidates the cache (``shift_time_step_values`` only moves iterate storage to
-        time-step storage and never alters iterate 0, so it needs no wrap); all other fetches
-        (subsets, other indices, reference values) pass through unchanged.  Idempotent
-        (installs once per equation system).  A fresh copy is returned per call, so callers
-        that mutate the result stay correct.
-        """
-        es = self.equation_system
-        if getattr(es, "_full_iterate_cache", None) is not None:
-            return
-        cache: dict = {"gen": 0, "cached_gen": -1, "value": None}
-        es._full_iterate_cache = cache
-        _get, _set, _shift = (
-            es.get_variable_values,
-            es.set_variable_values,
-            es.shift_iterate_values,
-        )
-
-        def get_variable_values(
-            variables=None, time_step_index=None, iterate_index=None, reference=False
-        ):
-            if (
-                variables is None
-                and time_step_index is None
-                and iterate_index == 0
-                and not reference
-            ):
-                if cache["cached_gen"] != cache["gen"]:
-                    cache["value"] = _get(iterate_index=0)
-                    cache["cached_gen"] = cache["gen"]
-                return cache["value"].copy()
-            return _get(
-                variables=variables,
-                time_step_index=time_step_index,
-                iterate_index=iterate_index,
-                reference=reference,
-            )
-
-        def set_variable_values(*args, **kwargs):
-            cache["gen"] += 1
-            return _set(*args, **kwargs)
-
-        def shift_iterate_values(*args, **kwargs):
-            cache["gen"] += 1
-            return _shift(*args, **kwargs)
-
-        es.get_variable_values = get_variable_values  # type: ignore[method-assign]
-        es.set_variable_values = set_variable_values  # type: ignore[method-assign]
-        es.shift_iterate_values = shift_iterate_values  # type: ignore[method-assign]
 
     def assign_thermodynamic_properties_to_phases(self) -> None:
         """Memoize each phase-property surrogate so it is a single shared subtree."""

@@ -29,6 +29,10 @@ from porepy.models.compositional_flow import (
     CompositionalFlowTemplate,
     CompositionalFractionalFlowTemplate,
 )
+from tests.functional.setups.buoyancy_flow_model import (
+    FullIterateCacheMixin,
+    SchurEliminationDirectSolver,
+)
 
 _DAY = 86400.0  # seconds
 
@@ -482,6 +486,9 @@ def _run_buoyancy_case(
         InitialConditions,
         BoundaryConditions,
         SecondaryEquations,
+        # Memoized full-iterate fetch for the per-grid flashes of the after-iteration
+        # update (see the mixin's docstring).
+        FullIterateCacheMixin,
         FlowTemplate,
     ):
         _total_iterations = 0  # Newton iterations accumulated over all time steps.
@@ -570,17 +577,25 @@ def _run_buoyancy_case(
         # runner must not prepare it again.
         "prepare_simulation": False,
         "nl_convergence_criteria": {
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
         },
     }
 
+    # The local eliminations (saturation, partial fractions, temperature) form a
+    # cell-local block: Schur-eliminate them inside the linear solver so the direct
+    # solve sees only the primary unknowns (p, h, z) -- 3 of 7 unknowns per cell.
+    nonlinear_solver = pp.solvers.NewtonSolver(
+        params=solver_params,
+        linear_solver=SchurEliminationDirectSolver(),
+    )
+
     print("\nTotal number of DoF: ", model.equation_system.num_dofs())
-    pp.ModelRunner(model, solver_params).run()
+    pp.ModelRunner(model, solver_params, nonlinear_solver=nonlinear_solver).run()
 
     # retrieve data from fixture
     data = saturation_at_5_days[rho_idx]
@@ -658,56 +673,47 @@ def _run_buoyancy_case(
     )
     return l2_norm, total_iterations
 
-@pytest.mark.skipped  # reason: slow
-# EK: This test is too computationally intensive to be run even among the skipped tests.
-# It is kept as an invaluable reference for future changes to the buoyancy model.
-def slow_test_buoyancy_flow_benchmark(saturation_at_5_days):
-    """Sweep the four discretization configurations for density case 0 (delta_rho=225).
+# EK: This test is computationally intensive. It is kept as an invaluable reference for
+# future changes to the buoyancy model. Each (fractional_flow, buoyancy_upwinding)
+# configuration is its own parametrized case, so subsets can be selected with ``-k`` and
+# the sweep parallelizes under ``pytest-xdist``.
+@pytest.mark.parametrize("fractional_flow, buoyancy_upwinding", list(_EXPECTED))
+def test_buoyancy_flow_benchmark(
+    fractional_flow, buoyancy_upwinding, saturation_at_5_days
+):
+    """Run one discretization configuration for density case 0 (delta_rho=225).
 
-    For each configuration (fractional_flow x buoyancy upwinding) the case is run at
-    CFL ~0.25 and two metrics are collected into a dictionary: the relative L2 saturation
-    error against the Hayek analytical reference and the total number of Newton iterations
-    summed over all time steps. The test asserts, per configuration, that the L2 error is
-    within its tolerance and the iteration count does not exceed its reference by more
-    than _ITER_MARGIN.
+    The case is run at CFL ~0.25 and two metrics are asserted: the relative L2 saturation
+    error against the Hayek analytical reference is within its tolerance, and the total
+    Newton iteration count does not exceed its reference by more than _ITER_MARGIN.
     """
-    results: dict[str, dict[str, float]] = {}
-    for (fractional_flow, buoyancy_upwinding), expected in _EXPECTED.items():
-        tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
-        l2_norm, total_iterations = _run_buoyancy_case(
-            _RHO_IDX,
-            _DELTA_RHO,
-            expected["l2_tol"],
-            _DT,
-            fractional_flow,
-            buoyancy_upwinding,
-            saturation_at_5_days,
-        )
-        results[tag] = {"l2": l2_norm, "iters": total_iterations}
+    expected = _EXPECTED[(fractional_flow, buoyancy_upwinding)]
+    tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
+    l2_norm, total_iterations = _run_buoyancy_case(
+        _RHO_IDX,
+        _DELTA_RHO,
+        expected["l2_tol"],
+        _DT,
+        fractional_flow,
+        buoyancy_upwinding,
+        saturation_at_5_days,
+    )
 
-    print("\n===== buoyancy benchmark (case 0, delta_rho=225) =====")
-    for (fractional_flow, buoyancy_upwinding), expected in _EXPECTED.items():
-        tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
-        metrics = results[tag]
-        print(
-            f"  {tag}: L2={metrics['l2']:.4e} (tol {expected['l2_tol']:.2e})  "
-            f"iters={int(metrics['iters'])} (ref {expected['iters']})"
-        )
+    print(
+        f"\n===== buoyancy benchmark (case 0, delta_rho=225) =====\n"
+        f"  {tag}: L2={l2_norm:.4e} (tol {expected['l2_tol']:.2e})  "
+        f"iters={int(total_iterations)} (ref {expected['iters']})"
+    )
 
     failures: list[str] = []
-    for (fractional_flow, buoyancy_upwinding), expected in _EXPECTED.items():
-        tag = f"ff_{'true' if fractional_flow else 'false'}_{buoyancy_upwinding}"
-        metrics = results[tag]
-        if not metrics["l2"] < expected["l2_tol"]:
-            failures.append(
-                f"{tag}: L2={metrics['l2']:.4e} >= tol={expected['l2_tol']:.2e}"
-            )
-        iter_bound = int(expected["iters"] * _ITER_MARGIN)
-        if metrics["iters"] > iter_bound:
-            failures.append(
-                f"{tag}: iters={int(metrics['iters'])} > bound={iter_bound} "
-                f"(ref {expected['iters']})"
-            )
+    if not l2_norm < expected["l2_tol"]:
+        failures.append(f"{tag}: L2={l2_norm:.4e} >= tol={expected['l2_tol']:.2e}")
+    iter_bound = int(expected["iters"] * _ITER_MARGIN)
+    if total_iterations > iter_bound:
+        failures.append(
+            f"{tag}: iters={int(total_iterations)} > bound={iter_bound} "
+            f"(ref {expected['iters']})"
+        )
     assert not failures, "buoyancy benchmark metrics out of range:\n" + "\n".join(
         failures
     )
