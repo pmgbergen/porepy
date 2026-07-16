@@ -455,12 +455,16 @@ class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
 
         # Partition into primary/secondary rows (equations) and columns (variables).
         # ``assembled_equation_indices`` reflects the system just assembled for this solve
-        # (the plain full assembly rebuilds it on every call).
-        sec_rows = np.sort(
-            np.concatenate([es.assembled_equation_indices[name] for name in eliminations])
+        # (the plain full assembly rebuilds it on every call).  Rows and columns are
+        # collected in PAIRED per-elimination order (each equation block next to its own
+        # variable's dofs), NOT independently sorted: each closure is ``var - func = 0``,
+        # so with paired ordering ``A_ss`` is exactly the identity, while independent
+        # sorting would scramble it into a permutation matrix.
+        sec_rows = np.concatenate(
+            [es.assembled_equation_indices[name] for name in eliminations]
         )
-        sec_cols = np.sort(
-            np.concatenate([es.dofs_of([var]) for var, *_ in eliminations.values()])
+        sec_cols = np.concatenate(
+            [es.dofs_of([var]) for var, *_ in eliminations.values()]
         )
         prim_rows = np.setdiff1d(np.arange(n), sec_rows, assume_unique=True)
         prim_cols = np.setdiff1d(np.arange(n), sec_cols, assume_unique=True)
@@ -469,17 +473,31 @@ class SchurEliminationDirectSolver(pp.solvers.LinearSolverBase):
         A_ps = A[prim_rows][:, sec_cols]
         A_sp = A[sec_rows][:, prim_cols]
         A_ss = A[sec_rows][:, sec_cols].tocsr()
-        # Permuted block-diagonal inverse; the equation system caches the permutation.
-        inv_ss = es.default_schur_complement_inverter(A_ss)
-
-        S = (A_pp - A_ps @ inv_ss @ A_sp).tocsr()
         b_p, b_s = b[prim_rows], b[sec_rows]
-        rhs = b_p - A_ps @ (inv_ss @ b_s)
 
-        dx_p = self._solve_primary(S, rhs, prim_cols)
+        # The elimination closures are ``var - func(primaries) = 0``: with primary-only
+        # dependencies ``A_ss`` is EXACTLY the identity, so both the block inversion and
+        # every ``inv_ss @ ...`` product can be skipped outright (measured: the block
+        # inverter was ~90% of the solve cost while inverting the identity each call).
+        # The check is O(nnz): all-ones diagonal and no other stored non-zeros.
+        m = A_ss.shape[0]
+        if A_ss.count_nonzero() == m and np.all(A_ss.diagonal() == 1.0):
+            S = (A_pp - A_ps @ A_sp).tocsr()
+            rhs = b_p - A_ps @ b_s
+            dx_p = self._solve_primary(S, rhs, prim_cols)
+            dx_s = b_s - A_sp @ dx_p
+        else:
+            # General local block: permuted block-diagonal inverse (the equation system
+            # caches the permutation).
+            inv_ss = es.default_schur_complement_inverter(A_ss)
+            S = (A_pp - A_ps @ inv_ss @ A_sp).tocsr()
+            rhs = b_p - A_ps @ (inv_ss @ b_s)
+            dx_p = self._solve_primary(S, rhs, prim_cols)
+            dx_s = inv_ss @ (b_s - A_sp @ dx_p)
+
         dx = np.zeros(n)
         dx[prim_cols] = dx_p
-        dx[sec_cols] = inv_ss @ (b_s - A_sp @ dx_p)
+        dx[sec_cols] = dx_s
         return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
 
 
