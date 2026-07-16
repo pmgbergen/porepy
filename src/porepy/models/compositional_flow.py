@@ -323,11 +323,9 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """In the fractional-flow formulation the fluid flux is given solely by the
-        :attr:`darcy_flux`, since the total mobility is part of the (non-linear) diffuse
-        tensor.  In the standard formulation the mobility is NOT in the tensor and the
-        mobility-weighted flux of the parent class is required -- using the bare Darcy
-        flux there renders the total-mass balance mobility-blind.
+        """In the fractional-flow formulation the total mobility sits in the diffuse
+        tensor, so the fluid flux is the :attr:`darcy_flux` itself. Otherwise the
+        mobility-weighted flux of the parent class is required.
 
         Parameters:
             domains: List of subdomains or boundary grids.
@@ -342,9 +340,9 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             return super().fluid_flux(domains)
 
     def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """The interface fluid flux: solely the :attr:`interface_darcy_flux` in the
-        fractional-flow formulation (massic by the tensor), the mobility-weighted parent
-        flux otherwise.
+        """Interface counterpart of :meth:`fluid_flux`: the
+        :attr:`interface_darcy_flux` in the fractional-flow formulation, the
+        mobility-weighted parent flux otherwise.
 
         Parameters:
             interfaces: List of mortar grids.
@@ -359,8 +357,8 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
             return super().interface_fluid_flux(interfaces)
 
     def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """The well fluid flux: solely the :attr:`well_flux` in the fractional-flow
-        formulation (massic by the tensor), the mobility-weighted parent flux otherwise.
+        """Well counterpart of :meth:`fluid_flux`: the :attr:`well_flux` in the
+        fractional-flow formulation, the mobility-weighted parent flux otherwise.
 
         Parameters:
             interfaces: List of mortar grids.

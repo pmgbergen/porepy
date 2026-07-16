@@ -1,17 +1,9 @@
 """Tests for the two-direction hybrid upwind discretizations.
 
-:class:`~porepy.numerics.fv.upwind.HUpwind` and
-:class:`~porepy.numerics.fv.upwind.HUpwindCoupling` build one single-point upwind matrix
-per stored direction (``gamma`` / ``delta``) in a single discretization. These tests
-check that:
-
-- each direction reproduces, bit-for-bit under a mat-vec, the classic single-point
-  :class:`~porepy.numerics.fv.upwind.Upwind` matrix for that direction;
-- the two directions are independent (opposite signs pick opposite upstream cells);
-- the sparsity pattern is fixed (invariant under a flow-direction flip: only the data
-  swaps);
-- the interface (mortar) counterpart builds both directions' coupling matrices;
-- the AD wrappers expose the per-direction matrices as callables.
+Checks that each direction of :class:`~porepy.numerics.fv.upwind.HUpwind` matches the
+classic :class:`~porepy.numerics.fv.upwind.Upwind` under a mat-vec, that the sparsity
+pattern survives flow reversals, and that the coupling and AD wrappers expose both
+directions.
 """
 
 from __future__ import annotations

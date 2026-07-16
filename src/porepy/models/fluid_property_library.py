@@ -289,14 +289,12 @@ class FluidMobility(pp.PorePyModel):
     def _phase_mass_mobility(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        r"""Un-normalised phase MASS mobility :math:`m_j = \rho_j\,k_r(s_j)/\mu_j` (phase
+        r"""Un-normalised phase MASS mobility :math:`m_j = \rho_j\,k_r(s_j)/\mu_j`
+        (phase
         density times :meth:`phase_mobility`).
 
-        The same product is the per-phase summand of :meth:`total_mass_mobility`, the
-        numerator of :meth:`fractional_phase_mass_mobility`, and the buoyancy's simplicial
-        ``l_gamma`` / ``l_delta``. Sharing this single cached object across all three lets the
-        identity-keyed AD parser evaluate the common subtree once instead of rebuilding it in
-        each. Bit-exact: same operands and operation.
+        Cached so that the total mobility, the fractional mobilities and the
+        buoyancy terms all share one operator.
         """
         m = phase.density(domains) * self.phase_mobility(phase, domains)
         m.set_name(f"phase_mass_mobility_{phase.name}")
@@ -326,10 +324,7 @@ class FluidMobility(pp.PorePyModel):
         """
         name = "total_mass_mobility"
         mobility = pp.ad.sum_operator_list(
-            [
-                self._phase_mass_mobility(phase, domains)
-                for phase in self.fluid.phases
-            ],
+            [self._phase_mass_mobility(phase, domains) for phase in self.fluid.phases],
             name,
         )
         return mobility
@@ -480,9 +475,9 @@ class FluidMobility(pp.PorePyModel):
             The term :math:`f_{\gamma}` in above expession in operator form.
 
         """
-        frac_mob = self._phase_mass_mobility(
-            phase, domains
-        ) / self.total_mass_mobility(domains)
+        frac_mob = self._phase_mass_mobility(phase, domains) / self.total_mass_mobility(
+            domains
+        )
         frac_mob.set_name(f"fractional_phase_mass_mobility_{phase.name}")
         return frac_mob
 
@@ -491,23 +486,29 @@ class FluidBuoyancy(pp.PorePyModel):
     """
     Buoyancy terms and discretizations for multiphase, multicomponent flow.
 
-    This class is based on the fixed-dimensional hybrid upwinding scheme presented in
-    Bosma et al. (2022), "Smooth implicit hybrid upwinding for compositional multiphase
-    flow in porous media" (CMA, 388, 114288). Here, we implement an alternate version of
-    the scheme using a total mass formulation.
+    The buoyancy fluxes use hybrid upwinding (HU): the viscous and buoyant parts of
+    the phase fluxes are upwinded separately, as introduced by Lee, Efendiev &
+    Tchelepi (2015), "Hybrid upwind discretization of nonlinear two-phase flow with
+    gravity" (Adv. Water Resour., 82, 27-38). For the two-phase immiscible setting
+    with ``params['fractional_flow'] = False``, this implementation is exactly that
+    scheme. The extension to an arbitrary number of phases and the analysis of the
+    fully-implicit scheme follow Hamon & Tchelepi (2016), "Analysis of hybrid
+    upwinding for fully-implicit simulation of three-phase flow with gravity"
+    (SIAM J. Numer. Anal., 54(3), 1682-1712), and Hamon, Mallison & Tchelepi (2016),
+    "Implicit Hybrid Upwind scheme for coupled multiphase flow and transport with
+    buoyancy" (Comput. Methods Appl. Mech. Engrg., 311, 599-624).
 
-    The main difference in this implementation is the consistent treatment of the
-    gravity term, following Starnoni et al. (2019),
-    "Consistent MPFA Discretization for Flow in the Presence of Gravity"
-    (WRR, 55(12), 10105–10118).
+    A distinctive feature of this implementation is the consistent treatment of the
+    gravity term in the flux discretization, following Starnoni, Berre, Keilegavlen
+    & Nordbotten (2019), "Consistent MPFA Discretization for Flow in the Presence of
+    Gravity" (Water Resour. Res., 55(12), 10105-10118). This consistency is a key
+    component in extending the framework to thermal multiphase, multicomponent
+    systems, alongside the mixed-dimensional and fractional-flow forms of the
+    equations.
 
-    This implementation is novel in three main aspects: non-isothermal compositional
-    multiphase flow, mixed-dimensional formulation,
-    and the fractional flow form of the equations.
-
-    Mass, component mass, and energy conservation are tested in `test_buoyancy_flow.py`,
-    and a benchmark against an analytical buoyancy solution is provided in
-    `test_buoyancy_flow_benchmark.py`.
+    Mass, component mass, and energy conservation are tested in
+    ``test_buoyancy_flow.py``, and a benchmark against an analytical buoyancy
+    solution is provided in ``test_buoyancy_flow_benchmark.py``.
     """
 
     component_mass_mobility: Callable[
@@ -538,8 +539,18 @@ class FluidBuoyancy(pp.PorePyModel):
     normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.ConstantPermeability`."""
 
-    interface_darcy_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+
+    _phase_mass_mobility: Callable[
+        [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`FluidMobility`."""
+
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`FluidMobility`."""
 
     _nonlinear_discretizations: list[pp.ad.MergedOperator]
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
@@ -555,8 +566,10 @@ class FluidBuoyancy(pp.PorePyModel):
         """Return the two-direction hybrid-upwind discretization for the pair.
 
         A single :class:`HUpwind` whose two stored directions ``"hybrid_gamma_flux"`` /
-        ``"hybrid_delta_flux"`` yield ``upwind_gamma`` and ``upwind_delta`` respectively.
-        The model fills the two directions per scheme (inter-phase gravity flux ``+/-`` for
+        ``"hybrid_delta_flux"`` yield ``upwind_gamma`` and ``upwind_delta``
+        respectively.
+        The model fills the two directions per scheme (inter-phase gravity flux ``+/-``
+        for
         hybrid; the per-phase potential fluxes for phase-potential upwinding).
 
         Parameters:
@@ -570,34 +583,18 @@ class FluidBuoyancy(pp.PorePyModel):
         """
         return pp.ad.HUpwindAd(self.hybrid_upwind_key(gamma, delta), subdomains)
 
+    @pp.ad.cached_method
     def hybrid_interface_upwind_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.HUpwindCouplingAd:
         """Return the two-direction hybrid interface (mortar) upwind for the pair.
 
         A single :class:`HUpwindCoupling` whose two stored interface directions
-        (``hybrid_gamma_flux`` / ``hybrid_delta_flux``) yield the two phases' mortar upwind
+        (``hybrid_gamma_flux`` / ``hybrid_delta_flux``) yield the two phases' mortar
+        upwind
         matrices.
         """
         return pp.ad.HUpwindCouplingAd(self.hybrid_upwind_key(gamma, delta), interfaces)
-
-    def interface_potential_driven_flux(
-        self, interfaces: list[pp.MortarGrid], phase: pp.Phase
-    ) -> pp.ad.Operator:
-        """Per-phase interface potential flux (mortar) for the PPU upwind direction.
-
-        Mirrors :meth:`potential_driven_flux` on the interface: the interface (mortar)
-        Darcy flux plus the phase's interface density-driven flux, so its sign upwinds
-        that phase across the interface.
-        """
-        subdomains = self.mdg.subdomains()
-        rho_mixture = self.fractionally_weighted_density(subdomains)
-        rho_phase = phase.density(subdomains)
-        flux = self.interface_darcy_flux(
-            interfaces
-        ) + self.interface_density_driven_flux(interfaces, rho_phase - rho_mixture)
-        flux.set_name("interface_potential_driven_flux_" + phase.name)
-        return flux
 
     @pp.ad.cached_method
     def fractionally_weighted_density(
@@ -625,6 +622,7 @@ class FluidBuoyancy(pp.PorePyModel):
         overall_rho.set_name("fractionally_weighted_density")
         return overall_rho
 
+    @pp.ad.cached_method
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Return gravity magnitude.
 
@@ -642,6 +640,7 @@ class FluidBuoyancy(pp.PorePyModel):
         gravity_field.set_name("gravity_field")
         return gravity_field
 
+    @pp.ad.cached_method
     def gravity_force(
         self,
         subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
@@ -782,66 +781,50 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
-    #: Valid buoyancy upwinding schemes.
-    #: ``"phase_potential"`` selects phase-potential upwinding (PPU): the full phase
-    #: flux (viscous and gravitational) is upwinded by that phase's own potential.
-    #: ``"hybrid"`` selects hybrid upwinding (HU): the viscous part is upwinded by the
-    #: total Darcy flux and the buoyancy part by the inter-phase gravity flux.
-    _valid_buoyancy_upwinding_schemes: tuple[str, str] = ("phase_potential", "hybrid")
-
-    def buoyancy_upwinding_scheme(self) -> str:
-        """Return the selected buoyancy upwinding scheme.
-
-        Controlled by the model parameter ``"buoyancy_upwinding"``. Defaults to
-        ``"phase_potential"`` (PPU).
-
-        Raises:
-            ValueError: If the parameter holds an unsupported scheme name.
-
-        Returns:
-            Either ``"phase_potential"`` or ``"hybrid"``.
-
-        """
-        scheme = self.params.get("buoyancy_upwinding", "hybrid")
-        if scheme not in self._valid_buoyancy_upwinding_schemes:
-            raise ValueError(
-                f"Unknown buoyancy_upwinding scheme {scheme!r}. "
-                f"Choose one of {self._valid_buoyancy_upwinding_schemes}."
-            )
-        return scheme
-
-    def is_phase_potential_upwinding(self) -> bool:
-        """Whether the phase-potential (PPU) buoyancy scheme is active.
-
-        Returns:
-            True for PPU, False for hybrid upwinding (HU).
-
-        """
-        return self.buoyancy_upwinding_scheme() == "phase_potential"
-
-    def potential_driven_flux(
-        self, subdomains: pp.SubdomainsOrBoundaries, phase: pp.Phase
+    @pp.ad.cached_method
+    def pair_density_driven_flux(
+        self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-
-        rho_mixture = self.fractionally_weighted_density(subdomains)
-        rho_phase = phase.density(subdomains)
-        # Proper PPU direction: sign of the phase-potential flux
-        # -K (grad p - rho_phase g). Built from the total (mixture) potential flux as
-        # darcy_flux + density_driven_flux(rho_phase - rho_mixture). No explicit total
-        # mobility factor: darcy_flux and density_driven_flux share the same Darcy
-        # tensor, so lambda_T is handled consistently (inside the tensor when
-        # mass-mobility-weighted, absent otherwise) and cannot change the upwind sign.
-        m_star = self.darcy_flux(subdomains) + self.density_driven_flux(
-            subdomains, rho_phase - rho_mixture
+        """Density-driven flux of the phase pair, cached and shared between the
+        buoyancy terms and the direction update. Since the flux is antisymmetric in
+        the pair, only the canonical orientation is built; the swapped one is its
+        negation.
+        """
+        phases = list(self.fluid.phases)
+        if phases.index(gamma) > phases.index(delta):
+            flux = pp.ad.Scalar(-1.0) * self.pair_density_driven_flux(
+                delta, gamma, subdomains
+            )
+            flux.set_name(f"density_driven_flux_{gamma.name}_{delta.name}")
+            return flux
+        return self.density_driven_flux(
+            subdomains, gamma.density(subdomains) - delta.density(subdomains)
         )
-        m_star.set_name("potential_driven_flux_" + phase.name)
-        return m_star
 
+    @pp.ad.cached_method
+    def pair_interface_density_driven_flux(
+        self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Interface analog of :meth:`pair_density_driven_flux`."""
+        phases = list(self.fluid.phases)
+        if phases.index(gamma) > phases.index(delta):
+            flux = pp.ad.Scalar(-1.0) * self.pair_interface_density_driven_flux(
+                delta, gamma, interfaces
+            )
+            flux.set_name(f"interface_density_driven_flux_{gamma.name}_{delta.name}")
+            return flux
+        subdomains = self.mdg.subdomains()
+        return self.interface_density_driven_flux(
+            interfaces, gamma.density(subdomains) - delta.density(subdomains)
+        )
+
+    @pp.ad.cached_method
     def passive_phase_interference_factor(self) -> pp.ad.Scalar:
         r"""Spatial localization factor :math:`\chi \in [0, 1]` for passive-phase
         interference in the simplicial hybrid-upwind buoyancy term.
 
-        For a phase pair (:math:`\gamma`, :math:`\delta`), the *background* mass mobility
+        For a phase pair (:math:`\gamma`, :math:`\delta`), the *background* mass
+        mobility
 
         .. math::
 
@@ -884,17 +867,10 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.Operator:
         r"""Total mass mobility upwinded onto the interface for the (gamma, delta) pair.
 
-        Mirrors the simplicial cell-wise treatment in :meth:`__entity_buoyancy_flux`: the
-        active-pair mobilities :math:`\lambda_\gamma`, :math:`\lambda_\delta` are upwinded
-        along their own inter-phase directions, and the passive-phase background mobility
-        :math:`\lambda_{bg} = \lambda_{tot} - \lambda_\gamma - \lambda_\delta` is split
-        between the two directions by the localization factor :math:`\chi` (see
-        :meth:`passive_phase_interference_factor`).
-
-        Both the interface buoyancy *flux* (projected to the primary) and the interface
-        buoyancy *jump* (projected to the secondary) build the mortar coupling from this
-        single expression, so the discretization stays locally conservative across the
-        interface.
+        The active-pair mobilities are upwinded along their own directions and the
+        passive background :math:`\lambda_{bg}` is split by :math:`\chi` (see
+        :meth:`passive_phase_interference_factor`). Flux and jump share this expression,
+        which keeps the mortar coupling conservative.
 
         Parameters:
             gamma: The first (reference) phase of the pair.
@@ -950,7 +926,12 @@ class FluidBuoyancy(pp.PorePyModel):
             xi * l_background_gamma_interface
             + xi_complement * l_background_delta_interface
         )
-        return l_gamma_interface + l_delta_interface + l_background_interface + pp.ad.Scalar(1.0e-15)
+        return (
+            l_gamma_interface
+            + l_delta_interface
+            + l_background_interface
+            + pp.ad.Scalar(1.0e-15)
+        )
 
     def __interface_mp_coupling(
         self,
@@ -964,14 +945,8 @@ class FluidBuoyancy(pp.PorePyModel):
         secondary_to_mortar: pp.ad.Operator,
         intf_w_flux_gamma_delta: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """HU-BM(mp) interface buoyancy coupling for the pair ``(gamma, delta)``.
-
-        Mobility-product form ``lambda_gamma lambda_delta / lambda_T`` on the mortar: the
-        advected gamma quantity is upwinded with the FULL gamma mass mobility, the delta full
-        mass mobility the other way, and both are normalised by the simplicial interface total
-        mobility (:meth:`__interface_lambda_upwind`). The SAME expression feeds the
-        primary-projected flux (:meth:`__entity_buoyancy_flux`) and the secondary-projected
-        jump (:meth:`__entity_buoyancy_jump`), so the mortar coupling is locally conservative.
+        """Mobility-product interface coupling of the pair. The same expression
+        feeds the flux and the jump, which keeps the mortar coupling conservative.
         """
         l_gamma = self._phase_mass_mobility(gamma, domains)
         l_delta = self._phase_mass_mobility(delta, domains)
@@ -1005,27 +980,14 @@ class FluidBuoyancy(pp.PorePyModel):
     def _entity_buoyancy_pair_common(
         self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
     ) -> tuple:
-        """Advected-INDEPENDENT pieces of the subdomain buoyancy flux for the ordered pair
-        ``(gamma, delta)``: the density-metric Darcy flux ``w_flux_gamma_delta``, the
-        delta-side upwinded fractional mobility ``f_delta_upwind`` and -- in the
-        non-fractional-flow (mobility-product) branch -- the simplicial inter-phase total
-        mobility ``lambda_upwind`` and the delta-side upwinded FULL mass mobility
-        ``l_delta_upwind`` (both ``None`` in the fractional-flow branch).
-
-        Cached per ``(gamma, delta, domains)`` so these are built ONCE per ordered pair
-        instead of once per advected quantity (each component + enthalpy). Since the AD parser
-        keys on object identity, sharing these objects removes the duplicate subtrees it would
-        otherwise re-evaluate. Bit-exact: same operations and operands, only fewer distinct
-        objects.
+        """Advected-independent pieces of the pair's subdomain buoyancy flux:
+        the pair gravity flux, the delta-side upwinded fractional mobility, and (in
+        the mobility-product branch) the inter-phase total and delta mass mobilities.
+        Cached so they are shared across all advected quantities of the pair.
         """
-        from porepy.models.compositional_flow import (
-            is_fractional_flow,
-        )
+        from porepy.models.compositional_flow import is_fractional_flow
 
-        rho_gamma = gamma.density(domains)
-        rho_delta = delta.density(domains)
-        density_metric = rho_gamma - rho_delta
-        w_flux_gamma_delta = self.density_driven_flux(domains, density_metric)
+        w_flux_gamma_delta = self.pair_density_driven_flux(gamma, delta, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
         discr = self.hybrid_upwind_discretization(gamma, delta, domains)
         f_delta_upwind = discr.upwind_delta() @ f_delta
@@ -1044,7 +1006,12 @@ class FluidBuoyancy(pp.PorePyModel):
             ) + xi_complement * discr.upwind_delta() @ (l_background)
             l_gamma_upwind = discr.upwind_gamma() @ (l_gamma)
             l_delta_upwind = discr.upwind_delta() @ (l_delta)
-            lambda_upwind = l_gamma_upwind + l_delta_upwind + l_background_upwind + pp.ad.Scalar(1.0e-15)
+            lambda_upwind = (
+                l_gamma_upwind
+                + l_delta_upwind
+                + l_background_upwind
+                + pp.ad.Scalar(1.0e-15)
+            )
         return w_flux_gamma_delta, f_delta_upwind, lambda_upwind, l_delta_upwind
 
     @pp.ad.cached_method
@@ -1071,9 +1038,7 @@ class FluidBuoyancy(pp.PorePyModel):
             A list of Ad operators representing the buoyancy flux is phase gamma.
 
         """
-        from porepy.models.compositional_flow import (
-            is_fractional_flow,
-        )
+        from porepy.models.compositional_flow import is_fractional_flow
 
         b_fluxes: List[pp.ad.Operator] = []
 
@@ -1084,15 +1049,11 @@ class FluidBuoyancy(pp.PorePyModel):
 
         f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
-        # One hybrid-upwind discretization for the pair: the two phases upwind along the
-        # single inter-phase gravity direction, gamma one way (upwind_gamma) and delta the
-        # other (upwind_delta), instead of two separate Upwind objects.
+        # One two-direction discretization per pair: gamma upwinds one way along the
+        # inter-phase gravity direction, delta the other.
         discr = self.hybrid_upwind_discretization(gamma, delta, domains)
 
-        # Advected-INDEPENDENT pieces (density-metric Darcy flux, delta-side upwinded
-        # mobility, simplicial inter-phase mobility): built ONCE per ordered pair via the
-        # cached helper and shared across this pair's advected quantities (each component +
-        # enthalpy), instead of rebuilt on every call.
+        # Advected-independent pieces, shared across the pair's advected quantities.
         w_flux_gamma_delta, f_delta_upwind, lambda_upwind, l_delta_upwind = (
             self._entity_buoyancy_pair_common(gamma, delta, domains)
         )
@@ -1104,12 +1065,9 @@ class FluidBuoyancy(pp.PorePyModel):
         if is_fractional_flow(self):
             b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
         else:
-            # HU-BM(mp): mobility-product buoyancy  lambda_gamma lambda_delta / lambda_T
-            # (classical Lee/Hamon U^HU) instead of the fractional-flow  f_gamma f_delta
-            # lambda_T. The advected gamma quantity rides the gamma phase flux, so it is
-            # upwinded together with the FULL gamma mass mobility; the delta mass mobility is
-            # upwinded the other way; both are normalised by the simplicial face total mobility
-            # lambda_upwind (active pair + chi-split passive background).
+            # Mobility-product form lambda_gamma lambda_delta / lambda_T: the advected
+            # quantity is upwinded with the full gamma mobility, the delta mobility the
+            # other way, both normalised by the face total mobility.
             l_gamma = self._phase_mass_mobility(gamma, domains)
             l_gamma_advected_upwind = discr.upwind_gamma() @ (
                 advected_gamma_quantity * l_gamma
@@ -1123,72 +1081,15 @@ class FluidBuoyancy(pp.PorePyModel):
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         if len(interfaces) != 0:
-            # Get interface flux contribution.
-            rho_gamma = gamma.density(domains)
-            rho_delta = delta.density(domains)
-            intf_density_metric = rho_gamma - rho_delta
-            intf_w_flux_gamma_delta = self.interface_density_driven_flux(
-                interfaces, intf_density_metric
+            # The coupling and the projections are cached and shared with the jump (and
+            # across advected quantities); see _interface_pair_common /
+            # _interface_pair_coupling.
+            common = self._interface_pair_common(gamma, delta, domains)
+            flux_projection = common[7]
+            interface_coupling_intf = self._interface_pair_coupling(
+                advected_gamma_quantity, gamma, delta, domains
             )
-
-            # One hybrid interface discretization: gamma/delta from one gravity direction.
-            intf_discr = self.hybrid_interface_upwind_discretization(
-                gamma, delta, interfaces
-            )
-
-            # Projections and trace operators
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, domains, interfaces, dim=1
-            )
-            trace = pp.ad.Trace(domains)
-
-            # Modified coupling that properly handles dimensional transition
-            primary_trace = trace.trace
-            mortar_avg = mortar_projection.primary_to_mortar_avg()
-            secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
-
-            # Project quantities to interface with proper upwinding for both
-            # primary and secondary sides
-            gamma_interface = (
-                intf_discr.upwind_primary_gamma()
-                @ mortar_avg
-                @ primary_trace
-                @ (advected_gamma_quantity * f_gamma)
-                + intf_discr.upwind_secondary_gamma()
-                @ secondary_to_mortar
-                @ (advected_gamma_quantity * f_gamma)
-            )
-            delta_interface = (
-                intf_discr.upwind_primary_delta() @ mortar_avg @ primary_trace @ f_delta
-                + intf_discr.upwind_secondary_delta() @ secondary_to_mortar @ f_delta
-            )
-
-            # Compute interface contribution and project back to primary grid
-            if is_fractional_flow(self):
-                interface_coupling_intf = (
-                    gamma_interface * delta_interface
-                ) * intf_w_flux_gamma_delta
-            else:
-                # HU-BM(mp): mobility-product interface coupling (full mobilities normalised by
-                # the simplicial interface total mobility). The SAME helper feeds the
-                # secondary-projected jump, so the mortar coupling is locally conservative.
-                interface_coupling_intf = self.__interface_mp_coupling(
-                    advected_gamma_quantity,
-                    gamma,
-                    delta,
-                    domains,
-                    intf_discr,
-                    mortar_avg,
-                    primary_trace,
-                    secondary_to_mortar,
-                    intf_w_flux_gamma_delta,
-                )
-            # The gamma/delta boundary-transport matrices are equal; use the gamma one.
-            b_intf_flux_gamma_delta = (
-                discr.bound_transport_neu_gamma()
-                @ mortar_projection.mortar_to_primary_int()
-                @ interface_coupling_intf
-            )
+            b_intf_flux_gamma_delta = flux_projection @ interface_coupling_intf
             b_fluxes.append(b_intf_flux_gamma_delta)
         return b_fluxes
 
@@ -1232,77 +1133,21 @@ class FluidBuoyancy(pp.PorePyModel):
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
 
-        f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
-        f_delta = self.fractional_phase_mass_mobility(delta, domains)
         interfaces = self.subdomains_to_interfaces(domains, [1])
         if len(interfaces) != 0:
-            intf_density_metric = rho_gamma - rho_delta
-            intf_w_flux_gamma_delta = self.interface_density_driven_flux(
-                interfaces, intf_density_metric
+            # The coupling and the projections are cached and shared with the flux (and
+            # across advected quantities); see _interface_pair_common /
+            # _interface_pair_coupling.
+            common = self._interface_pair_common(gamma, delta, domains)
+            jump_projection = common[8]
+            interface_coupling_intf = self._interface_pair_coupling(
+                advected_gamma_quantity, gamma, delta, domains
             )
-
-            # One hybrid interface discretization: gamma/delta from one gravity direction.
-            intf_discr = self.hybrid_interface_upwind_discretization(
-                gamma, delta, interfaces
-            )
-
-            # Projections and trace operators
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, domains, interfaces, dim=1
-            )
-            trace = pp.ad.Trace(domains)
-
-            # Modified coupling that properly handles dimensional transition
-            primary_trace = trace.trace
-            mortar_avg = mortar_projection.primary_to_mortar_avg()
-            secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
-
-            # Project quantities to interface with proper upwinding for both
-            # primary and secondary sides
-            gamma_interface = (
-                intf_discr.upwind_primary_gamma()
-                @ mortar_avg
-                @ primary_trace
-                @ (advected_gamma_quantity * f_gamma)
-                + intf_discr.upwind_secondary_gamma()
-                @ secondary_to_mortar
-                @ (advected_gamma_quantity * f_gamma)
-            )
-            delta_interface = (
-                intf_discr.upwind_primary_delta() @ mortar_avg @ primary_trace @ f_delta
-                + intf_discr.upwind_secondary_delta() @ secondary_to_mortar @ f_delta
-            )
-
-            # Compute interface contribution and project back to secondary grid
-            from porepy.models.compositional_flow import (
-                is_fractional_flow,
-            )
-
-            if is_fractional_flow(self):
-                interface_coupling_intf = (
-                    gamma_interface * delta_interface
-                ) * intf_w_flux_gamma_delta
-            else:
-                # HU-BM(mp): mobility-product interface coupling (full mobilities normalised by
-                # the simplicial interface total mobility). The SAME helper feeds the
-                # primary-projected flux, so the mortar coupling is locally conservative.
-                interface_coupling_intf = self.__interface_mp_coupling(
-                    advected_gamma_quantity,
-                    gamma,
-                    delta,
-                    domains,
-                    intf_discr,
-                    mortar_avg,
-                    primary_trace,
-                    secondary_to_mortar,
-                    intf_w_flux_gamma_delta,
-                )
-            b_flux_jump_gamma_delta = (
-                mortar_projection.mortar_to_secondary_int() @ interface_coupling_intf
-            )
+            b_flux_jump_gamma_delta = jump_projection @ interface_coupling_intf
             b_flux_jumps.append(b_flux_jump_gamma_delta)
         return b_flux_jumps
 
+    @pp.ad.cached_method
     def phase_pairs_for(self, phase: pp.Phase) -> list[tuple[pp.Phase, pp.Phase]]:
         """Get all phase pairs involving a specific phase.
 
@@ -1330,6 +1175,120 @@ class FluidBuoyancy(pp.PorePyModel):
             selected_pairs.append((phase_gamma, phase_delta))
         return selected_pairs
 
+    @pp.ad.cached_method
+    def _advected_partial_fraction(
+        self,
+        component: pp.Component,
+        gamma: pp.Phase,
+        domains: pp.SubdomainsOrBoundaries,
+    ) -> pp.ad.Operator:
+        """Cached partial-fraction accessor, so the flux and the jump share one
+        advected operator."""
+        return gamma.partial_fraction_of[component](domains)
+
+    @pp.ad.cached_method
+    def _advected_specific_enthalpy(
+        self, gamma: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Cached enthalpy accessor; see :meth:`_advected_partial_fraction`."""
+        return gamma.specific_enthalpy(domains)
+
+    @pp.ad.cached_method
+    def _interface_pair_common(
+        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+    ) -> tuple:
+        """Advected-independent interface machinery of the pair (discretization,
+        projections, delta-side mobility, gravity flux), cached and shared between the
+        flux, the jump and all advected quantities.
+        """
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+        intf_w_flux = self.pair_interface_density_driven_flux(gamma, delta, interfaces)
+        intf_discr = self.hybrid_interface_upwind_discretization(
+            gamma, delta, interfaces
+        )
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, domains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(domains)
+        primary_trace = trace.trace
+        mortar_avg = mortar_projection.primary_to_mortar_avg()
+        secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
+
+        f_delta = self.fractional_phase_mass_mobility(delta, domains)
+        delta_interface = (
+            intf_discr.upwind_primary_delta() @ mortar_avg @ primary_trace @ f_delta
+            + intf_discr.upwind_secondary_delta() @ secondary_to_mortar @ f_delta
+        )
+
+        # The gamma/delta boundary-transport matrices are equal; use the gamma one.
+        discr = self.hybrid_upwind_discretization(gamma, delta, domains)
+        flux_projection = (
+            discr.bound_transport_neu_gamma()
+            @ mortar_projection.mortar_to_primary_int()
+        )
+        jump_projection = mortar_projection.mortar_to_secondary_int()
+        return (
+            interfaces,
+            intf_discr,
+            mortar_avg,
+            primary_trace,
+            secondary_to_mortar,
+            delta_interface,
+            intf_w_flux,
+            flux_projection,
+            jump_projection,
+        )
+
+    @pp.ad.cached_method
+    def _interface_pair_coupling(
+        self,
+        advected_gamma_quantity: pp.ad.Operator,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Interface buoyancy coupling of the pair for one advected quantity, shared
+        by the flux and the jump (they differ only in the final projection)."""
+        from porepy.models.compositional_flow import is_fractional_flow
+
+        (
+            interfaces,
+            intf_discr,
+            mortar_avg,
+            primary_trace,
+            secondary_to_mortar,
+            delta_interface,
+            intf_w_flux,
+            _,
+            _,
+        ) = self._interface_pair_common(gamma, delta, domains)
+
+        if is_fractional_flow(self):
+            f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
+            gamma_interface = (
+                intf_discr.upwind_primary_gamma()
+                @ mortar_avg
+                @ primary_trace
+                @ (advected_gamma_quantity * f_gamma)
+                + intf_discr.upwind_secondary_gamma()
+                @ secondary_to_mortar
+                @ (advected_gamma_quantity * f_gamma)
+            )
+            return (gamma_interface * delta_interface) * intf_w_flux
+        # Mobility-product interface coupling; shared by flux and jump.
+        return self.__interface_mp_coupling(
+            advected_gamma_quantity,
+            gamma,
+            delta,
+            domains,
+            intf_discr,
+            mortar_avg,
+            primary_trace,
+            secondary_to_mortar,
+            intf_w_flux,
+        )
+
+    @pp.ad.cached_method
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -1348,7 +1307,9 @@ class FluidBuoyancy(pp.PorePyModel):
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
-                chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
+                chi_xi_gamma = self._advected_partial_fraction(
+                    component_xi, gamma, domains
+                )
                 b_fluxes += self.__entity_buoyancy_flux(
                     chi_xi_gamma, gamma, delta, domains
                 )
@@ -1356,6 +1317,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_flux.set_name("component_buoyancy_" + component_xi.name)
         return b_flux
 
+    @pp.ad.cached_method
     def enthalpy_buoyancy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Get the buoyancy flux for specific enthalpy.
 
@@ -1376,12 +1338,13 @@ class FluidBuoyancy(pp.PorePyModel):
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
-                h_gamma = gamma.specific_enthalpy(domains)
+                h_gamma = self._advected_specific_enthalpy(gamma, domains)
                 b_fluxes += self.__entity_buoyancy_flux(h_gamma, gamma, delta, domains)
         b_flux = pp.ad.sum_operator_list(b_fluxes)
         b_flux.set_name("enthalpy_buoyancy")
         return b_flux
 
+    @pp.ad.cached_method
     def component_buoyancy_jump(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -1405,7 +1368,9 @@ class FluidBuoyancy(pp.PorePyModel):
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
-                chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
+                chi_xi_gamma = self._advected_partial_fraction(
+                    component_xi, gamma, domains
+                )
                 b_fluxes += self.__entity_buoyancy_jump(
                     chi_xi_gamma, gamma, delta, domains
                 )
@@ -1413,6 +1378,7 @@ class FluidBuoyancy(pp.PorePyModel):
         b_flux.set_name("component_buoyancy_jump_" + component_xi.name)
         return b_flux
 
+    @pp.ad.cached_method
     def enthalpy_buoyancy_jump(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -1434,7 +1400,7 @@ class FluidBuoyancy(pp.PorePyModel):
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
-                h_gamma = gamma.specific_enthalpy(domains)
+                h_gamma = self._advected_specific_enthalpy(gamma, domains)
                 b_fluxes += self.__entity_buoyancy_jump(h_gamma, gamma, delta, domains)
         b_flux = pp.ad.sum_operator_list(b_fluxes)
         b_flux.set_name("enthalpy_buoyancy_jump")
@@ -1453,7 +1419,8 @@ class FluidBuoyancy(pp.PorePyModel):
                 for sd, data in self.mdg.subdomains(return_data=True):
                     null_vals = np.zeros(sd.num_faces)
                     # Same advective-flux boundary classification as the mobility
-                    # discretization, so the upwind/bound_transport matrices partition the
+                    # discretization, so the upwind/bound_transport matrices partition
+                    # the
                     # boundary faces consistently with the advective flux.
                     pp.initialize_data(data, key)
                     data[pp.PARAMETERS][key].update(
@@ -1479,7 +1446,8 @@ class FluidBuoyancy(pp.PorePyModel):
         """Register a hybrid upwind operator for per-iteration re-discretization.
 
         Appends directly to the nonlinear-discretization list, bypassing
-        :meth:`add_nonlinear_discretization`'s exact-type guardrail. That guardrail admits
+        :meth:`add_nonlinear_discretization`'s exact-type guardrail. That guardrail
+        admits
         only the base ``Upwind`` / ``UpwindCoupling`` types; ``HUpwind`` /
         ``HUpwindCoupling`` are functionally valid subclasses, so this keeps the change
         contained to this module instead of relaxing the core check.
@@ -1521,94 +1489,66 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
     def update_buoyancy_driven_fluxes(self):
-        """Evaluate and store the two upwind directions of the buoyancy discretizations.
-
-        For each ordered phase pair ``(gamma, delta)`` the :class:`HUpwind` /
-        :class:`HUpwindCoupling` discretizations read two direction arrays:
-
-        - hybrid upwinding (HU): the inter-phase gravity flux with opposite signs
-          (``+ddf(rho_gamma - rho_delta)`` for gamma, ``-ddf(...)`` for delta);
-        - phase-potential upwinding (PPU), guarded by
-          :meth:`is_phase_potential_upwinding`: each phase's own potential flux
-          (``Psi_gamma`` for gamma, ``Psi_delta`` for delta).
-
-        When this is called (every Newton iteration, or only once per time step) is a
-        *model* concern: see ``FlowModelBase.refresh_buoyancy_direction`` /
-        ``before_time_step`` and the ``"lag_buoyancy_direction"`` parameter.
+        """Evaluate and store the upwind directions of the buoyancy discretizations:
+        for each phase pair, the inter-phase gravity flux with opposite signs. How
+        often this is called is a model concern.
         """
-        phase_potential = self.is_phase_potential_upwinding()
         subdomains = self.mdg.subdomains()
         subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         interface_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
 
-        for phase_gamma in self.fluid.phases:
-            for gamma, delta in self.phase_pairs_for(phase_gamma):
-                key = self.hybrid_upwind_key(gamma, delta)
+        # The direction operators are cached per pair; evaluate them all in one call.
+        pairs = [
+            (gamma, delta)
+            for phase_gamma in self.fluid.phases
+            for gamma, delta in self.phase_pairs_for(phase_gamma)
+        ]
+        ops = [self.pair_density_driven_flux(g, d, subdomains) for g, d in pairs]
+        if len(interfaces) > 0:
+            ops += [
+                self.pair_interface_density_driven_flux(g, d, interfaces)
+                for g, d in pairs
+            ]
+        values = self.equation_system.evaluate(ops)
 
-                # Two subdomain directions per pair (evaluated jointly, then distributed).
-                if phase_potential:
-                    gamma_vals = self.equation_system.evaluate(
-                        self.potential_driven_flux(subdomains, gamma)
-                    )
-                    delta_vals = self.equation_system.evaluate(
-                        self.potential_driven_flux(subdomains, delta)
-                    )
-                else:
-                    gravity_vals = self.equation_system.evaluate(
-                        self.density_driven_flux(
-                            subdomains,
-                            gamma.density(subdomains) - delta.density(subdomains),
-                        )
-                    )
-                    gamma_vals = +gravity_vals
-                    delta_vals = -gravity_vals
+        for p, (gamma, delta) in enumerate(pairs):
+            key = self.hybrid_upwind_key(gamma, delta)
 
-                for k, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
-                    sl = slice(
-                        subdomain_offsets[k], subdomain_offsets[k] + sd.num_faces
-                    )
-                    data[pp.PARAMETERS][key].update(
-                        {
-                            "hybrid_gamma_flux": gamma_vals[sl],
-                            "hybrid_delta_flux": delta_vals[sl],
-                        }
-                    )
+            # Two subdomain directions per pair: the inter-phase gravity flux with
+            # opposite signs.
+            gravity_vals = values[p]
+            gamma_vals = +gravity_vals
+            delta_vals = -gravity_vals
 
-                if len(interfaces) < 1:
-                    # Shortcut for fracture-less domains.
-                    continue
+            for k, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
+                sl = slice(subdomain_offsets[k], subdomain_offsets[k] + sd.num_faces)
+                data[pp.PARAMETERS][key].update(
+                    {
+                        "hybrid_gamma_flux": gamma_vals[sl],
+                        "hybrid_delta_flux": delta_vals[sl],
+                    }
+                )
 
-                # Two interface directions per pair.
-                if phase_potential:
-                    gamma_intf = self.equation_system.evaluate(
-                        self.interface_potential_driven_flux(interfaces, gamma)
-                    )
-                    delta_intf = self.equation_system.evaluate(
-                        self.interface_potential_driven_flux(interfaces, delta)
-                    )
-                else:
-                    grav_intf = self.equation_system.evaluate(
-                        self.interface_density_driven_flux(
-                            interfaces,
-                            gamma.density(subdomains) - delta.density(subdomains),
-                        )
-                    )
-                    gamma_intf = +grav_intf
-                    delta_intf = -grav_intf
+            if len(interfaces) < 1:
+                # Shortcut for fracture-less domains.
+                continue
 
-                for k, (intf, data) in enumerate(
-                    self.mdg.interfaces(return_data=True, codim=1)
-                ):
-                    sl = slice(
-                        interface_offsets[k], interface_offsets[k] + intf.num_cells
-                    )
-                    data[pp.PARAMETERS][key].update(
-                        {
-                            "hybrid_gamma_flux": gamma_intf[sl],
-                            "hybrid_delta_flux": delta_intf[sl],
-                        }
-                    )
+            # Two interface directions per pair.
+            grav_intf = values[len(pairs) + p]
+            gamma_intf = +grav_intf
+            delta_intf = -grav_intf
+
+            for k, (intf, data) in enumerate(
+                self.mdg.interfaces(return_data=True, codim=1)
+            ):
+                sl = slice(interface_offsets[k], interface_offsets[k] + intf.num_cells)
+                data[pp.PARAMETERS][key].update(
+                    {
+                        "hybrid_gamma_flux": gamma_intf[sl],
+                        "hybrid_delta_flux": delta_intf[sl],
+                    }
+                )
 
 
 class ConstantViscosity(pp.PorePyModel):

@@ -1089,12 +1089,9 @@ class Grid:
         if self.num_faces == 0:
             return np.zeros((2, 0))
 
-        # Memoize: this is pure topology (a function of the immutable ``cell_faces``), yet the
-        # ``sps.find`` below is not free and this is called on every upwind re-discretization
-        # (once per Newton iteration). Cache the result, keyed on the ``cell_faces`` object so a
-        # replaced ``cell_faces`` transparently invalidates it. The array is returned read-only
-        # because it is shared across callers (they only read it -- see ``cell_faces_as_dense``
-        # usages, which index into it); mutating it would corrupt the cache.
+        # Pure topology, but called on every upwind re-discretization. Cache keyed
+        # on the cell_faces object, so a replaced cell_faces invalidates it. The
+        # array is shared across callers, hence returned read-only.
         cached = self.__dict__.get("_cell_faces_as_dense_cache")
         if cached is not None and cached[0] is self.cell_faces:
             return cached[1]

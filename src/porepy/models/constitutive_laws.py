@@ -720,25 +720,19 @@ class MassWeightedPermeability(ConstantPermeability):
 
     @pp.ad.cached_method
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """A constitutive law returning the normal permeability of the
-        lower-dimensional subdomain, projected to the mortar.
+        """Normal permeability of the lower-dimensional subdomain, projected to the
+        mortar.
 
-        Branches on the formulation EXACTLY like :meth:`permeability` does: in the
-        fractional-flow formulation the total mass mobility is part of the diffusive
-        tensor and hence of the normal permeability
-        (:meth:`mass_mobility_weighted_permeability`); in the standard formulation the
-        mobility is applied separately (upwinded advective weights), so the normal
-        permeability must be the ROCK permeability only -- keeping the mobility here
-        would count it TWICE on matrix-fracture interfaces, inflating the interface
-        (buoyancy) fluxes by the total mobility (~1e10) and blowing up Newton on
-        mixed-dimensional domains.
+        Branches on the formulation like :meth:`permeability`: mobility-weighted in
+        the fractional-flow formulation, rock-only otherwise. In the standard
+        formulation the mobility is applied as an upwinded advective weight, so
+        keeping it here would count it twice on matrix-fracture interfaces.
 
         Parameters:
             interfaces: A list of mortar grids.
 
         Returns:
-            The projected lower-dimensional permeability: mobility-weighted in the
-            fractional-flow formulation, rock-only otherwise.
+            The projected lower-dimensional permeability.
 
         """
 
