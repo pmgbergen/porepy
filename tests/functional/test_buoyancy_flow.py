@@ -147,7 +147,7 @@ def _run_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=50,
+        iter_max=150,
         print_info=True,
     )
     model_params = {
@@ -184,7 +184,12 @@ def _run_buoyancy_model(
             "null_drift": NullSpaceDriftCriterion(model, tol=residual_tolerance),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
+            # 150 (not 50): the fractional-flow formulation converges quadratically
+            # (~10 iterations), but the standard (CF) formulation converges LINEARLY at
+            # rate ~0.85 -- the residual criterion needs ~30 iterations and the drift
+            # criterion, decaying at the same rate ~2 decades behind, ~30 more. The cap
+            # only guards genuine blowups; converged runs stop at convergence.
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=150),
         },
     }
 
@@ -204,7 +209,7 @@ def _run_buoyancy_model(
     _report_ad_graph_size( model, f"{model_class.__name__} dim={dim} md={md}")
     runner.run()
 
-@pytest.mark.parametrize("fractional_flow", [True])
+@pytest.mark.parametrize("fractional_flow", [True, False])
 @pytest.mark.parametrize("n_phases, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [False,True])  # False skipped to limit computational cost.
 def test_buoyancy_model(

@@ -720,24 +720,41 @@ class MassWeightedPermeability(ConstantPermeability):
 
     @pp.ad.cached_method
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """A constitutive law returning the normal permeability as
-        :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
+        """A constitutive law returning the normal permeability of the
+        lower-dimensional subdomain, projected to the mortar.
+
+        Branches on the formulation EXACTLY like :meth:`permeability` does: in the
+        fractional-flow formulation the total mass mobility is part of the diffusive
+        tensor and hence of the normal permeability
+        (:meth:`mass_mobility_weighted_permeability`); in the standard formulation the
+        mobility is applied separately (upwinded advective weights), so the normal
+        permeability must be the ROCK permeability only -- keeping the mobility here
+        would count it TWICE on matrix-fracture interfaces, inflating the interface
+        (buoyancy) fluxes by the total mobility (~1e10) and blowing up Newton on
+        mixed-dimensional domains.
 
         Parameters:
             interfaces: A list of mortar grids.
 
         Returns:
-            The product of total mobility and permeability of the lower-dimensional.
+            The projected lower-dimensional permeability: mobility-weighted in the
+            fractional-flow formulation, rock-only otherwise.
 
         """
 
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        normal_permeability = (
-            projection.secondary_to_mortar_avg()
-            @ self.mass_mobility_weighted_permeability(subdomains)
-        )
+        if pp.compositional_flow.is_fractional_flow(self):
+            permeability = self.mass_mobility_weighted_permeability(subdomains)
+        else:
+            permeability = pp.wrap_as_dense_ad_array(
+                self.solid.permeability,
+                size=sum(sd.num_cells for sd in subdomains),
+                name="absolute_permeability",
+            )
+
+        normal_permeability = projection.secondary_to_mortar_avg() @ permeability
         normal_permeability.set_name("normal_permeability")
         return normal_permeability
 
