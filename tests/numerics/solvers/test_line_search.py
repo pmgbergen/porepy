@@ -4,7 +4,7 @@ import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
-from porepy.numerics.nonlinear import line_search as ls
+from porepy.numerics.solvers import line_search as ls
 
 
 class ConstraintFunctionsMomentumBalance(

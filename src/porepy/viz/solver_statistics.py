@@ -10,17 +10,8 @@ from typing import Any, Optional, Type
 
 import numpy as np
 
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceInfoCollection,
-    ConvergenceInfoHistory,
-    ConvergenceStatusCollection,
-    ConvergenceStatusHistory,
-    _recursive_append,
-)
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-)
+from porepy.numerics import solvers
+from porepy.numerics.solvers.convergence_check import _recursive_append
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
     TimeStepperStatusContinueIterating,
@@ -69,23 +60,25 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    solver_status: NonlinearSolverStatus = field(
-        default_factory=lambda: NonlinearSolverStatusConverged(
-            num_nonlinear_iterations=-1,
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
+    solver_status: solvers.NonlinearSolverStatus = field(
+        default_factory=lambda: solvers.NonlinearSolverStatusConverged(
+            linear_solver_statuses=[],
+            convergence_statuses=solvers.ConvergenceStatusCollection(),
+            divergence_statuses=solvers.ConvergenceStatusCollection(),
         )
     )
     """Nonlinear solver status."""
-    solver_status_history: list[NonlinearSolverStatus] = field(default_factory=list)
+    solver_status_history: list[solvers.NonlinearSolverStatus] = field(
+        default_factory=list
+    )
     """Nonlinear solver status history."""
     simulation_status: TimeStepperStatus = field(
         default_factory=lambda: TimeStepperStatusContinueIterating(
             attempt=-1,
-            nonlinear_solver_status=NonlinearSolverStatusConverged(
-                num_nonlinear_iterations=-1,
-                convergence_statuses=ConvergenceStatusCollection(),
-                divergence_statuses=ConvergenceStatusCollection(),
+            nonlinear_solver_status=solvers.NonlinearSolverStatusConverged(
+                linear_solver_statuses=[],
+                convergence_statuses=solvers.ConvergenceStatusCollection(),
+                divergence_statuses=solvers.ConvergenceStatusCollection(),
             ),
         )
     )
@@ -140,7 +133,9 @@ class SolverStatistics:
             else:
                 self.simulation_status_history[-1] = self.simulation_status
 
-    def log_solver_status(self, solver_status: NonlinearSolverStatus, **kwargs) -> None:
+    def log_solver_status(
+        self, solver_status: solvers.NonlinearSolverStatus, **kwargs
+    ) -> None:
         """Log the status of the solver.
 
         Parameters:
@@ -318,12 +313,12 @@ class NonlinearSolverStatistics(SolverStatistics):
     """Number of (logged) non-linear iterations."""
     num_iterations_history: list[int] = field(default_factory=list)
     """History of number of iterations for entire run."""
-    convergence_status: ConvergenceStatusHistory = field(
-        default_factory=ConvergenceStatusHistory
+    convergence_status: solvers.ConvergenceStatusHistory = field(
+        default_factory=solvers.ConvergenceStatusHistory
     )
     """History of convergence status over nonlinear iterations."""
-    convergence_info: ConvergenceInfoHistory = field(
-        default_factory=ConvergenceInfoHistory
+    convergence_info: solvers.ConvergenceInfoHistory = field(
+        default_factory=solvers.ConvergenceInfoHistory
     )
     """History of convergence information over nonlinear iterations."""
 
@@ -340,7 +335,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.solver_status_history.clear()
 
     def log_convergence_status(
-        self, convergence_status: ConvergenceStatusCollection, **kwargs
+        self, convergence_status: solvers.ConvergenceStatusCollection, **kwargs
     ) -> None:
         """Log and collect the convergence status of the solver.
 
@@ -364,7 +359,7 @@ class NonlinearSolverStatistics(SolverStatistics):
             self.num_iterations_history[-1] = self.num_iterations
 
     def log_convergence_info(
-        self, convergence_info: ConvergenceInfoCollection, **kwargs
+        self, convergence_info: solvers.ConvergenceInfoCollection, **kwargs
     ) -> None:
         """Log info produced from convergence criteria.
 

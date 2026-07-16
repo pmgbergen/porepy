@@ -166,7 +166,7 @@ class ModelRunner:
         model: SolutionStrategy,
         params: Optional[dict] = None,
         time_stepper: Optional[TimeStepper] = None,
-        nonlinear_solver: Optional[pp.NewtonSolver] = None,
+        nonlinear_solver: Optional[pp.solvers.NewtonSolver] = None,
     ) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
@@ -191,7 +191,7 @@ class ModelRunner:
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
 
-        self.solver: pp.NewtonSolver = _extract_nonlinear_solver_from_params(
+        self.solver: pp.solvers.NewtonSolver = _extract_nonlinear_solver_from_params(
             nonlinear_solver=nonlinear_solver,
             params=self.params,
             is_nonlinear_problem=self._is_nonlinear,
@@ -319,10 +319,10 @@ class ModelRunner:
 
 
 def _extract_nonlinear_solver_from_params(
-    nonlinear_solver: Optional[pp.NewtonSolver],
+    nonlinear_solver: Optional[pp.solvers.NewtonSolver],
     params: dict,
     is_nonlinear_problem: bool,
-) -> pp.NewtonSolver:
+) -> pp.solvers.NewtonSolver:
     """A nonlinear solver may be passed directly or in the parameters dictionary. This
     function extracts it and ensures it is not passed twice. If nothing is passed, it
     constructs a default solver.
@@ -347,7 +347,7 @@ def _extract_nonlinear_solver_from_params(
             "ModelRunner(nonlinear_solver=...). Passing it through params will be "
             "deprecated."
         )
-        return cast(type[pp.NewtonSolver], solver_from_params)(params)
+        return cast(type[pp.solvers.NewtonSolver], solver_from_params)(params)
     if solver_from_params is not None and nonlinear_solver is not None:
         raise ValueError(
             "You cannot pass the nonlinear solver both directly to the ModelRunner and "
@@ -355,6 +355,8 @@ def _extract_nonlinear_solver_from_params(
         )
 
     if nonlinear_solver is None:
-        return pp.NewtonSolver(is_nonlinear_problem=is_nonlinear_problem, params=params)
+        return pp.solvers.NewtonSolver(
+            is_nonlinear_problem=is_nonlinear_problem, params=params
+        )
     else:
         return nonlinear_solver

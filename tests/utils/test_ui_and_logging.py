@@ -3,6 +3,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+from scipy.sparse import csr_matrix
 
 import porepy as pp
 
@@ -41,14 +42,13 @@ class MockModel:
 
     """
 
-    def __init__(self, num_time_steps: int, num_nl_iterations: int):
+    def __init__(self, num_time_steps: int):
         self.mdg = MockMDG()
         self.equation_system = MockEquationSystem()
         self.nonlinear_solver_statistics = pp.NonlinearSolverAndTimeStatistics()
         self.time_manager = pp.TimeManager(
             [0, num_time_steps], dt_init=1, constant_dt=True
         )
-        self.num_nl_iterations = num_nl_iterations
 
     def _is_time_dependent(self) -> bool:
         return True
@@ -82,7 +82,7 @@ class MockModel:
         mock_logger.error(f"Starting Newton step")
 
     def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        self.nonlinear_solver_statistics.num_iterations += 1
+        pass
 
     def after_nonlinear_convergence(self) -> None:
         pass
@@ -90,17 +90,25 @@ class MockModel:
     def after_nonlinear_failure(self):
         pass
 
-    def assemble_linear_system(self) -> None:
-        pass
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.ones(shape=()))
 
-    def solve_linear_system(self) -> np.ndarray:
-        # Artificially fail/satisfy Newton update norm convergence criterion.
-        # IMPLEMENTATION NOTE nonlinear_solver_statistics.num_iterations lags behind
-        # one iteration at this point in the solver step.
-        if self.nonlinear_solver_statistics.num_iterations < self.num_nl_iterations - 1:
-            return np.array([1.0])
+
+class MockLinearSolver(pp.solvers.LinearSolverBase):
+    def __init__(self, num_nl_iterations: int):
+        self.num_nl_iterations = num_nl_iterations
+        self.iteration_count = 0
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        self.iteration_count += 1
+        if self.iteration_count < self.num_nl_iterations:
+            increment = np.array([1.0])
         else:
-            return np.array([1e-11])
+            self.iteration_count = 0
+            increment = np.array([1e-11])
+        return increment, pp.solvers.LinearSolverStatusSuccess(solve_time=0.0)
 
 
 @pytest.fixture(scope="module")
@@ -138,11 +146,13 @@ def run_model_and_save_output(
     # Initialize logging capture of the correct levels.
     caplog.set_level(logging_level)
 
-    model = MockModel(num_time_steps, num_nl_iterations)
+    model = MockModel(num_time_steps)
     params = {"progressbars": progressbars}
+    nonlinear_solver = pp.solvers.NewtonSolver(
+        params=params, linear_solver=MockLinearSolver(num_nl_iterations)
+    )
 
-    # MockModel has the wrong type. Ignore mypy.
-    pp.ModelRunner(model, params).run()  # type: ignore
+    pp.ModelRunner(model, params, nonlinear_solver=nonlinear_solver).run()
 
     captured_stderr = capsys.readouterr().err
     captured_logging_records = caplog.records

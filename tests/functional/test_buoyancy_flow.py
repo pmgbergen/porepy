@@ -168,12 +168,12 @@ def _run_buoyancy_model(
     # strictly bound the residual error in the mass conservation equations.
     solver_params = {
         "nl_convergence_criteria": {
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
         },
     }
 

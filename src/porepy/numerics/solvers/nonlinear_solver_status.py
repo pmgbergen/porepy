@@ -1,7 +1,16 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatusCollection
+from .convergence_check import ConvergenceStatusCollection
+from .linear_solver import LinearSolverStatus
+
+__all__ = [
+    "NonlinearSolverStatus",
+    "NonlinearSolverStatusConverged",
+    "NonlinearSolverStatusFailed",
+]
 
 
 @dataclass
@@ -39,7 +48,7 @@ class NonlinearSolverStatusConverged(NonlinearSolverStatus):
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
-    num_nonlinear_iterations: int
+    linear_solver_statuses: list[LinearSolverStatus]
 
     def serialize(self) -> str:
         return "successful"
@@ -51,7 +60,7 @@ class NonlinearSolverStatusFailed(NonlinearSolverStatus):
 
     convergence_statuses: ConvergenceStatusCollection
     divergence_statuses: ConvergenceStatusCollection
-    num_nonlinear_iterations: int
+    linear_solver_statuses: list[LinearSolverStatus]
 
     def serialize(self) -> str:
         return "failed"

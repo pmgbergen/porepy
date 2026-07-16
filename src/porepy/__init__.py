@@ -55,6 +55,7 @@ from porepy.utils.interpolation_tables import (
 from porepy.utils import array_operations
 from porepy.numerics.linalg import matrix_operations
 
+
 # Geometry
 from porepy.geometry import (
     intersections,
@@ -157,12 +158,7 @@ from porepy.models.model_runner import (
     run_time_dependent_model,
     run_stationary_model,
 )
-from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
-)
+from porepy.numerics import solvers
 
 
 from porepy.numerics import ad
@@ -281,27 +277,4 @@ from porepy.models.metric import (
     EquationBasedEuclideanMetric,
     VariableBasedLebesgueMetric,
     EquationBasedLebesgueMetric,
-)
-
-# Divergence criteria
-from porepy.numerics.nonlinear.convergence_check import (
-    MaxIterationsCriterion,
-    IncrementBasedNanCriterion,
-    ResidualBasedNanCriterion,
-    IncrementBasedAbsoluteDivergenceCriterion,
-    IncrementBasedRelativeDivergenceCriterion,
-    IncrementBasedCombinedDivergenceCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
-    ResidualBasedRelativeDivergenceCriterion,
-    ResidualBasedCombinedDivergenceCriterion,
-)
-
-# Convergence criteria
-from porepy.numerics.nonlinear.convergence_check import (
-    IncrementBasedAbsoluteCriterion,
-    IncrementBasedRelativeCriterion,
-    IncrementBasedCombinedCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedRelativeCriterion,
-    ResidualBasedCombinedCriterion,
 )

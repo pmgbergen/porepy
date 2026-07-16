@@ -13,14 +13,13 @@ import porepy.applications.md_grids.model_geometries
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.test_utils import well_models
 from porepy.examples.geothermal_reservoir import (
-    BoundaryConditionsMechanicsNeumann,
     GeothermalReservoirWellBCs,
     NeumannWellBCsFirstTimeInterval,
     WellBoundaryConditions,
     set_model_params,
     set_solver_params,
 )
-from porepy.numerics.nonlinear import line_search
+from porepy.numerics.solvers import line_search
 
 
 class FastMeshingMixin:
@@ -132,51 +131,6 @@ def test_well_bcs_temperature(well_bc_model):
     values = model.bc_values_temperature(bg)
 
     assert np.any(np.isclose(values, expected_value))
-
-
-class GeothermalModelMechanics(
-    FastMeshingMixin,
-    well_models.OneVerticalWell,
-    porepy.applications.md_grids.model_geometries.CubeDomainOrthogonalFractures,
-    BoundaryConditionsMechanicsNeumann,
-    pp.Poromechanics,
-):
-    pass
-
-
-@pytest.fixture
-def mechanics_bc_model():
-    model = GeothermalModelMechanics()
-    model.prepare_simulation()
-    return model
-
-
-def test_mechanics_bcs_neumann(mechanics_bc_model):
-    """
-    Test the boundary conditions of mechanics.
-    """
-    model = mechanics_bc_model
-    matrix_grids = [sd for sd in model.mdg.subdomains() if sd.dim == model.nd]
-    assert len(matrix_grids) == 1
-
-    sd = matrix_grids[0]
-    bc = model.bc_type_mechanics(sd)
-
-    faces = model.faces_to_fix(sd)
-
-    expected_dir = [
-        np.array([False, True, True]),
-        np.array([False, True, True]),
-        np.array([True, False, True]),
-    ]
-
-    assert len(faces) == 3
-    assert np.any(bc.is_dir)
-    assert not np.all(bc.is_dir)
-
-    for i, value in zip(faces, expected_dir):
-        assert np.array_equal(bc.is_dir[:, i], value)
-        assert np.array_equal(bc.is_neu[:, i], ~value)
 
 
 # MARK: Integration

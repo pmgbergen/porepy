@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
-import scipy.sparse as sps
 
 # Conditional importing ensures that the protocols do not mess with the runtime
 # definitions, i.e., the protocol empty method is accidentally called as a proper method
@@ -511,12 +510,6 @@ else:
         Will be set by :meth:`set_equation_system_manager`.
 
         """
-        linear_system: tuple[sps.spmatrix, np.ndarray]
-        """The linear system to be solved in each iteration of the non-linear solver.
-
-        The tuple contains the sparse matrix and the right hand side residual vector.
-
-        """
         params: dict
         """Dictionary of parameters."""
         units: pp.Units
@@ -699,6 +692,9 @@ else:
 
             """
 
+        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+            """Method to be called after every non-linear iteration."""
+
         def after_nonlinear_convergence(self) -> None:
             """Called after a nonlinear solver loop converges.
 
@@ -712,8 +708,8 @@ else:
 
             """
 
-        def assemble_linear_system(self) -> None:
-            """Assemble the linearized system and store it in :attr:`linear_system`."""
+        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+            """Assemble and return the linearized system."""
 
         def after_nonlinear_failure(self) -> None:
             """Called after a nonlinear solver loop fails to converge.
@@ -736,22 +732,6 @@ else:
 
             This method is called before the discretization is performed. It is intended
             to be used to set the list of nonlinear discretizations.
-
-            """
-
-        def solve_linear_system(self) -> np.ndarray:
-            """Solve linear system.
-
-            Default method is a direct solver. The linear solver is chosen in the
-            initialize_linear_solver of this model. Implemented options are
-                - scipy.sparse.spsolve with and without call to umfpack
-                - pypardiso.spsolve
-
-            See also:
-                :meth:`initialize_linear_solver`
-
-            Returns:
-                np.ndarray: Solution vector.
 
             """
 

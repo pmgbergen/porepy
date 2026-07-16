@@ -27,7 +27,7 @@ def test_failed_nonlinear_solve_dynamic_time_step():
             values = np.full(self.equation_system.num_dofs(), STATE_VALUE)
             self.equation_system.set_variable_values(values, iterate_index=0)
 
-        def assemble_linear_system(self) -> None:
+        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
             # The iterate array should be equal to the state array, since we never
             # proceed further than the 0-th Newton iteration.
             nonlocal num_times_visited_assemble_linear_system
@@ -39,15 +39,20 @@ def test_failed_nonlinear_solve_dynamic_time_step():
             assert np.all(iterate == STATE_VALUE)
             return super().assemble_linear_system()
 
-        def solve_linear_system(self) -> np.ndarray:
+    class MockLinearSolver(pp.solvers.LinearSolverBase):
+        def solve_linear_system(
+            self, linear_system: pp.solvers.LinearSystem
+        ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
             nonlocal num_times_visited_solve_linear_system
             num_times_visited_solve_linear_system += 1
 
-            _, b = self.linear_system
             # Nans from the previous iteration must not propagate here.
-            assert not np.any(np.isnan(b))
+            rhs = linear_system.rhs
+            assert not np.any(np.isnan(rhs))
             # The linear solver failed and returned an array of nans.
-            return np.full_like(b, np.nan)
+            return np.full_like(rhs, np.nan), pp.solvers.LinearSolverStatusFailure(
+                reason="Mock linear solver failure"
+            )
 
     model_params = {
         "time_manager": pp.TimeManager(
@@ -60,7 +65,13 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     runner_params = {
         "nl_max_iterations": 2,  # Only 2 Newton iterations
     }
-    model_runner = pp.ModelRunner(model, params=runner_params)
+    model_runner = pp.ModelRunner(
+        model,
+        params=runner_params,
+        nonlinear_solver=pp.solvers.NewtonSolver(
+            params=runner_params, linear_solver=MockLinearSolver()
+        ),
+    )
     with pytest.raises(RuntimeError):
         model_runner.run()
 
