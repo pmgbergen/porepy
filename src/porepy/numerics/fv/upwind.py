@@ -10,6 +10,22 @@ from porepy.numerics.discretization import Discretization, InterfaceDiscretizati
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
+def _fixed_diag(vec: np.ndarray) -> sps.csr_matrix:
+    """Diagonal CSR that KEEPS explicit zeros -- a FIXED (flow-independent) sparsity pattern.
+
+    ``sps.diags(vec).tocsr()`` prunes zero diagonal entries, so an upwind mask ``diags(flag)`` (flag
+    in {0, 1}) changes its nonzero PATTERN every time the flow direction flips (the mortar counterpart
+    of the subdomain single-point-upwind thrash).  Building the diagonal directly in CSR keeps all
+    ``n`` entries (the downstream zeros stay explicit), so ``upwind @ x`` is bit-identical (0 adds
+    nothing) but the pattern is purely geometric and never changes -- structure-caching / compiled
+    kernels (sparsa) stay valid across Newton iterations instead of recompiling every assemble.
+    """
+    n = vec.size
+    return sps.csr_matrix(
+        (np.asarray(vec, dtype=float), np.arange(n), np.arange(n + 1)), shape=(n, n)
+    )
+
+
 class Upwind(Discretization):
     """Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
@@ -501,11 +517,12 @@ class UpwindCoupling(InterfaceDiscretization):
         not_flag = 1 - flag
 
         # Discretizations are the flux, but masked so that only the upstream direction
-        # is hit.
-        upwind_from_primary = sps.diags(flag)
-        upwind_from_secondary = sps.diags(not_flag)
+        # is hit.  Keep the FULL diagonal (explicit downstream zeros) so the pattern is fixed across
+        # flow reversals -- see :func:`_fixed_diag`.
+        upwind_from_primary = _fixed_diag(flag)
+        upwind_from_secondary = _fixed_diag(not_flag)
 
-        flux = sps.diags(lam_flux)
+        flux = _fixed_diag(lam_flux)
 
         matrix_dictionary[self.upwind_primary_matrix_key] = upwind_from_primary
         matrix_dictionary[self.upwind_secondary_matrix_key] = upwind_from_secondary
@@ -938,6 +955,8 @@ class HUpwindCoupling(UpwindCoupling):
         ):
             lf = np.sign(parameter_dictionary[key])
             flag = (lf > 0).astype(float)
-            matrix_dictionary[f"upwind_primary_{suffix}"] = sps.diags(flag)
-            matrix_dictionary[f"upwind_secondary_{suffix}"] = sps.diags(1.0 - flag)
-            matrix_dictionary[f"flux_{suffix}"] = sps.diags(lf)
+            # Keep the FULL diagonal (explicit downstream zeros) so the mortar upwind pattern is fixed
+            # across flow reversals -- bit-identical, but no per-iteration recompile (see _fixed_diag).
+            matrix_dictionary[f"upwind_primary_{suffix}"] = _fixed_diag(flag)
+            matrix_dictionary[f"upwind_secondary_{suffix}"] = _fixed_diag(1.0 - flag)
+            matrix_dictionary[f"flux_{suffix}"] = _fixed_diag(lf)

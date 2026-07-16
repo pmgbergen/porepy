@@ -184,10 +184,9 @@ def _run_buoyancy_model(
     runner.run()
 
 
-@pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize("fractional_flow", [True, False])
+@pytest.mark.parametrize("fractional_flow", [True])
 @pytest.mark.parametrize("n_phases, dim, expected_order_loss", Parameterization)
-@pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
+@pytest.mark.parametrize("md", [False,True])  # False skipped to limit computational cost.
 def test_buoyancy_model(
     n_phases, dim: Literal[2, 3], expected_order_loss, md, fractional_flow
 ):
