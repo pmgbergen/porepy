@@ -505,10 +505,12 @@ _DEFAULT_REFINEMENT_LEVEL = 0            # mesh refinement: effective cell size 
 #                                         2**level (level 0 = base; each level HALVES h -> ~8x cells
 #                                         per level in 3D).  Applies to BOTH the box and --md.
 _DEFAULT_FRACTURES = False              # fixed-dimensional box by default; --md -> mixed-dimensional
-_DEFAULT_BOX_CELL_SIZE = 0.025            # base Cartesian cell size (before refinement)
+_DEFAULT_BOX_CELL_SIZE = 0.1            # base Cartesian cell size (before refinement)
 _DEFAULT_GEOMETRY_SCALE = 1000.0       # 1 x 2.25 x 1 km box (buoyancy becomes significant)
 _DEFAULT_T_END_DAYS = 73000.0          # ~200 yr transient
-_DEFAULT_DT_DAYS = 3650.0                # nominal (adaptive) time step
+_DEFAULT_DT_DAYS = 365.0                # nominal (adaptive) time step
+dt_downscale = 1.0/265.0
+dt_upscale = 10.0
 _DEFAULT_LINEAR_SOLVER = "cpr"         # Schur-reduced CPR (iterative, PETSc)
 _DEFAULT_GRAVITY = True
 _DEFAULT_AD_BACKEND = "native"
@@ -597,7 +599,7 @@ def build_params(
     times_to_export = sorted({*snap_seconds, tf}) if snap_seconds else [0.0, tf]
     time_manager = pp.TimeManager(
         schedule=schedule, dt_init=dt, constant_dt=False,
-        dt_min_max=(dt / 128.0, dt * 12), iter_max=11, iter_optimal_range=(3, 6),
+        dt_min_max=(dt*dt_downscale , dt * dt_upscale), iter_max=11, iter_optimal_range=(3, 6),
         recomp_factor=0.5, recomp_max=10, print_info=True)
 
     # Geothermal rock (matches subsection_4_1) + benchmark-3 aperture (eps_2 = 1e-2 m).

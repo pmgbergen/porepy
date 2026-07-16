@@ -572,10 +572,9 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
 
     # ----------------------------------------------------------------------------------------- #
     #  Schur-reduced CPR -- the iterative solver.  Ported from subsection_4_2/porepy_2d_solver.py.
-    #  The constant-pressure null-mean gauge is OPTIONAL, controlled by
-    #  ``params["null_mean_pressure"]`` (default False): OFF for the usual Dirichlet inlet/outlet
-    #  problem (non-singular pressure block -> plain CPR); ON for a fully closed / all-Neumann
-    #  domain (singular constant-pressure mode -> Sum(dp_matrix)=0 pinned on the matrix rows).
+    #  These models impose Dirichlet inlet/outlet PRESSURE, which fixes the constant-pressure mode:
+    #  the pressure block is non-singular, so no null-mean gauge / null space is needed here.
+    #  (subsection_4_2's closed-domain solver keeps its own bordered null-mean path.)
     # ----------------------------------------------------------------------------------------- #
     _ELLIPTIC_VARS = ("pressure",)   # only pressure is elliptic; enthalpy is advective (-> ILU)
 
@@ -677,8 +676,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
 
         t0 = time.perf_counter()
         n = A.shape[0]
-        dc, dr, ic, ir, sc, sr, n_p, matrix_p_pos = self._primary_secondary_indices(n)
-        null_mean = bool(self.params.get("null_mean_pressure", False))
+        dc, dr, ic, ir, sc, sr, n_p, _ = self._primary_secondary_indices(n)
         n_i = len(ic)
         # PRIMARY = subdomain + interface (interface trailing); SECONDARY = local closures.
         pc = np.concatenate([dc, ic]); pr = np.concatenate([dr, ir])
@@ -688,6 +686,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         Asp = A[sr][:, pc].tocsc()
         Ass = A[sr][:, sc].tocsr()
         bp, bs = b[pr], b[sr]
+        t_extract = time.perf_counter() - t0
 
         # (1) A_ss = Jacobian of ``var - func(primary) = 0``: diagonal identity, no secondary<->
         # secondary coupling -> A_ss == I. Detect and skip the factorization; LU only if non-trivial.
@@ -709,6 +708,8 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
 
         S = (App - Aps @ Ainv_Asp).tocsr()                  # (subdomain + interface) system
         g = bp - Aps @ Ainv_bs
+        t_step1 = time.perf_counter() - t0 - t_extract
+        t1 = time.perf_counter()
 
         # (2) Eliminate the trailing INTERFACE block via a sparse LU of its self-block (unit diagonal
         # + local coupling -> invertible; near-block-diagonal per interface -> cheap). n_i == 0 (no
@@ -743,21 +744,20 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             gc = gk - Skl @ lu_i.solve(gl)
         else:
             Sc, gc = S, g
+        t_step2 = time.perf_counter() - t1
 
-        xk, cpr_its = self._cpr_petsc_solve(
-            Sc, gc, n_p, matrix_p_pos, null_mean,
+        t2 = time.perf_counter()
+        xk, cpr_its, cpr_blocks = self._cpr_petsc_solve(
+            Sc, gc, n_p,
             lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 60000)),
             rtol=float(self.params.get("cpr_rtol", 1.0e-8)),
             maxit=int(self.params.get("cpr_maxit", 300)))
         xp = np.concatenate([xk, lu_i.solve(gl - Slk @ xk)]) if n_i else xk
+        t_cpr = time.perf_counter() - t2
 
-        # Accuracy gate.  Dirichlet: plain residual.  Null-mean: the system is singular AND
-        # inconsistent (the mass imbalance lies along the constant-p mode), so measure the residual
-        # with that direction projected out (matches the bordered null-mean solution).
+        # Accuracy gate: the inlet/outlet Dirichlet pressure fixes the constant-pressure mode, so the
+        # reduced system is non-singular and a plain relative residual is the right measure.
         r = S @ xp - g
-        if null_mean:
-            vp = np.zeros(len(xp)); vp[matrix_p_pos] = 1.0
-            r = r - (vp @ r) / (vp @ vp) * vp
         rel = np.linalg.norm(r) / max(np.linalg.norm(g), 1.0e-30)
         acc_tol = float(self.params.get("cpr_accuracy_tol", 1.0e-6))
         if rel > acc_tol:
@@ -768,10 +768,13 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         xs = rhs_s if lu is None else lu.solve(rhs_s)       # back-substitute the secondaries
 
         logger.info(
-            "Schur-CPR solve: %.3fs (%d KSP its, res %.1e%s)",
-            time.perf_counter() - t0, cpr_its, rel, ", null-mean" if null_mean else "")
-        logger.info("  reduced %d = p %d (AMG) + transport %d (ILU)", m, n_p, m - n_p)
+            "Schur-CPR solve: %.3fs (%d KSP its, res %.1e)",
+            time.perf_counter() - t0, cpr_its, rel)
+        logger.info("  reduced %d = %s", m,
+                    " + ".join(f"{nm} {sz} ({pcname})" for nm, sz, pcname in cpr_blocks))
         logger.info("  eliminated: %d interface + %d secondary", n_i, len(sr))
+        logger.info("  cost: extract %.3fs + step1 %.3fs + step2 %.3fs + cpr %.3fs",
+                    t_extract, t_step1, t_step2, t_cpr)
 
         x = np.empty(n, dtype=float)
         x[pc] = xp
@@ -779,8 +782,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         return x
 
     @staticmethod
-    def _cpr_petsc_solve(S, g, n_p, matrix_p_pos, null_mean=False,
-                         lu_pressure_max=60000, rtol=1.0e-8, maxit=300):
+    def _cpr_petsc_solve(S, g, n_p, lu_pressure_max=60000, rtol=1.0e-8, maxit=300):
         """CPR on the reduced subdomain system ``S x = g`` (interface mortar fluxes and local
         secondaries already Schur-eliminated): a THREE-field (pressure | enthalpy | composition)
         block preconditioner with a per-cell block decoupling, driven by full GMRES.
@@ -800,17 +802,15 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         (3) FULL (un-restarted) GMRES -- essential: a restart discards the Krylov modes that resolve
             the residual inter-field (spatial advective) coupling, and the solve stalls at ~1e-1.
 
-        ``null_mean`` handles a singular (closed / all-Neumann) pressure block: pin
-        ``Sum(dp_matrix)=0`` on the matrix rows and attach the constant-pressure null space.
-        Returns ``(x, n_iterations)``."""
+        The inlet/outlet Dirichlet pressure of these models fixes the constant-pressure mode, so the
+        pressure block is non-singular and no null-space gauge is needed.  Returns
+        ``(x, n_iterations)``."""
         import scipy.sparse as sps
         from petsc4py import PETSc
 
         S = S.tocsr(); S.sort_indices()
         n = S.shape[0]
         g = np.array(g, dtype=float)
-        if null_mean:
-            g[matrix_p_pos] -= g[:n_p].sum() / len(matrix_p_pos)
 
         N = n_p                                          # cells per subdomain variable
         nvar = n // N if N else 0                        # 2 + n_comp  (pressure, enthalpy, z...)
@@ -851,11 +851,6 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         ksp.setType("gmres")
         ksp.setGMRESRestart(maxit)                       # (3) FULL GMRES -- no restart
         ksp.setTolerances(rtol=rtol, atol=1.0e-50, max_it=maxit)
-        nsp = None
-        if null_mean:
-            nsp = PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(mat)],
-                                           comm=PETSc.COMM_SELF)
-            mat.setNullSpace(nsp)
 
         # (2) three-field multiplicative block preconditioner.
         pc = ksp.getPC()
@@ -871,39 +866,38 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         pc.setUp()
         subksps = pc.getFieldSplitSubKSP()
 
-        # pressure (elliptic Darcy) -> LU (MUMPS) when small, else BoomerAMG; GAMG + null space if the
-        # block is singular (null_mean).
+        # pressure (elliptic Darcy) -> LU (MUMPS) when small, else BoomerAMG.  ``blocks`` records the
+        # preconditioner ACTUALLY selected per field, so the caller's log reports the real choice
+        # (the pressure block is only AMG above ``lu_pressure_max``).
+        blocks: list[tuple[str, int, str]] = []
         kp = subksps[0]; kp.setType("preonly")
         App_block = kp.getOperators()[0]
-        if null_mean:
-            p_nsp = PETSc.NullSpace().create(constant=False, vectors=[const_p_vec(App_block)],
-                                             comm=PETSc.COMM_SELF)
-            kp.getPC().setType("gamg")
-            App_block.setNullSpace(p_nsp); App_block.setNearNullSpace(p_nsp)
-        elif n_p < lu_pressure_max:
+        if n_p < lu_pressure_max:
             kp.getPC().setType("lu"); kp.getPC().setFactorSolverType("mumps")
+            blocks.append(("p", N, "LU/MUMPS"))
         else:
             kp.getPC().setType("hypre"); kp.getPC().setHYPREType("boomeramg")
             App_block.setNearNullSpace(PETSc.NullSpace().create(
                 constant=False, vectors=[const_p_vec(App_block)], comm=PETSc.COMM_SELF))
+            blocks.append(("p", N, "hypre/BoomerAMG"))
         # enthalpy (advection-diffusion, the hard block) -> direct LU.
         if len(subksps) >= 2:
             kh = subksps[1]; kh.setType("preonly")
             kh.getPC().setType("lu"); kh.getPC().setFactorSolverType("mumps")
+            blocks.append(("h", N, "LU/MUMPS"))
         # composition z (pure advection -- a flow DAG for which ILU is ~exact) -> ILU(0).
         for kz in subksps[2:]:
             kz.setType("preonly"); kz.getPC().setType("ilu")
+            blocks.append(("z", N, "ILU"))
 
         xv = mat.createVecRight()
         bv = mat.createVecLeft()
         bv.setArray(np.ascontiguousarray(g, dtype=PETSc.ScalarType))
-        if null_mean:
-            nsp.remove(bv)
         ksp.solve(bv, xv)
         if ksp.getConvergedReason() < 0:
             raise RuntimeError(f"PETSc CPR KSP diverged (reason {ksp.getConvergedReason()}, "
                                f"its={ksp.getIterationNumber()})")
-        return xv.getArray().copy(), ksp.getIterationNumber()
+        return xv.getArray().copy(), ksp.getIterationNumber(), blocks
 
     def _apply_matrix_scaling(self, A_csr, b):
         """
