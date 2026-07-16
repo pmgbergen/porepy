@@ -402,45 +402,106 @@ class NullMeanPressureSolve(pp.PorePyModel):
 
 
 class NullMeanPressureLinearSolver(pp.solvers.LinearSolverBase):
-    """Direct solver for the null-mean-bordered system of :class:`NullMeanPressureSolve`.
+    """Direct solver for the null-mean-bordered system of :class:`NullMeanPressureSolve`,
+    with an internal Schur elimination of the local secondary block.
 
-    Solves ``[[A, C^T], [C, 0]] [dx; lam] = [b; 0]`` with scipy's sparse direct solver and
-    returns the increment ``dx`` only.  The model (needed for the pressure-kernel DOFs) is
-    provided by the ``NewtonSolver`` through :meth:`initialize_with_model`.
+    The local-elimination equations (``elimination_of_*``) couple each eliminated variable
+    only to unknowns in its OWN cell, so the secondary block ``A_ss`` is a permuted
+    block-diagonal matrix with tiny local blocks -- cheap to invert (the equation system's
+    default inverter caches the permutation).  The full system is assembled ONCE through
+    the standard fast path (per-equation assembly of the framework's Schur flag would
+    defeat the shared-subtree AD evaluation); this solver then reduces algebraically:
+
+        ``S = A_pp - A_ps inv(A_ss) A_sp``,  ``rhs = b_p - A_ps inv(A_ss) b_s``,
+
+    solves the null-mean-bordered reduced system ``[[S, C^T], [C, 0]] [dx_p; lam] =
+    [rhs; 0]`` (``C`` indexing the matrix pressure DOFs in reduced numbering), discards
+    the multiplier, and back-substitutes ``dx_s = inv(A_ss)(b_s - A_sp dx_p)``.
+
+    The model (pressure-kernel DOFs, elimination bookkeeping) is provided by the
+    ``NewtonSolver`` through :meth:`initialize_with_model`.
     """
 
     def initialize_with_model(self, model: pp.PorePyModel) -> None:
         self._model = model
 
+    @staticmethod
+    def _bordered_null_mean_solve(A, b: np.ndarray, dofs: np.ndarray) -> np.ndarray:
+        """Solve ``[[A, C^T], [C, 0]] [dx; lam] = [b; 0]`` and return ``dx``.
+
+        ``C`` is one row summing the entries at ``dofs`` (the null-mean gauge).  The
+        multiplier absorbs the iterate's own mass drift and vanishes as Newton converges;
+        its converged size is controlled by :class:`NullSpaceDriftCriterion`, so no
+        per-solve heuristic check on ``lam`` is needed here.
+        """
+        from scipy.sparse import bmat, csr_matrix
+        from scipy.sparse.linalg import spsolve
+
+        n = A.shape[0]
+        C = csr_matrix(
+            (np.ones(dofs.size), (np.zeros(dofs.size, dtype=int), dofs)), shape=(1, n)
+        )
+        M = bmat([[A, C.T], [C, None]], format="csc")
+        rhs = np.concatenate([np.asarray(b, dtype=float), np.zeros(1)])
+        x = np.atleast_1d(np.asarray(spsolve(M, rhs), dtype=float))
+        return x[:n]  # drop the Lagrange multiplier
+
     def solve_linear_system(
         self, linear_system: pp.solvers.LinearSystem
     ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
-        """Direct solve of the null-mean-bordered system; returns the increment ``dx`` only."""
+        """Schur-reduce the local secondary block, solve the bordered reduced system,
+        back-substitute; returns the full increment ``dx``."""
         import time
-
-        from scipy.sparse import bmat, csr_matrix
-        from scipy.sparse.linalg import spsolve
 
         t_0 = time.time()
         A, b = linear_system.matrix, linear_system.rhs
         assert A is not None, "Cannot solve a linear system whose matrix was released."
         A = A.tocsr()
-        n = A.shape[0]
-        dofs = self._model.null_mean_pressure_dofs()
-        # One row: Sum(dp) over the matrix pressure DOFs = 0.
-        C = csr_matrix(
-            (np.ones(dofs.size), (np.zeros(dofs.size, dtype=int), dofs)), shape=(1, n)
-        )
-        M = bmat([[A, C.T], [C, None]], format="csc")
         b = np.asarray(b, dtype=float)
-        rhs = np.concatenate([b, np.zeros(1)])
-        x = np.atleast_1d(np.asarray(spsolve(M, rhs), dtype=float))
+        n = A.shape[0]
+        model = self._model
+        es = model.equation_system
+        p_dofs = model.null_mean_pressure_dofs()
 
-        # The multiplier absorbs the iterate's own mass drift (``sum_i R_i = (M_cur -
-        # M_old)/dt``) and vanishes as Newton converges.  Its converged size is controlled
-        # explicitly by :class:`NullSpaceDriftCriterion` in the convergence criteria, so no
-        # per-solve heuristic check on ``lam`` is needed here.  Drop the multiplier.
-        return x[:n], pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
+        eliminations = getattr(model, "_LocalElimination__local_eliminations", {})
+        if not eliminations:
+            dx = self._bordered_null_mean_solve(A, b, p_dofs)
+            return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
+
+        # Partition into primary/secondary rows (equations) and columns (variables).
+        # ``assembled_equation_indices`` reflects the system just assembled for this solve
+        # (the plain full assembly rebuilds it on every call).
+        sec_rows = np.sort(
+            np.concatenate([es.assembled_equation_indices[name] for name in eliminations])
+        )
+        sec_cols = np.sort(
+            np.concatenate([es.dofs_of([var]) for var, *_ in eliminations.values()])
+        )
+        prim_rows = np.setdiff1d(np.arange(n), sec_rows, assume_unique=True)
+        prim_cols = np.setdiff1d(np.arange(n), sec_cols, assume_unique=True)
+
+        A_pp = A[prim_rows][:, prim_cols]
+        A_ps = A[prim_rows][:, sec_cols]
+        A_sp = A[sec_rows][:, prim_cols]
+        A_ss = A[sec_rows][:, sec_cols].tocsr()
+        # Permuted block-diagonal inverse; the equation system caches the permutation.
+        inv_ss = es.default_schur_complement_inverter(A_ss)
+
+        S = (A_pp - A_ps @ inv_ss @ A_sp).tocsr()
+        b_p, b_s = b[prim_rows], b[sec_rows]
+        rhs = b_p - A_ps @ (inv_ss @ b_s)
+
+        # Pressure DOFs in the reduced numbering: rank among the sorted primary columns.
+        red = np.searchsorted(prim_cols, p_dofs)
+        assert np.all(prim_cols[red] == p_dofs), (
+            "pressure DOFs are not part of the primary block"
+        )
+
+        dx_p = self._bordered_null_mean_solve(S, rhs, red)
+        dx = np.zeros(n)
+        dx[prim_cols] = dx_p
+        dx[sec_cols] = inv_ss @ (b_s - A_sp @ dx_p)
+        return dx, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
 
 
 class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
