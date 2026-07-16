@@ -436,27 +436,74 @@ class NullMeanPressureLinearSolver(pp.solvers.LinearSolverBase):
         rhs = np.concatenate([b, np.zeros(1)])
         x = np.atleast_1d(np.asarray(spsolve(M, rhs), dtype=float))
 
-        # The multiplier must VANISH WITH THE RESIDUAL.  The solve enforces ``A dx = b - C^T lam``,
-        # and ``C`` indexes the matrix PRESSURE dofs -- whose ROWS are the mass-balance equations --
-        # so a ``lam`` that did not vanish would perturb those equations, i.e. the gauge constraint
-        # would be INJECTING mass and the conservation checks would be measuring the constraint
-        # rather than the buoyancy discretization.
-        #
-        # ``lam`` is NOT zero at every iterate, and should not be: summing the mass rows of a closed
-        # domain telescopes the fluxes and leaves ``sum_i R_i = (M_cur - M_old)/dt``, the mass drift
-        # of the current, not-yet-converged iterate.  That inconsistency is exactly what ``lam``
-        # absorbs, so ``lam = O(||b||)`` and it decays to zero as Newton converges.  Anchoring the
-        # tolerance to ``||b||`` therefore tests the real invariant (the gauge is inert in the
-        # converged limit) instead of an absolute zero that only holds at the solution.
-        lam = float(x[n])
-        scale = float(np.linalg.norm(b, np.inf))
-        assert abs(lam) <= 1.0e-2 * max(scale, np.finfo(float).eps), (
-            f"null-mean Lagrange multiplier does not vanish with the residual: |lam| = "
-            f"{abs(lam):.3e} vs ||b||_inf = {scale:.3e}; the gauge constraint is injecting mass "
-            f"into the matrix mass-balance rows rather than absorbing the iterate's own drift"
-        )
-        # Drop the Lagrange multiplier.
+        # The multiplier absorbs the iterate's own mass drift (``sum_i R_i = (M_cur -
+        # M_old)/dt``) and vanishes as Newton converges.  Its converged size is controlled
+        # explicitly by :class:`NullSpaceDriftCriterion` in the convergence criteria, so no
+        # per-solve heuristic check on ``lam`` is needed here.  Drop the multiplier.
         return x[:n], pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
+
+
+class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
+    """Converge the residual's NULL-SPACE component: the dt-scaled total-mass drift.
+
+    In the closed all-Neumann domain the constant-pressure vector is a left null vector of
+    the Jacobian, so the summed total-mass residual -- ``(M_cur - M_old)/dt`` -- is
+    invariant under any linear update and decays only quadratically.  Moreover it is a mass
+    RATE: the conservation checks accumulate MASS, so the drift is scaled by ``dt`` (which
+    amplifies a metric-converged rate residual by ~1e5 for day-sized steps) and normalized
+    by the total volume before comparison with ``tol``.  This criterion iterates Newton
+    until the accumulated-mass drift per step is genuinely below tolerance.
+
+    The drift is only ALIVE during the nonlinear transient: once Newton enters the
+    quadratic basin the increments vanish and the drift FREEZES at its current value --
+    further iterations cannot change it.  If the frozen drift is above tolerance, blocking
+    convergence would hang Newton at ``max_iter``; instead the criterion detects the
+    stagnation and stops objecting, so the run proceeds and the test's
+    ``assert_null_space_residual_converged`` fails FAST with the frozen drift in the
+    message rather than burning 50 iterations and a retry.
+    """
+
+    #: Consecutive checks with relative drift change below this are considered frozen.
+    _stagnation_rtol: float = 1.0e-3
+    _stagnation_checks: int = 3
+
+    def __init__(self, model: pp.PorePyModel, tol: float) -> None:
+        self._model = model
+        self.tol = tol
+        self._history: list[float] = []
+
+    def reset(self) -> None:
+        self._history = []
+
+    def check(
+        self, residual: np.ndarray, **kwargs
+    ) -> tuple[pp.solvers.ConvergenceStatus, float]:
+        model = self._model
+        rows = model.equation_system.assembled_equation_indices["mass_balance_equation"]
+        total_volume = sum(
+            np.sum(
+                model.equation_system.evaluate(
+                    model.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                )
+            )
+            for sd in model.mdg.subdomains()
+        )
+        drift = float(
+            abs(np.sum(np.asarray(residual, dtype=float)[rows]))
+            * model.time_manager.dt
+            / total_volume
+        )
+        self._history.append(drift)
+        if drift <= self.tol:
+            return pp.solvers.ConvergenceStatus.CONVERGED, drift
+        # Stagnation escape: the drift has frozen (quadratic basin) and cannot improve.
+        recent = self._history[-self._stagnation_checks :]
+        if len(recent) == self._stagnation_checks and all(
+            abs(a - b) <= self._stagnation_rtol * max(abs(b), 1e-300)
+            for a, b in zip(recent[:-1], recent[1:])
+        ):
+            return pp.solvers.ConvergenceStatus.CONVERGED, drift
+        return pp.solvers.ConvergenceStatus.CONTINUE_ITERATING, drift
 
 
 class SecondaryEquations(LocalElimination):
@@ -675,6 +722,73 @@ class BaseFlowModel(pp.PorePyModel):
     def conservation_integrals(self) -> dict[str, tuple[float, float]]:
         """``{quantity: (reference, numerical)}`` volume integrals; implemented per phase count."""
         raise NotImplementedError
+
+    def null_space_mass_drift(self) -> float:
+        """The dt-scaled, volume-normalized total-mass drift of the CURRENT residual.
+
+        Summing the rows of the total-mass balance telescopes all interior and interface
+        fluxes in the closed domain, leaving ``(M_cur - M_old)/dt`` -- a mass RATE.  The
+        conservation checks accumulate MASS, so the residual is scaled by ``dt`` and
+        normalized by the total pore-weighted volume to be comparable with them.  Measured
+        here (2N/3N): the COMPONENT mass equations telescope to machine precision; the
+        entire conservation loss stems from this total-mass row sum, which sits far below
+        the Newton residual metric yet is amplified by ``dt`` (a day) into the loss.
+        """
+        eq = self.equation_system.equations["mass_balance_equation"]
+        r = np.asarray(self.equation_system.evaluate(eq), dtype=float)
+        total_volume = sum(
+            np.sum(
+                self.equation_system.evaluate(
+                    self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                )
+            )
+            for sd in self.mdg.subdomains()
+        )
+        return float(abs(np.sum(r)) * self.time_manager.dt / total_volume)
+
+    def assert_pressure_null_mean_converged(self) -> None:
+        """The CONVERGED pressure must satisfy the gauge: null mean on the matrix.
+
+        The Lagrange multiplier of the bordered solve enforces ``Sum(dp_matrix) = 0`` on
+        every Newton increment, and the initial pressure is null-mean, so the converged
+        pressure must have a null matrix mean to solver precision.  A violation would mean
+        the gauge constraint is not actually holding the solution's pressure level.
+        """
+        matrix = self.mdg.subdomains(dim=self.nd)
+        p = np.concatenate(
+            [
+                np.asarray(self.equation_system.evaluate(self.pressure([sd])), float)
+                for sd in matrix
+            ]
+        )
+        mean = float(abs(np.mean(p)))
+        tol = float(self.params["residual_tolerance"])
+        assert mean <= tol, (
+            f"converged matrix pressure is not null-mean: |mean(p_matrix)| = {mean:.6e} > "
+            f"tol = {tol:.1e}; the gauge constraint is not holding the pressure level"
+        )
+
+    def assert_null_space_residual_converged(self) -> None:
+        """The NULL-SPACE (total-mass drift) component of the CONVERGED residual must be
+        below the Newton tolerance IN THE UNITS THE CONSERVATION CHECKS MEASURE.
+
+        In the closed all-Neumann domain the constant-pressure vector is a LEFT null vector
+        of the Jacobian, so the drift is invariant under any linear update and decays only
+        through second-order (quadratic Newton) effects -- and, crucially, the residual is a
+        mass RATE while conservation measures accumulated MASS: a rate residual far below
+        the metric tolerance still allows a drift of ``dt * sum(r)`` per step.  If this
+        assertion fails, the convergence criteria must be extended with
+        :class:`NullSpaceDriftCriterion`.
+        """
+        drift = self.null_space_mass_drift()
+        tol = float(self.params["residual_tolerance"])
+        assert drift <= tol, (
+            f"null-space residual (total-mass drift) of the converged state is not below the "
+            f"Newton tolerance: |sum of mass-balance residuals| * dt / V = {drift:.6e} > "
+            f"tol = {tol:.1e}. The convergence criteria control the residual metric (a mass "
+            f"RATE) but not the dt-scaled drift the conservation checks accumulate -- add "
+            f"NullSpaceDriftCriterion to the convergence criteria."
+        )
 
     def assert_reference_matches_state(self, tol: float | None = None) -> None:
         """At t=0 every REFERENCE must equal its NUMERICAL counterpart EXACTLY.
@@ -950,6 +1064,12 @@ class FlowModel2N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
+        # The gauge (null-mean pressure) and the drift must be measured BEFORE super()
+        # shifts the time-step solutions (``x_prev <- x_cur``): after the shift the
+        # accumulation term of the reassembled residual is zero and the drift measurement
+        # is vacuous.
+        self.assert_pressure_null_mean_converged()
+        self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
 
         # Buoyancy flux reciprocity (summed over ALL components, relative to the flux scale).
@@ -1388,6 +1508,12 @@ class FlowModel3N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
+        # The gauge (null-mean pressure) and the drift must be measured BEFORE super()
+        # shifts the time-step solutions (``x_prev <- x_cur``): after the shift the
+        # accumulation term of the reassembled residual is zero and the drift measurement
+        # is vacuous.
+        self.assert_pressure_null_mean_converged()
+        self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
 
         # Buoyancy flux reciprocity (summed over ALL components, relative to the flux scale).
