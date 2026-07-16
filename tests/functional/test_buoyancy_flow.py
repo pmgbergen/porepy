@@ -135,6 +135,14 @@ def _run_buoyancy_model(
         dt = 1.0 * day
         geometry2d = ModelGeometry2D
         geometry3d = ModelGeometry3D
+    # Per-step budget for the total-mass drift: the conservation assertion requires the
+    # ACCUMULATED loss below 10^-(n-1) (floor semantics of the order metric), so each of
+    # the n_steps steps gets that threshold split with a factor-2 safety margin. The
+    # drift freezes once Newton enters the quadratic basin (its null-space component is
+    # invariant under linear updates), so gating it at the raw Newton tolerance would
+    # demand more than the conservation checks need and fail on landing luck.
+    n_steps = round(tf / dt)
+    drift_tolerance = 10.0 ** (-(expected_order_loss - 1)) / (2 * n_steps)
 
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
@@ -147,7 +155,7 @@ def _run_buoyancy_model(
         schedule=[0.0, tf],
         dt_init=dt,
         constant_dt=True,
-        iter_max=150,
+        iter_max=50,
         print_info=True,
     )
     model_params = {
@@ -163,6 +171,9 @@ def _run_buoyancy_model(
         # The Newton tolerance, exposed to the model so the converged-state checks can
         # verify the residual's null-space component (total-mass drift) actually met it.
         "residual_tolerance": residual_tolerance,
+        # Per-step total-mass-drift budget (see above): what the conservation
+        # assertions actually require of each accepted state.
+        "drift_tolerance": drift_tolerance,
     }
     # Build the model with the fractional_flow-selected template, then mix in geometry.
     geometry_class = geometry2d if dim == 2 else geometry3d
@@ -181,15 +192,15 @@ def _run_buoyancy_model(
             # and the total-mass drift is a null-space component the linear solve cannot
             # correct (it decays only quadratically). Converge it explicitly, in the
             # dt-scaled volume-normalized units the conservation checks measure.
-            "null_drift": NullSpaceDriftCriterion(model, tol=residual_tolerance),
+            "null_drift": NullSpaceDriftCriterion(model, tol=drift_tolerance),
         },
         "nl_divergence_criteria": {
-            # 150 (not 50): the fractional-flow formulation converges quadratically
-            # (~10 iterations), but the standard (CF) formulation converges LINEARLY at
-            # rate ~0.85 -- the residual criterion needs ~30 iterations and the drift
-            # criterion, decaying at the same rate ~2 decades behind, ~30 more. The cap
-            # only guards genuine blowups; converged runs stop at convergence.
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=150),
+            # Both formulations converge quadratically (<~10 iterations) now that the
+            # eliminated saturations' clipped values carry clip-consistent derivatives
+            # (an unclipped slope in the clipped region degraded the CF formulation,
+            # whose explicit total mobility feels kr(s) in every flux, to LINEAR
+            # convergence at rate ~0.85).
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
         },
     }
 

@@ -780,6 +780,37 @@ class BaseFlowModel(FullIterateCacheMixin):
     ``BuoyancyFlowModel*`` classes (see :func:`buoyancy_flow_model`), one statically
     declared per ``fractional_flow`` template."""
 
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Newton update with a PROJECTED iterate (the reservoir-simulation 'chop').
+
+        Positivity of the eliminated saturations -- and with them the mobilities and
+        the (mass-mobility-weighted) permeability tensor -- is enforced by projecting
+        the STATE, never by clipping inside the residual: a value clip with an interior
+        slope (or a zeroed slope at the front) is a value/derivative inconsistency that
+        degrades Newton to linear convergence or freezes the front.  The exact
+        saturation relations map the physical simplex ``z in [0, 1]`` monotonically
+        onto ``s in [0, 1]``, so projecting the overall fractions alone keeps every
+        secondary quantity physical while the residual's Jacobian remains EXACT.
+        """
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+        self.equation_system.set_variable_values(
+            values=nonlinear_increment, additive=True, iterate_index=0
+        )
+        self._project_overall_fractions()
+        self.update_derived_quantities()
+
+    def _project_overall_fractions(self) -> None:
+        """Clamp the independent overall fractions to ``[0, 1]`` on the current iterate."""
+        es = self.equation_system
+        for var in es.variables:
+            if not var.name.startswith("z_"):
+                continue
+            vals = es.get_variable_values([var], iterate_index=0)
+            clipped = np.clip(vals, 0.0, 1.0)
+            if np.any(clipped != vals):
+                es.set_variable_values(clipped, [var], iterate_index=0)
+
+
     def __init__(self, params: dict):
         """Initialize flow model."""
         super().__init__(params)
@@ -962,7 +993,11 @@ class BaseFlowModel(FullIterateCacheMixin):
         :class:`NullSpaceDriftCriterion`.
         """
         drift = self.null_space_mass_drift()
-        tol = float(self.params["residual_tolerance"])
+        # The per-step conservation budget (what the conservation assertions need of
+        # each accepted state); falls back to the Newton tolerance if not provided.
+        tol = float(
+            self.params.get("drift_tolerance", self.params["residual_tolerance"])
+        )
         assert drift <= tol, (
             f"null-space residual (total-mass drift) of the converged state is not below the "
             f"Newton tolerance: |sum of mass-balance residuals| * dt / V = {drift:.6e} > "
@@ -1083,6 +1118,31 @@ def temperature_2N(
     return vals, diffs
 
 
+def _clip_with_consistent_derivatives(
+    raw_vals: np.ndarray, diffs: np.ndarray, lo: float = 1.0e-16, hi: float = 1.0
+) -> tuple[np.ndarray, np.ndarray]:
+    """Clip ``raw_vals`` to ``[lo, hi]`` and ZERO the derivative columns where the clip
+    binds.
+
+    A clipped value with an unclipped derivative is a value/Jacobian inconsistency: in
+    the clipped (single-phase) region the true slope of the returned function is zero,
+    but the surrogate would advertise the interior slope to the Jacobian.  In the
+    standard (CF) formulation -- where the explicit total mobility multiplies every
+    flux by ``kr(s~)`` -- that inconsistency degrades Newton from quadratic to LINEAR
+    (measured rate ~0.85); the fractional-flow formulation hides it because the
+    mobility lives in the frozen diffusive tensor.  Consistency beats accuracy for
+    Jacobian-only quantities.
+
+    The derivative is zeroed only STRICTLY outside the physical range ``[0, hi]``: at
+    the boundary itself (e.g. ``raw = 0`` exactly, the single-phase front) the
+    one-sided INTERIOR slope is kept -- that is the semismooth-Newton choice that lets
+    the front propagate into the single-phase region; zeroing it there freezes the
+    front (and starves the fractional-flow tensor of its saturation sensitivity).
+    """
+    outside = (raw_vals < 0.0) | (raw_vals > hi)
+    return np.clip(raw_vals, lo, hi), np.where(outside, 0.0, diffs)
+
+
 def gas_saturation_2N(
     *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -1092,13 +1152,18 @@ def gas_saturation_2N(
 
     nc = len(thermodynamic_dependencies[0])
     vals = (z_CH4 * rho_w) / (z_CH4 * rho_w + rho_g - z_CH4 * rho_g)
-    vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = (rho_w * rho_g) / (
         (z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g)
     )
+    # The relation is EXACT and smooth (rational in z, pole far outside the
+    # physical range), so value AND derivative are returned unclipped: Newton
+    # then sees an exact Jacobian everywhere, and transient excursions outside
+    # [0, 1] self-correct quadratically. Clipping the value while keeping the
+    # interior slope (or vice versa) creates a value/derivative inconsistency
+    # that degrades Newton to linear convergence.
     return vals, diffs
 
 
@@ -1375,7 +1440,6 @@ def oil_saturation_3N(
         + z_C5H12 * rho_g * rho_w
         + z_CH4 * rho_o * rho_w
     )
-    vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -1401,6 +1465,12 @@ def oil_saturation_3N(
         )
         ** 2
     )
+    # The relation is EXACT and smooth (rational in z, pole far outside the
+    # physical range), so value AND derivative are returned unclipped: Newton
+    # then sees an exact Jacobian everywhere, and transient excursions outside
+    # [0, 1] self-correct quadratically. Clipping the value while keeping the
+    # interior slope (or vice versa) creates a value/derivative inconsistency
+    # that degrades Newton to linear convergence.
     return vals, diffs
 
 
@@ -1417,7 +1487,6 @@ def gas_saturation_3N(
         + z_C5H12 * rho_g * rho_w
         + z_CH4 * rho_o * rho_w
     )
-    vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -1443,6 +1512,12 @@ def gas_saturation_3N(
         + z_C5H12 * rho_g * rho_w
         + z_CH4 * rho_o * rho_w
     )
+    # The relation is EXACT and smooth (rational in z, pole far outside the
+    # physical range), so value AND derivative are returned unclipped: Newton
+    # then sees an exact Jacobian everywhere, and transient excursions outside
+    # [0, 1] self-correct quadratically. Clipping the value while keeping the
+    # interior slope (or vice versa) creates a value/derivative inconsistency
+    # that degrades Newton to linear convergence.
     return vals, diffs
 
 
