@@ -94,6 +94,7 @@ from tests.functional.setups.buoyancy_flow_model import (
     ModelGeometry3D,
     ModelMDGeometry2D,
     ModelMDGeometry3D,
+    NullMeanPressureLinearSolver,
     buoyancy_flow_model,
     to_Mega,
 )
@@ -177,14 +178,23 @@ def _run_buoyancy_model(
         },
     }
 
+    # The closed all-Neumann domain leaves a singular constant-pressure mode: the Newton
+    # solver must use the null-mean-bordered direct solve (the gauge constraint), NOT the
+    # default Pardiso solve. On this branch the linear solver is an object passed to the
+    # NewtonSolver, so the gauge is wired here instead of overriding
+    # ``model.solve_linear_system``.
+    nonlinear_solver = pp.solvers.NewtonSolver(
+        params=solver_params,
+        linear_solver=NullMeanPressureLinearSolver(),
+    )
+
     # Constructing the runner prepares the simulation (sets equations), so the AD graph
     # is available for inspection before the (slow) run.
-    runner = pp.ModelRunner(model, solver_params)
+    runner = pp.ModelRunner(model, solver_params, nonlinear_solver=nonlinear_solver)
     _report_ad_graph_size( model, f"{model_class.__name__} dim={dim} md={md}")
     runner.run()
 
-
-@pytest.mark.parametrize("fractional_flow", [True])
+@pytest.mark.parametrize("fractional_flow", [True, False])
 @pytest.mark.parametrize("n_phases, dim, expected_order_loss", Parameterization)
 @pytest.mark.parametrize("md", [False,True])  # False skipped to limit computational cost.
 def test_buoyancy_model(

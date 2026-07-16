@@ -29,14 +29,6 @@ from porepy.models.compositional_flow import (
 )
 
 
-def flow_template(fractional_flow: bool) -> type:
-    """Flow template selected by the ``fractional_flow`` model parameter."""
-    return (
-        CompositionalFractionalFlowTemplate
-        if fractional_flow
-        else CompositionalFlowTemplate
-    )
-
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)
 rho_o = 700.0  #: Density of oil (C5H12)
@@ -394,6 +386,12 @@ class NullMeanPressureSolve(pp.PorePyModel):
 
     Self-contained: implemented here with scipy only, so this setup depends on nothing beyond
     PorePy itself.
+
+    The bordered solve itself lives in :class:`NullMeanPressureLinearSolver`: on this branch
+    the nonlinear solver delegates linear solves to a ``pp.solvers.LinearSolverBase`` object
+    (a model-level ``solve_linear_system`` override is never called), so the gauge constraint
+    must be expressed as a linear solver and passed to the ``NewtonSolver``.  This mixin
+    contributes the model-side piece: which DOFs span the pressure kernel.
     """
 
     def null_mean_pressure_dofs(self) -> np.ndarray:
@@ -402,15 +400,33 @@ class NullMeanPressureSolve(pp.PorePyModel):
         matrix = self.mdg.subdomains(dim=self.nd)
         return np.asarray(es.dofs_of([es.md_variable("pressure", matrix)]), dtype=int)
 
-    def solve_linear_system(self) -> np.ndarray:
+
+class NullMeanPressureLinearSolver(pp.solvers.LinearSolverBase):
+    """Direct solver for the null-mean-bordered system of :class:`NullMeanPressureSolve`.
+
+    Solves ``[[A, C^T], [C, 0]] [dx; lam] = [b; 0]`` with scipy's sparse direct solver and
+    returns the increment ``dx`` only.  The model (needed for the pressure-kernel DOFs) is
+    provided by the ``NewtonSolver`` through :meth:`initialize_with_model`.
+    """
+
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        self._model = model
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
         """Direct solve of the null-mean-bordered system; returns the increment ``dx`` only."""
+        import time
+
         from scipy.sparse import bmat, csr_matrix
         from scipy.sparse.linalg import spsolve
 
-        A, b = self.linear_system
+        t_0 = time.time()
+        A, b = linear_system.matrix, linear_system.rhs
+        assert A is not None, "Cannot solve a linear system whose matrix was released."
         A = A.tocsr()
         n = A.shape[0]
-        dofs = self.null_mean_pressure_dofs()
+        dofs = self._model.null_mean_pressure_dofs()
         # One row: Sum(dp) over the matrix pressure DOFs = 0.
         C = csr_matrix(
             (np.ones(dofs.size), (np.zeros(dofs.size, dtype=int), dofs)), shape=(1, n)
@@ -439,7 +455,8 @@ class NullMeanPressureSolve(pp.PorePyModel):
             f"{abs(lam):.3e} vs ||b||_inf = {scale:.3e}; the gauge constraint is injecting mass "
             f"into the matrix mass-balance rows rather than absorbing the iterate's own drift"
         )
-        return x[:n]                                    # drop the Lagrange multiplier
+        # Drop the Lagrange multiplier.
+        return x[:n], pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t_0)
 
 
 class SecondaryEquations(LocalElimination):
@@ -531,8 +548,9 @@ class _MemoizedSurrogateFactory(pp.ad.SurrogateFactory):
 
 
 class BaseFlowModel(pp.PorePyModel):
-    """Template-agnostic flow behaviour; the flow template is attached at build time
-    (see :func:`flow_template`) so ``fractional_flow`` can select it."""
+    """Template-agnostic flow behaviour; the flow template is attached by the concrete
+    ``BuoyancyFlowModel*`` classes (see :func:`buoyancy_flow_model`), one statically
+    declared per ``fractional_flow`` template."""
 
     def __init__(self, params: dict):
         """Initialize flow model."""
@@ -561,7 +579,7 @@ class BaseFlowModel(pp.PorePyModel):
         assert order >= self.expected_order_loss, (
             f"{name} not conserved: normalized loss {loss:.6e} -> order {order:.0f}, "
             f"required order >= {self.expected_order_loss} "
-            f"(i.e. loss below {10.0 ** -(self.expected_order_loss - 1):.0e})"
+            f"(i.e. loss below {10.0 ** -(self.expected_order_loss):.0e})"
         )
 
     def assert_buoyancy_reciprocal(self) -> None:
@@ -658,7 +676,7 @@ class BaseFlowModel(pp.PorePyModel):
         """``{quantity: (reference, numerical)}`` volume integrals; implemented per phase count."""
         raise NotImplementedError
 
-    def assert_reference_matches_state(self, tol: float = 1.0e-12) -> None:
+    def assert_reference_matches_state(self, tol: float | None = None) -> None:
         """At t=0 every REFERENCE must equal its NUMERICAL counterpart EXACTLY.
 
         The conservation checks measure ``|ref - num|`` and attribute it to the buoyancy
@@ -669,14 +687,22 @@ class BaseFlowModel(pp.PorePyModel):
         offset that is present from the start and has nothing to do with conservation -- it would
         make the test blame the scheme for a bug in its own reference.  Checking it at t=0 is what
         separates "the reference is wrong" from "the scheme does not conserve".
+
+        The default tolerance is MACHINE PRECISION (a few ULPs, relative): at t=0 reference and
+        numerical integrals are computed from the same initial arrays, differing only in
+        floating-point summation order, so EVERY quantity entering the conservation assertions
+        must match to rounding error -- anything above a few ULPs is a genuine inconsistency in
+        the reference (mixing rule, by-unity phase, or initial fields), not rounding.
         """
+        if tol is None:
+            tol = 4.0 * np.finfo(float).eps
         for name, (ref, num) in self.conservation_integrals().items():
             mismatch = abs(ref - num)
             assert mismatch <= tol * max(abs(ref), 1.0), (
-                f"{name}: the t=0 reference does not match the initial state: |ref - num| = "
-                f"{mismatch:.6e} (ref {ref:.6e}, num {num:.6e}). The conservation reference is "
-                f"inconsistent with the model's own initial fields, so any later 'loss' measures "
-                f"this offset rather than the buoyancy discretization."
+                f"{name}: the t=0 reference does not match the initial state EXACTLY: "
+                f"|ref - num| = {mismatch:.6e} (ref {ref:.16e}, num {num:.16e}). The conservation "
+                f"reference is inconsistent with the model's own initial fields, so any later "
+                f"'loss' measures this offset rather than the buoyancy discretization."
             )
 
     def prepare_simulation(self) -> None:
@@ -930,6 +956,9 @@ class FlowModel2N(
         self.assert_buoyancy_reciprocal()
         for name, (ref, num) in self.conservation_integrals().items():
             self.assert_conserved(name, abs(ref - num))
+        # Every CONVERGED state must have genuinely redistributed the phases: conservation of
+        # a state frozen at the initial condition would be vacuous.
+        self.assert_saturations_evolved()
 
     def conservation_integrals(self) -> dict[str, tuple[float, float]]:
         """``{quantity: (reference, numerical)}`` volume integrals, normalized by total volume.
@@ -1365,6 +1394,9 @@ class FlowModel3N(
         self.assert_buoyancy_reciprocal()
         for name, (ref, num) in self.conservation_integrals().items():
             self.assert_conserved(name, abs(ref - num))
+        # Every CONVERGED state must have genuinely redistributed the phases: conservation of
+        # a state frozen at the initial condition would be vacuous.
+        self.assert_saturations_evolved()
 
     def conservation_integrals(self) -> dict[str, tuple[float, float]]:
         """``{quantity: (reference, numerical)}`` volume integrals; see the 2N counterpart."""
@@ -1520,26 +1552,96 @@ class FlowModel3N(
         }
 
 
-_PHASE_PARTS = {
-    2: (FluidMixture2N, InitialConditions2N, SecondaryEquations2N, FlowModel2N),
-    3: (FluidMixture3N, InitialConditions3N, SecondaryEquations3N, FlowModel3N),
+# Statically-declared buoyancy models: one concrete class per (phase count, template)
+# combination, so the MRO of each configuration is explicit and fixed at import time.
+# In every class the parts are ordered fluid -> IC -> BC -> gauge -> secondary ->
+# FlowModel*N -> template, so ``FlowModel*N`` -> ``BaseFlowModel`` (whose
+# ``set_equations`` registers the buoyancy discretization parameters) precedes the
+# template's equation setters in the MRO.
+#
+# NullMeanPressureSolve contributes null_mean_pressure_dofs, consumed by
+# NullMeanPressureLinearSolver (which must be passed to the NewtonSolver): the closed
+# all-Neumann domain leaves a singular constant-pressure mode that the default direct
+# solver cannot handle.
+
+
+class BuoyancyFlowModelFF2N(
+    FluidMixture2N,
+    InitialConditions2N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations2N,
+    FlowModel2N,
+    CompositionalFractionalFlowTemplate,
+):
+    """Two-phase buoyancy model on the fractional-flow template.
+
+    Requires ``params['fractional_flow'] = True``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+class BuoyancyFlowModelCF2N(
+    FluidMixture2N,
+    InitialConditions2N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations2N,
+    FlowModel2N,
+    CompositionalFlowTemplate,
+):
+    """Two-phase buoyancy model on the standard compositional-flow template.
+
+    Requires ``params['fractional_flow'] = False``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+class BuoyancyFlowModelFF3N(
+    FluidMixture3N,
+    InitialConditions3N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations3N,
+    FlowModel3N,
+    CompositionalFractionalFlowTemplate,
+):
+    """Three-phase buoyancy model on the fractional-flow template.
+
+    Requires ``params['fractional_flow'] = True``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+class BuoyancyFlowModelCF3N(
+    FluidMixture3N,
+    InitialConditions3N,
+    BoundaryConditions,
+    NullMeanPressureSolve,
+    SecondaryEquations3N,
+    FlowModel3N,
+    CompositionalFlowTemplate,
+):
+    """Three-phase buoyancy model on the standard compositional-flow template.
+
+    Requires ``params['fractional_flow'] = False``: the flag (read by
+    ``is_fractional_flow``) and the template must agree.
+    """
+
+
+_BUOYANCY_MODELS: dict[tuple[int, bool], type] = {
+    (2, True): BuoyancyFlowModelFF2N,
+    (2, False): BuoyancyFlowModelCF2N,
+    (3, True): BuoyancyFlowModelFF3N,
+    (3, False): BuoyancyFlowModelCF3N,
 }
 
 
 def buoyancy_flow_model(n_phases: int, fractional_flow: bool = True) -> type:
-    """Assemble the N-phase buoyancy model with the fractional_flow-selected template.
+    """Return the statically-declared N-phase buoyancy model for the requested template.
 
-    The template is attached below ``FlowModel*`` -> ``BaseFlowModel`` so ``BaseFlowModel``
-    (whose ``set_equations`` registers the buoyancy discretization parameters) precedes
-    the template's equation setters in the MRO.
+    ``fractional_flow=True`` selects the ``CompositionalFractionalFlowTemplate`` variant,
+    ``False`` the ``CompositionalFlowTemplate`` one.  The caller must set the matching
+    ``params['fractional_flow']`` flag on the model.
     """
-    fluid, ic, secondary, flow = _PHASE_PARTS[n_phases]
-    flow = type(flow.__name__, (flow, flow_template(fractional_flow)), {})
-    # NullMeanPressureSolve precedes the template so its solve_linear_system (the bordered
-    # null-mean solve) wins over the default direct solve: the closed all-Neumann domain leaves a
-    # singular constant-pressure mode that the default solver cannot handle.
-    return type(
-        f"BuoyancyFlowModel{n_phases}N",
-        (fluid, ic, BoundaryConditions, NullMeanPressureSolve, secondary, flow),
-        {},
-    )
+    return _BUOYANCY_MODELS[(n_phases, fractional_flow)]
