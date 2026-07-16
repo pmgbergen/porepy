@@ -595,7 +595,7 @@ def _project_simplex(s):
     return s * scale
 
 
-def newton(r, x0, pattern, grid, dt, atol=1e-4, maxit=20, linsolve=None, relag=None):
+def newton(r, x0, pattern, grid, dt, atol=1e-3, maxit=11, linsolve=None, relag=None):
     """Newton for the CLOSED domain, with a LAGRANGE-MULTIPLIER pressure datum.
 
     ``r`` is the raw residual, whose pressure block is singular (null space = constant

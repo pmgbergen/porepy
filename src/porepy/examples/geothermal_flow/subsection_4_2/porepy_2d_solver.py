@@ -115,8 +115,8 @@ BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively im
 
 # Optional mixed-dimensional CONDUCTIVE fractures (params["fractures"]=True; --md).  The
 # equi-dimensional barriers are UNCHANGED; the fractures are 1D lines embedded in the 2D matrix.
-FRACTURE_K_FACTOR = 1.0           # fracture (dim<nd) permeability = k * this (1000x matrix)
-FRACTURE_APERTURE = 1.0e-7          # fracture aperture [m] -> specific volume of the 1D fracture
+FRACTURE_K_FACTOR = 1.0e+3          # fracture (dim<nd) permeability = k * this (1000x matrix)
+FRACTURE_APERTURE = 1.0e-9          # fracture aperture [m] -> specific volume of the 1D fracture
 
 
 # --------------------------------------------------------------------------------------- #
@@ -1232,7 +1232,7 @@ SNAP_DAYS = (0.0, 78.0)                   # hamon SNAP_DAYS -- the Fig-5 saturat
 DT_DAYS = 1.0                             # nominal step [days] -- the constant-dt march value
 DT_INIT_DAYS = 0.125                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
-DT_MAX_DAYS = 1.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
+DT_MAX_DAYS = 10.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
 
 
@@ -1268,10 +1268,10 @@ def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
     return pp.TimeManager(
         schedule=sched, dt_init=dt_init, constant_dt=False,
         dt_min_max=(dt_min, dt_max),           # floor dt_max/64, cap dt_max (never overshoot it)
-        iter_optimal_range=(4, 10),            # grow dt when Newton is easy, shrink when it is hard
+        iter_optimal_range=(3, 8),            # grow dt when Newton is easy, shrink when it is hard
         iter_relax_factors=(0.5, 2.0),         # halve on a cut / double on grow-back (hamon *0.5, *2)
         recomp_factor=0.5, recomp_max=8,       # reject-and-halve, up to 8 consecutive cuts
-        iter_max=20, print_info=True,          # hamon Newton cap = 20
+        iter_max=11, print_info=True,          # hamon Newton cap = 20
     )
 
 
@@ -1292,8 +1292,7 @@ solid_constants = pp.SolidConstants(
 # (classical Lee/Hamon U^HU), reached via ``fractional_flow=False`` (the total-mass formulation,
 # whose FluidBuoyancy non-fractional branch is the mobility-product form) + hybrid upwinding.
 _SCHEME_CONFIG = {
-    "hu": dict(fractional_flow=False, mass_mobility_weighted_permeability=False,
-               buoyancy_upwinding="hybrid"),
+    "hu": dict(fractional_flow=False,buoyancy_upwinding="hybrid"),
 }
 
 
@@ -1325,7 +1324,7 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
         # replay; the fixed-dimensional runs still use the fully compiled path.)
         ad_backend = "native"
     params = dict(
-        enable_buoyancy_effects=True,
+        enable_buoyancy_effects=False,
         lag_buoyancy_direction=False,
         material_constants={"solid": solid_constants},
         fractures=fractures,                            # -> geometry.set_fractures (10 conductive 1D lines)
@@ -1336,11 +1335,6 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
         prepare_simulation=False,
         folder_name=f"visualization_barriers{frac_tag}_{scheme}_N{nphase}",
         file_name=f"barriers{frac_tag}_{scheme}_N{nphase}",
-        # Step control: "LS" (line search) / "TR" (trust region) / "TR-LS" / "None" (plain Newton)
-        step_control_method="None",
-        step_control_alpha_min=1.0e-5,
-        activate_step_control_after_iter=2,
-        # AD backend: "native" (PorePy parser) or "sparsa" (external, ~5x faster; needs sparsa).
         ad_backend=ad_backend,
     )
     params.update(_SCHEME_CONFIG[scheme])
@@ -1458,11 +1452,11 @@ if __name__ == "__main__":
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-4
+                tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-4
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=20),      # hamon Newton cap = 20
+            "max_iter": pp.MaxIterationsCriterion(max_iterations=11),      # hamon Newton cap = 11
         },
     }
     # Construct the runner first (this prepares the simulation), so the system size can
