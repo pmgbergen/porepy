@@ -28,7 +28,11 @@ from .convergence_check import (
     ConvergenceStatusCollection,
     DivergenceCriteria,
 )
-from .linear_solver import LinearSolverBase, LinearSolverDirect, LinearSolverStatus
+from .linear_solvers.linear_solver import (
+    LinearSolverBase,
+    LinearSolverDirect,
+    LinearSolverStatus,
+)
 from .nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
@@ -101,6 +105,8 @@ class NewtonSolver(NonlinearSolverBase):
         self,
         params: Optional[dict] = None,
         is_nonlinear_problem: bool = True,
+        equation_tags: Optional[list[pp.EquationTag]] = None,
+        variable_tags: Optional[list[pp.VariableTag]] = None,
         linear_solver: Optional[LinearSolverBase] = None,
     ) -> None:
         if params is None:
@@ -114,13 +120,27 @@ class NewtonSolver(NonlinearSolverBase):
             linear_solver = LinearSolverDirect(backend="pypardiso")
         self.linear_solver: LinearSolverBase = linear_solver
         """Linear solver object to solve the Jacobian linear systems."""
-        self._linear_solver_initialized = False
+        self._initialized_with_model = False
         """Whether model-dependent linear solver state has been initialized.
         Initialization is done once at :meth:`solve`. It is now assumed that this class
         must be used with the same model, and should not be reused for a different
         model.
 
         """
+
+        if equation_tags is None:
+            equation_tags = []
+        if variable_tags is None:
+            variable_tags = []
+        self.equation_tags: list[pp.EquationTag] = equation_tags
+        """TODO YZ"""
+        self.variable_tags: list[pp.VariableTag] = variable_tags
+        """TODO YZ"""
+        self.active_equations: Optional[dict[str, pp.GridLikeSequence]] = None
+        """TODO YZ"""
+        self.active_variables: Optional[list[pp.ad.Variable]] = None
+        """TODO YZ"""
+        # self.variable_indexer: pp.Variabl
 
         self.init_convergence_criteria(is_nonlinear_problem=is_nonlinear_problem)
         self.init_divergence_criteria(is_nonlinear_problem=is_nonlinear_problem)
@@ -313,6 +333,23 @@ class NewtonSolver(NonlinearSolverBase):
         else:
             self.solver_progressbar = DummyProgressBar()
 
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        if len(self.equation_tags) > 0:
+            self.active_equations = {
+                eq_tag.name: eq_tag.defined_on.domains(model)
+                for eq_tag in self.equation_tags
+            }
+
+        if len(self.variable_tags) > 0:
+            variable_lookup: dict[tuple[str, pp.GridLike], pp.ad.Variable] = {
+                (var.name, var.domain): var for var in model.equation_system.variables
+            }
+            self.active_variables = [
+                variable_lookup[var_tag.name, domain]
+                for var_tag in self.variable_tags
+                for domain in var_tag.defined_on.domains(model)
+            ]
+
     def increase_iteration_index(self) -> None:
         """Advance to the next iteration."""
         self.iteration_index += 1
@@ -328,9 +365,10 @@ class NewtonSolver(NonlinearSolverBase):
 
         """
         # Model-dependent setup of a linear solver is done once.
-        if not self._linear_solver_initialized:
+        if not self._initialized_with_model:
+            self.initialize_with_model(model)
             self.linear_solver.initialize_with_model(model)
-            self._linear_solver_initialized = True
+            self._initialized_with_model = True
 
         # Prepare for nonlinear loop.
         self.before_nonlinear_loop(model)
@@ -470,22 +508,13 @@ class NewtonSolver(NonlinearSolverBase):
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
-        linear_system = model.assemble_linear_system()
+
+        linear_system = model.assemble_linear_system(
+            equations=self.active_equations, variables=self.active_variables
+        )
         nonlinear_increment, linear_solver_status = (
             self.linear_solver.solve_linear_system(linear_system)
         )
-
-        # This is a temporary approach for compatability. It is a linear solver's
-        # responsibility and will be moved to a new linear solver class when tags and
-        # indexer are introduced.
-        if (
-            hasattr(model, "_apply_schur_complement_reduction")
-            and model._apply_schur_complement_reduction()
-        ):
-            return model.equation_system.expand_schur_complement_solution(
-                nonlinear_increment
-            ), linear_solver_status
-
         return nonlinear_increment, linear_solver_status
 
     def after_nonlinear_iteration(
@@ -505,7 +534,10 @@ class NewtonSolver(NonlinearSolverBase):
         # Update model status (iterate) before checking convergence, so that the
         # convergence check uses the updated state. Also, after_nonlinear_convergence
         # may expect the converged solution to already be stored as an iterate.
-        model.after_nonlinear_iteration(nonlinear_increment)
+        model.after_nonlinear_iteration(
+            nonlinear_increment=nonlinear_increment,
+            updated_variables=self.active_variables,
+        )
 
         # Monitor convergence.
         convergence_status, divergence_status, convergence_info = (
@@ -549,7 +581,9 @@ class NewtonSolver(NonlinearSolverBase):
 
         """
         # Fetch the residual and current iterate.
-        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        residual, _ = model.equation_system.assemble(
+            evaluate_jacobian=False, equations=self.active_equations
+        )
         iterate = model.equation_system.get_variable_values(iterate_index=0)
 
         # Check convergence status based on current iteration.
@@ -599,7 +633,7 @@ class NewtonSolver(NonlinearSolverBase):
 
         # Log norms.
         nonlinear_increment_norm = np.linalg.norm(nonlinear_increment)
-        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        residual, _ = model.equation_system.assemble(evaluate_jacobian=False)
         residual_norm = np.linalg.norm(residual)
         logger.info(
             f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "

@@ -17,7 +17,6 @@ The tests focus on various assembly methods:
         present.
     * test_assemble: Assemble sub-blocks of the full set of equations.
     * test_extract_subsystem: Extract a new EquationSystem for a subset of equations.
-    * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
 
 """
 

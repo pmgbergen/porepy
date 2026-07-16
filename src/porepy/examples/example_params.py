@@ -82,8 +82,6 @@ model_params = {
     # Compositional model (multiphase multicomponent flow)
     "fractional_flow": True,
     "enable_buoyancy_effects": False,
-    "apply_schur_complement_reduction": False,
-    "schur_complement_inverter": None,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "phase_property_params": None,  # See Phase.compute_properties for details.

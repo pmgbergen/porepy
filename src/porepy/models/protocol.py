@@ -692,7 +692,11 @@ else:
 
             """
 
-        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        def after_nonlinear_iteration(
+            self,
+            nonlinear_increment: np.ndarray,
+            updated_variables: Optional[list[pp.ad.Variable]] = None,
+        ) -> None:
             """Method to be called after every non-linear iteration."""
 
         def after_nonlinear_convergence(self) -> None:
@@ -708,7 +712,9 @@ else:
 
             """
 
-        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        def assemble_linear_system(
+            self, equations, variables
+        ) -> pp.solvers.LinearSystem:
             """Assemble and return the linearized system."""
 
         def after_nonlinear_failure(self) -> None:

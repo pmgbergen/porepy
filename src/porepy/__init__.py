@@ -273,3 +273,11 @@ from porepy.models.metric import (
     VariableBasedLebesgueMetric,
     EquationBasedLebesgueMetric,
 )
+
+from porepy.models.equation_variable_tags import (
+    EquationTag,
+    VariableTag,
+    Indexer,
+    DefaultEquationTags,
+    DefaultVariableTags,
+)

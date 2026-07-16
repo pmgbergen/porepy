@@ -140,12 +140,6 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
-        self._schur_complement_primary_variables: list[str] = []
-        """See :meth:`schur_complement_primary_variables`."""
-
-        self._schur_complement_primary_equations: list[str] = []
-        """See :meth:`schur_complement_primary_equations`."""
-
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
@@ -162,6 +156,7 @@ class SolutionStrategy(pp.PorePyModel):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
+        self.equation_system.assemble_variable_indexer()
         # After fluid and variables are defined, we can define the secondary quantities
         # like fluid properties (which depend on variables). Creating fluid and
         # variables before defining secondary thermodynamic properties is critical in
@@ -177,6 +172,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
         self.set_equations()
+        self.equation_system.assemble_equation_indexer()
 
         self.update_discretization_parameters()
         self.discretize()
@@ -313,84 +309,6 @@ class SolutionStrategy(pp.PorePyModel):
         """
         return np.array([0])
 
-    @property
-    def schur_complement_primary_equations(self) -> list[str]:
-        """Names of the primary equations for the Schur complement reduction of the
-        linear system.
-
-        They define the row-block which does not contain the sub-matrix which is to be
-        inverted for the Schur complement.
-
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of equation names to be set as primary equations.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the equations (currently) defined as primary equations.
-
-        """
-        return self._schur_complement_primary_equations
-
-    @schur_complement_primary_equations.setter
-    def schur_complement_primary_equations(self, names: list[str]) -> None:
-        known_equations = list(self.equation_system.equations.keys())
-        for n in names:
-            if n not in known_equations:
-                raise ValueError(f"Equation {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary equation names must be unique.")
-        # Shallow copy for safety, and keep order of equation system.
-        self._schur_complement_primary_equations = [
-            n for n in known_equations if n in names
-        ]
-
-    @property
-    def schur_complement_primary_variables(self) -> list[str]:
-        """Names of the primary variables for the Schur complement reduction of the
-        linear system.
-
-        They define the column-block which does not contain the sub-matrix which is to
-        be inverted for the Schur complement.
-
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of variable names to be set as primary variables.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the variables (currently) defined as primary variables.
-
-        """
-        return self._schur_complement_primary_variables
-
-    @schur_complement_primary_variables.setter
-    def schur_complement_primary_variables(self, names: list[str]) -> None:
-        known_variables = list(set(v.name for v in self.equation_system.variables))
-        for n in names:
-            if n not in known_variables:
-                raise ValueError(f"Variable {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary variables names must be unique.")
-        # Shallow copy for safety
-        self._schur_complement_primary_variables = [n for n in names]
-
     def before_time_step(self) -> None:
         """Called from the outside of the model at the start of each time step.
 
@@ -436,7 +354,11 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         """Method to be called after every non-linear iteration.
 
         The base method does the following:
@@ -451,7 +373,10 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
+            values=nonlinear_increment,
+            variables=updated_variables,
+            additive=True,
+            iterate_index=0,
         )
         self.update_derived_quantities()
 
@@ -779,28 +704,12 @@ class SolutionStrategy(pp.PorePyModel):
         """Run at the end of simulation. Can be used for cleanup etc."""
         pass
 
-    def assemble_linear_system(self) -> solvers.LinearSystem:
-        """Assemble and return the linearized system.
+    def assemble_linear_system(self, equations, variables) -> solvers.LinearSystem:
+        """Assemble and return the linearized system. TODO YZ
 
         The linear system is defined by the current state of the model.
 
-        If ``params['apply_schur_complement_reduction']`` is True, the
-        :meth:`schur_complement_primary_variables` and
-        :meth:`schur_complement_primary_equations` are used to perform a Schur
-        complement technique.
-
-        To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
-        EquationSystem.default_schur_complement_inverter` is used by default.
-        This inverter assumes the secondary equations to consist of non-overlapping
-        blocks (local equations, block-diagonal matrix).
-        The user can provide a custom inverter
-        ``model.params['schur_complement_inverter']``, which is a callable taking a
-        sparse matrix and returning the inverse (sparse) matrix.
-
         See Also:
-
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
 
         Returns:
@@ -809,27 +718,13 @@ class SolutionStrategy(pp.PorePyModel):
         """
         t_0 = time.time()
 
-        if self._apply_schur_complement_reduction():
-            assert self.schur_complement_primary_variables, (
-                "Primary column block for Schur technique not found."
-            )
-            assert self.schur_complement_primary_equations, (
-                "Primary row block for Schur technique not defined."
-            )
-            mat, rhs = self.equation_system.assemble_schur_complement_system(
-                self.schur_complement_primary_equations,
-                self.schur_complement_primary_variables,
-                inverter=cast(
-                    Callable[[sps.spmatrix], sps.spmatrix],
-                    self.params.get("schur_complement_inverter", None),
-                ),
-            )
-        else:
-            mat, rhs = self.equation_system.assemble()
+        linear_system = self.equation_system.assemble(
+            equations=equations, variables=variables
+        )
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
-        return solvers.LinearSystem(matrix=mat, rhs=rhs)
+        return linear_system
 
     def solve_linear_system(self) -> Never:
         raise AttributeError(
@@ -837,17 +732,6 @@ class SolutionStrategy(pp.PorePyModel):
             "function, provide a custom linear solver to the nonlinear solver, e.g.: "
             "pp.NewtonSolver(linear_solver=CustomLinearSolver())"
         )
-
-    def _apply_schur_complement_reduction(self) -> bool:
-        """Returns the model parameter on whether the linear system should be reduced
-        via Schur complement using the defined primary and secondary equations and
-        variables.
-
-        Can be set via ``model.params['apply_schur_complement_reduction'].
-        Returns False by default.
-
-        """
-        return bool(self.params.get("apply_schur_complement_reduction", False))
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear.

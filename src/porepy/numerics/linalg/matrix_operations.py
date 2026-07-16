@@ -1722,7 +1722,9 @@ def sparse_array_to_row_col_data(
 def generate_permutation_to_block_diag_matrix(
     A: sps.spmatrix,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Compute row and column permutations to transform a non-diagonal block matrix
+    """TODO YZ
+
+    Compute row and column permutations to transform a non-diagonal block matrix
     into block-diagonal form by analyzing its sparsity pattern.
 
     The method constructs a bipartite graph representing the matrix's non-zero

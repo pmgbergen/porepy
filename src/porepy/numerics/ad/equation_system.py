@@ -5,6 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from collections import defaultdict
 from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 from warnings import warn
@@ -18,7 +19,7 @@ import porepy as pp
 from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
-__all__ = ["EquationSystem"]
+__all__ = ["EquationSystem", "VariableIndexer", "EquationIndexer"]
 
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
@@ -175,18 +176,6 @@ class EquationSystem:
 
         """
         self._ad_parser = _ad_parser.AdParser(self.mdg)
-
-        self._secondary_block_permutation: dict[
-            Literal["row_perm_indices", "col_perm_indices", "block_sizes"], np.ndarray
-        ] = {}
-        """Stores the information on the permutations in the secondary block of the
-        linear system, which is to be eliminated when
-        ``model.params['apply_schur_complement_reduction'] == True``.
-
-        Permutations generated and stored using :func:`~porepy.numerics.linalg.
-        matrix_operations.generate_permutation_to_block_diag_matrix`.
-
-        """
 
     def SubSystem(
         self,
@@ -1309,48 +1298,6 @@ class EquationSystem:
         }
         return list(sorted(equations_on_domains, key=lambda eq: equation_order[eq]))
 
-    def _gridbased_equation_complement(
-        self, equations: dict[str, None | np.ndarray]
-    ) -> dict[str, None | np.ndarray]:
-        """Takes the information from equation parsing and finds for each equation
-        (identified by its name string) the indices which were excluded in the
-        grid-sense.
-
-        Parameters:
-            equations: Dictionary with equation names as keys and indices as values.
-                The indices are the indices of the rows in the global system that
-                were included in the last parsing of the equations.
-
-        Returns:
-            A dictionary with the name of the equation as key and the grid-complement
-            as values. If the complement is empty, the value is None.
-
-        """
-        equation_indexer = self.equation_indexer
-
-        complement: dict[str, None | np.ndarray] = dict()
-        for name, idx in equations.items():
-            # If indices were filtered based on grids, we find the complementing
-            # indices.
-            # If idx is None, this means no filtering was done.
-            if idx is not None:
-                # Get the indices associated with this equation.
-                all_idx_list = equation_indexer.equation_image_space_composition[name]
-                all_idx = (
-                    np.concatenate(list(all_idx_list.values()))
-                    if len(all_idx_list) > 0
-                    else np.empty(0, dtype=int)
-                )
-
-                # Complementing indices are found by deleting the filtered indices.
-                complement_idx = np.delete(all_idx, idx)
-                complement.update({name: complement_idx})
-
-            # If there was no grid-based row filtering, the complement is empty.
-            else:
-                complement.update({name: None})
-        return complement
-
     def discretize(
         self, equations: Optional[EquationList | EquationRestriction] = None
     ) -> None:
@@ -1396,7 +1343,7 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]: ...
+    ) -> pp.solvers.LinearSystem: ...
 
     @overload
     def assemble(
@@ -1405,7 +1352,7 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> np.ndarray: ...
+    ) -> tuple[np.ndarray, EquationIndexer]: ...
 
     def assemble(
         self,
@@ -1413,7 +1360,7 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray] | np.ndarray:
+    ) -> pp.solvers.LinearSystem | tuple[np.ndarray, EquationIndexer]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations, variables and grids.
 
@@ -1522,8 +1469,21 @@ class EquationSystem:
             A = sps.csr_matrix((0, self.num_dofs()))
             rhs_cat = np.empty(0, dtype=float)
 
+        equation_indexer, variable_indexer = self.construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+
         if not evaluate_jacobian:
-            return -rhs_cat
+            return -rhs_cat, equation_indexer
+
+        # TODO YZ
+        variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        offset = 0
+        requested_variables_lookup = set(self._parse_variable_type(variables))
+        for var, dofs in self.variable_indexer.variable_dofs.items():
+            if var in requested_variables_lookup:
+                variable_dofs[var] = np.arange(dofs.size) + offset
+                offset += dofs.size
 
         # Slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using the transposed projection to respective
@@ -1540,7 +1500,13 @@ class EquationSystem:
                 else np.empty(0, dtype=int)
             )
             A = A[:, column_projection]
-        return A, -rhs_cat
+
+        return pp.solvers.LinearSystem(
+            matrix=A,
+            rhs=-rhs_cat,
+            equation_indexer=equation_indexer,
+            variable_indexer=variable_indexer,
+        )
 
     def construct_assembled_matrix_indexers(
         self,

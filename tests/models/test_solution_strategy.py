@@ -596,7 +596,7 @@ def test_schur_complement_inverter_on_model(
             )
 
     model_params = {
-        "apply_schur_complement_reduction": True,
+        # "apply_schur_complement_reduction": True,
         "equilibrium_condition": "dummy",
         "meshing_arguments": {
             "cell_size": 0.1,
@@ -612,8 +612,8 @@ def test_schur_complement_inverter_on_model(
 
     # Set primary equations and variables to get the secondary ones for assembly of
     # secondary block.
-    model.schur_complement_primary_equations = prim_equs
-    model.schur_complement_primary_variables = prim_vars
+    # model.schur_complement_primary_equations = prim_equs
+    # model.schur_complement_primary_variables = prim_vars
 
     secondary_equs = list(
         set(model.equation_system.equations.keys()).difference(set(prim_equs))
