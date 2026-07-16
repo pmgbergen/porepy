@@ -7,6 +7,7 @@ the functionality is thoroughly tested through the test suit for the models.
 
 from __future__ import annotations
 
+import operator
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -15,6 +16,35 @@ import scipy.sparse as sps
 import porepy as pp
 
 from .operators import Operations
+
+_BINARY_OP = {
+    Operations.add: operator.add,
+    Operations.sub: operator.sub,
+    Operations.mul: operator.mul,
+    Operations.div: operator.truediv,
+    Operations.pow: operator.pow,
+    Operations.matmul: operator.matmul,
+}
+"""Callables for the binary operations, avoiding a string eval per node."""
+
+
+def _visit_counts(roots: list[pp.ad.Operator]) -> dict[int, int]:
+    """Number of times each node is reached during a memoized evaluation of ``roots``.
+
+    Children are traversed only on a node's first encounter, mirroring the
+    evaluation: later encounters return the memoized result without descending.
+    """
+    counts: dict[int, int] = {}
+    stack: list[pp.ad.Operator] = list(roots)
+    while stack:
+        node = stack.pop()
+        key = id(node)
+        n = counts.get(key, 0)
+        counts[key] = n + 1
+        # ProjectionList children are parsed directly, not via _evaluate_single.
+        if n == 0 and not isinstance(node, pp.ad.ProjectionList):
+            stack.extend(node.children)
+    return counts
 
 
 class AdParser:
@@ -29,18 +59,6 @@ class AdParser:
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         self._mdg = mdg
         """MixedDimensionalGrid on which the operators are defined."""
-
-        self._cache: dict[pp.ad.Operator, Any] = {}
-        """Cache for parsed operators. This is used to avoid re-parsing the same
-        operator multiple times. The cache is cleared after each evaluation.
-
-        Efficient use of caching has turned out to be difficult to achieve, and the
-        cache is at the moment used sparingly. This will be revisited in the future.
-        """
-
-    def clear_cache(self) -> None:
-        """Clear the cache of parsed operators."""
-        self._cache = {}
 
     @overload
     def evaluate(
@@ -119,13 +137,17 @@ class AdParser:
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
         # Evaluate the operators. A single operator is treated as a list to simplify the
-        # post-processing below.
-        if isinstance(op, list):
-            result_list = [
-                self._evaluate_single(o, ad_base, equation_system) for o in op
-            ]
-        else:
-            result_list = [self._evaluate_single(op, ad_base, equation_system)]
+        # post-processing below. Nodes shared within the expression graph (also across
+        # list members) are evaluated once: the counting pass tells how many consumers
+        # each node has, and the memo entry is dropped when the last one has been
+        # served, keeping only the live frontier of shared results in memory.
+        roots = op if isinstance(op, list) else [op]
+        counts = _visit_counts(roots)
+        memo: dict[int, tuple[Any, int]] = {}
+        result_list = [
+            self._evaluate_single(o, ad_base, equation_system, counts, memo)
+            for o in roots
+        ]
 
         # If the derivative is requested, the results should be AdArrays. Enforce this.
         if derivative:
@@ -157,11 +179,6 @@ class AdParser:
                         "multidimensional."
                     )
 
-        # Clear the cache after each evaluation. For the moment, this seems like the
-        # safest option, although it should be possible to safely cache some results
-        # also between evaluations.
-        self.clear_cache()
-
         if isinstance(op, list):
             return result_list
         else:
@@ -172,26 +189,54 @@ class AdParser:
         op: pp.ad.Operator,
         ad_base: np.ndarray | pp.ad.AdArray,
         equation_system: pp.EquationSystem,
+        counts: dict[int, int] | None = None,
+        memo: dict[int, tuple[Any, int]] | None = None,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-        """Evaluate a single operator.
+        """Evaluate a single operator, memoizing nodes with more than one consumer.
 
         Parameters:
             op: The operator to evaluate.
             ad_base: The base for the automatic differentiation. This should be an
                 AdArray if the derivative is requested, and a numpy array if not.
             equation_system: The EquationSystem wherein the system state is defined.
+            counts: Per-node visit counts from :func:`_visit_counts`. Computed here if
+                not provided.
+            memo: Shared results, each stored with its number of remaining consumers.
 
         Returns:
             A numpy array or an AdArray representation of the operator op, depending on
                 whether the derivative is requested.
 
         """
-        # If the operator is in the cache, return the cached value.
-        if op in self._cache:
-            cached = self._cache[op]
-            return cached
+        if counts is None or memo is None:
+            counts = _visit_counts([op])
+            memo = {}
+        key = id(op)
+        entry = memo.get(key)
+        if entry is not None:
+            res, remaining = entry
+            if remaining == 1:
+                del memo[key]
+            else:
+                memo[key] = (res, remaining - 1)
+            return res
+        res = self._compute(op, ad_base, equation_system, counts, memo)
+        n = counts[key]
+        if n > 1:
+            memo[key] = (res, n - 1)
+        return res
 
-        # The operator is not in the cache. Parse the operator by recursion:
+    def _compute(
+        self,
+        op: pp.ad.Operator,
+        ad_base: np.ndarray | pp.ad.AdArray,
+        equation_system: pp.EquationSystem,
+        counts: dict[int, int],
+        memo: dict[int, tuple[Any, int]],
+    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
+        """Parse a single operator, recursing into its children via
+        :meth:`_evaluate_single`."""
+        # Parse the operator by recursion:
         # 1. If the operator is a leaf (has no children), parse the leaf.
         # 2. If the operator is a composite operator, parse the children and combine
         #    them according to the operator.
@@ -239,7 +284,7 @@ class AdParser:
         # This is not a leaf, but a composite operator. Parse the children and combine
         # them according to the operator.
         child_values = [
-            self._evaluate_single(child, ad_base, equation_system)
+            self._evaluate_single(child, ad_base, equation_system, counts, memo)
             for child in op.children
         ]
 
@@ -260,8 +305,7 @@ class AdParser:
                     child_values = child_values[::-1]
                     flipped = True
                 try:
-                    symbol = Operations.to_symbol(operation)
-                    res = eval(f"child_values[0] {symbol} child_values[1]")
+                    res = _BINARY_OP[operation](child_values[0], child_values[1])
 
                 except ValueError as exc:
                     msg = self._get_error_message(
@@ -344,8 +388,7 @@ class AdParser:
                         )
                         raise ValueError(msg) from exc
                 try:
-                    symbol = Operations.to_symbol(operation)
-                    res = eval(f"child_values[0] {symbol} child_values[1]")
+                    res = _BINARY_OP[operation](child_values[0], child_values[1])
                     return res
                 except ValueError as exc:
                     msg = self._get_error_message(
