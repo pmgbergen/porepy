@@ -2,10 +2,12 @@ from __future__ import annotations
 import logging
 import time
 import csv
+import os
+import json
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse.csgraph import reverse_cuthill_mckee
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Callable, Optional, cast, Any
 
 import porepy as pp
@@ -693,10 +695,12 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                        and np.allclose(Ass.data, 1.0)
                        and np.array_equal(Ass.indices, np.arange(Ass.shape[0])))
         if is_identity:
+            logger.info("  secondary block A_ss is diagonal (identity): LU skipped")
             Ainv_Asp = Asp
             Ainv_bs = bs
             lu = None
         else:
+            logger.info("  secondary block A_ss is not diagonal: LU factorization needed")
             lu = splu(Ass.tocsc())
             Ainv_Asp = spsolve(Ass.tocsc(), Asp)
             if not sps.issparse(Ainv_Asp):
@@ -1853,15 +1857,62 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         print("\n" + header.center(64, "=") + "\n" + summary.as_text(), flush=True)
         return summary
 
+    def save_run_statistics(self, filename: str = "run_statistics") -> str | None:
+        """Persist the run's DoF + nonlinear-solver statistics to the output folder.
+
+        Writes ``<folder>/<filename>.txt`` (human-readable: the :class:`DofSummary` and
+        :class:`NonlinearRunStats` renderings, plus the transport-predictor cost when it ran) and
+        ``<filename>.json`` (the same data structured for downstream tabulation, with the derived
+        averages included).  ``<folder>`` is ``params['folder_name']`` -- the SAME directory the VTU
+        exporter writes to -- so the statistics live beside the visualization.  No-op (returns
+        ``None``) if no output folder is configured.  Available to every derived model."""
+        folder = self.params.get("folder_name")
+        if not folder:
+            return None
+        os.makedirs(folder, exist_ok=True)
+
+        dof = self.dof_summary()
+        stats = self.collect_run_stats()
+        # Curated json-safe subset of the run configuration (skip time managers, tensors, etc.).
+        config = {k: v for k, v in self.params.items()
+                  if isinstance(v, (str, int, float, bool)) or v is None}
+        predictor = None
+        if getattr(self, "_predictor_cum_time", 0.0):
+            predictor = {"cumulative_seconds": round(self._predictor_cum_time, 4),
+                         "n_sweeps": int(getattr(self, "_predictor_n_calls", 0))}
+
+        txt_path = os.path.join(folder, filename + ".txt")
+        with open(txt_path, "w") as fh:
+            fh.write(dof.as_text())
+            fh.write("\n")
+            fh.write(stats.as_text())
+            if predictor:
+                fh.write(f"\n# transport predictor: {predictor['cumulative_seconds']} s "
+                         f"over {predictor['n_sweeps']} sweeps\n")
+
+        dof_json = asdict(dof)
+        dof_json.update(n_primary_dofs=dof.n_primary_dofs, n_secondary_dofs=dof.n_secondary_dofs)
+        stats_json = asdict(stats)
+        stats_json["avg_newton_iterations"] = stats.avg_newton_iterations
+        payload = {"config": config, "dof_summary": dof_json, "run_stats": stats_json}
+        if predictor:
+            payload["transport_predictor"] = predictor
+        with open(os.path.join(folder, filename + ".json"), "w") as fh:
+            json.dump(payload, fh, indent=2)
+
+        logger.info("run statistics -> %s (+ .json)", txt_path)
+        return txt_path
+
     def prepare_simulation(self) -> None:
         """Set up the model, then report the initial DoF summary."""
         super().prepare_simulation()
         self.report_dof_summary("initial")
 
     def after_simulation(self) -> None:
-        """Report the final DoF summary at the end of the time loop."""
+        """Report the final DoF summary and persist the run statistics to the output folder."""
         super().after_simulation()
         self.report_dof_summary("final")
+        self.save_run_statistics()
 
     def write_newton_iterations_to_csv(self, filename="newton_iterations.csv"):
         """Write Newton iteration data to CSV file."""
