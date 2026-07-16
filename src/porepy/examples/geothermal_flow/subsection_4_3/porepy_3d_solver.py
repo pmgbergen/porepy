@@ -505,15 +505,15 @@ _DEFAULT_REFINEMENT_LEVEL = 0            # mesh refinement: effective cell size 
 #                                         2**level (level 0 = base; each level HALVES h -> ~8x cells
 #                                         per level in 3D).  Applies to BOTH the box and --md.
 _DEFAULT_FRACTURES = False              # fixed-dimensional box by default; --md -> mixed-dimensional
-_DEFAULT_BOX_CELL_SIZE = 0.1            # base Cartesian cell size (before refinement)
+_DEFAULT_BOX_CELL_SIZE = 0.025            # base Cartesian cell size (before refinement)
 _DEFAULT_GEOMETRY_SCALE = 1000.0       # 1 x 2.25 x 1 km box (buoyancy becomes significant)
 _DEFAULT_T_END_DAYS = 73000.0          # ~200 yr transient
-_DEFAULT_DT_DAYS = 182.5                # nominal (adaptive) time step
+_DEFAULT_DT_DAYS = 3650.0                # nominal (adaptive) time step
 _DEFAULT_LINEAR_SOLVER = "cpr"         # Schur-reduced CPR (iterative, PETSc)
 _DEFAULT_GRAVITY = True
 _DEFAULT_AD_BACKEND = "native"
-_DEFAULT_CPR_RTOL = 1.0e-4             # CPR GMRES relative tolerance
-_DEFAULT_CPR_MAXIT = 200              # CPR GMRES iteration cap
+_DEFAULT_CPR_RTOL = 1.0e-5             # CPR GMRES relative tolerance
+_DEFAULT_CPR_MAXIT = 400              # CPR GMRES iteration cap
 _DEFAULT_CPR_ACCURACY_TOL = 1.0e-3   # post-solve gate -> fall back to direct above this
 # VTU snapshot schedule [days]: the transient writes VTU/PVD ONLY at these instants (not every
 # step), mirroring subsection_4_2/porepy_2d_solver.  They are placed in the TimeManager schedule so
@@ -842,3 +842,37 @@ if __name__ == "__main__":
 #   python porepy_3d_solver.py                          # -> output/HU_fd_gravity/
 #   python porepy_3d_solver.py --md                     # -> output/HU_md_gravity/  (fractured)
 #   python porepy_3d_solver.py --md --scheme HU-mw --no-gravity   # -> output/HU-mw_md_nogravity/
+
+
+# fixed dimensional case:
+# _DEFAULT_BOX_CELL_SIZE = 0.025
+# _DEFAULT_DT_DAYS = 3650.0                # nominal (adaptive) time step
+#  time python porepy_3d_solver.py --scheme HU --no-gravity
+
+# ************************************************************
+# Number of iterations:  2
+# Time value (year):  200.0
+# Time index:  86
+# ************************************************************
+#
+#
+# ===================== DoF summary -- final =====================
+# # degrees-of-freedom summary
+# total DoF: 1008000   (subdomains: 1, interfaces: 0)
+# # cells per subdomain, by dimension:
+#   dim   n_subdomains      n_cells
+#   3D             1       144000
+# # variables:
+#   name                             ndof   type
+#   pressure                       144000   primary
+#   temperature                    144000   secondary
+#   enthalpy                       144000   primary
+#   z_NaCl                         144000   primary
+#   s_gas                          144000   secondary
+#   x_NaCl_liq                     144000   secondary
+#   x_NaCl_gas                     144000   secondary
+# # primary dof: 432000   secondary (eliminated) dof: 576000
+#
+# 2026-07-15 16:29:06,246 - porepy.examples.geothermal_flow.model_configuration.flow_model_base - INFO - run statistics -> output/HU_fd_nogravity/run_statistics.txt (+ .json)
+#   run wall: 78.0 min
+# python porepy_3d_solver.py --scheme HU --no-gravity  28304.92s user 8174.53s system 776% cpu 1:18:20.25 total
