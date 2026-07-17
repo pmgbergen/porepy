@@ -338,14 +338,26 @@ class IterationExporting(pp.PorePyModel):
             + 10**r * self.time_manager.time_index,
         )
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         """Integrate iteration export into simulation workflow.
 
         Order of operations is important, super call distributes the solution to
         iterate subdictionary.
 
+        Parameters:
+            nonlinear_increment: Newly computed solution increment.
+            updated_variables: Variables updated by the nonlinear solver. If ``None``,
+                all variables are updated.
+
         """
-        super().after_nonlinear_iteration(solution_vector)  # type: ignore[safe-super]
+        super().after_nonlinear_iteration(  # type: ignore[safe-super]
+            nonlinear_increment=nonlinear_increment,
+            updated_variables=updated_variables,
+        )
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
 

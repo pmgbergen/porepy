@@ -509,7 +509,7 @@ class NewtonSolver(NonlinearSolverBase):
 
         """
 
-        linear_system = model.assemble_linear_system(
+        linear_system = model.equation_system.assemble(
             equations=self.active_equations, variables=self.active_variables
         )
         nonlinear_increment, linear_solver_status = (
@@ -581,7 +581,7 @@ class NewtonSolver(NonlinearSolverBase):
 
         """
         # Fetch the residual and current iterate.
-        residual, _ = model.equation_system.assemble(
+        residual = model.equation_system.assemble(
             evaluate_jacobian=False, equations=self.active_equations
         )
         iterate = model.equation_system.get_variable_values(iterate_index=0)
@@ -633,7 +633,7 @@ class NewtonSolver(NonlinearSolverBase):
 
         # Log norms.
         nonlinear_increment_norm = np.linalg.norm(nonlinear_increment)
-        residual, _ = model.equation_system.assemble(evaluate_jacobian=False)
+        residual = model.equation_system.assemble(evaluate_jacobian=False)
         residual_norm = np.linalg.norm(residual)
         logger.info(
             f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "

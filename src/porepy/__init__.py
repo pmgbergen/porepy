@@ -277,7 +277,6 @@ from porepy.models.metric import (
 from porepy.models.equation_variable_tags import (
     EquationTag,
     VariableTag,
-    Indexer,
     DefaultEquationTags,
     DefaultVariableTags,
 )

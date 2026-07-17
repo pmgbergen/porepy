@@ -544,7 +544,12 @@ class EquationSystemMockModel:
         ]
         self.all_variable_names = ["x", "y", "z", "w"]
 
-        self.A, self.b = equation_system.assemble()
+        equation_system.assemble_variable_indexer()
+        equation_system.assemble_equation_indexer()
+        linear_system = equation_system.assemble()
+        self.A = linear_system.matrix
+        assert self.A is not None
+        self.b = linear_system.rhs
         self.equation_system = equation_system
 
         # Store subdomains and interfaces
@@ -1302,7 +1307,10 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
     variables = [
         var for var in model.equation_system.variables if var.name not in var_names
     ]
-    A, b = model.equation_system.assemble(variables=variables)
+    linear_system = model.equation_system.assemble(variables=variables)
+    A = linear_system.matrix
+    assert A is not None
+    b = linear_system.rhs
 
     # Get dof indices of the variables that have been eliminated
     if len(var_names) > 0:
@@ -1388,7 +1396,12 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
         var for var in model.equation_system.variables if var.name in var_names
     ]
 
-    A_sub, b_sub = equation_system.assemble(equations=eq_names, variables=var_names)
+    linear_system = equation_system.assemble(
+        equations=eq_names, variables=var_names
+    )
+    A_sub = linear_system.matrix
+    assert A_sub is not None
+    b_sub = linear_system.rhs
     b_sub_only_rhs = equation_system.assemble(
         evaluate_jacobian=False, equations=eq_names, variables=var_names
     )
@@ -1574,132 +1587,6 @@ def test_extract_subsystem(model: EquationSystemMockModel, equation_variables):
         assert var in variables
 
 
-@pytest.mark.parametrize(
-    "eq_var_to_exclude",
-    # Combinations of variables and variables. These cannot be set independently, since
-    # the block to be eliminated should be square and invertible.
-    [
-        [["eq_single_interface"], ["w"]],  # Single equation, variable on one interface
-        [["eq_all_interfaces"], ["y"]],  # Multiple interfaces
-        [  # Set of equations and variable on all subdomains. NOTE: This will be
-            # modified so that the equation and variable are partly included among the
-            # primary quantities, but only on one subdomani. See 'if eq_to_exclude[0] ==
-            # "eq_all_subdomains"' below.
-            ["eq_all_subdomains"],
-            ["x"],
-        ],
-        [
-            ["eq_all_interfaces", "eq_single_subdomain"],
-            ["z", "y"],
-        ],  # Two equations, two variables
-    ],
-)
-def test_schur_complement(eq_var_to_exclude):
-    """Test assembly by a Schur complement.
-
-    The test constructs the Schur complement 'manually', using known information on
-    the ordering of equations and unknowns, and compares with the method in
-    EquationSystem.
-
-    Input parameters to this test are interpreted as equations and variables to be
-    eliminated (this makes interpretation of test results easier), while the method in
-    EquationSystem expects equations and variables to be kept. Some work is needed to
-    invert the sets.
-
-    Note that for the test run for 'eq_all_subdomains' and 'x', we do some extra work
-    to test the ability to exclude specific grids, rather than full equations.
-
-    """
-    # Parse the input parameters.
-    eq_to_exclude, var_to_exclude = eq_var_to_exclude
-
-    # Ensure the system is square by leaving out eq_combined
-    model = EquationSystemMockModel(square_system=True)
-    equation_system = model.equation_system
-    # Always exclude eq_combined to get a square system.
-    eq_to_exclude.append("eq_combined")
-
-    # Equations to keep
-    # This construction preserves the order
-    eq_names = [eq for eq in model.all_equation_names if eq not in eq_to_exclude]
-
-    if eq_to_exclude[0] == "eq_all_subdomains":
-        # In this case, we use a dictionary to define the equations to keep.
-        # For all equations not to be eliminated (e.g., present in eq_names), they are
-        # kept on all subdomains.
-        equations = {
-            eq: list(
-                equation_system.equation_indexer.equation_image_space_composition[eq]
-            )
-            for eq in eq_names
-        }
-        # In addition, we keep 'eq_all_subdomains' on the top subdomain.
-        equations["eq_all_subdomains"] = [model.sd_top]
-
-        # Next, variables to keep: We keep all of them, expect for the one to be
-        # excluded, which is kept on the top subdomain only.
-        domain_to_exclude = model.subdomains[1:]
-        variables = []
-        for var in equation_system.variables:
-            if not (var.name in var_to_exclude and var.domain in domain_to_exclude):
-                variables.append(var)
-    else:
-        # Simply use a list of string to define the equations.
-        equations = eq_names
-        variables = [
-            var for var in model.all_variable_names if var not in var_to_exclude
-        ]
-
-    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
-
-    # Rows and columns to keep
-    rows_keep = np.sort(np.hstack([model.eq_ind(name) for name in eq_names]))
-    cols_keep = np.sort(np.hstack([model.dof_ind(var) for var in variables]))
-
-    # Rows and columns to eliminate
-    rows_elim = np.setdiff1d(np.arange(sum(model.eq_inds)), rows_keep)
-    cols_elim = np.setdiff1d(np.arange(model.equation_system.num_dofs()), cols_keep)
-
-    if eq_to_exclude[0] == "eq_all_subdomains":
-        # If we have let the all-subdomanis equation be present on the top subdomain,
-        # we need to remove the corresponding rows and columns from the elimination.
-        # We know that the indices of the top subdomain are the first ones (since this
-        # is the order in which the equations are added to the system).
-        sd_top = model.sd_top
-        rows_to_transfer = np.arange(sd_top.num_cells)
-        rows_keep = np.sort(np.hstack([rows_keep, rows_to_transfer]))
-        rows_elim = np.sort(np.setdiff1d(rows_elim, rows_to_transfer))
-
-    # Split the full matrix into [[A, B], [C, D]], where D is to be eliminated
-    A = model.A[rows_keep][:, cols_keep]
-    B = model.A[rows_keep][:, cols_elim]
-    C = model.A[rows_elim][:, cols_keep]
-    D = model.A[rows_elim][:, cols_elim]
-
-    b_1 = model.b[rows_elim]
-    b_2 = model.b[rows_keep]
-
-    S_known = A - B * inverter(D) * C
-    b_known = b_2 - B * inverter(D) * b_1
-
-    # Compute Schur complement with method to be tested
-    S, bS = equation_system.assemble_schur_complement_system(
-        equations, variables, inverter=inverter
-    )
-
-    assert np.allclose(bS, b_known)
-    assert pp.test_utils.arrays.compare_matrices(S, S_known)
-
-    # Finally, test that the solution computed from a Schur complement and then
-    # expanded to the full system (using the relevant method in EquationSystem) is
-    # the same as the solution computed directly from the full system.
-    x_schur = sps.linalg.spsolve(S, bS)
-    x_expected = sps.linalg.spsolve(model.A, model.b)
-    x_reconstructed = equation_system.expand_schur_complement_solution(x_schur)
-
-    assert np.allclose(x_reconstructed, x_expected)
-
-
 def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     """Test that assemble() ignores equations defined on empty domains.
 
@@ -1712,13 +1599,19 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     equation_system = model.equation_system
 
     # Store Baseline system matrix and vector.
-    A_ref, b_ref = equation_system.assemble()
+    linear_system_ref = equation_system.assemble()
+    A_ref = linear_system_ref.matrix
+    assert A_ref is not None
+    b_ref = linear_system_ref.rhs
 
     # Add equation on empty domain using the empty variable
     model.add_equation_on_empty_domain()
 
     # Check that the assembled system does not include the empty equation.
-    A, b = equation_system.assemble()
+    linear_system = equation_system.assemble()
+    A = linear_system.matrix
+    assert A is not None
+    b = linear_system.rhs
     assert np.allclose(b, b_ref)
     assert pp.test_utils.arrays.compare_matrices(A, A_ref)
 

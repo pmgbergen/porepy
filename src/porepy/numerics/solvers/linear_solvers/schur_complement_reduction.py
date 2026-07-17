@@ -36,9 +36,12 @@ class SchurComplementReductionStatusFailure(LinearSolverStatusFailure):
 
 
 _T = TypeVar("_T")
+"""TODO YZ"""
 
 
 class SchurComplementReductionLinearSolver(LinearSolverBase):
+    """TODO YZ"""
+
     def __init__(
         self,
         primary_equation_tags: list[pp.EquationTag],
@@ -108,12 +111,11 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 
         secondary_eq_indexer = EquationIndexer(equation_dofs=secondary_eq_map)
         secondary_var_indexer = VariableIndexer(variable_dofs=secondary_var_map)
-        self.secondary_eq_perm, self.secondary_var_perm = (
+        self.secondary_eq_perm, self.secondary_var_perm, bs = (
             rearrange_matrix_as_array_of_structures(
                 eq_indexer=secondary_eq_indexer, var_indexer=secondary_var_indexer
             )
         )
-        bs = len(secondary_eq_indexer.equation_dofs)
         if bs != 0:
             assert self.secondary_eq_dofs.size % bs == 0
             self.secondary_block_sizes = (
@@ -199,15 +201,53 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 def rearrange_matrix_as_array_of_structures(
     eq_indexer: EquationIndexer, var_indexer: VariableIndexer
 ):
-    eq_dofs = list(eq_indexer.equation_dofs.values())
-    var_dofs = list(var_indexer.variable_dofs.values())
-    assert len(eq_dofs) == len(var_dofs)
-    if len(eq_dofs) == 0:
-        return np.empty(0), np.empty(0)
-    return np.stack(eq_dofs).ravel(order="F"), np.stack(var_dofs).ravel(order="F")
+    """TODO YZ"""
+    unique_grids_equations = {eq.domain for eq in eq_indexer.equation_dofs}
+    unique_grids_variables = {var.domain for var in var_indexer.variable_dofs}
+    assert len(eq_indexer.equation_dofs) == len(var_indexer.variable_dofs)
+    assert unique_grids_equations == unique_grids_variables
+
+    eq_dofs_by_grid: dict[pp.GridLike, list[np.ndarray]] = {
+        grid: [] for grid in unique_grids_equations
+    }
+    for eq, dofs in eq_indexer.equation_dofs.items():
+        eq_dofs_by_grid[eq.domain].append(dofs)
+
+    var_dofs_by_grid: dict[pp.GridLike, list[np.ndarray]] = {
+        grid: [] for grid in unique_grids_variables
+    }
+    for var, dofs in var_indexer.variable_dofs.items():
+        var_dofs_by_grid[var.domain].append(dofs)
+
+    # Sanity check that assumes that the number of equations and variables is the same
+    # on every grid. If it turns out that we define some equations only on certain
+    # grids, this funciton can be extended. So far, no such case is known to YZ.
+    bs = 0
+    for list_of_dofs in eq_dofs_by_grid.values():
+        if bs == 0:
+            bs = len(list_of_dofs)
+        assert bs == len(list_of_dofs)
+    for list_of_dofs in var_dofs_by_grid.values():
+        assert bs == len(list_of_dofs)
+
+    if bs == 0:
+        return np.empty(0), np.empty(0), bs
+
+    eq_dofs_by_grid_rearranged = [
+        np.stack(dofs).ravel(order="F") for dofs in eq_dofs_by_grid.values()
+    ]
+    var_dofs_by_grid_rearranged = [
+        np.stack(dofs).ravel(order="F") for dofs in var_dofs_by_grid.values()
+    ]
+    return (
+        _concatenate_safe(eq_dofs_by_grid_rearranged),
+        _concatenate_safe(var_dofs_by_grid_rearranged),
+        bs,
+    )
 
 
 def _concatenate_safe(arrays: list[np.ndarray]) -> np.ndarray:
+    """TODO YZ"""
     if len(arrays) > 0:
         return np.concatenate(arrays)
     return np.empty(0)

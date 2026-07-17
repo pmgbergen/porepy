@@ -19,7 +19,7 @@ import porepy as pp
 from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
-__all__ = ["EquationSystem", "VariableIndexer", "EquationIndexer"]
+__all__ = ["EquationSystem"]
 
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
@@ -1352,7 +1352,7 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[np.ndarray, EquationIndexer]: ...
+    ) -> np.ndarray: ...
 
     def assemble(
         self,
@@ -1360,7 +1360,7 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> pp.solvers.LinearSystem | tuple[np.ndarray, EquationIndexer]:
+    ) -> pp.solvers.LinearSystem | np.ndarray:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations, variables and grids.
 
@@ -1390,12 +1390,8 @@ class EquationSystem:
                 they are not registered by this equation system.
 
         Returns:
-            Tuple with two elements
-
-                spmatrix: (Part of the) Jacobian matrix corresponding to the targeted
-                variable state, for the specified equations and variables.
-                ndarray: Residual vector corresponding to the targeted variable state,
-                for the specified equations. Scaled with -1 (moved to rhs).
+            A linear system containing the Jacobian matrix and residual vector. The
+            residual is scaled with -1 (moved to the right-hand side).
 
             or, if ``evaluate_jacobian`` is False,
 
@@ -1469,12 +1465,13 @@ class EquationSystem:
             A = sps.csr_matrix((0, self.num_dofs()))
             rhs_cat = np.empty(0, dtype=float)
 
+
+        if not evaluate_jacobian:
+            return -rhs_cat
+
         equation_indexer, variable_indexer = self.construct_assembled_matrix_indexers(
             equations=equations, variables=variables
         )
-
-        if not evaluate_jacobian:
-            return -rhs_cat, equation_indexer
 
         # TODO YZ
         variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
@@ -1739,93 +1736,6 @@ class EquationSystem:
             A_sp,
             primary_projection,
             secondary_projection,
-        )
-
-        return S, rhs_S
-
-    def expand_schur_complement_solution(
-        self, reduced_solution: np.ndarray
-    ) -> np.ndarray:
-        r"""Expands the solution of the *last assembled* Schur complement system to the
-        whole solution.
-
-        With ``reduced_solution`` as :math:`x_p` from
-
-        .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
-            \right]
-            \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
-            = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right],
-
-        the method returns the whole vector :math:`[x_p, x_s]`, where
-
-        .. math::
-            x_s = A_{ss}^{-1} * (b_s - A_{sp} * x_p).
-
-        Note:
-            Independent of how the primary and secondary blocks were chosen, this method
-            always returns a vector of size ``num_dofs``.
-            Especially when the primary and secondary variables did not constitute the
-            whole vector of unknowns, the result is still of size ``num_dofs``.
-            The entries corresponding to the excluded grid variables are zero.
-
-        Parameters:
-            reduced_solution: Solution to the linear system returned by
-                :meth:`assemble_schur_complement_system`.
-
-        Returns:
-            The expanded Schur solution in global size.
-
-        Raises:
-            ValueError: If the Schur complement system was not assembled before.
-
-        """
-        if self._Schur_complement is None:
-            raise ValueError("Schur complement system was not assembled before.")
-
-        # Get data stored from last constructed Schur complement.
-        inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._Schur_complement
-
-        # Calculate the complement solution.
-        x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
-
-        # Prolong primary and secondary block to global-sized arrays
-        X = prolong_p * reduced_solution + prolong_s * x_s
-        return X
-
-    def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:
-        """The inverter for the secondary block in the Schur complement
-        reduction.
-
-        The default implementation assumes the secondary block to be a permuted, block
-        diagonal matrix (local equations), and computes and stores the permutation
-        only *once*. It then proceeds to call an efficient, parallelized block-diagonal
-        matrix inverter.
-
-        See also:
-
-            - :func:`~porepy.numerics.linalg.matrix_operations.
-              generate_permutation_to_block_diag_matrix`
-            - :func:`~porepy.numerics.linalg.matrix_operations.
-              invert_permuted_block_diag_matrix`
-
-        """
-
-        # Generate permutations only once, if not already present.
-        if not self._secondary_block_permutation:
-            row_perm, col_perm, block_sizes = (
-                pp.matrix_operations.generate_permutation_to_block_diag_matrix(A)
-            )
-            self._secondary_block_permutation["row_perm_indices"] = row_perm
-            self._secondary_block_permutation["col_perm_indices"] = col_perm
-            self._secondary_block_permutation["block_sizes"] = block_sizes
-        else:
-            row_perm = self._secondary_block_permutation["row_perm_indices"]
-            col_perm = self._secondary_block_permutation["col_perm_indices"]
-            block_sizes = self._secondary_block_permutation["block_sizes"]
-
-        return pp.matrix_operations.invert_permuted_block_diag_matrix(
-            A, row_perm, col_perm, block_sizes
         )
 
     ### Evaluate Ad operators ----------------------------------------------------------

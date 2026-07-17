@@ -1003,16 +1003,21 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     eq_sf2.set_name("eq_s_f_2")
     equation_system.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
 
+    equation_system.assemble_variable_indexer()
+    equation_system.assemble_equation_indexer()
+
     # Define "secondary" list of equations & variables.
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
     secondaryVarList = ["sf1", "sf2"]
 
     # Extract the secondary block matrix.
-    A_ss, _ = equation_system.assemble(
+    secondary_linear_system = equation_system.assemble(
         equations=secondaryEqList,
         variables=secondaryVarList,
         state=np.zeros(equation_system.num_dofs()),
     )
+    A_ss = secondary_linear_system.matrix
+    assert A_ss is not None
 
     # Invert the non-diagonal block matrix A_ss.
     row_perm, col_perm, block_sizes = (

@@ -28,8 +28,6 @@ from typing import Callable, Optional, cast
 
 import numpy as np
 import pytest
-import scipy.sparse as sps
-from scipy.sparse.linalg import spsolve
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
@@ -194,23 +192,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
 
 
 class RediscretizationTest(pp.PorePyModel):
-    """Class to short-circuit the solution strategy to a single iteration.
-
-    The class is used as a mixin which partially replaces the SolutionStrategy class.
-
-    Relevant parts of simulation flow:
-    1. Discretize the problem
-    2. Assemble the linear system
-    3. Solve the linear system
-    4. Update the state variables
-    5. Check convergence first time (expected not to pass)
-    6. Rediscretize at the beginning of the next iteration
-    7. Assemble the linear system
-    8. Check convergence second time (passes by hard-coding)
-
-    Then, quit the simulation and compare stored linear systems.
-
-    """
+    """Mixin that selects full or targeted rediscretization."""
 
     def rediscretize(self):
         if self.params["full_rediscretization"]:
@@ -218,13 +200,23 @@ class RediscretizationTest(pp.PorePyModel):
         else:
             return super().rediscretize()
 
-    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
-        """Store all assembled linear systems for later comparison."""
-        linear_system = super().assemble_linear_system()
-        if not hasattr(self, "stored_linear_system"):
-            self.stored_linear_system = []
-        self.stored_linear_system.append(copy.deepcopy(linear_system))
-        return linear_system
+
+class RecordingLinearSolver(pp.solvers.LinearSolverDirect):
+    """Direct linear solver that records each system before solving it.
+
+    The recorded systems are used to compare full and targeted rediscretization across
+    nonlinear iterations.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear_systems: list[pp.solvers.LinearSystem] = []
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        self.linear_systems.append(copy.deepcopy(linear_system))
+        return super().solve_linear_system(linear_system)
 
 
 # Non-trivial solution achieved through BCs.
@@ -281,35 +273,40 @@ def test_targeted_rediscretization(model_class):
         "nl_convergence_res_atol": 0,
         "nl_max_iterations": 2,
     }
+
+    def run_and_collect(model: pp.PorePyModel) -> list[pp.solvers.LinearSystem]:
+        """Run a model and return the linear systems passed to its solver."""
+        linear_solver = RecordingLinearSolver()
+        nonlinear_solver = pp.solvers.NewtonSolver(
+            params=solver_params, linear_solver=linear_solver
+        )
+        try:
+            pp.ModelRunner(
+                model, solver_params, nonlinear_solver=nonlinear_solver
+            ).run()
+        except RuntimeError:
+            # RuntimeError expected due to unattainable convergence criteria
+            # with only two iterations and zero tolerances.
+            pass
+        return linear_solver.linear_systems
+
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
     full_model: pp.PorePyModel = rediscretization_model_class(model_params)
-    try:
-        pp.ModelRunner(full_model, solver_params).run()
-    except RuntimeError:
-        # RuntimeError expected due to unattainable convergence criteria
-        # with only two iterations and zero tolerances. Allow RuntimeError without
-        # stopping the test.
-        pass
+    full_systems = run_and_collect(full_model)
 
     # A model object with targeted rediscretization.
     targeted_model_params = model_params.copy()
     targeted_model_params["full_rediscretization"] = False
     # Set up the model.
     targeted_model = rediscretization_model_class(targeted_model_params)
-    try:
-        pp.ModelRunner(targeted_model, solver_params).run()
-    except RuntimeError:
-        # See comment above.
-        pass
+    targeted_systems = run_and_collect(targeted_model)
 
     # Check that the linear systems are the same.
-    assert len(full_model.stored_linear_system) == 2
-    assert len(targeted_model.stored_linear_system) == 2
-    for i in range(len(full_model.stored_linear_system)):
-        full_system = full_model.stored_linear_system[i]
-        targeted_system = targeted_model.stored_linear_system[i]
+    assert len(full_systems) == 2
+    assert len(targeted_systems) == 2
+    for full_system, targeted_system in zip(full_systems, targeted_systems):
         A_full, b_full = full_system.matrix, full_system.rhs
         A_targeted, b_targeted = targeted_system.matrix, targeted_system.rhs
 
@@ -322,8 +319,8 @@ def test_targeted_rediscretization(model_class):
     # Check that the discretization matrix changes between iterations. Without this
     # check, missing rediscretization may go unnoticed.
     tol = 1e-2
-    first_matrix = full_model.stored_linear_system[0].matrix
-    second_matrix = full_model.stored_linear_system[1].matrix
+    first_matrix = full_systems[0].matrix
+    second_matrix = full_systems[1].matrix
     assert first_matrix is not None
     assert second_matrix is not None
     diff = first_matrix - second_matrix
@@ -513,161 +510,3 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
-
-
-# ---------------------------------------------------------------------
-# Tests for block‐permutation and inversion in SolutionStrategy
-# ---------------------------------------------------------------------
-
-
-def _get_primary_equ_and_vars_cf(model: pp.PorePyModel) -> tuple[list[str], list[str]]:
-    """Returns the primary equations and variables of a CF model."""
-
-    equ_names: list[str] = []
-    if isinstance(model, pp.fluid_mass_balance.FluidMassBalanceEquations):
-        equ_names += [
-            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name()
-        ]
-    if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
-        equ_names += [
-            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name()
-        ]
-    if isinstance(model, pp.compositional_flow.ComponentMassBalanceEquations):
-        equ_names += model.component_mass_balance_equation_names()
-
-    for n in model.equation_system.equations.keys():
-        if "_flux" in n:
-            equ_names.append(n)
-
-    var_names: list[str] = []
-    if isinstance(model, pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
-        var_names += [model.pressure_variable]
-
-    if isinstance(
-        model, pp.compositional_flow.SolutionStrategyExtendedFluidMassAndEnergy
-    ):
-        var_names += [model.enthalpy_variable]
-    elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
-        var_names += [model.temperature_variable]
-
-    if isinstance(model, pp.compositional.CompositionalVariables):
-        var_names += model.overall_fraction_variables
-        var_names += model.tracer_fraction_variables
-
-    for var in model.equation_system.variables:
-        if "_flux" in var.name:
-            var_names.append(var.name)
-
-    return list(set(equ_names)), list(set(var_names))
-
-
-@pytest.mark.parametrize(
-    "test_model_class,get_primary_equs_vars",
-    [
-        (TracerFlowModel_3p, _get_primary_equ_and_vars_cf),
-    ],
-)
-@pytest.mark.parametrize(
-    "mdg",
-    [
-        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1])[0],
-        cube_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1, 2])[0],
-    ],
-)
-def test_schur_complement_inverter_on_model(
-    mdg: pp.MixedDimensionalGrid,
-    test_model_class: type[pp.PorePyModel],
-    get_primary_equs_vars: Callable[[pp.PorePyModel], tuple[list[str], list[str]]],
-):
-    """Tests the block-diagonal inverter for the secondary block of the linear system
-    of a porepy model."""
-
-    # NOTE: Depending on what which model class the tests are performed, the local
-    # geometry mixin and model parameters need adaption in order to overwrite the
-    # geometry and parametrization already contained within the tested model class.
-    # The adaption must be consistent with the mdg's the tests are performed on.
-    class LocalGeometry(pp.PorePyModel):
-        def create_mdg(self) -> None:
-            self.mdg = mdg
-
-        def set_domain(self) -> None:
-            self._domain = nd_cube_domain(
-                mdg.dim_max(), self.units.convert_units(1.0, "m")
-            )
-
-    model_params = {
-        # "apply_schur_complement_reduction": True,
-        "equilibrium_condition": "dummy",
-        "meshing_arguments": {
-            "cell_size": 0.1,
-        },
-    }
-
-    model_class = add_mixin(LocalGeometry, test_model_class)
-
-    model = model_class(model_params)
-    model = cast(pp.SolutionStrategy, model)
-    model.prepare_simulation()
-    prim_equs, prim_vars = get_primary_equs_vars(model)
-
-    # Set primary equations and variables to get the secondary ones for assembly of
-    # secondary block.
-    # model.schur_complement_primary_equations = prim_equs
-    # model.schur_complement_primary_variables = prim_vars
-
-    secondary_equs = list(
-        set(model.equation_system.equations.keys()).difference(set(prim_equs))
-    )
-    secondary_vars = list(
-        set([var.name for var in model.equation_system.variables]).difference(
-            set(prim_vars)
-        )
-    )
-
-    N = model.equation_system.dofs_of(secondary_vars).size
-    model.equation_system.set_variable_values(
-        np.ones(model.equation_system.num_dofs()), iterate_index=0, time_step_index=0
-    )
-
-    model.before_time_step()
-    model.before_nonlinear_loop()
-    model.before_nonlinear_iteration()
-    model.assemble_linear_system()
-    inv_A_ss = model.equation_system._Schur_complement[0]
-
-    # NOTE A_ss is not stored explicitly as part of the linear system assembly.
-    A_ss, _ = model.equation_system.assemble(
-        equations=secondary_equs,
-        variables=secondary_vars,
-    )
-
-    # NOTE: Do not convert to dense array, 3D test case will run out of memory.
-    approx_identity = cast(sps.csr_matrix, A_ss @ inv_A_ss)
-    identity = cast(sps.csr_matrix, sps.eye(N, format="csr"))
-
-    assert (
-        np.all(approx_identity.indices == identity.indices)
-        and np.all(approx_identity.indptr == identity.indptr)
-        and np.allclose(
-            approx_identity.data,
-            np.ones(N),
-            rtol=0.0,
-            atol=1e-16,
-        )
-        and np.all(approx_identity.shape == identity.shape)
-    )
-
-    # Test that we expand the solution correctly. This is currently hard-coded in
-    # NewtonSolver.iteration. This test will be moved and restructured when a linear
-    # solver for the schur complement strategy is introduced.
-    assert model._apply_schur_complement_reduction()
-    nonlinear_solver = pp.solvers.NewtonSolver()
-    expanded_sol, status = nonlinear_solver.iteration(model)
-    assert status.is_success()
-
-    # Solving the full matrix without taking the Schur complement as a reference.
-    mat, rhs = model.equation_system.assemble()
-    sol_expected = spsolve(mat, rhs)
-
-    assert expanded_sol.shape == sol_expected.shape, "Shapes must match."
-    np.testing.assert_allclose(sol_expected - expanded_sol, 0, atol=1e-9, rtol=0)

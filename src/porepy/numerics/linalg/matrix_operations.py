@@ -1722,15 +1722,17 @@ def sparse_array_to_row_col_data(
 def generate_permutation_to_block_diag_matrix(
     A: sps.spmatrix,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """TODO YZ
-
-    Compute row and column permutations to transform a non-diagonal block matrix
+    """Compute row and column permutations to transform a non-diagonal block matrix
     into block-diagonal form by analyzing its sparsity pattern.
 
     The method constructs a bipartite graph representing the matrix's non-zero
     structure, where equations and variables are connected if the corresponding
     matrix entry is non-zero. The connected components of this graph then define the
     blocks in the permuted matrix.
+
+    This function is not used in PorePy, because it was replaced by a more targeted
+    :func:`rearrange_matrix_as_array_of_structures`. It remains here because it covers
+    the general case, and therefore might be useful at some point.
 
     Notes:
 

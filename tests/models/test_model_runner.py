@@ -17,7 +17,7 @@ def test_failed_nonlinear_solve_dynamic_time_step():
     do not propagate into the residual vector of the next.
     """
     STATE_VALUE = 1.0  # The value for the primary variables.
-    num_times_visited_assemble_linear_system = 0
+    num_times_visited_before_nonlinear_iteration = 0
     num_times_visited_solve_linear_system = 0
 
     class FailingModel(pp.SinglePhaseFlow):
@@ -27,17 +27,17 @@ def test_failed_nonlinear_solve_dynamic_time_step():
             values = np.full(self.equation_system.num_dofs(), STATE_VALUE)
             self.equation_system.set_variable_values(values, iterate_index=0)
 
-        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
+        def before_nonlinear_iteration(self) -> None:
             # The iterate array should be equal to the state array, since we never
             # proceed further than the 0-th Newton iteration.
-            nonlocal num_times_visited_assemble_linear_system
-            num_times_visited_assemble_linear_system += 1
+            nonlocal num_times_visited_before_nonlinear_iteration
+            num_times_visited_before_nonlinear_iteration += 1
 
             state = self.equation_system.get_variable_values(time_step_index=0)
             iterate = self.equation_system.get_variable_values(iterate_index=0)
             assert np.all(state == STATE_VALUE)
             assert np.all(iterate == STATE_VALUE)
-            return super().assemble_linear_system()
+            return super().before_nonlinear_iteration()
 
     class MockLinearSolver(pp.solvers.LinearSolverBase):
         def solve_linear_system(
@@ -76,6 +76,6 @@ def test_failed_nonlinear_solve_dynamic_time_step():
         model_runner.run()
 
     assert num_times_visited_solve_linear_system == 2, "Should do exactly 2 attempts."
-    assert num_times_visited_assemble_linear_system == 2, (
+    assert num_times_visited_before_nonlinear_iteration == 2, (
         "Should do exactly 2 attempts."
     )

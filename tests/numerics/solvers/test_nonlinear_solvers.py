@@ -121,8 +121,15 @@ class MockEquationSystem:
     def get_variable_values(self, **wkwargs):
         return np.array([1.0])
 
-    def assemble(self, evaluate_jacobian=False):
-        return self.residual
+    def assemble(self, evaluate_jacobian: bool = True, **kwargs):
+        if not evaluate_jacobian:
+            return self.residual
+        return pp.solvers.LinearSystem(
+            matrix=csr_matrix(np.array([[1.0]])),
+            rhs=np.array([1e-11]),
+            equation_indexer=pp.ad.EquationIndexer(equation_dofs={}),
+            variable_indexer=pp.ad.VariableIndexer(variable_dofs={}),
+        )
 
 
 class MockMdg:
@@ -165,7 +172,11 @@ class MockModel:
         self.equation_system.residual = np.array(self.residual_history[0])
         self.residual_history = self.residual_history[1:]
 
-    def after_nonlinear_iteration(self, inc):
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ):
         pass
 
     def after_nonlinear_convergence(self):
@@ -173,9 +184,6 @@ class MockModel:
 
     def after_nonlinear_failure(self):
         self.nonlinear_solver_statistics.save()
-
-    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
-        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.zeros(shape=()))
 
     def _is_time_dependent(self):
         return False

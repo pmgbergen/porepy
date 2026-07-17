@@ -704,7 +704,7 @@ class SolutionStrategy(pp.PorePyModel):
         """Run at the end of simulation. Can be used for cleanup etc."""
         pass
 
-    def assemble_linear_system(self, equations, variables) -> solvers.LinearSystem:
+    def assemble_linear_system(self) -> solvers.LinearSystem:
         """Assemble and return the linearized system. TODO YZ
 
         The linear system is defined by the current state of the model.
@@ -716,11 +716,10 @@ class SolutionStrategy(pp.PorePyModel):
             The assembled matrix and right-hand side vector.
 
         """
+        # YZ TODO deprecation warning (?)
         t_0 = time.time()
 
-        linear_system = self.equation_system.assemble(
-            equations=equations, variables=variables
-        )
+        linear_system = self.equation_system.assemble()
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
