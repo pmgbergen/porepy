@@ -45,6 +45,9 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
 )
+from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
+    geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
+)
 from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
 
 # --------------------------------------------------------------------------------------------- #
@@ -185,17 +188,18 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
 
     solver_params = {
         "nl_convergence_criteria": {
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=20),
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20),
         },
     }
 
     print(f"\n=== PorePy {geometry_case} / {scheme}  "
           f"(tf={tf / (365.0 * DAY):.0f} yr, dt=0.25 yr, level {TABLE_LEVEL}) ===", flush=True)
-    runner = pp.ModelRunner(model, solver_params)
+    runner = pp.ModelRunner(model, solver_params,
+                            nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     print("  DoF:", model.equation_system.num_dofs())
     model.schur_complement_primary_equations = (
         pp.compositional_flow.get_primary_equations_cf(model))

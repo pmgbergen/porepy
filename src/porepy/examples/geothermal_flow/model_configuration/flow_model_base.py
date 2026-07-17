@@ -158,6 +158,52 @@ class DofSummary:
         return "\n".join(lines) + "\n"
 
 
+class GeothermalLinearSolver(pp.solvers.LinearSolverBase):
+    """Adapter routing the new solver stack's linear solves through the MODEL's own solve.
+
+    The current ``pp.solvers.NewtonSolver`` delegates linear solves to a ``LinearSolverBase``
+    object and never calls ``model.solve_linear_system()`` -- which is where all the geothermal
+    machinery lives (Schur-CPR, PETSc LU/MUMPS, the 2D solver's bordered Lagrange solve).  This
+    adapter restores that dispatch: it stores the assembled system where the model's methods
+    expect it (``model.linear_system`` as a (matrix, rhs) tuple) and calls the model's
+    ``solve_linear_system()``, so every existing override keeps working unchanged.
+
+    Use by passing to the Newton solver, e.g.::
+
+        solver = pp.solvers.NewtonSolver(params=solver_params,
+                                         linear_solver=GeothermalLinearSolver())
+        runner = pp.ModelRunner(model, solver_params, nonlinear_solver=solver)
+    """
+
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        self._model = model
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        t0 = time.time()
+        model = self._model
+        model.linear_system = (linear_system.matrix, linear_system.rhs)
+        try:
+            x = np.asarray(model.solve_linear_system(), dtype=float)
+        except Exception as exc:
+            logger.warning("model linear solve failed; zero increment returned")
+            logger.warning("  reason: %r", exc)
+            return (np.zeros_like(linear_system.rhs),
+                    pp.solvers.LinearSolverStatusFailure(reason=str(exc)))
+        return x, pp.solvers.LinearSolverStatusSuccess(solve_time=time.time() - t0)
+
+
+def geothermal_nonlinear_solver(solver_params: dict) -> "pp.solvers.NewtonSolver":
+    """A NewtonSolver wired to the model-dispatching :class:`GeothermalLinearSolver`.
+
+    Every subsection script builds its runner as
+    ``pp.ModelRunner(model, solver_params, nonlinear_solver=geothermal_nonlinear_solver(solver_params))``.
+    """
+    return pp.solvers.NewtonSolver(
+        params=solver_params, linear_solver=GeothermalLinearSolver())
+
+
 class _FlowModelBaseCore(ReorderedTransportPredictor):
     """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
@@ -961,7 +1007,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             solution = self.solve_linear_system_petsc(A, b, preconditioner=self.petsc_preconditioner)
             if solution is None:
                 logger.warning(f"PETSc iterative solver with {self.petsc_preconditioner.upper()} preconditioner failed to converge.")
-                return super().solve_linear_system()
+                return self._direct_sparse_solve()
             return solution
         else:
             # Check if PETSc was requested but not available
@@ -970,10 +1016,21 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                 logger.info("PETSc was requested but not available. Using default direct solver.")
 
             # Use default solver
-            solution = super().solve_linear_system()
-            if solution is None:
-                raise RuntimeError("Linear solver returned None - this should not happen")
-            return solution
+            return self._direct_sparse_solve()
+
+    def _direct_sparse_solve(self) -> np.ndarray:
+        """Direct sparse solve of ``self.linear_system`` (pypardiso if available, else scipy).
+
+        Replaces the old ``super().solve_linear_system()`` fall-through: on the current solver
+        stack ``SolutionStrategy.solve_linear_system`` raises (linear solvers were moved out of
+        the model into ``pp.solvers`` LinearSolver objects), so the model must solve directly.
+        """
+        A, b = self.linear_system
+        try:
+            from pypardiso import spsolve as _spsolve
+        except ImportError:
+            from scipy.sparse.linalg import spsolve as _spsolve
+        return np.atleast_1d(np.asarray(_spsolve(A.tocsr(), np.asarray(b)), dtype=float))
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve the linear system and apply the configured nonlinear step control.
@@ -1702,12 +1759,15 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             logger.warning(f"Failed to apply equation permutation: {e}. Using original ordering.")
             return A, b, None, None, None
 
-    def assemble_linear_system(self) -> None:
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
         """Custom assemble linear system that updates Jacobian every 0, 3, 6, 9... Newton iterations.
 
         This method implements a dedicated solution strategy that:
         - Assembles the full linear system (Jacobian + residual) at iterations 0, 3, 6, 9, etc.
         - Updates only the residual part for other iterations (1, 2, 4, 5, 7, 8, etc.)
+
+        Returns a ``pp.solvers.LinearSystem`` (the new solver stack's contract) while keeping the
+        internal ``self.linear_system`` (matrix, rhs) tuple the custom solve methods read.
         """
         t_0 = time.time()
 
@@ -1757,6 +1817,8 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             else "residual only"
         )
         logger.info(f"Assembled {mode} in {t_1 - t_0:.2e} seconds.")
+        matrix, rhs = self.linear_system
+        return pp.solvers.LinearSystem(matrix=matrix.tocsr(), rhs=np.asarray(rhs))
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()

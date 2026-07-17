@@ -247,5 +247,6 @@ class BC_three_phase_closed(BCBase):
         return p
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h = np.zeros_like(boundary_grid.num_cells)
-        return h
+        # np.zeros (not zeros_like): zeros_like of the integer num_cells is a 0-d scalar,
+        # which breaks the boundary-operator concatenation on mixed-dimensional grids.
+        return np.zeros(boundary_grid.num_cells)

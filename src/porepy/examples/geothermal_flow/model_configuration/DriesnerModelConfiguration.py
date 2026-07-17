@@ -5,7 +5,7 @@ import time
 import porepy as pp
 import porepy.compositional as ppc
 
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
 )

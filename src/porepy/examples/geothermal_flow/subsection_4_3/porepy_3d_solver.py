@@ -103,6 +103,9 @@ from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_marke
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_two_phase_moderate_pressure,
 )
+from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
+    geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
+)
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
 )
@@ -660,11 +663,11 @@ def build_model(scheme: str = "HU", **kw):
 def _solver_params(model) -> dict:
     return {
         "nl_convergence_criteria": {
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=11),
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=11),
         },
     }
 
@@ -756,7 +759,8 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
                         transport_predictor=transport_predictor)
     snaps = [d for d in snap_days if 0.0 <= d <= t_end_days + 1e-6]
     print(f"  VTU export at snapshots [days]: {snaps if snaps else [0.0, t_end_days]}", flush=True)
-    runner = pp.ModelRunner(model, _solver_params(model))
+    sp = _solver_params(model)
+    runner = pp.ModelRunner(model, sp, nonlinear_solver=geothermal_nonlinear_solver(sp))
     print("  DoF:", model.equation_system.num_dofs(), flush=True)
     model.schur_complement_primary_equations = (
         pp.compositional_flow.get_primary_equations_cf(model))

@@ -49,7 +49,11 @@ from porepy.models.abstract_equations import LocalElimination  # noqa: E402
 
 # Absolute imports (like geothermal_H2O_low_NaCl_content_fig_5.py) so the market modules'
 # internal ``from ...obl_sampler import VTKSampler`` resolves. Requires porepy importable.
-from porepy.examples.geothermal_flow.model_configuration.flow_model_base import FlowModelBase  # noqa: E402,E501
+from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E402,E501
+    FlowModelBase,              # total-mass formulation      -> CompositionalFlowTemplate
+    FractionalFlowModelBase,    # fractional-flow formulation -> CompositionalFractionalFlowTemplate
+    geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
+)
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E402,E501
     GeometryBarriers2D,
     _BARRIER_LAYERS_FIG,
@@ -116,7 +120,7 @@ BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively im
 # Optional mixed-dimensional CONDUCTIVE fractures (params["fractures"]=True; --md).  The
 # equi-dimensional barriers are UNCHANGED; the fractures are 1D lines embedded in the 2D matrix.
 FRACTURE_K_FACTOR = 1.0e+3          # fracture (dim<nd) permeability = k * this (1000x matrix)
-FRACTURE_APERTURE = 1.0e-9          # fracture aperture [m] -> specific volume of the 1D fracture
+FRACTURE_APERTURE = 1.0e-3          # fracture aperture [m] -> specific volume of the 1D fracture
 
 
 # --------------------------------------------------------------------------------------- #
@@ -209,11 +213,35 @@ def _saturations_from_z(z_indep: list) -> list:
 
 
 def _make_saturation_func(i: int):
-    """Closure: phase ``i``'s saturation from ``deps = (p, h, z_1, ..., z_{N-1})``."""
+    """Closure: phase ``i``'s saturation AND its exact Jacobian from
+    ``deps = (p, h, z_1, ..., z_{N-1})``.
+
+    ``s_i = w_i / D`` with ``w_j = z_all[j] / rho_j``, ``z_all = [1 - sum(z), z_1, ...]`` and
+    ``D = sum_j w_j``.  Values and derivatives are evaluated from the RAW iterate -- no clipping
+    inside the residual -- so value and Jacobian stay consistent; physical bounds are enforced by
+    projecting the ITERATE onto the z-simplex after each Newton update
+    (:meth:`_FlowModelBody.after_nonlinear_iteration`).  The previous version returned clipped
+    values with IDENTICALLY ZERO derivatives, leaving the Jacobian blind to the z->s coupling:
+    survivable fixed-dimensionally (a lagged-saturation Picard), fatal on the mixed-dimensional
+    grid whose near-volume-less fracture cells are corrected purely through the Jacobian.
+    """
     def f(*deps):
-        s = _saturations_from_z(list(deps[2:2 + NPHASE - 1]))
         nc = len(deps[0])
-        return s[i], np.zeros((len(deps), nc))
+        z = [np.asarray(zk, dtype=float) for zk in deps[2:2 + NPHASE - 1]]
+        z0 = 1.0 - (sum(z) if z else 0.0)
+        z_all = [z0] + z
+        w = [z_all[j] / RHO[j] for j in range(NPHASE)]
+        D = sum(w)
+        s = w[i] / D
+        diffs = np.zeros((len(deps), nc))
+        for k in range(1, NPHASE):                     # z_k lives at dependency index 2 + (k-1)
+            if i == 0:
+                dw_i = -1.0 / RHO[0]                   # w_0 = (1 - sum z)/rho_0
+            else:
+                dw_i = 1.0 / RHO[i] if k == i else 0.0
+            dD = 1.0 / RHO[k] - 1.0 / RHO[0]
+            diffs[2 + k - 1] = (dw_i * D - w[i] * dD) / (D * D)
+        return s, diffs
     return f
 
 
@@ -1077,17 +1105,51 @@ class BarriersBoundingBox2D(GeometryBarriers2D):
 # --------------------------------------------------------------------------------------- #
 #  The model
 # --------------------------------------------------------------------------------------- #
-class FlowModel(
+class _FlowModelBody(
     _LagrangeConstrainedSolve,
     BarriersBoundingBox2D,
     FluidMixture3N,
     IC_NphaseSegregation,
     BC_all_neumann,
     SecondaryEquations3N,
-    FlowModelBase,
 ):
+    """Everything of the 2D barrier model EXCEPT the compositional-flow template.
+
+    The template is left to the concrete classes below (:class:`FlowModel` /
+    :class:`FractionalFlowModel`) because ``hu`` and ``hu-mw`` need DIFFERENT templates.  Mixed in
+    ahead of the template exactly as before, so the MRO -- and hence every ``super()`` call in this
+    body -- is unchanged."""
+
     def __init__(self, params):
         super().__init__(params)
+
+    def update_derived_quantities(self) -> None:
+        """Project the iterate's overall fractions onto the z-simplex BEFORE every flash.
+
+        The eliminated saturation functions are clip-free with exact Jacobians (see
+        :func:`_make_saturation_func`); positivity of the derived saturations/mobilities is
+        enforced here instead (Appleyard-style chop on the ITERATE).  Implemented as a
+        pre-step of ``update_derived_quantities`` -- NOT as an ``after_nonlinear_iteration``
+        override -- so the base chain (which also refreshes the buoyancy upwind direction and
+        rediscretizes in ``flow_model_base``) stays fully intact.
+        """
+        self._project_overall_fractions_to_simplex()
+        super().update_derived_quantities()
+
+    def _project_overall_fractions_to_simplex(self) -> None:
+        """Project the independent overall fractions jointly onto the simplex
+        (each ``z_k >= 0`` and ``sum_k z_k <= 1``, so the by-unity reference stays valid)."""
+        es = self.equation_system
+        sds = self.mdg.subdomains()
+        names = sorted({v.name for v in es.variables if v.name.startswith("z_")})
+        if not names:
+            return
+        zvars = [es.md_variable(nm, sds) for nm in names]
+        vals = [es.get_variable_values([zv], iterate_index=0) for zv in zvars]
+        projected = _clip_to_simplex(vals)
+        for zv, old, new in zip(zvars, vals, projected):
+            if np.any(new != old):
+                es.set_variable_values(np.asarray(new, dtype=float), [zv], iterate_index=0)
 
     def data_to_export(self):
         """Export the standard variables plus the quantities that were substituted as
@@ -1159,29 +1221,30 @@ class FlowModel(
         return pp.wrap_as_dense_ad_array(vals, size, name="permeability")
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Homogeneous rock permeability with impermeable barrier cells, plus (when fractures are
-        enabled) fully-conductive 1D fractures.  See :meth:`_rock_permeability_values`."""
-        return self.isotropic_second_order_tensor(
-            subdomains, self._rock_permeability_values(subdomains))
+        """Rock permeability (barrier-masked matrix + conductive fractures), scheme-branched.
 
-    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Interface (normal) permeability = the lower-dimensional subdomain's ROCK permeability,
-        projected to the mortar -- WITHOUT the total-mass-mobility weighting.
+        hu (total-mass): ROCK-only -- the mobility is applied separately by the upwind terms.
+        hu-mw (fractional flow): ``total_mass_mobility * k`` -- the FF formulation carries the
+        mobility inside the Darcy tensor; without it the fractional fluxes are off by the total
+        mobility (1e3-1e5) and Newton explodes immediately.  Mirrors the 3D solver's split."""
+        vals = self._rock_permeability_values(subdomains)
+        if pp.compositional_flow.is_fractional_flow(self):
+            vals = self.total_mass_mobility(subdomains) * vals
+        return self.isotropic_second_order_tensor(subdomains, vals)
 
-        The base ``MassWeightedPermeability.normal_permeability`` unconditionally returns
-        ``total_mass_mobility * k`` (the fractional-flow diffusive tensor).  But this model runs the
-        NON-fractional HU-BM(mp) formulation, whose subdomain :meth:`permeability` is rock-only and
-        which applies the mobility separately (the mp buoyancy multiplies by
-        ``lambda_gamma lambda_delta / lambda_T``, and the interface mobility is upwinded).  Keeping
-        the mobility in ``normal_permeability`` therefore counts it TWICE on the matrix-fracture
-        interface, making the interface buoyancy flux ``total_mass_mobility`` (~1e13) times too large
-        and driving the adjacent matrix cells to zero saturation (``1/total_mobility`` -> NaN).  Using
-        the rock permeability here matches the subdomain and removes the double weighting."""
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        kn = projection.secondary_to_mortar_avg() @ self._rock_permeability_values(subdomains)
-        kn.set_name("normal_permeability")
-        return kn
+    # def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+    #     """ROCK-only interface permeability for BOTH schemes (dimension-branched values).
+    #
+    #     Uses the same :meth:`_rock_permeability_values` as the subdomain tensor, so fracture
+    #     interfaces carry ``k * FRACTURE_K_FACTOR`` (the core default projects the homogeneous
+    #     solid permeability and misses the factor).  Mobility-weighting is deliberately NOT
+    #     applied on interfaces: it double-counts the separately-upwinded mobility for hu and
+    #     destabilizes hu-mw (see the 3D solver's identical fix)."""
+    #     subdomains = self.interfaces_to_subdomains(interfaces)
+    #     projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+    #     op = projection.secondary_to_mortar_avg() @ self._rock_permeability_values(subdomains)
+    #     op.set_name("normal_permeability")
+    #     return op
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Hydrostatic initial pressure, consistent with the top-boundary Dirichlet pressure
@@ -1211,6 +1274,23 @@ class FlowModel(
         return self._p_ref + g * column
 
 
+class FlowModel(_FlowModelBody, FlowModelBase):
+    """``--scheme hu`` -- HU-BM(mp), the TOTAL-MASS formulation.
+
+    ``fractional_flow=False`` selects the mobility-product branch of ``FluidBuoyancy``, whose primary
+    equations are those of ``CompositionalFlowTemplate`` (via ``FlowModelBase``)."""
+
+
+class FractionalFlowModel(_FlowModelBody, FractionalFlowModelBase):
+    """``--scheme hu-mw`` -- the MOBILITY-WEIGHTED variant.
+
+    ``fractional_flow=True`` selects the fractional-flow branch of ``FluidBuoyancy``, which is only
+    consistent with the fractional-flow primary equations of
+    ``CompositionalFractionalFlowTemplate`` (via ``FractionalFlowModelBase``) -- hence a distinct
+    class rather than a parameter flip.  Identical physics/geometry otherwise (same
+    :class:`_FlowModelBody`)."""
+
+
 # --------------------------------------------------------------------------------------- #
 #  Run configuration (module level), mirroring tp_tc_gravitational_segregation.py
 # --------------------------------------------------------------------------------------- #
@@ -1227,12 +1307,12 @@ day = 86400.0
 #  This is the robust cure for "adaptive dt exports at the wrong instants": the must-hit times
 #  are SCHEDULED, not left to the adaptive cadence.
 # --------------------------------------------------------------------------------------- #
-T_END_DAYS = 78.0                        # hamon T_END
-SNAP_DAYS = (0.0, 78.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
-DT_DAYS = 1.0                             # nominal step [days] -- the constant-dt march value
-DT_INIT_DAYS = 0.125                     # INITIAL adaptive step [days] -- start small on the stiff,
+T_END_DAYS = 100.0                        # hamon T_END
+SNAP_DAYS = (0.0, 100.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
+DT_DAYS = 0.5                             # nominal step [days] -- the constant-dt march value
+DT_INIT_DAYS = 0.01                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
-DT_MAX_DAYS = 10.0                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
+DT_MAX_DAYS = 0.5                        # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
 
 
@@ -1291,9 +1371,24 @@ solid_constants = pp.SolidConstants(
 # HU-BM scheme -> model parametrization. "hu" = HU-BM(mp): the mobility-product buoyant term
 # (classical Lee/Hamon U^HU), reached via ``fractional_flow=False`` (the total-mass formulation,
 # whose FluidBuoyancy non-fractional branch is the mobility-product form) + hybrid upwinding.
+# "hu-mw" = the MOBILITY-WEIGHTED variant: ``fractional_flow=True`` selects the fractional-flow
+# branch of FluidBuoyancy AND requires the fractional-flow CF template, so the model class is
+# chosen accordingly (see :func:`flow_model_class`) -- mirrors subsection_4_3's HU vs HU-mw knob.
 _SCHEME_CONFIG = {
-    "hu": dict(fractional_flow=False,buoyancy_upwinding="hybrid"),
+    "hu":    dict(fractional_flow=False, buoyancy_upwinding="hybrid"),
+    "hu-mw": dict(fractional_flow=True,  buoyancy_upwinding="hybrid"),
 }
+
+
+def flow_model_class(params: dict):
+    """The model class matching ``params['fractional_flow']``.
+
+    The two CF templates define DIFFERENT primary equations, so the flag cannot just be passed as a
+    parameter -- it selects the base: ``fractional_flow=True`` (hu-mw) needs
+    ``FractionalFlowModelBase`` (``CompositionalFractionalFlowTemplate``), while ``False`` (hu) uses
+    ``FlowModelBase`` (``CompositionalFlowTemplate``).  Both carry the identical
+    :class:`_FlowModelBody` mixin stack, so only the template differs."""
+    return FractionalFlowModel if params.get("fractional_flow", False) else FlowModel
 
 
 def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_END_DAYS,
@@ -1324,7 +1419,7 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
         # replay; the fixed-dimensional runs still use the fully compiled path.)
         ad_backend = "native"
     params = dict(
-        enable_buoyancy_effects=False,
+        enable_buoyancy_effects=True,
         lag_buoyancy_direction=False,
         material_constants={"solid": solid_constants},
         fractures=fractures,                            # -> geometry.set_fractures (10 conductive 1D lines)
@@ -1444,19 +1539,21 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
-    model = FlowModel(build_params(
+    params = build_params(
         args.nphase, args.scheme, t_end_days=args.days, dt_days=args.dt_days,
         dt_init_days=args.dt_init_days, dt_max_days=args.dt_max_days,
         snap_days=snaps, constant_dt=args.constant_dt, fractures=args.md,
-        lagrange_linear_solver=args.linear_solver))
+        lagrange_linear_solver=args.linear_solver)
+    # hu -> CompositionalFlowTemplate; hu-mw -> CompositionalFractionalFlowTemplate.
+    model = flow_model_class(params)(params)
     solver_params = {
         "nl_convergence_criteria": {
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-4
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.MaxIterationsCriterion(max_iterations=11),      # hamon Newton cap = 11
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=11),      # hamon Newton cap = 11
         },
     }
     # Construct the runner first (this prepares the simulation), so the system size can
@@ -1464,7 +1561,8 @@ if __name__ == "__main__":
     # Construct the runner first (this prepares the simulation), then report the system
     # size + the registered variables (role and whether each is substitutable) before the
     # (long) time loop starts.
-    runner = pp.ModelRunner(model, solver_params)
+    runner = pp.ModelRunner(model, solver_params,
+                            nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     ncells = report_system_size(model)
     ndof = model.equation_system.num_dofs()
 
