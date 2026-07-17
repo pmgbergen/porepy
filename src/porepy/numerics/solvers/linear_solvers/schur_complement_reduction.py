@@ -7,7 +7,12 @@ from time import time
 import porepy as pp
 import numpy as np
 
-from porepy.numerics.ad.equation_system import EquationIndexer, VariableIndexer
+from porepy.numerics.ad.equation_system import (
+    EquationIndexer,
+    EquationOnDomain,
+    VariableIndexer,
+)
+from porepy.numerics.ad.operators import Variable
 from porepy.numerics.linalg.matrix_operations import invert_permuted_block_diag_matrix
 from porepy.numerics.solvers.linear_solvers.linear_solver import (
     LinearSolverBase,
@@ -35,7 +40,7 @@ class SchurComplementReductionStatusFailure(LinearSolverStatusFailure):
     primary_solver_status: LinearSolverStatus
 
 
-_T = TypeVar("_T")
+_T = TypeVar("_T", EquationOnDomain, Variable)
 """TODO YZ"""
 
 
