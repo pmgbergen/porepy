@@ -83,11 +83,16 @@ class MortarGrid:
     _counter = count(0)
     """Counter of instantiated mortar grids. See :meth:`__new__` and :meth:`id`."""
 
+    _version: int
+    """Bumped whenever the projections are updated in place; lets consumers cache
+    quantities derived from them. Set in :meth:`__new__`."""
+
     def __new__(cls, *args, **kwargs):
         """Make object and set ID by forwarding :attr:`_counter`."""
 
         obj = object.__new__(cls)
         obj.__id = next(cls._counter)
+        obj._version = 0
         return obj
 
     def __init__(
@@ -177,6 +182,21 @@ class MortarGrid:
 
         """
         return self.__id
+
+    def _kron_cached(self, name: str, nd: int) -> sps.spmatrix:
+        """Kronecker-expanded projection, memoized per (matrix, nd)."""
+        cache = self.__dict__.setdefault("_proj_kron_cache", {})
+        key = (name, nd)
+        mat = cache.get(key)
+        if mat is None:
+            mat = sparse_kronecker_product(getattr(self, name), nd)
+            cache[key] = mat
+        return mat
+
+    def _register_projection_update(self) -> None:
+        """Invalidate caches of the projections and quantities derived from them."""
+        self._version += 1
+        self.__dict__.pop("_proj_kron_cache", None)
 
     def __repr__(self) -> str:
         """A string representation of the mortar grid including topological information
@@ -594,7 +614,7 @@ class MortarGrid:
             ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
-        return sparse_kronecker_product(self._primary_to_mortar_int, nd)
+        return self._kron_cached("_primary_to_mortar_int", nd)
 
     def secondary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells on the secondary side to the mortar, by summing
@@ -617,7 +637,7 @@ class MortarGrid:
             ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
-        return sparse_kronecker_product(self._secondary_to_mortar_int, nd)
+        return self._kron_cached("_secondary_to_mortar_int", nd)
 
     def primary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of primary to the mortar, by averaging quantities
@@ -641,7 +661,7 @@ class MortarGrid:
             ``shape=(nd*g_primary.num_faces, nd*mortar_grid.num_cells)``.
 
         """
-        return sparse_kronecker_product(self._primary_to_mortar_avg, nd)
+        return self._kron_cached("_primary_to_mortar_avg", nd)
 
     def secondary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells at the secondary to the mortar, by averaging
@@ -665,7 +685,7 @@ class MortarGrid:
             ``shape=(nd*g_secondary.num_cells, nd*mortar_grid.num_cells)``.
 
         """
-        return sparse_kronecker_product(self._secondary_to_mortar_avg, nd)
+        return self._kron_cached("_secondary_to_mortar_avg", nd)
 
     def mortar_to_primary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by summing quantities
@@ -688,7 +708,7 @@ class MortarGrid:
             ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
-        return sparse_kronecker_product(self._mortar_to_primary_int, nd)
+        return self._kron_cached("_mortar_to_primary_int", nd)
 
     def mortar_to_secondary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to cells at the secondary, by summing
@@ -712,7 +732,7 @@ class MortarGrid:
 
 
         """
-        return sparse_kronecker_product(self._mortar_to_secondary_int, nd)
+        return self._kron_cached("_mortar_to_secondary_int", nd)
 
     def mortar_to_primary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by averaging quantities
@@ -736,7 +756,7 @@ class MortarGrid:
             ``shape=(nd*mortar_grid.num_cells, nd*g_primary.num_faces)``.
 
         """
-        return sparse_kronecker_product(self._mortar_to_primary_avg, nd)
+        return self._kron_cached("_mortar_to_primary_avg", nd)
 
     def mortar_to_secondary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to secondary, by averaging quantities from the
@@ -760,7 +780,7 @@ class MortarGrid:
             ``shape=(nd*mortar_grid.num_cells, nd*g_secondary.num_faces)``.
 
         """
-        return sparse_kronecker_product(self._mortar_to_secondary_avg, nd)
+        return self._kron_cached("_mortar_to_secondary_avg", nd)
 
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.dia_matrix:
         """Assign positive or negative weight to the two sides of a mortar grid.
@@ -958,6 +978,7 @@ class MortarGrid:
         ``_primary_to_mortar_int`` and ``_secondary_to_mortar_int`` .
 
         """
+        self._register_projection_update()
 
         # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.
         if primary:

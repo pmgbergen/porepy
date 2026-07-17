@@ -158,38 +158,56 @@ class BoundaryCondition(AbstractBoundaryCondition):
                                         array must match number of faces"""
                     )
                 faces = np.argwhere(faces)
-            if not np.all(np.isin(faces, self.bf)):
+            # Canonicalize to integer face indices; some callers pass float arrays.
+            faces_arr = np.asarray(faces).ravel()
+            faces_int = faces_arr.astype(int)
+            on_boundary = np.zeros(self.num_faces, dtype=bool)
+            on_boundary[self.bf] = True
+            in_range = np.array_equal(faces_int, faces_arr) and bool(
+                ((faces_int >= 0) & (faces_int < self.num_faces)).all()
+            )
+            if not (in_range and np.all(on_boundary[faces_int])):
                 raise ValueError(
                     "Give boundary condition only on the \
                                  boundary"
                 )
-            domain_boundary_and_tips = np.argwhere(
-                np.logical_or(sd.tags["domain_boundary_faces"], sd.tags["tip_faces"])
+            domain_boundary_and_tips = np.logical_or(
+                sd.tags["domain_boundary_faces"], sd.tags["tip_faces"]
             )
-            if not np.all(np.isin(faces, domain_boundary_and_tips)):
+            if not np.all(domain_boundary_and_tips[faces_int]):
                 warnings.warn(
                     "You are now specifying conditions on internal \
                               boundaries. Be very careful!"
                 )
             if isinstance(cond, str):
-                cond = [cond] * faces.size
-            if faces.size != len(cond):
-                raise ValueError("One BC per face")
-
-            for ind in np.arange(faces.size):
-                s = cond[ind]
-                if s.lower() == "neu":
-                    pass  # Neumann is already default
-                elif s.lower() == "dir":
-                    self.is_dir[faces[ind]] = True
-                    self.is_neu[faces[ind]] = False
-                    self.is_rob[faces[ind]] = False
-                elif s.lower() == "rob":
-                    self.is_dir[faces[ind]] = False
-                    self.is_neu[faces[ind]] = False
-                    self.is_rob[faces[ind]] = True
-                else:
+                # Fast path for a single condition applied to all faces.
+                c = cond.lower()
+                if c not in ("neu", "dir", "rob"):
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
+                if c != "neu":  # Neumann is the default.
+                    self.is_dir[faces_int] = c == "dir"
+                    self.is_neu[faces_int] = False
+                    self.is_rob[faces_int] = c == "rob"
+            else:
+                if faces.size != len(cond):
+                    raise ValueError("One BC per face")
+                cond_arr = np.array([s.lower() for s in cond])
+
+                if not np.isin(cond_arr, ["neu", "dir", "rob"]).all():
+                    raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
+
+                # Neumann is the default, so only Dirichlet and Robin faces need
+                # setting. For a face repeated with different conditions, the last
+                # one wins; keep the last occurrence of each face.
+                set_cond = np.flatnonzero(cond_arr != "neu")
+                if set_cond.size:
+                    sel = faces_int[set_cond]
+                    is_dir = cond_arr[set_cond] == "dir"
+                    _, last_rev = np.unique(sel[::-1], return_index=True)
+                    keep = sel.size - 1 - last_rev
+                    self.is_dir[sel[keep]] = is_dir[keep]
+                    self.is_neu[sel[keep]] = False
+                    self.is_rob[sel[keep]] = ~is_dir[keep]
 
     def __repr__(self) -> str:
         num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum()

@@ -252,14 +252,18 @@ def compute_dist_face_cell(sd, subcell_topology, eta, return_paired=True):
     )
     dims = sd.dim
 
-    _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
-    cols += pp.matrix_operations.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
+    block_offset = pp.matrix_operations.rldecode(
+        np.cumsum(blocksz) - blocksz[0], blocksz
+    )
+    cols = np.arange(dims)[:, None] + block_offset[None, :]
     if np.asarray(eta).size == subcell_topology.num_subfno_unique:
         eta_vec = eta[subcell_topology.subfno]
     elif np.asarray(eta).size == 1:
         eta_vec = eta * np.ones(subcell_topology.fno.size)
         # Set eta values to zero at the boundary
-        bnd = np.isin(subcell_topology.fno, sd.get_all_boundary_faces())
+        is_bnd = np.zeros(sd.num_faces, dtype=bool)
+        is_bnd[sd.get_all_boundary_faces()] = True
+        bnd = is_bnd[subcell_topology.fno]
         eta_vec[bnd] = 0
     else:
         raise ValueError("size of eta must either be 1 or number of subfaces")

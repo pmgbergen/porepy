@@ -249,6 +249,30 @@ class MortarProjections:
 
     """
 
+    def __new__(
+        cls,
+        mdg: pp.MixedDimensionalGrid,
+        subdomains: Sequence[pp.Grid],
+        interfaces: Sequence[pp.MortarGrid],
+        dim: int = 1,
+    ) -> MortarProjections:
+        """Reuse instances: models request the same few projections over and over,
+        and construction is expensive. Instances are cached on the mdg, keyed on the
+        grids (with shapes) and the interface versions, so in-place grid updates
+        invalidate the cache.
+        """
+        key = (
+            tuple((sd.id, sd.num_cells, sd.num_faces) for sd in subdomains),
+            tuple((intf.id, intf._version) for intf in interfaces),
+            dim,
+        )
+        cache = mdg.__dict__.setdefault("_mortar_projection_cache", {})
+        obj = cache.get(key)
+        if obj is None:
+            obj = super().__new__(cls)
+            cache[key] = obj
+        return obj
+
     def __init__(
         self,
         mdg: pp.MixedDimensionalGrid,
@@ -269,6 +293,10 @@ class MortarProjections:
             dim: Dimension of the quantities to be projected.
 
         """
+        if getattr(self, "_initialized", False):
+            # Cached instance handed out by __new__.
+            return
+        self._initialized = True
         self._name = "MortarProjection"
         self._num_edges: int = len(interfaces)
         self.dim: int = dim

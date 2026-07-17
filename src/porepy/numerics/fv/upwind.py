@@ -296,9 +296,15 @@ class Upwind(Discretization):
         # Form and store discretization matrix.
         # Expand the discretization matrix to more than one component.
         num_components: int = parameter_dictionary.get("num_components", 1)
-        matrix_dictionary[self.upwind_matrix_key] = sps.kron(
-            upstream_mat, sps.eye(num_components)
-        ).tocsr()
+
+        def expand(mat: sps.spmatrix) -> sps.spmatrix:
+            # The Kronecker product with a unit identity is an expensive no-op;
+            # skip it. The cast mirrors the dtype promotion of the product.
+            if num_components == 1:
+                return mat.astype(np.float64)
+            return sps.kron(mat, sps.eye(num_components)).tocsr()
+
+        matrix_dictionary[self.upwind_matrix_key] = expand(upstream_mat)
 
         # Boundary conditions
         # Since the upwind discretization could be combined with a diffusion
@@ -326,13 +332,9 @@ class Upwind(Discretization):
             shape=(sd.num_faces, sd.num_faces),
         ).tocsr()
 
-        # Expand matrix to the right number of components, and store it.
-        matrix_dictionary[self.bound_transport_neu_matrix_key] = sps.kron(
-            bc_discr_neu, sps.eye(num_components)
-        ).tocsr()
-        matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.kron(
-            bc_discr_dir, sps.eye(num_components)
-        ).tocsr()
+        # Expand matrices to the right number of components, and store them.
+        matrix_dictionary[self.bound_transport_neu_matrix_key] = expand(bc_discr_neu)
+        matrix_dictionary[self.bound_transport_dir_matrix_key] = expand(bc_discr_dir)
 
     def darcy_flux(
         self, sd: pp.Grid, beta: np.ndarray, cell_apertures=None

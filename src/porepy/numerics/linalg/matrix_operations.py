@@ -1576,25 +1576,12 @@ def block_diag_index(
     """
     # Case for squared but irregular block sizes
     if n is None:
-        # Construction of auxiliary structures (low complexity)
-        n = np.insert(m, 0, 0).astype(np.int32)
-        idx_blocks = np.cumsum(n, dtype=np.int32)
-        idx_inv_blocks = np.cumsum(np.square(n), dtype=np.int32)
-        i = np.zeros(idx_inv_blocks[-1], dtype=np.int32, order="C")
-
-        def retrieve_indices(ib):
-            i_range = np.arange(idx_blocks[ib], idx_blocks[ib + 1])
-            # this two step operations is one of the fastest way to:
-            # duplicate an array n-times and concatenate the duplicates in a flattened
-            # structure
-            i_val = np.empty((n[ib + 1], *i_range.shape), i_range.dtype)
-            np.copyto(i_val, i_range)
-            # Finally assign values
-            i[idx_inv_blocks[ib] : idx_inv_blocks[ib + 1]] = i_val.flat
-
-        # Trigger computations from np.fromiter
-        np.fromiter(map(retrieve_indices, range(n.size - 1)), dtype=np.ndarray)
-        return i
+        # Same construction as the rectangular case below with n = m, returning only
+        # the row indices: for each block, its row range repeated once per column.
+        pos = np.cumsum(np.hstack((np.zeros(1, dtype="int"), m)))
+        p1_full = rldecode(pos[:-1], m)
+        p2_full = rldecode(pos[1:], m)
+        return pp.array_operations.expand_index_pointers(p1_full, p2_full)
 
     start = np.hstack((np.zeros(1, dtype="int"), m))
     pos = np.cumsum(start)

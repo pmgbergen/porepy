@@ -5,6 +5,7 @@ for representation of permeability and stiffness, respectively.
 
 from __future__ import annotations
 
+import copy
 from abc import ABC, abstractmethod
 from typing import Optional, Self, cast
 
@@ -52,16 +53,18 @@ class Tensor(ABC):
                 restricted to.
 
         """
-        # Make a copy such that we do not adapt the original tensor.
-        tmp_tensor = self.copy()
+        # Make a shallow copy and reassign the sliced arrays; every array is replaced
+        # below, so copying the full-size tensor only to slice it down (with the
+        # redundant re-validation in the constructor) is avoided.
+        tmp_tensor = copy.copy(self)
 
         # Restrict all constitutive parameters.
-        for field in tmp_tensor.constitutive_parameters:
-            vals = cast(np.ndarray, getattr(tmp_tensor, field))
+        for field in self.constitutive_parameters:
+            vals = cast(np.ndarray, getattr(self, field))
             setattr(tmp_tensor, field, vals[cells])
 
         # Restrict the values representation of the tensor.
-        tmp_tensor.values = tmp_tensor.values[::, ::, cells]
+        tmp_tensor.values = self.values[::, ::, cells]
         return tmp_tensor
 
 
