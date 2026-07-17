@@ -699,14 +699,11 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
         b = np.asarray(b, dtype=float)
         if self.params.get("lagrange_linear_solver", "cpr") == "cpr":
-            try:
-                # _schur_cpr_solve validates its own (projected) accuracy and raises on failure.
-                return self._schur_cpr_solve(A, b)
-            except Exception as exc:
-                if not getattr(self, "_cpr_fallback_warned", False):
-                    self._cpr_fallback_warned = True
-                    print(f"  [warn] Schur-reduced CPR unavailable ({exc!r}); falling back "
-                          f"to the SciPy bordered solve for this run", flush=True)
+            # No SciPy fallback here: _cpr_petsc_solve retries internally with a direct MUMPS LU
+            # on the (reduced, bordered) system, so a failure reaching this level is terminal --
+            # better to STOP than to factorize the full 135k system with SciPy (memory-bound,
+            # locks the machine).  Explicit `--linear-solver scipy` still selects the old path.
+            return self._schur_cpr_solve(A, b)
         return self._scipy_bordered_solve(A, b, null_mean_dofs)
 
     @staticmethod
@@ -860,7 +857,15 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         else:
             Sc, gc = S, g
 
-        xk, cpr_its = self._cpr_petsc_solve(Sc, gc, n_p, n_ell, matrix_p_pos)  # CPR, connected system
+        # After a stall the FGMRES budget drops to a probe (the MUMPS fallback inside
+        # _cpr_petsc_solve does the real work); a probe that converges clears the flag.  With row
+        # equilibration the deep-dt MD solves legitimately take 60-100 its (measured distribution:
+        # all converge < 100), so the probe budget must sit ABOVE that band -- a 60-its cap
+        # truncated healthy solves straight into MUMPS.
+        cpr_maxit = 150 if getattr(self, "_cpr_stalled", False) else 300
+        xk, cpr_its = self._cpr_petsc_solve(
+            Sc, gc, n_p, n_ell, matrix_p_pos, maxit=cpr_maxit)  # CPR, connected system
+        self._cpr_stalled = cpr_its >= cpr_maxit
         if n_darcy:
             xp = np.concatenate([xk, (gl - Slk @ xk) / dll])    # back-substitute interface_darcy_flux
         else:
@@ -951,9 +956,20 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             shape=(1, n))
         corner = sps.coo_matrix(([0.0], ([0], [0])), shape=(1, 1))   # explicit lam diagonal (PETSc LU)
         Mb = sps.bmat([[S, C.T], [C, corner]], format="csr")
-        Mb.sort_indices()
         nb = n + 1
         gb = np.concatenate([np.asarray(g, dtype=float), [0.0]])
+        # ROW-EQUILIBRATE the bordered system.  On the mixed-dimensional grid the 1e-9-aperture
+        # fracture rows are ~9 orders smaller than the matrix rows, and FGMRES minimizes the
+        # residual in the UNSCALED norm -- the fracture components simply never converge, and no
+        # block preconditioner can compensate (measured on captured stall systems: even exact LU
+        # on every field stalls at 300 its, while this scaling alone converges in 67).  Scaling
+        # rows leaves the solution unchanged; fixed-dimensional rows are ~uniform, so it is a
+        # no-op there.
+        row_max = np.asarray(np.abs(Mb).max(axis=1).todense()).ravel()
+        row_max[row_max == 0.0] = 1.0
+        Mb = (sps.diags(1.0 / row_max) @ Mb).tocsr()
+        Mb.sort_indices()
+        gb = gb / row_max
 
         mat = PETSc.Mat().createAIJ(
             size=(nb, nb),
@@ -973,34 +989,49 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         pc.setType("fieldsplit")
         is_pl = PETSc.IS().createGeneral(
             np.concatenate([np.arange(n_p), [n]]).astype(PETSc.IntType), comm=PETSc.COMM_SELF)
-        is_h = PETSc.IS().createGeneral(
-            np.arange(n_p, n_ell, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
-        is_z = PETSc.IS().createGeneral(
-            np.arange(n_ell, n, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
-        pc.setFieldSplitIS(("pl", is_pl), ("h", is_h), ("z", is_z))
+        is_hz = PETSc.IS().createGeneral(
+            np.arange(n_p, n, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
+        pc.setFieldSplitIS(("pl", is_pl), ("hz", is_hz))
         pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
         pc.setUp()
-        kpl, kh, kz = pc.getFieldSplitSubKSP()
+        kpl, khz = pc.getFieldSplitSubKSP()
         # bordered pressure block {p, lam}: elliptic Darcy + gauge row/column -> nonsingular; direct
         # LU via MUMPS (pivots through the zero lam diagonal; n_p+1 is small).
         kpl.setType("preonly")
         kpl.getPC().setType("lu")
         kpl.getPC().setFactorSolverType("mumps")
-        # enthalpy: after the T = h/C_P elimination the conduction is a genuine h-Laplacian, regular
-        # (energy accumulation d(U)/dh regularizes it) -> its own scalar GAMG.
-        kh.setType("preonly")
-        kh.getPC().setType("gamg")
-        # transported overall fractions z: hyperbolic -> ILU(0).
-        kz.setType("preonly")
-        kz.getPC().setType("ilu")
+        # {h, z} as ONE exact advection block.  At large dt the advective h<->z coupling (the
+        # enthalpy advection weight carries the phase mobilities) dominates, and splitting h from
+        # z multiplicatively becomes MARGINAL: on captured deep-dt systems the 3-field split
+        # converges chaotically (96-737 its or stalls, depending on arithmetic noise) while the
+        # combined block is robust (33 its to 1e-9).  The block is a sparse advection operator;
+        # one MUMPS factorization per solve is cheap and replaces both GAMG(h) and ILU(z).
+        khz.setType("preonly")
+        khz.getPC().setType("lu")
+        khz.getPC().setFactorSolverType("mumps")
 
         xv = mat.createVecRight()
         bv = mat.createVecLeft()
         bv.setArray(np.ascontiguousarray(gb, dtype=PETSc.ScalarType))
         ksp.solve(bv, xv)
         if ksp.getConvergedReason() < 0:
-            raise RuntimeError(f"PETSc CPR KSP diverged (reason {ksp.getConvergedReason()}, "
-                               f"its={ksp.getIterationNumber()})")
+            # FGMRES stalled (the advective coupling stiffens with growing dt on the fractured
+            # grid).  Fall back to a DIRECT MUMPS LU on the SAME bordered system: all-PETSc and
+            # only the reduced size (n+1), unlike the old run-level SciPy fallback that
+            # factorized the FULL 135k system and locked the machine.
+            logger.warning("CPR FGMRES stalled (%d its); retrying with direct MUMPS LU",
+                           ksp.getIterationNumber())
+            ksp_lu = PETSc.KSP().create(PETSc.COMM_SELF)
+            ksp_lu.setOperators(mat)
+            ksp_lu.setType("preonly")
+            ksp_lu.getPC().setType("lu")
+            ksp_lu.getPC().setFactorSolverType("mumps")
+            ksp_lu.solve(bv, xv)
+            if ksp_lu.getConvergedReason() < 0:
+                raise RuntimeError(
+                    f"bordered CPR diverged (reason {ksp.getConvergedReason()}) AND the direct "
+                    f"MUMPS fallback failed (reason {ksp_lu.getConvergedReason()})")
+            return xv.getArray()[:n].copy(), ksp.getIterationNumber()
         return xv.getArray()[:n].copy(), ksp.getIterationNumber()
 
 
@@ -1296,11 +1327,11 @@ day = 86400.0
 #  are SCHEDULED, not left to the adaptive cadence.
 # --------------------------------------------------------------------------------------- #
 T_END_DAYS = 100.0                        # hamon T_END
-SNAP_DAYS = (0.0, 100.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
-DT_DAYS = 0.5                             # nominal step [days] -- the constant-dt march value
+SNAP_DAYS = (0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
+DT_DAYS = 0.25                             # nominal step [days] -- the constant-dt march value
 DT_INIT_DAYS = 0.01                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
-DT_MAX_DAYS = 0.5                        # MAXIMUM (cap) adaptive step [days] -- never exceeded;
+DT_MAX_DAYS = 0.25                        # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
 
 
