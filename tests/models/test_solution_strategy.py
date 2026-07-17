@@ -29,6 +29,7 @@ from typing import Callable, Optional, cast
 import numpy as np
 import pytest
 import scipy.sparse as sps
+from scipy.sparse.linalg import spsolve
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
@@ -40,7 +41,7 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.models.metric import EuclideanMetric
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
     ConvergenceStatus,
     DivergenceCriteria,
@@ -217,12 +218,13 @@ class RediscretizationTest(pp.PorePyModel):
         else:
             return super().rediscretize()
 
-    def assemble_linear_system(self) -> None:
+    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
         """Store all assembled linear systems for later comparison."""
-        super().assemble_linear_system()
+        linear_system = super().assemble_linear_system()
         if not hasattr(self, "stored_linear_system"):
             self.stored_linear_system = []
-        self.stored_linear_system.append(copy.deepcopy(self.linear_system))
+        self.stored_linear_system.append(copy.deepcopy(linear_system))
+        return linear_system
 
 
 # Non-trivial solution achieved through BCs.
@@ -306,17 +308,25 @@ def test_targeted_rediscretization(model_class):
     assert len(full_model.stored_linear_system) == 2
     assert len(targeted_model.stored_linear_system) == 2
     for i in range(len(full_model.stored_linear_system)):
-        A_full, b_full = full_model.stored_linear_system[i]
-        A_targeted, b_targeted = targeted_model.stored_linear_system[i]
+        full_system = full_model.stored_linear_system[i]
+        targeted_system = targeted_model.stored_linear_system[i]
+        A_full, b_full = full_system.matrix, full_system.rhs
+        A_targeted, b_targeted = targeted_system.matrix, targeted_system.rhs
 
         # Convert to dense array to ensure the matrices are identical.
+        assert A_full is not None
+        assert A_targeted is not None
         assert np.allclose(A_full.toarray(), A_targeted.toarray())
         assert np.allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this
     # check, missing rediscretization may go unnoticed.
     tol = 1e-2
-    diff = full_model.stored_linear_system[0][0] - full_model.stored_linear_system[1][0]
+    first_matrix = full_model.stored_linear_system[0].matrix
+    second_matrix = full_model.stored_linear_system[1].matrix
+    assert first_matrix is not None
+    assert second_matrix is not None
+    diff = first_matrix - second_matrix
     assert np.linalg.norm(diff.todense()) > tol
 
 
@@ -444,14 +454,18 @@ def test_check_convergence(
     metric = EuclideanMetric()
     convergence_criteria = ConvergenceCriteria(
         {
-            "inc_abs": pp.IncrementBasedAbsoluteCriterion(tol=1e-5, metric=metric),
-            "res_abs": pp.ResidualBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+            "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
+                tol=1e-5, metric=metric
+            ),
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+                tol=1e-5, metric=metric
+            ),
         }
     )
     divergence_criteria = DivergenceCriteria(
         {
-            "inc_nan": pp.IncrementBasedNanCriterion(),
-            "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+            "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
                 tol=1e4, metric=metric
             ),
         }
@@ -642,3 +656,18 @@ def test_schur_complement_inverter_on_model(
         )
         and np.all(approx_identity.shape == identity.shape)
     )
+
+    # Test that we expand the solution correctly. This is currently hard-coded in
+    # NewtonSolver.iteration. This test will be moved and restructured when a linear
+    # solver for the schur complement strategy is introduced.
+    assert model._apply_schur_complement_reduction()
+    nonlinear_solver = pp.solvers.NewtonSolver()
+    expanded_sol, status = nonlinear_solver.iteration(model)
+    assert status.is_success()
+
+    # Solving the full matrix without taking the Schur complement as a reference.
+    mat, rhs = model.equation_system.assemble()
+    sol_expected = spsolve(mat, rhs)
+
+    assert expanded_sol.shape == sol_expected.shape, "Shapes must match."
+    np.testing.assert_allclose(sol_expected - expanded_sol, 0, atol=1e-9, rtol=0)

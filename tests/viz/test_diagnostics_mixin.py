@@ -22,7 +22,6 @@ def model() -> PoromechanicsWithDiagnostics:
     model.prepare_simulation()
     model.before_nonlinear_loop()
     model.before_nonlinear_iteration()
-    model.assemble_linear_system()
     return model
 
 
@@ -33,6 +32,7 @@ def model() -> PoromechanicsWithDiagnostics:
 def test_diagnostics_mixin_basic(_, model: PoromechanicsWithDiagnostics) -> None:
     """Tests basic functionality."""
     diagnostics_data = model.run_diagnostics(
+        model.assemble_linear_system(),
         default_handlers=("max", "cond"),
         grouping=None,
     )
@@ -61,6 +61,7 @@ def test_diagnostics_mixin_custom_handler(
         return 0
 
     diagnostics_data = model.run_diagnostics(
+        model.assemble_linear_system(),
         grouping="dense",
         additional_handlers={"custom_handler": custom_handler},
     )
@@ -94,7 +95,9 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
         return 0
 
     grouping = [model.mdg.interfaces()]
+    linear_system = model.assemble_linear_system()
     diagnostics_data = model.run_diagnostics(
+        linear_system,
         grouping=grouping,
         additional_handlers={"is_interface_block": is_interface_block},
     )
@@ -104,6 +107,7 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
 
     # And checking that keyword "interfaces" will prodice the same result.
     diagnostics_data_new = model.run_diagnostics(
+        linear_system,
         grouping="interfaces",
         additional_handlers={"is_interface_block": is_interface_block},
     )

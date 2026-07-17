@@ -1,5 +1,11 @@
+from __future__ import annotations
+
 import numpy as np
 from scipy.linalg import lstsq
+
+__all__ = [
+    "AndersonAcceleration",
+]
 
 
 class AndersonAcceleration:

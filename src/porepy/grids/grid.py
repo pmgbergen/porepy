@@ -639,6 +639,9 @@ class Grid:
             )
             / 2
         )
+        # Large edge-wise temporaries are deleted at their last use; on fine 3d grids
+        # they dominate the peak memory of the entire grid construction.
+        del along_edge, face_2_node
 
         def nrm(v):
             return np.sqrt(np.sum(v * v, axis=0))
@@ -654,6 +657,7 @@ class Grid:
             + self.nodes[:, face_nodes[next_node]]
             + tmp_face_center.transpose()
         ) / 3
+        del tmp_face_center, next_node
 
         # Face normals are given as the sum of the sub-components
         face_normals = sub_normals * edge_2_face
@@ -675,6 +679,7 @@ class Grid:
         # Finally, face centers are the area weighted means of centroids of
         # the sub-faces
         face_centers = sub_areas * sub_centroids * edge_2_face / face_areas
+        del sub_areas
 
         # .. and we're done with the faces. Store information
         self.face_centers = face_centers
@@ -692,6 +697,7 @@ class Grid:
         # contain more elements than edge_2_face, since the former will count internal
         # faces twice (one for each adjacent cell)
         edge_2_cell = edge_2_face * np.abs(self.cell_faces)
+        del edge_2_face
         # Sort indices to avoid messing up the mappings later
         edge_2_cell.sort_indices()
 
@@ -711,6 +717,7 @@ class Grid:
 
         # Number of edges per cell
         num_cell_edges = edge_2_cell.indptr[1:] - edge_2_cell.indptr[:-1]
+        del edge_2_cell, face_node_ind
 
         def bincount_nd(arr, weights):
             """Utility function to sum vector quantities by np.bincount. We
@@ -729,15 +736,18 @@ class Grid:
 
         # First estimate of cell centers as the mean of its faces' centers Divide by
         # num_cell_edges here since all edges bring in their faces
-        tmp_cell_centers = bincount_nd(
-            cell_numbers, face_centers[:, face_numbers] / num_cell_edges[cell_numbers]
-        )
+        # In-place arithmetic on the freshly indexed copies below avoids another
+        # round of edge-sized temporaries; the values are unchanged.
+        cell_center_weights = face_centers[:, face_numbers]
+        cell_center_weights /= num_cell_edges[cell_numbers]
+        tmp_cell_centers = bincount_nd(cell_numbers, cell_center_weights)
+        del cell_center_weights
 
         # Distance from the temporary cell center to the sub-centroids (of
         # the tetrahedra associated with each edge)
-        dist_cellcenter_subface = (
-            sub_centroids[:, edge_numbers] - tmp_cell_centers[:, cell_numbers]
-        )
+        dist_cellcenter_subface = sub_centroids[:, edge_numbers]
+        dist_cellcenter_subface -= tmp_cell_centers[:, cell_numbers]
+        del sub_centroids
 
         # Get sign of normal vectors, seen from all faces. Make sure we get a numpy
         # ndarray, and not a matrix (np.asarray), and that the array is 1D (squeeze)
@@ -748,14 +758,16 @@ class Grid:
         # Get outwards pointing sub-normals for all sub-faces: We need to account for
         # both the orientation of the face, and the orientation of sub-faces relative to
         # faces.
-        outer_normals = (
-            sub_normals[:, edge_numbers] * orientation * sub_normals_sign[edge_numbers]
-        )
+        outer_normals = sub_normals[:, edge_numbers]
+        outer_normals *= orientation
+        outer_normals *= sub_normals_sign[edge_numbers]
+        del sub_normals, sub_normals_sign, orientation, edge_numbers, face_numbers
 
         # Volumes of tetrahedra are now given by the dot product between the outer
         #  normal (which is area weighted, and thus represent the base of the tet), with
         #  the distance from temporary cell center (the dot product gives the height).
         tet_volumes = np.sum(dist_cellcenter_subface * outer_normals, axis=0) / 3
+        del outer_normals
 
         # Sometimes the sub-tet volumes can have a volume of numerical zero. Why this is
         # so is not clear, but for the moment, we allow for a slightly negative value.
@@ -765,6 +777,7 @@ class Grid:
         # The cell volumes are now found by summing sub-tetrahedra
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
         tri_centroids = 3 / 4 * dist_cellcenter_subface
+        del dist_cellcenter_subface
 
         # Compute a correction to the temporary cell center, by a volume weighted sum of
         # the sub-tetrahedra
@@ -1089,12 +1102,9 @@ class Grid:
         if self.num_faces == 0:
             return np.zeros((2, 0))
 
-        # Memoize: this is pure topology (a function of the immutable ``cell_faces``), yet the
-        # ``sps.find`` below is not free and this is called on every upwind re-discretization
-        # (once per Newton iteration). Cache the result, keyed on the ``cell_faces`` object so a
-        # replaced ``cell_faces`` transparently invalidates it. The array is returned read-only
-        # because it is shared across callers (they only read it -- see ``cell_faces_as_dense``
-        # usages, which index into it); mutating it would corrupt the cache.
+        # Pure topology, but called on every upwind re-discretization. Cache keyed
+        # on the cell_faces object, so a replaced cell_faces invalidates it. The
+        # array is shared across callers, hence returned read-only.
         cached = self.__dict__.get("_cell_faces_as_dense_cache")
         if cached is not None and cached[0] is self.cell_faces:
             return cached[1]

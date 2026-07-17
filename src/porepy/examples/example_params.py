@@ -19,7 +19,6 @@ from porepy.applications.material_values.reference_values import (
 from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
-from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
 # Used for conversion of units.
 units = pp.Units()
@@ -28,8 +27,6 @@ units = pp.Units()
 # the default models by 'not invoked by default'.
 
 model_params = {
-    "variable_scaling_linear_rpc": None,
-    "linear_solver": "pypardiso",
     "units": units,
     "time_manager": pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
     "reference_variable_values": pp.ReferenceVariableValues(**reference_values),  # type: ignore[arg-type]
@@ -85,25 +82,14 @@ model_params = {
     # Compositional model (multiphase multicomponent flow)
     "fractional_flow": True,
     "enable_buoyancy_effects": False,
-    # Buoyancy discretization. Only invoked when buoyancy effects are enabled.
-    "buoyancy_upwinding": "hybrid",  # "hybrid" (HU) or "phase_potential" (PPU).
-    # chi in [0, 1]: splits the passive-phase (background) mobility between the two
-    # inter-phase buoyant directions; symmetric (0.5) by default.
-    "passive_phase_interference_factor": 0.5,
     "apply_schur_complement_reduction": False,
     "schur_complement_inverter": None,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "phase_property_params": None,  # See Phase.compute_properties for details.
-    "has_time_dependent_boundary_values": False,
     # Contact mechanics
     "traction_estimate_p_mean": 5.0,
     "adaptive_indicator_scaling": 1,  # Scale the indicator adaptively for robustness.
-    # Flash calculations
-    "flash_params": {
-        "compile": True,
-        "compile_args": tuple(),
-    },
 }
 
 solver_params = {
@@ -121,33 +107,34 @@ solver_params = {
     "nl_metric": pp.EuclideanMetric(),  # Metric for norms.
     # Detailed convergence and divergence criteria - overwrite the defaults.
     "nl_convergence_criteria": {
-        "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+        "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
             tol=1e-6, metric=pp.EuclideanMetric()
         ),
-        "inc_rel": pp.IncrementBasedRelativeCriterion(
+        "inc_rel": pp.solvers.IncrementBasedRelativeCriterion(
             tol=1e-4, metric=pp.EuclideanMetric()
         ),
-        "res_abs": pp.ResidualBasedAbsoluteCriterion(
+        "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
             tol=1e-6, metric=pp.EuclideanMetric()
         ),
-        "res_rel": pp.ResidualBasedRelativeCriterion(
+        "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
             tol=1e-4, metric=pp.EuclideanMetric()
         ),
     },
     "nl_divergence_criteria": {
-        "max_iter": pp.MaxIterationsCriterion(max_iterations=10),
-        "inc_nan": pp.IncrementBasedNanCriterion(),
-        "res_nan": pp.ResidualBasedNanCriterion(),
-        "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+        "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=10),
+        "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+        "res_nan": pp.solvers.ResidualBasedNanCriterion(),
+        "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
             tol=1e20, metric=pp.EuclideanMetric()
         ),
-        "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+        "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
             tol=1e20, metric=pp.EuclideanMetric()
         ),
     },
     # Line search / Solution Strategies. These are considered "advanced" options.
     # Delete the following lines for the default Newton's method.
-    "nonlinear_solver": ConstraintLineSearchNonlinearSolver,  # Must be a class.
+    # "nonlinear_solver" must be a class.
+    "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
     "global_line_search": 0,  # Set to 1 to use turn on a residual-based line search.
     "residual_line_search_interval_size": 1e-1,
     "residual_line_search_num_steps": 5,

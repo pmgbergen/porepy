@@ -763,10 +763,11 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
 
     for mod in [model_without_diff, model_with_diff]:
         mod.prepare_simulation()
-        mod.assemble_linear_system()
+        linear_system = mod.assemble_linear_system()
+        assert linear_system.matrix is not None
 
-        matrix.append(mod.linear_system[0])
-        vector.append(mod.linear_system[1])
+        matrix.append(linear_system.matrix)
+        vector.append(linear_system.rhs)
 
     assert np.allclose(matrix[0].toarray(), matrix[1].toarray())
     assert np.allclose(vector[0], vector[1])

@@ -298,11 +298,14 @@ class BoundaryConditionsMechanicsNeumann:
     boundaries.
 
     The only exception is that internal boundaries are converted to Dirichlet and three
-    points are partly fixed to avoid rigid body motions. We pick maximum z coordinate
-    for all three points. The points have
-            1) min x and max y coordinate, (fixed in y and z directions)
-            2) max x and max y coordinate,  (fixed in y and z directions)
-            3) mean x and min y coordinate. (fixed in x and z directions)
+    points are partly fixed to avoid rigid body motions.
+
+    In both 2D and 3D, the anchor points are ordered west, south, east.
+
+    In 3D, the points are selected at maximum z coordinate:
+        1) min x and high y coordinate, (fixed in y and z directions)
+        2) mean x and min y coordinate, (fixed in x and z directions)
+        3) max x and high y coordinate. (fixed in y and z directions)
     Seen from above, this looks like:
 
                 -------
@@ -311,6 +314,12 @@ class BoundaryConditionsMechanicsNeumann:
                 |     |             |
                 -------             +---> x
                    3 (no x)
+
+    In 2D, the points are selected at mean y on west/east and mean x on south, with
+    the same ordering and constraints:
+        1) west boundary: fix y
+        2) south boundary: fix x
+        3) east boundary: fix y
     """
 
     domain: pp.domain.Domain
@@ -339,16 +348,45 @@ class BoundaryConditionsMechanicsNeumann:
             return bc
         bc.internal_to_dirichlet(sd)
         faces_to_fix = self.faces_to_fix(sd)
-        # Fix y and z displacements on face 1 and 2, x and z displacements on face 3.
-        dir = [
-            np.array([False, True, True]),  # Fix y and z on face 1 (west)
-            np.array([False, True, True]),  # Fix y and z on face 2 (east)
-            np.array([True, False, True]),  # Fix x and z on face 3 (south)
-        ]
-        for i, face in enumerate(faces_to_fix):
-            bc.is_dir[:, face] = dir[i]
-            bc.is_neu[:, face] = ~dir[i]  # Negate for Neumann
+        dir_masks = self._anchor_dirichlet_component_masks()
+        if len(faces_to_fix) != len(dir_masks):
+            raise ValueError("Number of anchor faces and component masks must match.")
+        for face, mask in zip(faces_to_fix, dir_masks):
+            if mask.shape != (self.nd,):
+                raise ValueError(
+                    f"Anchor mask shape {mask.shape} incompatible with nd={self.nd}."
+                )
+            bc.is_dir[:, face] = mask
+            bc.is_neu[:, face] = ~mask  # Negate for Neumann
         return bc
+
+    def _anchor_dirichlet_component_masks(self) -> list[np.ndarray]:
+        """Return Dirichlet component masks for anchor faces.
+
+        Returns:
+            A list of boolean arrays, one for each anchor face. `True` indicates the
+            component is fixed with Dirichlet data.
+
+        """
+        if self.nd == 2:
+            # Fix y on face 1 (west), x on face 2 (south), y on face 3 (east).
+            return [
+                np.array([False, True]),
+                np.array([True, False]),
+                np.array([False, True]),
+            ]
+        if self.nd == 3:
+            # In 3D, use the same west-south-east ordering as in 2D, with
+            # additional z-fixing to remove out-of-plane rigid-body motion.
+            return [
+                np.array([False, True, True]),
+                np.array([True, False, True]),
+                np.array([False, True, True]),
+            ]
+        raise NotImplementedError(
+            "BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, "
+            + f" got nd={self.nd}."
+        )
 
     def faces_to_fix(self, sd: pp.Grid) -> list[np.int64]:
         """Return list of faces to fix to avoid rigid body motions.
@@ -365,34 +403,49 @@ class BoundaryConditionsMechanicsNeumann:
         domain_sides = self.domain_boundary_sides(sd)
         box = self.domain.bounding_box
 
-        # Point 1 is on the center top of the west boundary, having min x coordinate and
-        # y coordinate slightly smaller than the max y coordinate. This is intended to
-        # avoid picking a face along the z-aligned edge.
         x_mean = 0.5 * (box["xmax"] + box["xmin"])
-        # Compute a cell size h to place the point slightly inside the domain along the
-        # y direction instead of at the very corner.
-        h = np.mean(np.sqrt(sd.face_areas[domain_sides.west]))
-        y_high = box["ymax"] - 0.5 * h
-        z_max = box["zmax"]
-        point_1 = np.array([box["xmin"], y_high, z_max])
-        pts = sd.face_centers[:, domain_sides.west]
-        ind_1 = domain_sides.west.nonzero()[0][
-            np.argmin(pp.distances.point_pointset(point_1, pts))
-        ]
-        # Point 2 is on the center top of the east boundary.
-        point_2 = np.array([box["xmax"], y_high, z_max])
-        pts = sd.face_centers[:, domain_sides.east]
-        ind_2 = domain_sides.east.nonzero()[0][
-            np.argmin(pp.distances.point_pointset(point_2, pts))
-        ]
-        # Point 3 is on the center top of the south boundary, having min y coordinate
-        # and mean x coordinate.
-        point_3 = np.array([x_mean, box["ymin"], z_max])
-        pts = sd.face_centers[:, domain_sides.south]
-        ind_3 = domain_sides.south.nonzero()[0][
-            np.argmin(pp.distances.point_pointset(point_3, pts))
-        ]
-        return [ind_1, ind_2, ind_3]
+
+        def face_index(side, point):
+            """For a given side of a domain and a target point, find the index of the
+            face closest to the point."""
+            side_mask = domain_sides.__getattribute__(side)
+            points_on_side = sd.face_centers[: self.nd, side_mask]
+            return side_mask.nonzero()[0][
+                np.argmin(pp.distances.point_pointset(point, points_on_side))
+            ]
+
+        if self.nd == 2:
+            y_mean = 0.5 * (box["ymax"] + box["ymin"])
+            # Point 1: center on west boundary.
+            ind_1 = face_index("west", np.array([box["xmin"], y_mean]))
+
+            # Point 2: center of south boundary.
+            ind_2 = face_index("south", np.array([x_mean, box["ymin"]]))
+
+            # Point 3: center on east boundary.
+            ind_3 = face_index("east", np.array([box["xmax"], y_mean]))
+            return [ind_1, ind_2, ind_3]
+
+        if self.nd == 3:
+            # Point 1 is on the center top of the west boundary, having min x
+            # coordinate and y coordinate slightly smaller than the max y coordinate.
+            # This avoids picking a face along the z-aligned edge.
+            h = np.mean(np.sqrt(sd.face_areas[domain_sides.west]))
+            y_high = box["ymax"] - 0.5 * h
+            z_max = box["zmax"]
+            ind_1 = face_index("west", np.array([box["xmin"], y_high, z_max]))
+
+            # Point 2 is on the center top of the south boundary.
+            ind_2 = face_index("south", np.array([x_mean, box["ymin"], z_max]))
+
+            # Point 3 is on the center top of the east boundary.
+            ind_3 = face_index("east", np.array([box["xmax"], y_high, z_max]))
+            return [ind_1, ind_2, ind_3]
+
+        raise NotImplementedError(
+            "BoundaryConditionsMechanicsNeumann is only implemented for nd=2 or nd=3, "
+            + f" got nd={self.nd}."
+        )
 
 
 class GravityMagnitude:

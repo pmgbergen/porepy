@@ -13,6 +13,7 @@ from pytest import param
 
 import porepy as pp
 from porepy.applications.boundary_conditions.model_boundary_conditions import (
+    BoundaryConditionsMechanicsNeumann,
     HydrostaticBoundaryPressureValues,
     LithostaticBoundaryStressValues,
     ThermalGradientBoundaryTemperatureValues,
@@ -21,6 +22,42 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
+
+
+def _geometry_mixin(model_dim: int):
+    if model_dim == 3:
+        return CubeDomainOrthogonalFractures
+    elif model_dim == 2:
+        return SquareDomainOrthogonalFractures
+    else:
+        raise ValueError(model_dim)
+
+
+@pytest.fixture(params=[2, 3], ids=["2d", "3d"])
+def momentum_model(request):
+    model_dim = request.param
+    geometry_mixin_type = _geometry_mixin(model_dim)
+
+    class TestedModel(
+        BoundaryConditionsMechanicsNeumann,
+        LithostaticBoundaryStressValues,
+        geometry_mixin_type,
+        pp.MomentumBalance,
+    ):
+        pass
+
+    model = TestedModel()
+    model.prepare_simulation()
+    return model
+
+
+@pytest.fixture
+def momentum_boundary_matrix_grid(momentum_model):
+    matrix_grids = [
+        sd for sd in momentum_model.mdg.subdomains() if sd.dim == momentum_model.nd
+    ]
+    assert len(matrix_grids) == 1
+    return matrix_grids[0]
 
 
 @pytest.mark.parametrize("model_dim", [2, 3])
@@ -141,34 +178,18 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
         )
 
 
-@pytest.mark.parametrize("model_dim", [2, 3])
-def test_lithostatic_boundary_stress_values(model_dim: int):
-    if model_dim == 3:
-        geometry_mixin_type = CubeDomainOrthogonalFractures
-    elif model_dim == 2:
-        geometry_mixin_type = SquareDomainOrthogonalFractures
-    else:
-        raise ValueError(model_dim)
-
-    class TestedModel(
-        LithostaticBoundaryStressValues,
-        geometry_mixin_type,
-        pp.MomentumBalance,
-    ):
-        pass
-
+def test_lithostatic_boundary_stress_values(momentum_model):
     # Scaling of the lithostatic stress.
     stress_multipliers = np.array([1, 2, 0.1])
-    tested_model = TestedModel()
-    tested_model.params.update({"lithostatic_stress_multipliers": stress_multipliers})
-    tested_model.prepare_simulation()
+    model = momentum_model
+    model.params.update({"lithostatic_stress_multipliers": stress_multipliers})
 
     # Lithostatic boundary condition requires non-zero time.
-    tested_model.time_manager.time = 1
+    model.time_manager.time = 1
 
-    for boundary_grid in tested_model.mdg.boundaries():
-        values = tested_model.bc_values_stress(boundary_grid)
-        sides = tested_model.domain_boundary_sides(boundary_grid)
+    for boundary_grid in model.mdg.boundaries():
+        values = model.bc_values_stress(boundary_grid)
+        sides = model.domain_boundary_sides(boundary_grid)
 
         # Expanding the indices to reflect vector data, 3 DoFs per cell.
         bottom = np.repeat(sides.bottom, 3)
@@ -186,17 +207,17 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         np.testing.assert_array_equal(values[north | south][0::3], 0)
         np.testing.assert_array_equal(values[north | south][2::3], 0)
 
-        vertical_index = 2 if model_dim == 3 else 1
+        vertical_index = 2 if model.nd == 3 else 1
 
         # Explicitly compute expected normal stresses in each direction.
-        domain_key = "zmax" if model_dim == 3 else "ymax"
+        domain_key = "zmax" if model.nd == 3 else "ymax"
         depth_bc = (
-            tested_model.domain.bounding_box[domain_key]
+            model.domain.bounding_box[domain_key]
             - boundary_grid.cell_centers[vertical_index]
         )
-        rho_f = tested_model.fluid.reference_component.density
-        rho_s = tested_model.solid.density
-        phi = tested_model.solid.porosity
+        rho_f = model.fluid.reference_component.density
+        rho_s = model.solid.density
+        phi = model.solid.porosity
         rho_eff = rho_s * (1 - phi) + rho_f * phi
         gravity = rho_eff * pp.GRAVITY_ACCELERATION
 
@@ -210,20 +231,61 @@ def test_lithostatic_boundary_stress_values(model_dim: int):
         expected_west = +expected_stress[0][sides.east]
         np.testing.assert_allclose(values[east][0::3], expected_east)
         np.testing.assert_allclose(values[west][0::3], expected_west)
-        if model_dim == 3:
+        if model.nd == 3:
             expected_north = -expected_stress[1][sides.north]
             expected_south = +expected_stress[1][sides.south]
             np.testing.assert_allclose(values[north][1::3], expected_north)
             np.testing.assert_allclose(values[south][1::3], expected_south)
 
         # For this geometry, some sides contain no cells for the fracture boundary.
-        east_value = values[east].mean() if np.any(east) else 0
-        west_value = values[west].mean() if np.any(west) else 0
-        if model_dim == 3:
-            north_value = values[north].mean()
-            south_value = values[south].mean()
+        east_value = values[east].mean() if np.any(east) else 0.0
+        west_value = values[west].mean() if np.any(west) else 0.0
 
         # Forces on opposite sides should equilibrate each other, the domain is static.
         np.testing.assert_almost_equal(east_value + west_value, 0)
-        if model_dim == 3:
+        if model.nd == 3:
+            north_value = float(values[north].mean())
+            south_value = float(values[south].mean())
             np.testing.assert_almost_equal(north_value + south_value, 0)
+
+
+def test_mechanics_bcs_neumann(
+    momentum_model,
+    momentum_boundary_matrix_grid,
+):
+    """Test anchor ordering and component constraints for Neumann mechanics BCs.
+
+    The anchor faces are ordered west-south-east in 2D and 3D. The in-plane
+    constraints are identical across dimensions, and 3D additionally fixes z.
+
+    """
+    sd = momentum_boundary_matrix_grid
+    sides = momentum_model.domain_boundary_sides(sd)
+    bc = momentum_model.bc_type_mechanics(sd)
+    faces = momentum_model.faces_to_fix(sd)
+
+    assert len(faces) == 3
+    assert np.any(bc.is_dir)
+    assert not np.all(bc.is_dir)
+
+    # Anchors are ordered west, south, east.
+    assert sides.west[faces[0]]
+    assert sides.south[faces[1]]
+    assert sides.east[faces[2]]
+
+    west_mask = bc.is_dir[:, faces[0]]
+    south_mask = bc.is_dir[:, faces[1]]
+    east_mask = bc.is_dir[:, faces[2]]
+
+    # In-plane constraints are shared in 2D and 3D.
+    np.testing.assert_array_equal(west_mask[:2], np.array([False, True]))
+    np.testing.assert_array_equal(south_mask[:2], np.array([True, False]))
+    np.testing.assert_array_equal(east_mask[:2], np.array([False, True]))
+
+    if momentum_model.nd == 3:
+        assert west_mask[2]
+        assert south_mask[2]
+        assert east_mask[2]
+
+    for face in faces:
+        assert np.array_equal(bc.is_neu[:, face], ~bc.is_dir[:, face])

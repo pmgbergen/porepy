@@ -14,10 +14,7 @@ are immediate candidates for removal.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from porepy.numerics.nonlinear.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-)
+from porepy.numerics import solvers
 
 
 @dataclass
@@ -62,7 +59,7 @@ class TimeStepperStatusContinueIterating(TimeStepperStatus):
 
     attempt: int
     """Retry attempt number."""
-    nonlinear_solver_status: NonlinearSolverStatus
+    nonlinear_solver_status: solvers.NonlinearSolverStatus
     """Nonlinear solver status that caused the time step retry."""
 
     def serialize(self) -> str:
@@ -78,7 +75,7 @@ class TimeStepperStatusSuccess(TimeStepperStatus):
     time: float
     """Simulation time at the end of the time step (t0 + dt)."""
 
-    nonlinear_solver_status: NonlinearSolverStatusConverged
+    nonlinear_solver_status: solvers.NonlinearSolverStatusConverged
     """Nonlinear solver status that caused the time step success."""
 
     def serialize(self) -> str:
@@ -89,7 +86,7 @@ class TimeStepperStatusSuccess(TimeStepperStatus):
 class TimeStepperStatusFailure(TimeStepperStatus):
     """The TimeStepper attempted to make a time step, but failed and gave up."""
 
-    nonlinear_solver_status: NonlinearSolverStatus
+    nonlinear_solver_status: solvers.NonlinearSolverStatus
     """Nonlinear solver status that caused the time step failure."""
     reason: str
     """Reason of failure."""

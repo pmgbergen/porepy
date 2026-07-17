@@ -16,7 +16,6 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
-from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
 
 class TimeDependentDamageBCs:
@@ -536,7 +535,8 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     dim = 2  # 2D case
     time_steps = 5
 
-    model_params.update(
+    params = copy.deepcopy(model_params)
+    params.update(
         {
             "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
         }
@@ -559,18 +559,19 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
         )
 
     # Parameter setup for the momentum balance model.
-    model_params["exact_solution"] = ExactSolutionIsotropic
+    params["exact_solution"] = ExactSolutionIsotropic
     # Only pass active dimensions.
-    model_params["north_displacements"] = model_params["north_displacements"][:dim]  # type: ignore[index]
+    active_dimensions = params["north_displacements"][:dim]  # type: ignore[index]
+    params["north_displacements"] = active_dimensions
 
-    model = model_class(model_params)  # type: ignore[abstract]
+    model = model_class(params)  # type: ignore[abstract]
     # In some cases, the momentum balance model cannot converge with the default solver
     # settings. A relaxed nonlinear solver setting is used for the executable example.
     solver_params = {
         "nl_convergence_inc_atol": 1e-6,
         "nl_convergence_res_atol": 1e-6,
         "nl_max_iterations": 35,
-        "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
         "local_line_search": True,
         "constraint_violation_tolerance": 1e-5,
     }
