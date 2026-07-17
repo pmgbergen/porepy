@@ -237,6 +237,28 @@ class Upwind(Discretization):
             # consistent handling of sinking phases.
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
+        num_components: int = parameter_dictionary.get("num_components", 1)
+
+        # The discretization depends on the flux only through its sign, and otherwise
+        # on the boundary condition flags and the number of components. If none of
+        # these changed since the last discretization, the stored matrices are still
+        # valid and the rebuild is skipped.
+        memo = matrix_dictionary.get("_upwind_inputs")
+        if (
+            memo is not None
+            and memo[3] == num_components
+            and np.array_equal(memo[0], darcy_flux)
+            and np.array_equal(memo[1], bc.is_neu)
+            and np.array_equal(memo[2], bc.is_dir)
+        ):
+            return
+        matrix_dictionary["_upwind_inputs"] = (
+            darcy_flux,
+            bc.is_neu.copy(),
+            bc.is_dir.copy(),
+            num_components,
+        )
+
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0
         neg_flux = np.logical_not(pos_flux)
@@ -295,8 +317,6 @@ class Upwind(Discretization):
 
         # Form and store discretization matrix.
         # Expand the discretization matrix to more than one component.
-        num_components: int = parameter_dictionary.get("num_components", 1)
-
         def expand(mat: sps.spmatrix) -> sps.spmatrix:
             # The Kronecker product with a unit identity is an expensive no-op;
             # skip it. The cast mirrors the dtype promotion of the product.
@@ -498,6 +518,12 @@ class UpwindCoupling(InterfaceDiscretization):
         lam_flux: np.ndarray = np.sign(
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
+
+        # The discretization depends on the flux only through its sign; skip the
+        # rebuild if it is unchanged since the last discretization.
+        if np.array_equal(matrix_dictionary.get("_upwind_inputs"), lam_flux):
+            return
+        matrix_dictionary["_upwind_inputs"] = lam_flux
 
         # Mapping from upper dim cells to faces.
         # The mortars always points from upper to lower, so we don't flip any signs. The

@@ -979,8 +979,20 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         # Evaluate the Darcy flux for all subdomains together, then distribute the
         # computed values. For domains with many subdomains, this is significantly
         # faster than evaluating the Darcy flux for each subdomain individually.
+        # The subdomain, interface and well fluxes are evaluated in one batched call,
+        # sharing the state fetch and any common subexpressions.
         subdomains = self.mdg.subdomains()
-        darcy_flux = self.equation_system.evaluate(self.darcy_flux(subdomains))
+        interfaces = self.mdg.interfaces(codim=1)
+        wells = self.mdg.interfaces(codim=2)
+        darcy_flux, interface_darcy_flux, well_darcy_flux = (
+            self.equation_system.evaluate(
+                [
+                    self.darcy_flux(subdomains),
+                    self.interface_darcy_flux(interfaces),
+                    self.well_flux(wells),
+                ]
+            )
+        )
         # Compute offsets for the start of each subdomain in the darcy_flux array.
         subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
 
@@ -990,11 +1002,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = darcy_flux[subdomain_offsets[id] : subdomain_offsets[id + 1]]
             update_dicts(vals, data)
 
-        # Do an equivalent joint evaluation for the interfaces between fractures.
-        interfaces = self.mdg.interfaces(codim=1)
-        interface_darcy_flux = self.equation_system.evaluate(
-            self.interface_darcy_flux(interfaces)
-        )
+        # Do an equivalent joint distribution for the interfaces between fractures.
         interface_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
 
         for id, intf in enumerate(interfaces):
@@ -1005,8 +1013,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             ]
             update_dicts(vals, data)
 
-        wells = self.mdg.interfaces(codim=2)
-        well_darcy_flux = self.equation_system.evaluate(self.well_flux(wells))
         well_offsets = np.cumsum([0] + [intf.num_cells for intf in wells])
         for id, intf in enumerate(wells):
             # Update the data dictionary with the Darcy flux for the current interface.

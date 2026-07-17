@@ -550,6 +550,9 @@ class NewtonSolver(NonlinearSolverBase):
         """
         # Fetch the residual and current iterate.
         residual = model.equation_system.assemble(evaluate_jacobian=False)
+        # Stash for the subsequent logging call, which needs the residual at the same
+        # state; this avoids assembling it twice.
+        self._residual_for_logging = residual
         iterate = model.equation_system.get_variable_values(iterate_index=0)
 
         # Check convergence status based on current iteration.
@@ -597,9 +600,12 @@ class NewtonSolver(NonlinearSolverBase):
         iteration_msg += f" of {self.max_iterations}"
         logger.info(iteration_msg)
 
-        # Log norms.
+        # Log norms. Reuse the residual assembled by check_convergence when available
+        # (the state is unchanged between the two calls); assemble otherwise.
         nonlinear_increment_norm = np.linalg.norm(nonlinear_increment)
-        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        residual = self.__dict__.pop("_residual_for_logging", None)
+        if residual is None:
+            residual = model.equation_system.assemble(evaluate_jacobian=False)
         residual_norm = np.linalg.norm(residual)
         logger.info(
             f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
