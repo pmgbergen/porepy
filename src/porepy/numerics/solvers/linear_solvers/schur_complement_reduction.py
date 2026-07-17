@@ -14,6 +14,7 @@ from porepy.numerics.ad.equation_system import (
 )
 from porepy.numerics.ad.operators import Variable
 from porepy.numerics.linalg.matrix_operations import invert_permuted_block_diag_matrix
+from porepy.numerics.solvers.equation_variable_tags import EquationTag, VariableTag
 from porepy.numerics.solvers.linear_solvers.linear_solver import (
     LinearSolverBase,
     LinearSolverDirect,
@@ -49,8 +50,8 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 
     def __init__(
         self,
-        primary_equation_tags: list[pp.EquationTag],
-        primary_variable_tags: list[pp.VariableTag],
+        primary_equation_tags: list[EquationTag],
+        primary_variable_tags: list[VariableTag],
         primary_linear_solver: Optional[LinearSolverBase] = None,
     ) -> None:
         self.primary_equation_tags = primary_equation_tags
@@ -63,7 +64,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 
     def initialize(self, linear_system: LinearSystem) -> None:
         def split_primary_secondary(
-            primary_tags: list[pp.EquationTag] | list[pp.VariableTag],
+            primary_tags: list[EquationTag] | list[VariableTag],
             dofs_dict: dict[_T, np.ndarray],
         ) -> tuple[np.ndarray, np.ndarray, dict[_T, np.ndarray], dict[_T, np.ndarray]]:
             primary_dofs = []

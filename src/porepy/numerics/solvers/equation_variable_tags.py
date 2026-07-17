@@ -1,13 +1,19 @@
+"""TODO YZ"""
+
 from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Final, Optional, TypeVar
-
-import numpy as np
-from scipy.sparse import csr_matrix
 
 import porepy as pp
+
+
+__all__ = [
+    "EquationTag",
+    "VariableTag",
+    "DefaultEquationTags",
+    "DefaultVariableTags",
+]
 
 
 @dataclass(frozen=True)
@@ -88,47 +94,3 @@ class DefaultVariableTags:
     # Fracture damage (?)
     dilation_damage_history = VariableTag(name="dilation_damage_history")
     friction_damage_history = VariableTag(name="friction_damage_history")
-
-
-T = TypeVar("T")
-
-
-def apply_cumulative_dof_offsets(
-    dict_of_dofs: dict[T, np.ndarray],
-) -> dict[T, np.ndarray]:
-    result: dict[T, np.ndarray] = {}
-    offset = 0
-    for key, dofs in dict_of_dofs.items():
-        result[key] = dofs + offset
-        offset += len(dofs)
-    return result
-
-
-
-"""
-Why do we need an equation identifier? Can't we just take the equation from the equation
-system?
-
-- What if outside model?
-- ordering of dofs?
-- compare them, find intersection, etc.
-- give me indices of this equation (equation system does this, but is it convenient?)
-- give me indices of these equations if we only use 
-
-Why do we need a variable identifier? Is MdVariable bad?
-- outside model
-- compare them
-
-"""
-
-"""
-Operations we want:
-- give me residual for these tags
-- give me jacobian for these tags
-- give me solution for these tags
-- give me indexer for these tags
-
-- switch physics based on something
-- set new t and dt ...
-
-"""

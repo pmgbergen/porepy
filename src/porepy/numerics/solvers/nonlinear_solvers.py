@@ -38,6 +38,7 @@ from .nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
+from .equation_variable_tags import EquationTag, VariableTag
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -105,8 +106,8 @@ class NewtonSolver(NonlinearSolverBase):
         self,
         params: Optional[dict] = None,
         is_nonlinear_problem: bool = True,
-        equation_tags: Optional[list[pp.EquationTag]] = None,
-        variable_tags: Optional[list[pp.VariableTag]] = None,
+        equation_tags: Optional[list[EquationTag]] = None,
+        variable_tags: Optional[list[VariableTag]] = None,
         linear_solver: Optional[LinearSolverBase] = None,
     ) -> None:
         if params is None:
@@ -132,9 +133,9 @@ class NewtonSolver(NonlinearSolverBase):
             equation_tags = []
         if variable_tags is None:
             variable_tags = []
-        self.equation_tags: list[pp.EquationTag] = equation_tags
+        self.equation_tags: list[EquationTag] = equation_tags
         """TODO YZ"""
-        self.variable_tags: list[pp.VariableTag] = variable_tags
+        self.variable_tags: list[VariableTag] = variable_tags
         """TODO YZ"""
         self.active_equations: Optional[dict[str, pp.GridLikeSequence]] = None
         """TODO YZ"""

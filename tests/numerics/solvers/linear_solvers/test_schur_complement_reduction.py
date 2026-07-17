@@ -18,47 +18,49 @@ from tests.functional.setups.linear_tracer import TracerFlowModel_3p
 
 def _get_primary_equ_and_vars_cf(
     model: pp.PorePyModel,
-) -> tuple[list[pp.EquationTag], list[pp.VariableTag]]:
+) -> tuple[list[pp.solvers.EquationTag], list[pp.solvers.VariableTag]]:
     """Return the primary equation and variable tags of a CF model."""
 
-    equ_tags: list[pp.EquationTag] = []
-    var_tags: list[pp.VariableTag] = []
+    equ_tags: list[pp.solvers.EquationTag] = []
+    var_tags: list[pp.solvers.VariableTag] = []
     # Overall mass balance.
     if isinstance(model, pp.fluid_mass_balance.FluidMassBalanceEquations):
-        equ_tags += [pp.DefaultEquationTags.mass_balance]
-        var_tags += [pp.DefaultVariableTags.pressure]
+        equ_tags += [pp.solvers.DefaultEquationTags.mass_balance]
+        var_tags += [pp.solvers.DefaultVariableTags.pressure]
 
     # Eergy balance. Can have either enthalpy or temperature as a primary variable.
     if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
-        equ_tags += [pp.DefaultEquationTags.energy_balance]
+        equ_tags += [pp.solvers.DefaultEquationTags.energy_balance]
     if isinstance(
         model, pp.compositional_flow.SolutionStrategyExtendedFluidMassAndEnergy
     ):
-        var_tags += [pp.VariableTag(name=model.enthalpy_variable)]
+        var_tags += [pp.solvers.VariableTag(name=model.enthalpy_variable)]
     elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
-        var_tags += [pp.VariableTag(name=model.temperature_variable)]
+        var_tags += [pp.solvers.VariableTag(name=model.temperature_variable)]
 
     # Individual component mass balances.
     if isinstance(model, pp.compositional_flow.ComponentMassBalanceEquations):
         equ_tags += [
-            pp.EquationTag(name=name)
+            pp.solvers.EquationTag(name=name)
             for name in model.component_mass_balance_equation_names()
         ]
     if isinstance(model, pp.compositional.CompositionalVariables):
         var_tags += [
-            pp.VariableTag(name=name) for name in model.overall_fraction_variables
+            pp.solvers.VariableTag(name=name)
+            for name in model.overall_fraction_variables
         ]
         var_tags += [
-            pp.VariableTag(name=name) for name in model.tracer_fraction_variables
+            pp.solvers.VariableTag(name=name)
+            for name in model.tracer_fraction_variables
         ]
 
     # Fluxes.
     for eq_name in model.equation_system.equations.keys():
         if "_flux" in eq_name:
-            equ_tags.append(pp.EquationTag(name=eq_name))
+            equ_tags.append(pp.solvers.EquationTag(name=eq_name))
     for var in model.equation_system.variables:
         if "_flux" in var.name:
-            var_tags.append(pp.VariableTag(name=var.name))
+            var_tags.append(pp.solvers.VariableTag(name=var.name))
 
     return equ_tags, var_tags
 
@@ -80,7 +82,8 @@ def test_schur_complement_reduction_on_model(
     mdg: pp.MixedDimensionalGrid,
     test_model_class: type[pp.PorePyModel],
     get_primary_tags: Callable[
-        [pp.PorePyModel], tuple[list[pp.EquationTag], list[pp.VariableTag]]
+        [pp.PorePyModel],
+        tuple[list[pp.solvers.EquationTag], list[pp.solvers.VariableTag]],
     ],
 ):
     """Compare direct and Schur-complement solutions of a model linear system."""

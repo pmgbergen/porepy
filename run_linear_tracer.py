@@ -44,14 +44,14 @@ model.time_manager = time_manager
 nonlinear_solver = pp.solvers.NewtonSolver(
     linear_solver=pp.solvers.SchurComplementReductionLinearSolver(
         primary_equation_tags=[
-            pp.DefaultEquationTags.mass_balance,
-            pp.DefaultEquationTags.energy_balance,
-            pp.EquationTag(name="component_mass_balance_equation_tracer"),
+            pp.solvers.DefaultEquationTags.mass_balance,
+            pp.solvers.DefaultEquationTags.energy_balance,
+            pp.solvers.EquationTag(name="component_mass_balance_equation_tracer"),
         ],
         primary_variable_tags=[
-            pp.DefaultVariableTags.pressure,
-            pp.DefaultVariableTags.enthalpy,
-            pp.VariableTag(name="z_tracer"),
+            pp.solvers.DefaultVariableTags.pressure,
+            pp.solvers.DefaultVariableTags.enthalpy,
+            pp.solvers.VariableTag(name="z_tracer"),
         ],
         primary_linear_solver=pp.solvers.LinearSolverDirect(),
     )
