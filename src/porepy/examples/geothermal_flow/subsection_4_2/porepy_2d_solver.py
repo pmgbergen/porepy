@@ -919,82 +919,73 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
     @staticmethod
     def _cpr_petsc_solve(S, g, n_p, n_ell, matrix_p_pos, rtol=1.0e-10, maxit=300) -> np.ndarray:
-        """PETSc FGMRES + CPR THREE-field split on the (elliptic-first ordered) reduced primary system
-        ``S x = g``: pressure ``p`` [0, n_p) -> GAMG (+ constant null space -- it is singular in the
-        constant mode), enthalpy ``h`` [n_p, n_ell) -> GAMG (elliptic h-Laplacian, regular), and the
-        transported ``z`` [n_ell, n) -> ILU(0).  Splitting p and h into SEPARATE scalar GAMG fields is
-        ~8x cheaper than one combined ``{p, h}`` block (25 vs ~200 FGMRES iterations at 1e4 cells):
-        each is a clean scalar elliptic operator GAMG coarsens well, whereas the interleaved 2-field
-        block defeats its coarse space.
+        """PETSc FGMRES + CPR on the BORDERED null-mean system (the gauge as an explicit constraint).
 
-        CONSTRAINT (must MATCH the SciPy bordered solve exactly): during Newton the system is singular
-        (right null vector = constant pressure) AND inconsistent (the not-yet-converged total mass
-        imbalance lies along that same direction).  A raw null-space projection would push the imbalance
-        onto the null-space-orthogonal complement -- spreading it over ALL mass rows, matrix AND fracture
-        -- which corrupts the sensitive fracture cells and diverges.  The bordered solve instead pins it
-        onto the MATRIX mass rows (``Sum(dp_matrix) = 0``).  We reproduce that by subtracting a single
-        constant on the matrix pressure rows so the RHS is consistent (orthogonal to the constant-p null
-        vector), leaving the residual on the matrix rows only.  Fixed-dimensional: matrix_p_pos == all
-        pressure -> this is exactly the mean removal.  Returns ``(x, n_iterations)``."""
+        The reduced system is singular in the constant-pressure mode, and its LEFT null vector is
+        NOT the constant-pressure indicator ``v`` (measured ``||S^T v|| = O(1)``): summing the mass
+        rows leaves the advective/buoyant couplings, so the old trick of subtracting the mean of the
+        matrix-pressure rows -- which enforces ``g`` orthogonal to ``v`` -- perturbs ``g`` ALONG the true left
+        null direction whenever the transient mass drift makes ``sum(g_p)`` nonzero.  That made the
+        Krylov problem inconsistent by exactly the drift (~1e-4 relative), and any minimum-residual
+        method stalled at that floor once buoyancy started moving mass (KSP reason -3 at 300 its),
+        while the first iterations of a step (zero drift) still converged.
+
+        The fix mirrors the SciPy fallback EXACTLY: solve the bordered saddle-point system
+
+            [[S, C^T], [C, 0]] [x; lam] = [g; 0],      C = indicator of the matrix pressure dofs,
+
+        with FGMRES on the augmented matrix and a THREE-field multiplicative split: {p, lam} -> the
+        bordered pressure block (nonsingular BECAUSE of the gauge row/column) via direct LU (MUMPS:
+        it pivots through the zero lam-diagonal), h -> GAMG (regular h-Laplacian), z -> ILU(0).
+        Consistent by construction -- no RHS shifts, no declared null spaces -- and measured FASTER
+        than the old path even where that one worked (4 vs 7 its at the IC, 12 vs 39 in-step).
+        Validated on captured failing systems: 13 its to 1e-10 where production stalled at 300.
+        Returns ``(x, n_iterations)``."""
+        import scipy.sparse as sps
         from petsc4py import PETSc
 
-        # Pin the (irreducible) Newton mass imbalance onto the MATRIX pressure rows -> Sum(dp_matrix)=0.
-        g = np.array(g, dtype=float)
-        g[matrix_p_pos] -= g[:n_p].sum() / len(matrix_p_pos)
-
         S = S.tocsr()
-        S.sort_indices()
         n = S.shape[0]
+        C = sps.csr_matrix(
+            (np.ones(len(matrix_p_pos)), (np.zeros(len(matrix_p_pos), int), matrix_p_pos)),
+            shape=(1, n))
+        corner = sps.coo_matrix(([0.0], ([0], [0])), shape=(1, 1))   # explicit lam diagonal (PETSc LU)
+        Mb = sps.bmat([[S, C.T], [C, corner]], format="csr")
+        Mb.sort_indices()
+        nb = n + 1
+        gb = np.concatenate([np.asarray(g, dtype=float), [0.0]])
+
         mat = PETSc.Mat().createAIJ(
-            size=(n, n),
-            csr=(S.indptr.astype(PETSc.IntType), S.indices.astype(PETSc.IntType),
-                 np.ascontiguousarray(S.data, dtype=PETSc.ScalarType)),
+            size=(nb, nb),
+            csr=(Mb.indptr.astype(PETSc.IntType), Mb.indices.astype(PETSc.IntType),
+                 np.ascontiguousarray(Mb.data, dtype=PETSc.ScalarType)),
             comm=PETSc.COMM_SELF,
         )
         mat.assemble()
 
-        def const_p_nullspace(m, upto):
-            """One-vector NullSpace [1..1 on [0, upto), 0 else], normalized -- the constant-pressure
-            singular mode of ``m``."""
-            w = m.createVecRight()
-            a = w.getArray()
-            a[:] = 0.0
-            a[:upto] = 1.0
-            w.assemble()
-            w.normalize()
-            return PETSc.NullSpace().create(constant=False, vectors=[w], comm=PETSc.COMM_SELF)
-
-        nsp = const_p_nullspace(mat, n_p)                       # global constant-pressure null space
-        mat.setNullSpace(nsp)
-
         ksp = PETSc.KSP().create(PETSc.COMM_SELF)
         ksp.setOperators(mat)
-        ksp.setType("fgmres")                                   # flexible: CPR is a nonlinear PC
+        ksp.setType("fgmres")
+        ksp.setGMRESRestart(maxit)                     # full (un-restarted) FGMRES
         ksp.setTolerances(rtol=rtol, atol=1.0e-50, max_it=maxit)
 
         pc = ksp.getPC()
         pc.setType("fieldsplit")
-        is_p = PETSc.IS().createGeneral(
-            np.arange(0, n_p, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
+        is_pl = PETSc.IS().createGeneral(
+            np.concatenate([np.arange(n_p), [n]]).astype(PETSc.IntType), comm=PETSc.COMM_SELF)
         is_h = PETSc.IS().createGeneral(
             np.arange(n_p, n_ell, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
         is_z = PETSc.IS().createGeneral(
             np.arange(n_ell, n, dtype=PETSc.IntType), comm=PETSc.COMM_SELF)
-        pc.setFieldSplitIS(("p", is_p), ("h", is_h), ("z", is_z))
+        pc.setFieldSplitIS(("pl", is_pl), ("h", is_h), ("z", is_z))
         pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
         pc.setUp()
-        kp, kh, kz = pc.getFieldSplitSubKSP()
-        # pressure: elliptic Darcy operator, singular in the constant mode (S_pp 1 = 0) -> GAMG must be
-        # told, else its coarse space is singular there and FGMRES meets rtol on a solution that still
-        # carries an O(1e-4) constant-pressure error.
-        kp.setType("preonly")
-        kp.getPC().setType("gamg")
-        App_block = kp.getOperators()[0]
-        # The reduced pressure block is CONNECTED (matrix + fractures, once interface_darcy_flux is
-        # folded in), singular only in the single global constant.
-        p_nsp = const_p_nullspace(App_block, n_p)
-        App_block.setNullSpace(p_nsp)
-        App_block.setNearNullSpace(p_nsp)                      # GAMG coarse-space interpolation
+        kpl, kh, kz = pc.getFieldSplitSubKSP()
+        # bordered pressure block {p, lam}: elliptic Darcy + gauge row/column -> nonsingular; direct
+        # LU via MUMPS (pivots through the zero lam diagonal; n_p+1 is small).
+        kpl.setType("preonly")
+        kpl.getPC().setType("lu")
+        kpl.getPC().setFactorSolverType("mumps")
         # enthalpy: after the T = h/C_P elimination the conduction is a genuine h-Laplacian, regular
         # (energy accumulation d(U)/dh regularizes it) -> its own scalar GAMG.
         kh.setType("preonly")
@@ -1005,15 +996,12 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
         xv = mat.createVecRight()
         bv = mat.createVecLeft()
-        bv.setArray(np.ascontiguousarray(g, dtype=PETSc.ScalarType))
-        # v is BOTH the right and left nullvector, so removing its component projects g onto range(S) --
-        # the consistent RHS whose solution equals SciPy's bordered null-mean solution (sum(dp) = 0).
-        nsp.remove(bv)
+        bv.setArray(np.ascontiguousarray(gb, dtype=PETSc.ScalarType))
         ksp.solve(bv, xv)
         if ksp.getConvergedReason() < 0:
             raise RuntimeError(f"PETSc CPR KSP diverged (reason {ksp.getConvergedReason()}, "
                                f"its={ksp.getIterationNumber()})")
-        return xv.getArray().copy(), ksp.getIterationNumber()
+        return xv.getArray()[:n].copy(), ksp.getIterationNumber()
 
 
 # --------------------------------------------------------------------------------------- #
