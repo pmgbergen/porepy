@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, cast
-
+from time import time
 import numpy as np
 
 import porepy as pp
@@ -334,23 +334,6 @@ class NewtonSolver(NonlinearSolverBase):
         else:
             self.solver_progressbar = DummyProgressBar()
 
-    def initialize_with_model(self, model: pp.PorePyModel) -> None:
-        if len(self.equation_tags) > 0:
-            self.active_equations = {
-                eq_tag.name: eq_tag.defined_on.domains(model)
-                for eq_tag in self.equation_tags
-            }
-
-        if len(self.variable_tags) > 0:
-            variable_lookup: dict[tuple[str, pp.GridLike], pp.ad.Variable] = {
-                (var.name, var.domain): var for var in model.equation_system.variables
-            }
-            self.active_variables = [
-                variable_lookup[var_tag.name, domain]
-                for var_tag in self.variable_tags
-                for domain in var_tag.defined_on.domains(model)
-            ]
-
     def increase_iteration_index(self) -> None:
         """Advance to the next iteration."""
         self.iteration_index += 1
@@ -367,7 +350,6 @@ class NewtonSolver(NonlinearSolverBase):
         """
         # Model-dependent setup of a linear solver is done once.
         if not self._initialized_with_model:
-            self.initialize_with_model(model)
             self.linear_solver.initialize_with_model(model)
             self._initialized_with_model = True
 
@@ -509,14 +491,31 @@ class NewtonSolver(NonlinearSolverBase):
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
+        t_0 = time()
+
+        # Lazy initialization of self.active_eqautions and self.active_variables.
+        # Happens only once, than cached. TODO YZ: Test this
+        if self.active_equations is None and len(self.equation_tags) > 0:
+            self.active_equations = {}
+            for eq_tag in self.equation_tags:
+                for eq in model.equation_system.equation_indexer.equation_dofs:
+                    if eq_tag.name == eq.name and eq_tag.defined_on.filter(eq.domain):
+                        self.active_equations[eq.name] = eq.domain
+        if self.active_variables is None and len(self.variable_tags) > 0:
+            self.active_variables = []
+            for var_tag in self.variable_tags:
+                for var in model.equation_system.variable_indexer.variable_dofs:
+                    if var_tag.name == var.name and var_tag.defined_on.filter(
+                        var.domain
+                    ):
+                        self.active_variables.append(var)
 
         linear_system = model.equation_system.assemble(
             equations=self.active_equations, variables=self.active_variables
         )
-        nonlinear_increment, linear_solver_status = (
-            self.linear_solver.solve_linear_system(linear_system)
-        )
-        return nonlinear_increment, linear_solver_status
+        logger.debug(f"Assembled linear system in {time() - t_0:.2e} seconds.")
+
+        return self.linear_solver.solve_linear_system(linear_system)
 
     def after_nonlinear_iteration(
         self, model: pp.PorePyModel, nonlinear_increment: np.ndarray

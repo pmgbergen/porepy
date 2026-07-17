@@ -132,6 +132,11 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 
         self._is_initialized = True
 
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        """It does not need initialization by itself, but the inner linear solver might
+        need it. TODO YZ: Test it."""
+        return self.primary_linear_solver.initialize_with_model(model)
+
     def solve_linear_system(
         self, linear_system: LinearSystem
     ) -> tuple[np.ndarray, LinearSolverStatus]:

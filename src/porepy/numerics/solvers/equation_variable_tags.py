@@ -1,4 +1,13 @@
-"""TODO YZ"""
+"""This module defines `EquationTag` and `VariableTag`, which identify equations
+and variables in a model, optionally restricted to specific grids.
+
+These tags are intended for defining nonlinear and linear solution strategies. Unlike
+`pp.ad.Variable`, `pp.ad.MixedDimensionalVariable`, and `pp.ad.Operator`, they can be
+created without initializing a PorePy model, which requires constructing and meshing its
+grids. This makes them less expensive to use and easier to incorporate into modular
+code, particularly in tests.
+
+"""
 
 from __future__ import annotations
 
@@ -18,38 +27,70 @@ __all__ = [
 
 @dataclass(frozen=True)
 class DomainFilter:
+    """A filter to restrict domains of a variable or an equation.
+
+    Used in :class:`EquationTag` and :class:`VariableTag`."""
+
     @abstractmethod
     def filter(self, domain: pp.GridLike) -> bool:
-        pass
+        """Whether this `domain` is included in the domains where the equation /
+        variable tag operates.
+
+        """
 
 
 @dataclass(frozen=True)
 class Anywhere(DomainFilter):
+    """A default filter that includes all domains."""
+
     def filter(self, domain: pp.GridLike) -> bool:
         return True
 
 
 @dataclass(frozen=True)
 class EquationTag:
+    """An identifier of a single equation defined on multiple domains. Used to define
+    nonlinear and linear solvers outside PorePy models, where identification by
+    `pp.ad.Operator` or a list of `pp.GridLike` is unavailable.
+
+    """
+
     name: str
+    """Equation name."""
     defined_on: DomainFilter = Anywhere()
+    """Operational domains of the equation identified by this tag. Possibly a subset of
+    all domains where this equation is defined by a PorePy model.
+
+    """
 
 
 @dataclass(frozen=True)
 class VariableTag:
+    """An identifier of a single variable defined on multiple domains. Used to define
+    nonlinear and linear solvers outside PorePy models, where identification by
+    `pp.ad.Variable`, `pp.ad.MixedDimensionalVariable` or a list of `pp.GridLike` is
+    unavailable.
+
+    """
+
     name: str
+    """Variable name."""
     defined_on: DomainFilter = Anywhere()
+    """Operational domains of the variable identified by this tag. Possibly a subset of
+    all domains where this variable is defined by a PorePy model.
+
+    """
 
 
 class DefaultEquationTags:
+    """A namespace for all known equations defined by standard PorePy models."""
+
     # Mass balance
-    mass_balance = EquationTag(name=pp.SinglePhaseFlow.primary_equation_name())
+    mass_balance = EquationTag(name="mass_balance_equation")
     interface_darcy_flux = EquationTag(name="interface_darcy_flux_equation")
     well_flux = EquationTag(name="well_flux_equation")
     # Energy balance
-    energy_balance = EquationTag(
-        name=pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name()
-    )
+    energy_balance = EquationTag(name="energy_balance_equation")
     interface_fourier_flux = EquationTag(name="interface_fourier_flux_equation")
     interface_enthalpy_flux = EquationTag(name="interface_enthalpy_flux_equation")
     well_enthalpy_flux = EquationTag(name="well_enthalpy_flux_equation")
@@ -73,6 +114,8 @@ class DefaultEquationTags:
 
 
 class DefaultVariableTags:
+    """A namespace for all known variables defined by standard PorePy models."""
+
     # Mass balance
     pressure = VariableTag(name="pressure")
     interface_darcy_flux = VariableTag(name="interface_darcy_flux")

@@ -697,7 +697,15 @@ else:
             nonlinear_increment: np.ndarray,
             updated_variables: Optional[list[pp.ad.Variable]] = None,
         ) -> None:
-            """Method to be called after every non-linear iteration."""
+            """Method to be called after every non-linear iteration.
+
+            Parameters:
+                nonlinear_increment: The new solution, as computed by the non-linear
+                    solver.
+                updated_variables: Variables to update with `nonlinear_increment`. If
+                    `None`, all variables are updated.
+
+            """
 
         def after_nonlinear_convergence(self) -> None:
             """Called after a nonlinear solver loop converges.
@@ -711,9 +719,6 @@ else:
             Use this method for loop-specific post-processing.
 
             """
-
-        def assemble_linear_system(self) -> pp.solvers.LinearSystem:
-            """Assemble and return the linearized system."""
 
         def after_nonlinear_failure(self) -> None:
             """Called after a nonlinear solver loop fails to converge.

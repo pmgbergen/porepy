@@ -156,7 +156,6 @@ class SolutionStrategy(pp.PorePyModel):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
-        self.equation_system.assemble_variable_indexer()
         # After fluid and variables are defined, we can define the secondary quantities
         # like fluid properties (which depend on variables). Creating fluid and
         # variables before defining secondary thermodynamic properties is critical in
@@ -172,7 +171,6 @@ class SolutionStrategy(pp.PorePyModel):
         self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
         self.set_equations()
-        self.equation_system.assemble_equation_indexer()
 
         self.update_discretization_parameters()
         self.discretize()
@@ -369,6 +367,8 @@ class SolutionStrategy(pp.PorePyModel):
 
         Parameters:
             nonlinear_increment: The new solution, as computed by the non-linear solver.
+            updated_variables: Variables to update with `nonlinear_increment`. If
+                `None`, all variables are updated.
 
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
@@ -705,7 +705,7 @@ class SolutionStrategy(pp.PorePyModel):
         pass
 
     def assemble_linear_system(self) -> solvers.LinearSystem:
-        """Assemble and return the linearized system. TODO YZ
+        """Assemble the linearized system.
 
         The linear system is defined by the current state of the model.
 
@@ -716,7 +716,10 @@ class SolutionStrategy(pp.PorePyModel):
             The assembled matrix and right-hand side vector.
 
         """
-        # YZ TODO deprecation warning (?)
+        logging.warning(
+            "The method model.assemble_linear_system is deprecated and will be removed."
+            " Use model.equation_system.assemble instead."
+        )
         t_0 = time.time()
 
         linear_system = self.equation_system.assemble()

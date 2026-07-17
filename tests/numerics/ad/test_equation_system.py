@@ -544,8 +544,6 @@ class EquationSystemMockModel:
         ]
         self.all_variable_names = ["x", "y", "z", "w"]
 
-        equation_system.assemble_variable_indexer()
-        equation_system.assemble_equation_indexer()
         linear_system = equation_system.assemble()
         self.A = linear_system.matrix
         assert self.A is not None
