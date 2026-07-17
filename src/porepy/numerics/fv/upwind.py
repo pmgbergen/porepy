@@ -11,14 +11,10 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 
 
 def _fixed_diag(vec: np.ndarray) -> sps.csr_matrix:
-    """Diagonal CSR that KEEPS explicit zeros -- a FIXED (flow-independent) sparsity pattern.
+    """Diagonal CSR keeping explicit zeros.
 
-    ``sps.diags(vec).tocsr()`` prunes zero diagonal entries, so an upwind mask ``diags(flag)`` (flag
-    in {0, 1}) changes its nonzero PATTERN every time the flow direction flips (the mortar counterpart
-    of the subdomain single-point-upwind thrash).  Building the diagonal directly in CSR keeps all
-    ``n`` entries (the downstream zeros stay explicit), so ``upwind @ x`` is bit-identical (0 adds
-    nothing) but the pattern is purely geometric and never changes -- structure-caching / compiled
-    kernels (sparsa) stay valid across Newton iterations instead of recompiling every assemble.
+    Unlike ``sps.diags``, the sparsity pattern does not change when the flow
+    direction flips, so downstream structure caches stay valid.
     """
     n = vec.size
     return sps.csr_matrix(
@@ -253,35 +249,24 @@ class Upwind(Discretization):
             # consistent handling of sinking phases.
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
-        num_components: int = parameter_dictionary.get("num_components", 1)
-
-        # The discretization depends on the flux only through its sign, and otherwise
-        # on the boundary condition flags and the number of components. If none of
-        # these changed since the last discretization, the stored matrices are still
-        # valid and the rebuild is skipped.
-        memo = matrix_dictionary.get("_upwind_inputs")
-        if (
-            memo is not None
-            and memo[3] == num_components
-            and np.array_equal(memo[0], darcy_flux)
-            and np.array_equal(memo[1], bc.is_neu)
-            and np.array_equal(memo[2], bc.is_dir)
-        ):
-            return
-        matrix_dictionary["_upwind_inputs"] = (
-            darcy_flux,
-            bc.is_neu.copy(),
-            bc.is_dir.copy(),
-            num_components,
-        )
-
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0
         neg_flux = np.logical_not(pos_flux)
 
-        # Cell-face relation. By construction, the normal vector of a face points from the
-        # first to the second row of this array (exterior cells are -1).
+        # Array to store index of the cell in the upstream direction.
+        upstream_cell_ind = np.zeros(sd.num_faces, dtype=int)
+        # Fill the array based on the cell-face relation. By construction, the normal
+        # vector of a face points from the first to the second row in this array
         cf_dense = sd.cell_faces_as_dense()
+        # Positive fluxes point in the same direction as the normal vector, find the
+        # upstream cell.
+        upstream_cell_ind[pos_flux] = cf_dense[0, pos_flux]
+        upstream_cell_ind[neg_flux] = cf_dense[1, neg_flux]
+
+        # Make row and data arrays, preparing to make a coo-matrix for the upstream
+        # cell-to-face map.
+        row = np.arange(sd.num_faces)
+        values = np.ones(sd.num_faces, dtype=int)
 
         # We need to eliminate faces on the boundary; these will be discretized
         # separately below. On faces with Neumann conditions, boundary conditions apply
@@ -304,36 +289,28 @@ class Upwind(Discretization):
                 ),
             )
         )[0]
-        drop_face = np.zeros(sd.num_faces, dtype=bool)
-        drop_face[np.r_[neumann_ind, inflow_ind]] = True
 
-        # FIXED-SPARSITY upstream weighting: every face keeps a STRUCTURAL entry for BOTH of
-        # its neighbour cells, with weight 1 on the upstream cell and an explicit 0 on the
-        # downstream cell. The pattern is then purely geometric and does not change when the
-        # flow direction flips (only the data swaps), while ``upwind @ x`` is bit-identical
-        # to the classic one-entry-per-face form (the explicit zero contributes nothing).
-        # A fixed pattern lets compiled assemblers bake the structure once.
-        faces = np.arange(sd.num_faces)
-        row = np.concatenate([faces, faces])
-        col = np.concatenate([cf_dense[0], cf_dense[1]])
-        values = np.concatenate([pos_flux.astype(float), neg_flux.astype(float)])
-        keep = (col >= 0) & ~drop_face[row]  # drop exterior "cells" and BC-handled faces
+        # Delete indices that should be treated by boundary conditions.
+        delete_ind = np.sort(np.r_[neumann_ind, inflow_ind])
+        row = np.delete(row, delete_ind)
+        values = np.delete(values, delete_ind)
+        col = np.delete(upstream_cell_ind, delete_ind)
+
+        # Finally, we can construct the upstream weighting matrix.
         upstream_mat = sps.coo_matrix(
-            (values[keep], (row[keep], col[keep])),
+            (
+                values,
+                (row, col),
+            ),
             shape=(sd.num_faces, sd.num_cells),
         ).tocsr()
-        upstream_mat.sort_indices()  # canonical, stable pattern
 
         # Form and store discretization matrix.
         # Expand the discretization matrix to more than one component.
-        def expand(mat: sps.spmatrix) -> sps.spmatrix:
-            # The Kronecker product with a unit identity is an expensive no-op;
-            # skip it. The cast mirrors the dtype promotion of the product.
-            if num_components == 1:
-                return mat.astype(np.float64)
-            return sps.kron(mat, sps.eye(num_components)).tocsr()
-
-        matrix_dictionary[self.upwind_matrix_key] = expand(upstream_mat)
+        num_components: int = parameter_dictionary.get("num_components", 1)
+        matrix_dictionary[self.upwind_matrix_key] = sps.kron(
+            upstream_mat, sps.eye(num_components)
+        ).tocsr()
 
         # Boundary conditions
         # Since the upwind discretization could be combined with a diffusion
@@ -361,9 +338,13 @@ class Upwind(Discretization):
             shape=(sd.num_faces, sd.num_faces),
         ).tocsr()
 
-        # Expand matrices to the right number of components, and store them.
-        matrix_dictionary[self.bound_transport_neu_matrix_key] = expand(bc_discr_neu)
-        matrix_dictionary[self.bound_transport_dir_matrix_key] = expand(bc_discr_dir)
+        # Expand matrix to the right number of components, and store it.
+        matrix_dictionary[self.bound_transport_neu_matrix_key] = sps.kron(
+            bc_discr_neu, sps.eye(num_components)
+        ).tocsr()
+        matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.kron(
+            bc_discr_dir, sps.eye(num_components)
+        ).tocsr()
 
     def darcy_flux(
         self, sd: pp.Grid, beta: np.ndarray, cell_apertures=None
@@ -437,6 +418,12 @@ class UpwindCoupling(InterfaceDiscretization):
         self._flux_array_key = "darcy_flux"
         """Keyword used to identify the parameter matrix for face fluxes.
         Defaults to 'darcy_flux'."""
+
+    def key(self) -> str:
+        return self.keyword + "_"
+
+    def discretization_key(self):
+        return self.key() + pp.DISCRETIZATION
 
     @property
     def flux_array_key(self) -> str:
@@ -522,12 +509,6 @@ class UpwindCoupling(InterfaceDiscretization):
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
 
-        # The discretization depends on the flux only through its sign; skip the
-        # rebuild if it is unchanged since the last discretization.
-        if np.array_equal(matrix_dictionary.get("_upwind_inputs"), lam_flux):
-            return
-        matrix_dictionary["_upwind_inputs"] = lam_flux
-
         # Mapping from upper dim cells to faces.
         # The mortars always points from upper to lower, so we don't flip any signs. The
         # mapping will be non-zero also for faces not adjacent to the mortar grid,
@@ -545,8 +526,8 @@ class UpwindCoupling(InterfaceDiscretization):
         not_flag = 1 - flag
 
         # Discretizations are the flux, but masked so that only the upstream direction
-        # is hit.  Keep the FULL diagonal (explicit downstream zeros) so the pattern is fixed across
-        # flow reversals -- see :func:`_fixed_diag`.
+        # is hit. Full diagonals keep the pattern fixed across flow reversals, see
+        # _fixed_diag.
         upwind_from_primary = _fixed_diag(flag)
         upwind_from_secondary = _fixed_diag(not_flag)
 
@@ -718,8 +699,8 @@ def _dirichlet_inflow(
     neg_flux: np.ndarray,
     cf_dense: np.ndarray,
 ) -> np.ndarray:
-    """Dirichlet boundary faces that are INFLOW for the given flux direction (the upstream cell is
-    the exterior). These are dropped from the transport matrix -- handled by the boundary term."""
+    """Dirichlet boundary faces that are inflow for the given flux direction. These
+    are dropped from the transport matrix and handled by the boundary term."""
     return np.where(
         np.logical_and(
             bc.is_dir,
@@ -740,19 +721,13 @@ def _single_point_upwind_matrices(
 ) -> tuple[sps.spmatrix, sps.spmatrix, sps.spmatrix]:
     """Single-point upstream-weighting matrices for one signed flux array.
 
-    Faithful extraction of :meth:`Upwind.discretize` so it can be reused for *two*
-    directions in one discretization (see :class:`HUpwind`). Returns
-    ``(upwind, bound_transport_dir, bound_transport_neu)``.
+    Extraction of :meth:`Upwind.discretize`, reused for the two directions of
+    :class:`HUpwind`. Returns ``(upwind, bound_transport_dir, bound_transport_neu)``.
 
-    DATA-ONLY FAST PATH. The upwind sparsity is FIXED (fixed-sparsity weighting below + fixed
-    geometry + fixed Neumann set), so re-discretization only changes the per-face *data* (which
-    neighbour is upstream). If a caller-owned ``cache`` dict is supplied, the first call builds and
-    stores the CSR structure plus the ``values -> data`` scatter map; subsequent calls with an
-    UNCHANGED drop-mask skip the COO / ``tocsr`` / sort entirely and just scatter the new data into
-    the cached structure. When a Dirichlet face flips inflow/outflow (the only way the mask can
-    change) the structure is rebuilt and re-cached. ``cache=None`` (default) always does the full
-    build, preserving the original behaviour for other callers. The fast path is bit-identical to
-    the full build; it is enabled only for the common ``num_components == 1`` case.
+    The sparsity pattern is flow-independent, so with a caller-owned ``cache`` dict
+    re-discretization only rewrites the matrix data. The structure is rebuilt when a
+    Dirichlet face flips inflow/outflow. The fast path applies to
+    ``num_components == 1`` only and is bit-identical to the full build.
     """
     if sd.dim == 0:
         return (
@@ -764,18 +739,19 @@ def _single_point_upwind_matrices(
     pos_flux = sign_flux >= 0
     neg_flux = np.logical_not(pos_flux)
 
-    # ---- data-only fast path (cached structure, single component, unchanged drop-mask) ----
+    # Data-only fast path: cached structure, single component, unchanged drop-mask.
     st = cache.get("struct") if (cache is not None and num_components == 1) else None
     if st is not None:
         if not st["has_dir"]:
-            bc_dir = st["bc_dir"]  # no Dirichlet faces -> the drop-mask is fixed
+            # No Dirichlet faces, so the drop-mask is fixed.
+            bc_dir = st["bc_dir"]
             fast = True
         else:
             inflow = _dirichlet_inflow(bc, pos_flux, neg_flux, st["cf_dense"])
             drop = st["drop_neu"].copy()
             drop[inflow] = True
             fast = bool(np.array_equal(st["col_ok"] & ~drop[st["row"]], st["keep"]))
-            if fast:  # inflow set unchanged too -> refresh only the (small) boundary matrix
+            if fast:
                 bc_dir = sps.coo_matrix(
                     (np.ones(inflow.size), (inflow, inflow)),
                     shape=(sd.num_faces, sd.num_faces),
@@ -787,10 +763,11 @@ def _single_point_upwind_matrices(
                 shape=st["shape"],
                 copy=False,
             )
-            upwind.has_sorted_indices = True  # cached indices are sorted -> no re-sort/mutation
+            # Cached indices are already sorted.
+            upwind.has_sorted_indices = True
             return upwind, bc_dir, st["bc_neu"]
 
-    # ---- full build (first call, changed structure, no cache, or num_components != 1) ----
+    # Full build: first call, changed structure, no cache, or num_components != 1.
     cf_dense = sd.cell_faces_as_dense()
 
     neumann_ind = np.where(bc.is_neu)[0]
@@ -798,12 +775,9 @@ def _single_point_upwind_matrices(
     drop_face = np.zeros(sd.num_faces, dtype=bool)
     drop_face[np.r_[neumann_ind, inflow_ind]] = True
 
-    # FIXED-SPARSITY single-point upwinding: every face keeps a STRUCTURAL entry for BOTH of
-    # its neighbour cells, carrying weight 1 on the upstream cell and an explicit 0 on the
-    # downstream cell. The pattern is then purely geometric and does NOT change when the flow
-    # direction flips (only the data swaps), while ``upwind @ x`` is bit-identical to the
-    # classic one-entry-per-face form (the explicit zero contributes nothing). This lets a
-    # compiled assembler bake the Jacobian structure once instead of recompiling per iterate.
+    # Fixed-sparsity upwinding: each face keeps entries for both neighbour cells,
+    # weight 1 upstream and an explicit 0 downstream. The pattern is purely geometric
+    # and survives flow-direction flips; the product is unchanged.
     faces = np.arange(sd.num_faces)
     row = np.concatenate([faces, faces])
     col = np.concatenate([cf_dense[0], cf_dense[1]])
@@ -828,9 +802,8 @@ def _single_point_upwind_matrices(
     # ``kron(M, eye(1))`` is a no-op; skip it in the (common) single-component case.
     if num_components == 1:
         if cache is not None:
-            # Capture the COO -> sorted-CSR scatter: ``upstream_mat.data == values[data_src]``.
-            # Each (face, cell) pair is unique, so tocsr is a pure permutation (no summation),
-            # and building the same COO with the value-indices as data recovers that permutation.
+            # Capture the COO -> sorted-CSR permutation, so later calls can do
+            # upstream_mat.data = values[data_src] directly.
             keep_idx = np.nonzero(keep)[0]
             perm = sps.coo_matrix(
                 (keep_idx.astype(float), (row[keep], col[keep])),
@@ -861,21 +834,13 @@ def _single_point_upwind_matrices(
 
 
 class HUpwind(Upwind):
-    """Two-direction upwinding for the simplicial buoyancy term.
+    """Two-direction upwinding for the buoyancy term.
 
-    Stores **two** direction arrays and, in :meth:`discretize`, builds one single-point
-    upwind matrix (plus its boundary matrices) per direction:
-
-    - ``upwind_gamma`` / ``bound_transport_{dir,neu}_gamma`` -- upstream by ``gamma_flux``;
-    - ``upwind_delta`` / ``bound_transport_{dir,neu}_delta`` -- upstream by ``delta_flux``.
-
-    The model sets the two directions per scheme (see
-    :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.update_buoyancy_driven_fluxes`):
-    hybrid upwinding (HU) stores the inter-phase gravity flux with opposite signs
-    (``+ddf(rho_gamma - rho_delta)`` / ``-ddf(...)``); phase-potential upwinding (PPU)
-    stores each phase's own potential flux (``Psi_gamma`` / ``Psi_delta``). The matrix
-    keys are exposed as AD methods by :func:`~porepy.numerics.ad.ad_utils.wrap_discretization`
-    (see :class:`~porepy.numerics.ad.discretizations.HUpwindAd`).
+    Stores two direction arrays and builds one single-point upwind matrix (plus
+    boundary matrices) per direction: ``upwind_gamma`` upstream by ``gamma_flux``,
+    ``upwind_delta`` upstream by ``delta_flux``. For hybrid upwinding the two
+    directions are the inter-phase gravity flux with opposite signs. See
+    :class:`~porepy.numerics.ad.discretizations.HUpwindAd` for the AD wrapper.
     """
 
     def __init__(self, keyword: str = "hybrid_upwind") -> None:
@@ -903,19 +868,23 @@ class HUpwind(Upwind):
         else:
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
-        # gamma upstream by gamma_flux, delta by delta_flux (two independent directions).
         gamma_dir = np.asarray(parameter_dictionary[self._gamma_flux_key])
         delta_dir = np.asarray(parameter_dictionary[self._delta_flux_key])
-        # Per-direction data-only caches, persisted in the (per-grid) ``data`` dict so they are
-        # reused across re-discretizations. Keyed by this discretization's keyword so distinct
-        # HUpwind instances sharing a grid do not collide.
+        # Per-direction structure caches, persisted in the per-grid data dict and
+        # keyed by this discretization's keyword to avoid collisions.
         fast = data.setdefault("_hu_upwind_fast_cache", {})
         up_g, dir_g, neu_g = _single_point_upwind_matrices(
-            sd, gamma_dir, bc, num_components,
+            sd,
+            gamma_dir,
+            bc,
+            num_components,
             cache=fast.setdefault(self.keyword + ":gamma", {}),
         )
         up_d, dir_d, neu_d = _single_point_upwind_matrices(
-            sd, delta_dir, bc, num_components,
+            sd,
+            delta_dir,
+            bc,
+            num_components,
             cache=fast.setdefault(self.keyword + ":delta", {}),
         )
         matrix_dictionary["transport_gamma"] = up_g
@@ -927,13 +896,10 @@ class HUpwind(Upwind):
 
 
 class HUpwindCoupling(UpwindCoupling):
-    """Interface (mortar) counterpart of :class:`HUpwind`: two directions.
+    """Interface (mortar) counterpart of :class:`HUpwind`.
 
-    Builds, per stored direction, the mortar upwind matrices
-    ``upwind_{primary,secondary}_gamma`` (from ``gamma_flux``) and
-    ``upwind_{primary,secondary}_delta`` (from ``delta_flux``), plus the signed ``flux``,
-    in one :meth:`discretize`. The geometric ``trace`` / ``inv_trace`` / ``mortar_discr``
-    matrices are built once and shared.
+    Builds the mortar upwind matrices and signed flux for both directions in one
+    :meth:`discretize`; the geometric trace matrices are built once and shared.
     """
 
     def __init__(self, keyword: str) -> None:
@@ -976,15 +942,14 @@ class HUpwindCoupling(UpwindCoupling):
         matrix_dictionary["trace"] = inv_trace_h.T
         matrix_dictionary["mortar_discr"] = sps.eye(intf.num_cells)
 
-        # gamma rides gamma_flux, delta rides delta_flux (two independent directions).
         for suffix, key in (
             ("gamma", self._gamma_flux_key),
             ("delta", self._delta_flux_key),
         ):
             lf = np.sign(parameter_dictionary[key])
             flag = (lf > 0).astype(float)
-            # Keep the FULL diagonal (explicit downstream zeros) so the mortar upwind pattern is fixed
-            # across flow reversals -- bit-identical, but no per-iteration recompile (see _fixed_diag).
+            # Full diagonals keep the pattern fixed across flow reversals, see
+            # _fixed_diag.
             matrix_dictionary[f"upwind_primary_{suffix}"] = _fixed_diag(flag)
             matrix_dictionary[f"upwind_secondary_{suffix}"] = _fixed_diag(1.0 - flag)
             matrix_dictionary[f"flux_{suffix}"] = _fixed_diag(lf)

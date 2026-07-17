@@ -3,9 +3,9 @@ import pytest
 
 import porepy as pp
 from tests.functional.setups.buoyancy_flow_model import (
-    buoyancy_flow_model,
     ModelGeometry2D,
     ModelMDGeometry2D,
+    buoyancy_flow_model,
     to_Mega,
 )
 
@@ -24,16 +24,7 @@ def _build_buoyancy_model(
     model_class: type,
     md: bool = False,
 ) -> None:
-    """
-    Build a buoyancy flow model for given parameters.
-
-    Args:
-        model_class: The model class to instantiate (2N or 3N component model)
-        md: Whether to use mixed-dimensional geometry (default: False)
-
-    Returns:
-        Configured and prepared buoyancy flow model instance
-    """
+    """Build and prepare a buoyancy flow model, optionally mixed-dimensional."""
     day = 86400
     tf = 0.5 * day
     dt = 0.25 * day
@@ -76,14 +67,7 @@ def _build_buoyancy_model(
 
 
 def __common_assertions(model):
-    """
-    Verify fluid configuration and phase pair relationships.
-
-    Tests:
-    - Phase pair generation logic for unknown phases
-    - Correct pairing of phases in multi-phase contexts
-    - Consistency of buoyancy-related dictionary keys
-    """
+    """Verify phase pair generation and the buoyancy keyword convention."""
 
     phase_context = model.fluid.phases
     unkown_phase = pp.Phase(0, "unkown")
@@ -103,9 +87,7 @@ def __common_assertions(model):
                     or pair[1].name == reduced_phase_names[1]
                 )
 
-            # The refactored FluidBuoyancy uses a single two-direction hybrid-upwind
-            # keyword per ordered phase pair (see HUpwind); the former per-array keys
-            # (buoyant_flux_array_key, buoyancy_intf_key, ...) no longer exist.
+            # One two-direction hybrid-upwind keyword per ordered phase pair.
             assert (
                 model.hybrid_upwind_key(pair[0], pair[1])
                 == "hybrid_upwind_" + pair[0].name + "_" + pair[1].name
@@ -113,14 +95,9 @@ def __common_assertions(model):
 
 
 def __subdomains_assertions(model):
-    """Verify subdomain buoyancy invariants:
-
-    - the fractionally-weighted density is a mobility-weighted average of the phase
-      densities, so it lies within their range and is non-degenerate;
-    - component buoyancy fluxes are reciprocal (sum to zero);
-    - the density-driven and enthalpy buoyancy fluxes are finite.
-
-    Geometry/IC-independent, so there are no golden arrays to update when those change.
+    """Verify subdomain buoyancy invariants: the fractionally-weighted density lies
+    within the phase-density range, component buoyancy fluxes sum to zero, and the
+    density-driven and enthalpy buoyancy fluxes are finite.
     """
     phase_context = model.fluid.phases
     component_context = model.fluid.components
@@ -145,16 +122,10 @@ def __subdomains_assertions(model):
     assert np.all(np.isfinite(eval(model.enthalpy_buoyancy(subdomains))))
 
 
-
 def __interface_assertions(model):
-    """Verify interface flux invariants for mixed-dimensional cases:
-
-    - the interface density-driven (gravity) flux is balanced across the interface
-      (antisymmetric, so it sums to zero) and non-trivial;
-    - component-wise buoyancy flux jumps are reciprocal (sum to zero);
-    - the enthalpy buoyancy flux jump vanishes (temperature is held at zero here).
-
-    These are geometry-independent, so they need not be updated when the mesh changes.
+    """Verify interface flux invariants: the interface density-driven flux is
+    balanced and non-trivial, component buoyancy flux jumps sum to zero, and the
+    enthalpy buoyancy jump vanishes (temperature is zero here).
     """
     component_context = model.fluid.components
     subdomains = model.mdg.subdomains()

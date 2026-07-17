@@ -28,72 +28,13 @@ import pytest
 
 import porepy as pp
 from porepy.applications.test_utils.models import add_mixin
-
-
-def _global_unique_ad_nodes(equations) -> int:
-    """Count unique operator nodes across *all* equations with one shared visited set.
-
-    Unlike summing :meth:`Operator.inspect` per equation, this deduplicates subtrees that
-    are shared *between* equations (e.g. a density or mobility reused by the mass, energy
-    and buoyancy equations because the constitutive laws use ``@cached_method``). It is
-    the truest measure of the assembled graph's size.
-    """
-    visited: set[int] = set()
-    stack = list(equations.values())
-    while stack:
-        node = stack.pop()
-        node_id = id(node)
-        if node_id in visited:
-            continue
-        visited.add(node_id)
-        stack.extend(node.children)
-    return len(visited)
-
-
-def _report_ad_graph_size(model: pp.PorePyModel, label: str) -> dict[str, int]:
-    """Report the size of the assembled AD operator graph.
-
-    Walks every equation registered on the model's equation system with
-    :meth:`porepy.numerics.ad.operators.Operator.inspect` (which is DAG-aware: a
-    subexpression shared across parents is counted once). Reports, per equation, the
-    sum over equations, and the *global* unique-node count (subtrees shared between
-    equations counted once), so the effect of graph-size reductions (e.g. sharing
-    subtrees via ``@cached_method``) is visible while running the test.
-
-    Parameters:
-        model: A prepared PorePy model (``prepare_simulation`` already called).
-        label: A short identifier for the model configuration, used in the printout.
-
-    Returns:
-        A dict with the per-equation node sum (``"total_nodes"``), the global unique-node
-        count (``"unique_nodes"``) and equation count (``"num_equations"``).
-
-    """
-    equations = model.equation_system.equations
-    total_nodes = 0
-    print(f"\n=== AD graph size [{label}] ===")
-    for name, eq in equations.items():
-        stats = eq.inspect(verbose=False)
-        total_nodes += stats["total_nodes"]
-        print(
-            f"  {name}: {stats['total_nodes']} nodes, "
-            f"depth {stats['max_depth']}, {len(stats['variables'])} variables"
-        )
-    unique_nodes = _global_unique_ad_nodes(equations)
-    print(
-        f"  --> {len(equations)} equations, {total_nodes} nodes summed per equation, "
-        f"{unique_nodes} globally-unique AD nodes"
-    )
-    return {
-        "total_nodes": total_nodes,
-        "unique_nodes": unique_nodes,
-        "num_equations": len(equations),
-    }
 from tests.functional.setups.buoyancy_flow_model import (
     ModelGeometry2D,
     ModelGeometry3D,
     ModelMDGeometry2D,
     ModelMDGeometry3D,
+    NullMeanPressureLinearSolver,
+    NullSpaceDriftCriterion,
     buoyancy_flow_model,
     to_Mega,
 )
@@ -116,11 +57,8 @@ def _run_buoyancy_model(
 ) -> None:
     """Run buoyancy flow simulation for given parameters."""
 
-    # The residual tolerance for Newton must be *tighter* than the conservation target:
-    # the conservation loss checked below is bounded by the Newton residual, and it
-    # accumulates over the time steps (and grows with the vigour of the buoyant
-    # overturning). Converging one decade below ``expected_order_loss`` keeps the residual
-    # from polluting the conservation-order checks.
+    # Newton must converge one decade below the conservation target so the
+    # residual does not pollute the conservation-order checks.
     residual_tolerance = 10.0 ** (-(expected_order_loss + 1))
     day = 86400
     if md:
@@ -133,6 +71,10 @@ def _run_buoyancy_model(
         dt = 1.0 * day
         geometry2d = ModelGeometry2D
         geometry3d = ModelGeometry3D
+    # Per-step total-mass-drift budget: the conservation threshold split over the
+    # steps with a factor-2 margin.
+    n_steps = round(tf / dt)
+    drift_tolerance = 10.0 ** (-(expected_order_loss - 1)) / (2 * n_steps)
 
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
@@ -149,15 +91,16 @@ def _run_buoyancy_model(
         print_info=True,
     )
     model_params = {
-        # fractional_flow=True -> total mass mobility is in the Darcy permeability tensor
-        # (CompositionalFractionalFlowTemplate); False -> standard formulation with an
-        # explicit total-mobility factor in the buoyancy term (CompositionalFlowTemplate).
+        # True: total mobility in the Darcy tensor (fractional flow); False:
+        # explicit total-mobility factor (standard formulation).
         "fractional_flow": fractional_flow,
         "enable_buoyancy_effects": True,
-        "buoyancy_upwinding": "hybrid",
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "expected_order_loss": expected_order_loss,
+        # Tolerances exposed to the model for the converged-state checks.
+        "residual_tolerance": residual_tolerance,
+        "drift_tolerance": drift_tolerance,
     }
     # Build the model with the fractional_flow-selected template, then mix in geometry.
     geometry_class = geometry2d if dim == 2 else geometry3d
@@ -171,16 +114,23 @@ def _run_buoyancy_model(
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
             ),
+            # The residual is a rate; the drift criterion bounds what the
+            # conservation checks accumulate per step.
+            "null_drift": NullSpaceDriftCriterion(model, tol=drift_tolerance),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
         },
     }
 
-    # Constructing the runner prepares the simulation (sets equations), so the AD graph
-    # is available for inspection before the (slow) run.
-    runner = pp.ModelRunner(model, solver_params)
-    _report_ad_graph_size( model, f"{model_class.__name__} dim={dim} md={md}")
+    # The closed domain leaves a singular pressure mode; the gauge-fixing solver
+    # handles it.
+    nonlinear_solver = pp.solvers.NewtonSolver(
+        params=solver_params,
+        linear_solver=NullMeanPressureLinearSolver(),
+    )
+
+    runner = pp.ModelRunner(model, solver_params, nonlinear_solver=nonlinear_solver)
     runner.run()
 
 

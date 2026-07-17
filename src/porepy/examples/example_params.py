@@ -82,6 +82,9 @@ model_params = {
     # Compositional model (multiphase multicomponent flow)
     "fractional_flow": True,
     "enable_buoyancy_effects": False,
+    # chi in [0, 1]: splits the passive-phase (background) mobility between the two
+    # inter-phase buoyant directions; symmetric (0.5) by default.
+    "passive_phase_interference_factor": 0.5,
     "apply_schur_complement_reduction": False,
     "schur_complement_inverter": None,
     "eliminate_reference_phase": True,
