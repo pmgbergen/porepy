@@ -150,6 +150,18 @@ def scheme_label(scheme):
 LX = 100.0                          # domain width  [m]
 LY = 100.0                          # domain height [m]
 T_END = 571.0 * DAY                 # [s]
+
+# Time stepping + tolerances, MIRRORED from porepy_2d_solver.py (keep the two solvers in sync):
+#   * the step STARTS at DT_INIT_DAYS (small on the density-inverted IC), GROWS to the cap
+#     DT_MAX_DAYS, HALVES on a non-converged step down to a floor of DT_MAX_DAYS/64;
+#   * NEWTON_ATOL is the max-norm analog of porepy's Lebesgue tol 1e-3 (calibrated pairing);
+#   * the CPR tolerances match porepy_2d_solver's CPR_RTOL / CPR_MAXIT defaults.
+DT_INIT_DAYS = 0.01                 # initial adaptive step [days]
+DT_MAX_DAYS = 0.5                   # maximum (cap) adaptive step [days]; floor = DT_MAX_DAYS/64
+NEWTON_ATOL = 1.0e-4                # per-equation Newton tolerance (porepy: 1e-3 Lebesgue)
+NEWTON_MAXIT = 11                   # Newton cap per step (porepy: max_iterations=11)
+CPR_RTOL = 1.0e-10                  # FGMRES relative tolerance
+CPR_MAXIT = 300                     # FGMRES iteration budget
 SNAP_DAYS = (0.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)     # requested saturation-map instants [days]
 
 # Seven impermeable barrier layers, digitized from Bosma et al. (2022) Fig. 5(a).
@@ -498,7 +510,7 @@ class _PetscCPR:
     first, then the local smoother. Returns ``x`` of size ``3nc+1`` (the lambda slot is 0).
     """
 
-    def __init__(self, amg="gamg", rtol=1.0e-8, maxit=300):
+    def __init__(self, amg="gamg", rtol=CPR_RTOL, maxit=CPR_MAXIT):
         from petsc4py import PETSc                 # lazy import so the SciPy path needs no PETSc
         self.PETSc = PETSc
         self.amg = amg                             # "gamg" (built-in) or "hypre" (BoomerAMG)
@@ -595,7 +607,8 @@ def _project_simplex(s):
     return s * scale
 
 
-def newton(r, x0, pattern, grid, dt, atol=1e-3, maxit=11, linsolve=None, relag=None):
+def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linsolve=None,
+           relag=None):
     """Newton for the CLOSED domain, with a LAGRANGE-MULTIPLIER pressure datum.
 
     ``r`` is the raw residual, whose pressure block is singular (null space = constant
@@ -700,8 +713,9 @@ class RunStats:
                 f"wall={self.wall_s:.1f}s  {'CONVERGED' if self.converged else 'STALLED'}")
 
 
-def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=None,
-        atol=1e-4, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True):
+def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_days=None,
+        atol=NEWTON_ATOL, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True,
+        dt_init_days=DT_INIT_DAYS):
     """Advance the ``nphase``-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``nphase=3`` reproduces Bosma Fig. 5; ``nphase=4`` splits oil into a mid-heavy + mid-light
@@ -746,9 +760,12 @@ def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=Non
             snaps[day]["so"] = s[1].copy()             # keep the Fig-5 oil field name
 
     record(0.0)
-    dt0 = dt_days * DAY
-    dt_floor = dt0 / 64.0
-    dt = dt0
+    # dt_days is the CAP; the step STARTS at dt_init_days and grows toward it (mirrors
+    # porepy_2d_solver's make_time_manager: floor = cap/64, clamped so dt_init stays valid).
+    dt0 = dt_days * DAY                                # the cap (never exceeded)
+    dt_init = dt_init_days * DAY
+    dt_floor = min(dt0 / 64.0, dt_init)
+    dt = min(max(dt_init, dt_floor), dt0)              # start small, inside [floor, cap]
     t = 0.0
     n_steps = total_it = n_cuts = it_wasted = 0
     nit_hist: list[int] = []
@@ -791,7 +808,7 @@ def run(scheme, nx=100, ny=100, dt_days=1.0, snap_days=SNAP_DAYS, t_end_days=Non
         for d in list(pending):
             if t >= d * DAY - 1e-6:
                 record(d); pending.remove(d)
-        if ok and its < 5 and dt < dt0:                  # adaptive: grow dt back after a cut
+        if ok and its < 5 and dt < dt0:                  # adaptive: grow dt (initial ramp + after cuts)
             dt = min(dt * 2.0, dt0)
         if verbose and n_steps % 25 == 0:
             print(f"  [{scheme_label(scheme)}] t={t/DAY:7.1f} d  step {n_steps}  dt={step_dt/DAY:.3f} d  "
@@ -906,14 +923,18 @@ def _parse_args(argv=None):
                         "(default: all four)")
     p.add_argument("--nx", type=int, default=100, help="cells in x (default 100)")
     p.add_argument("--ny", type=int, default=100, help="cells in y (default 100)")
-    p.add_argument("--dt-days", type=float, default=1.0,
-                   help="nominal time step in days (default 1.0)")
+    p.add_argument("--dt-days", type=float, default=DT_MAX_DAYS,
+                   help=f"MAXIMUM (cap) time step in days (default {DT_MAX_DAYS}); "
+                        f"the floor is cap/64")
+    p.add_argument("--dt-init-days", type=float, default=DT_INIT_DAYS,
+                   help=f"INITIAL time step in days (default {DT_INIT_DAYS}); grows to the cap")
     p.add_argument("--t-end-days", type=float, default=None,
                    help="run horizon in days (default: the largest snapshot time)")
     p.add_argument("--snap-days", type=float, nargs="+", default=list(SNAP_DAYS),
                    metavar="DAY", help="report/snapshot instants in days (default: 0 78 571)")
-    p.add_argument("--atol", type=float, default=1e-4,
-                   help="absolute per-equation Newton tolerance (default 1e-4)")
+    p.add_argument("--atol", type=float, default=NEWTON_ATOL,
+                   help=f"absolute per-equation Newton tolerance (default {NEWTON_ATOL:.0e}; "
+                        f"the max-norm analog of porepy_2d_solver's Lebesgue tol 1e-3)")
     p.add_argument("--linear-solver", default="cpr", choices=["cpr", "scipy"],
                    help="Newton linear solver: 'cpr' (FGMRES + CPR two-stage preconditioner on the "
                         "sparse singular system -- iterative, fast at scale) or 'scipy' "
@@ -941,7 +962,8 @@ if __name__ == "__main__":
         grid, snaps, stats = run(scheme, nx=args.nx, ny=args.ny, dt_days=args.dt_days,
                                  snap_days=tuple(args.snap_days), t_end_days=args.t_end_days,
                                  atol=args.atol, linear_solver=args.linear_solver,
-                                 dir_lag=args.dir_lag, nphase=args.nphase, verbose=not args.quiet)
+                                 dir_lag=args.dir_lag, nphase=args.nphase, verbose=not args.quiet,
+                                 dt_init_days=args.dt_init_days)
         paths = write_snapshots_vtr(OUT, scheme, grid, snaps)
         paths.append(write_stats(OUT, stats))
         results[scheme] = stats

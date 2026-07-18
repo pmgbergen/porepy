@@ -1402,7 +1402,7 @@ SNAP_DAYS = (0.0, 1.0, 2.0,3.0,4.0, 5.0, 6.0, 7.0, 8.0,9.0, 10.0, 25.0, 50.0, 75
 DT_DAYS = 0.25                             # nominal step [days] -- the constant-dt march value
 DT_INIT_DAYS = 0.01                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
-DT_MAX_DAYS = 0.25                        # MAXIMUM (cap) adaptive step [days] -- never exceeded;
+DT_MAX_DAYS = 0.5                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
 
 
