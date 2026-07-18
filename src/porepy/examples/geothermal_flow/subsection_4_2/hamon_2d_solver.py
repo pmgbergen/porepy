@@ -149,7 +149,7 @@ def scheme_label(scheme):
 
 LX = 100.0                          # domain width  [m]
 LY = 100.0                          # domain height [m]
-T_END = 571.0 * DAY                 # [s]
+T_END = 600.0 * DAY                 # [s]
 
 # Time stepping + tolerances, MIRRORED from porepy_2d_solver.py (keep the two solvers in sync):
 #   * the step STARTS at DT_INIT_DAYS (small on the density-inverted IC), GROWS to the cap

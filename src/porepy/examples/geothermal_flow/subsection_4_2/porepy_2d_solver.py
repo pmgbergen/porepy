@@ -1,37 +1,45 @@
-"""Immiscible N-phase gravity segregation through impermeable barriers (PorePy CF model).
+"""N-phase immiscible gravity segregation through barriers (PorePy CF, subsection 4.2).
 
-PorePy compositional-flow reference for subsection 4.2 -- the model to overlay against the
-independent ``hamon_2d_solver.py`` in this folder. Reproduces Example 6.3 / Fig. 5 of Bosma,
-Hamon, Mallison & Tchelepi, "Smooth implicit hybrid upwinding for compositional multiphase flow
-in porous media", CMAME 388 (2022) 114288: a 100 m x 100 m closed vertical box (100 x 100 cells
-of 1 m) in which a heavy fluid (water, rho=1500, initially top 10%), a light fluid (gas,
-rho=500, bottom 10%) and the intermediate fluid(s) segregate by gravity through SEVEN horizontal
-impermeable barrier layers with openings.
+Setup (Bosma et al. 2022, Ex. 6.3 / Fig. 5): closed 100 m x 100 m box, 100 x 100 cells, seven
+horizontal impermeable barrier layers with openings.  Initial layering: water (rho = 1500, top
+10%), gas (rho = 500, bottom 10%), intermediate phase(s) between; all segregate under gravity.
+One component per phase; the overall fractions z_i are the transported primaries and the
+saturations follow exactly from  s_i = (z_i / rho_i) / sum_j (z_j / rho_j), with analytic
+Jacobian.  Densities and viscosities are constant (rho_i, mu = 1 cP); hydrostatic initial p.
 
-Parametrized by the phase count via ``build_params(nphase, scheme)`` / ``configure_phase_system``:
-N=3 reproduces Bosma exactly; N=4 splits the oil into a mid-heavy + mid-light phase (densities
-evenly spaced 1500..500). The immiscible one-component-per-phase machinery and the analytic
-z -> s inversion  s_i = (z_i / rho_i) / sum_j (z_j / rho_j)  generalize to any N. The buoyancy
-scheme ``"hu"`` = HU-BM(mp): the mobility-product buoyant term (classical Lee/Hamon U^HU),
-obtained with ``fractional_flow=False`` + ``buoyancy_upwinding="hybrid"``.
+This script demonstrates three things:
 
-    Run:  python porepy_2d_solver.py [--nphase N] [--scheme hu]   (NOT auto-run; heavy).
+1. N-phase functionality.  --nphase 3 reproduces Bosma Fig. 5; --nphase 4 splits the middle
+   phase in two (densities evenly spaced in [500, 1500]).  No part of the formulation is
+   specific to the phase count.
 
-The barriers sit at figure depth-rows 16, 23, 38, 45, 58, 74, 82 (of 100; row 0 = top,
-gravity downward), with 5, 2, 5, 2, 4, 6, 3 open-ended segments respectively (bottom -> top:
-3, 6, 4, 2, 5, 2, 5). They are re-extracted at pixel resolution from Fig. 5(a) and defined in
-``model_configuration/geometry_description/geometry_market.py`` (``_BARRIER_LAYERS_FIG``,
-consumed by ``GeometryBarriers2D.barrier_cell_mask``); the extraction / verification lives in
-``benchmark_figures_data/wahu_fig5_digitized/fig5_barriers_and_saturations.py``.
+2. Background mobility.  The buoyant flux of a phase pair (i, j),
+   F_ij = k (rho_j - rho_i) g lambda_i lambda_j / lambda_T, is upwinded pairwise while the
+   remaining N-2 phases enter only through an aggregated background mobility -- so the scheme
+   needs no density sorting or phase ordering at any point.
 
-Structure follows ``tp_tc_gravitational_segregation.py`` (inline constant-property EOS,
-``FlowModelBase``, ``pp.ModelRunner``).  The 3-phase / 3-component IMMISCIBLE machinery
-follows ``tests/functional/setups/buoyancy_flow_model.py`` (one component per phase,
-immiscibility via partial-fraction chi = 1/0, temperature eliminated to 0).  Geometry
-(box + barriers), the closed boundary, and the segregation IC come from the market modules.
+3. Conservation.  The box is closed (all-Neumann): total and per-phase masses are exact
+   invariants, so any drift measures the discrete conservation of the buoyancy terms.
+   run_statistics.{txt,json} and the exported fields (saturations, delta_p = p - p_ic) make
+   the check direct.
 
-Run this on your end (it is NOT auto-run). Items that may need tuning for your PorePy
-version are flagged with NOTE.
+Schemes (--scheme): hu = HU-BM(mp), the pair form above with fractional_flow=False;
+hu-mw = mobility-weighted variant (total_mass_mobility * k in the Darcy tensor,
+fractional-flow template, fractional_flow=True).
+
+--md adds ten conductive fractures (5 vertical, 5 horizontal, intersecting; thin fault-zone
+parameterization via FRACTURE_K_FACTOR and FRACTURE_APERTURE) as a mixed-dimensional
+2D/1D/0D grid.
+
+Gauge and solvers: all-Neumann leaves p defined up to a constant, fixed by the bordered
+constraint Sum(dp) = 0 (Lagrange multiplier) inside the linear solver; CPR = FGMRES on the
+row-equilibrated bordered system with a {p, lambda} / {h, z} multiplicative split (direct MUMPS
+fallback).  Newton: tol 1e-3 (per-equation Lebesgue norm), cap 11 iterations.  dt starts at
+DT_INIT_DAYS, doubles on easy steps up to DT_MAX_DAYS, halves on failure (floor = cap/64).
+
+Run on your end (not auto-run):
+    python porepy_2d_solver.py --nphase 3 --scheme hu [--md]
+    python porepy_2d_solver.py --nphase 4 --scheme hu-mw --md --cpr-rtol 1e-8
 """
 from __future__ import annotations
 
@@ -72,22 +80,14 @@ to_Mega = 1.0e-6
 # --------------------------------------------------------------------------------------- #
 #  Phase system (N phases; reconfigured by configure_phase_system / build_params(nphase=...))
 # --------------------------------------------------------------------------------------- #
-# Densities are evenly spaced heaviest -> lightest, so N=3 reproduces Bosma [1500, 1000, 500]
-# EXACTLY and N=4 splits the intermediate (oil) into a MID-HEAVY + MID-LIGHT phase
-# [1500, 1167, 833, 500].  The immiscible one-component-per-phase machinery and the analytic
-# z -> s inversion  s_i = (z_i / rho_i) / sum_j (z_j / rho_j)  generalize to any N.
+# Densities evenly spaced heaviest -> lightest: N=3 gives Bosma's [1500, 1000, 500],
+# N=4 gives [1500, 1167, 833, 500]; the z -> s inversion generalizes to any N.
 MU = 1.0e-3                     # phase viscosity [kg/(m.s)] = 1 cP (all phases; scaled to_Mega)
-# Per-phase CONSTANT specific enthalpies [MJ/kg], evenly spaced in [H_MIN, H_MAX].  DENSER phase
-# -> LOWER enthalpy, so the per-phase array ``H_PHASE`` is ASCENDING while ``RHO`` is DESCENDING
-# (phase 0 densest -> H_MIN, phase N-1 lightest -> H_MAX).  This makes the initial enthalpy a
-# function of the saturation layering + phase densities (see ic_values_enthalpy) and, via the
-# caloric closure T = h/C_P, the initial temperature too (denser phase -> colder).
+# Constant per-phase specific enthalpies [MJ/kg], evenly spaced in [H_MIN, H_MAX]; denser phase
+# -> lower enthalpy (and via T = h/C_P, colder).
 H_MIN, H_MAX = 1.0, 3.0         # phase specific-enthalpy bounds [MJ/kg]
-C_P = 0.0035                       # caloric coupling  h = C_P * T  ->  T = h / C_P. Un-pins T (it is
-#                                 no longer set to 0): the conduction K_e grad(T) = (K_e/C_P) grad(h)
-#                                 makes temperature a genuine elliptic unknown, but that block is
-#                                 regularized by the energy accumulation d(U)/dh, so it stays
-#                                 solvable -- only the incompressible pressure block is constrained.
+C_P = 0.0035                    # caloric closure h = C_P * T (T elliptic but regularized by
+#                                 the energy accumulation; only pressure needs the gauge).
 
 
 def _phase_names(n: int) -> list[str]:
@@ -117,15 +117,9 @@ k_rock = 1000.0 * milli_darcy          # homogeneous rock permeability (k = 1 mD
 porosity = 0.3
 BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively impermeable)
 
-# Optional mixed-dimensional CONDUCTIVE fractures (params["fractures"]=True; --md).  The
-# equi-dimensional barriers are UNCHANGED; the fractures are 1D lines embedded in the 2D matrix.
-# Fractures parameterized as THIN CONDUCTIVE FAULT ZONES (filled, not open-channel: k_f sits far
-# below the cubic law a^2/12, i.e. coarse rubble fill at ~1000 D).  The pair is chosen for its
-# TRANSMISSIVITY contrast against the 1 m matrix column a fracture replaces,
-#   K_FACTOR * a / dx = 1e3 * 0.1 / 1 = 100,
-# so the network forms genuine preferential conduits (at contrast ~1 it is hydraulically
-# invisible).  CFL consequence: fracture cells ~44-87 at dt_max, 0D junction points ~1e2-1e3
-# (point CFL scales as K_FACTOR/a and is unchanged vs the 1e2/1e-2 pair).
+# Optional --md fractures: 1D fault-zone conduits in the 2D matrix (barriers unchanged).
+# Transmissivity contrast K_FACTOR * a / dx = 100 makes them preferential conduits; point CFL
+# scales as K_FACTOR / a.
 FRACTURE_K_FACTOR = 1.0e+3          # fracture (dim<nd) permeability = k * this
 FRACTURE_APERTURE = 1.0e-1          # fracture aperture [m] -> specific volume of 1D cells (a) and 0D points (a^2)
 
@@ -415,10 +409,7 @@ class SecondaryEquations3N(LocalElimination):
                 if not on_boundaries:  # no derivatives are stored on the boundary
                     sec_expr.set_derivatives_on_grid(diffs, grid)
 
-    # ----------------------------------------------------------------------------------
-    #  Accessor + DOF-gate overrides (route substituted quantities to their surrogate and
-    #  suppress their independent variables)
-    # ----------------------------------------------------------------------------------
+    # Accessor + DOF-gate overrides for substituted quantities.
     def has_independent_saturation(self, phase: pp.Phase) -> bool:
         if self._substitute_saturation() and super().has_independent_saturation(phase):
             return False  # represented as a function -> no DOF
@@ -453,10 +444,7 @@ class SecondaryEquations3N(LocalElimination):
             )
         return super().partial_fraction(component, phase)
 
-    # ----------------------------------------------------------------------------------
-    #  Per-iteration / per-time-step / initial refresh of the substituted surrogates
-    #  (mirrors LocalElimination's update of eliminated surrogates).
-    # ----------------------------------------------------------------------------------
+    # Refresh of the substituted surrogates (initial / per-step / per-iteration).
     def update_derived_quantities(self) -> None:
         super().update_derived_quantities()
         self._refresh_substitutions(on_boundaries=False)
@@ -649,9 +637,7 @@ CPR_ACCURACY_TOL = 1.0e-5   # acceptance gate on the TRUE projected relative res
 
 
 # --------------------------------------------------------------------------------------- #
-#  Null-mean-constrained linear solve (localized here). Assemble the NORMAL (pressure-singular)
-#  system, then add one zero-mean constraint -- Sum(dp)=0 at the pressure DOF indices -- to fix
-#  the constant-pressure nullspace, and solve. CPR/PETSc mirrors hamon_2d_solver.
+#  Null-mean-constrained linear solve: bordered Sum(dp) = 0 fixes the constant-pressure gauge.
 # --------------------------------------------------------------------------------------- #
 class _LagrangeConstrainedSolve(pp.PorePyModel):
     """Override :meth:`solve_linear_system` for the all-Neumann system.
@@ -714,10 +700,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
         b = np.asarray(b, dtype=float)
         if self.params.get("lagrange_linear_solver", "cpr") == "cpr":
-            # No SciPy fallback here: _cpr_petsc_solve retries internally with a direct MUMPS LU
-            # on the (reduced, bordered) system, so a failure reaching this level is terminal --
-            # better to STOP than to factorize the full 135k system with SciPy (memory-bound,
-            # locks the machine).  Explicit `--linear-solver scipy` still selects the old path.
+            # No SciPy fallback: _cpr_petsc_solve retries with direct MUMPS internally, so a
+            # failure here is terminal.  --linear-solver scipy still selects the direct path.
             return self._schur_cpr_solve(A, b)
         return self._scipy_bordered_solve(A, b, null_mean_dofs)
 
@@ -738,11 +722,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         cands = [e for e in eq_names if e.startswith(f"elimination_of_{varname}_on_grids")]
         return cands[0] if cands else None
 
-    # The ELLIPTIC variables -> the AMG block: pressure (Darcy Laplacian) and enthalpy (once the
-    # local T = h/C_P closure is Schur-eliminated, the conduction K_e grad(T) = (K_e/C_P) grad(h)
-    # is a genuine Laplacian in h). Everything else -> the ILU block. NOTE: this is the correct AMG
-    # set for the SCHUR-REDUCED (p, h, z) system; on the raw un-reduced Jacobian the h-Laplacian is
-    # still buried in the temperature columns, so GAMG cannot see it and the CPR falls back.
+    # Elliptic variables: pressure and, after the T = h/C_P elimination, enthalpy.  Valid for
+    # the Schur-reduced system only.
     _ELLIPTIC_VARS = ("pressure", "enthalpy")
 
     def _primary_secondary_indices(self, n: int):
@@ -767,12 +748,9 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             eq = eq_of(v)
             return eq is not None and eq.startswith("elimination_of_")
 
-        # PRIMARY ordering:  [pressure, enthalpy, <z + interface_fourier/enthalpy fluxes>,
-        # interface_darcy_flux LAST].  Elliptic {p, h} lead (for the GAMG fields); interface_darcy_flux
-        # is placed as the trailing block so :meth:`_schur_cpr_solve` can cheaply eliminate it from the
-        # REDUCED system (where it is diagonal, ``lambda = func(p, h, z)``), FOLDING the matrix<->fracture
-        # pressure coupling into the pressure block -> the reduced-reduced {p, h} operator is a genuine
-        # CONNECTED mixed-dimensional Darcy Laplacian that GAMG coarsens with a single constant.
+        # Primary ordering [p, h, <z + interface fluxes>, interface_darcy_flux last]: the
+        # trailing darcy block is diagonal in the reduced system, so _schur_cpr_solve folds it
+        # into the pressure block cheaply.
         elliptic = [v for v in self._ELLIPTIC_VARS if v in var_names]
         darcy = [v for v in var_names if v == "interface_darcy_flux"]     # eliminated LAST (if present)
         middle = [v for v in var_names
@@ -811,12 +789,10 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
                 n_pressure, n_elliptic, n_darcy, matrix_p_pos)
 
     def _schur_cpr_solve(self, A, b) -> np.ndarray:
-        """Pure-algebraic Schur reduction of the LOCAL secondary closures (T, s, x), then CPR on the
-        reduced (p, h, z) primary system, then back-substitution. The secondary block ``A_ss`` is
-        local (block-diagonal per cell) so its factorization is cheap and the Schur complement stays
-        sparse. Eliminating T substitutes ``K_e grad(T) -> (K_e/C_P) grad(h)``, so the reduced energy
-        equation is a genuine h-Laplacian and ``{p, h} -> GAMG`` becomes effective (the reason the
-        raw un-reduced CPR could not work)."""
+        """Schur-eliminate the local secondary closures (T, s, x; ``A_ss`` block-diagonal per cell)
+        and the interface fluxes, solve the reduced (p, h, z) system with the bordered CPR
+        (:meth:`_cpr_petsc_solve`), back-substitute, and gate the result on the true projected
+        residual (with a direct MUMPS retry before failing)."""
         import scipy.sparse as sps
         from scipy.sparse.linalg import splu, spsolve
 
@@ -831,10 +807,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         bp, bs = b[pr], b[sr]
         t_blocks = time.perf_counter()
 
-        # The secondary block A_ss is the Jacobian of the LOCAL closures ``var - func(primary) = 0``:
-        # its diagonal is the identity and it has no secondary<->secondary coupling, so A_ss == I (the
-        # eliminations depend only on primary DOFs).  Detect that and skip the factorization entirely;
-        # fall back to a sparse LU only if some closure is non-trivial.
+        # A_ss = Jacobian of the local closures var - func(primary): identity when the closures
+        # depend only on primaries; detect and skip the factorization, sparse LU otherwise.
         Ass = Ass.tocsr()
         is_identity = (Ass.shape[0] == Ass.nnz
                        and np.allclose(Ass.data, 1.0)
@@ -855,12 +829,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         g = bp - Aps @ Ainv_bs                                 # reduced RHS
         t_schur = time.perf_counter()
 
-        # SECOND (cheap, EXACT) Schur: eliminate the trailing interface_darcy_flux block from the
-        # reduced system.  The local closures do NOT depend on it, so its self-block ``S_ll`` is the
-        # identity; eliminating it just FOLDS the matrix<->fracture pressure coupling into the pressure
-        # block, so the reduced-reduced ``{p, h}`` operator is a CONNECTED mixed-dimensional Darcy
-        # Laplacian (single constant null space) that GAMG coarsens.  (Fixed-dimensional: n_darcy == 0
-        # -> no-op, identical to before.)
+        # Second exact Schur: eliminate the trailing interface_darcy_flux block (self-block = I),
+        # folding the matrix<->fracture coupling into pressure.  Fixed-dim: n_darcy == 0 -> no-op.
         m = S.shape[0] - n_darcy
         if n_darcy:
             Skl = S[:m, m:]                                    # kept rows x lambda cols
@@ -876,11 +846,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         cpr_rtol = float(self.params.get("cpr_rtol", CPR_RTOL))
         cpr_maxit_full = int(self.params.get("cpr_maxit", CPR_MAXIT))
         acc_tol = float(self.params.get("cpr_accuracy_tol", CPR_ACCURACY_TOL))
-        # After a stall the FGMRES budget drops to a HALF-budget probe (the MUMPS fallback inside
-        # _cpr_petsc_solve does the real work); a probe that converges clears the flag.  With row
-        # equilibration the deep-dt MD solves legitimately take 60-100 its (measured distribution:
-        # all converge < 100), so the probe budget must sit ABOVE that band -- a 60-its cap
-        # truncated healthy solves straight into MUMPS.
+        # After a stall, probe with half the budget (the MUMPS fallback does the real work); a
+        # converging probe clears the flag.  The probe must exceed the healthy 60-100 its band.
         cpr_maxit = (max(1, cpr_maxit_full // 2)
                      if getattr(self, "_cpr_stalled", False) else cpr_maxit_full)
         xk, cpr_its = self._cpr_petsc_solve(
@@ -892,13 +859,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             xp = xk
         t_cpr = time.perf_counter()
 
-        # Honest accuracy gate.  During Newton the reduced system is genuinely INCONSISTENT: v = [1_p;
-        # 0] is BOTH the right nullvector (constant pressure) AND the left nullvector (summing the mass
-        # rows = boundary flux = 0), so v^T g = the not-yet-converged total-mass imbalance is nonzero.
-        # The null-mean solution -- exactly like SciPy's bordered solve -- therefore leaves an
-        # IRREDUCIBLE raw residual |v^T g| along v; only the residual with that conservation direction
-        # PROJECTED OUT measures solver error.  A correct CPR drives it to ~1e-11 (matches the bordered
-        # solution to ~1e-12); a GAMG that ignores the singular {p, h} mode stalls near ~1e-4.
+        # Accuracy gate on the PROJECTED residual: the transient mass imbalance sits along the
+        # constant-p direction and is irreducible; only its projection measures solver error.
         vp = np.zeros(len(xp)); vp[matrix_p_pos] = 1.0     # irreducible imbalance now sits on MATRIX rows
 
         def _proj_rel(x_):
@@ -906,13 +868,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             r_ = r_ - (vp @ r_) / (vp @ vp) * vp
             return np.linalg.norm(r_) / max(np.linalg.norm(g), 1.0e-30)
 
-        # Gate tolerance (default 1e-6): still THREE decades below the Newton tolerance (1e-3) --
-        # a solve at 1e-6 relative is far more than a Newton step can use.  The old 1e-8 gate
-        # rejected solves at 2e-8 (accurate to five orders beyond need), and the rejection surfaced
-        # as a ZERO increment upstream: Newton froze for 11 iterations at a constant residual, dt
-        # was cut, the halved step converged in ONE iteration, dt relaxed, and the cycle repeated --
-        # a pure ping-pong of the gate, not a nonlinear problem (a line search cannot help a zero
-        # increment).  Genuine CPR failures sit at >= 1e-4 and are still caught.
+        # Gate default 1e-6: three decades below the Newton tol.  A tighter gate rejects healthy
+        # solves and freezes Newton via zero increments (dt ping-pong); genuine failures >= 1e-4.
         rel = _proj_rel(xp)
         if rel > acc_tol:
             # One accurate retry before giving up: direct MUMPS on the same bordered system.
@@ -932,10 +889,10 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         logger.info(
             "Schur-CPR linear solve: %.3fs total | blocks %.3fs, A_ss %s %.3fs, "
             "Schur %.3fs, CPR %.3fs (%d KSP its, proj_res %.1e), back-sub %.3fs "
-            "[reduced %d = {p,h} %d + z %d, secondary %d]",
+            "[reduced %d = {p,lam} %d + {h,z} %d, secondary %d]",
             t_end - t0, t_blocks - t0, "==I" if is_identity else "LU", t_fact - t_blocks,
             t_schur - t_fact, t_cpr - t_schur, cpr_its, rel, t_end - t_cpr,
-            S.shape[0], n_ell, S.shape[0] - n_ell, len(sr),
+            S.shape[0], n_p + 1, S.shape[0] - n_p, len(sr),
         )
 
         x = np.empty(n, dtype=float)
@@ -998,13 +955,9 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         Mb = sps.bmat([[S, C.T], [C, corner]], format="csr")
         nb = n + 1
         gb = np.concatenate([np.asarray(g, dtype=float), [0.0]])
-        # ROW-EQUILIBRATE the bordered system.  On the mixed-dimensional grid the 1e-9-aperture
-        # fracture rows are ~9 orders smaller than the matrix rows, and FGMRES minimizes the
-        # residual in the UNSCALED norm -- the fracture components simply never converge, and no
-        # block preconditioner can compensate (measured on captured stall systems: even exact LU
-        # on every field stalls at 300 its, while this scaling alone converges in 67).  Scaling
-        # rows leaves the solution unchanged; fixed-dimensional rows are ~uniform, so it is a
-        # no-op there.
+        # Row-equilibrate the bordered system: fracture rows are orders smaller than matrix rows
+        # and FGMRES minimizes the unscaled norm (without this even exact-block splits stall).
+        # The solution is unchanged; ~no-op for fixed-dim.
         row_max = np.asarray(np.abs(Mb).max(axis=1).todense()).ravel()
         row_max[row_max == 0.0] = 1.0
         Mb = (sps.diags(1.0 / row_max) @ Mb).tocsr()
@@ -1057,12 +1010,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         kpl.setType("preonly")
         kpl.getPC().setType("lu")
         kpl.getPC().setFactorSolverType("mumps")
-        # {h, z} as ONE exact advection block.  At large dt the advective h<->z coupling (the
-        # enthalpy advection weight carries the phase mobilities) dominates, and splitting h from
-        # z multiplicatively becomes MARGINAL: on captured deep-dt systems the 3-field split
-        # converges chaotically (96-737 its or stalls, depending on arithmetic noise) while the
-        # combined block is robust (33 its to 1e-9).  The block is a sparse advection operator;
-        # one MUMPS factorization per solve is cheap and replaces both GAMG(h) and ILU(z).
+        # {h, z} as one exact block: at large dt the advective h<->z coupling makes the split
+        # h | z marginal (chaotic convergence); the combined MUMPS block is robust and cheap.
         khz.setType("preonly")
         khz.getPC().setType("lu")
         khz.getPC().setFactorSolverType("mumps")
@@ -1072,10 +1021,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         bv.setArray(np.ascontiguousarray(gb, dtype=PETSc.ScalarType))
         ksp.solve(bv, xv)
         if ksp.getConvergedReason() < 0:
-            # FGMRES stalled (the advective coupling stiffens with growing dt on the fractured
-            # grid).  Fall back to a DIRECT MUMPS LU on the SAME bordered system: all-PETSc and
-            # only the reduced size (n+1), unlike the old run-level SciPy fallback that
-            # factorized the FULL 135k system and locked the machine.
+            # FGMRES stalled: fall back to a direct MUMPS LU on the same (reduced) bordered
+            # system.
             logger.warning("CPR FGMRES stalled (%d its); retrying with direct MUMPS LU",
                            ksp.getIterationNumber())
             ksp_lu = PETSc.KSP().create(PETSc.COMM_SELF)
@@ -1093,24 +1040,13 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 
 
 # --------------------------------------------------------------------------------------- #
-#  Interior CONDUCTIVE fractures (endpoints in reference metres on the 100-cell grid, so they lie
-#  on cell faces and stay conforming under any cell_size = 1/k refinement -- nx a multiple of 100).
-#  5 VERTICAL fractures cross the horizontal barriers PERPENDICULARLY; 5 HORIZONTAL fractures sit in
-#  barrier-free bands (they never touch a barrier).  None reach the domain boundary.  The verticals
-#  intersect the horizontals to form ONE CONNECTED network, so the mixed-dimensional grid is
-#  2D matrix + 1D fractures + 0D intersection points.
-#  Validated against _BARRIER_LAYERS_FIG (see frac placement check).  Each entry is (x0, y0, x1, y1).
+#  Fractures, (x0, y0, x1, y1) in reference metres on the 100-cell grid (endpoints on cell
+#  faces -> conforming under refinement).  Verticals cross barriers; horizontals sit in
+#  barrier-free bands.  All stay inside the oil band 10 < y < 90 (touching a phase-band edge
+#  destabilizes the first Newton step) and none reach the boundary.
 # --------------------------------------------------------------------------------------- #
-# The horizontal fractures stay INSIDE the middle (oil) phase band (10 < y < 90) so no interface
-# straddles an initial phase boundary -- H1/H5 are at y=88/12, NOT the band edges y=90/10, which
-# otherwise put an oil fracture next to water (top) / a gas fracture next to oil (bottom) and made the
-# advective enthalpy/component coupling blow up on the adjacent matrix cells at the first Newton step.
 _FRACTURES_REF = [
-    # The VERTICALS are elongated so they CROSS the horizontals and form ONE CONNECTED fracture
-    # network (intersections create 0D point grids; the mixed-dimensional grid is then
-    # 2D + 1D + 0D).  Every endpoint stays on integer reference coordinates (face-conforming),
-    # strictly inside the domain, and inside the initial oil band 10 < y < 90 (fractures touching
-    # the initial phase-band edges destabilize the first Newton step, see the note above).
+    # Verticals elongated to intersect the horizontals (0D points at the crossings).
     (20.0, 47.0, 20.0, 89.0),   # V1  crosses H3 (y=48) and H1 (y=88); barriers en route
     (48.0, 11.0, 48.0, 68.0),   # V2  crosses H5 (y=12); barriers at y~54.5, 61.5
     (72.0, 15.0, 72.0, 80.0),   # V3  crosses H4 (y=33), H2 (y=70); no longer reaches H5 (y=12)
@@ -1322,19 +1258,6 @@ class _FlowModelBody(
             vals = self.total_mass_mobility(subdomains) * vals
         return self.isotropic_second_order_tensor(subdomains, vals)
 
-    # def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-    #     """ROCK-only interface permeability for BOTH schemes (dimension-branched values).
-    #
-    #     Uses the same :meth:`_rock_permeability_values` as the subdomain tensor, so fracture
-    #     interfaces carry ``k * FRACTURE_K_FACTOR`` (the core default projects the homogeneous
-    #     solid permeability and misses the factor).  Mobility-weighting is deliberately NOT
-    #     applied on interfaces: it double-counts the separately-upwinded mobility for hu and
-    #     destabilizes hu-mw (see the 3D solver's identical fix)."""
-    #     subdomains = self.interfaces_to_subdomains(interfaces)
-    #     projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-    #     op = projection.secondary_to_mortar_avg() @ self._rock_permeability_values(subdomains)
-    #     op.set_name("normal_permeability")
-    #     return op
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Hydrostatic initial pressure, consistent with the top-boundary Dirichlet pressure
@@ -1387,15 +1310,9 @@ class FractionalFlowModel(_FlowModelBody, FractionalFlowModelBase):
 day = 86400.0
 
 # --------------------------------------------------------------------------------------- #
-#  Time stepping -- mirrors hamon_2d_solver.run(): backward Euler, nominal 1-day step,
-#  reject-and-halve a non-converged step down to dt0/64 and grow it back toward dt0, and --
-#  crucially -- hit the Fig-5 snapshot instants (0, 78, 571 days) EXACTLY.  The snapshot days
-#  are placed in the TimeManager SCHEDULE: PorePy clips any step that would overshoot a
-#  scheduled time (dt := t_sched - t; see time_step_control.py), so ``time_manager.time`` lands
-#  on 78 d and 571 d to machine precision, and ``times_to_export`` (matched with ``np.isclose``
-#  against ``time_manager.time`` in data_saving_model_mixin) then writes the VTU there exactly.
-#  This is the robust cure for "adaptive dt exports at the wrong instants": the must-hit times
-#  are SCHEDULED, not left to the adaptive cadence.
+#  Time stepping: backward Euler, reject-and-halve to a floor of cap/64, growth to the cap.
+#  Snapshot instants go into the TimeManager schedule (steps are clipped to land on them
+#  exactly); times_to_export writes the VTU precisely there.
 # --------------------------------------------------------------------------------------- #
 T_END_DAYS = 600.0                        # hamon T_END
 SNAP_DAYS = (0.0, 1.0, 2.0,3.0,4.0, 5.0, 6.0, 7.0, 8.0,9.0, 10.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)                # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
@@ -1458,12 +1375,9 @@ solid_constants = pp.SolidConstants(
     residual_aperture=FRACTURE_APERTURE,               # 1D fracture aperture (no effect without fractures)
 )
 
-# HU-BM scheme -> model parametrization. "hu" = HU-BM(mp): the mobility-product buoyant term
-# (classical Lee/Hamon U^HU), reached via ``fractional_flow=False`` (the total-mass formulation,
-# whose FluidBuoyancy non-fractional branch is the mobility-product form) + hybrid upwinding.
-# "hu-mw" = the MOBILITY-WEIGHTED variant: ``fractional_flow=True`` selects the fractional-flow
-# branch of FluidBuoyancy AND requires the fractional-flow CF template, so the model class is
-# chosen accordingly (see :func:`flow_model_class`) -- mirrors subsection_4_3's HU vs HU-mw knob.
+# Scheme map: "hu" = HU-BM(mp) (fractional_flow=False + hybrid upwinding); "hu-mw" = the
+# mobility-weighted variant (fractional_flow=True, fractional-flow template; the model class is
+# selected by flow_model_class).
 _SCHEME_CONFIG = {
     "hu":    dict(fractional_flow=False, buoyancy_upwinding="hybrid"),
     "hu-mw": dict(fractional_flow=True,  buoyancy_upwinding="hybrid"),
@@ -1502,11 +1416,8 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
     configure_phase_system(nphase)
     frac_tag = "_frac" if fractures else ""
     if ad_backend is None:
-        # sparsa handles mixed-dimensional (multi-subdomain) variables too now -- a md variable lowers
-        # to a `concat` of its per-grid sub-variables -- so it is the default for BOTH fixed- and
-        # mixed-dimensional runs (bit-exact vs native).  Pass ad_backend="native" to override.
-        # (Note: the numba-compiled path does not lower `concat` yet, so md runs use the Program.run
-        # replay; the fixed-dimensional runs still use the fully compiled path.)
+        # sparsa lowers mixed-dimensional variables (concat of per-grid sub-variables); default
+        # for both fd and md, bit-exact vs native.  Pass ad_backend="native" to override.
         ad_backend = "native"
     params = dict(
         enable_buoyancy_effects=True,
@@ -1658,11 +1569,8 @@ if __name__ == "__main__":
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=11),      # hamon Newton cap = 11
         },
     }
-    # Construct the runner first (this prepares the simulation), so the system size can
-    # be reported before the (long) time loop starts.
-    # Construct the runner first (this prepares the simulation), then report the system
-    # size + the registered variables (role and whether each is substitutable) before the
-    # (long) time loop starts.
+    # Construct the runner first (prepares the simulation) so the system size and variable
+    # roles are reported before the long time loop.
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     ncells = report_system_size(model)
