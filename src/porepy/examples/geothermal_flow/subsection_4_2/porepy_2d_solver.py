@@ -1567,8 +1567,6 @@ if __name__ == "__main__":
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=11),
-            # NOTE: 11, not lower -- full-scale N=4 fronts legitimately use 9-11 iterations;
-            # capping at 8 converted convergent steps into dt cuts and was measured SLOWER.
         },
     }
     # Construct the runner first (prepares the simulation) so the system size and variable
