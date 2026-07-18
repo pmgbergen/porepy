@@ -1039,8 +1039,9 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 #  Interior CONDUCTIVE fractures (endpoints in reference metres on the 100-cell grid, so they lie
 #  on cell faces and stay conforming under any cell_size = 1/k refinement -- nx a multiple of 100).
 #  5 VERTICAL fractures cross the horizontal barriers PERPENDICULARLY; 5 HORIZONTAL fractures sit in
-#  barrier-free bands (they never touch a barrier).  None reach the domain boundary and none intersect
-#  each other, so the mixed-dimensional grid is exactly 2D matrix + ten 1D fractures (NO 0D points).
+#  barrier-free bands (they never touch a barrier).  None reach the domain boundary.  The verticals
+#  intersect the horizontals to form ONE CONNECTED network, so the mixed-dimensional grid is
+#  2D matrix + 1D fractures + 0D intersection points.
 #  Validated against _BARRIER_LAYERS_FIG (see frac placement check).  Each entry is (x0, y0, x1, y1).
 # --------------------------------------------------------------------------------------- #
 # The horizontal fractures stay INSIDE the middle (oil) phase band (10 < y < 90) so no interface
@@ -1048,11 +1049,16 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
 # otherwise put an oil fracture next to water (top) / a gas fracture next to oil (bottom) and made the
 # advective enthalpy/component coupling blow up on the adjacent matrix cells at the first Newton step.
 _FRACTURES_REF = [
-    (20.0, 56.0, 20.0, 74.0),   # V1  crosses barrier at y~61.5
-    (48.0, 44.0, 48.0, 68.0),   # V2  crosses barriers at y~54.5 and y~61.5
-    (72.0, 35.0, 72.0, 50.0),   # V3  crosses barrier at y~41.5
-    (30.0, 20.0, 30.0, 38.0),   # V4  crosses barrier at y~25.5
-    (85.0, 12.0, 85.0, 30.0),   # V5  crosses barriers at y~17.5 and y~25.5
+    # The VERTICALS are elongated so they CROSS the horizontals and form ONE CONNECTED fracture
+    # network (intersections create 0D point grids; the mixed-dimensional grid is then
+    # 2D + 1D + 0D).  Every endpoint stays on integer reference coordinates (face-conforming),
+    # strictly inside the domain, and inside the initial oil band 10 < y < 90 (fractures touching
+    # the initial phase-band edges destabilize the first Newton step, see the note above).
+    (20.0, 47.0, 20.0, 89.0),   # V1  crosses H3 (y=48) and H1 (y=88); barriers en route
+    (48.0, 11.0, 48.0, 68.0),   # V2  crosses H5 (y=12); barriers at y~54.5, 61.5
+    (72.0, 11.0, 72.0, 71.0),   # V3  crosses H4 (y=33), H2 (y=70); meets H5's endpoint at (72,12)
+    (30.0, 11.0, 30.0, 49.0),   # V4  crosses H5 (y=12) and H3 (y=48); barrier at y~25.5
+    (85.0, 12.0, 85.0, 71.0),   # V5  crosses H4 (y=33) and H2 (y=70); barriers at y~17.5, 25.5
     (8.0, 88.0, 44.0, 88.0),    # H1  barrier-free, inside the oil band (below the y=90 water/oil edge)
     (56.0, 70.0, 92.0, 70.0),   # H2  barrier-free band
     (8.0, 48.0, 44.0, 48.0),    # H3  barrier-free band
@@ -1204,6 +1210,14 @@ class _FlowModelBody(
 
         # Temperature in Celsius (temperature is kept as a variable).
         add_field("T_C", self.temperature(sds) - pp.ad.Scalar(273.15))
+
+        # Pressure CHANGE from the initial hydrostatic state, Delta p = p - p_ic.  The initial
+        # field is recomputed from ic_values_pressure (analytic, per subdomain), so no state needs
+        # to be stored and the field is exact at t = 0 (identically zero).
+        p_now = np.asarray(self.pressure(sds).value(es), dtype=float)
+        for i, sd in enumerate(sds):
+            p_ic = np.asarray(self.ic_values_pressure(sd), dtype=float)
+            data.append((sd, "delta_p", p_now[offsets[i]:offsets[i + 1]] - p_ic))
         return data
 
     def relative_permeability(
@@ -1327,7 +1341,7 @@ day = 86400.0
 #  are SCHEDULED, not left to the adaptive cadence.
 # --------------------------------------------------------------------------------------- #
 T_END_DAYS = 100.0                        # hamon T_END
-SNAP_DAYS = (0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0)                   # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
+SNAP_DAYS = (0.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)                # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
 DT_DAYS = 0.25                             # nominal step [days] -- the constant-dt march value
 DT_INIT_DAYS = 0.01                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)

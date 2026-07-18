@@ -150,7 +150,7 @@ def scheme_label(scheme):
 LX = 100.0                          # domain width  [m]
 LY = 100.0                          # domain height [m]
 T_END = 571.0 * DAY                 # [s]
-SNAP_DAYS = (0.0, 78.0, 571.0)      # requested saturation-map instants [days]
+SNAP_DAYS = (0.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)     # requested saturation-map instants [days]
 
 # Seven impermeable barrier layers, digitized from Bosma et al. (2022) Fig. 5(a).
 # Copied VERBATIM from model_configuration/geometry_description/geometry_market.py
