@@ -224,3 +224,7 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+
+# python run_workflow.py  94539.88s user 77494.89s system 894% cpu 5:20:35.36 total
+
