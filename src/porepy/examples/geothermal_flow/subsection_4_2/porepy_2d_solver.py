@@ -1358,7 +1358,7 @@ def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
         iter_optimal_range=(3, 8),            # grow dt when Newton is easy, shrink when it is hard
         iter_relax_factors=(0.5, 2.0),         # halve on a cut / double on grow-back (hamon *0.5, *2)
         recomp_factor=0.5, recomp_max=8,       # reject-and-halve, up to 8 consecutive cuts
-        iter_max=8, print_info=True,           # matches the solver's max_iterations
+        iter_max=11, print_info=True,          # matches the solver's max_iterations
     )
 
 
@@ -1566,8 +1566,9 @@ if __name__ == "__main__":
             ),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=8),       # healthy steps
-            # converge in <= 5 its (exact Jacobians); 8 fails doomed loops ~30% cheaper than 11.
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=11),
+            # NOTE: 11, not lower -- full-scale N=4 fronts legitimately use 9-11 iterations;
+            # capping at 8 converted convergent steps into dt cuts and was measured SLOWER.
         },
     }
     # Construct the runner first (prepares the simulation) so the system size and variable

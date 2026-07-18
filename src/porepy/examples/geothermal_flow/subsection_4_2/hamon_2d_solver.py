@@ -159,7 +159,7 @@ T_END = 600.0 * DAY                 # [s]
 DT_INIT_DAYS = 0.01                 # initial adaptive step [days]
 DT_MAX_DAYS = 0.5                   # maximum (cap) adaptive step [days]; floor = DT_MAX_DAYS/64
 NEWTON_ATOL = 1.0e-4                # per-equation Newton tolerance (porepy: 1e-3 Lebesgue)
-NEWTON_MAXIT = 8                    # Newton cap per step (porepy: max_iterations=8)
+NEWTON_MAXIT = 11                   # Newton cap per step (porepy: max_iterations=11)
 CPR_RTOL = 1.0e-10                  # FGMRES relative tolerance
 CPR_MAXIT = 300                     # FGMRES iteration budget
 SNAP_DAYS = (0.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)     # requested saturation-map instants [days]
