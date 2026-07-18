@@ -1317,7 +1317,7 @@ day = 86400.0
 T_END_DAYS = 600.0                        # hamon T_END
 SNAP_DAYS = (0.0, 1.0, 2.0,3.0,4.0, 5.0, 6.0, 7.0, 8.0,9.0, 10.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)                # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
 DT_DAYS = 0.25                             # nominal step [days] -- the constant-dt march value
-DT_INIT_DAYS = 0.01                     # INITIAL adaptive step [days] -- start small on the stiff,
+DT_INIT_DAYS = 0.005                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
 DT_MAX_DAYS = 0.5                         # MAXIMUM (cap) adaptive step [days] -- never exceeded;
 #                                           the floor is DT_MAX_DAYS/64
