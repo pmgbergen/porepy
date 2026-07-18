@@ -1,34 +1,15 @@
 #!/usr/bin/env python
-"""Reference runs for subsection 4.2 -- N-phase gravity segregation through barriers
-(Bosma et al. 2022, Ex. 6.3 at --nphase 3), driving hamon_2d_solver.py.
+"""Reference runs for subsection 4.2, driving hamon_2d_solver.py (Bosma Ex. 6.3).
 
-    Step 1  full reference      : all four schemes at 100x100 to 571 days (snaps 0/78/571)
-                                  -> ./vtr/
-    Step 2  high-res early time : each scheme (ppu, hu, hu-mw, hu-mp) at 200x200 to 78 days
-                                  (snaps 0/78) -> ./output_ref_<scheme>/
+Step 1: schemes {hu, hu-mw, hu-mp, ppu} on 100^2 to 571 d, snaps {0, 78, 571} -> vtr[_nN]/
+Step 2: same schemes on 200^2 to 78 d, snaps {0, 78}          -> output_ref_<scheme>[_nN]/
 
-Schemes are the HU-BM (Hybrid Upwinding with Background Mobility) family: the tokens
-hu / hu-mw / hu-mp are HU-BM(ff) / HU-BM(mw) / HU-BM(mp), plus ppu (phase-potential upwinding).
-Tokens stay the CLI/filename keys; the HU-BM(...) labels appear in the printed output.
-
-``--nphase 3`` (default) reproduces Bosma Fig. 5 exactly; ``--nphase 4`` splits the oil into a
-mid-heavy + mid-light phase. Runs with N != 3 are written to suffixed dirs (``vtr_n4/``,
-``output_ref_<scheme>_n4/``, ...) so they never clobber the N=3 reference, and ``plot_reference.py
---nphase 4`` reads them back.
-
-Each run writes the per-snapshot ``.vtr`` files and a ``stats_<scheme>.txt`` (Newton
-iterations, dt-cuts, ...). Calls the solver's ``run()`` in-process (no subprocess), using the
-default CPR iterative linear solver (FGMRES + pressure-AMG/saturation-ILU).
+N=3 (default): rho = [1500, 1000, 500]; N=4: rho evenly spaced on [500, 1500].  Each run writes
+per-snapshot .vtr files + stats_<scheme>.txt (Newton iterations, dt cuts); N != 3 goes to
+_nN-suffixed dirs.
 
 Usage:
-    python run_reference.py                # run everything (needs the `porepy` env active)
-    python run_reference.py --dry-run      # print the planned runs, execute nothing
-    python run_reference.py --step 2       # run only step 2 (or --step 1)
-    python run_reference.py --scheme hu-mp # one scheme: hu=HU-BM(ff) hu-mw=HU-BM(mw) hu-mp=HU-BM(mp) ppu
-    python run_reference.py --nphase 4     # 4-phase variant -> ./vtr_n4/, ./output_ref_*_n4/
-
-Wall time is a few minutes on one core with the default CPR iterative solver (the direct
-factorization of the Lagrange bordered system was far slower).
+    python run_reference.py [--dry-run] [--step 1|2] [--scheme hu|hu-mw|hu-mp|ppu] [--nphase N]
 """
 from __future__ import annotations
 

@@ -1,31 +1,18 @@
 #!/usr/bin/env python
-"""One-command reproduction workflow for subsection 4.2 (HU-BM gravity segregation through
-barriers, Bosma et al. 2022 Ex. 6.3).
+"""Subsection 4.2 workflow: all reference cases + figures in one command (Bosma Ex. 6.3).
 
-For every requested ``--nphase N`` it (1) RUNS all four schemes -- HU-BM(ff)=``hu`` /
-HU-BM(mw)=``hu-mw`` / HU-BM(mp)=``hu-mp`` and PPU=``ppu`` -- through the two-step reference plan,
-then (2) BUILDS every figure:
+Per N in --nphase (default 3 4; rho evenly spaced on [500, 1500], N=3 = Bosma [1500, 1000, 500]):
 
-    step 1 : 100^2 to 571 days (snaps 0/78/571)   -> ./vtr[_nN]/  (+ stats)
-    step 2 : 200^2 to  78 days (snaps 0/78)        -> ./output_ref_<scheme>[_nN]/  (+ stats)
-    figures: maps + per-phase grid + lightest-phase comparison  -> ./figures[_nN]/
-
-N=3 reproduces Bosma Fig. 5 exactly; N=4 splits the oil into a mid-heavy + mid-light phase. N != 3
-output is written to ``_nN``-suffixed directories so the runs never clobber one another.
-
-The individual simulation runs are independent, so they are executed in PARALLEL across worker
-PROCESSES (each solver run is single-threaded numpy, ``OMP_NUM_THREADS=1``). The whole N=3 + N=4
-sweep therefore finishes in a fraction of the sequential wall time. Figures are drawn after all
-runs for a given N have completed.
+  hamon (FV reference, parallel worker processes):
+    step 1: schemes {hu, hu-mw, hu-mp, ppu} on 100^2 to 571 d, snaps {0, 78, 571} -> vtr[_nN]/
+    step 2: same schemes on 200^2 to 78 d, snaps {0, 78}          -> output_ref_<scheme>[_nN]/
+  porepy (CF model, subprocesses of porepy_2d_solver.py):
+    scheme hu x {fixed-dim, --md}  -> visualization_barriers[_frac]_hu_N<n>/  (+ .log here)
+  figures: plot_reference.py -> figures[_nN]/
 
 Usage:
-    python run_workflow.py                 # FULL reference, N=3 and N=4, all figures
-    python run_workflow.py --nphase 3      # only N=3 (repeatable: --nphase 3 4 5)
-    python run_workflow.py --quick         # coarse/short config -- fast end-to-end smoke test
-    python run_workflow.py --jobs 4        # cap the number of parallel worker processes
-    python run_workflow.py --skip-run      # (re)build figures only, from existing sim output
-    python run_workflow.py --skip-plot     # run the simulations only, no figures
-    python run_workflow.py --linear-solver scipy   # spsolve instead of the default CPR
+    python run_workflow.py [--nphase 3 4] [--quick] [--jobs J] [--plot-only] [--skip-plot]
+                           [--skip-porepy] [--linear-solver cpr|scipy] [--dir-lag iteration|step]
 """
 from __future__ import annotations
 
@@ -35,6 +22,7 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")   # single-threaded per process (s
 
 import argparse
 import multiprocessing as mp
+import subprocess
 import sys
 import time
 
@@ -53,11 +41,13 @@ FULL = {
     "step1": dict(nx=100, ny=100, t_end_days=None, snap_days=(0.0, 78.0, 571.0)),
     "step2": dict(nx=200, ny=200, t_end_days=78.0, snap_days=(0.0, 78.0)),
     "fig_days": (0, 78, 571), "gas_day": 78,
+    "porepy_days": None,                          # None -> the solver's full default horizon
 }
 QUICK = {
     "step1": dict(nx=24, ny=24, t_end_days=6.0, snap_days=(0.0, 3.0, 6.0)),
     "step2": dict(nx=32, ny=32, t_end_days=6.0, snap_days=(0.0, 6.0)),
     "fig_days": (0, 3, 6), "gas_day": 6,
+    "porepy_days": 6.0,
 }
 
 
@@ -93,22 +83,52 @@ def _run_one(task):
 
 
 # --------------------------------------------------------------------------------------- #
+#  PorePy CF cases: porepy_2d_solver.py, scheme hu x {fixed-dim, --md}, run as subprocesses
+#  (clean per-run PETSc/global state).  Output goes to the solver's own
+#  visualization_barriers[_frac]_hu_N<n>/ ; stdout+stderr to porepy_hu_N<n>[_md].log here.
+# --------------------------------------------------------------------------------------- #
+def _build_porepy_tasks(nphases, cfg):
+    tasks = []
+    for n in nphases:
+        for md in (False, True):
+            cmd = [sys.executable, os.path.join(HERE, "porepy_2d_solver.py"),
+                   "--nphase", str(n), "--scheme", "hu"] + (["--md"] if md else [])
+            if cfg.get("porepy_days"):
+                cmd += ["--days", str(cfg["porepy_days"])]
+            tasks.append(dict(N=n, md=md, cmd=cmd,
+                              log=os.path.join(HERE, f"porepy_hu_N{n}{'_md' if md else ''}.log")))
+    return tasks
+
+
+def _run_one_porepy(task):
+    tag = f"porepy hu N={task['N']}{' --md' if task['md'] else ''}"
+    print(f"  [started ] {tag}  (tail -f {os.path.basename(task['log'])} for live output)",
+          flush=True)
+    t0 = time.time()
+    with open(task["log"], "w") as fh:
+        rc = subprocess.run(task["cmd"], stdout=fh, stderr=subprocess.STDOUT, cwd=HERE).returncode
+    return dict(N=task["N"], step="porepy" + ("-md" if task["md"] else ""), scheme="hu(porepy)",
+                summary=f"exit={rc} (log: {os.path.basename(task['log'])})",
+                converged=(rc == 0), wall=time.time() - t0)
+
+
+# --------------------------------------------------------------------------------------- #
 #  Driver
 # --------------------------------------------------------------------------------------- #
-def _run_simulations(tasks, jobs):
+def _run_simulations(tasks, jobs, worker=_run_one):
     print(f"\n=== running {len(tasks)} simulations on {jobs} worker process(es) ===", flush=True)
     t0 = time.time()
     results = []
     if jobs == 1:                                        # serial (easier to debug / low-core)
         for task in tasks:
-            r = _run_one(task)
+            r = worker(task)
             results.append(r)
             _log_result(r)
     else:
         ctx = mp.get_context("spawn")                    # spawn: each worker re-imports cleanly
         pool = ctx.Pool(jobs)
         try:
-            for r in pool.imap_unordered(_run_one, tasks):
+            for r in pool.imap_unordered(worker, tasks):
                 results.append(r)
                 _log_result(r)
             pool.close()                                 # no more work; let workers drain
@@ -152,8 +172,13 @@ def main(argv=None):
                          "solver-independent, so the figures are identical either way.")
     ap.add_argument("--dir-lag", default="iteration", choices=["iteration", "step"],
                     help="upwind-direction lagging cadence (default: iteration)")
-    ap.add_argument("--skip-run", action="store_true", help="skip the simulations (figures only)")
+    ap.add_argument("--plot-only", action="store_true",
+                    help="run NO simulations (neither hamon_2d_solver nor porepy_2d_solver); "
+                         "build the figures from existing output only")
+    ap.add_argument("--skip-run", action="store_true", help="alias of --plot-only")
     ap.add_argument("--skip-plot", action="store_true", help="skip the figures (simulations only)")
+    ap.add_argument("--skip-porepy", action="store_true",
+                    help="skip the porepy_2d_solver cases (hamon reference only)")
     args = ap.parse_args(argv)
 
     cfg = QUICK if args.quick else FULL
@@ -169,16 +194,20 @@ def main(argv=None):
           f"linear_solver={linear_solver} (jobs={jobs}), dir_lag={args.dir_lag}")
 
     t_all = time.time()
-    if not args.skip_run:
+    if not (args.plot_only or args.skip_run):
         tasks = _build_tasks(nphases, cfg, linear_solver, args.dir_lag)
         results = _run_simulations(tasks, jobs)
+        if not args.skip_porepy:                          # porepy CF cases: hu x {fd, --md} per N
+            ptasks = _build_porepy_tasks(nphases, cfg)
+            results += _run_simulations(ptasks, min(len(ptasks), jobs),
+                                        worker=_run_one_porepy)
         stalled = [r for r in results if not r["converged"]]
         if stalled:
-            print("\nWARNING: some runs stalled (accepted a step at the dt floor):", flush=True)
+            print("\nWARNING: some runs stalled or failed:", flush=True)
             for r in stalled:
                 print(f"  N={r['N']} {r['step']} {H.scheme_label(r['scheme'])}", flush=True)
     else:
-        print("(--skip-run: using existing simulation output)")
+        print("(--plot-only: no simulations; using existing output)")
 
     if not args.skip_plot:
         _build_figures(nphases, cfg)
@@ -189,7 +218,8 @@ def main(argv=None):
           f"(N in {nphases}, {tag})\n{'=' * 70}")
     for n in nphases:
         sfx = RR._suffix(n)
-        print(f"  N={n}:  sims -> vtr{sfx}/ , output_ref_*{sfx}/     figures -> figures{sfx}/")
+        print(f"  N={n}:  hamon -> vtr{sfx}/ , output_ref_*{sfx}/     "
+              f"porepy -> visualization_barriers[_frac]_hu_N{n}/     figures -> figures{sfx}/")
 
 
 if __name__ == "__main__":
