@@ -119,8 +119,15 @@ BARRIER_K_FACTOR = 1.0e-4           # barrier cells get k * this (effectively im
 
 # Optional mixed-dimensional CONDUCTIVE fractures (params["fractures"]=True; --md).  The
 # equi-dimensional barriers are UNCHANGED; the fractures are 1D lines embedded in the 2D matrix.
-FRACTURE_K_FACTOR = 1.0e+3          # fracture (dim<nd) permeability = k * this (1000x matrix)
-FRACTURE_APERTURE = 1.0e-3          # fracture aperture [m] -> specific volume of the 1D fracture
+# Fractures parameterized as THIN CONDUCTIVE FAULT ZONES (filled, not open-channel: k_f sits far
+# below the cubic law a^2/12, i.e. coarse rubble fill at ~1000 D).  The pair is chosen for its
+# TRANSMISSIVITY contrast against the 1 m matrix column a fracture replaces,
+#   K_FACTOR * a / dx = 1e3 * 0.1 / 1 = 100,
+# so the network forms genuine preferential conduits (at contrast ~1 it is hydraulically
+# invisible).  CFL consequence: fracture cells ~44-87 at dt_max, 0D junction points ~1e2-1e3
+# (point CFL scales as K_FACTOR/a and is unchanged vs the 1e2/1e-2 pair).
+FRACTURE_K_FACTOR = 1.0e+3          # fracture (dim<nd) permeability = k * this
+FRACTURE_APERTURE = 1.0e-1          # fracture aperture [m] -> specific volume of 1D cells (a) and 0D points (a^2)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -633,6 +640,14 @@ class BC_all_neumann(BC_three_phase_closed):
         return pp.BoundaryCondition(sd)          # all Neumann (no conductive flux across bdry)
 
 
+# CPR tolerances (defaults; override per run with --cpr-rtol / --cpr-maxit / --cpr-accuracy-tol,
+# or programmatically via the params of the same names).
+CPR_RTOL = 1.0e-7          # FGMRES relative tolerance (PETSc preconditioned norm, scaled system)
+CPR_MAXIT = 300             # FGMRES iteration budget (after a stall the probe uses half of it)
+CPR_ACCURACY_TOL = 1.0e-5   # acceptance gate on the TRUE projected relative residual; tripping it
+                            # triggers the direct MUMPS retry (Newton tol is 1e-3 -- keep it well below)
+
+
 # --------------------------------------------------------------------------------------- #
 #  Null-mean-constrained linear solve (localized here). Assemble the NORMAL (pressure-singular)
 #  system, then add one zero-mean constraint -- Sum(dp)=0 at the pressure DOF indices -- to fix
@@ -857,14 +872,19 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         else:
             Sc, gc = S, g
 
-        # After a stall the FGMRES budget drops to a probe (the MUMPS fallback inside
+        # Tolerances: run-configurable (params / CLI), defaulting to the module constants.
+        cpr_rtol = float(self.params.get("cpr_rtol", CPR_RTOL))
+        cpr_maxit_full = int(self.params.get("cpr_maxit", CPR_MAXIT))
+        acc_tol = float(self.params.get("cpr_accuracy_tol", CPR_ACCURACY_TOL))
+        # After a stall the FGMRES budget drops to a HALF-budget probe (the MUMPS fallback inside
         # _cpr_petsc_solve does the real work); a probe that converges clears the flag.  With row
         # equilibration the deep-dt MD solves legitimately take 60-100 its (measured distribution:
         # all converge < 100), so the probe budget must sit ABOVE that band -- a 60-its cap
         # truncated healthy solves straight into MUMPS.
-        cpr_maxit = 150 if getattr(self, "_cpr_stalled", False) else 300
+        cpr_maxit = (max(1, cpr_maxit_full // 2)
+                     if getattr(self, "_cpr_stalled", False) else cpr_maxit_full)
         xk, cpr_its = self._cpr_petsc_solve(
-            Sc, gc, n_p, n_ell, matrix_p_pos, maxit=cpr_maxit)  # CPR, connected system
+            Sc, gc, n_p, n_ell, matrix_p_pos, rtol=cpr_rtol, maxit=cpr_maxit)
         self._cpr_stalled = cpr_its >= cpr_maxit
         if n_darcy:
             xp = np.concatenate([xk, (gl - Slk @ xk) / dll])    # back-substitute interface_darcy_flux
@@ -879,12 +899,31 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         # IRREDUCIBLE raw residual |v^T g| along v; only the residual with that conservation direction
         # PROJECTED OUT measures solver error.  A correct CPR drives it to ~1e-11 (matches the bordered
         # solution to ~1e-12); a GAMG that ignores the singular {p, h} mode stalls near ~1e-4.
-        r = S @ xp - g
         vp = np.zeros(len(xp)); vp[matrix_p_pos] = 1.0     # irreducible imbalance now sits on MATRIX rows
-        r_proj = r - (vp @ r) / (vp @ vp) * vp
-        rel = np.linalg.norm(r_proj) / max(np.linalg.norm(g), 1.0e-30)
-        if rel > 1.0e-8:
-            raise RuntimeError(f"CPR projected residual too large for Newton (rel={rel:.1e})")
+
+        def _proj_rel(x_):
+            r_ = S @ x_ - g
+            r_ = r_ - (vp @ r_) / (vp @ vp) * vp
+            return np.linalg.norm(r_) / max(np.linalg.norm(g), 1.0e-30)
+
+        # Gate tolerance (default 1e-6): still THREE decades below the Newton tolerance (1e-3) --
+        # a solve at 1e-6 relative is far more than a Newton step can use.  The old 1e-8 gate
+        # rejected solves at 2e-8 (accurate to five orders beyond need), and the rejection surfaced
+        # as a ZERO increment upstream: Newton froze for 11 iterations at a constant residual, dt
+        # was cut, the halved step converged in ONE iteration, dt relaxed, and the cycle repeated --
+        # a pure ping-pong of the gate, not a nonlinear problem (a line search cannot help a zero
+        # increment).  Genuine CPR failures sit at >= 1e-4 and are still caught.
+        rel = _proj_rel(xp)
+        if rel > acc_tol:
+            # One accurate retry before giving up: direct MUMPS on the same bordered system.
+            logger.warning("CPR gate tripped (rel=%.1e); retrying with direct MUMPS LU", rel)
+            xk, _ = self._cpr_petsc_solve(Sc, gc, n_p, n_ell, matrix_p_pos, direct=True)
+            xp = np.concatenate([xk, (gl - Slk @ xk) / dll]) if n_darcy else xk
+            rel = _proj_rel(xp)
+            if rel > acc_tol:
+                raise RuntimeError(
+                    f"CPR projected residual too large for Newton even after the direct "
+                    f"MUMPS retry (rel={rel:.1e} > {acc_tol:.1e})")
 
         rhs_s = bs - Asp @ xp
         xs = rhs_s if lu is None else lu.solve(rhs_s)          # back-substitute the secondaries
@@ -923,7 +962,8 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
         return np.asarray(spsolve(M, rhs)[:n])                  # drop the multipliers
 
     @staticmethod
-    def _cpr_petsc_solve(S, g, n_p, n_ell, matrix_p_pos, rtol=1.0e-10, maxit=300) -> np.ndarray:
+    def _cpr_petsc_solve(S, g, n_p, n_ell, matrix_p_pos, rtol=1.0e-10, maxit=300,
+                         direct=False) -> np.ndarray:
         """PETSc FGMRES + CPR on the BORDERED null-mean system (the gauge as an explicit constraint).
 
         The reduced system is singular in the constant-pressure mode, and its LEFT null vector is
@@ -978,6 +1018,23 @@ class _LagrangeConstrainedSolve(pp.PorePyModel):
             comm=PETSc.COMM_SELF,
         )
         mat.assemble()
+
+        if direct:
+            # Straight to the direct MUMPS LU on the bordered system (skip FGMRES and the
+            # fieldsplit setup entirely).  Used by the caller's accuracy-gate retry.
+            xv = mat.createVecRight()
+            bv = mat.createVecLeft()
+            bv.setArray(np.ascontiguousarray(gb, dtype=PETSc.ScalarType))
+            ksp_lu = PETSc.KSP().create(PETSc.COMM_SELF)
+            ksp_lu.setOperators(mat)
+            ksp_lu.setType("preonly")
+            ksp_lu.getPC().setType("lu")
+            ksp_lu.getPC().setFactorSolverType("mumps")
+            ksp_lu.solve(bv, xv)
+            if ksp_lu.getConvergedReason() < 0:
+                raise RuntimeError(
+                    f"direct MUMPS bordered solve failed (reason {ksp_lu.getConvergedReason()})")
+            return xv.getArray()[:n].copy(), 0
 
         ksp = PETSc.KSP().create(PETSc.COMM_SELF)
         ksp.setOperators(mat)
@@ -1056,7 +1113,7 @@ _FRACTURES_REF = [
     # the initial phase-band edges destabilize the first Newton step, see the note above).
     (20.0, 47.0, 20.0, 89.0),   # V1  crosses H3 (y=48) and H1 (y=88); barriers en route
     (48.0, 11.0, 48.0, 68.0),   # V2  crosses H5 (y=12); barriers at y~54.5, 61.5
-    (72.0, 11.0, 72.0, 71.0),   # V3  crosses H4 (y=33), H2 (y=70); meets H5's endpoint at (72,12)
+    (72.0, 15.0, 72.0, 80.0),   # V3  crosses H4 (y=33), H2 (y=70); no longer reaches H5 (y=12)
     (30.0, 11.0, 30.0, 49.0),   # V4  crosses H5 (y=12) and H3 (y=48); barrier at y~25.5
     (85.0, 12.0, 85.0, 71.0),   # V5  crosses H4 (y=33) and H2 (y=70); barriers at y~17.5, 25.5
     (8.0, 88.0, 44.0, 88.0),    # H1  barrier-free, inside the oil band (below the y=90 water/oil edge)
@@ -1340,8 +1397,8 @@ day = 86400.0
 #  This is the robust cure for "adaptive dt exports at the wrong instants": the must-hit times
 #  are SCHEDULED, not left to the adaptive cadence.
 # --------------------------------------------------------------------------------------- #
-T_END_DAYS = 100.0                        # hamon T_END
-SNAP_DAYS = (0.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)                # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
+T_END_DAYS = 600.0                        # hamon T_END
+SNAP_DAYS = (0.0, 1.0, 2.0,3.0,4.0, 5.0, 6.0, 7.0, 8.0,9.0, 10.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)                # hamon SNAP_DAYS -- the Fig-5 saturation-map instants
 DT_DAYS = 0.25                             # nominal step [days] -- the constant-dt march value
 DT_INIT_DAYS = 0.01                     # INITIAL adaptive step [days] -- start small on the stiff,
 #                                           fully density-inverted IC (denser fluid over lighter)
@@ -1569,6 +1626,16 @@ if __name__ == "__main__":
     ap.add_argument("--linear-solver", default="cpr", choices=["cpr", "scipy"],
                     help="null-mean linear solver: 'cpr' (PETSc Schur+CPR) or 'scipy' (direct "
                          "bordered solve -- isolates/bypasses the PETSc CPR)")
+    ap.add_argument("--cpr-rtol", type=float, default=CPR_RTOL, metavar="TOL",
+                    help=f"FGMRES relative tolerance, PETSc preconditioned norm "
+                         f"(default {CPR_RTOL:.0e})")
+    ap.add_argument("--cpr-maxit", type=int, default=CPR_MAXIT, metavar="N",
+                    help=f"FGMRES iteration budget; after a stall the probe uses N/2 "
+                         f"(default {CPR_MAXIT})")
+    ap.add_argument("--cpr-accuracy-tol", type=float, default=CPR_ACCURACY_TOL, metavar="TOL",
+                    help=f"acceptance gate on the TRUE projected relative residual; tripping it "
+                         f"triggers the direct MUMPS retry (default {CPR_ACCURACY_TOL:.0e}; "
+                         f"keep well below the Newton tol 1e-3)")
     args = ap.parse_args()
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
@@ -1576,7 +1643,9 @@ if __name__ == "__main__":
         args.nphase, args.scheme, t_end_days=args.days, dt_days=args.dt_days,
         dt_init_days=args.dt_init_days, dt_max_days=args.dt_max_days,
         snap_days=snaps, constant_dt=args.constant_dt, fractures=args.md,
-        lagrange_linear_solver=args.linear_solver)
+        lagrange_linear_solver=args.linear_solver,
+        cpr_rtol=args.cpr_rtol, cpr_maxit=args.cpr_maxit,
+        cpr_accuracy_tol=args.cpr_accuracy_tol)
     # hu -> CompositionalFlowTemplate; hu-mw -> CompositionalFractionalFlowTemplate.
     model = flow_model_class(params)(params)
     solver_params = {
