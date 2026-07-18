@@ -325,6 +325,16 @@ for data in [
         xmax.append(x_.max())
         xmin.append(x_.min())
 
+print("dT star:")
+for x, y, c in zip(
+    xs, yrs, ["Case 2b no npc", "Case 2b npc", "Case 2a no npc", "Case 2a npc"]
+):
+    idx = x <= JUMP_TIME + 1
+    if np.any(idx):
+        print(f"\t{c}: {y[idx].min():.2f}")
+    else:
+        print(f"\t{c}: {y.min():.2f}")
+
 Lneg = JUMP_TIME - T_BEFORE_JUMP
 Lpos = T_MAX
 frac = 0.05
@@ -472,6 +482,16 @@ for data in [
     if x_.size > 2:
         xmax.append(x_.max())
         xmin.append(x_.min())
+
+print("dT star:")
+for x, y, c in zip(
+    xs, yrs, ["Case 2c no npc", "Case 2c npc", "Case 2d no npc", "Case 2d npc"]
+):
+    idx = x <= JUMP_TIME + 1
+    if np.any(idx):
+        print(f"\t{c}: {y[idx].min():.2f}")
+    else:
+        print(f"\t{c}: {y.min():.2f}")
 
 lo = 0
 for x, y, l, c, m in zip(xs, yrs, labels, colors, markers_dt):
