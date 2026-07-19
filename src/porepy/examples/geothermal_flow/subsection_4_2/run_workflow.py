@@ -87,10 +87,11 @@ def _run_one(task):
 #  (clean per-run PETSc/global state).  Output goes to the solver's own
 #  visualization_barriers[_frac]_hu_N<n>/ ; stdout+stderr to porepy_hu_N<n>[_md].log here.
 # --------------------------------------------------------------------------------------- #
-def _build_porepy_tasks(nphases, cfg):
+def _build_porepy_tasks(nphases, cfg, cases=("fd", "md")):
+    md_flags = [c == "md" for c in cases]
     tasks = []
     for n in nphases:
-        for md in (False, True):
+        for md in md_flags:
             cmd = [sys.executable, os.path.join(HERE, "porepy_2d_solver.py"),
                    "--nphase", str(n), "--scheme", "hu"] + (["--md"] if md else [])
             if cfg.get("porepy_days"):
@@ -179,6 +180,11 @@ def main(argv=None):
     ap.add_argument("--skip-plot", action="store_true", help="skip the figures (simulations only)")
     ap.add_argument("--skip-porepy", action="store_true",
                     help="skip the porepy_2d_solver cases (hamon reference only)")
+    ap.add_argument("--porepy-only", action="store_true",
+                    help="run ONLY the porepy_2d_solver cases (no hamon runs, no figures)")
+    ap.add_argument("--porepy-cases", nargs="+", default=["fd", "md"],
+                    choices=["fd", "md"], metavar="CASE",
+                    help="which porepy cases to run: fd (fixed-dim), md, or both (default)")
     args = ap.parse_args(argv)
 
     cfg = QUICK if args.quick else FULL
@@ -195,10 +201,12 @@ def main(argv=None):
 
     t_all = time.time()
     if not (args.plot_only or args.skip_run):
-        tasks = _build_tasks(nphases, cfg, linear_solver, args.dir_lag)
-        results = _run_simulations(tasks, jobs)
+        results = []
+        if not args.porepy_only:
+            tasks = _build_tasks(nphases, cfg, linear_solver, args.dir_lag)
+            results = _run_simulations(tasks, jobs)
         if not args.skip_porepy:                          # porepy CF cases: hu x {fd, --md} per N
-            ptasks = _build_porepy_tasks(nphases, cfg)
+            ptasks = _build_porepy_tasks(nphases, cfg, cases=args.porepy_cases)
             results += _run_simulations(ptasks, min(len(ptasks), jobs),
                                         worker=_run_one_porepy)
         stalled = [r for r in results if not r["converged"]]
@@ -209,10 +217,10 @@ def main(argv=None):
     else:
         print("(--plot-only: no simulations; using existing output)")
 
-    if not args.skip_plot:
+    if not (args.skip_plot or args.porepy_only):
         _build_figures(nphases, cfg)
     else:
-        print("(--skip-plot: no figures generated)")
+        print("(no hamon figures generated)")
 
     print(f"\n{'=' * 70}\n workflow complete in {(time.time() - t_all) / 60.0:.1f} min  "
           f"(N in {nphases}, {tag})\n{'=' * 70}")

@@ -458,6 +458,18 @@ class SecondaryEquations3N(LocalElimination):
         # Seed the substituted surrogates so the t=0 state/export is consistent.
         self._refresh_substitutions(on_boundaries=False)
 
+    def prepare_simulation(self) -> None:
+        super().prepare_simulation()
+        # Sync the temperature TIME-STEP store with its (caloric-consistent) iterate value
+        # T = h/C_P, which the elimination computes late in prepare.  The rock accumulation
+        # parses c_p (T - T_ref) at the PREVIOUS time step; left at the reference value,
+        # step 1 is charged with the full fictitious rock energy and the closed box pays by
+        # collapsing (h, T) until the books balance.
+        T0 = self.equation_system.get_variable_values(["temperature"], iterate_index=0)
+        for ti in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                T0, ["temperature"], time_step_index=int(ti))
+
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         # Substituted secondary quantities appear in accumulation terms, so (like phase
         # density/enthalpy) they need previous-iterate AND previous-time-step values.
@@ -634,6 +646,66 @@ CPR_RTOL = 1.0e-7          # FGMRES relative tolerance (PETSc preconditioned nor
 CPR_MAXIT = 300             # FGMRES iteration budget (after a stall the probe uses half of it)
 CPR_ACCURACY_TOL = 1.0e-5   # acceptance gate on the TRUE projected relative residual; tripping it
                             # triggers the direct MUMPS retry (Newton tol is 1e-3 -- keep it well below)
+
+# Conservation target order for the total-mass drift over the whole run; the per-step budget is
+# tol = 10^-(order-1) / (2 n_steps) (as in tests/functional/test_buoyancy_flow.py). --drift-order.
+DRIFT_ORDER = 4
+
+
+class NullSpaceDriftCriterion(pp.solvers.ConvergenceCriterion):
+    """Converge the dt-scaled total-mass drift of the residual.
+
+    The summed mass residual is a null-space component the linear solve cannot reduce,
+    and it is a rate: scaled by ``dt`` it is what the conservation plots accumulate.
+    Once Newton stagnates the drift is frozen, so the criterion stops objecting.
+    (Copy of tests/functional/setups/buoyancy_flow_model.NullSpaceDriftCriterion.)
+    """
+
+    #: Consecutive checks with relative drift change below this are considered frozen.
+    _stagnation_rtol: float = 1.0e-3
+    _stagnation_checks: int = 3
+
+    def __init__(self, model: pp.PorePyModel, tol: float) -> None:
+        self._model = model
+        self.tol = tol
+        self._history: list[float] = []
+        self._total_volume: float | None = None
+
+    def reset(self) -> None:
+        self._history = []
+
+    def check(
+        self, residual: np.ndarray, **kwargs
+    ) -> tuple[pp.solvers.ConvergenceStatus, float]:
+        model = self._model
+        rows = model.equation_system.assembled_equation_indices["mass_balance_equation"]
+        if self._total_volume is None:
+            # The geometry is fixed, so the normalization volume is computed once.
+            self._total_volume = sum(
+                np.sum(
+                    model.equation_system.evaluate(
+                        model.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                    )
+                )
+                for sd in model.mdg.subdomains()
+            )
+        total_volume = self._total_volume
+        drift = float(
+            abs(np.sum(np.asarray(residual, dtype=float)[rows]))
+            * model.time_manager.dt
+            / total_volume
+        )
+        self._history.append(drift)
+        if drift <= self.tol:
+            return pp.solvers.ConvergenceStatus.CONVERGED, drift
+        # Stagnation escape: the drift has frozen (quadratic basin) and cannot improve.
+        recent = self._history[-self._stagnation_checks :]
+        if len(recent) == self._stagnation_checks and all(
+            abs(a - b) <= self._stagnation_rtol * max(abs(b), 1e-300)
+            for a, b in zip(recent[:-1], recent[1:])
+        ):
+            return pp.solvers.ConvergenceStatus.CONVERGED, drift
+        return pp.solvers.ConvergenceStatus.CONTINUE_ITERATING, drift
 
 
 # --------------------------------------------------------------------------------------- #
@@ -1260,13 +1332,12 @@ class _FlowModelBody(
 
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        """Hydrostatic initial pressure, consistent with the top-boundary Dirichlet pressure
-        AND with the initial phase layering (top 10% water, middle 80% oil, bottom 10% gas).
+        """Hydrostatic initial pressure in the solver's null-mean gauge, consistent with the
+        initial phase layering (top 10% water, middle 80% oil, bottom 10% gas).
 
         In mechanical equilibrium the pressure gradient balances gravity,
-        ``dp/d(depth) = rho_column * g``. Integrating downward from the top boundary
-        (``p = p_top`` at height ``y = H``), with the piecewise-constant column density set by
-        the initial phase distribution, gives
+        ``dp/d(depth) = rho_column * g``; integrating downward from the top with the
+        piecewise-constant column density of the initial phase bands gives
 
             ``p(y) = p_top + g * INT_y^H rho(y') dy'``.
 
@@ -1274,10 +1345,15 @@ class _FlowModelBody(
         (``convert_units(GRAVITY_ACCELERATION) * to_Mega``) and the UNSCALED phase densities,
         so at t = 0 the Darcy potential ``grad p - rho_m g`` vanishes within each layer -- no
         spurious pressure-driven flow; only the density contrast across the layer interfaces
-        drives the buoyant segregation. ``p_top = _p_ref`` equals the closed BC's top Dirichlet
-        value, so the IC and the boundary agree at ``y = H``.
+        drives the buoyant segregation.  The global mean is removed
+        (:meth:`_ic_pressure_mean`): the closed all-Neumann problem fixes p only up to a
+        constant, and the solver's ``Sum(dp) = 0`` constraint freezes the mean at its initial
+        value -- a null-mean IC keeps the whole trajectory in that gauge.
         """
-        y = sd.cell_centers[1]                                       # height (0 bottom, H top)
+        return self._hydrostatic_pressure(sd.cell_centers[1]) - self._ic_pressure_mean()
+
+    def _hydrostatic_pressure(self, y) -> np.ndarray:
+        """The raw hydrostatic profile ``p_ref + g INT rho`` at heights ``y``."""
         g = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2") * to_Mega
         b = self._band_bounds()                                     # descending [H, ..., 0]
         # column density integrated from height y up to the top boundary H, over the N bands
@@ -1285,6 +1361,19 @@ class _FlowModelBody(
         for k in range(NPHASE):                                     # band k spans (b[k+1], b[k]]
             column = column + RHO[k] * np.maximum(0.0, b[k] - np.maximum(y, b[k + 1]))
         return self._p_ref + g * column
+
+    def _ic_pressure_mean(self) -> float:
+        """Unweighted mean of the hydrostatic IC over ALL pressure cells (cached).
+
+        The linear solver constrains every increment to ``Sum(dp) = 0``, so the mean of p is
+        frozen at its initial value; removing it here puts the whole trajectory in the same
+        null-mean gauge as the solver's constraint (no gauge offset from the IC).
+        """
+        if not hasattr(self, "_ic_p_mean"):
+            vals = np.concatenate([self._hydrostatic_pressure(sd.cell_centers[1])
+                                   for sd in self.mdg.subdomains()])
+            self._ic_p_mean = float(vals.mean())
+        return self._ic_p_mean
 
 
 class FlowModel(_FlowModelBody, FlowModelBase):
@@ -1358,7 +1447,7 @@ def make_time_manager(t_end_days: float = T_END_DAYS, dt_days: float = DT_DAYS,
         iter_optimal_range=(3, 8),            # grow dt when Newton is easy, shrink when it is hard
         iter_relax_factors=(0.5, 2.0),         # halve on a cut / double on grow-back (hamon *0.5, *2)
         recomp_factor=0.5, recomp_max=8,       # reject-and-halve, up to 8 consecutive cuts
-        iter_max=11, print_info=True,          # matches the solver's max_iterations
+        iter_max=13, print_info=True,          # matches the solver's max_iterations
     )
 
 
@@ -1371,7 +1460,7 @@ solid_constants = pp.SolidConstants(
     porosity=porosity,                                 # 0.3
     thermal_conductivity=2.0 * to_Mega,                # unused (isothermal)
     density=2500.0,
-    specific_heat_capacity=1000.0 * to_Mega,
+    specific_heat_capacity= C_P,
     residual_aperture=FRACTURE_APERTURE,               # 1D fracture aperture (no effect without fractures)
 )
 
@@ -1547,6 +1636,9 @@ if __name__ == "__main__":
                     help=f"acceptance gate on the TRUE projected relative residual; tripping it "
                          f"triggers the direct MUMPS retry (default {CPR_ACCURACY_TOL:.0e}; "
                          f"keep well below the Newton tol 1e-3)")
+    ap.add_argument("--drift-order", type=int, default=DRIFT_ORDER, metavar="K",
+                    help=f"conservation target order K for the total-mass drift: per-step budget "
+                         f"10^-(K-1) / (2 n_steps) (default {DRIFT_ORDER})")
     args = ap.parse_args()
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
@@ -1559,14 +1651,19 @@ if __name__ == "__main__":
         cpr_accuracy_tol=args.cpr_accuracy_tol)
     # hu -> CompositionalFlowTemplate; hu-mw -> CompositionalFractionalFlowTemplate.
     model = flow_model_class(params)(params)
+    # Per-step total-mass-drift budget: the target order split over the planned number of
+    # steps with a factor-2 margin (adaptive cuts only shrink dt, and the drift is dt-scaled).
+    n_steps = max(1, round(args.days / (args.dt_days if args.constant_dt else args.dt_max_days)))
+    drift_tol = 10.0 ** (-(args.drift_order - 1)) / (2 * n_steps)
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-4
+                tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)   # hamon atol=1e-4
             ),
+            "null_drift": NullSpaceDriftCriterion(model, tol=drift_tol),
         },
         "nl_divergence_criteria": {
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=11),
+            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),
         },
     }
     # Construct the runner first (prepares the simulation) so the system size and variable
