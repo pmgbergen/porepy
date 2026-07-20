@@ -917,12 +917,8 @@ class EquationSystem:
         several exposed methods, allowing the user to specify a single variable or a
         list of variables more flexibly.
 
-        There is no filtering of the variables, for instance:
-
-            - No assumptions should be made on the order of the parsed variables.
-            - The variable list is not uniquified; if the same variable is passed twice
-              (say, as a Variable and by its string), it will duplicated in the list of
-              parsed variables.
+        Variables are filtered according to the ordering in the
+        :attr:`variable_indexer`.
 
         Parameters:
             variables: The input argument for the variable type.
@@ -937,25 +933,31 @@ class EquationSystem:
 
         """
         if variables is None:
-            return self.variables
-        parsed_variables = []
+            return list(self.variable_indexer.variable_dofs.keys())
+
+        parsed_variables_lookup: set[Variable] = set()
         assert isinstance(variables, list)
         for variable in variables:
             if isinstance(variable, MixedDimensionalVariable):
-                parsed_variables += [var for var in variable.sub_vars]
+                parsed_variables_lookup.update(variable.sub_vars)
             elif isinstance(variable, Variable):
-                parsed_variables.append(variable)
+                parsed_variables_lookup.add(variable)
             elif isinstance(variable, str):
-                # Use _variables to avoid recursion (get_variables() calls this method)
                 vars = [var for var in self._variables.values() if var.name == variable]
-                parsed_variables += vars
+                parsed_variables_lookup.update(vars)
             else:
                 raise ValueError(
                     "Variable type must be a string or a Variable, not {}".format(
                         type(variable)
                     )
                 )
-        return parsed_variables
+
+        parsed_variables_ordered: list[Variable] = []
+        for variable in self.variable_indexer.variable_dofs:
+            if variable in parsed_variables_lookup:
+                parsed_variables_ordered.append(variable)
+
+        return parsed_variables_ordered
 
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
