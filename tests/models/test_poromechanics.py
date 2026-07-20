@@ -660,7 +660,7 @@ def test_poromechanics_empty_equation_filter(model_class):
     # Parsed equations after discarding those whose image space is empty.
     # In poromechanics models without fractures, fracture-related equations are
     # also registered but have empty image spaces, and are therefore removed here.
-    parsed_equations = list(equation_system._parse_equations().keys())
+    parsed_equations = list(eq.name for eq in equation_system._parse_equations().keys())
 
     # Check empty domain equations exist.
     empty_equations = []
