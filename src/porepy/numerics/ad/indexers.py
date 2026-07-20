@@ -39,7 +39,7 @@ class VariableIndexer:
         """
         self.num_dofs: int = sum(x.size for x in self.variable_dofs.values())
 
-    def projection_to(self, variables: VariableList) -> np.ndarray:
+    def projection_to(self, variables: list[pp.ad.Variable]) -> np.ndarray:
         """TODO YZ
         Create a projection matrix from the global vector of unknowns to a specified
         subspace.
@@ -60,8 +60,6 @@ class VariableIndexer:
             ``0 <= M <= num_dofs``.
 
         """
-        # TODO YZ: Revisit with indexer
-        # current number of total dofs
         variables_lookup = set(variables)
         projections = []
         for variable in self.variable_dofs:
@@ -73,6 +71,18 @@ class VariableIndexer:
             if len(projections) > 0
             else np.empty(0, dtype=int)
         )
+
+    def construct_restricted_indexer(self, variables: list[pp.ad.Variable]):
+        """TODO YZ"""
+        new_variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        offset = 0
+        for variable in variables:
+            dofs = self.variable_dofs.get(variable, None)
+            if dofs is None:
+                raise ValueError(...)
+            new_variable_dofs[variable] = np.arange(dofs.size) + offset
+            offset += dofs.size
+        return VariableIndexer(variable_dofs=new_variable_dofs)
 
 
 class EquationIndexer:
@@ -88,9 +98,15 @@ class EquationIndexer:
         self, equation_dofs_per_equation: dict[str, dict[pp.GridLike, np.ndarray]]
     ) -> None:
         equation_dofs: dict[EquationOnDomain, np.ndarray] = {}
+        global_offset = 0
         for eq_name, dofs_on_domains in equation_dofs_per_equation.items():
+            offset_per_equation = 0
             for domain, dofs in dofs_on_domains.items():
-                equation_dofs[EquationOnDomain(name=eq_name, domain=domain)] = dofs
+                equation_dofs[EquationOnDomain(name=eq_name, domain=domain)] = (
+                    dofs + global_offset
+                )
+                offset_per_equation += dofs.size
+            global_offset += offset_per_equation
 
         self.equation_dofs: dict[EquationOnDomain, np.ndarray] = equation_dofs
         """An ordered mapping of atomic equations to their DoF indices. The keys are
