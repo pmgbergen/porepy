@@ -28,7 +28,8 @@ from porepy.examples.geothermal_flow.model_configuration.geometry_description.ge
 )
 
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
-    DriesnerBrineFractionalFlowModel as FlowModel,   # fractional_flow=True pairs with the FF template
+    DriesnerBrineFlowModel,               # HU / PPU (standard primary equations)
+    DriesnerBrineFractionalFlowModel,     # HU-mw   (fractional-flow primary equations)
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,
@@ -106,63 +107,40 @@ solid_constants = pp.SolidConstants(
     specific_heat_capacity=880.0 * to_Mega,
 )
 material_constants = {"solid": solid_constants}
+# Scheme switch (= porepy_3d_solver._SCHEME_CONFIG): the fractional_flow flag pairs with
+# the base template -- False -> DriesnerBrineFlowModel, True -> the fractional-flow one.
+_SCHEME_CONFIG = {
+    "hu":    dict(fractional_flow=False, buoyancy_upwinding="hybrid"),
+    "hu-mw": dict(fractional_flow=True,  buoyancy_upwinding="hybrid"),
+}
+import argparse
+_ap = argparse.ArgumentParser(
+    description="Weis et al. (2014) Fig. 8(A-C) heat-flux plume (9 km x 3 km, "
+                "5 W/m^2 over the central 1 km of the bottom boundary).")
+_ap.add_argument("--scheme", default="HU", choices=list(_SCHEME_CONFIG),
+                 help="HU (standard template, hybrid), HU-mw (fractional-flow template), "
+                      "PPU (standard template, phase-potential); default HU")
+_args = _ap.parse_args()
+
 params = {
     "folder_name": os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "visualization"),
-    "fractional_flow": True,
+        os.path.dirname(os.path.abspath(__file__)),
+        f"visualization_{_args.scheme.lower().replace('-', '_')}"),
     "enable_buoyancy_effects": True,
-    "buoyancy_upwinding": "phase_potential",
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
-    "prepare_simulation": False,
-    "apply_schur_complement_reduction": False,
-    "nl_convergence_inc_atol": np.inf,
-    "nl_convergence_inc_rtol": np.inf,
-    "nl_convergence_res_atol": 9.0e-3,
-    "nl_convergence_res_rtol": np.inf,
-    "flag_failure_as_diverged": False,
-    # Maximum number of nonlinear iterations (was incorrectly set as
-    # 'max_iterations' previously; NewtonSolver expects 'nl_max_iterations').
-    "nl_max_iterations": 50,
-    # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
-    # "global_line_search": 1,
-    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
-    "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
-
-    # Step control method options:
-    # - "LS": Line Search (backtracking with Armijo condition)
-    # - "TR": Trust Region with CFL-aware dynamic radius adjustment
-    # - "TR-LS": Trust Region + Line Search refinement
-    # - "None": Plain Newton (no step control)
+    # Schur-reduced CPR linear solver -- exactly porepy_3d_solver's "cpr" mode.
+    "use_petsc": False,
+    "petsc_preconditioner": "cpr",
+    "cpr_rtol": 1.0e-5,           # CPR GMRES relative tolerance
+    "cpr_maxit": 400,             # CPR GMRES iteration cap
+    "cpr_accuracy_tol": 1.0e-3,   # post-solve gate -> direct fallback above this
     "step_control_method": "None",
-
-    "step_control_alpha_min": 1.0e-5,  # Minimum acceptable step length
-    "activate_step_control_after_iter": 10,  # Activate after this many iterations
-
-    # Trust region specific parameters (only used for TR and TR-LS methods)
-    "trust_region_min_radius": 0.5,          # Minimum trust region radius (prevents collapse)
-    "trust_region_max_radius": 100.0,        # Maximum trust region radius (prevents unbounded growth)
-    "trust_region_aggressive": True,         # For hyperbolic systems: accept any step that reduces residual
-    "trust_region_block_structured": True,   # Leverage block structure: trust pressure (SPD), limit hyperbolic vars
-
-    # CFL-based trust radius bounds (RECOMMENDED for hyperbolic stability)
-    "trust_region_use_cfl_bounds": True,     # Use CFL to set physics-based bounds: min=1/CFL, max=CFL*10
-
-    # CFL-aware dynamic radius adjustment (acts as dynamic CFL limiter)
-    "trust_region_cfl_max_target": 10.0,              # Target CFL for expansion
 }
-# params = {
-#     "material_constants": material_constants,
-#     "fractional_flow": True,
-#     "buoyancy_on": True,
-#     "time_manager": time_manager,
-#     "prepare_simulation": False,
-#     "apply_schur_complement_reduction": False,
-#     "nl_convergence_tol": np.inf,
-#     "nl_convergence_tol_res": 1.0e-4,
-#     "max_iterations": 500,
-# }
+params.update(_SCHEME_CONFIG[_args.scheme])
+FlowModel = (DriesnerBrineFractionalFlowModel if params["fractional_flow"]
+             else DriesnerBrineFlowModel)
 
 
 class GeothermalWaterFlowModel(
@@ -210,7 +188,7 @@ tb = time.time()
 solver_params = {
     "nl_convergence_criteria": {
         "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=9.0e-3, metric=pp.EquationBasedLebesgueMetric(model)),
+            tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)),
     },
     "nl_divergence_criteria": {
         "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
