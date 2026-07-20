@@ -105,6 +105,8 @@ class LinearSystem:
 
     matrix: Optional[csr_matrix]
     rhs: np.ndarray
+    equation_indexer: pp.ad.EquationIndexer
+    variable_indexer: pp.ad.VariableIndexer
 
     def release_matrix_reference(self) -> None:
         """Release this container's reference to the matrix.
