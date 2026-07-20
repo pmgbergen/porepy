@@ -30,11 +30,11 @@ from .forward_mode import *
 from .functions import *
 from .get_set_values import *
 from .grid_operators import *
+from .indexers import *
 from .operator_functions import *
 from .operators import *
 from .surrogate_operator import *
 from .time_derivatives import *
-from .indexers import *
 
 __all__.extend(ad_utils.__all__)
 __all__.extend(get_set_values.__all__)
