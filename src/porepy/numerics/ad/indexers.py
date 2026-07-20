@@ -6,11 +6,12 @@ Used by `EquationSystem` and nonlinear solvers.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 
-import porepy as pp
-
 import numpy as np
+
+import porepy as pp
 
 __all__ = ["EquationOnDomain", "VariableIndexer", "EquationIndexer"]
 
