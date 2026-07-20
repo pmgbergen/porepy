@@ -2,17 +2,17 @@
 """PorePy figures for subsection 4.2, from the exported VTU snapshots (no simulations).
 
 Per N in --nphase (default 3 4) and per case (fixed-dim, --md):
+  saturation_maps_pp_hu[_md]  -- diverging composite maps sum_k c_k s_k, c = linspace(-1, 1, N)
+                                 (one row over --days), layout mirroring plot_reference.plot_maps
   saturation_grid_pp_hu[_md]  -- per-phase saturation grid (rows = days, cols = phases),
                                  layout mirroring plot_reference.plot_grid
-  conservation_pp_hu[_md]     -- RELATIVE losses of the volume-averaged totals vs time:
+  conservation_pp_hu[_md]     -- RELATIVE losses of the volume-averaged totals vs time, both
+                                 referenced to the initial state:
                                      mass   |<rho>(t) - <rho>(0)| / <rho>(0),
-                                     energy |<E>(t) - <E>(t_1)| / |<E>(t_1)|,
+                                     energy |<E>(t) - <E>(0)| / <E>(0),
                                      rho_mix = sum_i s_i rho_i,
                                      E = phi (rho h - p) + (1-phi) rho_s c_ps T,
                                  with the actual specific volumes A (2D), len*a (1D), a^2 (0D).
-                                 Energy is referenced to the FIRST post-step snapshot t_1: the
-                                 first Newton step re-gauges the elliptic mixture h (constant
-                                 ~1e3 offset vs the t=0 export), after which E is conserved.
   saturation_conservation_pp_hu[_md] -- per-phase RELATIVE pore-volume losses
                                  |V_i(t) - V_i(0)| / V_pore, V_i = phi int s_i dV,
                                  V_pore = phi V_tot (uniform phi cancels); these decompose the
@@ -24,7 +24,6 @@ Usage: python plot_porepy.py [--nphase 3 4] [--days 0 78 571]
 from __future__ import annotations
 
 import argparse
-import ast
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -32,10 +31,12 @@ import xml.etree.ElementTree as ET
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 import meshio
 import numpy as np
 
 import hamon_2d_solver as H                       # barrier_mask + scheme conventions (no porepy)
+import plot_reference as PR                       # EXACT figure conventions (cmap/headers/axes)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DAY = 86400.0
@@ -49,35 +50,42 @@ CP_S = 0.0035                                      # = solver C_P (caloric T = h
 _PHASE_FIELDS = {3: ("s_water", "s_oil", "s_gas"),
                  4: ("s_water", "s_oil1", "s_oil2", "s_gas")}
 
-
-def _fractures_ref():
-    """The (x0, y0, x1, y1) fracture list, parsed from porepy_2d_solver.py's source."""
-    src = open(os.path.join(HERE, "porepy_2d_solver.py")).read()
-    m = re.search(r"_FRACTURES_REF = (\[.*?\n\])", src, re.S)
-    return ast.literal_eval(re.sub(r"#.*", "", m.group(1)))
+FRAC_LW = 0.25                                     # md overlay: 1D fracture line thickness [pt]
+POINT_SIZE = 1.0                                  # md overlay: 0D point diameter [pt]
 
 
 def _case_dir(n, md):
     return os.path.join(HERE, f"visualization_barriers{'_frac' if md else ''}_hu_N{n}")
 
 
+_PVD_CACHE: dict[str, list] = {}
+
+
 def read_pvd(case_dir):
-    """Master .pvd -> sorted list of (t_days, {dim: vtu_path}); mortar files skipped."""
+    """Master .pvd -> sorted list of (t_days, {dim: vtu_path}).
+
+    Grid selection is DATA-driven, the ParaView threshold recipe: each file's dimension is
+    read from its ``grid_dim`` cell field (verified grid_dim-pure) and interface grids are
+    dropped by their ``is_mortar`` field; file names are only addresses.  Cached per dir
+    (the classification reads every VTU once)."""
+    if case_dir in _PVD_CACHE:
+        return _PVD_CACHE[case_dir]
     master = [f for f in os.listdir(case_dir)
               if f.endswith(".pvd") and not re.search(r"_\d{6}\.pvd$", f)][0]
     by_time: dict[float, dict[int, str]] = {}
     for ds in ET.parse(os.path.join(case_dir, master)).getroot().iter("DataSet"):
-        f = ds.attrib["file"]
-        if "mortar" in f:
-            continue
-        dim = int(re.search(r"_(\d)_\d{6}\.vtu$", f).group(1))
-        by_time.setdefault(float(ds.attrib["timestep"]) / DAY, {})[dim] = os.path.join(case_dir, f)
-    return sorted(by_time.items())
-
-
-def _image(arr1d, nx, ny):
-    """Cell array (c = j*nx + i, j = 0 bottom) -> image with row 0 = top (as plot_reference)."""
-    return np.flipud(np.asarray(arr1d, float).reshape(ny, nx))
+        path = os.path.join(case_dir, ds.attrib["file"])
+        mesh = meshio.read(path)
+        mortar = mesh.cell_data.get("is_mortar")
+        if mortar is not None and np.any(np.concatenate([np.asarray(b) for b in mortar])):
+            continue                                             # interface grids: excluded
+        gd = np.unique(np.concatenate([np.asarray(b) for b in mesh.cell_data["grid_dim"]]))
+        assert gd.size == 1, f"{path}: mixed grid_dim {gd}"
+        files = by_time.setdefault(float(ds.attrib["timestep"]) / DAY, {})
+        assert int(gd[0]) not in files, f"{path}: duplicate grid_dim {gd[0]} at one instant"
+        files[int(gd[0])] = path
+    _PVD_CACHE[case_dir] = sorted(by_time.items())
+    return _PVD_CACHE[case_dir]
 
 
 def _cell_measures(mesh, dim):
@@ -163,26 +171,98 @@ def saturation_conservation(n, md, out_dir):
     _save(fig, os.path.join(out_dir, f"saturation_conservation_pp_hu{'_md' if md else ''}.png"))
 
 
-def _save(fig, png):
-    fig.savefig(png, dpi=180, bbox_inches="tight")
+def _save(fig, png, dpi=180):
+    fig.savefig(png, dpi=dpi, bbox_inches="tight")
     fig.savefig(png[:-4] + ".pdf", bbox_inches="tight")
     plt.close(fig)
     print(f"  wrote {os.path.relpath(png, HERE)} (+ .pdf)")
 
 
-def _overlay(ax, md):
-    B = _image(H.barrier_mask(100, 100), 100, 100).astype(bool)   # mask is FLAT (c = j*nx+i)
-    rgba = np.zeros(B.shape + (4,))
-    rgba[..., 3] = np.where(B, 0.95, 0.0)
-    ax.imshow(rgba, extent=[0, LX, LY, 0], aspect="equal", interpolation="nearest")
-    if md:
-        for x0, y0, x1, y1 in _fractures_ref():
-            ax.plot([x0, x1], [LY - y0, LY - y1], color="k", lw=1.0, alpha=0.8)
+def _fracture_layer(ax, files, values_of, cm, vmin=0.0, vmax=1.0):
+    """md overlay: the 1D fracture cells as line segments and the 0D intersection points,
+    colored by ``values_of(mesh)`` on the SAME scale as the 2D cells (grids selected per
+    grid_dim), with a dark outline that keeps the network visible where fracture and matrix
+    values coincide."""
+    def color(mesh):
+        v = np.clip(np.asarray(values_of(mesh), float), vmin, vmax)
+        return cm((v - vmin) / (vmax - vmin))
+    if 1 in files:
+        m1 = meshio.read(files[1])
+        segs = m1.points[m1.cells_dict["line"]][:, :, :2].copy()
+        segs[:, :, 1] = LY - segs[:, :, 1]                      # depth axis (0 at top)
+        ax.add_collection(LineCollection(segs, colors="0.15", linewidths=FRAC_LW + 1.2,
+                                         capstyle="projecting", zorder=4))
+        ax.add_collection(LineCollection(segs, colors=color(m1), linewidths=FRAC_LW,
+                                         capstyle="projecting", zorder=5))
+    if 0 in files:
+        m0 = meshio.read(files[0])
+        ax.scatter(m0.points[:, 0], LY - m0.points[:, 1], c=color(m0),
+                   s=POINT_SIZE ** 2, edgecolors="0.15", linewidths=0.4, zorder=6)
+
+
+def _composite_of(n):
+    """Callable mesh -> diverging composite sum_k c_k s_k, c = linspace(-1, +1, N)
+    (= plot_reference._composite: heaviest -> -1 blue, lightest -> +1 red)."""
+    c = np.linspace(-1.0, 1.0, n)
+    return lambda mesh: sum(ck * _field(mesh, key) for ck, key in zip(c, _PHASE_FIELDS[n]))
+
+
+def _pp_stats_line(case_dir):
+    """The plot_maps stats line, parsed from the solver's run_statistics.txt."""
+    try:
+        txt = open(os.path.join(case_dir, "run_statistics.txt")).read()
+        steps = int(re.search(r"accepted steps: (\d+)", txt).group(1))
+        its = int(re.search(r"total Newton iterations \(accepted\): (\d+)", txt).group(1))
+        cuts = int(re.search(r"rejected/cut loops: (\d+)", txt).group(1))
+        return (f"total iterations: {its}     avg iterations/step: {its / steps:.2f}     "
+                f"dt-cuts: {cuts}")
+    except Exception:
+        return ""
+
+
+def saturation_maps(n, md, days, out_dir):
+    """EXACTLY plot_reference.plot_maps: one row of diverging composite maps
+    (sum_k c_k s_k in [-1, 1], heavy blue -> light red) at the requested days, barrier
+    overlay, per-panel captions and the run-statistics line; md adds the fracture network
+    colored by the same composite."""
+    snaps = dict(read_pvd(_case_dir(n, md)))
+    cm = PR._cmap("vlag")
+    comp = _composite_of(n)
+    barrier = np.asarray(H.barrier_mask(100, 100), float)
+    fig, axes = plt.subplots(1, len(days), figsize=(4.4 * len(days), 4.6))
+    axes = [axes] if len(days) == 1 else list(axes)
+    im = None
+    for k, (ax, day) in enumerate(zip(axes, days)):
+        t = min(snaps, key=lambda s: abs(s - day))
+        mesh = meshio.read(snaps[t][2])
+        im = ax.imshow(PR._image(comp(mesh), 100, 100), extent=[0, LX, LY, 0],
+                       aspect="equal", cmap=cm, vmin=-1.0, vmax=1.0, interpolation="nearest")
+        PR._overlay_barriers(ax, barrier, 100, 100)
+        if md:
+            _fracture_layer(ax, snaps[t], comp, cm, vmin=-1.0, vmax=1.0)
+        PR._style_axes(ax, f"({PR._ABC[k]}) Saturation map at {int(round(t))} days")
+    cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, ticks=[-1, 0, 1])
+    cbar.ax.set_yticklabels(PR._diverging_tick_labels(n))
+    title_n = "Three-phase" if n == 3 else f"{n}-phase"
+    tag = ", mixed-dimensional" if md else ""
+    fig.suptitle(f"{title_n} segregation through barriers -- scheme: "
+                 f"{H.scheme_label('hu-mp')} (PorePy{tag})", y=1.00)
+    stat_line = _pp_stats_line(_case_dir(n, md))
+    if stat_line:
+        fig.text(0.5, 0.935, stat_line, ha="center", va="top", fontsize=10, color="0.35")
+    _save(fig, os.path.join(out_dir, f"saturation_maps_pp_hu{'_md' if md else ''}.png"),
+          dpi=360)
 
 
 def saturation_grid(n, md, days, out_dir):
+    """EXACTLY plot_reference.plot_grid's layout (vlag cmap, density headers, barrier overlay,
+    0..100 axes, suptitle wording), fed from the porepy VTUs; md adds the fracture network as
+    a saturation-colored layer (:func:`_fracture_layer`) on top of the 2D cells."""
     snaps = dict(read_pvd(_case_dir(n, md)))
     keys = _PHASE_FIELDS[n]
+    headers = PR._phase_header(n)
+    cm = PR._cmap("vlag")
+    barrier = np.asarray(H.barrier_mask(100, 100), float)
     fig, axes = plt.subplots(len(days), n, figsize=(3.1 * n, 3.3 * len(days)), squeeze=False)
     im = None
     for i, day in enumerate(days):
@@ -190,20 +270,24 @@ def saturation_grid(n, md, days, out_dir):
         mesh = meshio.read(snaps[t][2])
         for j, key in enumerate(keys):
             ax = axes[i][j]
-            im = ax.imshow(_image(_field(mesh, key), 100, 100), extent=[0, LX, LY, 0],
-                           aspect="equal", cmap="coolwarm", vmin=0.0, vmax=1.0,
-                           interpolation="nearest")
-            _overlay(ax, md)
-            ax.set_xticks([]); ax.set_yticks([])
+            im = ax.imshow(PR._image(_field(mesh, key), 100, 100), extent=[0, LX, LY, 0],
+                           aspect="equal", cmap=cm, vmin=0.0, vmax=1.0, interpolation="nearest")
+            PR._overlay_barriers(ax, barrier, 100, 100)
+            if md:
+                _fracture_layer(ax, snaps[t], lambda m, k=key: _field(m, k), cm)
+            PR._style_axes(ax, "")
             if i == 0:
-                ax.set_title(key.replace("s_", "$s_{") + "}$", fontsize=11)
+                ax.set_title(headers[j], fontsize=11)
             if j == 0:
                 ax.set_ylabel(f"{int(round(t))} days", fontsize=11)
     cbar = fig.colorbar(im, ax=axes.ravel().tolist(), fraction=0.02, pad=0.02, ticks=[0, 0.5, 1])
     cbar.set_label("phase saturation $s_k$")
-    tag = "mixed-dimensional" if md else "fixed-dimensional"
-    fig.suptitle(f"PorePy HU-BM(mp), N={n}, {tag}: per-phase saturations", y=1.00)
-    _save(fig, os.path.join(out_dir, f"saturation_grid_pp_hu{'_md' if md else ''}.png"))
+    title_n = "Three-phase" if n == 3 else f"{n}-phase"
+    tag = ", mixed-dimensional" if md else ""
+    fig.suptitle(f"{title_n} per-phase saturations (heavy -> light) -- scheme: "
+                 f"{H.scheme_label('hu-mp')} (PorePy{tag})", y=1.00)
+    _save(fig, os.path.join(out_dir, f"saturation_grid_pp_hu{'_md' if md else ''}.png"),
+          dpi=360)                                    # 2x the default raster resolution
 
 
 def conservation(n, md, out_dir):
@@ -213,27 +297,25 @@ def conservation(n, md, out_dir):
     series = read_pvd(_case_dir(n, md))
     t = np.array([s[0] for s in series])
     q = np.array([totals(s[1], n) for s in series])             # (nt, 2): mass, energy
-    # drop the zero-by-definition reference points: mass vs t=0 (exact IC); energy vs the FIRST
-    # post-step snapshot t_1 (the first Newton step re-gauges the elliptic mixture h -- a
-    # constant ~1e3 offset vs the t=0 export that would bury the actual drift)
-    # RELATIVE losses (dimensionless): each drift normalized by its reference value
+    # RELATIVE losses (dimensionless), both referenced to the INITIAL state (the t=0 point
+    # itself is zero by definition and dropped)
     loss_m, t_m = np.abs(q[1:, 0] - q[0, 0]) / abs(q[0, 0]), t[1:]
-    loss_e, t_e = np.abs(q[2:, 1] - q[1, 1]) / abs(q[1, 1]), t[2:]
+    loss_e, t_e = np.abs(q[1:, 1] - q[0, 1]) / abs(q[0, 1]), t[1:]
     fig, ax1 = plt.subplots(figsize=(7.5, 4.5))
     ax2 = ax1.twinx()
     l1, = ax1.semilogy(t_m, loss_m, "o-", color="C0", ms=3, label="mass")
     l2, = ax2.semilogy(t_e, loss_e, "s-", color="C3", ms=3, label="energy")
-    # order line at 1e-3 on EACH axis, colored like its curve (left/mass blue, right/energy red)
-    ax1.axhline(1.0e-3, color="C0", lw=1.0, ls="--", alpha=0.6, zorder=0)
-    ax1.text(t_m[-1], 1.0e-3, " 1e-03", color="C0", fontsize=8, va="bottom")
-    ax2.axhline(1.0e-3, color="C3", lw=1.0, ls="--", alpha=0.6, zorder=0)
-    ax2.text(t_m[0], 1.0e-3, " 1e-03", color="C3", fontsize=8, va="bottom", ha="left")
+    # order line at 1e-4 on EACH axis, colored like its curve (left/mass blue, right/energy red)
+    ax1.axhline(1.0e-4, color="C0", lw=1.0, ls="--", alpha=0.6, zorder=0)
+    ax1.text(t_m[-1], 1.0e-4, " 1e-04", color="C0", fontsize=8, va="bottom")
+    ax2.axhline(1.0e-4, color="C3", lw=1.0, ls="--", alpha=0.6, zorder=0)
+    ax2.text(t_m[0], 1.0e-4, " 1e-04", color="C3", fontsize=8, va="bottom", ha="left")
     ax1.set_xlabel("time [days]")
     ax1.set_ylabel(r"relative mass loss  "
                    r"$|\langle\rho\rangle(t)-\langle\rho\rangle(0)| / \langle\rho\rangle(0)$",
                    color="C0")
     ax2.set_ylabel(r"relative total-energy loss  "
-                   r"$|\langle E \rangle(t) - \langle E \rangle(t_1)| / |\langle E \rangle(t_1)|$,"
+                   r"$|\langle E \rangle(t) - \langle E \rangle(0)| / \langle E \rangle(0)$,"
                    "\n"
                    r"$E = \phi(\rho h - p) + (1{-}\phi)\rho_s c_{ps} T$", color="C3")
     ax1.tick_params(axis="y", colors="C0"); ax2.tick_params(axis="y", colors="C3")
@@ -257,6 +339,7 @@ def main(argv=None):
             if not os.path.isdir(_case_dir(n, md)):
                 print(f"  (skip N={n} md={md}: no output dir)")
                 continue
+            saturation_maps(n, md, args.days, out_dir)
             saturation_grid(n, md, args.days, out_dir)
             conservation(n, md, out_dir)
             saturation_conservation(n, md, out_dir)

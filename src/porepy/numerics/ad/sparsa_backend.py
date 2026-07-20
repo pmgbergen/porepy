@@ -222,6 +222,14 @@ def _lower(op, equation_system, var_ad, mdg, cache, sparsa):
                            if subs else np.zeros(0))
                 else:
                     res = op.parse(mdg)  # atomic previous variable: stored values
+            elif isinstance(op, pp.ad.MixedDimensionalVariable):
+                # A mixed-dimensional variable spans several grids; its DOFs are the UNION of the
+                # per-grid sub-variables', which is not a single seeded key.  Lower each atomic
+                # sub-variable and STACK them (block-diagonal Jacobian) -- the md variable.
+                subs = op.sub_vars
+                res = (sparsa.concatenate(
+                        [_lower(sv, equation_system, var_ad, mdg, cache, sparsa) for sv in subs])
+                       if subs else sparsa.LocalAd(np.zeros(0), {}))
             else:
                 dofs = equation_system.dofs_of([op])
                 if dofs.size == 0:
@@ -354,7 +362,18 @@ def _compile(op, rec, equation_system, var_by_key, surr, const, baked, mdg, cach
         if isinstance(op, pp.ad.Variable) and not (
             op.is_previous_iterate or op.is_previous_time
         ) and equation_system.dofs_of([op]).size > 0:
-            res = ("reg", var_by_key[_dofs_key(equation_system.dofs_of([op]))])
+            if isinstance(op, pp.ad.MixedDimensionalVariable):
+                # md variable -> record a ``concat`` of its per-grid sub-variable registers (each an
+                # atomic seed).  Replays via sparsa.concatenate; the numba path does not lower
+                # ``concat`` yet, so an md program transparently falls back to Program.run.
+                sub_regs = [
+                    _compile(sv, rec, equation_system, var_by_key, surr, const, baked, mdg, cache,
+                             sparsa)[1]
+                    for sv in op.sub_vars
+                ]
+                res = ("reg", rec.emit("concat", sub_regs))
+            else:
+                res = ("reg", var_by_key[_dofs_key(equation_system.dofs_of([op]))])
         else:
             # Everything else (constants, discretizations, previous-iterate/time vars,
             # empty interface vars, BC/time-dependent arrays) is a REFRESHED leaf: its

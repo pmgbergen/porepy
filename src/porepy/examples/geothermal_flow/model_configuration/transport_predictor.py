@@ -265,12 +265,75 @@ class ReorderedTransportPredictor:
             "  cells=%d levels=%d | cumulative %.2f s over %d steps",
             n_cells, len(levels), self._predictor_cum_time, self._predictor_n_calls)
 
+    # ---- residual gate: keep the sweep only where it is consistent with the FI solver ---------
+    def _apply_gated_predictor(self) -> None:
+        """Run the reordered sweep and keep it only where it is CONSISTENT with the fully-implicit
+        solver: accept the largest damping along the predictor direction that REDUCES the FI residual
+        (backtracking line search), otherwise fall back to the previous state.  This makes the warm
+        start provably non-harmful -- a guess that would drive Newton to diverge (and force a
+        time-step cut) raises the residual and is rejected or damped before Newton ever sees it.
+
+        The residual is the model's OWN assembled residual with the eliminated secondaries flashed
+        consistent, so acceptance is judged by exactly the quantity the FI Newton drives to zero."""
+        es = self.equation_system
+        if not self._predictor_gate_enabled():
+            self.run_transport_predictor()
+            return
+
+        r_prev = self._predictor_residual_norm()               # flash-consistent baseline residual
+        x0 = es.get_variable_values(iterate_index=0).copy()
+        self.run_transport_predictor()                         # advective candidate (writes h, z)
+        d = es.get_variable_values(iterate_index=0) - x0       # nonzero only in h, z
+        if not np.any(d):
+            es.set_variable_values(x0, iterate_index=0)
+            self.update_derived_quantities()                   # keep derived <-> variables (see below)
+            return
+
+        accepted, trials = None, []
+        for alpha in self._predictor_line_search_steps():
+            es.set_variable_values(x0 + alpha * d, iterate_index=0)
+            r = self._predictor_residual_norm()
+            trials.append((alpha, r))
+            if r < r_prev:                                     # first damping that helps -> accept
+                accepted = (alpha, r)
+                break
+        if accepted is not None:
+            _LOG.info("transport predictor: accepted alpha=%.3g (FI residual %.3e -> %.3e)",
+                      accepted[0], r_prev, accepted[1])
+        else:
+            es.set_variable_values(x0, iterate_index=0)        # reject: keep the FI's own guess
+            tried = ", ".join(f"a={a:g}:{rr:.2e}" for a, rr in trials)
+            _LOG.info("transport predictor: rejected (r_prev=%.3e; tried %s)", r_prev, tried)
+        # Re-flash so the eliminated secondaries + surrogate density match the FINAL primaries: the
+        # base Newton loop flashes in initialize_nonlinear_solution (before this gate) and AFTER each
+        # iteration, but NOT in before_nonlinear_iteration -- so iteration 0 would otherwise assemble
+        # against the stale derived state left by the last line-search probe.
+        self.update_derived_quantities()
+
+    def _predictor_gate_enabled(self) -> bool:
+        """Whether to residual-gate the sweep (default True).  Disable with
+        ``params['transport_predictor_gate'] = False`` to apply the raw (ungated) sweep."""
+        return bool(self.params.get("transport_predictor_gate", True))
+
+    def _predictor_line_search_steps(self):
+        """Backtracking dampings tried along the sweep direction, largest first: full sweep, then
+        half, quarter, eighth (override with ``params['transport_predictor_backtrack']``)."""
+        return self.params.get("transport_predictor_backtrack", (1.0, 0.5, 0.25, 0.125))
+
+    def _predictor_residual_norm(self) -> float:
+        """L2 norm of the model's residual at the current iterate, with the eliminated secondaries
+        flashed consistent -- the exact quantity the FI Newton reduces, so the gate is consistent
+        with the fully-implicit solver rather than with the predictor's own approximate balance."""
+        self.update_derived_quantities()                       # flash T, s, x at the current (p,h,z)
+        r = self.equation_system.assemble(evaluate_jacobian=False)
+        return float(np.linalg.norm(np.asarray(r, float)))
+
     # ---- hook: run once per time step as a predictor -----------------------------------------
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
         if self.transport_predictor_enabled():
             try:
-                self.run_transport_predictor()
+                self._apply_gated_predictor()
             except Exception as exc:  # a predictor must never break the FI solve
                 _LOG.warning("transport predictor skipped; FI Newton proceeds unwarmed.")
                 _LOG.warning("  reason: %s", exc)
