@@ -17,6 +17,7 @@ from . import (
     functions,
     get_set_values,
     grid_operators,
+    indexers,
     operator_functions,
     operators,
     surrogate_operator,
@@ -33,6 +34,7 @@ from .operator_functions import *
 from .operators import *
 from .surrogate_operator import *
 from .time_derivatives import *
+from .indexers import *
 
 __all__.extend(ad_utils.__all__)
 __all__.extend(get_set_values.__all__)
@@ -45,3 +47,4 @@ __all__.extend(grid_operators.__all__)
 __all__.extend(equation_system.__all__)
 __all__.extend(time_derivatives.__all__)
 __all__.extend(surrogate_operator.__all__)
+__all__.extend(indexers.__all__)

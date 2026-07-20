@@ -5,8 +5,8 @@ using the AD framework.
 
 from __future__ import annotations
 
-from functools import lru_cache
-from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
+from collections import defaultdict
+from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
@@ -129,16 +129,6 @@ class EquationSystem:
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
 
-        self.assembled_equation_indices: dict[str, np.ndarray] = dict()
-        """Contains the row indices in the last assembled (sub-) system for a given
-        equation name (key).
-
-        This dictionary changes with every call to any assemble-method, provided the
-        method is invoked to assemble *both* Jacobian matrix *and* the residual vector
-        (argument ``evaluate_jacobian=True``) If only the residual vector is assembled,
-        the indices is not updated.
-        """
-
         ### PRIVATE
 
         self._equations: dict[str, Operator] = dict()
@@ -146,20 +136,6 @@ class EquationSystem:
 
         Private to avoid users setting equations directly and circumventing the current
         set-method which includes information about the image space.
-
-        """
-
-        self._equation_image_space_composition: dict[
-            str, dict[pp.GridLike, np.ndarray]
-        ] = dict()
-        """Definition of image space for all equations.
-
-        Contains for every equation name (key) a dictionary, which provides again for
-        every involved grid (key) the indices of equations expressed through the
-        equation operator. The ordering of the items in the grid-array dictionaries is
-        consistent with the remaining PorePy framework. The ordering is local to the
-        equation, so it can be used to slice an eqution prior to concatenation of
-        equations into a global matrix.
 
         """
 
@@ -175,7 +151,7 @@ class EquationSystem:
 
         Variables contained here are ordered chronologically in terms of
         instantiation. It does not reflect the order of DOFs, which is to some degree
-        optimized.
+        optimized. TODO YZ
 
         A Variable is uniquely identified by its name and domain, stored as attributes
         of the Variable object.
@@ -184,35 +160,16 @@ class EquationSystem:
 
         """
 
+        self._equation_indexer: pp.ad.EquationIndexer | None = None
+        """Indexer defining the canonical row ordering of the equation system."""
+        self._variable_indexer: pp.ad.VariableIndexer | None = None
+        """Indexer defining the canonical column ordering of the equation system."""
+
+        # Schur complement related stuff (to be removed in the next PR).
         self._Schur_complement: Optional[tuple] = None
         """Contains block matrices and the rhs of the last assembled Schur complement.
 
         """
-
-        self._variable_numbers: dict[int, int] = dict()
-        """A Map between a variable's ID and its index in the system vector.
-
-        This is an optimized structure, meaning the order of entries is created in
-        :meth:`_cluster_dofs_gridwise`.
-
-        """
-
-        self._variable_num_dofs: np.ndarray = np.array([], dtype=int)
-        """Array containing the number of DOFS per block number.
-
-        The block number corresponds to this array's indexation, see also
-        attr:`_variable_numbers`.
-
-        """
-
-        self._variable_dof_type: dict[int, dict[GridEntity, int]] = dict()
-        """Dictionary mapping from variable IDs to the type of DOFs per variable.
-
-        The type is given as a dictionary with keys 'cells', 'faces' or 'nodes',
-        and integer values denoting the number of DOFs per grid entity.
-
-        """
-
         self._ad_parser = _ad_parser.AdParser(self.mdg)
 
         self._secondary_block_permutation: dict[
@@ -255,7 +212,7 @@ class EquationSystem:
 
         """
         # Parsing of input arguments.
-        equations = list(self._parse_equations(equation_names).keys())
+        equations = self._parse_equation_names(equation_names)
         variables = self._parse_variable_type(variable_names)
 
         # Check that the requested equations and variables are known to the equation
@@ -281,27 +238,13 @@ class EquationSystem:
                 # Update variables.
                 new_equation_system._variables[variable.id] = variable
 
-                # Update variable numbers.
-                new_equation_system._variable_dof_type[variable.id] = (
-                    self._variable_dof_type[variable.id]
-                )
-
-                # Create DOFs.
-                new_equation_system._append_dofs(variable)
-
-        new_equation_system._cluster_dofs_gridwise()
         # Loop over known equations to preserve row order.
         for name in known_equations:
             if name in equations:
                 equation = self._equations[name]
                 image_info = self._equation_image_size_info[name]
-                image_composition = self._equation_image_space_composition[name]
-                # et the information produced in set_equations directly.
-                new_equation_system._equation_image_space_composition.update(
-                    {name: image_composition}
-                )
-                new_equation_system._equation_image_size_info.update({name: image_info})
-                new_equation_system._equations.update({name: equation})
+                new_equation_system._equation_image_size_info[name] = image_info
+                new_equation_system._equations[name] = equation
 
         return new_equation_system
 
@@ -322,7 +265,8 @@ class EquationSystem:
         set in this EquationSystem.
 
         """
-        return self._equation_image_space_composition
+        # TODO YZ: Deprecation warning?
+        self.equation_indexer.equation_dofs_per_equation
 
     @property
     def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
@@ -347,6 +291,72 @@ class EquationSystem:
         for var in self.variables:
             domains.add(var.domain)
         return list(domains)
+
+    ### Indexers -----------------------------------------------------------------------
+
+    @property
+    def variable_indexer(self) -> pp.ad.VariableIndexer:
+        if self._variable_indexer is None:
+            self._variable_indexer = self.construct_variable_indexer()
+        return self._variable_indexer
+
+    @property
+    def equation_indexer(self) -> pp.ad.EquationIndexer:
+        if self._equation_indexer is None:
+            self._equation_indexer = self.construct_equation_indexer()
+        return self._equation_indexer
+
+    def construct_variable_indexer(
+        self, requested_variables: Optional[VariableList] = None
+    ) -> pp.ad.VariableIndexer:
+        """Construct an indexer for a requested variable subspace."""
+        requested_variables = self._parse_variable_type(requested_variables)
+        requested_variables_lookup = set(requested_variables)
+
+        variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        offset = 0
+
+        ordered_variables = cluster_dofs_gridwise(requested_variables)
+
+        for var in ordered_variables:
+            if var not in requested_variables_lookup:
+                continue
+            dofs_per_grid = var.size
+            dofs = np.arange(dofs_per_grid) + offset
+            variable_dofs[var] = dofs
+            offset += len(dofs)
+        return pp.ad.VariableIndexer(variable_dofs=variable_dofs)
+
+    def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
+        """TODO YZ"""
+        equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        # self.equations stores a canonical order of equations.
+        for name, equation in self.equations.items():
+            dofs_on_domains: dict[pp.GridLike, np.ndarray] = {}
+            equation_dofs[name] = dofs_on_domains
+
+            offset = 0
+
+            for domain in equation.domains:
+                dofs_info = self.equation_image_size_info[name]
+                if isinstance(domain, pp.Grid):
+                    dofs_per_grid = (
+                        domain.num_cells * dofs_info.get("cells", 0)  # cells
+                        + domain.num_faces * dofs_info.get("faces", 0)  # faces
+                        + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
+                    )
+                elif isinstance(domain, pp.MortarGrid):
+                    # Mortar grid has no faces.
+                    dofs_per_grid = (
+                        domain.num_cells * dofs_info.get("cells", 0)  # cells
+                        + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
+                    )
+                else:
+                    raise ValueError(type(domain))
+                dofs = np.arange(dofs_per_grid) + offset
+                dofs_on_domains[domain] = dofs
+                offset += len(dofs)
+        return pp.ad.EquationIndexer(equation_dofs_per_equation=equation_dofs)
 
     ### Variable management ------------------------------------------------------------
 
@@ -501,15 +511,11 @@ class EquationSystem:
             variables.append(new_variable)
             self._variables[new_variable.id] = new_variable
 
-            # Append the new DOFs to the global system.
-            self._variable_dof_type[new_variable.id] = dof_info
-            self._append_dofs(new_variable)
-
-        # New optimized order
-        self._cluster_dofs_gridwise()
         # Create an md variable that wraps all the individual variables created on
         # individual grids.
         merged_variable = MixedDimensionalVariable(variables)
+
+        self._variable_indexer = None
 
         return merged_variable
 
@@ -531,13 +537,11 @@ class EquationSystem:
                 raise ValueError(
                     f"Variable {var.name} (ID: {var.id}) not known to the system."
                 )
-            # Remove the variable from the system. _variables, _variable_dof_type and
-            # _variable_numbers are indexed by variable id.
+            # Remove the variable from the system.
             del self._variables[var.id]
-            self._variable_dof_type.pop(var.id)
-            self._variable_numbers.pop(var.id)
-            # Update the variable clustering. This also updates _variable_num_dofs.
-            self._cluster_dofs_gridwise()
+
+        # Invalidate variable indexer forces to recompute it next time when accessed.
+        self._variable_indexer = None
 
     def update_variable_tags(
         self,
@@ -555,8 +559,6 @@ class EquationSystem:
                 grids).
 
         """
-        assert isinstance(variables, list)
-
         variables = self._parse_variable_type(variables)
         for var in variables:
             var.tags.update(tags)
@@ -653,25 +655,20 @@ class EquationSystem:
         """
         # Normalize the variable input.
         variables = self._parse_variable_type(variables)
-        var_ids = {var.id for var in variables}
+        variable_ids = {variable.id for variable in variables}
 
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Cache for domain data to avoid recomputing it for the same domain.
-        data_cache = {}
-
-        for id_ in self._variable_numbers:
-            if id_ in var_ids:
-                variable = self._variables[id_]
+        # Indexer determines canonical (global) ordering.
+        indexer = self.variable_indexer
+        for variable in indexer.variable_dofs.keys():
+            if variable.id in variable_ids:
                 domain = variable.domain
-
-                if domain not in data_cache:
-                    data_cache[domain] = self._get_data(domain)
 
                 val = pp.get_solution_values(
                     variable.name,
-                    data_cache[domain],
+                    self._get_data(domain),
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                     reference=reference,
@@ -727,13 +724,14 @@ class EquationSystem:
         dof_start = 0
         dof_end = 0
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
+        var_ids = {var.id for var in variables}
 
-        for id_, variable_number in self._variable_numbers.items():
-            if id_ in var_ids:
+        # Indexer determines canonical (global) ordering.
+        indexer = self.variable_indexer
+        for variable, dofs in indexer.variable_dofs.items():
+            if variable.id in var_ids:
                 # 1. Slice the vector to local size
-                # This will raise errors if indexation is out of range.
-                num_dofs = int(self._variable_num_dofs[variable_number])
+                num_dofs = dofs.size
                 # Extract local vector.
                 # This will raise errors if indexation is out of range.
                 dof_end = dof_start + num_dofs
@@ -741,8 +739,7 @@ class EquationSystem:
                 # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
 
-                # 2.  Use the AD utilities to set the values
-                variable = self._variables[id_]
+                # 2. Use the AD utilities to set the values
                 pp.set_solution_values(
                     variable.name,
                     local_vec,
@@ -821,91 +818,6 @@ class EquationSystem:
 
     ### DOF management -----------------------------------------------------------------
 
-    def _append_dofs(self, variable: pp.ad.Variable) -> None:
-        """Appends DOFs for a newly created variable at the end of the current order.
-
-        Optimization of variable order is done afterwards.
-
-        Must only be called by :meth:`create_variables`.
-
-        Parameters:
-            variable: The newly created variable
-
-        """
-        # number of totally created dof blocks so far
-        last_variable_number: int = len(self._variable_numbers)
-
-        # Sanity check that no previous data is overwritten. This should not happen,
-        # if class not used in hacky way.
-        assert variable.id not in self._variable_numbers
-
-        # Count number of dofs for this variable on this grid and store it.
-        # The number of dofs for each dof type defaults to zero.
-
-        local_dofs = self._variable_dof_type[variable.id]
-        # Both subdomains and interfaces have cell variables.
-        num_dofs = variable.domain.num_cells * local_dofs.get("cells", 0)
-
-        # For subdomains, but not interfaces, we also need to account for faces and
-        # nodes.
-        if isinstance(variable.domain, pp.Grid):
-            num_dofs += variable.domain.num_faces * local_dofs.get(
-                "faces", 0
-            ) + variable.domain.num_nodes * local_dofs.get("nodes", 0)
-
-        # Update the global dofs and block numbers
-        self._variable_numbers.update({variable.id: last_variable_number})
-        self._variable_num_dofs = np.concatenate(
-            [self._variable_num_dofs, np.array([num_dofs], dtype=int)]
-        )
-        # Clear cache since the global variable dofs have changed.
-        self._global_variable_dofs.cache_clear()
-
-    def _cluster_dofs_gridwise(self) -> None:
-        """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense
-        and reduce the matrix bandwidth.
-
-        The aim is to impose a more block-diagonal-like structure on the Jacobian where
-        blocks in the column sense represent single grids in the following order:
-
-        1. For each grid in ``mdg.subdomains``
-            1. For each variable defined on that grid
-        2. For each grid in ``mdg.interfaces``
-            1. For each variable defined on that mortar grid
-
-        The order of variables per grid is given by the order of variable creation.
-        This method is called after each creation of variables and respective DOFs.
-
-        """
-        # Data stracture for the new order of dofs.
-        new_variable_counter: int = 0
-        new_variable_numbers: dict[int, int] = dict()
-        new_block_dofs: list[int] = list()
-
-        # 1. Per subdomain, order variables
-        for grid in self.mdg.subdomains():
-            for id_, variable in self._variables.items():
-                if variable.domain == grid:
-                    local_dofs = self._variable_num_dofs[self._variable_numbers[id_]]
-                    new_block_dofs.append(local_dofs)
-                    new_variable_numbers.update({id_: new_variable_counter})
-                    new_variable_counter += 1
-
-        # 2. Per interface, order variables
-        for intf in self.mdg.interfaces():
-            for id_, variable in self._variables.items():
-                if variable.domain == intf:
-                    local_dofs = self._variable_num_dofs[self._variable_numbers[id_]]
-                    new_block_dofs.append(local_dofs)
-                    new_variable_numbers.update({id_: new_variable_counter})
-                    new_variable_counter += 1
-
-        # Replace old block order
-        self._variable_num_dofs = np.array(new_block_dofs, dtype=int)
-        self._variable_numbers = new_variable_numbers
-        # Clear cache since the global variable dofs have changed.
-        self._global_variable_dofs.cache_clear()
-
     def _parse_variable_type(self, variables: Optional[VariableList]) -> list[Variable]:
         """Parse the input argument for the variable type.
 
@@ -953,41 +865,9 @@ class EquationSystem:
                 )
         return parsed_variables
 
-    def _gridbased_variable_complement(self, variables: VariableList) -> list[Variable]:
-        """Finds the grid-based complement of a variable-like structure.
-
-        The grid-based complement consists of all variables known to this
-        EquationSystem, but which are not in the passed list ``variables``.
-
-        TODO: Revisit. This method is not used anywhere, and I am not sure it is
-        correct/does what it is supposed to do.
-        """
-
-        # strings and md variables represent always a whole in the variable sense.
-        # Hence, the complement is empty
-        if isinstance(variables, (str, MixedDimensionalVariable)):
-            # TODO: Can we drop this, or is it possible that a single variable has made
-            # it into this subroutine?
-            return list()
-
-        # non sequential var-like structure
-        else:
-            grid_variables = list()
-            for variable in variables:
-                # same processing as above, only grid variables are of interest
-                if isinstance(variable, Variable):
-                    md_variable = self.md_variable(variable.name)
-                    grid_variables += [
-                        var
-                        for var in md_variable.sub_vars
-                        if var.domain != variable.domain
-                    ]
-            # return a unique collection
-            return list(set(grid_variables))
-
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
-        return self._global_variable_dofs()[-1]
+        return self.variable_indexer.num_dofs
 
     def projection_to(self, variables: Optional[VariableList] = None) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
@@ -1013,8 +893,8 @@ class EquationSystem:
         num_dofs = self.num_dofs()
         if variables:
             # Array for the indices associated with argument.
-            # The sort is needed so as not to permute the columns of the projection.
-            indices = np.sort(self.dofs_of(variables))
+            # The ordering is preserved in variable_indexer.
+            indices = self.variable_indexer.projection_to(variables=variables)
             # case where no dofs where found for the VariableType input
             if len(indices) == 0:
                 return sps.csr_matrix((0, num_dofs))
@@ -1027,17 +907,6 @@ class EquationSystem:
         # Case where the subspace is null, i.e. no variables specified
         else:
             return sps.csr_matrix((0, num_dofs))
-
-    @lru_cache
-    def _global_variable_dofs(self) -> np.ndarray:
-        """Compute the global DOF indices for each variable block.
-
-        Returns:
-            An array of indices corresponding to the global DOF indices for each
-            variable block.
-
-        """
-        return np.hstack((0, np.cumsum(self._variable_num_dofs)))
 
     def dofs_of(self, variables: VariableList) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variables.
@@ -1054,67 +923,16 @@ class EquationSystem:
 
         """
         variables = self._parse_variable_type(variables)
-        global_variable_dofs = self._global_variable_dofs()
-
-        indices: list[np.ndarray] = []
-
-        for var in variables:
-            if var.id in self._variable_numbers:
-                variable_number = self._variable_numbers[var.id]
-                var_indices = np.arange(
-                    global_variable_dofs[variable_number],
-                    global_variable_dofs[variable_number + 1],
-                    dtype=int,
-                )
-                indices.append(var_indices)
-            else:
-                raise ValueError(
-                    f"Variable {var.name} with ID {var.id} not registered among DOFS"
-                    + f" of equation system {self}."
-                )
-
-        # Concatenate indices, if any
-        if len(indices) > 0:
-            all_indices = np.concatenate(indices, dtype=int)
-        else:
-            all_indices = np.array([], dtype=int)
-
-        return all_indices
-
-    def identify_dof(self, dof: int) -> Variable:
-        """Identifies the variable to which a specific DOF index belongs.
-
-        The intended use is to help identify entries in the global vector or the column
-        of the Jacobian.
-
-        Parameters:
-            dof: a single index in the global vector.
-
-        Returns: the identified Variable object.
-
-        Raises:
-            KeyError: if the dof is out of range (larger than ``num_dofs`` or smaller
-                than 0).
-
-        """
-        num_dofs = self.num_dofs()
-        if not (0 <= dof < num_dofs):  # indices go from 0 to num_dofs - 1
-            raise KeyError("Dof index out of range.")
-
-        global_variable_dofs = self._global_variable_dofs()
-        # Find the variable number belonging to this index
-        variable_number = np.argmax(global_variable_dofs > dof) - 1
-        # Get the variable key from _variable_numbers
-        # find the ID belonging to the dof
-        id_ = [
-            id_ for id_, num in self._variable_numbers.items() if num == variable_number
-        ]
-        # sanity check that only 1 ID was found
-        assert len(id_) == 1, "Failed to find unique ID corresponding to `dof`."
-        # find variable with the ID
-        variable = [var for _id, var in self._variables.items() if _id == id_[0]]
-        assert len(variable) == 1, "Failed to find Variable corresponding to `dof`."
-        return variable[0]
+        unknown_variables = set(variables).difference(
+            self.variable_indexer.variable_dofs
+        )
+        if unknown_variables:
+            raise ValueError(
+                "Variables not registered by this equation system: "
+                f"{unknown_variables}."
+            )
+        dofs = [self.variable_indexer.variable_dofs[var] for var in variables]
+        return np.concatenate(dofs) if len(dofs) > 0 else np.empty(0, dtype=np.int64)
 
     ### Equation management ------------------------------------------------------------
 
@@ -1159,13 +977,7 @@ class EquationSystem:
                 number as per evaluation of operator.
 
         """
-        # The grid list is changed in place, so we need to make a copy
-        grids = grids[:]
-        # The function loops over all grids the operator is defined on and calculate the
-        # number of equations per grid quantity (cell, face, node). This information
-        # is then stored together with the equation itself.
-        image_info: dict[pp.GridLike, np.ndarray] = dict()
-        total_num_equ = 0
+        self._equation_indexer = None
 
         # The domain of this equation is the set of grids on which it is defined
         name = equation.name
@@ -1178,7 +990,6 @@ class EquationSystem:
 
         # If no grids are specified, there is nothing to do
         if not grids:
-            self._equation_image_space_composition.update({name: image_info})
             # Information on the size of the equation, in terms of the grids it is
             # defined on.
             self._equation_image_size_info.update({name: equations_per_grid_entity})
@@ -1203,49 +1014,22 @@ class EquationSystem:
                 "An equation should not be defined on both subdomains and interfaces."
             )
 
-        # We loop over the subdomains and interfaces in that order to assert a correct
-        # indexation according to the global order (for grid in subdomains, for grid in
-        # interfaces). The user does not have to care about the order in grids.
-        for sd in self.mdg.subdomains():
-            if sd in grids:
-                # Equations on subdomains can be defined on any grid quantity.
-                num_equ_per_grid = int(
-                    sd.num_cells * equations_per_grid_entity.get("cells", 0)
-                    + sd.num_nodes * equations_per_grid_entity.get("nodes", 0)
-                    + sd.num_faces * equations_per_grid_entity.get("faces", 0)
-                )
-                # Row indices for this grid, cast to integers.
-                block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
-                # Cumulate total number of equations.
-                total_num_equ += num_equ_per_grid
-                # Store block idx per grid.
-                image_info.update({sd: block_idx})
-                # Remove the subdomain from the domain list.
-                # Ignore mypy error here, since we know that sd is in grids.
-                grids.remove(sd)  # type: ignore
-
-        for intf in self.mdg.interfaces():
-            if intf in grids:
-                # Equations on interfaces can only be defined on cells.
-                num_equ_per_grid = int(
-                    intf.num_cells * equations_per_grid_entity.get("cells", 0)
-                )
-                # Row indices for this grid, cast to integers.
-                block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
-                # Cumulate total number of equations.
-                total_num_equ += num_equ_per_grid
-                # Store block idx per grid
-                image_info.update({intf: block_idx})
-                # Remove the grid from the domain list
-                # Ignore mypy error here, since we know that intf is in grids.
-                grids.remove(intf)  # type: ignore
-
         # Assert the equation is not defined on an unknown domain.
-        assert len(grids) == 0
+        known_domains = set(self.mdg.subdomains()) | set(self.mdg.interfaces())
+        unknown_domains = set(grids).difference(known_domains)
+        assert not unknown_domains, (
+            f"Equation defined on unknown domains: {unknown_domains}"
+        )
+
+        # TODO: YZ explain
+        ordered_domain_indices = self.mdg.argsort_grids(grids)
+        ordered_domains = [grids[i] for i in ordered_domain_indices]
+        if equation.domains is None or len(equation.domains) == 0:
+            equation._domains = ordered_domains
+        else:
+            assert equation.domains == ordered_domains
 
         # If all good, we store the information:
-        # The rows (referring to a global indexation) that this equation provides.
-        self._equation_image_space_composition.update({name: image_info})
         # Information on the size of the equation, in terms of the grids it is defined
         # on.
         self._equation_image_size_info.update({name: equations_per_grid_entity})
@@ -1266,10 +1050,11 @@ class EquationSystem:
         if name in self._equations:
             # Remove the equation from the storage
             equ = self._equations.pop(name)
-            # Remove the image space information.
+            # Remove the number of dofs per cell / face / node information.
             # Note that there is no need to modify the numbering of the other equations,
             # since this is a local (to the equation) numbering.
-            del self._equation_image_space_composition[name]
+            del self._equation_image_size_info[name]
+            self._equation_indexer = None
             return equ
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
@@ -1301,10 +1086,8 @@ class EquationSystem:
 
         """
         if grids is None:
-            grids = cast(
-                list[pp.Grid] | list[pp.MortarGrid],
-                list(self._equation_image_space_composition[equation_name].keys()),
-            )
+            grids = self._equations[equation_name].domains  # type: ignore[assignment]
+            assert grids is not None and len(grids) > 0
 
         if equations_per_grid_entity is None:
             equations_per_grid_entity = self._equation_image_size_info[equation_name]
@@ -1325,29 +1108,38 @@ class EquationSystem:
         (perhaps less realistically) a variable has had its number of dofs per grid
         quantity changed.
 
-        NOTE: This method is experimental and should be used with caution. After this
-        method has been called, other attributes of the class that depend on the number
-        of dofs (such as _equation_image_space_composition) will be outdated and should
-        be used with care.
-
         """
-        for id_, var in self._variables.items():
-            # Grid quantity (grid or interface), and variable
-            grid = var.domain
+        # Invalidate indexers to force their recomputation next time when accessed.
+        self._variable_indexer = None
+        self._equation_indexer = None
 
-            dof = self._variable_dof_type[id_]
-            num_dofs: int = grid.num_cells * dof.get("cells", 0)  # type: ignore
+    def _parse_equation_names(
+        self, requested_equations: Optional[EquationList | EquationRestriction]
+    ) -> set[str]:
+        def validate_equation_name(name: str) -> str:
+            if name not in self._equations:
+                raise ValueError(
+                    f"Requested equation with name '{name}' is not registered "
+                    "in this equation system."
+                )
+            return name
 
-            if isinstance(grid, pp.Grid):
-                # Add dofs on faces and nodes, but not on interfaces
-                num_dofs += grid.num_faces * dof.get(
-                    "faces", 0
-                ) + grid.num_nodes * dof.get("nodes", 0)
+        if requested_equations is None:
+            return set(self._equations.keys())
 
-            # Update local counting
-            self._variable_num_dofs[self._variable_numbers[id_]] = num_dofs
-        # Clear cache since the global variable dofs have changed.
-        self._global_variable_dofs.cache_clear()
+        if isinstance(requested_equations, dict):
+            requested_equations = list(requested_equations.keys())
+
+        assert isinstance(requested_equations, list)
+        equation_names = set()
+        for equation in requested_equations:
+            if isinstance(equation, str):
+                equation_names.add(validate_equation_name(name=equation))
+            elif isinstance(equation, pp.ad.Operator):
+                equation_names.add(validate_equation_name(name=equation.name))
+            else:
+                raise ValueError(f"Unsupported input type: {equation}")
+        return equation_names
 
     ### System assembly and discretization ---------------------------------------------
 
@@ -1374,7 +1166,7 @@ class EquationSystem:
 
     def _parse_equations(
         self, equations: Optional[EquationList | EquationRestriction] = None
-    ) -> dict[str, None | np.ndarray]:
+    ) -> dict[pp.ad.Operator, None | np.ndarray]:
         """Helper method to parse equations into a properly ordered structure.
 
         The equations will be ordered according to the order in self._equations (which
@@ -1390,157 +1182,53 @@ class EquationSystem:
 
         """
 
-        # The default return value is all equations defined on non-empty domains
-        # with no grid restriction.
-        if equations is None:
-            # Precompute equations on non-empty domain. This is to avoid
-            # injecting equations with empty-domain into the assembly pipeline.
-            non_empty_equations = [
-                name
-                for name in self._equations
-                if sum(
-                    len(indices)
-                    for indices in self._equation_image_space_composition[name].values()
+        # Store equations together with optional row restrictions, then sort them in
+        # the canonical order in which equations were added to this system.
+
+        def validate_equation_name(equation: str | pp.ad.Operator) -> pp.ad.Operator:
+            if isinstance(equation, pp.ad.Operator):
+                equation = equation.name
+
+            equation_or_none = self._equations.get(equation, None)
+            if equation_or_none is None:
+                raise ValueError(
+                    f"Requested equation with name '{equation}' is not registered "
+                    "in this equation system."
                 )
-                > 0
-            ]
+            return equation_or_none
 
-            return dict((name, None) for name in non_empty_equations)
+        equation_rows: dict[pp.ad.Operator, np.ndarray | None] = {}
+        equation_indexer = self.equation_indexer
 
-        # We need to parse the input.
-        # Storage for requested blocks, unique information per equation name.
-        requested_row_blocks = dict()
-        # Storage for restricted equations.
-        restricted_equations = dict()
+        if equations is None:
+            equations = list(self.equations.keys())
 
-        # Get the row indices (in the global system) associated with this equation.
-        # If the equation is restricted (the user has provided a dictionary with
-        # grids on which the equation should be evaluated), the variable blocks
-        # will contain only the row indices associated with the restricted grids.
+        if isinstance(equations, list):
+            for eq in equations:
+                equation_rows[validate_equation_name(eq)] = None
 
-        for equation in equations:
-            # Store restrictions, using different storage for restricted and
-            # unrestricted equations.
-            if isinstance(equations, dict):
-                block = self._parse_single_equation({equation: equations[equation]})
-                # A dictionary means the equation is restricted to a subset of grids.
-                restricted_equations.update(block)
-            else:
-                # This equation is not restricted to a subset of grids.
-                block = self._parse_single_equation(equation)
-                requested_row_blocks.update(block)
+        elif isinstance(equations, dict):
+            for eq, domains in equations.items():
+                eq = validate_equation_name(eq)
+                equation_dofs = equation_indexer.equation_dofs_per_equation[eq.name]
+                domain_indices = self.mdg.argsort_grids(domains)
+                domains = [domains[i] for i in domain_indices]
+                rows_list = [equation_dofs[domain] for domain in domains]
+                equation_rows[eq] = (
+                    np.concatenate(rows_list) if len(rows_list) else np.empty(0)
+                )
 
-        # Update the requested blocks with the restricted to overwrite the indices if
-        # an equation was passed in both restricted and unrestricted structure.
-        requested_row_blocks.update(restricted_equations)
+        # Filter equations defined on empty domains.
+        equation_rows = {
+            eq: dofs
+            for eq, dofs in equation_rows.items()
+            if len(equation_indexer.equation_dofs_per_equation[eq.name]) > 0
+        }
 
-        # Build the restricted set of equations, using the order in self._equations.
-        # The latter is critical for ensuring determinism of the system.
-        ordered_blocks = dict()
-        for equation in self._equations:
-            # By now, all equations are contained in requested_row_blocks.
-            if equation in requested_row_blocks:
-                ordered_blocks.update({equation: requested_row_blocks[equation]})
-
-        return ordered_blocks
-
-    def _parse_single_equation(
-        self, equation: str | Operator | EquationRestriction
-    ) -> dict[str, None | np.ndarray]:
-        """Helper method to identify possible restrictions of a single equation.
-
-        Parameters:
-            equation: Equation to be parsed.
-
-        Returns:
-            A dictionary with the name of the equation as key and the corresponding
-            restricted indices as values. If no restriction is given, the value is None.
-
-        Raises:
-            ValueError: If an unknown equation name is requested.
-            ValueError: If an unknown operator is requested.
-            ValueError: If an equation is requested restricted to a grid on which it is
-                not defined.
-            TypeError: If the input is not an equation.
-
-        """
-        # If the equation is a dictionary, the dictionary values are grids (subdomains
-        # or interfaces) that defines restrictions of the equation; these must be
-        # identified. If the equation is not a dictionary, there will be restriction.
-
-        # Equation represented by string - return the corresponding equation.
-        if isinstance(equation, str):
-            if equation not in self._equations:
-                raise ValueError(f"Unknown equation name {equation}.")
-            return {equation: None}
-
-        # Equation represented by Operator. Return the
-        elif isinstance(equation, Operator):
-            if equation.name not in self._equations:
-                raise ValueError(f"Unknown equation operator {equation}.")
-            # No restriction.
-            return {equation.name: None}
-
-        # Equations represented by dict with restriction to grids: get target row
-        # indices.
-        elif isinstance(equation, dict):
-            block: dict[str, None | np.ndarray] = dict()
-            for equ, grids in equation.items():
-                # equ is an identifier of the equation (either a string or an operator)
-                # grids is a list of grids (subdomains or interfaces) that defines
-                # a restriction of the equation domain.
-
-                # Translate equ into a name (string).
-                if isinstance(equ, Operator):
-                    name = equ.name
-                    if name not in self._equations:
-                        raise ValueError(f"Unknown equation name {equation}.")
-                elif isinstance(equ, str):
-                    name = equ
-                    if name not in self._equations:
-                        raise ValueError(f"Unknown equation operator {equation}.")
-                else:
-                    raise TypeError(
-                        f"Item ({type(equ)}, {type(grids)}) not parsable as equation."
-                    )
-
-                # Get the indices associated with this equation.
-                img_info = self._equation_image_space_composition[name]
-
-                # Check if the user requests a properly defined subsets of the grids
-                # associated with this equation.
-                unknown_grids = set(grids).difference(set(img_info.keys()))
-                if len(unknown_grids) > 0:
-                    # Getting an error here means the user has requested a grid that is
-                    # not associated with this equation. This is not a meaningful
-                    # operation.
-                    raise ValueError(
-                        f"Equation {name} not defined on grids {unknown_grids}"
-                    )
-
-                # The indices (row indices in the global system) associated with this
-                # equation and the grids requested by the user.
-                block_idx: list[np.ndarray] = list()
-
-                # Loop over image space information to ensure correct order.
-                # Note that looping over the grids risks that the order does not
-                # correspond to the order in the equation was defined. This will surely
-                # lead to trouble down the line.
-                for grid in img_info:
-                    if grid in grids:
-                        block_idx.append(img_info[grid])
-
-                if len(block_idx) > 0:
-                    # If indices not empty, concatenate and return.
-                    block.update({name: np.concatenate(block_idx, dtype=int)})
-                else:
-                    # If indices empty, return empty array.
-                    block.update({name: np.array([], dtype=int)})
-            return block
-        else:
-            # Getting an error here means the user has passed a type that is not
-            # an equation.
-            raise TypeError(f"Type {type(equation)} not parsable as an equation.")
+        equation_order = {name: i for i, name in enumerate(self.equations)}
+        return dict(
+            sorted(equation_rows.items(), key=lambda item: equation_order[item[0].name])
+        )
 
     def _gridbased_equation_complement(
         self, equations: dict[str, None | np.ndarray]
@@ -1559,6 +1247,8 @@ class EquationSystem:
             as values. If the complement is empty, the value is None.
 
         """
+        equation_indexer = self.equation_indexer
+
         complement: dict[str, None | np.ndarray] = dict()
         for name, idx in equations.items():
             # If indices were filtered based on grids, we find the complementing
@@ -1566,11 +1256,12 @@ class EquationSystem:
             # If idx is None, this means no filtering was done.
             if idx is not None:
                 # Get the indices associated with this equation.
-                img_info = self._equation_image_space_composition[name]
-
-                # Ensure ordering and uniqueness of equation indexation.
-                img_values: list[np.ndarray] = list(img_info.values())
-                all_idx = np.unique(np.hstack(img_values))
+                all_idx = equation_indexer.equation_dofs_per_equation[name].values()
+                all_idx = (
+                    np.concatenate(list(all_idx))
+                    if len(all_idx) > 0
+                    else np.empty(0, dtype=int)
+                )
 
                 # Complementing indices are found by deleting the filtered indices.
                 complement_idx = np.delete(all_idx, idx)
@@ -1596,7 +1287,7 @@ class EquationSystem:
                 known equations will be discretized.
 
         """
-        equation_names = list(self._parse_equations(equations).keys())
+        equation_names = self._parse_equation_names(equations)
 
         # List containing all discretizations
         discr: list = []
@@ -1689,37 +1380,23 @@ class EquationSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        if variables is None:
-            variables = self.variables
-
-        # equ_blocks is a dictionary with equation names as keys and the corresponding
-        # row indices of the equations. If the user has requested that equations are
-        # restricted to a subset of grids, the row indices are restricted accordingly.
-        # If no such request has been made, the value is None.
-        equ_blocks: dict[str, np.ndarray | None] = self._parse_equations(equations)
+        # Store equations together with optional row restrictions, then sort them in
+        # the canonical order in which equations were added to this system.
+        equations_rows = self._parse_equations(equations=equations)
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
         rhs: list[np.ndarray] = []
 
-        # Keep track of DOFs for each equation/block.
-        ind_start = 0
-
-        # Store the indices of the assembled equations.
-        self.assembled_equation_indices = {}
-
-        eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
-        rows = list(equ_blocks.values())
-
         # Ignore impenetrable mypy error here, the overloaded signatures are correctly
         # defined.
         values = self.evaluate(  # type: ignore[call-overload]
-            eqs,
+            list(equations_rows.keys()),
             derivative=evaluate_jacobian,
             state=state,
         )
 
-        for row, equ_name, value in zip(rows, equ_blocks, values):
+        for row, value in zip(equations_rows.values(), values):
             # Extract residual vector and possibly Jacobian matrix.
             rhs_value = value.val if evaluate_jacobian else value
             jac = value.jac if evaluate_jacobian else None
@@ -1727,24 +1404,14 @@ class EquationSystem:
                 # If restriction to grid-related row blocks was made, perform row
                 # slicing based on information we have obtained from parsing.
                 rhs.append(rhs_value[row])
-                block_length = len(rhs[-1])
                 if evaluate_jacobian:
                     assert jac is not None  # mypy
                     mat.append(jac[row])
             else:
                 # If no grid-related row restriction was made, append the whole thing.
                 rhs.append(rhs_value)
-                block_length = len(rhs[-1])
                 if evaluate_jacobian:
                     mat.append(jac)
-
-            # Create indices range and shift to correct position.
-            block_indices = np.arange(block_length) + ind_start
-            self.assembled_equation_indices.update({equ_name: block_indices})
-            # Extract last index and add 1 to get the starting point for next block
-            # of indices.
-            if block_length > 0:
-                ind_start = block_indices[-1] + 1
 
         # Concatenate results equation-wise.
         if len(rhs) > 0:
@@ -1763,8 +1430,17 @@ class EquationSystem:
         # grid-related column blocks by using the transposed projection to respective
         # subspace.
         # Multiply rhs by -1 to move to the rhs.
-        column_projection = self.projection_to(variables).transpose()
-        return A * column_projection, -rhs_cat
+        if variables is not None:
+            variable_indexer = self.variable_indexer
+            variables_ = self._parse_variable_type(variables=variables)
+            col_proj = [variable_indexer.variable_dofs[var] for var in variables_]
+            column_projection = (
+                np.unique(np.concatenate(col_proj))
+                if len(col_proj) > 0
+                else np.empty(0, dtype=int)
+            )
+            A = A[:, column_projection]
+        return A, -rhs_cat
 
     def assemble_schur_complement_system(
         self,
@@ -1792,7 +1468,7 @@ class EquationSystem:
         .. math::
 
             \left( A_{pp} - A_{ps} * A_{ss}^{-1} * A_{sp}\right) * x_p
-            = b_p - A_{ps} * A_{ss} * b_s
+            = b_p - A_{ps} * A_{ss}^{-1} * b_s
 
         The Schur complement is well-defined only if the inverse of :math:`A_{ss}`
         exists, and the efficiency of the approach assumes that an efficient inverter
@@ -1837,7 +1513,10 @@ class EquationSystem:
         # on their full image, and equations specified on a subset of grids.
         # The variable primary_rows will contain the indices in the global system
         # corresponding to the primary block.
-        primary_rows = self._parse_equations(primary_equations)
+        primary_rows = {
+            eq.name: dofs
+            for eq, dofs in self._parse_equations(primary_equations).items()
+        }
         # Find indices of equations involved in the primary block, but on grids that
         # were filtered out. These will be added to the secondary block.
         excluded_primary_rows = self._gridbased_equation_complement(primary_rows)
@@ -1877,7 +1556,6 @@ class EquationSystem:
 
         # Keep track of indices or primary block.
         ind_start = 0
-        self.assembled_equation_indices = dict()
 
         # We loop over stored equations to ensure the correct order but process only
         # primary equations.
@@ -1905,7 +1583,6 @@ class EquationSystem:
                 block_indices = np.arange(block_length) + ind_start
                 # Extract last index and add 1 to get the starting point for next block
                 # of indices.
-                self.assembled_equation_indices.update({name: block_indices})
                 if block_length > 0:
                     ind_start = block_indices[-1] + 1
 
@@ -1921,7 +1598,6 @@ class EquationSystem:
 
                 block_length = b_sec[-1].size
                 block_indices = np.arange(block_length) + ind_start
-                self.assembled_equation_indices.update({name: block_indices})
                 if block_length > 0:
                     ind_start = block_indices[-1] + 1
 
@@ -2212,3 +1888,43 @@ class EquationSystem:
             s += "\n\t".join(eq_names) + "\n"
 
         return s
+
+
+def cluster_dofs_gridwise(variables: list[pp.ad.Variable]) -> list[pp.ad.Variable]:
+    """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense
+    and reduce the matrix bandwidth.
+
+    The aim is to impose a more block-diagonal-like structure on the Jacobian where
+    blocks in the column sense represent single grids in the following order:
+
+    1. For each grid in ``mdg.subdomains``
+        1. For each variable defined on that grid
+    2. For each grid in ``mdg.interfaces``
+        1. For each variable defined on that mortar grid
+
+    The order of variables per grid is given by the order of passed variables.
+
+    """
+    mapping_grid_to_domains = defaultdict(lambda: [])
+    for variable in variables:
+        mapping_grid_to_domains[variable.domain].append(variable)
+
+    # The ordering is: [Subdomains(3D-2D-1D-0D), Interfaces(2D-1D-0D)]. If equal, sorted
+    # by id.
+    known_grids = list(
+        sorted(
+            mapping_grid_to_domains.keys(),
+            key=lambda grid: (
+                isinstance(grid, pp.MortarGrid),
+                -grid.dim,
+                grid.id,
+            ),
+        )
+    )
+
+    ordered_variables = []
+
+    for grid in known_grids:
+        ordered_variables.extend(mapping_grid_to_domains[grid])
+
+    return ordered_variables
