@@ -1457,6 +1457,15 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
             )
         raise ValueError()
 
+    @property
+    def dof_info(self) -> dict[Literal["cells", "faces", "nodes"], int]:
+        """Number of degrees of freedom per grid entity."""
+        return {
+            "cells": self._cells,
+            "faces": self._faces,
+            "nodes": self._nodes,
+        }
+
     def set_name(self, name: str) -> None:
         """
         Raises:
