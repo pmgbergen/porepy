@@ -34,6 +34,9 @@ from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfigurat
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,
 )
+from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
+    DriesnerPhaseExport,
+)
 
 from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
     BC_two_phase_Figure_8_left_panel as BC,
@@ -143,8 +146,8 @@ FlowModel = (DriesnerBrineFractionalFlowModel if params["fractional_flow"]
              else DriesnerBrineFlowModel)
 
 
-class GeothermalWaterFlowModel(
-    ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
+class GeothermalBrineFlowModel(
+    DriesnerPhaseExport, ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
 ):
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
@@ -156,7 +159,7 @@ class GeothermalWaterFlowModel(
 
 
 # Instance of the computational model
-model = GeothermalWaterFlowModel(params)
+model = GeothermalBrineFlowModel(params)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL

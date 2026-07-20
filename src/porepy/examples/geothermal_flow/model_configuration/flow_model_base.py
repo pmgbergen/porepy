@@ -1848,6 +1848,30 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         self.n_time_step_cuts = getattr(self, "n_time_step_cuts", 0) + 1
         super().after_nonlinear_failure()
 
+    def data_to_export(self):
+        """Base export plus ``delta_<q> = q(t) - q(0)`` for pressure, T_C, enthalpy and
+        every independent overall fraction (the reference state is captured at the first
+        export, i.e. t = 0)."""
+        data = super().data_to_export()  # type: ignore[misc]
+        ev = self.equation_system.evaluate
+        components = [c for c in self.fluid.components
+                      if c != self.fluid.reference_component]
+        if not hasattr(self, "_delta_export_ref"):
+            self._delta_export_ref = {}
+        for sd in self.mdg.subdomains():
+            cur = {
+                "pressure": np.asarray(ev(self.pressure([sd])), dtype=float),
+                "T_C": np.asarray(ev(self.temperature([sd])), dtype=float) - 273.15,
+                "enthalpy": np.asarray(ev(self.enthalpy([sd])), dtype=float),
+            }
+            for c in components:
+                cur[f"z_{c.name}"] = np.asarray(ev(c.fraction([sd])), dtype=float)
+            ref = self._delta_export_ref.setdefault(
+                sd.id, {k: v.copy() for k, v in cur.items()})
+            for name, v in cur.items():
+                data.append((sd, f"delta_{name}", v - ref[name]))
+        return data
+
     def collect_run_stats(self) -> NonlinearRunStats:
         """Return a picklable :class:`NonlinearRunStats` snapshot of the run.
 
