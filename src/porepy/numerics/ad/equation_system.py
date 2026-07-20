@@ -5,9 +5,9 @@ using the AD framework.
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
-import logging
 
 import numpy as np
 import scipy.sparse as sps
