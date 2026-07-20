@@ -13,6 +13,8 @@ Line search parameters (in DriesnerModelConfiguration.backtracking_line_search):
 """
 from __future__ import annotations
 
+import os
+
 import time
 from typing import cast, Sequence
 
@@ -26,7 +28,10 @@ from porepy.examples.geothermal_flow.model_configuration.geometry_description.ge
 )
 
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
-    DriesnerBrineFlowModel as FlowModel,
+    DriesnerBrineFractionalFlowModel as FlowModel,   # fractional_flow=True pairs with the FF template
+)
+from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
+    geothermal_nonlinear_solver,
 )
 
 from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
@@ -36,7 +41,7 @@ from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_marke
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_two_phase_Figure_8_left_panel as IC,
 )
-from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
 
 # Main directives
 case_name = "condition_1"
@@ -102,6 +107,8 @@ solid_constants = pp.SolidConstants(
 )
 material_constants = {"solid": solid_constants}
 params = {
+    "folder_name": os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "visualization"),
     "fractional_flow": True,
     "enable_buoyancy_effects": True,
     "buoyancy_upwinding": "phase_potential",
@@ -173,49 +180,44 @@ class GeothermalWaterFlowModel(
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 2
-folder_prefix = "src/porepy/examples/geothermal_flow/"
-file_name_prefix = (
-    "model_configuration/constitutive_description/driesner_vtk_files/"
-)
-# file_name_phz = (
-#     file_name_prefix
-#     + "XHP_l"
-#     + str(parametric_space_ref_level)
-#     + "_modified_low_salt_content.vtk"
-# )
-# file_name_ptz = (
-#     file_name_prefix
-#     + "XTP_l"
-#     + str(parametric_space_ref_level)
-#     + "_modified_low_salt_content.vtk"
-# )
+HERE = os.path.dirname(os.path.abspath(__file__))
+# Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL
+# tables sampled with the C2 tensor-spline backend (consistent value/Jacobian).
+TABLE_LEVEL = 2                           # opensowat .vtr level (0..4 available)
+USE_SPLINE = True                         # True -> NSplineSampler; False -> VTKSampler probe
+_TABLE_DIR = os.path.join(
+    HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
+    "driesner_vtk_files")
 
-file_name_phz = (
-    file_name_prefix
-    + "opensowat_xph_l_"
-    + str(parametric_space_ref_level)
-    + "_grads.vtk"
-)
-file_name_ptz = (
-    file_name_prefix
-    + "opensowat_xpt_l_"
-    + str(parametric_space_ref_level)
-    + "_grads.vtk"
-)
 
-brine_sampler_phz = VTKSampler(file_name_phz)
-brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
-model.obl_sampler = brine_sampler_phz
+def _attach_samplers(model) -> None:
+    """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz), exactly as
+    porepy_1d_solver / porepy_3d_solver do."""
+    Sampler = NSplineSampler if USE_SPLINE else VTKSampler
+    phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}_grads.vtr"))
+    phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
+    model.obl_sampler = phz
+    ptz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}_grads.vtr"))
+    ptz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, t, p)
+    ptz.translation_factors = (0.0, -273.15, 0.0)            # T in degC -> K in the sampler
+    model.obl_sampler_ptz = ptz
 
-brine_sampler_ptz = VTKSampler(file_name_ptz)
-brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0)  # (z,t,p)
-brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
-model.obl_sampler_ptz = brine_sampler_ptz
+
+_attach_samplers(model)
 
 
 tb = time.time()
-model.prepare_simulation()
+solver_params = {
+    "nl_convergence_criteria": {
+        "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+            tol=9.0e-3, metric=pp.EquationBasedLebesgueMetric(model)),
+    },
+    "nl_divergence_criteria": {
+        "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
+    },
+}
+runner = pp.ModelRunner(model, solver_params,
+                        nonlinear_solver=geothermal_nonlinear_solver(solver_params))
 te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
@@ -230,7 +232,7 @@ model.schur_complement_primary_variables = (
 # print geometry
 model.exporter.write_vtu()
 tb = time.time()
-pp.run_time_dependent_model(model, params)
+runner.run()
 te = time.time()
 print("Elapsed time run_time_dependent_model: ", te - tb)
 print("Total number of DoF: ", model.equation_system.num_dofs())
