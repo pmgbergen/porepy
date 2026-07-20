@@ -1284,12 +1284,21 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
     assert pp.test_utils.arrays.compare_matrices(
         A, _eliminate_columns_from_matrix(model.A, dofs, reverse=True)
     )
-    # Check that the size of equation blocks (rows) were correctly recorded
-    # TODO: Revisit after LinearSystem
+    # Check that the equation blocks were correctly recorded.
+    equation_indexer, variable_indexer = (
+        model.equation_system.construct_assembled_matrix_indexers(variables=variables)
+    )
     for name in model.equation_system.equations:
-        assert np.allclose(
-            model.equation_system.assembled_equation_indices[name], model.eq_ind(name)
-        )
+        actual_dofs = [
+            dofs
+            for eq, dofs in equation_indexer.equation_dofs.items()
+            if eq.name == name
+        ]
+        assert np.allclose(np.concatenate(actual_dofs), model.eq_ind(name))
+
+    # Check that the sizes of variable blocks were correctly recorded.
+    for var in variables:
+        assert variable_indexer.variable_dofs[var].size == model.dof_ind(var).size
 
 
 @pytest.mark.parametrize(
@@ -1384,20 +1393,28 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
     assert np.allclose(b_sub, model.b[rows])
     assert pp.test_utils.arrays.compare_matrices(A_sub, model.A[rows][:, cols])
 
-    # TODO: Revisit after LinearSystem
-    # # Also check that the equation row sizes were correctly recorded.
-    # if eq_names is not None:
-    #     for name in eq_names:
-    #         assert np.allclose(
-    #             model.equation_system.assembled_equation_indices[name].size,
-    #             model.block_size(name),
-    #         )
-    # else:
-    #     for name in model.equation_system.equations:
-    #         assert np.allclose(
-    #             model.equation_system.assembled_equation_indices[name].size,
-    #             model.block_size(name),
-    #         )
+    # Also check that the equation row sizes were correctly recorded.
+    equation_indexer, variable_indexer = (
+        equation_system.construct_assembled_matrix_indexers(
+            equations=eq_names, variables=variables
+        )
+    )
+    equation_dofs = equation_indexer.equation_dofs
+    if eq_names is None:
+        eq_names = list(model.equation_system.equations)
+
+    for name in eq_names:
+        num_dofs = sum(
+            [dofs.size for var, dofs in equation_dofs.items() if var.name == name]
+        )
+        assert num_dofs == model.block_size(name)
+
+    variable_dofs = variable_indexer.variable_dofs
+    for name in var_names:
+        num_dofs = sum(
+            [dofs.size for var, dofs in variable_dofs.items() if var.name == name]
+        )
+        assert num_dofs == model.dof_ind(name).size
 
 
 @pytest.mark.parametrize(
@@ -1618,9 +1635,11 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     assert pp.test_utils.arrays.compare_matrices(A, A_ref)
 
     # Check bookkeeping does not suddenly include the empty equation.
+    equation_indexer, _ = equation_system.construct_assembled_matrix_indexers()
 
-    # TODO: Revisit after LinearSystem
-    assert "empty_equation" not in equation_system.assembled_equation_indices
+    for eq_on_domain in equation_indexer.equation_dofs:
+        assert eq_on_domain.name != "empty_equation"
+    assert "empty_equation" not in equation_indexer.equation_dofs_per_equation
 
 
 def test_schur_complement_empty_equation_filter():

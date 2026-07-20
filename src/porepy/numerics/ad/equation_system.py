@@ -327,17 +327,53 @@ class EquationSystem:
             offset += len(dofs)
         return pp.ad.VariableIndexer(variable_dofs=variable_dofs)
 
-    def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
+    def construct_equation_indexer(
+        self, requested_equations: Optional[EquationList | EquationRestriction] = None
+    ) -> pp.ad.EquationIndexer:
         """TODO YZ"""
+        if requested_equations is None:
+            requested_equations_lookup = {
+                pp.ad.EquationOnDomain(name=eq.name, domain=domain)
+                for eq in self._equations.values()
+                for domain in eq.domains
+            }
+        elif isinstance(requested_equations, list):
+            requested_equations_lookup = set()
+            for equation in requested_equations:
+                equation = self._validate_equation_name(equation)
+                for domain in equation.domains:
+                    requested_equations_lookup.add(
+                        pp.ad.EquationOnDomain(name=equation.name, domain=domain)
+                    )
+
+        elif isinstance(requested_equations, dict):
+
+            def sort_grids(grids: list[pp.GridLike]) -> list[pp.GridLike]:
+                indices = self.mdg.argsort_grids(grids)
+                return [grids[i] for i in indices]
+
+            requested_equations_lookup = {
+                pp.ad.EquationOnDomain(
+                    name=self._validate_equation_name(eq).name, domain=domain
+                )
+                for eq, domains in requested_equations.items()
+                for domain in sort_grids(domains)
+            }
+
         equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
         # self.equations stores a canonical order of equations.
         for name, equation in self.equations.items():
             dofs_on_domains: dict[pp.GridLike, np.ndarray] = {}
-            equation_dofs[name] = dofs_on_domains
 
             offset = 0
 
             for domain in equation.domains:
+                if (
+                    pp.ad.EquationOnDomain(name=name, domain=domain)
+                    not in requested_equations_lookup
+                ):
+                    continue
+
                 dofs_info = self.equation_image_size_info[name]
                 if isinstance(domain, pp.Grid):
                     dofs_per_grid = (
@@ -356,6 +392,11 @@ class EquationSystem:
                 dofs = np.arange(dofs_per_grid) + offset
                 dofs_on_domains[domain] = dofs
                 offset += len(dofs)
+
+            # Filter equations not defined anywhere.
+            if len(dofs_on_domains) > 0:
+                equation_dofs[name] = dofs_on_domains
+
         return pp.ad.EquationIndexer(equation_dofs_per_equation=equation_dofs)
 
     ### Variable management ------------------------------------------------------------
@@ -892,6 +933,7 @@ class EquationSystem:
         # current number of total dofs
         num_dofs = self.num_dofs()
         if variables:
+            variables = self._parse_variable_type(variables)
             # Array for the indices associated with argument.
             # The ordering is preserved in variable_indexer.
             indices = self.variable_indexer.projection_to(variables=variables)
@@ -1116,14 +1158,6 @@ class EquationSystem:
     def _parse_equation_names(
         self, requested_equations: Optional[EquationList | EquationRestriction]
     ) -> set[str]:
-        def validate_equation_name(name: str) -> str:
-            if name not in self._equations:
-                raise ValueError(
-                    f"Requested equation with name '{name}' is not registered "
-                    "in this equation system."
-                )
-            return name
-
         if requested_equations is None:
             return set(self._equations.keys())
 
@@ -1134,9 +1168,9 @@ class EquationSystem:
         equation_names = set()
         for equation in requested_equations:
             if isinstance(equation, str):
-                equation_names.add(validate_equation_name(name=equation))
+                equation_names.add(self._validate_equation_name(equation).name)
             elif isinstance(equation, pp.ad.Operator):
-                equation_names.add(validate_equation_name(name=equation.name))
+                equation_names.add(self._validate_equation_name(equation.name).name)
             else:
                 raise ValueError(f"Unsupported input type: {equation}")
         return equation_names
@@ -1164,6 +1198,18 @@ class EquationSystem:
 
         return discr
 
+    def _validate_equation_name(self, equation: str | pp.ad.Operator) -> pp.ad.Operator:
+        if isinstance(equation, pp.ad.Operator):
+            equation = equation.name
+
+        equation_or_none = self._equations.get(equation, None)
+        if equation_or_none is None:
+            raise ValueError(
+                f"Requested equation with name '{equation}' is not registered "
+                "in this equation system."
+            )
+        return equation_or_none
+
     def _parse_equations(
         self, equations: Optional[EquationList | EquationRestriction] = None
     ) -> dict[pp.ad.Operator, None | np.ndarray]:
@@ -1184,19 +1230,6 @@ class EquationSystem:
 
         # Store equations together with optional row restrictions, then sort them in
         # the canonical order in which equations were added to this system.
-
-        def validate_equation_name(equation: str | pp.ad.Operator) -> pp.ad.Operator:
-            if isinstance(equation, pp.ad.Operator):
-                equation = equation.name
-
-            equation_or_none = self._equations.get(equation, None)
-            if equation_or_none is None:
-                raise ValueError(
-                    f"Requested equation with name '{equation}' is not registered "
-                    "in this equation system."
-                )
-            return equation_or_none
-
         equation_rows: dict[pp.ad.Operator, np.ndarray | None] = {}
         equation_indexer = self.equation_indexer
 
@@ -1205,11 +1238,11 @@ class EquationSystem:
 
         if isinstance(equations, list):
             for eq in equations:
-                equation_rows[validate_equation_name(eq)] = None
+                equation_rows[self._validate_equation_name(eq)] = None
 
         elif isinstance(equations, dict):
             for eq, domains in equations.items():
-                eq = validate_equation_name(eq)
+                eq = self._validate_equation_name(eq)
                 equation_dofs = equation_indexer.equation_dofs_per_equation[eq.name]
                 domain_indices = self.mdg.argsort_grids(domains)
                 domains = [domains[i] for i in domain_indices]
@@ -1222,7 +1255,7 @@ class EquationSystem:
         equation_rows = {
             eq: dofs
             for eq, dofs in equation_rows.items()
-            if len(equation_indexer.equation_dofs_per_equation[eq.name]) > 0
+            if len(equation_indexer.equation_dofs_per_equation.get(eq.name, [])) > 0
         }
 
         equation_order = {name: i for i, name in enumerate(self.equations)}
@@ -1441,6 +1474,26 @@ class EquationSystem:
             )
             A = A[:, column_projection]
         return A, -rhs_cat
+
+    def construct_assembled_matrix_indexers(
+        self,
+        equations: Optional[EquationList | EquationRestriction] = None,
+        variables: Optional[VariableList] = None,
+    ) -> tuple[pp.ad.EquationIndexer, pp.ad.VariableIndexer]:
+        """TODO YZ"""
+        if variables is not None:
+            variable_indexer = self.variable_indexer.construct_restricted_indexer(
+                self._parse_variable_type(variables=variables)
+            )
+        else:
+            variable_indexer = self.variable_indexer
+
+        if equations is not None:
+            equation_indexer = self.construct_equation_indexer(equations)
+        else:
+            equation_indexer = self.equation_indexer
+
+        return equation_indexer, variable_indexer
 
     def assemble_schur_complement_system(
         self,
