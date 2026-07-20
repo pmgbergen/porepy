@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+import logging
 
 import numpy as np
 import scipy.sparse as sps
@@ -19,6 +20,7 @@ from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
 
+logger = logging.getLogger(__name__)
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
 # (DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]]), the same applies to dict
@@ -100,16 +102,15 @@ class EquationSystem:
     It further provides functions to assemble subsystems and using subsets of equations
     and variables.
 
+    The information about how the equations and variables of a discretized problem are
+    arranged in a single contiguous vector is stored in :attr:`equation_indexer` and
+    :attr:`variable_indexer`.
+
     Note:
         As of now, the system matrix (Jacobian) is assembled with respect to ALL
         variables and then the columns belonging to the requested subset of variables
         and grids are sliced out and returned. This will be optimized with minor changes
         to the AD operator class and its recursive forward AD mode in the future.
-
-        Currently, this class optimizes the block structure of the Jacobian only
-        regarding the subdomains and interfaces. A more localized optimization (e.g.
-        cell-wise for equations without spatial differential operators) is not
-        performed.
 
     """
 
@@ -150,8 +151,7 @@ class EquationSystem:
         by this instance.
 
         Variables contained here are ordered chronologically in terms of
-        instantiation. It does not reflect the order of DOFs, which is to some degree
-        optimized. TODO YZ
+        instantiation. The order in the default :attr:`variable_indexer` is different. 
 
         A Variable is uniquely identified by its name and domain, stored as attributes
         of the Variable object.
@@ -161,10 +161,15 @@ class EquationSystem:
         """
 
         self._equation_indexer: pp.ad.EquationIndexer | None = None
-        """Indexer defining the canonical row ordering of the equation system."""
+        """Indexer defining the ordering of the equations (rows) when multiple equation
+        values are packed in a single vector.
+        
+        """
         self._variable_indexer: pp.ad.VariableIndexer | None = None
-        """Indexer defining the canonical column ordering of the equation system."""
-
+        """Indexer defining the ordering of the variables (columns) when multiple
+        variable values are packed in a single vector.
+        
+        """
         # Schur complement related stuff (to be removed in the next PR).
         self._Schur_complement: Optional[tuple] = None
         """Contains block matrices and the rhs of the last assembled Schur complement.
@@ -265,8 +270,12 @@ class EquationSystem:
         set in this EquationSystem.
 
         """
-        # TODO YZ: Deprecation warning?
-        self.equation_indexer.equation_dofs_per_equation
+        logger.warning(
+            "equation_system.equation_image_space_composition is deprecated and will be"
+            " removed. See equation_system.equation_indexer, or "
+            "equation_system.construct_assembled_matrix_indexers."
+        )
+        return self.equation_indexer.equation_image_space_composition
 
     @property
     def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
@@ -296,31 +305,47 @@ class EquationSystem:
 
     @property
     def variable_indexer(self) -> pp.ad.VariableIndexer:
+        """Indexer defining the ordering of the variables (columns) when multiple
+        variable values are packed in a single vector.
+
+        Initialized lazily, upon first request. Changes in equation system may
+        invalidate the indexer, leading to its recomputation.
+
+        """
         if self._variable_indexer is None:
             self._variable_indexer = self.construct_variable_indexer()
         return self._variable_indexer
 
     @property
     def equation_indexer(self) -> pp.ad.EquationIndexer:
+        """Indexer defining the ordering of the equations (rows) when multiple
+        equation values are packed in a single vector.
+
+        Initialized lazily, upon first request. Changes in equation system may
+        invalidate the indexer, leading to its recomputation.
+
+        """
         if self._equation_indexer is None:
             self._equation_indexer = self.construct_equation_indexer()
         return self._equation_indexer
 
-    def construct_variable_indexer(
-        self, requested_variables: Optional[VariableList] = None
-    ) -> pp.ad.VariableIndexer:
-        """Construct an indexer for a requested variable subspace."""
-        requested_variables = self._parse_variable_type(requested_variables)
-        requested_variables_lookup = set(requested_variables)
+    def construct_variable_indexer(self) -> pp.ad.VariableIndexer:
+        """Construct a variable indexer for all the variables registered in this
+        equation system.
 
+        The ordering of registered variables is determinded by
+        :func:`cluster_dofs_gridwise`.
+
+        Returns:
+            The indexer.
+
+        """
         variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
         offset = 0
 
-        ordered_variables = cluster_dofs_gridwise(requested_variables)
+        ordered_variables = cluster_dofs_gridwise(self.variables)
 
         for var in ordered_variables:
-            if var not in requested_variables_lookup:
-                continue
             dofs_per_grid = var.size
             dofs = np.arange(dofs_per_grid) + offset
             variable_dofs[var] = dofs
@@ -330,14 +355,34 @@ class EquationSystem:
     def construct_equation_indexer(
         self, requested_equations: Optional[EquationList | EquationRestriction] = None
     ) -> pp.ad.EquationIndexer:
-        """TODO YZ"""
+        """Construct an equation indexer for the requested_equations.
+
+        The ordering of equations is determinded by the order they were registered in
+        this equation system. Equations not defined anywhere are excluded.
+
+        Parameters:
+            requested_equations: Equations to consider in the indexer. Note: ordering is
+            ignored. If None (default), constructs the indexer for all the registered
+            equations.
+
+        Returns:
+            The indexer.
+
+        """
+        # We unfortunately have to parse quite a heterogenuous input. Similar parsing is
+        # done in _parse_equation_names and _parse_equations, but the results are
+        # different enought to prevent unification of the parsing logic. Here, we
+        # construct a lookup set of EquationOnDomain to express the requested
+        # restriction.
         if requested_equations is None:
+            # No restriction, include all equations on all domains.
             requested_equations_lookup = {
                 pp.ad.EquationOnDomain(name=eq.name, domain=domain)
                 for eq in self._equations.values()
                 for domain in eq.domains
             }
         elif isinstance(requested_equations, list):
+            # Restrict equation names, do not restrict domains.
             requested_equations_lookup = set()
             for equation in requested_equations:
                 equation = self._validate_equation_name(equation)
@@ -347,8 +392,9 @@ class EquationSystem:
                     )
 
         elif isinstance(requested_equations, dict):
+            # Restrict equations and domains. Additionally, order domains.
 
-            def sort_grids(grids: list[pp.GridLike]) -> list[pp.GridLike]:
+            def order_grids(grids: list[pp.GridLike]) -> list[pp.GridLike]:
                 indices = self.mdg.argsort_grids(grids)
                 return [grids[i] for i in indices]
 
@@ -357,14 +403,17 @@ class EquationSystem:
                     name=self._validate_equation_name(eq).name, domain=domain
                 )
                 for eq, domains in requested_equations.items()
-                for domain in sort_grids(domains)
+                for domain in order_grids(domains)
             }
 
+        # Result dictionary.
         equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        # self.equations stores a canonical order of equations.
+
+        # self.equations defines the desired order of equations.
         for name, equation in self.equations.items():
             dofs_on_domains: dict[pp.GridLike, np.ndarray] = {}
 
+            # Offset applies to domains within the same equation.
             offset = 0
 
             for domain in equation.domains:
@@ -372,6 +421,7 @@ class EquationSystem:
                     pp.ad.EquationOnDomain(name=name, domain=domain)
                     not in requested_equations_lookup
                 ):
+                    # The user did not request this equation-domain.
                     continue
 
                 dofs_info = self.equation_image_size_info[name]
@@ -388,16 +438,16 @@ class EquationSystem:
                         + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
                     )
                 else:
-                    raise ValueError(type(domain))
+                    raise ValueError(f"Unknown domain type: {domain}")
                 dofs = np.arange(dofs_per_grid) + offset
                 dofs_on_domains[domain] = dofs
                 offset += len(dofs)
 
-            # Filter equations not defined anywhere.
+            # Filter out equations not defined anywhere.
             if len(dofs_on_domains) > 0:
                 equation_dofs[name] = dofs_on_domains
 
-        return pp.ad.EquationIndexer(equation_dofs_per_equation=equation_dofs)
+        return pp.ad.EquationIndexer(equation_image_composition=equation_dofs)
 
     ### Variable management ------------------------------------------------------------
 
@@ -556,6 +606,7 @@ class EquationSystem:
         # individual grids.
         merged_variable = MixedDimensionalVariable(variables)
 
+        # Invalidating variable indexer forces to recompute it next time it is accessed.
         self._variable_indexer = None
 
         return merged_variable
@@ -581,7 +632,7 @@ class EquationSystem:
             # Remove the variable from the system.
             del self._variables[var.id]
 
-        # Invalidate variable indexer forces to recompute it next time when accessed.
+        # Invalidating variable indexer forces to recompute it next time it is accessed.
         self._variable_indexer = None
 
     def update_variable_tags(
@@ -696,15 +747,15 @@ class EquationSystem:
         """
         # Normalize the variable input.
         variables = self._parse_variable_type(variables)
-        variable_ids = {variable.id for variable in variables}
+        var_ids = {var.id for var in variables}
 
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Indexer determines canonical (global) ordering.
+        # Indexer determines ordering.
         indexer = self.variable_indexer
         for variable in indexer.variable_dofs.keys():
-            if variable.id in variable_ids:
+            if variable.id in var_ids:
                 domain = variable.domain
 
                 val = pp.get_solution_values(
@@ -767,7 +818,7 @@ class EquationSystem:
         variables = self._parse_variable_type(variables)
         var_ids = {var.id for var in variables}
 
-        # Indexer determines canonical (global) ordering.
+        # Indexer determines ordering.
         indexer = self.variable_indexer
         for variable, dofs in indexer.variable_dofs.items():
             if variable.id in var_ids:
@@ -936,7 +987,7 @@ class EquationSystem:
             variables = self._parse_variable_type(variables)
             # Array for the indices associated with argument.
             # The ordering is preserved in variable_indexer.
-            indices = self.variable_indexer.projection_to(variables=variables)
+            indices = self.variable_indexer.projection_indices(variables=variables)
             # case where no dofs where found for the VariableType input
             if len(indices) == 0:
                 return sps.csr_matrix((0, num_dofs))
@@ -1019,8 +1070,6 @@ class EquationSystem:
                 number as per evaluation of operator.
 
         """
-        self._equation_indexer = None
-
         # The domain of this equation is the set of grids on which it is defined
         name = equation.name
         if name in self._equations:
@@ -1063,13 +1112,17 @@ class EquationSystem:
             f"Equation defined on unknown domains: {unknown_domains}"
         )
 
-        # TODO: YZ explain
+        # Storing the ordered domains of definition in the equation object. It may
+        # already contain domains, then makings sure they are equal.
         ordered_domain_indices = self.mdg.argsort_grids(grids)
         ordered_domains = [grids[i] for i in ordered_domain_indices]
         if equation.domains is None or len(equation.domains) == 0:
             equation._domains = ordered_domains
-        else:
-            assert equation.domains == ordered_domains
+        elif equation.domains != ordered_domains:
+            raise ValueError(
+                "Attempting to register an equation on domains that do not match "
+                "equation.domains."
+            )
 
         # If all good, we store the information:
         # Information on the size of the equation, in terms of the grids it is defined
@@ -1077,6 +1130,9 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
+
+        # Invalidating equation indexer forces to recompute it next time it is accessed.
+        self._equation_indexer = None
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
@@ -1096,6 +1152,7 @@ class EquationSystem:
             # Note that there is no need to modify the numbering of the other equations,
             # since this is a local (to the equation) numbering.
             del self._equation_image_size_info[name]
+            # Invalidating equation indexer.
             self._equation_indexer = None
             return equ
         else:
@@ -1129,7 +1186,9 @@ class EquationSystem:
         """
         if grids is None:
             grids = self._equations[equation_name].domains  # type: ignore[assignment]
-            assert grids is not None and len(grids) > 0
+            assert grids is not None and len(grids) > 0, (
+                "Domains must be initialized in equation_system.set_equations."
+            )
 
         if equations_per_grid_entity is None:
             equations_per_grid_entity = self._equation_image_size_info[equation_name]
@@ -1145,19 +1204,31 @@ class EquationSystem:
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
-        The method loops through the variables and updates the number of fine-scale
-        degree of freedom. The system size will be updated if the grid has changed or
-        (perhaps less realistically) a variable has had its number of dofs per grid
-        quantity changed.
+        Used if the domain of definition of variables has been changed externally.
 
         """
-        # Invalidate indexers to force their recomputation next time when accessed.
+        # Invalidate indexers to force their recomputation next time they are accessed.
         self._variable_indexer = None
         self._equation_indexer = None
 
     def _parse_equation_names(
         self, requested_equations: Optional[EquationList | EquationRestriction]
     ) -> set[str]:
+        """Parses the user input in a heterogenous format.
+
+        Raises:
+            ValueError: if one of the passed equations is not registered.
+            ValueError: if unsupported input format is passed.
+
+        Parameters:
+            requested_equations: If `None`, returns all registered equation names. If a
+                list of equations, returns their names. If a dictionary, ignores its
+                values.
+
+        Returns:
+             Unordered set of requested equation names.
+
+        """
         if requested_equations is None:
             return set(self._equations.keys())
 
@@ -1199,6 +1270,19 @@ class EquationSystem:
         return discr
 
     def _validate_equation_name(self, equation: str | pp.ad.Operator) -> pp.ad.Operator:
+        """Ensures that the equation is registered.
+
+        Parameters:
+            equation: Either equation name or its operator.
+
+        Raises:
+            ValueError: If the equation is not registered.
+
+        Returns:
+            The corresponding equation operator.
+
+        """
+
         if isinstance(equation, pp.ad.Operator):
             equation = equation.name
 
@@ -1215,12 +1299,14 @@ class EquationSystem:
     ) -> dict[pp.ad.Operator, None | np.ndarray]:
         """Helper method to parse equations into a properly ordered structure.
 
-        The equations will be ordered according to the order in self._equations (which
-        is the order in which they were added to the equation system manager and which
-        also is fixed since iteration of dictionaries is so).
+        The equations will be ordered according to :attr:`equation_indexer`. Equations
+        not defined anywhere are filtered out.
 
         Parameters:
             equations: A list of equations or a dictionary of equation restrictions.
+
+        Raises:
+            ValueError: If the requested equation is not registered.
 
         Returns:
             A dictionary with the index set of the restricted equations (referring to
@@ -1228,22 +1314,26 @@ class EquationSystem:
 
         """
 
-        # Store equations together with optional row restrictions, then sort them in
-        # the canonical order in which equations were added to this system.
         equation_rows: dict[pp.ad.Operator, np.ndarray | None] = {}
         equation_indexer = self.equation_indexer
 
         if equations is None:
+            # Requested are all the registered equations.
             equations = list(self.equations.keys())
 
         if isinstance(equations, list):
+            # Equation names are restricted, domains are not restricted (None).
             for eq in equations:
                 equation_rows[self._validate_equation_name(eq)] = None
 
         elif isinstance(equations, dict):
+            # Equation names and domains are restricted.
+
             for eq, domains in equations.items():
                 eq = self._validate_equation_name(eq)
-                equation_dofs = equation_indexer.equation_dofs_per_equation[eq.name]
+                equation_dofs = equation_indexer.equation_image_space_composition[
+                    eq.name
+                ]
                 domain_indices = self.mdg.argsort_grids(domains)
                 domains = [domains[i] for i in domain_indices]
                 rows_list = [equation_dofs[domain] for domain in domains]
@@ -1255,10 +1345,16 @@ class EquationSystem:
         equation_rows = {
             eq: dofs
             for eq, dofs in equation_rows.items()
-            if len(equation_indexer.equation_dofs_per_equation.get(eq.name, [])) > 0
+            if len(equation_indexer.equation_image_space_composition.get(eq.name, []))
+            > 0
         }
 
-        equation_order = {name: i for i, name in enumerate(self.equations)}
+        # Order according to equation_indexer.
+        equation_order: dict[str, int] = {}
+        for i, name in enumerate(
+            self.equation_indexer.equation_image_space_composition
+        ):
+            equation_order[name] = i
         return dict(
             sorted(equation_rows.items(), key=lambda item: equation_order[item[0].name])
         )
@@ -1289,7 +1385,9 @@ class EquationSystem:
             # If idx is None, this means no filtering was done.
             if idx is not None:
                 # Get the indices associated with this equation.
-                all_idx = equation_indexer.equation_dofs_per_equation[name].values()
+                all_idx = equation_indexer.equation_image_space_composition[
+                    name
+                ].values()
                 all_idx = (
                     np.concatenate(list(all_idx))
                     if len(all_idx) > 0
@@ -1413,8 +1511,7 @@ class EquationSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        # Store equations together with optional row restrictions, then sort them in
-        # the canonical order in which equations were added to this system.
+        # Standartized input, it is ordered.
         equations_rows = self._parse_equations(equations=equations)
 
         # Data structures for building matrix and residual vector
@@ -1480,7 +1577,17 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
     ) -> tuple[pp.ad.EquationIndexer, pp.ad.VariableIndexer]:
-        """TODO YZ"""
+        """Generate indexers for the linear system produced by :meth:`assemble`.
+
+        Parameters:
+            equations: Equations restriction, same as an argument to :meth:`assemble`.
+            variables: Variables restriction, same as an argument to :meth:`assemble`.
+
+        Returns:
+            `equation_indexer` and `variable_indexer`. If no restriction is requested,
+            returns equation system's own indexers.
+
+        """
         if variables is not None:
             variable_indexer = self.variable_indexer.construct_restricted_indexer(
                 self._parse_variable_type(variables=variables)
@@ -1955,15 +2062,13 @@ def cluster_dofs_gridwise(variables: list[pp.ad.Variable]) -> list[pp.ad.Variabl
     2. For each grid in ``mdg.interfaces``
         1. For each variable defined on that mortar grid
 
-    The order of variables per grid is given by the order of passed variables.
+    The order of variables per grid is given by the grid id.
 
     """
     mapping_grid_to_domains = defaultdict(lambda: [])
     for variable in variables:
         mapping_grid_to_domains[variable.domain].append(variable)
 
-    # The ordering is: [Subdomains(3D-2D-1D-0D), Interfaces(2D-1D-0D)]. If equal, sorted
-    # by id.
     known_grids = list(
         sorted(
             mapping_grid_to_domains.keys(),

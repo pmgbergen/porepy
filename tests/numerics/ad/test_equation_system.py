@@ -954,7 +954,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Check that the mapping of equation to subdomain to global dof
     # indices is correctly set.
     equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_dofs_per_equation
+        equation_system.equation_indexer.equation_image_space_composition
     )
     assert np.allclose(
         equation_subdomain_blocks[model.eq_single_subdomain.name][model.sd_top],
@@ -975,7 +975,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equations_per_grid_entity=dof_info_subdomain,
     )
     equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_dofs_per_equation
+        equation_system.equation_indexer.equation_image_space_composition
     )
     offset = 0
     for sd in model.subdomains:
@@ -995,7 +995,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equations_per_grid_entity=dof_info_interface,
     )
     equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_dofs_per_equation
+        equation_system.equation_indexer.equation_image_space_composition
     )
     offset = 0
     for intf in model.interfaces:
@@ -1017,7 +1017,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equations_per_grid_entity=dof_all_interfaces,
     )
     equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_dofs_per_equation
+        equation_system.equation_indexer.equation_image_space_composition
     )
 
     offset = 0
@@ -1034,7 +1034,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equation_name="eq_all_interfaces",
     )
     equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_dofs_per_equation
+        equation_system.equation_indexer.equation_image_space_composition
     )
 
     offset = 0
@@ -1542,7 +1542,9 @@ def test_schur_complement(eq_var_to_exclude):
         # For all equations not to be eliminated (e.g., present in eq_names), they are
         # kept on all subdomains.
         equations = {
-            eq: list(equation_system.equation_indexer.equation_dofs_per_equation[eq])
+            eq: list(
+                equation_system.equation_indexer.equation_image_space_composition[eq]
+            )
             for eq in eq_names
         }
         # In addition, we keep 'eq_all_subdomains' on the top subdomain.
@@ -1639,7 +1641,7 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
 
     for eq_on_domain in equation_indexer.equation_dofs:
         assert eq_on_domain.name != "empty_equation"
-    assert "empty_equation" not in equation_indexer.equation_dofs_per_equation
+    assert "empty_equation" not in equation_indexer.equation_image_space_composition
 
 
 def test_schur_complement_empty_equation_filter():
