@@ -160,12 +160,16 @@ T_END = 600.0 * DAY                 # [s]
 #   * the CPR tolerances match porepy_2d_solver's CPR_RTOL / CPR_MAXIT defaults.
 DT_INIT_DAYS = 0.01                 # initial adaptive step [days]
 DT_MAX_DAYS = 0.5                   # maximum (cap) adaptive step [days]; floor = DT_MAX_DAYS/64
-NEWTON_ATOL = 1.0e-4                # per-equation Newton tolerance (porepy: res_abs tol 1e-4)
+NEWTON_ATOL = 1.0e-4                # per-equation Lebesgue tolerance [kg/s units] -- the EXACT
+                                    # porepy res_abs constraint (EquationBasedLebesgueMetric)
 NEWTON_MAXIT = 13                   # Newton cap per step (porepy: max_iterations=13)
 DRIFT_ORDER = 4                     # conservation target order K for the drift budget
 CPR_RTOL = 1.0e-10                  # FGMRES relative tolerance
 CPR_MAXIT = 300                     # FGMRES iteration budget
-SNAP_DAYS = (0.0, 25.0, 50.0, 75.0, 78.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0, 375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0, 600.0)     # requested saturation-map instants [days]
+SNAP_DAYS = (0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 25.0, 50.0, 75.0, 78.0,
+             100.0, 125.0, 150.0, 175.0, 200.0, 225.0, 250.0, 275.0, 300.0, 325.0, 350.0,
+             375.0, 400.0, 425.0, 450.0, 475.0, 500.0, 525.0, 550.0, 571.0, 575.0,
+             600.0)                     # = porepy_2d_solver.SNAP_DAYS (same conservation sampling)
 
 # Seven impermeable barrier layers, digitized from Bosma et al. (2022) Fig. 5(a).
 # Copied VERBATIM from model_configuration/geometry_description/geometry_market.py
@@ -611,7 +615,7 @@ def _project_simplex(s):
 
 
 def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linsolve=None,
-           relag=None, drift_tol=None):
+           relag=None, drift_tol=None, backtracking=False):
     """Newton for the CLOSED domain, with a LAGRANGE-MULTIPLIER pressure datum.
 
     ``r`` is the raw residual, whose pressure block is singular (null space = constant
@@ -623,8 +627,9 @@ def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linso
     with ``b`` = 1 on the pressure DOFs, 0 elsewhere. The scalar multiplier ``lam`` supplies the
     (physically ~0) uniform source that makes the singular pressure system consistent, and the
     bottom row enforces the global datum ``sum_c p_c = 0``. NO cell equation is dropped, so
-    there is no point-source artifact and total mass is conserved exactly. Backtracking line
-    search on the physical residual; PorePy-style absolute per-equation stop. ``lam`` is ~0 at
+    there is no point-source artifact and total mass is conserved exactly. Optional backtracking
+    line search on the physical residual (``backtracking``; default OFF = plain full-step
+    Newton, matching porepy_2d_solver); PorePy-style absolute per-equation stop. ``lam`` is ~0 at
     convergence and is not returned. Returns ``(x, n_iter, metric, converged)``.
 
     ``relag(x)``, if given, refreshes the lagged upwind DIRECTIONS from the current iterate (called
@@ -637,8 +642,6 @@ def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linso
         linsolve = lambda A, b: spsolve(A.tocsr(), b)
     nc = grid.ncell
     n3 = NPHASE * nc
-    escale = PHI * grid.Vcell / dt                     # [m^3/s] accumulation capacity
-    sqrtN = np.sqrt(nc)
     b = np.zeros(n3); b[:nc] = 1.0                     # multiplier column / constraint row
     b_col = sps.csr_matrix(b.reshape(n3, 1))
     b_row = sps.csr_matrix(b.reshape(1, n3))
@@ -646,19 +649,34 @@ def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linso
     # zero pivot, and MUMPS requires that entry to be present (not absent) to pivot around it.
     zero_corner = sps.csr_matrix((np.array([0.0]), (np.array([0]), np.array([0]))), shape=(1, 1))
 
-    def metric(rp):                                    # physical per-equation RMS residual
-        return max(np.linalg.norm(rp[k * nc:(k + 1) * nc])
-                   for k in range(NPHASE)) / (escale * sqrtN)
+    # porepy-equivalent residual measures (SAME constraint set as porepy_2d_solver):
+    # the transport blocks are phase VOLUME balances [m^3/s]; multiplying by rho_k gives the
+    # porepy component-MASS rows [kg/s], and the porepy pressure row (TOTAL mass) is the
+    # rho-weighted sum of ALL phase rows, with the reference (lightest) phase's row
+    # reconstructed as (pressure block - sum of assembled transport blocks).
+    Vc = grid.Vcell
+    rho_ref = RHO[NPHASE - 1]
 
-    # dt-scaled per-phase volume drift (porepy NullSpaceDriftCriterion analog): the summed
-    # block residual is the null-space component the linear solve cannot reduce, and it is a
-    # rate -- scaled by dt it is what the conservation plots accumulate per step.
-    v_pore = PHI * grid.Vcell * nc                     # pore volume [m^3]
+    def total_mass_row(rp):
+        r_tm = rho_ref * np.asarray(rp[:nc], float).copy()
+        for j in range(1, NPHASE):
+            r_tm += (RHO[j - 1] - rho_ref) * rp[j * nc:(j + 1) * nc]
+        return r_tm
+
+    def metric(rp):                                    # = porepy EquationBasedLebesgueMetric,
+        vals = [np.linalg.norm(total_mass_row(rp))]    #   sqrt(sum r_c^2 / V_c) per equation
+        for j in range(1, NPHASE):
+            vals.append(RHO[j - 1] * np.linalg.norm(rp[j * nc:(j + 1) * nc]))
+        return max(vals) / np.sqrt(Vc)
+
+    # dt-scaled TOTAL-MASS drift (= porepy NullSpaceDriftCriterion): the summed mass residual
+    # is the null-space component the linear solve cannot reduce, and it is a rate -- scaled
+    # by dt it is what the conservation plots accumulate per step.
+    v_tot = grid.Vcell * nc                            # bulk volume [m^3]
     drift_hist: list = []
 
     def drift(rp):
-        return max(abs(rp[k * nc:(k + 1) * nc].sum())
-                   for k in range(NPHASE)) * dt / v_pore
+        return abs(total_mass_row(rp).sum()) * dt / v_tot
 
     def drift_ok(rp):
         if drift_tol is None:
@@ -698,7 +716,8 @@ def newton(r, x0, pattern, grid, dt, atol=NEWTON_ATOL, maxit=NEWTON_MAXIT, linso
             return x, it, metric(rp), False
         dx, dlam = delta[:n3], delta[n3]
         step = 1.0
-        for _ in range(10):                            # backtracking on the physical residual
+        n_trials = 10 if backtracking else 1           # 1 trial = plain full-step Newton
+        for _ in range(n_trials):                      # backtracking on the physical residual
             xn = x + step * dx
             xn[nc:] = _project_simplex(xn[nc:].reshape(NPHASE - 1, nc)).ravel()
             rpn = phys(xn, lam + step * dlam)
@@ -741,7 +760,7 @@ class RunStats:
 
 def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_days=None,
         atol=NEWTON_ATOL, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True,
-        dt_init_days=DT_INIT_DAYS, drift_order=DRIFT_ORDER):
+        dt_init_days=DT_INIT_DAYS, drift_order=DRIFT_ORDER, backtracking=False):
     """Advance the ``nphase``-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``nphase=3`` reproduces Bosma Fig. 5; ``nphase=4`` splits oil into a mid-heavy + mid-light
@@ -817,7 +836,7 @@ def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_
                 nd = frozen_directions(xx, grid, scheme)
                 _d.upT, _d.up_phase, _d.pair_up = nd.upT, nd.up_phase, nd.pair_up
         x_new, its, m, ok = newton(r, x, pattern, grid, step_dt, atol=atol, linsolve=linsolve,
-                                   relag=relag, drift_tol=drift_tol)
+                                   relag=relag, drift_tol=drift_tol, backtracking=backtracking)
 
         if not ok and step_dt > dt_floor + 1e-30:        # REJECT: never advance on a stalled step
             n_cuts += 1
@@ -965,6 +984,10 @@ def _parse_args(argv=None):
     p.add_argument("--atol", type=float, default=NEWTON_ATOL,
                    help=f"absolute per-equation Newton tolerance (default {NEWTON_ATOL:.0e}; "
                         f"the max-norm analog of porepy_2d_solver's res_abs Lebesgue tol 1e-4)")
+    p.add_argument("--backtracking", action="store_true",
+                   help="enable the backtracking line search on the Newton update (residual-"
+                        "decrease halving, up to 10 trials; default OFF = plain full-step "
+                        "Newton, matching porepy_2d_solver)")
     p.add_argument("--drift-order", type=int, default=DRIFT_ORDER, metavar="K",
                    help=f"conservation target order K for the per-step phase-volume drift "
                         f"budget 10^-(K-1) / (2 n_steps), 0 disables (default {DRIFT_ORDER}; "
@@ -997,7 +1020,8 @@ if __name__ == "__main__":
                                  snap_days=tuple(args.snap_days), t_end_days=args.t_end_days,
                                  atol=args.atol, linear_solver=args.linear_solver,
                                  dir_lag=args.dir_lag, nphase=args.nphase, verbose=not args.quiet,
-                                 dt_init_days=args.dt_init_days, drift_order=args.drift_order)
+                                 dt_init_days=args.dt_init_days, drift_order=args.drift_order,
+                                 backtracking=args.backtracking)
         paths = write_snapshots_vtr(OUT, scheme, grid, snaps)
         paths.append(write_stats(OUT, stats))
         results[scheme] = stats

@@ -18,12 +18,14 @@ Per N in --nphase (default 3 4) and per case (fixed-dim, --md):
                                  V_pore = phi V_tot (uniform phi cancels); these decompose the
                                  mass drift: M(t) - M(0) = sum_i rho_i (V_i(t) - V_i(0)).
 
-Reads visualization_barriers[_frac]_hu_N<n>/ ; writes into figures[_n4]/.
+Reads visualization_barriers[_frac]_hu_N<n>/ ; writes into figures/n<N>/ (+ fd_md_figures/
+subfolder; cross-N comparisons into figures/comparison/).
 Usage: python plot_porepy.py [--nphase 3 4] [--days 0 78 571]
 """
 from __future__ import annotations
 
 import argparse
+import glob
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -155,7 +157,7 @@ def saturation_conservation(n, md, out_dir):
     loss, t = np.abs(S[1:] - S[0]) / v_tot, t[1:]
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
     for i, key in enumerate(_PHASE_FIELDS[n]):
-        ax.semilogy(t, loss[:, i], "o-", ms=3, label=key.replace("s_", "$s_{") + "}$")
+        ax.semilogy(t, loss[:, i], "o-", ms=3, label=PR.phase_labels(n)[i])
     for level in (1.0e-3, 1.0e-4):
         ax.axhline(level, color="0.6", lw=1.0, ls="--", zorder=0)
         ax.text(t[-1], level, f" {level:.0e}", color="0.45", fontsize=8, va="bottom")
@@ -169,6 +171,165 @@ def saturation_conservation(n, md, out_dir):
     ax.set_title(f"PorePy HU-BM(mp), N={n}, {tag}: saturation conservation")
     fig.tight_layout()
     _save(fig, os.path.join(out_dir, f"saturation_conservation_pp_hu{'_md' if md else ''}.png"))
+
+
+CMP_SCHEMES = (("hu-mp", "HU"), ("ppu", "PPU"))    # independent-solver curves: (token, label)
+
+
+def _hamon_vtr_dir(n):
+    return os.path.join(HERE, "vtr" if n == 3 else f"vtr_n{n}")
+
+
+def _hamon_days(n, scheme):
+    """Snapshot days available in the hamon vtr dir for ``scheme`` (sorted)."""
+    tag = scheme.replace("-", "_")
+    days = []
+    for f in glob.glob(os.path.join(_hamon_vtr_dir(n), f"hamon_{tag}_*d.vtr")):
+        m = re.search(r"_(\d+)d\.vtr$", f)
+        if m:
+            days.append(float(m.group(1)))
+    return sorted(days)
+
+
+def _hamon_saturations(n, scheme, day):
+    """Per-phase saturation fields (heavy -> light) from one hamon vtr snapshot."""
+    _, _, f = PR.load_vtr(PR._vtr_path(_hamon_vtr_dir(n), scheme, day))
+    return [np.asarray(f[k], float) for k in PR._phase_fields(f)]
+
+
+def conservation_comparison(n, out_dir, include_md=True):
+    """Relative mass loss: porepy HU vs the independent solver's HU (= HU-BM(mp)) and PPU on
+    the LEFT axis; porepy total energy on the right.  fd case (plus the md porepy curves,
+    dashed, when ``include_md``); matched snapshot instants."""
+    series = read_pvd(_case_dir(n, False))
+    t = np.array([s[0] for s in series])
+    q = np.array([totals(s[1], n) for s in series])
+    rho = np.linspace(1500.0, 500.0, n)
+    fig, ax1 = plt.subplots(figsize=(7.5, 4.5))
+    ax2 = ax1.twinx()
+    handles = []
+    l, = ax1.semilogy(t[1:], np.abs(q[1:, 0] - q[0, 0]) / abs(q[0, 0]), "o-", color="C0",
+                      ms=3, label="Mass HU (PorePy)")
+    handles.append(l)
+    for (scheme, lab), color in zip(CMP_SCHEMES, ("C2", "C1")):
+        days = _hamon_days(n, scheme)
+        if len(days) < 2:
+            continue
+        m = np.array([sum(float(r * s.mean()) for r, s in
+                          zip(rho, _hamon_saturations(n, scheme, d))) for d in days])
+        l, = ax1.semilogy(np.array(days)[1:], np.abs(m[1:] - m[0]) / abs(m[0]), "s-",
+                          color=color, ms=3, label=f"Mass {lab}")
+        handles.append(l)
+    l2, = ax2.semilogy(t[1:], np.abs(q[1:, 1] - q[0, 1]) / abs(q[0, 1]), "^-", color="C3",
+                       ms=3, label="Energy HU (PorePy)")
+    handles.append(l2)
+    if include_md and os.path.isdir(_case_dir(n, True)):
+        series_md = read_pvd(_case_dir(n, True))
+        tm = np.array([s[0] for s in series_md])
+        qm = np.array([totals(s[1], n) for s in series_md])
+        lm, = ax1.semilogy(tm[1:], np.abs(qm[1:, 0] - qm[0, 0]) / abs(qm[0, 0]), ".--",
+                           color="C0", ms=4, alpha=0.8, label="Mass HU (PorePy, md)")
+        handles.insert(1, lm)
+        le, = ax2.semilogy(tm[1:], np.abs(qm[1:, 1] - qm[0, 1]) / abs(qm[0, 1]), ".--",
+                           color="C3", ms=4, alpha=0.8, label="Energy HU (PorePy, md)")
+        handles.append(le)
+    ax1.axhline(1.0e-4, color="C0", lw=1.0, ls="--", alpha=0.6, zorder=0)
+    ax2.axhline(1.0e-4, color="C3", lw=1.0, ls="--", alpha=0.6, zorder=0)
+    ax1.set_xlabel("time [days]")
+    ax1.set_ylabel(
+        r"$|\langle\rho\rangle(t)-\langle\rho\rangle(0)| / \langle\rho\rangle(0)$,"
+        "\n"
+        r"$\langle\rho\rangle = \frac{1}{V_{tot}}\int_\Omega \rho\; dV$", color="C0")
+    ax2.set_ylabel(
+        r"$|\langle E\rangle(t)-\langle E\rangle(0)| / \langle E\rangle(0)$,"
+        "\n"
+        r"$\langle E\rangle = \frac{1}{V_{tot}}\int_\Omega E\; dV$", color="C3")
+    ax1.tick_params(axis="y", colors="C0"); ax2.tick_params(axis="y", colors="C3")
+    ax1.grid(alpha=0.3, which="both")
+    ax1.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.14),
+               ncol=min(4, len(handles)), fontsize=9, frameon=True, fancybox=True)
+    fig.tight_layout()
+    _save(fig, os.path.join(out_dir, f"conservation_comparison_{n}_phases.png"))
+
+
+def l2_difference(nphases, out_dir):
+    """Volume-averaged RMS saturation difference of the independent solver's HU (= HU-BM(mp))
+    and PPU w.r.t. the porepy HU solution,
+
+        [ (1/N) sum_i int (s_i^indep - s_i^pp)^2 dV / V_tot ]^{1/2},
+
+    at the matched snapshot instants (t = 0 excluded: identical ICs make it zero).
+    One figure covering every phase count in ``nphases`` (N=3 solid, N=4 dashed)."""
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    handles = []
+    for n, ls in zip(nphases, ("-", "--", ":")):
+        if not os.path.isdir(_case_dir(n, False)) or not os.path.isdir(_hamon_vtr_dir(n)):
+            continue
+        series = {round(s[0]): s[1] for s in read_pvd(_case_dir(n, False))}
+        for (scheme, lab), color in zip(CMP_SCHEMES, ("C2", "C1")):
+            days = [d for d in _hamon_days(n, scheme) if d > 0 and round(d) in series]
+            if not days:
+                continue
+            vals = []
+            for d in days:
+                mesh = meshio.read(series[round(d)][2])
+                v = _cell_measures(mesh, 2)
+                s_pp = [_field(mesh, k) for k in _PHASE_FIELDS[n]]
+                s_h = _hamon_saturations(n, scheme, d)
+                num = sum(float(np.sum((a - b) ** 2 * v)) for a, b in zip(s_h, s_pp))
+                vals.append(np.sqrt(num / (n * float(v.sum()))))
+            phase_word = {3: "three-phases", 4: "four-phases"}.get(n, f"{n}-phases")
+            st = PR.parse_stats(os.path.join(
+                _hamon_vtr_dir(n), f"stats_{scheme.replace('-', '_')}.txt"))
+            it_tag = (f", total it. {st['total_newton_iters']}"
+                      if "total_newton_iters" in st else "")
+            l, = ax.semilogy(days, vals, marker="o", ls=ls, color=color, ms=3,
+                             label=f"{lab} ({phase_word}{it_tag})")
+            handles.append(l)
+    ax.set_xlabel("time [days]")
+    ax.set_ylabel(r"$\left[\frac{1}{N V_{tot}}\sum_i \int (s_i - s_i^{pp})^2\, dV\right]^{1/2}$")
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.14),
+              ncol=2, fontsize=9, frameon=True, fancybox=True)
+    fig.tight_layout()
+    _save(fig, os.path.join(out_dir, "l2_difference_fd.png"))
+
+
+def comparison_saturation_maps(n, days, out_dir):
+    """Vertical stack of the diverging saturation maps -- rows: PPU (independent),
+    HU (PorePy, fd), HU (PorePy, md); columns: the requested days.  The same panels as
+    saturation_maps_ppu / _pp_hu / _pp_hu_md, without the (a)/(b)/(c) letters."""
+    cm = PR._cmap("vlag")
+    comp = _composite_of(n)
+    barrier = np.asarray(H.barrier_mask(100, 100), float)
+    fig, axes = plt.subplots(3, len(days), figsize=(4.4 * len(days), 4.2 * 3), squeeze=False)
+    im = None
+    for k, day in enumerate(days):                    # row 0: independent PPU (vtr)
+        ax = axes[0][k]
+        nx, ny, f = PR.load_vtr(PR._vtr_path(_hamon_vtr_dir(n), "ppu", day))
+        im = ax.imshow(PR._composite(f, nx, ny), extent=[0, LX, LY, 0], aspect="equal",
+                       cmap=cm, vmin=-1.0, vmax=1.0, interpolation="nearest")
+        PR._overlay_barriers(ax, f["barrier"], nx, ny)
+        PR._style_axes(ax, "")
+    for row, md in ((1, False), (2, True)):           # rows 1-2: porepy HU, fd then md
+        snaps = dict(read_pvd(_case_dir(n, md)))
+        for k, day in enumerate(days):
+            ax = axes[row][k]
+            t = min(snaps, key=lambda s: abs(s - day))
+            mesh = meshio.read(snaps[t][2])
+            im = ax.imshow(PR._image(comp(mesh), 100, 100), extent=[0, LX, LY, 0],
+                           aspect="equal", cmap=cm, vmin=-1.0, vmax=1.0,
+                           interpolation="nearest")
+            PR._overlay_barriers(ax, barrier, 100, 100)
+            if md:
+                _fracture_layer(ax, snaps[t], comp, cm, vmin=-1.0, vmax=1.0)
+            PR._style_axes(ax, f"Saturation map at {int(round(t))} days" if row == 2 else "")
+    for row, lab in enumerate(("PPU", "HU (PorePy)", "HU (PorePy, md)")):
+        axes[row][0].set_ylabel(lab, fontsize=12)
+    cbar = fig.colorbar(im, ax=[a for r in axes for a in r], fraction=0.02, pad=0.02,
+                        ticks=[-1, 0, 1])
+    cbar.ax.set_yticklabels(PR._diverging_tick_labels(n))
+    _save(fig, os.path.join(out_dir, f"comparison_saturation_maps_{n}_phases.png"), dpi=360)
 
 
 def _save(fig, png, dpi=180):
@@ -243,10 +404,6 @@ def saturation_maps(n, md, days, out_dir):
         PR._style_axes(ax, f"({PR._ABC[k]}) Saturation map at {int(round(t))} days")
     cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, ticks=[-1, 0, 1])
     cbar.ax.set_yticklabels(PR._diverging_tick_labels(n))
-    title_n = "Three-phase" if n == 3 else f"{n}-phase"
-    tag = ", mixed-dimensional" if md else ""
-    fig.suptitle(f"{title_n} segregation through barriers -- scheme: "
-                 f"{H.scheme_label('hu-mp')} (PorePy{tag})", y=1.00)
     stat_line = _pp_stats_line(_case_dir(n, md))
     if stat_line:
         fig.text(0.5, 0.935, stat_line, ha="center", va="top", fontsize=10, color="0.35")
@@ -256,8 +413,8 @@ def saturation_maps(n, md, days, out_dir):
 
 def saturation_grid(n, md, days, out_dir):
     """EXACTLY plot_reference.plot_grid's layout (vlag cmap, density headers, barrier overlay,
-    0..100 axes, suptitle wording), fed from the porepy VTUs; md adds the fracture network as
-    a saturation-colored layer (:func:`_fracture_layer`) on top of the 2D cells."""
+    0..100 axes), fed from the porepy VTUs; md adds the fracture network as a
+    saturation-colored layer (:func:`_fracture_layer`) on top of the 2D cells."""
     snaps = dict(read_pvd(_case_dir(n, md)))
     keys = _PHASE_FIELDS[n]
     headers = PR._phase_header(n)
@@ -282,10 +439,6 @@ def saturation_grid(n, md, days, out_dir):
                 ax.set_ylabel(f"{int(round(t))} days", fontsize=11)
     cbar = fig.colorbar(im, ax=axes.ravel().tolist(), fraction=0.02, pad=0.02, ticks=[0, 0.5, 1])
     cbar.set_label("phase saturation $s_k$")
-    title_n = "Three-phase" if n == 3 else f"{n}-phase"
-    tag = ", mixed-dimensional" if md else ""
-    fig.suptitle(f"{title_n} per-phase saturations (heavy -> light) -- scheme: "
-                 f"{H.scheme_label('hu-mp')} (PorePy{tag})", y=1.00)
     _save(fig, os.path.join(out_dir, f"saturation_grid_pp_hu{'_md' if md else ''}.png"),
           dpi=360)                                    # 2x the default raster resolution
 
@@ -333,7 +486,7 @@ def main(argv=None):
     ap.add_argument("--days", type=float, nargs="+", default=[0.0, 78.0, 571.0])
     args = ap.parse_args(argv)
     for n in args.nphase:
-        out_dir = os.path.join(HERE, "figures" if n == 3 else f"figures_n{n}")
+        out_dir = os.path.join(HERE, "figures", f"n{n}")
         os.makedirs(out_dir, exist_ok=True)
         for md in (False, True):
             if not os.path.isdir(_case_dir(n, md)):
@@ -343,6 +496,13 @@ def main(argv=None):
             saturation_grid(n, md, args.days, out_dir)
             conservation(n, md, out_dir)
             saturation_conservation(n, md, out_dir)
+        if os.path.isdir(_hamon_vtr_dir(n)):          # porepy-vs-independent comparisons (fd)
+            conservation_comparison(n, out_dir)
+            if os.path.isdir(_case_dir(n, True)):
+                comparison_saturation_maps(n, args.days, out_dir)
+    cmp_dir = os.path.join(HERE, "figures", "comparison")       # cross-N figures
+    os.makedirs(cmp_dir, exist_ok=True)
+    l2_difference(args.nphase, cmp_dir)
 
 
 if __name__ == "__main__":

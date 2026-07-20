@@ -36,6 +36,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import glob
 import os
 import re
 
@@ -198,19 +199,26 @@ def _save(fig, png_path):
 
 def _diverging_tick_labels(n):
     """Colorbar labels for the [-1, 0, +1] diverging composite ticks, given N phases."""
+    labs = phase_labels(n)
     if n == 3:
-        return ["water", "oil", "gas"]                       # Bosma names (N=3 unchanged)
+        return labs
     rho = _densities(n)
-    return [f"heavy\n$s_0$\n{rho[0]:.0f}", "mid", f"light\n$s_{{{n - 1}}}$\n{rho[-1]:.0f}"]
+    return [f"{labs[0]}\n{rho[0]:.0f}", f"{labs[1]}\n{labs[2]}",
+            f"{labs[3]}\n{rho[-1]:.0f}"]
+
+
+def phase_labels(n):
+    """Greek phase labels in the s_0..s_{N-1} (HEAVY -> LIGHT) order used everywhere:
+    N=3: gamma, beta, alpha; N=4: gamma, beta-heavy, beta-light, alpha."""
+    if n == 3:
+        return [r"$s_\gamma$", r"$s_\beta$", r"$s_\alpha$"]
+    return [r"$s_\gamma$", r"$s_{\beta\,heavy}$", r"$s_{\beta\,light}$", r"$s_\alpha$"]
 
 
 def _phase_header(n):
-    """Column header per phase for the grid figure: name (N=3) or index + density (general)."""
+    """Column header per phase for the grid figure: Greek label + density."""
     rho = _densities(n)
-    if n == 3:
-        names = ["water", "oil", "gas"]
-        return [f"{names[k]}\n$s_{{{k}}}$   $\\rho$={rho[k]:.0f}" for k in range(n)]
-    return [f"$s_{{{k}}}$   $\\rho$={rho[k]:.0f}" for k in range(n)]
+    return [f"{lab}   $\\rho$={rho[k]:.0f}" for k, lab in enumerate(phase_labels(n))]
 
 
 # --------------------------------------------------------------------------------------- #
@@ -237,8 +245,6 @@ def plot_maps(scheme, vtr_dir, days, out_dir, cmap="vlag"):
         None if "total_newton_iters" not in st else f"total iterations: {st['total_newton_iters']}",
         None if "avg_iters_per_step" not in st else f"avg iterations/step: {st['avg_iters_per_step']:.2f}",
         None if "n_time_step_cuts" not in st else f"dt-cuts: {st['n_time_step_cuts']}") if s)
-    title_n = "Three-phase" if n == 3 else f"{n}-phase"
-    fig.suptitle(f"{title_n} segregation through barriers -- scheme: {scheme_label(scheme)}", y=1.00)
     if stat_line:
         fig.text(0.5, 0.935, stat_line, ha="center", va="top", fontsize=10, color="0.35")
     path = _save(fig, os.path.join(out_dir, f"saturation_maps_{scheme.replace('-', '_')}.png"))
@@ -271,8 +277,6 @@ def plot_grid(scheme, vtr_dir, days, out_dir, cmap="vlag"):
                 ax.set_ylabel(f"{int(round(day))} days", fontsize=11)
     cbar = fig.colorbar(im, ax=axes.ravel().tolist(), fraction=0.02, pad=0.02, ticks=[0, 0.5, 1])
     cbar.set_label("phase saturation $s_k$")
-    title_n = "Three-phase" if n == 3 else f"{n}-phase"
-    fig.suptitle(f"{title_n} per-phase saturations (heavy -> light) -- scheme: {scheme_label(scheme)}", y=1.00)
     path = _save(fig, os.path.join(out_dir, f"saturation_grid_{scheme.replace('-', '_')}.png"))
     plt.close(fig)
     return path
@@ -281,6 +285,43 @@ def plot_grid(scheme, vtr_dir, days, out_dir, cmap="vlag"):
 # --------------------------------------------------------------------------------------- #
 #  Figure 3: lightest-phase saturation comparison at 78 days (PPU | HU-BM ff | mw | mp)
 # --------------------------------------------------------------------------------------- #
+def plot_saturation_conservation(scheme, vtr_dir, out_dir):
+    """Per-phase RELATIVE pore-volume losses |V_i(t) - V_i(0)| / V_pore vs time, sampled at
+    every .vtr snapshot in ``vtr_dir`` (the same instants as the porepy export); layout and
+    labels mirror plot_porepy.saturation_conservation exactly."""
+    tag = scheme.replace("-", "_")
+    days = sorted(float(m.group(1)) for f in glob.glob(
+        os.path.join(vtr_dir, f"hamon_{tag}_*d.vtr"))
+        for m in [re.search(r"_(\d+)d\.vtr$", f)] if m)
+    series = []
+    n = 3
+    for day in days:
+        _, _, f = load_vtr(_vtr_path(vtr_dir, scheme, day))
+        keys = _phase_fields(f)
+        n = len(keys)
+        ncell = f[keys[0]].size
+        series.append([float(np.sum(f[k])) / ncell for k in keys])   # <s_i> = V_i / V_tot
+    S = np.array(series)
+    loss, t = np.abs(S[1:] - S[0]), np.array(days[1:])
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for i in range(n):
+        ax.semilogy(t, loss[:, i], "o-", ms=3, label=phase_labels(n)[i])
+    for level in (1.0e-3, 1.0e-4):
+        ax.axhline(level, color="0.6", lw=1.0, ls="--", zorder=0)
+        ax.text(t[-1], level, f" {level:.0e}", color="0.45", fontsize=8, va="bottom")
+    ax.set_xlabel("time [days]")
+    ax.set_ylabel(r"pore-volume loss  $|V_i(t)-V_i(0)| / V_{pore}$,"
+                  "\n"
+                  r"$V_i = \phi\int s_i\,dV$,  $V_{pore} = \phi V_{tot}$")
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(loc="lower right", fontsize=9)
+    ax.set_title(f"{scheme_label(scheme)}, N={n}: saturation conservation")
+    fig.tight_layout()
+    path = _save(fig, os.path.join(out_dir, f"saturation_conservation_{tag}.png"))
+    plt.close(fig)
+    return path
+
+
 def plot_gas_comparison(base, schemes, day, out_dir, cmap="vlag", suffix=""):
     cm = _cmap(cmap)
     order = ["ppu", "hu", "hu-mw", "hu-mp"]                 # left -> right, as requested
@@ -305,10 +346,8 @@ def plot_gas_comparison(base, schemes, day, out_dir, cmap="vlag", suffix=""):
         _style_axes(ax, "")
         ax.set_title(f"{scheme_label(scheme)}\niterations: {it_s}   dt-cuts: {cut_s}", fontsize=11)
     cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, ticks=[0, 0.5, 1])
-    phase_name = "gas" if n == 3 else f"lightest phase $s_{{{n - 1}}}$"
-    cbar.set_label(f"{'gas' if n == 3 else 'lightest'} saturation "
-                   f"$s_{{{'g' if n == 3 else n - 1}}}$")
-    fig.suptitle(f"{phase_name.capitalize()} saturation at {int(round(day))} days", y=0.99)
+    cbar.set_label(r"lightest saturation $s_\alpha$")
+    fig.suptitle(f"Lightest-phase ($s_\\alpha$) saturation at {int(round(day))} days", y=0.99)
     path = _save(fig, os.path.join(out_dir, f"gas_comparison_{int(round(day))}d.png"))
     plt.close(fig)
     return path
@@ -322,6 +361,8 @@ def main(argv=None):
     ap.add_argument("--maps", action="store_true", help="per-scheme diverging saturation maps")
     ap.add_argument("--grid", action="store_true", help="per-scheme per-phase saturation grids")
     ap.add_argument("--gas", action="store_true", help="lightest-phase comparison at 78 days")
+    ap.add_argument("--conservation", action="store_true",
+                    help="per-scheme saturation-conservation plots (all snapshots in vtr dir)")
     ap.add_argument("--nphase", type=int, default=3,
                     help="number of phases to read (default 3). Selects the input dirs written by "
                          "run_reference.py: N=3 -> vtr/ & output_ref_<scheme>/, N=4 -> vtr_n4/ & "
@@ -340,12 +381,13 @@ def main(argv=None):
                     help="output dir for the figures (default: ./figures[_nN], so N=4 output "
                          "never clobbers the N=3 figures)")
     args = ap.parse_args(argv)
-    if not (args.maps or args.grid or args.gas):
-        args.maps = args.grid = args.gas = True            # default: all three
+    if not (args.maps or args.grid or args.gas or args.conservation):
+        args.maps = args.grid = args.gas = args.conservation = True    # default: all four
 
     sfx = _suffix(args.nphase)
     vtr_dir = args.vtr_dir if args.vtr_dir is not None else os.path.join(HERE, f"vtr{sfx}")
-    out_dir = args.out_dir if args.out_dir is not None else os.path.join(HERE, f"figures{sfx}")
+    out_dir = args.out_dir if args.out_dir is not None else os.path.join(
+        HERE, "figures", f"n{args.nphase}")
 
     if args.maps:
         for scheme in args.schemes:
@@ -355,6 +397,10 @@ def main(argv=None):
         for scheme in args.schemes:
             print("wrote", os.path.relpath(
                 plot_grid(scheme, vtr_dir, args.days, out_dir, cmap=args.cmap), HERE))
+    if args.conservation:
+        for scheme in args.schemes:
+            print("wrote", os.path.relpath(
+                plot_saturation_conservation(scheme, vtr_dir, out_dir), HERE))
     if args.gas:
         print("wrote", os.path.relpath(
             plot_gas_comparison(args.base, args.schemes, args.gas_day, out_dir,

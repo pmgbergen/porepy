@@ -56,7 +56,7 @@ import scipy.sparse.linalg as spla
 HERE = os.path.dirname(os.path.abspath(__file__))
 # The constitutive .vtr tables and digitized reference CSVs live in the parent geothermal_flow
 # directory (this engine module lives in the subsection_4_1/ sub-folder).
-_PARENT = os.path.dirname(HERE)
+_PARENT = os.path.dirname(os.path.dirname(HERE))   # geothermal_flow/ (two levels up)
 VTK_DIR = os.path.join(_PARENT, "model_configuration", "constitutive_description",
                        "driesner_vtk_files")
 REF_DIR = os.path.join(_PARENT, "benchmark_figures_data")

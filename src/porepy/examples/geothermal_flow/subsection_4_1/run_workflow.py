@@ -8,7 +8,7 @@ Per N in --nphase (default 3 4; rho evenly spaced on [500, 1500], N=3 = Bosma [1
     step 2: same schemes on 200^2 to 78 d, snaps {0, 78}          -> output_ref_<scheme>[_nN]/
   porepy (CF model, subprocesses of porepy_2d_solver.py):
     scheme hu x {fixed-dim, --md}  -> visualization_barriers[_frac]_hu_N<n>/  (+ .log here)
-  figures: plot_reference.py -> figures[_nN]/
+  figures: plot_reference.py -> figures/n<N>/
 
 Usage:
     python run_workflow.py [--nphase 3 4] [--quick] [--jobs J] [--plot-only] [--skip-plot]
@@ -38,7 +38,7 @@ SCHEMES = ("hu", "ppu", "hu-mw", "hu-mp")
 # Two run configurations. FULL == the paper reference (identical to run_reference.py); QUICK is a
 # coarse, short smoke test that still exercises every code path and produces real figures.
 FULL = {
-    "step1": dict(nx=100, ny=100, t_end_days=None, snap_days=(0.0, 78.0, 571.0)),
+    "step1": dict(nx=100, ny=100, t_end_days=None, snap_days=H.SNAP_DAYS),   # = porepy sampling
     "step2": dict(nx=200, ny=200, t_end_days=78.0, snap_days=(0.0, 78.0)),
     "fig_days": (0, 78, 571), "gas_day": 78,
     "porepy_days": None,                          # None -> the solver's full default horizon
@@ -150,7 +150,7 @@ def _log_result(r):
 
 def _build_figures(nphases, cfg):
     for n in nphases:
-        print(f"\n=== figures for N={n}  ->  figures{RR._suffix(n)}/ ===", flush=True)
+        print(f"\n=== figures for N={n}  ->  figures/n{n}/ ===", flush=True)
         argv = ["--nphase", str(n),
                 "--days", *[str(d) for d in cfg["fig_days"]],
                 "--gas-day", str(cfg["gas_day"])]
@@ -227,7 +227,7 @@ def main(argv=None):
     for n in nphases:
         sfx = RR._suffix(n)
         print(f"  N={n}:  hamon -> vtr{sfx}/ , output_ref_*{sfx}/     "
-              f"porepy -> visualization_barriers[_frac]_hu_N{n}/     figures -> figures{sfx}/")
+              f"porepy -> visualization_barriers[_frac]_hu_N{n}/     figures -> figures/n{n}/")
 
 
 if __name__ == "__main__":

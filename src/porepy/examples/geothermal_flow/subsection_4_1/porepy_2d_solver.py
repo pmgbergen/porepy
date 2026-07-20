@@ -447,6 +447,15 @@ class SecondaryEquations3N(LocalElimination):
     # Refresh of the substituted surrogates (initial / per-step / per-iteration).
     def update_derived_quantities(self) -> None:
         super().update_derived_quantities()
+        # NOTE on the ~2 its/step vs the hamon reference's ~1.1 (same criteria): the second
+        # iteration is the price of the compositional formulation, not a solver defect.  The
+        # elimination rows demand the eliminated saturations ON the s(z) manifold, and after
+        # one Newton step they carry the linearization error of the nonlinear inversion
+        # (~|ds|; the linear T = h/C_P elimination lands at machine zero).  Overwriting
+        # s := s(z) between iterations removes that residual but shifts cell masses off the
+        # mass-exact linear path, tripping the total-mass drift budget instead (measured:
+        # ~3 its/step via the stagnation escape).  hamon's (p, s) formulation has the
+        # constraint by construction and pays neither cost.
         self._refresh_substitutions(on_boundaries=False)
 
     def update_all_boundary_conditions(self) -> None:

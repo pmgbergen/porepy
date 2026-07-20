@@ -13,8 +13,3 @@ subsection_4_2/**
 !subsection_4_2/**/
 !subsection_4_2/**/*.py
 !subsection_4_2/**/*.md
-
-subsection_4_3/**
-!subsection_4_3/**/
-!subsection_4_3/**/*.py
-!subsection_4_3/**/*.md

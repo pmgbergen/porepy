@@ -143,7 +143,8 @@ T_OUTLET = 423.15                        # [K] cool ambient at the outlet corner
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _TABLE_DIR = os.path.join(
-    HERE, os.pardir, "model_configuration", "constitutive_description", "driesner_vtk_files")
+    HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
+    "driesner_vtk_files")
 
 # HU-BM scheme -> model parametrization (mirrors subsection_4_2).  "HU" = HU-BM(mp): the
 # mobility-product buoyant term reached via fractional_flow=False + hybrid upwinding.
