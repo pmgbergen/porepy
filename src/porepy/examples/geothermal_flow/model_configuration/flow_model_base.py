@@ -1848,6 +1848,19 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         self.n_time_step_cuts = getattr(self, "n_time_step_cuts", 0) + 1
         super().after_nonlinear_failure()
 
+    def darcy_flux_discretization(self, subdomains):
+        """TPFA by default; MPFA when ``params["consistent_discretization"]`` is set (the
+        consistent discretization on non-K-orthogonal grids)."""
+        Ad = (pp.ad.MpfaAd if self.params.get("consistent_discretization", False)
+              else pp.ad.TpfaAd)
+        return Ad(self.darcy_keyword, list(subdomains))
+
+    def fourier_flux_discretization(self, subdomains):
+        """Same TPFA/MPFA switch as :meth:`darcy_flux_discretization`."""
+        Ad = (pp.ad.MpfaAd if self.params.get("consistent_discretization", False)
+              else pp.ad.TpfaAd)
+        return Ad(self.fourier_keyword, list(subdomains))
+
     def data_to_export(self):
         """Base export plus ``delta_<q> = q(t) - q(0)`` for pressure, T_C, enthalpy and
         every independent overall fraction (the reference state is captured at the first

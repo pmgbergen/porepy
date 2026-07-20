@@ -120,7 +120,13 @@ import argparse
 _ap = argparse.ArgumentParser(
     description="Weis et al. (2014) Fig. 8(A-C) heat-flux plume (9 km x 3 km, "
                 "5 W/m^2 over the central 1 km of the bottom boundary).")
-_ap.add_argument("--scheme", default="HU", choices=list(_SCHEME_CONFIG),
+_ap.add_argument("--consistent", action="store_true",
+                 help="consistent flux discretization (MPFA); default TPFA")
+_ap.add_argument("--grid-type", default=None, choices=["cartesian", "simplex"],
+                 help="mesh type; default: the geometry class's choice")
+_ap.add_argument("--cell-size", type=float, default=None, metavar="M",
+                 help="target cell size [m]; default: the geometry class's value")
+_ap.add_argument("--scheme", default="hu", choices=list(_SCHEME_CONFIG),
                  help="HU (standard template, hybrid), HU-mw (fractional-flow template), "
                       "PPU (standard template, phase-potential); default HU")
 _args = _ap.parse_args()
@@ -141,6 +147,9 @@ params = {
     "cpr_accuracy_tol": 1.0e-3,   # post-solve gate -> direct fallback above this
     "step_control_method": "None",
 }
+params["consistent_discretization"] = _args.consistent
+if _args.grid_type is not None:
+    params["grid_type"] = _args.grid_type            # Figure8Geometry2D reads this key
 params.update(_SCHEME_CONFIG[_args.scheme])
 FlowModel = (DriesnerBrineFractionalFlowModel if params["fractional_flow"]
              else DriesnerBrineFlowModel)
@@ -149,13 +158,14 @@ FlowModel = (DriesnerBrineFractionalFlowModel if params["fractional_flow"]
 class GeothermalBrineFlowModel(
     DriesnerPhaseExport, ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
 ):
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+    # flux discretization comes from the base TPFA/MPFA switch (--consistent)
 
-    def fourier_flux_discretization(
-            self, subdomains: Sequence[pp.Grid]
-    ) -> pp.ad.MpfaAd:
-        return pp.ad.MpfaAd(self.fourier_keyword, list(subdomains))
+    def meshing_arguments(self) -> dict:
+        mesh_args = super().meshing_arguments()
+        if _args.cell_size is not None:              # default: the geometry class's value
+            mesh_args = {**mesh_args,
+                         "cell_size": self.units.convert_units(_args.cell_size, "m")}
+        return mesh_args
 
 
 # Instance of the computational model

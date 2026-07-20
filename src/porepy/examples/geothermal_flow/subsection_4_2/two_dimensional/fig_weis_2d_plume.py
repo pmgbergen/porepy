@@ -41,7 +41,6 @@ X_CENTER, X_HALF = 4500.0, 2000.0                    # central 4 km excerpt [m]
 DEPTH = 3000.0
 T_ISO = [100.0, 200.0, 300.0, 400.0]      # degC -- the paper's annotated isotherms
 P_ISO = [5.0, 15.0, 25.0]                                    # MPa  (paper's blue contours)
-T_CLIM = (10.0, 400.0)
 _ABC = "ABC"
 
 
@@ -66,11 +65,11 @@ def _panel_mesh(path):
     return grid.translate((-X_CENTER, 0.0, 0.0))
 
 
-def _render_panel(mesh, cm):
-    """pyvista render of one panel (field + contours), returned as an image array that
+def _render_panel(mesh, cm, clim):
+    """pyvista render of one panel (enthalpy field), returned as an image array that
     exactly frames the 4 km x 3 km excerpt (parallel projection)."""
     pl = pv.Plotter(off_screen=True, window_size=(1200, 900))     # 4:3 = domain aspect
-    pl.add_mesh(mesh, scalars="T_C", cmap=cm, clim=T_CLIM, show_scalar_bar=False)
+    pl.add_mesh(mesh, scalars="enthalpy", cmap=cm, clim=clim, show_scalar_bar=False)
     pl.view_xy()
     pl.enable_parallel_projection()
     pl.camera.focal_point = (0.0, DEPTH / 2.0, 0.0)
@@ -97,13 +96,16 @@ def main():
     snaps = _snapshots(folder)
     cmv = _cmap("vlag")
 
+    picked = [min(snaps, key=lambda s: abs(s[0] - tt)) for tt in args.times]
+    meshes = [_panel_mesh(path) for _, path in picked]
+    h_all = np.concatenate([np.asarray(m.point_data["enthalpy"], float) for m in meshes])
+    clim = (float(h_all.min()), float(h_all.max()))
+
     fig, axes = plt.subplots(1, len(args.times), figsize=(4.6 * len(args.times), 4.0),
                              sharey=True)
     axes = [axes] if len(args.times) == 1 else list(axes)
-    for k, (ax, t_target) in enumerate(zip(axes, args.times)):
-        t, path = min(snaps, key=lambda s: abs(s[0] - t_target))
-        mesh = _panel_mesh(path)
-        img = _render_panel(mesh, cmv)
+    for k, (ax, (t, path), mesh) in enumerate(zip(axes, picked, meshes)):
+        img = _render_panel(mesh, cmv, clim)
         ax.imshow(img, extent=[-X_HALF / 1e3, X_HALF / 1e3, DEPTH / 1e3, 0.0],
                   aspect="auto", interpolation="bilinear")
         # paper-style annotated contours (drawn in matplotlib so clabel can tag them)
@@ -111,11 +113,13 @@ def main():
         depth = (DEPTH - mesh.points[:, 1]) / 1.0e3
         ct = ax.tricontour(dist, depth, np.asarray(mesh.point_data["T_C"], dtype=float),
                            levels=T_ISO, colors="firebrick", linewidths=1.4)
-        ax.clabel(ct, fmt=lambda v: f"{v:.0f}°C", fontsize=8, inline=True)
+        ax.clabel(ct, fmt=lambda v: f"{v:.0f}°C", fontsize=8, inline=True,
+                  colors="black")
         cp = ax.tricontour(dist, depth, np.asarray(mesh.point_data["pressure"],
                                                    dtype=float),
                            levels=P_ISO, colors="royalblue", linewidths=1.4)
-        ax.clabel(cp, fmt=lambda v: f"{v:.0f} MPa", fontsize=8, inline=True)
+        ax.clabel(cp, fmt=lambda v: f"{v:.0f} MPa", fontsize=8, inline=True,
+                  colors="black")
         ax.set_xlim(-X_HALF / 1e3, X_HALF / 1e3)
         ax.set_ylim(DEPTH / 1e3, 0.0)                 # depth increases downward
         ax.set_xlabel("Distance (km)")
@@ -123,9 +127,9 @@ def main():
             ax.set_ylabel("Depth (km)")
         ax.text(0.97, 0.05, f"{t / 1000.0:.0f} kyrs", transform=ax.transAxes,
                 fontsize=12, va="bottom", ha="right")
-    sm = mcm.ScalarMappable(norm=colors.Normalize(*T_CLIM), cmap=cmv)
+    sm = mcm.ScalarMappable(norm=colors.Normalize(*clim), cmap=cmv)
     cbar = fig.colorbar(sm, ax=axes, fraction=0.02, pad=0.02)
-    cbar.set_label(r"Temperature ($^\circ$C)")
+    cbar.set_label(r"Enthalpy (MJ kg$^{-1}$)")
 
     os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
     out = os.path.join(HERE, "figures", f"fig_8_plume_{args.scheme.replace('-', '_')}.png")
