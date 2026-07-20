@@ -1,0 +1,138 @@
+#!/usr/bin/env python
+"""Weis et al. (2014) Fig. 8 (A-C) reproduction, panels placed HORIZONTALLY.
+
+Three snapshots (5 / 15 / 50 kyr) of the heat-flux plume, rendered with pyvista from the
+``visualization_<scheme>/`` VTUs: temperature field (vlag colormap, the subsection_4_1
+convention) with the paper's temperature isotherms (100..400 degC, red) and fluid-pressure
+contours (5 / 15 / 25 MPa, blue), on the central 4 km of the 9 km x 3 km domain
+(depth 0 at the top).
+
+Usage: python fig_weis_2d_plume.py [--scheme hu] [--times 5000 15000 50000]
+       ->  figures/fig_8_plume_<scheme>.png
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import xml.etree.ElementTree as ET
+
+import numpy as np
+import pyvista as pv
+
+try:
+    import seaborn as sns
+
+    def _cmap(name="vlag"):
+        return sns.color_palette(name, as_cmap=True)
+except ImportError:                                  # seaborn optional (= plot_reference)
+    import matplotlib.pyplot as plt
+
+    def _cmap(name="vlag"):
+        try:
+            return plt.get_cmap(name)
+        except ValueError:
+            return plt.get_cmap("coolwarm" if name == "vlag" else "viridis")
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DAY = 86400.0
+YEAR = 365.0 * DAY
+X_CENTER, X_HALF = 4500.0, 2000.0                    # central 4 km excerpt [m]
+DEPTH = 3000.0
+T_ISO = [100.0, 200.0, 300.0, 400.0]      # degC -- the paper's annotated isotherms
+P_ISO = [5.0, 15.0, 25.0]                                    # MPa  (paper's blue contours)
+T_CLIM = (10.0, 400.0)
+_ABC = "ABC"
+
+
+def _snapshots(folder):
+    """Master .pvd -> sorted [(t_years, vtu_path)] for the 2D subdomain files."""
+    master = [f for f in os.listdir(folder)
+              if f.endswith(".pvd") and not re.search(r"_\d+\.pvd$", f)][0]
+    out = []
+    for ds in ET.parse(os.path.join(folder, master)).getroot().iter("DataSet"):
+        f = ds.attrib["file"]
+        if "mortar" in f or not re.search(r"_2_\d+\.vtu$", f):
+            continue
+        out.append((float(ds.attrib["timestep"]) / YEAR, os.path.join(folder, f)))
+    return sorted(out)
+
+
+def _panel_mesh(path):
+    """Load one snapshot, clip to the central 4 km, center x about the source."""
+    grid = pv.read(path).cell_data_to_point_data()
+    grid = grid.clip_box([X_CENTER - X_HALF, X_CENTER + X_HALF, 0.0, DEPTH,
+                          -1.0, 1.0], invert=False)
+    return grid.translate((-X_CENTER, 0.0, 0.0))
+
+
+def _render_panel(mesh, cm):
+    """pyvista render of one panel (field + contours), returned as an image array that
+    exactly frames the 4 km x 3 km excerpt (parallel projection)."""
+    pl = pv.Plotter(off_screen=True, window_size=(1200, 900))     # 4:3 = domain aspect
+    pl.add_mesh(mesh, scalars="T_C", cmap=cm, clim=T_CLIM, show_scalar_bar=False)
+    pl.view_xy()
+    pl.enable_parallel_projection()
+    pl.camera.focal_point = (0.0, DEPTH / 2.0, 0.0)
+    pl.camera.position = (0.0, DEPTH / 2.0, 1.0e4)
+    pl.camera.parallel_scale = DEPTH / 2.0            # half-height -> exact vertical frame
+    img = pl.screenshot(return_img=True)
+    pl.close()
+    return img
+
+
+def main():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib import colors, cm as mcm
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--scheme", default="hu")
+    ap.add_argument("--times", type=float, nargs="+", default=[5000.0, 15000.0, 50000.0],
+                    metavar="YEARS", help="snapshot instants [years] (default 5/15/50 kyr)")
+    args = ap.parse_args()
+
+    folder = os.path.join(HERE, f"visualization_{args.scheme.replace('-', '_')}")
+    snaps = _snapshots(folder)
+    cmv = _cmap("vlag")
+
+    fig, axes = plt.subplots(1, len(args.times), figsize=(4.6 * len(args.times), 4.0),
+                             sharey=True)
+    axes = [axes] if len(args.times) == 1 else list(axes)
+    for k, (ax, t_target) in enumerate(zip(axes, args.times)):
+        t, path = min(snaps, key=lambda s: abs(s[0] - t_target))
+        mesh = _panel_mesh(path)
+        img = _render_panel(mesh, cmv)
+        ax.imshow(img, extent=[-X_HALF / 1e3, X_HALF / 1e3, DEPTH / 1e3, 0.0],
+                  aspect="auto", interpolation="bilinear")
+        # paper-style annotated contours (drawn in matplotlib so clabel can tag them)
+        dist = mesh.points[:, 0] / 1.0e3
+        depth = (DEPTH - mesh.points[:, 1]) / 1.0e3
+        ct = ax.tricontour(dist, depth, np.asarray(mesh.point_data["T_C"], dtype=float),
+                           levels=T_ISO, colors="firebrick", linewidths=1.4)
+        ax.clabel(ct, fmt=lambda v: f"{v:.0f}°C", fontsize=8, inline=True)
+        cp = ax.tricontour(dist, depth, np.asarray(mesh.point_data["pressure"],
+                                                   dtype=float),
+                           levels=P_ISO, colors="royalblue", linewidths=1.4)
+        ax.clabel(cp, fmt=lambda v: f"{v:.0f} MPa", fontsize=8, inline=True)
+        ax.set_xlim(-X_HALF / 1e3, X_HALF / 1e3)
+        ax.set_ylim(DEPTH / 1e3, 0.0)                 # depth increases downward
+        ax.set_xlabel("Distance (km)")
+        if k == 0:
+            ax.set_ylabel("Depth (km)")
+        ax.text(0.97, 0.05, f"{t / 1000.0:.0f} kyrs", transform=ax.transAxes,
+                fontsize=12, va="bottom", ha="right")
+    sm = mcm.ScalarMappable(norm=colors.Normalize(*T_CLIM), cmap=cmv)
+    cbar = fig.colorbar(sm, ax=axes, fraction=0.02, pad=0.02)
+    cbar.set_label(r"Temperature ($^\circ$C)")
+
+    os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
+    out = os.path.join(HERE, "figures", f"fig_8_plume_{args.scheme.replace('-', '_')}.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
+    fig.savefig(out[:-4] + ".pdf", bbox_inches="tight")
+    print("wrote", os.path.relpath(out, HERE))
+
+
+if __name__ == "__main__":
+    main()
