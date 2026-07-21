@@ -920,9 +920,6 @@ class EquationSystem:
         several exposed methods, allowing the user to specify a single variable or a
         list of variables more flexibly.
 
-        Variables are filtered according to the ordering in the
-        :attr:`variable_indexer`.
-
         Parameters:
             variables: The input argument for the variable type.
                 The following interpretation rules are applied:
