@@ -1,4 +1,4 @@
-"""Indexers for systems of discretized systems of equations and variables, the values of
+"""Indexers for discretized systems of equations and variables, the values of
 which are arranged in a contiguous array.
 
 Used by `EquationSystem` and nonlinear solvers.
@@ -30,7 +30,7 @@ class EquationOnDomain:
 
 
 class VariableIndexer:
-    """Variable indexer determines the arrangement of DoFs corresponding to multiple
+    """A variable indexer determines the arrangement of DoFs corresponding to multiple
     variables on multiple grids in a contiguous array.
 
     For a data array with a different arrangement (e.g., produced by taking a subset of
@@ -48,8 +48,8 @@ class VariableIndexer:
         self.num_dofs: int = sum(x.size for x in self.variable_dofs.values())
 
     def projection_indices(self, variables: list[pp.ad.Variable]) -> np.ndarray:
-        """Create a projection index array from the vector, system vector, represented
-        by this indexer, to the requested subspace.
+        """Create a projection index array from the system vector represented
+        by this indexer to the requested subspace.
 
         The order of the variables in the projection is defined by the input.
 
@@ -109,18 +109,18 @@ class VariableIndexer:
 
 
 class EquationIndexer:
-    """Equation indexer determines the arrangement of DoFs corresponding to multiple
+    """An equation indexer determines the arrangement of DoFs corresponding to multiple
     equations on multiple grids in a contiguous array.
 
     For a data array with a different arrangement (e.g., produced by taking a subset of
     equations), a new indexer needs to be constructed.
 
-    Implementation note: There is an unfortunate assymetry between this and
+    Implementation note: There is an unfortunate asymmetry between this and
     :class:`VariableIndexer` in the way these classes are initialized and what fields
-    they expose. It is done so for convenient operations in `EquationSystem`. The
+    they expose. This is done to support convenient operations in `EquationSystem`. The
     preferred way to interact with this class outside `EquationSystem` is by using
     :class:`EquationOnDomain` to query DoFs and not
-    `dict[str, dict[pp.GridLike, np.ndarray]]` See also the docstring of
+    `dict[str, dict[pp.GridLike, np.ndarray]]`. See also the docstring of
     :attr:`equation_image_space_composition`.
 
     """
@@ -149,12 +149,12 @@ class EquationIndexer:
             str, dict[pp.GridLike, np.ndarray]
         ] = equation_image_composition
         """A mapping `equation_name` -> `domains` -> `dofs`.
-        
+
         The dofs stored here start from 0 for each equation, i.e. the offset is only
         relative to domains. The DoFs with the "global" offset can be found in
         :attr:`equation_dofs`. This is done to respect the implementation of
-        `EquationSystem`, where both types of offsets are needed. 
+        `EquationSystem`, where both types of offsets are needed.
 
-        Note: It does not include equations with empty-domain equations.
+        Note: It does not include equations with empty domains.
 
         """
