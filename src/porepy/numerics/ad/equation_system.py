@@ -150,7 +150,7 @@ class EquationSystem:
         by this instance.
 
         Variables contained here are ordered chronologically in terms of
-        instantiation. The order in the default :attr:`variable_indexer` is different. 
+        instantiation. The order in the default :attr:`variable_indexer` is different.
 
         A Variable is uniquely identified by its name and domain, stored as attributes
         of the Variable object.
@@ -162,12 +162,12 @@ class EquationSystem:
         self._equation_indexer: pp.ad.EquationIndexer | None = None
         """Indexer defining the ordering of the equations (rows) when multiple equation
         values are packed in a single vector.
-        
+
         """
         self._variable_indexer: pp.ad.VariableIndexer | None = None
         """Indexer defining the ordering of the variables (columns) when multiple
         variable values are packed in a single vector.
-        
+
         """
         # Schur complement related stuff (to be removed in the next PR).
         self._Schur_complement: Optional[tuple] = None
@@ -267,7 +267,7 @@ class EquationSystem:
         and their block indices in the global system, for every equation
         set in this EquationSystem.
 
-        Note: It does not include equations with empty-domain equations.
+        Note: It does not include equations with empty domains.
 
         """
         warn(
@@ -340,7 +340,7 @@ class EquationSystem:
         """Construct a variable indexer for all the variables registered in this
         equation system.
 
-        The ordering of registered variables is determinded by
+        The ordering of registered variables is determined by
         :func:`cluster_dofs_gridwise`.
 
         Returns:
@@ -364,8 +364,8 @@ class EquationSystem:
     ) -> pp.ad.EquationIndexer:
         """Construct an equation indexer for the requested_equations.
 
-        The ordering of equations is determinded by the order they were registered in
-        this equation system. Equations not defined anywhere are excluded.
+        Equation ordering follows registration order. Equations not defined anywhere
+        are excluded.
 
         Parameters:
             requested_equations: Equations to consider in the indexer. Note: ordering is
@@ -376,9 +376,9 @@ class EquationSystem:
             The indexer.
 
         """
-        # We unfortunately have to parse quite a heterogenuous input. Similar parsing is
+        # We unfortunately have to parse quite a heterogeneous input. Similar parsing is
         # done in _parse_equation_names and _parse_equations, but the results are
-        # different enought to prevent unification of the parsing logic. Here, we
+        # different enough to prevent unification of the parsing logic. Here, we
         # construct a lookup set of EquationOnDomain to filter the requested
         # restriction.
         if requested_equations is None:
@@ -1140,8 +1140,8 @@ class EquationSystem:
             f"Equation defined on unknown domains: {unknown_domains}"
         )
 
-        # Storing the ordered domains of definition in the equation object. It may
-        # already contain domains, then makings sure they are equal.
+        # Store the ordered equation domains. The equation may
+        # already contain domains, in which case make sure they are equal.
         ordered_domain_indices = self.mdg.argsort_grids(grids)
         ordered_domains = [grids[i] for i in ordered_domain_indices]
         if equation.domains is None or len(equation.domains) == 0:
@@ -1242,7 +1242,7 @@ class EquationSystem:
     def _parse_equation_names(
         self, requested_equations: Optional[EquationList | EquationRestriction]
     ) -> set[str]:
-        """Parses the user input in a heterogenous format.
+        """Parses the user input in a heterogeneous format.
 
         Raises:
             ValueError: if one of the passed equations is not registered.
@@ -1555,7 +1555,7 @@ class EquationSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        # Standartized input, it is ordered.
+        # Standardized input, it is ordered.
         equations_rows = self._parse_equations(equations=equations)
 
         # Data structures for building matrix and residual vector
@@ -1625,8 +1625,8 @@ class EquationSystem:
         """Generate indexers for the linear system produced by :meth:`assemble`.
 
         Parameters:
-            equations: Equations restriction, same as an argument to :meth:`assemble`.
-            variables: Variables restriction, same as an argument to :meth:`assemble`.
+            equations: Equation restriction passed to :meth:`assemble`.
+            variables: Variable restriction passed to :meth:`assemble`.
 
         Returns:
             `equation_indexer` and `variable_indexer`. If no restriction is requested,
