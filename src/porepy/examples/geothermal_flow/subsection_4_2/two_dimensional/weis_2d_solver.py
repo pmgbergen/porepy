@@ -192,10 +192,12 @@ class Opts:
     lag_props: bool
 
 
-def residual(x, acc_m_o, acc_e_o, dt, grid, table, btop, opts, ug, ud, ut, pr_old):
+def residual(x, acc_m_o, acc_e_o, dt, grid, table, btop, opts, ug, ud, ut, pr_old,
+             pr=None):
     fL, fR = grid.fL, grid.fR
     p = x[0::2]; h = x[1::2]
-    pr = eval_props(table, p, h)
+    if pr is None:
+        pr = eval_props(table, p, h)
     prf = pr_old if opts.lag_props else pr            # coefficients in the FLUXES
 
     acc_m = grid.Vcell * PHI * pr.rho_mix
@@ -298,12 +300,45 @@ def build_jac_plan(grid):
 
 
 def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
+    """Coloured FD Jacobian, bit-identical to the naive 18-sweep version but sampling
+    the property table ONLY at each colour's perturbed cells (~1/9 of the domain,
+    batched into one table call); unperturbed cells reuse the base-state values,
+    which a full re-evaluation would reproduce bitwise anyway."""
+    import dataclasses
+    table = args[4]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
+    p0 = x[0::2].copy(); h0 = x[1::2].copy()
+    pr0 = eval_props(table, p0, h0)
+    fields = [f.name for f in dataclasses.fields(pr0)]
+
+    # one batched table evaluation for ALL colours' perturbed cells
+    cells_c, pp, hh = [], [], []
+    for c in range(18):
+        cols = plan["col_perturb"][c]
+        cells = cols // 2
+        pc = p0[cells].copy(); hc = h0[cells].copy()
+        if c % 2 == 0:
+            pc = pc + eps[cols]
+        else:
+            hc = hc + eps[cols]
+        cells_c.append(cells); pp.append(pc); hh.append(hc)
+    sizes = np.cumsum([0] + [len(c) for c in cells_c])
+    pr_b = eval_props(table, np.concatenate(pp), np.concatenate(hh))
+
     parts = []
     for c in range(18):
         cols = plan["col_perturb"][c]
+        cells = cells_c[c]
+        sl = slice(sizes[c], sizes[c + 1])
         dx = np.zeros(plan["n"]); dx[cols] = eps[cols]
-        dr = residual(x + dx, *args) - r0
+        saved = []
+        for name in fields:                       # patch perturbed cells in place
+            arr = getattr(pr0, name)
+            saved.append(arr[cells].copy())
+            arr[cells] = getattr(pr_b, name)[sl]
+        dr = residual(x + dx, *args, pr=pr0) - r0
+        for name, old_vals in zip(fields, saved):  # restore
+            getattr(pr0, name)[cells] = old_vals
         parts.append(dr[plan["gat_rows"][c]] / eps[plan["gat_owner"][c]])
     A = sp.coo_matrix((np.concatenate(parts), (plan["all_rows"], plan["all_cols"])),
                       shape=(plan["n"], plan["n"])).tocsc()
@@ -335,7 +370,7 @@ def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1e-5, maxit=1
             return x, it, m, True
         A = jacobian_fd(x, r, args, plan)
         try:
-            dx = spla.splu(A).solve(-r)
+            dx = spla.splu(A, permc_spec="MMD_AT_PLUS_A").solve(-r)
         except Exception:
             dx = np.zeros_like(r)
         step = 1.0
