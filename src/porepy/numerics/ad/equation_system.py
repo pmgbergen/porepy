@@ -215,19 +215,10 @@ class EquationSystem:
                 equations.
 
         """
-        # Parsing of input arguments.
-        equations = self._parse_equation_names(equation_names)
+        # Parse and validate input arguments. Will raise if unknown equations or
+        # variables are requested
+        equations = set(self._parse_equation_names(equation_names))
         variables = self._parse_variable_type(variable_names, ordered=True)
-
-        # Check that the requested equations and variables are known to the equation
-        # system.
-        known_equations = set(self._equations.keys())
-        unknown_equations = set(equations).difference(known_equations)
-        if len(unknown_equations) > 0:
-            raise ValueError(f"Unknown variable(s) {unknown_equations}.")
-        unknown_variables = set(variables).difference(self.variables)
-        if len(unknown_variables) > 0:
-            raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
         # Create the new equation system.
         new_equation_system = EquationSystem(self.mdg)
@@ -1238,7 +1229,7 @@ class EquationSystem:
 
     def _parse_equation_names(
         self, requested_equations: Optional[EquationList | EquationRestriction]
-    ) -> set[str]:
+    ) -> list[str]:
         """Parses the user input in a heterogeneous format.
 
         Raises:
@@ -1255,18 +1246,18 @@ class EquationSystem:
 
         """
         if requested_equations is None:
-            return set(self._equations.keys())
+            return list(self._equations.keys())
 
         if isinstance(requested_equations, dict):
             requested_equations = list(requested_equations.keys())  # type: ignore[assignment]
 
         assert isinstance(requested_equations, list)
-        equation_names = set()
+        equation_names: list[str] = list()
         for equation in requested_equations:
             if isinstance(equation, str):
-                equation_names.add(self._validate_equation_name(equation).name)
+                equation_names.append(self._validate_equation_name(equation).name)
             elif isinstance(equation, pp.ad.Operator):
-                equation_names.add(self._validate_equation_name(equation.name).name)
+                equation_names.append(self._validate_equation_name(equation.name).name)
             else:
                 raise ValueError(f"Unsupported input type: {equation}")
         return equation_names
