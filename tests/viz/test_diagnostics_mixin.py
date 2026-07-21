@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+import porepy as pp
 from porepy.applications.test_utils.models import Poromechanics
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 
@@ -122,3 +123,40 @@ def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> N
                 subdomain_data["is_interface_block"]
                 == subdomain_data_new["is_interface_block"]
             )
+
+
+def test_diagnostics_mixin_restricted_system(
+    model: PoromechanicsWithDiagnostics,
+) -> None:
+    """Use matrix indexers when diagnosing a restricted system."""
+    equation_name = next(iter(model.equation_system.equations))
+    variable = model.equation_system.variables[0]
+    equations = [equation_name]
+    variables = [variable]
+
+    matrix, rhs = model.equation_system.assemble(
+        equations=equations, variables=variables
+    )
+    linear_system = pp.solvers.LinearSystem(matrix=matrix, rhs=rhs)
+    equation_indexer, variable_indexer = (
+        model.equation_system.construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+    )
+
+    with pytest.raises(ValueError, match="indexers do not describe"):
+        model.run_diagnostics(linear_system, grouping="dense")
+
+    diagnostics_data = model.run_diagnostics(
+        linear_system,
+        grouping="dense",
+        equation_indexer=equation_indexer,
+        variable_indexer=variable_indexer,
+    )
+
+    assert len(diagnostics_data) == 1
+    block_data = diagnostics_data[0, 0]
+    assert block_data["equation_name"] == equation_name
+    assert block_data["variable_name"] == variable.name
+    assert block_data["block_dofs_row"].tolist() == list(range(matrix.shape[0]))
+    assert block_data["block_dofs_col"].tolist() == list(range(matrix.shape[1]))

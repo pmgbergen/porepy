@@ -51,35 +51,44 @@ class VariableIndexer:
         """Create a projection index array from the vector, system vector, represented
         by this indexer, to the requested subspace.
 
-        The projection preserves the order defined by the this indexer and neglects the
-        order of the input data. In other words, it includes no permutation.
+        The order of the variables in the projection is defined by the input.
 
         Parameters:
-            variables (optional): Input for which the subspace is requested.
+            variables: Input for which the subspace is requested.
 
         Returns:
             an index array of `shape=(M,)`, where `0 <= M <= num_dofs`.
 
         """
-        variables_lookup = set(variables)
         projections = []
-        for variable in self.variable_dofs:
-            if variable not in variables_lookup:
-                continue
-            projections.append(self.variable_dofs[variable])
+        for variable in variables:
+            dofs = self.variable_dofs.get(variable, None)
+            if dofs is None:
+                raise ValueError(
+                    f"Requested variable is not known to this indexer: {variable}."
+                )
+            projections.append(dofs)
         return (
             np.concatenate(projections)
             if len(projections) > 0
             else np.empty(0, dtype=int)
         )
 
-    def construct_restricted_indexer(self, variables: list[pp.ad.Variable]):
+    def construct_restricted_indexer(
+        self, variables: list[pp.ad.Variable]
+    ) -> "VariableIndexer":
         """Constructs a new indexer based on requested subset of variables.
 
         The order of the new indexer is defined by the input.
 
+        Parameters:
+            variables: Input for which the subspace is requested.
+
         Raises:
             ValueError: If the requested variable is not known to this indexer.
+
+        Returns:
+            A new instance of VariableIndexer.
 
         """
         new_variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
@@ -88,10 +97,14 @@ class VariableIndexer:
             dofs = self.variable_dofs.get(variable, None)
             if dofs is None:
                 raise ValueError(
-                    f"Requested variable is not known to this indexer: {variable}"
+                    f"Requested variable is not known to this indexer: {variable}."
                 )
             new_variable_dofs[variable] = np.arange(dofs.size) + offset
             offset += dofs.size
+
+        if len(new_variable_dofs) != len(variables):
+            raise ValueError(f"Requested variables are duplicated: {variable}.")
+
         return VariableIndexer(variable_dofs=new_variable_dofs)
 
 
@@ -141,5 +154,7 @@ class EquationIndexer:
         relative to domains. The DoFs with the "global" offset can be found in
         :attr:`equation_dofs`. This is done to respect the implementation of
         `EquationSystem`, where both types of offsets are needed. 
+
+        Note: It does not include equations with empty-domain equations.
 
         """
