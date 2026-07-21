@@ -3,6 +3,9 @@
 CLI: --scheme {hu, hu-mw}, --consistent (MPFA), --grid-type, --cell-size,
 --q-anomaly [W/m^2, default 5], --z-init (initial uniform NaCl overall
 composition, default 0; also sets the hydrostatic-column and boundary fluid),
+--flux-anomaly/--z-anomaly (condition-3 saline fluid injection through the inlet
+faces: TOTAL kg/s per m of section and its NaCl composition, defaults 0/0 =
+closed bottom; paper values 0.04/0.1 at H_ANOMALY = 1.3638 MJ/kg),
 --snap-years (exact snapshot/export schedule, default 0..50000 every 2500),
 --dt-nominal/--dt-min/--dt-max (dynamic stepping, default 5/0.01/25 yr).
 Output goes to visualization_<tag>/ with tag = case_naming.case_tag(<flags>) --
@@ -65,10 +68,12 @@ DT_MIN = 0.01                # smallest allowed step [yr] (--dt-min)
 DT_MAX = 25.0               # largest allowed step [yr]  (--dt-max)
 
 # --------------------------------------------------------------------------------------- #
-#  Weis et al. (2014) Fig. 8, condition 2 -- boundary & initial conditions.
+#  Weis et al. (2014) Fig. 8, conditions 2 and 3 -- boundary & initial conditions.
 #  Top (surface): open, Dirichlet p = P_TOP and T = 10 degC.  Bottom: closed to fluid
 #  flow, Neumann heat INFLUX of 0.05 W/m^2 (background) + Q_ANOMALY over the central 1 km
-#  (the magmatic anomaly, 5 kW per m thickness).  Sides: closed and adiabatic.
+#  (condition 2); with --flux-anomaly, saline magmatic fluid (FLUX_ANOMALY kg/s per m of
+#  section at composition Z_ANOMALY and enthalpy H_ANOMALY) additionally enters through
+#  the same inlet faces (condition 3).  Sides: closed and adiabatic.
 #  IC: uniform 10 degC, uniform Z_INIT salt, and a brine-column hydrostatic pressure
 #  profile integrated at (Z_INIT, T_TOP).
 # --------------------------------------------------------------------------------------- #
@@ -78,6 +83,10 @@ T_TOP = 283.15              # surface temperature [K] (10 degC)
 Q_BACKGROUND = 0.05         # background crustal heat flux [W/m^2]
 Q_ANOMALY = 5.0             # anomaly heat flux [W/m^2] over the inlet (--q-anomaly)
 Z_INIT = 0.0                # initial (uniform) NaCl overall composition [-] (--z-init)
+FLUX_ANOMALY = 0.0          # injected TOTAL mass rate [kg/s per m of section] over the
+                            # inlet (--flux-anomaly); 0 = closed bottom (condition 2)
+Z_ANOMALY = 0.0             # injected fluid NaCl overall composition [-] (--z-anomaly)
+H_ANOMALY = 1.3638          # injected fluid total enthalpy [MJ/kg] (paper condition 3)
 DOMAIN_HEIGHT = 3000.0      # [m]
 
 
@@ -126,6 +135,67 @@ class BCFigure8(BC):
         z_NaCl = np.full_like(p, Z_INIT)
         self.obl_sampler_ptz.sample_at(np.array((z_NaCl, t, p)).T)
         return self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+
+    # -- condition 3: saline magmatic fluid injection through the inlet faces --------- #
+
+    def _inlet_mass_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """FLUX_ANOMALY (a TOTAL rate [kg/s per m of section]) distributed over the
+        inlet faces proportionally to face length; integrated per face, negative =
+        influx.  All zeros when the injection is off."""
+        vals = np.zeros(boundary_grid.num_cells)
+        if FLUX_ANOMALY != 0.0:
+            inlet, _ = self.get_inlet_outlet_sides(boundary_grid)
+            lengths = boundary_grid.cell_volumes[inlet]
+            vals[inlet] = -FLUX_ANOMALY * lengths / lengths.sum()
+        return vals
+
+    def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        return self._inlet_mass_flux(boundary_grid)
+
+    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """On the CFF branch fluid_flux(bg) IS darcy_flux(bg) (the total mobility sits
+        in the diffuse tensor), so the injected mass must enter through THIS key --
+        every FF boundary weight multiplies it.  The standard branch keeps the zero
+        default (its mass enters via bc_values_fluid_flux/component_flux)."""
+        if self.params.get("fractional_flow", False):
+            return self._inlet_mass_flux(boundary_grid)
+        return super().bc_values_darcy_flux(boundary_grid)
+
+    def bc_values_component_flux(
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Component split of the injected mass (required for EVERY component,
+        including the reference one): NaCl gets Z_ANOMALY, H2O the rest."""
+        frac = (Z_ANOMALY if component == self.fluid.components[1]
+                else 1.0 - Z_ANOMALY)
+        return frac * self._inlet_mass_flux(boundary_grid)
+
+    def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Advected energy influx [MW]: injected mass times H_ANOMALY."""
+        return H_ANOMALY * self._inlet_mass_flux(boundary_grid)
+
+    def bc_values_fractional_flow_component(
+            self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """FF-template advection factor on the boundary, PER COMPONENT (the reference
+        component's weight is summed into the total boundary flux): the entering
+        fluid's mass fraction -- Z_INIT background (top recharge), Z_ANOMALY on the
+        inlet faces; the H2O weight is the complement."""
+        is_salt = component == self.fluid.components[1]
+        vals = np.full(bg.num_cells, Z_INIT if is_salt else 1.0 - Z_INIT)
+        if FLUX_ANOMALY != 0.0:
+            inlet, _ = self.get_inlet_outlet_sides(bg)
+            vals[inlet] = Z_ANOMALY if is_salt else 1.0 - Z_ANOMALY
+        return vals
+
+    def bc_values_fractional_flow_energy(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """FF-template energy advection factor: H_ANOMALY on the inlet faces, the
+        (p, T, Z_INIT) boundary enthalpy elsewhere."""
+        h = self.bc_values_enthalpy(bg)
+        if FLUX_ANOMALY != 0.0:
+            inlet, _ = self.get_inlet_outlet_sides(bg)
+            h[inlet] = H_ANOMALY
+        return h
 
 
 class ICFigure8(IC):
@@ -234,6 +304,13 @@ _ap.add_argument("--q-anomaly", type=float, default=Q_ANOMALY, metavar="W/M2",
 _ap.add_argument("--z-init", type=float, default=Z_INIT, metavar="Z",
                  help="initial (uniform) NaCl overall composition [-]; default "
                       f"{Z_INIT} (table range 0..0.2)")
+_ap.add_argument("--flux-anomaly", type=float, default=FLUX_ANOMALY, metavar="KG/S",
+                 help="TOTAL mass rate of saline magmatic fluid injected through the "
+                      f"inlet [kg/s per m of section]; default {FLUX_ANOMALY} (closed "
+                      "bottom); the paper's condition-3 value is 0.04")
+_ap.add_argument("--z-anomaly", type=float, default=Z_ANOMALY, metavar="Z",
+                 help="injected fluid NaCl overall composition [-]; default "
+                      f"{Z_ANOMALY} (table range 0..0.2; paper: 0.1)")
 _ap.add_argument("--snap-years", type=float, nargs="+",
                  default=list(_DEFAULT_SNAP_YEARS), metavar="YR",
                  help="schedule of exact snapshot/export instants [years]; the last one "
@@ -248,6 +325,11 @@ _args = _ap.parse_args()
 if not 0.0 <= _args.z_init <= 0.2:
     raise SystemExit(f"--z-init {_args.z_init} outside the opensowat table "
                      "range z in [0, 0.2]")
+if not 0.0 <= _args.z_anomaly <= 0.2:
+    raise SystemExit(f"--z-anomaly {_args.z_anomaly} outside the opensowat table "
+                     "range z in [0, 0.2]")
+if _args.flux_anomaly < 0.0:
+    raise SystemExit("--flux-anomaly must be >= 0 (an injection rate)")
 if _args.snap_years[0] != 0.0 or any(
         b <= a for a, b in zip(_args.snap_years, _args.snap_years[1:])):
     raise SystemExit(f"--snap-years {_args.snap_years} must start at 0 and be "
@@ -256,6 +338,8 @@ if not 0.0 < _args.dt_min <= _args.dt_nominal <= _args.dt_max:
     raise SystemExit("time steps must satisfy 0 < --dt-min <= --dt-nominal <= --dt-max")
 Q_ANOMALY = _args.q_anomaly
 Z_INIT = _args.z_init
+FLUX_ANOMALY = _args.flux_anomaly
+Z_ANOMALY = _args.z_anomaly
 
 # Dynamic time stepping: dt grows/shrinks with Newton effort inside (3, 8) iterations,
 # recomputes at 0.3x on failure, and the schedule forces exact landing on every
@@ -282,7 +366,9 @@ params = {
                                     _args.grid_type, _args.cell_size,
                                     _args.q_anomaly, _args.z_init,
                                     _args.dt_nominal, _args.dt_min, _args.dt_max,
-                                    _args.snap_years[-1])),
+                                    _args.snap_years[-1],
+                                    flux_anomaly=_args.flux_anomaly,
+                                    z_anomaly=_args.z_anomaly)),
     "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
