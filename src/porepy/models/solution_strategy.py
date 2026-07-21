@@ -42,12 +42,14 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Print deprecation warning for an old parameter.
         if "linear_solver" in params:
-            logger.warning(
+            warn(
                 "Linear solver was moved outside the PorePy model. If you previously "
                 "passed 'linear_solver' backend string (e.g. 'pypardiso') in model "
                 "params, replace it with "
                 "pp.solvers.NewtonSolver(linear_solver=pp.LinearSolverDirect(backend="
-                "'pypardiso')). The current passed value is ignored."
+                "'pypardiso')). The current passed value is ignored.",
+                category=DeprecationWarning,
+                stacklevel=2,
             )
 
         # Set default parameters, these will be overwritten by any parameters passed.
@@ -716,9 +718,11 @@ class SolutionStrategy(pp.PorePyModel):
             The assembled matrix and right-hand side vector.
 
         """
-        logging.warning(
+        warn(
             "The method model.assemble_linear_system is deprecated and will be removed."
-            " Use model.equation_system.assemble instead."
+            " Use model.equation_system.assemble instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
         )
         t_0 = time.time()
 
