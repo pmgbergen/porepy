@@ -5,9 +5,9 @@ using the AD framework.
 
 from __future__ import annotations
 
-from warnings import warn
 from collections import defaultdict
 from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -273,7 +273,9 @@ class EquationSystem:
         warn(
             "equation_system.equation_image_space_composition is deprecated and will be"
             " removed. See equation_system.equation_indexer, or "
-            "equation_system.construct_assembled_matrix_indexers."
+            "equation_system.construct_assembled_matrix_indexers.",
+            category=DeprecationWarning,
+            stacklevel=2,
         )
         return self.equation_indexer.equation_image_space_composition
 
@@ -771,7 +773,7 @@ class EquationSystem:
 
         # If there are matching blocks, concatenate and return.
         # Else return an empty vector.
-        return np.concatenate(values) if values else np.empty(0)
+        return np.concatenate(values) if values else np.empty(0, dtype=float)
 
     def set_variable_values(
         self,
@@ -931,6 +933,11 @@ class EquationSystem:
             ordered: If False (default), respects the input ordering. Otherwise, orders
                 the returned variables according to the :attr:`variable_indexer`.
 
+        Raises:
+            ValueError: if passed variables are duplicated.
+            ValueError: if any of the passed variables is not registered in this
+                equation system.
+
         Returns:
             List of Variables.
 
@@ -962,11 +969,15 @@ class EquationSystem:
                     f"Variable {variable} is not registered in this equation system."
                 )
 
+        # Validate that variables are unique.
+        parsed_variables_lookup = set(parsed_variables)
+        if len(parsed_variables) != len(parsed_variables_lookup):
+            raise ValueError(f"Passed variables are duplicated: {parsed_variables}.")
+
         if not ordered:
             return parsed_variables
 
         # Order variables according to the indexer.
-        parsed_variables_lookup = set(parsed_variables)
         parsed_variables_ordered: list[Variable] = []
         for variable in self.variable_indexer.variable_dofs:
             if variable in parsed_variables_lookup:
@@ -1378,7 +1389,9 @@ class EquationSystem:
                 domains = [domains[i] for i in domain_indices]
                 rows_list = [equation_dofs[domain] for domain in domains]
                 equation_rows[eq] = (
-                    np.concatenate(rows_list) if len(rows_list) else np.empty(0)
+                    np.concatenate(rows_list)
+                    if len(rows_list)
+                    else np.empty(0, dtype=np.int64)
                 )
 
         # Filter equations defined on empty domains.
@@ -1582,7 +1595,7 @@ class EquationSystem:
         else:
             # Special case if the restriction produced an empty system.
             A = sps.csr_matrix((0, self.num_dofs()))
-            rhs_cat = np.empty(0)
+            rhs_cat = np.empty(0, dtype=float)
 
         if not evaluate_jacobian:
             return -rhs_cat
@@ -1594,10 +1607,10 @@ class EquationSystem:
         if variables is not None:
             variable_indexer = self.variable_indexer
             # Respect the ordering of the input list of variables.
-            variables_ = self._parse_variable_type(variables=variables, ordered=False)
+            variables_ = self._parse_variable_type(variables=variables, ordered=True)
             col_proj = [variable_indexer.variable_dofs[var] for var in variables_]
             column_projection = (
-                np.unique(np.concatenate(col_proj))
+                np.concatenate(col_proj)
                 if len(col_proj) > 0
                 else np.empty(0, dtype=int)
             )
