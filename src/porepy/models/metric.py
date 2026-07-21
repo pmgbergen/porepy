@@ -5,6 +5,7 @@ From plain Euclidean norms to model-specific L2 norms of states and equations.
 """
 
 from functools import partial
+from typing import cast
 
 import numpy as np
 
@@ -89,8 +90,9 @@ class EquationBasedEuclideanMetric(EuclideanMetric):
 
     """
 
-    def __init__(self, model) -> None:
+    def __init__(self, model, equation_indexer: pp.ad.EquationIndexer) -> None:
         self.model = model
+        self.equation_indexer = equation_indexer
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
         """Compute the Euclidean norm of each separate equation.
@@ -103,8 +105,13 @@ class EquationBasedEuclideanMetric(EuclideanMetric):
 
         """
         norms = {}
-        equation_blocks = self.model.equation_system.assembled_equation_indices
-        for name, indices in equation_blocks.items():
+        equation_image_space_composition = (
+            self.equation_indexer.equation_image_space_composition
+        )
+        offset = 0
+        for name, blocks in equation_image_space_composition.items():
+            indices = np.concatenate(list(blocks.values())) + offset
+            offset += len(indices)
             norms[name] = self._euclidean_norm(values[indices])
         return norms
 
@@ -192,6 +199,10 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
 
     """
 
+    def __init__(self, model, equation_indexer: pp.ad.EquationIndexer) -> None:
+        super().__init__(model)
+        self.equation_indexer = equation_indexer
+
     def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate equation.
 
@@ -202,33 +213,24 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each equation block
 
         """
-        norms = {name: 0.0 for name in self.model.equation_system.equations}
-
-        equation_blocks = {}
-        for name in self.model.equation_system.equations:
-            if name not in self.model.equation_system.assembled_equation_indices:
+        equation_system = self.model.equation_system
+        equation_image_space_composition = (
+            self.equation_indexer.equation_image_space_composition
+        )
+        norms = {name: 0.0 for name in equation_image_space_composition}
+        offset = 0
+        for name, blocks in equation_image_space_composition.items():
+            indices = np.concatenate(list(blocks.values())) + offset
+            offset += len(indices)
+            if indices.size == 0:
                 continue
-            indices = self.model.equation_system.assembled_equation_indices[name]
-            if len(indices) == 0:
-                continue
-            equation_blocks[name] = (
-                indices,
-                list(
-                    self.model.equation_system.equation_image_space_composition[
-                        name
-                    ].keys()
-                ),
-                self.model.equation_system.equation_image_size_info[name]["cells"],
+            domains = cast(pp.GridLikeSequence, list(blocks.keys()))
+            equation_dim = equation_system.equation_image_size_info[name]["cells"]
+            equation_values = values[indices].reshape((equation_dim, -1), order="F")
+            cell_weights = np.hstack([domain.cell_volumes for domain in domains])
+            intensive_equation_values = pp.ad.DenseArray(
+                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
             )
-        for name, (indices, sd, eq_dim) in equation_blocks.items():
-            if len(sd) == 0:
-                norms[name] = 0.0
-            else:
-                equation_values = values[indices].reshape((eq_dim, -1), order="F")
-                cell_weights = np.hstack([_sd.cell_volumes for _sd in sd])
-                intensive_equation_values = pp.ad.DenseArray(
-                    np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
-                )
-                norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, sd)
+            norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, domains)
 
         return norms

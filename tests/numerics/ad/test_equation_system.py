@@ -1050,6 +1050,18 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     )
 
 
+def test_update_equation_on_empty_domain(model: EquationSystemMockModel) -> None:
+    """Updating an empty-domain equation should reuse its empty domain by default."""
+    equation_system = model.equation_system
+    model.add_equation_on_empty_domain()
+    old_equation = equation_system.equations["empty_equation"]
+    new_equation = old_equation * old_equation
+
+    equation_system.update_equation("empty_equation", new_equation)
+
+    assert equation_system.equations["empty_equation"] is new_equation
+
+
 def test_parse_variable_like(model: EquationSystemMockModel):
     """Test the private function _parse_variable_type().
 
@@ -1125,6 +1137,19 @@ def test_parse_variable_like(model: EquationSystemMockModel):
     assert len(received_variables_9) == len(model.sd_variable.sub_vars) + len(
         model.sd_top_variable.sub_vars
     )
+
+
+@pytest.mark.parametrize("ordered", [True, False])
+def test_parse_variable_type_rejects_unknown_variable(
+    model: EquationSystemMockModel, ordered: bool
+) -> None:
+    """An unregistered Variable must not be silently discarded in parsing variables."""
+    unknown_variable = pp.ad.Variable(
+        "unknown", {"cells": 1}, model.mdg.subdomains()[0]
+    )
+
+    with pytest.raises(ValueError, match="not registered"):
+        model.equation_system._parse_variable_type([unknown_variable], ordered=ordered)
 
 
 def test_parse_single_equation(model: EquationSystemMockModel):
@@ -1241,6 +1266,24 @@ def test_parse_equations(model: EquationSystemMockModel):
         equation_system.equations["empty_equation"]
         not in equation_system._parse_equations()
     )
+
+
+def test_invalid_equation_domain_restriction(model: EquationSystemMockModel) -> None:
+    """Equation APIs consistently reject invalid equation restrictions."""
+    equation_system = model.equation_system
+    invalid_domain = next(sd for sd in model.subdomains if sd is not model.sd_top)
+    restrictions = [
+        {"unknown_equation": [model.sd_top]},
+        {model.eq_single_subdomain.name: [invalid_domain]},
+    ]
+
+    for restriction in restrictions:
+        with pytest.raises(ValueError):
+            equation_system.construct_equation_indexer(restriction)
+        with pytest.raises(ValueError):
+            equation_system.construct_assembled_matrix_indexers(equations=restriction)
+        with pytest.raises(ValueError):
+            equation_system.assemble(equations=restriction)
 
 
 @pytest.mark.parametrize(
