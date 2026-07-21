@@ -160,7 +160,7 @@ class EquationSystem:
 
         """
 
-        self._equation_indexer: pp.ad.EquationIndexer | None = None
+        self._equation_indexer: pp.ad.EquationSystemIndexer | None = None
         """Indexer defining the ordering of the equations (rows) when multiple equation
         values are packed in a single vector.
 
@@ -294,7 +294,7 @@ class EquationSystem:
         return self._variable_indexer
 
     @property
-    def equation_indexer(self) -> pp.ad.EquationIndexer:
+    def equation_indexer(self) -> pp.ad.EquationSystemIndexer:
         """Indexer defining the ordering of the equations (rows) when multiple
         equation values are packed in a single vector.
 
@@ -370,15 +370,18 @@ class EquationSystem:
                     )
                 else:
                     raise ValueError(f"Unknown domain type: {domain}")
+
                 dofs = np.arange(dofs_per_grid) + offset
                 dofs_on_domains[domain] = dofs
-                offset += len(dofs)
+                offset += dofs_per_grid
 
             # Filter out equations not defined anywhere.
             if len(dofs_on_domains) > 0:
                 equation_dofs[name] = dofs_on_domains
 
-        return pp.ad.EquationIndexer(equation_image_composition=equation_dofs)
+        return pp.ad.EquationSystemIndexer(
+            equation_image_space_composition=equation_dofs
+        )
 
     ### Variable management ------------------------------------------------------------
 
@@ -1473,10 +1476,9 @@ class EquationSystem:
         # subspace.
         # Multiply rhs by -1 to move to the rhs.
         if variables is not None:
-            variable_indexer = self.variable_indexer
             # Respect the ordering of the input list of variables.
             variables_ = self._parse_variable_type(variables=variables, ordered=True)
-            col_proj = [variable_indexer.variable_dofs[var] for var in variables_]
+            col_proj = [self.variable_indexer.variable_dofs[var] for var in variables_]
             column_projection = (
                 np.concatenate(col_proj)
                 if len(col_proj) > 0
@@ -1495,7 +1497,7 @@ class EquationSystem:
         self,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
-    ) -> tuple[pp.ad.EquationIndexer, pp.ad.VariableIndexer]:
+    ) -> tuple[pp.ad.EquationSystemIndexer, pp.ad.VariableIndexer]:
         """Generate indexers for the linear system produced by :meth:`assemble`.
 
         Parameters:

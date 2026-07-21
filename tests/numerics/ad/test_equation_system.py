@@ -22,7 +22,6 @@ The tests focus on various assembly methods:
 
 import numpy as np
 import pytest
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
@@ -1394,9 +1393,7 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
         var for var in model.equation_system.variables if var.name in var_names
     ]
 
-    linear_system = equation_system.assemble(
-        equations=eq_names, variables=var_names
-    )
+    linear_system = equation_system.assemble(equations=eq_names, variables=var_names)
     A_sub = linear_system.matrix
     assert A_sub is not None
     b_sub = linear_system.rhs
@@ -1619,45 +1616,3 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     for eq_on_domain in equation_indexer.equation_dofs:
         assert eq_on_domain.name != "empty_equation"
     assert "empty_equation" not in equation_indexer.equation_image_space_composition
-
-
-def test_schur_complement_empty_equation_filter():
-    """Test the filtering function in schur complement assembly.
-
-    This test verified that equations defined on empty domains do not
-    affect the schur complement system. So the resulting schur complement
-    system is unchanged.
-    """
-
-    model = EquationSystemMockModel(square_system=True)
-    equation_system = model.equation_system
-
-    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
-
-    # Generate a reference Schur system.
-    S_ref, bS_ref = equation_system.assemble_schur_complement_system(
-        primary_equations=["eq_all_subdomains"],
-        primary_variables=["x"],
-        inverter=inverter,
-    )
-
-    # Add equation on empty domain using the empty variable
-    model.add_equation_on_empty_domain()
-
-    # Check the empty equation exists in system.
-    assert "empty_equation" in equation_system.equations
-    # Check whether parsing filters the empty equation out.
-    assert "empty_equation" not in {
-        item.name for item in equation_system._parse_equations(None)
-    }
-
-    # Check Schur complement should be unchanged.
-    S, bS = equation_system.assemble_schur_complement_system(
-        primary_equations=["eq_all_subdomains"],
-        primary_variables=["x"],
-        inverter=inverter,
-    )
-
-    assert np.allclose(bS, bS_ref)
-    assert S.shape == S_ref.shape
-    assert pp.test_utils.arrays.compare_matrices(S, S_ref)

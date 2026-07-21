@@ -7,6 +7,7 @@ import porepy as pp
 from porepy.numerics.ad.indexers import (
     EquationIndexer,
     EquationOnDomain,
+    EquationSystemIndexer,
     VariableIndexer,
 )
 
@@ -100,29 +101,31 @@ def test_variable_indexer_duplicate_restriction(
         indexer.construct_restricted_indexer([x, x])
 
 
-def test_equation_indexer_offsets(
+def test_equation_system_indexer_offsets(
     domains: tuple[pp.Grid, pp.Grid, pp.Grid],
 ) -> None:
-    """Equation indexers expose local and globally offset equation indices."""
+    """Equation-system indexers expose local and global equation indices."""
     first, second, third = domains
     composition = {
         "equation_a": {
-            first: np.array([0, 1]),
-            second: np.array([2, 3, 4]),
+            first: np.array([4, 1]),
+            second: np.array([7, 3, 9]),
         },
         "equation_b": {
-            second: np.array([0]),
-            third: np.array([1, 2]),
+            second: np.array([5]),
+            third: np.array([8, 2]),
         },
     }
 
-    indexer = EquationIndexer(equation_image_composition=composition)
+    indexer = EquationSystemIndexer(equation_image_space_composition=composition)
+
+    assert isinstance(indexer, EquationIndexer)
 
     np.testing.assert_array_equal(
-        indexer.equation_image_space_composition["equation_a"][first], [0, 1]
+        indexer.equation_image_space_composition["equation_a"][first], [4, 1]
     )
     np.testing.assert_array_equal(
-        indexer.equation_image_space_composition["equation_b"][third], [1, 2]
+        indexer.equation_image_space_composition["equation_b"][third], [8, 2]
     )
     expected_keys = [
         EquationOnDomain("equation_a", first),
@@ -184,7 +187,8 @@ def test_empty_indexers() -> None:
     """Indexers support empty systems and restrictions."""
     variable_indexer = VariableIndexer(variable_dofs={})
     restricted_indexer = variable_indexer.construct_restricted_indexer([])
-    equation_indexer = EquationIndexer(equation_image_composition={})
+    equation_indexer = EquationIndexer(equation_dofs={})
+    equation_system_indexer = EquationSystemIndexer(equation_image_space_composition={})
 
     assert variable_indexer.num_dofs == 0
     assert variable_indexer.variable_dofs == {}
@@ -192,4 +196,5 @@ def test_empty_indexers() -> None:
     assert restricted_indexer.num_dofs == 0
     assert restricted_indexer.variable_dofs == {}
     assert equation_indexer.equation_dofs == {}
-    assert equation_indexer.equation_image_space_composition == {}
+    assert equation_system_indexer.equation_dofs == {}
+    assert equation_system_indexer.equation_image_space_composition == {}
