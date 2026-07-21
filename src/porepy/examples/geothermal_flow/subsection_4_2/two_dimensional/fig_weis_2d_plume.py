@@ -2,13 +2,14 @@
 """Weis et al. (2014) Fig. 8 (A-C) reproduction, panels placed HORIZONTALLY.
 
 Three snapshots (5 / 15 / 50 kyr) of the heat-flux plume, rendered with pyvista from the
-``visualization_<scheme>/`` VTUs: temperature field (vlag colormap, the subsection_4_1
+``visualization_<tag>/`` VTUs: enthalpy field (vlag colormap, the subsection_4_1
 convention) with the paper's temperature isotherms (100..400 degC, red) and fluid-pressure
 contours (5 / 15 / 25 MPa, blue), on the central 4 km of the 9 km x 3 km domain
 (depth 0 at the top).
 
-Usage: python fig_weis_2d_plume.py [--scheme hu] [--times 5000 15000 50000]
-       ->  figures/fig_8_plume_<scheme>.png
+Usage: python fig_weis_2d_plume.py [--scheme hu] [--consistent] [--grid-type ...]
+       [--cell-size M] [--q-anomaly W/M2] [--z-anomaly Z] [--times 5000 15000 50000]
+       ->  figures/fig_8_plume_<tag>.png   (tag = case_naming.case_tag of the run flags)
 """
 from __future__ import annotations
 
@@ -17,8 +18,13 @@ import os
 import re
 import xml.etree.ElementTree as ET
 
+import sys
+
 import numpy as np
 import pyvista as pv
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from case_naming import case_tag                     # noqa: E402
 
 try:
     import seaborn as sns
@@ -88,11 +94,34 @@ def main():
 
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scheme", default="hu")
+    ap.add_argument("--consistent", action="store_true",
+                    help="figure for the MPFA (consistent) run")
+    ap.add_argument("--grid-type", default=None, choices=["cartesian", "simplex"])
+    ap.add_argument("--cell-size", type=float, default=None, metavar="M")
+    ap.add_argument("--q-anomaly", type=float, default=None, metavar="W/M2",
+                    help="figure for a non-default anomaly heat flux run")
+    ap.add_argument("--z-init", type=float, default=None, metavar="Z",
+                    help="figure for a non-default initial NaCl composition run")
+    ap.add_argument("--dt-nominal", type=float, default=None, metavar="YR",
+                    help="figure for a non-default nominal-dt run")
+    ap.add_argument("--dt-min", type=float, default=None, metavar="YR")
+    ap.add_argument("--dt-max", type=float, default=None, metavar="YR")
+    ap.add_argument("--tf", type=float, default=None, metavar="YR",
+                    help="figure for a run with a non-default final time [years]")
     ap.add_argument("--times", type=float, nargs="+", default=[5000.0, 15000.0, 50000.0],
                     metavar="YEARS", help="snapshot instants [years] (default 5/15/50 kyr)")
     args = ap.parse_args()
 
-    folder = os.path.join(HERE, f"visualization_{args.scheme.replace('-', '_')}")
+    tag = case_tag(args.scheme, args.consistent, args.grid_type, args.cell_size,
+                   args.q_anomaly, args.z_init, args.dt_nominal, args.dt_min,
+                   args.dt_max, args.tf)
+    folder = os.path.join(HERE, f"visualization_{tag}")
+    if not os.path.isdir(folder):
+        have = sorted(d for d in os.listdir(HERE) if d.startswith("visualization_"))
+        raise SystemExit(
+            f"no data for this parametrization ({os.path.basename(folder)}); run "
+            "`python porepy_2d_solver.py` with the same flags first.\n"
+            f"available: {', '.join(have) or 'none'}")
     snaps = _snapshots(folder)
     cmv = _cmap("vlag")
 
@@ -132,7 +161,7 @@ def main():
     cbar.set_label(r"Enthalpy (MJ kg$^{-1}$)")
 
     os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
-    out = os.path.join(HERE, "figures", f"fig_8_plume_{args.scheme.replace('-', '_')}.png")
+    out = os.path.join(HERE, "figures", f"fig_8_plume_{tag}.png")
     fig.savefig(out, dpi=300, bbox_inches="tight")
     fig.savefig(out[:-4] + ".pdf", bbox_inches="tight")
     print("wrote", os.path.relpath(out, HERE))

@@ -1,19 +1,22 @@
-"""
-Geothermal flow simulation with H2O and low NaCl content (Figure 8).
+"""Weis et al. (2014) Fig. 8 heat-flux plume, condition 2 (9 km x 3 km).
 
-This script includes a backtracking line search algorithm to improve Newton
-convergence. The line search can be enabled/disabled via the 'use_line_search'
-parameter in the params dictionary.
-
-Line search parameters (in DriesnerModelConfiguration.backtracking_line_search):
-- alpha_init: Initial step length (default: 1.0)
-- rho: Step reduction factor (default: 0.5)
-- c: Armijo parameter (default: 1e-4)
-- max_iterations: Maximum backtracking steps (default: 10)
+CLI: --scheme {hu, hu-mw}, --consistent (MPFA), --grid-type, --cell-size,
+--q-anomaly [W/m^2, default 5], --z-init (initial uniform NaCl overall
+composition, default 0; also sets the hydrostatic-column and boundary fluid),
+--snap-years (exact snapshot/export schedule, default 0..50000 every 2500),
+--dt-nominal/--dt-min/--dt-max (dynamic stepping, default 5/0.01/25 yr).
+Output goes to visualization_<tag>/ with tag = case_naming.case_tag(<flags>) --
+non-default components only -- so distinct parametrizations never overwrite each
+other; fig_weis_2d_plume.py takes the same flags to find the folder and names
+its figure fig_8_plume_<tag>.
 """
 from __future__ import annotations
 
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from case_naming import case_tag                     # noqa: E402
 
 import time
 from typing import cast, Sequence
@@ -49,58 +52,154 @@ from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampl
 
 # Main directives
 case_name = "condition_1"
-final_times = {
-    "condition_1": [18250000.0],  # final time [50000 years]
-}
 
 day_to_second = 86400
+year_to_second = 365.0 * day_to_second
 to_Mega = 1.0e-6
+
+# Dynamic time stepping (all CLI-overridable).  The schedule pins EXACT landing -- and
+# VTU export -- at the Fig. 8 snapshot instants; dt adapts freely in between.
+_DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 2500))  # 0..50 kyr / 2.5 kyr
+DT_NOMINAL = 5.0           # nominal (initial) step [yr] (--dt-nominal)
+DT_MIN = 0.01                # smallest allowed step [yr] (--dt-min)
+DT_MAX = 25.0               # largest allowed step [yr]  (--dt-max)
+
+# --------------------------------------------------------------------------------------- #
+#  Weis et al. (2014) Fig. 8, condition 2 -- boundary & initial conditions.
+#  Top (surface): open, Dirichlet p = P_TOP and T = 10 degC.  Bottom: closed to fluid
+#  flow, Neumann heat INFLUX of 0.05 W/m^2 (background) + Q_ANOMALY over the central 1 km
+#  (the magmatic anomaly, 5 kW per m thickness).  Sides: closed and adiabatic.
+#  IC: uniform 10 degC, uniform Z_INIT salt, and a brine-column hydrostatic pressure
+#  profile integrated at (Z_INIT, T_TOP).
+# --------------------------------------------------------------------------------------- #
+P_TOP = 1.0                 # surface pressure [MPa]; paper: atmospheric (0.1) -- the EOS
+                            # table floor is 0.5 MPa, so the surface is idealized at 1 MPa
+T_TOP = 283.15              # surface temperature [K] (10 degC)
+Q_BACKGROUND = 0.05         # background crustal heat flux [W/m^2]
+Q_ANOMALY = 5.0             # anomaly heat flux [W/m^2] over the inlet (--q-anomaly)
+Z_INIT = 0.0                # initial (uniform) NaCl overall composition [-] (--z-init)
+DOMAIN_HEIGHT = 3000.0      # [m]
+
+
+class BCFigure8(BC):
+    """Condition-2 boundary conditions: Dirichlet (p, T) on the TOP only; every other
+    face is Neumann -- zero fluid flux, prescribed heat influx along the bottom."""
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, top = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, top, "dir")
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, top = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, top, "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        return np.full(boundary_grid.num_cells, P_TOP)
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        return np.full(boundary_grid.num_cells, T_TOP)
+
+    def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Neumann heat flux: porepy expects the INTEGRATED value per face, i.e. the
+        flux density times the face area (a length in 2D, boundary_grid.cell_volumes);
+        negative = influx (values follow the outward normal).  Background flux on the
+        whole bottom, the anomaly flux on the geometry's inlet faces (the central
+        1 km); the lateral sides stay adiabatic (zero)."""
+        sides = self.domain_boundary_sides(boundary_grid)
+        inlet, _ = self.get_inlet_outlet_sides(boundary_grid)
+        q = np.zeros(boundary_grid.num_cells)                       # [MW/m^2]
+        q[sides.south] = Q_BACKGROUND * to_Mega
+        q[inlet] = Q_ANOMALY * to_Mega
+        return -q * boundary_grid.cell_volumes
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """Uniform background composition Z_INIT on every boundary face (only takes
+        effect where fluid actually flows in)."""
+        return np.full(boundary_grid.num_cells, Z_INIT)
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary enthalpy from (p, T, Z_INIT) -- the base class hard-codes z = 0."""
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = np.full_like(p, Z_INIT)
+        self.obl_sampler_ptz.sample_at(np.array((z_NaCl, t, p)).T)
+        return self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+
+
+class ICFigure8(IC):
+    """Condition-2 initial conditions: uniform 10 degC, uniform Z_INIT salt, and the
+    hydrostatic pressure from integrating dp/d(depth) = rho(p, T_TOP, Z_INIT) g with
+    the ptz sampler's density."""
+
+    def _hydrostatic_profile(self) -> tuple[np.ndarray, np.ndarray]:
+        """(depth, p) of the 10-degC, Z_INIT-brine column, p(0) = P_TOP.  Fixed-point
+        on the trapezoid rule (density depends weakly on p, converges in a few sweeps);
+        g = pp.GRAVITY_ACCELERATION, the same constant the model's gravity_field uses."""
+        if not hasattr(self, "_hydro_profile"):
+            depth = np.linspace(0.0, DOMAIN_HEIGHT, 601)
+            g = pp.GRAVITY_ACCELERATION
+            p = P_TOP + 1000.0 * g * depth * to_Mega
+            for _ in range(10):
+                pts = np.array((np.full_like(p, Z_INIT), np.full_like(p, T_TOP), p)).T
+                self.obl_sampler_ptz.sample_at(pts)
+                rho = np.asarray(
+                    self.obl_sampler_ptz.sampled_could.point_data["Rho"], dtype=float
+                )
+                dp = 0.5 * (rho[:-1] + rho[1:]) * g * np.diff(depth) * to_Mega
+                p_new = P_TOP + np.concatenate(([0.0], np.cumsum(dp)))
+                done = np.max(np.abs(p_new - p)) < 1.0e-12
+                p = p_new
+                if done:
+                    break
+            self._hydro_profile = (depth, p)
+        return self._hydro_profile
+
+    def _sampled_at_init(self, sd: pp.Grid):
+        """Sampler point-data at the initial state (Z_INIT, T, p) of one subdomain --
+        the base class hard-codes z = 0 in every ic_values_* sampler call."""
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = np.full_like(p, Z_INIT)
+        self.obl_sampler_ptz.sample_at(np.array((z_NaCl, t, p)).T)
+        return self.obl_sampler_ptz.sampled_could.point_data
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        depth_axis, p_axis = self._hydrostatic_profile()
+        depth = DOMAIN_HEIGHT - sd.cell_centers[1]
+        return np.interp(depth, depth_axis, p_axis)
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        return np.full(sd.num_cells, T_TOP)
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        return np.full(sd.num_cells, Z_INIT)
+
+    def ic_values_partial_fractions(self, sd: pp.Grid) -> np.ndarray:
+        data = self._sampled_at_init(sd)
+        return np.clip(data["Xl"], 0, 1.0), np.clip(data["Xv"], 0, 1.0)
+
+    def ic_values_gas_saturation(self, sd: pp.Grid) -> np.ndarray:
+        return np.clip(self._sampled_at_init(sd)["S_v"], 0, 1.0)
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        return self._sampled_at_init(sd)["H"] * 1.0e-3
+
 # Configuration dictionary mapping cases to their specific classes
 simulation_cases = {
     "condition_1": {
-        "tf": final_times[case_name][0] * day_to_second,  # final time [years]
-        "dt": 12.5 *  365.0 * day_to_second,  # final time [1 years]
-        "bc": BC,
-        "ic": IC,
+        "bc": BCFigure8,
+        "ic": ICFigure8,
         "geometry": ModelGeometryFigure8,
     }
 }
 
-tf = cast(float, simulation_cases[case_name]["tf"])
-dt = cast(float, simulation_cases[case_name]["dt"])
 BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
 InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, simulation_cases[case_name]["geometry"])
-
-# Export configuration: number of time steps between consecutive VTK/PVD exports.
-export_every_n_steps = 8
-
-# Build times_to_export as multiples of dt. Include t=0 and final time tf.
-times = list(np.arange(0.0, tf, dt * export_every_n_steps))
-times.append(tf)
-times_to_export = times
-# now times_to_export can be overridden later by params if desired
-
-time_manager = pp.TimeManager(
-    schedule=[0.0, tf],
-    dt_init=dt,
-    constant_dt=True,
-    iter_max=50,
-    print_info=True,
-)
-
-# time_manager = pp.TimeManager(
-#     schedule=[0.0, tf],
-#     dt_init=dt,
-#     constant_dt=False,
-#     dt_min_max=((1.0/365.0) * dt, 1.0 * dt),
-#     iter_relax_factors=(0.5, 1.5),
-#     iter_optimal_range=(3, 8),
-#     recomp_factor=0.3,
-#     print_info=True,
-# )
-
-
 
 solid_constants = pp.SolidConstants(
     permeability=1e-15,
@@ -119,7 +218,8 @@ _SCHEME_CONFIG = {
 import argparse
 _ap = argparse.ArgumentParser(
     description="Weis et al. (2014) Fig. 8(A-C) heat-flux plume (9 km x 3 km, "
-                "5 W/m^2 over the central 1 km of the bottom boundary).")
+                "heat-flux anomaly over the central 1 km of the bottom boundary; "
+                "output folder visualization_<tag> per case_naming.case_tag).")
 _ap.add_argument("--consistent", action="store_true",
                  help="consistent flux discretization (MPFA); default TPFA")
 _ap.add_argument("--grid-type", default=None, choices=["cartesian", "simplex"],
@@ -129,18 +229,66 @@ _ap.add_argument("--cell-size", type=float, default=None, metavar="M",
 _ap.add_argument("--scheme", default="hu", choices=list(_SCHEME_CONFIG),
                  help="HU (standard template, hybrid), HU-mw (fractional-flow template), "
                       "PPU (standard template, phase-potential); default HU")
+_ap.add_argument("--q-anomaly", type=float, default=Q_ANOMALY, metavar="W/M2",
+                 help=f"anomaly heat flux over the inlet [W/m^2]; default {Q_ANOMALY}")
+_ap.add_argument("--z-init", type=float, default=Z_INIT, metavar="Z",
+                 help="initial (uniform) NaCl overall composition [-]; default "
+                      f"{Z_INIT} (table range 0..0.2)")
+_ap.add_argument("--snap-years", type=float, nargs="+",
+                 default=list(_DEFAULT_SNAP_YEARS), metavar="YR",
+                 help="schedule of exact snapshot/export instants [years]; the last one "
+                      f"is the final time; default {_DEFAULT_SNAP_YEARS}")
+_ap.add_argument("--dt-nominal", type=float, default=DT_NOMINAL, metavar="YR",
+                 help=f"nominal (initial) time step [years]; default {DT_NOMINAL}")
+_ap.add_argument("--dt-min", type=float, default=DT_MIN, metavar="YR",
+                 help=f"smallest allowed time step [years]; default {DT_MIN}")
+_ap.add_argument("--dt-max", type=float, default=DT_MAX, metavar="YR",
+                 help=f"largest allowed time step [years]; default {DT_MAX}")
 _args = _ap.parse_args()
+if not 0.0 <= _args.z_init <= 0.2:
+    raise SystemExit(f"--z-init {_args.z_init} outside the opensowat table "
+                     "range z in [0, 0.2]")
+if _args.snap_years[0] != 0.0 or any(
+        b <= a for a, b in zip(_args.snap_years, _args.snap_years[1:])):
+    raise SystemExit(f"--snap-years {_args.snap_years} must start at 0 and be "
+                     "strictly increasing")
+if not 0.0 < _args.dt_min <= _args.dt_nominal <= _args.dt_max:
+    raise SystemExit("time steps must satisfy 0 < --dt-min <= --dt-nominal <= --dt-max")
+Q_ANOMALY = _args.q_anomaly
+Z_INIT = _args.z_init
+
+# Dynamic time stepping: dt grows/shrinks with Newton effort inside (3, 8) iterations,
+# recomputes at 0.3x on failure, and the schedule forces exact landing on every
+# snapshot instant, which is also exactly where VTUs are exported.
+schedule = [y * year_to_second for y in _args.snap_years]
+tf = schedule[-1]
+time_manager = pp.TimeManager(
+    schedule=schedule,
+    dt_init=_args.dt_nominal * year_to_second,
+    dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
+    constant_dt=False,
+    iter_max=13,
+    iter_optimal_range=(3, 8),
+    iter_relax_factors=(0.5, 1.5),
+    recomp_factor=0.3,
+    print_info=True,
+)
+times_to_export = list(schedule)
 
 params = {
     "folder_name": os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        f"visualization_{_args.scheme.lower().replace('-', '_')}"),
+        "visualization_" + case_tag(_args.scheme, _args.consistent,
+                                    _args.grid_type, _args.cell_size,
+                                    _args.q_anomaly, _args.z_init,
+                                    _args.dt_nominal, _args.dt_min, _args.dt_max,
+                                    _args.snap_years[-1])),
     "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "times_to_export": times_to_export,
     # Schur-reduced CPR linear solver -- exactly porepy_3d_solver's "cpr" mode.
-    "use_petsc": False,
+    "use_petsc": True,
     "petsc_preconditioner": "cpr",
     "cpr_rtol": 1.0e-5,           # CPR GMRES relative tolerance
     "cpr_maxit": 400,             # CPR GMRES iteration cap
@@ -174,7 +322,7 @@ model = GeothermalBrineFlowModel(params)
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL
 # tables sampled with the C2 tensor-spline backend (consistent value/Jacobian).
-TABLE_LEVEL = 2                           # opensowat .vtr level (0..4 available)
+TABLE_LEVEL = 3                           # opensowat .vtr level (0..4 available)
 USE_SPLINE = True                         # True -> NSplineSampler; False -> VTKSampler probe
 _TABLE_DIR = os.path.join(
     HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
@@ -201,10 +349,10 @@ tb = time.time()
 solver_params = {
     "nl_convergence_criteria": {
         "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-3, metric=pp.EquationBasedLebesgueMetric(model)),
+            tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)),
     },
     "nl_divergence_criteria": {
-        "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
+        "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),
     },
 }
 runner = pp.ModelRunner(model, solver_params,
