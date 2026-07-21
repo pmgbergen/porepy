@@ -116,7 +116,9 @@ class Table:
     """
 
     def __init__(self, file_name, fields, a_in=1.0, b_in=1.0):
-        key = "|".join(f"{k}:{v}" for k, v in sorted(fields.items())) + f"|{a_in}|{b_in}"
+        # mtime in the key -> regenerating a .vtr in place invalidates its .npz cache
+        key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
+               + f"|{a_in}|{b_in}|{os.path.getmtime(file_name):.0f}")
         cache = file_name + ".sicache.npz"
         if not (os.path.exists(cache) and self._load(cache, key)):
             self._build(file_name, fields, a_in, b_in, key, cache)

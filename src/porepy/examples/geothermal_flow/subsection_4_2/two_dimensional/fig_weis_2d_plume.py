@@ -96,8 +96,9 @@ def main():
     from matplotlib import colors, cm as mcm
 
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--field", default="enthalpy", choices=["enthalpy", "s_v"],
-                    help="colormap field: enthalpy (default) or vapor saturation")
+    ap.add_argument("--field", default="enthalpy", metavar="NAME",
+                    help="colormap field: any exported cell field, e.g. enthalpy "
+                         "(default), s_v, s_l, s_h, z_NaCl, T_C, pressure, rho")
     ap.add_argument("--scheme", default="hu")
     ap.add_argument("--consistent", action="store_true",
                     help="figure for the MPFA (consistent) run")
@@ -107,24 +108,24 @@ def main():
                     help="figure for a non-default anomaly heat flux run")
     ap.add_argument("--z-init", type=float, default=None, metavar="Z",
                     help="figure for a non-default initial NaCl composition run")
-    ap.add_argument("--flux-anomaly", type=float, default=None, metavar="KG/S",
-                    help="figure for a fluid-injection (condition 3) run")
-    ap.add_argument("--z-anomaly", type=float, default=None, metavar="Z",
-                    help="figure for a non-default injected-salinity run")
     ap.add_argument("--dt-nominal", type=float, default=None, metavar="YR",
                     help="figure for a non-default nominal-dt run")
     ap.add_argument("--dt-min", type=float, default=None, metavar="YR")
     ap.add_argument("--dt-max", type=float, default=None, metavar="YR")
     ap.add_argument("--tf", type=float, default=None, metavar="YR",
                     help="figure for a run with a non-default final time [years]")
+    ap.add_argument("--lag-buoyancy", action="store_true",
+                    help="figure for a frozen-buoyancy-upwind run")
+    ap.add_argument("--sl-contours", action="store_true",
+                    help="overlay liquid-saturation contours s_l = 0.9 and 1.0 in green "
+                         "(the paper's fig-10 boiling-zone convention)")
     ap.add_argument("--times", type=float, nargs="+", default=[5000.0, 15000.0, 50000.0],
                     metavar="YEARS", help="snapshot instants [years] (default 5/15/50 kyr)")
     args = ap.parse_args()
 
     tag = case_tag(args.scheme, args.consistent, args.grid_type, args.cell_size,
                    args.q_anomaly, args.z_init, args.dt_nominal, args.dt_min,
-                   args.dt_max, args.tf, flux_anomaly=args.flux_anomaly,
-                   z_anomaly=args.z_anomaly)
+                   args.dt_max, args.tf, lag=args.lag_buoyancy)
     folder = os.path.join(HERE, f"visualization_{tag}")
     if not os.path.isdir(folder):
         have = sorted(d for d in os.listdir(HERE) if d.startswith("visualization_"))
@@ -137,6 +138,9 @@ def main():
 
     picked = [min(snaps, key=lambda s: abs(s[0] - tt)) for tt in args.times]
     meshes = [_panel_mesh(path) for _, path in picked]
+    if args.field not in meshes[0].cell_data:
+        raise SystemExit(f"field '{args.field}' not in the export; available: "
+                         + ", ".join(sorted(meshes[0].cell_data.keys())))
     f_all = np.concatenate([np.asarray(m.cell_data[args.field], float) for m in meshes])
     clim = (float(f_all.min()), float(f_all.max()))
     if clim[0] == clim[1]:                            # constant field (e.g. s_v = 0)
@@ -161,6 +165,15 @@ def main():
         cp = ax.tricontour(dist, depth, np.asarray(pmesh.point_data["pressure"],
                                                    dtype=float),
                            levels=P_ISO, colors="royalblue", linewidths=1.4)
+        if args.sl_contours:
+            # paper fig-10 convention: outer s_l ~ 1.0 line bounds the two-phase
+            # region, inner 0.9 marks stronger boiling (0.9999 stands in for 1.0 --
+            # an exact-maximum level is invisible to tricontour)
+            sl = np.asarray(pmesh.point_data["s_l"], dtype=float)
+            cs = ax.tricontour(dist, depth, sl, levels=[0.9, 0.9999],
+                               colors="forestgreen", linewidths=1.4)
+            ax.clabel(cs, fmt=lambda v: "0.9" if v < 0.95 else "1.0",
+                      fontsize=8, inline=True, colors="black")
         ax.clabel(cp, fmt=lambda v: f"{v:.0f} MPa", fontsize=8, inline=True,
                   colors="black")
         ax.set_xlim(-X_HALF / 1e3, X_HALF / 1e3)
@@ -168,16 +181,27 @@ def main():
         ax.set_xlabel("Distance (km)")
         if k == 0:
             ax.set_ylabel("Depth (km)")
-        ax.text(0.97, 0.05, f"{t / 1000.0:.0f} kyrs", transform=ax.transAxes,
+        ax.text(0.97, 0.05, f"{t / 1000.0:g} kyrs", transform=ax.transAxes,
                 fontsize=12, va="bottom", ha="right", zorder=10,
                 bbox=dict(facecolor="white", edgecolor="none", alpha=0.75, pad=2))
+    CBAR_LABELS = {
+        "enthalpy": r"Enthalpy (MJ kg$^{-1}$)",
+        "s_v": r"Vapor saturation $s_v$ (-)",
+        "s_l": r"Liquid saturation $s_l$ (-)",
+        "s_h": r"Halite saturation $s_h$ (-)",
+        "z_NaCl": r"Bulk salinity $z_{\mathrm{NaCl}}$ (-)",
+        "T_C": r"Temperature ($^\circ$C)",
+        "pressure": "Pressure (MPa)",
+        "rho": r"Fluid density (kg m$^{-3}$)",
+    }
     sm = mcm.ScalarMappable(norm=colors.Normalize(*clim), cmap=cmv)
     cbar = fig.colorbar(sm, ax=axes, fraction=0.02, pad=0.02)
-    cbar.set_label(r"Enthalpy (MJ kg$^{-1}$)" if args.field == "enthalpy"
-                   else r"Vapor saturation $s_v$ (-)")
+    cbar.set_label(CBAR_LABELS.get(args.field, args.field))
 
     os.makedirs(os.path.join(HERE, "figures"), exist_ok=True)
     suffix = "" if args.field == "enthalpy" else f"_{args.field}"
+    if args.times != [5000.0, 15000.0, 50000.0]:      # non-default stack -> own file
+        suffix += "_t" + "-".join(f"{t:g}" for t in args.times)
     out = os.path.join(HERE, "figures", f"fig_8_plume_{tag}{suffix}.png")
     fig.savefig(out, dpi=300, bbox_inches="tight")
     fig.savefig(out[:-4] + ".pdf", bbox_inches="tight")

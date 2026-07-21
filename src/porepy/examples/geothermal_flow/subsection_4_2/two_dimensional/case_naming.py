@@ -5,9 +5,8 @@ Shared by the solver (output folder ``visualization_<tag>/``) and the figure scr
 overwrite each other.  Components appear only when they differ from the defaults:
 
     <scheme>[_mpfa][_<grid_type>][_cs<cell_size>][_q<q_anomaly>][_z<z_init>]
-            [_dt<dt_nominal>][_dtmin<dt_min>][_dtmax<dt_max>][_tf<final_years>]
-            [_fa<flux_anomaly>][_za<z_anomaly>]
-    e.g.  hu  |  hu_mw_mpfa  |  hu_q10_dt5  |  hu_z0.1_tf20000  |  hu_fa0.04_za0.1
+            [_dt<dt_nominal>][_dtmin<dt_min>][_dtmax<dt_max>][_tf<final_years>][_lag]
+    e.g.  hu  |  hu_mw_mpfa  |  hu_simplex_cs200  |  hu_q10_dt5  |  hu_z0.1_tf20000
 
 The intermediate snapshot instants are deliberately NOT part of the tag -- only the
 final time is; runs differing only in intermediate snapshots share a folder.
@@ -19,8 +18,7 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
              cell_size: float | None = None, q_anomaly: float | None = None,
              z_init: float | None = None, dt_nominal: float | None = None,
              dt_min: float | None = None, dt_max: float | None = None,
-             tf_years: float | None = None, flux_anomaly: float | None = None,
-             z_anomaly: float | None = None) -> str:
+             tf_years: float | None = None, lag: bool = False) -> str:
     parts = [scheme.replace("-", "_")]
     if consistent:
         parts.append("mpfa")
@@ -40,8 +38,6 @@ def case_tag(scheme: str, consistent: bool = False, grid_type: str | None = None
         parts.append(f"dtmax{dt_max:g}")
     if tf_years not in (None, 50000.0):
         parts.append(f"tf{tf_years:g}")
-    if flux_anomaly not in (None, 0.0):
-        parts.append(f"fa{flux_anomaly:g}")
-    if z_anomaly not in (None, 0.0):
-        parts.append(f"za{z_anomaly:g}")
+    if lag:
+        parts.append("lag")
     return "_".join(parts)
