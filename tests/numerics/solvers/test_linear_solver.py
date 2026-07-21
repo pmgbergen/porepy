@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from porepy.numerics.ad.equation_system import EquationIndexer, VariableIndexer
+from porepy.numerics.ad.indexers import EquationIndexer, VariableIndexer
 from porepy.numerics.solvers.linear_solvers.linear_solver import (
     LinearSolverDirect,
     LinearSystem,

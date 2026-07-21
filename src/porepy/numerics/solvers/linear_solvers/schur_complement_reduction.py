@@ -7,7 +7,7 @@ from time import time
 import porepy as pp
 import numpy as np
 
-from porepy.numerics.ad.equation_system import (
+from porepy.numerics.ad.indexers import (
     EquationIndexer,
     EquationOnDomain,
     VariableIndexer,
