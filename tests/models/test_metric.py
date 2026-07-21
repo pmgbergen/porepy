@@ -165,25 +165,28 @@ def test_equation_based_euclidean_metric_on_grids(
 ):
     """Test integration of EquationBasedEuclideanMetric in models with grids."""
     # Generate a dummy residual array filled with ones.
-    # NOTE: Evaluate Jacobian to initialize the equation system properly.
-    _, dummy_residual_array = orthogonal_2d_model.equation_system.assemble()
+    dummy_residual_array = orthogonal_2d_model.equation_system.assemble(
+        evaluate_jacobian=False
+    )
 
-    # Define array and expected norm values.
-    equations = orthogonal_2d_model.equation_system.equations
+    # Define array and expected norm values from the same row arrangement as the
+    # assembled residual.
+    equation_indexer = orthogonal_2d_model.equation_system.equation_indexer
+    equation_blocks: dict[str, list[np.ndarray]] = {}
+    for equation, indices in equation_indexer.equation_dofs.items():
+        equation_blocks.setdefault(equation.name, []).append(indices)
+
     result = {}
-    for name in equations:
-        if name not in orthogonal_2d_model.equation_system.assembled_equation_indices:
-            continue
-        dofs = orthogonal_2d_model.equation_system.assembled_equation_indices[name]
-        if len(dofs) == 0:
-            # Expect zero norm for empty equations
+    for name, index_blocks in equation_blocks.items():
+        indices = np.concatenate(index_blocks)
+        if indices.size == 0:
             result[name] = 0.0
             continue
-        dummy_residual_array[dofs] = assignment(len(dofs))
-        result[name] = expected_value(len(dofs))
+        dummy_residual_array[indices] = assignment(indices.size)
+        result[name] = expected_value(indices.size)
 
     # Compute Lebesgue metric values.
-    m = pp.EquationBasedEuclideanMetric(orthogonal_2d_model)
+    m = pp.EquationBasedEuclideanMetric(orthogonal_2d_model, equation_indexer)
     metric_values = m(dummy_residual_array)
 
     # Make sure that the dictionaries are the same.
@@ -198,40 +201,62 @@ def test_equation_based_euclidean_metric_on_grids(
     assert deepdiff_result == {}
 
 
+def test_equation_based_euclidean_metric_with_restricted_indexer(
+    orthogonal_2d_model,
+):
+    """Compute only equation blocks represented by a restricted indexer."""
+    equation_name = next(iter(orthogonal_2d_model.equation_system.equations))
+    residual = orthogonal_2d_model.equation_system.assemble(
+        evaluate_jacobian=False, equations=[equation_name]
+    )
+    equation_indexer, _ = (
+        orthogonal_2d_model.equation_system.construct_assembled_matrix_indexers(
+            equations=[equation_name]
+        )
+    )
+    metric = pp.EquationBasedEuclideanMetric(orthogonal_2d_model, equation_indexer)
+    norms = metric(residual)
+
+    assert set(norms) == {equation_name}
+    assert np.isclose(norms[equation_name], metric._euclidean_norm(residual))
+
+
 def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model):
     """Test whether the integration of 1-s over the domain results in volume."""
 
-    # Fetch the equations.
-    equations = orthogonal_2d_model.equation_system.equations
+    # Fetch the equation blocks from the full-system row indexer.
+    equation_indexer = orthogonal_2d_model.equation_system.equation_indexer
+    equation_blocks: dict[str, list[tuple[pp.GridLike, np.ndarray]]] = {}
+    for equation, indices in equation_indexer.equation_dofs.items():
+        equation_blocks.setdefault(equation.name, []).append((equation.domain, indices))
 
     # Generate a dummy residual array filled with ones scaled with the cell volumes.
-    # NOTE: Evaluate Jacobian to initialize the equation system properly.
-    _, dummy_residual_array = orthogonal_2d_model.equation_system.assemble()
+    dummy_residual_array = orthogonal_2d_model.equation_system.assemble(
+        evaluate_jacobian=False
+    )
     dummy_residual_array.fill(1.0)
 
     # Scale with the right cell volumes.
     # Simultaneously compute the expected L2 norm of the 1 vector (incl dimensionality).
-    result = {name: 0.0 for name in equations}
-    for eqn in equations:
-        domains = orthogonal_2d_model.equation_system.equation_image_space_composition[
-            eqn
-        ].keys()
-        if len(domains) == 0:
+    result = {name: 0.0 for name in equation_blocks}
+    for equation_name, blocks in equation_blocks.items():
+        domains = [domain for domain, _ in blocks]
+        indices = np.concatenate([indices for _, indices in blocks])
+        if indices.size == 0:
             continue
-        indices = orthogonal_2d_model.equation_system.assembled_equation_indices[eqn]
-        cell_volumes = np.hstack([_sd.cell_volumes for _sd in domains])
-        eq_dim = orthogonal_2d_model.equation_system.equation_image_size_info[eqn][
-            "cells"
-        ]
-        dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=eq_dim)
-        result[eqn] += sum(cell_volumes) * eq_dim
+        cell_volumes = np.hstack([domain.cell_volumes for domain in domains])
+        equation_dim = orthogonal_2d_model.equation_system.equation_image_size_info[
+            equation_name
+        ]["cells"]
+        dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=equation_dim)
+        result[equation_name] += sum(cell_volumes) * equation_dim
 
     # Take square root to get L2 norm.
     for name in result:
         result[name] = np.sqrt(result[name])
 
     # Compute Lebesgue metric values.
-    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model)
+    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model, equation_indexer)
     metric_values = m(dummy_residual_array)
 
     # Make sure that the dictionaries are the same.
@@ -428,8 +453,8 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
             "exp_y": random_polynomial_setup["exponents_y"],
         }
     )
-    m_eq = pp.EquationBasedLebesgueMetric(model)
     model.prepare_simulation()
+    m_eq = pp.EquationBasedLebesgueMetric(model, model.equation_system.equation_indexer)
 
     # Use cell centers and pass as values for the model variables.
     assert len(model.mdg.subdomains()) == 1

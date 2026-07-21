@@ -665,14 +665,9 @@ def test_poromechanics_empty_equation_filter(model_class):
     # Check empty domain equations exist.
     empty_equations = []
     for name in equation_system.equations:
-        total = sum(
-            len(indices)
-            for indices in equation_system.equation_image_space_composition[
-                name
-            ].values()
-        )
-        if total == 0:
-            empty_equations.append(name)
+        if name in equation_system.equation_indexer.equation_image_space_composition:
+            continue
+        empty_equations.append(name)
 
     assert len(empty_equations) > 0
 

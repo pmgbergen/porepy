@@ -5,7 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
-import logging
+from warnings import warn
 from collections import defaultdict
 from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
@@ -20,7 +20,6 @@ from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
 
-logger = logging.getLogger(__name__)
 
 # For Python3.8, a direct definition of type aliases with list is apparently not posible
 # (DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]]), the same applies to dict
@@ -218,7 +217,7 @@ class EquationSystem:
         """
         # Parsing of input arguments.
         equations = self._parse_equation_names(equation_names)
-        variables = self._parse_variable_type(variable_names)
+        variables = self._parse_variable_type(variable_names, ordered=True)
 
         # Check that the requested equations and variables are known to the equation
         # system.
@@ -237,14 +236,13 @@ class EquationSystem:
         # setting procedures by calling private methods and accessing private
         # attributes. This should be acceptable since this is a factory method.
 
-        # Loop over known variables to preserve DOF order.
-        for variable in self.variables:
-            if variable in variables:
-                # Update variables.
-                new_equation_system._variables[variable.id] = variable
+        # Loop over new system's variables, old DOF ordering is preserved.
+        for variable in variables:
+            # Update variables.
+            new_equation_system._variables[variable.id] = variable
 
         # Loop over known equations to preserve row order.
-        for name in known_equations:
+        for name in self._equations.keys():
             if name in equations:
                 equation = self._equations[name]
                 image_info = self._equation_image_size_info[name]
@@ -269,8 +267,10 @@ class EquationSystem:
         and their block indices in the global system, for every equation
         set in this EquationSystem.
 
+        Note: It does not include equations with empty-domain equations.
+
         """
-        logger.warning(
+        warn(
             "equation_system.equation_image_space_composition is deprecated and will be"
             " removed. See equation_system.equation_indexer, or "
             "equation_system.construct_assembled_matrix_indexers."
@@ -324,6 +324,11 @@ class EquationSystem:
         Initialized lazily, upon first request. Changes in equation system may
         invalidate the indexer, leading to its recomputation.
 
+        By default, the row blocks are in the same order as equations were added to this
+        EquationSystem. If an equation is defined on multiple grids, the respective
+        row-block is internally ordered as given by the mixed-dimensional grid
+        (for sd in subdomains, for intf in interfaces).
+
         """
         if self._equation_indexer is None:
             self._equation_indexer = self.construct_equation_indexer()
@@ -372,7 +377,7 @@ class EquationSystem:
         # We unfortunately have to parse quite a heterogenuous input. Similar parsing is
         # done in _parse_equation_names and _parse_equations, but the results are
         # different enought to prevent unification of the parsing logic. Here, we
-        # construct a lookup set of EquationOnDomain to express the requested
+        # construct a lookup set of EquationOnDomain to filter the requested
         # restriction.
         if requested_equations is None:
             # No restriction, include all equations on all domains.
@@ -398,13 +403,13 @@ class EquationSystem:
                 indices = self.mdg.argsort_grids(grids)
                 return [grids[i] for i in indices]
 
-            requested_equations_lookup = {
-                pp.ad.EquationOnDomain(
-                    name=self._validate_equation_name(eq).name, domain=domain
-                )
-                for eq, domains in requested_equations.items()
-                for domain in order_grids(domains)
-            }
+            requested_equations_lookup = set()
+            for eq, domains in requested_equations.items():
+                equation = self._validate_equation_restriction(eq, domains)
+                for domain in order_grids(domains):  # type: ignore[arg-type]
+                    requested_equations_lookup.add(
+                        pp.ad.EquationOnDomain(name=equation.name, domain=domain)
+                    )
 
         # Result dictionary.
         equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
@@ -623,7 +628,7 @@ class EquationSystem:
             ValueError: If a variable is not known to the system.
 
         """
-        variables = self._parse_variable_type(variables)
+        variables = self._parse_variable_type(variables, ordered=False)
         for var in variables:
             if var.id not in self._variables:
                 raise ValueError(
@@ -651,7 +656,7 @@ class EquationSystem:
                 grids).
 
         """
-        variables = self._parse_variable_type(variables)
+        variables = self._parse_variable_type(variables, ordered=False)
         for var in variables:
             var.tags.update(tags)
 
@@ -700,7 +705,8 @@ class EquationSystem:
             grids = self.variable_domains
 
         filtered_variables = []
-        variables = self._parse_variable_type(variables)
+        # Using the ordering of the input list.
+        variables = self._parse_variable_type(variables, ordered=False)
         for var in variables:
             if var.domain in grids:
                 # Add variable if tag_name is not specified or if the variable has the
@@ -745,28 +751,23 @@ class EquationSystem:
             :meth:`num_dofs`.
 
         """
-        # Normalize the variable input.
-        variables = self._parse_variable_type(variables)
-        var_ids = {var.id for var in variables}
+        # Normalize the variable input. Using equation_system's ordering of variables.
+        variables = self._parse_variable_type(variables, ordered=True)
 
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
         # Indexer determines ordering.
-        indexer = self.variable_indexer
-        for variable in indexer.variable_dofs.keys():
-            if variable.id in var_ids:
-                domain = variable.domain
-
-                val = pp.get_solution_values(
-                    variable.name,
-                    self._get_data(domain),
-                    time_step_index=time_step_index,
-                    iterate_index=iterate_index,
-                    reference=reference,
-                )
-                # NOTE get_solution_values already returns a copy
-                values.append(val)
+        for variable in variables:
+            val = pp.get_solution_values(
+                variable.name,
+                self._get_data(variable.domain),
+                time_step_index=time_step_index,
+                iterate_index=iterate_index,
+                reference=reference,
+            )
+            # NOTE get_solution_values already returns a copy
+            values.append(val)
 
         # If there are matching blocks, concatenate and return.
         # Else return an empty vector.
@@ -815,35 +816,33 @@ class EquationSystem:
         # Start of dissection.
         dof_start = 0
         dof_end = 0
-        variables = self._parse_variable_type(variables)
-        var_ids = {var.id for var in variables}
 
-        # Indexer determines ordering.
-        indexer = self.variable_indexer
-        for variable, dofs in indexer.variable_dofs.items():
-            if variable.id in var_ids:
-                # 1. Slice the vector to local size
-                num_dofs = dofs.size
-                # Extract local vector.
-                # This will raise errors if indexation is out of range.
-                dof_end = dof_start + num_dofs
-                # Extract local vector.
-                # This will raise errors if indexation is out of range.
-                local_vec = values[dof_start:dof_end]
+        # Normalize the variable input. Using equation_system's ordering of variables.
+        variables = self._parse_variable_type(variables, ordered=True)
 
-                # 2. Use the AD utilities to set the values
-                pp.set_solution_values(
-                    variable.name,
-                    local_vec,
-                    self._get_data(grid=variable.domain),
-                    time_step_index=time_step_index,
-                    iterate_index=iterate_index,
-                    additive=additive,
-                    reference=reference,
-                )
+        for variable in variables:
+            # 1. Slice the vector to local size
+            num_dofs = variable.size
+            # Extract local vector.
+            # This will raise errors if indexation is out of range.
+            dof_end = dof_start + num_dofs
+            # Extract local vector.
+            # This will raise errors if indexation is out of range.
+            local_vec = values[dof_start:dof_end]
 
-                # 3. Move dissection forward.
-                dof_start = dof_end
+            # 2. Use the AD utilities to set the values
+            pp.set_solution_values(
+                variable.name,
+                local_vec,
+                self._get_data(grid=variable.domain),
+                time_step_index=time_step_index,
+                iterate_index=iterate_index,
+                additive=additive,
+                reference=reference,
+            )
+
+            # 3. Move dissection forward.
+            dof_start = dof_end
 
         # Last sanity check if the vector was properly sized, or if it was too large.
         # This imposes a theoretically unnecessary restriction on the input argument
@@ -872,7 +871,7 @@ class EquationSystem:
                 If called repeatedly with ``None``, the depth in time keeps increasing.
 
         """
-        for var in self._parse_variable_type(variables):
+        for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
                 var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
             )
@@ -884,7 +883,7 @@ class EquationSystem:
     ) -> None:
         """Analogous to :meth:`shift_time_step_values`, but for iterates of the current
         (unknown) time step."""
-        for var in self._parse_variable_type(variables):
+        for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
                 var.name, self._get_data(var.domain), pp.ITERATE_SOLUTIONS, max_index
             )
@@ -910,7 +909,9 @@ class EquationSystem:
 
     ### DOF management -----------------------------------------------------------------
 
-    def _parse_variable_type(self, variables: Optional[VariableList]) -> list[Variable]:
+    def _parse_variable_type(
+        self, variables: Optional[VariableList], ordered: bool = False
+    ) -> list[Variable]:
         """Parse the input argument for the variable type.
 
         This method is used to parse the input argument for the variable type in
@@ -927,6 +928,8 @@ class EquationSystem:
                     - If a list of variables, return same.
                     - If a list of strings, return all variables with those names.
                     - If mixed-dimensional variable, return sub-variables.
+            ordered: If False (default), respects the input ordering. Otherwise, orders
+                the returned variables according to the :attr:`variable_indexer`.
 
         Returns:
             List of Variables.
@@ -935,16 +938,16 @@ class EquationSystem:
         if variables is None:
             return list(self.variable_indexer.variable_dofs.keys())
 
-        parsed_variables_lookup: set[Variable] = set()
+        parsed_variables: list[Variable] = []
         assert isinstance(variables, list)
         for variable in variables:
             if isinstance(variable, MixedDimensionalVariable):
-                parsed_variables_lookup.update(variable.sub_vars)
+                parsed_variables.extend(variable.sub_vars)
             elif isinstance(variable, Variable):
-                parsed_variables_lookup.add(variable)
+                parsed_variables.append(variable)
             elif isinstance(variable, str):
                 vars = [var for var in self._variables.values() if var.name == variable]
-                parsed_variables_lookup.update(vars)
+                parsed_variables.extend(vars)
             else:
                 raise ValueError(
                     "Variable type must be a string or a Variable, not {}".format(
@@ -952,11 +955,22 @@ class EquationSystem:
                     )
                 )
 
+        # Validate that variables are registered.
+        for variable in parsed_variables:
+            if variable.id not in self._variables:
+                raise ValueError(
+                    f"Variable {variable} is not registered in this equation system."
+                )
+
+        if not ordered:
+            return parsed_variables
+
+        # Order variables according to the indexer.
+        parsed_variables_lookup = set(parsed_variables)
         parsed_variables_ordered: list[Variable] = []
         for variable in self.variable_indexer.variable_dofs:
             if variable in parsed_variables_lookup:
                 parsed_variables_ordered.append(variable)
-
         return parsed_variables_ordered
 
     def num_dofs(self) -> int:
@@ -986,7 +1000,7 @@ class EquationSystem:
         # current number of total dofs
         num_dofs = self.num_dofs()
         if variables:
-            variables = self._parse_variable_type(variables)
+            variables = self._parse_variable_type(variables, ordered=True)
             # Array for the indices associated with argument.
             # The ordering is preserved in variable_indexer.
             indices = self.variable_indexer.projection_indices(variables=variables)
@@ -1017,7 +1031,8 @@ class EquationSystem:
             ValueError: If an unknown  variable is passed as argument.
 
         """
-        variables = self._parse_variable_type(variables)
+        # Respect the ordering of the input list of variables.
+        variables = self._parse_variable_type(variables, ordered=False)
         unknown_variables = set(variables).difference(
             self.variable_indexer.variable_dofs
         )
@@ -1188,7 +1203,7 @@ class EquationSystem:
         """
         if grids is None:
             grids = self._equations[equation_name].domains  # type: ignore[assignment]
-            assert grids is not None and len(grids) > 0, (
+            assert grids is not None, (
                 "Domains must be initialized in equation_system.set_equations."
             )
 
@@ -1235,7 +1250,7 @@ class EquationSystem:
             return set(self._equations.keys())
 
         if isinstance(requested_equations, dict):
-            requested_equations = list(requested_equations.keys())
+            requested_equations = list(requested_equations.keys())  # type: ignore[assignment]
 
         assert isinstance(requested_equations, list)
         equation_names = set()
@@ -1296,6 +1311,27 @@ class EquationSystem:
             )
         return equation_or_none
 
+    def _validate_equation_restriction(
+        self, equation: str | pp.ad.Operator, domains: DomainList
+    ) -> pp.ad.Operator:
+        """Validate an equation and the domains to which it is restricted.
+
+        Raises:
+            ValueError: If the equation is not registered or is restricted to a domain
+                on which it is not defined.
+
+        Returns:
+            The registered equation operator.
+
+        """
+        equation = self._validate_equation_name(equation)
+        invalid_domains = set(domains).difference(equation.domains)
+        if invalid_domains:
+            raise ValueError(
+                f"Domains {invalid_domains} are not part of equation '{equation.name}'."
+            )
+        return equation
+
     def _parse_equations(
         self, equations: Optional[EquationList | EquationRestriction] = None
     ) -> dict[pp.ad.Operator, None | np.ndarray]:
@@ -1309,6 +1345,8 @@ class EquationSystem:
 
         Raises:
             ValueError: If the requested equation is not registered.
+            ValueError: If an equation is restricted to a domain on which it is not
+                defined.
 
         Returns:
             A dictionary with the index set of the restricted equations (referring to
@@ -1332,7 +1370,7 @@ class EquationSystem:
             # Equation names and domains are restricted.
 
             for eq, domains in equations.items():
-                eq = self._validate_equation_name(eq)
+                eq = self._validate_equation_restriction(eq, domains)
                 equation_dofs = equation_indexer.equation_image_space_composition[
                     eq.name
                 ]
@@ -1387,12 +1425,10 @@ class EquationSystem:
             # If idx is None, this means no filtering was done.
             if idx is not None:
                 # Get the indices associated with this equation.
-                all_idx = equation_indexer.equation_image_space_composition[
-                    name
-                ].values()
+                all_idx_list = equation_indexer.equation_image_space_composition[name]
                 all_idx = (
-                    np.concatenate(list(all_idx))
-                    if len(all_idx) > 0
+                    np.concatenate(list(all_idx_list.values()))
+                    if len(all_idx_list) > 0
                     else np.empty(0, dtype=int)
                 )
 
@@ -1467,20 +1503,9 @@ class EquationSystem:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations, variables and grids.
 
-        The method is intended for use in splitting algorithms. Matrix blocks not
-        included will simply be sliced out.
-
-        Note:
-            The ordering of columns in the returned EquationSystem are defined by the
-            global DOF order. The row blocks are in the same order as equations were
-            added to this EquationSystem. If an equation is defined on multiple grids,
-            the respective row-block is internally ordered as given by the
-            mixed-dimensional grid (for sd in subdomains, for intf in interfaces).
-
-            The columns of the subsystem are assumed to be properly defined by
-            ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
-            happens if grid variables are passed which are unknown to this
-            :class:`EquationSystem`.
+        The ordering of rows and columns in the returned EquationSystem are defined
+        by the equation system's :attr:`equation_indexer` and
+        :attr:`variable_indexer`, respectively.
 
         Parameters:
             evaluate_jacobian: Whether to evaluate and return the Jacobian matrix.
@@ -1498,6 +1523,10 @@ class EquationSystem:
             state (optional): State vector to assemble from. By default, the
                 ``pp.ITERATE_SOLUTIONS`` or ``pp.TIME_STEP_SOLUTIONS`` are used, in that
                 order.
+
+        Raises:
+            ValueError: if the format of `equations` or `variables` is incorrect, or
+                they are not registered by this equation system.
 
         Returns:
             Tuple with two elements
@@ -1564,7 +1593,8 @@ class EquationSystem:
         # Multiply rhs by -1 to move to the rhs.
         if variables is not None:
             variable_indexer = self.variable_indexer
-            variables_ = self._parse_variable_type(variables=variables)
+            # Respect the ordering of the input list of variables.
+            variables_ = self._parse_variable_type(variables=variables, ordered=False)
             col_proj = [variable_indexer.variable_dofs[var] for var in variables_]
             column_projection = (
                 np.unique(np.concatenate(col_proj))
@@ -1591,8 +1621,9 @@ class EquationSystem:
 
         """
         if variables is not None:
+            # Respect the ordering of the input list of variables.
             variable_indexer = self.variable_indexer.construct_restricted_indexer(
-                self._parse_variable_type(variables=variables)
+                self._parse_variable_type(variables=variables, ordered=False)
             )
         else:
             variable_indexer = self.variable_indexer
@@ -1687,7 +1718,7 @@ class EquationSystem:
         primary_equation_names = list(primary_rows.keys())
 
         # Get the primary variables, represented as Ad variables.
-        active_variables = self._parse_variable_type(primary_variables)
+        active_variables = self._parse_variable_type(primary_variables, ordered=False)
 
         # Projection of variables to the set of primary blocks.
         primary_projection = self.projection_to(active_variables)
