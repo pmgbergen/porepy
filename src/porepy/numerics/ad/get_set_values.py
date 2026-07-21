@@ -132,7 +132,7 @@ def get_solution_values(
         ValueError: In the case of inconsistent usage of indices for time step and
             iterate (both None or negative values).
         ValueError: If the user attempts to get multiple iterate and time step values
-            simultanously. Only 1 index is permitted in the getter.
+            simultaneously. Only 1 index is permitted in the getter.
         KeyError: If no values are stored for the passed index.
 
     Returns:
