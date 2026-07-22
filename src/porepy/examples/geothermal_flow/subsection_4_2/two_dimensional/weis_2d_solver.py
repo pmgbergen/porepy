@@ -485,10 +485,26 @@ def build_jac_plan(grid):
 
 def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
     """Coloured FD Jacobian, bit-identical to the naive sweep but sampling the table
-    ONLY at each colour's perturbed cells (batched into one trilinear call)."""
+    ONLY at each colour's perturbed cells (batched into one trilinear call).
+    Patch-consistent step: when a state sits within eps BELOW a table node, a forward
+    difference samples the neighbouring trilinear patch and its slope kink poisons the
+    Newton direction (observed as a dt-independent |r| plateau with a collapsing line
+    search when a quasi-steady boiling front parks a cell enthalpy on an h-node); the
+    perturbation flips sign there so the quotient stays in the patch of the base state."""
     table = args[5]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
     p0 = x[0::NV].copy(); h0 = x[1::NV].copy(); z0 = x[2::NV].copy()
+
+    ep = eps[0::NV]; eh = eps[1::NV]; ez = eps[2::NV]
+    fb = (p0 * table.b_in - table.b0) / table.db
+    dup = (np.ceil(fb) - fb) * table.db / table.b_in
+    eps[0::NV] = np.where((dup > 0.0) & (dup < ep) & (p0 - ep >= table.b_min), -ep, ep)
+    fa = (h0 * table.a_in - table.a0) / table.da
+    dup = (np.ceil(fa) - fa) * table.da / table.a_in
+    eps[1::NV] = np.where((dup > 0.0) & (dup < eh) & (h0 - eh >= table.a_min), -eh, eh)
+    jc = np.clip(np.searchsorted(table.cax, z0, side="right") - 1, 0, table.nc - 2)
+    dup = table.cax[jc + 1] - z0
+    eps[2::NV] = np.where((dup > 0.0) & (dup < ez) & (z0 - ez >= table.c_min), -ez, ez)
     pr0 = eval_props(table, z0, p0, h0)
     fields = [f.name for f in dataclasses.fields(pr0)]
 
@@ -532,7 +548,7 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 # --------------------------------------------------------------------------------------- #
 #  Newton + adaptive dt with exact schedule landing
 # --------------------------------------------------------------------------------------- #
-def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1e-5, maxit=13):
+def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1.0e-5, maxit=17):
     p_old = x_old[0::NV]; h_old = x_old[1::NV]; z_old = x_old[2::NV]
     pr_old = eval_props(table, z_old, p_old, h_old)
     ug, ud, ut = frozen_directions(grid, p_old, pr_old, opts.scheme)
