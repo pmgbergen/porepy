@@ -119,8 +119,13 @@ def main():
     ap.add_argument("--sl-contours", action="store_true",
                     help="overlay liquid-saturation contours s_l = 0.9 and 1.0 in green "
                          "(the paper's fig-10 boiling-zone convention)")
+    ap.add_argument("--z-contours", type=float, nargs="+", default=None, metavar="Z",
+                    help="overlay bulk-salinity contours at the given z_NaCl values "
+                         "(orange), e.g. --z-contours 0.009 0.01 0.011")
     ap.add_argument("--times", type=float, nargs="+", default=[5000.0, 15000.0, 50000.0],
                     metavar="YEARS", help="snapshot instants [years] (default 5/15/50 kyr)")
+    ap.add_argument("--pdf", action="store_true",
+                    help="also write a PDF next to the PNG")
     args = ap.parse_args()
 
     tag = case_tag(args.scheme, args.consistent, args.grid_type, args.cell_size,
@@ -174,6 +179,12 @@ def main():
                                colors="forestgreen", linewidths=1.4)
             ax.clabel(cs, fmt=lambda v: "0.9" if v < 0.95 else "1.0",
                       fontsize=8, inline=True, colors="black")
+        if args.z_contours:
+            zn = np.asarray(pmesh.point_data["z_NaCl"], dtype=float)
+            cz = ax.tricontour(dist, depth, zn, levels=sorted(args.z_contours),
+                               colors="darkorange", linewidths=1.4)
+            ax.clabel(cz, fmt=lambda v: f"{v:g}", fontsize=8, inline=True,
+                      colors="black")
         ax.clabel(cp, fmt=lambda v: f"{v:.0f} MPa", fontsize=8, inline=True,
                   colors="black")
         ax.set_xlim(-X_HALF / 1e3, X_HALF / 1e3)
@@ -204,7 +215,8 @@ def main():
         suffix += "_t" + "-".join(f"{t:g}" for t in args.times)
     out = os.path.join(HERE, "figures", f"fig_8_plume_{tag}{suffix}.png")
     fig.savefig(out, dpi=300, bbox_inches="tight")
-    fig.savefig(out[:-4] + ".pdf", bbox_inches="tight")
+    if args.pdf:
+        fig.savefig(out[:-4] + ".pdf", bbox_inches="tight")
     print("wrote", os.path.relpath(out, HERE))
 
 

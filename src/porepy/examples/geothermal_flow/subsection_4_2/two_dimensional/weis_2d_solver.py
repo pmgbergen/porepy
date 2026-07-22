@@ -1,30 +1,32 @@
 """Independent 2-D finite-volume solver for the Weis (2014) fig-8 heat-flux plume.
 
-The 2-D port of ``../one_dimensional/weis_1d_solver.py`` (same (p, h) primaries, same
-Driesner opensowat table closure, same HU/PPU flux forms, strict SI), on the 9 x 3 km
-fig-8 domain with the condition-2 boundary conditions.  Its purpose is to make the
-reference paper's discretization choices SWITCHABLE:
+Fractional-flow form of the weighted fluid formulation with THREE conservation laws
+per cell -- total mass, NaCl component, energy -- and primaries (p [Pa], h [J/kg],
+z [-]).  The component equation mirrors the fully discrete system of the theory:
 
-    --grav-upstream  gravity-term densities from the (lagged) upstream node
-                     (Weis 2014 Eq. 25) instead of the arithmetic face average;
-    --lag-upwind     upwind directions frozen at the previous time level
-                     (Weis sec. 2.7, "the old velocity field defines the upwind nodes");
-    --lag-props      ALL nonlinear flux coefficients (rho, mu, k_r, h_g, lambda) at the
-                     previous time level -> fluxes linear in the current p (CSMP++'s
-                     semi-implicit pressure equation, sec. 2.6-2.7).  Accumulation
-                     stays implicit.
+    component flux    F_z = upw(c_z) * F_total - B_z,
+    component buoyancy B_z = sum_pairs upw(x_za) upw(pair mobility) G[rho_b - rho_a],
 
-All three off = our sharp fully-implicit scheme (the porepy HU analog); all three on
-(with --scheme ppu) = the closest monolithic analog of the CSMP++ discretization.
+assembled with EXACTLY the same upwind machinery as the energy equation: the same
+pair directions (ug, ud), the same total-flux direction (ut), the same
+mobility-product pair operator, with the advected weight (h_l - h_v) replaced by the
+salt mass fractions (X_l - X_v).  Properties are sampled TRILINEARLY from the
+Driesner opensowat tables over (z, h, p); z = 0 reproduces the previous two-equation
+solver on the z = 0 slice.
+
+Reference-mimicking switches (unchanged):
+    --grav-upstream  gravity-term densities from the (lagged) upstream node (Eq. 25);
+    --lag-upwind     upwind directions frozen at the previous time level (sec. 2.7);
+    --lag-props      ALL nonlinear flux coefficients at the previous time level.
 
 Output: ``data_2_*.vtu`` + ``data.pvd`` in ``visualization_<tag>/`` with porepy-named
-cell fields, so ``fig_weis_2d_plume.py --scheme <token>`` renders the results
-unchanged.  The scheme token encodes the switches: e.g. ``weis-hu``,
-``weis-ppu-gu-ld-lp`` (gu = grav-upstream, ld = lag-upwind, lp = lag-props).
+cell fields (now including z_NaCl, x_NaCl_liq, x_NaCl_gas), rendered unchanged by
+``fig_weis_2d_plume.py --scheme <token>``; --z-init joins the tag when non-default.
 """
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import os
 import sys
 from dataclasses import dataclass
@@ -38,29 +40,207 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "one_dimensional"))
 sys.path.insert(0, HERE)
 from case_naming import case_tag                                    # noqa: E402
 from weis_1d_solver import (                                        # noqa: E402
-    G, K_PERM, PHI, K_E, RHO_S, C_S, Table, _XPH_FIELDS, eval_props, table_paths,
+    G, K_PERM, PHI, K_E, RHO_S, C_S, S_R_LIQ, table_paths,
 )
 
 # --------------------------------------------------------------------------------------- #
 #  fig-8 condition-2 data (SI)
 # --------------------------------------------------------------------------------------- #
 LX, LY = 9000.0, 3000.0       # domain [m]
-P_TOP = 0.101325e6            # surface pressure [Pa] (atmospheric; table floor clips)
+P_TOP = 0.101325e6            # surface pressure [Pa]
 T_TOP = 283.15                # surface temperature [K]
 Q_BACKGROUND = 0.05           # background bottom heat flux [W/m^2]
 Q_ANOMALY = 5.0               # anomaly heat flux [W/m^2] over |x-4500| <= 500 m
+Z_INIT = 0.0                  # initial/recharge NaCl overall composition (--z-init)
 X_SRC, HALF_SRC = 4500.0, 500.0
 YEAR = 365.0 * 86400.0
 
-DT_NOMINAL, DT_MIN, DT_MAX = 0.5, 0.001, 25.0        # [yr] (= porepy_2d_solver defaults)
+DT_NOMINAL, DT_MIN, DT_MAX = 0.5, 0.001, 25.0        # [yr]
 _DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 2500))
 
-RHO_REF, T_REF = 800.0, 500.0                        # residual row scales (as 1-D)
+RHO_REF, T_REF, Z_REF = 800.0, 500.0, 0.1            # residual row scales
 T_SCALE = 5.0 * YEAR      # FIXED residual time scale -- deliberately NOT DT_NOMINAL:
                           # coupling the row scales to a tunable dt silently rescales the
                           # convergence test (0.5 yr loosened it 10x and let a spurious
                           # frozen state pass; the 5.4 kW input hid at ~2 W/cell under tol)
 TABLE_LEVEL = 3
+NV = 3                    # unknowns per cell: p, h, z
+
+
+# --------------------------------------------------------------------------------------- #
+#  Trilinear table over (z_NaCl, h|T, p) -- the 3-D extension of weis_1d_solver.Table
+# --------------------------------------------------------------------------------------- #
+class Table3:
+    """O(1) vectorised TRILINEAR sampler of a Driesner VTK table over its full
+    (z_NaCl, second-axis, p) box.  Solver inputs are SI; ``a_in``/``b_in`` convert the
+    second axis (h [J/kg] or T [degC]) and the pressure to table units; the z axis is
+    dimensionless.  Field values return in SI via per-field scales."""
+
+    def __init__(self, file_name, fields, a_in=1.0, b_in=1.0):
+        key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
+               + f"|{a_in}|{b_in}|3d|{os.path.getmtime(file_name):.0f}")
+        cache = file_name + ".sicache3.npz"
+        if not (os.path.exists(cache) and self._load(cache, key)):
+            self._build(file_name, fields, a_in, b_in, key, cache)
+        self.names = list(self.V.keys())
+        self.V_stack = np.ascontiguousarray(np.stack([self.V[n] for n in self.names]))
+        # safety net: if a table drop ships Xl/Xv == 0 everywhere, fall back to
+        # derived partitioning (vapor salt-free) instead of silently losing the salt
+        self.derive_x = ("Xl" in self.V and float(np.max(self.V["Xl"])) == 0.0)
+
+    def _load(self, cache, key):
+        try:
+            zf = np.load(cache, allow_pickle=False)
+            if str(zf["key"]) != key:
+                return False
+            for s in ("nc", "ny", "nz"):
+                setattr(self, s, int(zf[s]))
+            for s in ("c0", "dc", "a0", "da", "b0", "db", "a_in", "b_in",
+                      "a_min", "a_max", "b_min", "b_max", "c_min", "c_max"):
+                setattr(self, s, float(zf[s]))
+            self.cax = np.asarray(zf["cax"], float)
+            self.c_uniform = bool(zf["c_uniform"])
+            self.V = {str(n): zf["V_" + str(n)] for n in zf["names"]}
+            return True
+        except Exception:
+            return False
+
+    def _build(self, file_name, fields, a_in, b_in, key, cache):
+        import pyvista as pv
+        g = pv.read(file_name)
+        nc, ny, nz = g.dimensions                          # (z_comp, second, p)
+        if hasattr(g, "x") and np.asarray(g.x).ndim == 1 and len(np.asarray(g.x)) == nc:
+            c = np.asarray(g.x); a = np.asarray(g.y); b = np.asarray(g.z)
+        else:
+            # legacy StructuredGrid: extract the 1-D axes from the point coordinates
+            # (VTK ordering: x fastest, then y, then z)
+            pts = np.asarray(g.points)
+            c = pts[:nc, 0]
+            a = pts[::nc, 1][:ny]
+            b = pts[::nc * ny, 2][:nz]
+        self.nc, self.ny, self.nz = int(nc), int(ny), int(nz)
+        self.c0, self.dc = float(c[0]), float(c[1] - c[0])
+        self.a0, self.da = float(a[0]), float(a[1] - a[0])
+        self.b0, self.db = float(b[0]), float(b[1] - b[0])
+        self.cax = np.asarray(c, float)               # full axes: the z axis of the
+        self.c_uniform = bool(np.allclose(np.diff(c), self.dc))   # regenerated tables
+        #                                               is quasi-log, NOT uniform
+        self.a_in, self.b_in = float(a_in), float(b_in)
+        self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
+        self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
+        self.c_min, self.c_max = float(c[0]), float(c[-1])
+        self.V = {name: np.asarray(g.point_data[name]).reshape(nz, ny, nc) * scale
+                  for name, scale in fields.items()}
+        out = {"key": np.array(key), "nc": self.nc, "ny": self.ny, "nz": self.nz,
+               "c0": self.c0, "dc": self.dc, "a0": self.a0, "da": self.da,
+               "b0": self.b0, "db": self.db, "a_in": self.a_in, "b_in": self.b_in,
+               "a_min": self.a_min, "a_max": self.a_max, "b_min": self.b_min,
+               "b_max": self.b_max, "c_min": self.c_min, "c_max": self.c_max,
+               "cax": self.cax, "c_uniform": self.c_uniform,
+               "names": np.array(list(self.V.keys()))}
+        out.update({"V_" + n: A for n, A in self.V.items()})
+        try:
+            np.savez(cache, **out)
+        except Exception:
+            pass
+
+    def sample_many(self, zc, a, b):
+        """Trilinear interpolation of ALL stored fields at (z_comp, a, b)."""
+        zc = np.atleast_1d(np.asarray(zc, float))
+        a = np.atleast_1d(np.asarray(a, float)) * self.a_in
+        b = np.atleast_1d(np.asarray(b, float)) * self.b_in
+        if self.c_uniform:
+            fc = ((zc - self.c0) / self.dc).clip(0.0, self.nc - 1 - 1e-9)
+            jc = fc.astype(np.intp); tc = fc - jc
+        else:                                          # non-uniform z axis: bracket by
+            jc = (np.searchsorted(self.cax, zc, side="right") - 1)   # binary search
+            jc = np.clip(jc, 0, self.nc - 2)
+            tc = ((zc - self.cax[jc]) / (self.cax[jc + 1] - self.cax[jc])).clip(0.0, 1.0)
+        fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
+        fb = ((b - self.b0) / self.db).clip(0.0, self.nz - 1 - 1e-9)
+        ja = fa.astype(np.intp); jb = fb.astype(np.intp)
+        ta = fa - ja; tb = fb - jb
+        jc1 = jc + 1; ja1 = ja + 1; jb1 = jb + 1
+        Vs = self.V_stack
+        vals = ((1 - tc) * ((1 - ta) * (1 - tb) * Vs[:, jb, ja, jc]
+                            + ta * (1 - tb) * Vs[:, jb, ja1, jc]
+                            + (1 - ta) * tb * Vs[:, jb1, ja, jc]
+                            + ta * tb * Vs[:, jb1, ja1, jc])
+                + tc * ((1 - ta) * (1 - tb) * Vs[:, jb, ja, jc1]
+                        + ta * (1 - tb) * Vs[:, jb, ja1, jc1]
+                        + (1 - ta) * tb * Vs[:, jb1, ja, jc1]
+                        + ta * tb * Vs[:, jb1, ja1, jc1]))
+        return {n: vals[i] for i, n in enumerate(self.names)}
+
+    def __call__(self, name, zc, a, b):
+        return self.sample_many(zc, a, b)[name]
+
+
+# Driesner opensowat vtr tables (via weis_1d_solver.table_paths), the accepted set:
+# volumetric saturations, real Xl/Xv partitioning, h 0.0001..4.7 MJ/kg, p down to
+# atmospheric.  Axis units are mapped by a_in/b_in; field scales bring values to SI.
+_XPH_FIELDS = {"Rho_l": 1.0, "Rho_v": 1.0, "H_l": 1e3, "H_v": 1e3,
+               "mu_l": 1.0, "mu_v": 1.0, "S_v": 1.0, "Temperature": 1.0,
+               "Xl": 1.0, "Xv": 1.0}
+_XPH_A_IN, _XPH_B_IN = 1e-6, 1e-6
+_XPT_FIELDS = {"H": 1e3}
+_XPT_A_IN, _XPT_B_IN = 1.0, 1e-6
+
+
+# --------------------------------------------------------------------------------------- #
+#  Constitutive closure (mirrors weis_1d_solver.eval_props + salt fractions)
+# --------------------------------------------------------------------------------------- #
+@dataclass
+class Props3:
+    rho_l: np.ndarray; rho_v: np.ndarray
+    s_v: np.ndarray; s_l: np.ndarray
+    h_l: np.ndarray; h_v: np.ndarray
+    T: np.ndarray
+    rho_mix: np.ndarray
+    lam_T: np.ndarray
+    f_l: np.ndarray; f_v: np.ndarray
+    rho_ff: np.ndarray
+    mm_l: np.ndarray; mm_v: np.ndarray
+    adv_h: np.ndarray
+    x_l: np.ndarray; x_v: np.ndarray       # NaCl mass fraction in liquid / vapor
+    adv_z: np.ndarray                       # x_l mm_l + x_v mm_v (component advection)
+
+
+def eval_props(table, z, p, h):
+    s = table.sample_many(z, h, p)
+    rho_l = s["Rho_l"]; rho_v = s["Rho_v"]
+    s_v = np.clip(s["S_v"], 0.0, 1.0)
+    s_l = 1.0 - s_v
+    h_l = s["H_l"]; h_v = s["H_v"]
+    mu_l = s["mu_l"]; mu_v = s["mu_v"]
+    T = s["Temperature"]
+    if getattr(table, "derive_x", False):
+        # derived salt partitioning (table Xl/Xv are zero): vapor salt-free, liquid
+        # carries the bulk salt by mass consistency  x_l s_l rho_l = z rho_mix
+        s_l_tmp = 1.0 - s_v
+        rho_mix_tmp = s_l_tmp * rho_l + s_v * rho_v
+        x_l = np.where(s_l_tmp > 1e-9,
+                       np.clip(z * rho_mix_tmp / np.maximum(s_l_tmp * rho_l, 1e-12),
+                               0.0, 1.0), 0.0)
+        x_v = np.where(s_l_tmp > 1e-9, 0.0, np.clip(z, 0.0, 1.0))
+    else:
+        x_l = np.clip(s["Xl"], 0.0, 1.0)
+        x_v = np.clip(s["Xv"], 0.0, 1.0)
+
+    kr_l = np.maximum((s_l - S_R_LIQ) / (1.0 - S_R_LIQ), 0.0)   # linear, residual 0.3
+    kr_v = 1.0 - kr_l
+    mm_l = rho_l * kr_l / mu_l
+    mm_v = rho_v * kr_v / mu_v
+    lam_T = mm_l + mm_v
+    inv = 1.0 / np.where(lam_T > 0.0, lam_T, 1.0)
+    f_l = mm_l * inv
+    f_v = mm_v * inv
+    rho_ff = f_l * rho_l + f_v * rho_v
+    rho_mix = s_l * rho_l + s_v * rho_v
+    adv_h = h_l * mm_l + h_v * mm_v
+    adv_z = x_l * mm_l + x_v * mm_v
+    return Props3(rho_l, rho_v, s_v, s_l, h_l, h_v, T, rho_mix, lam_T,
+                  f_l, f_v, rho_ff, mm_l, mm_v, adv_h, x_l, x_v, adv_z)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -74,7 +254,7 @@ class Grid2D:
     top: np.ndarray                          # cell index of each top-row cell
     Tb: float; GAb: float; TFb: float        # top half-face coefficients
     bot: np.ndarray; q_bot: np.ndarray       # bottom cells and their INTEGRATED influx [W]
-    Vcell: float; ms: float; es: float
+    Vcell: float; ms: float; es: float; zs: float
     xc: np.ndarray; yc: np.ndarray
 
 
@@ -84,7 +264,6 @@ def make_grid(cell: float, q_anomaly: float) -> Grid2D:
     ix, iy = np.meshgrid(np.arange(nx), np.arange(ny), indexing="xy")
     cid = (ix + nx * iy).ravel()
     xc = (ix.ravel() + 0.5) * d; yc = (iy.ravel() + 0.5) * d
-    # x-faces (L right-neighbor pairs), then y-faces (L upper-neighbor pairs)
     mask_x = (ix < nx - 1)
     fLx = cid[mask_x.ravel()]; fRx = fLx + 1
     mask_y = (iy < ny - 1)
@@ -100,10 +279,11 @@ def make_grid(cell: float, q_anomaly: float) -> Grid2D:
     Vcell = A * d
     ms = Vcell * PHI * RHO_REF / T_SCALE
     es = Vcell * (1 - PHI) * RHO_S * C_S * T_REF / T_SCALE
+    zs = Vcell * PHI * RHO_REF * Z_REF / T_SCALE
     return Grid2D(nx=nx, ny=ny, d=d, ncell=nx * ny, fL=fL, fR=fR, Tf=Tf, GA=GA,
                   TFf=TFf, top=top, Tb=2.0 * K_PERM * A / d, GAb=K_PERM * A * G,
                   TFb=2.0 * K_E * A / d, bot=bot, q_bot=q, Vcell=Vcell, ms=ms, es=es,
-                  xc=xc, yc=yc)
+                  zs=zs, xc=xc, yc=yc)
 
 
 def _upwind(direction, fL, fR):
@@ -118,7 +298,7 @@ def _harmonic_face(cell_field, fL, fR):
 
 
 # --------------------------------------------------------------------------------------- #
-#  Lagged (old-state) face directions -- as weis_1d_solver.buoyancy_directions
+#  Lagged (old-state) face directions -- identical to the two-equation solver
 # --------------------------------------------------------------------------------------- #
 def frozen_directions(grid, p, pr, scheme):
     fL, fR = grid.fL, grid.fR
@@ -137,13 +317,11 @@ def frozen_directions(grid, p, pr, scheme):
 
 
 def cfl_dt(grid, table, x, cfl):
-    """Weis (2014) Eq. 26 advective CFL limit from the OLD state: dt <= cfl * min over
-    faces/phases of phi * d * A / Q_g, with Q_g the volumetric phase flux across the
-    face.  The lagged (semi-implicit) modes are only conditionally stable, exactly like
-    CSMP++'s explicit advection -- running them beyond this dt oscillates even though
-    the (nearly linear) Newton still converges."""
-    p = x[0::2]; h = x[1::2]
-    pr = eval_props(table, p, h)
+    """Weis Eq. 26 advective CFL + Eq. 27 mass-based criterion from the OLD state.
+    The salt rides the phase fluxes and adds no independent wave family, so the
+    phase-based limits remain the governing ones."""
+    p = x[0::NV]; h = x[1::NV]; z = x[2::NV]
+    pr = eval_props(table, z, p, h)
     fL, fR = grid.fL, grid.fR
     dp = grid.Tf * (p[fL] - p[fR])
     rho_l_f = 0.5 * (pr.rho_l[fL] + pr.rho_l[fR])
@@ -155,24 +333,18 @@ def cfl_dt(grid, table, x, cfl):
     Q_v = np.abs(Psi_v) * pr.mm_v[iu_v] / np.maximum(pr.rho_v[iu_v], 1.0)
     lim26 = PHI * grid.d * grid.d / np.maximum(np.maximum(Q_l, Q_v), 1.0e-30)
 
-    # Eq. 27 (mass-based criterion): the outflow of a phase during one step must not
-    # exceed that phase's mass stored in the upstream cell -- "essential to avoid
-    # oscillations in the highly-compressible two-phase region" (and empirically: the
-    # h-floor drain-lock at the boiling-column top under --lag-props).
     F_l = Psi_l * pr.mm_l[iu_l]                        # phase MASS fluxes [kg/s]
     F_v = Psi_v * pr.mm_v[iu_v]
     out_l = np.zeros(grid.ncell); out_v = np.zeros(grid.ncell)
-    np.add.at(out_l, iu_l, np.abs(F_l))                # tally on the upstream cell
+    np.add.at(out_l, iu_l, np.abs(F_l))
     np.add.at(out_v, iu_v, np.abs(F_v))
-    tc = grid.top                                      # top-boundary outflow counts too
+    tc = grid.top
     V_t = grid.Tb * (p[tc] - P_TOP) - grid.GAb * 1000.0
     outflow = V_t > 0.0
     np.add.at(out_l, tc[outflow], (V_t * pr.mm_l[tc])[outflow])
     np.add.at(out_v, tc[outflow], (V_t * pr.mm_v[tc])[outflow])
     store_l = PHI * pr.s_l * pr.rho_l * grid.Vcell
     store_v = PHI * pr.s_v * pr.rho_v * grid.Vcell
-    # a phase with no outflow imposes NO constraint (0-storage/0-outflow cells --
-    # e.g. the vapor phase in a cold liquid cell -- must not clamp dt to zero)
     lim_l = np.where(out_l > 1.0e-12, np.maximum(store_l, 0.0) / np.maximum(out_l, 1e-30),
                      np.inf)
     lim_v = np.where(out_v > 1.0e-12, np.maximum(store_v, 0.0) / np.maximum(out_v, 1e-30),
@@ -182,7 +354,7 @@ def cfl_dt(grid, table, x, cfl):
 
 
 # --------------------------------------------------------------------------------------- #
-#  Residual (2N, interleaved [mass_0, energy_0, ...])
+#  Residual (3N, interleaved [mass_0, energy_0, comp_0, mass_1, ...])
 # --------------------------------------------------------------------------------------- #
 @dataclass
 class Opts:
@@ -192,16 +364,17 @@ class Opts:
     lag_props: bool
 
 
-def residual(x, acc_m_o, acc_e_o, dt, grid, table, btop, opts, ug, ud, ut, pr_old,
-             pr=None):
+def residual(x, acc_m_o, acc_e_o, acc_z_o, dt, grid, table, btop, opts, ug, ud, ut,
+             pr_old, pr=None):
     fL, fR = grid.fL, grid.fR
-    p = x[0::2]; h = x[1::2]
+    p = x[0::NV]; h = x[1::NV]; z = x[2::NV]
     if pr is None:
-        pr = eval_props(table, p, h)
+        pr = eval_props(table, z, p, h)
     prf = pr_old if opts.lag_props else pr            # coefficients in the FLUXES
 
     acc_m = grid.Vcell * PHI * pr.rho_mix
     acc_e = grid.Vcell * (PHI * (pr.rho_mix * h - p) + (1 - PHI) * RHO_S * C_S * pr.T)
+    acc_z = grid.Vcell * PHI * pr.rho_mix * z
 
     dp = grid.Tf * (p[fL] - p[fR])
     rho_l_f = 0.5 * (prf.rho_l[fL] + prf.rho_l[fR])
@@ -221,58 +394,68 @@ def residual(x, acc_m_o, acc_e_o, dt, grid, table, btop, opts, ug, ud, ut, pr_ol
         F_mass = Psi_l * prf.mm_l[iu_l] + Psi_v * prf.mm_v[iu_v]
         F_en = (F_four + Psi_l * prf.h_l[iu_l] * prf.mm_l[iu_l]
                 + Psi_v * prf.h_v[iu_v] * prf.mm_v[iu_v])
-    else:                                             # hu
+        F_z = (Psi_l * prf.x_l[iu_l] * prf.mm_l[iu_l]
+               + Psi_v * prf.x_v[iu_v] * prf.mm_v[iu_v])
+    else:                                             # hu / hu-mw
         rho_ff_f = 0.5 * (prf.rho_ff[fL] + prf.rho_ff[fR])
         rho_ff_g = prf.rho_ff[ut] if opts.grav_upstream else rho_ff_f
         V_T = dp - grid.GA * rho_ff_g
         up = ut if (opts.lag_upwind or opts.lag_props) else _upwind(V_T, fL, fR)
         if opts.scheme == "hu-mw":
-            # viscous term only: harmonic face average of the total mobility (the
-            # lambda*K joint transmissibility, 1-D engine's weighted_perm / Remark 3.2);
-            # smooth in the state -- no upwind switch in m_e. The advected enthalpy
-            # per unit mass <hbar> stays upwinded.
+            # viscous term only: harmonic face average of the total mobility; the
+            # advected weights per unit mass (<hbar>, <zbar>) stay upwinded
             lam_face = _harmonic_face(prf.lam_T, fL, fR)
             F_mass = V_T * lam_face
-            hbar_up = prf.adv_h[up] / np.where(prf.lam_T[up] > 0.0, prf.lam_T[up], 1.0)
-            F_en_adv = hbar_up * F_mass
+            denom = np.where(prf.lam_T[up] > 0.0, prf.lam_T[up], 1.0)
+            F_en_adv = (prf.adv_h[up] / denom) * F_mass
+            F_z_adv = (prf.adv_z[up] / denom) * F_mass
         else:
             F_mass = V_T * prf.lam_T[up]
             F_en_adv = V_T * prf.adv_h[up]
+            F_z_adv = V_T * prf.adv_z[up]
+        # pairwise buoyancy: identical operator for energy and component, only the
+        # advected weight differs ((h_l - h_v) vs (X_l - X_v))
         w_flux = -grid.GA * (rho_l_f - rho_v_f)       # face-centered driving force
         lam_pair = prf.mm_l[ug] + prf.mm_v[ud]
         common = prf.mm_l[ug] * prf.mm_v[ud] / (lam_pair + 1.0e-30)
         F_en = F_four + F_en_adv + common * w_flux * (prf.h_l[ug] - prf.h_v[ud])
+        F_z = F_z_adv + common * w_flux * (prf.x_l[ug] - prf.x_v[ud])
 
     div_m = np.zeros(grid.ncell); div_e = np.zeros(grid.ncell)
+    div_z = np.zeros(grid.ncell)
     np.add.at(div_m, fL, F_mass); np.add.at(div_m, fR, -F_mass)
     np.add.at(div_e, fL, F_en);   np.add.at(div_e, fR, -F_en)
+    np.add.at(div_z, fL, F_z);    np.add.at(div_z, fR, -F_z)
 
-    # ---- top boundary (Dirichlet p, T -> h_bc), directional advection; V out-positive --
+    # ---- top boundary (Dirichlet p, T, z), directional advection; V out-positive ------
     tc = grid.top
     prb = btop.pr
     V_t = grid.Tb * (p[tc] - btop.p) - grid.GAb * prb.rho_ff[0]
     out = V_t >= 0.0
     lam_t = np.where(out, prf.lam_T[tc], prb.lam_T[0])
     adv_t = np.where(out, prf.adv_h[tc], prb.adv_h[0])
+    advz_t = np.where(out, prf.adv_z[tc], prb.adv_z[0])
     div_m[tc] += V_t * lam_t
     div_e[tc] += grid.TFb * (pr.T[tc] - btop.T) + V_t * adv_t
+    div_z[tc] += V_t * advz_t
 
-    # ---- bottom: no mass flux; prescribed heat INFLUX (integrated per cell) -----------
+    # ---- bottom: no mass/salt flux; prescribed heat INFLUX (integrated per cell) ------
     div_e[grid.bot] -= grid.q_bot
 
-    r = np.empty(2 * grid.ncell)
-    r[0::2] = ((acc_m - acc_m_o) / dt + div_m) / grid.ms
-    r[1::2] = ((acc_e - acc_e_o) / dt + div_e) / grid.es
+    r = np.empty(NV * grid.ncell)
+    r[0::NV] = ((acc_m - acc_m_o) / dt + div_m) / grid.ms
+    r[1::NV] = ((acc_e - acc_e_o) / dt + div_e) / grid.es
+    r[2::NV] = ((acc_z - acc_z_o) / dt + div_z) / grid.zs
     return r
 
 
 @dataclass
 class BoundaryState:
-    p: float; h: float; pr: object; T: float
+    p: float; h: float; z: float; pr: object; T: float
 
 
 # --------------------------------------------------------------------------------------- #
-#  Coloured FD Jacobian (5-point stencil, 2 vars -> 18 colours), SuperLU solve
+#  Coloured FD Jacobian (5-point stencil, 3 vars -> 27 colours), SuperLU solve
 # --------------------------------------------------------------------------------------- #
 def build_jac_plan(grid):
     nc, nx = grid.ncell, grid.nx
@@ -283,61 +466,62 @@ def build_jac_plan(grid):
     cell_color = (ix % 3) + 3 * (iy % 3)
     col_perturb, gat_rows, gat_owner = [], [], []
     for cc in range(9):
-        for v in range(2):
+        for v in range(NV):
             cols, rows, owner = [], [], []
             for c in np.where(cell_color == cc)[0]:
-                j = 2 * c + v
+                j = NV * c + v
                 cols.append(j)
-                rr = [2 * k + e for k in nbr[c] for e in (0, 1)]
+                rr = [NV * k + e for k in nbr[c] for e in range(NV)]
                 rows.extend(rr); owner.extend([j] * len(rr))
             col_perturb.append(np.array(cols, dtype=np.intp))
             gat_rows.append(np.array(rows, dtype=np.intp))
             gat_owner.append(np.array(owner, dtype=np.intp))
     all_rows = np.concatenate(gat_rows); all_cols = np.concatenate(gat_owner)
-    scale = np.where(np.arange(2 * nc) % 2 == 0, 1.0e6, 1.0e5)     # p ~ MPa, h ~ 1e5
-    return dict(n=2 * nc, col_perturb=col_perturb, gat_rows=gat_rows,
+    vscale = np.array([1.0e6, 1.0e5, 1.0e-2])            # p ~ MPa, h ~ 1e5, z ~ 0.01
+    scale = np.tile(vscale, nc)
+    return dict(n=NV * nc, ncolor=9 * NV, col_perturb=col_perturb, gat_rows=gat_rows,
                 gat_owner=gat_owner, all_rows=all_rows, all_cols=all_cols, scale=scale)
 
 
 def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
-    """Coloured FD Jacobian, bit-identical to the naive 18-sweep version but sampling
-    the property table ONLY at each colour's perturbed cells (~1/9 of the domain,
-    batched into one table call); unperturbed cells reuse the base-state values,
-    which a full re-evaluation would reproduce bitwise anyway."""
-    import dataclasses
-    table = args[4]
+    """Coloured FD Jacobian, bit-identical to the naive sweep but sampling the table
+    ONLY at each colour's perturbed cells (batched into one trilinear call)."""
+    table = args[5]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
-    p0 = x[0::2].copy(); h0 = x[1::2].copy()
-    pr0 = eval_props(table, p0, h0)
+    p0 = x[0::NV].copy(); h0 = x[1::NV].copy(); z0 = x[2::NV].copy()
+    pr0 = eval_props(table, z0, p0, h0)
     fields = [f.name for f in dataclasses.fields(pr0)]
 
-    # one batched table evaluation for ALL colours' perturbed cells
-    cells_c, pp, hh = [], [], []
-    for c in range(18):
+    ncolor = plan["ncolor"]
+    cells_c, pp, hh, zz = [], [], [], []
+    for c in range(ncolor):
         cols = plan["col_perturb"][c]
-        cells = cols // 2
-        pc = p0[cells].copy(); hc = h0[cells].copy()
-        if c % 2 == 0:
+        cells = cols // NV
+        pc = p0[cells].copy(); hc = h0[cells].copy(); zc = z0[cells].copy()
+        v = c % NV
+        if v == 0:
             pc = pc + eps[cols]
-        else:
+        elif v == 1:
             hc = hc + eps[cols]
-        cells_c.append(cells); pp.append(pc); hh.append(hc)
+        else:
+            zc = zc + eps[cols]
+        cells_c.append(cells); pp.append(pc); hh.append(hc); zz.append(zc)
     sizes = np.cumsum([0] + [len(c) for c in cells_c])
-    pr_b = eval_props(table, np.concatenate(pp), np.concatenate(hh))
+    pr_b = eval_props(table, np.concatenate(zz), np.concatenate(pp), np.concatenate(hh))
 
     parts = []
-    for c in range(18):
+    for c in range(ncolor):
         cols = plan["col_perturb"][c]
         cells = cells_c[c]
         sl = slice(sizes[c], sizes[c + 1])
         dx = np.zeros(plan["n"]); dx[cols] = eps[cols]
         saved = []
-        for name in fields:                       # patch perturbed cells in place
+        for name in fields:
             arr = getattr(pr0, name)
             saved.append(arr[cells].copy())
             arr[cells] = getattr(pr_b, name)[sl]
         dr = residual(x + dx, *args, pr=pr0) - r0
-        for name, old_vals in zip(fields, saved):  # restore
+        for name, old_vals in zip(fields, saved):
             getattr(pr0, name)[cells] = old_vals
         parts.append(dr[plan["gat_rows"][c]] / eps[plan["gat_owner"][c]])
     A = sp.coo_matrix((np.concatenate(parts), (plan["all_rows"], plan["all_cols"])),
@@ -349,17 +533,20 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 #  Newton + adaptive dt with exact schedule landing
 # --------------------------------------------------------------------------------------- #
 def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1e-5, maxit=13):
-    p_old = x_old[0::2]; h_old = x_old[1::2]
-    pr_old = eval_props(table, p_old, h_old)
+    p_old = x_old[0::NV]; h_old = x_old[1::NV]; z_old = x_old[2::NV]
+    pr_old = eval_props(table, z_old, p_old, h_old)
     ug, ud, ut = frozen_directions(grid, p_old, pr_old, opts.scheme)
     acc_m_o = grid.Vcell * PHI * pr_old.rho_mix
     acc_e_o = grid.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
                             + (1 - PHI) * RHO_S * C_S * pr_old.T)
-    args = (acc_m_o, acc_e_o, dt, grid, table, btop, opts, ug, ud, ut, pr_old)
+    acc_z_o = grid.Vcell * PHI * pr_old.rho_mix * z_old
+    args = (acc_m_o, acc_e_o, acc_z_o, dt, grid, table, btop, opts, ug, ud, ut, pr_old)
     pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
     hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
+    zclip = (table.c_min, table.c_max * (1 - 1e-9))
     sqrtN = np.sqrt(grid.ncell)
-    _metric = lambda rr: max(np.linalg.norm(rr[0::2]), np.linalg.norm(rr[1::2])) / sqrtN
+    _metric = lambda rr: max(np.linalg.norm(rr[0::NV]), np.linalg.norm(rr[1::NV]),
+                             np.linalg.norm(rr[2::NV])) / sqrtN
 
     x = x0.copy()
     r = residual(x, *args)
@@ -376,8 +563,9 @@ def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1e-5, maxit=1
         step = 1.0
         for _ in range(15):
             xn = x + step * dx
-            xn[0::2] = np.clip(xn[0::2], *pclip)
-            xn[1::2] = np.clip(xn[1::2], *hclip)
+            xn[0::NV] = np.clip(xn[0::NV], *pclip)
+            xn[1::NV] = np.clip(xn[1::NV], *hclip)
+            xn[2::NV] = np.clip(xn[2::NV], *zclip)
             r_new = residual(xn, *args); nrm_new = np.linalg.norm(r_new)
             if nrm_new < nrm:
                 break
@@ -389,14 +577,15 @@ def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1e-5, maxit=1
 # --------------------------------------------------------------------------------------- #
 #  Hydrostatic IC + export
 # --------------------------------------------------------------------------------------- #
-def hydrostatic_column(table, xpt, ny, d):
-    """Cell-center hydrostatic p at uniform 10 degC, integrated with the table density."""
+def hydrostatic_column(table, xpt, ny, d, z_init):
+    """Cell-center hydrostatic p at uniform 10 degC and composition z_init."""
     yc = (np.arange(ny) + 0.5) * d
     depth = LY - yc
     p = P_TOP + 1000.0 * G * depth
+    zz = np.full(ny, z_init)
     for _ in range(10):
-        h = xpt("H", np.full(ny, T_TOP - 273.15), p)
-        rho = eval_props(table, p, h).rho_mix
+        h = xpt("H", zz, np.full(ny, T_TOP - 273.15), p)
+        rho = eval_props(table, zz, p, h).rho_mix
         p_new = np.empty(ny)
         p_new[-1] = P_TOP + rho[-1] * G * (d / 2.0)          # top cell: half-cell column
         for j in range(ny - 2, -1, -1):
@@ -409,8 +598,8 @@ def hydrostatic_column(table, xpt, ny, d):
 
 def export_vtu(folder, k, grid, table, x):
     import pyvista as pv
-    p = x[0::2]; h = x[1::2]
-    pr = eval_props(table, p, h)
+    p = x[0::NV]; h = x[1::NV]; z = x[2::NV]
+    pr = eval_props(table, z, p, h)
     img = pv.ImageData(dimensions=(grid.nx + 1, grid.ny + 1, 1),
                        spacing=(grid.d, grid.d, 1.0), origin=(0.0, 0.0, 0.0))
     ug = img.cast_to_unstructured_grid()
@@ -422,6 +611,8 @@ def export_vtu(folder, k, grid, table, x):
     cd["s_v"] = pr.s_v; cd["s_l"] = pr.s_l
     cd["rho"] = pr.rho_mix; cd["rho_l"] = pr.rho_l; cd["rho_v"] = pr.rho_v
     cd["h_l"] = pr.h_l * 1e-6; cd["h_v"] = pr.h_v * 1e-6
+    cd["z_NaCl"] = z
+    cd["x_NaCl_liq"] = pr.x_l; cd["x_NaCl_gas"] = pr.x_v
     ug.save(os.path.join(folder, f"data_2_{k:06d}.vtu"))
 
 
@@ -446,33 +637,50 @@ def scheme_token(scheme, opts):
     return tok
 
 
-def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, snap_years=_DEFAULT_SNAP_YEARS,
-        dt_nom=DT_NOMINAL, dt_min=DT_MIN, dt_max=DT_MAX, grav_upstream=False,
-        lag_upwind=False, lag_props=False, cfl=None, level=TABLE_LEVEL, folder=None,
-        verbose=True):
+def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
+        snap_years=_DEFAULT_SNAP_YEARS, dt_nom=DT_NOMINAL, dt_min=DT_MIN,
+        dt_max=DT_MAX, grav_upstream=False, lag_upwind=False, lag_props=False,
+        cfl=None, level=TABLE_LEVEL, folder=None, verbose=True):
     opts = Opts(scheme=scheme, grav_upstream=grav_upstream,
                 lag_upwind=lag_upwind, lag_props=lag_props)
-    xph_path, xpt_path = table_paths(level)
-    table = Table(xph_path, _XPH_FIELDS, a_in=1e-6, b_in=1e-6)
-    xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6)
+    xph_path, xpt_path = table_paths(level)[:2]
+    table = Table3(xph_path, _XPH_FIELDS, a_in=_XPH_A_IN, b_in=_XPH_B_IN)
+    xpt = Table3(xpt_path, _XPT_FIELDS, a_in=_XPT_A_IN, b_in=_XPT_B_IN)
+    if verbose:
+        print(f"  tables: h [{table.a_min/1e6:g}, {table.a_max/1e6:g}] MJ/kg, "
+              f"p [{table.b_min/1e6:g}, {table.b_max/1e6:g}] MPa, "
+              f"z [{table.c_min:g}, {table.c_max:g}]"
+              + ("  (Xl/Xv zero -> DERIVED partitioning)" if table.derive_x else ""))
+    if P_TOP < table.b_min:
+        print(f"  WARNING: P_TOP = {P_TOP/1e6:g} MPa is below the table pressure floor "
+              f"{table.b_min/1e6:g} MPa -- near-surface states will clamp; consider "
+              "raising P_TOP for this table set", flush=True)
+    if z_init < table.c_min:
+        z_init = table.c_min           # clamp below the table z floor (if any)
+    if z_init > table.c_max:
+        raise SystemExit(f"--z-init {z_init} above the table range [.., {table.c_max}]")
     grid = make_grid(cell, q_anomaly)
     if verbose:
         print(f"  weis_2d: {grid.nx}x{grid.ny} cells, scheme={scheme}, "
-              f"gu={grav_upstream} ld={lag_upwind} lp={lag_props}, "
+              f"gu={grav_upstream} ld={lag_upwind} lp={lag_props}, z_init={z_init:g}, "
               f"input {grid.q_bot.sum():.0f} W (grid-quantized inlet)")
 
-    h_top = float(xpt("H", np.array([T_TOP - 273.15]), np.array([P_TOP]))[0])
-    btop = BoundaryState(p=P_TOP, h=h_top,
-                         pr=eval_props(table, np.array([P_TOP]), np.array([h_top])),
+    h_top = float(xpt("H", np.array([z_init]), np.array([T_TOP - 273.15]),
+                      np.array([P_TOP]))[0])
+    btop = BoundaryState(p=P_TOP, h=h_top, z=z_init,
+                         pr=eval_props(table, np.array([z_init]), np.array([P_TOP]),
+                                       np.array([h_top])),
                          T=T_TOP)
-    p_col = hydrostatic_column(table, xpt, grid.ny, grid.d)
+    p_col = hydrostatic_column(table, xpt, grid.ny, grid.d, z_init)
     p0 = p_col[np.arange(grid.ncell) // grid.nx]
-    h0 = xpt("H", np.full(grid.ncell, T_TOP - 273.15), p0)
-    x = np.empty(2 * grid.ncell); x[0::2] = p0; x[1::2] = h0
+    h0 = xpt("H", np.full(grid.ncell, z_init), np.full(grid.ncell, T_TOP - 273.15), p0)
+    x = np.empty(NV * grid.ncell)
+    x[0::NV] = p0; x[1::NV] = h0; x[2::NV] = z_init
 
     if folder is None:
-        tag = case_tag(scheme_token(scheme, opts), cell_size=None if cell == 100.0 else cell,
-                       q_anomaly=q_anomaly)
+        tag = case_tag(scheme_token(scheme, opts),
+                       cell_size=None if cell == 100.0 else cell,
+                       q_anomaly=q_anomaly, z_init=z_init)
         folder = os.path.join(HERE, "visualization_" + tag)
     os.makedirs(folder, exist_ok=True)
 
@@ -484,8 +692,6 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, snap_years=_DEFAULT_SNAP_Y
     write_pvd(folder, entries)
     next_i = 1
 
-    # The CFL limiter (Weis Eq. 26) is available in EVERY mode via --cfl; the lagged
-    # (semi-implicit) modes are conditionally stable and get it by default (0.9).
     cfl_val = cfl if cfl is not None else (
         0.9 if (opts.lag_props or opts.lag_upwind) else None)
     if verbose and cfl_val is not None:
@@ -512,8 +718,6 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, snap_years=_DEFAULT_SNAP_Y
                 print(f"    WARNING: accepting non-converged step at dt_min "
                       f"(t={t / YEAR:.1f} yr, |r|={nrm:.2e})", flush=True)
             if n_stuck >= 25:
-                # Hard lock: dt_min steps that neither converge nor change the state.
-                # Abort with a diagnostic snapshot instead of spinning forever.
                 export_vtu(folder, 999, grid, table, x)
                 entries.append((t, "data_2_000999.vtu"))
                 write_pvd(folder, entries)
@@ -552,6 +756,9 @@ def main():
     ap.add_argument("--q-anomaly", type=float, default=Q_ANOMALY, metavar="W/M2",
                     help="inlet heat flux over the central 1 km [W/m^2]; "
                          f"default {Q_ANOMALY} (fig 8), 9 = fig 10A")
+    ap.add_argument("--z-init", type=float, default=Z_INIT, metavar="Z",
+                    help="initial (uniform) and top-recharge NaCl overall composition; "
+                         f"default {Z_INIT}")
     ap.add_argument("--grav-upstream", action="store_true",
                     help="Weis Eq. 25 upstream gravity densities")
     ap.add_argument("--lag-upwind", action="store_true",
@@ -559,7 +766,7 @@ def main():
     ap.add_argument("--lag-props", action="store_true",
                     help="flux coefficients at the old time level (semi-implicit, 2.6)")
     ap.add_argument("--cfl", type=float, default=None, metavar="C",
-                    help="advective CFL dt limiter (Weis Eq. 26), available in ALL "
+                    help="advective CFL dt limiter (Weis Eq. 26+27), available in ALL "
                          "modes; give a factor (e.g. 0.9) to enable. Default: off for "
                          "the fully-implicit modes, 0.9 for the lagged modes (which "
                          "are only conditionally stable and need it)")
@@ -569,7 +776,7 @@ def main():
     ap.add_argument("--dt-min", type=float, default=DT_MIN, metavar="YR")
     ap.add_argument("--dt-max", type=float, default=DT_MAX, metavar="YR")
     a = ap.parse_args()
-    run(scheme=a.scheme, cell=a.cell_size, q_anomaly=a.q_anomaly,
+    run(scheme=a.scheme, cell=a.cell_size, q_anomaly=a.q_anomaly, z_init=a.z_init,
         snap_years=a.snap_years, dt_nom=a.dt_nominal, dt_min=a.dt_min,
         dt_max=a.dt_max, grav_upstream=a.grav_upstream, lag_upwind=a.lag_upwind,
         lag_props=a.lag_props, cfl=a.cfl)
