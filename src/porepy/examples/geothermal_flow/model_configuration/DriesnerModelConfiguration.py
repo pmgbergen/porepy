@@ -124,25 +124,40 @@ class _DriesnerBrineBase(  # type:ignore[misc]
     SecondaryEquations,
 ):
 
-    def _liquid_relative_permeability(self, s_liq: pp.ad.Operator) -> pp.ad.Operator:
-        """Weis (2014) liquid relative permeability with residual liquid saturation S_rl = 0.3:
-        k_rl = max((s_l - 0.3)/0.7, 0), written as the smooth ReLU 0.5*(sqrt(x^2) + x)."""
+    def _liquid_relative_permeability(
+        self, s_liq: pp.ad.Operator, s_hal: pp.ad.Operator
+    ) -> pp.ad.Operator:
+        """Weis (2014) liquid relative permeability with halite pore blocking:
+        residual R_l = 0.3 (1 - S_h), linear, k_rl + k_rv = 1 - S_h.  Division-free
+        form k_rl = max((s_l - 0.3 (1 - s_h)) / 0.7, 0) (max at s_l = 1 - s_h gives
+        exactly 1 - s_h), written as the smooth ReLU 0.5*(sqrt(x^2) + x)."""
         sr = pp.ad.Scalar(0.3)
-        s_red = (s_liq - sr) / (pp.ad.Scalar(1.0) - sr)
+        s_red = (s_liq - sr * (pp.ad.Scalar(1.0) - s_hal)) / (pp.ad.Scalar(1.0) - sr)
         return pp.ad.Scalar(0.5) * ((s_red**2) ** 0.5 + s_red)
+
+    def _halite_saturation_or_zero(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        hal = [ph for ph in self.fluid.phases if ph.name == "halite"]
+        return hal[0].saturation(domains) if hal else pp.ad.Scalar(0.0)
 
     def relative_permeability(
         self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        # Weis (2014) fig-5 pure-water two-phase (liq/gas) relative permeabilities:
-        #   k_rl = max((s_l - 0.3)/0.7, 0),   k_rv = 1 - k_rl   (residual vapor R_v = 0, so
-        #   k_rl + k_rv = 1). The previous vapor branch returned s_gas, which is NOT the Weis
-        #   closure and delayed/widened the vapor front.
+        # Weis (2014) relative permeabilities with halite as an immobile solid:
+        #   k_rh = 0,  k_rl = max((s_l - 0.3 (1 - s_h))/0.7, 0),  k_rv = (1 - s_h) - k_rl
+        #   (residual vapor R_v = 0; halite blocks pore space: k_rl + k_rv = 1 - s_h).
+        # s_h = 0 reduces to the two-phase fig-5 closure k_rl + k_rv = 1.
+        if phase.name == "halite":
+            return pp.ad.Scalar(0.0)
+        s_hal = self._halite_saturation_or_zero(domains)
         if phase.name == "liq":
-            return self._liquid_relative_permeability(phase.saturation(domains))
-        # Vapor: complement of the liquid curve at s_l = 1 - s_gas (exact two-phase closure).
-        s_liq = pp.ad.Scalar(1.0) - phase.saturation(domains)
-        return pp.ad.Scalar(1.0) - self._liquid_relative_permeability(s_liq)
+            return self._liquid_relative_permeability(phase.saturation(domains), s_hal)
+        # Vapor: complement of the liquid curve at s_l = 1 - s_gas - s_h.
+        s_liq = pp.ad.Scalar(1.0) - phase.saturation(domains) - s_hal
+        return (pp.ad.Scalar(1.0) - s_hal) - self._liquid_relative_permeability(
+            s_liq, s_hal
+        )
 
     @property
     def obl_sampler(self):

@@ -338,6 +338,7 @@ class PhysicalState(IntEnum):
     - Zero is reserved for undefined state.
     - 1 - 9 is reserved for liquid-like states with 1 being the base state.
     - 10 - 19 is reserved for gas-like states with 10 being the base state.
+    - 20 - 29 is reserved for solid-like states with 20 being the base state.
 
     """
 
@@ -349,6 +350,9 @@ class PhysicalState(IntEnum):
 
     gas = 10
     """Base gas-like state."""
+
+    solid = 20
+    """Base solid-like state (e.g. precipitated halite)."""
 
 
 PhysicalState_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(PhysicalState, nb.int_)

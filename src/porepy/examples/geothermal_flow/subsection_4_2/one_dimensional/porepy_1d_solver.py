@@ -71,7 +71,8 @@ N_CELLS = 800                                  # geometry's native cell count (r
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(HERE, "_cache")
 _TABLE_DIR = os.path.join(
-    HERE, os.pardir, "model_configuration", "constitutive_description", "driesner_vtk_files")
+    HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
+    "driesner_vtk_files")
 
 
 def _pickle_path(geometry_case: str, scheme: str) -> str:

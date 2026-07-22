@@ -11,8 +11,11 @@ assembled with EXACTLY the same upwind machinery as the energy equation: the sam
 pair directions (ug, ud), the same total-flux direction (ut), the same
 mobility-product pair operator, with the advected weight (h_l - h_v) replaced by the
 salt mass fractions (X_l - X_v).  Properties are sampled TRILINEARLY from the
-Driesner opensowat tables over (z, h, p); z = 0 reproduces the previous two-equation
-solver on the z = 0 slice.
+Driesner opensowat tables over (z, h, p), full salinity range 0..1 with HALITE:
+S_h is a third (immobile) saturation from the flash -- storage-only per Weis 2014
+Eqs 2-4 (bulk rho/h/z carry it automatically with (p, h, z) primaries), with pore
+blocking through the relperms  R_l = 0.3 (1 - S_h),  kr_l + kr_v = 1 - S_h.
+z = 0 reproduces the previous two-equation solver on the z = 0 slice.
 
 Reference-mimicking switches (unchanged):
     --grav-upstream  gravity-term densities from the (lagged) upstream node (Eq. 25);
@@ -84,9 +87,6 @@ class Table3:
             self._build(file_name, fields, a_in, b_in, key, cache)
         self.names = list(self.V.keys())
         self.V_stack = np.ascontiguousarray(np.stack([self.V[n] for n in self.names]))
-        # safety net: if a table drop ships Xl/Xv == 0 everywhere, fall back to
-        # derived partitioning (vapor salt-free) instead of silently losing the salt
-        self.derive_x = ("Xl" in self.V and float(np.max(self.V["Xl"])) == 0.0)
 
     def _load(self, cache, key):
         try:
@@ -180,8 +180,8 @@ class Table3:
 # volumetric saturations, real Xl/Xv partitioning, h 0.0001..4.7 MJ/kg, p down to
 # atmospheric.  Axis units are mapped by a_in/b_in; field scales bring values to SI.
 _XPH_FIELDS = {"Rho_l": 1.0, "Rho_v": 1.0, "H_l": 1e3, "H_v": 1e3,
-               "mu_l": 1.0, "mu_v": 1.0, "S_v": 1.0, "Temperature": 1.0,
-               "Xl": 1.0, "Xv": 1.0}
+               "mu_l": 1.0, "mu_v": 1.0, "S_v": 1.0, "S_h": 1.0, "Rho": 1.0,
+               "Temperature": 1.0, "Xl": 1.0, "Xv": 1.0}
 _XPH_A_IN, _XPH_B_IN = 1e-6, 1e-6
 _XPT_FIELDS = {"H": 1e3}
 _XPT_A_IN, _XPT_B_IN = 1.0, 1e-6
@@ -204,31 +204,26 @@ class Props3:
     adv_h: np.ndarray
     x_l: np.ndarray; x_v: np.ndarray       # NaCl mass fraction in liquid / vapor
     adv_z: np.ndarray                       # x_l mm_l + x_v mm_v (component advection)
+    s_h: np.ndarray                         # halite saturation (immobile, X_h = 1)
 
 
 def eval_props(table, z, p, h):
     s = table.sample_many(z, h, p)
     rho_l = s["Rho_l"]; rho_v = s["Rho_v"]
     s_v = np.clip(s["S_v"], 0.0, 1.0)
-    s_l = 1.0 - s_v
+    s_h = np.clip(s["S_h"], 0.0, 1.0 - s_v)
+    s_l = np.clip(1.0 - s_v - s_h, 0.0, 1.0)
     h_l = s["H_l"]; h_v = s["H_v"]
     mu_l = s["mu_l"]; mu_v = s["mu_v"]
     T = s["Temperature"]
-    if getattr(table, "derive_x", False):
-        # derived salt partitioning (table Xl/Xv are zero): vapor salt-free, liquid
-        # carries the bulk salt by mass consistency  x_l s_l rho_l = z rho_mix
-        s_l_tmp = 1.0 - s_v
-        rho_mix_tmp = s_l_tmp * rho_l + s_v * rho_v
-        x_l = np.where(s_l_tmp > 1e-9,
-                       np.clip(z * rho_mix_tmp / np.maximum(s_l_tmp * rho_l, 1e-12),
-                               0.0, 1.0), 0.0)
-        x_v = np.where(s_l_tmp > 1e-9, 0.0, np.clip(z, 0.0, 1.0))
-    else:
-        x_l = np.clip(s["Xl"], 0.0, 1.0)
-        x_v = np.clip(s["Xv"], 0.0, 1.0)
+    x_l = np.clip(s["Xl"], 0.0, 1.0)
+    x_v = np.clip(s["Xv"], 0.0, 1.0)
 
-    kr_l = np.maximum((s_l - S_R_LIQ) / (1.0 - S_R_LIQ), 0.0)   # linear, residual 0.3
-    kr_v = 1.0 - kr_l
+    # Weis 2014 relperms: linear, R_l = S_R_LIQ (1 - S_h), R_v = 0, kr_l + kr_v =
+    # 1 - S_h (halite blocks pore space); S_h = 0 reduces to the previous model
+    pore = np.maximum(1.0 - s_h, 1.0e-12)
+    kr_l = pore * np.clip((s_l / pore - S_R_LIQ) / (1.0 - S_R_LIQ), 0.0, 1.0)
+    kr_v = pore - kr_l
     mm_l = rho_l * kr_l / mu_l
     mm_v = rho_v * kr_v / mu_v
     lam_T = mm_l + mm_v
@@ -236,11 +231,11 @@ def eval_props(table, z, p, h):
     f_l = mm_l * inv
     f_v = mm_v * inv
     rho_ff = f_l * rho_l + f_v * rho_v
-    rho_mix = s_l * rho_l + s_v * rho_v
+    rho_mix = s["Rho"]          # bulk density incl. the halite contribution S_h rho_h
     adv_h = h_l * mm_l + h_v * mm_v
     adv_z = x_l * mm_l + x_v * mm_v
     return Props3(rho_l, rho_v, s_v, s_l, h_l, h_v, T, rho_mix, lam_T,
-                  f_l, f_v, rho_ff, mm_l, mm_v, adv_h, x_l, x_v, adv_z)
+                  f_l, f_v, rho_ff, mm_l, mm_v, adv_h, x_l, x_v, adv_z, s_h=s_h)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -624,7 +619,7 @@ def export_vtu(folder, k, grid, table, x):
     cd["enthalpy"] = h * 1e-6                     # MJ/kg
     cd["temperature"] = pr.T
     cd["T_C"] = pr.T - 273.15
-    cd["s_v"] = pr.s_v; cd["s_l"] = pr.s_l
+    cd["s_v"] = pr.s_v; cd["s_l"] = pr.s_l; cd["s_h"] = pr.s_h
     cd["rho"] = pr.rho_mix; cd["rho_l"] = pr.rho_l; cd["rho_v"] = pr.rho_v
     cd["h_l"] = pr.h_l * 1e-6; cd["h_v"] = pr.h_v * 1e-6
     cd["z_NaCl"] = z
@@ -665,8 +660,7 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
     if verbose:
         print(f"  tables: h [{table.a_min/1e6:g}, {table.a_max/1e6:g}] MJ/kg, "
               f"p [{table.b_min/1e6:g}, {table.b_max/1e6:g}] MPa, "
-              f"z [{table.c_min:g}, {table.c_max:g}]"
-              + ("  (Xl/Xv zero -> DERIVED partitioning)" if table.derive_x else ""))
+              f"z [{table.c_min:g}, {table.c_max:g}]")
     if P_TOP < table.b_min:
         print(f"  WARNING: P_TOP = {P_TOP/1e6:g} MPa is below the table pressure floor "
               f"{table.b_min/1e6:g} MPa -- near-surface states will clamp; consider "

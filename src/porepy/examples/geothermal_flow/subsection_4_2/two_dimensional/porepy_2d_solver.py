@@ -259,9 +259,9 @@ _ap.add_argument("--lag-buoyancy", action="store_true",
                  help="freeze the buoyancy upwind direction over each time step "
                       "(CSMP++'s frozen-upwind policy, Weis et al. sec. 2.7)")
 _args = _ap.parse_args()
-if not 0.0 <= _args.z_init <= 0.2:
+if not 0.0 <= _args.z_init <= 1.0:
     raise SystemExit(f"--z-init {_args.z_init} outside the opensowat table "
-                     "range z in [0, 0.2]")
+                     "range z in [0, 1]")
 if _args.snap_years[0] != 0.0 or any(
         b <= a for a, b in zip(_args.snap_years, _args.snap_years[1:])):
     raise SystemExit(f"--snap-years {_args.snap_years} must start at 0 and be "

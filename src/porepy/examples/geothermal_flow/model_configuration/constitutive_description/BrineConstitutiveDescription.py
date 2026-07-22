@@ -183,6 +183,81 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         )
 
 
+class SolidDriesnerCorrelations(pp.compositional.EquationOfState):
+    """Halite: immobile solid phase (Weis 2014). Storage-only -- its relative
+    permeability is zero, so viscosity is a never-used positive placeholder."""
+
+    @property
+    def obl_sampler(self) -> VTKSampler:
+        return self._obl_sampler
+
+    @obl_sampler.setter
+    def obl_sampler(self, obl_sampler: VTKSampler) -> None:
+        self._obl_sampler = obl_sampler
+
+    def kappa(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = (2.0) * np.ones(nc) * 1.0e-6  # 2 MW / (m C)
+        diffs = np.zeros((len(thermodynamic_dependencies), nc))
+        return vals, diffs
+
+    def compute_phase_properties(
+        self,
+        phase_state: pp.compositional.PhysicalState,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
+    ) -> pp.compositional.PhaseProperties:
+        if not hasattr(self, "_obl_sampler"):
+            raise AttributeError(
+                "Instance of the obl_sampler attribute is not present."
+            )
+
+        p, h, z_NaCl = thermodynamic_input
+        par_points = np.array((z_NaCl, h, p)).T
+        self.obl_sampler.sample_at(par_points)
+        n = len(p)
+
+        # Mass density of halite
+        rho = self.obl_sampler.sampled_could.point_data["Rho_h"]
+        drhodz = self.obl_sampler.sampled_could.point_data["grad_Rho_h"][:, 0]
+        drhodH = self.obl_sampler.sampled_could.point_data["grad_Rho_h"][:, 1]
+        drhodp = self.obl_sampler.sampled_could.point_data["grad_Rho_h"][:, 2]
+        drho = np.vstack((drhodp, drhodH, drhodz))
+
+        # specific enthalpy of halite
+        h = self.obl_sampler.sampled_could.point_data["H_h"] * 1.0e-3
+        dhdz = self.obl_sampler.sampled_could.point_data["grad_H_h"][:, 0] * 1.0e-3
+        dhdH = self.obl_sampler.sampled_could.point_data["grad_H_h"][:, 1] * 1.0e-3
+        dhdp = self.obl_sampler.sampled_could.point_data["grad_H_h"][:, 2] * 1.0e-3
+        dh = np.vstack((dhdp, dhdH, dhdz))
+
+        # placeholder viscosity (immobile phase, kr = 0: never enters a flux)
+        mu = np.ones(n) * 1.0e-6
+        dmu = np.zeros((3, n))
+
+        kappa, dkappa = self.kappa(*thermodynamic_input)
+
+        phis = np.empty((2, n))
+        dphis = np.empty((2, 3, n))
+
+        return pp.compositional.PhaseProperties(
+            state=phase_state,
+            rho=rho,
+            drho=drho,
+            h=h,
+            dh=dh,
+            mu=mu,
+            dmu=dmu,
+            kappa=kappa,
+            dkappa=dkappa,
+            phis=phis,
+            dphis=dphis,
+        )
+
+
 class FluidMixture(pp.PorePyModel):
     """Mixture mixin creating the brine mixture with two components."""
 
@@ -203,12 +278,15 @@ class FluidMixture(pp.PorePyModel):
     ]:
         eos_L = LiquidDriesnerCorrelations(components)
         eos_G = GasDriesnerCorrelations(components)
+        eos_H = SolidDriesnerCorrelations(components)
         # assign common obl_sampler object
         eos_L.obl_sampler = self.obl_sampler
         eos_G.obl_sampler = self.obl_sampler
+        eos_H.obl_sampler = self.obl_sampler
         return [
             (pp.compositional.PhysicalState.liquid, "liq", eos_L),
             (pp.compositional.PhysicalState.gas, "gas", eos_G),
+            (pp.compositional.PhysicalState.solid, "halite", eos_H),
         ]
 
     def dependencies_of_phase_properties(
@@ -267,6 +345,24 @@ class SecondaryEquations(LocalElimination):
         S_v = np.clip(S_v, 0.0, 1.0)
         return S_v, dS_v
 
+    def halite_saturation_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        p, h, z_NaCl = thermodynamic_dependencies
+        assert len(p) == len(h) == len(z_NaCl)
+        par_points = np.array((z_NaCl, h, p)).T
+        self.obl_sampler.sample_at(par_points)
+
+        # Halite (solid) saturation
+        S_h = self.obl_sampler.sampled_could.point_data["S_h"]
+        dS_hdz = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 0]
+        dS_hdH = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 1]
+        dS_hdp = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 2]
+        dS_h = np.vstack((dS_hdp, dS_hdH, dS_hdz))
+        S_h = np.clip(S_h, 0.0, 1.0)
+        return S_h, dS_h
+
     def temperature_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
@@ -320,6 +416,15 @@ class SecondaryEquations(LocalElimination):
         X_s = np.clip(X_s, 0.0, 1.0)
         return X_s, dX_s
 
+    def NaCl_halite_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        # Halite is pure NaCl: X = 1 identically (X_H2O = 0 via the reference
+        # component), with zero derivatives.
+        n = len(thermodynamic_dependencies[0])
+        return np.ones(n), np.zeros((3, n))
+
     def set_equations(self) -> None:
         super().set_equations()
         subdomains = self.mdg.subdomains()
@@ -333,11 +438,16 @@ class SecondaryEquations(LocalElimination):
         chi_functions_map = {
             "NaCl_liq": self.NaCl_liq_func,
             "NaCl_gas": self.NaCl_gas_func,
+            "NaCl_halite": self.NaCl_halite_func,
+        }
+        saturation_functions_map = {
+            "gas": self.gas_saturation_func,
+            "halite": self.halite_saturation_func,
         }
 
-        ### Providing constitutive law for gas saturation based on correlation
+        ### Providing constitutive laws for the independent (non-reference) phase
+        ### saturations based on the Driesner correlations
         rphase = self.fluid.reference_phase  # liquid phase
-        # gas phase is independent
         independent_phases = [p for p in self.fluid.phases if p != rphase]
 
         for phase in independent_phases:
@@ -346,8 +456,8 @@ class SecondaryEquations(LocalElimination):
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdoains
-                self.gas_saturation_func,  # numerical function implementing correlation
-                subdomains_and_matrix,  # all grids on which to eliminate s_gas
+                saturation_functions_map[phase.name],
+                subdomains_and_matrix,  # all grids on which to eliminate the saturation
             )
 
         ### Providing constitutive laws for partial fractions based on correlations

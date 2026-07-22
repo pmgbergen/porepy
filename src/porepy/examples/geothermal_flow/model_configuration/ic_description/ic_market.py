@@ -13,8 +13,11 @@ class IC_Base(pp.PorePyModel):
     def initial_condition(self) -> None:
         super().initial_condition()
 
-        # set the values to be the custom functions
-        liq, gas = self.fluid.phases
+        # set the values to be the custom functions (phase order is
+        # [non-gas..., gas-like], so look phases up by NAME, never by position)
+        liq = next(ph for ph in self.fluid.phases if ph.name == "liq")
+        gas = next(ph for ph in self.fluid.phases if ph.name == "gas")
+        hal = [ph for ph in self.fluid.phases if ph.name == "halite"]
         for sd in self.mdg.subdomains():
             s_gas_val = self.ic_values_gas_saturation(sd)
             x_CO2_liq_v, x_CO2_gas_v = self.ic_values_partial_fractions(sd)
@@ -26,6 +29,13 @@ class IC_Base(pp.PorePyModel):
             self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
             self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
             self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
+            if hal:
+                s_hal = hal[0].saturation([sd])
+                x_hal = hal[0].partial_fraction_of[self.fluid.components[1]]([sd])
+                self.equation_system.set_variable_values(
+                    self.ic_values_halite_saturation(sd), [s_hal], 0, 0)
+                self.equation_system.set_variable_values(
+                    np.ones(sd.num_cells), [x_hal], 0, 0)  # halite is pure NaCl
 
     def ic_values_partial_fractions(self, sd: pp.Grid) -> np.ndarray:
         p = self.ic_values_pressure(sd)
@@ -45,6 +55,14 @@ class IC_Base(pp.PorePyModel):
         self.obl_sampler_ptz.sample_at(par_points)
         s_init = np.clip(self.obl_sampler_ptz.sampled_could.point_data["S_v"], 0, 1.0)
         return s_init
+
+    def ic_values_halite_saturation(self, sd: pp.Grid) -> np.ndarray:
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = np.zeros_like(p)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.obl_sampler_ptz.sample_at(par_points)
+        return np.clip(self.obl_sampler_ptz.sampled_could.point_data["S_h"], 0, 1.0)
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         p = self.ic_values_pressure(sd)
