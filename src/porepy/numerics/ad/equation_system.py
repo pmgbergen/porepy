@@ -1242,7 +1242,7 @@ class EquationSystem:
                 values.
 
         Returns:
-             Unordered set of requested equation names.
+            Requested equation names in input order.
 
         """
         if requested_equations is None:
