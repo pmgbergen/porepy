@@ -342,7 +342,12 @@ class SecondaryEquations(LocalElimination):
         dS_vdH = self.obl_sampler.sampled_could.point_data["grad_S_v"][:, 1]
         dS_vdp = self.obl_sampler.sampled_could.point_data["grad_S_v"][:, 2]
         dS_v = np.vstack((dS_vdp, dS_vdH, dS_vdz))
+        # clip to the physical range and FLATTEN the gradient where the clip is
+        # active: returning the raw spline gradient at a clipped value lets the
+        # linearized elimination push the saturation out of [0, 1]
+        clipped = (S_v < 0.0) | (S_v > 1.0)
         S_v = np.clip(S_v, 0.0, 1.0)
+        dS_v[:, clipped] = 0.0
         return S_v, dS_v
 
     def halite_saturation_func(
@@ -360,7 +365,9 @@ class SecondaryEquations(LocalElimination):
         dS_hdH = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 1]
         dS_hdp = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 2]
         dS_h = np.vstack((dS_hdp, dS_hdH, dS_hdz))
+        clipped = (S_h < 0.0) | (S_h > 1.0)
         S_h = np.clip(S_h, 0.0, 1.0)
+        dS_h[:, clipped] = 0.0
         return S_h, dS_h
 
     def temperature_func(
@@ -395,7 +402,9 @@ class SecondaryEquations(LocalElimination):
         dX_sdH = self.obl_sampler.sampled_could.point_data["grad_Xl"][:, 1]
         dX_sdp = self.obl_sampler.sampled_could.point_data["grad_Xl"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
+        clipped = (X_s < 0.0) | (X_s > 1.0)
         X_s = np.clip(X_s, 0.0, 1.0)
+        dX_s[:, clipped] = 0.0
         return X_s, dX_s
 
     def NaCl_gas_func(
@@ -413,7 +422,9 @@ class SecondaryEquations(LocalElimination):
         dX_sdH = self.obl_sampler.sampled_could.point_data["grad_Xv"][:, 1]
         dX_sdp = self.obl_sampler.sampled_could.point_data["grad_Xv"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
+        clipped = (X_s < 0.0) | (X_s > 1.0)
         X_s = np.clip(X_s, 0.0, 1.0)
+        dX_s[:, clipped] = 0.0
         return X_s, dX_s
 
     def NaCl_halite_func(
