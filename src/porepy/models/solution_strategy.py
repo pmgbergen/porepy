@@ -354,7 +354,11 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         """Method to be called after every non-linear iteration.
 
         The base method does the following:
@@ -365,11 +369,16 @@ class SolutionStrategy(pp.PorePyModel):
 
         Parameters:
             nonlinear_increment: The new solution, as computed by the non-linear solver.
+            updated_variables: Variables to update with `nonlinear_increment`. If
+                `None`, all variables are updated.
 
         """
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
+            values=nonlinear_increment,
+            variables=updated_variables,
+            additive=True,
+            iterate_index=0,
         )
         self.update_derived_quantities()
 
