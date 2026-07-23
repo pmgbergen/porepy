@@ -1454,6 +1454,57 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
 
 
 @pytest.mark.parametrize(
+    "equations",
+    [
+        ["eq_single_interface", "eq_all_subdomains"],
+        ["eq_all_subdomains", "eq_single_interface"],
+    ],
+)
+@pytest.mark.parametrize(
+    "variables",
+    [
+        ["w", "x"],
+        ["x", "w"],
+    ],
+)
+def test_assembled_matrix_indexers_match_assembly_order(
+    model: EquationSystemMockModel,
+    equations: list[str],
+    variables: list[str],
+) -> None:
+    """Restricted indexers must use the canonical matrix assembly order."""
+    equation_system = model.equation_system
+
+    _, _ = equation_system.assemble(equations=equations, variables=variables)
+    equation_indexer, variable_indexer = (
+        equation_system.construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+    )
+
+    expected_equations = [
+        equation
+        for equation in equation_system.equation_indexer.equation_dofs
+        if equation.name in equations
+    ]
+    expected_variables = [
+        variable
+        for variable in equation_system.variable_indexer.variable_dofs
+        if variable.name in variables
+    ]
+
+    actual_order = (
+        [equation.name for equation in equation_indexer.equation_dofs],
+        [variable.name for variable in variable_indexer.variable_dofs],
+    )
+    expected_order = (
+        [equation.name for equation in expected_equations],
+        [variable.name for variable in expected_variables],
+    )
+    assert actual_order == expected_order
+
+
+@pytest.mark.parametrize(
     "equation_variables",
     [
         [None, None],  # Two Nones will give the full system
