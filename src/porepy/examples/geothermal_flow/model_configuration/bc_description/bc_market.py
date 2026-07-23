@@ -28,10 +28,15 @@ class BCBase(pp.PorePyModel):
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self.bc_type_darcy_flux(sd)
 
+    def bc_salinity(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Overall NaCl fraction of the boundary fluid; zero unless a solver
+        overrides it."""
+        return np.zeros(boundary_grid.num_cells)
+
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p = self.bc_values_pressure(boundary_grid)
         t = self.bc_values_temperature(boundary_grid)
-        z_NaCl = np.zeros_like(p)
+        z_NaCl = self.bc_salinity(boundary_grid)
         par_points = np.array((z_NaCl, t, p)).T
         self.obl_sampler_ptz.sample_at(par_points)
         h = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
@@ -40,12 +45,7 @@ class BCBase(pp.PorePyModel):
     def bc_values_overall_fraction(
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.0
-        z_inlet = 0.0
-        z_NaCl = z_init * np.ones(boundary_grid.num_cells)
-        z_NaCl[inlet_idx] = z_inlet
-        return z_NaCl
+        return self.bc_salinity(boundary_grid)
 
     def bc_values_fractional_flow_component(
             self, component: pp.Component, bg: pp.BoundaryGrid
