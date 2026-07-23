@@ -121,8 +121,15 @@ class MockEquationSystem:
     def get_variable_values(self, **wkwargs):
         return np.array([1.0])
 
-    def assemble(self, evaluate_jacobian=False):
-        return self.residual
+    def assemble(self, evaluate_jacobian: bool = True, **kwargs):
+        if not evaluate_jacobian:
+            return self.residual
+        return pp.solvers.LinearSystem(
+            matrix=csr_matrix(np.array([[1.0]])),
+            rhs=np.array([1e-11]),
+            equation_indexer=pp.ad.EquationIndexer(equation_dofs={}),
+            variable_indexer=pp.ad.VariableIndexer(variable_dofs={}),
+        )
 
 
 class MockMdg:
@@ -165,7 +172,7 @@ class MockModel:
         self.equation_system.residual = np.array(self.residual_history[0])
         self.residual_history = self.residual_history[1:]
 
-    def after_nonlinear_iteration(self, inc):
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray):
         pass
 
     def after_nonlinear_convergence(self):
@@ -173,9 +180,6 @@ class MockModel:
 
     def after_nonlinear_failure(self):
         self.nonlinear_solver_statistics.save()
-
-    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
-        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.zeros(shape=()))
 
     def _is_time_dependent(self):
         return False
@@ -711,10 +715,6 @@ def test_summarize_solver_status(
     model = MockModel()
     solver = default_newton_solver()
 
-    # Mock the solver progressbar. Usually it is initialized in
-    # NewtonSolver.before_nonlinear_loop, which is never called in this test.
-    solver.solver_progressbar = DummyProgressBar()
-
     # Minimal mimicking of loop.
     model.nonlinear_solver_statistics.solver_status_history = [
         NonlinearSolverStatusConverged(
@@ -739,10 +739,6 @@ def test_before_nonlinear_iteration():
     # Init model and solver.
     model = MockModel(residual_history=[1.0])
     solver = default_newton_solver(nonlinear_increment_history=[2.0])
-
-    # Mock the solver progressbar. Usually it is initialized in
-    # NewtonSolver.before_nonlinear_loop, which is never called in this test.
-    solver.solver_progressbar = DummyProgressBar()
 
     # Check initial iteration index.
     assert solver.iteration_index == 0
@@ -780,10 +776,6 @@ def test_after_nonlinear_iteration(
     # Init model and solver.
     model = MockModel()
     solver = default_newton_solver()
-
-    # Mock the solver progressbar. Usually it is initialized in
-    # NewtonSolver.before_nonlinear_loop, which is never called in this test.
-    solver.solver_progressbar = DummyProgressBar()
 
     # Mock the nonlinear increment and residual for the last iteration.
     model.nonlinear_increment = np.array([inc])

@@ -62,7 +62,6 @@ def _build_buoyancy_model(
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
-        "apply_schur_complement_reduction": False,
         "nl_convergence_inc_atol": np.inf,
         "nl_convergence_res_atol": np.inf,
     }

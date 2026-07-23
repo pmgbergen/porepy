@@ -8,12 +8,18 @@ Used by `EquationSystem` and nonlinear solvers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Final
 
 import numpy as np
 
 import porepy as pp
 
-__all__ = ["EquationOnDomain", "VariableIndexer", "EquationIndexer"]
+__all__ = [
+    "EquationOnDomain",
+    "VariableIndexer",
+    "EquationIndexer",
+    "EquationSystemIndexer",
+]
 
 
 @dataclass(frozen=True)
@@ -103,7 +109,7 @@ class VariableIndexer:
             offset += dofs.size
 
         if len(new_variable_dofs) != len(variables):
-            raise ValueError(f"Requested variables are duplicated: {variable}.")
+            raise ValueError(f"Requested variables are duplicated: {variables}.")
 
         return VariableIndexer(variable_dofs=new_variable_dofs)
 
@@ -128,55 +134,18 @@ class VariableIndexer:
 
 
 class EquationIndexer:
-    """An equation indexer determines the arrangement of DoFs corresponding to multiple
-    equations on multiple grids in a contiguous array.
+    """Map atomic equations to their DoF indices in an algebraic system.
 
-    For a data array with a different arrangement (e.g., produced by taking a subset of
-    equations), a new indexer needs to be constructed.
-
-    Implementation note: There is an unfortunate asymmetry between this and
-    :class:`VariableIndexer` in the way these classes are initialized and what fields
-    they expose. This is done to support convenient operations in `EquationSystem`. The
-    preferred way to interact with this class outside `EquationSystem` is by using
-    :class:`EquationOnDomain` to query DoFs and not
-    `dict[str, dict[pp.GridLike, np.ndarray]]`. See also the docstring of
-    :attr:`equation_image_space_composition`.
+    The DoFs may have an arbitrary arrangement. In particular, the indices belonging to
+    an equation need not be contiguous, and equations need not occur in registration
+    order. A new indexer must be constructed for a data array with a different
+    arrangement.
 
     """
 
-    def __init__(
-        self, equation_image_composition: dict[str, dict[pp.GridLike, np.ndarray]]
-    ) -> None:
-        equation_dofs: dict[EquationOnDomain, np.ndarray] = {}
-        global_offset = 0
-        for eq_name, dofs_on_domains in equation_image_composition.items():
-            offset_per_equation = 0
-            for domain, dofs in dofs_on_domains.items():
-                equation_dofs[EquationOnDomain(name=eq_name, domain=domain)] = (
-                    dofs + global_offset
-                )
-                offset_per_equation += dofs.size
-            global_offset += offset_per_equation
-
-        self.equation_dofs: dict[EquationOnDomain, np.ndarray] = equation_dofs
-        """An ordered mapping of atomic equations to their DoF indices. The keys are
-        ordered, in a sense that if key A goes before key B, DoFs of key A are located
-        before DoFs of key B.
-
-        """
-        self.equation_image_space_composition: dict[
-            str, dict[pp.GridLike, np.ndarray]
-        ] = equation_image_composition
-        """A mapping `equation_name` -> `domains` -> `dofs`.
-
-        The dofs stored here start from 0 for each equation, i.e. the offset is only
-        relative to domains. The DoFs with the "global" offset can be found in
-        :attr:`equation_dofs`. This is done to respect the implementation of
-        `EquationSystem`, where both types of offsets are needed.
-
-        Note: It does not include equations with empty domains.
-
-        """
+    def __init__(self, equation_dofs: dict[EquationOnDomain, np.ndarray]) -> None:
+        self.equation_dofs: Final[dict[EquationOnDomain, np.ndarray]] = equation_dofs
+        """Mapping of atomic equations to their DoF indices."""
 
     def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
         """Group :attr:`equation_dofs` by equation names.
@@ -231,16 +200,81 @@ class EquationIndexer:
         if len(new_equation_dofs) != len(equations):
             raise ValueError(f"Requested equations are duplicated: {equations}.")
 
-        # YZ: This is a little hack to be removed in the next PR. Now for simplicity,
-        # EquationIndexer needs to be initialized with (equation-local)
-        # equation_image_composition, so we reconstruct it here.
-        equation_image_composition: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        offsets_per_equation: dict[str, int] = {}
-        for equation, dofs in new_equation_dofs.items():
-            equation_offset = offsets_per_equation.get(equation.name, 0)
-            equation_image_composition.setdefault(equation.name, {})[
-                equation.domain
-            ] = np.arange(dofs.size) + equation_offset
-            offsets_per_equation[equation.name] = equation_offset + dofs.size
+        return EquationIndexer(equation_dofs=new_equation_dofs)
 
-        return EquationIndexer(equation_image_composition=equation_image_composition)
+    def projection_indices(self, equations: list[EquationOnDomain]) -> np.ndarray:
+        """Create a projection index array from the system vector represented
+        by this indexer to the requested subspace.
+
+        The order of the equations in the projection is defined by the input.
+
+        Parameters:
+            equation: Input for which the subspace is requested.
+
+        Returns:
+            an index array of `shape=(M,)`, where `0 <= M <= num_dofs`.
+
+        """
+        projections = []
+        for equation in equations:
+            dofs = self.equation_dofs.get(equation, None)
+            if dofs is None:
+                raise ValueError(
+                    f"Requested equation is not known to this indexer: {equation}."
+                )
+            projections.append(dofs)
+        return (
+            np.concatenate(projections)
+            if len(projections) > 0
+            else np.empty(0, dtype=int)
+        )
+
+
+class EquationSystemIndexer(EquationIndexer):
+    """Equation indexer for the block arrangement used by :class:`EquationSystem`.
+
+    The AD framework evaluates each equation separately. Before these per-equation
+    results are concatenated into a global matrix and residual vector,
+    :class:`EquationSystem` may need to select rows belonging to requested domains.
+    :attr:`equation_image_space_composition` provides the per-equation indices needed
+    for this selection.
+
+    In the global algebraic system, equations form consecutive blocks. Within each
+    equation, the image-space composition maps every requested domain to indices in
+    that equation's unreduced result. These local indices need not be consecutive: A
+    restricted system can select only part of an equation's result.
+
+    """
+
+    def __init__(
+        self,
+        equation_image_space_composition: dict[str, dict[pp.GridLike, np.ndarray]],
+    ) -> None:
+        equation_dofs: dict[EquationOnDomain, np.ndarray] = {}
+        global_offset = 0
+        for eq_name, dofs_on_domains in equation_image_space_composition.items():
+            offset_within_equation = 0
+            for domain, dofs in dofs_on_domains.items():
+                equation_dofs[EquationOnDomain(name=eq_name, domain=domain)] = (
+                    np.arange(dofs.size) + (global_offset + offset_within_equation)
+                )
+                offset_within_equation += dofs.size
+            global_offset += offset_within_equation
+
+        super().__init__(equation_dofs=equation_dofs)
+        self.equation_image_space_composition: Final[
+            dict[str, dict[pp.GridLike, np.ndarray]]
+        ] = equation_image_space_composition
+        """A mapping `equation_name` -> `domains` -> `dofs`.
+
+        The DoFs stored here refer to rows in each equation's separate AD result. The
+        consecutive indices of the selected rows after global concatenation can be
+        found in :attr:`equation_dofs`. The equation-local indices allow
+        :class:`EquationSystem` to select rows before concatenating the per-equation
+        results into the global matrix and residual vector.
+
+        Callers must not mutate the dictionary or its arrays.
+
+        Note: It does not include equations with empty domains.
+
+        """

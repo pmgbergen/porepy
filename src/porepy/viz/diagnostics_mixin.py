@@ -15,11 +15,11 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
+import porepy as pp
 from porepy import solvers
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad.indexers import EquationIndexer, VariableIndexer
 from porepy.numerics.ad.operators import Variable
 
 if TYPE_CHECKING:
@@ -84,8 +84,6 @@ class DiagnosticsMixin:
         ) = None,
         default_handlers: Sequence[Literal["cond", "max"]] = ("max",),
         additional_handlers: Optional[dict[str, SubmatrixHandlerType]] = None,
-        equation_indexer: Optional[EquationIndexer] = None,
-        variable_indexer: Optional[VariableIndexer] = None,
     ) -> DiagnosticsData:
         """Collect and plot diagnostics for an assembled Jacobian matrix.
 
@@ -116,11 +114,6 @@ class DiagnosticsMixin:
                 equation name and the variable name. The equation and the variable names
                 are passed to allow the user for calculating the handler value only in a
                 subset of equations and variables of interest.
-            equation_indexer: Indexer describing the rows of ``linear_system.matrix``.
-                Defaults to the indexer for all equations in the equation system.
-            variable_indexer: Indexer describing the columns of
-                ``linear_system.matrix``. Defaults to the indexer for all variables in
-                the equation system.
 
         Returns:
             A dictionary with keys corresponding to block index and values of
@@ -180,10 +173,8 @@ class DiagnosticsMixin:
             "Cannot diagnose a linear system whose matrix was freed."
         )
 
-        if equation_indexer is None:
-            equation_indexer = self.equation_system.equation_indexer
-        if variable_indexer is None:
-            variable_indexer = self.equation_system.variable_indexer
+        equation_indexer = linear_system.equation_indexer
+        variable_indexer = linear_system.variable_indexer
 
         indexed_shape = (
             sum(dofs.size for dofs in equation_indexer.equation_dofs.values()),
@@ -390,7 +381,7 @@ class DiagnosticsMixin:
 
     def _variable_data(
         self,
-        variable_indexer: VariableIndexer,
+        variable_indexer: pp.ad.VariableIndexer,
         grouping: GridGroupingType,
         add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:

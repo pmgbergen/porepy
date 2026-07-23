@@ -33,7 +33,7 @@ def model() -> PoromechanicsWithDiagnostics:
 def test_diagnostics_mixin_basic(_, model: PoromechanicsWithDiagnostics) -> None:
     """Tests basic functionality."""
     diagnostics_data = model.run_diagnostics(
-        model.assemble_linear_system(),
+        model.equation_system.assemble(),
         default_handlers=("max", "cond"),
         grouping=None,
     )
@@ -134,25 +134,13 @@ def test_diagnostics_mixin_restricted_system(
     equations = [equation_name]
     variables = [variable]
 
-    matrix, rhs = model.equation_system.assemble(
+    linear_system = model.equation_system.assemble(
         equations=equations, variables=variables
     )
-    linear_system = pp.solvers.LinearSystem(matrix=matrix, rhs=rhs)
-    equation_indexer, variable_indexer = (
-        model.equation_system.construct_assembled_matrix_indexers(
-            equations=equations, variables=variables
-        )
-    )
 
-    with pytest.raises(ValueError, match="indexers do not describe"):
-        model.run_diagnostics(linear_system, grouping="dense")
-
-    diagnostics_data = model.run_diagnostics(
-        linear_system,
-        grouping="dense",
-        equation_indexer=equation_indexer,
-        variable_indexer=variable_indexer,
-    )
+    diagnostics_data = model.run_diagnostics(linear_system, grouping="dense")
+    matrix = linear_system.matrix
+    assert matrix is not None
 
     assert len(diagnostics_data) == 1
     block_data = diagnostics_data[0, 0]

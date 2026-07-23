@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, cast
-
+from time import time
 import numpy as np
 
 import porepy as pp
@@ -28,7 +28,11 @@ from .convergence_check import (
     ConvergenceStatusCollection,
     DivergenceCriteria,
 )
-from .linear_solver import LinearSolverBase, LinearSolverDirect, LinearSolverStatus
+from .linear_solvers.linear_solver import (
+    LinearSolverBase,
+    LinearSolverDirect,
+    LinearSolverStatus,
+)
 from .nonlinear_solver_status import (
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
@@ -119,6 +123,11 @@ class NewtonSolver(NonlinearSolverBase):
         Initialization is done once at :meth:`solve`. It is now assumed that this class
         must be used with the same model, and should not be reused for a different
         model.
+
+        """
+        self.solver_progressbar = DummyProgressBar()
+        """The UI progress bar. By default, is a dummy object that does nothing.
+        Reinitialized every Newton loop at :meth:`init_progress_bar`.
 
         """
 
@@ -470,23 +479,12 @@ class NewtonSolver(NonlinearSolverBase):
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
-        linear_system = model.assemble_linear_system()
-        nonlinear_increment, linear_solver_status = (
-            self.linear_solver.solve_linear_system(linear_system)
-        )
+        t_0 = time()
 
-        # This is a temporary approach for compatability. It is a linear solver's
-        # responsibility and will be moved to a new linear solver class when tags and
-        # indexer are introduced.
-        if (
-            hasattr(model, "_apply_schur_complement_reduction")
-            and model._apply_schur_complement_reduction()
-        ):
-            return model.equation_system.expand_schur_complement_solution(
-                nonlinear_increment
-            ), linear_solver_status
+        linear_system = model.equation_system.assemble()
+        logger.debug(f"Assembled linear system in {time() - t_0:.2e} seconds.")
 
-        return nonlinear_increment, linear_solver_status
+        return self.linear_solver.solve_linear_system(linear_system)
 
     def after_nonlinear_iteration(
         self, model: pp.PorePyModel, nonlinear_increment: np.ndarray

@@ -463,7 +463,8 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
 
     # Compute the Lebesgue norm of the equation which corresponds to the
     # mass weighted polynomial expression, defined above.
-    _, dummy_residual_array = model.equation_system.assemble()
+    linear_system = model.equation_system.assemble()
+    dummy_residual_array = linear_system.rhs
     metric_values_eq = m_eq(dummy_residual_array)
     l2_norm_numerical = metric_values_eq["sd_eq"]
 
