@@ -322,7 +322,7 @@ class DiagnosticsMixin:
 
     def _equations_data(
         self,
-        equation_indexer: EquationIndexer,
+        equation_indexer: pp.ad.EquationIndexer,
         grouping: GridGroupingType,
         add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:
