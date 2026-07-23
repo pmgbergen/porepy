@@ -5,7 +5,7 @@ From plain Euclidean norms to model-specific L2 norms of states and equations.
 """
 
 from functools import partial
-from typing import cast
+from typing import Optional, cast
 
 import numpy as np
 
@@ -42,13 +42,24 @@ class EuclideanMetric:
 
 
 class VariableBasedEuclideanMetric(EuclideanMetric):
-    """Plain Euclidean norm for variables and equations, computed per variable and
-    equation block.
+    """Plain Euclidean norm for variables, computed per variable block.
+
+    Parameters:
+        model: The model used to compute the metric.
+        variable_indexer: Define a subset of variables to evaluate the metric on. If
+            None (default), uses all variables.
 
     """
 
-    def __init__(self, model) -> None:
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+    ) -> None:
         self.model = model
+        if variable_indexer is None:
+            variable_indexer = model.equation_system.variable_indexer
+        self.variable_indexer = variable_indexer
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
         """Compute the Euclidean norm of each separate variable.
@@ -60,38 +71,33 @@ class VariableBasedEuclideanMetric(EuclideanMetric):
             dict[str, float]: measure of values for each variable block
 
         """
-        # Collect variable blocks based on variable names
-        variable_names = [
-            variable.name for variable in self.model.equation_system.variables
-        ]
-        variable_blocks = {
-            (variable.name, variable.domain): (
-                self.model.equation_system.dofs_of([variable])
-            )
-            for variable in self.model.equation_system.variables
-        }
-        concatenated_variable_blocks: dict[str, list[int]] = {
-            name: [] for name in set(variable_names)
-        }
-        for (name, _), indices in variable_blocks.items():
-            concatenated_variable_blocks[name].extend(indices)
-
         # Compute norms for each variable block
-        norms = {name: 0.0 for name in set(variable_names)}
-        for name, indices in concatenated_variable_blocks.items():
+        norms: dict[str, float] = {}
+        for name, domains_dofs in self.variable_indexer.group_by_name().items():
+            indices = np.concatenate(list(domains_dofs.values()))
             norms[name] = self._euclidean_norm(values[indices])
 
         return norms
 
 
 class EquationBasedEuclideanMetric(EuclideanMetric):
-    """Plain Euclidean norm for variables and equations, computed per variable and
-    equation block.
+    """Plain Euclidean norm for equations, computed per equation block.
+
+    Parameters:
+        model: The model used to compute the metric.
+        equation_indexer: Define a subset of equations to evaluate the metric on. If
+            None (default), uses all equations.
 
     """
 
-    def __init__(self, model, equation_indexer: pp.ad.EquationIndexer) -> None:
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        equation_indexer: Optional[pp.ad.EquationIndexer] = None,
+    ) -> None:
         self.model = model
+        if equation_indexer is None:
+            equation_indexer = model.equation_system.equation_indexer
         self.equation_indexer = equation_indexer
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
@@ -105,19 +111,14 @@ class EquationBasedEuclideanMetric(EuclideanMetric):
 
         """
         norms = {}
-        equation_image_space_composition = (
-            self.equation_indexer.equation_image_space_composition
-        )
-        offset = 0
-        for name, blocks in equation_image_space_composition.items():
-            indices = np.concatenate(list(blocks.values())) + offset
-            offset += len(indices)
+        for name, domains_dofs in self.equation_indexer.group_by_name().items():
+            indices = np.concatenate(list(domains_dofs.values()))
             norms[name] = self._euclidean_norm(values[indices])
         return norms
 
 
 class LebesgueMetric:
-    def __init__(self, model) -> None:
+    def __init__(self, model: pp.PorePyModel) -> None:
         self.model = model
 
     def _lebesgue2_norm(
@@ -153,7 +154,24 @@ class LebesgueMetric:
 
 
 class VariableBasedLebesgueMetric(LebesgueMetric):
-    """Lebesgue L2 norm for variables and equations, computed per variable block."""
+    """Lebesgue L2 norm for variables, computed per variable block.
+
+    Parameters:
+        model: The model used to compute the metric.
+        variable_indexer: Define a subset of variables to evaluate the metric on. If
+            None (default), uses all variables.
+
+    """
+
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+    ) -> None:
+        super().__init__(model)
+        if variable_indexer is None:
+            variable_indexer = model.equation_system.variable_indexer
+        self.variable_indexer = variable_indexer
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate variable.
@@ -165,8 +183,11 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each variable block.
 
         """
+        equation_system = self.model.equation_system
+        variable_indexer = equation_system.variable_indexer
+
         # Sanity check: Ensure that variables are defined on cells.
-        for variable in self.model.equation_system.variables:
+        for variable in variable_indexer.variable_dofs:
             if not variable._faces == 0 and variable._nodes == 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
@@ -174,17 +195,13 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
                 )
 
         norms = {v.name: 0.0 for v in self.model.equation_system.variables}
-        variable_blocks = {
-            (variable.name, variable.domain): (
-                self.model.equation_system.dofs_of([variable]),
-                variable._cells,  # + variable._faces + variable._nodes,
-            )
-            for variable in self.model.equation_system.variables
-        }
-        for (name, sd), (indices, variable_dim) in variable_blocks.items():
+
+        for variable, indices in variable_indexer.variable_dofs.items():
             variable_values = pp.ad.DenseArray(values[indices])
-            norms[name] += (
-                self._lebesgue2_norm(variable_values, variable_dim, [sd]) ** 2
+            dim = variable.dof_info["cells"]  # + variable._faces + variable._nodes,
+            domains: pp.GridLikeSequence = [variable.domain]  # type: ignore[assignment]
+            norms[variable.name] += (
+                self._lebesgue2_norm(variable_values, dim, domains) ** 2
             )
         for name in norms:
             norms[name] = np.sqrt(norms[name])
@@ -197,10 +214,21 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
 
     NOTE: Assumes equations are intensive quantities and defined only on cells.
 
+    Parameters:
+        model: The model used to compute the metric.
+        equation_indexer: Define a subset of equations to evaluate the metric on. If
+            None (default), uses all equations.
+
     """
 
-    def __init__(self, model, equation_indexer: pp.ad.EquationIndexer) -> None:
+    def __init__(
+        self,
+        model: pp.PorePyModel,
+        equation_indexer: Optional[pp.ad.EquationIndexer] = None,
+    ) -> None:
         super().__init__(model)
+        if equation_indexer is None:
+            equation_indexer = model.equation_system.equation_indexer
         self.equation_indexer = equation_indexer
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:
@@ -214,17 +242,10 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
 
         """
         equation_system = self.model.equation_system
-        equation_image_space_composition = (
-            self.equation_indexer.equation_image_space_composition
-        )
-        norms = {name: 0.0 for name in equation_image_space_composition}
-        offset = 0
-        for name, blocks in equation_image_space_composition.items():
-            indices = np.concatenate(list(blocks.values())) + offset
-            offset += len(indices)
-            if indices.size == 0:
-                continue
-            domains = cast(pp.GridLikeSequence, list(blocks.keys()))
+        norms: dict[str, float] = {}
+        for name, grids_dofs in self.equation_indexer.group_by_name().items():
+            indices = np.concatenate(list(grids_dofs.values()))
+            domains = cast(pp.GridLikeSequence, list(grids_dofs.keys()))
             equation_dim = equation_system.equation_image_size_info[name]["cells"]
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
             cell_weights = np.hstack([domain.cell_volumes for domain in domains])
