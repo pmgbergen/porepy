@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from time import time
-from typing import Collection, Optional, Sequence
+from typing import Collection, Iterable, Optional, Sequence
 
 import numpy as np
 

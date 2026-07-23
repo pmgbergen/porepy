@@ -56,8 +56,8 @@ def run_example():
     # Initializing a nonlinear solver with a custom linear solver that applies a Schur
     # complement reduction. It requires us to list the primary variables and equations.
     # The default tags are available for the standard equations and variables in PorePy.
-    # This model uses a non-standard equation and variable, "z_tracer", so we create
-    # custom tags for them.
+    # This model uses a non-standard equation and variable "z_tracer". Creating custom
+    # tags for them.
     nonlinear_solver = pp.solvers.NewtonSolver(
         linear_solver=pp.solvers.SchurComplementReductionLinearSolver(
             primary_equation_tags=[
