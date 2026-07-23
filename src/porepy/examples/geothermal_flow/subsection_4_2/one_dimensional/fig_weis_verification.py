@@ -198,7 +198,7 @@ def _savefig_fixed(fig, stem, out_dir, size_in=_FIG_SIZE_IN):
               f"canvas {w}x{h} in for {stem}; increase _FIG_SIZE_IN")
     padx, pady = (w - tb.width) / 2.0, (h - tb.height) / 2.0
     bb = Bbox.from_extents(tb.x0 - padx, tb.y0 - pady, tb.x1 + padx, tb.y1 + pady)
-    for ext in ("pdf", "png"):
+    for ext in (("pdf", "png") if ps.SAVE_PDF else ("png",)):
         p = os.path.join(out_dir, f"{stem}.{ext}")
         fig.savefig(p, bbox_inches=bb)
         print(f"wrote {p}")

@@ -97,13 +97,18 @@ def panel_tag(ax, text, loc=(0.03, 0.93)):
             va="top", ha="left")
 
 
+SAVE_PDF = True     # also write a vector PDF next to each PNG (run_workflow toggles this via --pdf)
+
+
 def savefig(fig, stem, out_dir):
-    """Save ``fig`` as PDF (vector, for \\includegraphics) and PNG (preview) under ``out_dir``.
+    """Save ``fig`` as a PNG (preview) plus, when ``SAVE_PDF``, a vector PDF (for \\includegraphics)
+    under ``out_dir``.
 
     If a LaTeX render error occurs (usetex on but a package/glyph missing), retry once with
     usetex disabled so a figure is still produced."""
     os.makedirs(out_dir, exist_ok=True)
-    paths = [os.path.join(out_dir, f"{stem}.{ext}") for ext in ("pdf", "png")]
+    exts = ("pdf", "png") if SAVE_PDF else ("png",)
+    paths = [os.path.join(out_dir, f"{stem}.{ext}") for ext in exts]
     try:
         for p in paths:
             fig.savefig(p)
