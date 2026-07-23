@@ -183,8 +183,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each variable block.
 
         """
-        equation_system = self.model.equation_system
-        variable_indexer = equation_system.variable_indexer
+        variable_indexer = self.variable_indexer
 
         # Sanity check: Ensure that variables are defined on cells.
         for variable in variable_indexer.variable_dofs:
@@ -194,7 +193,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
                     """variables defined on cells."""
                 )
 
-        norms = {v.name: 0.0 for v in self.model.equation_system.variables}
+        norms = {v.name: 0.0 for v in variable_indexer.variable_dofs}
 
         for variable, indices in variable_indexer.variable_dofs.items():
             variable_values = pp.ad.DenseArray(values[indices])
