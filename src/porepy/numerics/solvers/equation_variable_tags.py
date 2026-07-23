@@ -16,7 +16,6 @@ from dataclasses import dataclass
 
 import porepy as pp
 
-
 __all__ = [
     "EquationTag",
     "VariableTag",

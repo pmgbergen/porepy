@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, cast
 from time import time
+from typing import Optional, cast
+
 import numpy as np
 
 import porepy as pp

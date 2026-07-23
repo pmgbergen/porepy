@@ -1,6 +1,6 @@
 from typing import Callable
-import numpy as np
 
+import numpy as np
 import pytest
 
 import porepy as pp
@@ -11,6 +11,7 @@ from porepy.applications.md_grids.mdg_library import (
 )
 from porepy.applications.test_utils.models import add_mixin
 from tests.functional.setups.linear_tracer import TracerFlowModel_3p
+
 # ---------------------------------------------------------------------
 # Integration test
 # ---------------------------------------------------------------------

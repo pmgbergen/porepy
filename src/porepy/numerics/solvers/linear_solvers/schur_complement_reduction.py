@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence
 from time import time
+from typing import Collection, Optional, Sequence
 
 import porepy as pp
 import numpy as np
@@ -321,8 +321,8 @@ def _concatenate_safe(arrays: list[np.ndarray]) -> np.ndarray:
 
 
 def _wrap_primary_solver_status(
-    primary_solver_status: pp.solvers.LinearSolverStatus, solve_time: float
-) -> pp.solvers.LinearSolverStatus:
+    primary_solver_status: LinearSolverStatus, solve_time: float
+) -> LinearSolverStatus:
     """Wrap a primary linear solver status with a Schur complement solver status."""
     if primary_solver_status.is_success():
         return SchurComplementReductionStatusSuccess(
@@ -337,7 +337,7 @@ def _wrap_primary_solver_status(
 
 
 def _filter_by_tags[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
-    all_operators: Iterable[T], tags: Sequence[EquationTag | VariableTag]
+    all_operators: Collection[T], tags: Sequence[EquationTag | VariableTag]
 ) -> tuple[list[T], list[T]]:
     """Split atomic equations or variables into two groups: the one covered by `tags`
     and its complement.
