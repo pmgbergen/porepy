@@ -145,3 +145,273 @@ def test_buoyancy_model(
     _run_buoyancy_model(
         n_phases, dim, expected_order_loss, md=md, fractional_flow=fractional_flow
     )
+
+
+class _TwoCellColumn(ModelGeometry2D):
+    """1 x 2 vertical Cartesian stack: two cells, one internal face across gravity."""
+
+    def set_domain(self) -> None:
+        self._domain = pp.Domain(
+            {"xmax": self.units.convert_units(1.0, "m"),
+             "ymax": self.units.convert_units(2.0, "m")}
+        )
+
+    def meshing_arguments(self) -> dict:
+        return {"cell_size_x": self.units.convert_units(1.0, "m"),
+                "cell_size_y": self.units.convert_units(1.0, "m")}
+
+
+class _CompositionSweepIC(pp.PorePyModel):
+    """Impose the swept component's overall fraction in one cell of the column (the rest fixed).
+
+    The model's ``initial_condition`` propagates the imposed composition to consistent phase
+    saturations through its own saturation map, so each sweep point is a flash-consistent state.
+    """
+
+    _swept_component: str = "CH4"
+    _swept_cell: int = 0
+    _swept_value: float = 0.3
+    _reference_fraction: float = 0.2
+
+    def ic_values_overall_fraction(self, component, sd):
+        if component.name == "H2O":
+            return (
+                1.0
+                - self.ic_values_overall_fraction(self.fluid.components[1], sd)
+                - self.ic_values_overall_fraction(self.fluid.components[2], sd)
+            )
+        vals = np.full(sd.num_cells, self._reference_fraction)
+        if component.name == self._swept_component:
+            vals[self._swept_cell] = self._swept_value
+        return vals
+
+
+@pytest.mark.parametrize("fractional_flow", [False, True])
+@pytest.mark.parametrize("swept_cell", [0, 1])
+@pytest.mark.parametrize("swept_component", ["CH4", "C5H12"])
+def test_buoyancy_flux_monotonicity(
+    swept_component: str, swept_cell: int, fractional_flow: bool
+):
+    """Buoyant component flux is monotone in the swept cell's overall composition.
+
+    Flux monotonicity with respect to its own saturation is the hybrid-upwinding property of
+    Hamon and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept and both
+    flux formulations (total-mass, CFF) are covered.
+    """
+    base = add_mixin(
+        _TwoCellColumn, buoyancy_flow_model(3, fractional_flow=fractional_flow)
+    )
+
+    class Model(_CompositionSweepIC, base):
+        pass
+
+    solid_constants = pp.SolidConstants(
+        permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
+        density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
+    )
+    z_sweep = np.linspace(0.05, 0.55, 15)
+    fluxes = []
+    for z in z_sweep:
+        time_manager = pp.TimeManager(
+            schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True, iter_max=50,
+            print_info=False,
+        )
+        model = Model(
+            {
+                "fractional_flow": fractional_flow,
+                "enable_buoyancy_effects": True,
+                "material_constants": {"solid": solid_constants},
+                "time_manager": time_manager,
+                "expected_order_loss": 3,
+                "residual_tolerance": 1e-4,
+                "drift_tolerance": 1e-4,
+            }
+        )
+        model._swept_component = swept_component
+        model._swept_cell = swept_cell
+        model._swept_value = float(z)
+        model.prepare_simulation()          # IC builds the flash-consistent state for this z
+        model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
+        subdomains = model.mdg.subdomains()
+        internal_face = subdomains[0].get_internal_faces()[0]
+        component = next(
+            c for c in model.fluid.components if c.name == swept_component
+        )
+        flux = model.component_buoyancy(component, subdomains).value(
+            model.equation_system
+        )
+        fluxes.append(flux[internal_face])
+
+    fluxes = np.array(fluxes)
+    scale = np.max(np.abs(fluxes))
+    # The sweep must genuinely drive the flux, else monotonicity is vacuous.
+    assert scale > 1e-8, "buoyant flux is ~zero over the sweep; test is vacuous"
+    diffs = np.diff(fluxes)
+    atol = 1e-9 * scale
+    monotone = np.all(diffs >= -atol) or np.all(diffs <= atol)
+    assert monotone, (
+        f"component buoyancy flux for {swept_component} is not monotone in its overall "
+        f"composition (a phase-potential-upwinding kink): diffs={diffs}"
+    )
+
+
+class _MDColumnFracture(ModelGeometry2D):
+    """[0,1] x [0,2] matrix column (1 x 2) split by a single horizontal fracture at y=1.
+
+    Yields two matrix cells (cell 0 = bottom at y=0.5, cell 1 = top at y=1.5), one fracture
+    cell, and one interface whose 2-cell mortar has a "below" side (bottom cell <-> fracture)
+    and an "above" side (top cell <-> fracture).
+    """
+
+    def set_domain(self) -> None:
+        self._domain = pp.Domain(
+            {"xmax": self.units.convert_units(1.0, "m"),
+             "ymax": self.units.convert_units(2.0, "m")}
+        )
+
+    def set_fractures(self) -> None:
+        points = np.array([[0.0, 1.0], [1.0, 1.0]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(
+            points, np.array([[0, 1]]).T
+        )
+
+    def meshing_arguments(self) -> dict:
+        return {"cell_size": self.units.convert_units(1.0, "m")}
+
+
+class _MDCompositionSweepIC(pp.PorePyModel):
+    """Impose the swept component's overall fraction in one target cell of the MD column.
+
+    Targets: "bottom"/"top" (the two matrix cells) or "fracture" (the fracture cell). The
+    model's initial_condition propagates the composition to consistent saturations on every
+    subdomain via its own map, so each sweep point is a flash-consistent state.
+    """
+
+    _swept_component: str = "CH4"
+    _swept_target: str = "bottom"
+    _swept_value: float = 0.3
+    _reference_fraction: float = 0.2
+
+    def ic_values_overall_fraction(self, component, sd):
+        if component.name == "H2O":
+            return (
+                1.0
+                - self.ic_values_overall_fraction(self.fluid.components[1], sd)
+                - self.ic_values_overall_fraction(self.fluid.components[2], sd)
+            )
+        vals = np.full(sd.num_cells, self._reference_fraction)
+        if component.name == self._swept_component:
+            if sd.dim == 2:  # matrix: cell 0 = bottom, cell 1 = top
+                matrix_index = {"bottom": 0, "top": 1}.get(self._swept_target)
+                if matrix_index is not None:
+                    vals[matrix_index] = self._swept_value
+            elif sd.dim == 1 and self._swept_target == "fracture":
+                vals[0] = self._swept_value
+        return vals
+
+
+def _component_interface_flux(model, component):
+    """The per-mortar-cell component buoyancy flux (no public accessor exists): the same pair
+    sum as ``component_buoyancy_jump`` but taken on the interface, before projection onto the
+    fracture subdomain."""
+    subdomains = model.mdg.subdomains()
+    terms = []
+    for phase in model.fluid.phases:
+        for gamma, delta in model.phase_pairs_for(phase):
+            chi = model._advected_partial_fraction(component, gamma, subdomains)
+            terms.append(model._interface_pair_coupling(chi, gamma, delta, subdomains))
+    return pp.ad.sum_operator_list(terms)
+
+
+def _below_above_mortar_indices(model):
+    """Mortar-cell indices of the (below, above) sides: below couples the lower-y matrix cell."""
+    interface = model.mdg.interfaces()[0]
+    matrix, _ = model.mdg.interface_to_subdomain_pair(interface)
+    y_of_cell = matrix.cell_centers[1]
+    primary_to_mortar = interface.primary_to_mortar_int().tocsr()
+    mortar_y = []
+    for mortar_cell in range(interface.num_cells):
+        faces = primary_to_mortar.getrow(mortar_cell).indices
+        cells = np.unique(np.abs(matrix.cell_faces)[faces].nonzero()[1])
+        mortar_y.append(y_of_cell[cells].mean())
+    mortar_y = np.array(mortar_y)
+    return int(np.argmin(mortar_y)), int(np.argmax(mortar_y))
+
+
+# Each interface side is checked against both cells it couples: the "below" side against the
+# bottom matrix cell and the fracture, the "above" side against the top matrix cell and the
+# fracture.
+_MD_INTERFACE_CHECKS = [
+    ("below", "bottom"),
+    ("below", "fracture"),
+    ("above", "fracture"),
+    ("above", "top"),
+]
+
+
+@pytest.mark.parametrize("fractional_flow", [False, True])
+@pytest.mark.parametrize("side, swept_target", _MD_INTERFACE_CHECKS)
+@pytest.mark.parametrize("swept_component", ["CH4", "C5H12"])
+def test_buoyancy_interface_flux_monotonicity(
+    swept_component: str, side: str, swept_target: str, fractional_flow: bool
+):
+    """Buoyant component flux across each matrix-fracture mortar side is monotone in the
+    composition of each cell it couples.
+
+    Mixed-dimensional analogue of the hybrid-upwinding flux monotonicity of Hamon and Tchelepi
+    (SIAM J. Numer. Anal. 54(3), 2016); the "below" side couples the bottom matrix cell and the
+    fracture, the "above" side the top cell and the fracture. Both flux formulations are covered.
+    """
+    base = add_mixin(
+        _MDColumnFracture, buoyancy_flow_model(3, fractional_flow=fractional_flow)
+    )
+
+    class Model(_MDCompositionSweepIC, base):
+        pass
+
+    solid_constants = pp.SolidConstants(
+        permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
+        density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
+    )
+    z_sweep = np.linspace(0.05, 0.55, 11)
+    fluxes = []
+    for z in z_sweep:
+        time_manager = pp.TimeManager(
+            schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True, iter_max=50,
+            print_info=False,
+        )
+        model = Model(
+            {
+                "fractional_flow": fractional_flow,
+                "enable_buoyancy_effects": True,
+                "material_constants": {"solid": solid_constants},
+                "time_manager": time_manager,
+                "expected_order_loss": 3,
+                "residual_tolerance": 1e-4,
+                "drift_tolerance": 1e-4,
+            }
+        )
+        model._swept_component = swept_component
+        model._swept_target = swept_target
+        model._swept_value = float(z)
+        model.prepare_simulation()          # IC builds the flash-consistent state for this z
+        model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
+        below, above = _below_above_mortar_indices(model)
+        component = next(
+            c for c in model.fluid.components if c.name == swept_component
+        )
+        mortar_flux = model.equation_system.evaluate(
+            _component_interface_flux(model, component)
+        )
+        fluxes.append(mortar_flux[below if side == "below" else above])
+
+    fluxes = np.array(fluxes)
+    scale = np.max(np.abs(fluxes))
+    assert scale > 1e-8, "interface buoyant flux is ~zero over the sweep; test is vacuous"
+    diffs = np.diff(fluxes)
+    atol = 1e-9 * scale
+    monotone = np.all(diffs >= -atol) or np.all(diffs <= atol)
+    assert monotone, (
+        f"{side}-side interface buoyancy flux for {swept_component} is not monotone in the "
+        f"{swept_target}-cell composition (a phase-potential-upwinding kink): diffs={diffs}"
+    )
