@@ -1261,11 +1261,6 @@ class EquationSystem:
         if isinstance(equations, list):
             # Equation names are restricted, domains are not restricted (None).
             for eq in equations:
-                if isinstance(eq, pp.ad.EquationOnDomain):
-                    # This assumes that eq.domains are already sorted.
-                    self._validate_equation_name(eq.name)
-                    equations_on_domains.append(eq)
-
                 eq = self._validate_equation_name(eq)
                 for domain in eq.domains:
                     # This assumes that eq.domains are already sorted.
@@ -1494,7 +1489,7 @@ class EquationSystem:
         self,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
-    ) -> tuple[pp.ad.EquationSystemIndexer, pp.ad.VariableIndexer]:
+    ) -> tuple[pp.ad.EquationIndexer, pp.ad.VariableIndexer]:
         """Generate indexers for the linear system produced by :meth:`assemble`.
 
         Parameters:
