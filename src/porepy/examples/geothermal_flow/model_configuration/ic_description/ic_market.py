@@ -10,6 +10,11 @@ class IC_Base(pp.PorePyModel):
 
     obl_sampler_ptz: VTKSampler
 
+    def ic_salinity(self, sd: pp.Grid) -> np.ndarray:
+        """Initial overall NaCl fraction fed to every table lookup; zero unless a
+        solver overrides it."""
+        return np.zeros(sd.num_cells)
+
     def initial_condition(self) -> None:
         super().initial_condition()
 
@@ -40,7 +45,7 @@ class IC_Base(pp.PorePyModel):
     def ic_values_partial_fractions(self, sd: pp.Grid) -> np.ndarray:
         p = self.ic_values_pressure(sd)
         t = self.ic_values_temperature(sd)
-        z_NaCl = np.zeros_like(p)
+        z_NaCl = self.ic_salinity(sd)
         par_points = np.array((z_NaCl, t, p)).T
         self.obl_sampler_ptz.sample_at(par_points)
         x_CO2_liq = np.clip(self.obl_sampler_ptz.sampled_could.point_data["Xl"], 0, 1.0)
@@ -50,7 +55,7 @@ class IC_Base(pp.PorePyModel):
     def ic_values_gas_saturation(self, sd: pp.Grid) -> np.ndarray:
         p = self.ic_values_pressure(sd)
         t = self.ic_values_temperature(sd)
-        z_NaCl = np.zeros_like(p)
+        z_NaCl = self.ic_salinity(sd)
         par_points = np.array((z_NaCl, t, p)).T
         self.obl_sampler_ptz.sample_at(par_points)
         s_init = np.clip(self.obl_sampler_ptz.sampled_could.point_data["S_v"], 0, 1.0)
@@ -59,7 +64,7 @@ class IC_Base(pp.PorePyModel):
     def ic_values_halite_saturation(self, sd: pp.Grid) -> np.ndarray:
         p = self.ic_values_pressure(sd)
         t = self.ic_values_temperature(sd)
-        z_NaCl = np.zeros_like(p)
+        z_NaCl = self.ic_salinity(sd)
         par_points = np.array((z_NaCl, t, p)).T
         self.obl_sampler_ptz.sample_at(par_points)
         return np.clip(self.obl_sampler_ptz.sampled_could.point_data["S_h"], 0, 1.0)
@@ -67,7 +72,7 @@ class IC_Base(pp.PorePyModel):
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         p = self.ic_values_pressure(sd)
         t = self.ic_values_temperature(sd)
-        z_NaCl = np.zeros_like(p)
+        z_NaCl = self.ic_salinity(sd)
         par_points = np.array((z_NaCl, t, p)).T
         self.obl_sampler_ptz.sample_at(par_points)
         h_init = self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
@@ -97,8 +102,7 @@ class IC_single_phase_high_pressure(IC_Base):
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.0
-        return z * np.ones(sd.num_cells)
+        return self.ic_salinity(sd)
 
 
 class IC_single_phase_moderate_pressure(IC_Base):
@@ -124,8 +128,7 @@ class IC_single_phase_moderate_pressure(IC_Base):
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.0
-        return z * np.ones(sd.num_cells)
+        return self.ic_salinity(sd)
 
 
 class IC_single_phase_low_pressure(IC_Base):
@@ -151,8 +154,7 @@ class IC_single_phase_low_pressure(IC_Base):
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.0
-        return z * np.ones(sd.num_cells)
+        return self.ic_salinity(sd)
 
 
 class IC_two_phase_moderate_pressure(IC_Base):

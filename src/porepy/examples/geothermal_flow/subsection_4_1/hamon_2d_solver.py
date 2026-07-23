@@ -104,7 +104,8 @@ MILLI_DARCY = 9.869233e-16           # 1 mD [m^2]
 K_ROCK = 1000.0 * MILLI_DARCY        # homogeneous rock permeability = 1000 mD (1 Darcy)
 BARRIER_K_FACTOR = 1.0e-4            # barrier cells: K * this (effectively impermeable)
 PHI = 0.3                            # porosity [-]
-CHI = 0.5                            # passive-phase interference split (simplicial buoyancy)
+CHI = 0.5                            # legacy constant background split (--background chi-const)
+BACKGROUND = "midpoint"              # pair weights: midpoint sign rule | rho-ratio | chi-const
 
 # --------------------------------------------------------------------------------------- #
 #  Phase system (N phases; reconfigured by set_phase_system / run(nphase=...))
@@ -113,20 +114,88 @@ CHI = 0.5                            # passive-phase interference split (simplic
 # EXACTLY, and N=4 splits the intermediate (oil) into a MID-HEAVY + MID-LIGHT phase
 # [1500, 1167, 833, 500].  The whole HU family (hu / hu-mw / hu-mp / ppu) extends to any N with
 # no structural change -- the simplicial buoyancy just sums over all C(N,2) pairs, each pair's
-# background mobility aggregating the remaining N-2 phases.
+# total mobility weighting ALL N phases with pinned side masks (default: the midpoint sign
+# rule of _side_masks; rho-ratio barycentric weights and constant CHI kept for comparison).
 NPHASE = 3
 RHO = np.linspace(1500.0, 500.0, NPHASE)   # [kg/m^3], phase 0 heaviest .. phase N-1 lightest
+RHO_BANDS = RHO.copy()               # density of initial BAND k (label-permutation invariant)
+PHASE_PERM = np.arange(NPHASE)       # phase k occupies band PHASE_PERM[k] (identity default)
+MIDDLE_LINEAR = np.zeros(NPHASE, dtype=bool)   # rows with linear k_r (--linear-kr-middle)
 _PAIRS = tuple(itertools.combinations(range(NPHASE), 2))   # all C(N,2) counter-current pairs
 W, O, GG = 0, 1, 2                   # 3-phase names (heavy, intermediate, light) for reference
 
 
-def set_phase_system(nphase: int):
+def _pinned_theta():
+    """Per-pair rho-ratio weights theta_l = |rho_l-rho_b| / (|rho_l-rho_a| + |rho_l-rho_b|).
+
+    Pinned at the pair: theta_a = 1, theta_b = 0, so the pair total mobility is ONE formula
+    over all N phases (the in-pair HU upwinding falls out as the endpoint cases) and
+    equal-density phases aggregate exactly. The denominator vanishes only at the triple
+    coincidence rho_l = rho_a = rho_b, where the pair term is zero anyway (0.5 placeholder)."""
+    th = {}
+    for a, b in _PAIRS:
+        da, db = np.abs(RHO - RHO[a]), np.abs(RHO - RHO[b])
+        tot = da + db
+        th[(a, b)] = np.where(tot > 0.0, db / np.where(tot > 0.0, tot, 1.0), 0.5)
+    return th
+
+
+def _side_masks():
+    """Midpoint rule m_l = (1 + sgn[(rho_a - rho_b)(2 rho_l - rho_a - rho_b)]) / 2 in {0, 1/2, 1}.
+
+    The arithmetic mean of the pair densities is the exact separator between a-side and
+    b-side (the Voronoi split of the density line); a phase ON the separator splits
+    half-half. Pinned (m_a = 1, m_b = 0), unordered, division-free."""
+    m = {}
+    for a, b in _PAIRS:
+        m[(a, b)] = 0.5 * (1.0 + np.sign((RHO[a] - RHO[b]) * (2.0 * RHO - RHO[a] - RHO[b])))
+    return m
+
+
+_THETA = _pinned_theta()             # rebuilt by set_phase_system whenever RHO changes
+_MASKS = _side_masks()               # idem
+
+
+def set_phase_system(nphase: int, equal_middle: bool = False,
+                     permute_middle: bool = False, linear_kr_middle: bool = False):
     """Configure the module for ``nphase`` phases: evenly-spaced densities and every C(n,2) pair.
-    N=3 reproduces Bosma Fig. 5; N=4 splits oil into a mid-heavy and a mid-light phase."""
-    global NPHASE, RHO, _PAIRS
+    N=3 reproduces Bosma Fig. 5; N=4 splits oil into a mid-heavy and a mid-light phase.
+
+    ``equal_middle`` (N=4 only) sets BOTH middle densities to the N=3 oil value 1000:
+    the four-phase run then degenerates to the three-phase solution (the middle pair's
+    mutual buoyancy vanishes and their pairs with the outer phases coincide), exercising
+    the N=4 structure on a problem whose exact answer is the N=3 field -- evidence that
+    the scheme needs no independent phase ORDERING.
+
+    ``permute_middle`` (N=4 only) SWAPS THE LABELS of the two middle phases (phase 1
+    takes middle band 2 and its density, and vice versa) -- a pure relabeling of the
+    same physical problem, so the solution must be identical up to the label swap.
+
+    ``linear_kr_middle`` uses LINEAR k_r = s for the INTERIOR (middle) phases only
+    (outer water/gas stay quadratic).  Middle mobilities are then additive, so the
+    equal-density N=4 run degenerates to the N=3 solution EXACTLY at the PDE level
+    (quadratic k_r breaks additivity wherever the two middles coexist)."""
+    global NPHASE, RHO, RHO_BANDS, PHASE_PERM, MIDDLE_LINEAR, _PAIRS, _THETA, _MASKS
     NPHASE = int(nphase)
-    RHO = np.linspace(1500.0, 500.0, NPHASE)
+    if equal_middle:
+        if NPHASE != 4:
+            raise ValueError("equal_middle is defined for nphase=4 only")
+        RHO_BANDS = np.array([1500.0, 1000.0, 1000.0, 500.0])
+    else:
+        RHO_BANDS = np.linspace(1500.0, 500.0, NPHASE)
+    if permute_middle:
+        if NPHASE != 4:
+            raise ValueError("permute_middle is defined for nphase=4 only")
+        PHASE_PERM = np.array([0, 2, 1, 3])
+    else:
+        PHASE_PERM = np.arange(NPHASE)
+    RHO = RHO_BANDS[PHASE_PERM]              # phase k has the density of ITS band
+    # linear k_r rows: the interior phases (their bands are 1 .. N-2)
+    MIDDLE_LINEAR = (linear_kr_middle
+                     & (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2))
     _PAIRS = tuple(itertools.combinations(range(NPHASE), 2))
+    _THETA = _pinned_theta()
+    _MASKS = _side_masks()
 
 
 # --------------------------------------------------------------------------------------- #
@@ -313,8 +382,9 @@ def initial_saturations(grid: Grid) -> np.ndarray:
     y = grid.yc
     bnd = _band_boundaries()
     s = np.zeros((NPHASE, grid.ncell))
-    for k in range(NPHASE):                        # band k = (bnd[k+1], bnd[k]]; bands tile (0, LY]
-        s[k][(y > bnd[k + 1]) & (y <= bnd[k])] = 1.0
+    for k in range(NPHASE):                        # band b = (bnd[b+1], bnd[b]]; bands tile (0, LY]
+        b = PHASE_PERM[k]                          # phase k occupies band b (label permutation)
+        s[k][(y > bnd[b + 1]) & (y <= bnd[b])] = 1.0
     return s
 
 
@@ -330,7 +400,7 @@ def initial_pressure(grid: Grid) -> np.ndarray:
     bnd = _band_boundaries()
     column = np.zeros(grid.ncell)
     for k in range(NPHASE):                        # add band k's density over its overlap with [y, LY]
-        column += RHO[k] * np.maximum(0.0, bnd[k] - np.maximum(bnd[k + 1], y))
+        column += RHO_BANDS[k] * np.maximum(0.0, bnd[k] - np.maximum(bnd[k + 1], y))
     return G * column
 
 
@@ -351,7 +421,10 @@ def phase_mobilities(s: np.ndarray):
     """Return ``lam`` (N, ncell), ``lamT`` (ncell), ``f`` (N, ncell), ``rho_ff`` (ncell) from the
     full ``(NPHASE, ncell)`` saturation array ``s``."""
     sc = np.clip(s, 0.0, 1.0)
-    lam = sc * sc / MU                     # quadratic k_r
+    if MIDDLE_LINEAR.any():                # --linear-kr-middle: linear rows for interior phases
+        lam = np.where(MIDDLE_LINEAR[:, None], sc, sc * sc) / MU
+    else:
+        lam = sc * sc / MU                 # quadratic k_r (Bosma)
     lamT = lam.sum(axis=0)
     safe = np.where(lamT > 0.0, lamT, 1.0)
     f = lam / safe
@@ -361,6 +434,12 @@ def phase_mobilities(s: np.ndarray):
 
 def _upwind(direction, fL, fR):
     return np.where(direction >= 0.0, fL, fR)
+
+
+def _advect(cell_q, direction, fL, fR):
+    """THE standard first-order upwind primitive: advected CELL quantity + advecting face
+    direction -> upstream-cell face value. The buoyancy terms touch faces ONLY through this."""
+    return np.where(direction >= 0.0, cell_q[fL], cell_q[fR])
 
 
 def _harmonic_face(cell_field, fL, fR):
@@ -374,10 +453,12 @@ def _harmonic_face(cell_field, fL, fR):
 # --------------------------------------------------------------------------------------- #
 @dataclass
 class Dirs:
+    """Only the STATE-DEPENDENT directions are lagged (total velocity / phase potentials);
+    the buoyancy pair directions w_ab = G (rho_a - rho_b) are constants and live inline
+    in :func:`_face_fluxes`."""
     scheme: str
     upT: np.ndarray = None
     up_phase: dict = field(default_factory=dict)
-    pair_up: dict = field(default_factory=dict)
 
 
 def frozen_directions(x, grid, scheme):
@@ -394,9 +475,6 @@ def frozen_directions(x, grid, scheme):
         rho_ff_f = 0.5 * (rho_ff[fL] + rho_ff[fR])
         V_T = Tf * dpf - GC * rho_ff_f
         d.upT = _upwind(V_T, fL, fR)
-        for (a, b) in _PAIRS:
-            wflux = -GC * (RHO[a] - RHO[b])
-            d.pair_up[(a, b)] = (_upwind(wflux, fL, fR), _upwind(-wflux, fL, fR))
     return d
 
 
@@ -429,20 +507,40 @@ def _face_fluxes(x, grid, dirs):
         for a in range(NPHASE):
             q[a] = f[a][upT] * qT                         # viscous fractional-flow split (total flux)
         for (a, b) in _PAIRS:                             # buoyancy over every edge, +to a / -to b
-            passive = [e for e in range(NPHASE) if e != a and e != b]   # the N-2 background phases
-            ia, ib = dirs.pair_up[(a, b)]                 # counter-current density-driven directions
-            wflux = -GC * (RHO[a] - RHO[b])
-            # background mobility Z_ab: aggregate ALL off-edge phases (this is what extends the
-            # pairwise HU to any N -- for N=3 it is the single third phase).
-            bg = sum(CHI * lam[e][ia] + (1.0 - CHI) * lam[e][ib] for e in passive)
-            lam_up = lam[a][ia] + lam[b][ib] + bg          # reconstruct lambda_T (pair + background)
+            if RHO[a] == RHO[b]:
+                continue                                  # zero driving force: pair contributes 0
+            w_ab = -GC * (RHO[a] - RHO[b])                # THE advecting direction (check 1):
+            #                                               a fixed face field, never lagged.
+            # CELL-level advected quantities: the m-weighted partial total mobilities
+            #     lam_with    = sum_l m_l       lam_l   (rides WITH w_ab)
+            #     lam_against = sum_l (1 - m_l) lam_l   (rides AGAINST w_ab)
+            # Default: the MIDPOINT sign rule of _side_masks (each phase joins the pair
+            # member on its side of the arithmetic-mean separator; m_a = 1, m_b = 0 pinned),
+            # so the in-pair HU upwinding is the endpoint case of the same sum -- no
+            # in-pair / background split -- and equal-density phases aggregate exactly.
+            # rho-ratio keeps the barycentric weights; chi-const the legacy constant split
+            # (NOT reduction-consistent; comparison only).
+            if BACKGROUND == "chi-const":
+                th = np.where(np.arange(NPHASE) == a, 1.0,
+                              np.where(np.arange(NPHASE) == b, 0.0, CHI))
+            elif BACKGROUND == "rho-ratio":
+                th = _THETA[(a, b)]
+            else:                                     # midpoint sign rule (default)
+                th = _MASKS[(a, b)]
+            lam_with = sum(th[l] * lam[l] for l in range(NPHASE))
+            lam_against = sum((1.0 - th[l]) * lam[l] for l in range(NPHASE))
+            # Faces are touched ONLY through the first-order upwind primitive (check 5):
+            lam_T = (_advect(lam_with, w_ab, fL, fR)
+                     + _advect(lam_against, -w_ab, fL, fR))
             if dirs.scheme in ("hu-mp", "hu-mw"):         # mobility-product buoyancy U^HU = la*lb / lam_T
                 # HU-BM(mp) and HU-BM(mw) share the EXACT simplicial mobility-product buoyant term;
                 # they differ only in the viscous total-mobility placement (upwind vs harmonic above).
-                # lam_up (total mobility, DENOMINATOR) can vanish at fully-segregated faces -> eps.
-                b_ab = (lam[a][ia] * lam[b][ib] / (lam_up + 1.0e-30)) * wflux
+                # lam_T (the DENOMINATOR) can vanish at fully-segregated faces -> eps.
+                b_ab = (_advect(lam[a], w_ab, fL, fR) * _advect(lam[b], -w_ab, fL, fR)
+                        / (lam_T + 1.0e-30)) * w_ab
             else:                                         # HU-BM(ff): fractional-flow form fa*fb*lam_T
-                b_ab = f[a][ia] * f[b][ib] * lam_up * wflux
+                b_ab = (_advect(f[a], w_ab, fL, fR) * _advect(f[b], -w_ab, fL, fR)
+                        * lam_T * w_ab)
             q[a] = q[a] + b_ab
             q[b] = q[b] - b_ab
     return qT, q[:NPHASE - 1]                              # independent phase fluxes (phases 0..N-2)
@@ -760,7 +858,8 @@ class RunStats:
 
 def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_days=None,
         atol=NEWTON_ATOL, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True,
-        dt_init_days=DT_INIT_DAYS, drift_order=DRIFT_ORDER, backtracking=False):
+        dt_init_days=DT_INIT_DAYS, drift_order=DRIFT_ORDER, backtracking=False,
+        equal_middle=False, permute_middle=False, linear_kr_middle=False):
     """Advance the ``nphase``-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``nphase=3`` reproduces Bosma Fig. 5; ``nphase=4`` splits oil into a mid-heavy + mid-light
@@ -786,7 +885,7 @@ def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_
     scheme = scheme.lower()
     assert scheme in ("hu", "ppu", "hu-mw", "hu-mp"), scheme
     assert dir_lag in ("iteration", "step"), dir_lag
-    set_phase_system(nphase)                           # configure N phases (N=3 == Bosma exactly)
+    set_phase_system(nphase, equal_middle, permute_middle, linear_kr_middle)
     t_end = (t_end_days if t_end_days is not None else max(snap_days)) * DAY
     # Per-step drift budget: target order split over the planned steps, factor-2 margin
     # (= porepy_2d_solver; adaptive cuts only shrink dt and the drift is dt-scaled).
@@ -834,7 +933,7 @@ def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_
         if dir_lag == "iteration":                       # refresh directions every Newton iterate,
             def relag(xx, _d=dirs):                      #   mutating the dirs that ``r`` captured
                 nd = frozen_directions(xx, grid, scheme)
-                _d.upT, _d.up_phase, _d.pair_up = nd.upT, nd.up_phase, nd.pair_up
+                _d.upT, _d.up_phase = nd.upT, nd.up_phase
         x_new, its, m, ok = newton(r, x, pattern, grid, step_dt, atol=atol, linsolve=linsolve,
                                    relag=relag, drift_tol=drift_tol, backtracking=backtracking)
 
@@ -1003,6 +1102,24 @@ def _parse_args(argv=None):
     p.add_argument("--nphase", type=int, default=3,
                    help="number of phases (default 3 = Bosma Fig. 5; 4 splits oil into a "
                         "mid-heavy + mid-light phase). Densities are evenly spaced 1500..500.")
+    p.add_argument("--equal-middle", action="store_true",
+                   help="(with --nphase 4) set BOTH middle densities to the N=3 oil value "
+                        "1000, so the 4-phase run degenerates to the 3-phase solution -- the "
+                        "ordering-free check. Output defaults to ./vtr_eqmid.")
+    p.add_argument("--permute-middle", action="store_true",
+                   help="(with --nphase 4) swap the LABELS of the two middle phases (bands + "
+                        "densities) -- a pure relabeling, so the solution must be identical "
+                        "up to the swap. Output dir gains _perm.")
+    p.add_argument("--linear-kr-middle", action="store_true",
+                   help="linear k_r = s for the INTERIOR (middle) phases only; makes middle "
+                        "mobilities additive so the --equal-middle N=4 run degenerates to "
+                        "N=3 EXACTLY. Output dir gains _lkmid.")
+    p.add_argument("--background", default="midpoint",
+                   choices=["midpoint", "rho-ratio", "chi-const"],
+                   help="pair background split: midpoint sign rule m in {0, 1/2, 1} "
+                        "(default; pinned, unordered, division-free), rho-ratio "
+                        "barycentric weights (_wr), or the legacy constant CHI "
+                        "(_chic; NOT reduction-consistent).")
     p.add_argument("--out", default=None,
                    help="output directory for .vtr / stats (default: ./vtr next to this file)")
     p.add_argument("--quiet", action="store_true", help="suppress per-step progress")
@@ -1012,7 +1129,12 @@ def _parse_args(argv=None):
 if __name__ == "__main__":
     args = _parse_args()
     HERE = os.path.dirname(os.path.abspath(__file__))
-    OUT = args.out or os.path.join(HERE, "vtr")
+    _sfx = (("_eqmid" if args.equal_middle else "")
+            + ("_perm" if args.permute_middle else "")
+            + ("_lkmid" if args.linear_kr_middle else "")
+            + {"midpoint": "", "rho-ratio": "_wr", "chi-const": "_chic"}[args.background])
+    OUT = args.out or os.path.join(HERE, "vtr" + _sfx)
+    BACKGROUND = args.background     # module top-level scope: rebinding the global
     schemes = ("hu", "ppu", "hu-mw", "hu-mp") if args.scheme == "all" else (args.scheme,)
     results = {}
     for scheme in schemes:
@@ -1021,7 +1143,9 @@ if __name__ == "__main__":
                                  atol=args.atol, linear_solver=args.linear_solver,
                                  dir_lag=args.dir_lag, nphase=args.nphase, verbose=not args.quiet,
                                  dt_init_days=args.dt_init_days, drift_order=args.drift_order,
-                                 backtracking=args.backtracking)
+                                 backtracking=args.backtracking, equal_middle=args.equal_middle,
+                                 permute_middle=args.permute_middle,
+                                 linear_kr_middle=args.linear_kr_middle)
         paths = write_snapshots_vtr(OUT, scheme, grid, snaps)
         paths.append(write_stats(OUT, stats))
         results[scheme] = stats

@@ -262,16 +262,39 @@ saturation_functions_map: dict = {}
 chi_functions_map: dict = {}
 
 
-def configure_phase_system(nphase: int) -> None:
+def configure_phase_system(nphase: int, equal_middle: bool = False,
+                           permute_middle: bool = False,
+                           linear_kr_middle: bool = False) -> None:
     """Configure the module for ``nphase`` phases: evenly-spaced densities, phase/component
     names, and the (name-keyed) saturation + immiscibility maps consumed by
     :class:`SecondaryEquations3N`. N=3 reproduces the Bosma names/maps exactly; N=4 splits the
     oil into a mid-heavy + mid-light phase."""
-    global NPHASE, RHO, H_PHASE, PHASE_NAMES, COMPONENT_NAMES
+    global NPHASE, RHO, RHO_BANDS, PHASE_PERM, MIDDLE_LINEAR
+    global H_PHASE, PHASE_NAMES, COMPONENT_NAMES
     global saturation_functions_map, chi_functions_map
     NPHASE = int(nphase)
-    RHO = np.linspace(1500.0, 500.0, NPHASE)
-    H_PHASE = np.linspace(H_MIN, H_MAX, NPHASE)     # ascending: denser phase -> lower enthalpy
+    if equal_middle:
+        # N=4 degeneracy check: both middle densities equal the N=3 oil value, so
+        # the 4-phase run must reproduce the 3-phase solution (ordering-free
+        # evidence). Phase enthalpies stay distinct -- passive markers only.
+        if NPHASE != 4:
+            raise ValueError("equal_middle is defined for nphase=4 only")
+        RHO_BANDS = np.array([1500.0, 1000.0, 1000.0, 500.0])
+    else:
+        RHO_BANDS = np.linspace(1500.0, 500.0, NPHASE)
+    if permute_middle:
+        # pure LABEL swap of the two middle phases (bands + densities + enthalpy
+        # markers): the same physical problem, so the solution must be identical
+        # up to the swap.
+        if NPHASE != 4:
+            raise ValueError("permute_middle is defined for nphase=4 only")
+        PHASE_PERM = np.array([0, 2, 1, 3])
+    else:
+        PHASE_PERM = np.arange(NPHASE)
+    RHO = RHO_BANDS[PHASE_PERM]                     # phase k has the density of ITS band
+    MIDDLE_LINEAR = (bool(linear_kr_middle)
+                     & (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2))
+    H_PHASE = np.linspace(H_MIN, H_MAX, NPHASE)[PHASE_PERM]   # per-phase marker follows the label
     PHASE_NAMES = _phase_names(NPHASE)
     COMPONENT_NAMES = _component_names(NPHASE)
     saturation_functions_map = {
@@ -594,12 +617,13 @@ class IC_NphaseSegregation(pp.PorePyModel):
         With the layered IC (one phase per band, s_k = 1 in band k) this is exactly h_k = H_PHASE[k]
         inside band k, so the initial enthalpy is a step profile in y (denser top phase -> lower h).
         The caloric closure T = h/C_P then sets the initial temperature (denser phase -> colder)."""
-        masks = self._band_masks(sd)                    # s_k = 1 in band k (partition of the domain)
+        masks = self._band_masks(sd)                    # phase k = 1 in band PHASE_PERM[k]
         num = np.zeros(sd.num_cells)
         den = np.zeros(sd.num_cells)
         for k in range(NPHASE):
-            num[masks[k]] += RHO[k] * H_PHASE[k]        # rho_k s_k h_k
-            den[masks[k]] += RHO[k]                      # rho_k s_k
+            m = masks[PHASE_PERM[k]]
+            num[m] += RHO[k] * H_PHASE[k]               # rho_k s_k h_k
+            den[m] += RHO[k]                             # rho_k s_k
         return num / den
 
     def ic_values_overall_fraction(
@@ -608,14 +632,15 @@ class IC_NphaseSegregation(pp.PorePyModel):
         masks = self._band_masks(sd)
         comps = self.fluid.components
         z = np.zeros(sd.num_cells)
-        for i in range(1, NPHASE):            # non-reference component i -> band i
+        for i in range(1, NPHASE):            # non-reference component i -> band PHASE_PERM[i]
             if component == comps[i]:
-                z[masks[i]] = 1.0
+                z[masks[PHASE_PERM[i]]] = 1.0
         return z                              # reference (H2O) = 1 - sum (top band)
 
     def ic_values_saturation(self, sd: pp.Grid) -> list:
         masks = self._band_masks(sd)
-        return [np.where(masks[i], 1.0, 0.0) for i in range(1, NPHASE)]   # s_1..s_{N-1}
+        return [np.where(masks[PHASE_PERM[i]], 1.0, 0.0)
+                for i in range(1, NPHASE)]                                # s_1..s_{N-1}
 
     def initial_condition(self) -> None:
         super().initial_condition()
@@ -1297,7 +1322,13 @@ class _FlowModelBody(
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        return phase.saturation(domains) ** 2          # quadratic kr (paper Ex. 6.3)
+        # quadratic kr (paper Ex. 6.3); with --linear-kr-middle the INTERIOR
+        # phases use linear kr = s (additive middle mobilities -> exact N=4eq
+        # degeneracy to N=3)
+        k = PHASE_NAMES.index(phase.name)
+        if MIDDLE_LINEAR[k]:
+            return phase.saturation(domains)
+        return phase.saturation(domains) ** 2
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
         return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
@@ -1368,7 +1399,7 @@ class _FlowModelBody(
         # column density integrated from height y up to the top boundary H, over the N bands
         column = np.zeros_like(np.asarray(y, dtype=float))
         for k in range(NPHASE):                                     # band k spans (b[k+1], b[k]]
-            column = column + RHO[k] * np.maximum(0.0, b[k] - np.maximum(y, b[k + 1]))
+            column = column + RHO_BANDS[k] * np.maximum(0.0, b[k] - np.maximum(y, b[k + 1]))
         return self._p_ref + g * column
 
     def _ic_pressure_mean(self) -> float:
@@ -1493,7 +1524,9 @@ def flow_model_class(params: dict):
     return FractionalFlowModel if params.get("fractional_flow", False) else FlowModel
 
 
-def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_END_DAYS,
+def build_params(nphase: int = 3, scheme: str = "hu", *, equal_middle: bool = False,
+                 permute_middle: bool = False, linear_kr_middle: bool = False,
+                 t_end_days: float = T_END_DAYS,
                  dt_days: float = DT_DAYS, dt_init_days: float = DT_INIT_DAYS,
                  dt_max_days: float = DT_MAX_DAYS, snap_days: Sequence[float] = SNAP_DAYS,
                  constant_dt: bool = False, fractures: bool = False,
@@ -1511,8 +1544,11 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"unknown scheme {scheme!r}; options: {list(_SCHEME_CONFIG)}")
-    configure_phase_system(nphase)
+    configure_phase_system(nphase, equal_middle, permute_middle, linear_kr_middle)
     frac_tag = "_frac" if fractures else ""
+    n_tag = (f"N{nphase}" + ("eq" if equal_middle else "")
+             + ("perm" if permute_middle else "")
+             + ("lk" if linear_kr_middle else ""))
     if ad_backend is None:
         # sparsa lowers mixed-dimensional variables (concat of per-grid sub-variables); default
         # for both fd and md, bit-exact vs native.  Pass ad_backend="native" to override.
@@ -1527,8 +1563,8 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, t_end_days: float = T_E
         times_to_export=make_times_to_export(snap_days),
         grid_type="cartesian",
         prepare_simulation=False,
-        folder_name=f"visualization_barriers{frac_tag}_{scheme}_N{nphase}",
-        file_name=f"barriers{frac_tag}_{scheme}_N{nphase}",
+        folder_name=f"visualization_barriers{frac_tag}_{scheme}_{n_tag}",
+        file_name=f"barriers{frac_tag}_{scheme}_{n_tag}",
         ad_backend=ad_backend,
     )
     params.update(_SCHEME_CONFIG[scheme])
@@ -1613,6 +1649,18 @@ if __name__ == "__main__":
                     "--nphase 3). scheme 'hu' = HU-BM(mp).")
     ap.add_argument("--nphase", type=int, default=3,
                     help="number of phases (default 3; 4 splits oil into mid-heavy + mid-light)")
+    ap.add_argument("--equal-middle", action="store_true",
+                    help="(with --nphase 4) set BOTH middle densities to the N=3 oil value "
+                         "1000, so the 4-phase run degenerates to the 3-phase solution -- "
+                         "the ordering-free check. Output tag becomes N4eq.")
+    ap.add_argument("--permute-middle", action="store_true",
+                    help="(with --nphase 4) swap the LABELS of the two middle phases (bands, "
+                         "densities, enthalpy markers) -- a pure relabeling, so the solution "
+                         "must be identical up to the swap. Tag gains 'perm'.")
+    ap.add_argument("--linear-kr-middle", action="store_true",
+                    help="linear kr = s for the INTERIOR (middle) phases only; middle "
+                         "mobilities become additive so the --equal-middle N=4 run "
+                         "degenerates to N=3 EXACTLY. Tag gains 'lk'.")
     ap.add_argument("--scheme", default="hu", choices=list(_SCHEME_CONFIG),
                     help="HU-BM scheme (default 'hu' = HU-BM(mp))")
     ap.add_argument("--days", type=float, default=T_END_DAYS,
@@ -1652,7 +1700,9 @@ if __name__ == "__main__":
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
     params = build_params(
-        args.nphase, args.scheme, t_end_days=args.days, dt_days=args.dt_days,
+        args.nphase, args.scheme, equal_middle=args.equal_middle,
+        permute_middle=args.permute_middle, linear_kr_middle=args.linear_kr_middle,
+        t_end_days=args.days, dt_days=args.dt_days,
         dt_init_days=args.dt_init_days, dt_max_days=args.dt_max_days,
         snap_days=snaps, constant_dt=args.constant_dt, fractures=args.md,
         lagrange_linear_solver=args.linear_solver,

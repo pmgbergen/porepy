@@ -300,8 +300,42 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         not change during a single update and every flash dependency is a primary, so all flashes
         in one update share one fetch -- bit-exact, O(n_subdomains^2) -> O(n_subdomains).
         """
+        self._clip_fraction_variables()
         self._install_full_iterate_cache()
         super().update_derived_quantities()
+
+    _FRACTION_VARIABLE_NAMES = (
+        "s_gas", "s_halite", "x_NaCl_liq", "x_NaCl_gas", "x_NaCl_halite",
+    )
+
+    def _clip_fraction_variables(self) -> None:
+        """Clamp saturation / partial-fraction ITERATE values into [0, 1].
+
+        The Newton increment is distributed to all variables before the derived
+        quantities are refreshed, so downstream evaluations (in particular the
+        mobility-weighted permeability tensor of the fractional-flow template) can
+        otherwise see negative saturations from a single overshooting update."""
+        es = self.equation_system
+        present = {v.name for v in es.variables}
+        for name in self._FRACTION_VARIABLE_NAMES:
+            if name not in present:
+                continue
+            vals = es.get_variable_values([name], iterate_index=0)
+            clipped = np.clip(vals, 0.0, 1.0)
+            if not np.array_equal(clipped, vals):
+                es.set_variable_values(clipped, [name], iterate_index=0)
+        # joint consistency: s_gas + s_halite <= 1, so s_liq >= 0 and the total
+        # mobility stays strictly positive (kr_l + kr_v = 1 - s_h); otherwise the
+        # fractional-flow weights divide 0/0 at cells where both hit their caps
+        if "s_gas" in present and "s_halite" in present:
+            sg = es.get_variable_values(["s_gas"], iterate_index=0)
+            sh = es.get_variable_values(["s_halite"], iterate_index=0)
+            tot = sg + sh
+            over = tot > 1.0 - 1.0e-8
+            if np.any(over):
+                f = np.where(over, (1.0 - 1.0e-8) / np.maximum(tot, 1.0e-30), 1.0)
+                es.set_variable_values(sg * f, ["s_gas"], iterate_index=0)
+                es.set_variable_values(sh * f, ["s_halite"], iterate_index=0)
 
     def _install_full_iterate_cache(self) -> None:
         """Wrap ``equation_system.get_variable_values`` so the full-iterate fetch

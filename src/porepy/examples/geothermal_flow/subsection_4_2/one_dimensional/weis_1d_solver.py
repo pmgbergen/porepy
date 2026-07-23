@@ -266,6 +266,13 @@ def _upwind_idx(direction):
     return np.where(direction >= 0.0, i, i + 1)
 
 
+def _advect(cell_q, direction):
+    """First-order upwind primitive, mirroring hamon_2d_solver._advect: advected CELL quantity +
+    advecting face direction -> upstream-cell face value (lower cell where direction>=0). Identical
+    to ``cell_q[_upwind_idx(direction)]``; the buoyancy pair terms touch faces ONLY through this."""
+    return np.where(direction >= 0.0, cell_q[:-1], cell_q[1:])
+
+
 def _harmonic_face(lam):
     """Harmonic average of a cell field ``lam`` onto internal faces: 2 lL lR/(lL+lR), 0 where the
     sum vanishes. This is the joint lambda*K face transmissibility weight of the mobility-weighted
@@ -276,13 +283,15 @@ def _harmonic_face(lam):
 
 
 def buoyancy_directions(geom, p, pr, scheme):
-    """Per-internal-face LAGGED upstream cell indices ``(i_liq, i_gas, i_tot)``.
+    """Per-internal-face LAGGED upstream cell indices ``(i_liq, i_gas, i_tot)`` plus the lagged
+    signed buoyancy direction field ``w_dir`` (HU only; ``None`` for PPU).
 
-    All three are frozen per time step (evaluated on the old state), following Weis (2014, p.354,
+    All are frozen per time step (evaluated on the old state), following Weis (2014, p.354,
     "we use the old velocity field to define the upwind nodes"). ``i_liq``/``i_gas`` drive the
     buoyancy term; ``i_tot`` is the total-velocity direction used for the upstream gravity density
     in ``V_T`` -- it MUST be lagged, because upwinding rho *inside* V_T by the current V_T would
-    make the velocity discontinuous at flow reversal and break Newton.
+    make the velocity discontinuous at flow reversal and break Newton. ``w_dir = G(rho_l - rho_v)``
+    is the lagged advecting direction the HU folded-Gamma feeds to :func:`_advect`.
 
     hu:   liquid rides +ddf(rho_l-rho_v), gas rides -ddf  (opposite inter-phase directions).
     ppu:  each phase rides its own potential Psi_g = T_f(p_L-p_U) - K A rho_g g.
@@ -293,15 +302,16 @@ def buoyancy_directions(geom, p, pr, scheme):
     rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
     i_tot = _upwind_idx(geom.Tf * (p[:-1] - p[1:]) - geom.GA * rho_ff_f)   # lagged total-velocity
     if scheme == "hu":
-        ddf = -geom.GA * (rho_l_f - rho_v_f)     # inter-phase gravity flux ddf(rho_l-rho_v)
-        dir_liq, dir_gas = ddf, -ddf
+        ddf = -geom.GA * (rho_l_f - rho_v_f)     # inter-phase gravity flux ddf(rho_l-rho_v) = w_ab
+        dir_liq, dir_gas, w_dir = ddf, -ddf, ddf
     elif scheme == "ppu":
         dp = geom.Tf * (p[:-1] - p[1:])
         dir_liq = dp - geom.GA * rho_l_f         # Psi_liq ~ -K(grad p - rho_l g)
         dir_gas = dp - geom.GA * rho_v_f         # Psi_gas
+        w_dir = None                             # PPU has no single buoyancy direction
     else:
         raise ValueError(f"unknown scheme {scheme!r}; use 'hu' or 'ppu'")
-    return _upwind_idx(dir_liq), _upwind_idx(dir_gas), i_tot
+    return _upwind_idx(dir_liq), _upwind_idx(dir_gas), i_tot, w_dir
 
 
 # --------------------------------------------------------------------------------------- #
@@ -327,7 +337,7 @@ def accumulation_old(x_old, geom, table):
     return acc_mass_o, acc_en_o
 
 
-def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut,
+def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut, w_dir=None,
              grav_upstream=False, weighted_perm=False, lag_upwind=False, lam_face_old=None):
     """Full 2N residual, interleaved [mass_0, energy_0, mass_1, ...].
 
@@ -411,14 +421,21 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
         else:
             F_mass = V_T * pr.lam_T[up]
             F_en_adv = V_T * pr.adv_h[up]
-        w_flux = -geom.GA * (rho_l_f - rho_v_f)      # face-centered buoyant driving force
-        # HU-BM(mp): MOBILITY-PRODUCT buoyancy magnitude  lambda_l lambda_v / lambda_T  (the classical
-        # Lee/Hamon U^HU), NOT the fractional-flow  f_l f_v (lambda_l + lambda_v).  Two-phase => the
-        # pair total mobility is the bare upwinded sum (background void); eps guards fully-segregated
-        # faces where it vanishes.  Matches hamon_2d_solver.py's "hu-mp" (= HU-BM(mp)); label stays "hu".
-        lam_pair = pr.mm_l[ug] + pr.mm_v[ud]
-        common = pr.mm_l[ug] * pr.mm_v[ud] / (lam_pair + 1.0e-30)
-        F_buoy = common * w_flux * (pr.h_l[ug] - pr.h_v[ud])
+        # HU-BM(mp) buoyancy in the hamon_2d_solver grammar. The pair total mobility is the folded
+        #   Gamma = advect(lam_l, +w_ab) + advect(lam_v, -w_ab),
+        # i.e. the N=2 instance of  Gamma_ab = sum_l advect(m_l lam_l, +w_ab) + advect((1-m_l) lam_l,
+        # -w_ab)  with the MIDPOINT masks m = (1, 0): at two phases the background is VOID, so only the
+        # pinned pair terms (liquid fully on the +w_ab side, gas on the -w_ab side) survive. The
+        # buoyancy MAGNITUDE  lambda_l lambda_v / Gamma  is the classical Lee/Hamon U^HU (mobility
+        # product), NOT the fractional-flow  f_l f_v (lambda_l + lambda_v). w_flux (current iterate,
+        # face-centred) is the magnitude; w_dir (lagged per step, Weis old-velocity upwinding) is the
+        # advecting direction fed to _advect. eps guards fully-segregated faces where Gamma vanishes.
+        w_flux = -geom.GA * (rho_l_f - rho_v_f)      # w_ab magnitude (current iterate), face-centred
+        lam_l_up = _advect(pr.mm_l, w_dir)           # lambda_l upwinded along +w_ab
+        lam_v_dn = _advect(pr.mm_v, -w_dir)          # lambda_v upwinded along -w_ab
+        Gamma = lam_l_up + lam_v_dn                  # pair total mobility (background void at N=2)
+        common = lam_l_up * lam_v_dn / (Gamma + 1.0e-30)
+        F_buoy = common * w_flux * (_advect(pr.h_l, w_dir) - _advect(pr.h_v, -w_dir))
         F_en = F_four + F_en_adv + F_buoy
 
     # ---- boundary faces (Dirichlet p, T->h_bc) ----
@@ -528,12 +545,12 @@ def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
                 weighted_perm=False, lag_upwind=False):
     p_old = x_old[0::2]; h_old = x_old[1::2]
     pr_old = eval_props(table, p_old, h_old)                  # x_old props: ONE eval
-    ug, ud, ut = buoyancy_directions(geom, p_old, pr_old, scheme)  # lagged per step
+    ug, ud, ut, w_dir = buoyancy_directions(geom, p_old, pr_old, scheme)  # lagged per step
     lam_face_old = _harmonic_face(pr_old.lam_T)   # old-state harmonic lambda*K (HU-mw lag_upwind)
     acc_mass_o = geom.Vcell * PHI * pr_old.rho_mix
     acc_en_o = geom.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
                              + (1 - PHI) * RHO_S * C_S * pr_old.T)
-    args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut,
+    args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut, w_dir,
             grav_upstream, weighted_perm, lag_upwind, lam_face_old)
     pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
     hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
@@ -711,9 +728,10 @@ def selftest():
     pr = eval_props(table, p, h)
     assert np.all(pr.s_v < 1e-6), "expected single-phase liquid"
     rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:]); rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
-    i_liq, i_gas, _ = buoyancy_directions(geom, p, pr, "hu")
-    b = (pr.f_l[i_liq] * pr.f_v[i_gas] * (pr.mm_l[i_liq] + pr.mm_v[i_gas])
-         * (-geom.GA * (rho_l_f - rho_v_f)) * (pr.h_l[i_liq] - pr.h_v[i_gas]))
+    i_liq, i_gas, _, w_dir = buoyancy_directions(geom, p, pr, "hu")
+    lam_l_up = _advect(pr.mm_l, w_dir); lam_v_dn = _advect(pr.mm_v, -w_dir)
+    b = (lam_l_up * lam_v_dn / (lam_l_up + lam_v_dn + 1e-30)
+         * (-geom.GA * (rho_l_f - rho_v_f)) * (_advect(pr.h_l, w_dir) - _advect(pr.h_v, -w_dir)))
     assert np.max(np.abs(b)) < 1e-20, f"single-phase buoyancy != 0: {np.max(np.abs(b)):.2e}"
     print("  single-phase buoyancy == 0  OK")
     p_hyd = np.empty(20); p_hyd[0] = 20e6

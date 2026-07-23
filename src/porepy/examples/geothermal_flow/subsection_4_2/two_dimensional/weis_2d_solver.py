@@ -58,7 +58,7 @@ Z_INIT = 0.0                  # initial/recharge NaCl overall composition (--z-i
 X_SRC, HALF_SRC = 4500.0, 500.0
 YEAR = 365.0 * 86400.0
 
-DT_NOMINAL, DT_MIN, DT_MAX = 0.5, 0.001, 25.0        # [yr]
+DT_NOMINAL, DT_MIN, DT_MAX = 0.5, 0.0001, 25.0        # [yr]
 _DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 2500))
 
 RHO_REF, T_REF, Z_REF = 800.0, 500.0, 0.1            # residual row scales
@@ -572,6 +572,7 @@ def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1.0e-5, maxit
         except Exception:
             dx = np.zeros_like(r)
         step = 1.0
+        improved = False
         for _ in range(15):
             xn = x + step * dx
             xn[0::NV] = np.clip(xn[0::NV], *pclip)
@@ -579,8 +580,14 @@ def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1.0e-5, maxit
             xn[2::NV] = np.clip(xn[2::NV], *zclip)
             r_new = residual(xn, *args); nrm_new = np.linalg.norm(r_new)
             if nrm_new < nrm:
+                improved = True
                 break
             step *= 0.5
+        if not improved:
+            # no step size reduces |r|: Newton is stalled at this point; iterating
+            # further from the (worse) last trial cannot recover -- stop now so the
+            # failure costs a few iterations instead of the full maxit budget
+            return x, it + 1, _metric(r), False
         x = xn; r = r_new; nrm = nrm_new
     return x, maxit, _metric(r), False
 
@@ -707,6 +714,7 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
     if verbose and cfl_val is not None:
         print(f"  advective CFL limiter ON (factor {cfl_val})")
     t = 0.0; dt = dt_nom * YEAR; step = 0; nits = 0; n_rej = 0; n_stuck = 0
+    hold = 0
     while t < tf - 1.0:
         t_target = schedule[next_i] * YEAR
         dt = min(dt, dt_max * YEAR, t_target - t)
@@ -721,6 +729,7 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
                       f"dt {dt / YEAR:.3f} -> {max(0.5 * dt, dt_min * YEAR) / YEAR:.3f} yr",
                       flush=True)
             dt = max(0.5 * dt, dt_min * YEAR)
+            hold = 3
             continue
         if not ok:
             n_stuck += 1
@@ -737,11 +746,14 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
                     "data_2_000999.vtu for diagnosis")
         else:
             n_stuck = 0
+        x_prev = x_old; dt_prev = dt
         x = xn; t += dt; step += 1; nits += nit
         if verbose and step % 200 == 0:
             print(f"    ... t={t / YEAR:8.1f} yr  step={step}  dt={dt / YEAR:.3f} yr  "
                   f"rejects={n_rej}", flush=True)
-        if ok and nit < 5:
+        if hold > 0:
+            hold -= 1            # post-reject: no dt regrowth (kills the sawtooth)
+        elif ok and nit < 5:
             dt = min(dt * 1.5, dt_max * YEAR)
         if abs(t - t_target) < 1.0:
             export_vtu(folder, next_i, grid, table, x)
