@@ -137,6 +137,49 @@ def test_equation_indexer_offsets(
     np.testing.assert_array_equal(indexer.equation_dofs[expected_keys[3]], [6, 7])
 
 
+def test_equation_indexer_restriction(
+    domains: tuple[pp.Grid, pp.Grid, pp.Grid],
+) -> None:
+    """Restricted equation indices are local and follow the requested order."""
+    first, second, third = domains
+    equation_a_second = EquationOnDomain("equation_a", second)
+    equation_b_second = EquationOnDomain("equation_b", second)
+    equation_b_third = EquationOnDomain("equation_b", third)
+    indexer = EquationIndexer(
+        equation_image_composition={
+            "equation_a": {first: np.arange(2), second: np.arange(2, 5)},
+            "equation_b": {second: np.arange(1), third: np.arange(1, 3)},
+        }
+    )
+
+    restricted = indexer.construct_restricted_indexer(
+        [equation_b_second, equation_b_third, equation_a_second]
+    )
+
+    assert list(restricted.equation_dofs) == [
+        equation_b_second,
+        equation_b_third,
+        equation_a_second,
+    ]
+    np.testing.assert_array_equal(
+        restricted.equation_dofs[equation_b_second], np.arange(1)
+    )
+    np.testing.assert_array_equal(
+        restricted.equation_dofs[equation_b_third], np.arange(1, 3)
+    )
+    np.testing.assert_array_equal(
+        restricted.equation_dofs[equation_a_second], np.arange(3, 6)
+    )
+    np.testing.assert_array_equal(
+        restricted.equation_image_space_composition["equation_b"][third],
+        np.arange(1, 3),
+    )
+    np.testing.assert_array_equal(
+        restricted.equation_image_space_composition["equation_a"][second],
+        np.arange(3),
+    )
+
+
 def test_empty_indexers() -> None:
     """Indexers support empty systems and restrictions."""
     variable_indexer = VariableIndexer(variable_dofs={})

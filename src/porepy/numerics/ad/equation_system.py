@@ -217,7 +217,7 @@ class EquationSystem:
         """
         # Parse and validate input arguments. Will raise if unknown equations or
         # variables are requested
-        equations = set(self._parse_equation_names(equation_names))
+        equations = {eq.name for eq in self._parse_equations(equation_names)}
         variables = self._parse_variable_type(variable_names, ordered=True)
 
         # Create the new equation system.
@@ -350,60 +350,16 @@ class EquationSystem:
             offset += len(dofs)
         return pp.ad.VariableIndexer(variable_dofs=variable_dofs)
 
-    def construct_equation_indexer(
-        self, requested_equations: Optional[EquationList | EquationRestriction] = None
-    ) -> pp.ad.EquationIndexer:
-        """Construct an equation indexer for the requested_equations.
+    def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
+        """Construct an equation indexer for all the registered equations.
 
         Equation ordering follows registration order. Equations not defined anywhere
         are excluded.
-
-        Parameters:
-            requested_equations: Equations to consider in the indexer. Note: ordering is
-            ignored. If None (default), constructs the indexer for all the registered
-            equations.
 
         Returns:
             The indexer.
 
         """
-        # We unfortunately have to parse quite a heterogeneous input. Similar parsing is
-        # done in _parse_equation_names and _parse_equations, but the results are
-        # different enough to prevent unification of the parsing logic. Here, we
-        # construct a lookup set of EquationOnDomain to filter the requested
-        # restriction.
-        if requested_equations is None:
-            # No restriction, include all equations on all domains.
-            requested_equations_lookup = {
-                pp.ad.EquationOnDomain(name=eq.name, domain=domain)
-                for eq in self._equations.values()
-                for domain in eq.domains
-            }
-        elif isinstance(requested_equations, list):
-            # Restrict equation names, do not restrict domains.
-            requested_equations_lookup = set()
-            for equation in requested_equations:
-                equation = self._validate_equation_name(equation)
-                for domain in equation.domains:
-                    requested_equations_lookup.add(
-                        pp.ad.EquationOnDomain(name=equation.name, domain=domain)
-                    )
-
-        elif isinstance(requested_equations, dict):
-            # Restrict equations and domains. Additionally, order domains.
-
-            def order_grids(grids: list[pp.GridLike]) -> list[pp.GridLike]:
-                indices = self.mdg.argsort_grids(grids)
-                return [grids[i] for i in indices]
-
-            requested_equations_lookup = set()
-            for eq, domains in requested_equations.items():
-                equation = self._validate_equation_restriction(eq, domains)
-                for domain in order_grids(domains):  # type: ignore[arg-type]
-                    requested_equations_lookup.add(
-                        pp.ad.EquationOnDomain(name=equation.name, domain=domain)
-                    )
-
         # Result dictionary.
         equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
 
@@ -415,13 +371,6 @@ class EquationSystem:
             offset = 0
 
             for domain in equation.domains:
-                if (
-                    pp.ad.EquationOnDomain(name=name, domain=domain)
-                    not in requested_equations_lookup
-                ):
-                    # The user did not request this equation-domain.
-                    continue
-
                 dofs_info = self.equation_image_size_info[name]
                 if isinstance(domain, pp.Grid):
                     dofs_per_grid = (
@@ -1227,41 +1176,6 @@ class EquationSystem:
         self._variable_indexer = None
         self._equation_indexer = None
 
-    def _parse_equation_names(
-        self, requested_equations: Optional[EquationList | EquationRestriction]
-    ) -> list[str]:
-        """Parses the user input in a heterogeneous format.
-
-        Raises:
-            ValueError: if one of the passed equations is not registered.
-            ValueError: if unsupported input format is passed.
-
-        Parameters:
-            requested_equations: If `None`, returns all registered equation names. If a
-                list of equations, returns their names. If a dictionary, ignores its
-                values.
-
-        Returns:
-            Requested equation names in input order.
-
-        """
-        if requested_equations is None:
-            return list(self._equations.keys())
-
-        if isinstance(requested_equations, dict):
-            requested_equations = list(requested_equations.keys())  # type: ignore[assignment]
-
-        assert isinstance(requested_equations, list)
-        equation_names: list[str] = list()
-        for equation in requested_equations:
-            if isinstance(equation, str):
-                equation_names.append(self._validate_equation_name(equation).name)
-            elif isinstance(equation, pp.ad.Operator):
-                equation_names.append(self._validate_equation_name(equation.name).name)
-            else:
-                raise ValueError(f"Unsupported input type: {equation}")
-        return equation_names
-
     ### System assembly and discretization ---------------------------------------------
 
     @staticmethod
@@ -1332,15 +1246,21 @@ class EquationSystem:
         return equation
 
     def _parse_equations(
-        self, equations: Optional[EquationList | EquationRestriction] = None
-    ) -> dict[pp.ad.Operator, None | np.ndarray]:
+        self,
+        equations: Optional[EquationList | EquationRestriction] = None,
+        ordered: bool = True,
+    ) -> list[pp.ad.EquationOnDomain]:
         """Helper method to parse equations into a properly ordered structure.
 
-        The equations will be ordered according to :attr:`equation_indexer`. Equations
-        not defined anywhere are filtered out.
+        The domains of the resulting equations will be ordered according to the MDG, the
+        input ordering of the domains will be ignored.
+
+        Equations not defined anywhere are filtered out.
 
         Parameters:
             equations: A list of equations or a dictionary of equation restrictions.
+            ordered: If True (default), the equations will be ordered according to
+            :attr:`equation_indexer`. Otherwise, the input ordering will be preserved.
 
         Raises:
             ValueError: If the requested equation is not registered.
@@ -1352,9 +1272,7 @@ class EquationSystem:
             equation rows) as values. If no restriction is given, the value is None.
 
         """
-
-        equation_rows: dict[pp.ad.Operator, np.ndarray | None] = {}
-        equation_indexer = self.equation_indexer
+        equations_on_domains: list[pp.ad.EquationOnDomain] = []
 
         if equations is None:
             # Requested are all the registered equations.
@@ -1363,42 +1281,34 @@ class EquationSystem:
         if isinstance(equations, list):
             # Equation names are restricted, domains are not restricted (None).
             for eq in equations:
-                equation_rows[self._validate_equation_name(eq)] = None
+                eq = self._validate_equation_name(eq)
+                for domain in eq.domains:
+                    # This assumes that eq.domains are already sorted.
+                    equations_on_domains.append(
+                        pp.ad.EquationOnDomain(name=eq.name, domain=domain)
+                    )
 
         elif isinstance(equations, dict):
             # Equation names and domains are restricted.
 
             for eq, domains in equations.items():
                 eq = self._validate_equation_restriction(eq, domains)
-                equation_dofs = equation_indexer.equation_image_space_composition[
-                    eq.name
-                ]
+                # Order domains based on the MDG and append.
                 domain_indices = self.mdg.argsort_grids(domains)
                 domains = [domains[i] for i in domain_indices]
-                rows_list = [equation_dofs[domain] for domain in domains]
-                equation_rows[eq] = (
-                    np.concatenate(rows_list)
-                    if len(rows_list)
-                    else np.empty(0, dtype=np.int64)
-                )
+                for domain in domains:
+                    equations_on_domains.append(
+                        pp.ad.EquationOnDomain(name=eq.name, domain=domain)
+                    )
 
-        # Filter equations defined on empty domains.
-        equation_rows = {
-            eq: dofs
-            for eq, dofs in equation_rows.items()
-            if len(equation_indexer.equation_image_space_composition.get(eq.name, []))
-            > 0
-        }
+        if not ordered:
+            return equations_on_domains
 
         # Order according to equation_indexer.
-        equation_order: dict[str, int] = {}
-        for i, name in enumerate(
-            self.equation_indexer.equation_image_space_composition
-        ):
-            equation_order[name] = i
-        return dict(
-            sorted(equation_rows.items(), key=lambda item: equation_order[item[0].name])
-        )
+        equation_order = {
+            eq: i for i, eq in enumerate(self.equation_indexer.equation_dofs)
+        }
+        return list(sorted(equations_on_domains, key=lambda eq: equation_order[eq]))
 
     def _gridbased_equation_complement(
         self, equations: dict[str, None | np.ndarray]
@@ -1457,7 +1367,11 @@ class EquationSystem:
                 known equations will be discretized.
 
         """
-        equation_names = self._parse_equation_names(equations)
+        equation_names = [
+            eq.name for eq in self._parse_equations(equations, ordered=False)
+        ]
+        # This keeps only unique names and preserves their original (input) order.
+        equation_names = list(dict.fromkeys(equation_names))
 
         # List containing all discretizations
         discr: list = []
@@ -1543,8 +1457,32 @@ class EquationSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        # Standardized input, it is ordered.
-        equations_rows = self._parse_equations(equations=equations)
+        # Standardize and validate input, order it according to the equation_indexer.
+        equations_on_domains = self._parse_equations(equations=equations, ordered=True)
+
+        # Distinguish equations where restriction is required by comparing requested
+        # domains with domains of definition of the equation.
+        equation_name_to_domains: dict[str, list[pp.GridLike]] = {}
+        for eq in equations_on_domains:
+            equation_name_to_domains.setdefault(eq.name, []).append(eq.domain)
+
+        # Assembling the list of equations and their requested restriction (np.ndarray),
+        # or no restriction (None).
+        equations_rows: dict[pp.ad.Operator, np.ndarray | None] = {}
+        equation_image_space = self.equation_indexer.equation_image_space_composition
+        for eq_name, domains in equation_name_to_domains.items():
+            # eq_names are validated in _parse_equations, they must be registered.
+            equation = self._equations[eq_name]
+            if domains == equation.domains:
+                # Requested domains match the definition. No restriction is needed.
+                equations_rows[equation] = None
+            else:
+                # Concatenate restriction dofs.
+                domains_to_dofs = equation_image_space[eq_name]
+                dofs = [domains_to_dofs[domain] for domain in domains]
+                equations_rows[equation] = (
+                    np.concatenate(dofs) if len(dofs) else np.empty(0, dtype=int)
+                )
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -1630,7 +1568,9 @@ class EquationSystem:
             variable_indexer = self.variable_indexer
 
         if equations is not None:
-            equation_indexer = self.construct_equation_indexer(equations)
+            equation_indexer = self.equation_indexer.construct_restricted_indexer(
+                self._parse_equations(equations=equations, ordered=False)
+            )
         else:
             equation_indexer = self.equation_indexer
 
@@ -1707,9 +1647,16 @@ class EquationSystem:
         # on their full image, and equations specified on a subset of grids.
         # The variable primary_rows will contain the indices in the global system
         # corresponding to the primary block.
-        primary_rows = {
-            eq.name: dofs
-            for eq, dofs in self._parse_equations(primary_equations).items()
+        equations_on_domaisn = self._parse_equations(primary_equations)
+        primary_rows_lists: dict[str, list[np.ndarray]] = {}
+        for eq in equations_on_domaisn:
+            primary_rows_lists.setdefault(eq.name, []).append(
+                self.equation_indexer.equation_image_space_composition[eq.name][
+                    eq.domain
+                ]
+            )
+        primary_rows: dict[str, None | np.ndarray] = {
+            name: np.concatenate(dofs) for name, dofs in primary_rows_lists.items()
         }
         # Find indices of equations involved in the primary block, but on grids that
         # were filtered out. These will be added to the secondary block.
