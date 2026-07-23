@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 """Subsection 4.2 workflow: all reference cases + figures in one command (Bosma Ex. 6.3).
 
-Per N in --nphase (default 3 4; rho evenly spaced on [500, 1500], N=3 = Bosma [1500, 1000, 500]):
+Runs the completion checks first (reduction consistency + two-cell monotonicity/derivative sign,
+both solvers; --skip-checks to opt out), then per N in --nphase (default 3 4; rho evenly spaced on
+[500, 1500], N=3 = Bosma [1500, 1000, 500]):
 
   hamon (FV reference, parallel worker processes):
     step 1: schemes {hu, hu-mw, hu-mp, ppu} on 100^2 to 571 d, snaps {0, 78, 571} -> vtr[_nN]/
     step 2: same schemes on 200^2 to 78 d, snaps {0, 78}          -> output_ref_<scheme>[_nN]/
   porepy (CF model, subprocesses of porepy_2d_solver.py):
     scheme hu x {fixed-dim, --md}  -> visualization_barriers[_frac]_hu_N<n>/  (+ .log here)
-  figures: plot_reference.py -> figures/n<N>/
+  figures: plot_reference.py (hamon) + plot_porepy.py (saturation_maps_pp_hu, ... from the VTUs)
+           -> figures/n<N>/
 
 Usage:
     python run_workflow.py [--nphase 3 4] [--quick] [--jobs J] [--plot-only] [--skip-plot]
@@ -29,8 +32,10 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)                         # so the sibling modules import from anywhere
 
+import completion_checks as CC                      # noqa: E402
 import hamon_2d_solver as H                        # noqa: E402
-import plot_reference as PR                        # noqa: E402
+import plot_porepy as PP                            # noqa: E402  (porepy-data figures from the VTUs)
+import plot_reference as PR                        # noqa: E402  (hamon reference figures)
 import run_reference as RR                         # noqa: E402  (reuse its _suffix convention)
 
 SCHEMES = ("hu", "ppu", "hu-mw", "hu-mp")
@@ -148,13 +153,31 @@ def _log_result(r):
           f"{r['summary']}  [{r['wall']:.1f}s]{flag}", flush=True)
 
 
+def _run_checks(quick, skip_porepy):
+    """Completion checks (reduction consistency + two-cell monotonicity/derivative sign) that cover
+    the HU-BM theory, driven by both solvers. Reports failures but never aborts the workflow."""
+    t0 = time.time()
+    results = CC.run_all_checks(quick=quick, skip_porepy=skip_porepy)
+    n_fail = sum(not r.get("passed", False) for r in results)
+    print(f"--- {len(results)} checks in {time.time() - t0:.1f}s ({n_fail} failed) ---", flush=True)
+    if n_fail:
+        print("WARNING: completion checks reported failures (see above)", flush=True)
+    return results
+
+
 def _build_figures(nphases, cfg):
+    days = [str(d) for d in cfg["fig_days"]]
     for n in nphases:
-        print(f"\n=== figures for N={n}  ->  figures/n{n}/ ===", flush=True)
-        argv = ["--nphase", str(n),
-                "--days", *[str(d) for d in cfg["fig_days"]],
-                "--gas-day", str(cfg["gas_day"])]
-        PR.main(argv)
+        print(f"\n=== hamon figures for N={n}  ->  figures/n{n}/ ===", flush=True)
+        PR.main(["--nphase", str(n), "--days", *days, "--gas-day", str(cfg["gas_day"])])
+    # PorePy-data figures (saturation_maps_pp_hu, saturation_grid_pp_hu, conservation_pp_hu, ...)
+    # from the exported visualization_barriers*_hu_N<n>/ VTUs. Reads only -- no simulations -- so it
+    # runs under --plot-only too; plot_porepy skips any N/case whose output dir is absent.
+    print(f"\n=== porepy figures for N in {nphases}  ->  figures/n<N>/ ===", flush=True)
+    try:
+        PP.main(["--nphase", *[str(n) for n in nphases], "--days", *days])
+    except Exception as exc:                            # a missing/partial VTU set must not abort
+        print(f"  [FAIL] porepy figures: {type(exc).__name__}: {exc}", flush=True)
 
 
 def main(argv=None):
@@ -178,14 +201,24 @@ def main(argv=None):
                          "build the figures from existing output only")
     ap.add_argument("--skip-run", action="store_true", help="alias of --plot-only")
     ap.add_argument("--skip-plot", action="store_true", help="skip the figures (simulations only)")
+    ap.add_argument("--pdf", action="store_true",
+                    help="also write a vector PDF next to each figure PNG (default: PNG only)")
     ap.add_argument("--skip-porepy", action="store_true",
                     help="skip the porepy_2d_solver cases (hamon reference only)")
+    ap.add_argument("--skip-checks", action="store_true",
+                    help="skip the completion checks (reduction consistency + two-cell "
+                         "monotonicity) that run by default before the simulations")
+    ap.add_argument("--checks-only", action="store_true",
+                    help="run ONLY the completion checks (+ monotonicity figure); no simulations, "
+                         "no reference figures")
     ap.add_argument("--porepy-only", action="store_true",
                     help="run ONLY the porepy_2d_solver cases (no hamon runs, no figures)")
     ap.add_argument("--porepy-cases", nargs="+", default=["fd", "md"],
                     choices=["fd", "md"], metavar="CASE",
                     help="which porepy cases to run: fd (fixed-dim), md, or both (default)")
     args = ap.parse_args(argv)
+
+    CC.SAVE_PDF = args.pdf     # completion-check monotonicity.png gets a .pdf too when --pdf is set
 
     cfg = QUICK if args.quick else FULL
     nphases = args.nphase
@@ -200,6 +233,14 @@ def main(argv=None):
           f"linear_solver={linear_solver} (jobs={jobs}), dir_lag={args.dir_lag}")
 
     t_all = time.time()
+    if args.checks_only:
+        _run_checks(args.quick, args.skip_porepy)
+        print(f"\n workflow (checks only) complete in {(time.time() - t_all) / 60.0:.1f} min")
+        return
+
+    if not args.skip_checks and not (args.plot_only or args.skip_run):
+        _run_checks(args.quick, args.skip_porepy)      # theory-coverage gate (both solvers)
+
     if not (args.plot_only or args.skip_run):
         results = []
         if not args.porepy_only:
@@ -218,6 +259,7 @@ def main(argv=None):
         print("(--plot-only: no simulations; using existing output)")
 
     if not (args.skip_plot or args.porepy_only):
+        PR.SAVE_PDF = PP.SAVE_PDF = args.pdf     # PNG only unless --pdf (vector PDFs are the slow part)
         _build_figures(nphases, cfg)
     else:
         print("(no hamon figures generated)")
@@ -235,4 +277,5 @@ if __name__ == "__main__":
 
 
 # python run_workflow.py  94539.88s user 77494.89s system 894% cpu 5:20:35.36 total
+# python run_workflow.py  141500.16s user 130354.66s system 1022% cpu 7:22:55.12 total
 

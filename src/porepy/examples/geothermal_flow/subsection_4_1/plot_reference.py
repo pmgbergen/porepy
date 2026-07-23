@@ -189,11 +189,15 @@ def _style_axes(ax, caption):
         ax.text(0.5, -0.16, caption, transform=ax.transAxes, ha="center", va="top", fontsize=10)
 
 
+SAVE_PDF = True     # also write a vector PDF next to each PNG (run_workflow toggles this via --pdf)
+
+
 def _save(fig, png_path):
-    """Save the figure as both a PNG (150 dpi) and a vector PDF; return the PNG path."""
+    """Save the figure as a PNG (150 dpi), plus a vector PDF when ``SAVE_PDF``; return the PNG path."""
     os.makedirs(os.path.dirname(png_path) or ".", exist_ok=True)
     fig.savefig(png_path, dpi=150, bbox_inches="tight")
-    fig.savefig(os.path.splitext(png_path)[0] + ".pdf", bbox_inches="tight")
+    if SAVE_PDF:
+        fig.savefig(os.path.splitext(png_path)[0] + ".pdf", bbox_inches="tight")
     return png_path
 
 

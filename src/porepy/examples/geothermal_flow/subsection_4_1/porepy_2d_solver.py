@@ -264,15 +264,22 @@ chi_functions_map: dict = {}
 
 def configure_phase_system(nphase: int, equal_middle: bool = False,
                            permute_middle: bool = False,
-                           linear_kr_middle: bool = False) -> None:
+                           linear_kr_middle: bool = False,
+                           merge_ref: bool = False,
+                           merge_ic: bool = False) -> None:
     """Configure the module for ``nphase`` phases: evenly-spaced densities, phase/component
     names, and the (name-keyed) saturation + immiscibility maps consumed by
     :class:`SecondaryEquations3N`. N=3 reproduces the Bosma names/maps exactly; N=4 splits the
-    oil into a mid-heavy + mid-light phase."""
-    global NPHASE, RHO, RHO_BANDS, PHASE_PERM, MIDDLE_LINEAR
+    oil into a mid-heavy + mid-light phase.
+
+    ``merge_ref`` gives the INTERIOR phase the merged-band ``k_r = 2 k_r(s/2)`` (for quadratic
+    k_r, s^2/2): the N=3 reference against which an N=4 equal-density QUADRATIC-k_r run reduces
+    exactly (two identical intermediates each carrying s/2 sum to 2 k_r(s/2))."""
+    global NPHASE, RHO, RHO_BANDS, PHASE_PERM, MIDDLE_LINEAR, MIDDLE_MERGE, MERGE_SPLIT
     global H_PHASE, PHASE_NAMES, COMPONENT_NAMES
     global saturation_functions_map, chi_functions_map
     NPHASE = int(nphase)
+    MERGE_SPLIT = bool(merge_ic)
     if equal_middle:
         # N=4 degeneracy check: both middle densities equal the N=3 oil value, so
         # the 4-phase run must reproduce the 3-phase solution (ordering-free
@@ -294,6 +301,8 @@ def configure_phase_system(nphase: int, equal_middle: bool = False,
     RHO = RHO_BANDS[PHASE_PERM]                     # phase k has the density of ITS band
     MIDDLE_LINEAR = (bool(linear_kr_middle)
                      & (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2))
+    MIDDLE_MERGE = (bool(merge_ref)
+                    & (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2))
     H_PHASE = np.linspace(H_MIN, H_MAX, NPHASE)[PHASE_PERM]   # per-phase marker follows the label
     PHASE_NAMES = _phase_names(NPHASE)
     COMPONENT_NAMES = _component_names(NPHASE)
@@ -626,12 +635,31 @@ class IC_NphaseSegregation(pp.PorePyModel):
             den[m] += RHO[k]                             # rho_k s_k
         return num / den
 
+    def _interior_region(self, masks: list) -> np.ndarray:
+        """Union of the interior bands (1 .. N-2) -- where --merge-ic splits them equally."""
+        region = np.zeros_like(masks[0])
+        for k in range(1, NPHASE - 1):
+            region |= masks[k]
+        return region
+
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         masks = self._band_masks(sd)
         comps = self.fluid.components
         z = np.zeros(sd.num_cells)
+        if MERGE_SPLIT:
+            # interior components share the interior region EQUALLY (z = 1/(N-2)); the extremes
+            # keep their 10 % bands -> two equal-density intermediates carry equal s.
+            region = self._interior_region(masks)
+            share = 1.0 / (NPHASE - 2)
+            for i in range(1, NPHASE):
+                if component != comps[i]:
+                    continue
+                b = PHASE_PERM[i]
+                z[region if 1 <= b <= NPHASE - 2 else masks[b]] = (
+                    share if 1 <= b <= NPHASE - 2 else 1.0)
+            return z
         for i in range(1, NPHASE):            # non-reference component i -> band PHASE_PERM[i]
             if component == comps[i]:
                 z[masks[PHASE_PERM[i]]] = 1.0
@@ -639,6 +667,17 @@ class IC_NphaseSegregation(pp.PorePyModel):
 
     def ic_values_saturation(self, sd: pp.Grid) -> list:
         masks = self._band_masks(sd)
+        if MERGE_SPLIT:
+            region = self._interior_region(masks)
+            share = 1.0 / (NPHASE - 2)
+            out = []
+            for i in range(1, NPHASE):
+                b = PHASE_PERM[i]
+                if 1 <= b <= NPHASE - 2:
+                    out.append(np.where(region, share, 0.0))
+                else:
+                    out.append(np.where(masks[b], 1.0, 0.0))
+            return out
         return [np.where(masks[PHASE_PERM[i]], 1.0, 0.0)
                 for i in range(1, NPHASE)]                                # s_1..s_{N-1}
 
@@ -1322,10 +1361,13 @@ class _FlowModelBody(
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        # quadratic kr (paper Ex. 6.3); with --linear-kr-middle the INTERIOR
-        # phases use linear kr = s (additive middle mobilities -> exact N=4eq
-        # degeneracy to N=3)
+        # quadratic kr (paper Ex. 6.3); with --linear-kr-middle the INTERIOR phases use
+        # linear kr = s (additive middle mobilities -> exact N=4eq degeneracy to N=3), and
+        # with --merge-ref the interior phase uses the merged-band kr = 2 kr(s/2) = s^2/2
+        # (the N=3 reference matching two equal QUADRATIC-kr intermediates).
         k = PHASE_NAMES.index(phase.name)
+        if MIDDLE_MERGE[k]:                          # 2 (s/2)^2 = s^2 / 2 (merged-band kr)
+            return pp.ad.Scalar(0.5) * phase.saturation(domains) ** 2
         if MIDDLE_LINEAR[k]:
             return phase.saturation(domains)
         return phase.saturation(domains) ** 2
@@ -1526,6 +1568,7 @@ def flow_model_class(params: dict):
 
 def build_params(nphase: int = 3, scheme: str = "hu", *, equal_middle: bool = False,
                  permute_middle: bool = False, linear_kr_middle: bool = False,
+                 merge_ref: bool = False, merge_ic: bool = False,
                  t_end_days: float = T_END_DAYS,
                  dt_days: float = DT_DAYS, dt_init_days: float = DT_INIT_DAYS,
                  dt_max_days: float = DT_MAX_DAYS, snap_days: Sequence[float] = SNAP_DAYS,
@@ -1544,11 +1587,14 @@ def build_params(nphase: int = 3, scheme: str = "hu", *, equal_middle: bool = Fa
     """
     if scheme not in _SCHEME_CONFIG:
         raise ValueError(f"unknown scheme {scheme!r}; options: {list(_SCHEME_CONFIG)}")
-    configure_phase_system(nphase, equal_middle, permute_middle, linear_kr_middle)
+    configure_phase_system(nphase, equal_middle, permute_middle, linear_kr_middle, merge_ref,
+                           merge_ic)
     frac_tag = "_frac" if fractures else ""
     n_tag = (f"N{nphase}" + ("eq" if equal_middle else "")
              + ("perm" if permute_middle else "")
-             + ("lk" if linear_kr_middle else ""))
+             + ("lk" if linear_kr_middle else "")
+             + ("mref" if merge_ref else "")
+             + ("mic" if merge_ic else ""))
     if ad_backend is None:
         # sparsa lowers mixed-dimensional variables (concat of per-grid sub-variables); default
         # for both fd and md, bit-exact vs native.  Pass ad_backend="native" to override.
@@ -1661,6 +1707,12 @@ if __name__ == "__main__":
                     help="linear kr = s for the INTERIOR (middle) phases only; middle "
                          "mobilities become additive so the --equal-middle N=4 run "
                          "degenerates to N=3 EXACTLY. Tag gains 'lk'.")
+    ap.add_argument("--merge-ref", action="store_true",
+                    help="interior kr = 2 kr(s/2) (merged-band consistency): the N=3 reference "
+                         "matching an N=4 equal-density QUADRATIC-kr run. Tag gains 'mref'.")
+    ap.add_argument("--merge-ic", action="store_true",
+                    help="split the interior band EQUALLY (s_b = s_c per cell) -- the IC the "
+                         "quadratic-kr reduction test needs. Tag gains 'mic'.")
     ap.add_argument("--scheme", default="hu", choices=list(_SCHEME_CONFIG),
                     help="HU-BM scheme (default 'hu' = HU-BM(mp))")
     ap.add_argument("--days", type=float, default=T_END_DAYS,
@@ -1702,6 +1754,7 @@ if __name__ == "__main__":
     params = build_params(
         args.nphase, args.scheme, equal_middle=args.equal_middle,
         permute_middle=args.permute_middle, linear_kr_middle=args.linear_kr_middle,
+        merge_ref=args.merge_ref, merge_ic=args.merge_ic,
         t_end_days=args.days, dt_days=args.dt_days,
         dt_init_days=args.dt_init_days, dt_max_days=args.dt_max_days,
         snap_days=snaps, constant_dt=args.constant_dt, fractures=args.md,

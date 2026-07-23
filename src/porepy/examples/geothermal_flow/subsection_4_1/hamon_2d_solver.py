@@ -121,6 +121,8 @@ RHO = np.linspace(1500.0, 500.0, NPHASE)   # [kg/m^3], phase 0 heaviest .. phase
 RHO_BANDS = RHO.copy()               # density of initial BAND k (label-permutation invariant)
 PHASE_PERM = np.arange(NPHASE)       # phase k occupies band PHASE_PERM[k] (identity default)
 MIDDLE_LINEAR = np.zeros(NPHASE, dtype=bool)   # rows with linear k_r (--linear-kr-middle)
+MIDDLE_MERGE = np.zeros(NPHASE, dtype=bool)    # rows with merged-band k_r = 2 k_r(s/2) (--merge-ref)
+MERGE_SPLIT = False                            # IC splits the interior band equally (--merge-ic)
 _PAIRS = tuple(itertools.combinations(range(NPHASE), 2))   # all C(N,2) counter-current pairs
 W, O, GG = 0, 1, 2                   # 3-phase names (heavy, intermediate, light) for reference
 
@@ -157,7 +159,8 @@ _MASKS = _side_masks()               # idem
 
 
 def set_phase_system(nphase: int, equal_middle: bool = False,
-                     permute_middle: bool = False, linear_kr_middle: bool = False):
+                     permute_middle: bool = False, linear_kr_middle: bool = False,
+                     merge_ref: bool = False, merge_ic: bool = False):
     """Configure the module for ``nphase`` phases: evenly-spaced densities and every C(n,2) pair.
     N=3 reproduces Bosma Fig. 5; N=4 splits oil into a mid-heavy and a mid-light phase.
 
@@ -174,9 +177,17 @@ def set_phase_system(nphase: int, equal_middle: bool = False,
     ``linear_kr_middle`` uses LINEAR k_r = s for the INTERIOR (middle) phases only
     (outer water/gas stay quadratic).  Middle mobilities are then additive, so the
     equal-density N=4 run degenerates to the N=3 solution EXACTLY at the PDE level
-    (quadratic k_r breaks additivity wherever the two middles coexist)."""
-    global NPHASE, RHO, RHO_BANDS, PHASE_PERM, MIDDLE_LINEAR, _PAIRS, _THETA, _MASKS
+    (quadratic k_r breaks additivity wherever the two middles coexist).
+
+    ``merge_ref`` gives the INTERIOR phase the merged-band k_r = 2 k_r(s/2) (for quadratic
+    k_r, s^2/2 not s^2) -- the N=3 REFERENCE against which an N=4 equal-density run with
+    QUADRATIC k_r reduces exactly: two identical intermediates each carrying s/2 sum to
+    2 k_r(s/2), so the reference must too, else the comparison mismatches at O(1) for
+    CONSTITUTIVE (not discretization) reasons."""
+    global NPHASE, RHO, RHO_BANDS, PHASE_PERM, MIDDLE_LINEAR, MIDDLE_MERGE, MERGE_SPLIT
+    global _PAIRS, _THETA, _MASKS
     NPHASE = int(nphase)
+    MERGE_SPLIT = bool(merge_ic)
     if equal_middle:
         if NPHASE != 4:
             raise ValueError("equal_middle is defined for nphase=4 only")
@@ -193,6 +204,8 @@ def set_phase_system(nphase: int, equal_middle: bool = False,
     # linear k_r rows: the interior phases (their bands are 1 .. N-2)
     MIDDLE_LINEAR = (linear_kr_middle
                      & (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2))
+    MIDDLE_MERGE = (merge_ref
+                    & (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2))
     _PAIRS = tuple(itertools.combinations(range(NPHASE), 2))
     _THETA = _pinned_theta()
     _MASKS = _side_masks()
@@ -378,13 +391,29 @@ def _band_boundaries() -> np.ndarray:
 
 
 def initial_saturations(grid: Grid) -> np.ndarray:
-    """Full ``(NPHASE, ncell)`` initial saturation array: phase ``k`` fills band ``k``."""
+    """Full ``(NPHASE, ncell)`` initial saturation array: phase ``k`` fills band ``k``.
+
+    With ``MERGE_SPLIT`` (``--merge-ic``) the interior phases instead share the whole interior
+    region with EQUAL saturation ``1/(N-2)`` in every cell, so two identical intermediates carry
+    ``s_b = s_c`` -- the initial condition the quadratic-k_r reduction test needs (else
+    ``s_b^2 + s_c^2`` diverges from the merged ``2 k_r(s/2)`` wherever the two are separated)."""
     y = grid.yc
     bnd = _band_boundaries()
     s = np.zeros((NPHASE, grid.ncell))
-    for k in range(NPHASE):                        # band b = (bnd[b+1], bnd[b]]; bands tile (0, LY]
-        b = PHASE_PERM[k]                          # phase k occupies band b (label permutation)
-        s[k][(y > bnd[b + 1]) & (y <= bnd[b])] = 1.0
+    interior = (PHASE_PERM >= 1) & (PHASE_PERM <= NPHASE - 2)
+    if MERGE_SPLIT and int(interior.sum()) >= 2:
+        region = (y > bnd[NPHASE - 1]) & (y <= bnd[1])         # union of the interior bands
+        share = 1.0 / int(interior.sum())
+        for k in range(NPHASE):
+            b = PHASE_PERM[k]
+            if interior[k]:
+                s[k][region] = share
+            else:                                              # extremes keep their 10 % bands
+                s[k][(y > bnd[b + 1]) & (y <= bnd[b])] = 1.0
+    else:
+        for k in range(NPHASE):                    # band b = (bnd[b+1], bnd[b]]; bands tile (0, LY]
+            b = PHASE_PERM[k]                       # phase k occupies band b (label permutation)
+            s[k][(y > bnd[b + 1]) & (y <= bnd[b])] = 1.0
     return s
 
 
@@ -421,7 +450,9 @@ def phase_mobilities(s: np.ndarray):
     """Return ``lam`` (N, ncell), ``lamT`` (ncell), ``f`` (N, ncell), ``rho_ff`` (ncell) from the
     full ``(NPHASE, ncell)`` saturation array ``s``."""
     sc = np.clip(s, 0.0, 1.0)
-    if MIDDLE_LINEAR.any():                # --linear-kr-middle: linear rows for interior phases
+    if MIDDLE_MERGE.any():                 # --merge-ref: interior k_r = 2 k_r(s/2) (merged band)
+        lam = np.where(MIDDLE_MERGE[:, None], 2.0 * (0.5 * sc) ** 2, sc * sc) / MU
+    elif MIDDLE_LINEAR.any():              # --linear-kr-middle: linear rows for interior phases
         lam = np.where(MIDDLE_LINEAR[:, None], sc, sc * sc) / MU
     else:
         lam = sc * sc / MU                 # quadratic k_r (Bosma)
@@ -859,7 +890,8 @@ class RunStats:
 def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_days=None,
         atol=NEWTON_ATOL, linear_solver="cpr", dir_lag="iteration", nphase=3, verbose=True,
         dt_init_days=DT_INIT_DAYS, drift_order=DRIFT_ORDER, backtracking=False,
-        equal_middle=False, permute_middle=False, linear_kr_middle=False):
+        equal_middle=False, permute_middle=False, linear_kr_middle=False, merge_ref=False,
+        merge_ic=False):
     """Advance the ``nphase``-phase segregation to ``t_end_days`` with the chosen ``scheme``.
 
     ``nphase=3`` reproduces Bosma Fig. 5; ``nphase=4`` splits oil into a mid-heavy + mid-light
@@ -885,7 +917,7 @@ def run(scheme, nx=100, ny=100, dt_days=DT_MAX_DAYS, snap_days=SNAP_DAYS, t_end_
     scheme = scheme.lower()
     assert scheme in ("hu", "ppu", "hu-mw", "hu-mp"), scheme
     assert dir_lag in ("iteration", "step"), dir_lag
-    set_phase_system(nphase, equal_middle, permute_middle, linear_kr_middle)
+    set_phase_system(nphase, equal_middle, permute_middle, linear_kr_middle, merge_ref, merge_ic)
     t_end = (t_end_days if t_end_days is not None else max(snap_days)) * DAY
     # Per-step drift budget: target order split over the planned steps, factor-2 margin
     # (= porepy_2d_solver; adaptive cuts only shrink dt and the drift is dt-scaled).
@@ -1114,6 +1146,14 @@ def _parse_args(argv=None):
                    help="linear k_r = s for the INTERIOR (middle) phases only; makes middle "
                         "mobilities additive so the --equal-middle N=4 run degenerates to "
                         "N=3 EXACTLY. Output dir gains _lkmid.")
+    p.add_argument("--merge-ref", action="store_true",
+                   help="interior k_r = 2 k_r(s/2) (merged-band consistency): the N=3 reference "
+                        "against which an N=4 equal-density QUADRATIC-k_r run reduces exactly. "
+                        "Output dir gains _mref.")
+    p.add_argument("--merge-ic", action="store_true",
+                   help="split the interior band EQUALLY (s_b = s_c per cell) instead of one "
+                        "interior phase per sub-band -- the IC the quadratic-k_r reduction test "
+                        "needs. Output dir gains _mic.")
     p.add_argument("--background", default="midpoint",
                    choices=["midpoint", "rho-ratio", "chi-const"],
                    help="pair background split: midpoint sign rule m in {0, 1/2, 1} "
@@ -1132,6 +1172,8 @@ if __name__ == "__main__":
     _sfx = (("_eqmid" if args.equal_middle else "")
             + ("_perm" if args.permute_middle else "")
             + ("_lkmid" if args.linear_kr_middle else "")
+            + ("_mref" if args.merge_ref else "")
+            + ("_mic" if args.merge_ic else "")
             + {"midpoint": "", "rho-ratio": "_wr", "chi-const": "_chic"}[args.background])
     OUT = args.out or os.path.join(HERE, "vtr" + _sfx)
     BACKGROUND = args.background     # module top-level scope: rebinding the global
@@ -1145,7 +1187,8 @@ if __name__ == "__main__":
                                  dt_init_days=args.dt_init_days, drift_order=args.drift_order,
                                  backtracking=args.backtracking, equal_middle=args.equal_middle,
                                  permute_middle=args.permute_middle,
-                                 linear_kr_middle=args.linear_kr_middle)
+                                 linear_kr_middle=args.linear_kr_middle, merge_ref=args.merge_ref,
+                                 merge_ic=args.merge_ic)
         paths = write_snapshots_vtr(OUT, scheme, grid, snaps)
         paths.append(write_stats(OUT, stats))
         results[scheme] = stats

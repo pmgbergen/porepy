@@ -332,11 +332,15 @@ def comparison_saturation_maps(n, days, out_dir):
     _save(fig, os.path.join(out_dir, f"comparison_saturation_maps_{n}_phases.png"), dpi=360)
 
 
+SAVE_PDF = True     # also write a vector PDF next to each PNG (run_workflow toggles this via --pdf)
+
+
 def _save(fig, png, dpi=180):
     fig.savefig(png, dpi=dpi, bbox_inches="tight")
-    fig.savefig(png[:-4] + ".pdf", bbox_inches="tight")
+    if SAVE_PDF:
+        fig.savefig(png[:-4] + ".pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"  wrote {os.path.relpath(png, HERE)} (+ .pdf)")
+    print(f"  wrote {os.path.relpath(png, HERE)}" + (" (+ .pdf)" if SAVE_PDF else ""))
 
 
 def _fracture_layer(ax, files, values_of, cm, vmin=0.0, vmax=1.0):
