@@ -1268,8 +1268,7 @@ class EquationSystem:
                 defined.
 
         Returns:
-            A dictionary with the index set of the restricted equations (referring to
-            equation rows) as values. If no restriction is given, the value is None.
+            A list of atomic equation-domain identifiers.
 
         """
         equations_on_domains: list[pp.ad.EquationOnDomain] = []
@@ -1562,14 +1561,14 @@ class EquationSystem:
         if variables is not None:
             # Respect the ordering of the input list of variables.
             variable_indexer = self.variable_indexer.construct_restricted_indexer(
-                self._parse_variable_type(variables=variables, ordered=False)
+                self._parse_variable_type(variables=variables, ordered=True)
             )
         else:
             variable_indexer = self.variable_indexer
 
         if equations is not None:
             equation_indexer = self.equation_indexer.construct_restricted_indexer(
-                self._parse_equations(equations=equations, ordered=False)
+                self._parse_equations(equations=equations, ordered=True)
             )
         else:
             equation_indexer = self.equation_indexer
