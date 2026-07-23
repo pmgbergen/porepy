@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from .convergence_check import ConvergenceStatusCollection
-from .linear_solver import LinearSolverStatus
+from .linear_solvers.linear_solver import LinearSolverStatus
 
 __all__ = [
     "NonlinearSolverStatus",

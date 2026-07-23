@@ -677,8 +677,14 @@ def test_poromechanics_empty_equation_filter(model_class):
         )
 
     # Check that the assembled system does not include empty domain equations.
-    A_all, b_all = equation_system.assemble(all_equations)
-    A_filtered, b_filtered = equation_system.assemble(not_empty_equations)
+    linear_system_all = equation_system.assemble(equations=all_equations)
+    linear_system_filtered = equation_system.assemble(equations=not_empty_equations)
+    A_all = linear_system_all.matrix
+    A_filtered = linear_system_filtered.matrix
+    assert A_all is not None
+    assert A_filtered is not None
+    b_all = linear_system_all.rhs
+    b_filtered = linear_system_filtered.rhs
 
     assert A_all.shape == A_filtered.shape
     assert np.allclose(b_all, b_filtered)

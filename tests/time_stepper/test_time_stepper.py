@@ -27,9 +27,16 @@ from porepy.viz.solver_statistics import (
 class MockEquationSystem:
     """Used internally in MockModel."""
 
-    def assemble(self, evaluate_jacobian: bool):
-        assert evaluate_jacobian == False
-        return np.ones(5)
+    def assemble(self, evaluate_jacobian: bool = True, **kwargs):
+        if not evaluate_jacobian:
+            # Artificially satisfy residual norm convergence criterion.
+            return np.array([1e-11])
+        return pp.solvers.LinearSystem(
+            matrix=csr_matrix(np.array([[1.0]])),
+            rhs=np.array([1e-11]),
+            equation_indexer=pp.ad.EquationIndexer(equation_dofs={}),
+            variable_indexer=pp.ad.VariableIndexer(variable_dofs={}),
+        )
 
     def get_variable_values(self, iterate_index: int):
         assert iterate_index == 0
@@ -78,11 +85,7 @@ class MockModel(PorePyModel):
     def before_nonlinear_iteration(self):
         self.sequence_of_calls.append("before_nonlinear_iteration")
 
-    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
-        self.sequence_of_calls.append("assemble_linear_system")
-        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=0))
-
-    def after_nonlinear_iteration(self, nonlinear_increment):
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray):
         self.sequence_of_calls.append("after_nonlinear_iteration")
 
     def after_nonlinear_convergence(self):
@@ -219,7 +222,6 @@ def test_model_delegate_methods_called(
     ]
     main_loop = [
         "before_nonlinear_iteration",
-        "assemble_linear_system",
         "after_nonlinear_iteration",
     ]
     after_main_loop_success = [
@@ -303,10 +305,6 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
     def _is_nonlinear_problem(self):
         return True
-
-    # Minimizing computational expenses.
-    def assemble_linear_system(self) -> pp.solvers.LinearSystem:
-        return pp.solvers.LinearSystem(csr_matrix((0, 0)), np.ndarray(shape=()))
 
 
 class DynamicNewtonSolver(pp.solvers.NewtonSolver):

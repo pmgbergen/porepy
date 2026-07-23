@@ -89,7 +89,6 @@ def _run_buoyancy_model(
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
-        "apply_schur_complement_reduction": False,
         "expected_order_loss": expected_order_loss,
     }
     # Combine geometry with model class.
