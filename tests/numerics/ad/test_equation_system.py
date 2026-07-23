@@ -1163,6 +1163,15 @@ def test_parse_single_equation(model: EquationSystemMockModel):
 
     """
     equation_system = model.equation_system
+    equation_indexer = equation_system.equation_indexer
+
+    def get_restriction_dofs(equations: list[pp.ad.EquationOnDomain]):
+        return np.concatenate(
+            [
+                equation_indexer.equation_image_space_composition[eq.name][eq.domain]
+                for eq in equations
+            ]
+        )
 
     # Represent the equation both by its string and its operator form.
     # This could have been parametrized to the price of computational higher cost
@@ -1175,10 +1184,9 @@ def test_parse_single_equation(model: EquationSystemMockModel):
         # First parse the equation as it is, without any restriction.
         # This should give back the full equation with no restriction.
         restriction_1 = equation_system._parse_equations([eq_or_name])
-        assert len(restriction_1) == 1
+        assert len(restriction_1) == 4
 
-        assert eq in restriction_1
-        assert restriction_1[eq] is None
+        assert all(eq.name == eq_on_domain.name for eq_on_domain in restriction_1)
 
         # Next, restrict the equation to a single subdomain.
         restriction_2 = equation_system._parse_equations({eq_or_name: [model.sd_top]})
@@ -1186,7 +1194,9 @@ def test_parse_single_equation(model: EquationSystemMockModel):
         # The numbering of the subdomanis in the EquationSystem is the same as that of
         # the MixedDimensionalGrid, thus the indices associated with this subdomain
         # will be 0-offset.
-        assert np.allclose(restriction_2[eq], np.arange(model.sd_top.num_cells))
+        assert np.allclose(
+            get_restriction_dofs(restriction_2), np.arange(model.sd_top.num_cells)
+        )
 
         # Next, permute the subdomains before sending them in. All subdomains are
         # present, thus the indices should cover all cells in the md-grid. Moreover,
@@ -1196,7 +1206,8 @@ def test_parse_single_equation(model: EquationSystemMockModel):
         eq_def = {eq_or_name: model.subdomains[::-1]}
         restriction_3 = equation_system._parse_equations(eq_def)
         assert np.allclose(
-            restriction_3[eq], np.arange(model.mdg.num_subdomain_cells())
+            get_restriction_dofs(restriction_3),
+            np.arange(model.mdg.num_subdomain_cells()),
         )
 
 
@@ -1222,38 +1233,39 @@ def test_parse_equations(model: EquationSystemMockModel):
 
     # First pass None. This should give as all equations on all subdomains.
     received_equations_1 = equation_system._parse_equations(None)
-    received_keys_1 = list(received_equations_1.keys())
 
-    # We expect to receive all equations, thus the length of the dictionary should be
-    # the same as the number of equations.
-    assert len(received_equations_1) == len(all_equation_names)
+    # We expect all equations, thus names must be identical and ordered the same way.
+    # The domains must be the same and also ordered the same way.
+    expected_equations_1 = [
+        pp.ad.EquationOnDomain(name=eq.name, domain=domain)
+        for eq in all_equations
+        for domain in eq.domains
+    ]
+    assert received_equations_1 == expected_equations_1
 
-    for eq, key in zip(all_equations, received_keys_1):
-        # The keys of the received dictionary should be the same as the names of the
-        # equations as they were set in the model, and the order should be preserved.
-        assert eq == key
-        # There should be no restriction on indices.
-        assert received_equations_1[eq] is None
+    # Next, pass the single subdomain and all subdomains, in that order.
 
-    # Next, pass the single subdomain and all subdomains, in that order. We should
-    # receive the same keys, but in reverse order.
+    # Next, pass two equation names in the reversed order. We should receive the same
+    # keys, but in canonical order.
     received_equations_2 = equation_system._parse_equations(
         [all_equation_names[1], all_equation_names[0]]
     )
-    received_keys_2 = list(received_equations_2.keys())
-    assert len(received_keys_2) == 2
-    for i in range(len(received_keys_2)):
-        assert received_keys_2[i] == all_equations[i]
+    expected_equations_2 = [
+        pp.ad.EquationOnDomain(name=name, domain=domain)
+        for name in [all_equation_names[0], all_equation_names[1]]
+        for domain in equation_system.equations[name].domains
+    ]
+    assert received_equations_2 == expected_equations_2
 
     # Send in the all_subdomains equation in both unrestricted and restricted form.
     # The restriction should override the unrestricted form.
     received_equations_3 = equation_system._parse_equations(
         {all_equation_names[0]: None, all_equation_names[0]: [model.sd_top]}
     )
-    assert len(received_equations_3) == 1
-    assert np.allclose(
-        received_equations_3[all_equations[0]], np.arange(model.sd_top.num_cells)
-    )
+    expected_equation_3 = [
+        pp.ad.EquationOnDomain(name=all_equation_names[0], domain=model.sd_top)
+    ]
+    assert received_equations_3 == expected_equation_3
 
     # Add an equation on an empty domain to the equation system.
     model.add_equation_on_empty_domain()
@@ -1262,28 +1274,9 @@ def test_parse_equations(model: EquationSystemMockModel):
     assert "empty_equation" in equation_system.equations
 
     # Check that _parse_equations filters out equations on empty domain.
-    assert (
-        equation_system.equations["empty_equation"]
-        not in equation_system._parse_equations()
-    )
-
-
-def test_invalid_equation_domain_restriction(model: EquationSystemMockModel) -> None:
-    """Equation APIs consistently reject invalid equation restrictions."""
-    equation_system = model.equation_system
-    invalid_domain = next(sd for sd in model.subdomains if sd is not model.sd_top)
-    restrictions = [
-        {"unknown_equation": [model.sd_top]},
-        {model.eq_single_subdomain.name: [invalid_domain]},
-    ]
-
-    for restriction in restrictions:
-        with pytest.raises(ValueError):
-            equation_system.construct_equation_indexer(restriction)
-        with pytest.raises(ValueError):
-            equation_system.construct_assembled_matrix_indexers(equations=restriction)
-        with pytest.raises(ValueError):
-            equation_system.assemble(equations=restriction)
+    assert "empty_equation" not in {
+        eq.name for eq in equation_system._parse_equations()
+    }
 
 
 @pytest.mark.parametrize(

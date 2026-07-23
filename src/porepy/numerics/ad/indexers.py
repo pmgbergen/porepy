@@ -199,3 +199,48 @@ class EquationIndexer:
             # Get by key equation.name, if not found, initialize it with an empty dict.
             equations.setdefault(equation.name, {})[equation.domain] = dofs
         return equations
+
+    def construct_restricted_indexer(
+        self, equations: list[EquationOnDomain]
+    ) -> "EquationIndexer":
+        """Constructs a new indexer based on requested subset of equations.
+
+        The order of the new indexer is defined by the input.
+
+        Parameters:
+            equations: Input for which the subspace is requested.
+
+        Raises:
+            ValueError: If the requested equation is not known to this indexer.
+
+        Returns:
+            A new instance of EquationIndexer.
+
+        """
+        new_equation_dofs: dict[pp.ad.EquationOnDomain, np.ndarray] = {}
+        offset = 0
+        for equation in equations:
+            dofs = self.equation_dofs.get(equation, None)
+            if dofs is None:
+                raise ValueError(
+                    f"Requested equation is not known to this indexer: {equation}."
+                )
+            new_equation_dofs[equation] = np.arange(dofs.size) + offset
+            offset += dofs.size
+
+        if len(new_equation_dofs) != len(equations):
+            raise ValueError(f"Requested equations are duplicated: {equations}.")
+
+        # YZ: This is a little hack to be removed in the next PR. Now for simplicity,
+        # EquationIndexer needs to be initialized with (equation-local)
+        # equation_image_composition, so we reconstruct it here.
+        equation_image_composition: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        offsets_per_equation: dict[str, int] = {}
+        for equation, dofs in new_equation_dofs.items():
+            equation_offset = offsets_per_equation.get(equation.name, 0)
+            equation_image_composition.setdefault(equation.name, {})[
+                equation.domain
+            ] = np.arange(dofs.size) + equation_offset
+            offsets_per_equation[equation.name] = equation_offset + dofs.size
+
+        return EquationIndexer(equation_image_composition=equation_image_composition)
