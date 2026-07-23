@@ -1733,6 +1733,10 @@ def generate_permutation_to_block_diag_matrix(
     matrix entry is non-zero. The connected components of this graph then define the
     blocks in the permuted matrix.
 
+    This function is not used in PorePy, because it was replaced by a more targeted
+    :func:`rearrange_matrix_as_array_of_structures`. It remains here because it covers
+    the general case, and therefore might be useful at some point.
+
     Notes:
 
         - The function assumes that the matrix is square or rectangular with consistent
