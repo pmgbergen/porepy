@@ -482,6 +482,13 @@ class FluidMobility(pp.PorePyModel):
         return frac_mob
 
 
+def _phase_density_weight(z: pp.ad.AdArray) -> pp.ad.AdArray:
+    """Phase density weight ``m = 1/2(1 + sgn(z)) in {0, 1/2, 1}`` (Heaviside at 1/2): zero
+    Jacobian, and ``z`` is a product of density differences, so no ``rho_a - rho_b`` division.
+    """
+    return pp.ad.heaviside(0.5, z)
+
+
 class FluidBuoyancy(pp.PorePyModel):
     """
     Buoyancy terms and discretizations for multiphase, multicomponent flow.
@@ -819,41 +826,61 @@ class FluidBuoyancy(pp.PorePyModel):
         )
 
     @pp.ad.cached_method
-    def passive_phase_interference_factor(self) -> pp.ad.Scalar:
-        r"""Spatial localization factor :math:`\chi \in [0, 1]` for passive-phase
-        interference in the simplicial hybrid-upwind buoyancy term.
+    def _passive_background_split(
+        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+    ) -> tuple[pp.ad.Operator | None, pp.ad.Operator | None]:
+        r"""Passive-phase background mass mobility, split by the phase density weights.
 
-        For a phase pair (:math:`\gamma`, :math:`\delta`), the *background* mass
-        mobility
+        For every phase :math:`e` outside the active pair (:math:`\gamma`, :math:`\delta`) the
+        density weight
 
         .. math::
 
-            \lambda_{bg} = \lambda_{tot} - \lambda_\gamma - \lambda_\delta
+            m_e = \tfrac12\bigl(1 + \operatorname{sgn}\bigl[(\rho_\gamma - \rho_\delta)
+                  (2\rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\}
 
-        gathers the contribution of every phase other than the active pair (the passive
-        phases). :math:`\chi` distributes that background mobility between the two
-        inter-phase hybrid-upwind directions: a fraction :math:`\chi` is upwinded along
-        the :math:`\gamma` direction and the complement :math:`1 - \chi` along the
-        :math:`\delta` direction. The symmetric default :math:`\chi = 0.5` weights the
-        two passive directions equally.
+        assigns :math:`e` to the side of the pair member it is closer to on the density line
+        (:math:`\tfrac12` exactly on the arithmetic-mean separator). The weight is built with
+        :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is only a product of density
+        differences, so no :math:`\rho_\gamma - \rho_\delta` division). Returns the two summed
+        cell quantities
 
-        Configurable through ``params["passive_phase_interference_factor"]`` (default
-        ``0.5``).
+        .. math::
 
-        Returns:
-            The localization factor wrapped as an Ad scalar.
+            \lambda_{bg,\gamma} = \sum_e m_e \lambda_e, \qquad
+            \lambda_{bg,\delta} = \sum_e (1 - m_e) \lambda_e,
 
-        Raises:
-            ValueError: If the configured value lies outside :math:`[0, 1]`.
-
+        returned as ``(bg_co_gamma, bg_co_delta)``: the background that multiplies the
+        pair's :math:`\gamma` upwind (``upwind_gamma``) and the one that multiplies its
+        :math:`\delta` upwind (``upwind_delta``), folded in before the single upwind per side (so
+        the pair members and the background phases share one upwind per side, not two).
+        ``(None, None)`` when there are no passive phases (two-phase systems).
         """
-        chi = self.params.get("passive_phase_interference_factor", 0.5)
-        if not 0.0 <= chi <= 1.0:
-            raise ValueError(
-                "passive_phase_interference_factor (chi) must lie in [0, 1]; "
-                f"got {chi}."
+        phases = list(self.fluid.phases)
+        passive = [e for e in phases if e is not gamma and e is not delta]
+        if not passive:
+            return None, None
+        rho_gamma = gamma.density(domains)
+        rho_delta = delta.density(domains)
+        d_gamma_delta = rho_gamma - rho_delta
+        weight = pp.ad.Function(_phase_density_weight, "phase_density_weight")
+        co_gamma_terms: list[pp.ad.Operator] = []
+        co_delta_terms: list[pp.ad.Operator] = []
+        for e in passive:
+            z_e = d_gamma_delta * (
+                pp.ad.Scalar(2.0) * e.density(domains) - rho_gamma - rho_delta
             )
-        return pp.ad.Scalar(chi)
+            m_e = weight(z_e)
+            l_e = self._phase_mass_mobility(e, domains)
+            co_gamma_terms.append(m_e * l_e)
+            co_delta_terms.append((pp.ad.Scalar(1.0) - m_e) * l_e)
+        bg_co_gamma = pp.ad.sum_operator_list(
+            co_gamma_terms, f"background_co_gamma_{gamma.name}_{delta.name}"
+        )
+        bg_co_delta = pp.ad.sum_operator_list(
+            co_delta_terms, f"background_co_delta_{gamma.name}_{delta.name}"
+        )
+        return bg_co_gamma, bg_co_delta
 
     def __interface_lambda_upwind(
         self,
@@ -867,10 +894,10 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.Operator:
         r"""Total mass mobility upwinded onto the interface for the (gamma, delta) pair.
 
-        The active-pair mobilities are upwinded along their own directions and the
-        passive background :math:`\lambda_{bg}` is split by :math:`\chi` (see
-        :meth:`passive_phase_interference_factor`). Flux and jump share this expression,
-        which keeps the mortar coupling conservative.
+        Each passive phase is split between the two inter-phase directions by its phase
+        density weight (see :meth:`_passive_background_split`) before being projected onto the
+        mortar, so the two inter-phase directions carry the background. Flux and jump share
+        this expression, which keeps the mortar coupling conservative.
 
         Parameters:
             gamma: The first (reference) phase of the pair.
@@ -898,40 +925,28 @@ class FluidBuoyancy(pp.PorePyModel):
                 + secondary_dir() @ secondary_to_mortar @ quantity
             )
 
-        l_gamma = gamma.density(domains) * self.phase_mobility(gamma, domains)
-        l_delta = delta.density(domains) * self.phase_mobility(delta, domains)
-        l_background = self.total_mass_mobility(domains) - l_gamma - l_delta
+        l_gamma = self._phase_mass_mobility(gamma, domains)
+        l_delta = self._phase_mass_mobility(delta, domains)
 
-        l_gamma_interface = to_interface(
-            intf_discr.upwind_primary_gamma, intf_discr.upwind_secondary_gamma, l_gamma
+        # Background: split each passive phase between the two sides by its density weight BEFORE
+        # projecting to the mortar, so the two inter-phase directions carry it -- 2 to_interface
+        # calls (lam_co_gamma / lam_co_delta) instead of 4.
+        bg_co_gamma, bg_co_delta = self._passive_background_split(
+            gamma, delta, domains
         )
-        l_delta_interface = to_interface(
-            intf_discr.upwind_primary_delta, intf_discr.upwind_secondary_delta, l_delta
-        )
-        # Passive-phase background mobility, localized between the two inter-phase
-        # directions by the factor chi (gamma) / 1 - chi (delta).
-        l_background_gamma_interface = to_interface(
+        lam_co_gamma = l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
+        lam_co_delta = l_delta if bg_co_delta is None else l_delta + bg_co_delta
+        co_gamma_interface = to_interface(
             intf_discr.upwind_primary_gamma,
             intf_discr.upwind_secondary_gamma,
-            l_background,
+            lam_co_gamma,
         )
-        l_background_delta_interface = to_interface(
+        co_delta_interface = to_interface(
             intf_discr.upwind_primary_delta,
             intf_discr.upwind_secondary_delta,
-            l_background,
+            lam_co_delta,
         )
-        xi = self.passive_phase_interference_factor()
-        xi_complement = pp.ad.Scalar(1.0) - xi
-        l_background_interface = (
-            xi * l_background_gamma_interface
-            + xi_complement * l_background_delta_interface
-        )
-        return (
-            l_gamma_interface
-            + l_delta_interface
-            + l_background_interface
-            + pp.ad.Scalar(1.0e-15)
-        )
+        return co_gamma_interface + co_delta_interface + pp.ad.Scalar(1.0e-15)
 
     def __interface_mp_coupling(
         self,
@@ -998,20 +1013,30 @@ class FluidBuoyancy(pp.PorePyModel):
         else:
             l_gamma = self._phase_mass_mobility(gamma, domains)
             l_delta = self._phase_mass_mobility(delta, domains)
-            l_background = self.total_mass_mobility(domains) - l_gamma - l_delta
-            xi = self.passive_phase_interference_factor()
-            xi_complement = pp.ad.Scalar(1.0) - xi
-            l_background_upwind = xi * discr.upwind_gamma() @ (
-                l_background
-            ) + xi_complement * discr.upwind_delta() @ (l_background)
-            l_gamma_upwind = discr.upwind_gamma() @ (l_gamma)
             l_delta_upwind = discr.upwind_delta() @ (l_delta)
-            lambda_upwind = (
-                l_gamma_upwind
-                + l_delta_upwind
-                + l_background_upwind
-                + pp.ad.Scalar(1.0e-15)
+            # Background: each passive phase e gets a density weight m_e in {0, 1/2, 1}. A weight
+            # of 1 (resp. 0) groups it with the pair member it advects co-current with, gamma
+            # (resp. delta), and folds it into that side BEFORE the upwind, so the pair's own two
+            # upwinds carry it:
+            #   lambda_upwind = U_gamma(l_gamma + bg_co_gamma) + U_delta(l_delta + bg_co_delta).
+            # The exact 1/2 at a tie (a phase on the pair's density separator) is what makes the
+            # scheme reduction-consistent when two densities coincide. Reuse l_delta_upwind on the
+            # delta side (the numerator shares it).
+            bg_co_gamma, bg_co_delta = self._passive_background_split(
+                gamma, delta, domains
             )
+            lam_co_gamma = (
+                l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
+            )
+            gamma_side = discr.upwind_gamma() @ (lam_co_gamma)
+            delta_side = (
+                l_delta_upwind
+                if bg_co_delta is None
+                else l_delta_upwind + discr.upwind_delta() @ (bg_co_delta)
+            )
+            # Floor keeps lambda_upwind (the mobility-product kernel's denominator) strictly
+            # positive at fully-segregated faces where every mobility on both sides vanishes.
+            lambda_upwind = gamma_side + delta_side + pp.ad.Scalar(1.0e-15)
         return w_flux_gamma_delta, f_delta_upwind, lambda_upwind, l_delta_upwind
 
     @pp.ad.cached_method
