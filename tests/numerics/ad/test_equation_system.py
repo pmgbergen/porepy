@@ -1266,6 +1266,38 @@ def test_parse_equations(model: EquationSystemMockModel):
     }
 
 
+def test_domain_restricted_assembly_has_local_equation_indices(
+    model: EquationSystemMockModel,
+) -> None:
+    """The assembled indexer uses row indices after the domain restriction."""
+    equation_system = model.equation_system
+    equation = model.eq_all_subdomains
+    domain = next(sd for sd in model.subdomains if sd is not model.sd_top)
+    restriction = {equation.name: [domain]}
+
+    # _parse_equations selects these rows from the equation's full AD result.
+    full_equation_indexer = equation_system.equation_indexer
+    full_result_rows = full_equation_indexer.equation_image_space_composition[
+        equation.name
+    ][domain]
+    assert full_result_rows[0] > 0
+
+    linear_system = equation_system.assemble(equations=restriction)
+    local_rows = np.arange(domain.num_cells)
+    np.testing.assert_array_equal(linear_system.rhs, model.b[full_result_rows])
+    assert linear_system.matrix is not None
+    assert linear_system.matrix.shape[0] == local_rows.size
+
+    assembled_indexer = linear_system.equation_indexer
+    assert isinstance(assembled_indexer, pp.ad.EquationIndexer)
+    np.testing.assert_array_equal(
+        assembled_indexer.equation_dofs[
+            pp.ad.EquationOnDomain(name=equation.name, domain=domain)
+        ],
+        local_rows,
+    )
+
+
 @pytest.mark.parametrize(
     "eq_names",
     [
