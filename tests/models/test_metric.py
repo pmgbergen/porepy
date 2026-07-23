@@ -409,8 +409,8 @@ def test_variable_based_lebesgue_metric_with_model(random_polynomial_setup):
     """Test integral of a random polynomial expression via variables."""
     # Evaluate the numerical norm using the VariableBasedLebesgueMetric.
     model = DummyModel()
-    m_var = pp.VariableBasedEuclideanMetric(model)
     model.prepare_simulation()
+    m_var = pp.VariableBasedEuclideanMetric(model)
 
     # Use cell centers to define the polynomial expression.
     assert len(model.mdg.subdomains()) == 1

@@ -107,6 +107,25 @@ class VariableIndexer:
 
         return VariableIndexer(variable_dofs=new_variable_dofs)
 
+    def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
+        """Group :attr:`variable_dofs` by variable names.
+
+        Domains with no dofs are ignored.
+
+        Offset between variables is assumed.
+
+        Return:
+            A nested mapping "variable_name" -> "domain" -> "dofs".
+
+        """
+        variables: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        for variable, dofs in self.variable_dofs.items():
+            if len(dofs) == 0:
+                continue
+            # Get by key variable.name, if not found, initialize it with an empty dict.
+            variables.setdefault(variable.name, {})[variable.domain] = dofs
+        return variables
+
 
 class EquationIndexer:
     """An equation indexer determines the arrangement of DoFs corresponding to multiple
@@ -158,3 +177,25 @@ class EquationIndexer:
         Note: It does not include equations with empty domains.
 
         """
+
+    def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
+        """Group :attr:`equation_dofs` by equation names.
+
+        Domains with no dofs are ignored.
+
+        Offset between equations is assumed.
+
+        Note: This is not equivalent to :attr:`equation_image_space_composition`,
+            because the latter does not include offset between equation.
+
+        Return:
+            A nested mapping "equation_name" -> "domain" -> "dofs".
+
+        """
+        equations: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        for equation, dofs in self.equation_dofs.items():
+            if len(dofs) == 0:
+                continue
+            # Get by key equation.name, if not found, initialize it with an empty dict.
+            equations.setdefault(equation.name, {})[equation.domain] = dofs
+        return equations
