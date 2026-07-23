@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 __all__ = []
 
 from . import (
@@ -10,6 +11,8 @@ from . import (
     linear_solvers,
     nonlinear_solver_status,
     nonlinear_solvers,
+    linear_solvers,
+    equation_variable_tags,
 )
 from .anderson_acceleration import *
 from .convergence_check import *
@@ -19,6 +22,7 @@ from .linear_solvers import *
 from .linear_solvers.linear_solver import LinearSolverStatus, LinearSystem
 from .nonlinear_solver_status import *
 from .nonlinear_solvers import *
+from .equation_variable_tags import *
 
 __all__.extend(anderson_acceleration.__all__)
 __all__.extend(convergence_check.__all__)
