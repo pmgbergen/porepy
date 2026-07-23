@@ -7,8 +7,9 @@ Used by `EquationSystem` and nonlinear solvers.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Sequence, TypeVar
 
 import numpy as np
 
@@ -16,8 +17,8 @@ import porepy as pp
 
 __all__ = [
     "EquationOnDomain",
-    "VariableIndexer",
     "EquationIndexer",
+    "VariableIndexer",
     "EquationSystemIndexer",
 ]
 
@@ -35,7 +36,20 @@ class EquationOnDomain:
     domain: pp.GridLike
 
 
-class VariableIndexer:
+# EquationOrVariableType = TypeVar(
+#     "EquationOrVariableType", EquationOnDomain, "pp.ad.Variable"
+# )
+# """A type annotation used to represent either `EquationOnDomain` or `Variable`.
+
+# Useful to declare generic functions that return the same type they take as an argument:
+# ```
+# def foo(x: _EquationOrVariableType) -> _EquationOrVariableType
+# ```
+
+# """
+
+
+class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
     """A variable indexer determines the arrangement of DoFs corresponding to multiple
     variables on multiple grids in a contiguous array.
 
@@ -44,16 +58,20 @@ class VariableIndexer:
 
     """
 
-    def __init__(self, variable_dofs: dict[pp.ad.Variable, np.ndarray]) -> None:
-        self.variable_dofs: dict[pp.ad.Variable, np.ndarray] = variable_dofs
+    def __init__(
+        self, operators_to_dofs: dict[EquationOrVariableType, np.ndarray]
+    ) -> None:
+        self.operators_to_dofs: dict[EquationOrVariableType, np.ndarray] = (
+            operators_to_dofs
+        )
         """An ordered mapping of atomic variables to their DoF indices. The keys are
         ordered, in a sense that if key A goes before key B, DoFs of key A are located
         before DoFs of key B.
 
         """
-        self.num_dofs: int = sum(x.size for x in self.variable_dofs.values())
+        self.num_dofs: int = sum(x.size for x in self.operators_to_dofs.values())
 
-    def projection_indices(self, variables: list[pp.ad.Variable]) -> np.ndarray:
+    def projection_indices(self, operators: list[EquationOrVariableType]) -> np.ndarray:
         """Create a projection index array from the system vector represented
         by this indexer to the requested subspace.
 
@@ -67,11 +85,11 @@ class VariableIndexer:
 
         """
         projections = []
-        for variable in variables:
-            dofs = self.variable_dofs.get(variable, None)
+        for operator in operators:
+            dofs = self.operators_to_dofs.get(operator, None)
             if dofs is None:
                 raise ValueError(
-                    f"Requested variable is not known to this indexer: {variable}."
+                    f"Requested operator is not known to this indexer: {operator}."
                 )
             projections.append(dofs)
         return (
@@ -81,8 +99,8 @@ class VariableIndexer:
         )
 
     def construct_restricted_indexer(
-        self, variables: list[pp.ad.Variable]
-    ) -> "VariableIndexer":
+        self, operators: list[EquationOrVariableType]
+    ) -> "Indexer[EquationOrVariableType]":
         """Constructs a new indexer based on requested subset of variables.
 
         The order of the new indexer is defined by the input.
@@ -97,21 +115,21 @@ class VariableIndexer:
             A new instance of VariableIndexer.
 
         """
-        new_variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        new_operators_to_dofs: dict[EquationOrVariableType, np.ndarray] = {}
         offset = 0
-        for variable in variables:
-            dofs = self.variable_dofs.get(variable, None)
+        for operator in operators:
+            dofs = self.operators_to_dofs.get(operator, None)
             if dofs is None:
                 raise ValueError(
-                    f"Requested variable is not known to this indexer: {variable}."
+                    f"Requested operator is not known to this indexer: {operator}."
                 )
-            new_variable_dofs[variable] = np.arange(dofs.size) + offset
+            new_operators_to_dofs[operator] = np.arange(dofs.size) + offset
             offset += dofs.size
 
-        if len(new_variable_dofs) != len(variables):
-            raise ValueError(f"Requested variables are duplicated: {variable}.")
+        if len(new_operators_to_dofs) != len(operators):
+            raise ValueError(f"Requested operators are duplicated: {operators}.")
 
-        return VariableIndexer(variable_dofs=new_variable_dofs)
+        return Indexer(operators_to_dofs=new_operators_to_dofs)
 
     def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
         """Group :attr:`variable_dofs` by variable names.
@@ -124,31 +142,37 @@ class VariableIndexer:
             A nested mapping "variable_name" -> "domain" -> "dofs".
 
         """
-        variables: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        for variable, dofs in self.variable_dofs.items():
+        result: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        for operator, dofs in self.operators_to_dofs.items():
             if len(dofs) == 0:
                 continue
             # Get by key variable.name, if not found, initialize it with an empty dict.
-            variables.setdefault(variable.name, {})[variable.domain] = dofs
-        return variables
+            result.setdefault(operator.name, {})[operator.domain] = dofs
+        return result
+
+    def filter_by_tags(
+        self, tags: Sequence[pp.solvers.EquationTag | pp.solvers.VariableTag]
+    ) -> tuple[list[EquationOrVariableType], list[EquationOrVariableType]]:
+        tags_by_name: dict[
+            str, list[pp.solvers.EquationTag | pp.solvers.VariableTag]
+        ] = defaultdict(list)
+        for tag in tags:
+            tags_by_name[tag.name].append(tag)
+
+        filtered_operators: list[EquationOrVariableType] = []
+        not_filtered_operators: list[EquationOrVariableType] = []
+
+        for operator in self.operators_to_dofs:
+            for tag in tags_by_name[operator.name]:
+                if tag.defined_on.filter(operator.domain):
+                    filtered_operators.append(operator)
+                else:
+                    not_filtered_operators.append(operator)
+
+        return filtered_operators, not_filtered_operators
 
 
-class EquationIndexer:
-    """Map atomic equations to their DoF indices in an algebraic system.
-
-    The DoFs may have an arbitrary arrangement. In particular, the indices belonging to
-    an equation need not be contiguous, and equations need not occur in registration
-    order. A new indexer must be constructed for a data array with a different
-    arrangement.
-
-    """
-
-    def __init__(self, equation_dofs: dict[EquationOnDomain, np.ndarray]) -> None:
-        self.equation_dofs: Final[dict[EquationOnDomain, np.ndarray]] = equation_dofs
-        """Mapping of atomic equations to their DoF indices."""
-
-
-class EquationSystemIndexer(EquationIndexer):
+class EquationSystemIndexer(Indexer[EquationOnDomain]):
     """Equation indexer for the block arrangement used by :class:`EquationSystem`.
 
     The AD framework evaluates each equation separately. Before these per-equation
@@ -179,7 +203,7 @@ class EquationSystemIndexer(EquationIndexer):
                 offset_within_equation += dofs.size
             global_offset += offset_within_equation
 
-        super().__init__(equation_dofs=equation_dofs)
+        super().__init__(operators_to_dofs=equation_dofs)
         self.equation_image_space_composition: Final[
             dict[str, dict[pp.GridLike, np.ndarray]]
         ] = equation_image_space_composition
@@ -197,69 +221,6 @@ class EquationSystemIndexer(EquationIndexer):
 
         """
 
-    def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
-        """Group :attr:`equation_dofs` by equation names.
 
-        Domains with no dofs are ignored.
-
-        Offset between equations is assumed.
-
-        Note: This is not equivalent to :attr:`equation_image_space_composition`,
-            because the latter does not include offset between equation.
-
-        Return:
-            A nested mapping "equation_name" -> "domain" -> "dofs".
-
-        """
-        equations: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        for equation, dofs in self.equation_dofs.items():
-            if len(dofs) == 0:
-                continue
-            # Get by key equation.name, if not found, initialize it with an empty dict.
-            equations.setdefault(equation.name, {})[equation.domain] = dofs
-        return equations
-
-    def construct_restricted_indexer(
-        self, equations: list[EquationOnDomain]
-    ) -> "EquationIndexer":
-        """Constructs a new indexer based on requested subset of equations.
-
-        The order of the new indexer is defined by the input.
-
-        Parameters:
-            equations: Input for which the subspace is requested.
-
-        Raises:
-            ValueError: If the requested equation is not known to this indexer.
-
-        Returns:
-            A new instance of EquationIndexer.
-
-        """
-        new_equation_dofs: dict[pp.ad.EquationOnDomain, np.ndarray] = {}
-        offset = 0
-        for equation in equations:
-            dofs = self.equation_dofs.get(equation, None)
-            if dofs is None:
-                raise ValueError(
-                    f"Requested equation is not known to this indexer: {equation}."
-                )
-            new_equation_dofs[equation] = np.arange(dofs.size) + offset
-            offset += dofs.size
-
-        if len(new_equation_dofs) != len(equations):
-            raise ValueError(f"Requested equations are duplicated: {equations}.")
-
-        # YZ: This is a little hack to be removed in the next PR. Now for simplicity,
-        # EquationIndexer needs to be initialized with (equation-local)
-        # equation_image_composition, so we reconstruct it here.
-        equation_image_composition: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        offsets_per_equation: dict[str, int] = {}
-        for equation, dofs in new_equation_dofs.items():
-            equation_offset = offsets_per_equation.get(equation.name, 0)
-            equation_image_composition.setdefault(equation.name, {})[
-                equation.domain
-            ] = np.arange(dofs.size) + equation_offset
-            offsets_per_equation[equation.name] = equation_offset + dofs.size
-
-        return EquationIndexer(equation_image_composition=equation_image_composition)
+EquationIndexer = Indexer[EquationOnDomain]
+VariableIndexer = Indexer["pp.ad.Variable"]

@@ -54,7 +54,7 @@ class VariableBasedEuclideanMetric(EuclideanMetric):
     def __init__(
         self,
         model: pp.PorePyModel,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+        variable_indexer: Optional[pp.ad.Indexer] = None,
     ) -> None:
         self.model = model
         if variable_indexer is None:
@@ -166,7 +166,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
     def __init__(
         self,
         model: pp.PorePyModel,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+        variable_indexer: Optional[pp.ad.Indexer] = None,
     ) -> None:
         super().__init__(model)
         if variable_indexer is None:
@@ -186,16 +186,16 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         variable_indexer = self.variable_indexer
 
         # Sanity check: Ensure that variables are defined on cells.
-        for variable in variable_indexer.variable_dofs:
+        for variable in variable_indexer.operators_to_dofs:
             if not variable._faces == 0 and variable._nodes == 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
                 )
 
-        norms = {v.name: 0.0 for v in variable_indexer.variable_dofs}
+        norms = {v.name: 0.0 for v in variable_indexer.operators_to_dofs}
 
-        for variable, indices in variable_indexer.variable_dofs.items():
+        for variable, indices in variable_indexer.operators_to_dofs.items():
             variable_values = pp.ad.DenseArray(values[indices])
             dim = variable.dof_info["cells"]  # + variable._faces + variable._nodes,
             domains: pp.GridLikeSequence = [variable.domain]  # type: ignore[assignment]

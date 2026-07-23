@@ -215,7 +215,7 @@ def test_equation_based_euclidean_metric_with_restricted_indexer(
         )
     )
     equation_indexer = pp.ad.EquationIndexer(
-        equation_dofs=equation_system_indexer.equation_dofs
+        operators_to_dofs=equation_system_indexer.equation_dofs
     )
     metric = pp.EquationBasedEuclideanMetric(orthogonal_2d_model, equation_indexer)
     norms = metric(residual)

@@ -19,7 +19,7 @@ from porepy import solvers
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad.indexers import EquationIndexer, VariableIndexer
+from porepy.numerics.ad.indexers import EquationIndexer, Indexer
 from porepy.numerics.ad.operators import Variable
 
 if TYPE_CHECKING:
@@ -381,7 +381,7 @@ class DiagnosticsMixin:
 
     def _variable_data(
         self,
-        variable_indexer: VariableIndexer,
+        variable_indexer: Indexer,
         grouping: GridGroupingType,
         add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:
@@ -400,13 +400,13 @@ class DiagnosticsMixin:
         # First, we group variables by names. We assume that variables with the same
         # name are one variable on multiple grids.
         names_to_variables: dict[str, list[Variable]] = defaultdict(list)
-        for variable in variable_indexer.variable_dofs:
+        for variable in variable_indexer.operators_to_dofs:
             names_to_variables[variable.name].append(variable)
 
         for variable_name, variable_on_grids in names_to_variables.items():
             for block_of_grids in grouping:
                 dof_blocks = [
-                    variable_indexer.variable_dofs[variable]
+                    variable_indexer.operators_to_dofs[variable]
                     for variable in variable_on_grids
                     if variable.domain in block_of_grids
                 ]

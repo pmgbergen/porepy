@@ -110,7 +110,7 @@ class LinearSystem:
     and the `rhs`.
     
     """
-    variable_indexer: pp.ad.VariableIndexer
+    variable_indexer: pp.ad.Indexer
     """Indexer to map variables and their definition domains to the DoFs of the
     `matrix`.
     

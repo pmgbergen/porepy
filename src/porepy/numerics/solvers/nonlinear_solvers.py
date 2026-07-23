@@ -15,6 +15,7 @@ from time import time
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -129,6 +130,12 @@ class NewtonSolver(NonlinearSolverBase):
 
         """
 
+        self.solver_progressbar = DummyProgressBar()
+        """The UI progress bar. By default, is a dummy object that does nothing.
+        Reinitialized every Newton loop at :meth:`init_progress_bar`.
+
+        """
+
         if equation_tags is None:
             equation_tags = []
         if variable_tags is None:
@@ -137,7 +144,7 @@ class NewtonSolver(NonlinearSolverBase):
         """TODO YZ"""
         self.variable_tags: list[VariableTag] = variable_tags
         """TODO YZ"""
-        self.active_equations: Optional[dict[str, pp.GridLikeSequence]] = None
+        self.active_equations: Optional[list[pp.ad.EquationOnDomain]] = None
         """TODO YZ"""
         self.active_variables: Optional[list[pp.ad.Variable]] = None
         """TODO YZ"""
@@ -496,19 +503,12 @@ class NewtonSolver(NonlinearSolverBase):
         # Lazy initialization of self.active_eqautions and self.active_variables.
         # Happens only once, than cached. TODO YZ: Test this
         if self.active_equations is None and len(self.equation_tags) > 0:
-            self.active_equations = {}
-            for eq_tag in self.equation_tags:
-                for eq in model.equation_system.equation_indexer.equation_dofs:
-                    if eq_tag.name == eq.name and eq_tag.defined_on.filter(eq.domain):
-                        self.active_equations[eq.name] = eq.domain
+            eq_indexer = model.equation_system.equation_indexer
+            self.active_equations, _ = eq_indexer.filter_by_tags(self.equation_tags)
+
         if self.active_variables is None and len(self.variable_tags) > 0:
-            self.active_variables = []
-            for var_tag in self.variable_tags:
-                for var in model.equation_system.variable_indexer.variable_dofs:
-                    if var_tag.name == var.name and var_tag.defined_on.filter(
-                        var.domain
-                    ):
-                        self.active_variables.append(var)
+            var_indexer = model.equation_system.variable_indexer
+            self.active_variables, _ = var_indexer.filter_by_tags(self.variable_tags)
 
         linear_system = model.equation_system.assemble(
             equations=self.active_equations, variables=self.active_variables

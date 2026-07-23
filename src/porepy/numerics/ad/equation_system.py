@@ -48,7 +48,9 @@ This type is accepted as input to various methods and parsed to a list of
 
 """
 
-EquationList: TypeAlias = "Union[list[str], list[Operator]]"
+EquationList: TypeAlias = (
+    "Union[list[str], list[Operator], list[pp.ad.EquationOnDomain]]"
+)
 """A union type representing equations through either names (:class:`str`), or
 :class:`~porepy.numerics.ad.operators.Operator`.
 
@@ -332,7 +334,7 @@ class EquationSystem:
             dofs = np.arange(dofs_per_grid) + offset
             variable_dofs[var] = dofs
             offset += len(dofs)
-        return pp.ad.VariableIndexer(variable_dofs=variable_dofs)
+        return pp.ad.Indexer(operators_to_dofs=variable_dofs)
 
     def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
         """Construct an equation indexer for all the registered equations.
@@ -867,7 +869,7 @@ class EquationSystem:
 
         """
         if variables is None:
-            return list(self.variable_indexer.variable_dofs.keys())
+            return list(self.variable_indexer.operators_to_dofs.keys())
 
         parsed_variables: list[Variable] = []
         assert isinstance(variables, list)
@@ -903,7 +905,7 @@ class EquationSystem:
 
         # Order variables according to the indexer.
         parsed_variables_ordered: list[Variable] = []
-        for variable in self.variable_indexer.variable_dofs:
+        for variable in self.variable_indexer.operators_to_dofs:
             if variable in parsed_variables_lookup:
                 parsed_variables_ordered.append(variable)
         return parsed_variables_ordered
@@ -969,14 +971,14 @@ class EquationSystem:
         # Respect the ordering of the input list of variables.
         variables = self._parse_variable_type(variables, ordered=False)
         unknown_variables = set(variables).difference(
-            self.variable_indexer.variable_dofs
+            self.variable_indexer.operators_to_dofs
         )
         if unknown_variables:
             raise ValueError(
                 "Variables not registered by this equation system: "
                 f"{unknown_variables}."
             )
-        dofs = [self.variable_indexer.variable_dofs[var] for var in variables]
+        dofs = [self.variable_indexer.operators_to_dofs[var] for var in variables]
         return np.concatenate(dofs) if len(dofs) > 0 else np.empty(0, dtype=np.int64)
 
     ### Equation management ------------------------------------------------------------
@@ -1267,6 +1269,11 @@ class EquationSystem:
         if isinstance(equations, list):
             # Equation names are restricted, domains are not restricted (None).
             for eq in equations:
+                if isinstance(eq, pp.ad.EquationOnDomain):
+                    # This assumes that eq.domains are already sorted.
+                    self._validate_equation_name(eq.name)
+                    equations_on_domains.append(eq)
+
                 eq = self._validate_equation_name(eq)
                 for domain in eq.domains:
                     # This assumes that eq.domains are already sorted.
@@ -1478,7 +1485,9 @@ class EquationSystem:
         if variables is not None:
             # Respect the ordering of the input list of variables.
             variables_ = self._parse_variable_type(variables=variables, ordered=True)
-            col_proj = [self.variable_indexer.variable_dofs[var] for var in variables_]
+            col_proj = [
+                self.variable_indexer.operators_to_dofs[var] for var in variables_
+            ]
             column_projection = (
                 np.concatenate(col_proj)
                 if len(col_proj) > 0
@@ -1497,7 +1506,7 @@ class EquationSystem:
         self,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
-    ) -> tuple[pp.ad.EquationSystemIndexer, pp.ad.VariableIndexer]:
+    ) -> tuple[pp.ad.EquationIndexer, pp.ad.VariableIndexer]:
         """Generate indexers for the linear system produced by :meth:`assemble`.
 
         Parameters:

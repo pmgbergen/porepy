@@ -249,7 +249,7 @@ def test_remove_variables(variable_to_be_removed):
         )
         assert all(
             variable.name != variable_to_be_removed
-            for variable in equation_system.variable_indexer.variable_dofs
+            for variable in equation_system.variable_indexer.operators_to_dofs
         )
         # Check that trying to remove the variable again raises an error.
         with pytest.raises(ValueError):
@@ -1280,6 +1280,38 @@ def test_parse_equations(model: EquationSystemMockModel):
     }
 
 
+def test_domain_restricted_assembly_has_local_equation_indices(
+    model: EquationSystemMockModel,
+) -> None:
+    """The assembled indexer uses row indices after the domain restriction."""
+    equation_system = model.equation_system
+    equation = model.eq_all_subdomains
+    domain = next(sd for sd in model.subdomains if sd is not model.sd_top)
+    restriction = {equation.name: [domain]}
+
+    # _parse_equations selects these rows from the equation's full AD result.
+    full_equation_indexer = equation_system.equation_indexer
+    full_result_rows = full_equation_indexer.equation_image_space_composition[
+        equation.name
+    ][domain]
+    assert full_result_rows[0] > 0
+
+    linear_system = equation_system.assemble(equations=restriction)
+    local_rows = np.arange(domain.num_cells)
+    np.testing.assert_array_equal(linear_system.rhs, model.b[full_result_rows])
+    assert linear_system.matrix is not None
+    assert linear_system.matrix.shape[0] == local_rows.size
+
+    assembled_indexer = linear_system.equation_indexer
+    assert isinstance(assembled_indexer, pp.ad.EquationIndexer)
+    np.testing.assert_array_equal(
+        assembled_indexer.equation_dofs[
+            pp.ad.EquationOnDomain(name=equation.name, domain=domain)
+        ],
+        local_rows,
+    )
+
+
 @pytest.mark.parametrize(
     "var_names",
     [
@@ -1338,7 +1370,7 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
 
     # Check that the sizes of variable blocks were correctly recorded.
     for var in variables:
-        assert variable_indexer.variable_dofs[var].size == model.dof_ind(var).size
+        assert variable_indexer.operators_to_dofs[var].size == model.dof_ind(var).size
 
 
 @pytest.mark.parametrize(
@@ -1452,7 +1484,7 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
         )
         assert num_dofs == model.block_size(name)
 
-    variable_dofs = variable_indexer.variable_dofs
+    variable_dofs = variable_indexer.operators_to_dofs
     for name in var_names:
         num_dofs = sum(
             [dofs.size for var, dofs in variable_dofs.items() if var.name == name]
@@ -1482,7 +1514,7 @@ def test_assembled_matrix_indexers_match_assembly_order(
     """Restricted indexers must use the canonical matrix assembly order."""
     equation_system = model.equation_system
 
-    _, _ = equation_system.assemble(equations=equations, variables=variables)
+    _ = equation_system.assemble(equations=equations, variables=variables)
     equation_indexer, variable_indexer = (
         equation_system.construct_assembled_matrix_indexers(
             equations=equations, variables=variables
@@ -1496,13 +1528,13 @@ def test_assembled_matrix_indexers_match_assembly_order(
     ]
     expected_variables = [
         variable
-        for variable in equation_system.variable_indexer.variable_dofs
+        for variable in equation_system.variable_indexer.operators_to_dofs
         if variable.name in variables
     ]
 
     actual_order = (
         [equation.name for equation in equation_indexer.equation_dofs],
-        [variable.name for variable in variable_indexer.variable_dofs],
+        [variable.name for variable in variable_indexer.operators_to_dofs],
     )
     expected_order = (
         [equation.name for equation in expected_equations],
