@@ -1502,7 +1502,7 @@ class EquationSystem:
         self,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
-    ) -> tuple[pp.ad.EquationSystemIndexer, pp.ad.VariableIndexer]:
+    ) -> tuple[pp.ad.EquationIndexer, pp.ad.VariableIndexer]:
         """Generate indexers for the linear system produced by :meth:`assemble`.
 
         Parameters:
