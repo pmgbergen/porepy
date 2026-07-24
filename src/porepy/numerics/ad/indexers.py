@@ -48,7 +48,7 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
     lot: the indexer that stores variables will always operate on and return variables,
     and not equations, and mypy is aware of it.
 
-    Internally, it relies on that `EquationOrVariableType` has fields `name` and
+    Internally, it relies on `EquationOrVariableType` having the fields `name` and
     `domain`.
 
     Parameters:
@@ -67,6 +67,10 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
 
         """
         self.size: int = sum(x.size for x in self.indices.values())
+        """Number of indices in a vector of multiple operators that corresponds to this
+        indexer.
+
+        """
 
     def projection_indices(self, operators: list[EquationOrVariableType]) -> np.ndarray:
         """Create a projection index array from the system vector represented
@@ -199,6 +203,6 @@ class EquationSystemIndexer(Indexer[EquationOnDomain]):
         """
 
 
-# Specifien parametrization.
+# Specified parametrization.
 EquationIndexer = Indexer[EquationOnDomain]
 VariableIndexer = Indexer[pp.ad.Variable]
