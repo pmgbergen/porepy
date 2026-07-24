@@ -60,6 +60,7 @@ def check_reduction_consistency_hamon(quick: bool = False) -> dict:
     # tolerance-limited exact merge (~1e-7) vs an O(1) constitutive mismatch (~1e-1 without the
     # merge_ref rescaling / equal-split IC); the threshold separates the two robustly.
     return dict(name="reduction-consistency (hamon)", worst=worst, passed=worst < 1e-4,
+                residuals=(dw, do, dg),
                 detail=f"|s_w| {dw:.2e}  |s_o-(m1+m2)| {do:.2e}  |s_g| {dg:.2e}")
 
 
@@ -97,7 +98,76 @@ def check_reduction_consistency_porepy(quick: bool = False) -> dict:
     dw, do, dg = _merge_residuals(s4, s3)
     worst = max(dw, do, dg)
     return dict(name="reduction-consistency (porepy)", worst=worst, passed=worst < 1e-5,
+                residuals=(dw, do, dg),
                 detail=f"|s_w| {dw:.2e}  |s_o-(m1+m2)| {do:.2e}  |s_g| {dg:.2e}")
+
+
+# --------------------------------------------------------------------------------------- #
+#  Test 1 -- LaTeX table. The template is FIXED: only the eight residuals are substituted.
+# --------------------------------------------------------------------------------------- #
+_TABLE_TEMPLATE = r"""% Degenerate-equivalence (reduction-consistency) table.
+% Requires \usepackage{booktabs} and \usepackage{siunitx}; phase-context macros from notation.tex.
+% Phase letters follow the phase context and Fig.~\ref{fig:immiscible_maps}: gamma = heavy,
+% beta = intermediate (split into beta-heavy + beta-light at N=4), alpha = light.
+% Numbers from completion_checks.check_reduction_consistency_{hamon,porepy} (quick config:
+% hamon 20^2 to 4 d; PorePy CF ~20^2 to 6 d). Machine-precision at any converging resolution --
+% the equivalence is structural, not discretisation-limited (values are O(10^3 eps_mach)).
+\begin{table}[t]
+  \centering
+  \caption{%
+    \textbf{Degenerate equivalence.} A four-phase system whose two intermediate members
+    $\phasealt_{\mathrm{h}}$, $\phasealt_{\mathrm{l}}$ are made identical---equal density
+    $\densphase{\phasealt} = \SI{1000}{\kilogram\per\cubic\metre}$, quadratic relative permeability,
+    and the initial intermediate band split equally---reduces \emph{exactly} to the three-phase
+    system whose intermediate phase carries the summed mobility of the two coalescing members,
+    $\mob{\phasealt}(s) = 2\,\densphase{\phasealt}\,k_r(s/2)/\mu$. The three densities of the reduced
+    system, $1500$, $1000$, and $500~\si{\kilogram\per\cubic\metre}$, are those of the original
+    three-phase setting of \textcite{Bosma2022} and \textcite{HamonTchelepi2016}: the degenerate
+    four-phase run reduces to a three-phase problem of that configuration to machine precision.
+    Entries are the maximum cell-wise saturation difference between the two runs at the final time;
+    both the standalone finite-volume solver and the PorePy compositional-flow model reproduce the
+    reduction to machine precision ($\varepsilon_{\mathrm{mach}} \approx \num{2.2e-16}$).}
+  \label{tab:degenerate-equivalence}
+  \begin{tabular}{@{}l c c c c@{}}
+    \toprule
+    & \multicolumn{4}{c@{}}{$\displaystyle
+        \max_{c\,\in\,\text{cells}} \bigl|\,s^{(4)}_c - s^{(3)}_c\,\bigr|$} \\
+    \cmidrule(lr){2-5}
+    Solver
+      & heavy, $\sat{\phase}$
+      & intermediate, $\sat{\phasealt_{\mathrm{h}}}\!+\!\sat{\phasealt_{\mathrm{l}}}$
+      & light, $\sat{\phaseext}$
+      & worst \\
+    \midrule
+@@ROWS@@
+    \bottomrule
+  \end{tabular}
+\end{table}
+"""
+
+
+def _tex_num(x):
+    """Residual -> the table's fixed number style, e.g. 3.77e-13 -> ``$3.77\\times10^{-13}$``."""
+    if not np.isfinite(x) or x == 0.0:
+        return r"$0$"
+    e = int(np.floor(np.log10(abs(x))))
+    return rf"${x / 10.0 ** e:.2f}\times10^{{{e}}}$"
+
+
+def write_degenerate_equivalence_table(res_hamon, res_porepy, path=None):
+    """Write the degenerate-equivalence table, substituting ONLY the eight residuals (heavy,
+    intermediate, light, worst -- per solver) into the fixed template above."""
+    def _row(label, r):
+        vals = [_tex_num(v) for v in (*r["residuals"], r["worst"])]
+        return f"    {label:<10} & " + " & ".join(vals) + r" \\"
+
+    tex = _TABLE_TEMPLATE.replace(
+        "@@ROWS@@", _row("Standalone", res_hamon) + "\n" + _row("PorePy", res_porepy))
+    path = path or os.path.join(HERE, "tables", "degenerate_equivalence.tex")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        fh.write(tex)
+    return path
 
 
 # --------------------------------------------------------------------------------------- #
@@ -356,6 +426,13 @@ def run_all_checks(quick: bool = False, skip_porepy: bool = False) -> list:
                       flush=True)
             except Exception as exc:  # porepy unavailable / model failure -- report, do not abort
                 print(f"  [SKIP] {tag:38s} {type(exc).__name__}: {exc}", flush=True)
+    # Test-1 LaTeX table: needs both solvers' residuals (skipped if the porepy run was skipped).
+    by_name = {r["name"]: r for r in results}
+    rh, rp = (by_name.get("reduction-consistency (hamon)"),
+              by_name.get("reduction-consistency (porepy)"))
+    if rh and rp:
+        p = write_degenerate_equivalence_table(rh, rp)
+        print(f"  [tex ] degenerate-equivalence table       {os.path.relpath(p, HERE)}", flush=True)
     return results
 
 

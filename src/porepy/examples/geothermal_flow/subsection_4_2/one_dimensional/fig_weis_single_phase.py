@@ -14,6 +14,7 @@ from __future__ import annotations
 import glob
 import os
 import pickle
+import sys
 
 import matplotlib
 matplotlib.use("Agg")
@@ -24,6 +25,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REF_DIR = os.path.join(HERE, os.pardir, os.pardir, "benchmark_figures_data")
 CACHE_DIR = os.path.join(HERE, "_cache")
 FIG_DIR = os.path.join(HERE, "figures")
+
+sys.path.insert(0, HERE)
+import plot_style as ps                              # noqa: E402  (SAVE_PDF toggle for run_workflow)
 
 ROWS = ("case_hP", "case_mP", "case_lP")
 COLS = ("horizontal", "vertical")
@@ -102,10 +106,11 @@ def main():
         frameon=True, fancybox=True)
     fig.tight_layout()
     os.makedirs(FIG_DIR, exist_ok=True)
-    for ext in ("png", "pdf"):
+    for ext in (("png", "pdf") if ps.SAVE_PDF else ("png",)):
         fig.savefig(os.path.join(FIG_DIR, f"fig_4_single_phase.{ext}"),
                     dpi=300, bbox_inches="tight")
-    print("wrote", os.path.join("figures", "fig_4_single_phase.png"), "(+ .pdf)")
+    print("wrote", os.path.join("figures", "fig_4_single_phase.png"),
+          "(+ .pdf)" if ps.SAVE_PDF else "")
 
 
 if __name__ == "__main__":

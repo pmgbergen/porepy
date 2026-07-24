@@ -61,7 +61,7 @@ VTK_DIR = os.path.join(_PARENT, "model_configuration", "constitutive_description
                        "driesner_vtk_files")
 REF_DIR = os.path.join(_PARENT, "benchmark_figures_data")
 
-TABLE_LEVEL = 3       # Driesner opensowat table refinement level: 0 (coarsest) .. 3 (finest)
+TABLE_LEVEL = 3       # Driesner opensowat table refinement level: 0 (coarsest) .. finer with level
 
 
 def table_paths(level=TABLE_LEVEL):
@@ -115,14 +115,17 @@ class Table:
     in SI via the per-field ``fields`` scale (e.g. enthalpy kJ/kg -> J/kg via 1e3).
     """
 
-    def __init__(self, file_name, fields, a_in=1.0, b_in=1.0):
+    def __init__(self, file_name, fields, a_in=1.0, b_in=1.0, c_in=1.0, slice_z=True):
+        # slice_z=True: z_NaCl=0 slice, 2-D bilinear (pure-water fig-5, unchanged).
+        # slice_z=False: full 3-D array, trilinear in (a=h/T, b=p, c=z_NaCl) (brine / Fig 6).
+        self.slice_z = bool(slice_z)
         # mtime in the key -> regenerating a .vtr in place invalidates its .npz cache
         key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
-               + f"|{a_in}|{b_in}|{os.path.getmtime(file_name):.0f}")
+               + f"|{a_in}|{b_in}|{c_in}|slice{int(self.slice_z)}|cnu2|{os.path.getmtime(file_name):.0f}")
         cache = file_name + ".sicache.npz"
         if not (os.path.exists(cache) and self._load(cache, key)):
-            self._build(file_name, fields, a_in, b_in, key, cache)
-        # all fields stacked -> gather every field's 4 corners in 4 fancy-index ops, not 4*nf
+            self._build(file_name, fields, a_in, b_in, c_in, key, cache)
+        # all fields stacked -> gather every field's corners in a few fancy-index ops, not *nf
         self.names = list(self.V.keys())
         self.V_stack = np.ascontiguousarray(np.stack([self.V[n] for n in self.names]))
 
@@ -131,34 +134,43 @@ class Table:
             z = np.load(cache, allow_pickle=False)
             if str(z["key"]) != key:
                 return False
-            for s in ("ny", "nz"):
+            self.slice_z = bool(int(z["slice_z"]))
+            for s in ("ny", "nz", "nx"):
                 setattr(self, s, int(z[s]))
-            for s in ("a0", "da", "b0", "db", "a_in", "b_in",
-                      "a_min", "a_max", "b_min", "b_max"):
+            for s in ("a0", "da", "b0", "db", "c0", "dc", "a_in", "b_in", "c_in",
+                      "a_min", "a_max", "b_min", "b_max", "c_min", "c_max"):
                 setattr(self, s, float(z[s]))
+            self.c_coords = np.asarray(z["c_coords"], float)
             self.V = {str(n): z["V_" + str(n)] for n in z["names"]}
             return True
         except Exception:
             return False
 
-    def _build(self, file_name, fields, a_in, b_in, key, cache):
+    def _build(self, file_name, fields, a_in, b_in, c_in, key, cache):
         import pyvista as pv     # only hit on a cache miss (first run)
 
         g = pv.read(file_name)
-        nx, ny, nz = g.dimensions                          # (z, second, p)
-        a = np.asarray(g.y); b = np.asarray(g.z)
-        self.ny, self.nz = int(ny), int(nz)
+        nx, ny, nz = g.dimensions                          # (z_NaCl, second=h/T, p)
+        a = np.asarray(g.y); b = np.asarray(g.z); c = np.asarray(g.x)
+        self.ny, self.nz, self.nx = int(ny), int(nz), int(nx)
         self.a0, self.da = float(a[0]), float(a[1] - a[0])
         self.b0, self.db = float(b[0]), float(b[1] - b[0])
-        self.a_in, self.b_in = float(a_in), float(b_in)
+        self.c0 = float(c[0]); self.dc = float(c[1] - c[0]) if nx > 1 else 1.0
+        self.c_coords = np.asarray(c, float)               # full z-axis nodes: NON-uniform (salinity)
+        self.a_in, self.b_in, self.c_in = float(a_in), float(b_in), float(c_in)
         self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
         self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
-        self.V = {name: np.asarray(g.point_data[name]).reshape(nz, ny, nx)[:, :, 0] * scale
-                  for name, scale in fields.items()}
-        out = {"key": np.array(key), "ny": self.ny, "nz": self.nz,
+        self.c_min, self.c_max = float(c[0] / c_in), float(c[-1] / c_in)
+        full = {name: np.asarray(g.point_data[name]).reshape(nz, ny, nx) * scale   # [p, h, z]
+                for name, scale in fields.items()}
+        self.V = {n: (A[:, :, 0] if self.slice_z else A) for n, A in full.items()}
+        out = {"key": np.array(key), "slice_z": int(self.slice_z),
+               "ny": self.ny, "nz": self.nz, "nx": self.nx,
                "a0": self.a0, "da": self.da, "b0": self.b0, "db": self.db,
-               "a_in": self.a_in, "b_in": self.b_in, "a_min": self.a_min,
-               "a_max": self.a_max, "b_min": self.b_min, "b_max": self.b_max,
+               "c0": self.c0, "dc": self.dc, "a_in": self.a_in, "b_in": self.b_in,
+               "c_in": self.c_in, "a_min": self.a_min, "a_max": self.a_max,
+               "b_min": self.b_min, "b_max": self.b_max, "c_min": self.c_min,
+               "c_max": self.c_max, "c_coords": self.c_coords,
                "names": np.array(list(self.V.keys()))}
         out.update({"V_" + n: A for n, A in self.V.items()})
         try:
@@ -166,8 +178,9 @@ class Table:
         except Exception:
             pass
 
-    def sample_many(self, a, b):
-        """Bilinear-interpolate ALL stored fields at (a, b) with ONE stencil + stacked gather."""
+    def sample_many(self, a, b, c=0.0):
+        """Interpolate ALL stored fields at (a=h/T, b=p, [c=z_NaCl]) with one stacked gather.
+        2-D bilinear on the z=0 slice when ``slice_z``; else 3-D trilinear (``c`` = salinity)."""
         a = np.atleast_1d(np.asarray(a, float)) * self.a_in
         b = np.atleast_1d(np.asarray(b, float)) * self.b_in
         fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
@@ -176,12 +189,25 @@ class Table:
         ta = fa - ja; tb = fb - jb
         ja1 = ja + 1; jb1 = jb + 1
         Vs = self.V_stack
-        vals = ((1 - ta) * (1 - tb) * Vs[:, jb, ja] + ta * (1 - tb) * Vs[:, jb, ja1]
-                + (1 - ta) * tb * Vs[:, jb1, ja] + ta * tb * Vs[:, jb1, ja1])   # (nf, N)
+        if self.slice_z:
+            vals = ((1 - ta) * (1 - tb) * Vs[:, jb, ja] + ta * (1 - tb) * Vs[:, jb, ja1]
+                    + (1 - ta) * tb * Vs[:, jb1, ja] + ta * tb * Vs[:, jb1, ja1])   # (nf, N)
+            return {n: vals[i] for i, n in enumerate(self.names)}
+        c = np.broadcast_to(np.atleast_1d(np.asarray(c, float)) * self.c_in, a.shape)
+        # z (salinity) axis is NON-uniform (fine near 0, coarse to 1) -> searchsorted, not (c-c0)/dc.
+        cc = self.c_coords
+        jc = np.clip(np.searchsorted(cc, c, side="right") - 1, 0, self.nx - 2)
+        jc1 = jc + 1
+        tc = ((c - cc[jc]) / (cc[jc1] - cc[jc])).clip(0.0, 1.0)   # clamp handles below/above range
+        ma, mb, mc = 1 - ta, 1 - tb, 1 - tc                      # Vs axes: (field, p, h, z)
+        vals = (ma * mb * mc * Vs[:, jb, ja, jc] + ta * mb * mc * Vs[:, jb, ja1, jc]
+                + ma * tb * mc * Vs[:, jb1, ja, jc] + ta * tb * mc * Vs[:, jb1, ja1, jc]
+                + ma * mb * tc * Vs[:, jb, ja, jc1] + ta * mb * tc * Vs[:, jb, ja1, jc1]
+                + ma * tb * tc * Vs[:, jb1, ja, jc1] + ta * tb * tc * Vs[:, jb1, ja1, jc1])
         return {n: vals[i] for i, n in enumerate(self.names)}
 
-    def __call__(self, name, a, b):
-        return self.sample_many(a, b)[name]
+    def __call__(self, name, a, b, c=0.0):
+        return self.sample_many(a, b, c)[name]
 
 
 # xph: solver h[J/kg] -> axis MJ/kg (1e-6); p[Pa] -> MPa (1e-6).
@@ -234,6 +260,62 @@ def eval_props(table, p, h):
     adv_h = h_l * mm_l + h_v * mm_v
     return Props(rho_l, rho_v, s_v, s_l, h_l, h_v, T, rho_mix, lam_T,
                  f_l, f_v, rho_ff, mm_l, mm_v, adv_h)
+
+
+# --------------------------------------------------------------------------------------- #
+#  Brine closure (H2O-NaCl): three-phase liquid/vapor/immobile-halite, from the 3-D table
+# --------------------------------------------------------------------------------------- #
+# xph brine fields: densities (kg/m^3, scale 1), enthalpies (kJ/kg -> J/kg, 1e3), vapor+halite
+# saturations, NaCl mass fractions Xl/Xv (dimensionless), viscosities (Pa.s), temperature (K).
+_XPH_FIELDS_BRINE = {"Rho_l": 1.0, "Rho_v": 1.0, "Rho_h": 1.0,
+                     "H_l": 1e3, "H_v": 1e3, "H_h": 1e3,
+                     "S_v": 1.0, "S_h": 1.0, "Xl": 1.0, "Xv": 1.0,
+                     "mu_l": 1.0, "mu_v": 1.0, "Temperature": 1.0}
+
+
+@dataclass
+class PropsBrine:
+    rho_l: np.ndarray; rho_v: np.ndarray; rho_h: np.ndarray
+    s_l: np.ndarray; s_v: np.ndarray; s_h: np.ndarray
+    h_l: np.ndarray; h_v: np.ndarray; h_h: np.ndarray
+    Xl: np.ndarray; Xv: np.ndarray            # NaCl mass fraction in liquid / vapor (X_h = 1)
+    T: np.ndarray
+    rho_mix: np.ndarray                        # s_l rho_l + s_v rho_v + s_h rho_h (incl. halite)
+    lam_T: np.ndarray
+    mm_l: np.ndarray; mm_v: np.ndarray
+    salt_mob: np.ndarray                       # NaCl mass mobility  = Xl mm_l + Xv mm_v
+    adv_h: np.ndarray                          # enthalpy mass mobility = h_l mm_l + h_v mm_v
+
+
+def eval_props_brine(table, p, h, z):
+    """Three-phase closure from the 3-D xph table at overall NaCl composition ``z``.
+
+    Halite is a table-provided saturation (as in the porepy DriesnerModelConfiguration): it enters
+    rho_mix, and blocks the pore space through the rel-perm k_rl + k_rv = 1 - s_h; it is immobile
+    (k_rh = 0), so it advects no mass -- its NaCl is carried only in the accumulation via rho_mix z.
+    """
+    s = table.sample_many(h, p, z)
+    rho_l = s["Rho_l"]; rho_v = s["Rho_v"]; rho_h = s["Rho_h"]
+    s_v = np.clip(s["S_v"], 0.0, 1.0)
+    s_h = np.clip(s["S_h"], 0.0, 1.0)
+    s_l = np.clip(1.0 - s_v - s_h, 0.0, 1.0)
+    h_l = s["H_l"]; h_v = s["H_v"]; h_h = s["H_h"]
+    Xl = np.clip(s["Xl"], 0.0, 1.0); Xv = np.clip(s["Xv"], 0.0, 1.0)
+    mu_l = s["mu_l"]; mu_v = s["mu_v"]; T = s["Temperature"]
+
+    # Weis (2014) rel-perm with halite pore blocking (mirror of DriesnerModelConfiguration):
+    #   k_rl = max((s_l - 0.3(1-s_h))/0.7, 0),  k_rv = (1-s_h) - k_rl,  k_rh = 0.
+    # s_h = 0 reduces to the pure-water fig-5 closure k_rl + k_rv = 1.
+    kr_l = np.maximum((s_l - S_R_LIQ * (1.0 - s_h)) / (1.0 - S_R_LIQ), 0.0)
+    kr_v = np.maximum((1.0 - s_h) - kr_l, 0.0)
+    mm_l = rho_l * kr_l / mu_l
+    mm_v = rho_v * kr_v / mu_v
+    lam_T = mm_l + mm_v
+    rho_mix = s_l * rho_l + s_v * rho_v + s_h * rho_h
+    salt_mob = Xl * mm_l + Xv * mm_v
+    adv_h = h_l * mm_l + h_v * mm_v
+    return PropsBrine(rho_l, rho_v, rho_h, s_l, s_v, s_h, h_l, h_v, h_h, Xl, Xv, T,
+                      rho_mix, lam_T, mm_l, mm_v, salt_mob, adv_h)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -491,20 +573,22 @@ def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, u
 # --------------------------------------------------------------------------------------- #
 #  Sparse coloured finite-difference Jacobian (block-tridiagonal, 6 colours)
 # --------------------------------------------------------------------------------------- #
-def build_jac_plan(N):
-    """Precompute the 6-colour FD-Jacobian sparsity ONCE (block-tridiagonal interleaved)."""
+def build_jac_plan(N, nvar=2, scales=(1.0e6, 1.0e5, 1.0)):
+    """Precompute the (3*nvar)-colour FD-Jacobian sparsity ONCE (block-tridiagonal, ``nvar`` vars per
+    cell, interleaved). nvar=2 -> pure water [p, h] (6 colours); nvar=3 -> brine [p, h, z] (9)."""
     rows_of_col = []
     for k in range(N):
-        for _v in range(2):
+        for _v in range(nvar):
             rows = []
             for kk in (k - 1, k, k + 1):
                 if 0 <= kk < N:
-                    rows += [2 * kk, 2 * kk + 1]
+                    rows += [nvar * kk + j for j in range(nvar)]
             rows_of_col.append(np.array(rows, dtype=np.intp))
-    color = np.array([(k % 3) * 2 + v for k in range(N) for v in range(2)])
-    n = 2 * N
-    col_perturb, gat_rows, gat_owner, coo_cols = [], [], [], []
-    for c in range(6):
+    ncol = 3 * nvar
+    color = np.array([(k % 3) * nvar + v for k in range(N) for v in range(nvar)])
+    n = nvar * N
+    col_perturb, gat_rows, gat_owner = [], [], []
+    for c in range(ncol):
         cols_c = np.where(color == c)[0]
         rs = [rows_of_col[j] for j in cols_c]
         ow = [np.full(rows_of_col[j].size, j, dtype=np.intp) for j in cols_c]
@@ -513,24 +597,28 @@ def build_jac_plan(N):
         gat_owner.append(np.concatenate(ow))     # owning column (for eps + COO col)
     all_rows = np.concatenate(gat_rows)
     all_cols = np.concatenate(gat_owner)
-    sc = np.where(np.arange(n) % 2 == 0, 1.0e6, 1.0e5)   # p ~ MPa, h ~ 1e5 J/kg
-    # banded (LAPACK) storage: block-tridiagonal interleaved -> bandwidth l,u (=3 here).
+    sc = np.array([scales[i % nvar] for i in range(n)])   # p ~ MPa, h ~ 1e5 J/kg, z ~ 1
+    # banded (LAPACK) storage: block-tridiagonal interleaved -> bandwidth l,u (=2*nvar-1).
     l = int((all_rows - all_cols).max())
     u = int((all_cols - all_rows).max())
     bpos = u + all_rows - all_cols                       # ab[u+i-j, j] = A[i,j]
-    return dict(n=n, col_perturb=col_perturb, gat_rows=gat_rows, gat_owner=gat_owner,
-                all_rows=all_rows, all_cols=all_cols, scale=sc, l=l, u=u, bpos=bpos)
+    return dict(n=n, nvar=nvar, ncol=ncol, col_perturb=col_perturb, gat_rows=gat_rows,
+                gat_owner=gat_owner, all_rows=all_rows, all_cols=all_cols, scale=sc,
+                l=l, u=u, bpos=bpos)
 
 
-def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
-    """Coloured FD Jacobian in LAPACK banded storage (ab, shape (l+u+1, n))."""
+def jacobian_fd(x, r0, args, plan, eps_rel=1e-7, resfn=None):
+    """Coloured FD Jacobian in LAPACK banded storage (ab, shape (l+u+1, n)). ``resfn`` = the residual
+    to differentiate (default the pure-water :func:`residual`; the brine path passes residual_brine)."""
+    if resfn is None:
+        resfn = residual
     n = plan["n"]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
     parts = []
-    for c in range(6):
+    for c in range(plan["ncol"]):
         cols_c = plan["col_perturb"][c]
         dx = np.zeros(n); dx[cols_c] = eps[cols_c]
-        dr = residual(x + dx, *args) - r0
+        dr = resfn(x + dx, *args) - r0
         parts.append(dr[plan["gat_rows"][c]] / eps[plan["gat_owner"][c]])   # vectorised
     ab = np.zeros((plan["l"] + plan["u"] + 1, n))
     ab[plan["bpos"], plan["all_cols"]] = np.concatenate(parts)
@@ -687,6 +775,173 @@ def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
             "nit_hist": hist,                       # per-accepted-step         (PorePy: iterations_per_step)
             "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "level": level,
             "lag_upwind": lag_upwind}
+
+
+# --------------------------------------------------------------------------------------- #
+#  Brine (H2O-NaCl) time stepping -- Weis (2014) Fig 6 C/D: horizontal column with halite
+#  Three conservation laws (mass + salt + energy), primaries [p, h, z]; halite is an immobile,
+#  table-provided phase. HORIZONTAL (g=0), so no buoyancy.
+# --------------------------------------------------------------------------------------- #
+@dataclass
+class BrineBoundaryState:
+    p: float; h: float; z: float; pr: PropsBrine; T: float
+
+
+def boundary_state_brine(table, p_bc, h_bc, z_bc):
+    pr = eval_props_brine(table, np.array([p_bc]), np.array([h_bc]), np.array([z_bc]))
+    return BrineBoundaryState(p=p_bc, h=h_bc, z=z_bc, pr=pr, T=float(pr.T[0]))
+
+
+def residual_brine(x, acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, bright):
+    """3N residual [mass_0, salt_0, energy_0, ...] for the HORIZONTAL brine column (Fig 6, g=0).
+    Total-velocity upstream weights; no buoyancy. Halite is immobile: it enters the mass and energy
+    accumulations via rho_mix and the salt accumulation via rho_mix z, but never any flux."""
+    N = geom.N
+    p = x[0::3]; h = x[1::3]; z = x[2::3]
+    pr = eval_props_brine(table, p, h, z)
+    acc_mass = geom.Vcell * PHI * pr.rho_mix
+    acc_salt = geom.Vcell * PHI * pr.rho_mix * z
+    acc_en = geom.Vcell * (PHI * (pr.rho_mix * h - p) + (1 - PHI) * RHO_S * C_S * pr.T)
+
+    V_T = geom.Tf * (p[:-1] - p[1:])                       # g=0: viscous total velocity
+    up = np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
+    F_mass = V_T * pr.lam_T[up]
+    F_salt = V_T * pr.salt_mob[up]
+    F_en = geom.TFf * (pr.T[:-1] - pr.T[1:]) + V_T * pr.adv_h[up]
+
+    # boundary faces: bleft = inlet (high p, i=0), bright = outlet (low p, i=N-1); upwind on V.
+    V_l = geom.Tb * (bleft.p - p[0]); inflow_l = V_l >= 0.0
+    Fm_l = V_l * (bleft.pr.lam_T[0]   if inflow_l else pr.lam_T[0])
+    Fs_l = V_l * (bleft.pr.salt_mob[0] if inflow_l else pr.salt_mob[0])
+    Fh_l = V_l * (bleft.pr.adv_h[0]   if inflow_l else pr.adv_h[0])
+    Fe_l = geom.TFb * (bleft.T - pr.T[0]) + Fh_l
+
+    V_r = geom.Tb * (p[-1] - bright.p); outflow_r = V_r >= 0.0
+    Fm_r = V_r * (pr.lam_T[-1]   if outflow_r else bright.pr.lam_T[0])
+    Fs_r = V_r * (pr.salt_mob[-1] if outflow_r else bright.pr.salt_mob[0])
+    Fh_r = V_r * (pr.adv_h[-1]   if outflow_r else bright.pr.adv_h[0])
+    Fe_r = geom.TFb * (pr.T[-1] - bright.T) + Fh_r
+
+    dm = np.empty(N); ds = np.empty(N); de = np.empty(N)
+    dm[0] = F_mass[0] - Fm_l; dm[1:-1] = F_mass[1:] - F_mass[:-1]; dm[-1] = Fm_r - F_mass[-1]
+    ds[0] = F_salt[0] - Fs_l; ds[1:-1] = F_salt[1:] - F_salt[:-1]; ds[-1] = Fs_r - F_salt[-1]
+    de[0] = F_en[0] - Fe_l;   de[1:-1] = F_en[1:] - F_en[:-1];     de[-1] = Fe_r - F_en[-1]
+
+    r = np.empty(3 * N)
+    r[0::3] = ((acc_mass - acc_mass_o) / dt + dm) / geom.ms      # row-scaled to O(1)
+    r[1::3] = ((acc_salt - acc_salt_o) / dt + ds) / geom.ms      # salt ~ z * mass -> same scale
+    r[2::3] = ((acc_en - acc_en_o) / dt + de) / geom.es
+    return r
+
+
+def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, plan,
+                      atol=1e-5, maxit=20, verbose=False):
+    p_o = x_old[0::3]; h_o = x_old[1::3]; z_o = x_old[2::3]
+    pr_o = eval_props_brine(table, p_o, h_o, z_o)
+    acc_mass_o = geom.Vcell * PHI * pr_o.rho_mix
+    acc_salt_o = geom.Vcell * PHI * pr_o.rho_mix * z_o
+    acc_en_o = geom.Vcell * (PHI * (pr_o.rho_mix * h_o - p_o) + (1 - PHI) * RHO_S * C_S * pr_o.T)
+    args = (acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, bright)
+    pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
+    hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
+    zclip = (table.c_min, table.c_max)                          # z in [0, 1]
+    sqrtN = np.sqrt(geom.N)
+
+    def _metric(rr):
+        return max(np.linalg.norm(rr[0::3]), np.linalg.norm(rr[1::3]),
+                   np.linalg.norm(rr[2::3])) / sqrtN
+
+    x = x0.copy()
+    r = residual_brine(x, *args)
+    nrm = np.linalg.norm(r)
+    for it in range(maxit):
+        m = _metric(r)
+        if verbose:
+            print(f"    newton {it}: |r|_eq={m:.3e}")
+        if m <= atol:
+            return x, it, m, True
+        ab = jacobian_fd(x, r, args, plan, resfn=residual_brine)
+        try:
+            dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)
+        except Exception:
+            dx = np.zeros_like(r)
+        step = 1.0
+        for _ in range(10):
+            xn = x + step * dx
+            xn[0::3] = np.clip(xn[0::3], *pclip)
+            xn[1::3] = np.clip(xn[1::3], *hclip)
+            xn[2::3] = np.clip(xn[2::3], *zclip)
+            r_new = residual_brine(xn, *args); nrm_new = np.linalg.norm(r_new)
+            if nrm_new < nrm:
+                break
+            step *= 0.5
+        x = xn; r = r_new; nrm = nrm_new
+    return x, maxit, _metric(r), False
+
+
+# Weis (2014) Fig 6 C/D data (SI). Horizontal column; left = hot pure-water vapor inlet, right =
+# cool outlet; the domain starts as salt-saturated liquid + immobile halite (z_init tuned to the
+# table so the flash returns S_h ~ 0.1).
+FIG6 = dict(p_left=4.0e6, T_left=300.0 + 273.15, z_left=0.0,
+            p_right=1.0e6, T_right=150.0 + 273.15,
+            T_init=150.0 + 273.15, z_init=0.3, tf_yr=200.0)
+
+
+def run_brine(N=200, n_steps=None, dt=None, adaptive=True, verbose=True, level=TABLE_LEVEL, **fig6):
+    """Weis (2014) Fig 6 C/D: horizontal 1-D H2O-NaCl column with an immobile solid-halite phase.
+    Mass + salt + energy, primaries [p, h, z]; horizontal (g=0), no buoyancy. Keyword overrides go
+    to FIG6 (p_left/T_left/z_left/p_right/T_right/T_init/z_init/tf_yr)."""
+    cfg = {**FIG6, **fig6}
+    xph_path, xpt_path = table_paths(level)
+    table = Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
+    xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
+    geom = make_geom(N, g=0.0)                                  # horizontal: gravity perp. to flow
+
+    def enth(TK, p, z):
+        return xpt("H", np.atleast_1d(TK) - 273.15, np.atleast_1d(p), np.atleast_1d(z))
+
+    h_left = float(enth(cfg["T_left"], cfg["p_left"], cfg["z_left"])[0])
+    h_right = float(enth(cfg["T_right"], cfg["p_right"], cfg["z_init"])[0])
+    bleft = boundary_state_brine(table, cfg["p_left"], h_left, cfg["z_left"])
+    bright = boundary_state_brine(table, cfg["p_right"], h_right, cfg["z_init"])
+
+    y = geom.yc
+    p0 = (y * cfg["p_right"] + (L_COLUMN - y) * cfg["p_left"]) / L_COLUMN
+    z0 = np.full(N, cfg["z_init"])
+    h0 = enth(np.full(N, cfg["T_init"]), p0, z0)
+    x = np.empty(3 * N); x[0::3] = p0; x[1::3] = h0; x[2::3] = z0
+
+    plan = build_jac_plan(N, nvar=3)
+    dt0 = dt if dt is not None else DT0
+    tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
+    t = 0.0; dt = dt0; step = 0; n_cuts = 0; nit_hist = []
+    if verbose:
+        print(f"  Fig 6 brine: N={N}, level {level}, horizontal (g=0);  "
+              f"left {cfg['T_left']-273.15:.0f}C/{cfg['p_left']/1e6:.0f}MPa z={cfg['z_left']}  ->  "
+              f"right {cfg['T_right']-273.15:.0f}C/{cfg['p_right']/1e6:.0f}MPa;  IC z={cfg['z_init']}")
+    while t < tf - 1e-6:
+        dt = min(dt, tf - t)
+        x_old = x.copy()
+        xn, nit, nrm, ok = newton_step_brine(x, x_old, dt, geom, table, bleft, bright, plan)
+        if not ok and dt > dt0 / 64:
+            n_cuts += 1; dt *= 0.5; continue
+        x = xn; t += dt; step += 1; nit_hist.append(nit)
+        if adaptive and ok and nit < 5 and dt < dt0:
+            dt = min(dt * 2.0, dt0)
+        elif not adaptive:
+            dt = dt0
+        if verbose and (step % 50 == 0 or not ok):
+            print(f"  t={t/YEAR:7.1f} yr  dt={dt/YEAR:.4f}  nit={nit}  |r|={nrm:.1e}"
+                  f"  {'' if ok else 'NOT CONVERGED'}")
+
+    pr = eval_props_brine(table, x[0::3], x[1::3], x[2::3])
+    hist = np.asarray(nit_hist, dtype=int)
+    return {"y": y, "p": x[0::3], "h": x[1::3], "z": x[2::3], "T": pr.T,
+            "s_liq": pr.s_l, "s_gas": pr.s_v, "s_halite": pr.s_h, "Xl": pr.Xl,
+            "rho_mix": pr.rho_mix, "N": N, "case": "fig6", "level": level,
+            "n_steps": step, "total_it": int(hist.sum()),
+            "avg_it": (hist.sum() / step) if step else 0.0,
+            "max_it": int(hist.max()) if hist.size else 0, "n_time_step_cuts": n_cuts}
 
 
 # --------------------------------------------------------------------------------------- #

@@ -238,8 +238,9 @@ def main(argv=None):
         print(f"\n workflow (checks only) complete in {(time.time() - t_all) / 60.0:.1f} min")
         return
 
-    if not args.skip_checks and not (args.plot_only or args.skip_run):
-        _run_checks(args.quick, args.skip_porepy)      # theory-coverage gate (both solvers)
+    if not args.skip_checks:                           # cheap (two-cell); run in every mode,
+        _run_checks(args.quick, args.skip_porepy)      # incl. --plot-only, so the monotonicity
+        #                                                figure + degenerate table always refresh
 
     if not (args.plot_only or args.skip_run):
         results = []

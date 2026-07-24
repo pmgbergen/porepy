@@ -20,7 +20,8 @@ Use the porepy conda env (its interpreter is reused for the subprocesses):
     PY=~/miniconda/envs/porepy/bin/python
     $PY run_workflow.py                 # full pipeline (resumable; fast if the caches exist)
     $PY run_workflow.py --quick         # coarse smoke, sandboxed to _quick/ (real cache untouched)
-    $PY run_workflow.py --plot-only     # figures from existing _cache only (no 2-D solves)
+    $PY run_workflow.py --plot-only     # figures (PNG) from existing _cache only (no 2-D solves)
+    $PY run_workflow.py --plot-only --pdf   # same, also writing a vector PDF per figure
     $PY run_workflow.py --skip-porepy   # no 2-D overlay runs (verification shows 1-D references)
     $PY run_workflow.py --porepy-schemes hu hu_mw   # add the HU-mw overlay (heavy new runs)
 """
@@ -44,6 +45,7 @@ import fig_weis_reference as FR                       # noqa: E402  (1-D converg
 import fig_weis_profiles as FP                        # noqa: E402  (1-D profiles + reference caches)
 import fig_weis_verification as FV                    # noqa: E402  (2-D-on-1-D overlay, cache-only)
 import fig_weis_single_phase as FS                    # noqa: E402  (single-phase figure, cache-only)
+import plot_style as PS                               # noqa: E402  (shared savefig; --pdf toggle)
 
 PY = sys.executable                                   # reuse the invoking (porepy-env) interpreter
 
@@ -171,7 +173,11 @@ def main(argv=None):
                     help="run the 1-D sweeps serially (default: parallel process pool)")
     ap.add_argument("--no-cache", action="store_true",
                     help="force the heavy 2-D solves to recompute even when a cache pickle exists")
+    ap.add_argument("--pdf", action="store_true",
+                    help="also write a vector PDF next to each figure PNG (default: PNG only)")
     args = ap.parse_args(argv)
+
+    PS.SAVE_PDF = args.pdf     # figures are PNG-only unless --pdf (the vector PDF is the slow part)
 
     plot_only = args.plot_only or args.skip_run
     # Quick mode forces serial: the sandbox redirection below patches the figure modules' CACHE_DIR
