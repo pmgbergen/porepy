@@ -28,8 +28,10 @@ def compute(N=N, level=None, salt_z=SALT_Z, parallel=True):
     """PPU/HU/HU-mwp for the pure-water (z=0) and salt (z>0) columns at the Fig-6 BCs. The salt column
     is resilient: on divergence it is returned as ``None`` and drawn as a placeholder."""
     level = m.TABLE_LEVEL if level is None else level
+    # pure-water column: the fine z=0 tables (pure_water=True) -- the coarse brine h-grid otherwise
+    # leaves spurious wiggles in the two-phase liquid saturation over this p-h range.
     pw = C.sweep("fig6_pw", ["horizontal"], {**m.FIG6, "z_init": 0.0, "tf_yr": TF}, N, level,
-                 parallel=parallel)
+                 parallel=parallel, pure_water=True)
     try:
         salt = C.sweep("fig6_salt", ["horizontal"], {**m.FIG6, "z_init": salt_z, "tf_yr": TF},
                        N, level, parallel=parallel)
