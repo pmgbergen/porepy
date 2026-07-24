@@ -1,6 +1,8 @@
 """Weis (2014) Figure 6 -- H2O-NaCl, horizontal column, 2000 yr. 2x2 panels: columns {pure water
 z=0, salt + immobile halite z>0}, rows {temperature+pressure, liquid(+halite) saturation}. The
-single weis brine engine for PPU / HU / HU-mwp. The digitized Fig-6 reference is not in the repo yet,
+single weis brine engine for PPU / HU / HU-mwp. The pure-water column uses the high-resolution z=0
+tables (purewater_xph/xpt.vtr, ~6x finer in enthalpy) so the coarse brine h-grid does not leave
+spurious wiggles in its two-phase saturation. The digitized Fig-6 reference is not in the repo yet,
 so the reference curve is a labelled placeholder. If the salt column fails to converge it is drawn as
 a placeholder too, so the figure always renders.
 
