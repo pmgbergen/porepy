@@ -116,17 +116,10 @@ def stage_verification():
         FV.plot_verification(case, schemes=("hu", "hu_mwp"))
 
 
-def stage_single_phase_runs(no_cache):
-    """Six single-phase heating fronts ({hP,mP,lP} x {horizontal,vertical}) via the solver's CLI."""
-    cmd = [PY, "single_phase_porepy_1d_solver.py", "--case", "all", "--geometry", "all"]
-    if no_cache:
-        cmd.append("--no-cache")
-    subprocess.run(cmd, cwd=HERE)
-
-
-def stage_single_phase_fig():
-    """Assemble the 3x2 single-phase figure from _cache/ (missing panels render a placeholder)."""
-    FS.main()
+def stage_fig4(quick, parallel):
+    """Figure 4 -- six single-phase heating fronts ({hP,mP,lP} x {horizontal,vertical}), PPU/HU/HU-mwp
+    at z=0 via the weis engine + digitized reference. (No PorePy 2-D runs -- this is now weis-native.)"""
+    F4.plot(F4.compute(N=80 if quick else F4.N, parallel=parallel))
 
 
 def _stage(label, fn, *a):
