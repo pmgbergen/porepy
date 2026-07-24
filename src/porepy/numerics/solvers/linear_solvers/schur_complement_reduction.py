@@ -97,7 +97,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     def _initialize_data(
         self, linear_system: LinearSystem
     ) -> _SchurComplementReductionData:
-        """Lazy initialization of arrays. Applied when"""
+        """Construct indices arrays based on the linear system indexers."""
         primary_eqs, secondary_eqs = _filter_by_tags(
             all_operators=linear_system.equation_indexer.equation_dofs,
             tags=self.primary_equation_tags,
@@ -300,17 +300,36 @@ def rearrange_matrix_as_array_of_structures(
 
 @dataclass
 class _SchurComplementReductionData:
+    """Data structures needed for the Schur complement reduction algorithm."""
+
     primary_eq_indexer: pp.ad.EquationIndexer
+    """Equation indexer of the primary submatrix."""
     primary_var_indexer: pp.ad.VariableIndexer
+    """Variable indexer of the primary submatrix."""
 
     primary_eq_dofs: np.ndarray
+    """Indices that map the full equations vector to the primary equations vector."""
     primary_var_dofs: np.ndarray
+    """Indices that map the full variables vector to the primary variables vector."""
     secondary_eq_dofs: np.ndarray
+    """Indices that map the full equations vector to the secondary equations vector."""
     secondary_var_dofs: np.ndarray
+    """Indices that map the full variables vector to the secondary variables vector."""
 
     secondary_eq_perm: np.ndarray
+    """Equations (rows) permutation of the secondary block to the block-diagonal form.
+
+    """
     secondary_var_perm: np.ndarray
+    """Variables (columns) permutation of the secondary block to the block-diagonal
+    form.
+
+    """
     secondary_block_sizes: np.ndarray
+    """Array with block sizes of each small dense square block on the permuted secondary
+    matrix diagonal.
+
+    """
 
 
 def _concatenate_safe(arrays: list[np.ndarray]) -> np.ndarray:
