@@ -1356,7 +1356,7 @@ class EquationSystem:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations, variables and grids.
 
-        The ordering of rows and columns in the returned EquationSystem are defined
+        The ordering of rows and columns in the returned LinearSystem are defined
         by the equation system's :attr:`equation_indexer` and
         :attr:`variable_indexer`, respectively.
 

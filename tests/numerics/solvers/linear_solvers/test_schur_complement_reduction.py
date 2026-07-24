@@ -112,6 +112,29 @@ def test_filter_by_tags_handles_duplicate_tags() -> None:
         _ = _filter_by_tags([variable], tags)
 
 
+def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
+    """Tags with the same name may select disjoint subsets of domains."""
+
+    @dataclass(frozen=True)
+    class OnDomain(pp.solvers.DomainFilter):
+        domain: pp.GridLike
+
+        def filter(self, domain: pp.GridLike) -> bool:
+            return domain is self.domain
+
+    domains = [pp.CartGrid([1]) for _ in range(3)]
+    variables = [pp.ad.Variable("x", {"cells": 1}, domain) for domain in domains]
+    tags = [
+        pp.solvers.VariableTag("x", defined_on=OnDomain(domain))
+        for domain in domains[:2]
+    ]
+
+    filtered, not_filtered = _filter_by_tags(variables, tags)
+
+    assert filtered == variables[:2]
+    assert not_filtered == variables[2:]
+
+
 def test_default_primary_solver() -> None:
     """A direct solver is created when no primary solver is supplied."""
     solver = pp.solvers.SchurComplementReductionLinearSolver(
