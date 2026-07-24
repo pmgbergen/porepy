@@ -12,6 +12,7 @@ import logging
 from abc import ABC, abstractmethod
 from time import time
 from typing import Optional, cast
+from warnings import warn
 
 import numpy as np
 
@@ -340,6 +341,7 @@ class NewtonSolver(NonlinearSolverBase):
         # Model-dependent setup of a linear solver is done once.
         if not self._linear_solver_initialized:
             self.linear_solver.initialize_with_model(model)
+            _deprecation_warning_assemble_linear_system(model)
             self._linear_solver_initialized = True
 
         # Prepare for nonlinear loop.
@@ -760,3 +762,18 @@ def _summarize_solver_status(
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
         )
+
+
+def _deprecation_warning_assemble_linear_system(model: pp.PorePyModel):
+    assemble_linear_system = getattr(model, "assemble_linear_system", None)
+    if assemble_linear_system is not None:
+        implementation = getattr(
+            assemble_linear_system, "__func__", assemble_linear_system
+        )
+        if implementation is not pp.SolutionStrategy.assemble_linear_system:
+            warn(
+                "The model overrides assemble_linear_system method, but NewtonSolver no"
+                " longer calls it.",
+                category=FutureWarning,
+                stacklevel=3,
+            )

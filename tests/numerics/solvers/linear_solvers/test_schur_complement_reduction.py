@@ -13,6 +13,9 @@ from porepy.applications.md_grids.mdg_library import (
     square_with_orthogonal_fractures,
 )
 from porepy.applications.test_utils.models import add_mixin
+from porepy.numerics.solvers.linear_solvers.schur_complement_reduction import (
+    _filter_by_tags,
+)
 from tests.functional.setups.linear_tracer import TracerFlowModel_3p
 
 
@@ -96,6 +99,17 @@ def linear_system_data() -> LinearSystemData:
         primary_equation_tag=pp.solvers.EquationTag("primary"),
         primary_variable_tag=pp.solvers.VariableTag("primary"),
     )
+
+
+def test_filter_by_tags_handles_duplicate_tags() -> None:
+    """Must raise ValueError if tags lead to duplicated operators."""
+
+    domain = pp.CartGrid([1])
+    variable = pp.ad.Variable("x", {"cells": 1}, domain)
+    tags = [pp.solvers.VariableTag("x"), pp.solvers.VariableTag("x")]
+
+    with pytest.raises(ValueError):
+        _ = _filter_by_tags([variable], tags)
 
 
 def test_default_primary_solver() -> None:
