@@ -70,7 +70,7 @@ def plot(out, stem="fig_weis_fig_6"):
                       ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
             ax_h = C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_6_{col}_saturation_liq_raw.csv"),
                             halite=(col == "salt"))
-            C.iteration_legend(ax_s, res, loc="center right")   # this case's per-scheme iterations
+            C.iteration_legend(ax_s, res, loc="lower right")    # this case's per-scheme iterations
             ax_tp.text(0.5, 0.9, "reference: to add", transform=ax_tp.transAxes, ha="center",
                        fontsize=7, color="0.55", style="italic")
         # left column: T / s_liq axes; right column: p (+ halite) axes

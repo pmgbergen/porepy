@@ -143,18 +143,19 @@ def scheme_handles():
             for sk in ps.SCHEMES]
 
 
-def iteration_legend(ax, results, loc="center right", fontsize=8.5, title="iterations"):
-    """Small in-panel key with this CASE's Newton-iteration count per scheme (counts differ by
-    orientation / pressure level, so they belong to the panel, not the shared bottom legend). The
-    ``title`` doubles as a per-panel caption (Fig 4 puts its pressure level + time there)."""
+def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title="total it."):
+    """Small in-panel key with this CASE's Newton-iteration count per scheme: just the coloured line
+    and the number (the scheme names live in the shared bottom legend). Counts differ by orientation
+    / pressure level, so they belong to the panel. ``title`` doubles as a caption (Fig 4 puts its
+    pressure level + time there)."""
     from matplotlib.lines import Line2D
     schemes = [sk for sk in ps.SCHEMES if sk in results]
-    h = [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=1.8) for sk in schemes]
-    lab = [fr"{ps.SCHEMES[sk]['label']}: ${int(results[sk]['total_it'])}$" for sk in schemes]
+    h = [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=2.2) for sk in schemes]
+    lab = [fr"${int(results[sk]['total_it'])}$" for sk in schemes]
     leg = ax.legend(h, lab, loc=loc, fontsize=fontsize, frameon=True, fancybox=True, framealpha=0.9,
-                    edgecolor="0.7", borderpad=0.4, handlelength=1.1, labelspacing=0.3,
-                    title=title, title_fontsize=fontsize)
-    leg.get_frame().set_boxstyle("round,pad=0.25,rounding_size=0.3")
+                    edgecolor="0.7", borderpad=0.3, handlelength=0.9, handletextpad=0.4,
+                    labelspacing=0.2, title=title, title_fontsize=fontsize)
+    leg.get_frame().set_boxstyle("round,pad=0.18,rounding_size=0.22")
     ax.add_artist(leg)
     return leg
 

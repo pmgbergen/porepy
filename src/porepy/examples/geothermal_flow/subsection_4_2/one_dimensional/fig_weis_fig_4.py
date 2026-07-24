@@ -70,11 +70,12 @@ def plot(out, stem="fig_weis_fig_4"):
                       ref_T=C.ref_csv(f"fig_4_{lvl}_{orient}_temperature_raw.csv"),
                       ref_p=C.ref_csv(f"fig_4_{lvl}_{orient}_pressure_raw.csv"))
             ax_tp.set_xlim(0.0, 2.0)
-            ps.panel_tag(ax_tp, letters[i][j])
+            ps.panel_tag(ax_tp, letters[i][j], loc=(0.04, 0.09), va="bottom")
             if i == 0:
                 ax_tp.set_title(orient)
-            ax_tp.text(0.035, 0.07, fr"{LEVEL_LABEL[lvl]} $p$, ${FIG4_TF[(lvl, orient)]}$ yr",
-                       transform=ax_tp.transAxes, fontsize=7, color="0.4")
+            # per-panel iteration counts, captioned with this panel's pressure level + time
+            C.iteration_legend(ax_tp, res, loc="upper right", fontsize=6.0,
+                               title=fr"{LEVEL_LABEL[lvl]} $p$, ${FIG4_TF[(lvl, orient)]}$ yr")
             if j == 0:
                 ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
                 ax_tp.tick_params(axis="y", colors=C.WEIS_T)
@@ -86,7 +87,7 @@ def plot(out, stem="fig_weis_fig_4"):
     for ax in axes[-1, :]:
         ax.set_xlabel(ps.DIST_LABEL)
 
-    handles = C.scheme_total_handles(C.scheme_totals(panels)) + [
+    handles = C.scheme_handles() + [
         Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
         Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
         C.ref_legend_handle()]

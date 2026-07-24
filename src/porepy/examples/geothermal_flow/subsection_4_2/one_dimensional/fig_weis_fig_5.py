@@ -43,7 +43,7 @@ def plot(out, stem="fig_weis_fig_5"):
                   ref_T=C.ref_csv(f"fig_5_{case}_temperature_raw.csv"),
                   ref_p=C.ref_csv(f"fig_5_{case}_pressured_raw.csv"))
         C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_5_{case}_saturation_liq_raw.csv"))
-        C.iteration_legend(ax_s, res, loc="center right")     # this case's per-scheme iteration counts
+        C.iteration_legend(ax_s, res, loc="lower right")      # this case's per-scheme iteration counts
         ax_tp.set_title(fr"{case} orientation, ${YEARS[case]}$ years")
         ax_tp.set_xlim(0.0, 2.0)
         ps.panel_tag(ax_tp, tags[0][j], loc=(0.04, 0.09), va="bottom")   # T+p high at top-left -> tag low
