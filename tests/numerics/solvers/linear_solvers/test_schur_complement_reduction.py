@@ -274,7 +274,7 @@ def _get_primary_equ_and_vars_cf(
         equ_tags += [pp.solvers.DefaultEquationTags.mass_balance]
         var_tags += [pp.solvers.DefaultVariableTags.pressure]
 
-    # Eergy balance. Can have either enthalpy or temperature as a primary variable.
+    # Energy balance. Can have either enthalpy or temperature as a primary variable.
     if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
         equ_tags += [pp.solvers.DefaultEquationTags.energy_balance]
     if isinstance(
@@ -335,10 +335,6 @@ def test_schur_complement_reduction_on_model(
 ):
     """Compare direct and Schur-complement solutions of a model linear system."""
 
-    # NOTE: Depending on what which model class the tests are performed, the local
-    # geometry mixin and model parameters need adaption in order to overwrite the
-    # geometry and parametrization already contained within the tested model class.
-    # The adaption must be consistent with the mdg's the tests are performed on.
     class LocalGeometry(pp.PorePyModel):
         def create_mdg(self) -> None:
             self.mdg = mdg
