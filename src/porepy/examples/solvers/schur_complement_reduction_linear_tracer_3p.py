@@ -3,6 +3,8 @@
 The considered model a simplified model of 3-phase 2-component flow, which do not
 represent any real physics and should not be used in modeling.
 
+The setup is heavily inspired by `tests/functional/test_linear_tracer.py`.
+
 """
 
 import logging

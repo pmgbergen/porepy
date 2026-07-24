@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Final, Sequence, TypeVar
+from typing import Final, Sequence
 
 import numpy as np
 
@@ -17,8 +17,8 @@ import porepy as pp
 
 __all__ = [
     "EquationOnDomain",
-    "EquationIndexer",
     "VariableIndexer",
+    "EquationIndexer",
     "EquationSystemIndexer",
 ]
 
@@ -34,19 +34,6 @@ class EquationOnDomain:
 
     name: str
     domain: pp.GridLike
-
-
-# EquationOrVariableType = TypeVar(
-#     "EquationOrVariableType", EquationOnDomain, "pp.ad.Variable"
-# )
-# """A type annotation used to represent either `EquationOnDomain` or `Variable`.
-
-# Useful to declare generic functions that return the same type they take as an argument:
-# ```
-# def foo(x: _EquationOrVariableType) -> _EquationOrVariableType
-# ```
-
-# """
 
 
 class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:

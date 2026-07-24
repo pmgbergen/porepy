@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from time import time
 from typing import Optional, cast
 from time import time
 import numpy as np
@@ -127,6 +128,11 @@ class NewtonSolver(NonlinearSolverBase):
         Initialization is done once at :meth:`solve`. It is now assumed that this class
         must be used with the same model, and should not be reused for a different
         model.
+
+        """
+        self.solver_progressbar = DummyProgressBar()
+        """The UI progress bar. By default, is a dummy object that does nothing.
+        Reinitialized every Newton loop at :meth:`init_progress_bar`.
 
         """
 

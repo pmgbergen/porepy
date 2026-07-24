@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Literal, Optional, Sequence, Union, overload
 from warnings import warn
 
 import numpy as np
@@ -336,7 +336,7 @@ class EquationSystem:
             offset += len(dofs)
         return pp.ad.Indexer(operators_to_dofs=variable_dofs)
 
-    def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
+    def construct_equation_indexer(self) -> pp.ad.EquationSystemIndexer:
         """Construct an equation indexer for all the registered equations.
 
         Equation ordering follows registration order. Equations not defined anywhere

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
 
-from porepy.numerics.ad.indexers import EquationIndexer, Indexer
+from porepy.numerics.ad.indexers import EquationIndexer, VariableIndexer
 from porepy.numerics.solvers.linear_solvers.linear_solver import (
     LinearSolverDirect,
     LinearSystem,
@@ -45,7 +45,7 @@ def make_linear_system(case: Literal["nonsingular", "singular"]) -> LinearSystem
         matrix=mat,
         rhs=rhs,
         equation_indexer=EquationIndexer(operators_to_dofs={}),
-        variable_indexer=Indexer(operators_to_dofs={}),
+        variable_indexer=VariableIndexer(operators_to_dofs={}),
     )
 
 

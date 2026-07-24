@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-
 __all__ = []
 
 
 from . import linear_solver, schur_complement_reduction
-
 from .linear_solver import *
 from .schur_complement_reduction import *
 

@@ -15,11 +15,11 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
+import porepy as pp
 from porepy import solvers
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad.indexers import EquationIndexer, Indexer
 from porepy.numerics.ad.operators import Variable
 
 if TYPE_CHECKING:
@@ -325,7 +325,7 @@ class DiagnosticsMixin:
 
     def _equations_data(
         self,
-        equation_indexer: EquationIndexer,
+        equation_indexer: pp.ad.EquationIndexer,
         grouping: GridGroupingType,
         add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:
@@ -381,7 +381,7 @@ class DiagnosticsMixin:
 
     def _variable_data(
         self,
-        variable_indexer: Indexer,
+        variable_indexer: pp.ad.VariableIndexer,
         grouping: GridGroupingType,
         add_grid_info: bool,
     ) -> Sequence[dict[str, Any]]:

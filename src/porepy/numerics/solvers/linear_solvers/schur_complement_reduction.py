@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, TypeVar
+from typing import Optional
 from time import time
 
 import porepy as pp
 import numpy as np
 
-from porepy.numerics.ad.indexers import (
-    EquationIndexer,
-    EquationOnDomain,
-    Indexer,
-)
-from porepy.numerics.ad.operators import Variable
+
+from collections import defaultdict
+from dataclasses import dataclass
+from time import time
+from typing import Collection, Optional, Sequence
+
+import numpy as np
+
+import porepy as pp
 from porepy.numerics.linalg.matrix_operations import invert_permuted_block_diag_matrix
 from porepy.numerics.solvers.equation_variable_tags import EquationTag, VariableTag
 from porepy.numerics.solvers.linear_solvers.linear_solver import (
@@ -39,17 +42,6 @@ class SchurComplementReductionStatusSuccess(LinearSolverStatusSuccess):
 @dataclass
 class SchurComplementReductionStatusFailure(LinearSolverStatusFailure):
     primary_solver_status: LinearSolverStatus
-
-
-# _EquationOrVariableType = TypeVar("EquationOrVariable", EquationOnDomain, Variable)
-# """A type annotation used to represent either `EquationOnDomain` or `Variable`.
-
-# Useful to declare generic functions that return the same type they take as an argument:
-# ```
-# def foo(x: _EquationOrVariableType) -> _EquationOrVariableType
-# ```
-
-# """
 
 
 class SchurComplementReductionLinearSolver(LinearSolverBase):
@@ -104,102 +96,46 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         self.primary_linear_solver = primary_linear_solver
         """A linear solver to the linear system based on `S_pp`."""
 
-        self._is_initialized = False
-        """Whether the solver is initialized. It is initialized lazily, the first time
-        :meth:`solve_linear_system` is invoked.
+        self._data: _SchurComplementReductionData | None = None
+        """The indices arrays needed for the algorithm to operate. Initialized lazily in
+        :meth:`_initialize_data` the first time :meth:`solve_linear_system` is invoked.
 
         """
 
-        self.primary_eq_indexer = None
-        self.primary_var_indexer = None
+    def _initialize_data(
+        self, linear_system: LinearSystem
+    ) -> _SchurComplementReductionData:
+        """Construct indices arrays based on the linear system indexers."""
+        primary_eqs, secondary_eqs = _filter_by_tags(
+            all_operators=linear_system.equation_indexer.operators_to_dofs,
+            tags=self.primary_equation_tags,
+        )
+        primary_vars, secondary_vars = _filter_by_tags(
+            all_operators=linear_system.variable_indexer.operators_to_dofs,
+            tags=self.primary_variable_tags,
+        )
 
-        self.secondary_eq_perm: np.ndarray = None
-        self.secondary_var_perm: np.ndarray = None
-        self.secondary_block_sizes = None
+        eq_indexer = linear_system.equation_indexer
+        var_indexer = linear_system.variable_indexer
 
-        self.primary_var_dofs: np.ndarray = None
-        self.secondary_var_dofs: np.ndarray = None
-        self.primary_eq_dofs: np.ndarray = None
-        self.secondary_eq_dofs: np.ndarray = None
-
-    def initialize(self, linear_system: LinearSystem) -> None:
-        # def split_primary_secondary(
-        #     primary_tags: list[EquationTag] | list[VariableTag],
-        #     dofs_dict: dict[_EquationOrVariableType, np.ndarray],
-        # ) -> tuple[
-        #     np.ndarray,
-        #     np.ndarray,
-        #     dict[_EquationOrVariableType, np.ndarray],
-        #     dict[_EquationOrVariableType, np.ndarray],
-        # ]:
-        #     # Much of the code here should possibly become methods of the indexers, but
-        #     # only if it is needed anywhere else.
-        #     primary_dofs = []
-        #     secondary_dofs = []
-        #     primary_dofs_map = {}
-        #     primary_offset = 0
-        #     secondary_dofs_map = {}
-        #     secondary_offset = 0
-        #     primary_tag_name_lookup = {tag.name: tag for tag in primary_tags}
-        #     for eq, dofs in dofs_dict.items():
-        #         tag = primary_tag_name_lookup.get(eq.name, None)
-        #         if tag is not None and tag.defined_on.filter(eq.domain):
-        #             # This is primary
-        #             primary_dofs.append(dofs)
-        #             primary_dofs_map[eq] = np.arange(dofs.size) + primary_offset
-        #             primary_offset += dofs.size
-        #         else:
-        #             # This is secondary
-        #             secondary_dofs.append(dofs)
-        #             secondary_dofs_map[eq] = np.arange(dofs.size) + secondary_offset
-        #             secondary_offset += dofs.size
-
-        #     return (
-        #         _concatenate_safe(primary_dofs),
-        #         _concatenate_safe(secondary_dofs),
-        #         primary_dofs_map,
-        #         secondary_dofs_map,
-        #     )
-
-        # (
-        #     self.primary_eq_dofs,
-        #     self.secondary_eq_dofs,
-        #     primary_eq_map,
-        #     secondary_eq_map,
-        # ) = split_primary_secondary(
-        #     primary_tags=self.primary_equation_tags,
-        #     dofs_dict=linear_system.equation_indexer.equation_dofs,
-        # )
-        # (
-        #     self.primary_var_dofs,
-        #     self.secondary_var_dofs,
-        #     primary_var_map,
-        #     secondary_var_map,
-        # ) = split_primary_secondary(
-        #     primary_tags=self.primary_variable_tags,
-        #     dofs_dict=linear_system.variable_indexer.operators_to_dofs,
-        # )
-
-        
-        self.primary_eq_indexer = EquationIndexer(operators_to_dofs=primary_eq_map)
-        self.primary_var_indexer = Indexer(operators_to_dofs=primary_var_map)
-
-        secondary_eq_indexer = EquationIndexer(operators_to_dofs=secondary_eq_map)
-        secondary_var_indexer = Indexer(operators_to_dofs=secondary_var_map)
-        self.secondary_eq_perm, self.secondary_var_perm, bs = (
+        secondary_eq_perm, secondary_var_perm, block_sizes = (
             rearrange_matrix_as_array_of_structures(
-                eq_indexer=secondary_eq_indexer, var_indexer=secondary_var_indexer
+                eq_indexer=eq_indexer.construct_restricted_indexer(secondary_eqs),
+                var_indexer=var_indexer.construct_restricted_indexer(secondary_vars),
             )
         )
-        if bs != 0:
-            assert secondary_var_indexer.num_dofs % bs == 0
-            self.secondary_block_sizes = (
-                np.ones(self.secondary_eq_dofs.size // bs, dtype=np.int64) * bs
-            )
-        else:
-            self.secondary_block_sizes = np.empty(0)
 
-        self._is_initialized = True
+        return _SchurComplementReductionData(
+            primary_eq_indexer=eq_indexer.construct_restricted_indexer(primary_eqs),
+            primary_var_indexer=var_indexer.construct_restricted_indexer(primary_vars),
+            primary_eq_dofs=eq_indexer.projection_indices(primary_eqs),
+            primary_var_dofs=var_indexer.projection_indices(primary_vars),
+            secondary_eq_dofs=eq_indexer.projection_indices(secondary_eqs),
+            secondary_var_dofs=var_indexer.projection_indices(secondary_vars),
+            secondary_eq_perm=secondary_eq_perm,
+            secondary_var_perm=secondary_var_perm,
+            secondary_block_sizes=block_sizes,
+        )
 
     def initialize_with_model(self, model: pp.PorePyModel) -> None:
         """It does not need initialization by itself, but the inner linear solver might
@@ -222,11 +158,12 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         assert linear_system.matrix is not None, "Matrix should be provided."
 
         # Lasy initialization.
-        if not self._is_initialized:
-            self.initialize(linear_system)
+        if self._data is None:
+            self._data = self._initialize_data(linear_system)
+        data = self._data
 
         # Shortcut if the secondary block is empty.
-        if len(self.secondary_eq_dofs) == 0 or len(self.secondary_var_dofs) == 0:
+        if len(data.secondary_eq_dofs) == 0 or len(data.secondary_var_dofs) == 0:
             solution, status = self.primary_linear_solver.solve_linear_system(
                 linear_system
             )
@@ -235,22 +172,22 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         # Slice the following submatrices and right-hand side vectors:
         # | A_ss A_sp |  | rhs_s |
         # | A_ps A_pp |, | rhs_b |
-        A_p = linear_system.matrix[self.primary_eq_dofs, :]
-        A_pp = A_p[:, self.primary_var_dofs]
-        A_ps = A_p[:, self.secondary_var_dofs]
+        A_p = linear_system.matrix[data.primary_eq_dofs, :]
+        A_pp = A_p[:, data.primary_var_dofs]
+        A_ps = A_p[:, data.secondary_var_dofs]
         del A_p
-        A_s = linear_system.matrix[self.secondary_eq_dofs, :]
-        A_sp = A_s[:, self.primary_var_dofs]
-        A_ss = A_s[:, self.secondary_var_dofs]
+        A_s = linear_system.matrix[data.secondary_eq_dofs, :]
+        A_sp = A_s[:, data.primary_var_dofs]
+        A_ss = A_s[:, data.secondary_var_dofs]
         del A_s
-        rhs_s = linear_system.rhs[self.secondary_eq_dofs]
+        rhs_s = linear_system.rhs[data.secondary_eq_dofs]
 
         # Compute (A_ss)^-1. Hard-coded this invertor so far.
         A_ss_inv = invert_permuted_block_diag_matrix(
             A_ss,
-            row_permutation=self.secondary_eq_perm,
-            col_permutation=self.secondary_var_perm,
-            block_sizes=self.secondary_block_sizes,
+            row_permutation=data.secondary_eq_perm,
+            col_permutation=data.secondary_var_perm,
+            block_sizes=data.secondary_block_sizes,
         )
 
         # A_sp * (A_ss)^-1, pre-computed because we will need it multiple times.
@@ -258,15 +195,15 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         # S_pp = A_pp - A_ps * (A_ss)^-1 * A_sp.
         S_pp = A_pp - A_ps_mul_Ass_inv @ A_sp
         # Modified right-hand side: rhs_p - A_sp * (A_ss)^-1 * rhs_s.
-        rhs_p = linear_system.rhs[self.primary_eq_dofs] - A_ps_mul_Ass_inv @ rhs_s
+        rhs_p = linear_system.rhs[data.primary_eq_dofs] - A_ps_mul_Ass_inv @ rhs_s
 
         # Solve for the primary block solution.
         sol_p, status = self.primary_linear_solver.solve_linear_system(
             LinearSystem(
                 matrix=S_pp,
                 rhs=rhs_p,
-                equation_indexer=self.primary_eq_indexer,
-                variable_indexer=self.primary_var_indexer,
+                equation_indexer=data.primary_eq_indexer,
+                variable_indexer=data.primary_var_indexer,
             )
         )
 
@@ -275,14 +212,14 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 
         # Concatenate the primary and the secondary solution blocks.
         solution = np.empty(len(sol_s) + len(sol_p), dtype=sol_s.dtype)
-        solution[self.primary_var_dofs] = sol_p
-        solution[self.secondary_var_dofs] = sol_s
+        solution[data.primary_var_dofs] = sol_p
+        solution[data.secondary_var_dofs] = sol_s
 
         return solution, _wrap_primary_solver_status(status, solve_time=time() - t0)
 
 
 def rearrange_matrix_as_array_of_structures(
-    eq_indexer: EquationIndexer, var_indexer: Indexer
+    eq_indexer: pp.ad.EquationIndexer, var_indexer: pp.ad.VariableIndexer
 ):
     """Build permutation indices that rearrange the matrix in a block-diagonal form.
 
@@ -312,18 +249,19 @@ def rearrange_matrix_as_array_of_structures(
         A tuple of 3 elements:
         - row_permutation: array to permute the columns of the matrix;
         - col_permutation: array to permute the rows of the matrix;
-        - num_blocks: the number of small blocks on the diagonal of the permuted matrix.
+        - block_sizes: the sizes `n` of small `(n x n)` blocks on the diagonal of the
+            permuted matrix.
 
     """
-    unique_grids_equations = {eq.domain for eq in eq_indexer.equation_dofs}
+    unique_grids_equations = {eq.domain for eq in eq_indexer.operators_to_dofs}
     unique_grids_variables = {var.domain for var in var_indexer.operators_to_dofs}
-    assert len(eq_indexer.equation_dofs) == len(var_indexer.operators_to_dofs)
+    assert len(eq_indexer.operators_to_dofs) == len(var_indexer.operators_to_dofs)
     assert unique_grids_equations == unique_grids_variables
 
     eq_dofs_by_grid: dict[pp.GridLike, list[np.ndarray]] = {
         grid: [] for grid in unique_grids_equations
     }
-    for eq, dofs in eq_indexer.equation_dofs.items():
+    for eq, dofs in eq_indexer.operators_to_dofs.items():
         eq_dofs_by_grid[eq.domain].append(dofs)
 
     var_dofs_by_grid: dict[pp.GridLike, list[np.ndarray]] = {
@@ -350,7 +288,10 @@ def rearrange_matrix_as_array_of_structures(
             )
 
     if bs == 0:
-        return np.empty(0), np.empty(0), bs
+        return np.empty(0, dtype=int), np.empty(0, dtype=int), np.empty(0, dtype=int)
+
+    assert var_indexer.num_dofs % bs == 0
+    block_sizes = np.full(var_indexer.num_dofs // bs, bs, dtype=np.int64)
 
     eq_dofs_by_grid_rearranged = [
         np.stack(dofs).ravel(order="F") for dofs in eq_dofs_by_grid.values()
@@ -361,8 +302,42 @@ def rearrange_matrix_as_array_of_structures(
     return (
         _concatenate_safe(eq_dofs_by_grid_rearranged),
         _concatenate_safe(var_dofs_by_grid_rearranged),
-        bs,
+        block_sizes,
     )
+
+
+@dataclass
+class _SchurComplementReductionData:
+    """Data structures needed for the Schur complement reduction algorithm."""
+
+    primary_eq_indexer: pp.ad.EquationIndexer
+    """Equation indexer of the primary submatrix."""
+    primary_var_indexer: pp.ad.VariableIndexer
+    """Variable indexer of the primary submatrix."""
+
+    primary_eq_dofs: np.ndarray
+    """Indices that map the full equations vector to the primary equations vector."""
+    primary_var_dofs: np.ndarray
+    """Indices that map the full variables vector to the primary variables vector."""
+    secondary_eq_dofs: np.ndarray
+    """Indices that map the full equations vector to the secondary equations vector."""
+    secondary_var_dofs: np.ndarray
+    """Indices that map the full variables vector to the secondary variables vector."""
+
+    secondary_eq_perm: np.ndarray
+    """Equations (rows) permutation of the secondary block to the block-diagonal form.
+
+    """
+    secondary_var_perm: np.ndarray
+    """Variables (columns) permutation of the secondary block to the block-diagonal
+    form.
+
+    """
+    secondary_block_sizes: np.ndarray
+    """Array with block sizes of each small dense square block on the permuted secondary
+    matrix diagonal.
+
+    """
 
 
 def _concatenate_safe(arrays: list[np.ndarray]) -> np.ndarray:
@@ -373,8 +348,8 @@ def _concatenate_safe(arrays: list[np.ndarray]) -> np.ndarray:
 
 
 def _wrap_primary_solver_status(
-    primary_solver_status: pp.solvers.LinearSolverStatus, solve_time: float
-) -> pp.solvers.LinearSolverStatus:
+    primary_solver_status: LinearSolverStatus, solve_time: float
+) -> LinearSolverStatus:
     """Wrap a primary linear solver status with a Schur complement solver status."""
     if primary_solver_status.is_success():
         return SchurComplementReductionStatusSuccess(
@@ -386,3 +361,43 @@ def _wrap_primary_solver_status(
             primary_solver_status=primary_solver_status,
             reason="primary linear solver failed",
         )
+
+
+def _filter_by_tags[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
+    all_operators: Collection[T], tags: Sequence[EquationTag | VariableTag]
+) -> tuple[list[T], list[T]]:
+    """Split atomic equations or variables into two groups: the one covered by `tags`
+    and its complement.
+
+    Parameters:
+        all_operators: Atomic variables or equations to split into groups.
+
+    Result:
+        Two groups of atomic variables or equations.
+
+    """
+    # Organizing tags by eq/var names. Multiple tags with a single name are allowed.
+    # E.g. pressure on wells and pressure not on wells.
+    tags_by_name: dict[str, list[EquationTag | VariableTag]] = defaultdict(list)
+    for tag in tags:
+        tags_by_name[tag.name].append(tag)
+
+    # Two groups.
+    filtered_operators: list[T] = []
+    not_filtered_operators: list[T] = []
+
+    for operator in all_operators:
+        tags_for_this_name = tags_by_name[operator.name]
+
+        if len(tags_for_this_name) == 0:
+            # No tags for this eq/var name. It goes to the second group.
+            not_filtered_operators.append(operator)
+
+        for tag in tags_by_name[operator.name]:
+            if tag.defined_on.filter(operator.domain):
+                filtered_operators.append(operator)
+            else:
+                not_filtered_operators.append(operator)
+
+    assert len(filtered_operators) + len(not_filtered_operators) == len(all_operators)
+    return filtered_operators, not_filtered_operators

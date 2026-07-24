@@ -128,7 +128,7 @@ class MockEquationSystem:
             matrix=csr_matrix(np.array([[1.0]])),
             rhs=np.array([1e-11]),
             equation_indexer=pp.ad.EquationIndexer(operators_to_dofs={}),
-            variable_indexer=pp.ad.Indexer(operators_to_dofs={}),
+            variable_indexer=pp.ad.VariableIndexer(operators_to_dofs={}),
         )
 
 

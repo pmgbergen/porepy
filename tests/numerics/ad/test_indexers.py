@@ -8,7 +8,6 @@ from porepy.numerics.ad.indexers import (
     EquationIndexer,
     EquationOnDomain,
     EquationSystemIndexer,
-    Indexer,
 )
 
 
@@ -47,7 +46,9 @@ def test_variable_indexer_projection(
 ) -> None:
     """Projection indices respect requested variable order."""
     x, y, _ = variables
-    indexer = Indexer(operators_to_dofs={x: np.array([0, 1]), y: np.array([2, 3, 4])})
+    indexer = pp.ad.VariableIndexer(
+        operators_to_dofs={x: np.array([0, 1]), y: np.array([2, 3, 4])}
+    )
 
     assert indexer.num_dofs == 5
     np.testing.assert_array_equal(
@@ -63,7 +64,7 @@ def test_variable_indexer_unknown_variable(
 ) -> None:
     """Variable indexer operations reject variables outside the indexer."""
     x, _, unknown = variables
-    indexer = Indexer(operators_to_dofs={x: np.array([0])})
+    indexer = pp.ad.VariableIndexer(operators_to_dofs={x: np.array([0])})
 
     with pytest.raises(ValueError, match="not known"):
         indexer.projection_indices([unknown])
@@ -76,7 +77,7 @@ def test_variable_indexer_restriction(
 ) -> None:
     """Restricted indexers are contiguous and follow requested variable order."""
     x, y, _ = variables
-    indexer = Indexer(
+    indexer = pp.ad.VariableIndexer(
         operators_to_dofs={x: np.array([4, 7]), y: np.array([10, 12, 13])}
     )
 
@@ -93,7 +94,7 @@ def test_variable_indexer_duplicate_restriction(
 ) -> None:
     """A restricted indexer cannot represent the same variable more than once."""
     x, _, _ = variables
-    indexer = Indexer(operators_to_dofs={x: np.array([0, 1])})
+    indexer = pp.ad.VariableIndexer(operators_to_dofs={x: np.array([0, 1])})
 
     with pytest.raises(ValueError, match="duplicate"):
         indexer.construct_restricted_indexer([x, x])
@@ -115,9 +116,7 @@ def test_equation_system_indexer_offsets(
         },
     }
 
-    indexer = EquationSystemIndexer(equation_image_space_composition=composition)
-
-    assert isinstance(indexer, EquationIndexer)
+    indexer = pp.ad.EquationSystemIndexer(equation_image_space_composition=composition)
 
     np.testing.assert_array_equal(
         indexer.equation_image_space_composition["equation_a"][first], [4, 1]
@@ -131,11 +130,13 @@ def test_equation_system_indexer_offsets(
         EquationOnDomain("equation_b", second),
         EquationOnDomain("equation_b", third),
     ]
-    assert list(indexer.equation_dofs) == expected_keys
-    np.testing.assert_array_equal(indexer.equation_dofs[expected_keys[0]], [0, 1])
-    np.testing.assert_array_equal(indexer.equation_dofs[expected_keys[1]], [2, 3, 4])
-    np.testing.assert_array_equal(indexer.equation_dofs[expected_keys[2]], [5])
-    np.testing.assert_array_equal(indexer.equation_dofs[expected_keys[3]], [6, 7])
+    assert list(indexer.operators_to_dofs) == expected_keys
+    np.testing.assert_array_equal(indexer.operators_to_dofs[expected_keys[0]], [0, 1])
+    np.testing.assert_array_equal(
+        indexer.operators_to_dofs[expected_keys[1]], [2, 3, 4]
+    )
+    np.testing.assert_array_equal(indexer.operators_to_dofs[expected_keys[2]], [5])
+    np.testing.assert_array_equal(indexer.operators_to_dofs[expected_keys[3]], [6, 7])
 
 
 def test_equation_indexer_restriction(
@@ -157,34 +158,36 @@ def test_equation_indexer_restriction(
         [equation_b_second, equation_b_third, equation_a_second]
     )
 
-    assert list(restricted.equation_dofs) == [
+    assert list(restricted.operators_to_dofs) == [
         equation_b_second,
         equation_b_third,
         equation_a_second,
     ]
     np.testing.assert_array_equal(
-        restricted.equation_dofs[equation_b_second], np.arange(1)
+        restricted.operators_to_dofs[equation_b_second], np.arange(1)
     )
     np.testing.assert_array_equal(
-        restricted.equation_dofs[equation_b_third], np.arange(1, 3)
+        restricted.operators_to_dofs[equation_b_third], np.arange(1, 3)
     )
     np.testing.assert_array_equal(
-        restricted.equation_dofs[equation_a_second], np.arange(3, 6)
+        restricted.operators_to_dofs[equation_a_second], np.arange(3, 6)
     )
 
 
 def test_empty_indexers() -> None:
     """Indexers support empty systems and restrictions."""
-    variable_indexer = Indexer(operators_to_dofs={})
+    variable_indexer = pp.ad.VariableIndexer(operators_to_dofs={})
     restricted_indexer = variable_indexer.construct_restricted_indexer([])
-    equation_indexer = EquationIndexer(operators_to_dofs={})
-    equation_system_indexer = EquationSystemIndexer(equation_image_space_composition={})
+    equation_indexer = pp.ad.EquationIndexer(operators_to_dofs={})
+    equation_system_indexer = pp.ad.EquationSystemIndexer(
+        equation_image_space_composition={}
+    )
 
     assert variable_indexer.num_dofs == 0
     assert variable_indexer.operators_to_dofs == {}
     assert variable_indexer.projection_indices([]).size == 0
     assert restricted_indexer.num_dofs == 0
     assert restricted_indexer.operators_to_dofs == {}
-    assert equation_indexer.equation_dofs == {}
-    assert equation_system_indexer.equation_dofs == {}
+    assert equation_indexer.operators_to_dofs == {}
+    assert equation_system_indexer.operators_to_dofs == {}
     assert equation_system_indexer.equation_image_space_composition == {}
