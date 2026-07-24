@@ -102,8 +102,33 @@ T_INIT = 423.15                   # K, constant IC
 
 
 # --------------------------------------------------------------------------------------- #
-#  Fast uniform-grid bilinear table (xph / xpt are RectilinearGrid, uniform axes)
+#  Fast rectilinear-grid bilinear table (xph / xpt are RectilinearGrid; axes may be non-uniform)
 # --------------------------------------------------------------------------------------- #
+def _is_uniform(x):
+    """True if the 1-D axis ``x`` is (float-)uniformly spaced. A 2-node stub counts as uniform. The
+    1e-6*range tolerance cleanly separates a float32-rounded uniform axis (interval jitter ~1e-9) from
+    an intentionally graded one (interval jitter ~ the refinement ratio)."""
+    if len(x) < 3:
+        return True
+    d = np.diff(x)
+    return bool(np.max(np.abs(d - d[0])) <= 1e-6 * abs(x[-1] - x[0]))
+
+
+def _bracket(v, coords, v0, dv, n, uniform):
+    """Lower index, upper index, and in-cell fraction for a monotone-increasing axis at query points
+    ``v`` (same units as the axis). ``uniform``: the original O(1) (v - v0)/dv bracketing -- bit-
+    identical to the pre-non-uniform sampler and faster. Else: searchsorted on the stored ``coords``
+    (arbitrary spacing). Both clamp the fraction so out-of-range points constant-extrapolate."""
+    if uniform:
+        f = ((v - v0) / dv).clip(0.0, n - 1 - 1e-9)
+        j = f.astype(np.intp)
+        return j, j + 1, f - j
+    j = np.clip(np.searchsorted(coords, v, side="right") - 1, 0, n - 2)
+    j1 = j + 1
+    t = ((v - coords[j]) / (coords[j1] - coords[j])).clip(0.0, 1.0)
+    return j, j1, t
+
+
 class Table:
     """O(1) vectorised bilinear sampler of a Driesner VTK table on the z_NaCl=0 slice.
 
@@ -118,7 +143,7 @@ class Table:
         self.slice_z = bool(slice_z)
         # mtime in the key -> regenerating a .vtr in place invalidates its .npz cache
         key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
-               + f"|{a_in}|{b_in}|{c_in}|slice{int(self.slice_z)}|cnu2|{os.path.getmtime(file_name):.0f}")
+               + f"|{a_in}|{b_in}|{c_in}|slice{int(self.slice_z)}|abcnu2|{os.path.getmtime(file_name):.0f}")
         cache = file_name + ".sicache.npz"
         if not (os.path.exists(cache) and self._load(cache, key)):
             self._build(file_name, fields, a_in, b_in, c_in, key, cache)
@@ -137,7 +162,12 @@ class Table:
             for s in ("a0", "da", "b0", "db", "c0", "dc", "a_in", "b_in", "c_in",
                       "a_min", "a_max", "b_min", "b_max", "c_min", "c_max"):
                 setattr(self, s, float(z[s]))
+            self.a_coords = np.asarray(z["a_coords"], float)
+            self.b_coords = np.asarray(z["b_coords"], float)
             self.c_coords = np.asarray(z["c_coords"], float)
+            self.a_uniform = bool(int(z["a_uniform"]))
+            self.b_uniform = bool(int(z["b_uniform"]))
+            self.c_uniform = bool(int(z["c_uniform"]))
             self.V = {str(n): z["V_" + str(n)] for n in z["names"]}
             return True
         except Exception:
@@ -153,7 +183,12 @@ class Table:
         self.a0, self.da = float(a[0]), float(a[1] - a[0])
         self.b0, self.db = float(b[0]), float(b[1] - b[0])
         self.c0 = float(c[0]); self.dc = float(c[1] - c[0]) if nx > 1 else 1.0
+        self.a_coords = np.asarray(a, float)               # full h/T-axis nodes (may be non-uniform)
+        self.b_coords = np.asarray(b, float)               # full p-axis nodes   (may be non-uniform)
         self.c_coords = np.asarray(c, float)               # full z-axis nodes: NON-uniform (salinity)
+        self.a_uniform = _is_uniform(self.a_coords)        # h/p are uniform today -> exact (v-v0)/dv path
+        self.b_uniform = _is_uniform(self.b_coords)        # a user-graded table trips searchsorted instead
+        self.c_uniform = _is_uniform(self.c_coords)        # salinity is graded -> searchsorted (as before)
         self.a_in, self.b_in, self.c_in = float(a_in), float(b_in), float(c_in)
         self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
         self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
@@ -167,7 +202,9 @@ class Table:
                "c0": self.c0, "dc": self.dc, "a_in": self.a_in, "b_in": self.b_in,
                "c_in": self.c_in, "a_min": self.a_min, "a_max": self.a_max,
                "b_min": self.b_min, "b_max": self.b_max, "c_min": self.c_min,
-               "c_max": self.c_max, "c_coords": self.c_coords,
+               "c_max": self.c_max, "a_coords": self.a_coords, "b_coords": self.b_coords,
+               "c_coords": self.c_coords, "a_uniform": int(self.a_uniform),
+               "b_uniform": int(self.b_uniform), "c_uniform": int(self.c_uniform),
                "names": np.array(list(self.V.keys()))}
         out.update({"V_" + n: A for n, A in self.V.items()})
         try:
@@ -177,25 +214,21 @@ class Table:
 
     def sample_many(self, a, b, c=0.0):
         """Interpolate ALL stored fields at (a=h/T, b=p, [c=z_NaCl]) with one stacked gather.
-        2-D bilinear on the z=0 slice when ``slice_z``; else 3-D trilinear (``c`` = salinity)."""
+        2-D bilinear on the z=0 slice when ``slice_z``; else 3-D trilinear (``c`` = salinity). Each
+        axis is bracketed by :func:`_bracket` -- the exact (v-v0)/dv path when it is uniformly spaced,
+        searchsorted when it is graded -- so non-uniform h / p / z tables interpolate correctly while
+        uniform tables give the same result as before."""
         a = np.atleast_1d(np.asarray(a, float)) * self.a_in
         b = np.atleast_1d(np.asarray(b, float)) * self.b_in
-        fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
-        fb = ((b - self.b0) / self.db).clip(0.0, self.nz - 1 - 1e-9)
-        ja = fa.astype(np.intp); jb = fb.astype(np.intp)
-        ta = fa - ja; tb = fb - jb
-        ja1 = ja + 1; jb1 = jb + 1
+        ja, ja1, ta = _bracket(a, self.a_coords, self.a0, self.da, self.ny, self.a_uniform)  # h/T axis
+        jb, jb1, tb = _bracket(b, self.b_coords, self.b0, self.db, self.nz, self.b_uniform)  # p axis
         Vs = self.V_stack
         if self.slice_z:
             vals = ((1 - ta) * (1 - tb) * Vs[:, jb, ja] + ta * (1 - tb) * Vs[:, jb, ja1]
                     + (1 - ta) * tb * Vs[:, jb1, ja] + ta * tb * Vs[:, jb1, ja1])   # (nf, N)
             return {n: vals[i] for i, n in enumerate(self.names)}
         c = np.broadcast_to(np.atleast_1d(np.asarray(c, float)) * self.c_in, a.shape)
-        # z (salinity) axis is NON-uniform (fine near 0, coarse to 1) -> searchsorted, not (c-c0)/dc.
-        cc = self.c_coords
-        jc = np.clip(np.searchsorted(cc, c, side="right") - 1, 0, self.nx - 2)
-        jc1 = jc + 1
-        tc = ((c - cc[jc]) / (cc[jc1] - cc[jc])).clip(0.0, 1.0)   # clamp handles below/above range
+        jc, jc1, tc = _bracket(c, self.c_coords, self.c0, self.dc, self.nx, self.c_uniform)  # salinity
         ma, mb, mc = 1 - ta, 1 - tb, 1 - tc                      # Vs axes: (field, p, h, z)
         vals = (ma * mb * mc * Vs[:, jb, ja, jc] + ta * mb * mc * Vs[:, jb, ja1, jc]
                 + ma * tb * mc * Vs[:, jb1, ja, jc] + ta * tb * mc * Vs[:, jb1, ja1, jc]
