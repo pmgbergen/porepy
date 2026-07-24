@@ -84,7 +84,7 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
             operators: Input for which the subspace is requested.
 
         Raises:
-            ValueError: If the requested variable is not known to this indexer.
+            ValueError: If the requested operator is not known to this indexer.
 
         Returns:
             an index array of `shape=(M,)`, where `0 <= M <= size`.
