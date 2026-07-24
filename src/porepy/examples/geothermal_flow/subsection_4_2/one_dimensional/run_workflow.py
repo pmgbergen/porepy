@@ -41,10 +41,12 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)                             # so the sibling modules import from anywhere
 
+import fig_weis_common as C                            # noqa: E402  (shared cache dir + scheme sweep)
 import fig_weis_reference as FR                       # noqa: E402  (1-D convergence figure)
-import fig_weis_profiles as FP                        # noqa: E402  (1-D profiles + reference caches)
+import fig_weis_fig_4 as F4                            # noqa: E402  (Fig 4: single-phase, weis 1-D)
+import fig_weis_fig_5 as F5                            # noqa: E402  (Fig 5: two-phase profiles)
+import fig_weis_fig_6 as F6                            # noqa: E402  (Fig 6: brine + immobile halite)
 import fig_weis_verification as FV                    # noqa: E402  (2-D-on-1-D overlay, cache-only)
-import fig_weis_single_phase as FS                    # noqa: E402  (single-phase figure, cache-only)
 import plot_style as PS                               # noqa: E402  (shared savefig; --pdf toggle)
 
 PY = sys.executable                                   # reuse the invoking (porepy-env) interpreter
@@ -62,9 +64,9 @@ def _sandbox_outputs(root):
     cache, figs = os.path.join(root, "_cache"), os.path.join(root, "figures")
     os.makedirs(cache, exist_ok=True)
     os.makedirs(figs, exist_ok=True)
-    for mod in (FR, FP, FV):
+    for mod in (FR, FV):
         mod.CACHE_DIR, mod.OUT_DIR = cache, figs
-    FS.CACHE_DIR, FS.FIG_DIR = cache, figs
+    C.CACHE_DIR, C.OUT_DIR = cache, figs               # shared by fig_weis_fig_{4,5,6}
     return cache, figs
 
 
@@ -83,15 +85,14 @@ def stage_reference(quick, parallel):
     FR.plot(sp, ob)
 
 
-def stage_profiles(quick, parallel):
-    """1-D converged profiles of PPU/HU/HU-mwp; also writes _cache/profiles_* for the overlay."""
-    if quick:                                          # small N + capped integration (smoke, not physics)
-        out = FP.compute(N=100, n_steps=40, parallel=parallel)
-        extra = FP.compute_extra(N=50)
-    else:
-        out = FP.compute(parallel=parallel)
-        extra = FP.compute_extra()
-    FP.plot(out, extra_vertical=extra)
+def stage_fig5(quick, parallel):
+    """Figure 5 -- two-phase pure-water profiles, PPU/HU/HU-mwp at z=0 + digitized reference."""
+    F5.plot(F5.compute(N=100 if quick else F5.N, parallel=parallel))
+
+
+def stage_fig6(quick, parallel):
+    """Figure 6 -- H2O-NaCl brine: pure-water and salt (+ immobile halite) columns, PPU/HU/HU-mwp."""
+    F6.plot(F6.compute(N=60 if quick else F6.N, parallel=parallel))
 
 
 def stage_porepy(orientations, schemes, no_cache):
