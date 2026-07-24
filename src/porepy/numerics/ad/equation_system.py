@@ -932,7 +932,7 @@ class EquationSystem:
             variables = self._parse_variable_type(variables, ordered=True)
             # Array for the indices associated with argument.
             # The ordering is preserved in variable_indexer.
-            indices = self.variable_indexer.projection_indices(variables=variables)
+            indices = self.variable_indexer.projection_indices(operators=variables)
             # case where no dofs where found for the VariableType input
             if len(indices) == 0:
                 return sps.csr_matrix((0, num_dofs))

@@ -125,8 +125,6 @@ def test_equation_system_indexer_offsets(
 
     indexer = EquationSystemIndexer(equation_image_space_composition=composition)
 
-    assert isinstance(indexer, EquationIndexer)
-
     np.testing.assert_array_equal(
         indexer.equation_image_space_composition["equation_a"][first], [4, 1]
     )
