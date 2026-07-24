@@ -1289,9 +1289,9 @@ def test_domain_restricted_assembly_has_local_equation_indices(
     assert linear_system.matrix.shape[0] == local_rows.size
 
     assembled_indexer = linear_system.equation_indexer
-    assert isinstance(assembled_indexer, pp.ad.EquationIndexer)
+    assert isinstance(assembled_indexer, pp.ad.Indexer)
     np.testing.assert_array_equal(
-        assembled_indexer.equation_dofs[
+        assembled_indexer.operators_to_dofs[
             pp.ad.EquationOnDomain(name=equation.name, domain=domain)
         ],
         local_rows,
