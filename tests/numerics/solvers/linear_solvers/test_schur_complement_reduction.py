@@ -200,6 +200,7 @@ def test_solve_delegates_when_secondary_block_is_empty(
     primary_status = pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)
     expected_solution = np.array([1.0, -1.0, 2.0, 3.0])
     primary_solver = MockPrimaryLinearSolver(expected_solution, primary_status)
+    linear_system = linear_system_data.linear_system
     equation_tags = [
         pp.solvers.EquationTag(equation.name)
         for equation in linear_system_data.linear_system.equation_indexer.indices
