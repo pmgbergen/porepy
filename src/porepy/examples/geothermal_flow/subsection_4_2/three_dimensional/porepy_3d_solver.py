@@ -532,10 +532,10 @@ def _attach_samplers(model) -> None:
     (the IC samples the ptz table), i.e. before constructing the ``ModelRunner``.
     """
     Sampler = NSplineSampler if USE_SPLINE else VTKSampler
-    phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}_grads.vtr"))
+    phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
     model.obl_sampler = phz
-    ptz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}_grads.vtr"))
+    ptz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}.vtr"))
     ptz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, t, p)
     ptz.translation_factors = (0.0, -273.15, 0.0)            # T in degC -> K in the sampler
     model.obl_sampler_ptz = ptz
