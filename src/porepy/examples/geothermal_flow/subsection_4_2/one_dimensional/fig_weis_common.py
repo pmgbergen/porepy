@@ -143,15 +143,18 @@ def scheme_handles():
             for sk in ps.SCHEMES]
 
 
-def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title="total it."):
+def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title="total it.", extra=None):
     """Small in-panel key with this CASE's Newton-iteration count per scheme: just the coloured line
     and the number (the scheme names live in the shared bottom legend). Counts differ by orientation
     / pressure level, so they belong to the panel. ``title`` doubles as a caption (Fig 4 puts its
-    pressure level + time there)."""
+    pressure level + time there). ``extra`` = optional [(colour, count), ...] appended (Fig 5's
+    PPU-Weis curve)."""
     from matplotlib.lines import Line2D
     schemes = [sk for sk in ps.SCHEMES if sk in results]
     h = [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=2.2) for sk in schemes]
     lab = [fr"${int(results[sk]['total_it'])}$" for sk in schemes]
+    for color, count in (extra or []):
+        h.append(Line2D([0], [0], color=color, lw=2.2)); lab.append(fr"${int(count)}$")
     leg = ax.legend(h, lab, loc=loc, fontsize=fontsize, frameon=True, fancybox=True, framealpha=0.9,
                     edgecolor="0.7", borderpad=0.3, handlelength=0.9, handletextpad=0.4,
                     labelspacing=0.2, title=title, title_fontsize=fontsize)

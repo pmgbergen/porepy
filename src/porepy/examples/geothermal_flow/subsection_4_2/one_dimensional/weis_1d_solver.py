@@ -64,6 +64,13 @@ def table_paths(level=TABLE_LEVEL):
 
 VTK_XPH, VTK_XPT = table_paths()      # default-level table paths (used by selftest)
 
+# High-resolution PURE-WATER (z=0) Driesner tables: same field schema, units, and (h, p) ranges as the
+# opensowat brine tables, but ~6x finer in enthalpy (1000 vs 160 h-nodes). Used for the Fig-6 pure-water
+# column, where the coarse brine h-grid produces spurious wiggles in the two-phase liquid saturation.
+# Not level-indexed; the composition axis is a 2-node [0, 1e-5] stub, i.e. the z=0 slice.
+PUREWATER_XPH = os.path.join(VTK_DIR, "purewater_xph.vtr")
+PUREWATER_XPT = os.path.join(VTK_DIR, "purewater_xpt.vtr")
+
 G = 9.80665           # gravity [m/s^2]
 K_PERM = 1.0e-15      # permeability [m^2]
 PHI = 0.1             # porosity
@@ -605,11 +612,14 @@ FIG5 = dict(p_left=P_BOT, T_left=T_BOT, z_left=0.0,
 
 def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adaptive=True,
               verbose=True, grav_upstream=False, weighted_perm=False, lag_upwind=False,
-              level=TABLE_LEVEL, **fig):
+              level=TABLE_LEVEL, pure_water=False, atol=1e-5, **fig):
     """The single brine engine: mass + salt + energy, primaries [p, h, z], HU/PPU/HU-mwp buoyancy.
     Reproduces Fig 4/5 (pure water) at z=0 and Fig 6 (H2O-NaCl + immobile halite) at z>0 -- ONE
     discretization. ``case`` ('horizontal'|'vertical') sets gravity + default final time via CASES;
-    ``**fig`` overrides the BC/IC (defaults = FIG6, the salt column). Pass ``**FIG5`` for pure water."""
+    ``**fig`` overrides the BC/IC (defaults = FIG6, the salt column). Pass ``**FIG5`` for pure water.
+    ``pure_water=True`` loads the high-resolution z=0 pure-water tables (finer enthalpy grid) instead of
+    the level-indexed brine tables -- for the Fig-6 pure-water column, where the coarse brine h-grid
+    produces spurious two-phase saturation wiggles; the run itself is still at z=0."""
     if case not in CASES:
         raise ValueError(f"case must be one of {list(CASES)}")
     if weighted_perm and scheme == "ppu":
@@ -617,9 +627,14 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     cfg = {**FIG6, **fig}
     g = CASES[case]["g"]
     tf_yr = fig["tf_yr"] if "tf_yr" in fig else CASES[case]["tf_yr"]
-    xph_path, xpt_path = table_paths(level)
-    table = Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
-    xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
+    # pure_water: the fine z=0 tables, sampled as the 2-D z=0 slice (slice_z=True); else the 3-D brine
+    # tables at the requested level. Field schema/units are identical, so _XPH_FIELDS_BRINE is reused.
+    if pure_water:
+        xph_path, xpt_path, sz = PUREWATER_XPH, PUREWATER_XPT, True
+    else:
+        xph_path, xpt_path = table_paths(level); sz = False
+    table = Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=sz)
+    xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=sz)
     geom = make_geom(N, g=g)
 
     def enth(TK, p, z):
@@ -641,7 +656,8 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     tf = tf_yr * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0; n_cuts = 0; it_wasted = 0; nit_hist = []
     if verbose:
-        print(f"  brine {scheme}{'-mwp' if weighted_perm else ''}: N={N}, level {level}, {case} "
+        print(f"  brine {scheme}{'-mwp' if weighted_perm else ''}: N={N}, "
+              f"level {'pw' if pure_water else level}, {case} "
               f"(g={g:.4g});  left {cfg['T_left']-273.15:.0f}C/{cfg['p_left']/1e6:.0f}MPa "
               f"z={cfg['z_left']}  ->  right {cfg['T_right']-273.15:.0f}C/{cfg['p_right']/1e6:.0f}MPa;"
               f"  IC z={cfg['z_init']}")
@@ -649,8 +665,8 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
         dt = min(dt, tf - t)
         x_old = x.copy()
         xn, nit, nrm, ok = newton_step_brine(x, x_old, dt, geom, table, bleft, bright, scheme, plan,
-                                             grav_upstream=grav_upstream, weighted_perm=weighted_perm,
-                                             lag_upwind=lag_upwind)
+                                             atol=atol, grav_upstream=grav_upstream,
+                                             weighted_perm=weighted_perm, lag_upwind=lag_upwind)
         if not ok and dt > dt0 / 64:
             n_cuts += 1; it_wasted += nit; dt *= 0.5; continue
         x = xn; t += dt; step += 1; nit_hist.append(nit)
@@ -671,7 +687,8 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
             "avg_it": (hist.sum() / step) if step else 0.0,
             "max_it": int(hist.max()) if hist.size else 0, "n_time_step_cuts": n_cuts,
             "it_wasted": it_wasted, "nit_hist": hist,
-            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "lag_upwind": lag_upwind}
+            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "lag_upwind": lag_upwind,
+            "pure_water": pure_water}
 
 
 # --------------------------------------------------------------------------------------- #
@@ -730,9 +747,14 @@ def selftest():
     print("  selftest passed\n")
 
 
-def prebuild_table_caches(level=TABLE_LEVEL):
-    """Build the ``.npz`` caches for the xph/xpt brine tables at ``level`` serially, so that a
-    subsequent parallel sweep of :func:`run_brine` hits the fast cache path in every worker."""
+def prebuild_table_caches(level=TABLE_LEVEL, pure_water=False):
+    """Build the ``.npz`` caches for the xph/xpt tables serially, so that a subsequent parallel sweep
+    of :func:`run_brine` hits the fast cache path in every worker (else workers race on the npz write).
+    ``pure_water=True`` warms the fine pure-water z=0 tables instead of the level-indexed brine ones."""
+    if pure_water:
+        Table(PUREWATER_XPH, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=True)
+        Table(PUREWATER_XPT, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=True)
+        return
     xph_path, xpt_path = table_paths(level)
     Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
     Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
