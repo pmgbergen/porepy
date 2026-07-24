@@ -62,8 +62,8 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     x_s = (A_ss)^-1 * (b_s - A_sp * x_p)
     ```
 
-    The implementation assumes that the shape of the block matrix won't change between
-    subsequent linear systems.
+    The implementation assumes that the shape and arrangement of the block matrix won't
+    change between subsequent linear systems.
 
     Parameters:
         primary_equation_tags: Tags that define primary equations (rows).
@@ -91,6 +91,9 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         self._data: _SchurComplementReductionData | None = None
         """The indices arrays needed for the algorithm to operate. Initialized lazily in
         :meth:`_initialize_data` the first time :meth:`solve_linear_system` is invoked.
+
+        It assumes that the arrangement in the linear system does not change between
+        iterations.
 
         """
 
@@ -391,5 +394,15 @@ def _filter_by_tags[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
             else:
                 not_filtered_operators.append(operator)
 
+    # Bad tags can lead to duplicated operators.
+    if len(filtered_operators) + len(not_filtered_operators) != len(all_operators):
+        count: dict[T, int] = {op: 0 for op in all_operators}
+
+        for operator in filtered_operators + not_filtered_operators:
+            count[operator] += 1
+
+        raise ValueError(
+            f"Duplicated operators: {[op for op, i in count.items() if i > 1]}"
+        )
     assert len(filtered_operators) + len(not_filtered_operators) == len(all_operators)
     return filtered_operators, not_filtered_operators

@@ -11,7 +11,7 @@ code, particularly in tests.
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import porepy as pp
@@ -21,11 +21,13 @@ __all__ = [
     "VariableTag",
     "DefaultEquationTags",
     "DefaultVariableTags",
+    "DomainFilter",
+    "Anywhere",
 ]
 
 
 @dataclass(frozen=True)
-class DomainFilter:
+class DomainFilter(ABC):
     """A filter to restrict domains of a variable or an equation.
 
     Used in :class:`EquationTag` and :class:`VariableTag`."""
