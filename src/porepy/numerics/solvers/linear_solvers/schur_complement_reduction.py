@@ -133,8 +133,8 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         )
 
     def initialize_with_model(self, model: pp.PorePyModel) -> None:
-        """It does not need initialization by itself, but the inner linear solver might
-        need it. TODO YZ: Test it."""
+        """SchurComplementReductionLinearSolver does not need initialization by itself,
+        but the inner linear solver might need it."""
         return self.primary_linear_solver.initialize_with_model(model)
 
     def solve_linear_system(
@@ -383,26 +383,18 @@ def _filter_by_tags[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
 
     for operator in all_operators:
         tags_for_this_name = tags_by_name[operator.name]
-
-        if len(tags_for_this_name) == 0:
-            # No tags for this eq/var name. It goes to the second group.
+        matching_tags = [
+            tag
+            for tag in tags_for_this_name
+            if tag.defined_on.filter(operator.domain)
+        ]
+        if len(matching_tags) > 1:
+            # Overlapping tags would place the operator in the filtered group more than
+            # once.
+            raise ValueError(f"Duplicated operators: [{operator}]")
+        if len(matching_tags) == 1:
+            filtered_operators.append(operator)
+        else:
             not_filtered_operators.append(operator)
 
-        for tag in tags_by_name[operator.name]:
-            if tag.defined_on.filter(operator.domain):
-                filtered_operators.append(operator)
-            else:
-                not_filtered_operators.append(operator)
-
-    # Bad tags can lead to duplicated operators.
-    if len(filtered_operators) + len(not_filtered_operators) != len(all_operators):
-        count: dict[T, int] = {op: 0 for op in all_operators}
-
-        for operator in filtered_operators + not_filtered_operators:
-            count[operator] += 1
-
-        raise ValueError(
-            f"Duplicated operators: {[op for op, i in count.items() if i > 1]}"
-        )
-    assert len(filtered_operators) + len(not_filtered_operators) == len(all_operators)
     return filtered_operators, not_filtered_operators
