@@ -28,8 +28,25 @@ OUT_DIR = os.path.join(m.HERE, "figures")
 # Reference band + pressure line styling, shared so the three figures read as one set.
 P_LS = (0, (4, 2))                                   # pressure dashed against solid temperature
 WEIS_T, WEIS_P = "#8B0000", "#00008B"                # reference / axis colours: dark red T, dark blue p
-WEIS_T_LIGHT, WEIS_P_LIGHT, WEIS_S_LIGHT = "#F0A8A8", "#A6AEF0", "0.78"   # thick light reference band
-REF_LW = 3.4
+WEIS_S = "0.35"                                      # reference saturation: dark grey
+# The Weis (2014) digitized reference is a thin continuous line with sparse open markers (so it reads
+# as data over the model curves, not a heavy band).
+REF_LW = 1.0
+REF_MS = 3.6
+REF_NMARK = 14                                       # ~this many markers along each reference curve
+
+
+def _ref_plot(ax, ref, color, marker, ls, zorder=2):
+    x, v = ref
+    ax.plot(x, v, color=color, ls=ls, lw=REF_LW, marker=marker, mfc="none", mec=color, ms=REF_MS,
+            mew=0.8, markevery=max(1, len(x) // REF_NMARK), zorder=zorder)
+
+
+def ref_legend_handle():
+    """Neutral legend proxy for the Weis reference (thin line + open marker)."""
+    from matplotlib.lines import Line2D
+    return Line2D([0], [0], color="0.3", lw=REF_LW, marker="o", mfc="none", mec="0.3", ms=REF_MS,
+                  label=r"Weis et al.\ (2014)")
 
 _KEEP = ("y", "T", "p", "s_liq", "s_halite", "Xl", "total_it", "avg_it", "n_time_step_cuts")
 
@@ -105,14 +122,51 @@ def ref_csv(name):
     return x[o], v[o]
 
 
+def scheme_totals(panels):
+    """Total Newton iterations per scheme, summed over the figure's panels. ``panels`` is a list of
+    ``{scheme_key: result}`` dicts (``None`` panels skipped). Also prints the tally."""
+    totals = {sk: 0 for sk in ps.SCHEMES}
+    for d in panels:
+        if d is None:
+            continue
+        for sk, r in d.items():
+            totals[sk] = totals.get(sk, 0) + int(r.get("total_it", 0))
+    print("[iterations] " + "  ".join(f"{sk}={totals[sk]}" for sk in ps.SCHEMES), flush=True)
+    return totals
+
+
+def scheme_handles():
+    """One legend handle per scheme -- coloured, labelled with the scheme name (no counts; the counts
+    live per panel via :func:`iteration_legend`, since they differ across simulation cases)."""
+    from matplotlib.lines import Line2D
+    return [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=1.8, label=ps.SCHEMES[sk]["label"])
+            for sk in ps.SCHEMES]
+
+
+def iteration_legend(ax, results, loc="center right", fontsize=8.5, title="iterations"):
+    """Small in-panel key with this CASE's Newton-iteration count per scheme (counts differ by
+    orientation / pressure level, so they belong to the panel, not the shared bottom legend). The
+    ``title`` doubles as a per-panel caption (Fig 4 puts its pressure level + time there)."""
+    from matplotlib.lines import Line2D
+    schemes = [sk for sk in ps.SCHEMES if sk in results]
+    h = [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=1.8) for sk in schemes]
+    lab = [fr"{ps.SCHEMES[sk]['label']}: ${int(results[sk]['total_it'])}$" for sk in schemes]
+    leg = ax.legend(h, lab, loc=loc, fontsize=fontsize, frameon=True, fancybox=True, framealpha=0.9,
+                    edgecolor="0.7", borderpad=0.4, handlelength=1.1, labelspacing=0.3,
+                    title=title, title_fontsize=fontsize)
+    leg.get_frame().set_boxstyle("round,pad=0.25,rounding_size=0.3")
+    ax.add_artist(leg)
+    return leg
+
+
 def draw_tp(ax_tp, ax_p, results, ref_T=None, ref_p=None, label_it=True):
     """Draw the temperature(left)+pressure(right, dashed) panel: the light reference band underneath,
     then the three scheme curves. ``results`` = {scheme_key: result}. Returns the (handles, labels)
     for a scheme legend (saturation-panel style: colour + iteration count)."""
     if ref_T is not None:
-        ax_tp.plot(*ref_T, color=WEIS_T_LIGHT, ls="-", lw=REF_LW, zorder=1)
+        _ref_plot(ax_tp, ref_T, WEIS_T, "o", "-")
     if ref_p is not None:
-        ax_p.plot(*ref_p, color=WEIS_P_LIGHT, ls=P_LS, lw=REF_LW, zorder=1)
+        _ref_plot(ax_p, ref_p, WEIS_P, "^", P_LS)
     handles, labels = [], []
     from matplotlib.lines import Line2D
     for sk in ps.SCHEMES:
@@ -131,7 +185,7 @@ def draw_s(ax_s, results, ref_s=None, halite=False):
     """Draw the liquid-saturation panel (light reference band + three scheme curves). If ``halite``,
     a dashed halite-saturation twin is added when any scheme carries s_halite > 0."""
     if ref_s is not None:
-        ax_s.plot(*ref_s, color=WEIS_S_LIGHT, ls="-", lw=REF_LW, zorder=1)
+        _ref_plot(ax_s, ref_s, WEIS_S, "s", "-")
     ax_h = None
     for sk in ps.SCHEMES:
         if sk not in results:

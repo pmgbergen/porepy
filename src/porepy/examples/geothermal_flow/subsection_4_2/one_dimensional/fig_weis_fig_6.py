@@ -56,7 +56,8 @@ def plot(out, stem="fig_weis_fig_6"):
         res = out[col]
         ax_tp.set_title(title)
         ax_tp.set_xlim(0.0, 2.0)
-        ps.panel_tag(ax_tp, tags[0][j]); ps.panel_tag(ax_s, tags[1][j])
+        ps.panel_tag(ax_tp, tags[0][j], loc=(0.04, 0.09), va="bottom")
+        ps.panel_tag(ax_s, tags[1][j])
         ax_h = None
         if res is None:                                  # salt solve not available -> placeholder
             for ax in (ax_tp, ax_s):
@@ -64,16 +65,14 @@ def plot(out, stem="fig_weis_fig_6"):
                         va="center", fontsize=10, color="0.55", style="italic")
         else:
             # Fig-6 reference CSVs are not digitized yet -> ref_csv returns None -> no band drawn
-            h, lab = C.draw_tp(ax_tp, ax_p, res,
-                               ref_T=C.ref_csv(f"fig_6_{col}_temperature_raw.csv"),
-                               ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
+            C.draw_tp(ax_tp, ax_p, res,
+                      ref_T=C.ref_csv(f"fig_6_{col}_temperature_raw.csv"),
+                      ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
             ax_h = C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_6_{col}_saturation_liq_raw.csv"),
                             halite=(col == "salt"))
-            ax_tp.text(0.5, 0.06, "reference: to add", transform=ax_tp.transAxes, ha="center",
-                       fontsize=6.5, color="0.55", style="italic")
-            key = ax_s.legend(h, lab, loc="center right", fontsize=7, frameon=True, fancybox=True,
-                              framealpha=1.0, edgecolor="0.6", borderpad=0.4, handlelength=1.4)
-            key.get_frame().set_boxstyle("round,pad=0.25,rounding_size=0.3")
+            C.iteration_legend(ax_s, res, loc="center right")   # this case's per-scheme iterations
+            ax_tp.text(0.5, 0.9, "reference: to add", transform=ax_tp.transAxes, ha="center",
+                       fontsize=7, color="0.55", style="italic")
         # left column: T / s_liq axes; right column: p (+ halite) axes
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
@@ -89,11 +88,12 @@ def plot(out, stem="fig_weis_fig_6"):
                 ax_h.set_ylabel(r"Halite saturation $[-]$")
         ax_s.set_xlabel(ps.DIST_LABEL)
 
-    style = [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-             Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
-             Line2D([0], [0], color="black", ls=(0, (1, 1)), label=r"halite sat.")]
+    handles = C.scheme_handles() + [
+        Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
+        Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
+        Line2D([0], [0], color="black", ls=(0, (1, 1)), label=r"halite sat.")]
     fig.tight_layout()
-    ps.bottom_legend(fig, style, [s.get_label() for s in style], ncol=3)
+    ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=3)
     ps.savefig(fig, stem, C.OUT_DIR)
 
 

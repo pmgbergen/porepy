@@ -60,17 +60,23 @@ def apply_style(usetex=True):
         "font.family": "serif",
         "font.serif": ["Computer Modern Roman", "Times New Roman", "DejaVu Serif"],
         "mathtext.fontset": "cm",
-        "font.size": 9, "axes.labelsize": 9, "axes.titlesize": 9.5,
-        "legend.fontsize": 7.5, "xtick.labelsize": 8, "ytick.labelsize": 8,
-        "axes.linewidth": 0.6, "lines.linewidth": 1.3,
+        # larger + bold, so the labels stay legible after the paper scales the figure down
+        "font.size": 12, "axes.labelsize": 13, "axes.titlesize": 13,
+        "legend.fontsize": 11, "xtick.labelsize": 11, "ytick.labelsize": 11,
+        "font.weight": "bold", "axes.labelweight": "bold", "axes.titleweight": "bold",
+        "mathtext.default": "bf",                      # bold math in the mathtext fallback
+        "axes.linewidth": 0.9, "lines.linewidth": 1.5,
         "xtick.direction": "in", "ytick.direction": "in",
         "xtick.top": True, "ytick.right": True,
+        "xtick.major.width": 0.9, "ytick.major.width": 0.9,
         "legend.frameon": False, "axes.grid": True,
         "grid.alpha": 0.25, "grid.linewidth": 0.4,
         "figure.dpi": 130, "savefig.dpi": 300, "savefig.bbox": "tight",
     })
     if use:
-        mpl.rcParams["text.latex.preamble"] = r"\usepackage{amsmath}"
+        # usetex ignores the weight rcParams -> bold via the preamble: bold text series + bold math.
+        mpl.rcParams["text.latex.preamble"] = (
+            r"\usepackage{amsmath}\renewcommand{\familydefault}{\bfdefault}\boldmath")
 
 
 def to_plot_units(res, field):
@@ -91,10 +97,11 @@ def bottom_legend(fig, handles, labels, ncol, y=-0.02, fontsize=9):
     return leg
 
 
-def panel_tag(ax, text, loc=(0.03, 0.93)):
-    """Place a bold panel tag, e.g. ``(a)``, in axis coordinates."""
-    ax.text(loc[0], loc[1], text, transform=ax.transAxes, fontweight="bold",
-            va="top", ha="left")
+def panel_tag(ax, text, loc=(0.04, 0.93), va="top", ha="left"):
+    """Place a bold panel tag, e.g. ``(a)``, in axis coordinates, on a subtle white backing box so
+    it stays legible wherever it lands."""
+    ax.text(loc[0], loc[1], text, transform=ax.transAxes, fontweight="bold", va=va, ha=ha,
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.75, pad=1.2))
 
 
 SAVE_PDF = True     # also write a vector PDF next to each PNG (run_workflow toggles this via --pdf)

@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 """One-command workflow for the Weis (2014) 1-D benchmark figures (subsection 4.2, one_dimensional).
 
-Builds the four figures of the subsection from the two solver families in dependency order:
+Builds the subsection figures from the single weis brine engine (PPU/HU/HU-mwp) plus the PorePy 2-D
+overlay, in dependency order:
 
-  [reference]     fig_weis_reference.py   -> figures/fig_weis_reference_{a,b}   (1-D convergence)
-  [profiles]      fig_weis_profiles.py    -> figures/fig_weis_profiles_{a,b}    (1-D profiles;
-                                             also writes the _cache/profiles_* the overlay reuses)
-  [porepy 2D]     porepy_1d_solver.py     -> _cache/porepy_{case}_{scheme}_*    (heavy; hours)
-  [verification]  fig_weis_verification.py-> figures/fig_weis_verification_{horizontal,vertical}
-  [single-phase]  single_phase_porepy_1d_solver.py -> _cache/single_phase_*     (heavy)
-                  fig_weis_single_phase.py-> figures/fig_4_single_phase
+  [reference]     fig_weis_reference.py -> figures/fig_weis_reference_{a,b}   (1-D convergence)
+  [figure 4]      fig_weis_fig_4.py     -> figures/fig_weis_fig_4            (single-phase, 3x2)
+  [figure 5]      fig_weis_fig_5.py     -> figures/fig_weis_fig_5            (two-phase, 2x2)
+  [figure 6]      fig_weis_fig_6.py     -> figures/fig_weis_fig_6            (brine + halite, 2x2)
+  [porepy 2D]     porepy_1d_solver.py   -> _cache/porepy_{case}_{scheme}_*   (heavy; hours)
+  [verification]  fig_weis_verification.py -> figures/fig_weis_verification_{horizontal,vertical}
 
-The 1-D reference engine (weis_1d_solver.py) is pure numpy and self-parallelizing; the heavy PorePy
-2-D runs go through subprocesses (clean per-run PETSc state) and are resumable -- an existing cache
-pickle is loaded and its run skipped, so re-running only computes what is missing.
+Figures 4/5/6 all run the same ``weis_1d_solver.run_brine`` engine (Fig 4/5 at z=0, Fig 6 at z>0),
+pure numpy and self-parallelizing, cached per run in _cache/. The heavy PorePy 2-D overlay runs go
+through subprocesses (clean per-run PETSc state) and are resumable -- an existing cache pickle is
+loaded and its run skipped, so re-running only computes what is missing.
 
 Use the porepy conda env (its interpreter is reused for the subprocesses):
 
@@ -192,7 +193,8 @@ def main(argv=None):
     t_all = time.time()
     if do_multiphase:
         _stage("reference figure (1-D convergence)", stage_reference, args.quick, parallel)
-        _stage("profiles figure (1-D)", stage_profiles, args.quick, parallel)
+        _stage("figure 5 (two-phase profiles)", stage_fig5, args.quick, parallel)
+        _stage("figure 6 (brine + halite)", stage_fig6, args.quick, parallel)
         if not (plot_only or args.skip_porepy or args.quick):
             _stage("PorePy 2-D overlay runs (heavy)", stage_porepy,
                    args.porepy_orientations, args.porepy_schemes, args.no_cache)
@@ -201,11 +203,7 @@ def main(argv=None):
         _stage("verification figure (overlay)", stage_verification)
 
     if do_single:
-        if not (plot_only or args.quick):
-            _stage("single-phase 2-D runs (heavy)", stage_single_phase_runs, args.no_cache)
-        else:
-            print("\n(skipping single-phase 2-D runs)", flush=True)
-        _stage("single-phase figure", stage_single_phase_fig)
+        _stage("figure 4 (single-phase heating)", stage_fig4, args.quick, parallel)
 
     out = "_quick/figures" if args.quick else "figures"
     print(f"\n{'=' * 70}\n workflow complete in {(time.time() - t_all) / 60.0:.1f} min "

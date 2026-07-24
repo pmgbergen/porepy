@@ -31,19 +31,23 @@ def plot(out, stem="fig_weis_fig_5"):
     from matplotlib.lines import Line2D
 
     ps.apply_style()
-    fig, axes = plt.subplots(2, 2, figsize=(ps.TEXTWIDTH_IN, 5.4), sharex="col")
+    fig, axes = plt.subplots(2, 2, figsize=(ps.TEXTWIDTH_IN, 5.6), sharex="col")
     tags = (("(a)", "(b)"), ("(c)", "(d)"))
+    panels = []
     for j, case in enumerate(CASES):
         ax_tp, ax_s = axes[0, j], axes[1, j]
         ax_p = ax_tp.twinx(); ax_p.grid(False)
         res = {sk: out[(sk, case)] for sk in ps.SCHEMES if (sk, case) in out}
-        h, lab = C.draw_tp(ax_tp, ax_p, res,
-                           ref_T=C.ref_csv(f"fig_5_{case}_temperature_raw.csv"),
-                           ref_p=C.ref_csv(f"fig_5_{case}_pressured_raw.csv"))
+        panels.append(res)
+        C.draw_tp(ax_tp, ax_p, res,
+                  ref_T=C.ref_csv(f"fig_5_{case}_temperature_raw.csv"),
+                  ref_p=C.ref_csv(f"fig_5_{case}_pressured_raw.csv"))
         C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_5_{case}_saturation_liq_raw.csv"))
+        C.iteration_legend(ax_s, res, loc="center right")     # this case's per-scheme iteration counts
         ax_tp.set_title(fr"{case} orientation, ${YEARS[case]}$ years")
         ax_tp.set_xlim(0.0, 2.0)
-        ps.panel_tag(ax_tp, tags[0][j]); ps.panel_tag(ax_s, tags[1][j])
+        ps.panel_tag(ax_tp, tags[0][j], loc=(0.04, 0.09), va="bottom")   # T+p high at top-left -> tag low
+        ps.panel_tag(ax_s, tags[1][j])                                    # s_liq low at top-left -> tag high
         # left column carries the T / s_liq axes; right column carries the pressure axis
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
@@ -56,17 +60,15 @@ def plot(out, stem="fig_weis_fig_5"):
             ax_tp.tick_params(axis="y", labelleft=False)
             ax_s.tick_params(axis="y", labelleft=False)
         ax_s.set_xlabel(ps.DIST_LABEL)
-        # per-column scheme + iteration-count key (counts differ between orientations)
-        key = ax_s.legend(h, lab, loc="center right", fontsize=7, frameon=True, fancybox=True,
-                          framealpha=1.0, edgecolor="0.6", borderpad=0.4, handlelength=1.4)
-        key.get_frame().set_boxstyle("round,pad=0.25,rounding_size=0.3")
 
-    # global key: solid = T / dashed = p (both left/right axes), and the reference band
-    style = [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-             Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
-             Line2D([0], [0], color=C.WEIS_T_LIGHT, lw=C.REF_LW, label=r"Weis et al.\ (2014)")]
+    # single bottom legend: scheme colours (names only) + the T/p and reference key. Per-case
+    # iteration counts live in each panel's small legend (they differ by orientation).
+    handles = C.scheme_handles() + [
+        Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
+        Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
+        C.ref_legend_handle()]
     fig.tight_layout()
-    ps.bottom_legend(fig, style, [s.get_label() for s in style], ncol=3)
+    ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=3)
     ps.savefig(fig, stem, C.OUT_DIR)
 
 
