@@ -265,7 +265,7 @@ class EquationSystem:
             "equation_system.equation_image_space_composition is deprecated and will be"
             " removed. See equation_system.equation_indexer, or "
             "equation_system.construct_assembled_matrix_indexers.",
-            category=DeprecationWarning,
+            category=FutureWarning,
             stacklevel=2,
         )
         return self.equation_indexer.equation_image_space_composition
