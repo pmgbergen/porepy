@@ -1,7 +1,7 @@
 """This example shows how to apply the Schur complement reduction-based linear solver.
 
-The considered model a simplified model of 3-phase 2-component flow, which do not
-represent any real physics and should not be used in modeling.
+The considered model is a simplified model of three-phase, two-component flow. It does
+not represent any real physics and should not be used in modeling.
 
 The setup is heavily inspired by `tests/functional/test_linear_tracer.py`.
 
@@ -30,7 +30,7 @@ def run_example():
 
     model = TracerFlowModel_3p(model_params)
 
-    # Setting dt and end time schedule according to cfl condition and approximate
+    # Setting dt and end time schedule according to the CFL condition and approximate
     # flow velocity.
     model.prepare_simulation()
     sd = model.mdg.subdomains()[0]
@@ -47,8 +47,8 @@ def run_example():
     # Initializing a nonlinear solver with a custom linear solver that applies a Schur
     # complement reduction. It requires us to list the primary variables and equations.
     # The default tags are available for the standard equations and variables in PorePy.
-    # This model uses a non-standard equation and variable "z_tracer". Creating custom
-    # tags for them.
+    # This model uses a non-standard equation and variable, "z_tracer", so we create
+    # custom tags for them.
     nonlinear_solver = pp.solvers.NewtonSolver(
         linear_solver=pp.solvers.SchurComplementReductionLinearSolver(
             primary_equation_tags=[

@@ -68,7 +68,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     Parameters:
         primary_equation_tags: Tags that define primary equations (rows).
         primary_variable_tags: Tags that define primary variables (columns).
-        primary_linear_solver: A linear solver to the linear system based on `S_pp`. If
+        primary_linear_solver: A linear solver for the linear system based on `S_pp`. If
             None (default), a direct solver is applied.
 
     """
@@ -86,10 +86,10 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         if primary_linear_solver is None:
             primary_linear_solver = LinearSolverDirect()
         self.primary_linear_solver = primary_linear_solver
-        """A linear solver to the linear system based on `S_pp`."""
+        """A linear solver for the linear system based on `S_pp`."""
 
         self._data: _SchurComplementReductionData | None = None
-        """The indices arrays needed for the algorithm to operate. Initialized lazily in
+        """The index arrays needed for the algorithm to operate. Initialized lazily in
         :meth:`_initialize_data` the first time :meth:`solve_linear_system` is invoked.
 
         It assumes that the arrangement in the linear system does not change between
@@ -100,7 +100,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     def _initialize_data(
         self, linear_system: LinearSystem
     ) -> _SchurComplementReductionData:
-        """Construct indices arrays based on the linear system indexers."""
+        """Construct index arrays based on the linear system indexers."""
         primary_eqs, secondary_eqs = _filter_by_tags(
             all_operators=linear_system.equation_indexer.equation_dofs,
             tags=self.primary_equation_tags,
@@ -152,7 +152,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         t0 = time()
         assert linear_system.matrix is not None, "Matrix should be provided."
 
-        # Lasy initialization.
+        # Lazy initialization.
         if self._data is None:
             self._data = self._initialize_data(linear_system)
         data = self._data
@@ -166,7 +166,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
 
         # Slice the following submatrices and right-hand side vectors:
         # | A_ss A_sp |  | rhs_s |
-        # | A_ps A_pp |, | rhs_b |
+        # | A_ps A_pp |, | rhs_p |
         A_p = linear_system.matrix[data.primary_eq_dofs, :]
         A_pp = A_p[:, data.primary_var_dofs]
         A_ps = A_p[:, data.secondary_var_dofs]
@@ -177,7 +177,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         del A_s
         rhs_s = linear_system.rhs[data.secondary_eq_dofs]
 
-        # Compute (A_ss)^-1. Hard-coded this invertor so far.
+        # Compute (A_ss)^-1. This inverter is hard-coded for now.
         A_ss_inv = invert_permuted_block_diag_matrix(
             A_ss,
             row_permutation=data.secondary_eq_perm,
@@ -237,13 +237,13 @@ def rearrange_matrix_as_array_of_structures(
         var_indexer: Variable indexer representing the block columns of the matrix.
 
     Raises:
-        ValueErrro: If not all equation-variable pairs are defined on the same set of
+        ValueError: If not all equation-variable pairs are defined on the same set of
             grids.
 
     Returns:
         A tuple of 3 elements:
-        - row_permutation: array to permute the columns of the matrix;
-        - col_permutation: array to permute the rows of the matrix;
+        - row_permutation: array to permute the rows of the matrix;
+        - col_permutation: array to permute the columns of the matrix;
         - block_sizes: the sizes `n` of small `(n x n)` blocks on the diagonal of the
             permuted matrix.
 
@@ -267,7 +267,7 @@ def rearrange_matrix_as_array_of_structures(
 
     # Sanity check that assumes that the number of equations and variables is the same
     # on every grid. If it turns out that we define some equations only on certain
-    # grids, this funciton can be extended. So far, no such case is known to YZ.
+    # grids, this function can be extended. So far, no such case is known to YZ.
     bs = 0
     for list_of_dofs in eq_dofs_by_grid.values():
         if bs == 0:
