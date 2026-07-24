@@ -1,6 +1,6 @@
 """PorePy 2D column (Weis 2014, Figure 5) for the subsection 4.1 overlay.
 
-Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {HU, HU-mw} -- at the
+Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {HU, HU-mwp} -- at the
 geometry's native N=800 and nominal dt = 0.25 yr, level-3 Driesner tables (matching weis_1d_solver),
 and writes each converged 1D profile (distance, T, p, s_liq) extracted from the live model to
 
@@ -11,7 +11,7 @@ writes its usual VTU/PVD output alongside (periodic snapshots).
 
 The two scheme knobs:
   HU    -> buoyancy_upwinding="hybrid", mass_mobility_weighted_permeability=False
-  HU-mw -> buoyancy_upwinding="hybrid", mass_mobility_weighted_permeability=True
+  HU-mwp -> buoyancy_upwinding="hybrid", mass_mobility_weighted_permeability=True
 
 Run: ``python porepy_1d_solver.py`` (heavy -- vertical is 1000 yr / 8000 steps). Requires the PorePy
 environment.
@@ -34,7 +34,7 @@ from porepy.examples.geothermal_flow.model_configuration.geometry_description.ge
 )
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
     DriesnerBrineFlowModel,               # HU  (standard primary equations)
-    DriesnerBrineFractionalFlowModel,     # HU-mw (fractional-flow primary equations)
+    DriesnerBrineFractionalFlowModel,     # HU-mwp (fractional-flow primary equations)
 )
 from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
     BC_two_phase_moderate_pressure as BC,
@@ -130,12 +130,12 @@ def _attach_samplers(model) -> None:
 def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dict:
     """Run one (orientation, scheme) case and pickle its converged 1D profile to ``_cache/``.
 
-    ``weighted_perm=False`` -> HU (upwinded total mobility); ``True`` -> HU-mw (mobility-weighted).
+    ``weighted_perm=False`` -> HU (upwinded total mobility); ``True`` -> HU-mwp (mobility-weighted).
     Both use ``buoyancy_upwinding='hybrid'``. Resumable: if ``cache`` and the target pickle already
     exists it is loaded and the (heavy) run is skipped; delete the pickle (or pass ``cache=False``)
     to recompute. Returns the saved dict.
     """
-    scheme = "hu_mw" if weighted_perm else "hu"
+    scheme = "hu_mwp" if weighted_perm else "hu"
     path = _pickle_path(geometry_case, scheme)
     if cache and os.path.exists(path):
         with open(path, "rb") as f:
@@ -170,7 +170,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     }
 
     ModelGeometry = GEOMETRY[geometry_case]
-    # HU-mw uses the fractional-flow template, HU the standard one -- the discretisation distinction
+    # HU-mwp uses the fractional-flow template, HU the standard one -- the discretisation distinction
     # is the base template, not a runtime parameter.
     FlowModel = DriesnerBrineFractionalFlowModel if weighted_perm else DriesnerBrineFlowModel
 

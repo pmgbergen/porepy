@@ -27,7 +27,7 @@ SCHEMES = {
                   color=_BLUE, marker="o"),
     "hu":    dict(scheme="hu",  weighted_perm=False, label="HU",
                   color=_VERMILLION, marker="s"),
-    "hu_mw": dict(scheme="hu",  weighted_perm=True,  label=r"HU-$\mathrm{mw}$",
+    "hu_mwp": dict(scheme="hu",  weighted_perm=True,  label=r"HU-$\mathrm{mwp}$",
                   color=_GREEN, marker="^"),
 }
 

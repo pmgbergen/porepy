@@ -1,7 +1,7 @@
 """Figure ``fig:weis_reference`` -- construction of the 1D references for the Weis (2014)
 benchmark, vertical orientation with face-averaged (consistent) gravity densities.
 
-(a) Spatial convergence of PPU / HU / HU-mw at a fixed, deliberately small time step, so the
+(a) Spatial convergence of PPU / HU / HU-mwp at a fixed, deliberately small time step, so the
     spatial error dominates: combined relative L2 error (T, s_liq, p) of each level against the
     scheme's own finest solution, log-log vs the cell size h, with a first-order guide; the
     lower sub-panel reports the average Newton iterations per level (the smooth mobility-weighted
@@ -18,6 +18,11 @@ compute_obl with small N_levels and n_steps from a REPL.
 from __future__ import annotations
 
 import os
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")        # pin BLAS threads BEFORE numpy: the spawn Pool
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")   # deadlocks with multi-threaded BLAS on a fresh
+os.environ.setdefault("MKL_NUM_THREADS", "1")        # (uncached) compute -- see run_workflow.py.
+
 import pickle
 import sys
 import time
@@ -34,9 +39,9 @@ GRAV_UPSTREAM = False                  # gravity density: False = averaged/consi
 #                                        True = upwinded (Weis). Tagged into the cache names below.
 LAG_UPWIND = False                     # advective nonlinear weight, UNIFORM across schemes:
 #                                        False = current iterate (fully implicit; PPU carries its
-#                                        phase-potential switch, HU the m_e=0 switch, HU-mw the
+#                                        phase-potential switch, HU the m_e=0 switch, HU-mwp the
 #                                        within-Newton multipoint reassembly). True = old-state,
-#                                        frozen once per step (HU-mw: one lambda*K assembly/step).
+#                                        frozen once per step (HU-mwp: one lambda*K assembly/step).
 #                                        Tagged (cur/lag) into the cache names below.
 N_LEVELS = [100, 200, 400, 800]        # spatial refinement ladder; finest is the reference
 DT_FIXED = m.DT0 / 4.0                 # fixed, small time step so the spatial error dominates
@@ -96,9 +101,10 @@ def _run(args):
             return key, pickle.load(f), 0.0, True
     cfg = ps.SCHEMES[sk]
     t0 = time.time()
-    res = m.run(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
-                grav_upstream=grav_upstream, N=N, case=case, level=level, dt=dt,
-                adaptive=False, n_steps=n_steps, verbose=False, lag_upwind=lag_upwind)
+    res = m.run_brine(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
+                      grav_upstream=grav_upstream, N=N, case=case, level=level, dt=dt,
+                      adaptive=False, n_steps=n_steps, verbose=False, lag_upwind=lag_upwind,
+                      **m.FIG5)                                  # z=0 -> pure water
     keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_steps",
                                 "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)

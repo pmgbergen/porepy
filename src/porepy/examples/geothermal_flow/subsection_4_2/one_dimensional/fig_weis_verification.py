@@ -7,7 +7,7 @@ gravitational terms are active.
     averaged-density ones converge to a common, consistent front. The offset between the two
     families is thus the imprint of the density treatment, not of the upwind assignment.
 (b) The PorePy solution (produced in the second refactoring step by the updated 2D script)
-    superposed on the averaged-density references of the three schemes (PPU, HU, HU-mw).
+    superposed on the averaged-density references of the three schemes (PPU, HU, HU-mwp).
 
 Layout: 2 columns (a references | b verification) x 2 rows (T, s_liq).
 Runs (5 total, vertical, fine N) are cached. The PorePy overlay is drawn if
@@ -18,6 +18,11 @@ Runs (5 total, vertical, fine N) are cached. The PorePy overlay is drawn if
 from __future__ import annotations
 
 import os
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")        # pin BLAS threads BEFORE numpy: the spawn Pool
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")   # deadlocks with multi-threaded BLAS on a fresh
+os.environ.setdefault("MKL_NUM_THREADS", "1")        # (uncached) compute -- see run_workflow.py.
+
 import pickle
 import sys
 import time
@@ -35,9 +40,9 @@ LEVEL = m.TABLE_LEVEL
 LAG_UPWIND = False        # advective weight: False = current iterate (genuine schemes); True =
 #                           old-state, frozen once per step. Tagged (cur/lag) into the cache names.
 FIELDS = ("T", "s_liq")
-# (scheme_key, density_key) runs. (a) needs PPU/HU x {averaged,upwinded}; (b) adds HU-mw averaged.
+# (scheme_key, density_key) runs. (a) needs PPU/HU x {averaged,upwinded}; (b) adds HU-mwp averaged.
 RUNS_A = [("ppu", "averaged"), ("ppu", "upwinded"), ("hu", "averaged"), ("hu", "upwinded")]
-RUNS_B = [("ppu", "averaged"), ("hu", "averaged"), ("hu_mw", "averaged")]
+RUNS_B = [("ppu", "averaged"), ("hu", "averaged"), ("hu_mwp", "averaged")]
 ALL_RUNS = list(dict.fromkeys(RUNS_A + RUNS_B))     # unique, order-preserving
 OUT_DIR = os.path.join(m.HERE, "figures")
 PP_DATA = os.path.join(m.HERE, f"porepy_solution_{CASE}.pkl")   # produced in step 2
@@ -69,9 +74,10 @@ def _run(args):
             return (sk, dk), pickle.load(f), 0.0, True
     cfg, den = ps.SCHEMES[sk], ps.DENSITY[dk]
     t0 = time.time()
-    res = m.run(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
-                grav_upstream=den["grav_upstream"], N=N, case=case, level=level,
-                n_steps=n_steps, verbose=False, lag_upwind=lag_upwind)
+    res = m.run_brine(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
+                      grav_upstream=den["grav_upstream"], N=N, case=case, level=level,
+                      n_steps=n_steps, verbose=False, lag_upwind=lag_upwind,
+                      **m.FIG5)                                  # z=0 -> pure water
     keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
@@ -205,11 +211,11 @@ def _savefig_fixed(fig, stem, out_dir, size_in=_FIG_SIZE_IN):
     plt.close(fig)
 
 
-def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
+def plot_verification(case="horizontal", schemes=("hu", "hu_mwp"), stem=None):
     """fig_weis_profiles-style verification for one orientation -> one figure. Top panel merges
     temperature (left axis, solid) and pressure (right axis, dashed); the bottom panel is liquid
     saturation. The REFERENCES are the Weis 1D-solver solutions (lines, per-scheme colour) -- HU and
-    HU-mw -- and the PorePy 2D solutions are overlaid as open markers (same colour) that should lie
+    HU-mwp -- and the PorePy 2D solutions are overlaid as open markers (same colour) that should lie
     on them. No digitized Weis (2014) reference in this figure. Reads only cached pickles; a scheme
     with no PorePy cache is drawn as its 1D reference line alone."""
     if stem is None:
@@ -230,8 +236,8 @@ def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
                                       gridspec_kw=dict(height_ratios=[1.4, 1.0]))
     ax_p = ax_tp.twinx(); ax_p.grid(False)              # right axis = pressure
 
-    dark = {"hu": _HU_DARK, "hu_mw": _HUMW_DARK}        # PorePy: thin dark solid, on top
-    light = {"hu": _HU_LIGHT, "hu_mw": _HUMW_LIGHT}     # 1D reference: thick light band, underneath
+    dark = {"hu": _HU_DARK, "hu_mwp": _HUMW_DARK}        # PorePy: thin dark solid, on top
+    light = {"hu": _HU_LIGHT, "hu_mwp": _HUMW_LIGHT}     # 1D reference: thick light band, underneath
     for scheme in schemes:
         cfg = ps.SCHEMES[scheme]
         cd, cl = dark[scheme], light[scheme]
@@ -249,7 +255,7 @@ def plot_verification(case="horizontal", schemes=("hu", "hu_mw"), stem=None):
             ax_s.plot(*ps.to_plot_units(pp_, "s_liq"), color=cd, ls="-", lw=_PP_LW, zorder=4,
                       label=plab)
 
-    # y-axes in default black (colour now encodes the scheme: HU dark red, HU-mw dark blue)
+    # y-axes in default black (colour now encodes the scheme: HU dark red, HU-mwp dark blue)
     ax_tp.set_ylabel(ps.FIELD_LABEL["T"])
     ax_tp.tick_params(axis="y", which="both", right=False)
     ax_p.set_ylabel(ps.FIELD_LABEL["p"])
@@ -321,7 +327,7 @@ def main():
     # PorePy 2D vs. the corresponding Weis 1D solver, per orientation (cache-only, fast). A scheme
     # missing its PorePy pickle is shown as the 1D reference line alone.
     for case in ("horizontal", "vertical"):
-        plot_verification(case, schemes=("hu", "hu_mw"))
+        plot_verification(case, schemes=("hu", "hu_mwp"))
 
 
 if __name__ == "__main__":

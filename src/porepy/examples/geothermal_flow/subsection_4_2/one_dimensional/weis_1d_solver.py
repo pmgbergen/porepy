@@ -1,44 +1,34 @@
-"""Independent 1-D finite-volume solver (engine) for the Weis (2014) fig-5 benchmark.
+"""Independent 1-D finite-volume solver (engine) for the Weis (2014) benchmark -- ONE discretization.
 
-Importable module: the ``fig_weis_*`` scripts in this folder drive :func:`run` and
-:func:`load_reference` to build the figures of subsection 4.1; this file has no CLI.
+Importable module (no CLI): the ``fig_weis_*`` scripts in this folder drive :func:`run_brine` and
+:func:`load_reference` to build the subsection figures. A single H2O-NaCl brine engine reproduces the
+whole benchmark: at ``z_NaCl = 0`` it is pure water and gives Fig 4 (single-phase heating) and Fig 5
+(two-phase), in either orientation; at ``z > 0`` it is the Fig 6 salt column with an immobile
+solid-halite phase. It re-implements, in vectorised numpy, the exact discrete model PorePy assembles
+(``FluidBuoyancy`` + the Driesner constitutive tables), so it is a fast, transparent reference.
 
-Independent of PorePy (only ``numpy`` + ``scipy`` + ``pyvista`` + ``matplotlib``). It
-re-implements, in vectorised numpy, the exact discrete model that
-``geothermal_H2O_low_NaCl_content_fig_5.py`` assembles for the *vertical* H2O low-NaCl
-benchmark (Weis et al., fig 5D), so it is a fast, transparent reference and lets us
-exercise the two buoyancy upwinding schemes without the cost of the full PorePy run.
+Three conservation laws (per cell), backward-Euler fully-implicit Newton; primaries p[Pa], h[J/kg],
+z_NaCl.  ``(ACC^n - ACC^{n-1})/dt + div(F) = 0``:
+  MASS    ACC = V phi rho_mix,                         F = q_T
+  SALT    ACC = V phi rho_mix z,                       F = upwind(f_NaCl) q_T - buoy_NaCl
+  ENERGY  ACC = V[phi(rho_mix h - p)+(1-phi)rho_s c_s T],  F = -K_e dT/dx + upwind(h) q_T - buoy_h
+with rho_mix = sum_g s_g rho_g (incl. halite) and q_T = upwind(lambda_T)(pi + w(rho_ff)).
 
-Two buoyancy options (``scheme``):
-    * ``"hu"``  -- Hybrid Upwinding: the inter-phase gravity flux ``+/- ddf(rho_l - rho_v)``
-                   sets the two upwind directions; the buoyancy magnitude is the MOBILITY-PRODUCT
-                   ``b = lambda_g^up lambda_d^up / (lambda_g^up + lambda_d^up) * w_flux`` -- the
-                   classical Lee/Hamon ``U^HU``, i.e. HU-BM(mp) (two-phase => void background, so
-                   the pair total mobility is the bare upwinded sum).
-    * ``"ppu"`` -- Phase-Potential Upwinding: each phase's own potential
-                   ``Psi_g = T_f (p_L - p_U) - K A rho_g g`` sets its upwind direction; buoyancy is
-                   intrinsic to ``Psi_g`` (no separate magnitude).
-NOTE: the ``"hu"`` buoyancy magnitude is the mobility-product form, NOT the fractional-flow
-``f_g f_d (lambda_g + lambda_d)`` of PorePy's ``__entity_buoyancy_flux`` -- the two differ by the
-Bosma ``Lambda_L Lambda_R`` rescaling.
+Buoyancy schemes (``scheme``):
+  * ``"hu"``  -- Hybrid Upwinding: viscous mobilities on the total mass flux; the buoyant pair rides
+                 the inter-phase gravity flux +/- w(rho_l - rho_v) with the MOBILITY-PRODUCT magnitude
+                 lambda_l lambda_v / lambda_T (Lee/Hamon U^HU, = PorePy is_fractional_flow=False). The
+                 salt and enthalpy each advect their pair difference (X_l - X_v) / (h_l - h_v).
+  * ``"ppu"`` -- Phase-Potential Upwinding: each phase rides its own potential Psi_g; buoyancy intrinsic.
+  ``weighted_perm=True`` (HU-mwp) folds lambda_T into the transmissibilities (harmonic face lambda*K,
+  paper Remark 3.2) instead of upwinding a separate face total mobility; the buoyant term is unchanged.
+  ``case`` = 'horizontal' (g=0, Fig 5B/6) or 'vertical' (g on, Fig 5D); ``grav_upstream`` selects the
+  Weis Eq.25 fully-upstream gravity density; ``lag_upwind`` freezes the advective weights per step.
 
-Model (per cell, 2 conservation laws; primaries p[Pa], h[J/kg]; z_NaCl = 0)
---------------------------------------------------------------------------
-Backward Euler, fully-implicit Newton.  ``(ACC^n - ACC^{n-1})/dt + div(F) = 0`` (F up-positive):
-
-  MASS    ACC = V phi rho_mix,  rho_mix = s_l rho_l + s_v rho_v
-          F   = V_T * upwind(lambda_T_mass),   lambda_T_mass = sum_g rho_g k_r(s_g)/mu_g
-  ENERGY  ACC = V [ phi (rho_mix h - p) + (1-phi) rho_s c_s T ]
-          F   = -K_e dT/dx  +  V_T * upwind(sum_g h_g rho_g k_r/mu_g)  +  b(buoyancy)
-  V_T = T_f (p_L - p_U) - K A rho_ff g,   rho_ff = sum_g f_g rho_g,  f_g = rho_g k_r/mu_g / lambda_T_mass
-
-**Units are strict SI** (Pa, J/kg, m, s, kg, K): g=9.80665, K=1e-15 m^2, K_e=2.0 W/mK,
-c_s=880 J/kgK, rho_s=2700, phi=0.1.  (PorePy runs the same system Mega-scaled; the physical
-solution is identical.  Mixing MPa pressure with SI mobility is what silently kills advection.)
-The constitutive closure is sampled from the *same* Driesner tables the PorePy run uses,
-``opensowat_xph_l_{L}_grads.vtr`` (axes z_NaCl, h[MJ/kg], p[MPa]) at refinement level L in
-0..5 (``--level``, default 2; coarsest..finest), via O(1) uniform-grid bilinear interpolation;
-SI<->table unit conversion is handled inside the sampler.
+**Strict SI** (Pa, J/kg, m, s, kg, K): g=9.80665, K=1e-15 m^2, K_e=2.0 W/mK, c_s=880 J/kgK, rho_s=2700,
+phi=0.1. The constitutive closure is sampled from the Driesner ``opensowat_x{ph,pt}_l_{L}.vtr``
+tables (axes z_NaCl, h[MJ/kg] / T[degC], p[MPa]) at refinement level L in 0..5 via O(1) trilinear
+interpolation; SI<->table unit conversion is handled inside the sampler.
 """
 from __future__ import annotations
 
@@ -67,12 +57,12 @@ TABLE_LEVEL = 3       # Driesner opensowat table refinement level: 0 (coarsest) 
 def table_paths(level=TABLE_LEVEL):
     """Absolute paths of the xph (z, h[MJ/kg], p[MPa]) and xpt (z, T[degC], p[MPa]) Driesner
     ``.vtr`` tables at refinement ``level`` (0..5)."""
-    xph = os.path.join(VTK_DIR, f"opensowat_xph_l_{level}_grads.vtr")
-    xpt = os.path.join(VTK_DIR, f"opensowat_xpt_l_{level}_grads.vtr")
+    xph = os.path.join(VTK_DIR, f"opensowat_xph_l_{level}.vtr")
+    xpt = os.path.join(VTK_DIR, f"opensowat_xpt_l_{level}.vtr")
     return xph, xpt
 
 
-VTK_XPH, VTK_XPT = table_paths()      # default-level paths (used by selftest and run() default)
+VTK_XPH, VTK_XPT = table_paths()      # default-level table paths (used by selftest)
 
 G = 9.80665           # gravity [m/s^2]
 K_PERM = 1.0e-15      # permeability [m^2]
@@ -92,7 +82,7 @@ DT0 = 0.25 * YEAR     # nominal time step; also the reference used to row-scale 
 RHO_REF = 800.0       # kg/m^3
 T_REF = 500.0         # K
 
-# Gravity-term density weighting on internal faces (see ``residual``), via run(grav_upstream=):
+# Gravity-term density weighting on internal faces (see ``residual_brine``), run_brine(grav_upstream=):
 #   grav_upstream=False (default) -> face average 0.5*(rho_i + rho_{i+1})  (consistent, Rem.gc)
 #   grav_upstream=True            -> Weis (2014, Eq.25 p.352): fluid props in the gravity term
 #                                    taken from the lagged phase-upwind node (fully-upstream).
@@ -214,54 +204,6 @@ class Table:
 #   field scales to SI: Rho 1 (kg/m^3), H kJ/kg->J/kg (1e3), S_v 1, T 1 (K).
 #   mu: the table already stores Pa.s (probe: mu~2.5e-5 at 400C); PorePy's extra 1e-6 is its
 #   Pa.s->MPa.s Mega-scaling, which must NOT be applied in this SI solver -> scale 1.0.
-_XPH_FIELDS = {"Rho_l": 1.0, "Rho_v": 1.0, "H_l": 1e3, "H_v": 1e3,
-               "mu_l": 1.0, "mu_v": 1.0, "S_v": 1.0, "Temperature": 1.0}
-
-
-# --------------------------------------------------------------------------------------- #
-#  Constitutive closure from the xph table  (vectorised; z_NaCl = 0)
-# --------------------------------------------------------------------------------------- #
-@dataclass
-class Props:
-    rho_l: np.ndarray; rho_v: np.ndarray
-    s_v: np.ndarray; s_l: np.ndarray
-    h_l: np.ndarray; h_v: np.ndarray
-    T: np.ndarray
-    rho_mix: np.ndarray
-    lam_T: np.ndarray
-    f_l: np.ndarray; f_v: np.ndarray
-    rho_ff: np.ndarray
-    mm_l: np.ndarray; mm_v: np.ndarray
-    adv_h: np.ndarray
-
-
-def eval_props(table, p, h):
-    s = table.sample_many(h, p)                     # ONE stencil for all 8 fields
-    rho_l = s["Rho_l"]; rho_v = s["Rho_v"]
-    s_v = np.clip(s["S_v"], 0.0, 1.0)
-    s_l = 1.0 - s_v
-    h_l = s["H_l"]; h_v = s["H_v"]
-    mu_l = s["mu_l"]; mu_v = s["mu_v"]
-    T = s["Temperature"]
-
-    kr_l = np.maximum((s_l - S_R_LIQ) / (1.0 - S_R_LIQ), 0.0)   # linear liquid, residual S_R_LIQ
-    # Weis (2014, p.349): linear model with R_l = 0.3, R_v = 0 and k_rv + k_rl = 1 - S_h.
-    # Here S_h = 0 (no halite) so k_rv = 1 - k_rl (= s_v/(1-S_R_LIQ) in the mobile range,
-    # capped at 1 once the liquid is at residual). The previous k_rv = s_v was 0.7x too small.
-    kr_v = 1.0 - kr_l
-    mm_l = rho_l * kr_l / mu_l
-    mm_v = rho_v * kr_v / mu_v
-    lam_T = mm_l + mm_v
-    inv = 1.0 / np.where(lam_T > 0.0, lam_T, 1.0)
-    f_l = mm_l * inv
-    f_v = mm_v * inv
-    rho_ff = f_l * rho_l + f_v * rho_v
-    rho_mix = s_l * rho_l + s_v * rho_v
-    adv_h = h_l * mm_l + h_v * mm_v
-    return Props(rho_l, rho_v, s_v, s_l, h_l, h_v, T, rho_mix, lam_T,
-                 f_l, f_v, rho_ff, mm_l, mm_v, adv_h)
-
-
 # --------------------------------------------------------------------------------------- #
 #  Brine closure (H2O-NaCl): three-phase liquid/vapor/immobile-halite, from the 3-D table
 # --------------------------------------------------------------------------------------- #
@@ -285,6 +227,7 @@ class PropsBrine:
     mm_l: np.ndarray; mm_v: np.ndarray
     salt_mob: np.ndarray                       # NaCl mass mobility  = Xl mm_l + Xv mm_v
     adv_h: np.ndarray                          # enthalpy mass mobility = h_l mm_l + h_v mm_v
+    rho_ff: np.ndarray                         # fractional-flow weighted density (buoyancy V_T term)
 
 
 def eval_props_brine(table, p, h, z):
@@ -314,8 +257,10 @@ def eval_props_brine(table, p, h, z):
     rho_mix = s_l * rho_l + s_v * rho_v + s_h * rho_h
     salt_mob = Xl * mm_l + Xv * mm_v
     adv_h = h_l * mm_l + h_v * mm_v
+    inv = 1.0 / np.where(lam_T > 0.0, lam_T, 1.0)
+    rho_ff = (mm_l * rho_l + mm_v * rho_v) * inv         # f_l rho_l + f_v rho_v (buoyancy V_T term)
     return PropsBrine(rho_l, rho_v, rho_h, s_l, s_v, s_h, h_l, h_v, h_h, Xl, Xv, T,
-                      rho_mix, lam_T, mm_l, mm_v, salt_mob, adv_h)
+                      rho_mix, lam_T, mm_l, mm_v, salt_mob, adv_h, rho_ff)
 
 
 # --------------------------------------------------------------------------------------- #
@@ -358,7 +303,7 @@ def _advect(cell_q, direction):
 def _harmonic_face(lam):
     """Harmonic average of a cell field ``lam`` onto internal faces: 2 lL lR/(lL+lR), 0 where the
     sum vanishes. This is the joint lambda*K face transmissibility weight of the mobility-weighted
-    (HU-mw) discretisation (paper Remark 3.2)."""
+    (HU-mwp) discretisation (paper Remark 3.2)."""
     lam_L = lam[:-1]; lam_R = lam[1:]
     s = lam_L + lam_R
     return np.where(s > 0.0, 2.0 * lam_L * lam_R / np.where(s > 0.0, s, 1.0), 0.0)
@@ -396,186 +341,21 @@ def buoyancy_directions(geom, p, pr, scheme):
     return _upwind_idx(dir_liq), _upwind_idx(dir_gas), i_tot, w_dir
 
 
-# --------------------------------------------------------------------------------------- #
-#  Residual
-# --------------------------------------------------------------------------------------- #
-@dataclass
-class BoundaryState:
-    p: float; h: float; pr: Props; T: float
+
+# Per-case settings: gravity along the column and the benchmark final time.
+#   "vertical"   = fig 5D: gravity ON,  t_final = 1000 yr.
+#   "horizontal" = fig 5B: gravity OFF (perpendicular to flow), t_final = 200 yr.
+CASES = {"vertical": dict(g=G, tf_yr=1000.0), "horizontal": dict(g=0.0, tf_yr=200.0)}
 
 
-def boundary_state(table, p_bc, h_bc):
-    pr = eval_props(table, np.array([p_bc]), np.array([h_bc]))
-    return BoundaryState(p=p_bc, h=h_bc, pr=pr, T=float(pr.T[0]))
-
-
-def accumulation_old(x_old, geom, table):
-    """Old-time accumulation (constant over a step's Newton iterations) -- computed once."""
-    p_old = x_old[0::2]; h_old = x_old[1::2]
-    pr = eval_props(table, p_old, h_old)
-    acc_mass_o = geom.Vcell * PHI * pr.rho_mix
-    acc_en_o = geom.Vcell * (PHI * (pr.rho_mix * h_old - p_old)
-                             + (1 - PHI) * RHO_S * C_S * pr.T)
-    return acc_mass_o, acc_en_o
-
-
-def residual(x, acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut, w_dir=None,
-             grav_upstream=False, weighted_perm=False, lag_upwind=False, lam_face_old=None):
-    """Full 2N residual, interleaved [mass_0, energy_0, mass_1, ...].
-
-    ``acc_*_o`` are the (precomputed, step-constant) old-time accumulations.
-    Two schemes (``ug``/``ud`` = frozen lagged per-face upstream indices for liq/gas):
-      "hu"   -> total-velocity advection + simplicial buoyancy, directions i_liq=upwind(+ddf),
-                i_gas=upwind(-ddf) (inter-phase gravity flux).
-      "ppu"  -> genuine per-phase potential upwinding of the FULL phase flux
-                F=sum_g Psi_g upwind(w_g) (buoyancy intrinsic; Weis fig-5 reference).
-    Only "ppu" takes the genuine-PPU branch below; "hu" takes the simplicial branch.
-
-    ``lag_upwind`` selects a single, scheme-uniform treatment of the advective nonlinear weight:
-      False -> current iterate (fully implicit): PPU recomputes its phase-potential upwind
-               directions here, HU takes sign(V_T), HU-mw reassembles the harmonic lambda*K
-               each Newton iteration.
-      True  -> old state (once per step): PPU uses the lagged ug/ud, HU uses the lagged total
-               direction ut, and HU-mw uses ``lam_face_old`` (a single multipoint assembly per
-               step). ``lam_face_old`` is the old-state harmonic lambda*K face weight.
-    """
-    N = geom.N
-    p = x[0::2]; h = x[1::2]
-    pr = eval_props(table, p, h)
-
-    # accumulation (backward Euler); old-time part passed in (step-constant)
-    acc_mass = geom.Vcell * PHI * pr.rho_mix
-    acc_en = geom.Vcell * (PHI * (pr.rho_mix * h - p) + (1 - PHI) * RHO_S * C_S * pr.T)
-
-    dp_face = p[:-1] - p[1:]
-    rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:])
-    rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
-    F_four = geom.TFf * (pr.T[:-1] - pr.T[1:])
-
-    if scheme == "ppu":
-        # genuine phase-potential upwinding: each phase rides its OWN potential flux
-        # Psi_g = T_f(p_L-p_U) - K A rho_g g, mobility/enthalpy upwinded by sign(Psi_g). The upwind
-        # direction is the current iterate (fully implicit, carrying the phase-potential switch) when
-        # lag_upwind=False, else the lagged ug/ud (frozen per step). Buoyancy is intrinsic to Psi_g
-        # (no separate term). With grav_upstream the gravity density is the phase-upwind node, so
-        # -GA*rho_g[iu]*mm_g[iu] = -GA*upstream(rho_g^2 k_r/mu) exactly (Weis Eq.25).
-        if lag_upwind:
-            iu_l, iu_v = ug, ud
-        else:
-            iu_l = _upwind_idx(geom.Tf * dp_face - geom.GA * rho_l_f)
-            iu_v = _upwind_idx(geom.Tf * dp_face - geom.GA * rho_v_f)
-        rho_l_p = pr.rho_l[iu_l] if grav_upstream else rho_l_f
-        rho_v_p = pr.rho_v[iu_v] if grav_upstream else rho_v_f
-        Psi_l = geom.Tf * dp_face - geom.GA * rho_l_p
-        Psi_v = geom.Tf * dp_face - geom.GA * rho_v_p
-        F_mass = Psi_l * pr.mm_l[iu_l] + Psi_v * pr.mm_v[iu_v]
-        F_en = F_four + Psi_l * (pr.h_l[iu_l] * pr.mm_l[iu_l]) + Psi_v * (pr.h_v[iu_v] * pr.mm_v[iu_v])
-    else:
-        # HU: total-velocity advection + simplicial buoyancy.
-        # grav_upstream upstreams ONLY the advective gravity density rho_ff in V_T (lagged ut).
-        # The buoyant driving force (rho_l - rho_v) in w_flux is a gravitational POTENTIAL
-        # difference, not an advected flux, so it stays FACE-CENTERED in both modes -- upwinding
-        # it would be wrong.
-        rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
-        rho_ff_g = pr.rho_ff[ut] if grav_upstream else rho_ff_f
-        V_T = geom.Tf * dp_face - geom.GA * rho_ff_g
-        # Advective total-velocity upwind direction, uniform with the other schemes via lag_upwind:
-        #   False -> current iterate sign(V_T), i.e. the m_e=0 switch of the upwinded total mobility
-        #            (paper Remark 3.2), live inside the Newton loop;
-        #   True  -> the lagged direction ut (frozen per step, no switch inside the Newton loop).
-        up = ut if lag_upwind else np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
-        # Total-mobility placement in m_e = <lambda>(pi + w) (paper Remark 3.2):
-        #   weighted_perm=False -> upwind the total mobility (separate weight, geometric T_f;
-        #                          the standard HU setting, with a switch at m_e=0);
-        #   weighted_perm=True  -> fold lambda into K, i.e. the HARMONIC face average of lambda_T
-        #                          (joint lambda*K MPFA). With lag_upwind=False it is reassembled
-        #                          from the current iterate each Newton step (smooth in the state);
-        #                          with lag_upwind=True it is frozen at the old state (lam_face_old)
-        #                          -> ONE multipoint assembly per time step. Only affects m_e; the
-        #                          buoyant fluxes are untouched. The energy advection
-        #                          q_a = <hbar> m_e (Table 2) inherits the placement.
-        if weighted_perm:
-            lam_face = (lam_face_old if (lag_upwind and lam_face_old is not None)
-                        else _harmonic_face(pr.lam_T))
-            F_mass = V_T * lam_face
-            hbar_up = pr.adv_h[up] / np.where(pr.lam_T[up] > 0.0, pr.lam_T[up], 1.0)   # <hbar>
-            F_en_adv = hbar_up * F_mass                                                # <hbar> m_e
-        else:
-            F_mass = V_T * pr.lam_T[up]
-            F_en_adv = V_T * pr.adv_h[up]
-        # HU-BM(mp) buoyancy in the hamon_2d_solver grammar. The pair total mobility is the folded
-        #   Gamma = advect(lam_l, +w_ab) + advect(lam_v, -w_ab),
-        # i.e. the N=2 instance of  Gamma_ab = sum_l advect(m_l lam_l, +w_ab) + advect((1-m_l) lam_l,
-        # -w_ab)  with the MIDPOINT masks m = (1, 0): at two phases the background is VOID, so only the
-        # pinned pair terms (liquid fully on the +w_ab side, gas on the -w_ab side) survive. The
-        # buoyancy MAGNITUDE  lambda_l lambda_v / Gamma  is the classical Lee/Hamon U^HU (mobility
-        # product), NOT the fractional-flow  f_l f_v (lambda_l + lambda_v). w_flux (current iterate,
-        # face-centred) is the magnitude; w_dir (lagged per step, Weis old-velocity upwinding) is the
-        # advecting direction fed to _advect. eps guards fully-segregated faces where Gamma vanishes.
-        w_flux = -geom.GA * (rho_l_f - rho_v_f)      # w_ab magnitude (current iterate), face-centred
-        lam_l_up = _advect(pr.mm_l, w_dir)           # lambda_l upwinded along +w_ab
-        lam_v_dn = _advect(pr.mm_v, -w_dir)          # lambda_v upwinded along -w_ab
-        Gamma = lam_l_up + lam_v_dn                  # pair total mobility (background void at N=2)
-        common = lam_l_up * lam_v_dn / (Gamma + 1.0e-30)
-        F_buoy = common * w_flux * (_advect(pr.h_l, w_dir) - _advect(pr.h_v, -w_dir))
-        F_en = F_four + F_en_adv + F_buoy
-
-    # ---- boundary faces (Dirichlet p, T->h_bc) ----
-    if scheme == "ppu":
-        # bottom: per-phase potential half-face flux (inflow uses boundary props)
-        Psi_lb = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_l[0]
-        Psi_vb = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_v[0]
-        mml = bbot.pr.mm_l[0] if Psi_lb >= 0 else pr.mm_l[0]
-        hl = bbot.pr.h_l[0] if Psi_lb >= 0 else pr.h_l[0]
-        mmv = bbot.pr.mm_v[0] if Psi_vb >= 0 else pr.mm_v[0]
-        hv = bbot.pr.h_v[0] if Psi_vb >= 0 else pr.h_v[0]
-        Fmass_bot0 = Psi_lb * mml + Psi_vb * mmv
-        Fen_bot0 = geom.TFb * (bbot.T - pr.T[0]) + Psi_lb * hl * mml + Psi_vb * hv * mmv
-
-        Psi_lt = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_l[0]
-        Psi_vt = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_v[0]
-        mml = pr.mm_l[-1] if Psi_lt >= 0 else btop.pr.mm_l[0]
-        hl = pr.h_l[-1] if Psi_lt >= 0 else btop.pr.h_l[0]
-        mmv = pr.mm_v[-1] if Psi_vt >= 0 else btop.pr.mm_v[0]
-        hv = pr.h_v[-1] if Psi_vt >= 0 else btop.pr.h_v[0]
-        Fmass_topN = Psi_lt * mml + Psi_vt * mmv
-        Fen_topN = geom.TFb * (pr.T[-1] - btop.T) + Psi_lt * hl * mml + Psi_vt * hv * mmv
-    else:
-        V_b = geom.Tb * (bbot.p - p[0]) - geom.GA * bbot.pr.rho_ff[0]
-        if V_b >= 0.0:
-            Fmass_bot0 = V_b * bbot.pr.lam_T[0]; Fh_b = V_b * bbot.pr.adv_h[0]
-        else:
-            Fmass_bot0 = V_b * pr.lam_T[0];      Fh_b = V_b * pr.adv_h[0]
-        Fen_bot0 = geom.TFb * (bbot.T - pr.T[0]) + Fh_b
-
-        V_t = geom.Tb * (p[-1] - btop.p) - geom.GA * btop.pr.rho_ff[0]
-        if V_t >= 0.0:
-            Fmass_topN = V_t * pr.lam_T[-1];     Fh_t = V_t * pr.adv_h[-1]
-        else:
-            Fmass_topN = V_t * btop.pr.lam_T[0]; Fh_t = V_t * btop.pr.adv_h[0]
-        Fen_topN = geom.TFb * (pr.T[-1] - btop.T) + Fh_t
-
-    # divergence: net upward outflow per cell = F_top - F_bottom
-    div_mass = np.empty(N); div_en = np.empty(N)
-    div_mass[0] = F_mass[0] - Fmass_bot0
-    div_mass[1:-1] = F_mass[1:] - F_mass[:-1]
-    div_mass[-1] = Fmass_topN - F_mass[-1]
-    div_en[0] = F_en[0] - Fen_bot0
-    div_en[1:-1] = F_en[1:] - F_en[:-1]
-    div_en[-1] = Fen_topN - F_en[-1]
-
-    r = np.empty(2 * N)
-    r[0::2] = ((acc_mass - acc_mass_o) / dt + div_mass) / geom.ms     # row-scaled to O(1)
-    r[1::2] = ((acc_en - acc_en_o) / dt + div_en) / geom.es
-    return r
 
 
 # --------------------------------------------------------------------------------------- #
-#  Sparse coloured finite-difference Jacobian (block-tridiagonal, 6 colours)
+#  Sparse coloured finite-difference Jacobian (block-tridiagonal; nvar=3 -> 9 colours)
 # --------------------------------------------------------------------------------------- #
-def build_jac_plan(N, nvar=2, scales=(1.0e6, 1.0e5, 1.0)):
+def build_jac_plan(N, nvar=3, scales=(1.0e6, 1.0e5, 1.0)):
     """Precompute the (3*nvar)-colour FD-Jacobian sparsity ONCE (block-tridiagonal, ``nvar`` vars per
-    cell, interleaved). nvar=2 -> pure water [p, h] (6 colours); nvar=3 -> brine [p, h, z] (9)."""
+    cell, interleaved). nvar=3 -> brine [p, h, z] (9 colours)."""
     rows_of_col = []
     for k in range(N):
         for _v in range(nvar):
@@ -609,9 +389,9 @@ def build_jac_plan(N, nvar=2, scales=(1.0e6, 1.0e5, 1.0)):
 
 def jacobian_fd(x, r0, args, plan, eps_rel=1e-7, resfn=None):
     """Coloured FD Jacobian in LAPACK banded storage (ab, shape (l+u+1, n)). ``resfn`` = the residual
-    to differentiate (default the pure-water :func:`residual`; the brine path passes residual_brine)."""
+    to differentiate (default :func:`residual_brine`)."""
     if resfn is None:
-        resfn = residual
+        resfn = residual_brine
     n = plan["n"]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
     parts = []
@@ -626,161 +406,10 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7, resfn=None):
 
 
 # --------------------------------------------------------------------------------------- #
-#  Newton time stepping
-# --------------------------------------------------------------------------------------- #
-def newton_step(x0, x_old, dt, geom, table, bbot, btop, scheme, plan,
-                rtol=0.0, atol=1e-5, maxit=20, verbose=False, grav_upstream=False,
-                weighted_perm=False, lag_upwind=False):
-    p_old = x_old[0::2]; h_old = x_old[1::2]
-    pr_old = eval_props(table, p_old, h_old)                  # x_old props: ONE eval
-    ug, ud, ut, w_dir = buoyancy_directions(geom, p_old, pr_old, scheme)  # lagged per step
-    lam_face_old = _harmonic_face(pr_old.lam_T)   # old-state harmonic lambda*K (HU-mw lag_upwind)
-    acc_mass_o = geom.Vcell * PHI * pr_old.rho_mix
-    acc_en_o = geom.Vcell * (PHI * (pr_old.rho_mix * h_old - p_old)
-                             + (1 - PHI) * RHO_S * C_S * pr_old.T)
-    args = (acc_mass_o, acc_en_o, dt, geom, table, bbot, btop, scheme, ug, ud, ut, w_dir,
-            grav_upstream, weighted_perm, lag_upwind, lam_face_old)
-    pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
-    hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
-
-    # Stop criterion: mirror PorePy's ResidualBasedAbsoluteCriterion + EquationBasedLebesgueMetric --
-    # ABSOLUTE and PER-EQUATION, i.e. converged only when EVERY equation's normalised residual is
-    # below ``atol`` (``all(v < tol)``). ``_metric`` = the larger of the two per-equation RMS
-    # residuals (mass eq = r[0::2], energy eq = r[1::2]); the residual is already row-scaled to O(1),
-    # comparable to PorePy's volume-normalised intensive residual. ``rtol`` is kept only for API
-    # compatibility (no longer used -- the criterion is absolute, like PorePy's).
-    sqrtN = np.sqrt(geom.N)
-    _metric = lambda rr: max(np.linalg.norm(rr[0::2]), np.linalg.norm(rr[1::2])) / sqrtN
-    x = x0.copy()
-    r = residual(x, *args)
-    nrm = np.linalg.norm(r)                       # combined norm -> line-search monotonicity only
-    for it in range(maxit):
-        m = _metric(r)
-        if verbose:
-            print(f"    newton {it}: |r|_eq={m:.3e}")
-        if m <= atol:
-            return x, it, m, True
-        ab = jacobian_fd(x, r, args, plan)
-        try:
-            dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)   # O(N) banded solve
-        except Exception:
-            dx = np.zeros_like(r)        # singular -> no step; line search fails -> dt cut
-        step = 1.0
-        for _ in range(10):                          # backtracking; reuse the accepted r
-            xn = x + step * dx
-            xn[0::2] = np.clip(xn[0::2], *pclip)
-            xn[1::2] = np.clip(xn[1::2], *hclip)
-            r_new = residual(xn, *args); nrm_new = np.linalg.norm(r_new)
-            if nrm_new < nrm:
-                break
-            step *= 0.5
-        x = xn; r = r_new; nrm = nrm_new
-    return x, maxit, _metric(r), False           # not converged within maxit -> retry with smaller dt
-
-
-# Per-case settings: gravity along the column and the benchmark final time.
-#   "vertical"   = fig 5D: gravity ON,  t_final = 1000 yr.
-#   "horizontal" = fig 5B: gravity OFF (perpendicular to flow), t_final = 200 yr.
-CASES = {"vertical": dict(g=G, tf_yr=1000.0), "horizontal": dict(g=0.0, tf_yr=200.0)}
-
-
-def run(scheme="hu", N=200, case="vertical", n_steps=None, dt=None,
-        adaptive=True, verbose=True, grav_upstream=False, weighted_perm=False,
-        level=TABLE_LEVEL, lag_upwind=False):
-    """Integrate the fig-5 column with the chosen buoyancy scheme.
-
-    ``case`` selects fig 5D (vertical, gravity on, 1000 yr) or fig 5B (horizontal,
-    gravity off, 200 yr). The two differ ONLY in the gravity value and final time.
-    ``grav_upstream`` switches the internal-face gravity density from the arithmetic face
-    average to Weis (2014, Eq.25) fully-upstream weighting (only affects the vertical case).
-    ``weighted_perm`` folds the total mobility into the permeability (harmonic face average of
-    lambda*K in m_e, paper Remark 3.2) instead of upwinding it. It is a total-velocity notion,
-    so it is INCOMPATIBLE with ``scheme='ppu'`` (which has no single total mobility).
-    ``lag_upwind`` selects, uniformly across all schemes, whether the advective nonlinear weight is
-    taken at the current iterate (False, fully implicit) or at the old state, frozen once per step
-    (True). For HU-mw this is precisely whether the harmonic lambda*K multipoint is reassembled each
-    Newton iteration (False) or assembled a single time per step (True).
-    ``level`` selects the Driesner opensowat ``.vtr`` table refinement level (0..5).
-    """
-    if case not in CASES:
-        raise ValueError(f"case must be one of {list(CASES)}")
-    if weighted_perm and scheme == "ppu":
-        raise ValueError("weighted_perm (lambda folded into K) is incompatible with scheme='ppu': "
-                         "PPU feeds each phase its own potential flux and has no single total "
-                         "mobility to weight. Use it with 'hu'.")
-    cfg = CASES[case]
-    xph_path, xpt_path = table_paths(level)
-    table = Table(xph_path, _XPH_FIELDS, a_in=1e-6, b_in=1e-6)    # h[J/kg], p[Pa]
-    xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6)        # T[degC], p[Pa] -> H[J/kg]
-    geom = make_geom(N, g=cfg["g"])
-    if verbose:
-        print(f"  table: opensowat l_{level} (.vtr)   gravity-term density: "
-              f"{'UPSTREAM (Weis Eq.25)' if grav_upstream else 'arithmetic face-avg'}"
-              f"   total mobility: {'weighted_perm (harmonic lambda*K)' if weighted_perm else 'upwind'}"
-              f"   advective weight: {'lagged/once-per-step' if lag_upwind else 'current iterate'}"
-              f"  (g={cfg['g']:.4g})")
-
-    h_bot = float(xpt("H", T_BOT - 273.15, P_BOT)[0])
-    h_top = float(xpt("H", T_TOP - 273.15, P_TOP)[0])
-    bbot = boundary_state(table, P_BOT, h_bot)
-    btop = boundary_state(table, P_TOP, h_top)
-
-    y = geom.yc
-    p0 = (y * P_TOP + (L_COLUMN - y) * P_BOT) / L_COLUMN
-    h0 = xpt("H", np.full(N, T_INIT - 273.15), p0)
-    x = np.empty(2 * N); x[0::2] = p0; x[1::2] = h0
-
-    plan = build_jac_plan(N)                       # sparsity/colour plan built ONCE
-    dt0 = dt if dt is not None else DT0             # nominal step = 0.25 yr (see DT0)
-    tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
-    t = 0.0; dt = dt0; step = 0
-    n_cuts = 0                                      # rejected Newton loops (== dt-cuts); PorePy: n_time_step_cuts
-    it_wasted = 0                                   # Newton iterations spent on the rejected loops
-    nit_hist = []                                   # per-ACCEPTED-step Newton count
-    while t < tf - 1e-6:
-        dt = min(dt, tf - t)
-        x_old = x.copy()
-        xn, nit, nrm, ok = newton_step(x, x_old, dt, geom, table, bbot, btop, scheme, plan,
-                                       grav_upstream=grav_upstream, weighted_perm=weighted_perm,
-                                       lag_upwind=lag_upwind)
-        if not ok and dt > dt0 / 64:
-            n_cuts += 1; it_wasted += nit              # reject: NEVER accept a non-converged step --
-            dt *= 0.5                                   # retry with a smaller dt (fixed AND adaptive).
-            continue                                    # (Accepting a stalled step corrupts the front.)
-        x = xn; t += dt; step += 1; nit_hist.append(nit)
-        if adaptive and ok and nit < 5 and dt < dt0:
-            dt = min(dt * 2.0, dt0)                     # adaptive: grow back gradually after a cut
-        elif not adaptive:
-            dt = dt0                                    # fixed dt: restore the nominal step (so dt
-        #                                                equals dt0 except at the rare hard points)
-        if verbose and (step % 50 == 0 or not ok):
-            print(f"  t={t/YEAR:7.1f} yr  dt={dt/YEAR:.4f}  nit={nit}  |r|={nrm:.1e}"
-                  f"  {'' if ok else 'NOT CONVERGED'}")
-
-    # Report the SAME iteration quantity as the PorePy solver (NonlinearRunStats): the total counts
-    # only the ACCEPTED steps (rejected/retried loops are tallied separately as n_time_step_cuts, NOT
-    # in total_it) -- so the two solvers' `total_it` are directly comparable.
-    hist = np.asarray(nit_hist, dtype=int)
-    total_it = int(hist.sum())                      # accepted-step Newton iters   (PorePy: total_it)
-    avg_it = total_it / step if step else 0.0
-    pr = eval_props(table, x[0::2], x[1::2])
-    return {"y": y, "p": x[0::2], "h": x[1::2], "T": pr.T, "s_gas": pr.s_v,
-            "s_liq": pr.s_l, "rho_mix": pr.rho_mix, "scheme": scheme, "N": N, "case": case,
-            "n_steps": step,                        # accepted time steps       (PorePy: n_accepted_steps)
-            "total_it": total_it,                   # accepted-step Newton iters (PorePy: total_it)
-            "avg_it": avg_it,
-            "max_it": int(hist.max()) if hist.size else 0,   # PorePy: max_newton_iterations
-            "n_time_step_cuts": n_cuts,             # rejected loops / dt-cuts   (PorePy: n_time_step_cuts)
-            "it_wasted": it_wasted,                 # Newton iters spent on the rejected loops
-            "nit_hist": hist,                       # per-accepted-step         (PorePy: iterations_per_step)
-            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "level": level,
-            "lag_upwind": lag_upwind}
-
-
-# --------------------------------------------------------------------------------------- #
-#  Brine (H2O-NaCl) time stepping -- Weis (2014) Fig 6 C/D: horizontal column with halite
+#  Brine (H2O-NaCl) time stepping -- the SINGLE engine for the whole Weis benchmark.
 #  Three conservation laws (mass + salt + energy), primaries [p, h, z]; halite is an immobile,
-#  table-provided phase. HORIZONTAL (g=0), so no buoyancy.
+#  table-provided phase. HU/PPU/HU-mwp buoyancy; z=0 reproduces Fig 4/5 (pure water, both
+#  orientations), z>0 the Fig 6 salt column.
 # --------------------------------------------------------------------------------------- #
 @dataclass
 class BrineBoundaryState:
@@ -792,10 +421,17 @@ def boundary_state_brine(table, p_bc, h_bc, z_bc):
     return BrineBoundaryState(p=p_bc, h=h_bc, z=z_bc, pr=pr, T=float(pr.T[0]))
 
 
-def residual_brine(x, acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, bright):
-    """3N residual [mass_0, salt_0, energy_0, ...] for the HORIZONTAL brine column (Fig 6, g=0).
-    Total-velocity upstream weights; no buoyancy. Halite is immobile: it enters the mass and energy
-    accumulations via rho_mix and the salt accumulation via rho_mix z, but never any flux."""
+def residual_brine(x, acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, bright,
+                   scheme, ug, ud, ut, w_dir, grav_upstream, weighted_perm, lag_upwind, lam_face_old):
+    """3N residual [mass_0, salt_0, energy_0, ...] -- the SINGLE brine discretization for the whole
+    benchmark. Fig 4/5 (z=0, pure water, either orientation) and Fig 6 (z>0, halite) run through this
+    same residual: total-velocity viscous advection + simplicial (mobility-product) buoyancy on the
+    liquid/vapor pair, mirroring the retired pure-water ``residual``. The salt row carries the NaCl
+    fractions X_l/X_v through the SAME upwind and buoyancy directions as mass/energy; it vanishes at
+    z=0 (X_l=X_v=0), so the vertical z=0 run reduces to pure water bit-for-bit. Halite is immobile
+    (mm_h=0): it enters rho_mix and the salt accumulation, never any flux. ``ug/ud/ut/w_dir`` are the
+    lagged buoyancy directions; ``lam_face_old`` the old-state harmonic lambda*K (HU-mwp lag_upwind).
+    Boundary convention: bleft = inlet (i=0), bright = outlet (i=N-1)."""
     N = geom.N
     p = x[0::3]; h = x[1::3]; z = x[2::3]
     pr = eval_props_brine(table, p, h, z)
@@ -803,24 +439,95 @@ def residual_brine(x, acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, 
     acc_salt = geom.Vcell * PHI * pr.rho_mix * z
     acc_en = geom.Vcell * (PHI * (pr.rho_mix * h - p) + (1 - PHI) * RHO_S * C_S * pr.T)
 
-    V_T = geom.Tf * (p[:-1] - p[1:])                       # g=0: viscous total velocity
-    up = np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
-    F_mass = V_T * pr.lam_T[up]
-    F_salt = V_T * pr.salt_mob[up]
-    F_en = geom.TFf * (pr.T[:-1] - pr.T[1:]) + V_T * pr.adv_h[up]
+    dp_face = p[:-1] - p[1:]
+    rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:])
+    rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
+    F_four = geom.TFf * (pr.T[:-1] - pr.T[1:])
 
-    # boundary faces: bleft = inlet (high p, i=0), bright = outlet (low p, i=N-1); upwind on V.
-    V_l = geom.Tb * (bleft.p - p[0]); inflow_l = V_l >= 0.0
-    Fm_l = V_l * (bleft.pr.lam_T[0]   if inflow_l else pr.lam_T[0])
-    Fs_l = V_l * (bleft.pr.salt_mob[0] if inflow_l else pr.salt_mob[0])
-    Fh_l = V_l * (bleft.pr.adv_h[0]   if inflow_l else pr.adv_h[0])
-    Fe_l = geom.TFb * (bleft.T - pr.T[0]) + Fh_l
+    if scheme == "ppu":
+        # per-phase potential upwinding: each phase rides its own Psi_g; the NaCl fraction and the
+        # enthalpy it carries follow the same phase-upwind node.
+        if lag_upwind:
+            iu_l, iu_v = ug, ud
+        else:
+            iu_l = _upwind_idx(geom.Tf * dp_face - geom.GA * rho_l_f)
+            iu_v = _upwind_idx(geom.Tf * dp_face - geom.GA * rho_v_f)
+        rho_l_p = pr.rho_l[iu_l] if grav_upstream else rho_l_f
+        rho_v_p = pr.rho_v[iu_v] if grav_upstream else rho_v_f
+        Psi_l = geom.Tf * dp_face - geom.GA * rho_l_p
+        Psi_v = geom.Tf * dp_face - geom.GA * rho_v_p
+        F_mass = Psi_l * pr.mm_l[iu_l] + Psi_v * pr.mm_v[iu_v]
+        F_salt = Psi_l * (pr.Xl[iu_l] * pr.mm_l[iu_l]) + Psi_v * (pr.Xv[iu_v] * pr.mm_v[iu_v])
+        F_en = F_four + Psi_l * (pr.h_l[iu_l] * pr.mm_l[iu_l]) + Psi_v * (pr.h_v[iu_v] * pr.mm_v[iu_v])
+    else:
+        # HU: total-velocity viscous advection + simplicial mobility-product buoyancy (see the paper).
+        rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
+        rho_ff_g = pr.rho_ff[ut] if grav_upstream else rho_ff_f
+        V_T = geom.Tf * dp_face - geom.GA * rho_ff_g
+        up = ut if lag_upwind else np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
+        if weighted_perm:                                     # HU-mwp: fold lambda_T into K
+            lam_face = (lam_face_old if (lag_upwind and lam_face_old is not None)
+                        else _harmonic_face(pr.lam_T))
+            F_mass = V_T * lam_face
+            hbar_up = pr.adv_h[up] / np.where(pr.lam_T[up] > 0.0, pr.lam_T[up], 1.0)   # <hbar>
+            F_en_adv = hbar_up * F_mass
+            xbar_up = pr.salt_mob[up] / np.where(pr.lam_T[up] > 0.0, pr.lam_T[up], 1.0)  # <Xbar>
+            F_salt_adv = xbar_up * F_mass
+        else:
+            F_mass = V_T * pr.lam_T[up]
+            F_en_adv = V_T * pr.adv_h[up]
+            F_salt_adv = V_T * pr.salt_mob[up]
+        # HU-BM(mp) pair buoyancy lambda_l lambda_v / Gamma * w_flux. Background void at N=2 (halite
+        # immobile). Energy advects (h_l - h_v); salt advects (X_l - X_v) with the same directions.
+        w_flux = -geom.GA * (rho_l_f - rho_v_f)
+        lam_l_up = _advect(pr.mm_l, w_dir)
+        lam_v_dn = _advect(pr.mm_v, -w_dir)
+        Gamma = lam_l_up + lam_v_dn
+        common = lam_l_up * lam_v_dn / (Gamma + 1.0e-30)
+        F_buoy = common * w_flux * (_advect(pr.h_l, w_dir) - _advect(pr.h_v, -w_dir))
+        F_salt_buoy = common * w_flux * (_advect(pr.Xl, w_dir) - _advect(pr.Xv, -w_dir))
+        F_salt = F_salt_adv + F_salt_buoy
+        F_en = F_four + F_en_adv + F_buoy
 
-    V_r = geom.Tb * (p[-1] - bright.p); outflow_r = V_r >= 0.0
-    Fm_r = V_r * (pr.lam_T[-1]   if outflow_r else bright.pr.lam_T[0])
-    Fs_r = V_r * (pr.salt_mob[-1] if outflow_r else bright.pr.salt_mob[0])
-    Fh_r = V_r * (pr.adv_h[-1]   if outflow_r else bright.pr.adv_h[0])
-    Fe_r = geom.TFb * (pr.T[-1] - bright.T) + Fh_r
+    # ---- boundary faces (Dirichlet p, T->h_bc; bleft = i0, bright = iN-1) ----
+    if scheme == "ppu":
+        Psi_lb = geom.Tb * (bleft.p - p[0]) - geom.GA * bleft.pr.rho_l[0]
+        Psi_vb = geom.Tb * (bleft.p - p[0]) - geom.GA * bleft.pr.rho_v[0]
+        mml = bleft.pr.mm_l[0] if Psi_lb >= 0 else pr.mm_l[0]
+        hl = bleft.pr.h_l[0] if Psi_lb >= 0 else pr.h_l[0]
+        Xlb = bleft.pr.Xl[0] if Psi_lb >= 0 else pr.Xl[0]
+        mmv = bleft.pr.mm_v[0] if Psi_vb >= 0 else pr.mm_v[0]
+        hv = bleft.pr.h_v[0] if Psi_vb >= 0 else pr.h_v[0]
+        Xvb = bleft.pr.Xv[0] if Psi_vb >= 0 else pr.Xv[0]
+        Fm_l = Psi_lb * mml + Psi_vb * mmv
+        Fs_l = Psi_lb * Xlb * mml + Psi_vb * Xvb * mmv
+        Fe_l = geom.TFb * (bleft.T - pr.T[0]) + Psi_lb * hl * mml + Psi_vb * hv * mmv
+
+        Psi_lt = geom.Tb * (p[-1] - bright.p) - geom.GA * bright.pr.rho_l[0]
+        Psi_vt = geom.Tb * (p[-1] - bright.p) - geom.GA * bright.pr.rho_v[0]
+        mml = pr.mm_l[-1] if Psi_lt >= 0 else bright.pr.mm_l[0]
+        hl = pr.h_l[-1] if Psi_lt >= 0 else bright.pr.h_l[0]
+        Xlt = pr.Xl[-1] if Psi_lt >= 0 else bright.pr.Xl[0]
+        mmv = pr.mm_v[-1] if Psi_vt >= 0 else bright.pr.mm_v[0]
+        hv = pr.h_v[-1] if Psi_vt >= 0 else bright.pr.h_v[0]
+        Xvt = pr.Xv[-1] if Psi_vt >= 0 else bright.pr.Xv[0]
+        Fm_r = Psi_lt * mml + Psi_vt * mmv
+        Fs_r = Psi_lt * Xlt * mml + Psi_vt * Xvt * mmv
+        Fe_r = geom.TFb * (pr.T[-1] - bright.T) + Psi_lt * hl * mml + Psi_vt * hv * mmv
+    else:
+        V_l = geom.Tb * (bleft.p - p[0]) - geom.GA * bleft.pr.rho_ff[0]
+        if V_l >= 0.0:
+            Fm_l = V_l * bleft.pr.lam_T[0]; Fh_l = V_l * bleft.pr.adv_h[0]; Fs_l = V_l * bleft.pr.salt_mob[0]
+        else:
+            Fm_l = V_l * pr.lam_T[0];       Fh_l = V_l * pr.adv_h[0];       Fs_l = V_l * pr.salt_mob[0]
+        Fe_l = geom.TFb * (bleft.T - pr.T[0]) + Fh_l
+
+        V_r = geom.Tb * (p[-1] - bright.p) - geom.GA * bright.pr.rho_ff[0]
+        if V_r >= 0.0:
+            Fm_r = V_r * pr.lam_T[-1];      Fh_r = V_r * pr.adv_h[-1];      Fs_r = V_r * pr.salt_mob[-1]
+        else:
+            Fm_r = V_r * bright.pr.lam_T[0]; Fh_r = V_r * bright.pr.adv_h[0]; Fs_r = V_r * bright.pr.salt_mob[0]
+        Fe_r = geom.TFb * (pr.T[-1] - bright.T) + Fh_r
 
     dm = np.empty(N); ds = np.empty(N); de = np.empty(N)
     dm[0] = F_mass[0] - Fm_l; dm[1:-1] = F_mass[1:] - F_mass[:-1]; dm[-1] = Fm_r - F_mass[-1]
@@ -834,14 +541,18 @@ def residual_brine(x, acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, 
     return r
 
 
-def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, plan,
-                      atol=1e-5, maxit=20, verbose=False):
+def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
+                      atol=1e-5, maxit=20, verbose=False, grav_upstream=False,
+                      weighted_perm=False, lag_upwind=False):
     p_o = x_old[0::3]; h_o = x_old[1::3]; z_o = x_old[2::3]
     pr_o = eval_props_brine(table, p_o, h_o, z_o)
+    ug, ud, ut, w_dir = buoyancy_directions(geom, p_o, pr_o, scheme)   # lagged per step
+    lam_face_old = _harmonic_face(pr_o.lam_T)                          # HU-mwp lag_upwind old-state
     acc_mass_o = geom.Vcell * PHI * pr_o.rho_mix
     acc_salt_o = geom.Vcell * PHI * pr_o.rho_mix * z_o
     acc_en_o = geom.Vcell * (PHI * (pr_o.rho_mix * h_o - p_o) + (1 - PHI) * RHO_S * C_S * pr_o.T)
-    args = (acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, bright)
+    args = (acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, bright, scheme, ug, ud, ut,
+            w_dir, grav_upstream, weighted_perm, lag_upwind, lam_face_old)
     pclip = (table.b_min * (1 + 1e-9), table.b_max * (1 - 1e-9))
     hclip = (table.a_min * (1 + 1e-9), table.a_max * (1 - 1e-9))
     zclip = (table.c_min, table.c_max)                          # z in [0, 1]
@@ -886,16 +597,30 @@ FIG6 = dict(p_left=4.0e6, T_left=300.0 + 273.15, z_left=0.0,
             p_right=1.0e6, T_right=150.0 + 273.15,
             T_init=150.0 + 273.15, z_init=0.3, tf_yr=200.0)
 
+# Weis (2014) Fig 4/5 (pure-water) boundary/initial data at z=0: hot steam inlet -> cool outlet. The
+# brine engine reduces to the pure-water column at z=0, so Fig 4/5 run through it via ``**FIG5``.
+FIG5 = dict(p_left=P_BOT, T_left=T_BOT, z_left=0.0,
+            p_right=P_TOP, T_right=T_TOP, T_init=T_INIT, z_init=0.0)
 
-def run_brine(N=200, n_steps=None, dt=None, adaptive=True, verbose=True, level=TABLE_LEVEL, **fig6):
-    """Weis (2014) Fig 6 C/D: horizontal 1-D H2O-NaCl column with an immobile solid-halite phase.
-    Mass + salt + energy, primaries [p, h, z]; horizontal (g=0), no buoyancy. Keyword overrides go
-    to FIG6 (p_left/T_left/z_left/p_right/T_right/T_init/z_init/tf_yr)."""
-    cfg = {**FIG6, **fig6}
+
+def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adaptive=True,
+              verbose=True, grav_upstream=False, weighted_perm=False, lag_upwind=False,
+              level=TABLE_LEVEL, **fig):
+    """The single brine engine: mass + salt + energy, primaries [p, h, z], HU/PPU/HU-mwp buoyancy.
+    Reproduces Fig 4/5 (pure water) at z=0 and Fig 6 (H2O-NaCl + immobile halite) at z>0 -- ONE
+    discretization. ``case`` ('horizontal'|'vertical') sets gravity + default final time via CASES;
+    ``**fig`` overrides the BC/IC (defaults = FIG6, the salt column). Pass ``**FIG5`` for pure water."""
+    if case not in CASES:
+        raise ValueError(f"case must be one of {list(CASES)}")
+    if weighted_perm and scheme == "ppu":
+        raise ValueError("weighted_perm (lambda folded into K) is incompatible with scheme='ppu'.")
+    cfg = {**FIG6, **fig}
+    g = CASES[case]["g"]
+    tf_yr = fig["tf_yr"] if "tf_yr" in fig else CASES[case]["tf_yr"]
     xph_path, xpt_path = table_paths(level)
     table = Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
     xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
-    geom = make_geom(N, g=0.0)                                  # horizontal: gravity perp. to flow
+    geom = make_geom(N, g=g)
 
     def enth(TK, p, z):
         return xpt("H", np.atleast_1d(TK) - 273.15, np.atleast_1d(p), np.atleast_1d(z))
@@ -913,18 +638,21 @@ def run_brine(N=200, n_steps=None, dt=None, adaptive=True, verbose=True, level=T
 
     plan = build_jac_plan(N, nvar=3)
     dt0 = dt if dt is not None else DT0
-    tf = cfg["tf_yr"] * YEAR if n_steps is None else n_steps * dt0
-    t = 0.0; dt = dt0; step = 0; n_cuts = 0; nit_hist = []
+    tf = tf_yr * YEAR if n_steps is None else n_steps * dt0
+    t = 0.0; dt = dt0; step = 0; n_cuts = 0; it_wasted = 0; nit_hist = []
     if verbose:
-        print(f"  Fig 6 brine: N={N}, level {level}, horizontal (g=0);  "
-              f"left {cfg['T_left']-273.15:.0f}C/{cfg['p_left']/1e6:.0f}MPa z={cfg['z_left']}  ->  "
-              f"right {cfg['T_right']-273.15:.0f}C/{cfg['p_right']/1e6:.0f}MPa;  IC z={cfg['z_init']}")
+        print(f"  brine {scheme}{'-mwp' if weighted_perm else ''}: N={N}, level {level}, {case} "
+              f"(g={g:.4g});  left {cfg['T_left']-273.15:.0f}C/{cfg['p_left']/1e6:.0f}MPa "
+              f"z={cfg['z_left']}  ->  right {cfg['T_right']-273.15:.0f}C/{cfg['p_right']/1e6:.0f}MPa;"
+              f"  IC z={cfg['z_init']}")
     while t < tf - 1e-6:
         dt = min(dt, tf - t)
         x_old = x.copy()
-        xn, nit, nrm, ok = newton_step_brine(x, x_old, dt, geom, table, bleft, bright, plan)
+        xn, nit, nrm, ok = newton_step_brine(x, x_old, dt, geom, table, bleft, bright, scheme, plan,
+                                             grav_upstream=grav_upstream, weighted_perm=weighted_perm,
+                                             lag_upwind=lag_upwind)
         if not ok and dt > dt0 / 64:
-            n_cuts += 1; dt *= 0.5; continue
+            n_cuts += 1; it_wasted += nit; dt *= 0.5; continue
         x = xn; t += dt; step += 1; nit_hist.append(nit)
         if adaptive and ok and nit < 5 and dt < dt0:
             dt = min(dt * 2.0, dt0)
@@ -938,10 +666,12 @@ def run_brine(N=200, n_steps=None, dt=None, adaptive=True, verbose=True, level=T
     hist = np.asarray(nit_hist, dtype=int)
     return {"y": y, "p": x[0::3], "h": x[1::3], "z": x[2::3], "T": pr.T,
             "s_liq": pr.s_l, "s_gas": pr.s_v, "s_halite": pr.s_h, "Xl": pr.Xl,
-            "rho_mix": pr.rho_mix, "N": N, "case": "fig6", "level": level,
+            "rho_mix": pr.rho_mix, "N": N, "case": case, "level": level, "scheme": scheme,
             "n_steps": step, "total_it": int(hist.sum()),
             "avg_it": (hist.sum() / step) if step else 0.0,
-            "max_it": int(hist.max()) if hist.size else 0, "n_time_step_cuts": n_cuts}
+            "max_it": int(hist.max()) if hist.size else 0, "n_time_step_cuts": n_cuts,
+            "it_wasted": it_wasted, "nit_hist": hist,
+            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "lag_upwind": lag_upwind}
 
 
 # --------------------------------------------------------------------------------------- #
@@ -976,11 +706,12 @@ def load_reference(case, field):
 # --------------------------------------------------------------------------------------- #
 def selftest():
     print("=== selftest ===")
-    table = Table(VTK_XPH, _XPH_FIELDS, a_in=1e-6, b_in=1e-6)
+    table = Table(VTK_XPH, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
     geom = make_geom(20)
     p = np.linspace(20e6, 1e6, 20)
     h = np.full(20, 6.0e5)                         # cold liquid -> s_v = 0
-    pr = eval_props(table, p, h)
+    z = np.zeros(20)                               # pure water (brine engine at z=0)
+    pr = eval_props_brine(table, p, h, z)
     assert np.all(pr.s_v < 1e-6), "expected single-phase liquid"
     rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:]); rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
     i_liq, i_gas, _, w_dir = buoyancy_directions(geom, p, pr, "hu")
@@ -992,7 +723,7 @@ def selftest():
     p_hyd = np.empty(20); p_hyd[0] = 20e6
     for i in range(1, 20):
         p_hyd[i] = p_hyd[i - 1] - 0.5 * (pr.rho_ff[i - 1] + pr.rho_ff[i]) * G * geom.dy
-    pr2 = eval_props(table, p_hyd, h)
+    pr2 = eval_props_brine(table, p_hyd, h, z)
     rff = 0.5 * (pr2.rho_ff[:-1] + pr2.rho_ff[1:])
     VT = geom.Tf * (p_hyd[:-1] - p_hyd[1:]) - geom.GA * rff
     print(f"  hydrostatic max|V_T| = {np.max(np.abs(VT)):.2e} (should be ~0)")
@@ -1000,8 +731,8 @@ def selftest():
 
 
 def prebuild_table_caches(level=TABLE_LEVEL):
-    """Build the ``.npz`` caches for the xph/xpt tables at ``level`` serially, so that a
-    subsequent parallel sweep of :func:`run` hits the fast cache path in every worker."""
+    """Build the ``.npz`` caches for the xph/xpt brine tables at ``level`` serially, so that a
+    subsequent parallel sweep of :func:`run_brine` hits the fast cache path in every worker."""
     xph_path, xpt_path = table_paths(level)
-    Table(xph_path, _XPH_FIELDS, a_in=1e-6, b_in=1e-6)
-    Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6)
+    Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
+    Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)

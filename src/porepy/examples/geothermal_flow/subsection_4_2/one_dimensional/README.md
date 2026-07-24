@@ -43,7 +43,7 @@ $PY fig_weis_reference.py
 > Panel (b) loads the **level-4** table (~1.4 GB) once per scheme — the heavy part of this figure.
 
 ### 2. `fig_weis_profiles.py` → `figures/fig_weis_profiles_{a,b}.pdf`
-Converged profiles of the three schemes (PPU, HU, HU-mw) against the digitized Weis-2014 curves
+Converged profiles of the three schemes (PPU, HU, HU-mwp) against the digitized Weis-2014 curves
 (thick pale band); **(a)** horizontal (200 yr), **(b)** vertical (1000 yr). 1-D solver only.
 Also writes the `_cache/profiles_*` files that step 4 reuses as its 1-D reference.
 
@@ -53,8 +53,8 @@ $PY fig_weis_profiles.py
 
 ### 3. PorePy 2-D data → `_cache/porepy_{case}_{scheme}_N800_l3.pkl`  *(prerequisite for step 4)*
 Runs the PorePy 2-D column for the selected cases and dumps each converged profile.
-**Heavy** (vertical ≈ hours). Edit `main()` to choose cases — currently `vertical` × {HU, HU-mw};
-set both orientations for all four `{horizontal, vertical} × {HU, HU-mw}`.
+**Heavy** (vertical ≈ hours). Edit `main()` to choose cases — currently `vertical` × {HU, HU-mwp};
+set both orientations for all four `{horizontal, vertical} × {HU, HU-mwp}`.
 
 ```bash
 $PY porepy_1d_solver.py

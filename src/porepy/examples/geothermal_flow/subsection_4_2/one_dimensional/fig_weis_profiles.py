@@ -1,4 +1,4 @@
-"""Figure ``fig:weis_profiles`` -- converged profiles of the three schemes (PPU, HU, HU-mw)
+"""Figure ``fig:weis_profiles`` -- converged profiles of the three schemes (PPU, HU, HU-mwp)
 against the published Weis (2014) fig-5 curves, in both orientations, with the consistent
 face-averaged gravity densities (Rem. gravity_consistency).
 
@@ -15,6 +15,11 @@ cache file to recompute. Runtime scales with N; raise N for the final, publicati
 from __future__ import annotations
 
 import os
+
+os.environ.setdefault("OMP_NUM_THREADS", "1")        # pin BLAS threads BEFORE numpy: the spawn Pool
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")   # deadlocks with multi-threaded BLAS on a fresh
+os.environ.setdefault("MKL_NUM_THREADS", "1")        # (uncached) compute -- see run_workflow.py.
+
 import pickle
 import sys
 import time
@@ -66,8 +71,9 @@ def _run_one(args):
             return (sk, case), pickle.load(f), 0.0, True
     cfg = ps.SCHEMES[sk]
     t0 = time.time()
-    res = m.run(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"], grav_upstream=False,
-                N=N, case=case, level=level, n_steps=n_steps, verbose=False, lag_upwind=lag_upwind)
+    res = m.run_brine(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"], grav_upstream=False,
+                      N=N, case=case, level=level, n_steps=n_steps, verbose=False,
+                      lag_upwind=lag_upwind, **m.FIG5)          # z=0 -> pure water
     keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
@@ -127,8 +133,8 @@ def compute_extra(N=EXTRA_N, level=LEVEL, cache=True):
             print(f"[profiles] loaded extra {os.path.basename(path)}")
             return pickle.load(f)
     m.prebuild_table_caches(level)
-    res = m.run(scheme="ppu", weighted_perm=False, grav_upstream=True, N=N, case="vertical",
-                level=level, lag_upwind=True, verbose=False)
+    res = m.run_brine(scheme="ppu", weighted_perm=False, grav_upstream=True, N=N, case="vertical",
+                      level=level, lag_upwind=True, verbose=False, **m.FIG5)
     keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:

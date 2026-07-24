@@ -23,7 +23,7 @@ Use the porepy conda env (its interpreter is reused for the subprocesses):
     $PY run_workflow.py --plot-only     # figures (PNG) from existing _cache only (no 2-D solves)
     $PY run_workflow.py --plot-only --pdf   # same, also writing a vector PDF per figure
     $PY run_workflow.py --skip-porepy   # no 2-D overlay runs (verification shows 1-D references)
-    $PY run_workflow.py --porepy-schemes hu hu_mw   # add the HU-mw overlay (heavy new runs)
+    $PY run_workflow.py --porepy-schemes hu hu_mwp   # add the HU-mwp overlay (heavy new runs)
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ import plot_style as PS                               # noqa: E402  (shared save
 
 PY = sys.executable                                   # reuse the invoking (porepy-env) interpreter
 
-PP_SCHEMES = {"hu": False, "hu_mw": True}             # overlay scheme -> weighted_perm for run_case
+PP_SCHEMES = {"hu": False, "hu_mwp": True}             # overlay scheme -> weighted_perm for run_case
 ORIENTATIONS = ["horizontal", "vertical"]
 
 
@@ -84,7 +84,7 @@ def stage_reference(quick, parallel):
 
 
 def stage_profiles(quick, parallel):
-    """1-D converged profiles of PPU/HU/HU-mw; also writes _cache/profiles_* for the overlay."""
+    """1-D converged profiles of PPU/HU/HU-mwp; also writes _cache/profiles_* for the overlay."""
     if quick:                                          # small N + capped integration (smoke, not physics)
         out = FP.compute(N=100, n_steps=40, parallel=parallel)
         extra = FP.compute_extra(N=50)
@@ -112,7 +112,7 @@ def stage_verification():
     """Overlay each PorePy 2-D scheme on its 1-D reference, per orientation (cache-only, fast).
     A scheme with no PorePy cache is drawn as its 1-D reference alone."""
     for case in ORIENTATIONS:
-        FV.plot_verification(case, schemes=("hu", "hu_mw"))
+        FV.plot_verification(case, schemes=("hu", "hu_mwp"))
 
 
 def stage_single_phase_runs(no_cache):
@@ -167,7 +167,7 @@ def main(argv=None):
                     help="orientations for the 2-D overlay runs (default: both)")
     ap.add_argument("--porepy-schemes", nargs="+", default=["hu"], choices=list(PP_SCHEMES),
                     metavar="SCHEME",
-                    help="schemes for the 2-D overlay runs (default: hu; add hu_mw for the full "
+                    help="schemes for the 2-D overlay runs (default: hu; add hu_mwp for the full "
                          "overlay -- heavy new runs)")
     ap.add_argument("--serial", action="store_true",
                     help="run the 1-D sweeps serially (default: parallel process pool)")
