@@ -692,19 +692,8 @@ else:
 
             """
 
-        def after_nonlinear_iteration(
-            self,
-            nonlinear_increment: np.ndarray,
-        ) -> None:
-            """Method to be called after every non-linear iteration.
-
-            Parameters:
-                nonlinear_increment: The new solution, as computed by the non-linear
-                    solver.
-                updated_variables: Variables to update with `nonlinear_increment`. If
-                    `None`, all variables are updated.
-
-            """
+        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+            """Method to be called after every non-linear iteration."""
 
         def after_nonlinear_convergence(self) -> None:
             """Called after a nonlinear solver loop converges.
