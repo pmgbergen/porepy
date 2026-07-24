@@ -1,7 +1,10 @@
-from typing import Callable
+"""Unit tests for the Schur-complement reduction linear solver."""
+
+from dataclasses import dataclass
 
 import numpy as np
 import pytest
+from scipy.sparse import csr_matrix
 
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
@@ -11,6 +14,211 @@ from porepy.applications.md_grids.mdg_library import (
 )
 from porepy.applications.test_utils.models import add_mixin
 from tests.functional.setups.linear_tracer import TracerFlowModel_3p
+
+
+class MockPrimaryLinearSolver(pp.solvers.LinearSolverBase):
+    """Return a prescribed result and record calls made by the outer solver."""
+
+    def __init__(
+        self,
+        solution: np.ndarray,
+        status: pp.solvers.LinearSolverStatus,
+    ) -> None:
+        self.solution = solution
+        self.status = status
+        self.linear_systems: list[pp.solvers.LinearSystem] = []
+        self.model: object | None = None
+
+    def initialize_with_model(self, model: pp.PorePyModel) -> None:
+        self.model = model
+
+    def solve_linear_system(
+        self, linear_system: pp.solvers.LinearSystem
+    ) -> tuple[np.ndarray, pp.solvers.LinearSolverStatus]:
+        self.linear_systems.append(linear_system)
+        return self.solution.copy(), self.status
+
+
+@dataclass
+class LinearSystemData:
+    """The algebraic system and the tags identifying its primary block."""
+
+    linear_system: pp.solvers.LinearSystem
+    primary_equation_tag: pp.solvers.EquationTag
+    primary_variable_tag: pp.solvers.VariableTag
+
+
+@pytest.fixture
+def linear_system_data() -> LinearSystemData:
+    """Construct a tagged block system without constructing a PorePy model."""
+    domain = pp.CartGrid([1])
+
+    secondary_equation_0 = pp.ad.EquationOnDomain("secondary_0", domain)
+    primary_equation = pp.ad.EquationOnDomain("primary", domain)
+    secondary_equation_1 = pp.ad.EquationOnDomain("secondary_1", domain)
+    equation_indexer = pp.ad.EquationIndexer(
+        equation_dofs={
+            secondary_equation_0: np.array([0]),
+            primary_equation: np.array([1, 3]),
+            secondary_equation_1: np.array([2]),
+        }
+    )
+
+    secondary_variable_0 = pp.ad.Variable("secondary_0", {"cells": 1}, domain)
+    primary_variable = pp.ad.Variable("primary", {"cells": 1}, domain)
+    secondary_variable_1 = pp.ad.Variable("secondary_1", {"cells": 1}, domain)
+    variable_indexer = pp.ad.VariableIndexer(
+        variable_dofs={
+            secondary_variable_0: np.array([0]),
+            primary_variable: np.array([1, 3]),
+            secondary_variable_1: np.array([2]),
+        }
+    )
+
+    matrix = csr_matrix(
+        [
+            [4.0, 2.0, 1.0, 0.0],
+            [1.0, 5.0, 0.0, 2.0],
+            [1.0, 1.0, 3.0, 1.0],
+            [0.0, 2.0, 2.0, 6.0],
+        ]
+    )
+    # This right-hand side is matrix @ [1, -1, 2, 3].
+    rhs = np.array([4.0, 2.0, 9.0, 20.0])
+
+    return LinearSystemData(
+        linear_system=pp.solvers.LinearSystem(
+            matrix=matrix,
+            rhs=rhs,
+            equation_indexer=equation_indexer,
+            variable_indexer=variable_indexer,
+        ),
+        primary_equation_tag=pp.solvers.EquationTag("primary"),
+        primary_variable_tag=pp.solvers.VariableTag("primary"),
+    )
+
+
+def test_default_primary_solver() -> None:
+    """A direct solver is created when no primary solver is supplied."""
+    solver = pp.solvers.SchurComplementReductionLinearSolver(
+        primary_equation_tags=[],
+        primary_variable_tags=[],
+    )
+
+    assert isinstance(solver.primary_linear_solver, pp.solvers.LinearSolverDirect)
+
+
+def test_initialize_with_model_is_forwarded_to_primary_solver() -> None:
+    """Initialization only forwards a shallow model mock to the inner solver."""
+
+    class ShallowMockModel:
+        pass
+
+    primary_solver = MockPrimaryLinearSolver(
+        solution=np.empty(0),
+        status=pp.solvers.LinearSolverStatusSuccess(solve_time=0.0),
+    )
+    solver = pp.solvers.SchurComplementReductionLinearSolver(
+        primary_equation_tags=[],
+        primary_variable_tags=[],
+        primary_linear_solver=primary_solver,
+    )
+    model = ShallowMockModel()
+
+    solver.initialize_with_model(model)  # type: ignore[arg-type]
+
+    assert primary_solver.model is model
+
+
+@pytest.mark.parametrize("primary_solver_succeeds", [True, False])
+def test_solve_reduces_system_and_wraps_primary_status(
+    linear_system_data: LinearSystemData,
+    primary_solver_succeeds: bool,
+) -> None:
+    """The inner solver receives the Schur system and its status is preserved."""
+    if primary_solver_succeeds:
+        primary_status: pp.solvers.LinearSolverStatus = (
+            pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)
+        )
+    else:
+        primary_status = pp.solvers.LinearSolverStatusFailure(reason="mock failure")
+    primary_solver = MockPrimaryLinearSolver(
+        solution=np.array([-1.0, 3.0]),
+        status=primary_status,
+    )
+    solver = pp.solvers.SchurComplementReductionLinearSolver(
+        primary_equation_tags=[linear_system_data.primary_equation_tag],
+        primary_variable_tags=[linear_system_data.primary_variable_tag],
+        primary_linear_solver=primary_solver,
+    )
+
+    solution, status = solver.solve_linear_system(linear_system_data.linear_system)
+
+    np.testing.assert_allclose(solution, [1.0, -1.0, 2.0, 3.0])
+    assert len(primary_solver.linear_systems) == 1
+    reduced_system = primary_solver.linear_systems[0]
+    assert reduced_system.matrix is not None
+    np.testing.assert_allclose(
+        reduced_system.matrix.toarray(),
+        np.array([[50.0, 23.0], [18.0, 58.0]]) / 11.0,
+    )
+    np.testing.assert_allclose(reduced_system.rhs, np.array([19.0, 156.0]) / 11.0)
+    assert reduced_system.equation_indexer.projection_indices(
+        list(reduced_system.equation_indexer.equation_dofs)
+    ).tolist() == [0, 1]
+    assert reduced_system.variable_indexer.projection_indices(
+        list(reduced_system.variable_indexer.variable_dofs)
+    ).tolist() == [0, 1]
+
+    assert status.primary_solver_status is primary_status
+    if primary_solver_succeeds:
+        assert isinstance(status, pp.solvers.SchurComplementReductionStatusSuccess)
+        assert status.solve_time >= 0.0
+    else:
+        assert isinstance(status, pp.solvers.SchurComplementReductionStatusFailure)
+        assert status.reason == "primary linear solver failed"
+
+
+def test_solve_delegates_when_secondary_block_is_empty(
+    linear_system_data: LinearSystemData,
+) -> None:
+    """A fully primary system is passed unchanged to the primary solver."""
+    primary_status = pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)
+    expected_solution = np.array([1.0, -1.0, 2.0, 3.0])
+    primary_solver = MockPrimaryLinearSolver(expected_solution, primary_status)
+    equation_tags = [
+        pp.solvers.EquationTag(equation.name)
+        for equation in linear_system_data.linear_system.equation_indexer.equation_dofs
+    ]
+    variable_tags = [
+        pp.solvers.VariableTag(variable.name)
+        for variable in linear_system_data.linear_system.variable_indexer.variable_dofs
+    ]
+    solver = pp.solvers.SchurComplementReductionLinearSolver(
+        primary_equation_tags=equation_tags,
+        primary_variable_tags=variable_tags,
+        primary_linear_solver=primary_solver,
+    )
+
+    solution, status = solver.solve_linear_system(linear_system_data.linear_system)
+
+    np.testing.assert_array_equal(solution, expected_solution)
+    assert primary_solver.linear_systems == [linear_system_data.linear_system]
+    assert isinstance(status, pp.solvers.SchurComplementReductionStatusSuccess)
+    assert status.primary_solver_status is primary_status
+
+
+def test_solve_requires_matrix(linear_system_data: LinearSystemData) -> None:
+    """A released matrix is rejected before data initialization."""
+    linear_system_data.linear_system.release_matrix_reference()
+    solver = pp.solvers.SchurComplementReductionLinearSolver(
+        primary_equation_tags=[linear_system_data.primary_equation_tag],
+        primary_variable_tags=[linear_system_data.primary_variable_tag],
+    )
+
+    with pytest.raises(AssertionError, match="Matrix should be provided"):
+        solver.solve_linear_system(linear_system_data.linear_system)
+
 
 # ---------------------------------------------------------------------
 # Integration test
@@ -114,26 +322,3 @@ def test_schur_complement_reduction_on_model(
 
     model = model_class(model_params)
     model.prepare_simulation()
-    primary_equation_tags, primary_variable_tags = get_primary_tags(model)
-    model.equation_system.set_variable_values(
-        np.ones(model.equation_system.num_dofs()), iterate_index=0, time_step_index=0
-    )
-
-    model.before_time_step()
-    model.before_nonlinear_loop()
-    model.before_nonlinear_iteration()
-    linear_system = model.equation_system.assemble()
-
-    direct_solver = pp.solvers.LinearSolverDirect()
-    direct_solution, direct_status = direct_solver.solve_linear_system(linear_system)
-    assert direct_status.is_success()
-
-    schur_solver = pp.solvers.SchurComplementReductionLinearSolver(
-        primary_equation_tags=primary_equation_tags,
-        primary_variable_tags=primary_variable_tags,
-        primary_linear_solver=pp.solvers.LinearSolverDirect(),
-    )
-    schur_solution, schur_status = schur_solver.solve_linear_system(linear_system)
-    assert schur_status.is_success()
-
-    np.testing.assert_allclose(schur_solution, direct_solution, atol=1e-9, rtol=0.0)
