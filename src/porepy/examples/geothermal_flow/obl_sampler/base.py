@@ -12,14 +12,12 @@ The Driesner compositional-flow model consumes a sampler through a small, fixed 
     sampler.search_space.bounds                       # (xmin,xmax,ymin,ymax,zmin,zmax)
 
 :class:`OBLSampler` implements everything that is common -- the pyvista-backed constructor (reads the
-rectilinear ``.vtr`` once and extracts the axes / bounds / value fields), all of the knobs above, the
-memoized ``sample_at`` entry point, and the point conversion/translation -- and delegates the actual
-interpolation to a subclass hook :meth:`_sample`. The two backends differ ONLY there:
-
-    * :class:`~obl_sampler.vtk_sampler.VTKSampler`     -- pyvista probe of the value field and of the
-      separately-stored ``grad_`` field (fast, but value and gradient are inconsistent).
-    * :class:`~obl_sampler.nspline_sampler.NSplineSampler` -- one tensor cubic B-spline per field, so
-      the gradient is the analytic derivative of the value (consistent Jacobian).
+VTK dataset once and extracts the bounds / value-field names), all of the knobs above, the memoized
+``sample_at`` entry point, and the point conversion/translation -- and delegates the actual
+interpolation to a subclass hook :meth:`_sample`. The production sampler is
+:class:`~obl_sampler.vtk_sampler.VTKSampler`, which auto-selects a grid backend (rectilinear tensor /
+hex-AMR / generic probe) and reconstructs a gradient CONSISTENT with the value it returns -- no stored
+``grad_`` field is used.
 """
 from __future__ import annotations
 
@@ -114,9 +112,14 @@ class OBLSampler:
         functions probe the SAME state repeatedly, so the cloud is reused until the state changes."""
         if self.mutex_state and self.sampled_could is not None:
             return
+        # memo also keys on the interpolation knobs -- the cloud snapshots conversion/translation/
+        # taylor/const at sample time, so mutating any of them must invalidate a same-points reuse.
+        knobs = (tuple(self.conversion_factors), tuple(self.translation_factors),
+                 bool(self.taylor_extended_q), tuple(self.constant_extended_fields))
         last = getattr(self, "_last_points", None)
         if (self.sampled_could is not None and last is not None
-                and last.shape == points.shape and np.array_equal(last, points)):
+                and last.shape == points.shape and np.array_equal(last, points)
+                and getattr(self, "_last_knobs", None) == knobs):
             return
         x = np.asarray(points, float).copy()
         for i, s in enumerate(self.conversion_factors):
@@ -125,6 +128,7 @@ class OBLSampler:
             x[:, i] += t
         self._sampled_could = self._sample(x)
         self._last_points = np.asarray(points, float).copy()
+        self._last_knobs = knobs
 
     def _sample(self, x):
         """Interpolate every field's value and gradient at the CONVERTED points ``x`` and return an

@@ -42,6 +42,9 @@ def _bracket(v, coords, uniform):
     ``v`` (already inside the range -- callers clamp first). Uniform: O(1) arithmetic; graded:
     searchsorted. Returns intp arrays ``i``, ``i1`` and float ``t``."""
     n = len(coords)
+    if n == 1:                                          # degenerate (single-node) axis: zero slope
+        z = np.zeros(len(v), np.intp)
+        return z, z, np.zeros(len(v))
     if uniform and n > 1:
         dv = (coords[-1] - coords[0]) / (n - 1)
         f = ((v - coords[0]) / dv).clip(0.0, n - 1 - 1e-9)
@@ -74,6 +77,9 @@ class _LazyCloud:
     def __contains__(self, key):
         return (key[5:] if key.startswith("grad_") else key) in self._fields
 
+    def __iter__(self):
+        return iter(self.keys())
+
     def keys(self):
         return list(self._fields) + ["grad_" + f for f in self._fields]
 
@@ -84,7 +90,13 @@ class _LazyCloud:
 
     def __getitem__(self, key):
         if key.startswith("grad_"):
-            return self._pair(key[5:])[1] * self._conv
+            base = key[5:]
+            g = self._pair(base)[1] * self._conv
+            # outside the box the value is held flat (Taylor off, or the field is constant-extended),
+            # so its gradient there is zero -- keep grad consistent with the value that is returned.
+            if self._ext.any() and (base in self._const or not self._taylor):
+                g = g.copy(); g[self._ext] = 0.0
+            return g
         val, g = self._pair(key)
         if self._taylor and self._ext.any():
             gg = np.zeros_like(g) if key in self._const else g
@@ -93,15 +105,20 @@ class _LazyCloud:
         return val
 
 
+def _sdiv(num, d):
+    """``num / d`` returning 0 where ``d == 0`` (a degenerate axis -> zero slope, never NaN)."""
+    return np.divide(num, d, out=np.zeros_like(num), where=d != 0)
+
+
 def _trilinear_vg(C, wz, w2, wp, dz, d2, dp):
     """Value and analytic gradient of a trilinear cell from its 8 corner values ``C`` (N,2,2,2) with
     per-axis weights ``w*`` (N,2) and cell widths ``d*`` (N,). Axes (i,j,k)=(z, coord2, p); the
     gradient columns are (d/dz, d/dcoord2, d/dp). Value + all three derivatives share the one gather."""
     w = wz[:, :, None, None] * w2[:, None, :, None] * wp[:, None, None, :]      # (N,2,2,2)
     val = (C * w).sum((1, 2, 3))
-    gz = ((C[:, 1] - C[:, 0]) * (w2[:, :, None] * wp[:, None, :])).sum((1, 2)) / dz
-    g2 = ((C[:, :, 1] - C[:, :, 0]) * (wz[:, :, None] * wp[:, None, :])).sum((1, 2)) / d2
-    gp = ((C[:, :, :, 1] - C[:, :, :, 0]) * (wz[:, :, None] * w2[:, None, :])).sum((1, 2)) / dp
+    gz = _sdiv(((C[:, 1] - C[:, 0]) * (w2[:, :, None] * wp[:, None, :])).sum((1, 2)), dz)
+    g2 = _sdiv(((C[:, :, 1] - C[:, :, 0]) * (wz[:, :, None] * wp[:, None, :])).sum((1, 2)), d2)
+    gp = _sdiv(((C[:, :, :, 1] - C[:, :, :, 0]) * (wz[:, :, None] * w2[:, None, :])).sum((1, 2)), dp)
     return val, np.stack([gz, g2, gp], 1)
 
 
@@ -167,7 +184,8 @@ class _HexBackend:
     def __init__(self, owner):
         self.owner = owner
         cache = owner.file_name + ".oblhex.npz"
-        key = f"{self.CACHE_TAG}|{owner.field_names_all}|{os.path.getmtime(owner.file_name):.0f}"
+        key = (f"{self.CACHE_TAG}|{owner.field_names_all}"
+               f"|{os.path.getmtime(owner.file_name)!r}|{os.path.getsize(owner.file_name)}")
         if not (os.path.exists(cache) and self._load(cache, key)):
             self._build(owner._search_space, owner.field_names_all, key, cache)
 
@@ -324,7 +342,8 @@ class VTKSampler(OBLSampler):
         tname = type(grid).__name__
         if tname == "RectilinearGrid":
             return _TensorBackend(self)
-        if tname == "UnstructuredGrid" and grid.n_cells and np.all(grid.celltypes == 12):
+        if (tname == "UnstructuredGrid" and grid.n_cells
+                and np.all((grid.celltypes == 12) | (grid.celltypes == 11))):   # HEXAHEDRON | VOXEL
             return _HexBackend(self)
         return _ProbeBackend(self)                          # generic fallback
 
