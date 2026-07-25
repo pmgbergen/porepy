@@ -90,7 +90,15 @@ class OBLSampler:
         return self._search_space
 
     @property
+    def bounds(self):
+        """(xmin,xmax, ymin,ymax, zmin,zmax) of the parametric box -- available even when the grid
+        itself was not loaded (a cached backend keeps the bounds but drops ``search_space``)."""
+        return self._bounds
+
+    @property
     def boundary_surface(self):
+        if self._search_space is None:                # grid not loaded (backend restored from cache)
+            return None
         if self._boundary_surface is None:            # extract on first use only
             self._boundary_surface = self._search_space.extract_surface(
                 pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0,

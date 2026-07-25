@@ -62,8 +62,6 @@ def table_paths(level=TABLE_LEVEL):
     return xph, xpt
 
 
-VTK_XPH, VTK_XPT = table_paths()      # default-level table paths (used by selftest)
-
 # High-resolution PURE-WATER (z=0) Driesner tables: same field schema, units, and (h, p) ranges as the
 # opensowat brine tables, but ~6x finer in enthalpy (1000 vs 160 h-nodes). Used for the Fig-6 pure-water
 # column, where the coarse brine h-grid produces spurious wiggles in the two-phase liquid saturation.
@@ -102,307 +100,8 @@ T_INIT = 423.15                   # K, constant IC
 
 
 # --------------------------------------------------------------------------------------- #
-#  Fast rectilinear-grid bilinear table (xph / xpt are RectilinearGrid; axes may be non-uniform)
-# --------------------------------------------------------------------------------------- #
-def _is_uniform(x):
-    """True if the 1-D axis ``x`` is (float-)uniformly spaced. A 2-node stub counts as uniform. The
-    1e-6*range tolerance cleanly separates a float32-rounded uniform axis (interval jitter ~1e-9) from
-    an intentionally graded one (interval jitter ~ the refinement ratio)."""
-    if len(x) < 3:
-        return True
-    d = np.diff(x)
-    return bool(np.max(np.abs(d - d[0])) <= 1e-6 * abs(x[-1] - x[0]))
-
-
-def _bracket(v, coords, v0, dv, n, uniform):
-    """Lower index, upper index, and in-cell fraction for a monotone-increasing axis at query points
-    ``v`` (same units as the axis). ``uniform``: the original O(1) (v - v0)/dv bracketing -- bit-
-    identical to the pre-non-uniform sampler and faster. Else: searchsorted on the stored ``coords``
-    (arbitrary spacing). Both clamp the fraction so out-of-range points constant-extrapolate."""
-    if uniform:
-        f = ((v - v0) / dv).clip(0.0, n - 1 - 1e-9)
-        j = f.astype(np.intp)
-        return j, j + 1, f - j
-    j = np.clip(np.searchsorted(coords, v, side="right") - 1, 0, n - 2)
-    j1 = j + 1
-    t = ((v - coords[j]) / (coords[j1] - coords[j])).clip(0.0, 1.0)
-    return j, j1, t
-
-
-class Table:
-    """O(1) vectorised bilinear sampler of a Driesner VTK table on the z_NaCl=0 slice.
-
-    Solver inputs are in SI; ``a_in``/``b_in`` convert them to the table axis units
-    (second axis = h[MJ/kg] or T[degC]; third axis = p[MPa]).  Field values are returned
-    in SI via the per-field ``fields`` scale (e.g. enthalpy kJ/kg -> J/kg via 1e3).
-    """
-
-    def __init__(self, file_name, fields, a_in=1.0, b_in=1.0, c_in=1.0, slice_z=True):
-        # slice_z=True: z_NaCl=0 slice, 2-D bilinear (pure-water fig-5, unchanged).
-        # slice_z=False: full 3-D array, trilinear in (a=h/T, b=p, c=z_NaCl) (brine / Fig 6).
-        self.slice_z = bool(slice_z)
-        # mtime in the key -> regenerating a .vtr in place invalidates its .npz cache
-        key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
-               + f"|{a_in}|{b_in}|{c_in}|slice{int(self.slice_z)}|abcnu2|{os.path.getmtime(file_name):.0f}")
-        cache = file_name + ".sicache.npz"
-        if not (os.path.exists(cache) and self._load(cache, key)):
-            self._build(file_name, fields, a_in, b_in, c_in, key, cache)
-        # all fields stacked -> gather every field's corners in a few fancy-index ops, not *nf
-        self.names = list(self.V.keys())
-        self.V_stack = np.ascontiguousarray(np.stack([self.V[n] for n in self.names]))
-
-    def _load(self, cache, key):
-        try:
-            z = np.load(cache, allow_pickle=False)
-            if str(z["key"]) != key:
-                return False
-            self.slice_z = bool(int(z["slice_z"]))
-            for s in ("ny", "nz", "nx"):
-                setattr(self, s, int(z[s]))
-            for s in ("a0", "da", "b0", "db", "c0", "dc", "a_in", "b_in", "c_in",
-                      "a_min", "a_max", "b_min", "b_max", "c_min", "c_max"):
-                setattr(self, s, float(z[s]))
-            self.a_coords = np.asarray(z["a_coords"], float)
-            self.b_coords = np.asarray(z["b_coords"], float)
-            self.c_coords = np.asarray(z["c_coords"], float)
-            self.a_uniform = bool(int(z["a_uniform"]))
-            self.b_uniform = bool(int(z["b_uniform"]))
-            self.c_uniform = bool(int(z["c_uniform"]))
-            self.V = {str(n): z["V_" + str(n)] for n in z["names"]}
-            return True
-        except Exception:
-            return False
-
-    def _build(self, file_name, fields, a_in, b_in, c_in, key, cache):
-        import pyvista as pv     # only hit on a cache miss (first run)
-
-        g = pv.read(file_name)
-        nx, ny, nz = g.dimensions                          # (z_NaCl, second=h/T, p)
-        a = np.asarray(g.y); b = np.asarray(g.z); c = np.asarray(g.x)
-        self.ny, self.nz, self.nx = int(ny), int(nz), int(nx)
-        self.a0, self.da = float(a[0]), float(a[1] - a[0])
-        self.b0, self.db = float(b[0]), float(b[1] - b[0])
-        self.c0 = float(c[0]); self.dc = float(c[1] - c[0]) if nx > 1 else 1.0
-        self.a_coords = np.asarray(a, float)               # full h/T-axis nodes (may be non-uniform)
-        self.b_coords = np.asarray(b, float)               # full p-axis nodes   (may be non-uniform)
-        self.c_coords = np.asarray(c, float)               # full z-axis nodes: NON-uniform (salinity)
-        self.a_uniform = _is_uniform(self.a_coords)        # h/p are uniform today -> exact (v-v0)/dv path
-        self.b_uniform = _is_uniform(self.b_coords)        # a user-graded table trips searchsorted instead
-        self.c_uniform = _is_uniform(self.c_coords)        # salinity is graded -> searchsorted (as before)
-        self.a_in, self.b_in, self.c_in = float(a_in), float(b_in), float(c_in)
-        self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
-        self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
-        self.c_min, self.c_max = float(c[0] / c_in), float(c[-1] / c_in)
-        full = {name: np.asarray(g.point_data[name]).reshape(nz, ny, nx) * scale   # [p, h, z]
-                for name, scale in fields.items()}
-        self.V = {n: (A[:, :, 0] if self.slice_z else A) for n, A in full.items()}
-        out = {"key": np.array(key), "slice_z": int(self.slice_z),
-               "ny": self.ny, "nz": self.nz, "nx": self.nx,
-               "a0": self.a0, "da": self.da, "b0": self.b0, "db": self.db,
-               "c0": self.c0, "dc": self.dc, "a_in": self.a_in, "b_in": self.b_in,
-               "c_in": self.c_in, "a_min": self.a_min, "a_max": self.a_max,
-               "b_min": self.b_min, "b_max": self.b_max, "c_min": self.c_min,
-               "c_max": self.c_max, "a_coords": self.a_coords, "b_coords": self.b_coords,
-               "c_coords": self.c_coords, "a_uniform": int(self.a_uniform),
-               "b_uniform": int(self.b_uniform), "c_uniform": int(self.c_uniform),
-               "names": np.array(list(self.V.keys()))}
-        out.update({"V_" + n: A for n, A in self.V.items()})
-        try:
-            np.savez(cache, **out)
-        except Exception:
-            pass
-
-    def sample_many(self, a, b, c=0.0):
-        """Interpolate ALL stored fields at (a=h/T, b=p, [c=z_NaCl]) with one stacked gather.
-        2-D bilinear on the z=0 slice when ``slice_z``; else 3-D trilinear (``c`` = salinity). Each
-        axis is bracketed by :func:`_bracket` -- the exact (v-v0)/dv path when it is uniformly spaced,
-        searchsorted when it is graded -- so non-uniform h / p / z tables interpolate correctly while
-        uniform tables give the same result as before."""
-        a = np.atleast_1d(np.asarray(a, float)) * self.a_in
-        b = np.atleast_1d(np.asarray(b, float)) * self.b_in
-        ja, ja1, ta = _bracket(a, self.a_coords, self.a0, self.da, self.ny, self.a_uniform)  # h/T axis
-        jb, jb1, tb = _bracket(b, self.b_coords, self.b0, self.db, self.nz, self.b_uniform)  # p axis
-        Vs = self.V_stack
-        if self.slice_z:
-            vals = ((1 - ta) * (1 - tb) * Vs[:, jb, ja] + ta * (1 - tb) * Vs[:, jb, ja1]
-                    + (1 - ta) * tb * Vs[:, jb1, ja] + ta * tb * Vs[:, jb1, ja1])   # (nf, N)
-            return {n: vals[i] for i, n in enumerate(self.names)}
-        c = np.broadcast_to(np.atleast_1d(np.asarray(c, float)) * self.c_in, a.shape)
-        jc, jc1, tc = _bracket(c, self.c_coords, self.c0, self.dc, self.nx, self.c_uniform)  # salinity
-        ma, mb, mc = 1 - ta, 1 - tb, 1 - tc                      # Vs axes: (field, p, h, z)
-        vals = (ma * mb * mc * Vs[:, jb, ja, jc] + ta * mb * mc * Vs[:, jb, ja1, jc]
-                + ma * tb * mc * Vs[:, jb1, ja, jc] + ta * tb * mc * Vs[:, jb1, ja1, jc]
-                + ma * mb * tc * Vs[:, jb, ja, jc1] + ta * mb * tc * Vs[:, jb, ja1, jc1]
-                + ma * tb * tc * Vs[:, jb1, ja, jc1] + ta * tb * tc * Vs[:, jb1, ja1, jc1])
-        return {n: vals[i] for i, n in enumerate(self.names)}
-
-    def __call__(self, name, a, b, c=0.0):
-        return self.sample_many(a, b, c)[name]
-
-
-class HexAmrTable:
-    """Sampler for a hexahedral octree-AMR VTK table (``.vtu``; every cell an axis-aligned
-    VTK_HEXAHEDRON), e.g. an adaptively-refined Driesner (p, h, z_NaCl) table where resolution is
-    concentrated where the EOS is sharp. Per cell it does trilinear interpolation and (optionally)
-    returns the *analytic* trilinear gradient d/d(X,Y,Z).
-
-    Point location is O(1) and exact: the union of all cell boundaries is a (non-uniform) background
-    grid, and a precomputed fine-cell -> hex-cell map turns a query into three ``searchsorted`` + one
-    gather -- no cell locator / KD-tree walk. Works because an AMR hex mesh exactly tiles its bounding
-    box with axis-aligned boxes (verified at build).
-
-    Axes are the file's native (X, Y, Z); for brine_amr_test.vtu that is (pressure[MPa],
-    enthalpy[MJ/kg], salinity[-]). Values/derivatives are in those native units -- unit scaling is the
-    caller's job. Standalone: nothing here is wired into the solver.
-    """
-
-    CACHE_TAG = "amrv3"
-
-    def __init__(self, file_name, fields=None):
-        # fields=None -> all point_data arrays; else the named subset.
-        key = f"{self.CACHE_TAG}|{fields}|{os.path.getmtime(file_name):.0f}"
-        cache = file_name + ".amrcache.npz"
-        if not (os.path.exists(cache) and self._load(cache, key)):
-            self._build(file_name, fields, key, cache)
-        self.bounds = ((self.ux[0], self.ux[-1]), (self.uy[0], self.uy[-1]), (self.uz[0], self.uz[-1]))
-
-    def _load(self, cache, key):
-        try:
-            z = np.load(cache, allow_pickle=False)
-            if str(z["key"]) != key:
-                return False
-            for s in ("ux", "uy", "uz", "cmin", "cmax", "V", "cellmap"):
-                setattr(self, s, z[s])
-            self.names = [str(n) for n in z["names"]]
-            self.dims = (self.ux.size - 1, self.uy.size - 1, self.uz.size - 1)
-            return True
-        except Exception:
-            return False
-
-    def _build(self, file_name, fields, key, cache):
-        import pyvista as pv     # only on a cache miss
-        g = pv.read(file_name)
-        pts = np.asarray(g.points, float)
-        conn = g.cells.reshape(-1, 9)                       # [8, i0..i7] per hex
-        if not np.all(conn[:, 0] == 8):
-            raise ValueError("HexAmrTable expects an all-hexahedron (.vtu) mesh")
-        conn = conn[:, 1:]                                  # (M, 8)
-        M = conn.shape[0]
-        self.names = list(g.point_data.keys()) if fields is None else list(fields)
-        node_xyz = pts[conn]                                # (M, 8, 3)
-        self.cmin = node_xyz.min(1); self.cmax = node_xyz.max(1)          # (M, 3) box corners
-        # each cell must be an axis-aligned box: exactly 2 distinct coords per axis among its 8 nodes
-        if not np.all((node_xyz.max(1) - node_xyz.min(1)) > 0):
-            raise ValueError("degenerate (zero-width) hex cell")
-        mid = 0.5 * (self.cmin + self.cmax)
-        gt = (node_xyz > mid[:, None, :]).astype(np.intp)                 # (M, 8, 3), each 0/1
-        corner = gt[:, :, 0] * 4 + gt[:, :, 1] * 2 + gt[:, :, 2]          # canonical slot i*4+j*2+k
-        vals = np.stack([np.asarray(g.point_data[n], float)[conn] for n in self.names])  # (nf,M,8)
-        nf = vals.shape[0]
-        self.V = np.empty((nf, M, 8), float)               # (field, cell, corner); corner=i*4+j*2+k
-        for f in range(nf):
-            np.put_along_axis(self.V[f], corner, vals[f], axis=1)
-        # background fine grid = union of all cell boundaries (per axis); O(1) exact point location
-        self.ux = np.unique(pts[:, 0]); self.uy = np.unique(pts[:, 1]); self.uz = np.unique(pts[:, 2])
-        self.dims = (self.ux.size - 1, self.uy.size - 1, self.uz.size - 1)
-        i0 = np.searchsorted(self.ux, self.cmin[:, 0]); i1 = np.searchsorted(self.ux, self.cmax[:, 0])
-        j0 = np.searchsorted(self.uy, self.cmin[:, 1]); j1 = np.searchsorted(self.uy, self.cmax[:, 1])
-        k0 = np.searchsorted(self.uz, self.cmin[:, 2]); k1 = np.searchsorted(self.uz, self.cmax[:, 2])
-        self.cellmap = np.full(self.dims, -1, np.int32)
-        for m in range(M):                                 # fill each hex's fine-index box with its id
-            self.cellmap[i0[m]:i1[m], j0[m]:j1[m], k0[m]:k1[m]] = m
-        if (self.cellmap < 0).any():
-            raise ValueError("AMR mesh does not tile its bounding box (gaps in the fine grid)")
-        try:
-            np.savez(cache, key=np.array(key), ux=self.ux, uy=self.uy, uz=self.uz,
-                     cmin=self.cmin, cmax=self.cmax, V=self.V, cellmap=self.cellmap,
-                     names=np.array(self.names))
-        except Exception:
-            pass
-
-    def _locate(self, X, Y, Z):
-        """Containing hex-cell id for each query (X, Y, Z). Out-of-domain points clamp to the edge
-        cell (searchsorted + clip), so sampling constant-extrapolates rather than failing."""
-        ix = np.clip(np.searchsorted(self.ux, X, side="right") - 1, 0, self.dims[0] - 1)
-        iy = np.clip(np.searchsorted(self.uy, Y, side="right") - 1, 0, self.dims[1] - 1)
-        iz = np.clip(np.searchsorted(self.uz, Z, side="right") - 1, 0, self.dims[2] - 1)
-        return self.cellmap[ix, iy, iz]
-
-    def sample_many(self, X, Y, Z, grads=False):
-        """Trilinear interpolation of every field at (X, Y, Z). Returns ``{name: values(n,)}``; with
-        ``grads=True`` returns ``(values, {name: dV(n,3)})`` where the columns are the analytic
-        trilinear derivatives d/dX, d/dY, d/dZ (per-cell multilinear -- not constant within a cell)."""
-        X = np.atleast_1d(np.asarray(X, float)); Y = np.atleast_1d(np.asarray(Y, float))
-        Z = np.atleast_1d(np.asarray(Z, float))
-        cid = self._locate(X, Y, Z)
-        cmn = self.cmin[cid]; d = self.cmax[cid] - cmn                    # (n,3)
-        t = np.clip((np.stack([X, Y, Z], 1) - cmn) / d, 0.0, 1.0)        # local coords, clamped
-        wx = np.stack([1 - t[:, 0], t[:, 0]], 1)                         # (n,2) axis weights
-        wy = np.stack([1 - t[:, 1], t[:, 1]], 1)
-        wz = np.stack([1 - t[:, 2], t[:, 2]], 1)
-        C = self.V[:, cid, :].reshape(len(self.names), -1, 2, 2, 2)       # (nf,n,i,j,k)
-        w = wx[:, :, None, None] * wy[:, None, :, None] * wz[:, None, None, :]   # (n,2,2,2)
-        val = (C * w).sum((2, 3, 4))                                      # (nf,n) trilinear value
-        values = {nm: val[i] for i, nm in enumerate(self.names)}
-        if not grads:
-            return values
-        # analytic trilinear gradient: along each axis, blend the corner differences with the OTHER
-        # two axes' weights (so d/dX is bilinear in y,z -- not constant within the cell), /cell width.
-        gX = ((C[:, :, 1] - C[:, :, 0]) * (wy[:, :, None] * wz[:, None, :])).sum((2, 3)) / d[:, 0]
-        gY = ((C[:, :, :, 1] - C[:, :, :, 0]) * (wx[:, :, None] * wz[:, None, :])).sum((2, 3)) / d[:, 1]
-        gZ = ((C[:, :, :, :, 1] - C[:, :, :, :, 0]) * (wx[:, :, None] * wy[:, None, :])).sum((2, 3)) / d[:, 2]
-        grad = {nm: np.stack([gX[i], gY[i], gZ[i]], 1) for i, nm in enumerate(self.names)}
-        return values, grad
-
-    def __call__(self, name, X, Y, Z):
-        return self.sample_many(X, Y, Z)[name]
-
-
-class AmrXphAdapter:
-    """Presents an adapted (z_NaCl, h, p) brine xph table stored as a hex-AMR ``.vtu`` with the SAME
-    interface as :class:`Table` -- ``sample_many(a=h[J/kg], b=p[Pa], c=z_NaCl)`` returning SI fields --
-    so it drops into ``eval_props_brine`` unchanged. It maps the SI query onto the file's native axes
-    (X=z_NaCl, Y=h[MJ/kg], Z=p[MPa]) and rescales/renames fields: enthalpies MJ/kg->J/kg (1e6),
-    temperature field ``T`` -> ``Temperature``, everything else already SI. Standalone test path (only
-    used when ``run_brine(amr_table=...)`` is set)."""
-
-    # AMR field name -> (solver field key, SI scale).  H_* are MJ/kg here (not the .vtr's kJ/kg).
-    FIELD_MAP = {"Rho_l": ("Rho_l", 1.0), "Rho_v": ("Rho_v", 1.0), "Rho_h": ("Rho_h", 1.0),
-                 "H_l": ("H_l", 1e6), "H_v": ("H_v", 1e6), "H_h": ("H_h", 1e6),
-                 "S_v": ("S_v", 1.0), "S_h": ("S_h", 1.0), "Xl": ("Xl", 1.0), "Xv": ("Xv", 1.0),
-                 "mu_l": ("mu_l", 1.0), "mu_v": ("mu_v", 1.0), "T": ("Temperature", 1.0)}
-
-    def __init__(self, vtu_path):
-        self.amr = HexAmrTable(vtu_path, fields=list(self.FIELD_MAP))
-        # h/p/z clamp ranges the Newton step reads off the table, in SI (like Table.{a,b,c}_{min,max}).
-        ((zlo, zhi), (hlo, hhi), (plo, phi)) = self.amr.bounds   # native axes (z, h[MJ/kg], p[MPa])
-        self.a_min, self.a_max = hlo * 1e6, hhi * 1e6        # h [J/kg]
-        self.b_min, self.b_max = plo * 1e6, phi * 1e6        # p [Pa]
-        self.c_min, self.c_max = zlo, zhi                    # z_NaCl [-]
-
-    def sample_many(self, a, b, c=0.0):
-        h = np.atleast_1d(np.asarray(a, float)); p = np.atleast_1d(np.asarray(b, float))
-        z = np.broadcast_to(np.atleast_1d(np.asarray(c, float)), h.shape)
-        raw = self.amr.sample_many(z, h * 1e-6, p * 1e-6)        # native axes: X=z, Y=h[MJ/kg], Z=p[MPa]
-        return {sk: raw[fn] * sc for fn, (sk, sc) in self.FIELD_MAP.items()}
-
-    def __call__(self, name, a, b, c=0.0):
-        return self.sample_many(a, b, c)[name]
-
-
-# xph: solver h[J/kg] -> axis MJ/kg (1e-6); p[Pa] -> MPa (1e-6).
-#   field scales to SI: Rho 1 (kg/m^3), H kJ/kg->J/kg (1e3), S_v 1, T 1 (K).
-#   mu: the table already stores Pa.s (probe: mu~2.5e-5 at 400C); PorePy's extra 1e-6 is its
-#   Pa.s->MPa.s Mega-scaling, which must NOT be applied in this SI solver -> scale 1.0.
-# --------------------------------------------------------------------------------------- #
 #  Brine closure (H2O-NaCl): three-phase liquid/vapor/immobile-halite, from the 3-D table
 # --------------------------------------------------------------------------------------- #
-# xph brine fields: densities (kg/m^3, scale 1), enthalpies (kJ/kg -> J/kg, 1e3), vapor+halite
-# saturations, NaCl mass fractions Xl/Xv (dimensionless), viscosities (Pa.s), temperature (K).
-_XPH_FIELDS_BRINE = {"Rho_l": 1.0, "Rho_v": 1.0, "Rho_h": 1.0,
-                     "H_l": 1e3, "H_v": 1e3, "H_h": 1e3,
-                     "S_v": 1.0, "S_h": 1.0, "Xl": 1.0, "Xv": 1.0,
-                     "mu_l": 1.0, "mu_v": 1.0, "Temperature": 1.0}
 
 
 @dataclass
@@ -453,7 +152,7 @@ class XphSampler:
         self.s = _make_vtksampler(path)
         self.s.conversion_factors = (1.0, 1e-6, 1e-6)      # (z, h[J/kg->MJ/kg], p[Pa->MPa])
         self.fmap = fmap
-        b = self.s.search_space.bounds                     # (zmin,zmax, hmin,hmax, pmin,pmax) table units
+        b = self.s.bounds                                  # (zmin,zmax, hmin,hmax, pmin,pmax) table units
         self.c_min, self.c_max = float(b[0]), float(b[1])               # z [-]
         self.a_min, self.a_max = float(b[2]) * 1e6, float(b[3]) * 1e6   # h [J/kg]
         self.b_min, self.b_max = float(b[4]) * 1e6, float(b[5]) * 1e6   # p [Pa]
@@ -737,9 +436,7 @@ def jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_d
     Chains :func:`eval_props_and_grads` through the flux assembly with FROZEN upwind/buoyancy
     directions (standard for an upwind-FV Jacobian). Covers the HU scheme in FULL: horizontal and
     vertical (mobility-product buoyancy pair), HU-mwp (``weighted_perm``), and ``grav_upstream``, plus
-    the HU boundary faces. PPU is handled elsewhere."""
-    if scheme == "ppu":
-        raise NotImplementedError("analytic Jacobian for scheme='ppu' is not implemented yet")
+    the HU boundary faces, and the full PPU scheme (per-phase potential upwinding)."""
     N = geom.N
     p = x[0::3]; h = x[1::3]; z = x[2::3]
     pr, dP = eval_props_and_grads(table, p, h, z)
@@ -766,6 +463,66 @@ def jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_d
     idx = np.arange(N - 1)
     dp_face = p[:-1] - p[1:]
     rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:]); rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
+
+    if scheme == "ppu":                                  # per-phase potential upwinding
+        Tb, TFb = geom.Tb, geom.TFb
+        if lag_upwind:
+            iu_l_arr, iu_v_arr = ug, ud
+        else:
+            iu_l_arr = _upwind_idx(Tf * dp_face - GA * rho_l_f)
+            iu_v_arr = _upwind_idx(Tf * dp_face - GA * rho_v_f)
+        for f in range(N - 1):
+            L = f; R = f + 1; il = iu_l_arr[f]; iv = iu_v_arr[f]
+            dPsl_L = Tf * ep.copy(); dPsl_R = -Tf * ep.copy()                   # Psi_l = Tf(pL-pR)-GA*rho_l_p
+            dPsv_L = Tf * ep.copy(); dPsv_R = -Tf * ep.copy()
+            if grav_upstream:
+                route(il == L, dPsl_L, dPsl_R, -GA * dP["rho_l"][il]); Psl = Tf * dp_face[f] - GA * pr.rho_l[il]
+                route(iv == L, dPsv_L, dPsv_R, -GA * dP["rho_v"][iv]); Psv = Tf * dp_face[f] - GA * pr.rho_v[iv]
+            else:
+                dPsl_L -= GA * 0.5 * dP["rho_l"][L]; dPsl_R -= GA * 0.5 * dP["rho_l"][R]; Psl = Tf * dp_face[f] - GA * rho_l_f[f]
+                dPsv_L -= GA * 0.5 * dP["rho_v"][L]; dPsv_R -= GA * 0.5 * dP["rho_v"][R]; Psv = Tf * dp_face[f] - GA * rho_v_f[f]
+            mml = pr.mm_l[il]; mmv = pr.mm_v[iv]; dmml = dP["mm_l"][il]; dmmv = dP["mm_v"][iv]
+            ql = pr.Xl[il] * mml; qv = pr.Xv[iv] * mmv; el = pr.h_l[il] * mml; ev = pr.h_v[iv] * mmv
+            dql = dP["Xl"][il] * mml + pr.Xl[il] * dmml; dqv = dP["Xv"][iv] * mmv + pr.Xv[iv] * dmmv
+            del_ = dP["h_l"][il] * mml + pr.h_l[il] * dmml; dev_ = dP["h_v"][iv] * mmv + pr.h_v[iv] * dmmv
+            dm_L = dPsl_L * mml + dPsv_L * mmv; dm_R = dPsl_R * mml + dPsv_R * mmv
+            route(il == L, dm_L, dm_R, Psl * dmml); route(iv == L, dm_L, dm_R, Psv * dmmv)
+            ds_L = dPsl_L * ql + dPsv_L * qv; ds_R = dPsl_R * ql + dPsv_R * qv
+            route(il == L, ds_L, ds_R, Psl * dql); route(iv == L, ds_L, ds_R, Psv * dqv)
+            de_L = dPsl_L * el + dPsv_L * ev + TFf * dP["T"][L]; de_R = dPsl_R * el + dPsv_R * ev - TFf * dP["T"][R]
+            route(il == L, de_L, de_R, Psl * del_); route(iv == L, de_L, de_R, Psv * dev_)
+            BLL = np.array([dm_L, ds_L, de_L]); BLR = np.array([dm_R, ds_R, de_R])
+            _band_add(ab, u, L, L, BLL * rs); _band_add(ab, u, L, R, BLR * rs)
+            _band_add(ab, u, R, L, -BLL * rs); _band_add(ab, u, R, R, -BLR * rs)
+        # boundary faces (PPU): each phase upwinds between the fixed boundary node and the end cell
+        Pslb = Tb * (bleft.p - p[0]) - GA * bleft.pr.rho_l[0]; Psvb = Tb * (bleft.p - p[0]) - GA * bleft.pr.rho_v[0]
+        Bl = np.zeros((3, 3))
+        for Psi, cellL, bnode, rho in ((Pslb, "l", bleft, "rho_l"), (Psvb, "v", bleft, "rho_v")):
+            mm = "mm_" + cellL; X = "Xl" if cellL == "l" else "Xv"; hh = "h_" + cellL
+            if Psi >= 0.0:
+                mmb = getattr(bnode.pr, mm)[0]; q = getattr(bnode.pr, X)[0] * mmb; e = getattr(bnode.pr, hh)[0] * mmb
+                Bl[0] += -Tb * mmb * ep; Bl[1] += -Tb * q * ep; Bl[2] += -Tb * e * ep
+            else:
+                mm0 = getattr(pr, mm)[0]; dmm0 = dP[mm][0]; q = getattr(pr, X)[0] * mm0; e = getattr(pr, hh)[0] * mm0
+                dq = dP[X][0] * mm0 + getattr(pr, X)[0] * dmm0; de = dP[hh][0] * mm0 + getattr(pr, hh)[0] * dmm0
+                Bl[0] += -Tb * mm0 * ep + Psi * dmm0; Bl[1] += -Tb * q * ep + Psi * dq; Bl[2] += -Tb * e * ep + Psi * de
+        Bl[2] += -TFb * dP["T"][0]
+        _band_add(ab, u, 0, 0, -Bl * rs)
+        Pslt = Tb * (p[-1] - bright.p) - GA * bright.pr.rho_l[0]; Psvt = Tb * (p[-1] - bright.p) - GA * bright.pr.rho_v[0]
+        Br = np.zeros((3, 3))
+        for Psi, cellL, bnode in ((Pslt, "l", bright), (Psvt, "v", bright)):
+            mm = "mm_" + cellL; X = "Xl" if cellL == "l" else "Xv"; hh = "h_" + cellL
+            if Psi >= 0.0:                                # own end cell N-1
+                mmv = getattr(pr, mm)[-1]; dmmv = dP[mm][-1]; q = getattr(pr, X)[-1] * mmv; e = getattr(pr, hh)[-1] * mmv
+                dq = dP[X][-1] * mmv + getattr(pr, X)[-1] * dmmv; de = dP[hh][-1] * mmv + getattr(pr, hh)[-1] * dmmv
+                Br[0] += Tb * mmv * ep + Psi * dmmv; Br[1] += Tb * q * ep + Psi * dq; Br[2] += Tb * e * ep + Psi * de
+            else:                                        # fixed bright node
+                mmb = getattr(bnode.pr, mm)[0]; q = getattr(bnode.pr, X)[0] * mmb; e = getattr(bnode.pr, hh)[0] * mmb
+                Br[0] += Tb * mmb * ep; Br[1] += Tb * q * ep; Br[2] += Tb * e * ep
+        Br[2] += TFb * dP["T"][-1]
+        _band_add(ab, u, N - 1, N - 1, Br * rs)
+        return ab
+
     rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
     rho_ff_g = pr.rho_ff[ut] if grav_upstream else rho_ff_f
     V_T = Tf * dp_face - GA * rho_ff_g
@@ -1023,11 +780,8 @@ def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
             print(f"    newton {it}: |r|_eq={m:.3e}")
         if m <= atol:
             return x, it, m, True
-        if scheme != "ppu":
-            ab = jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
-                                   grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan)  # hand-coded HU
-        else:
-            ab = jacobian_fd(x, r, args, plan, resfn=residual_brine)                              # PPU: pending
+        ab = jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
+                               grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan)  # hand-coded, no FD
         try:
             dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)
         except Exception:
@@ -1176,7 +930,7 @@ def load_reference(case, field):
 # --------------------------------------------------------------------------------------- #
 def selftest():
     print("=== selftest ===")
-    table = Table(VTK_XPH, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
+    table = XphSampler(table_paths()[0], _xph_fmap(amr=False))
     geom = make_geom(20)
     p = np.linspace(20e6, 1e6, 20)
     h = np.full(20, 6.0e5)                         # cold liquid -> s_v = 0
@@ -1201,13 +955,10 @@ def selftest():
 
 
 def prebuild_table_caches(level=TABLE_LEVEL, pure_water=False):
-    """Build the ``.npz`` caches for the xph/xpt tables serially, so that a subsequent parallel sweep
-    of :func:`run_brine` hits the fast cache path in every worker (else workers race on the npz write).
-    ``pure_water=True`` warms the fine pure-water z=0 tables instead of the level-indexed brine ones."""
+    """Construct the VTKSampler for the xph/xpt tables once before a parallel sweep. The VTKSampler
+    tensor backend persists an ``.obltensor.npz`` cache, so this writes it once and every fresh worker
+    then loads from it (skipping the pyvista read) instead of rebuilding the tensor."""
     if pure_water:
-        Table(PUREWATER_XPH, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=True)
-        Table(PUREWATER_XPT, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=True)
+        XphSampler(PUREWATER_XPH, _xph_fmap(amr=False)); XptSampler(PUREWATER_XPT)
         return
-    xph_path, xpt_path = table_paths(level)
-    Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
-    Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
+    XphSampler(table_paths(level)[0], _xph_fmap(amr=False)); XptSampler(table_paths(level)[1])

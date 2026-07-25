@@ -132,7 +132,15 @@ class _TensorBackend:
 
     kind = "tensor"
 
-    def __init__(self, owner):
+    def __init__(self, owner, cache=None):
+        self.owner = owner
+        if cache is not None:                            # rebuilt from a .npz cache (no pyvista read)
+            self.az, self.a2, self.ap = cache["az"], cache["a2"], cache["ap"]
+            self.dims = tuple(int(n) for n in cache["dims"])
+            self.uz, self.u2, self.up = (bool(b) for b in cache["uniform"])
+            self.fields = [str(n) for n in cache["fields"]]
+            self.F = {f: cache["F_" + f] for f in self.fields}
+            return
         grid = owner._search_space
         self.az = np.asarray(grid.x, float)             # axis0 = z_NaCl
         self.a2 = np.asarray(grid.y, float)             # axis1 = coord2 (h or T)
@@ -143,7 +151,14 @@ class _TensorBackend:
         self.fields = [n for n in grid.point_data.keys() if not n.startswith("grad_")]
         pd = grid.point_data
         self.F = {f: np.asarray(pd[f], float).reshape(self.dims, order="F") for f in self.fields}
-        self.owner = owner
+
+    def pack(self):
+        """Everything needed to rebuild this backend from a ``.npz`` -- axes, dims, uniform flags and
+        the reshaped field arrays (the reshape / pyvista read is the whole cost)."""
+        d = {"az": self.az, "a2": self.a2, "ap": self.ap, "dims": np.array(self.dims, int),
+             "uniform": np.array([self.uz, self.u2, self.up]), "fields": np.array(self.fields)}
+        d.update({"F_" + f: self.F[f] for f in self.fields})
+        return d
 
     def _validate(self, grid):
         if not (self.az.ndim == self.a2.ndim == self.ap.ndim == 1
@@ -325,6 +340,12 @@ class VTKSampler(OBLSampler):
     _BACKENDS = {"tensor": _TensorBackend, "hex": _HexBackend, "probe": _ProbeBackend}
 
     def __init__(self, file_name, extended_q: bool = True, backend: str = "auto"):
+        # Tensor (.vtr) fast path: rebuild the backend from a .npz cache WITHOUT the pyvista read +
+        # reshape (the dominant cost on a large rectilinear table). The hex backend caches separately.
+        cache = str(file_name) + ".obltensor.npz"
+        if (backend in ("auto", "tensor") and str(file_name).endswith(".vtr")
+                and self._load_tensor_cache(file_name, extended_q, cache)):
+            return
         super().__init__(file_name, extended_q)
         # all non-grad_ point-data names (the analytic backends compute their own gradients, so they
         # do NOT require pre-stored grad_ companions the way the base's field detection assumes).
@@ -332,6 +353,39 @@ class VTKSampler(OBLSampler):
                                 if not n.startswith("grad_")]
         self._backend = self._make_backend(backend)
         self._field_names = self._backend.fields
+        if self._backend.kind == "tensor":
+            self._save_tensor_cache(cache)
+
+    @staticmethod
+    def _tensor_key(path):
+        return f"tensorv1|{os.path.getmtime(path)!r}|{os.path.getsize(path)}"
+
+    def _load_tensor_cache(self, file_name, extended_q, cache):
+        try:
+            if not os.path.exists(cache):
+                return False
+            z = np.load(cache, allow_pickle=False)
+            if str(z["key"]) != self._tensor_key(file_name):
+                return False
+            self._file_name = file_name
+            self.taylor_extended_q = bool(extended_q)
+            self._search_space = None                    # grid not loaded; bounds kept below
+            self._boundary_surface = None
+            self._bounds = tuple(float(b) for b in z["bounds"])
+            self._field_names = [str(n) for n in z["field_names"]]
+            self.field_names_all = list(self._field_names)
+            self._backend = _TensorBackend(self, cache={k: z[k] for k in z.files})
+            return True
+        except Exception:
+            return False
+
+    def _save_tensor_cache(self, cache):
+        try:
+            np.savez(cache, key=np.array(self._tensor_key(self._file_name)),
+                     bounds=np.array(self._bounds), field_names=np.array(self._field_names),
+                     **self._backend.pack())
+        except Exception:
+            pass
 
     def _make_backend(self, backend):
         if backend != "auto":
