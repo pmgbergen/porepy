@@ -240,6 +240,156 @@ class Table:
         return self.sample_many(a, b, c)[name]
 
 
+class HexAmrTable:
+    """Sampler for a hexahedral octree-AMR VTK table (``.vtu``; every cell an axis-aligned
+    VTK_HEXAHEDRON), e.g. an adaptively-refined Driesner (p, h, z_NaCl) table where resolution is
+    concentrated where the EOS is sharp. Per cell it does trilinear interpolation and (optionally)
+    returns the *analytic* trilinear gradient d/d(X,Y,Z).
+
+    Point location is O(1) and exact: the union of all cell boundaries is a (non-uniform) background
+    grid, and a precomputed fine-cell -> hex-cell map turns a query into three ``searchsorted`` + one
+    gather -- no cell locator / KD-tree walk. Works because an AMR hex mesh exactly tiles its bounding
+    box with axis-aligned boxes (verified at build).
+
+    Axes are the file's native (X, Y, Z); for brine_amr_test.vtu that is (pressure[MPa],
+    enthalpy[MJ/kg], salinity[-]). Values/derivatives are in those native units -- unit scaling is the
+    caller's job. Standalone: nothing here is wired into the solver.
+    """
+
+    CACHE_TAG = "amrv3"
+
+    def __init__(self, file_name, fields=None):
+        # fields=None -> all point_data arrays; else the named subset.
+        key = f"{self.CACHE_TAG}|{fields}|{os.path.getmtime(file_name):.0f}"
+        cache = file_name + ".amrcache.npz"
+        if not (os.path.exists(cache) and self._load(cache, key)):
+            self._build(file_name, fields, key, cache)
+        self.bounds = ((self.ux[0], self.ux[-1]), (self.uy[0], self.uy[-1]), (self.uz[0], self.uz[-1]))
+
+    def _load(self, cache, key):
+        try:
+            z = np.load(cache, allow_pickle=False)
+            if str(z["key"]) != key:
+                return False
+            for s in ("ux", "uy", "uz", "cmin", "cmax", "V", "cellmap"):
+                setattr(self, s, z[s])
+            self.names = [str(n) for n in z["names"]]
+            self.dims = (self.ux.size - 1, self.uy.size - 1, self.uz.size - 1)
+            return True
+        except Exception:
+            return False
+
+    def _build(self, file_name, fields, key, cache):
+        import pyvista as pv     # only on a cache miss
+        g = pv.read(file_name)
+        pts = np.asarray(g.points, float)
+        conn = g.cells.reshape(-1, 9)                       # [8, i0..i7] per hex
+        if not np.all(conn[:, 0] == 8):
+            raise ValueError("HexAmrTable expects an all-hexahedron (.vtu) mesh")
+        conn = conn[:, 1:]                                  # (M, 8)
+        M = conn.shape[0]
+        self.names = list(g.point_data.keys()) if fields is None else list(fields)
+        node_xyz = pts[conn]                                # (M, 8, 3)
+        self.cmin = node_xyz.min(1); self.cmax = node_xyz.max(1)          # (M, 3) box corners
+        # each cell must be an axis-aligned box: exactly 2 distinct coords per axis among its 8 nodes
+        if not np.all((node_xyz.max(1) - node_xyz.min(1)) > 0):
+            raise ValueError("degenerate (zero-width) hex cell")
+        mid = 0.5 * (self.cmin + self.cmax)
+        gt = (node_xyz > mid[:, None, :]).astype(np.intp)                 # (M, 8, 3), each 0/1
+        corner = gt[:, :, 0] * 4 + gt[:, :, 1] * 2 + gt[:, :, 2]          # canonical slot i*4+j*2+k
+        vals = np.stack([np.asarray(g.point_data[n], float)[conn] for n in self.names])  # (nf,M,8)
+        nf = vals.shape[0]
+        self.V = np.empty((nf, M, 8), float)               # (field, cell, corner); corner=i*4+j*2+k
+        for f in range(nf):
+            np.put_along_axis(self.V[f], corner, vals[f], axis=1)
+        # background fine grid = union of all cell boundaries (per axis); O(1) exact point location
+        self.ux = np.unique(pts[:, 0]); self.uy = np.unique(pts[:, 1]); self.uz = np.unique(pts[:, 2])
+        self.dims = (self.ux.size - 1, self.uy.size - 1, self.uz.size - 1)
+        i0 = np.searchsorted(self.ux, self.cmin[:, 0]); i1 = np.searchsorted(self.ux, self.cmax[:, 0])
+        j0 = np.searchsorted(self.uy, self.cmin[:, 1]); j1 = np.searchsorted(self.uy, self.cmax[:, 1])
+        k0 = np.searchsorted(self.uz, self.cmin[:, 2]); k1 = np.searchsorted(self.uz, self.cmax[:, 2])
+        self.cellmap = np.full(self.dims, -1, np.int32)
+        for m in range(M):                                 # fill each hex's fine-index box with its id
+            self.cellmap[i0[m]:i1[m], j0[m]:j1[m], k0[m]:k1[m]] = m
+        if (self.cellmap < 0).any():
+            raise ValueError("AMR mesh does not tile its bounding box (gaps in the fine grid)")
+        try:
+            np.savez(cache, key=np.array(key), ux=self.ux, uy=self.uy, uz=self.uz,
+                     cmin=self.cmin, cmax=self.cmax, V=self.V, cellmap=self.cellmap,
+                     names=np.array(self.names))
+        except Exception:
+            pass
+
+    def _locate(self, X, Y, Z):
+        """Containing hex-cell id for each query (X, Y, Z). Out-of-domain points clamp to the edge
+        cell (searchsorted + clip), so sampling constant-extrapolates rather than failing."""
+        ix = np.clip(np.searchsorted(self.ux, X, side="right") - 1, 0, self.dims[0] - 1)
+        iy = np.clip(np.searchsorted(self.uy, Y, side="right") - 1, 0, self.dims[1] - 1)
+        iz = np.clip(np.searchsorted(self.uz, Z, side="right") - 1, 0, self.dims[2] - 1)
+        return self.cellmap[ix, iy, iz]
+
+    def sample_many(self, X, Y, Z, grads=False):
+        """Trilinear interpolation of every field at (X, Y, Z). Returns ``{name: values(n,)}``; with
+        ``grads=True`` returns ``(values, {name: dV(n,3)})`` where the columns are the analytic
+        trilinear derivatives d/dX, d/dY, d/dZ (per-cell multilinear -- not constant within a cell)."""
+        X = np.atleast_1d(np.asarray(X, float)); Y = np.atleast_1d(np.asarray(Y, float))
+        Z = np.atleast_1d(np.asarray(Z, float))
+        cid = self._locate(X, Y, Z)
+        cmn = self.cmin[cid]; d = self.cmax[cid] - cmn                    # (n,3)
+        t = np.clip((np.stack([X, Y, Z], 1) - cmn) / d, 0.0, 1.0)        # local coords, clamped
+        wx = np.stack([1 - t[:, 0], t[:, 0]], 1)                         # (n,2) axis weights
+        wy = np.stack([1 - t[:, 1], t[:, 1]], 1)
+        wz = np.stack([1 - t[:, 2], t[:, 2]], 1)
+        C = self.V[:, cid, :].reshape(len(self.names), -1, 2, 2, 2)       # (nf,n,i,j,k)
+        w = wx[:, :, None, None] * wy[:, None, :, None] * wz[:, None, None, :]   # (n,2,2,2)
+        val = (C * w).sum((2, 3, 4))                                      # (nf,n) trilinear value
+        values = {nm: val[i] for i, nm in enumerate(self.names)}
+        if not grads:
+            return values
+        # analytic trilinear gradient: along each axis, blend the corner differences with the OTHER
+        # two axes' weights (so d/dX is bilinear in y,z -- not constant within the cell), /cell width.
+        gX = ((C[:, :, 1] - C[:, :, 0]) * (wy[:, :, None] * wz[:, None, :])).sum((2, 3)) / d[:, 0]
+        gY = ((C[:, :, :, 1] - C[:, :, :, 0]) * (wx[:, :, None] * wz[:, None, :])).sum((2, 3)) / d[:, 1]
+        gZ = ((C[:, :, :, :, 1] - C[:, :, :, :, 0]) * (wx[:, :, None] * wy[:, None, :])).sum((2, 3)) / d[:, 2]
+        grad = {nm: np.stack([gX[i], gY[i], gZ[i]], 1) for i, nm in enumerate(self.names)}
+        return values, grad
+
+    def __call__(self, name, X, Y, Z):
+        return self.sample_many(X, Y, Z)[name]
+
+
+class AmrXphAdapter:
+    """Presents an adapted (z_NaCl, h, p) brine xph table stored as a hex-AMR ``.vtu`` with the SAME
+    interface as :class:`Table` -- ``sample_many(a=h[J/kg], b=p[Pa], c=z_NaCl)`` returning SI fields --
+    so it drops into ``eval_props_brine`` unchanged. It maps the SI query onto the file's native axes
+    (X=z_NaCl, Y=h[MJ/kg], Z=p[MPa]) and rescales/renames fields: enthalpies MJ/kg->J/kg (1e6),
+    temperature field ``T`` -> ``Temperature``, everything else already SI. Standalone test path (only
+    used when ``run_brine(amr_table=...)`` is set)."""
+
+    # AMR field name -> (solver field key, SI scale).  H_* are MJ/kg here (not the .vtr's kJ/kg).
+    FIELD_MAP = {"Rho_l": ("Rho_l", 1.0), "Rho_v": ("Rho_v", 1.0), "Rho_h": ("Rho_h", 1.0),
+                 "H_l": ("H_l", 1e6), "H_v": ("H_v", 1e6), "H_h": ("H_h", 1e6),
+                 "S_v": ("S_v", 1.0), "S_h": ("S_h", 1.0), "Xl": ("Xl", 1.0), "Xv": ("Xv", 1.0),
+                 "mu_l": ("mu_l", 1.0), "mu_v": ("mu_v", 1.0), "T": ("Temperature", 1.0)}
+
+    def __init__(self, vtu_path):
+        self.amr = HexAmrTable(vtu_path, fields=list(self.FIELD_MAP))
+        # h/p/z clamp ranges the Newton step reads off the table, in SI (like Table.{a,b,c}_{min,max}).
+        ((zlo, zhi), (hlo, hhi), (plo, phi)) = self.amr.bounds   # native axes (z, h[MJ/kg], p[MPa])
+        self.a_min, self.a_max = hlo * 1e6, hhi * 1e6        # h [J/kg]
+        self.b_min, self.b_max = plo * 1e6, phi * 1e6        # p [Pa]
+        self.c_min, self.c_max = zlo, zhi                    # z_NaCl [-]
+
+    def sample_many(self, a, b, c=0.0):
+        h = np.atleast_1d(np.asarray(a, float)); p = np.atleast_1d(np.asarray(b, float))
+        z = np.broadcast_to(np.atleast_1d(np.asarray(c, float)), h.shape)
+        raw = self.amr.sample_many(z, h * 1e-6, p * 1e-6)        # native axes: X=z, Y=h[MJ/kg], Z=p[MPa]
+        return {sk: raw[fn] * sc for fn, (sk, sc) in self.FIELD_MAP.items()}
+
+    def __call__(self, name, a, b, c=0.0):
+        return self.sample_many(a, b, c)[name]
+
+
 # xph: solver h[J/kg] -> axis MJ/kg (1e-6); p[Pa] -> MPa (1e-6).
 #   field scales to SI: Rho 1 (kg/m^3), H kJ/kg->J/kg (1e3), S_v 1, T 1 (K).
 #   mu: the table already stores Pa.s (probe: mu~2.5e-5 at 400C); PorePy's extra 1e-6 is its
@@ -645,7 +795,7 @@ FIG5 = dict(p_left=P_BOT, T_left=T_BOT, z_left=0.0,
 
 def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adaptive=True,
               verbose=True, grav_upstream=False, weighted_perm=False, lag_upwind=False,
-              level=TABLE_LEVEL, pure_water=False, atol=1e-5, **fig):
+              level=TABLE_LEVEL, pure_water=False, amr_table=None, atol=1e-5, **fig):
     """The single brine engine: mass + salt + energy, primaries [p, h, z], HU/PPU/HU-mwp buoyancy.
     Reproduces Fig 4/5 (pure water) at z=0 and Fig 6 (H2O-NaCl + immobile halite) at z>0 -- ONE
     discretization. ``case`` ('horizontal'|'vertical') sets gravity + default final time via CASES;
@@ -660,14 +810,18 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     cfg = {**FIG6, **fig}
     g = CASES[case]["g"]
     tf_yr = fig["tf_yr"] if "tf_yr" in fig else CASES[case]["tf_yr"]
-    # pure_water: the fine z=0 tables, sampled as the 2-D z=0 slice (slice_z=True); else the 3-D brine
-    # tables at the requested level. Field schema/units are identical, so _XPH_FIELDS_BRINE is reused.
-    if pure_water:
-        xph_path, xpt_path, sz = PUREWATER_XPH, PUREWATER_XPT, True
+    # xph property source: an adapted hex-AMR .vtu (amr_table), the fine pure-water z=0 tables
+    # (pure_water, 2-D slice), or the level-indexed rectilinear brine tables. The xpt table (T,p->h for
+    # the IC/BC enthalpy) stays rectilinear in every case.
+    if amr_table is not None:
+        table = AmrXphAdapter(amr_table)
+        xpt = Table(table_paths(level)[1], {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
+    elif pure_water:
+        table = Table(PUREWATER_XPH, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=True)
+        xpt = Table(PUREWATER_XPT, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=True)
     else:
-        xph_path, xpt_path = table_paths(level); sz = False
-    table = Table(xph_path, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=sz)
-    xpt = Table(xpt_path, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=sz)
+        table = Table(table_paths(level)[0], _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
+        xpt = Table(table_paths(level)[1], {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
     geom = make_geom(N, g=g)
 
     def enth(TK, p, z):

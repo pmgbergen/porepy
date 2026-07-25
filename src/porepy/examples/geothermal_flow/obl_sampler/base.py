@@ -37,20 +37,18 @@ class OBLSampler:
 
     # --- shared pyvista-backed constructor -----------------------------------------------------
     def _load_grid(self, file_name) -> None:
-        """Read the VTK dataset once and cache the grid, its bounds and its value-field names (a value
-        field is any point-data array that also carries a ``grad_`` companion). Grid-type agnostic:
-        works for any pyvista dataset. The rectilinear (tensor-product) axes needed for a tensor
-        spline are extracted -- and required -- only by :class:`NSplineSampler`, not here."""
+        """Read the VTK dataset once and cache the grid, its bounds and its value-field names. A value
+        field is any point-data array that is not itself a ``grad_`` companion -- gradients are
+        reconstructed on the fly (analytically by the tensor/hex backends, by finite differences of
+        the probe by the generic backend), so a stored ``grad_`` field is neither required nor used.
+        Grid-type agnostic: works for any pyvista dataset."""
         grid = pyvista.read(file_name)
         if (not bool(grid.point_data)) and bool(grid.cell_data):
             grid = grid.cell_data_to_point_data()
         self._search_space = grid
-        self._boundary_surface = grid.extract_surface(
-            pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0,
-            algorithm="dataset_surface")
+        self._boundary_surface = None                 # lazily extracted (heavy on large AMR meshes)
         self._bounds = tuple(float(b) for b in grid.bounds)
-        self._field_names = [n for n in grid.point_data.keys()
-                             if not n.startswith("grad_") and ("grad_" + n) in grid.point_data]
+        self._field_names = [n for n in grid.point_data.keys() if not n.startswith("grad_")]
 
     # --- knobs ---------------------------------------------------------------------------------
     @property
@@ -95,6 +93,10 @@ class OBLSampler:
 
     @property
     def boundary_surface(self):
+        if self._boundary_surface is None:            # extract on first use only
+            self._boundary_surface = self._search_space.extract_surface(
+                pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0,
+                algorithm="dataset_surface")
         return self._boundary_surface
 
     @property

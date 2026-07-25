@@ -2,9 +2,9 @@
 z=0, salt + immobile halite z>0}, rows {temperature+pressure, liquid(+halite) saturation}. The
 single weis brine engine for PPU / HU / HU-mwp. The pure-water column uses the high-resolution z=0
 tables (purewater_xph/xpt.vtr, ~6x finer in enthalpy) so the coarse brine h-grid does not leave
-spurious wiggles in its two-phase saturation. The digitized Fig-6 reference is not in the repo yet,
-so the reference curve is a labelled placeholder. If the salt column fails to converge it is drawn as
-a placeholder too, so the figure always renders.
+spurious wiggles in its two-phase saturation. The digitized Weis (2014) Fig-6 reference is overlaid
+from benchmark_figures_data/fig_6_{pw,salt}_*.csv. If the salt column fails to converge it is drawn as
+a placeholder, so the figure always renders.
 
     python fig_weis_fig_6.py                         # pure water + salt (z_init=0.42 -> S_h~0.1)
     python fig_weis_fig_6.py --salt-z-init 0.3 --N 200
@@ -20,7 +20,7 @@ import fig_weis_common as C  # noqa: E402
 import weis_1d_solver as m   # noqa: E402
 import plot_style as ps      # noqa: E402
 
-N = 200                      # Fig 6 grid (dx = 10 m, paper); lighter than the N=800 Fig 4/5
+N = 800                      # Fig 6 grid (dx = 10 m, paper); lighter than the N=800 Fig 4/5
 SALT_Z = 0.42                # z_init giving S_h ~ 0.1 at the IC (from the z_init sweep)
 TF = 2000.0
 COLS = (("pw", "pure water"), ("salt", "salt + halite"))
@@ -68,15 +68,13 @@ def plot(out, stem="fig_weis_fig_6"):
                 ax.text(0.5, 0.5, "salt case\n(pending)", transform=ax.transAxes, ha="center",
                         va="center", fontsize=10, color="0.55", style="italic")
         else:
-            # Fig-6 reference CSVs are not digitized yet -> ref_csv returns None -> no band drawn
+            # digitized Weis (2014) Fig-6 reference from benchmark_figures_data/fig_6_{col}_*.csv
             C.draw_tp(ax_tp, ax_p, res,
                       ref_T=C.ref_csv(f"fig_6_{col}_temperature_raw.csv"),
                       ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
             ax_h = C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_6_{col}_saturation_liq_raw.csv"),
                             halite=(col == "salt"))
-            C.iteration_legend(ax_s, res, loc="lower right")    # this case's per-scheme iterations
-            ax_tp.text(0.5, 0.9, "reference: to add", transform=ax_tp.transAxes, ha="center",
-                       fontsize=7, color="0.55", style="italic")
+            C.iteration_legend(ax_s, res, loc="center left")    # in the empty vapor column, clear of curves
         # left column: T / s_liq axes; right column: p (+ halite) axes
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
