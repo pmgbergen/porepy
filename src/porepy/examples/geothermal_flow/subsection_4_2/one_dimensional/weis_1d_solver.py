@@ -734,68 +734,125 @@ def _band_add(ab, u, cr, cc, B):
 def jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
                       grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan):
     """Hand-coded analytic Jacobian (banded) of :func:`residual_brine` -- NO finite differences, NO AD.
-    Chains the sampler's analytic property derivatives (:func:`eval_props_and_grads`) through the flux
-    assembly. Currently the HU (non-mwp) horizontal (g=0) path; upwind directions are frozen (as in a
-    standard upwind-FV Jacobian). Other schemes fall back to the FD Jacobian for now."""
+    Chains :func:`eval_props_and_grads` through the flux assembly with FROZEN upwind/buoyancy
+    directions (standard for an upwind-FV Jacobian). Covers the HU scheme in FULL: horizontal and
+    vertical (mobility-product buoyancy pair), HU-mwp (``weighted_perm``), and ``grav_upstream``, plus
+    the HU boundary faces. PPU is handled elsewhere."""
+    if scheme == "ppu":
+        raise NotImplementedError("analytic Jacobian for scheme='ppu' is not implemented yet")
     N = geom.N
     p = x[0::3]; h = x[1::3]; z = x[2::3]
-    pr, d = eval_props_and_grads(table, p, h, z)
-    u = plan["u"]
-    ab = np.zeros((plan["l"] + u + 1, N * 3))
-    rs = np.array([1.0 / geom.ms, 1.0 / geom.ms, 1.0 / geom.es])[:, None]     # row scales
+    pr, dP = eval_props_and_grads(table, p, h, z)
+    u = plan["u"]; ab = np.zeros((plan["l"] + u + 1, N * 3))
+    rs = np.array([1.0 / geom.ms, 1.0 / geom.ms, 1.0 / geom.es])[:, None]
     ep = np.array([1.0, 0.0, 0.0]); eh = np.array([0.0, 1.0, 0.0]); ez = np.array([0.0, 0.0, 1.0])
+    GA, Tf, TFf = geom.GA, geom.Tf, geom.TFf
+
+    def route(is_L, aL, aR, v):                          # accumulate v into the L or R block in place
+        if is_L:
+            aL += v
+        else:
+            aR += v
 
     # --- accumulation (diagonal 3x3 blocks) ---
-    dacc = {}
     for i in range(N):
         B = np.empty((3, 3))
-        B[0] = geom.Vcell * PHI * d["rho_mix"][i] / dt
-        B[1] = geom.Vcell * PHI * (z[i] * d["rho_mix"][i] + pr.rho_mix[i] * ez) / dt
-        B[2] = geom.Vcell * (PHI * (h[i] * d["rho_mix"][i] + pr.rho_mix[i] * eh - ep)
-                             + (1 - PHI) * RHO_S * C_S * d["T"][i]) / dt
-        dacc[i] = B
+        B[0] = geom.Vcell * PHI * dP["rho_mix"][i] / dt
+        B[1] = geom.Vcell * PHI * (z[i] * dP["rho_mix"][i] + pr.rho_mix[i] * ez) / dt
+        B[2] = geom.Vcell * (PHI * (h[i] * dP["rho_mix"][i] + pr.rho_mix[i] * eh - ep)
+                             + (1 - PHI) * RHO_S * C_S * dP["T"][i]) / dt
         _band_add(ab, u, i, i, B * rs)
 
-    # --- interior faces: HU horizontal (V_T = Tf*dp_face, no buoyancy) ---
-    Tf, TFf = geom.Tf, geom.TFf
-    V_T = Tf * (p[:-1] - p[1:])
-    up = ut if lag_upwind else np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
-    isL = up == np.arange(N - 1)
-    lamU = pr.lam_T[up]; salU = pr.salt_mob[up]; advU = pr.adv_h[up]
-    dlamU = d["lam_T"][up]; dsalU = d["salt_mob"][up]; dadvU = d["adv_h"][up]
-    dTL = d["T"][:-1]; dTR = d["T"][1:]
-    for f in range(N - 1):
-        BLL = np.zeros((3, 3)); BLR = np.zeros((3, 3))
-        BLL[:, 0] += Tf * np.array([lamU[f], salU[f], advU[f]])       # dV_T/dp[L] = +Tf
-        BLR[:, 0] -= Tf * np.array([lamU[f], salU[f], advU[f]])       # dV_T/dp[R] = -Tf
-        BLL[2] += TFf * dTL[f]; BLR[2] -= TFf * dTR[f]                # F_four = TFf*(T[L]-T[R])
-        tgt = BLL if isL[f] else BLR                                  # mobility rides the upwind cell
-        tgt[0] += V_T[f] * dlamU[f]; tgt[1] += V_T[f] * dsalU[f]; tgt[2] += V_T[f] * dadvU[f]
-        _band_add(ab, u, f, f, BLL * rs); _band_add(ab, u, f, f + 1, BLR * rs)         # +F[f] -> dm[f]
-        _band_add(ab, u, f + 1, f, -BLL * rs); _band_add(ab, u, f + 1, f + 1, -BLR * rs)  # -F[f] -> dm[f+1]
+    idx = np.arange(N - 1)
+    dp_face = p[:-1] - p[1:]
+    rho_l_f = 0.5 * (pr.rho_l[:-1] + pr.rho_l[1:]); rho_v_f = 0.5 * (pr.rho_v[:-1] + pr.rho_v[1:])
+    rho_ff_f = 0.5 * (pr.rho_ff[:-1] + pr.rho_ff[1:])
+    rho_ff_g = pr.rho_ff[ut] if grav_upstream else rho_ff_f
+    V_T = Tf * dp_face - GA * rho_ff_g
+    up = ut if lag_upwind else np.where(V_T >= 0.0, idx, idx + 1)
 
-    # --- boundary faces (HU horizontal) ---
+    for f in range(N - 1):
+        L = f; R = f + 1
+        dm_L = np.zeros(3); dm_R = np.zeros(3); ds_L = np.zeros(3); ds_R = np.zeros(3)
+        de_L = np.zeros(3); de_R = np.zeros(3)
+        dVT_L = Tf * ep.copy(); dVT_R = -Tf * ep.copy()                # V_T = Tf(p_L-p_R) - GA*rho_ff_g
+        if grav_upstream:
+            route(ut[f] == L, dVT_L, dVT_R, -GA * dP["rho_ff"][ut[f]])
+        else:
+            dVT_L -= GA * 0.5 * dP["rho_ff"][L]; dVT_R -= GA * 0.5 * dP["rho_ff"][R]
+        uc = up[f]; ucL = uc == L
+        if weighted_perm:                                             # HU-mwp: F_mass = V_T * lam_face
+            if lag_upwind and lam_face_old is not None:
+                lam_face = float(lam_face_old[f]); dlfL = np.zeros(3); dlfR = np.zeros(3)
+            else:
+                lL = pr.lam_T[L]; lR = pr.lam_T[R]; s = lL + lR
+                if s > 0.0:
+                    lam_face = 2.0 * lL * lR / s                       # d(2 lL lR/(lL+lR)): 2 lR^2/s^2, 2 lL^2/s^2
+                    dlfL = (2.0 * lR * lR / (s * s)) * dP["lam_T"][L]
+                    dlfR = (2.0 * lL * lL / (s * s)) * dP["lam_T"][R]
+                else:
+                    lam_face = 0.0; dlfL = np.zeros(3); dlfR = np.zeros(3)
+            F_mass = V_T[f] * lam_face
+            dm_L = dVT_L * lam_face + V_T[f] * dlfL; dm_R = dVT_R * lam_face + V_T[f] * dlfR
+            lamu = pr.lam_T[uc]; invu = (1.0 / lamu) if lamu > 0.0 else 0.0
+            hbar = pr.adv_h[uc] * invu; xbar = pr.salt_mob[uc] * invu
+            dhbar = (dP["adv_h"][uc] * lamu - pr.adv_h[uc] * dP["lam_T"][uc]) * invu * invu
+            dxbar = (dP["salt_mob"][uc] * lamu - pr.salt_mob[uc] * dP["lam_T"][uc]) * invu * invu
+            de_L = hbar * dm_L; de_R = hbar * dm_R; ds_L = xbar * dm_L; ds_R = xbar * dm_R
+            route(ucL, de_L, de_R, dhbar * F_mass); route(ucL, ds_L, ds_R, dxbar * F_mass)
+        else:                                                         # HU: F_mass = V_T * lam_T[up]
+            dm_L = dVT_L * pr.lam_T[uc]; dm_R = dVT_R * pr.lam_T[uc]
+            ds_L = dVT_L * pr.salt_mob[uc]; ds_R = dVT_R * pr.salt_mob[uc]
+            de_L = dVT_L * pr.adv_h[uc]; de_R = dVT_R * pr.adv_h[uc]
+            route(ucL, dm_L, dm_R, V_T[f] * dP["lam_T"][uc])
+            route(ucL, ds_L, ds_R, V_T[f] * dP["salt_mob"][uc])
+            route(ucL, de_L, de_R, V_T[f] * dP["adv_h"][uc])
+        de_L += TFf * dP["T"][L]; de_R -= TFf * dP["T"][R]            # F_four = TFf*(T[L]-T[R])
+        if GA != 0.0:                                                 # mobility-product buoyancy pair
+            w_flux = -GA * (rho_l_f[f] - rho_v_f[f])
+            dwfL = -GA * 0.5 * (dP["rho_l"][L] - dP["rho_v"][L])
+            dwfR = -GA * 0.5 * (dP["rho_l"][R] - dP["rho_v"][R])
+            cl = L if w_dir[f] >= 0.0 else R                          # _advect(., w_dir)
+            cv = L if -w_dir[f] >= 0.0 else R                         # _advect(., -w_dir)
+            a = pr.mm_l[cl]; b = pr.mm_v[cv]; Gam = a + b + 1e-30; common = a * b / Gam
+            dca = (b * b) / (Gam * Gam); dcb = (a * a) / (Gam * Gam)  # d(ab/(a+b))/da, /db
+            dcom_L = np.zeros(3); dcom_R = np.zeros(3)
+            route(cl == L, dcom_L, dcom_R, dca * dP["mm_l"][cl])
+            route(cv == L, dcom_L, dcom_R, dcb * dP["mm_v"][cv])
+            Hd = pr.h_l[cl] - pr.h_v[cv]; Xd = pr.Xl[cl] - pr.Xv[cv]
+            dHd_L = np.zeros(3); dHd_R = np.zeros(3); dXd_L = np.zeros(3); dXd_R = np.zeros(3)
+            route(cl == L, dHd_L, dHd_R, dP["h_l"][cl]); route(cv == L, dHd_L, dHd_R, -dP["h_v"][cv])
+            route(cl == L, dXd_L, dXd_R, dP["Xl"][cl]); route(cv == L, dXd_L, dXd_R, -dP["Xv"][cv])
+            de_L += dcom_L * w_flux * Hd + common * dwfL * Hd + common * w_flux * dHd_L
+            de_R += dcom_R * w_flux * Hd + common * dwfR * Hd + common * w_flux * dHd_R
+            ds_L += dcom_L * w_flux * Xd + common * dwfL * Xd + common * w_flux * dXd_L
+            ds_R += dcom_R * w_flux * Xd + common * dwfR * Xd + common * w_flux * dXd_R
+        BLL = np.array([dm_L, ds_L, de_L]); BLR = np.array([dm_R, ds_R, de_R])
+        _band_add(ab, u, L, L, BLL * rs); _band_add(ab, u, L, R, BLR * rs)           # +F[f] -> dm[L]
+        _band_add(ab, u, R, L, -BLL * rs); _band_add(ab, u, R, R, -BLR * rs)         # -F[f] -> dm[R]
+
+    # --- boundary faces (HU; the -GA*rho_ff term uses fixed boundary props -> constant in x) ---
     Tb, TFb = geom.Tb, geom.TFb
-    V_l = Tb * (bleft.p - p[0])
+    V_l = Tb * (bleft.p - p[0]) - GA * bleft.pr.rho_ff[0]
     Bl = np.zeros((3, 3))
     if V_l >= 0.0:                                                    # inflow: fixed bleft props
         Bl[:, 0] = -Tb * np.array([bleft.pr.lam_T[0], bleft.pr.salt_mob[0], bleft.pr.adv_h[0]])
     else:                                                            # own cell-0 props
-        Bl[0] = -Tb * pr.lam_T[0] * ep + V_l * d["lam_T"][0]
-        Bl[1] = -Tb * pr.salt_mob[0] * ep + V_l * d["salt_mob"][0]
-        Bl[2] = -Tb * pr.adv_h[0] * ep + V_l * d["adv_h"][0]
-    Bl[2] += -TFb * d["T"][0]                                         # Fe_l has TFb*(bleft.T - T[0])
+        Bl[0] = -Tb * pr.lam_T[0] * ep + V_l * dP["lam_T"][0]
+        Bl[1] = -Tb * pr.salt_mob[0] * ep + V_l * dP["salt_mob"][0]
+        Bl[2] = -Tb * pr.adv_h[0] * ep + V_l * dP["adv_h"][0]
+    Bl[2] -= TFb * dP["T"][0]                                         # Fe_l has TFb*(bleft.T - T[0])
     _band_add(ab, u, 0, 0, -Bl * rs)                                 # dm[0] = F[0] - Fm_l -> -Fm_l
 
-    V_r = Tb * (p[-1] - bright.p)
+    V_r = Tb * (p[-1] - bright.p) - GA * bright.pr.rho_ff[0]
     Br = np.zeros((3, 3))
     if V_r >= 0.0:                                                    # outflow: own cell-(N-1) props
-        Br[0] = Tb * pr.lam_T[-1] * ep + V_r * d["lam_T"][-1]
-        Br[1] = Tb * pr.salt_mob[-1] * ep + V_r * d["salt_mob"][-1]
-        Br[2] = Tb * pr.adv_h[-1] * ep + V_r * d["adv_h"][-1]
+        Br[0] = Tb * pr.lam_T[-1] * ep + V_r * dP["lam_T"][-1]
+        Br[1] = Tb * pr.salt_mob[-1] * ep + V_r * dP["salt_mob"][-1]
+        Br[2] = Tb * pr.adv_h[-1] * ep + V_r * dP["adv_h"][-1]
     else:                                                            # fixed bright props
         Br[:, 0] = Tb * np.array([bright.pr.lam_T[0], bright.pr.salt_mob[0], bright.pr.adv_h[0]])
-    Br[2] += TFb * d["T"][-1]                                         # Fe_r has TFb*(T[-1] - bright.T)
+    Br[2] += TFb * dP["T"][-1]                                        # Fe_r has TFb*(T[-1] - bright.T)
     _band_add(ab, u, N - 1, N - 1, Br * rs)                          # dm[-1] = Fm_r - F[-1] -> +Fm_r
     return ab
 
@@ -966,11 +1023,11 @@ def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
             print(f"    newton {it}: |r|_eq={m:.3e}")
         if m <= atol:
             return x, it, m, True
-        if scheme != "ppu" and not weighted_perm and not grav_upstream and geom.GA == 0.0:
+        if scheme != "ppu":
             ab = jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
-                                   grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan)  # hand-coded
+                                   grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan)  # hand-coded HU
         else:
-            ab = jacobian_fd(x, r, args, plan, resfn=residual_brine)                              # FD fallback
+            ab = jacobian_fd(x, r, args, plan, resfn=residual_brine)                              # PPU: pending
         try:
             dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)
         except Exception:
