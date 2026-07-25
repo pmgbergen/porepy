@@ -145,8 +145,8 @@ def load_porepy_case(case, scheme, N=800, level=LEVEL):
     Returned normalized to the weis_1d_solver SI convention so ``plot_style.to_plot_units`` applies
     unchanged: PorePy's pressure primary variable is in the model's MPa units, so it is rescaled to
     Pa (x1e6). ``y``[m], ``T``[K], ``s_liq``[-] are already SI. Returns the dict, or None."""
-    # porepy_1d_solver names its output with the OBL-sampler suffix ("_spline" when USE_SPLINE,
-    # "" for the VTK probe); prefer the spline run, fall back to the plain (VTK) name.
+    # porepy_1d_solver now writes the plain (no-suffix) name; the legacy "_spline" name is still
+    # accepted first so any pre-consolidation cache on disk keeps loading.
     for suffix in ("_spline", ""):
         path = os.path.join(CACHE_DIR, f"porepy_{case}_{scheme}_N{N}_l{level}{suffix}.pkl")
         if os.path.exists(path):

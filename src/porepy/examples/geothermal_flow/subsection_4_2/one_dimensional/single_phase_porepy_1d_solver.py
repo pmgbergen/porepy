@@ -46,7 +46,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_single_phase_moderate_pressure as IC_mP,
 )
-from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
 # --------------------------------------------------------------------------------------- #
 #  Weis et al. (2014) Fig. 4: six single-phase heating fronts -- {hP, mP, lP} x
@@ -59,10 +59,10 @@ TO_MEGA = 1.0e-6
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(HERE, "_cache")
 
-# Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL
-# tables sampled with the C2 tensor-spline backend (consistent value/Jacobian).
+# Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL tables sampled
+# with the unified VTKSampler tensor backend (multilinear value + analytic gradient of that same
+# interpolant -> consistent Jacobian; identical to the weis_1d_solver construction).
 TABLE_LEVEL = 3                           # opensowat .vtr level (0..4 available)
-USE_SPLINE = True                         # True -> NSplineSampler; False -> VTKSampler probe
 _TABLE_DIR = os.path.join(
     HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
     "driesner_vtk_files")
@@ -78,7 +78,7 @@ GEOMETRIES = {"horizontal": (ModelGeometryH, 0), "vertical": (ModelGeometryV, 1)
 def _attach_samplers(model) -> None:
     """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz), exactly as
     porepy_1d_solver / porepy_3d_solver do."""
-    Sampler = NSplineSampler if USE_SPLINE else VTKSampler
+    Sampler = VTKSampler
     phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
     model.obl_sampler = phz

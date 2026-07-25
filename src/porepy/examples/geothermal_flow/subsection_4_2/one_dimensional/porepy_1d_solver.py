@@ -4,7 +4,7 @@ Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {H
 geometry's native N=800 and nominal dt = 0.25 yr, level-3 Driesner tables (matching weis_1d_solver),
 and writes each converged 1D profile (distance, T, p, s_liq) extracted from the live model to
 
-    subsection_4_1/_cache/porepy_{case}_{scheme}_N800_l3[_spline].pkl
+    subsection_4_1/_cache/porepy_{case}_{scheme}_N800_l3.pkl
 
 with keys y[m], T[K], p[Pa], s_liq -- exactly what plot_style.to_plot_units consumes. PorePy still
 writes its usual VTU/PVD output alongside (periodic snapshots).
@@ -48,7 +48,7 @@ from porepy.examples.geothermal_flow.model_configuration.geothermal_export impor
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
 )
-from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
 # --------------------------------------------------------------------------------------------- #
 #  Fixed benchmark parameters (shared by all four cases)
@@ -58,10 +58,9 @@ TO_MEGA = 1.0e-6
 DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
 TABLE_LEVEL = 3                           # Driesner opensowat .vtr level (0..4 available; 3 matches weis_1d_solver)
 EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
-USE_SPLINE = True                         # OBL sampler backend: True -> NSplineSampler (value and
-#                                           gradient from one C2 tensor spline; consistent Jacobian);
-#                                           False -> VTKSampler (probe of the stored value/grad_ fields).
-_SAMPLER_SUFFIX = "_spline" if USE_SPLINE else ""   # keep spline vs VTK output caches distinct
+# OBL sampling: the unified VTKSampler tensor backend -- multilinear value + analytic gradient from
+# the SAME interpolant (the sampled gradient is the derivative of the sampled value). This is the
+# identical construction weis_1d_solver uses, so the two solvers are directly comparable.
 
 FINAL_TIME_DAYS = {"horizontal": 73000.0, "vertical": 365000.0}   # 200 yr / 1000 yr
 GEOMETRY = {"horizontal": ModelGeometryH, "vertical": ModelGeometryV}
@@ -78,19 +77,19 @@ _TABLE_DIR = os.path.join(
 def _pickle_path(geometry_case: str, scheme: str) -> str:
     """Per-case output pickle path in _cache/ (keyed by orientation, scheme, N, table level)."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}{_SAMPLER_SUFFIX}.pkl")
+        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
 
 
 def _stats_path(geometry_case: str, scheme: str) -> str:
     """Companion human-readable solver-statistics text file next to the pickle."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}{_SAMPLER_SUFFIX}_stats.txt")
+        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.txt")
 
 
 def _stats_pkl_path(geometry_case: str, scheme: str) -> str:
     """Companion pickle holding the model's :class:`NonlinearRunStats` dataclass."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}{_SAMPLER_SUFFIX}_stats.pkl")
+        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.pkl")
 
 
 def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int, int]:
@@ -114,10 +113,10 @@ def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int,
 
 
 def _attach_samplers(model) -> None:
-    """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz) to ``model``. Backend is
-    ``NSplineSampler`` (value and gradient from one C2 tensor spline -> consistent Jacobian) when
-    ``USE_SPLINE`` else ``VTKSampler`` (pyvista probe of the stored value/``grad_`` fields)."""
-    Sampler = NSplineSampler if USE_SPLINE else VTKSampler
+    """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz) to ``model``. The
+    ``VTKSampler`` tensor backend gives a multilinear value and the analytic gradient of that same
+    interpolant (no stored ``grad_`` fields) -- the construction weis_1d_solver also uses."""
+    Sampler = VTKSampler
     phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
     model.obl_sampler = phz

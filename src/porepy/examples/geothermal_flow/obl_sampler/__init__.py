@@ -8,11 +8,10 @@
   return value + analytic gradient from the same interpolant (Jacobian consistent with the residual);
   the probe backend reads the separately-stored ``grad_`` field (inconsistent).
 
-:class:`NSplineSampler` is retained for backward compatibility (its consistent-tensor behaviour is now
-the VTKSampler ``tensor`` backend); it will be removed once the solvers are switched over.
+Every solver -- weis_1d_solver and all porepy_*d_solver -- uses this one sampler, so their table
+derivative constructions are identical (multilinear value + analytic gradient of that interpolant).
 """
 from .base import OBLSampler
-from .nspline_sampler import NSplineSampler
 from .vtk_sampler import VTKSampler
 
-__all__ = ["OBLSampler", "VTKSampler", "NSplineSampler"]
+__all__ = ["OBLSampler", "VTKSampler"]

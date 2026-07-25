@@ -109,7 +109,7 @@ from porepy.examples.geothermal_flow.model_configuration.flow_model_base import 
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
 )
-from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampler
+from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
 # --------------------------------------------------------------------------------------------- #
 #  Fixed parameters
@@ -117,7 +117,6 @@ from porepy.examples.geothermal_flow.obl_sampler import NSplineSampler, VTKSampl
 DAY = 86400.0
 TO_MEGA = 1.0e-6
 TABLE_LEVEL = 3                          # Driesner opensowat .vtr level (matches subsection_4_1)
-USE_SPLINE = True                        # True -> NSplineSampler (consistent C2-spline Jacobian)
 
 # Benchmark-3 box (raw metres, as read from fracture_network.csv; benchmark_3d_case_3 does NOT
 # apply unit scaling to the imported coordinates).  Flow (and the pressure ramp) is along y.
@@ -527,11 +526,11 @@ def _build_model_class(FlowModel):
 def _attach_samplers(model) -> None:
     """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz) to ``model``.
 
-    Backend is ``NSplineSampler`` (value and gradient from one C2 tensor spline -> consistent
-    Jacobian) when ``USE_SPLINE`` else ``VTKSampler``.  Must be called BEFORE ``prepare_simulation``
-    (the IC samples the ptz table), i.e. before constructing the ``ModelRunner``.
+    The ``VTKSampler`` tensor backend gives a multilinear value and the analytic gradient of that same
+    interpolant -> consistent Jacobian (the construction weis_1d_solver also uses).  Must be called
+    BEFORE ``prepare_simulation`` (the IC samples the ptz table), i.e. before the ``ModelRunner``.
     """
-    Sampler = NSplineSampler if USE_SPLINE else VTKSampler
+    Sampler = VTKSampler
     phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
     model.obl_sampler = phz
