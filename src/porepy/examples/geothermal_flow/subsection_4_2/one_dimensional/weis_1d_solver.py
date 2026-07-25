@@ -420,6 +420,74 @@ class PropsBrine:
     rho_ff: np.ndarray                         # fractional-flow weighted density (buoyancy V_T term)
 
 
+def _make_vtksampler(path):
+    """Build the unified VTKSampler without importing the full porepy package: the ``obl_sampler``
+    subpackage needs only numpy / scipy / pyvista, so add the geothermal_flow dir to the path and
+    import it as a top-level package (keeps ``import weis_1d_solver`` fast for the figure pipeline)."""
+    import sys
+    if _PARENT not in sys.path:
+        sys.path.insert(0, _PARENT)
+    from obl_sampler import VTKSampler
+    return VTKSampler(path)
+
+
+def _xph_fmap(amr):
+    """weis property key -> (VTKSampler field name, SI value scale). The adapted ``.vtu`` stores
+    enthalpy in MJ/kg and names temperature ``T``; the rectilinear ``.vtr`` stores kJ/kg and
+    ``Temperature``."""
+    hs = 1e6 if amr else 1e3
+    tname = "T" if amr else "Temperature"
+    return {"Rho_l": ("Rho_l", 1.0), "Rho_v": ("Rho_v", 1.0), "Rho_h": ("Rho_h", 1.0),
+            "H_l": ("H_l", hs), "H_v": ("H_v", hs), "H_h": ("H_h", hs),
+            "S_v": ("S_v", 1.0), "S_h": ("S_h", 1.0), "Xl": ("Xl", 1.0), "Xv": ("Xv", 1.0),
+            "mu_l": ("mu_l", 1.0), "mu_v": ("mu_v", 1.0), "Temperature": (tname, 1.0)}
+
+
+class XphSampler:
+    """weis adaptation to the VTKSampler API for the (z_NaCl, h, p) property table. SI in (p[Pa],
+    h[J/kg], z) and SI out. ``props()`` returns ``{weis key: value(N,)}``; ``props(grads=True)`` also
+    returns ``{weis key: (N,3)}`` whose columns are the sampler's analytic derivatives d/dp, d/dh, d/dz.
+    The ``a/b/c_{min,max}`` attributes (h/p/z range in SI) mirror the old ``Table`` for the Newton clip."""
+
+    def __init__(self, path, fmap):
+        self.s = _make_vtksampler(path)
+        self.s.conversion_factors = (1.0, 1e-6, 1e-6)      # (z, h[J/kg->MJ/kg], p[Pa->MPa])
+        self.fmap = fmap
+        b = self.s.search_space.bounds                     # (zmin,zmax, hmin,hmax, pmin,pmax) table units
+        self.c_min, self.c_max = float(b[0]), float(b[1])               # z [-]
+        self.a_min, self.a_max = float(b[2]) * 1e6, float(b[3]) * 1e6   # h [J/kg]
+        self.b_min, self.b_max = float(b[4]) * 1e6, float(b[5]) * 1e6   # p [Pa]
+
+    def props(self, p, h, z, grads=False):
+        p = np.atleast_1d(np.asarray(p, float)); h = np.atleast_1d(np.asarray(h, float))
+        z = np.broadcast_to(np.atleast_1d(np.asarray(z, float)), h.shape)
+        self.s.sample_at(np.column_stack([z, h, p]))
+        pd = self.s.sampled_could.point_data
+        vals = {k: pd[fn] * sc for k, (fn, sc) in self.fmap.items()}
+        if not grads:
+            return vals
+        # grad_Field columns are (d/dz, d/dh[J/kg], d/dp[Pa]); reorder to (d/dp, d/dh, d/dz), SI-scale.
+        grd = {k: pd["grad_" + fn][:, [2, 1, 0]] * sc for k, (fn, sc) in self.fmap.items()}
+        return vals, grd
+
+
+class XptSampler:
+    """weis adaptation to the VTKSampler API for the (z_NaCl, T, p) enthalpy table:
+    ``enth(T[K], p[Pa], z) -> h[J/kg]`` (used only for the IC/BC enthalpy)."""
+
+    def __init__(self, path, h_scale=1e3):
+        self.s = _make_vtksampler(path)
+        self.s.conversion_factors = (1.0, 1.0, 1e-6)       # (z, T[degC], p[Pa->MPa])
+        self.s.translation_factors = (0.0, -273.15, 0.0)   # T: K -> degC
+        self.h_scale = h_scale
+
+    def enth(self, TK, p, z):
+        TK = np.atleast_1d(np.asarray(TK, float)); p = np.atleast_1d(np.asarray(p, float))
+        z = np.broadcast_to(np.atleast_1d(np.asarray(z, float)), TK.shape)
+        self.s.sample_at(np.column_stack([z, TK, p]))
+        return self.s.sampled_could.point_data["H"] * self.h_scale
+
+
 def eval_props_brine(table, p, h, z):
     """Three-phase closure from the 3-D xph table at overall NaCl composition ``z``.
 
@@ -427,7 +495,7 @@ def eval_props_brine(table, p, h, z):
     rho_mix, and blocks the pore space through the rel-perm k_rl + k_rv = 1 - s_h; it is immobile
     (k_rh = 0), so it advects no mass -- its NaCl is carried only in the accumulation via rho_mix z.
     """
-    s = table.sample_many(h, p, z)
+    s = table.props(p, h, z)
     rho_l = s["Rho_l"]; rho_v = s["Rho_v"]; rho_h = s["Rho_h"]
     s_v = np.clip(s["S_v"], 0.0, 1.0)
     s_h = np.clip(s["S_h"], 0.0, 1.0)
@@ -451,6 +519,64 @@ def eval_props_brine(table, p, h, z):
     rho_ff = (mm_l * rho_l + mm_v * rho_v) * inv         # f_l rho_l + f_v rho_v (buoyancy V_T term)
     return PropsBrine(rho_l, rho_v, rho_h, s_l, s_v, s_h, h_l, h_v, h_h, Xl, Xv, T,
                       rho_mix, lam_T, mm_l, mm_v, salt_mob, adv_h, rho_ff)
+
+
+def eval_props_and_grads(table, p, h, z):
+    """:func:`eval_props_brine` PLUS the analytic derivative of every derived property wrt (p, h, z),
+    hand-chained from the sampler's raw-field gradients (NO automatic differentiation). Returns
+    ``(pr, d)`` where ``pr`` is the usual :class:`PropsBrine` and ``d`` is a dict ``{name: (N,3)}`` with
+    columns (d/dp, d/dh, d/dz). Clips and max() contribute a frozen 0/1 activity mask."""
+    vals, g = table.props(p, h, z, grads=True)
+    rho_l = vals["Rho_l"]; rho_v = vals["Rho_v"]; rho_h = vals["Rho_h"]
+    h_l = vals["H_l"]; h_v = vals["H_v"]; h_h = vals["H_h"]
+    mu_l = vals["mu_l"]; mu_v = vals["mu_v"]; T = vals["Temperature"]
+    drho_l = g["Rho_l"]; drho_v = g["Rho_v"]; drho_h = g["Rho_h"]
+    dh_l = g["H_l"]; dh_v = g["H_v"]; dh_h = g["H_h"]; dmu_l = g["mu_l"]; dmu_v = g["mu_v"]; dT = g["Temperature"]
+
+    def col(a):                                            # (N,) -> (N,1) for broadcasting against (N,3)
+        return a[:, None]
+
+    def msk(raw):                                          # activity mask of a clip to [0,1], as (N,1)
+        return ((raw > 0.0) & (raw < 1.0)).astype(float)[:, None]
+
+    s_v = np.clip(vals["S_v"], 0.0, 1.0); ds_v = g["S_v"] * msk(vals["S_v"])
+    s_h = np.clip(vals["S_h"], 0.0, 1.0); ds_h = g["S_h"] * msk(vals["S_h"])
+    sl_pre = 1.0 - s_v - s_h; s_l = np.clip(sl_pre, 0.0, 1.0)
+    ds_l = (-ds_v - ds_h) * msk(sl_pre)
+    Xl = np.clip(vals["Xl"], 0.0, 1.0); dXl = g["Xl"] * msk(vals["Xl"])
+    Xv = np.clip(vals["Xv"], 0.0, 1.0); dXv = g["Xv"] * msk(vals["Xv"])
+
+    arg = (s_l - S_R_LIQ * (1.0 - s_h)) / (1.0 - S_R_LIQ)
+    kr_l = np.maximum(arg, 0.0)
+    dkr_l = ((ds_l + S_R_LIQ * ds_h) / (1.0 - S_R_LIQ)) * col((arg > 0.0).astype(float))
+    arg2 = (1.0 - s_h) - kr_l; kr_v = np.maximum(arg2, 0.0)
+    dkr_v = (-ds_h - dkr_l) * col((arg2 > 0.0).astype(float))
+
+    mm_l = rho_l * kr_l / mu_l
+    dmm_l = (drho_l * col(kr_l) + col(rho_l) * dkr_l) / col(mu_l) - col(mm_l / mu_l) * dmu_l
+    mm_v = rho_v * kr_v / mu_v
+    dmm_v = (drho_v * col(kr_v) + col(rho_v) * dkr_v) / col(mu_v) - col(mm_v / mu_v) * dmu_v
+    lam_T = mm_l + mm_v; dlam_T = dmm_l + dmm_v
+    rho_mix = s_l * rho_l + s_v * rho_v + s_h * rho_h
+    drho_mix = (ds_l * col(rho_l) + col(s_l) * drho_l + ds_v * col(rho_v) + col(s_v) * drho_v
+                + ds_h * col(rho_h) + col(s_h) * drho_h)
+    salt_mob = Xl * mm_l + Xv * mm_v
+    dsalt_mob = dXl * col(mm_l) + col(Xl) * dmm_l + dXv * col(mm_v) + col(Xv) * dmm_v
+    adv_h = h_l * mm_l + h_v * mm_v
+    dadv_h = dh_l * col(mm_l) + col(h_l) * dmm_l + dh_v * col(mm_v) + col(h_v) * dmm_v
+    pos = lam_T > 0.0; inv = 1.0 / np.where(pos, lam_T, 1.0)
+    num = mm_l * rho_l + mm_v * rho_v
+    dnum = dmm_l * col(rho_l) + col(mm_l) * drho_l + dmm_v * col(rho_v) + col(mm_v) * drho_v
+    rho_ff = num * inv
+    drho_ff = col(inv) * (dnum - col(rho_ff) * dlam_T) * col(pos.astype(float))
+
+    pr = PropsBrine(rho_l, rho_v, rho_h, s_l, s_v, s_h, h_l, h_v, h_h, Xl, Xv, T,
+                    rho_mix, lam_T, mm_l, mm_v, salt_mob, adv_h, rho_ff)
+    d = {"rho_l": drho_l, "rho_v": drho_v, "rho_h": drho_h, "s_l": ds_l, "s_v": ds_v, "s_h": ds_h,
+         "h_l": dh_l, "h_v": dh_v, "h_h": dh_h, "Xl": dXl, "Xv": dXv, "T": dT,
+         "rho_mix": drho_mix, "lam_T": dlam_T, "mm_l": dmm_l, "mm_v": dmm_v,
+         "salt_mob": dsalt_mob, "adv_h": dadv_h, "rho_ff": drho_ff}
+    return pr, d
 
 
 # --------------------------------------------------------------------------------------- #
@@ -592,6 +718,85 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7, resfn=None):
         parts.append(dr[plan["gat_rows"][c]] / eps[plan["gat_owner"][c]])   # vectorised
     ab = np.zeros((plan["l"] + plan["u"] + 1, n))
     ab[plan["bpos"], plan["all_cols"]] = np.concatenate(parts)
+    return ab
+
+
+def _band_add(ab, u, cr, cc, B):
+    """Add a 3x3 block ``B`` (rows = mass/salt/energy residual, cols = p/h/z) for (cell cr, cell cc)
+    into LAPACK banded storage ``ab[u + row - col, col]``."""
+    for a in range(3):
+        row = 3 * cr + a
+        for b in range(3):
+            col = 3 * cc + b
+            ab[u + row - col, col] += B[a, b]
+
+
+def jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
+                      grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan):
+    """Hand-coded analytic Jacobian (banded) of :func:`residual_brine` -- NO finite differences, NO AD.
+    Chains the sampler's analytic property derivatives (:func:`eval_props_and_grads`) through the flux
+    assembly. Currently the HU (non-mwp) horizontal (g=0) path; upwind directions are frozen (as in a
+    standard upwind-FV Jacobian). Other schemes fall back to the FD Jacobian for now."""
+    N = geom.N
+    p = x[0::3]; h = x[1::3]; z = x[2::3]
+    pr, d = eval_props_and_grads(table, p, h, z)
+    u = plan["u"]
+    ab = np.zeros((plan["l"] + u + 1, N * 3))
+    rs = np.array([1.0 / geom.ms, 1.0 / geom.ms, 1.0 / geom.es])[:, None]     # row scales
+    ep = np.array([1.0, 0.0, 0.0]); eh = np.array([0.0, 1.0, 0.0]); ez = np.array([0.0, 0.0, 1.0])
+
+    # --- accumulation (diagonal 3x3 blocks) ---
+    dacc = {}
+    for i in range(N):
+        B = np.empty((3, 3))
+        B[0] = geom.Vcell * PHI * d["rho_mix"][i] / dt
+        B[1] = geom.Vcell * PHI * (z[i] * d["rho_mix"][i] + pr.rho_mix[i] * ez) / dt
+        B[2] = geom.Vcell * (PHI * (h[i] * d["rho_mix"][i] + pr.rho_mix[i] * eh - ep)
+                             + (1 - PHI) * RHO_S * C_S * d["T"][i]) / dt
+        dacc[i] = B
+        _band_add(ab, u, i, i, B * rs)
+
+    # --- interior faces: HU horizontal (V_T = Tf*dp_face, no buoyancy) ---
+    Tf, TFf = geom.Tf, geom.TFf
+    V_T = Tf * (p[:-1] - p[1:])
+    up = ut if lag_upwind else np.where(V_T >= 0.0, np.arange(N - 1), np.arange(N - 1) + 1)
+    isL = up == np.arange(N - 1)
+    lamU = pr.lam_T[up]; salU = pr.salt_mob[up]; advU = pr.adv_h[up]
+    dlamU = d["lam_T"][up]; dsalU = d["salt_mob"][up]; dadvU = d["adv_h"][up]
+    dTL = d["T"][:-1]; dTR = d["T"][1:]
+    for f in range(N - 1):
+        BLL = np.zeros((3, 3)); BLR = np.zeros((3, 3))
+        BLL[:, 0] += Tf * np.array([lamU[f], salU[f], advU[f]])       # dV_T/dp[L] = +Tf
+        BLR[:, 0] -= Tf * np.array([lamU[f], salU[f], advU[f]])       # dV_T/dp[R] = -Tf
+        BLL[2] += TFf * dTL[f]; BLR[2] -= TFf * dTR[f]                # F_four = TFf*(T[L]-T[R])
+        tgt = BLL if isL[f] else BLR                                  # mobility rides the upwind cell
+        tgt[0] += V_T[f] * dlamU[f]; tgt[1] += V_T[f] * dsalU[f]; tgt[2] += V_T[f] * dadvU[f]
+        _band_add(ab, u, f, f, BLL * rs); _band_add(ab, u, f, f + 1, BLR * rs)         # +F[f] -> dm[f]
+        _band_add(ab, u, f + 1, f, -BLL * rs); _band_add(ab, u, f + 1, f + 1, -BLR * rs)  # -F[f] -> dm[f+1]
+
+    # --- boundary faces (HU horizontal) ---
+    Tb, TFb = geom.Tb, geom.TFb
+    V_l = Tb * (bleft.p - p[0])
+    Bl = np.zeros((3, 3))
+    if V_l >= 0.0:                                                    # inflow: fixed bleft props
+        Bl[:, 0] = -Tb * np.array([bleft.pr.lam_T[0], bleft.pr.salt_mob[0], bleft.pr.adv_h[0]])
+    else:                                                            # own cell-0 props
+        Bl[0] = -Tb * pr.lam_T[0] * ep + V_l * d["lam_T"][0]
+        Bl[1] = -Tb * pr.salt_mob[0] * ep + V_l * d["salt_mob"][0]
+        Bl[2] = -Tb * pr.adv_h[0] * ep + V_l * d["adv_h"][0]
+    Bl[2] += -TFb * d["T"][0]                                         # Fe_l has TFb*(bleft.T - T[0])
+    _band_add(ab, u, 0, 0, -Bl * rs)                                 # dm[0] = F[0] - Fm_l -> -Fm_l
+
+    V_r = Tb * (p[-1] - bright.p)
+    Br = np.zeros((3, 3))
+    if V_r >= 0.0:                                                    # outflow: own cell-(N-1) props
+        Br[0] = Tb * pr.lam_T[-1] * ep + V_r * d["lam_T"][-1]
+        Br[1] = Tb * pr.salt_mob[-1] * ep + V_r * d["salt_mob"][-1]
+        Br[2] = Tb * pr.adv_h[-1] * ep + V_r * d["adv_h"][-1]
+    else:                                                            # fixed bright props
+        Br[:, 0] = Tb * np.array([bright.pr.lam_T[0], bright.pr.salt_mob[0], bright.pr.adv_h[0]])
+    Br[2] += TFb * d["T"][-1]                                         # Fe_r has TFb*(T[-1] - bright.T)
+    _band_add(ab, u, N - 1, N - 1, Br * rs)                          # dm[-1] = Fm_r - F[-1] -> +Fm_r
     return ab
 
 
@@ -761,7 +966,11 @@ def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
             print(f"    newton {it}: |r|_eq={m:.3e}")
         if m <= atol:
             return x, it, m, True
-        ab = jacobian_fd(x, r, args, plan, resfn=residual_brine)
+        if scheme != "ppu" and not weighted_perm and not grav_upstream and geom.GA == 0.0:
+            ab = jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
+                                   grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan)  # hand-coded
+        else:
+            ab = jacobian_fd(x, r, args, plan, resfn=residual_brine)                              # FD fallback
         try:
             dx = sla.solve_banded((plan["l"], plan["u"]), ab, -r)
         except Exception:
@@ -814,18 +1023,18 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     # (pure_water, 2-D slice), or the level-indexed rectilinear brine tables. The xpt table (T,p->h for
     # the IC/BC enthalpy) stays rectilinear in every case.
     if amr_table is not None:
-        table = AmrXphAdapter(amr_table)
-        xpt = Table(table_paths(level)[1], {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
+        table = XphSampler(amr_table, _xph_fmap(amr=True))
+        xpt = XptSampler(table_paths(level)[1])
     elif pure_water:
-        table = Table(PUREWATER_XPH, _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=True)
-        xpt = Table(PUREWATER_XPT, {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=True)
+        table = XphSampler(PUREWATER_XPH, _xph_fmap(amr=False))
+        xpt = XptSampler(PUREWATER_XPT)
     else:
-        table = Table(table_paths(level)[0], _XPH_FIELDS_BRINE, a_in=1e-6, b_in=1e-6, c_in=1.0, slice_z=False)
-        xpt = Table(table_paths(level)[1], {"H": 1e3}, a_in=1.0, b_in=1e-6, c_in=1.0, slice_z=False)
+        table = XphSampler(table_paths(level)[0], _xph_fmap(amr=False))
+        xpt = XptSampler(table_paths(level)[1])
     geom = make_geom(N, g=g)
 
     def enth(TK, p, z):
-        return xpt("H", np.atleast_1d(TK) - 273.15, np.atleast_1d(p), np.atleast_1d(z))
+        return xpt.enth(TK, p, z)
 
     h_left = float(enth(cfg["T_left"], cfg["p_left"], cfg["z_left"])[0])
     h_right = float(enth(cfg["T_right"], cfg["p_right"], cfg["z_init"])[0])
