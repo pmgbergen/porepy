@@ -456,11 +456,11 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         inside_ratio = lambda arr, min_v, max_v: 1.0 - np.mean((arr < min_v) | (arr > max_v))
 
 
-        _, _, tmin, tmax, _, _ = self.obl_sampler_ptz.search_space.bounds
+        _, _, tmin, tmax, _, _ = self.obl_sampler_ptz.bounds
         tmin -= self.obl_sampler_ptz.translation_factors[1]
         tmax -= self.obl_sampler_ptz.translation_factors[1]
 
-        zmin, zmax, hmin, hmax, pmin, pmax = self.obl_sampler.search_space.bounds
+        zmin, zmax, hmin, hmax, pmin, pmax = self.obl_sampler.bounds
         z_scale, h_scale, p_scale = self.obl_sampler.conversion_factors
         zmin /= z_scale
         zmax /= z_scale

@@ -392,11 +392,11 @@ class ReorderedTransportPredictor:
         return np.asarray(s.sampled_could.point_data["Rho"], float)
 
     def _predictor_z_bounds(self):
-        zmin, zmax, *_ = self.obl_sampler.search_space.bounds
+        zmin, zmax, *_ = self.obl_sampler.bounds
         sc = self.obl_sampler.conversion_factors[0]
         return (max(zmin / sc, 0.0), zmax / sc)
 
     def _predictor_h_bounds(self):
-        _, _, hmin, hmax, *_ = self.obl_sampler.search_space.bounds
+        _, _, hmin, hmax, *_ = self.obl_sampler.bounds
         sc = self.obl_sampler.conversion_factors[1]
         return (hmin / sc, hmax / sc)

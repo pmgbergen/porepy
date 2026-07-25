@@ -9,7 +9,8 @@ The Driesner compositional-flow model consumes a sampler through a small, fixed 
     sampler.translation_factors                      # per-axis input shift    (get/set)
     sampler.constant_extended_fields                 # fields held flat outside the box (get/set)
     sampler.mutex_state                              # freeze the cloud        (get/set)
-    sampler.search_space.bounds                       # (xmin,xmax,ymin,ymax,zmin,zmax)
+    sampler.bounds                                    # (xmin,xmax,ymin,ymax,zmin,zmax) -- canonical;
+    #                                                   works even when search_space is None (cache load)
 
 :class:`OBLSampler` implements everything that is common -- the pyvista-backed constructor (reads the
 VTK dataset once and extracts the bounds / value-field names), all of the knobs above, the memoized
