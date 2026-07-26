@@ -56,10 +56,8 @@ class AdArray:
         be handled and maintained, the scalar must be a float.
       * Numpy arrays are assumed to be 1d and have the same size as the ``AdArray``.
         Numpy arrays can be used for any operation except matrix multiplication.
-        When adding, subtracting or multiplying a numpy array and an AdArray, the
-        AdArray should be placed first, so, DO: AdArray + numpy.array,
-        DO NOT: numpy.array + AdArray. The latter will give erratic behavior, see
-        https://stackoverflow.com/a/6129099.
+        The operand order is irrelevant: both ``AdArray + numpy.array`` and
+        ``numpy.array + AdArray`` give an ``AdArray``.
       * Scipy matrices can only be used for matrix-vector products (the @ operator), and
         then only for left multiplication. While right multiplication could technically
         work, depending on the size of the matrix, this is not the way the Ad framework
@@ -74,6 +72,11 @@ class AdArray:
         jac: The Jacobian matrix of the AdArray, stored as a sparse matrix.
 
     """
+
+    # Numpy defers binary operations to the __r*__ methods below only if this is set
+    # to None; without it, `numpy_array * ad_array` broadcasts into an object array
+    # holding one full AdArray, Jacobian included, per element (#819).
+    __array_ufunc__ = None
 
     def __init__(self, val: np.ndarray, jac: sps.spmatrix) -> None:
         # Consistency checks, to limit the possibilities for errors when combining this

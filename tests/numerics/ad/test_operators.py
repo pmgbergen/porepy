@@ -1479,18 +1479,6 @@ def test_arithmetic_operations_on_ad_objects(
         # correctly implemented. For the wrapped case, we need to test that the parsing
         # is okay, thus we do not skip if wrapped is True.
         return
-    if not wrapped and var_1 == "dense" and var_2 == "ad":
-        # This is the case where the first operand is a numpy array. This is a
-        # problematic setting, since numpy's operators (__add__ etc.) will be invoked.
-        # Despite numpy not knowing anything about AdArrays, numpy somehow uses
-        # broadcasting to compute and return a value, but the result is not in any sense
-        # what is to be expected. In forward mode there is nothing we can do about this
-        # (see GH issue #819, tagged as won't fix); the user just has to know that this
-        # should not be done. If the arrays are wrapped, we can circumvent the problem
-        # in parsing by rewriting the expression so that the AdArray's right  operators
-        # (e.g., __radd__) are invoked instead of numpy's left operators. Thus, if
-        # wrapped is True, we do not skip the test.
-        return
 
     def _var_from_string(v, do_wrap: bool):
         if v == "scalar":
@@ -1836,3 +1824,39 @@ def test_operator_method_caching():
         assert inherited_model.method_with_list_arg([1, 2]) == 1
     assert inherited_model.method_with_list_arg([3, 4]) == 2
     assert inherited_model.method_with_list_arg([1, 2]) == 1
+
+
+@pytest.mark.parametrize("operand", ["dense", "sparse"])
+@pytest.mark.parametrize("left", [True, False])
+def test_addition_with_numpy_and_sparse_operands(operand: str, left: bool):
+    """Adding a numpy array or a sparse matrix to an operator should work either way.
+
+    The guard that converts a zero ``other`` (which Python passes when summing a
+    single-item list) to a Scalar used to be evaluated elementwise for these types,
+    raising 'truth value of an array is ambiguous'. With the operator to the right,
+    numpy captured the operation altogether (#819).
+
+    """
+    op = pp.ad.DenseArray(np.array([1.0, 2.0, 3.0]))
+    if operand == "dense":
+        other, wrapper = _get_dense_array(False), pp.ad.DenseArray
+    else:
+        other = _get_sparse_array(False, use_csr_matrix=True)
+        wrapper = pp.ad.SparseArray
+
+    res = other + op if left else op + other
+
+    assert isinstance(res, pp.ad.Operator)
+    assert res.operation is _operations.add
+    assert res.children[0] is op
+    assert isinstance(res.children[1], wrapper)
+
+
+def test_sum_of_single_operator():
+    """Python's sum starts from the integer 0, which must still short-circuit to a
+    Scalar rather than being parsed as an operand."""
+    op = pp.ad.DenseArray(np.array([1.0, 2.0, 3.0]))
+    res = sum([op])
+    assert isinstance(res, pp.ad.Operator)
+    assert res.children[0] is op
+    assert isinstance(res.children[1], pp.ad.Scalar)

@@ -335,21 +335,21 @@ def test_matrix_slicer_delayed_evaluation_sparse(
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
 
 
-@pytest.mark.parametrize("other_mode", ["ad", "float"])
+@pytest.mark.parametrize("other_mode", ["ad", "float", "dense"])
 @pytest.mark.parametrize("target_mode", ["ad", "dense", "float"])
 @pytest.mark.parametrize("operator", ["*", "/", "+", "-", "**"])
 def test_matrix_slicer_delayed_evaluation_ad_dense_float(
     A: sps.spmatrix,
-    other_mode: Literal["ad", "float"],
+    other_mode: Literal["ad", "float", "dense"],
     target_mode: Literal["ad", "dense", "float"],
     operator: Literal["*", "/", "+", "-", "**"],
 ):
     """Test the application of the ArraySlicer to numpy and AdArrays, as well as scalars
     (floats), with delayed evaluation.
 
-    Note that the parametrization of 'other_mode' does not include 'dense' (i.e. a numpy
-    array), since this does not make sense in the context of the ArraySlicer. See the
-    docstring of that class for more information.
+    A numpy array as the leftmost operand only works because ArraySlicer sets
+    __array_ufunc__ to None; without it numpy captures the operation and returns an
+    object array.
     """
     # The actual test is left to a backend function, to avoid code duplication.
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
