@@ -514,14 +514,10 @@ class ArraySlicer:
         delayed evaluation to first carry out the slicing (S @ y), and then apply 'A x'
         to the result.
 
-        *However*, this only works if the methods __rmul__ etc. are called in the first
-        place. Fundamental data types in python (int, float) will do so, as will scipy
-        sparse matrices. *Numpy arrays will most likely not do so*. Instead, it will use
-        its own __mul__ method with the ArraySlicer as the right operand, and probably
-        return a numpy array with data type object. Some rules of thumb therefore apply:
-            1. Be careful when using the ArraySlicer in chained operations, in
-               particular with numpy arrays.
-            2. If in doubt, use parantheses.
+        This requires that the methods __rmul__ etc. are called in the first place.
+        Fundamental data types in python (int, float) will do so, as will scipy sparse
+        matrices. Numpy arrays do so only because this class opts out of numpy's
+        operator capture by setting __array_ufunc__ to None.
 
     Parameters:
         domain_indices: Row indices to be selected. If not provided, the dimensions of
@@ -538,6 +534,11 @@ class ArraySlicer:
             is added since the domain indices are 0-offset).
 
     """
+
+    # Numpy defers binary operations to the __r*__ methods below only if this is set
+    # to None; without it, `numpy_array * slicer` broadcasts into an object array
+    # holding one ArraySlicer per element (#819).
+    __array_ufunc__ = None
 
     def __init__(
         self,
