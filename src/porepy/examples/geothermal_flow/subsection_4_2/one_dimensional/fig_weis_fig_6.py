@@ -25,6 +25,42 @@ SALT_Z = 0.42                # z_init giving S_h ~ 0.1 at the IC (from the z_ini
 TF = 2000.0
 COLS = (("pw", "pure water"), ("salt", "salt + halite"))
 
+# PorePy overlay (mirrors fig_weis_fig_5): the converged HU profile from porepy_1d_solver.run_fig6_case,
+# cached as _cache/porepy_fig6_{pw,salt}_hu_N800_l3.pkl. pw uses the fine purewater_x*.vtr (same table
+# as the weis pw column); salt uses opensowat with z_init=0.42 (immobile halite). Black x markers.
+POREPY_C = "black"
+POREPY_LABEL = r"HU-PorePy"
+AUTORUN_POREPY = True         # generate a missing overlay pickle by running PorePy (heavy: 2000 yr)
+
+
+def _load_porepy(column, level=None):
+    """porepy_1d_solver Fig-6 pickle (y[m], T[K], p[MPa], s_liq, s_halite) for ``column`` ('pw'|'salt'),
+    normalised to the SI plot convention (p -> Pa) that ``ps.to_plot_units`` consumes. If the pickle is
+    missing and ``AUTORUN_POREPY``, run ``porepy_1d_solver.run_fig6_case`` to make it (lazy import, so a
+    warm-cache re-plot never imports porepy). Returns the dict, or None if unavailable."""
+    import pickle
+    level = m.TABLE_LEVEL if level is None else level
+    path = os.path.join(C.CACHE_DIR, f"porepy_fig6_{column}_hu_N800_l{level}.pkl")
+    if not os.path.exists(path) and AUTORUN_POREPY:
+        try:
+            import porepy_1d_solver as pp1d                 # lazy: imports porepy only on a cold cache
+            if level == pp1d.TABLE_LEVEL:
+                print(f"[fig6] porepy overlay cache missing for {column} -- running "
+                      f"porepy_1d_solver.run_fig6_case (heavy: 2000 yr PorePy solve) ...", flush=True)
+                pp1d.run_fig6_case(column)                  # writes the same pickle path
+            else:
+                print(f"[fig6] porepy overlay skipped for {column}: fig level {level} "
+                      f"!= porepy_1d_solver level {pp1d.TABLE_LEVEL}", flush=True)
+        except Exception as exc:                            # never let an overlay break the figure
+            print(f"[fig6] porepy overlay auto-run failed for {column}: {exc}", flush=True)
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        d = dict(pickle.load(f))
+    d["p"] = d["p"] * 1.0e6                                # MPa (PorePy native) -> Pa (SI, as weis)
+    print(f"[fig6-porepy] ({column!r})   cached total_it={int(d.get('total_it', 0))}", flush=True)
+    return d
+
 
 def compute(N=N, level=None, salt_z=SALT_Z, parallel=True):
     """PPU/HU/HU-mwp for the pure-water (z=0) and salt (z>0) columns at the Fig-6 BCs. The salt column
@@ -68,13 +104,24 @@ def plot(out, stem="fig_weis_fig_6"):
                 ax.text(0.5, 0.5, "salt case\n(pending)", transform=ax.transAxes, ha="center",
                         va="center", fontsize=10, color="0.55", style="italic")
         else:
+            pp_res = _load_porepy(col)                       # PorePy HU overlay (load first, for legend)
             # digitized Weis (2014) Fig-6 reference from benchmark_figures_data/fig_6_{col}_*.csv
             C.draw_tp(ax_tp, ax_p, res,
                       ref_T=C.ref_csv(f"fig_6_{col}_temperature_raw.csv"),
                       ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
             ax_h = C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_6_{col}_saturation_liq_raw.csv"),
                             halite=(col == "salt"))
-            C.iteration_legend(ax_s, res, loc="center left")    # in the empty vapor column, clear of curves
+            extra = [(POREPY_C, pp_res["total_it"])] if pp_res is not None else None
+            C.iteration_legend(ax_s, res, loc="center left", extra=extra)  # empty vapor column, clear
+            if pp_res is not None:
+                step = max(1, len(pp_res["y"]) // 24)        # ~24 markers across the 2 km column
+                mk = dict(color=POREPY_C, marker="x", ms=4.2, ls="none", mew=0.9, zorder=6)
+                for ax, fld in ((ax_tp, "T"), (ax_p, "p"), (ax_s, "s_liq")):
+                    xx, yy = ps.to_plot_units(pp_res, fld)
+                    ax.plot(xx[::step], yy[::step], **mk)
+                if ax_h is not None:                         # halite saturation on its own twin axis
+                    xx = pp_res["y"] / 1000.0
+                    ax_h.plot(xx[::step], pp_res["s_halite"][::step], **mk)
         # left column: T / s_liq axes; right column: p (+ halite) axes
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
@@ -91,11 +138,12 @@ def plot(out, stem="fig_weis_fig_6"):
         ax_s.set_xlabel(ps.DIST_LABEL)
 
     handles = C.scheme_handles() + [
+        Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL),
         Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
         Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
         Line2D([0], [0], color="black", ls=(0, (1, 1)), label=r"halite sat.")]
     fig.tight_layout()
-    ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=3)
+    ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)
     ps.savefig(fig, stem, C.OUT_DIR)
 
 

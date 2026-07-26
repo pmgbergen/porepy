@@ -150,6 +150,32 @@ class BC_two_phase_moderate_pressure(BCBase):
         T[outlet_idx] = t_outlet
         return T
 
+
+class BC_H2O_NaCl_Figure_6(BCBase):
+    """Weis (2014) Fig 6 (H2O-NaCl, horizontal): hot pure-water inlet 300 C / 4 MPa -> cool outlet
+    150 C / 1 MPa. The inlet fluid is pure water (``bc_salinity`` = 0, inherited) for BOTH the
+    pure-water and the salt columns -- the salt lives in the initial condition, not the boundary."""
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_inlet = 4.0
+        p_outlet = 1.0
+        xc = boundary_grid.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        p_linear = (
+            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        )
+        return np.array(list(map(p_linear, xc)))
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 573.15
+        t_outlet = 423.15
+        T = t_outlet * np.ones(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
+
+
 class BC_two_phase_low_pressure(BCBase):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 

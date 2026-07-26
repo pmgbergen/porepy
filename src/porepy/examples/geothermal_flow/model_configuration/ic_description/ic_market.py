@@ -177,6 +177,41 @@ class IC_two_phase_moderate_pressure(IC_Base):
         t_init = 423.15
         return np.ones(sd.num_cells) * t_init
 
+
+class IC_H2O_NaCl_Figure_6_pure_water(IC_Base):
+    """Weis (2014) Fig 6 pure-water column: z_NaCl = 0, T_init = 150 C, linear p 4 -> 1 MPa."""
+
+    obl_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        p_inlet = 4.0
+        p_outlet = 1.0
+        xc = sd.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        p_linear = (
+            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        )
+        return np.array(list(map(p_linear, xc)))
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        return np.ones(sd.num_cells) * 423.15
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        return self.ic_salinity(sd)
+
+
+class IC_H2O_NaCl_Figure_6_salt(IC_H2O_NaCl_Figure_6_pure_water):
+    """Fig 6 salt column: same p / T as the pure-water column, but z_NaCl = 0.42 so the flash forms
+    immobile halite (S_h ~ 0.1 at the IC, set by IC_Base.initial_condition from the ptz table)."""
+
+    SALT_Z_INIT = 0.42
+
+    def ic_salinity(self, sd: pp.Grid) -> np.ndarray:
+        return np.full(sd.num_cells, self.SALT_Z_INIT)
+
+
 class IC_two_phase_low_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 

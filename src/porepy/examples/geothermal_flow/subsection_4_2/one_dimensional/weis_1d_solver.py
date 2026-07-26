@@ -205,11 +205,13 @@ def eval_props_brine(table, p, h, z):
 
     # Weis (2014) rel-perm with halite pore blocking (mirror of DriesnerModelConfiguration):
     #   k_rl = max((s_l - 0.3(1-s_h))/0.7, 0),  k_rv = (1-s_h) - k_rl,  k_rh = 0.
-    # s_h = 0 reduces to the pure-water fig-5 closure k_rl + k_rv = 1.
+    # PLUS the halite absolute-permeability reduction K -> K(1-s_h)^2 (Weis 2014): every mobile phase
+    # carries the extra (1-s_h)^2 factor. s_h = 0 -> factor 1, so fig-5 / fig-6-left stay identical.
     kr_l = np.maximum((s_l - S_R_LIQ * (1.0 - s_h)) / (1.0 - S_R_LIQ), 0.0)
     kr_v = np.maximum((1.0 - s_h) - kr_l, 0.0)
-    mm_l = rho_l * kr_l / mu_l
-    mm_v = rho_v * kr_v / mu_v
+    perm = (1.0 - s_h) ** 2
+    mm_l = perm * rho_l * kr_l / mu_l
+    mm_v = perm * rho_v * kr_v / mu_v
     lam_T = mm_l + mm_v
     rho_mix = s_l * rho_l + s_v * rho_v + s_h * rho_h
     salt_mob = Xl * mm_l + Xv * mm_v
@@ -251,10 +253,15 @@ def eval_props_and_grads(table, p, h, z):
     arg2 = (1.0 - s_h) - kr_l; kr_v = np.maximum(arg2, 0.0)
     dkr_v = (-ds_h - dkr_l) * col((arg2 > 0.0).astype(float))
 
-    mm_l = rho_l * kr_l / mu_l
-    dmm_l = (drho_l * col(kr_l) + col(rho_l) * dkr_l) / col(mu_l) - col(mm_l / mu_l) * dmu_l
-    mm_v = rho_v * kr_v / mu_v
-    dmm_v = (drho_v * col(kr_v) + col(rho_v) * dkr_v) / col(mu_v) - col(mm_v / mu_v) * dmu_v
+    # halite abs-perm reduction K -> K(1-s_h)^2: mm = (1-s_h)^2 * (base rho kr/mu), product rule.
+    perm = (1.0 - s_h) ** 2
+    dperm = col(-2.0 * (1.0 - s_h)) * ds_h               # d[(1-s_h)^2] = -2(1-s_h) ds_h (chain rule)
+    mm_l0 = rho_l * kr_l / mu_l                          # base mass mobility (paper rel-perm)
+    dmm_l0 = (drho_l * col(kr_l) + col(rho_l) * dkr_l) / col(mu_l) - col(mm_l0 / mu_l) * dmu_l
+    mm_l = perm * mm_l0; dmm_l = col(perm) * dmm_l0 + col(mm_l0) * dperm
+    mm_v0 = rho_v * kr_v / mu_v
+    dmm_v0 = (drho_v * col(kr_v) + col(rho_v) * dkr_v) / col(mu_v) - col(mm_v0 / mu_v) * dmu_v
+    mm_v = perm * mm_v0; dmm_v = col(perm) * dmm_v0 + col(mm_v0) * dperm
     lam_T = mm_l + mm_v; dlam_T = dmm_l + dmm_v
     rho_mix = s_l * rho_l + s_v * rho_v + s_h * rho_h
     drho_mix = (ds_l * col(rho_l) + col(s_l) * drho_l + ds_v * col(rho_v) + col(s_v) * drho_v

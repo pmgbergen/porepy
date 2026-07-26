@@ -147,17 +147,20 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         # Weis (2014) relative permeabilities with halite as an immobile solid:
         #   k_rh = 0,  k_rl = max((s_l - 0.3 (1 - s_h))/0.7, 0),  k_rv = (1 - s_h) - k_rl
         #   (residual vapor R_v = 0; halite blocks pore space: k_rl + k_rv = 1 - s_h).
-        # s_h = 0 reduces to the two-phase fig-5 closure k_rl + k_rv = 1.
+        # PLUS the halite absolute-permeability reduction K -> K(1-s_h)^2 (Weis 2014), applied purely
+        # as a rel-perm modification: every mobile phase carries the extra (1-s_h)^2 factor. s_h = 0
+        # -> factor 1, so fig-5 / fig-6-left stay identical.
         if phase.name == "halite":
             return pp.ad.Scalar(0.0)
         s_hal = self._halite_saturation_or_zero(domains)
+        perm = (pp.ad.Scalar(1.0) - s_hal) ** 2
         if phase.name == "liq":
-            return self._liquid_relative_permeability(phase.saturation(domains), s_hal)
-        # Vapor: complement of the liquid curve at s_l = 1 - s_gas - s_h.
-        s_liq = pp.ad.Scalar(1.0) - phase.saturation(domains) - s_hal
-        return (pp.ad.Scalar(1.0) - s_hal) - self._liquid_relative_permeability(
-            s_liq, s_hal
-        )
+            kr = self._liquid_relative_permeability(phase.saturation(domains), s_hal)
+        else:
+            # Vapor: complement of the liquid curve at s_l = 1 - s_gas - s_h.
+            s_liq = pp.ad.Scalar(1.0) - phase.saturation(domains) - s_hal
+            kr = (pp.ad.Scalar(1.0) - s_hal) - self._liquid_relative_permeability(s_liq, s_hal)
+        return perm * kr
 
     @property
     def obl_sampler(self):
@@ -430,20 +433,23 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         end_time = time.time()
         print(f"Elapsed time for linear solve: {end_time - start_time:.4f} seconds\n")
 
-        # Post-processing solution overshoots.
-        self.postprocessing_overshoots(solution)
+        # Post-processing solution overshoots (physical-bound clip). Optional via params -- default on.
+        if self.params.get("enable_overshoot_postprocessing", True):
+            self.postprocessing_overshoots(solution)
 
-        # Conditional thermal overshoot post-processing: apply when the differential
-        # residual is smaller than the algebraic residual.
-        if differential_residual_norm < algebraic_residual_norm:
-            print("\nThermal overshoot condition triggered:")
-            print(f"  Differential norm ({differential_residual_norm:.4e}) < "
-                  f"Algebraic norm ({algebraic_residual_norm:.4e})")
-            self.postprocessing_thermal_overshoots(solution, alg_exceeds)
-        else:
-            print("\nThermal overshoot condition NOT triggered:")
-            print(f"  Differential norm ({differential_residual_norm:.4e}) >= "
-                  f"Algebraic norm ({algebraic_residual_norm:.4e})")
+        # Conditional thermal overshoot post-processing: apply when the differential residual is
+        # smaller than the algebraic residual. Optional via params (default on) -- this correction can
+        # destabilise strongly halite-forming columns (Fig 6 salt), so it can be disabled independently.
+        if self.params.get("enable_thermal_overshoot_postprocessing", True):
+            if differential_residual_norm < algebraic_residual_norm:
+                print("\nThermal overshoot condition triggered:")
+                print(f"  Differential norm ({differential_residual_norm:.4e}) < "
+                      f"Algebraic norm ({algebraic_residual_norm:.4e})")
+                self.postprocessing_thermal_overshoots(solution, alg_exceeds)
+            else:
+                print("\nThermal overshoot condition NOT triggered:")
+                print(f"  Differential norm ({differential_residual_norm:.4e}) >= "
+                      f"Algebraic norm ({algebraic_residual_norm:.4e})")
 
         return solution
 
@@ -514,6 +520,14 @@ class _DriesnerBrineBase(  # type:ignore[misc]
             new_q = delta_x[dof_idx] + x0[dof_idx]
             new_q = np.clip(new_q, 0.0, 1.0)
             delta_x[dof_idx] = new_q - x0[dof_idx]
+
+        # Optional bound on the per-iteration gas-saturation step: damps the vapor phase-appearance
+        # oscillation (s_gas flip-flopping ~0.2 <-> 1.0 at the vapor/liquid+halite boundary) that
+        # stalls Newton on the strongly halite-forming Fig-6 salt column, while leaving the physical-
+        # bound clip untouched. params["max_gas_saturation_step"] = 0 (default) disables it.
+        ds_max = self.params.get("max_gas_saturation_step", 0.0)
+        if ds_max > 0.0:
+            delta_x[s_dof_idx] = np.clip(delta_x[s_dof_idx], -ds_max, ds_max)
 
         te = time.time()
         print("Elapsed time for postprocessing overshoots: ", te - tb)
