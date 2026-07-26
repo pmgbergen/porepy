@@ -157,7 +157,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
                               specific_heat_capacity=880.0 * TO_MEGA)
     times_to_export = list(np.arange(0.0, tf, DT * EXPORT_EVERY)) + [tf]
     params = {
-        "ad_backend": "sparsa",
+        "ad_backend": "native",
         "fractional_flow": weighted_perm,
         "enable_buoyancy_effects": True,
         "buoyancy_upwinding": "hybrid",

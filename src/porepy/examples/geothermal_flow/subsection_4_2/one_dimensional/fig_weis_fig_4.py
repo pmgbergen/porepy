@@ -40,6 +40,43 @@ LEVELS = ("hp", "mp", "lp")
 LEVEL_LABEL = {"hp": "high", "mp": "moderate", "lp": "low"}
 ORIENTS = ("horizontal", "vertical")
 
+# PorePy single-phase overlay (mirrors fig_weis_fig_5): the converged profile from
+# single_phase_porepy_1d_solver, cached as _cache/single_phase_case_{hP,mP,lP}_{orient}_l3.pkl -- the
+# SAME opensowat level-3 OBL as Fig 5. Drawn as black x markers over the weis-HU T/p curves.
+POREPY_C = "black"
+POREPY_LABEL = r"HU-PorePy"
+AUTORUN_POREPY = True                          # generate a missing overlay pickle by running PorePy
+_PP_CASE = {"hp": "case_hP", "mp": "case_mP", "lp": "case_lP"}   # Fig-4 level -> single-phase case name
+
+
+def _load_porepy(lvl, orient, level=None):
+    """single_phase_porepy_1d_solver pickle (x[m], T[K], p[MPa]) for Fig-4 panel (lvl, orient),
+    normalised to the SI plot convention (y[m], p -> Pa) that ``ps.to_plot_units`` consumes. If the
+    pickle is missing and ``AUTORUN_POREPY``, run the PorePy single-phase solver to make it (lazy
+    import, so a warm-cache re-plot never imports porepy). Returns the dict, or None if unavailable."""
+    import pickle
+    level = m.TABLE_LEVEL if level is None else level
+    case_name = _PP_CASE[lvl]
+    path = os.path.join(C.CACHE_DIR, f"single_phase_{case_name}_{orient}_l{level}.pkl")
+    if not os.path.exists(path) and AUTORUN_POREPY:
+        try:
+            import single_phase_porepy_1d_solver as sp1d    # lazy: imports porepy only on a cold cache
+            if level == sp1d.TABLE_LEVEL:
+                print(f"[fig4] porepy overlay cache missing for {case_name}/{orient} -- running "
+                      f"single_phase_porepy_1d_solver.run_case (heavy: PorePy solve) ...", flush=True)
+                sp1d.run_case(case_name, orient)            # writes the same pickle path
+            else:
+                print(f"[fig4] porepy overlay skipped for {case_name}/{orient}: fig level {level} "
+                      f"!= single_phase solver level {sp1d.TABLE_LEVEL}", flush=True)
+        except Exception as exc:                            # never let an overlay break the figure
+            print(f"[fig4] porepy overlay auto-run failed for {case_name}/{orient}: {exc}", flush=True)
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        d = dict(pickle.load(f))
+    print(f"[fig4-porepy] ({case_name!r}, {orient!r})   cached", flush=True)
+    return {"y": d["x"], "T": d["T"], "p": d["p"] * 1.0e6}  # x->y[m], p MPa->Pa (SI, ps.to_plot_units)
+
 
 def compute(N=N, level=None, parallel=True):
     level = m.TABLE_LEVEL if level is None else level
@@ -69,6 +106,13 @@ def plot(out, stem="fig_weis_fig_4"):
             C.draw_tp(ax_tp, ax_p, res,
                       ref_T=C.ref_csv(f"fig_4_{lvl}_{orient}_temperature_raw.csv"),
                       ref_p=C.ref_csv(f"fig_4_{lvl}_{orient}_pressure_raw.csv"))
+            pp_res = _load_porepy(lvl, orient)              # PorePy single-phase overlay (if available)
+            if pp_res is not None:
+                step = max(1, len(pp_res["y"]) // 24)       # ~24 markers across the 2 km column
+                mk = dict(color=POREPY_C, marker="x", ms=4.2, ls="none", mew=0.9, zorder=6)
+                for ax, fld in ((ax_tp, "T"), (ax_p, "p")):
+                    xx, yy = ps.to_plot_units(pp_res, fld)
+                    ax.plot(xx[::step], yy[::step], **mk)
             ax_tp.set_xlim(0.0, 2.0)
             ps.panel_tag(ax_tp, letters[i][j], loc=(0.04, 0.09), va="bottom")
             if i == 0:
@@ -88,11 +132,12 @@ def plot(out, stem="fig_weis_fig_4"):
         ax.set_xlabel(ps.DIST_LABEL)
 
     handles = C.scheme_handles() + [
+        Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL),
         Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
         Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
         C.ref_legend_handle()]
     fig.tight_layout()
-    ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=3)
+    ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)
     ps.savefig(fig, stem, C.OUT_DIR)
 
 

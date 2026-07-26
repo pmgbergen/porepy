@@ -80,9 +80,16 @@ def apply_style(usetex=True):
 
 
 def to_plot_units(res, field):
-    """weis_1d_solver.run result -> (distance_km, value in plotted units)."""
+    """weis_1d_solver.run result -> (distance_km, value in plotted units). Only the requested field is
+    evaluated, so a result lacking the others still works (e.g. a single-phase porepy overlay with no
+    ``s_liq``)."""
     x_km = res["y"] / 1000.0
-    val = {"T": res["T"] - 273.15, "p": res["p"] / 1e6, "s_liq": res["s_liq"]}[field]
+    if field == "T":
+        val = res["T"] - 273.15
+    elif field == "p":
+        val = res["p"] / 1e6
+    else:
+        val = res["s_liq"]
     return x_km, val
 
 

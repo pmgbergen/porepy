@@ -116,6 +116,8 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid},
         "time_manager": time_manager,
+        "times_to_export": [tf],                # only the final snapshot -- the figure reads the pickle,
+        #                                         so per-step VTUs are pure disk waste (was ~1500/case)
         "prepare_simulation": False,
         "apply_schur_complement_reduction": False,
         "use_petsc": True,
