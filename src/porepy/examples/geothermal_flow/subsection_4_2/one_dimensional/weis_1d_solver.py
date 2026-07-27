@@ -51,15 +51,21 @@ VTK_DIR = os.path.join(_PARENT, "model_configuration", "constitutive_description
                        "driesner_vtk_files")
 REF_DIR = os.path.join(_PARENT, "benchmark_figures_data")
 
-TABLE_LEVEL = 3       # Driesner opensowat table refinement level: 0 (coarsest) .. finer with level
+TABLE_LEVEL = "graded"   # default OBL: the C0 graded brine tables. Doubles as the cache tag (_lgraded,
+#                          so graded runs never collide with the legacy _l3 opensowat caches). Pass an
+#                          int level (0..4) anywhere ``level`` is accepted to select legacy opensowat.
 
 
 def table_paths(level=TABLE_LEVEL):
-    """Absolute paths of the xph (z, h[MJ/kg], p[MPa]) and xpt (z, T[degC], p[MPa]) Driesner
-    ``.vtr`` tables at refinement ``level`` (0..5)."""
-    xph = os.path.join(VTK_DIR, f"opensowat_xph_l_{level}.vtr")
-    xpt = os.path.join(VTK_DIR, f"opensowat_xpt_l_{level}.vtr")
-    return xph, xpt
+    """Absolute paths of the xph (z, h[MJ/kg], p[MPa]) and xpt (z, T[degC], p[MPa]) Driesner ``.vtr``
+    tables. Default: the C0 ``brine_graded`` tables (rectilinear but non-uniform h/p axes, refined near
+    the phase boundaries -- consistent gradient, unlike the hex-AMR tables). Pass an int ``level``
+    (0..4) to select a legacy uniform opensowat refinement level instead."""
+    if isinstance(level, int):
+        return (os.path.join(VTK_DIR, f"opensowat_xph_l_{level}.vtr"),
+                os.path.join(VTK_DIR, f"opensowat_xpt_l_{level}.vtr"))
+    return (os.path.join(VTK_DIR, "brine_graded_xph.vtr"),
+            os.path.join(VTK_DIR, "brine_graded_xpt.vtr"))
 
 
 # High-resolution PURE-WATER (z=0) Driesner tables: same field schema, units, and (h, p) ranges as the
@@ -187,11 +193,78 @@ class XptSampler:
         return self.s.sampled_could.point_data["H"] * self.h_scale
 
 
+# --------------------------------------------------------------------------------------------- #
+#  Halite -> flow coupling: the TWO conventions from Weis (2014). Select with HALITE_PERM_OPTION.
+#  At S_h = 0 both collapse to the identical pure-water rel-perm k_rl = max((s_l-0.3)/0.7, 0),
+#  k_rv = 1 - k_rl, perm = 1 -- so Fig 4 / Fig 5 (z = 0) are byte-identical either way.
+#
+#  OPTION "A" -- CSMP++ default (Weis 2014, p.349). Solid halite blocks flow through the RELATIVE
+#    permeability only; the absolute permeability k is left unchanged:
+#        R_l = 0.3(1-S_h),  R_v = 0,  k_rl + k_rv = 1 - S_h,   k = k_0
+#        k_rl = max((s_l - 0.3(1-s_h))/0.7, 0),   k_rv = (1-s_h) - k_rl,   perm = 1
+#    -> liquid mobility carries (1-S_h)^1.  The paper's general default for H2O-NaCl runs.
+#
+#  OPTION "B" -- Eq 28 / TOUGH2 salt benchmark (Weis 2014, p.358). The rel-perm is the STANDARD
+#    pure-water form with NO halite factor, evaluated on the fluid-normalised liquid saturation
+#    s_l/(1-S_h); the halite blocking is moved entirely into the ABSOLUTE permeability:
+#        R_l = 0.3,  R_v = 0,  k_rl + k_rv = 1,   k = k_0 (1-S_h)^2      (Eq 28)
+#        k_rl = max((s_l/(1-s_h) - 0.3)/0.7, 0),   k_rv = 1 - k_rl,   perm = (1-s_h)^2
+#    -> liquid mobility carries (1-S_h)^2.  This is the convention Weis Fig 6 (salt) was computed
+#    with, so it is the paper-faithful choice for reproducing fig_weis_fig_6.
+#
+#  NOTE: earlier code MIXED them (A's rel-perm AND B's (1-S_h)^2), giving a spurious (1-S_h)^3.
+# --------------------------------------------------------------------------------------------- #
+HALITE_PERM_OPTION = os.environ.get("WEIS_HALITE_PERM", "B")   # "A"=p.349 rel-perm; "B"=Eq28 abs-perm
+#   default "B" (Fig-6 / TOUGH2 benchmark). Override per-run with the fig CLI --halite-perm, or globally
+#   with the WEIS_HALITE_PERM env var (the env is what the spawned parallel-sweep workers read at import).
+
+
+def halite_kr_perm(s_l, s_h, option=None):
+    """(k_rl, k_rv, perm) for the selected halite convention. ``perm`` multiplies the absolute
+    permeability K_PERM in the mass mobilities (A: perm=1; B: perm=(1-S_h)^2, Weis 2014 Eq 28)."""
+    option = HALITE_PERM_OPTION if option is None else option
+    pore = np.maximum(1.0 - s_h, 1.0e-12)                    # fluid-available pore fraction 1 - S_h
+    if option == "A":                                        # halite in the RELATIVE perm (p.349)
+        kr_l = np.maximum((s_l - S_R_LIQ * pore) / (1.0 - S_R_LIQ), 0.0)
+        kr_v = np.maximum(pore - kr_l, 0.0)
+        perm = np.ones_like(s_h)
+    elif option == "B":                                      # halite in the ABSOLUTE perm (Eq 28)
+        kr_l = np.maximum((s_l / pore - S_R_LIQ) / (1.0 - S_R_LIQ), 0.0)
+        kr_v = np.maximum(1.0 - kr_l, 0.0)
+        perm = pore ** 2
+    else:
+        raise ValueError(f"HALITE_PERM_OPTION must be 'A' or 'B', got {option!r}")
+    return kr_l, kr_v, perm
+
+
+def halite_kr_perm_grads(s_l, s_h, ds_l, ds_h, col, option=None):
+    """:func:`halite_kr_perm` plus the analytic (N,3) derivatives (d/dp, d/dh, d/dz) of k_rl, k_rv
+    and perm, chained from ds_l / ds_h. Branches mirror the value function exactly (FD-consistent)."""
+    option = HALITE_PERM_OPTION if option is None else option
+    pore = np.maximum(1.0 - s_h, 1.0e-12)
+    if option == "A":
+        arg = (s_l - S_R_LIQ * pore) / (1.0 - S_R_LIQ); kr_l = np.maximum(arg, 0.0)
+        dkr_l = ((ds_l + S_R_LIQ * ds_h) / (1.0 - S_R_LIQ)) * col((arg > 0.0).astype(float))
+        arg2 = pore - kr_l; kr_v = np.maximum(arg2, 0.0)
+        dkr_v = (-ds_h - dkr_l) * col((arg2 > 0.0).astype(float))
+        perm = np.ones_like(s_h); dperm = np.zeros_like(ds_h)
+    elif option == "B":
+        arg = (s_l / pore - S_R_LIQ) / (1.0 - S_R_LIQ); kr_l = np.maximum(arg, 0.0)
+        dsl_hat = ds_l / col(pore) + col(s_l / pore ** 2) * ds_h    # d[s_l/(1-s_h)] (quotient rule)
+        dkr_l = (dsl_hat / (1.0 - S_R_LIQ)) * col((arg > 0.0).astype(float))
+        arg2 = 1.0 - kr_l; kr_v = np.maximum(arg2, 0.0)
+        dkr_v = (-dkr_l) * col((arg2 > 0.0).astype(float))
+        perm = pore ** 2; dperm = col(-2.0 * pore) * ds_h          # d[(1-s_h)^2] = -2(1-s_h) ds_h
+    else:
+        raise ValueError(f"HALITE_PERM_OPTION must be 'A' or 'B', got {option!r}")
+    return kr_l, kr_v, perm, dkr_l, dkr_v, dperm
+
+
 def eval_props_brine(table, p, h, z):
     """Three-phase closure from the 3-D xph table at overall NaCl composition ``z``.
 
     Halite is a table-provided saturation (as in the porepy DriesnerModelConfiguration): it enters
-    rho_mix, and blocks the pore space through the rel-perm k_rl + k_rv = 1 - s_h; it is immobile
+    rho_mix, and blocks flow via :func:`halite_kr_perm` (HALITE_PERM_OPTION); it is immobile
     (k_rh = 0), so it advects no mass -- its NaCl is carried only in the accumulation via rho_mix z.
     """
     s = table.props(p, h, z)
@@ -203,13 +276,7 @@ def eval_props_brine(table, p, h, z):
     Xl = np.clip(s["Xl"], 0.0, 1.0); Xv = np.clip(s["Xv"], 0.0, 1.0)
     mu_l = s["mu_l"]; mu_v = s["mu_v"]; T = s["Temperature"]
 
-    # Weis (2014) rel-perm with halite pore blocking (mirror of DriesnerModelConfiguration):
-    #   k_rl = max((s_l - 0.3(1-s_h))/0.7, 0),  k_rv = (1-s_h) - k_rl,  k_rh = 0.
-    # PLUS the halite absolute-permeability reduction K -> K(1-s_h)^2 (Weis 2014): every mobile phase
-    # carries the extra (1-s_h)^2 factor. s_h = 0 -> factor 1, so fig-5 / fig-6-left stay identical.
-    kr_l = np.maximum((s_l - S_R_LIQ * (1.0 - s_h)) / (1.0 - S_R_LIQ), 0.0)
-    kr_v = np.maximum((1.0 - s_h) - kr_l, 0.0)
-    perm = (1.0 - s_h) ** 2
+    kr_l, kr_v, perm = halite_kr_perm(s_l, s_h)          # A: halite in rel-perm; B: in abs-perm (Eq 28)
     mm_l = perm * rho_l * kr_l / mu_l
     mm_v = perm * rho_v * kr_v / mu_v
     lam_T = mm_l + mm_v
@@ -247,16 +314,8 @@ def eval_props_and_grads(table, p, h, z):
     Xl = np.clip(vals["Xl"], 0.0, 1.0); dXl = g["Xl"] * msk(vals["Xl"])
     Xv = np.clip(vals["Xv"], 0.0, 1.0); dXv = g["Xv"] * msk(vals["Xv"])
 
-    arg = (s_l - S_R_LIQ * (1.0 - s_h)) / (1.0 - S_R_LIQ)
-    kr_l = np.maximum(arg, 0.0)
-    dkr_l = ((ds_l + S_R_LIQ * ds_h) / (1.0 - S_R_LIQ)) * col((arg > 0.0).astype(float))
-    arg2 = (1.0 - s_h) - kr_l; kr_v = np.maximum(arg2, 0.0)
-    dkr_v = (-ds_h - dkr_l) * col((arg2 > 0.0).astype(float))
-
-    # halite abs-perm reduction K -> K(1-s_h)^2: mm = (1-s_h)^2 * (base rho kr/mu), product rule.
-    perm = (1.0 - s_h) ** 2
-    dperm = col(-2.0 * (1.0 - s_h)) * ds_h               # d[(1-s_h)^2] = -2(1-s_h) ds_h (chain rule)
-    mm_l0 = rho_l * kr_l / mu_l                          # base mass mobility (paper rel-perm)
+    kr_l, kr_v, perm, dkr_l, dkr_v, dperm = halite_kr_perm_grads(s_l, s_h, ds_l, ds_h, col)
+    mm_l0 = rho_l * kr_l / mu_l                          # base mass mobility (rel-perm only)
     dmm_l0 = (drho_l * col(kr_l) + col(rho_l) * dkr_l) / col(mu_l) - col(mm_l0 / mu_l) * dmu_l
     mm_l = perm * mm_l0; dmm_l = col(perm) * dmm_l0 + col(mm_l0) * dperm
     mm_v0 = rho_v * kr_v / mu_v
@@ -822,7 +881,7 @@ FIG5 = dict(p_left=P_BOT, T_left=T_BOT, z_left=0.0,
 
 def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adaptive=True,
               verbose=True, grav_upstream=False, weighted_perm=False, lag_upwind=False,
-              level=TABLE_LEVEL, pure_water=False, amr_table=None, atol=1e-5, **fig):
+              level=TABLE_LEVEL, pure_water=False, amr_table=None, amr_xpt=None, atol=1e-5, **fig):
     """The single brine engine: mass + salt + energy, primaries [p, h, z], HU/PPU/HU-mwp buoyancy.
     Reproduces Fig 4/5 (pure water) at z=0 and Fig 6 (H2O-NaCl + immobile halite) at z>0 -- ONE
     discretization. ``case`` ('horizontal'|'vertical') sets gravity + default final time via CASES;
@@ -842,7 +901,8 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     # the IC/BC enthalpy) stays rectilinear in every case.
     if amr_table is not None:
         table = XphSampler(amr_table, _xph_fmap(amr=True))
-        xpt = XptSampler(table_paths(level)[1])
+        # AMR xpt stores H in MJ/kg (h_scale 1e6); fall back to the level-indexed opensowat xpt (kJ/kg).
+        xpt = XptSampler(amr_xpt, h_scale=1e6) if amr_xpt is not None else XptSampler(table_paths(level)[1])
     elif pure_water:
         table = XphSampler(PUREWATER_XPH, _xph_fmap(amr=False))
         xpt = XptSampler(PUREWATER_XPT)

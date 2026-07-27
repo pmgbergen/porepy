@@ -339,20 +339,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL tables sampled
 # with the unified VTKSampler tensor backend (multilinear value + analytic gradient of that same
 # interpolant -> consistent Jacobian; identical to the weis_1d_solver construction).
-TABLE_LEVEL = 3                           # opensowat .vtr level (0..4 available)
+TABLE_LEVEL = "graded"                    # default OBL: the C0 graded brine tables
 _TABLE_DIR = os.path.join(
     HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
     "driesner_vtk_files")
 
 
 def _attach_samplers(model) -> None:
-    """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz), exactly as
+    """Attach the C0 graded Driesner OBL samplers (phz + ptz), exactly as
     porepy_1d_solver / porepy_3d_solver do."""
     Sampler = VTKSampler
-    phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}.vtr"))
+    phz = Sampler(os.path.join(_TABLE_DIR, "brine_graded_xph.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
     model.obl_sampler = phz
-    ptz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}.vtr"))
+    ptz = Sampler(os.path.join(_TABLE_DIR, "brine_graded_xpt.vtr"))
     ptz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, t, p)
     ptz.translation_factors = (0.0, -273.15, 0.0)            # T in degC -> K in the sampler
     model.obl_sampler_ptz = ptz

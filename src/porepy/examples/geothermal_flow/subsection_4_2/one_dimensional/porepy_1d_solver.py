@@ -59,7 +59,8 @@ from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 DAY = 86400.0
 TO_MEGA = 1.0e-6
 DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
-TABLE_LEVEL = 3                           # Driesner opensowat .vtr level (0..4 available; 3 matches weis_1d_solver)
+TABLE_LEVEL = "graded"                    # default OBL: the C0 graded brine tables (matches weis_1d_solver);
+#                                           also the cache tag (_lgraded), so it never loads a stale _l3 opensowat pickle
 EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
 # OBL sampling: the unified VTKSampler tensor backend -- multilinear value + analytic gradient from
 # the SAME interpolant (the sampled gradient is the derivative of the sampled value). This is the
@@ -118,11 +119,11 @@ def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int,
 def _attach_samplers(model, xph_name: str = None, xpt_name: str = None) -> None:
     """Attach the Driesner OBL samplers (phz + ptz) to ``model``. The ``VTKSampler`` tensor backend
     gives a multilinear value and the analytic gradient of that same interpolant (no stored ``grad_``
-    fields) -- the construction weis_1d_solver also uses. Defaults to the level-``TABLE_LEVEL``
-    opensowat tables; pass ``xph_name``/``xpt_name`` to sample a different .vtr (Fig 6 pure-water
-    column uses the fine purewater tables)."""
-    xph_name = xph_name or f"opensowat_xph_l_{TABLE_LEVEL}.vtr"
-    xpt_name = xpt_name or f"opensowat_xpt_l_{TABLE_LEVEL}.vtr"
+    fields) -- the construction weis_1d_solver also uses. Defaults to the C0 ``brine_graded`` tables;
+    pass ``xph_name``/``xpt_name`` to sample a different .vtr (Fig 6 pure-water column uses the fine
+    purewater tables; opensowat_x*_l_{0..4}.vtr for a legacy uniform level)."""
+    xph_name = xph_name or "brine_graded_xph.vtr"
+    xpt_name = xpt_name or "brine_graded_xpt.vtr"
     Sampler = VTKSampler
     phz = Sampler(os.path.join(_TABLE_DIR, xph_name))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
@@ -253,12 +254,12 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
 
 # --------------------------------------------------------------------------------------------- #
 #  Weis (2014) Figure 6 -- H2O-NaCl, horizontal, 2000 yr. Two columns: 'pw' pure water (z=0, sampled
-#  from the fine purewater_x*.vtr) and 'salt' (z_init=0.42, immobile halite, opensowat tables).
+#  from the fine purewater_x*.vtr) and 'salt' (z_init=0.42, immobile halite, C0 graded brine tables).
 # --------------------------------------------------------------------------------------------- #
 FIG6_TF_YEARS = 2000.0
 FIG6_TABLES = {                                   # column -> (xph .vtr, xpt .vtr) sampled by porepy
     "pw":   ("purewater_xph.vtr", "purewater_xpt.vtr"),                        # Fig-6 left (fine z=0)
-    "salt": (f"opensowat_xph_l_{TABLE_LEVEL}.vtr", f"opensowat_xpt_l_{TABLE_LEVEL}.vtr"),
+    "salt": ("brine_graded_xph.vtr", "brine_graded_xpt.vtr"),                  # Fig-6 right (graded brine)
 }
 
 

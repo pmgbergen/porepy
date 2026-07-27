@@ -51,9 +51,11 @@ def ref_legend_handle():
 _KEEP = ("y", "T", "p", "s_liq", "s_halite", "Xl", "total_it", "avg_it", "n_time_step_cuts")
 
 
-def _run_path(tag, sk, case, N, level, pure_water=False):
-    pw = "_pw" if pure_water else ""      # keep the fine pure-water runs off the brine-table cache path
-    return os.path.join(CACHE_DIR, f"{tag}_{case}_{sk}_N{N}_l{level}{pw}.pkl")
+def _run_path(tag, sk, case, N, level, pure_water=False, amr=False):
+    # OBL identity tags the cache: purewater / hex-AMR / brine table at this level (l3, lgraded, ...).
+    # The three are mutually exclusive, so distinct tags keep them off each other's cache path.
+    obl = "pw" if pure_water else ("amr" if amr else f"l{level}")
+    return os.path.join(CACHE_DIR, f"{tag}_{case}_{sk}_N{N}_{obl}.pkl")
 
 
 def _run_one(args):
@@ -64,14 +66,17 @@ def _run_one(args):
     trailing ``pure_water`` is optional so pre-existing 9-field task tuples (Fig 4/5) still unpack."""
     rkey, tag, sk, case, bc, N, level, grav_upstream, lag_upwind = args[:9]
     pure_water = args[9] if len(args) > 9 else False
-    path = _run_path(tag, sk, case, N, level, pure_water)
+    amr_table = args[10] if len(args) > 10 else None       # optional AMR-OBL xph/xpt .vtu overrides
+    amr_xpt = args[11] if len(args) > 11 else None
+    path = _run_path(tag, sk, case, N, level, pure_water, amr=amr_table is not None)
     if os.path.exists(path):
         with open(path, "rb") as f:
             return rkey, pickle.load(f), True
     cfg = ps.SCHEMES[sk]
     res = m.run_brine(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
                       grav_upstream=grav_upstream, lag_upwind=lag_upwind, N=N, case=case,
-                      level=level, pure_water=pure_water, verbose=False, **bc)
+                      level=level, pure_water=pure_water, amr_table=amr_table, amr_xpt=amr_xpt,
+                      verbose=False, **bc)
     keep = {k: res[k] for k in _KEEP}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
@@ -104,13 +109,16 @@ def run_tasks(label, tasks, parallel=True):
 
 
 def sweep(tag, cases, bc, N, level, schemes=None, grav_upstream=False, lag_upwind=False,
-          parallel=True, pure_water=False):
+          parallel=True, pure_water=False, amr_table=None, amr_xpt=None):
     """Run PPU/HU/HU-mwp over ``cases`` with a SHARED BC preset ``bc`` (Fig 5/6). Fig 4, whose BC and
     time vary per panel, builds its own tasks and calls :func:`run_tasks` directly. ``pure_water=True``
-    (Fig-6 pure-water column) swaps in the fine z=0 tables for every run in the sweep."""
-    m.prebuild_table_caches(level, pure_water=pure_water)
+    (Fig-6 pure-water column) swaps in the fine z=0 tables for every run in the sweep. ``amr_table`` /
+    ``amr_xpt`` (paths to the hex-AMR .vtu OBL tables) override the opensowat tables for every run."""
+    if amr_table is None:
+        m.prebuild_table_caches(level, pure_water=pure_water)   # opensowat/pw tensor-cache warm-up
     schemes = list(ps.SCHEMES) if schemes is None else list(schemes)
-    tasks = [((sk, case), tag, sk, case, bc, N, level, grav_upstream, lag_upwind, pure_water)
+    tasks = [((sk, case), tag, sk, case, bc, N, level, grav_upstream, lag_upwind, pure_water,
+              amr_table, amr_xpt)
              for case in cases for sk in schemes]
     return run_tasks(tag, tasks, parallel)
 

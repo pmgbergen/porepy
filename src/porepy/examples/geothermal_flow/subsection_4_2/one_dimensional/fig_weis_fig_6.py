@@ -32,6 +32,12 @@ POREPY_C = "black"
 POREPY_LABEL = r"HU-PorePy"
 AUTORUN_POREPY = True         # generate a missing overlay pickle by running PorePy (heavy: 2000 yr)
 
+# Optional hex-AMR OBL for the SALT column (adaptively refined near the phase boundaries), enabled with
+# --amr. The weis XphSampler / _xph_fmap handle the AMR field name (temp "T") and enthalpy units
+# (MJ/kg); only the weis salt column is wired -- porepy would need a field-alias/scale layer.
+SALT_OBL_AMR = (os.path.join(m.VTK_DIR, "brine_amr_xph.vtu"),
+                os.path.join(m.VTK_DIR, "brine_amr_xpt.vtu"))
+
 
 def _load_porepy(column, level=None):
     """porepy_1d_solver Fig-6 pickle (y[m], T[K], p[MPa], s_liq, s_halite) for ``column`` ('pw'|'salt'),
@@ -62,17 +68,22 @@ def _load_porepy(column, level=None):
     return d
 
 
-def compute(N=N, level=None, salt_z=SALT_Z, parallel=True):
+def compute(N=N, level=None, salt_z=SALT_Z, parallel=True, amr=False, one_table=False):
     """PPU/HU/HU-mwp for the pure-water (z=0) and salt (z>0) columns at the Fig-6 BCs. The salt column
-    is resilient: on divergence it is returned as ``None`` and drawn as a placeholder."""
+    is resilient: on divergence it is returned as ``None`` and drawn as a placeholder. ``amr=True``
+    swaps the hex-AMR OBL tables in for the salt column. ``one_table=True`` samples the SAME graded brine
+    tables for the pure-water column too (instead of the fine purewater z=0 tables) -- the single-OBL
+    test: if both columns reproduce the reference from one table, that table suffices for every case."""
     level = m.TABLE_LEVEL if level is None else level
-    # pure-water column: the fine z=0 tables (pure_water=True) -- the coarse brine h-grid otherwise
-    # leaves spurious wiggles in the two-phase liquid saturation over this p-h range.
+    # pure-water column: by default the fine z=0 purewater tables (the coarse brine h-grid otherwise
+    # leaves spurious wiggles in the two-phase liquid saturation); --one-table samples the graded brine
+    # tables here too, so BOTH columns share a single OBL (z=0 slice for pw, z=salt_z for salt).
     pw = C.sweep("fig6_pw", ["horizontal"], {**m.FIG6, "z_init": 0.0, "tf_yr": TF}, N, level,
-                 parallel=parallel, pure_water=True)
+                 parallel=parallel, pure_water=not one_table)
+    amr_table, amr_xpt = SALT_OBL_AMR if amr else (None, None)   # --amr: hex-AMR OBL for the salt col
     try:
         salt = C.sweep("fig6_salt", ["horizontal"], {**m.FIG6, "z_init": salt_z, "tf_yr": TF},
-                       N, level, parallel=parallel)
+                       N, level, parallel=parallel, amr_table=amr_table, amr_xpt=amr_xpt)
     except Exception as exc:
         print(f"[fig6] salt column failed ({type(exc).__name__}: {exc}) -> placeholder", flush=True)
         salt = None
@@ -99,18 +110,28 @@ def plot(out, stem="fig_weis_fig_6"):
         ps.panel_tag(ax_tp, tags[0][j], loc=(0.04, 0.09), va="bottom")
         ps.panel_tag(ax_s, tags[1][j])
         ax_h = None
-        if res is None:                                  # salt solve not available -> placeholder
+        # Always draw the digitized Weis (2014) Fig-6 reference (benchmark_figures_data/fig_6_{col}_*.csv)
+        # so the target is visible even when the solver is pending; the solver curves, iteration counts
+        # and PorePy overlay draw only on a converged result.
+        C.draw_tp(ax_tp, ax_p, res or {},
+                  ref_T=C.ref_csv(f"fig_6_{col}_temperature_raw.csv"),
+                  ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
+        ax_h = C.draw_s(ax_s, res or {}, ref_s=C.ref_csv(f"fig_6_{col}_saturation_liq_raw.csv"),
+                        halite=(col == "salt"))
+        if col == "salt":                                    # halite-saturation reference, twin axis
+            ref_sh = C.ref_csv("fig_6_salt_saturation_halite_raw.csv")
+            if ref_sh is not None:
+                if ax_h is None:
+                    ax_h = ax_s.twinx(); ax_h.grid(False); ax_h.set_ylim(-0.03, 1.03)
+                ax_h.plot(ref_sh[0], ref_sh[1], color=C.WEIS_S, ls=(0, (1, 1)), lw=C.REF_LW,
+                          marker="D", mfc="none", mec=C.WEIS_S, ms=C.REF_MS, mew=0.8, zorder=2,
+                          markevery=max(1, len(ref_sh[0]) // C.REF_NMARK))
+        if res is None:                                      # solver unavailable -> reference only
             for ax in (ax_tp, ax_s):
-                ax.text(0.5, 0.5, "salt case\n(pending)", transform=ax.transAxes, ha="center",
-                        va="center", fontsize=10, color="0.55", style="italic")
+                ax.text(0.5, 0.93, "solver pending", transform=ax.transAxes, ha="center",
+                        va="top", fontsize=9, color="0.55", style="italic")
         else:
             pp_res = _load_porepy(col)                       # PorePy HU overlay (load first, for legend)
-            # digitized Weis (2014) Fig-6 reference from benchmark_figures_data/fig_6_{col}_*.csv
-            C.draw_tp(ax_tp, ax_p, res,
-                      ref_T=C.ref_csv(f"fig_6_{col}_temperature_raw.csv"),
-                      ref_p=C.ref_csv(f"fig_6_{col}_pressure_raw.csv"))
-            ax_h = C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_6_{col}_saturation_liq_raw.csv"),
-                            halite=(col == "salt"))
             extra = [(POREPY_C, pp_res["total_it"])] if pp_res is not None else None
             C.iteration_legend(ax_s, res, loc="center left", extra=extra)  # empty vapor column, clear
             if pp_res is not None:
@@ -151,9 +172,24 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Weis (2014) Fig 6 (H2O-NaCl, PPU/HU/HU-mwp).")
     ap.add_argument("--salt-z-init", type=float, default=SALT_Z, dest="salt_z",
                     help="initial NaCl composition for the salt column (default 0.42 -> S_h~0.1)")
-    ap.add_argument("--N", type=int, default=N, help="cells (default 200)")
+    ap.add_argument("--N", type=int, default=N, help=f"cells (default {N})")
+    ap.add_argument("--amr", action="store_true",
+                    help="use the hex-AMR OBL tables for the salt column (weis only)")
+    ap.add_argument("--one-table", action="store_true", dest="one_table",
+                    help="sample the SAME graded brine tables for BOTH columns (single-OBL test)")
+    ap.add_argument("--no-porepy", action="store_true", dest="no_porepy",
+                    help="skip the PorePy overlay (fast weis-vs-reference run, clean timing)")
+    ap.add_argument("--halite-perm", choices=["A", "B"], default=m.HALITE_PERM_OPTION, dest="halite_perm",
+                    help="halite->flow convention: A = p.349 rel-perm (k_rl+k_rv=1-S_h); "
+                         "B = Eq 28 abs-perm (k=k0(1-S_h)^2). Weis Fig 6 used B (default %(default)s).")
     args = ap.parse_args(argv)
-    plot(compute(N=args.N, salt_z=args.salt_z))
+    os.environ["WEIS_HALITE_PERM"] = args.halite_perm   # spawned parallel-sweep workers read this at import
+    m.HALITE_PERM_OPTION = args.halite_perm             # this process + the non-parallel path
+    if args.no_porepy:
+        global AUTORUN_POREPY
+        AUTORUN_POREPY = False        # no auto-run; with no graded overlay cache -> weis + reference only
+    stem = "fig_weis_fig_6_one_table" if args.one_table else "fig_weis_fig_6"
+    plot(compute(N=args.N, salt_z=args.salt_z, amr=args.amr, one_table=args.one_table), stem=stem)
 
 
 if __name__ == "__main__":

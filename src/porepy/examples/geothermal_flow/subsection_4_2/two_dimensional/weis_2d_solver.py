@@ -66,7 +66,9 @@ T_SCALE = 5.0 * YEAR      # FIXED residual time scale -- deliberately NOT DT_NOM
                           # coupling the row scales to a tunable dt silently rescales the
                           # convergence test (0.5 yr loosened it 10x and let a spurious
                           # frozen state pass; the 5.4 kW input hid at ~2 W/cell under tol)
-TABLE_LEVEL = 3
+TABLE_LEVEL = "graded"    # default OBL: the C0 graded brine tables (via weis_1d_solver.table_paths);
+#                           Table3 now brackets its non-uniform h/T and p axes. Pass an int level (0..4)
+#                           to run.run(level=...) for a legacy uniform opensowat table.
 NV = 3                    # unknowns per cell: p, h, z
 
 
@@ -81,7 +83,7 @@ class Table3:
 
     def __init__(self, file_name, fields, a_in=1.0, b_in=1.0):
         key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
-               + f"|{a_in}|{b_in}|3d|{os.path.getmtime(file_name):.0f}")
+               + f"|{a_in}|{b_in}|3d2|{os.path.getmtime(file_name):.0f}")
         cache = file_name + ".sicache3.npz"
         if not (os.path.exists(cache) and self._load(cache, key)):
             self._build(file_name, fields, a_in, b_in, key, cache)
@@ -99,7 +101,11 @@ class Table3:
                       "a_min", "a_max", "b_min", "b_max", "c_min", "c_max"):
                 setattr(self, s, float(zf[s]))
             self.cax = np.asarray(zf["cax"], float)
+            self.aax = np.asarray(zf["aax"], float)
+            self.bax = np.asarray(zf["bax"], float)
             self.c_uniform = bool(zf["c_uniform"])
+            self.a_uniform = bool(zf["a_uniform"])
+            self.b_uniform = bool(zf["b_uniform"])
             self.V = {str(n): zf["V_" + str(n)] for n in zf["names"]}
             return True
         except Exception:
@@ -122,9 +128,12 @@ class Table3:
         self.c0, self.dc = float(c[0]), float(c[1] - c[0])
         self.a0, self.da = float(a[0]), float(a[1] - a[0])
         self.b0, self.db = float(b[0]), float(b[1] - b[0])
-        self.cax = np.asarray(c, float)               # full axes: the z axis of the
-        self.c_uniform = bool(np.allclose(np.diff(c), self.dc))   # regenerated tables
-        #                                               is quasi-log, NOT uniform
+        self.cax = np.asarray(c, float)               # full 1-D axes stored for non-uniform lookup:
+        self.aax = np.asarray(a, float)               # the regenerated brine tables are graded (NOT
+        self.bax = np.asarray(b, float)               # uniform) on ALL THREE axes -- z, the second
+        self.c_uniform = bool(np.allclose(np.diff(c), self.dc))   # (h/T), and pressure.
+        self.a_uniform = bool(len(a) < 2 or np.allclose(np.diff(a), self.da))
+        self.b_uniform = bool(len(b) < 2 or np.allclose(np.diff(b), self.db))
         self.a_in, self.b_in = float(a_in), float(b_in)
         self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
         self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
@@ -136,8 +145,9 @@ class Table3:
                "b0": self.b0, "db": self.db, "a_in": self.a_in, "b_in": self.b_in,
                "a_min": self.a_min, "a_max": self.a_max, "b_min": self.b_min,
                "b_max": self.b_max, "c_min": self.c_min, "c_max": self.c_max,
-               "cax": self.cax, "c_uniform": self.c_uniform,
-               "names": np.array(list(self.V.keys()))}
+               "cax": self.cax, "aax": self.aax, "bax": self.bax,
+               "c_uniform": self.c_uniform, "a_uniform": self.a_uniform,
+               "b_uniform": self.b_uniform, "names": np.array(list(self.V.keys()))}
         out.update({"V_" + n: A for n, A in self.V.items()})
         try:
             np.savez(cache, **out)
@@ -156,10 +166,18 @@ class Table3:
             jc = (np.searchsorted(self.cax, zc, side="right") - 1)   # binary search
             jc = np.clip(jc, 0, self.nc - 2)
             tc = ((zc - self.cax[jc]) / (self.cax[jc + 1] - self.cax[jc])).clip(0.0, 1.0)
-        fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
-        fb = ((b - self.b0) / self.db).clip(0.0, self.nz - 1 - 1e-9)
-        ja = fa.astype(np.intp); jb = fb.astype(np.intp)
-        ta = fa - ja; tb = fb - jb
+        if self.a_uniform:
+            fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
+            ja = fa.astype(np.intp); ta = fa - ja
+        else:                                          # non-uniform second (h/T) axis: binary search
+            ja = np.clip(np.searchsorted(self.aax, a, side="right") - 1, 0, self.ny - 2)
+            ta = ((a - self.aax[ja]) / (self.aax[ja + 1] - self.aax[ja])).clip(0.0, 1.0)
+        if self.b_uniform:
+            fb = ((b - self.b0) / self.db).clip(0.0, self.nz - 1 - 1e-9)
+            jb = fb.astype(np.intp); tb = fb - jb
+        else:                                          # non-uniform pressure axis: binary search
+            jb = np.clip(np.searchsorted(self.bax, b, side="right") - 1, 0, self.nz - 2)
+            tb = ((b - self.bax[jb]) / (self.bax[jb + 1] - self.bax[jb])).clip(0.0, 1.0)
         jc1 = jc + 1; ja1 = ja + 1; jb1 = jb + 1
         Vs = self.V_stack
         vals = ((1 - tc) * ((1 - ta) * (1 - tb) * Vs[:, jb, ja, jc]
@@ -491,11 +509,16 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
     p0 = x[0::NV].copy(); h0 = x[1::NV].copy(); z0 = x[2::NV].copy()
 
     ep = eps[0::NV]; eh = eps[1::NV]; ez = eps[2::NV]
-    fb = (p0 * table.b_in - table.b0) / table.db
-    dup = (np.ceil(fb) - fb) * table.db / table.b_in
+    # dup = SI distance from the state up to the UPPER node of its current trilinear patch, per axis;
+    # searchsorted brackets uniform AND non-uniform (graded) axes alike (bit-identical to the old
+    # uniform formula off-node, and neither flips exactly at a node).
+    pb = p0 * table.b_in
+    jb = np.clip(np.searchsorted(table.bax, pb, side="right") - 1, 0, table.nz - 2)
+    dup = (table.bax[jb + 1] - pb) / table.b_in
     eps[0::NV] = np.where((dup > 0.0) & (dup < ep) & (p0 - ep >= table.b_min), -ep, ep)
-    fa = (h0 * table.a_in - table.a0) / table.da
-    dup = (np.ceil(fa) - fa) * table.da / table.a_in
+    ha = h0 * table.a_in
+    ja = np.clip(np.searchsorted(table.aax, ha, side="right") - 1, 0, table.ny - 2)
+    dup = (table.aax[ja + 1] - ha) / table.a_in
     eps[1::NV] = np.where((dup > 0.0) & (dup < eh) & (h0 - eh >= table.a_min), -eh, eh)
     jc = np.clip(np.searchsorted(table.cax, z0, side="right") - 1, 0, table.nc - 2)
     dup = table.cax[jc + 1] - z0

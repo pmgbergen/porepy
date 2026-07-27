@@ -524,17 +524,17 @@ def _build_model_class(FlowModel):
 
 
 def _attach_samplers(model) -> None:
-    """Attach the level-``TABLE_LEVEL`` Driesner OBL samplers (phz + ptz) to ``model``.
+    """Attach the C0 graded Driesner OBL samplers (phz + ptz) to ``model``.
 
     The ``VTKSampler`` tensor backend gives a multilinear value and the analytic gradient of that same
     interpolant -> consistent Jacobian (the construction weis_1d_solver also uses).  Must be called
     BEFORE ``prepare_simulation`` (the IC samples the ptz table), i.e. before the ``ModelRunner``.
     """
     Sampler = VTKSampler
-    phz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xph_l_{TABLE_LEVEL}.vtr"))
+    phz = Sampler(os.path.join(_TABLE_DIR, "brine_graded_xph.vtr"))
     phz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, h, p)
     model.obl_sampler = phz
-    ptz = Sampler(os.path.join(_TABLE_DIR, f"opensowat_xpt_l_{TABLE_LEVEL}.vtr"))
+    ptz = Sampler(os.path.join(_TABLE_DIR, "brine_graded_xpt.vtr"))
     ptz.conversion_factors = (1.0, 1.0, 1.0)                 # (z, t, p)
     ptz.translation_factors = (0.0, -273.15, 0.0)            # T in degC -> K in the sampler
     model.obl_sampler_ptz = ptz
