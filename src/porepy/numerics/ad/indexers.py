@@ -7,8 +7,9 @@ Used by `EquationSystem` and nonlinear solvers.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Sequence
 
 import numpy as np
 
@@ -152,6 +153,54 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
             result.setdefault(operator.name, {})[operator.domain] = indices
         return result
 
+    def filter_by_tags(
+        self,
+        tags: Sequence[pp.solvers.OperatorTag[EquationOrVariableType]],
+        model: pp.PorePyModel,
+    ) -> tuple[list[EquationOrVariableType], list[EquationOrVariableType]]:
+        """Split operators into those selected by ``tags`` and their complement.
+
+        Multiple tags may have the same name when their domain filters are disjoint.
+        A ``ValueError`` is raised if multiple tags select the same operator.
+
+        The parametrized signature should be read as:
+        - An equation indexer accepts equation tags and return a tuple of equations.
+        - A variable indexer accepts variable tags and returns a tuple of variables.
+
+        Parameters:
+            tags: A list of tags to use for filtering.
+            model: The PorePy model. Needed for some domain filters.
+
+        Returns:
+            A tuple of two elements:
+            - Equations / variables that are within the list of requested tags.
+            - Equations / variables that are NOT within the list of requested tags
+                (its complement).
+
+        """
+        tags_by_name: dict[
+            str, list[pp.solvers.OperatorTag[EquationOrVariableType]]
+        ] = defaultdict(list)
+        for tag in tags:
+            tags_by_name[tag.name].append(tag)
+
+        selected: list[EquationOrVariableType] = []
+        not_selected: list[EquationOrVariableType] = []
+        for operator in self.indices:
+            matching_tags = [
+                tag
+                for tag in tags_by_name[operator.name]
+                if tag.defined_on.filter(domain=operator.domain, model=model)
+            ]
+            if len(matching_tags) > 1:
+                raise ValueError(f"Duplicated operators: [{operator}]")
+            if len(matching_tags) == 1:
+                selected.append(operator)
+            else:
+                not_selected.append(operator)
+
+        return selected, not_selected
+
 
 class EquationSystemIndexer(Indexer[EquationOnDomain]):
     """Equation indexer for the block arrangement used by :class:`EquationSystem`.
@@ -192,7 +241,7 @@ class EquationSystemIndexer(Indexer[EquationOnDomain]):
 
         The DoFs stored here refer to rows in each equation's separate AD result. The
         consecutive indices of the selected rows after global concatenation can be
-        found in :attr:`operators_to_dofs`. The equation-local indices allow
+        found in :attr:`indices`. The equation-local indices allow
         :class:`EquationSystem` to select rows before concatenating the per-equation
         results into the global matrix and residual vector.
 

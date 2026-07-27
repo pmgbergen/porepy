@@ -13,10 +13,9 @@ should be possible to permute `A_ss` in a block-diagonal form.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass
 from time import time
-from typing import Collection, Optional, Sequence
+from typing import Optional
 
 import numpy as np
 
@@ -83,6 +82,9 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         primary_variable_tags: Tags that define primary variables (columns).
         primary_linear_solver: A linear solver for the linear system based on `S_pp`. If
             None (default), a direct solver is applied.
+        model: The PorePy model. Needed for domain filters. If unavailable at the
+        construction time, can be passed in :meth:`initialize_with_model`, which is
+        called by the nonlinear solver.
 
     """
 
@@ -91,6 +93,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         primary_equation_tags: list[EquationTag],
         primary_variable_tags: list[VariableTag],
         primary_linear_solver: Optional[LinearSolverBase] = None,
+        model: Optional[pp.PorePyModel] = None,
     ) -> None:
         self.primary_equation_tags = primary_equation_tags
         """Tags that define primary equations (rows)."""
@@ -101,6 +104,12 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         self.primary_linear_solver = primary_linear_solver
         """A linear solver for the linear system based on `S_pp`."""
 
+        self._model: pp.PorePyModel | None = model
+        """The PorePy model. Needed for domain filters. If unavailable at the
+        construction time, can be passed in :meth:`initialize_with_model`, which is
+        called by the nonlinear solver.
+
+        """
         self._data: _SchurComplementReductionData | None = None
         """The index arrays needed for the algorithm to operate. Initialized lazily in
         :meth:`_initialize_data` the first time :meth:`solve_linear_system` is invoked.
@@ -120,13 +129,14 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
                 passed to the solver.
 
         """
+        assert self._model is not None, "initialize_with_model must be called."
         eq_indexer = linear_system.equation_indexer
         var_indexer = linear_system.variable_indexer
-        primary_eqs, secondary_eqs = _filter_by_tags(
-            all_operators=eq_indexer.indices, tags=self.primary_equation_tags
+        primary_eqs, secondary_eqs = eq_indexer.filter_by_tags(
+            self.primary_equation_tags, model=self._model
         )
-        primary_vars, secondary_vars = _filter_by_tags(
-            all_operators=var_indexer.indices, tags=self.primary_variable_tags
+        primary_vars, secondary_vars = var_indexer.filter_by_tags(
+            self.primary_variable_tags, model=self._model
         )
 
         # Validate that A_pp and A_ss are square matrices.
@@ -171,6 +181,7 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     def initialize_with_model(self, model: pp.PorePyModel) -> None:
         """SchurComplementReductionLinearSolver does not need initialization by itself,
         but the inner linear solver might need it."""
+        self._model = model
         return self.primary_linear_solver.initialize_with_model(model)
 
     def solve_linear_system(
@@ -393,43 +404,3 @@ def _wrap_primary_solver_status(
             primary_solver_status=primary_solver_status,
             reason="primary linear solver failed",
         )
-
-
-def _filter_by_tags[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
-    all_operators: Collection[T], tags: Sequence[EquationTag | VariableTag]
-) -> tuple[list[T], list[T]]:
-    """Split atomic equations or variables into two groups: the one covered by `tags`
-    and its complement.
-
-    Parameters:
-        all_operators: Atomic variables or equations to split into groups.
-
-    Result:
-        Two groups of atomic variables or equations.
-
-    """
-    # Organizing tags by eq/var names. Multiple tags with a single name are allowed.
-    # E.g. pressure on wells and pressure not on wells.
-    tags_by_name: dict[str, list[EquationTag | VariableTag]] = defaultdict(list)
-    for tag in tags:
-        tags_by_name[tag.name].append(tag)
-
-    # Two groups.
-    filtered_operators: list[T] = []
-    not_filtered_operators: list[T] = []
-
-    for operator in all_operators:
-        tags_for_this_name = tags_by_name[operator.name]
-        matching_tags = [
-            tag for tag in tags_for_this_name if tag.defined_on.filter(operator.domain)
-        ]
-        if len(matching_tags) > 1:
-            # Overlapping tags would place the operator in the filtered group more than
-            # once.
-            raise ValueError(f"Duplicated operators: [{operator}]")
-        if len(matching_tags) == 1:
-            filtered_operators.append(operator)
-        else:
-            not_filtered_operators.append(operator)
-
-    return filtered_operators, not_filtered_operators
