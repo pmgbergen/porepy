@@ -11,12 +11,12 @@ from typing import Optional, cast
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
     ConvergenceStatusCollection,
     DivergenceCriteria,
-    SolverStatus,
 )
+from porepy.numerics.solvers.nonlinear_solver_status import NonlinearSolverStatus
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
@@ -574,7 +574,7 @@ class SteadyStateInitialization:
         )
 
     def check_initialization_status(
-        self, solver_status: SolverStatus
+        self, solver_status: NonlinearSolverStatus
     ) -> ModelRunnerStatus:
         """Check the initialization status based on the solver status.
 
