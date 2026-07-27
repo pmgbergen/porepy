@@ -101,7 +101,6 @@ def linear_system_data() -> LinearSystemData:
 
 def test_initialize_with_model() -> None:
     """Test that initialization forwards a model mock to the inner solver."""
-
     class ShallowMockModel:
         pass
 

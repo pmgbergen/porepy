@@ -17,12 +17,16 @@ from dataclasses import dataclass
 import porepy as pp
 
 __all__ = [
+    "OperatorTag",
     "EquationTag",
     "VariableTag",
     "DefaultEquationTags",
     "DefaultVariableTags",
     "DomainFilter",
     "Anywhere",
+    "OnAmbientDimension",
+    "OnFractures",
+    "OnLowerDimensions",
 ]
 
 
@@ -33,7 +37,7 @@ class DomainFilter(ABC):
     Used in :class:`EquationTag` and :class:`VariableTag`."""
 
     @abstractmethod
-    def filter(self, domain: pp.GridLike) -> bool:
+    def filter(self, domain: pp.GridLike, model: pp.PorePyModel) -> bool:
         """Whether this `domain` is included in the domains where the equation /
         variable tag operates.
 
@@ -44,41 +48,76 @@ class DomainFilter(ABC):
 class Anywhere(DomainFilter):
     """A default filter that includes all domains."""
 
-    def filter(self, domain: pp.GridLike) -> bool:
+    def filter(self, domain: pp.GridLike, model: pp.PorePyModel) -> bool:
         return True
 
 
 @dataclass(frozen=True)
-class EquationTag:
+class OnAmbientDimension(DomainFilter):
+    """A filter that includes only ambient dimension domains."""
+
+    def filter(self, domain: pp.GridLike, model: pp.PorePyModel) -> bool:
+        return domain.dim == model.nd
+
+
+@dataclass(frozen=True)
+class OnFractures(DomainFilter):
+    """A filter that includes only fractures."""
+
+    def filter(self, domain: pp.GridLike, model: pp.PorePyModel) -> bool:
+        return domain.dim == (model.nd - 1)
+
+
+@dataclass(frozen=True)
+class OnLowerDimensions(DomainFilter):
+    """A filter that includes only domains on dimentions lower than fractures.
+
+    That can be intersections, intersections of intersections, or wells.
+
+    """
+
+    def filter(self, domain: pp.GridLike, model: pp.PorePyModel) -> bool:
+        return domain.dim <= (model.nd - 2)
+
+
+@dataclass(frozen=True)
+class OperatorTag[EquationOrVariableType: (pp.ad.EquationOnDomain, pp.ad.Variable)](
+    ABC
+):
+    """A common abstract base class for :class:`EquationTag` and :class:`VariableTag`
+
+    It defines a common tag structure shared by equations and variables tags. Namely,
+    an tag identifies a single equation / variable on multiple domains.
+
+    This class is not meant for instantiating, use its children instead. It exists due
+    to the convenience for typing and mypy, see, for instance, `Indexer.filter_by_tags`.
+
+    """
+
+    name: str
+    """Equation or variable name."""
+    defined_on: DomainFilter = Anywhere()
+    """Operational domains of the equation / variable identified by this tag.Possibly a
+    subset of all domains where this equation / variable is defined by a PorePy model.
+
+    """
+
+
+@dataclass(frozen=True)
+class EquationTag(OperatorTag["pp.ad.EquationOnDomain"]):
     """An identifier of a single equation defined on multiple domains. Used to define
     nonlinear and linear solvers outside PorePy models, where identification by
     `pp.ad.Operator` or a list of `pp.GridLike` is unavailable.
 
     """
 
-    name: str
-    """Equation name."""
-    defined_on: DomainFilter = Anywhere()
-    """Operational domains of the equation identified by this tag. Possibly a subset of
-    all domains where this equation is defined by a PorePy model.
-
-    """
-
 
 @dataclass(frozen=True)
-class VariableTag:
+class VariableTag(OperatorTag["pp.ad.Variable"]):
     """An identifier of a single variable defined on multiple domains. Used to define
     nonlinear and linear solvers outside PorePy models, where identification by
     `pp.ad.Variable`, `pp.ad.MixedDimensionalVariable` or a list of `pp.GridLike` is
     unavailable.
-
-    """
-
-    name: str
-    """Variable name."""
-    defined_on: DomainFilter = Anywhere()
-    """Operational domains of the variable identified by this tag. Possibly a subset of
-    all domains where this variable is defined by a PorePy model.
 
     """
 

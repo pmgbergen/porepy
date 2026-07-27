@@ -194,39 +194,38 @@ def test_empty_indexers() -> None:
     assert equation_indexer.equation_image_space_composition == {}
 
 
-# TODO YZ: Filter by tags is about to become a method of indexers in the next PR
-# (generic indexer).
-
-
 def test_filter_by_tags_handles_duplicate_tags() -> None:
-    """Must raise ValueError if tags lead to duplicated operators."""
-
+    """Overlapping tags cannot select the same operator more than once."""
     domain = pp.CartGrid([1])
     variable = pp.ad.Variable("x", {"cells": 1}, domain)
     tags = [pp.solvers.VariableTag("x"), pp.solvers.VariableTag("x")]
+    indexer = VariableIndexer(indices={variable: np.array([0])})
 
-    with pytest.raises(ValueError):
-        _ = _filter_by_tags([variable], tags)
+    with pytest.raises(ValueError, match="Duplicated operators"):
+        indexer.filter_by_tags(tags)
 
 
 def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
-    """Tags with the same name may select disjoint subsets of domains."""
+    """Same-name tags may select disjoint domain subsets in indexer order."""
 
-    @dataclass(frozen=True)
     class OnDomain(pp.solvers.DomainFilter):
-        domain: pp.GridLike
+        def __init__(self, selected_domain: pp.GridLike) -> None:
+            self.selected_domain = selected_domain
 
         def filter(self, domain: pp.GridLike) -> bool:
-            return domain is self.domain
+            return domain is self.selected_domain
 
     domains = [pp.CartGrid([1]) for _ in range(3)]
     variables = [pp.ad.Variable("x", {"cells": 1}, domain) for domain in domains]
+    indexer = VariableIndexer(
+        indices={variable: np.array([i]) for i, variable in enumerate(variables)}
+    )
     tags = [
         pp.solvers.VariableTag("x", defined_on=OnDomain(domain))
         for domain in domains[:2]
     ]
 
-    filtered, not_filtered = _filter_by_tags(variables, tags)
+    selected, not_selected = indexer.filter_by_tags(tags)
 
-    assert filtered == variables[:2]
-    assert not_filtered == variables[2:]
+    assert selected == variables[:2]
+    assert not_selected == variables[2:]
