@@ -15,9 +15,11 @@ import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
-from typing import Callable, cast
+from typing import Callable, Optional, cast
 
 import numpy as np
+
+import porepy as pp
 
 logger = logging.getLogger(__name__)
 
@@ -941,3 +943,124 @@ class MaxIterationsCriterion(DivergenceCriterion):
             return ConvergenceStatus.FAILED
         else:
             return ConvergenceStatus.CONVERGED
+
+
+def check_convergence(
+    convergence_criteria: ConvergenceCriteria,
+    divergence_criteria: DivergenceCriteria,
+    nonlinear_increment: np.ndarray,
+    solution: np.ndarray,
+    residual: np.ndarray,
+    iteration_index: int,
+) -> tuple[
+    ConvergenceStatusCollection,
+    ConvergenceStatusCollection,
+    ConvergenceInfoCollection,
+]:
+    """A helper function that checks convergence and divergence of the model by passing
+    all the parameters that convergence and divergence criteria may expect.
+
+    Parameters:
+        convergence_criteria: Convergence criteria.
+        divergence_criteria: Divergence criteria.
+        nonlinear_increment: Array of how much the solution values changed since the
+            last convergence check.
+        solution: Array of the solution values.
+        residual: Array of residual values.
+        iteration_index: The current iteration number of a nonlinear solver.
+
+    Returns:
+        Tuple containing:
+            - ConvergenceStatusCollection: Status and info about convergence.
+            - ConvergenceStatusCollection: Status and info about divergence.
+            - ConvergenceInfoCollection: Detailed information about the
+                convergence process.
+
+    """
+    # Check convergence status based on current iteration.
+    convergence_status, convergence_info = convergence_criteria.check(
+        increment=nonlinear_increment,
+        reference_increment=solution,
+        residual=residual,
+        reference_residual=residual,
+    )
+
+    # Check divergence status based on current iteration.
+    divergence_status = divergence_criteria.check(
+        increment=nonlinear_increment,
+        reference_increment=solution,
+        residual=residual,
+        reference_residual=residual,
+        num_iterations=iteration_index,
+    )
+
+    return convergence_status, divergence_status, convergence_info
+
+
+def assemble_default_divergence_criteria(
+    is_nonlinear_problem: bool,
+    max_iterations: int,
+    inc_div_atol: float,
+    res_div_atol: float,
+    metric: ConvergenceMetricType,
+) -> DivergenceCriteria:
+    """A convenience factory for the default divergence criteria. Returns different
+    criteria based on whether the problem is nonlinear.
+
+    """
+    if is_nonlinear_problem:
+        return DivergenceCriteria(
+            {
+                "max_iter": pp.solvers.MaxIterationsCriterion(
+                    max_iterations=max_iterations
+                ),
+                "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+                "res_nan": pp.solvers.ResidualBasedNanCriterion(),
+                "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
+                    tol=inc_div_atol, metric=metric
+                ),
+                "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
+                    tol=res_div_atol, metric=metric
+                ),
+            }
+        )
+    else:
+        return DivergenceCriteria(
+            {
+                "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+                "res_nan": pp.solvers.ResidualBasedNanCriterion(),
+            }
+        )
+
+
+def assemble_default_convergence_criteria(
+    is_nonlinear_problem: bool,
+    inc_atol: float,
+    inc_rtol: float,
+    res_atol: float,
+    res_rtol: float,
+    metric: ConvergenceMetricType,
+) -> ConvergenceCriteria:
+    """A convenience factory for the default convergence criteria. Returns different
+    criteria based on whether the problem is nonlinear.
+
+    """
+    if is_nonlinear_problem:
+        return ConvergenceCriteria(
+            {
+                "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
+                    tol=inc_atol, metric=metric
+                ),
+                "inc_rel": pp.solvers.IncrementBasedRelativeCriterion(
+                    tol=inc_rtol, metric=metric
+                ),
+                "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+                    tol=res_atol, metric=metric
+                ),
+                "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
+                    tol=res_rtol, metric=metric
+                ),
+            }
+        )
+    else:
+        return ConvergenceCriteria()

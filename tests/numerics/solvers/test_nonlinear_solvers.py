@@ -22,7 +22,11 @@ from porepy.numerics.solvers.nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from porepy.numerics.solvers.nonlinear_solvers import _summarize_solver_status
+from porepy.numerics.solvers.nonlinear_solvers import (
+    NewtonSolverConverged,
+    NewtonSolverFailed,
+    _summarize_solver_status,
+)
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
@@ -42,7 +46,7 @@ def time_step_success() -> TimeStepperStatusSuccess:
     return TimeStepperStatusSuccess(
         time=1.0,
         dt=0.5,
-        nonlinear_solver_status=NonlinearSolverStatusConverged(
+        nonlinear_solver_status=NewtonSolverConverged(
             linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
@@ -53,7 +57,7 @@ def time_step_success() -> TimeStepperStatusSuccess:
 def time_step_failure() -> TimeStepperStatusFailure:
     """Create a failed time-step status for statistics tests."""
     return TimeStepperStatusFailure(
-        nonlinear_solver_status=NonlinearSolverStatusFailed(
+        nonlinear_solver_status=NewtonSolverFailed(
             linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
@@ -66,7 +70,7 @@ def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
     """Create an in-progress time-step status for statistics tests."""
     return TimeStepperStatusContinueIterating(
         attempt=0,
-        nonlinear_solver_status=NonlinearSolverStatusFailed(
+        nonlinear_solver_status=NewtonSolverFailed(
             linear_solver_statuses=linear_solver_statuses(2),
             convergence_statuses=ConvergenceStatusCollection(),
             divergence_statuses=ConvergenceStatusCollection(),
@@ -171,7 +175,11 @@ class MockModel:
         self.equation_system.residual = np.array(self.residual_history[0])
         self.residual_history = self.residual_history[1:]
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray):
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ):
         pass
 
     def after_nonlinear_convergence(self):

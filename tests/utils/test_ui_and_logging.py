@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pytest
@@ -88,7 +88,11 @@ class MockModel:
         mock_logger.warning(f"Starting Newton step")
         mock_logger.error(f"Starting Newton step")
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> None:
         pass
 
     def after_nonlinear_convergence(self) -> None:

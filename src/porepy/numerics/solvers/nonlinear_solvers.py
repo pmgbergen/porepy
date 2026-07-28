@@ -8,6 +8,7 @@ Implemented classes:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 from abc import ABC, abstractmethod
 from time import time
@@ -17,6 +18,10 @@ from warnings import warn
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.solvers.convergence_check import (
+    assemble_default_convergence_criteria,
+    assemble_default_divergence_criteria,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -26,9 +31,9 @@ from porepy.utils.ui_and_logging import progressbar_class
 from .convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
-    ConvergenceMetricType,
     ConvergenceStatusCollection,
     DivergenceCriteria,
+    check_convergence,
 )
 from .linear_solvers.linear_solver import (
     LinearSolverBase,
@@ -40,6 +45,7 @@ from .nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
+from .equation_variable_tags import EquationTag, VariableTag
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -47,6 +53,8 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "NonlinearSolverBase",
     "NewtonSolver",
+    "NewtonSolverConverged",
+    "NewtonSolverFailed",
 ]
 
 
@@ -61,11 +69,36 @@ class NonlinearSolverBase(ABC):
     @abstractmethod
     def solve(self, model: pp.PorePyModel) -> NonlinearSolverStatus:
         """Solve a nonlinear problem."""
-        pass
+
+    @abstractmethod
+    def get_active_equations(
+        self, model: pp.PorePyModel
+    ) -> list[pp.ad.EquationOnDomain]:
+        """A list of atomic equations this nonlinear solver operates on."""
+
+    @abstractmethod
+    def get_active_variables(self, model: pp.PorePyModel) -> list[pp.ad.Variable]:
+        """A list of atomic variables this nonlinear solver operates on."""
 
 
 DEFAULT_NEWTON_MAX_ITERATIONS = 10
 """Default maximum number of Newton iterations."""
+
+
+@dataclass
+class NewtonSolverConverged(NonlinearSolverStatusConverged):
+    linear_solver_statuses: list[LinearSolverStatus]
+
+    def number_of_iterations(self) -> int:
+        return len(self.linear_solver_statuses)
+
+
+@dataclass
+class NewtonSolverFailed(NonlinearSolverStatusFailed):
+    linear_solver_statuses: list[LinearSolverStatus]
+
+    def number_of_iterations(self) -> int:
+        return len(self.linear_solver_statuses)
 
 
 class NewtonSolver(NonlinearSolverBase):
@@ -93,6 +126,12 @@ class NewtonSolver(NonlinearSolverBase):
             iteration is performed, and expensive convergence checks are skipped. If
             custom convergence or divergence criteria are provided, this parameter is
             ignored.
+        equation_tags: List of tags that describes equations and domains this solver
+            operates on. If None (default), it operates on all the equations in the
+            model.
+        variable_tags: List of tags that describes variables and domains this solver
+            operates on. If None (default), it operates on all the variables in the
+            model.
         linear_solver: The linear solver object. If None (default), initializes a direct
             linear solver.
 
@@ -107,6 +146,8 @@ class NewtonSolver(NonlinearSolverBase):
         self,
         params: Optional[dict] = None,
         is_nonlinear_problem: bool = True,
+        equation_tags: Optional[list[EquationTag]] = None,
+        variable_tags: Optional[list[VariableTag]] = None,
         linear_solver: Optional[LinearSolverBase] = None,
     ) -> None:
         if params is None:
@@ -130,6 +171,33 @@ class NewtonSolver(NonlinearSolverBase):
         self.solver_progressbar = DummyProgressBar()
         """The UI progress bar. By default, is a dummy object that does nothing.
         Reinitialized every Newton loop at :meth:`init_progress_bar`.
+
+        """
+
+        if equation_tags is None:
+            equation_tags = []
+        if variable_tags is None:
+            variable_tags = []
+        self.equation_tags: list[EquationTag] = equation_tags
+        """List of tags that describes equations and domains this solver operates on.
+        Empty list implies that it operates on all the equations in the model.
+
+        """
+        self.variable_tags: list[VariableTag] = variable_tags
+        """List of tags that describes variables and domains this solver operates on.
+        Empty list implies that it operates on all the variables in the model.
+
+        """
+        self._active_equations: Optional[list[pp.ad.EquationOnDomain]] = None
+        """List of atomic equations this solver operates on. Initialized on first call
+        of :meth:`solve`. Use :meth:`get_active_equations` to ensure you use initialized
+        equations.
+
+        """
+        self._active_variables: Optional[list[pp.ad.Variable]] = None
+        """List of atomic variables this solver operates on. Initialized on first call
+        of :meth:`solve`. Use :meth:`get_active_variables` to ensure you use initialized
+        variables.
 
         """
 
@@ -200,7 +268,7 @@ class NewtonSolver(NonlinearSolverBase):
             )
         else:
             # If no custom convergence criteria are provided, use default ones.
-            convergence_criteria = _default_convergence_criteria(
+            convergence_criteria = assemble_default_convergence_criteria(
                 is_nonlinear_problem=is_nonlinear_problem,
                 inc_atol=self.params.get("nl_convergence_inc_atol", 1e-10),
                 inc_rtol=self.params.get("nl_convergence_inc_rtol", np.inf),
@@ -272,7 +340,7 @@ class NewtonSolver(NonlinearSolverBase):
             max_iterations = self.params.get(
                 "nl_max_iterations", DEFAULT_NEWTON_MAX_ITERATIONS
             )
-            divergence_criteria = _default_divergence_criteria(
+            divergence_criteria = assemble_default_divergence_criteria(
                 is_nonlinear_problem=is_nonlinear_problem,
                 max_iterations=max_iterations,
                 inc_div_atol=self.params.get("nl_divergence_inc_atol", np.inf),
@@ -323,6 +391,36 @@ class NewtonSolver(NonlinearSolverBase):
         # Otherwise, use a dummy progress bar.
         else:
             self.solver_progressbar = DummyProgressBar()
+
+    def get_active_equations(
+        self, model: pp.PorePyModel
+    ) -> list[pp.ad.EquationOnDomain]:
+        """Return active equations. If they are not initialized, initialize them."""
+        if self._active_equations is None:
+            # Lazy initialization.
+            eq_indexer = model.equation_system.equation_indexer
+            if len(self.equation_tags) > 0:
+                self._active_equations, _ = eq_indexer.filter_by_tags(
+                    self.equation_tags, model=model
+                )
+            else:
+                # Empty equation_tags implies we use all equations.
+                self._active_equations = list(eq_indexer.operators_to_dofs)
+        return self._active_equations
+
+    def get_active_variables(self, model: pp.PorePyModel) -> list[pp.ad.Variable]:
+        """Return active variables. If they are not initialized, initialize them."""
+        if self._active_variables is None:
+            # Lazy initialization.
+            var_indexer = model.equation_system.variable_indexer
+            if len(self.variable_tags) > 0:
+                self._active_variables, _ = var_indexer.filter_by_tags(
+                    self.variable_tags, model=model
+                )
+            else:
+                # Empty variable_tags implies we use all variables.
+                self._active_variables = list(var_indexer.operators_to_dofs)
+        return self._active_variables
 
     def increase_iteration_index(self) -> None:
         """Advance to the next iteration."""
@@ -484,7 +582,12 @@ class NewtonSolver(NonlinearSolverBase):
         """
         t_0 = time()
 
-        linear_system = model.equation_system.assemble()
+        active_equations = self.get_active_equations(model)
+        active_variables = self.get_active_variables(model)
+
+        linear_system = model.equation_system.assemble(
+            equations=active_equations, variables=active_variables
+        )
         logger.debug(f"Assembled linear system in {time() - t_0:.2e} seconds.")
 
         return self.linear_solver.solve_linear_system(linear_system)
@@ -506,11 +609,23 @@ class NewtonSolver(NonlinearSolverBase):
         # Update model status (iterate) before checking convergence, so that the
         # convergence check uses the updated state. Also, after_nonlinear_convergence
         # may expect the converged solution to already be stored as an iterate.
-        model.after_nonlinear_iteration(nonlinear_increment)
+        model.after_nonlinear_iteration(
+            nonlinear_increment=nonlinear_increment,
+            updated_variables=self.get_active_variables(model),
+        )
 
         # Monitor convergence.
-        convergence_status, divergence_status, convergence_info = (
-            self.check_convergence(model, nonlinear_increment)
+        convergence_status, divergence_status, convergence_info = check_convergence(
+            convergence_criteria=self.convergence_criteria,
+            divergence_criteria=self.divergence_criteria,
+            nonlinear_increment=nonlinear_increment,
+            solution=model.equation_system.get_variable_values(
+                variables=self.get_active_variables(model), iterate_index=0
+            ),
+            residual=model.equation_system.assemble(
+                evaluate_jacobian=False, equations=self.get_active_equations(model)
+            ),
+            iteration_index=self.iteration_index,
         )
 
         # Logging and progress bar update.
@@ -633,69 +748,6 @@ class NewtonSolver(NonlinearSolverBase):
             model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
 
 
-def _default_convergence_criteria(
-    is_nonlinear_problem: bool,
-    inc_atol: float,
-    inc_rtol: float,
-    res_atol: float,
-    res_rtol: float,
-    metric: ConvergenceMetricType,
-) -> dict:
-    """A convenience factory for the default convergence criteria. Returns different
-    criteria based on whether the problem is nonlinear.
-
-    """
-    if is_nonlinear_problem:
-        return {
-            "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
-                tol=inc_atol, metric=metric
-            ),
-            "inc_rel": pp.solvers.IncrementBasedRelativeCriterion(
-                tol=inc_rtol, metric=metric
-            ),
-            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=res_atol, metric=metric
-            ),
-            "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
-                tol=res_rtol, metric=metric
-            ),
-        }
-    else:
-        return {}
-
-
-def _default_divergence_criteria(
-    is_nonlinear_problem: bool,
-    max_iterations: int,
-    inc_div_atol: float,
-    res_div_atol: float,
-    metric: ConvergenceMetricType,
-) -> dict:
-    """A convenience factory for the default divergence criteria. Returns different
-    criteria based on whether the problem is nonlinear.
-
-    """
-    if is_nonlinear_problem:
-        return {
-            "max_iter": pp.solvers.MaxIterationsCriterion(
-                max_iterations=max_iterations
-            ),
-            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
-            "res_nan": pp.solvers.ResidualBasedNanCriterion(),
-            "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
-                tol=inc_div_atol, metric=metric
-            ),
-            "res_max": pp.solvers.ResidualBasedAbsoluteDivergenceCriterion(
-                tol=res_div_atol, metric=metric
-            ),
-        }
-    else:
-        return {
-            "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
-            "res_nan": pp.solvers.ResidualBasedNanCriterion(),
-        }
-
-
 def _update_solver_statistics_after_nonlinear_solve(
     model: pp.PorePyModel,
     solver_status: NonlinearSolverStatus,
@@ -740,14 +792,14 @@ def _summarize_solver_status(
                 "Nonlinear solver convergence criteria indicate convergence and "
                 "divergence at the same time. Accepting this solution."
             )
-        return NonlinearSolverStatusConverged(
+        return NewtonSolverConverged(
             linear_solver_statuses=linear_solver_statuses,
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
         )
     elif is_failed:
         logger.warning("Failed to solve the nonlinear problem.")
-        return NonlinearSolverStatusFailed(
+        return NewtonSolverFailed(
             linear_solver_statuses=linear_solver_statuses,
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
@@ -757,7 +809,7 @@ def _summarize_solver_status(
             "Nonlinear solver did not fail, but the convergence criterion did not "
             "accept the solution. Treating it as a failure."
         )
-        return NonlinearSolverStatusFailed(
+        return NewtonSolverFailed(
             linear_solver_statuses=linear_solver_statuses,
             convergence_statuses=convergence_status,
             divergence_statuses=divergence_status,
