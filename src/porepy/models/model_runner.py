@@ -417,6 +417,11 @@ def _extract_nonlinear_solver_from_params(
 # updated in the same way.
 # TODO: Refactor and unify the time loop and initialization loop,
 # once upgrade of time stepping is finished.
+# NOTE: The check of steady state convergence is based on the time increment.
+# Since the time stepping updates the time step after the convergence check,
+# the time increment is not anymore accessible from outside after a time
+# step is performed. This difference in the structure does not allow for
+# direct reuse of the time stepping logic for initialization at this stage.
 
 
 @dataclass
@@ -447,16 +452,16 @@ class InitializationParameters:
         default_config = {
             "steady_state_convergence_criteria": ConvergenceCriteria(
                 {
-                    "inc": pp.IncrementBasedAbsoluteCriterion(
+                    "inc": pp.solvers.IncrementBasedAbsoluteCriterion(
                         tol=1e-10, metric=pp.EuclideanMetric()
                     )
                 }
             ),
             "steady_state_divergence_criteria": DivergenceCriteria(
                 {
-                    "max_iter": pp.MaxIterationsCriterion(max_iterations=50),
-                    "inc_nan": pp.IncrementBasedNanCriterion(),
-                    "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+                    "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
+                    "inc_nan": pp.solvers.IncrementBasedNanCriterion(),
+                    "inc_max": pp.solvers.IncrementBasedAbsoluteDivergenceCriterion(
                         tol=1e14, metric=pp.EuclideanMetric()
                     ),
                 }
@@ -501,10 +506,27 @@ class SteadyStateInitialization:
     def run(self) -> None:
         """Run the iterative pseudo time stepping for initialization."""
         # Artificial time control for quasi-static initialization.
-        copy_time_manager = deepcopy(self.model.time_manager)
-        self.setup_pseudo_time_manager(
-            self.config.pseudo_dt_init, self.config.pseudo_dt_max
+        # Cache the original time manager to restore it after initialization.
+        # NOTE: Be careful with creating new instances of the time manager, as it
+        # is used as a reference in various places (model, time stepper, etc.).
+        # Instead, we modify the existing instance and restore it afterwards.
+        cached_schedule = self.model.time_manager.schedule
+        cached_dt = self.model.time_manager.dt
+        cached_dt_min_max = self.model.time_manager.dt_min_max
+        cached_constant_dt = self.model.time_manager.is_constant
+        cached_iters = self.model.time_manager._iters
+
+        # Setup pseudo time manager for initialization.
+        self.model.time_manager.schedule = [
+            self.model.time_manager.time_init,
+            self.model.time_manager.time_final + self.config.pseudo_dt_max,
+        ]
+        self.model.time_manager.dt = self.config.pseudo_dt_init
+        self.model.time_manager.dt_min_max = (
+            self.model.time_manager.dt_min_max[0],
+            self.config.pseudo_dt_max,
         )
+        self.model.time_manager.is_constant = False
 
         # Perform a pseudo time stepping to initialize the reference state.
         self.iteration = 0
@@ -518,21 +540,22 @@ class SteadyStateInitialization:
             self.model.before_time_step()
 
             # Solve pseudo time step.
-            # TODO: needed?
-            # self.model.initialize_nonlinear_solution()
-            solver_status = self.solver.solve(self.model)
+            nonlinear_solver_status: NonlinearSolverStatus = self.solver.solve(
+                self.model
+            )
 
             # Check initialization status.
-            initialization_status = self.check_initialization_status(solver_status)
+            # Based on time increment and thus needs to be checked before the time step
+            # is updated.
+            initialization_status = self.check_initialization_status(
+                nonlinear_solver_status
+            )
 
             # React to successful solver status.
-            if solver_status.is_successful():
-                self.after_successful_step()
+            if nonlinear_solver_status.is_converged():
+                self.after_pseudo_time_step_convergence()
 
-            if (
-                initialization_status.is_successful()
-                or initialization_status.is_stopped()
-            ):
+            if initialization_status.is_success() or initialization_status.is_failure():
                 break
 
         logger.info(
@@ -542,36 +565,11 @@ class SteadyStateInitialization:
         )
 
         # Restore time manager.
-        self.model.time_manager = copy_time_manager
-
-    def setup_pseudo_time_manager(
-        self, pseudo_dt_init: float, pseudo_dt_max: float
-    ) -> None:
-        """Setup pseudo time manager for initialization.
-
-        Hook to set custom time manager.
-
-        Parameters:
-            pseudo_dt_init: Initial time step to use for the pseudo time stepping during
-                initialization.
-            pseudo_dt_max: Maximum time step to use for the pseudo time stepping during
-                initialization.
-
-        """
-        self.model.time_manager = pp.TimeManager(
-            schedule=[
-                self.model.time_manager.time_init,
-                self.model.time_manager.time_final + pseudo_dt_max,
-            ],
-            dt_init=pseudo_dt_init,
-            constant_dt=False,
-            dt_min_max=(self.model.time_manager.dt_min_max[0], pseudo_dt_max),
-            iter_max=self.model.time_manager.iter_max,
-            iter_optimal_range=self.model.time_manager.iter_optimal_range,
-            iter_relax_factors=self.model.time_manager.iter_relax_factors,
-            recomp_factor=self.model.time_manager.recomp_factor,
-            recomp_max=self.model.time_manager.recomp_max,
-        )
+        self.model.time_manager.schedule = cached_schedule
+        self.model.time_manager.dt = cached_dt
+        self.model.time_manager.dt_min_max = cached_dt_min_max
+        self.model.time_manager.is_constant = cached_constant_dt
+        self.model.time_manager._iters = cached_iters
 
     def check_initialization_status(
         self, solver_status: NonlinearSolverStatus
@@ -586,7 +584,7 @@ class SteadyStateInitialization:
 
         """
         # React to solver_status.
-        if solver_status.is_successful():
+        if solver_status.is_converged():
             # Evaluate whether steady state has been reached.
             steady_state_status = self.check_steady_state()
 
@@ -622,7 +620,7 @@ class SteadyStateInitialization:
                     initialization_status = ModelRunnerStatusFailure(
                         reason="Solver and time step recomputation failed."
                     )
-        elif solver_status.is_stopped():
+        elif solver_status.is_failed():
             initialization_status = ModelRunnerStatusFailure(
                 reason="Simulation stopped."
             )
@@ -652,15 +650,15 @@ class SteadyStateInitialization:
 
         return convergence_status
 
-    def after_successful_step(self) -> None:
-        # Shift solution for next computation.
+    def after_pseudo_time_step_convergence(self) -> None:
+        """Shift solution for next computation."""
         self.model.update_time_step_solution()
 
 
 class ReferenceStateInitialization(SteadyStateInitialization):
     """Initialization class for steady reference state initialization."""
 
-    def after_successful_step(self) -> None:
+    def after_pseudo_time_step_convergence(self) -> None:
         """Update reference state after successful step."""
-        super().after_successful_step()
+        super().after_pseudo_time_step_convergence()
         self.model.update_reference_solution()
