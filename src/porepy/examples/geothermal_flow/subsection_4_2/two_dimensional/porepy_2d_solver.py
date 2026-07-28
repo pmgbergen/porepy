@@ -244,7 +244,7 @@ _ap.add_argument("--q-anomaly", type=float, default=Q_ANOMALY, metavar="W/M2",
                  help=f"anomaly heat flux over the inlet [W/m^2]; default {Q_ANOMALY}")
 _ap.add_argument("--z-init", type=float, default=Z_INIT, metavar="Z",
                  help="initial (uniform) NaCl overall composition [-]; default "
-                      f"{Z_INIT} (table range 0..0.2)")
+                      f"{Z_INIT} (graded table spans the full range 0..1)")
 _ap.add_argument("--snap-years", type=float, nargs="+",
                  default=list(_DEFAULT_SNAP_YEARS), metavar="YR",
                  help="schedule of exact snapshot/export instants [years]; the last one "
@@ -260,7 +260,7 @@ _ap.add_argument("--lag-buoyancy", action="store_true",
                       "(CSMP++'s frozen-upwind policy, Weis et al. sec. 2.7)")
 _args = _ap.parse_args()
 if not 0.0 <= _args.z_init <= 1.0:
-    raise SystemExit(f"--z-init {_args.z_init} outside the opensowat table "
+    raise SystemExit(f"--z-init {_args.z_init} outside the graded table "
                      "range z in [0, 1]")
 if _args.snap_years[0] != 0.0 or any(
         b <= a for a, b in zip(_args.snap_years, _args.snap_years[1:])):
@@ -336,7 +336,7 @@ class GeothermalBrineFlowModel(
 model = GeothermalBrineFlowModel(params)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL tables sampled
+# Constitutive approach shared by every subsection_4_2 solver: Driesner graded OBL tables sampled
 # with the unified VTKSampler tensor backend (multilinear value + analytic gradient of that same
 # interpolant -> consistent Jacobian; identical to the weis_1d_solver construction).
 TABLE_LEVEL = "graded"                    # default OBL: the C0 graded brine tables

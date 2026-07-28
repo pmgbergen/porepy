@@ -29,7 +29,7 @@ PPU_WEIS_N = 200
 PPU_WEIS_LABEL = rf"PPU-Weis ($N={PPU_WEIS_N}$)"
 
 # PorePy approximation overlay: the converged HU profile from porepy_1d_solver, cached as
-# _cache/porepy_{case}_hu_N800_l3.pkl. Drawn as black x markers over the weis-HU reference so the
+# _cache/figure5_porepy_{case}_hu_N800_l<level>.pkl. Drawn as black x markers over the weis-HU reference so the
 # agreement (or drift) reads directly.
 POREPY_C = "black"
 POREPY_LABEL = r"HU-PorePy"
@@ -46,7 +46,7 @@ def _load_porepy(case, scheme="hu", N=N, level=None):
     re-plot never imports porepy). Returns the dict, or None if unavailable."""
     import pickle
     level = m.TABLE_LEVEL if level is None else level
-    path = os.path.join(C.CACHE_DIR, f"porepy_{case}_{scheme}_N{N}_l{level}.pkl")
+    path = os.path.join(C.CACHE_DIR, f"figure5_porepy_{case}_{scheme}_N{N}_l{level}.pkl")
     if not os.path.exists(path) and AUTORUN_POREPY:
         try:
             import porepy_1d_solver as pp1d                 # lazy: only imports porepy on a cold cache

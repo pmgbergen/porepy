@@ -90,7 +90,7 @@ def _attach_samplers(model) -> None:
 
 def _cache_path(case_name, geometry_case):
     return os.path.join(CACHE_DIR,
-                        f"single_phase_{case_name}_{geometry_case}_l{TABLE_LEVEL}.pkl")
+                        f"figure4_porepy_{case_name}_{geometry_case}_l{TABLE_LEVEL}.pkl")
 
 
 def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:

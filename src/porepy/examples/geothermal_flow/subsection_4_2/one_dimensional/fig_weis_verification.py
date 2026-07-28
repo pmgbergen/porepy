@@ -140,7 +140,7 @@ def load_porepy(case=CASE):
 #  Horizontal verification: the PorePy 2D run vs. the corresponding Weis 1D-solver profile
 # ------------------------------------------------------------------------------------------- #
 def load_porepy_case(case, scheme, N=800, level=LEVEL):
-    """Load the PorePy 2D overlay pickle ``porepy_{case}_{scheme}_N{N}_l{level}.pkl`` from _cache/.
+    """Load the PorePy 2D overlay pickle ``figure5_porepy_{case}_{scheme}_N{N}_l{level}.pkl`` from _cache/.
 
     Returned normalized to the weis_1d_solver SI convention so ``plot_style.to_plot_units`` applies
     unchanged: PorePy's pressure primary variable is in the model's MPa units, so it is rescaled to
@@ -148,7 +148,7 @@ def load_porepy_case(case, scheme, N=800, level=LEVEL):
     # porepy_1d_solver now writes the plain (no-suffix) name; the legacy "_spline" name is still
     # accepted first so any pre-consolidation cache on disk keeps loading.
     for suffix in ("_spline", ""):
-        path = os.path.join(CACHE_DIR, f"porepy_{case}_{scheme}_N{N}_l{level}{suffix}.pkl")
+        path = os.path.join(CACHE_DIR, f"figure5_porepy_{case}_{scheme}_N{N}_l{level}{suffix}.pkl")
         if os.path.exists(path):
             with open(path, "rb") as f:
                 d = dict(pickle.load(f))

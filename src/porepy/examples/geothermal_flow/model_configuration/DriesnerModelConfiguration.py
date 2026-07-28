@@ -1,6 +1,7 @@
 from typing import Callable, Literal, Union, cast, Optional, Any
 
 import numpy as np
+import os
 import time
 import porepy as pp
 import porepy.compositional as ppc
@@ -124,16 +125,40 @@ class _DriesnerBrineBase(  # type:ignore[misc]
     SecondaryEquations,
 ):
 
+    def _halite_perm_option(self) -> str:
+        """Halite -> flow convention (mirrors weis_1d_solver.HALITE_PERM_OPTION). Weis (2014) gives two
+        MUTUALLY-EXCLUSIVE conventions -- use one or the other, never both:
+          "A" -- CSMP++ default (p.349): halite blocks flow through the RELATIVE permeability only,
+                 R_l = 0.3(1-S_h), k_rl + k_rv = 1 - S_h, absolute k = k_0. Liquid mobility ~ (1-S_h)^1.
+          "B" -- Eq 28 / TOUGH2 salt benchmark (p.358): STANDARD rel-perm with NO halite factor (on the
+                 fluid-normalised s_l/(1-S_h)), halite moved into the ABSOLUTE perm k = k_0(1-S_h)^2.
+                 Liquid mobility ~ (1-S_h)^2. This is the convention Weis Fig 6 (salt) was computed with.
+        (The earlier code MIXED them -- A's rel-perm AND B's (1-S_h)^2 -- a spurious (1-S_h)^3.)
+        From params['halite_perm_option'] or the WEIS_HALITE_PERM env var (shared with weis), default 'B'."""
+        opt = self.params.get("halite_perm_option") or os.environ.get("WEIS_HALITE_PERM", "B")
+        if opt not in ("A", "B"):
+            raise ValueError(f"halite_perm_option must be 'A' or 'B', got {opt!r}")
+        return opt
+
     def _liquid_relative_permeability(
-        self, s_liq: pp.ad.Operator, s_hal: pp.ad.Operator
+        self, s_liq: pp.ad.Operator, s_hal: pp.ad.Operator, option: str
     ) -> pp.ad.Operator:
-        """Weis (2014) liquid relative permeability with halite pore blocking:
-        residual R_l = 0.3 (1 - S_h), linear, k_rl + k_rv = 1 - S_h.  Division-free
-        form k_rl = max((s_l - 0.3 (1 - s_h)) / 0.7, 0) (max at s_l = 1 - s_h gives
-        exactly 1 - s_h), written as the smooth ReLU 0.5*(sqrt(x^2) + x)."""
-        sr = pp.ad.Scalar(0.3)
-        s_red = (s_liq - sr * (pp.ad.Scalar(1.0) - s_hal)) / (pp.ad.Scalar(1.0) - sr)
-        return pp.ad.Scalar(0.5) * ((s_red**2) ** 0.5 + s_red)
+        """Weis (2014) liquid relative permeability k_rl = max(s_red, 0).
+        A: residual R_l = 0.3(1-S_h) -> s_red = (s_l - 0.3(1-s_h))/0.7.
+        B: standard R_l = 0.3 on the fluid-normalised s_l/(1-S_h) -> s_red = (s_l/(1-s_h) - 0.3)/0.7.
+
+        The cutoff is the PorePy AD ``maximum`` (Jacobian taken from the active argument; at the
+        residual-saturation kink s_red=0 from s_red itself). This is the exact, FD-consistent
+        indicator subgradient the hand-coded weis reference uses -- unlike the identity form
+        0.5*(sqrt(s_red^2)+s_red), whose AD derivative s_red/|s_red| is 0/0 = NaN exactly at
+        s_red=0 (the residual-saturation front)."""
+        one = pp.ad.Scalar(1.0); sr = pp.ad.Scalar(0.3)
+        if option == "A":
+            s_red = (s_liq - sr * (one - s_hal)) / (one - sr)
+        else:                                                   # B: fluid-normalised, no halite in k_r
+            s_red = (s_liq / (one - s_hal) - sr) / (one - sr)
+        relu = pp.ad.Function(pp.ad.maximum, "relperm_max")
+        return relu(s_red, pp.ad.Scalar(0.0))
 
     def _halite_saturation_or_zero(
         self, domains: pp.SubdomainsOrBoundaries
@@ -144,22 +169,23 @@ class _DriesnerBrineBase(  # type:ignore[misc]
     def relative_permeability(
         self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        # Weis (2014) relative permeabilities with halite as an immobile solid:
-        #   k_rh = 0,  k_rl = max((s_l - 0.3 (1 - s_h))/0.7, 0),  k_rv = (1 - s_h) - k_rl
-        #   (residual vapor R_v = 0; halite blocks pore space: k_rl + k_rv = 1 - s_h).
-        # PLUS the halite absolute-permeability reduction K -> K(1-s_h)^2 (Weis 2014), applied purely
-        # as a rel-perm modification: every mobile phase carries the extra (1-s_h)^2 factor. s_h = 0
-        # -> factor 1, so fig-5 / fig-6-left stay identical.
+        # Weis (2014) halite -> flow, TWO mutually-exclusive conventions (see _halite_perm_option):
+        #   A (p.349):  halite in the REL-perm -> k_rl+k_rv = 1-S_h, k = k_0        (liquid mob ~ (1-S_h)^1)
+        #   B (Eq 28):  standard rel-perm, halite in ABS-perm -> k = k_0(1-S_h)^2   (liquid mob ~ (1-S_h)^2)
+        # k_rh = 0 (immobile); at S_h = 0 both reduce to the identical pure-water rel-perm. Weis Fig 6 = B.
         if phase.name == "halite":
             return pp.ad.Scalar(0.0)
+        option = self._halite_perm_option()
         s_hal = self._halite_saturation_or_zero(domains)
-        perm = (pp.ad.Scalar(1.0) - s_hal) ** 2
+        one = pp.ad.Scalar(1.0)
+        perm = (one - s_hal) ** 2 if option == "B" else one     # B: Eq-28 abs-perm reduction; A: none
+        total = one if option == "B" else (one - s_hal)         # k_rl + k_rv sum (B -> 1, A -> 1-S_h)
         if phase.name == "liq":
-            kr = self._liquid_relative_permeability(phase.saturation(domains), s_hal)
+            kr = self._liquid_relative_permeability(phase.saturation(domains), s_hal, option)
         else:
             # Vapor: complement of the liquid curve at s_l = 1 - s_gas - s_h.
-            s_liq = pp.ad.Scalar(1.0) - phase.saturation(domains) - s_hal
-            kr = (pp.ad.Scalar(1.0) - s_hal) - self._liquid_relative_permeability(s_liq, s_hal)
+            s_liq = one - phase.saturation(domains) - s_hal
+            kr = total - self._liquid_relative_permeability(s_liq, s_hal, option)
         return perm * kr
 
     @property
@@ -581,6 +607,11 @@ class _DriesnerBrineBase(  # type:ignore[misc]
         #     star_s = self.obl_sampler.sampled_could.point_data["S_v"]
         #     delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
 
+        # Temperature-only mode: snap the stuck temperatures back to the OBL value (breaks the
+        # T-elimination limit cycle at a phase front) but leave s_gas untouched. The s_gas snap
+        # (star_s = S_v) is what destabilises the strongly halite-forming salt column, so on that
+        # column we want the T correction WITHOUT it. params['thermal_overshoot_temperature_only'].
+        temp_only = bool(self.params.get("thermal_overshoot_temperature_only", False))
         if len(alg_exceeds) != 0:
             # correct from enthalpy using  temperature idxs
             idx_temp = alg_exceeds.get('temperature', np.array([], dtype=int))
@@ -589,11 +620,12 @@ class _DriesnerBrineBase(  # type:ignore[misc]
                 self.obl_sampler.sample_at(par_points)
                 star_t = self.obl_sampler.sampled_could.point_data["Temperature"]
                 delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
-                star_s = self.obl_sampler.sampled_could.point_data["S_v"]
-                delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
+                if not temp_only:
+                    star_s = self.obl_sampler.sampled_could.point_data["S_v"]
+                    delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
 
             idx_sat = alg_exceeds.get('saturation', np.array([], dtype=int))
-            if len(idx_sat) !=0:
+            if len(idx_sat) != 0 and not temp_only:
                 par_points = np.array((new_z[idx_sat], new_h[idx_sat], new_p[idx_sat])).T
                 self.obl_sampler.sample_at(par_points)
                 star_s = self.obl_sampler.sampled_could.point_data["S_v"]

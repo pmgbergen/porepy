@@ -4,7 +4,7 @@ Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {H
 geometry's native N=800 and nominal dt = 0.25 yr, level-3 Driesner tables (matching weis_1d_solver),
 and writes each converged 1D profile (distance, T, p, s_liq) extracted from the live model to
 
-    subsection_4_1/_cache/porepy_{case}_{scheme}_N800_l3.pkl
+    _cache/figure5_porepy_{case}_{scheme}_N800_l<level>.pkl
 
 with keys y[m], T[K], p[Pa], s_liq -- exactly what plot_style.to_plot_units consumes. PorePy still
 writes its usual VTU/PVD output alongside (periodic snapshots).
@@ -81,19 +81,19 @@ _TABLE_DIR = os.path.join(
 def _pickle_path(geometry_case: str, scheme: str) -> str:
     """Per-case output pickle path in _cache/ (keyed by orientation, scheme, N, table level)."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
+        CACHE_DIR, f"figure5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
 
 
 def _stats_path(geometry_case: str, scheme: str) -> str:
     """Companion human-readable solver-statistics text file next to the pickle."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.txt")
+        CACHE_DIR, f"figure5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.txt")
 
 
 def _stats_pkl_path(geometry_case: str, scheme: str) -> str:
     """Companion pickle holding the model's :class:`NonlinearRunStats` dataclass."""
     return os.path.join(
-        CACHE_DIR, f"porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.pkl")
+        CACHE_DIR, f"figure5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.pkl")
 
 
 def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int, int]:
@@ -287,9 +287,10 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
     xph_name, xpt_name = FIG6_TABLES[column]
     ICcls = IC_fig6_salt if column == "salt" else IC_fig6_pw
 
+    dt_min_div = float(os.environ.get("FIG6_DT_MIN_DIV", "64"))   # deepen the dt floor for hard fronts
     time_manager = pp.TimeManager(
         schedule=[0.0, tf], dt_init=DT, constant_dt=False,
-        dt_min_max=(DT / 64.0, DT), iter_max=20, iter_optimal_range=(3, 10),
+        dt_min_max=(DT / dt_min_div, DT), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
@@ -302,6 +303,10 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
         # thermal-overshoot postprocessing destabilises the strongly halite-forming salt column;
         # disable it (the physical-bound clip stays on). No effect where s_h = 0 (pw column).
         "enable_thermal_overshoot_postprocessing": False,
+        # Salt column: slave the eliminated temperature to the exact OBL value each iteration
+        # (Weis-faithful explicit T). Removes the lagged-flash limit cycle at the halite phase
+        # front that otherwise collapses dt to dt_min. Off for pw (s_h = 0, smooth T_obl).
+        "slave_eliminated_temperature": (column == "salt"),
         # bound the per-iteration gas-saturation step to damp the vapor phase-appearance oscillation
         # at the inlet (s_gas flip-flopping 0.2<->1.0) that otherwise stalls the salt column.
         "max_gas_saturation_step": 0.2,

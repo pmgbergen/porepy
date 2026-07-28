@@ -344,9 +344,17 @@ class SecondaryEquations(LocalElimination):
         dS_v = np.vstack((dS_vdp, dS_vdH, dS_vdz))
         # clip to the physical range and FLATTEN the gradient where the clip is
         # active: returning the raw spline gradient at a clipped value lets the
-        # linearized elimination push the saturation out of [0, 1]
-        clipped = (S_v < 0.0) | (S_v > 1.0)
-        S_v = np.clip(S_v, 0.0, 1.0)
+        # linearized elimination push the saturation out of [0, 1].
+        # Upper bound is 1 - S_h - S_L_EPS (S_h from the SAME sample), not 1: this keeps the
+        # reference/liquid saturation s_liq = 1 - S_v - S_h >= S_L_EPS, so the option-B rel-perm
+        # (which is fed the unclipped unity complement 1 - s_gas - s_h) never sees a NEGATIVE
+        # liquid saturation at a phase front. Mirrors weis s_l = np.clip(1 - s_v - s_h, 0, 1);
+        # clipping S_v to [0, 1] alone does not bound S_v + S_h <= 1. Inert where S_h ~ 0.
+        S_L_EPS = 1.0e-6
+        S_h_co = self.obl_sampler.sampled_could.point_data["S_h"]
+        s_v_max = np.clip(1.0 - S_h_co - S_L_EPS, 0.0, 1.0)
+        clipped = (S_v < 0.0) | (S_v > s_v_max)
+        S_v = np.clip(S_v, 0.0, s_v_max)
         dS_v[:, clipped] = 0.0
         return S_v, dS_v
 
@@ -365,8 +373,15 @@ class SecondaryEquations(LocalElimination):
         dS_hdH = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 1]
         dS_hdp = self.obl_sampler.sampled_could.point_data["grad_S_h"][:, 2]
         dS_h = np.vstack((dS_hdp, dS_hdH, dS_hdz))
-        clipped = (S_h < 0.0) | (S_h > 1.0)
-        S_h = np.clip(S_h, 0.0, 1.0)
+        # Ceiling strictly below 1 so the fluid pore fraction 1 - S_h stays >= S_H_EPS:
+        # the option-B liquid rel-perm divides by (1 - S_h) and scales absolute perm by
+        # (1 - S_h)^2 (DriesnerModelConfiguration._liquid_relative_permeability / relative_
+        # permeability); an inclusive [0, 1] clip lets S_h reach 1 -> 1/(1-S_h) and its
+        # Jacobian blow up at a halite front and stall Newton. Mirrors weis_1d_solver's
+        # pore = np.maximum(1 - s_h, 1e-12). Inert where S_h ~ 0 (Fig 4/5 pure water).
+        S_H_EPS = 1.0e-6
+        clipped = (S_h < 0.0) | (S_h > 1.0 - S_H_EPS)
+        S_h = np.clip(S_h, 0.0, 1.0 - S_H_EPS)
         dS_h[:, clipped] = 0.0
         return S_h, dS_h
 

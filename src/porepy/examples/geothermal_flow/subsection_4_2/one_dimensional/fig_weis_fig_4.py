@@ -41,7 +41,7 @@ LEVEL_LABEL = {"hp": "high", "mp": "moderate", "lp": "low"}
 ORIENTS = ("horizontal", "vertical")
 
 # PorePy single-phase overlay (mirrors fig_weis_fig_5): the converged profile from
-# single_phase_porepy_1d_solver, cached as _cache/single_phase_case_{hP,mP,lP}_{orient}_l3.pkl -- the
+# single_phase_porepy_1d_solver, cached as _cache/figure4_porepy_case_{hP,mP,lP}_{orient}_l<level>.pkl -- the
 # SAME opensowat level-3 OBL as Fig 5. Drawn as black x markers over the weis-HU T/p curves.
 POREPY_C = "black"
 POREPY_LABEL = r"HU-PorePy"
@@ -57,7 +57,7 @@ def _load_porepy(lvl, orient, level=None):
     import pickle
     level = m.TABLE_LEVEL if level is None else level
     case_name = _PP_CASE[lvl]
-    path = os.path.join(C.CACHE_DIR, f"single_phase_{case_name}_{orient}_l{level}.pkl")
+    path = os.path.join(C.CACHE_DIR, f"figure4_porepy_{case_name}_{orient}_l{level}.pkl")
     if not os.path.exists(path) and AUTORUN_POREPY:
         try:
             import single_phase_porepy_1d_solver as sp1d    # lazy: imports porepy only on a cold cache
