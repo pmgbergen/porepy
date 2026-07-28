@@ -355,3 +355,24 @@ def test_schur_complement_reduction_on_model(
 
     model = model_class(model_params)
     model.prepare_simulation()
+    model.before_time_step()
+    model.before_nonlinear_loop()
+    model.before_nonlinear_iteration()
+    model.equation_system.set_variable_values(
+        np.ones(model.equation_system.num_dofs()), iterate_index=0
+    )
+    linear_system = model.equation_system.assemble()
+
+    primary_eq_tags, primary_var_tags = get_primary_tags(model)
+
+    direct_solver = pp.solvers.LinearSolverDirect()
+    expected_sol, status = direct_solver.solve_linear_system(linear_system)
+    assert status.is_success()
+
+    schur_solver = pp.solvers.SchurComplementReductionLinearSolver(
+        primary_equation_tags=primary_eq_tags, primary_variable_tags=primary_var_tags
+    )
+    actual_sol, status = schur_solver.solve_linear_system(linear_system)
+    assert status.is_success()
+
+    np.testing.assert_allclose(expected_sol - actual_sol, 0, atol=1e-9, rtol=0)
