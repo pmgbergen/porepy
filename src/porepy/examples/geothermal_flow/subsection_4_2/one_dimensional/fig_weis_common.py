@@ -147,12 +147,32 @@ def scheme_totals(panels):
     return totals
 
 
-def scheme_handles():
+def parse_skip(spec):
+    """Comma/space-separated solver names -> normalized skip set. Recognised names: the ps.SCHEMES keys
+    (``ppu``, ``hu``, ``hu-mwp``), plus ``hu-porepy`` (the PorePy overlay) and ``ppu-weis`` (the Fig-5
+    reference curve). Hyphen/underscore- and case-insensitive."""
+    import re
+    return {t.strip().lower().replace("_", "-") for t in re.split(r"[,\s]+", spec or "") if t.strip()}
+
+
+def is_skipped(name, skip):
+    """True if solver ``name`` is in the ``skip`` set (hyphen/underscore/case-insensitive)."""
+    return name.lower().replace("_", "-") in skip
+
+
+def active_schemes(skip):
+    """ps.SCHEMES keys NOT in ``skip`` -- pass to :func:`sweep` (avoids running skipped schemes)."""
+    return [sk for sk in ps.SCHEMES if not is_skipped(sk, skip)]
+
+
+def scheme_handles(only=None):
     """One legend handle per scheme -- coloured, labelled with the scheme name (no counts; the counts
-    live per panel via :func:`iteration_legend`, since they differ across simulation cases)."""
+    live per panel via :func:`iteration_legend`, since they differ across simulation cases). ``only``
+    (a list of scheme keys, e.g. :func:`active_schemes`) restricts the handles to those schemes."""
     from matplotlib.lines import Line2D
+    keys = [sk for sk in ps.SCHEMES if only is None or sk in only]
     return [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=1.8, label=ps.SCHEMES[sk]["label"])
-            for sk in ps.SCHEMES]
+            for sk in keys]
 
 
 def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title="total it.", extra=None):

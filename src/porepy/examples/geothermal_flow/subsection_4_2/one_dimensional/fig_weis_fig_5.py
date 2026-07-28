@@ -68,17 +68,19 @@ def _load_porepy(case, scheme="hu", N=N, level=None):
     return d
 
 
-def compute(N=N, level=None, parallel=True):
+def compute(N=N, level=None, parallel=True, skip=frozenset()):
     level = m.TABLE_LEVEL if level is None else level
-    out = C.sweep(TAG, list(CASES), m.FIG5, N, level, parallel=parallel)     # PPU / HU / HU-mwp
-    weis_N = min(PPU_WEIS_N, N)                          # exactly 200 for the figure; scaled in --quick
-    weis_tasks = [(("ppu_weis", case), "fig5weis", "ppu", case, m.FIG5, weis_N, level, True, True)
-                  for case in CASES]                                          # grav_upstream, lag_upwind
-    out.update(C.run_tasks("fig5-weis", weis_tasks, parallel=parallel))
+    out = C.sweep(TAG, list(CASES), m.FIG5, N, level, parallel=parallel,     # PPU / HU / HU-mwp (minus skipped)
+                  schemes=C.active_schemes(skip))
+    if not C.is_skipped("ppu-weis", skip):
+        weis_N = min(PPU_WEIS_N, N)                      # exactly 200 for the figure; scaled in --quick
+        weis_tasks = [(("ppu_weis", case), "fig5weis", "ppu", case, m.FIG5, weis_N, level, True, True)
+                      for case in CASES]                                      # grav_upstream, lag_upwind
+        out.update(C.run_tasks("fig5-weis", weis_tasks, parallel=parallel))
     return out
 
 
-def plot(out, stem="fig_weis_fig_5"):
+def plot(out, stem="fig_weis_fig_5", skip=frozenset()):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
@@ -95,12 +97,14 @@ def plot(out, stem="fig_weis_fig_5"):
                   ref_T=C.ref_csv(f"fig_5_{case}_temperature_raw.csv"),
                   ref_p=C.ref_csv(f"fig_5_{case}_pressured_raw.csv"))
         C.draw_s(ax_s, res, ref_s=C.ref_csv(f"fig_5_{case}_saturation_liq_raw.csv"))
-        w = out[("ppu_weis", case)]                           # PPU-Weis 4th curve (Fig 5 only)
-        ax_tp.plot(*ps.to_plot_units(w, "T"), color=PPU_WEIS_C, ls="-", lw=1.3, zorder=3)
-        ax_p.plot(*ps.to_plot_units(w, "p"), color=PPU_WEIS_C, ls=C.P_LS, lw=1.1, zorder=3)
-        ax_s.plot(*ps.to_plot_units(w, "s_liq"), color=PPU_WEIS_C, lw=1.3, zorder=3)
-        extra_it = [(PPU_WEIS_C, w["total_it"])]
-        pp_res = _load_porepy(case)                           # PorePy HU approximation (if cached)
+        extra_it = []
+        if not C.is_skipped("ppu-weis", skip) and ("ppu_weis", case) in out:
+            w = out[("ppu_weis", case)]                       # PPU-Weis 4th curve (Fig 5 only)
+            ax_tp.plot(*ps.to_plot_units(w, "T"), color=PPU_WEIS_C, ls="-", lw=1.3, zorder=3)
+            ax_p.plot(*ps.to_plot_units(w, "p"), color=PPU_WEIS_C, ls=C.P_LS, lw=1.1, zorder=3)
+            ax_s.plot(*ps.to_plot_units(w, "s_liq"), color=PPU_WEIS_C, lw=1.3, zorder=3)
+            extra_it.append((PPU_WEIS_C, w["total_it"]))
+        pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(case)  # PorePy HU overlay
         if pp_res is not None:
             step = max(1, len(pp_res["y"]) // 24)             # ~24 markers across the 2 km column
             mk = dict(color=POREPY_C, marker="x", ms=4.2, ls="none", mew=0.9, zorder=6)
@@ -128,19 +132,27 @@ def plot(out, stem="fig_weis_fig_5"):
 
     # single bottom legend: scheme colours (names only) + the T/p and reference key. Per-case
     # iteration counts live in each panel's small legend (they differ by orientation).
-    handles = C.scheme_handles() + [
-        Line2D([0], [0], color=PPU_WEIS_C, lw=1.8, label=PPU_WEIS_LABEL),
-        Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL),
-        Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-        Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
-        C.ref_legend_handle()]
+    handles = C.scheme_handles(only=C.active_schemes(skip))
+    if not C.is_skipped("ppu-weis", skip):
+        handles.append(Line2D([0], [0], color=PPU_WEIS_C, lw=1.8, label=PPU_WEIS_LABEL))
+    if not C.is_skipped("hu-porepy", skip):
+        handles.append(Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL))
+    handles += [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
+                Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
+                C.ref_legend_handle()]
     fig.tight_layout()
     ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)
     ps.savefig(fig, stem, C.OUT_DIR)
 
 
-def main():
-    plot(compute())
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description="Weis (2014) Fig 5 (two-phase pure water).")
+    ap.add_argument("--skip-solver", default="", dest="skip",
+                    help="comma-separated solvers to skip: ppu, hu, hu-mwp, hu-porepy, ppu-weis")
+    args = ap.parse_args(argv)
+    skip = C.parse_skip(args.skip)
+    plot(compute(skip=skip), skip=skip)
 
 
 if __name__ == "__main__":

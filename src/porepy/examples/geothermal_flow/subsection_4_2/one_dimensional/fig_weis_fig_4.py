@@ -78,19 +78,19 @@ def _load_porepy(lvl, orient, level=None):
     return {"y": d["x"], "T": d["T"], "p": d["p"] * 1.0e6}  # x->y[m], p MPa->Pa (SI, ps.to_plot_units)
 
 
-def compute(N=N, level=None, parallel=True):
+def compute(N=N, level=None, parallel=True, skip=frozenset()):
     level = m.TABLE_LEVEL if level is None else level
     m.prebuild_table_caches(level)
     tasks = []
     for lvl in LEVELS:
         for orient in ORIENTS:
             bc = {**FIG4_BC[lvl], "tf_yr": FIG4_TF[(lvl, orient)]}
-            for sk in ps.SCHEMES:
+            for sk in C.active_schemes(skip):               # drop --skip-solver weis schemes
                 tasks.append(((sk, lvl, orient), f"fig4_{lvl}", sk, orient, bc, N, level, False, False))
     return C.run_tasks("fig4", tasks, parallel=parallel)
 
 
-def plot(out, stem="fig_weis_fig_4"):
+def plot(out, stem="fig_weis_fig_4", skip=frozenset()):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
@@ -106,7 +106,7 @@ def plot(out, stem="fig_weis_fig_4"):
             C.draw_tp(ax_tp, ax_p, res,
                       ref_T=C.ref_csv(f"fig_4_{lvl}_{orient}_temperature_raw.csv"),
                       ref_p=C.ref_csv(f"fig_4_{lvl}_{orient}_pressure_raw.csv"))
-            pp_res = _load_porepy(lvl, orient)              # PorePy single-phase overlay (if available)
+            pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(lvl, orient)  # PorePy overlay
             if pp_res is not None:
                 step = max(1, len(pp_res["y"]) // 24)       # ~24 markers across the 2 km column
                 mk = dict(color=POREPY_C, marker="x", ms=4.2, ls="none", mew=0.9, zorder=6)
@@ -131,18 +131,25 @@ def plot(out, stem="fig_weis_fig_4"):
     for ax in axes[-1, :]:
         ax.set_xlabel(ps.DIST_LABEL)
 
-    handles = C.scheme_handles() + [
-        Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL),
-        Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-        Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
-        C.ref_legend_handle()]
+    handles = C.scheme_handles(only=C.active_schemes(skip))
+    if not C.is_skipped("hu-porepy", skip):
+        handles.append(Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL))
+    handles += [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
+                Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
+                C.ref_legend_handle()]
     fig.tight_layout()
     ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)
     ps.savefig(fig, stem, C.OUT_DIR)
 
 
-def main():
-    plot(compute())
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description="Weis (2014) Fig 4 (single-phase heating).")
+    ap.add_argument("--skip-solver", default="", dest="skip",
+                    help="comma-separated solvers to skip: ppu, hu, hu-mwp, hu-porepy")
+    args = ap.parse_args(argv)
+    skip = C.parse_skip(args.skip)
+    plot(compute(skip=skip), skip=skip)
 
 
 if __name__ == "__main__":

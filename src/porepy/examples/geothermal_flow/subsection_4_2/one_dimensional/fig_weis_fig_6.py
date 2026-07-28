@@ -68,22 +68,23 @@ def _load_porepy(column, level=None):
     return d
 
 
-def compute(N=N, level=None, salt_z=SALT_Z, parallel=True, amr=False, one_table=False):
+def compute(N=N, level=None, salt_z=SALT_Z, parallel=True, amr=False, one_table=False, skip=frozenset()):
     """PPU/HU/HU-mwp for the pure-water (z=0) and salt (z>0) columns at the Fig-6 BCs. The salt column
     is resilient: on divergence it is returned as ``None`` and drawn as a placeholder. ``amr=True``
     swaps the hex-AMR OBL tables in for the salt column. ``one_table=True`` samples the SAME graded brine
     tables for the pure-water column too (instead of the fine purewater z=0 tables) -- the single-OBL
     test: if both columns reproduce the reference from one table, that table suffices for every case."""
     level = m.TABLE_LEVEL if level is None else level
+    schemes = C.active_schemes(skip)                            # drop --skip-solver weis schemes
     # pure-water column: by default the fine z=0 purewater tables (the coarse brine h-grid otherwise
     # leaves spurious wiggles in the two-phase liquid saturation); --one-table samples the graded brine
     # tables here too, so BOTH columns share a single OBL (z=0 slice for pw, z=salt_z for salt).
     pw = C.sweep("fig6_pw", ["horizontal"], {**m.FIG6, "z_init": 0.0, "tf_yr": TF}, N, level,
-                 parallel=parallel, pure_water=not one_table)
+                 parallel=parallel, pure_water=not one_table, schemes=schemes)
     amr_table, amr_xpt = SALT_OBL_AMR if amr else (None, None)   # --amr: hex-AMR OBL for the salt col
     try:
         salt = C.sweep("fig6_salt", ["horizontal"], {**m.FIG6, "z_init": salt_z, "tf_yr": TF},
-                       N, level, parallel=parallel, amr_table=amr_table, amr_xpt=amr_xpt)
+                       N, level, parallel=parallel, amr_table=amr_table, amr_xpt=amr_xpt, schemes=schemes)
     except Exception as exc:
         print(f"[fig6] salt column failed ({type(exc).__name__}: {exc}) -> placeholder", flush=True)
         salt = None
@@ -94,7 +95,7 @@ def compute(N=N, level=None, salt_z=SALT_Z, parallel=True, amr=False, one_table=
     return {"pw": _byscheme(pw), "salt": _byscheme(salt)}
 
 
-def plot(out, stem="fig_weis_fig_6"):
+def plot(out, stem="fig_weis_fig_6", skip=frozenset()):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
@@ -131,7 +132,7 @@ def plot(out, stem="fig_weis_fig_6"):
                 ax.text(0.5, 0.93, "solver pending", transform=ax.transAxes, ha="center",
                         va="top", fontsize=9, color="0.55", style="italic")
         else:
-            pp_res = _load_porepy(col)                       # PorePy HU overlay (load first, for legend)
+            pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(col)  # PorePy HU overlay
             extra = [(POREPY_C, pp_res["total_it"])] if pp_res is not None else None
             C.iteration_legend(ax_s, res, loc="center left", extra=extra)  # empty vapor column, clear
             if pp_res is not None:
@@ -158,11 +159,12 @@ def plot(out, stem="fig_weis_fig_6"):
                 ax_h.set_ylabel(r"Halite saturation $[-]$")
         ax_s.set_xlabel(ps.DIST_LABEL)
 
-    handles = C.scheme_handles() + [
-        Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL),
-        Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-        Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
-        Line2D([0], [0], color="black", ls=(0, (1, 1)), label=r"halite sat.")]
+    handles = C.scheme_handles(only=C.active_schemes(skip))
+    if not C.is_skipped("hu-porepy", skip):
+        handles.append(Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL))
+    handles += [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
+                Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
+                Line2D([0], [0], color="black", ls=(0, (1, 1)), label=r"halite sat.")]
     fig.tight_layout()
     ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)
     ps.savefig(fig, stem, C.OUT_DIR)
@@ -182,14 +184,18 @@ def main(argv=None):
     ap.add_argument("--halite-perm", choices=["A", "B"], default=m.HALITE_PERM_OPTION, dest="halite_perm",
                     help="halite->flow convention: A = p.349 rel-perm (k_rl+k_rv=1-S_h); "
                          "B = Eq 28 abs-perm (k=k0(1-S_h)^2). Weis Fig 6 used B (default %(default)s).")
+    ap.add_argument("--skip-solver", default="", dest="skip",
+                    help="comma-separated solvers to skip (avoid expensive sweeps): ppu, hu, hu-mwp, hu-porepy")
     args = ap.parse_args(argv)
     os.environ["WEIS_HALITE_PERM"] = args.halite_perm   # spawned parallel-sweep workers read this at import
     m.HALITE_PERM_OPTION = args.halite_perm             # this process + the non-parallel path
     if args.no_porepy:
         global AUTORUN_POREPY
         AUTORUN_POREPY = False        # no auto-run; with no graded overlay cache -> weis + reference only
+    skip = C.parse_skip(args.skip)
     stem = "fig_weis_fig_6_one_table" if args.one_table else "fig_weis_fig_6"
-    plot(compute(N=args.N, salt_z=args.salt_z, amr=args.amr, one_table=args.one_table), stem=stem)
+    plot(compute(N=args.N, salt_z=args.salt_z, amr=args.amr, one_table=args.one_table, skip=skip),
+         stem=stem, skip=skip)
 
 
 if __name__ == "__main__":
