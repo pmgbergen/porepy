@@ -10,6 +10,7 @@ from . import (
     linear_solvers,
     nonlinear_solver_status,
     nonlinear_solvers,
+    sequential_nonlinear_solver,
 )
 from .anderson_acceleration import *
 from .convergence_check import *
@@ -19,6 +20,7 @@ from .linear_solvers import *
 from .linear_solvers.linear_solver import LinearSolverStatus, LinearSystem
 from .nonlinear_solver_status import *
 from .nonlinear_solvers import *
+from .sequential_nonlinear_solver import *
 
 __all__.extend(anderson_acceleration.__all__)
 __all__.extend(convergence_check.__all__)
@@ -27,3 +29,4 @@ __all__.extend(nonlinear_solver_status.__all__)
 __all__.extend(nonlinear_solvers.__all__)
 __all__.extend(linear_solvers.__all__)
 __all__.extend(equation_variable_tags.__all__)
+__all__.extend(sequential_nonlinear_solver.__all__)

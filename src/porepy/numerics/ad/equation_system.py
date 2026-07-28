@@ -47,7 +47,9 @@ This type is accepted as input to various methods and parsed to a list of
 
 """
 
-EquationList: TypeAlias = "Union[list[str], list[Operator]]"
+EquationList: TypeAlias = (
+    "Union[list[str], list[Operator], list[pp.ad.EquationOnDomain]]"
+)
 """A union type representing equations through either names (:class:`str`), or
 :class:`~porepy.numerics.ad.operators.Operator`.
 
@@ -1261,6 +1263,12 @@ class EquationSystem:
         if isinstance(equations, list):
             # Equation names are restricted, domains are not restricted (None).
             for eq in equations:
+                if isinstance(eq, pp.ad.EquationOnDomain):
+                    # This assumes that eq.domains are already sorted.
+                    self._validate_equation_name(eq.name)
+                    equations_on_domains.append(eq)
+                    continue
+
                 eq = self._validate_equation_name(eq)
                 for domain in eq.domains:
                     # This assumes that eq.domains are already sorted.

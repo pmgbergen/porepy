@@ -85,7 +85,11 @@ class MockModel(PorePyModel):
     def before_nonlinear_iteration(self):
         self.sequence_of_calls.append("before_nonlinear_iteration")
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray):
+    def after_nonlinear_iteration(
+        self,
+        nonlinear_increment: np.ndarray,
+        updated_variables: Optional[list[pp.ad.Variable]] = None,
+    ):
         self.sequence_of_calls.append("after_nonlinear_iteration")
 
     def after_nonlinear_convergence(self):
@@ -138,13 +142,13 @@ class MockNonlinearSolver(pp.solvers.NonlinearSolverBase):
 
         self._iter += 1
         if self._iter < self.num_iters_for_success:
-            return pp.solvers.NonlinearSolverStatusFailed(
+            return pp.solvers.NewtonSolverFailed(
                 linear_solver_statuses=[pp.solvers.LinearSolverStatusSuccess(0)]
                 * (self._iter),
                 convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
                 divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
             )
-        return pp.solvers.NonlinearSolverStatusConverged(
+        return pp.solvers.NewtonSolverConverged(
             linear_solver_statuses=[pp.solvers.LinearSolverStatusSuccess(0)]
             * (self._iter),
             convergence_statuses=pp.solvers.ConvergenceStatusCollection(),

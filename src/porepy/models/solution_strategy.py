@@ -328,6 +328,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         self.ad_time_step.set_value(self.time_manager.dt)
+        self.initialize_nonlinear_solution()
         self.update_time_dependent_ad_arrays()
         self.update_derived_quantities()
 
@@ -344,7 +345,6 @@ class SolutionStrategy(pp.PorePyModel):
         1. Call :meth:`initialize_nonlinear_solution`.
 
         """
-        self.initialize_nonlinear_solution()
         self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self) -> None:
