@@ -303,10 +303,11 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
         # thermal-overshoot postprocessing destabilises the strongly halite-forming salt column;
         # disable it (the physical-bound clip stays on). No effect where s_h = 0 (pw column).
         "enable_thermal_overshoot_postprocessing": False,
-        # Salt column: slave the eliminated temperature to the exact OBL value each iteration
-        # (Weis-faithful explicit T). Removes the lagged-flash limit cycle at the halite phase
-        # front that otherwise collapses dt to dt_min. Off for pw (s_h = 0, smooth T_obl).
-        "slave_eliminated_temperature": (column == "salt"),
+        # Salt column: slave ALL eliminated secondaries (T, saturations, NaCl fractions) to their
+        # exact OBL values each iteration (Weis-faithful explicit flash). Removes the lagged-flash
+        # limit cycles at the halite phase fronts that otherwise collapse dt to dt_min. Off for the
+        # pw column (s_h = 0, smooth OBL -> no benefit).
+        "slave_eliminated_secondaries": (column == "salt"),
         # bound the per-iteration gas-saturation step to damp the vapor phase-appearance oscillation
         # at the inlet (s_gas flip-flopping 0.2<->1.0) that otherwise stalls the salt column.
         "max_gas_saturation_step": 0.2,

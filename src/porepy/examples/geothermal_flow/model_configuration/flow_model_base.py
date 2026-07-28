@@ -303,40 +303,57 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         self._clip_fraction_variables()
         self._install_full_iterate_cache()
         super().update_derived_quantities()
-        # Weis-faithful semi-explicit temperature: after the surrogate flash, slave the T iterate to
-        # the exact table value (default off).
-        if self.params.get("slave_eliminated_temperature", False):
-            self._slave_eliminated_temperature()
+        # Weis-faithful explicit flash: after the surrogate flash, slave every eliminated secondary
+        # (T, saturations, partial fractions) to its exact table value (default off).
+        if self.params.get("slave_eliminated_secondaries", False):
+            self._slave_eliminated_secondaries()
 
-    def _slave_eliminated_temperature(self) -> None:
-        """Overwrite the temperature ITERATE with the exact OBL value T_obl(p, h, z) on every cell.
+    # Locally-eliminated secondary variable -> its OBL flash function (Driesner brine model). Slaving
+    # ALL of them each iteration is the full Weis-style explicit flash (T alone is insufficient: the
+    # saturations / NaCl partial fractions limit-cycle at later phase fronts just as T does at early
+    # ones). Unknown names are skipped, so this is a no-op for models lacking these funcs/variables.
+    _ELIMINATED_SECONDARY_FUNCS = {
+        "temperature": "temperature_func",
+        "s_gas": "gas_saturation_func",
+        "s_halite": "halite_saturation_func",
+        "x_NaCl_liq": "NaCl_liq_func",
+        "x_NaCl_gas": "NaCl_gas_func",
+        "x_NaCl_halite": "NaCl_halite_func",
+    }
 
-        Temperature is a locally-eliminated variable closed by ``T - T_obl(p,h,z) = 0``, but per
-        Newton iteration the T DOF is moved only by the LINEARIZED back-substituted increment
-        ``T := T_obl(prim_old) + grad(T_obl)*d(prim)`` -- a first-order extrapolation of the table.
-        Where the primaries carry a cell across a table-cell / halite phase-front kink of the C0
-        multilinear OBL, ``grad(T_obl)`` is the slope of the wrong segment, so the lagged T
-        overshoots, the elimination residual flips sign, and Newton limit-cycles (the salt-column
-        stall). Re-evaluating T on the table each iteration -- exactly what the Weis reference does
-        with its explicit ``T = T_obl(p,h,z)`` -- removes the lagged residual, so the differential
-        system converges instead of oscillating.
+    def _slave_eliminated_secondaries(self) -> None:
+        """Overwrite each locally-eliminated secondary ITERATE with its exact OBL value f(p,h,z).
 
-        This keeps T a genuine variable and the ``T - T_obl`` equation intact: the A_ss = I Schur
-        fast-path and the Fourier flux's discrete grad(T) (which acts on the T column) are untouched,
-        and the converged fixed point (R_T = 0) is unchanged -- only the Newton PATH is slaved.
-        Gated by ``params['slave_eliminated_temperature']`` (on for the halite/salt column)."""
+        Every secondary (T, s_gas, s_halite, x_NaCl_liq/gas/halite) is closed by an elimination
+        equation ``var - f_obl(p,h,z) = 0``, but per Newton iteration its DOF is moved only by the
+        LINEARIZED back-substituted increment -- a first-order extrapolation of the C0 multilinear
+        OBL table. Where the primaries carry a cell across a table-cell / halite phase-front kink,
+        that lagged value overshoots, the elimination residual flips sign, and Newton limit-cycles
+        (the salt-column stall: temperature drives it at the early halite front, the saturations /
+        NaCl fractions at later fronts). Re-evaluating every secondary on the table each iteration --
+        exactly the Weis reference's explicit flash T,s,x = f(p,h,z) -- removes every lagged residual,
+        so the differential system converges instead of oscillating.
+
+        The elimination equations/Jacobians are untouched (A_ss = I Schur fast-path and the Fourier
+        grad(T) column intact); only the iterate VALUES are slaved, so the converged fixed point (all
+        elimination residuals 0) is unchanged -- only the Newton PATH. The func values are already
+        physical-bound-clipped (BrineConstitutiveDescription). Gated by
+        ``params['slave_eliminated_secondaries']`` (on for the halite/salt column)."""
         es = self.equation_system
         present = {v.name for v in es.variables}
-        if self.temperature_variable not in present or "z_NaCl" not in present:
+        if "z_NaCl" not in present:
             return
-        # temperature_func expects (p, h, z); get_variable_values returns each cell variable in the
-        # same subdomain/cell order, so the per-cell (p,h,z) -> T mapping is consistent.
+        # every eliminated secondary is a cell variable in the same subdomain/cell order as the
+        # primaries, so the per-cell (p,h,z) -> f mapping is consistent.
         p = es.get_variable_values([self.pressure_variable], iterate_index=0)
         h = es.get_variable_values([self.enthalpy_variable], iterate_index=0)
         z = es.get_variable_values(["z_NaCl"], iterate_index=0)
-        T_val, _ = self.temperature_func(p, h, z)                 # exact T_obl(p, h, z), same sampler
-        es.set_variable_values(np.asarray(T_val, dtype=float),
-                               [self.temperature_variable], iterate_index=0)
+        for vname, fname in self._ELIMINATED_SECONDARY_FUNCS.items():
+            func = getattr(self, fname, None)
+            if vname not in present or func is None:
+                continue
+            val, _ = func(p, h, z)                                # exact f_obl(p, h, z), same sampler
+            es.set_variable_values(np.asarray(val, dtype=float), [vname], iterate_index=0)
 
     _FRACTION_VARIABLE_NAMES = (
         "s_gas", "s_halite", "x_NaCl_liq", "x_NaCl_gas", "x_NaCl_halite",
