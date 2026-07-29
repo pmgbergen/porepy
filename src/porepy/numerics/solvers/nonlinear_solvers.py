@@ -126,14 +126,14 @@ class NewtonSolver(NonlinearSolverBase):
             iteration is performed, and expensive convergence checks are skipped. If
             custom convergence or divergence criteria are provided, this parameter is
             ignored.
+        linear_solver: The linear solver object. If None (default), initializes a direct
+            linear solver.
         equation_tags: List of tags that describes equations and domains this solver
             operates on. If None (default), it operates on all the equations in the
             model.
         variable_tags: List of tags that describes variables and domains this solver
             operates on. If None (default), it operates on all the variables in the
             model.
-        linear_solver: The linear solver object. If None (default), initializes a direct
-            linear solver.
 
     If custom convergence or divergence criteria are provided, individual tolerance
     parameters should not be provided to avoid double specification. If no custom
@@ -146,9 +146,9 @@ class NewtonSolver(NonlinearSolverBase):
         self,
         params: Optional[dict] = None,
         is_nonlinear_problem: bool = True,
+        linear_solver: Optional[LinearSolverBase] = None,
         equation_tags: Optional[list[EquationTag]] = None,
         variable_tags: Optional[list[VariableTag]] = None,
-        linear_solver: Optional[LinearSolverBase] = None,
     ) -> None:
         if params is None:
             params = {}

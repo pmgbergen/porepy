@@ -11,6 +11,9 @@ mock_logger = logging.getLogger(__name__)
 
 
 class MockEquationSystem:
+    equation_indexer = pp.ad.EquationIndexer(operators_to_dofs={})
+    variable_indexer = pp.ad.VariableIndexer(operators_to_dofs={})
+
     def assemble(self, evaluate_jacobian: bool = True, **kwargs):
         if not evaluate_jacobian:
             # Artificially satisfy residual norm convergence criterion.
