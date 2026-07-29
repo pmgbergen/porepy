@@ -290,7 +290,7 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
     dt_min_div = float(os.environ.get("FIG6_DT_MIN_DIV", "64"))   # deepen the dt floor for hard fronts
     time_manager = pp.TimeManager(
         schedule=[0.0, tf], dt_init=DT, constant_dt=False,
-        dt_min_max=(DT / dt_min_div, DT_MAX), iter_max=20, iter_optimal_range=(3, 10),
+        dt_min_max=(DT / dt_min_div, DT), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
@@ -324,8 +324,13 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
     model = GeothermalWaterFlowModel(params)
     _attach_samplers(model, xph_name=xph_name, xpt_name=xpt_name)
     solver_params = {
+        # Fig-6 needs its known-good bar: the salt halite/boiling front makes the enthalpy Newton
+        # step stiff, and at tol 1e-4 (or the relative metric) the slaved-but-less-converged state
+        # drifts into an energy limit cycle (increment ~1e3, |r| oscillates ~0.1-2.8). Absolute
+        # Lebesgue at 1e-5 keeps each state accurate enough that the front stays well conditioned --
+        # the config that completes the 2000 yr run. (run_case / 2D / 3D keep the relative 1e-4 bar.)
         "nl_convergence_criteria": {"res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model))},
+            tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model))},
         "nl_divergence_criteria": {"max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20)},
     }
     print(f"\n=== PorePy fig6 {column} (tf={tf_years:.0f} yr, tables={xph_name}) ===", flush=True)
