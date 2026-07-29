@@ -140,6 +140,7 @@ def test_solve_reduces_system_and_wraps_primary_status(
         primary_equation_tags=[linear_system_data.primary_equation_tag],
         primary_variable_tags=[linear_system_data.primary_variable_tag],
         primary_linear_solver=primary_solver,
+        model="mock model",
     )
 
     solution, status = solver.solve_linear_system(linear_system_data.linear_system)
@@ -205,6 +206,7 @@ def test_solve_delegates_when_secondary_block_is_empty(
         primary_equation_tags=equation_tags,
         primary_variable_tags=variable_tags,
         primary_linear_solver=primary_solver,
+        model="mock model",
     )
 
     solution, status = solver.solve_linear_system(linear_system_data.linear_system)
@@ -340,7 +342,9 @@ def test_schur_complement_reduction_on_model(
     assert status.is_success()
 
     schur_solver = pp.solvers.SchurComplementReductionLinearSolver(
-        primary_equation_tags=primary_eq_tags, primary_variable_tags=primary_var_tags
+        primary_equation_tags=primary_eq_tags,
+        primary_variable_tags=primary_var_tags,
+        model=model,
     )
     actual_sol, status = schur_solver.solve_linear_system(linear_system)
     assert status.is_success()
