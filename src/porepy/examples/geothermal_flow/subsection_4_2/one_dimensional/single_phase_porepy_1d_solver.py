@@ -59,7 +59,7 @@ TO_MEGA = 1.0e-6
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(HERE, "_cache")
 
-# Constitutive approach shared by every subsection_4_2 solver: Driesner opensowat OBL tables sampled
+# Constitutive approach shared by every subsection_4_2 solver: the graded Driesner OBL tables sampled
 # with the unified VTKSampler tensor backend (multilinear value + analytic gradient of that same
 # interpolant -> consistent Jacobian; identical to the weis_1d_solver construction).
 TABLE_LEVEL = "graded"                    # default OBL: C0 graded brine tables; also the cache tag (_lgraded)

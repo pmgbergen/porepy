@@ -41,33 +41,28 @@ LEVEL_LABEL = {"hp": "high", "mp": "moderate", "lp": "low"}
 ORIENTS = ("horizontal", "vertical")
 
 # PorePy single-phase overlay (mirrors fig_weis_fig_5): the converged profile from
-# single_phase_porepy_1d_solver, cached as _cache/figure4_porepy_case_{hP,mP,lP}_{orient}_l<level>.pkl -- the
-# SAME opensowat level-3 OBL as Fig 5. Drawn as black x markers over the weis-HU T/p curves.
+# single_phase_porepy_1d_solver, cached as _cache/figure4_porepy_case_{hP,mP,lP}_{orient}_lgraded.pkl --
+# the SAME graded OBL as Fig 5. Drawn as black x markers over the weis-HU T/p curves.
 POREPY_C = "black"
 POREPY_LABEL = r"HU-PorePy"
 AUTORUN_POREPY = True                          # generate a missing overlay pickle by running PorePy
 _PP_CASE = {"hp": "case_hP", "mp": "case_mP", "lp": "case_lP"}   # Fig-4 level -> single-phase case name
 
 
-def _load_porepy(lvl, orient, level=None):
+def _load_porepy(lvl, orient):
     """single_phase_porepy_1d_solver pickle (x[m], T[K], p[MPa]) for Fig-4 panel (lvl, orient),
     normalised to the SI plot convention (y[m], p -> Pa) that ``ps.to_plot_units`` consumes. If the
     pickle is missing and ``AUTORUN_POREPY``, run the PorePy single-phase solver to make it (lazy
     import, so a warm-cache re-plot never imports porepy). Returns the dict, or None if unavailable."""
     import pickle
-    level = m.TABLE_LEVEL if level is None else level
     case_name = _PP_CASE[lvl]
-    path = os.path.join(C.CACHE_DIR, f"figure4_porepy_{case_name}_{orient}_l{level}.pkl")
+    path = os.path.join(C.CACHE_DIR, f"figure4_porepy_{case_name}_{orient}_l{m.TABLE_LEVEL}.pkl")
     if not os.path.exists(path) and AUTORUN_POREPY:
         try:
             import single_phase_porepy_1d_solver as sp1d    # lazy: imports porepy only on a cold cache
-            if level == sp1d.TABLE_LEVEL:
-                print(f"[fig4] porepy overlay cache missing for {case_name}/{orient} -- running "
-                      f"single_phase_porepy_1d_solver.run_case (heavy: PorePy solve) ...", flush=True)
-                sp1d.run_case(case_name, orient)            # writes the same pickle path
-            else:
-                print(f"[fig4] porepy overlay skipped for {case_name}/{orient}: fig level {level} "
-                      f"!= single_phase solver level {sp1d.TABLE_LEVEL}", flush=True)
+            print(f"[fig4] porepy overlay cache missing for {case_name}/{orient} -- running "
+                  f"single_phase_porepy_1d_solver.run_case (heavy: PorePy solve) ...", flush=True)
+            sp1d.run_case(case_name, orient)                # writes the same pickle path
         except Exception as exc:                            # never let an overlay break the figure
             print(f"[fig4] porepy overlay auto-run failed for {case_name}/{orient}: {exc}", flush=True)
     if not os.path.exists(path):
@@ -78,15 +73,14 @@ def _load_porepy(lvl, orient, level=None):
     return {"y": d["x"], "T": d["T"], "p": d["p"] * 1.0e6}  # x->y[m], p MPa->Pa (SI, ps.to_plot_units)
 
 
-def compute(N=N, level=None, parallel=True, skip=frozenset()):
-    level = m.TABLE_LEVEL if level is None else level
-    m.prebuild_table_caches(level)
+def compute(N=N, parallel=True, skip=frozenset()):
+    m.prebuild_table_caches()
     tasks = []
     for lvl in LEVELS:
         for orient in ORIENTS:
             bc = {**FIG4_BC[lvl], "tf_yr": FIG4_TF[(lvl, orient)]}
             for sk in C.active_schemes(skip):               # drop --skip-solver weis schemes
-                tasks.append(((sk, lvl, orient), f"fig4_{lvl}", sk, orient, bc, N, level, False, False))
+                tasks.append(((sk, lvl, orient), f"fig4_{lvl}", sk, orient, bc, N, False, False))
     return C.run_tasks("fig4", tasks, parallel=parallel)
 
 

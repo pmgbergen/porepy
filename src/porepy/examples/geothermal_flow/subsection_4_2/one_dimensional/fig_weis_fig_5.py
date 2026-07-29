@@ -39,24 +39,23 @@ POREPY_LABEL = r"HU-PorePy"
 AUTORUN_POREPY = True
 
 
-def _load_porepy(case, scheme="hu", N=N, level=None):
+def _load_porepy(case, scheme="hu", N=N):
     """porepy_1d_solver profile pickle (y[m], T[K], p[MPa], s_liq) for ``case``/``scheme``, normalised
     to the SI plot convention (p -> Pa) that ``ps.to_plot_units`` consumes. If the pickle is missing
     and ``AUTORUN_POREPY``, run ``porepy_1d_solver.run_case`` to make it (lazy import, so a warm-cache
     re-plot never imports porepy). Returns the dict, or None if unavailable."""
     import pickle
-    level = m.TABLE_LEVEL if level is None else level
-    path = os.path.join(C.CACHE_DIR, f"figure5_porepy_{case}_{scheme}_N{N}_l{level}.pkl")
+    path = os.path.join(C.CACHE_DIR, f"figure5_porepy_{case}_{scheme}_N{N}_l{m.TABLE_LEVEL}.pkl")
     if not os.path.exists(path) and AUTORUN_POREPY:
         try:
             import porepy_1d_solver as pp1d                 # lazy: only imports porepy on a cold cache
-            if (N, level) == (pp1d.N_CELLS, pp1d.TABLE_LEVEL):
+            if N == pp1d.N_CELLS:
                 print(f"[fig5] porepy overlay cache missing for {case}/{scheme} -- running "
                       f"porepy_1d_solver.run_case (heavy: PorePy solve) ...", flush=True)
                 pp1d.run_case(case, weighted_perm=(scheme == "hu_mwp"))   # writes the same pickle path
             else:
-                print(f"[fig5] porepy overlay skipped for {case}/{scheme}: fig (N={N}, l{level}) "
-                      f"!= porepy_1d_solver (N={pp1d.N_CELLS}, l{pp1d.TABLE_LEVEL})", flush=True)
+                print(f"[fig5] porepy overlay skipped for {case}/{scheme}: fig N={N} "
+                      f"!= porepy_1d_solver N={pp1d.N_CELLS}", flush=True)
         except Exception as exc:                            # never let an overlay break the figure
             print(f"[fig5] porepy overlay auto-run failed for {case}/{scheme}: {exc}", flush=True)
     if not os.path.exists(path):
@@ -68,13 +67,12 @@ def _load_porepy(case, scheme="hu", N=N, level=None):
     return d
 
 
-def compute(N=N, level=None, parallel=True, skip=frozenset()):
-    level = m.TABLE_LEVEL if level is None else level
-    out = C.sweep(TAG, list(CASES), m.FIG5, N, level, parallel=parallel,     # PPU / HU / HU-mwp (minus skipped)
+def compute(N=N, parallel=True, skip=frozenset()):
+    out = C.sweep(TAG, list(CASES), m.FIG5, N, parallel=parallel,            # PPU / HU / HU-mwp (minus skipped)
                   schemes=C.active_schemes(skip))
     if not C.is_skipped("ppu-weis", skip):
         weis_N = min(PPU_WEIS_N, N)                      # exactly 200 for the figure; scaled in --quick
-        weis_tasks = [(("ppu_weis", case), "fig5weis", "ppu", case, m.FIG5, weis_N, level, True, True)
+        weis_tasks = [(("ppu_weis", case), "fig5weis", "ppu", case, m.FIG5, weis_N, True, True)
                       for case in CASES]                                      # grav_upstream, lag_upwind
         out.update(C.run_tasks("fig5-weis", weis_tasks, parallel=parallel))
     return out

@@ -26,9 +26,9 @@ Buoyancy schemes (``scheme``):
   Weis Eq.25 fully-upstream gravity density; ``lag_upwind`` freezes the advective weights per step.
 
 **Strict SI** (Pa, J/kg, m, s, kg, K): g=9.80665, K=1e-15 m^2, K_e=2.0 W/mK, c_s=880 J/kgK, rho_s=2700,
-phi=0.1. The constitutive closure is sampled from the Driesner ``opensowat_x{ph,pt}_l_{L}.vtr``
-tables (axes z_NaCl, h[MJ/kg] / T[degC], p[MPa]) at refinement level L in 0..5 via O(1) trilinear
-interpolation; SI<->table unit conversion is handled inside the sampler.
+phi=0.1. The constitutive closure is sampled from the graded Driesner ``brine_graded_x{ph,pt}.vtr``
+tables (axes z_NaCl, h[MJ/kg] / T[degC], p[MPa]) via O(1) trilinear interpolation; SI<->table unit
+conversion is handled inside the sampler.
 """
 from __future__ import annotations
 
@@ -51,29 +51,18 @@ VTK_DIR = os.path.join(_PARENT, "model_configuration", "constitutive_description
                        "driesner_vtk_files")
 REF_DIR = os.path.join(_PARENT, "benchmark_figures_data")
 
-TABLE_LEVEL = "graded"   # default OBL: the C0 graded brine tables. Doubles as the cache tag (_lgraded,
-#                          so graded runs never collide with the legacy _l3 opensowat caches). Pass an
-#                          int level (0..4) anywhere ``level`` is accepted to select legacy opensowat.
+TABLE_LEVEL = "graded"   # cache tag for the single graded OBL (keeps its .sicache/.npz from colliding)
+
+# The ONLY OBL for all figures (4-6): the C0 ``brine_graded`` tables -- rectilinear with non-uniform
+# h/p axes refined near the phase boundaries, so the trilinear gradient stays consistent with the
+# value. xph axes (z, h[MJ/kg], p[MPa]); xpt axes (z, T[degC], p[MPa]).
+BRINE_XPH = os.path.join(VTK_DIR, "brine_graded_xph.vtr")
+BRINE_XPT = os.path.join(VTK_DIR, "brine_graded_xpt.vtr")
 
 
-def table_paths(level=TABLE_LEVEL):
-    """Absolute paths of the xph (z, h[MJ/kg], p[MPa]) and xpt (z, T[degC], p[MPa]) Driesner ``.vtr``
-    tables. Default: the C0 ``brine_graded`` tables (rectilinear but non-uniform h/p axes, refined near
-    the phase boundaries -- consistent gradient, unlike the hex-AMR tables). Pass an int ``level``
-    (0..4) to select a legacy uniform opensowat refinement level instead."""
-    if isinstance(level, int):
-        return (os.path.join(VTK_DIR, f"opensowat_xph_l_{level}.vtr"),
-                os.path.join(VTK_DIR, f"opensowat_xpt_l_{level}.vtr"))
-    return (os.path.join(VTK_DIR, "brine_graded_xph.vtr"),
-            os.path.join(VTK_DIR, "brine_graded_xpt.vtr"))
-
-
-# High-resolution PURE-WATER (z=0) Driesner tables: same field schema, units, and (h, p) ranges as the
-# opensowat brine tables, but ~6x finer in enthalpy (1000 vs 160 h-nodes). Used for the Fig-6 pure-water
-# column, where the coarse brine h-grid produces spurious wiggles in the two-phase liquid saturation.
-# Not level-indexed; the composition axis is a 2-node [0, 1e-5] stub, i.e. the z=0 slice.
-PUREWATER_XPH = os.path.join(VTK_DIR, "purewater_xph.vtr")
-PUREWATER_XPT = os.path.join(VTK_DIR, "purewater_xpt.vtr")
+def table_paths():
+    """Absolute (xph, xpt) paths of the graded Driesner tables -- the only OBL used by every figure."""
+    return (BRINE_XPH, BRINE_XPT)
 
 G = 9.80665           # gravity [m/s^2]
 K_PERM = 1.0e-15      # permeability [m^2]
@@ -136,16 +125,13 @@ def _make_vtksampler(path):
     return VTKSampler(path)
 
 
-def _xph_fmap(amr):
-    """weis property key -> (VTKSampler field name, SI value scale). The adapted ``.vtu`` stores
-    enthalpy in MJ/kg and names temperature ``T``; the rectilinear ``.vtr`` stores kJ/kg and
-    ``Temperature``."""
-    hs = 1e6 if amr else 1e3
-    tname = "T" if amr else "Temperature"
+def _xph_fmap():
+    """weis property key -> (VTKSampler field name, SI value scale) for the rectilinear ``.vtr`` OBL
+    (enthalpy stored in kJ/kg, temperature field ``Temperature``)."""
     return {"Rho_l": ("Rho_l", 1.0), "Rho_v": ("Rho_v", 1.0), "Rho_h": ("Rho_h", 1.0),
-            "H_l": ("H_l", hs), "H_v": ("H_v", hs), "H_h": ("H_h", hs),
+            "H_l": ("H_l", 1e3), "H_v": ("H_v", 1e3), "H_h": ("H_h", 1e3),
             "S_v": ("S_v", 1.0), "S_h": ("S_h", 1.0), "Xl": ("Xl", 1.0), "Xv": ("Xv", 1.0),
-            "mu_l": ("mu_l", 1.0), "mu_v": ("mu_v", 1.0), "Temperature": (tname, 1.0)}
+            "mu_l": ("mu_l", 1.0), "mu_v": ("mu_v", 1.0), "Temperature": ("Temperature", 1.0)}
 
 
 class XphSampler:
@@ -154,10 +140,10 @@ class XphSampler:
     returns ``{weis key: (N,3)}`` whose columns are the sampler's analytic derivatives d/dp, d/dh, d/dz.
     The ``a/b/c_{min,max}`` attributes (h/p/z range in SI) mirror the old ``Table`` for the Newton clip."""
 
-    def __init__(self, path, fmap):
+    def __init__(self, path):
         self.s = _make_vtksampler(path)
         self.s.conversion_factors = (1.0, 1e-6, 1e-6)      # (z, h[J/kg->MJ/kg], p[Pa->MPa])
-        self.fmap = fmap
+        self.fmap = _xph_fmap()
         b = self.s.bounds                                  # (zmin,zmax, hmin,hmax, pmin,pmax) table units
         self.c_min, self.c_max = float(b[0]), float(b[1])               # z [-]
         self.a_min, self.a_max = float(b[2]) * 1e6, float(b[3]) * 1e6   # h [J/kg]
@@ -881,14 +867,12 @@ FIG5 = dict(p_left=P_BOT, T_left=T_BOT, z_left=0.0,
 
 def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adaptive=True,
               verbose=True, grav_upstream=False, weighted_perm=False, lag_upwind=False,
-              level=TABLE_LEVEL, pure_water=False, amr_table=None, amr_xpt=None, atol=1e-5, **fig):
+              atol=1e-5, **fig):
     """The single brine engine: mass + salt + energy, primaries [p, h, z], HU/PPU/HU-mwp buoyancy.
     Reproduces Fig 4/5 (pure water) at z=0 and Fig 6 (H2O-NaCl + immobile halite) at z>0 -- ONE
-    discretization. ``case`` ('horizontal'|'vertical') sets gravity + default final time via CASES;
-    ``**fig`` overrides the BC/IC (defaults = FIG6, the salt column). Pass ``**FIG5`` for pure water.
-    ``pure_water=True`` loads the high-resolution z=0 pure-water tables (finer enthalpy grid) instead of
-    the level-indexed brine tables -- for the Fig-6 pure-water column, where the coarse brine h-grid
-    produces spurious two-phase saturation wiggles; the run itself is still at z=0."""
+    discretization, sampling only the graded OBL (``table_paths()``). ``case``
+    ('horizontal'|'vertical') sets gravity + default final time via CASES; ``**fig`` overrides the
+    BC/IC (defaults = FIG6, the salt column). Pass ``**FIG5`` for pure water."""
     if case not in CASES:
         raise ValueError(f"case must be one of {list(CASES)}")
     if weighted_perm and scheme == "ppu":
@@ -896,19 +880,9 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     cfg = {**FIG6, **fig}
     g = CASES[case]["g"]
     tf_yr = fig["tf_yr"] if "tf_yr" in fig else CASES[case]["tf_yr"]
-    # xph property source: an adapted hex-AMR .vtu (amr_table), the fine pure-water z=0 tables
-    # (pure_water, 2-D slice), or the level-indexed rectilinear brine tables. The xpt table (T,p->h for
-    # the IC/BC enthalpy) stays rectilinear in every case.
-    if amr_table is not None:
-        table = XphSampler(amr_table, _xph_fmap(amr=True))
-        # AMR xpt stores H in MJ/kg (h_scale 1e6); fall back to the level-indexed opensowat xpt (kJ/kg).
-        xpt = XptSampler(amr_xpt, h_scale=1e6) if amr_xpt is not None else XptSampler(table_paths(level)[1])
-    elif pure_water:
-        table = XphSampler(PUREWATER_XPH, _xph_fmap(amr=False))
-        xpt = XptSampler(PUREWATER_XPT)
-    else:
-        table = XphSampler(table_paths(level)[0], _xph_fmap(amr=False))
-        xpt = XptSampler(table_paths(level)[1])
+    xph_path, xpt_path = table_paths()            # the single graded OBL, for every figure/column
+    table = XphSampler(xph_path)
+    xpt = XptSampler(xpt_path)
     geom = make_geom(N, g=g)
 
     def enth(TK, p, z):
@@ -930,8 +904,7 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     tf = tf_yr * YEAR if n_steps is None else n_steps * dt0
     t = 0.0; dt = dt0; step = 0; n_cuts = 0; it_wasted = 0; nit_hist = []
     if verbose:
-        print(f"  brine {scheme}{'-mwp' if weighted_perm else ''}: N={N}, "
-              f"level {'pw' if pure_water else level}, {case} "
+        print(f"  brine {scheme}{'-mwp' if weighted_perm else ''}: N={N}, {case} "
               f"(g={g:.4g});  left {cfg['T_left']-273.15:.0f}C/{cfg['p_left']/1e6:.0f}MPa "
               f"z={cfg['z_left']}  ->  right {cfg['T_right']-273.15:.0f}C/{cfg['p_right']/1e6:.0f}MPa;"
               f"  IC z={cfg['z_init']}")
@@ -956,13 +929,12 @@ def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adap
     hist = np.asarray(nit_hist, dtype=int)
     return {"y": y, "p": x[0::3], "h": x[1::3], "z": x[2::3], "T": pr.T,
             "s_liq": pr.s_l, "s_gas": pr.s_v, "s_halite": pr.s_h, "Xl": pr.Xl,
-            "rho_mix": pr.rho_mix, "N": N, "case": case, "level": level, "scheme": scheme,
+            "rho_mix": pr.rho_mix, "N": N, "case": case, "level": TABLE_LEVEL, "scheme": scheme,
             "n_steps": step, "total_it": int(hist.sum()),
             "avg_it": (hist.sum() / step) if step else 0.0,
             "max_it": int(hist.max()) if hist.size else 0, "n_time_step_cuts": n_cuts,
             "it_wasted": it_wasted, "nit_hist": hist,
-            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "lag_upwind": lag_upwind,
-            "pure_water": pure_water}
+            "grav_upstream": grav_upstream, "weighted_perm": weighted_perm, "lag_upwind": lag_upwind}
 
 
 # --------------------------------------------------------------------------------------- #
@@ -997,7 +969,7 @@ def load_reference(case, field):
 # --------------------------------------------------------------------------------------- #
 def selftest():
     print("=== selftest ===")
-    table = XphSampler(table_paths()[0], _xph_fmap(amr=False))
+    table = XphSampler(table_paths()[0])
     geom = make_geom(20)
     p = np.linspace(20e6, 1e6, 20)
     h = np.full(20, 6.0e5)                         # cold liquid -> s_v = 0
@@ -1021,11 +993,9 @@ def selftest():
     print("  selftest passed\n")
 
 
-def prebuild_table_caches(level=TABLE_LEVEL, pure_water=False):
-    """Construct the VTKSampler for the xph/xpt tables once before a parallel sweep. The VTKSampler
-    tensor backend persists an ``.obltensor.npz`` cache, so this writes it once and every fresh worker
-    then loads from it (skipping the pyvista read) instead of rebuilding the tensor."""
-    if pure_water:
-        XphSampler(PUREWATER_XPH, _xph_fmap(amr=False)); XptSampler(PUREWATER_XPT)
-        return
-    XphSampler(table_paths(level)[0], _xph_fmap(amr=False)); XptSampler(table_paths(level)[1])
+def prebuild_table_caches():
+    """Construct the VTKSampler for the graded xph/xpt tables once before a parallel sweep. The
+    VTKSampler tensor backend persists an ``.obltensor.npz`` cache, so this writes it once and every
+    fresh worker then loads from it (skipping the pyvista read) instead of rebuilding the tensor."""
+    xph_path, xpt_path = table_paths()
+    XphSampler(xph_path); XptSampler(xpt_path)

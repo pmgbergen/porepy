@@ -75,7 +75,7 @@ def _run(args):
     cfg, den = ps.SCHEMES[sk], ps.DENSITY[dk]
     t0 = time.time()
     res = m.run_brine(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
-                      grav_upstream=den["grav_upstream"], N=N, case=case, level=level,
+                      grav_upstream=den["grav_upstream"], N=N, case=case,
                       n_steps=n_steps, verbose=False, lag_upwind=lag_upwind,
                       **m.FIG5)                                  # z=0 -> pure water
     keep = {k: res[k] for k in ("y", "T", "p", "s_liq", "avg_it", "total_it", "n_time_step_cuts")}
@@ -118,7 +118,7 @@ def compute(N=N, level=LEVEL, case=CASE, lag_upwind=LAG_UPWIND, n_steps=None,
         with open(path, "rb") as f:
             print(f"[verification] loaded aggregate {os.path.basename(path)}")
             return pickle.load(f)
-    m.prebuild_table_caches(level)
+    m.prebuild_table_caches()
     tasks = [(sk, dk, N, level, case, n_steps, lag_upwind) for sk, dk in ALL_RUNS]
     out = _sweep(tasks, parallel)
     if cache:

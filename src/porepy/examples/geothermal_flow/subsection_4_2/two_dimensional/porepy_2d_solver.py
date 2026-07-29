@@ -4,7 +4,7 @@ CLI: --scheme {hu, hu-mw}, --consistent (MPFA), --grid-type, --cell-size,
 --q-anomaly [W/m^2, default 5], --z-init (initial uniform NaCl overall
 composition, default 0; also sets the hydrostatic-column and boundary fluid),
 --snap-years (exact snapshot/export schedule, default 0..50000 every 2500),
---dt-nominal/--dt-min/--dt-max (dynamic stepping, default 5/0.01/25 yr).
+--dt-nominal/--dt-min/--dt-max (dynamic stepping, default 5/0.001/10 yr).
 --lag-buoyancy freezes the buoyancy upwind direction per step (CSMP++ policy).
 Output goes to visualization_<tag>/ with tag = case_naming.case_tag(<flags>) --
 non-default components only -- so distinct parametrizations never overwrite each
@@ -62,8 +62,8 @@ to_Mega = 1.0e-6
 # VTU export -- at the Fig. 8 snapshot instants; dt adapts freely in between.
 _DEFAULT_SNAP_YEARS = tuple(float(y) for y in range(0, 50001, 2500))  # 0..50 kyr / 2.5 kyr
 DT_NOMINAL = 5.0           # nominal (initial) step [yr] (--dt-nominal)
-DT_MIN = 0.01                # smallest allowed step [yr] (--dt-min)
-DT_MAX = 25.0               # largest allowed step [yr]  (--dt-max)
+DT_MIN = 0.001               # smallest allowed step [yr] (--dt-min)
+DT_MAX = 10.0               # largest allowed step [yr]  (--dt-max)
 
 # --------------------------------------------------------------------------------------- #
 #  Weis et al. (2014) Fig. 8, condition 2 -- boundary & initial conditions.
@@ -309,6 +309,11 @@ params = {
     "cpr_maxit": 400,             # CPR GMRES iteration cap
     "cpr_accuracy_tol": 1.0e-3,   # post-solve gate -> direct fallback above this
     "step_control_method": "None",
+    # Slave the eliminated secondaries (T, s_gas/halite, x_NaCl_liq/gas/halite) to their exact
+    # OBL value f(p,h,z) each Newton iterate -- Weis-style explicit flash. Removes the lagged
+    # elimination residual (e.g. the wide-open liquid NaCl fraction) that limit-cycles at phase
+    # fronts; same fix that resolved the 1D fig-6 salt stall.
+    "slave_eliminated_secondaries": True,
 }
 params["consistent_discretization"] = _args.consistent
 params["lag_buoyancy_direction"] = _args.lag_buoyancy

@@ -51,31 +51,24 @@ def ref_legend_handle():
 _KEEP = ("y", "T", "p", "s_liq", "s_halite", "Xl", "total_it", "avg_it", "n_time_step_cuts")
 
 
-def _run_path(tag, sk, case, N, level, pure_water=False, amr=False):
-    # OBL identity tags the cache: purewater / hex-AMR / brine table at this level (l3, lgraded, ...).
-    # The three are mutually exclusive, so distinct tags keep them off each other's cache path.
-    obl = "pw" if pure_water else ("amr" if amr else f"l{level}")
-    return os.path.join(CACHE_DIR, f"{tag}_{case}_{sk}_N{N}_{obl}.pkl")
+def _run_path(tag, sk, case, N):
+    # Cache keyed by (tag, sk, case, N); the single graded OBL is tagged l{TABLE_LEVEL} (lgraded).
+    return os.path.join(CACHE_DIR, f"{tag}_{case}_{sk}_N{N}_l{m.TABLE_LEVEL}.pkl")
 
 
 def _run_one(args):
     """Run (or load) ONE scheme run, returning it under the caller's ``rkey``. The cache PATH is keyed
-    by (tag, sk, case) -- ``tag`` must be unique per panel-group (Fig 4 encodes the pressure level,
+    by (tag, sk, case, N) -- ``tag`` must be unique per panel-group (Fig 4 encodes the pressure level,
     Fig 6 the column) so distinct panels sharing a run ``case`` do not collide on disk.
-    ``args = (rkey, tag, sk, case, bc, N, level, grav_upstream, lag_upwind[, pure_water])`` -- the
-    trailing ``pure_water`` is optional so pre-existing 9-field task tuples (Fig 4/5) still unpack."""
-    rkey, tag, sk, case, bc, N, level, grav_upstream, lag_upwind = args[:9]
-    pure_water = args[9] if len(args) > 9 else False
-    amr_table = args[10] if len(args) > 10 else None       # optional AMR-OBL xph/xpt .vtu overrides
-    amr_xpt = args[11] if len(args) > 11 else None
-    path = _run_path(tag, sk, case, N, level, pure_water, amr=amr_table is not None)
+    ``args = (rkey, tag, sk, case, bc, N, grav_upstream, lag_upwind)``."""
+    rkey, tag, sk, case, bc, N, grav_upstream, lag_upwind = args
+    path = _run_path(tag, sk, case, N)
     if os.path.exists(path):
         with open(path, "rb") as f:
             return rkey, pickle.load(f), True
     cfg = ps.SCHEMES[sk]
     res = m.run_brine(scheme=cfg["scheme"], weighted_perm=cfg["weighted_perm"],
                       grav_upstream=grav_upstream, lag_upwind=lag_upwind, N=N, case=case,
-                      level=level, pure_water=pure_water, amr_table=amr_table, amr_xpt=amr_xpt,
                       verbose=False, **bc)
     keep = {k: res[k] for k in _KEEP}
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -108,17 +101,13 @@ def run_tasks(label, tasks, parallel=True):
     return out
 
 
-def sweep(tag, cases, bc, N, level, schemes=None, grav_upstream=False, lag_upwind=False,
-          parallel=True, pure_water=False, amr_table=None, amr_xpt=None):
-    """Run PPU/HU/HU-mwp over ``cases`` with a SHARED BC preset ``bc`` (Fig 5/6). Fig 4, whose BC and
-    time vary per panel, builds its own tasks and calls :func:`run_tasks` directly. ``pure_water=True``
-    (Fig-6 pure-water column) swaps in the fine z=0 tables for every run in the sweep. ``amr_table`` /
-    ``amr_xpt`` (paths to the hex-AMR .vtu OBL tables) override the opensowat tables for every run."""
-    if amr_table is None:
-        m.prebuild_table_caches(level, pure_water=pure_water)   # opensowat/pw tensor-cache warm-up
+def sweep(tag, cases, bc, N, schemes=None, grav_upstream=False, lag_upwind=False, parallel=True):
+    """Run PPU/HU/HU-mwp over ``cases`` with a SHARED BC preset ``bc`` (Fig 5/6), sampling the single
+    graded OBL. Fig 4, whose BC and time vary per panel, builds its own tasks and calls
+    :func:`run_tasks` directly."""
+    m.prebuild_table_caches()                                   # graded tensor-cache warm-up
     schemes = list(ps.SCHEMES) if schemes is None else list(schemes)
-    tasks = [((sk, case), tag, sk, case, bc, N, level, grav_upstream, lag_upwind, pure_water,
-              amr_table, amr_xpt)
+    tasks = [((sk, case), tag, sk, case, bc, N, grav_upstream, lag_upwind)
              for case in cases for sk in schemes]
     return run_tasks(tag, tasks, parallel)
 

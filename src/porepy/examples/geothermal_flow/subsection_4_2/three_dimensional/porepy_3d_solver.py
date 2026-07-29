@@ -718,6 +718,10 @@ def build_params(
         folder_name=os.path.join("output", name),
         file_name=name,
         step_control_method="None",
+        # Slave the eliminated secondaries (T, s_gas/halite, x_NaCl_liq/gas/halite) to their exact
+        # OBL value f(p,h,z) each Newton iterate -- Weis-style explicit flash. Removes the lagged
+        # elimination residual that limit-cycles at phase fronts; same fix as the 1D fig-6 / 2D runs.
+        slave_eliminated_secondaries=True,
     )
     params.update(_linear_solvers[linear_solver])
     params.update(_SCHEME_CONFIG[scheme])

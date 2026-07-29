@@ -204,6 +204,21 @@ def geothermal_nonlinear_solver(solver_params: dict) -> "pp.solvers.NewtonSolver
         params=solver_params, linear_solver=GeothermalLinearSolver())
 
 
+class RelativeStorageLebesgueMetric(pp.EquationBasedLebesgueMetric):
+    """Per-equation Lebesgue metric with each PHYSICAL row divided by its storage/throughput scale --
+    the same ms/es row-normalization the weis reference uses. Turns PorePy's ABSOLUTE residual bound
+    into a RELATIVE one: ``tol`` then means "imbalance relative to the cell's stored fluid mass
+    (mass/component rows) or rock heat (energy row) per step", identical to weis, instead of an
+    absolute value in unit-scaled kg/s, MJ/s. Scales come from ``model.residual_row_scales()``;
+    equations with no scale (the eliminated-secondary closures, ~0 under the slave) stay unscaled."""
+
+    def __call__(self, values: np.ndarray) -> dict:
+        norms = super().__call__(values)                       # absolute Lebesgue L2 per equation
+        scales = self.model.residual_row_scales()
+        return {name: (v / scales[name] if scales.get(name, 0.0) > 0.0 else v)
+                for name, v in norms.items()}
+
+
 class _FlowModelBaseCore(ReorderedTransportPredictor):
     """Template-agnostic core of the flow model (all solver/discretisation logic). It is combined
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
@@ -312,14 +327,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
     # ALL of them each iteration is the full Weis-style explicit flash (T alone is insufficient: the
     # saturations / NaCl partial fractions limit-cycle at later phase fronts just as T does at early
     # ones). Unknown names are skipped, so this is a no-op for models lacking these funcs/variables.
-    _ELIMINATED_SECONDARY_FUNCS = {
-        "temperature": "temperature_func",
-        "s_gas": "gas_saturation_func",
-        "s_halite": "halite_saturation_func",
-        "x_NaCl_liq": "NaCl_liq_func",
-        "x_NaCl_gas": "NaCl_gas_func",
-        "x_NaCl_halite": "NaCl_halite_func",
-    }
+    _CFL_SLAVE_EPS = 1.0e-6              # keeps 1 - s_h and s_liq strictly positive (see the rel-perm)
 
     def _slave_eliminated_secondaries(self) -> None:
         """Overwrite each locally-eliminated secondary ITERATE with its exact OBL value f(p,h,z).
@@ -327,33 +335,50 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         Every secondary (T, s_gas, s_halite, x_NaCl_liq/gas/halite) is closed by an elimination
         equation ``var - f_obl(p,h,z) = 0``, but per Newton iteration its DOF is moved only by the
         LINEARIZED back-substituted increment -- a first-order extrapolation of the C0 multilinear
-        OBL table. Where the primaries carry a cell across a table-cell / halite phase-front kink,
-        that lagged value overshoots, the elimination residual flips sign, and Newton limit-cycles
-        (the salt-column stall: temperature drives it at the early halite front, the saturations /
-        NaCl fractions at later fronts). Re-evaluating every secondary on the table each iteration --
-        exactly the Weis reference's explicit flash T,s,x = f(p,h,z) -- removes every lagged residual,
-        so the differential system converges instead of oscillating.
+        OBL table. Where the primaries carry a cell across a table-cell / phase-front kink, that
+        lagged value overshoots, the elimination residual flips sign, and Newton limit-cycles (the
+        stall: temperature drives it at the boiling / halite fronts, the saturations / NaCl fractions
+        at later fronts). Re-evaluating every secondary on the table each iteration -- exactly the
+        Weis reference's explicit flash T,s,x = f(p,h,z) -- removes every lagged residual, so the
+        differential system converges instead of oscillating.
 
         The elimination equations/Jacobians are untouched (A_ss = I Schur fast-path and the Fourier
         grad(T) column intact); only the iterate VALUES are slaved, so the converged fixed point (all
-        elimination residuals 0) is unchanged -- only the Newton PATH. The func values are already
-        physical-bound-clipped (BrineConstitutiveDescription). Gated by
-        ``params['slave_eliminated_secondaries']`` (on for the halite/salt column)."""
+        elimination residuals 0) is unchanged -- only the Newton PATH. Gated by
+        ``params['slave_eliminated_secondaries']``.
+
+        ONE ``obl_sampler.sample_at`` per iteration for ALL secondaries (they share the (z,h,p)
+        points) -- not the 5 redundant samples of the per-variable BrineConstitutiveDescription funcs.
+        The read fields carry the same physical-bound clips as those funcs (S_h ceiling 1-eps; s_gas
+        capped so s_liq = 1 - s_gas - s_halite stays >= eps; X in [0,1]; halite is pure NaCl -> 1)."""
         es = self.equation_system
         present = {v.name for v in es.variables}
-        if "z_NaCl" not in present:
+        sampler = getattr(self, "obl_sampler", None)
+        if "z_NaCl" not in present or sampler is None:
             return
-        # every eliminated secondary is a cell variable in the same subdomain/cell order as the
-        # primaries, so the per-cell (p,h,z) -> f mapping is consistent.
+        # secondaries are cell variables in the same subdomain/cell order as the primaries.
         p = es.get_variable_values([self.pressure_variable], iterate_index=0)
         h = es.get_variable_values([self.enthalpy_variable], iterate_index=0)
         z = es.get_variable_values(["z_NaCl"], iterate_index=0)
-        for vname, fname in self._ELIMINATED_SECONDARY_FUNCS.items():
-            func = getattr(self, fname, None)
-            if vname not in present or func is None:
-                continue
-            val, _ = func(p, h, z)                                # exact f_obl(p, h, z), same sampler
-            es.set_variable_values(np.asarray(val, dtype=float), [vname], iterate_index=0)
+        try:
+            sampler.sample_at(np.column_stack([z, h, p]))         # single OBL sample -> all fields
+            pd = sampler.sampled_could.point_data
+        except Exception:
+            return
+        eps = self._CFL_SLAVE_EPS
+        s_h = np.clip(np.asarray(pd["S_h"], float), 0.0, 1.0 - eps)
+        s_v = np.clip(np.asarray(pd["S_v"], float), 0.0, np.clip(1.0 - s_h - eps, 0.0, 1.0))
+        slaved = {
+            "temperature": np.asarray(pd["Temperature"], float),
+            "s_halite": s_h,
+            "s_gas": s_v,
+            "x_NaCl_liq": np.clip(np.asarray(pd["Xl"], float), 0.0, 1.0),
+            "x_NaCl_gas": np.clip(np.asarray(pd["Xv"], float), 0.0, 1.0),
+            "x_NaCl_halite": np.ones_like(s_h),                   # halite is pure NaCl
+        }
+        for vname, val in slaved.items():
+            if vname in present:
+                es.set_variable_values(val, [vname], iterate_index=0)
 
     _FRACTION_VARIABLE_NAMES = (
         "s_gas", "s_halite", "x_NaCl_liq", "x_NaCl_gas", "x_NaCl_halite",
@@ -1970,6 +1995,39 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                 data.append((sd, f"delta_{name}", v - ref[name]))
         return data
 
+    # weis-matched reference normalizers for the RELATIVE residual bar (RelativeStorageLebesgueMetric)
+    _RESIDUAL_RHO_REF = 800.0     # reference fluid density [kg/m^3]  (weis RHO_REF)
+    _RESIDUAL_T_REF = 500.0       # reference temperature   [K]       (weis T_REF)
+
+    def residual_row_scales(self) -> dict:
+        """Per-equation residual row-scale for a RELATIVE convergence bar mirroring weis ms/es:
+        fluid-mass storage for the total-mass (pressure) + component rows, rock-heat storage for the
+        energy row. The volume-weighted Lebesgue norm behaves as ``N_e ~ r_bar * sqrt(V_tot)`` (with
+        ``r_bar`` the intensive imbalance), so the scale ``S_e = sqrt(V_tot) * (storage density)/dt0``
+        makes ``N_e / S_e = r_bar * dt0 / storage`` -- the dimensionless imbalance-per-stored-quantity-
+        per-step, i.e. exactly weis's row-scaled residual. Storage densities use the model's own
+        porosity / rock constants (``c_s`` already in the model's scaled units) and the weis
+        reference ``rho_ref`` / ``T_ref``; ``dt0`` is the nominal step. Empty dict -> no scaling."""
+        try:
+            Vtot = float(sum(float(np.sum(sd.cell_volumes)) for sd in self.mdg.subdomains()))
+            if not (Vtot > 0.0):
+                return {}
+            dt0 = float(getattr(self.time_manager, "dt_init", 0.0)
+                        or getattr(self.time_manager, "dt", 0.0) or 1.0)
+            phi = float(self.solid.porosity)
+            rho_s = float(self.solid.density)
+            c_s = float(self.solid.specific_heat_capacity)            # model-scaled [MJ/(kg K)]
+            sqrtV = np.sqrt(Vtot)
+            S_mass = sqrtV * (phi * self._RESIDUAL_RHO_REF) / dt0                        # [kg/s]-scale
+            S_energy = sqrtV * ((1.0 - phi) * rho_s * c_s * self._RESIDUAL_T_REF) / dt0  # [MJ/s]-scale
+            scales = {"mass_balance_equation": S_mass, "energy_balance_equation": S_energy}
+            for c in self.fluid.components:
+                if self.has_independent_fraction(c):
+                    scales[f"component_mass_balance_equation_{c.name}"] = S_mass
+            return scales
+        except Exception:
+            return {}                    # any issue -> fall back to the absolute Lebesgue bar
+
     def collect_run_stats(self) -> NonlinearRunStats:
         """Return a picklable :class:`NonlinearRunStats` snapshot of the run.
 
@@ -2081,99 +2139,10 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         logger.info("run statistics -> %s (+ .json)", txt_path)
         return txt_path
 
-    # ---------------------------------------------------------------------------------- #
-    #  Advective CFL diagnostics (consumed by CFLTimeManager to proactively cap dt so the
-    #  component and energy fronts each advance < cfl_target cells per step, instead of
-    #  the reactive dt-cut after a Newton stall at a fast-moving phase front).
-    # ---------------------------------------------------------------------------------- #
-    _CFL_CONTENT_RTOL = 1.0e-6           # per-cell content floor, relative to the domain max
-
-    @staticmethod
-    def _cell_throughput(sd: pp.Grid, face_flux: np.ndarray) -> np.ndarray:
-        """Per-cell advective throughput [content/s] from a signed per-FACE flux:
-        ``0.5 * |cell_faces|^T @ |face_flux|`` (the 0.5 removes the in/out double count and
-        gives the correct one-sided throughput at inlet/outlet boundary cells)."""
-        return 0.5 * np.abs(sd.cell_faces).transpose().dot(np.abs(face_flux))
-
-    def _advective_rate(self, flux_op_fn, content_op_fn) -> float:
-        """max over all cells / all subdomains of ``throughput / content`` [1/s].
-
-        ``flux_op_fn(sd)`` -> AD operator for the per-FACE advective flux on ``[sd]``;
-        ``content_op_fn(sd)`` -> AD operator for the per-CELL accumulated content (already
-        volume-integrated). Returns 0.0 where there is no meaningful rate (zero flux / content)."""
-        ev = self.equation_system.evaluate
-        rate = 0.0
-        for sd in self.mdg.subdomains():
-            if sd.num_cells == 0:
-                continue
-            F = np.asarray(ev(flux_op_fn(sd)), dtype=float)          # [content]/s, per face
-            content = np.asarray(ev(content_op_fn(sd)), dtype=float)  # [content], per cell
-            thru = self._cell_throughput(sd, F)                       # [content]/s, per cell
-            cmax = float(np.max(content)) if content.size else 0.0
-            floor = max(1e-30, self._CFL_CONTENT_RTOL * cmax)         # don't blow up empty cells
-            r = thru / np.maximum(content, floor)                     # [1/s], per cell
-            r[thru <= 0.0] = 0.0
-            r = np.nan_to_num(r, nan=0.0, posinf=0.0, neginf=0.0)
-            if r.size:
-                rate = max(rate, float(np.max(r)))
-        return rate
-
-    def component_cfl_rate(self) -> float:
-        """Advective component front rate [1/s]: max over the independent components of
-        ``throughput(component_flux [+ component_buoyancy]) / content(component_mass)``."""
-        buoy = bool(self.params.get("enable_buoyancy_effects", False))
-        # iterate the mixture's OWN component instances (has_independent_fraction checks identity
-        # against self.fluid.components); the independent one is the non-reference NaCl.
-        comps = [c for c in self.fluid.components if self.has_independent_fraction(c)]
-        rate = 0.0
-        for c in comps:
-            def flux_fn(sd, c=c):
-                f = self.component_flux(c, [sd])
-                if buoy:
-                    f = f + self.component_buoyancy(c, [sd])
-                return f
-            def content_fn(sd, c=c):
-                return self.volume_integral(self.component_mass(c, [sd]), [sd], dim=1)
-            rate = max(rate, self._advective_rate(flux_fn, content_fn))
-        return rate
-
-    def energy_cfl_rate(self) -> float:
-        """Advective energy front rate [1/s]: ``throughput(enthalpy_flux) / content(TOTAL internal
-        energy)``. The denominator is the fluid PLUS the rock internal energy: the advected fluid
-        enthalpy must heat the rock too, so the thermal front is retarded by the rock heat capacity
-        (fluid-only would overstate the rate ~one to two orders of magnitude). ``enthalpy_flux``
-        already carries its own buoyancy; conduction (``fourier_flux``) is implicit/unconditionally
-        stable and folded in only when ``params['cfl_include_conduction']`` is set."""
-        incl_cond = bool(self.params.get("cfl_include_conduction", False))
-
-        def flux_fn(sd):
-            f = self.enthalpy_flux([sd])
-            if incl_cond:
-                f = f + self.fourier_flux([sd])
-            return f
-
-        def content_fn(sd):
-            energy = self.fluid_internal_energy([sd]) + self.solid_internal_energy([sd])
-            return self.volume_integral(energy, [sd], dim=1)
-
-        return self._advective_rate(flux_fn, content_fn)
-
-    def compute_component_cfl(self, dt: float) -> float:
-        """Dimensionless component CFL number for the given ``dt`` (logging / asserts)."""
-        return dt * self.component_cfl_rate()
-
-    def compute_energy_cfl(self, dt: float) -> float:
-        """Dimensionless energy CFL number for the given ``dt`` (logging / asserts)."""
-        return dt * self.energy_cfl_rate()
 
     def prepare_simulation(self) -> None:
         """Set up the model, then report the initial DoF summary."""
         super().prepare_simulation()
-        # Give a CFL-aware time manager the model handle it needs to read the converged
-        # fluxes (the manager is built before the model, so the link is set here).
-        tm = getattr(self, "time_manager", None)
-        if isinstance(tm, CFLTimeManager) and tm._model is None:
-            tm.attach_model(self)
         self.report_dof_summary("initial")
 
     def after_simulation(self) -> None:
@@ -2226,71 +2195,3 @@ class FractionalFlowModelBase(_FlowModelBaseCore, CompositionalFractionalFlowTem
     """Flow-model base with the FRACTIONAL-FLOW primary equations (mobility-weighted) -- the HU-mw
     discretisation. Select this template for ``mass_mobility_weighted_permeability``/HU-mw runs."""
 
-
-class CFLTimeManager(pp.TimeManager):
-    """``pp.TimeManager`` that additionally caps dt so the advective component and energy fronts
-    each advance at most ``cfl_target`` cells per step, using the just-converged fluxes of an
-    attached model (``model.component_cfl_rate()`` / ``energy_cfl_rate()``).
-
-    This is proactive: the reactive dt-cut only fires *after* a Newton stall, by which point a
-    fast phase front has already jumped several cells and the local OBL flash limit-cycles. The
-    cap sizes the NEXT step from the CURRENT converged front speed (standard explicit CFL).
-
-    Falls back to identical base behaviour whenever the cap cannot / should not apply (no model
-    attached, constant dt, a recompute/failed step, final time reached, or a non-finite target),
-    and is bit-identical to the base on any step where the cap does not bind (it only shrinks dt).
-    """
-
-    def __init__(self, *args, cfl_target: float = 1.0,
-                 cfl_target_component: Optional[float] = None,
-                 cfl_target_energy: Optional[float] = None, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.cfl_target_component = cfl_target if cfl_target_component is None else cfl_target_component
-        self.cfl_target_energy = cfl_target if cfl_target_energy is None else cfl_target_energy
-        self._model = None                       # attached post-construction (built before the model)
-
-    def attach_model(self, model) -> None:
-        """Give the manager the model whose converged fluxes drive the CFL cap."""
-        self._model = model
-
-    def compute_time_step(self, iterations: Optional[int] = None,
-                          recompute_solution: bool = False):
-        # Every special path delegates to the base UNCHANGED: recompute (fluxes come from a
-        # non-converged, rolled-back state), constant dt, no model yet, final time reached, or a
-        # non-finite target (explicit no-op mode). Otherwise mirror the base non-recompute branch
-        # (time_step_control.compute_time_step) so the CFL cap sits BETWEEN the iteration
-        # adaptation and the dt_min/dt_max/schedule corrections (dt_min still re-floors after).
-        finite_target = np.isfinite(self.cfl_target_component + self.cfl_target_energy)
-        if (recompute_solution or self.is_constant or self._model is None
-                or (not recompute_solution and self.final_time_reached())
-                or not finite_target):
-            return super().compute_time_step(iterations=iterations,
-                                             recompute_solution=recompute_solution)
-
-        self._recomp_sol = recompute_solution
-        self._iters = iterations
-        self._adaptation_based_on_iterations(iterations=iterations)
-        self._apply_cfl_cap()
-        self._correction_based_on_dt_min()
-        self._correction_based_on_dt_max()
-        self._correction_based_on_schedule()
-        return self.dt
-
-    def _apply_cfl_cap(self) -> None:
-        """Shrink ``self.dt`` to respect the component and energy CFL targets (no-op if neither
-        front is moving)."""
-        rate_c = self._model.component_cfl_rate()
-        rate_e = self._model.energy_cfl_rate()
-        candidates = []
-        if np.isfinite(rate_c) and rate_c > 0.0:
-            candidates.append(self.cfl_target_component / rate_c)
-        if np.isfinite(rate_e) and rate_e > 0.0:
-            candidates.append(self.cfl_target_energy / rate_e)
-        if not candidates:
-            return
-        dt_cfl = min(candidates)
-        if dt_cfl < self.dt:
-            if self._print_info:
-                print(f"CFL cap: dt {self.dt:.3e} -> {dt_cfl:.3e} s "
-                      f"(rate_c={rate_c:.3e}, rate_e={rate_e:.3e} 1/s)")
-            self.dt = dt_cfl

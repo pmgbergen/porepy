@@ -1,7 +1,7 @@
 """PorePy 2D column (Weis 2014, Figure 5) for the subsection 4.1 overlay.
 
 Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {HU, HU-mwp} -- at the
-geometry's native N=800 and nominal dt = 0.25 yr, level-3 Driesner tables (matching weis_1d_solver),
+geometry's native N=800 and nominal dt = 0.25 yr, graded Driesner OBL tables (matching weis_1d_solver),
 and writes each converged 1D profile (distance, T, p, s_liq) extracted from the live model to
 
     _cache/figure5_porepy_{case}_{scheme}_N800_l<level>.pkl
@@ -50,6 +50,7 @@ from porepy.examples.geothermal_flow.model_configuration.geothermal_export impor
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
+    RelativeStorageLebesgueMetric,  # weis-matched relative (ms/es) residual bar
 )
 from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 
@@ -59,8 +60,9 @@ from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 DAY = 86400.0
 TO_MEGA = 1.0e-6
 DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
-TABLE_LEVEL = "graded"                    # default OBL: the C0 graded brine tables (matches weis_1d_solver);
-#                                           also the cache tag (_lgraded), so it never loads a stale _l3 opensowat pickle
+DT_MAX = 10.0 * 365.0 * DAY              # cap adaptive dt at 10 yr (grows from DT on easy steps)
+TABLE_LEVEL = "graded"                    # the single OBL: the C0 graded brine tables (matches
+#                                           weis_1d_solver); doubles as the cache tag (_lgraded)
 EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
 # OBL sampling: the unified VTKSampler tensor backend -- multilinear value + analytic gradient from
 # the SAME interpolant (the sampled gradient is the derivative of the sampled value). This is the
@@ -119,9 +121,8 @@ def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int,
 def _attach_samplers(model, xph_name: str = None, xpt_name: str = None) -> None:
     """Attach the Driesner OBL samplers (phz + ptz) to ``model``. The ``VTKSampler`` tensor backend
     gives a multilinear value and the analytic gradient of that same interpolant (no stored ``grad_``
-    fields) -- the construction weis_1d_solver also uses. Defaults to the C0 ``brine_graded`` tables;
-    pass ``xph_name``/``xpt_name`` to sample a different .vtr (Fig 6 pure-water column uses the fine
-    purewater tables; opensowat_x*_l_{0..4}.vtr for a legacy uniform level)."""
+    fields) -- the construction weis_1d_solver also uses. The single OBL is the C0 ``brine_graded``
+    tables, used for every case (the ``xph_name``/``xpt_name`` overrides both default to them)."""
     xph_name = xph_name or "brine_graded_xph.vtr"
     xpt_name = xpt_name or "brine_graded_xpt.vtr"
     Sampler = VTKSampler
@@ -152,13 +153,13 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
         return keep
     tf = FINAL_TIME_DAYS[geometry_case] * DAY
 
-    # Adaptive dt CAPPED at DT (0.25 yr): it stays at DT on easy steps (dt_min_max max = DT means
-    # it never grows above the cap) and only cuts -- by recomp_factor=0.5, down to DT/64, up to
-    # recomp_max retries -- through hard steps such as the ~169 yr transition. The schedule end tf
-    # is always hit exactly, so the extracted final-time profile is unaffected.
+    # Adaptive dt starting at DT (0.25 yr), GROWING on easy steps up to the DT_MAX cap (10 yr) and
+    # cutting -- by recomp_factor=0.5, down to DT/64, up to recomp_max retries -- through hard steps
+    # such as the ~169 yr transition. The schedule end tf is always hit exactly, so the extracted
+    # final-time profile is unaffected.
     time_manager = pp.TimeManager(
         schedule=[0.0, tf], dt_init=DT, constant_dt=False,
-        dt_min_max=(DT / 64.0, DT), iter_max=20, iter_optimal_range=(3, 10),
+        dt_min_max=(DT / 64.0, DT_MAX), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
@@ -197,7 +198,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)),
+                tol=1.0e-5, metric=RelativeStorageLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20),
@@ -253,13 +254,13 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
 
 
 # --------------------------------------------------------------------------------------------- #
-#  Weis (2014) Figure 6 -- H2O-NaCl, horizontal, 2000 yr. Two columns: 'pw' pure water (z=0, sampled
-#  from the fine purewater_x*.vtr) and 'salt' (z_init=0.42, immobile halite, C0 graded brine tables).
+#  Weis (2014) Figure 6 -- H2O-NaCl, horizontal, 2000 yr. Two columns: 'pw' pure water (z=0) and
+#  'salt' (z_init=0.42, immobile halite). Both sample the single C0 graded brine OBL.
 # --------------------------------------------------------------------------------------------- #
 FIG6_TF_YEARS = 2000.0
 FIG6_TABLES = {                                   # column -> (xph .vtr, xpt .vtr) sampled by porepy
-    "pw":   ("purewater_xph.vtr", "purewater_xpt.vtr"),                        # Fig-6 left (fine z=0)
-    "salt": ("brine_graded_xph.vtr", "brine_graded_xpt.vtr"),                  # Fig-6 right (graded brine)
+    "pw":   ("brine_graded_xph.vtr", "brine_graded_xpt.vtr"),                  # Fig-6 left (z=0 slice)
+    "salt": ("brine_graded_xph.vtr", "brine_graded_xpt.vtr"),                  # Fig-6 right (z=salt_z)
 }
 
 
@@ -271,9 +272,8 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
                   write_pickle: bool = True) -> dict:
     """Run the Weis (2014) Fig-6 HU case for ``column`` ('pw' pure water z=0, or 'salt' z_init=0.42
     with immobile halite), horizontal, tf=``tf_years`` (2000 yr), and pickle the converged 1D profile
-    (y, T, p, s_liq, s_halite) to _cache/porepy_fig6_{column}_hu_N800_l3.pkl. The pure-water column
-    samples the fine purewater_x*.vtr tables (Fig-6 left); the salt column samples opensowat. Only the
-    final VTU snapshot is exported."""
+    (y, T, p, s_liq, s_halite) to _cache/porepy_fig6_{column}_hu_N800_lgraded.pkl. Both columns sample
+    the single graded OBL (z=0 slice for pw, z=salt_z for salt). Only the final VTU snapshot is exported."""
     if column not in FIG6_TABLES:
         raise ValueError(f"column must be one of {list(FIG6_TABLES)}")
     path = _fig6_pickle_path(column)
@@ -290,7 +290,7 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
     dt_min_div = float(os.environ.get("FIG6_DT_MIN_DIV", "64"))   # deepen the dt floor for hard fronts
     time_manager = pp.TimeManager(
         schedule=[0.0, tf], dt_init=DT, constant_dt=False,
-        dt_min_max=(DT / dt_min_div, DT), iter_max=20, iter_optimal_range=(3, 10),
+        dt_min_max=(DT / dt_min_div, DT_MAX), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
@@ -303,11 +303,11 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
         # thermal-overshoot postprocessing destabilises the strongly halite-forming salt column;
         # disable it (the physical-bound clip stays on). No effect where s_h = 0 (pw column).
         "enable_thermal_overshoot_postprocessing": False,
-        # Salt column: slave ALL eliminated secondaries (T, saturations, NaCl fractions) to their
-        # exact OBL values each iteration (Weis-faithful explicit flash). Removes the lagged-flash
-        # limit cycles at the halite phase fronts that otherwise collapse dt to dt_min. Off for the
-        # pw column (s_h = 0, smooth OBL -> no benefit).
-        "slave_eliminated_secondaries": (column == "salt"),
+        # Slave ALL eliminated secondaries (T, saturations, NaCl fractions) to their exact OBL values
+        # each iteration (Weis-faithful explicit flash). Removes the lagged-flash limit cycles at the
+        # phase fronts (boiling for pw, halite for salt) that otherwise multiply the iteration count
+        # and collapse dt to dt_min. Both columns benefit -- pw has a boiling front too.
+        "slave_eliminated_secondaries": True,
         # bound the per-iteration gas-saturation step to damp the vapor phase-appearance oscillation
         # at the inlet (s_gas flip-flopping 0.2<->1.0) that otherwise stalls the salt column.
         "max_gas_saturation_step": 0.2,
@@ -325,7 +325,7 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
     _attach_samplers(model, xph_name=xph_name, xpt_name=xpt_name)
     solver_params = {
         "nl_convergence_criteria": {"res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model))},
+            tol=1.0e-5, metric=RelativeStorageLebesgueMetric(model))},
         "nl_divergence_criteria": {"max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20)},
     }
     print(f"\n=== PorePy fig6 {column} (tf={tf_years:.0f} yr, tables={xph_name}) ===", flush=True)
