@@ -28,7 +28,6 @@ from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.viz import solver_statistics
 
 # ! ---- Auxiliary fixtures and classes ---- ! #

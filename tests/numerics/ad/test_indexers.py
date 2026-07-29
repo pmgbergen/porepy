@@ -202,7 +202,7 @@ def test_filter_by_tags_handles_duplicate_tags() -> None:
     indexer = VariableIndexer(indices={variable: np.array([0])})
 
     with pytest.raises(ValueError, match="Duplicated operators"):
-        indexer.filter_by_tags(tags)
+        indexer.filter_by_tags(tags, model="mock model")
 
 
 def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
@@ -212,7 +212,7 @@ def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
         def __init__(self, selected_domain: pp.GridLike) -> None:
             self.selected_domain = selected_domain
 
-        def filter(self, domain: pp.GridLike) -> bool:
+        def filter(self, domain: pp.GridLike, model: pp.PorePyModel) -> bool:
             return domain is self.selected_domain
 
     domains = [pp.CartGrid([1]) for _ in range(3)]
@@ -225,7 +225,7 @@ def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
         for domain in domains[:2]
     ]
 
-    selected, not_selected = indexer.filter_by_tags(tags)
+    selected, not_selected = indexer.filter_by_tags(tags, model="mock model")
 
     assert selected == variables[:2]
     assert not_selected == variables[2:]
