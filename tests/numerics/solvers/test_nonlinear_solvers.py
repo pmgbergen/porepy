@@ -16,6 +16,7 @@ from porepy.numerics.solvers.convergence_check import (
     ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
+    check_convergence,
 )
 from porepy.numerics.solvers.nonlinear_solver_status import (
     NonlinearSolverStatus,
@@ -120,6 +121,21 @@ def default_newton_solver(nonlinear_increment_history: Optional[np.ndarray] = No
 class MockEquationSystem:
     residual: np.ndarray
     """Will be set from the outside in tests."""
+
+    equation_indexer = pp.ad.EquationIndexer(
+        {pp.ad.EquationOnDomain("y", domain=pp.CartGrid(nx=1)): np.array([0])}
+    )
+    """Mock equation indexer"""
+    variable_indexer = pp.ad.VariableIndexer(
+        {
+            pp.ad.Variable(
+                "x",
+                ndof={"cells": 1},
+                domain=pp.CartGrid(nx=1),
+            ): np.array([0]),
+        }
+    )
+    """Mock variable indexer"""
 
     def get_variable_values(self, **wkwargs):
         return np.array([1.0])
@@ -273,8 +289,8 @@ def test_init_criteria():
 @pytest.mark.parametrize(
     ("status_type", "expected"),
     [
-        (NonlinearSolverStatusConverged, "successful"),
-        (NonlinearSolverStatusFailed, "failed"),
+        (NewtonSolverConverged, "successful"),
+        (NewtonSolverFailed, "failed"),
     ],
 )
 def test_nonlinear_solver_status_serialization(status_type, expected):
@@ -822,21 +838,19 @@ def test_check_convergence(
     is_converged,
     is_failed,
 ):
-    """Test the check_convergence method of the Newton solver."""
+    """Test the check_convergence function in relation to the Newton solver."""
     # Init model and solver.
     model = MockModel()
     solver = default_newton_solver()
 
-    # Mock the nonlinear increment and residual for the last iteration.
-    model.nonlinear_increment = np.array([inc])
-    model.equation_system.residual = np.array([res])
-
-    # Mock the number of iterations.
-    solver.iteration_index = iteration_index
-
     # Check convergence.
-    convergence_status, divergence_status, convergence_info = solver.check_convergence(
-        model, model.nonlinear_increment
+    convergence_status, divergence_status, convergence_info = check_convergence(
+        convergence_criteria=solver.convergence_criteria,
+        divergence_criteria=solver.divergence_criteria,
+        nonlinear_increment=np.array([inc]),
+        solution=model.equation_system.get_variable_values(),
+        residual=np.array([res]),
+        iteration_index=iteration_index,
     )
 
     # Check that the returned statuses match expected values
