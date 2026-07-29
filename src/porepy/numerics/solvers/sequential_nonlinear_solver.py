@@ -65,7 +65,7 @@ class SequentialSolverFailed(NonlinearSolverStatusFailed):
 
 
 class SequentialNonlinearSolver(NonlinearSolverBase):
-    """A sequential iterative linear solver. Accepts `subsolvers`, each solves a
+    """A sequential iterative nonlinear solver. Accepts `subsolvers`, each solves a
     restricted nonlinear problem (only some equations and variables). Iterates between
     them while the full problem converges.
 
@@ -189,8 +189,10 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
                 nonlinear_increment=new_iterate - old_iterate,
                 solution=new_iterate,
                 residual=full_residual,
-                iteration_index=iteration_index,
+                iteration_index=iteration_index + 1,
             )
+            # Iteration index is off by one, because MaxIterationsCriterion explicitly
+            # starts count from 1, see its docstring.
 
             _log_convergence_info(
                 inner_solver_statuses=iteration_statuses,

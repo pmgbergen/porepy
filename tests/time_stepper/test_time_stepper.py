@@ -14,18 +14,20 @@ import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.model_runner import ModelRunner, ModelRunnerStatusFailure
 from porepy.models.protocol import PorePyModel
+from porepy.numerics.ad.indexers import EquationOnDomain
+from porepy.numerics.ad.operators import Variable
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_stepper import TimeStepper
-from porepy.viz.solver_statistics import (
-    NonlinearSolverAndTimeStatistics,
-    SolverStatisticsFactory,
-)
+from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 # MARK: test_model_delegate_methods_called
 
 
 class MockEquationSystem:
     """Used internally in MockModel."""
+
+    equation_indexer = pp.ad.EquationIndexer(operators_to_dofs={})
+    variable_indexer = pp.ad.VariableIndexer(operators_to_dofs={})
 
     def assemble(self, evaluate_jacobian: bool = True, **kwargs):
         if not evaluate_jacobian:
@@ -38,7 +40,9 @@ class MockEquationSystem:
             variable_indexer=pp.ad.VariableIndexer(indices={}),
         )
 
-    def get_variable_values(self, iterate_index: int):
+    def get_variable_values(
+        self, iterate_index: int, variables: list[pp.ad.Variable] | None = None
+    ):
         assert iterate_index == 0
         return np.ones(5)
 
@@ -126,36 +130,6 @@ class MockLinearSolver(pp.solvers.LinearSolverBase):
         )
 
 
-class MockNonlinearSolver(pp.solvers.NonlinearSolverBase):
-    """Used in test_model_delegate_methods_called, read the test docstring."""
-
-    def __init__(self, num_iters_for_success: int):
-        self._iter = 0
-        """Number of times solve was called."""
-        self.num_iters_for_success: int = num_iters_for_success
-        """Number of times solve must be called to return success."""
-
-    def solve(self, model) -> pp.solvers.NonlinearSolverStatus:
-        # We need to do it, otherwise will fail with IndexError on attempt to write
-        # statistics. This is called in model.before_nonlinear_loop.
-        model.nonlinear_solver_statistics.increase_index()
-
-        self._iter += 1
-        if self._iter < self.num_iters_for_success:
-            return pp.solvers.NewtonSolverFailed(
-                linear_solver_statuses=[pp.solvers.LinearSolverStatusSuccess(0)]
-                * (self._iter),
-                convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-                divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-            )
-        return pp.solvers.NewtonSolverConverged(
-            linear_solver_statuses=[pp.solvers.LinearSolverStatusSuccess(0)]
-            * (self._iter),
-            convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-            divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-        )
-
-
 class MaxIterationsConvergenceCriterion(pp.solvers.ConvergenceCriterion):
     """Accepts solution after the given number of iterations"""
 
@@ -201,6 +175,7 @@ def test_model_delegate_methods_called(
             "reject_num_iter": pp.solvers.MaxIterationsCriterion(max_iterations=2)
         },
     }
+    model = MockModel()
 
     # Initialize the solver.
     if solver_type == "nonlinear":
@@ -208,7 +183,14 @@ def test_model_delegate_methods_called(
             params=solver_params, linear_solver=MockLinearSolver(num_dofs=4)
         )
     elif solver_type == "mock":
-        solver = MockNonlinearSolver(num_iters_for_success=5)
+        solver = DynamicNewtonSolver(
+            num_nonlinear_iterations=[1, 1, 1, 1, 1],
+            time_step_converged=[False, False, False, False, True],
+            call_model_methods=False,
+        )
+        # We need to do it, otherwise will fail with IndexError on attempt to write
+        # statistics. This is called in model.before_nonlinear_loop.
+        model.nonlinear_solver_statistics.increase_index()
     else:
         raise ValueError
 
@@ -218,7 +200,6 @@ def test_model_delegate_methods_called(
             schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.1, 2)
         )
     )
-    model = MockModel()
 
     # Do the time step.
     time_stepper.perform_time_step(model=model, solver=solver)
@@ -266,36 +247,21 @@ def test_model_delegate_methods_called(
 
 
 class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
-    """A mockup model that stores the lists that control when to converge, when to
-    diverge, etc. Used by DynamicNewtonSolver.
+    """A mockup model used in combination with :class:`DynamicNewtonSolver`.
 
     See the description of the input parameters at `test_model_time_step_control`.
 
     """
 
-    def __init__(
-        self,
-        num_nonlinear_iterations: list[int],
-        time_step_converged: list,
-        params: dict,
-    ):
+    def __init__(self, params: dict):
         super().__init__(params)
-        self.time_step_idx: int = -1
-        self.num_nonlinear_iters: int = 0
-        self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
-        self.time_step_converged: list = time_step_converged
         self.time_step_history: list = []
 
-    def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()  # The AD time step is expected to update here.
-        self.time_step_idx += 1
+    def before_time_step(self) -> None:
+        super().before_time_step()  # The AD time step is expected to update here.
         self.num_nonlinear_iters = 0
         self.time_step_history.append(self.time_manager.dt)
 
-    def before_nonlinear_iteration(self):
-        super().before_nonlinear_iteration()
-
-        # The AD time step should not change throughout the Newton iterations.
         assert (
             self.equation_system.evaluate(self.ad_time_step) == self.time_manager.dt
         ), "The AD time step value conflicts with the value from the time_manager."
@@ -309,64 +275,73 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
                 "Likely, 'iterate' was not reset after the unsuccessful time step."
             )
 
-        self.num_nonlinear_iters += 1
 
-    def _is_nonlinear_problem(self):
-        return True
-
-
-class DynamicNewtonSolver(pp.solvers.NewtonSolver):
-    """A mockup Newton solver that returns convergence or divergence based on what
-    DynamicTimeStepTestCaseModel prescribes. Used in `test_model_time_step_control`.
+class DynamicNewtonSolver(pp.solvers.NonlinearSolverBase):
+    """A mockup Newton solver that returns convergence or divergence based on
+    pre-defined values it takes during initialization. Used in
+    :func:`test_model_time_step_control`. and
+    :func:`test_model_delegate_methods_called`.
 
     """
 
-    def check_convergence(
-        self, model: DynamicTimeStepTestCaseModel, nonlinear_increment
-    ) -> tuple[
-        pp.solvers.ConvergenceStatusCollection,
-        pp.solvers.ConvergenceStatusCollection,
-        pp.solvers.ConvergenceInfoCollection,
-    ]:
-        assert isinstance(
-            model.nonlinear_solver_statistics, NonlinearSolverAndTimeStatistics
-        )
-        if (
-            model.nonlinear_solver_statistics.num_iterations
-            < model.num_nonlinear_iterations[model.time_step_idx] - 1
-        ):
-            return (
-                pp.solvers.ConvergenceStatusCollection(
-                    {"crit": pp.solvers.ConvergenceStatus.CONTINUE_ITERATING}
-                ),
-                pp.solvers.ConvergenceStatusCollection(
-                    {"div_crit": pp.solvers.ConvergenceStatus.CONTINUE_ITERATING}
-                ),
-                pp.solvers.ConvergenceInfoCollection({"crit": 1.0}),
-            )
-        if model.time_step_converged[model.time_step_idx] is True:
-            return (
-                pp.solvers.ConvergenceStatusCollection(
-                    {"crit": pp.solvers.ConvergenceStatus.CONVERGED}
-                ),
-                pp.solvers.ConvergenceStatusCollection(
-                    {"div_crit": pp.solvers.ConvergenceStatus.CONTINUE_ITERATING}
-                ),
-                pp.solvers.ConvergenceInfoCollection({"crit": 0.0}),
+    def __init__(
+        self,
+        num_nonlinear_iterations: list[int],
+        time_step_converged: list,
+        call_model_methods: bool = True,
+    ):
+        self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
+        """Number of iteration in i-th nonlinear solve."""
+        self.time_step_converged: list = time_step_converged
+        """List of whether i-th nonlinear solve is successful."""
+        self.current_idx = 0
+        """Internal counter of encountered nonlinear problems."""
+        self.call_model_methods = call_model_methods
+        """Whether to call model.before_* and model.after_* methods."""
+
+    def get_active_equations(self, model: PorePyModel) -> list[EquationOnDomain]:
+        return []
+
+    def get_active_variables(self, model: PorePyModel) -> list[Variable]:
+        return []
+
+    def solve(
+        self, model: DynamicTimeStepTestCaseModel
+    ) -> pp.solvers.NonlinearSolverStatus:
+        num_nonlinear_iterations = self.num_nonlinear_iterations[self.current_idx]
+        is_success = self.time_step_converged[self.current_idx]
+
+        if self.call_model_methods:
+            for _ in range(num_nonlinear_iterations):
+                model.before_nonlinear_iteration()
+                model.after_nonlinear_iteration(
+                    nonlinear_increment=np.zeros(
+                        model.equation_system.equation_indexer.num_dofs
+                    )
+                )
+            if is_success:
+                model.after_nonlinear_convergence()
+            else:
+                model.after_nonlinear_failure()
+
+        linear_solver_statuses: list[pp.solvers.LinearSolverStatus] = [
+            pp.solvers.LinearSolverStatusSuccess(solve_time=0.0)
+        ] * num_nonlinear_iterations
+        if is_success:
+            result = pp.solvers.NewtonSolverConverged(
+                convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+                divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+                linear_solver_statuses=linear_solver_statuses,
             )
         else:
-            return (
-                pp.solvers.ConvergenceStatusCollection(
-                    {"crit": pp.solvers.ConvergenceStatus.CONTINUE_ITERATING}
-                ),
-                pp.solvers.ConvergenceStatusCollection(
-                    {"div_crit": pp.solvers.ConvergenceStatus.FAILED}
-                ),
-                pp.solvers.ConvergenceInfoCollection({"crit": np.nan}),
+            result = pp.solvers.NewtonSolverFailed(
+                convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+                divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+                linear_solver_statuses=linear_solver_statuses,
             )
 
-
-MAX_NONLINEAR_ITER = 10
+        self.current_idx += 1
+        return result
 
 
 @pytest.mark.parametrize(
@@ -383,11 +358,10 @@ MAX_NONLINEAR_ITER = 10
         {
             # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
             # takes 3 nonlinear iterations, etc.
-            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
+            "num_nonlinear_iterations": [4, 3, 12, 1, 6, 9, 1, 1],
             # Time step 0 diverged after 4 iterations, time step 1 converged after 3
-            # iterations, etc. "unreachable" means that the convergence check should not
-            # be called due to exceeding the iteration limit.
-            "time_step_converged": [False, True, "unreachable"] + [True] * 5,
+            # iterations, etc.
+            "time_step_converged": [False, True, False] + [True] * 5,
             # Time step magnitudes to compare with. These are known values produced with
             # the settings of the TimeStepper found in the test function below.
             "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
@@ -496,30 +470,22 @@ def test_model_time_step_control(params: dict):
     )
 
     model = DynamicTimeStepTestCaseModel(
-        num_nonlinear_iterations=num_nonlinear_iterations,
-        time_step_converged=time_step_converged,
         params={
             "time_manager": time_manager,
             "times_to_export": [],  # Suspends export
         },
     )
-    solver_params = {
-        "nl_convergence_inc_atol": 1e-6,
-        "nl_max_iterations": MAX_NONLINEAR_ITER,
-        "prepare_simulation": False,
-    }
-    model.prepare_simulation()
+
     nonlinear_solver = DynamicNewtonSolver(
-        params=solver_params,
-        linear_solver=MockLinearSolver(num_dofs=model.equation_system.num_dofs()),
+        num_nonlinear_iterations=num_nonlinear_iterations,
+        time_step_converged=time_step_converged,
+        call_model_methods=True,
     )
     if not should_fail:
-        status = ModelRunner(
-            model, solver_params, nonlinear_solver=nonlinear_solver
-        ).run()
+        status = ModelRunner(model, nonlinear_solver=nonlinear_solver).run()
     else:
         try:
-            ModelRunner(model, solver_params, nonlinear_solver=nonlinear_solver).run()
+            ModelRunner(model, nonlinear_solver=nonlinear_solver).run()
         except RuntimeError as e:
             status = e.args[0]
         else:

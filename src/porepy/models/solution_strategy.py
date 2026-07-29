@@ -342,7 +342,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         The base method does the following:
 
-        1. Call :meth:`initialize_nonlinear_solution`.
+        1. Increases the statistics index.
 
         """
         self.nonlinear_solver_statistics.increase_index()

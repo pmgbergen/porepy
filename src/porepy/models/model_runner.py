@@ -166,7 +166,7 @@ class ModelRunner:
         model: SolutionStrategy,
         params: Optional[dict] = None,
         time_stepper: Optional[TimeStepper] = None,
-        nonlinear_solver: Optional[pp.solvers.NewtonSolver] = None,
+        nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase] = None,
     ) -> None:
         self.params = params if isinstance(params, dict) else {}
         """Parameters passed at instantiation."""
@@ -191,10 +191,12 @@ class ModelRunner:
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
 
-        self.solver: pp.solvers.NewtonSolver = _extract_nonlinear_solver_from_params(
-            nonlinear_solver=nonlinear_solver,
-            params=self.params,
-            is_nonlinear_problem=self._is_nonlinear,
+        self.solver: pp.solvers.NonlinearSolverBase = (
+            _extract_nonlinear_solver_from_params(
+                nonlinear_solver=nonlinear_solver,
+                params=self.params,
+                is_nonlinear_problem=self._is_nonlinear,
+            )
         )
         """Solver instance."""
 
@@ -319,10 +321,10 @@ class ModelRunner:
 
 
 def _extract_nonlinear_solver_from_params(
-    nonlinear_solver: Optional[pp.solvers.NewtonSolver],
+    nonlinear_solver: Optional[pp.solvers.NonlinearSolverBase],
     params: dict,
     is_nonlinear_problem: bool,
-) -> pp.solvers.NewtonSolver:
+) -> pp.solvers.NonlinearSolverBase:
     """A nonlinear solver may be passed directly or in the parameters dictionary. This
     function extracts it and ensures it is not passed twice. If nothing is passed, it
     constructs a default solver.
