@@ -25,7 +25,7 @@ TF = 2000.0
 COLS = (("pw", "pure water"), ("salt", "salt + halite"))
 
 # PorePy overlay (mirrors fig_weis_fig_5): the converged HU profile from porepy_1d_solver.run_fig6_case,
-# cached as _cache/porepy_fig6_{pw,salt}_hu_N800_lgraded.pkl. Both columns sample the same graded OBL
+# cached as _cache/fig6_porepy_{pw,salt}_hu_N800_lgraded.pkl. Both columns sample the same graded OBL
 # (z=0 slice for pw, z=salt_z for salt). Black x markers.
 POREPY_C = "#0b2e6f"          # deep navy overlay, drawn as a dash-dot line (clearer than the old x)
 POREPY_LS = (0, (7, 3, 1.5, 3))   # dash-dot-dash pattern for the PorePy curve
@@ -39,7 +39,7 @@ def _load_porepy(column):
     missing and ``AUTORUN_POREPY``, run ``porepy_1d_solver.run_fig6_case`` to make it (lazy import, so a
     warm-cache re-plot never imports porepy). Returns the dict, or None if unavailable."""
     import pickle
-    path = os.path.join(C.CACHE_DIR, f"porepy_fig6_{column}_hu_N800_l{m.TABLE_LEVEL}.pkl")
+    path = os.path.join(C.CACHE_DIR, f"fig6_porepy_{column}_hu_N800_l{m.TABLE_LEVEL}.pkl")
     if not os.path.exists(path) and AUTORUN_POREPY:
         try:
             import porepy_1d_solver as pp1d                 # lazy: imports porepy only on a cold cache

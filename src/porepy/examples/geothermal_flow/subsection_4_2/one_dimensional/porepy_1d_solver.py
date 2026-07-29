@@ -265,14 +265,14 @@ FIG6_TABLES = {                                   # column -> (xph .vtr, xpt .vt
 
 
 def _fig6_pickle_path(column: str) -> str:
-    return os.path.join(CACHE_DIR, f"porepy_fig6_{column}_hu_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
+    return os.path.join(CACHE_DIR, f"fig6_porepy_{column}_hu_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
 
 
 def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEARS,
                   write_pickle: bool = True) -> dict:
     """Run the Weis (2014) Fig-6 HU case for ``column`` ('pw' pure water z=0, or 'salt' z_init=0.42
     with immobile halite), horizontal, tf=``tf_years`` (2000 yr), and pickle the converged 1D profile
-    (y, T, p, s_liq, s_halite) to _cache/porepy_fig6_{column}_hu_N800_lgraded.pkl. Both columns sample
+    (y, T, p, s_liq, s_halite) to _cache/fig6_porepy_{column}_hu_N800_lgraded.pkl. Both columns sample
     the single graded OBL (z=0 slice for pw, z=salt_z for salt). Only the final VTU snapshot is exported."""
     if column not in FIG6_TABLES:
         raise ValueError(f"column must be one of {list(FIG6_TABLES)}")
