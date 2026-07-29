@@ -11,7 +11,7 @@ class FullModel(
     pass
 
 
-def main():
+def run_example():
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy.numerics.solvers.nonlinear_solvers").setLevel(
         logging.WARNING
@@ -61,7 +61,8 @@ def main():
     )
 
     pp.ModelRunner(model_2d, nonlinear_solver=nonlinear_solver).run()
+    return [model_2d]
 
 
 if __name__ == "__main__":
-    main()
+    run_example()

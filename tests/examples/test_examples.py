@@ -19,7 +19,10 @@ import porepy
 # Disable plotting during tests.
 matplotlib.use("template")
 
-EXAMPLE_DIR = Path(porepy.__file__).parent / "examples"
+EXAMPLE_DIRS = [
+    Path(porepy.__file__).parent / "examples",
+    Path(porepy.__file__).parent / "examples" / "solvers",
+]
 # Exclude .py files that are not executable examples and example files
 # that are temporarily not tested in the folder of examples.
 EXCLUDED_EXAMPLE_FILENAMES = [
@@ -29,7 +32,8 @@ EXCLUDED_EXAMPLE_FILENAMES = [
 ]
 EXAMPLE_FILENAMES = [
     path
-    for path in EXAMPLE_DIR.glob("*.py")
+    for example_dir in EXAMPLE_DIRS
+    for path in example_dir.glob("*.py")
     if path.name not in EXCLUDED_EXAMPLE_FILENAMES
 ]
 
@@ -43,7 +47,10 @@ def test_run_examples(example_path: Path):
     function, and checks the simulation status of models.
 
     """
-    module_name = f"porepy.examples.{example_path.stem}"
+    # Stripping the prefix. E.g., /workdir/porepy/src/porepy/examples/solvers/example.py
+    # becomes solvers/example.py.
+    example_path = Path(*example_path.parts[example_path.parts.index("examples") + 1 :])
+    module_name = f"porepy.examples.{'.'.join(example_path.parts).removesuffix('.py')}"
     module = importlib.import_module(module_name)
 
     # The executable example is required to define a run_example() function.
