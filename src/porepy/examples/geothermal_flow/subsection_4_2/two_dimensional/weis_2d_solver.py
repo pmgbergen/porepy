@@ -70,139 +70,60 @@ TABLE_LEVEL = "graded"    # default OBL: the C0 graded brine tables (via weis_1d
 #                           Table3 now brackets its non-uniform h/T and p axes. Pass an int level (0..4)
 #                           to run.run(level=...) for a legacy uniform opensowat table.
 NV = 3                    # unknowns per cell: p, h, z
+USE_ANALYTIC_JAC = True   # hand-coded analytic Jacobian (weis_1d principle); False -> FD oracle
 
 
 # --------------------------------------------------------------------------------------- #
-#  Trilinear table over (z_NaCl, h|T, p) -- the 3-D extension of weis_1d_solver.Table
+#  VTKSampler-backed property tables (z_NaCl, h|T, p) -- the unified obl_sampler tensor backend,
+#  value AND analytic gradient from the SAME multilinear interpolant (no own Table3, no FD in the
+#  solver). Mirrors weis_1d_solver.XphSampler; sample_many() keeps Table3's call signature so
+#  eval_props is unchanged, props_grads() adds the (N,3) d/d(p,h,z) gradients for the analytic Jacobian.
 # --------------------------------------------------------------------------------------- #
-class Table3:
-    """O(1) vectorised TRILINEAR sampler of a Driesner VTK table over its full
-    (z_NaCl, second-axis, p) box.  Solver inputs are SI; ``a_in``/``b_in`` convert the
-    second axis (h [J/kg] or T [degC]) and the pressure to table units; the z axis is
-    dimensionless.  Field values return in SI via per-field scales."""
+from weis_1d_solver import _make_vtksampler, XptSampler          # noqa: E402  (shared VTKSampler helpers)
 
-    def __init__(self, file_name, fields, a_in=1.0, b_in=1.0):
-        key = ("|".join(f"{k}:{v}" for k, v in sorted(fields.items()))
-               + f"|{a_in}|{b_in}|3d2|{os.path.getmtime(file_name):.0f}")
-        cache = file_name + ".sicache3.npz"
-        if not (os.path.exists(cache) and self._load(cache, key)):
-            self._build(file_name, fields, a_in, b_in, key, cache)
-        self.names = list(self.V.keys())
-        self.V_stack = np.ascontiguousarray(np.stack([self.V[n] for n in self.names]))
+# weis key -> (VTKSampler field, SI value scale) for the (z, h, p) property table. Bulk ``Rho`` carries
+# the halite contribution S_h*rho_h directly (as the porepy model does); H stored in kJ/kg -> J/kg.
+_XPH_VTK = {"Rho_l": ("Rho_l", 1.0), "Rho_v": ("Rho_v", 1.0), "H_l": ("H_l", 1e3),
+            "H_v": ("H_v", 1e3), "mu_l": ("mu_l", 1.0), "mu_v": ("mu_v", 1.0),
+            "S_v": ("S_v", 1.0), "S_h": ("S_h", 1.0), "Rho": ("Rho", 1.0),
+            "Temperature": ("Temperature", 1.0), "Xl": ("Xl", 1.0), "Xv": ("Xv", 1.0)}
 
-    def _load(self, cache, key):
-        try:
-            zf = np.load(cache, allow_pickle=False)
-            if str(zf["key"]) != key:
-                return False
-            for s in ("nc", "ny", "nz"):
-                setattr(self, s, int(zf[s]))
-            for s in ("c0", "dc", "a0", "da", "b0", "db", "a_in", "b_in",
-                      "a_min", "a_max", "b_min", "b_max", "c_min", "c_max"):
-                setattr(self, s, float(zf[s]))
-            self.cax = np.asarray(zf["cax"], float)
-            self.aax = np.asarray(zf["aax"], float)
-            self.bax = np.asarray(zf["bax"], float)
-            self.c_uniform = bool(zf["c_uniform"])
-            self.a_uniform = bool(zf["a_uniform"])
-            self.b_uniform = bool(zf["b_uniform"])
-            self.V = {str(n): zf["V_" + str(n)] for n in zf["names"]}
-            return True
-        except Exception:
-            return False
 
-    def _build(self, file_name, fields, a_in, b_in, key, cache):
-        import pyvista as pv
-        g = pv.read(file_name)
-        nc, ny, nz = g.dimensions                          # (z_comp, second, p)
-        if hasattr(g, "x") and np.asarray(g.x).ndim == 1 and len(np.asarray(g.x)) == nc:
-            c = np.asarray(g.x); a = np.asarray(g.y); b = np.asarray(g.z)
-        else:
-            # legacy StructuredGrid: extract the 1-D axes from the point coordinates
-            # (VTK ordering: x fastest, then y, then z)
-            pts = np.asarray(g.points)
-            c = pts[:nc, 0]
-            a = pts[::nc, 1][:ny]
-            b = pts[::nc * ny, 2][:nz]
-        self.nc, self.ny, self.nz = int(nc), int(ny), int(nz)
-        self.c0, self.dc = float(c[0]), float(c[1] - c[0])
-        self.a0, self.da = float(a[0]), float(a[1] - a[0])
-        self.b0, self.db = float(b[0]), float(b[1] - b[0])
-        self.cax = np.asarray(c, float)               # full 1-D axes stored for non-uniform lookup:
-        self.aax = np.asarray(a, float)               # the regenerated brine tables are graded (NOT
-        self.bax = np.asarray(b, float)               # uniform) on ALL THREE axes -- z, the second
-        self.c_uniform = bool(np.allclose(np.diff(c), self.dc))   # (h/T), and pressure.
-        self.a_uniform = bool(len(a) < 2 or np.allclose(np.diff(a), self.da))
-        self.b_uniform = bool(len(b) < 2 or np.allclose(np.diff(b), self.db))
-        self.a_in, self.b_in = float(a_in), float(b_in)
-        self.a_min, self.a_max = float(a[0] / a_in), float(a[-1] / a_in)
-        self.b_min, self.b_max = float(b[0] / b_in), float(b[-1] / b_in)
-        self.c_min, self.c_max = float(c[0]), float(c[-1])
-        self.V = {name: np.asarray(g.point_data[name]).reshape(nz, ny, nc) * scale
-                  for name, scale in fields.items()}
-        out = {"key": np.array(key), "nc": self.nc, "ny": self.ny, "nz": self.nz,
-               "c0": self.c0, "dc": self.dc, "a0": self.a0, "da": self.da,
-               "b0": self.b0, "db": self.db, "a_in": self.a_in, "b_in": self.b_in,
-               "a_min": self.a_min, "a_max": self.a_max, "b_min": self.b_min,
-               "b_max": self.b_max, "c_min": self.c_min, "c_max": self.c_max,
-               "cax": self.cax, "aax": self.aax, "bax": self.bax,
-               "c_uniform": self.c_uniform, "a_uniform": self.a_uniform,
-               "b_uniform": self.b_uniform, "names": np.array(list(self.V.keys()))}
-        out.update({"V_" + n: A for n, A in self.V.items()})
-        try:
-            np.savez(cache, **out)
-        except Exception:
-            pass
+class Xph3Sampler:
+    """weis_2d (z_NaCl, h, p) property sampler on the unified VTKSampler tensor backend, SI in/out.
+    ``sample_many(zc, h, p)`` -> ``{weis field: (N,)}`` (Table3-compatible, so ``eval_props`` is
+    unchanged); ``props_grads(zc, h, p)`` also returns ``{weis field: (N,3)}`` with columns
+    (d/dp, d/dh, d/dz), the sampler's analytic derivative of the SAME interpolant (consumed by the
+    analytic Jacobian). ``a/b/c_{min,max}`` (h/p/z SI range) mirror Table3 for the Newton clip."""
 
-    def sample_many(self, zc, a, b):
-        """Trilinear interpolation of ALL stored fields at (z_comp, a, b)."""
-        zc = np.atleast_1d(np.asarray(zc, float))
-        a = np.atleast_1d(np.asarray(a, float)) * self.a_in
-        b = np.atleast_1d(np.asarray(b, float)) * self.b_in
-        if self.c_uniform:
-            fc = ((zc - self.c0) / self.dc).clip(0.0, self.nc - 1 - 1e-9)
-            jc = fc.astype(np.intp); tc = fc - jc
-        else:                                          # non-uniform z axis: bracket by
-            jc = (np.searchsorted(self.cax, zc, side="right") - 1)   # binary search
-            jc = np.clip(jc, 0, self.nc - 2)
-            tc = ((zc - self.cax[jc]) / (self.cax[jc + 1] - self.cax[jc])).clip(0.0, 1.0)
-        if self.a_uniform:
-            fa = ((a - self.a0) / self.da).clip(0.0, self.ny - 1 - 1e-9)
-            ja = fa.astype(np.intp); ta = fa - ja
-        else:                                          # non-uniform second (h/T) axis: binary search
-            ja = np.clip(np.searchsorted(self.aax, a, side="right") - 1, 0, self.ny - 2)
-            ta = ((a - self.aax[ja]) / (self.aax[ja + 1] - self.aax[ja])).clip(0.0, 1.0)
-        if self.b_uniform:
-            fb = ((b - self.b0) / self.db).clip(0.0, self.nz - 1 - 1e-9)
-            jb = fb.astype(np.intp); tb = fb - jb
-        else:                                          # non-uniform pressure axis: binary search
-            jb = np.clip(np.searchsorted(self.bax, b, side="right") - 1, 0, self.nz - 2)
-            tb = ((b - self.bax[jb]) / (self.bax[jb + 1] - self.bax[jb])).clip(0.0, 1.0)
-        jc1 = jc + 1; ja1 = ja + 1; jb1 = jb + 1
-        Vs = self.V_stack
-        vals = ((1 - tc) * ((1 - ta) * (1 - tb) * Vs[:, jb, ja, jc]
-                            + ta * (1 - tb) * Vs[:, jb, ja1, jc]
-                            + (1 - ta) * tb * Vs[:, jb1, ja, jc]
-                            + ta * tb * Vs[:, jb1, ja1, jc])
-                + tc * ((1 - ta) * (1 - tb) * Vs[:, jb, ja, jc1]
-                        + ta * (1 - tb) * Vs[:, jb, ja1, jc1]
-                        + (1 - ta) * tb * Vs[:, jb1, ja, jc1]
-                        + ta * tb * Vs[:, jb1, ja1, jc1]))
-        return {n: vals[i] for i, n in enumerate(self.names)}
+    def __init__(self, path):
+        self.s = _make_vtksampler(path)
+        self.s.conversion_factors = (1.0, 1e-6, 1e-6)      # (z, h[J/kg->MJ/kg], p[Pa->MPa])
+        self.fmap = _XPH_VTK
+        b = self.s.bounds                                  # (zmin,zmax, hmin,hmax, pmin,pmax) table units
+        self.c_min, self.c_max = float(b[0]), float(b[1])               # z [-]
+        self.a_min, self.a_max = float(b[2]) * 1e6, float(b[3]) * 1e6   # h [J/kg]
+        self.b_min, self.b_max = float(b[4]) * 1e6, float(b[5]) * 1e6   # p [Pa]
+
+    def _pd(self, zc, a, b):
+        a = np.atleast_1d(np.asarray(a, float))
+        zc = np.broadcast_to(np.atleast_1d(np.asarray(zc, float)), a.shape)
+        b = np.broadcast_to(np.atleast_1d(np.asarray(b, float)), a.shape)
+        self.s.sample_at(np.column_stack([zc, a, b]))
+        return self.s.sampled_could.point_data
+
+    def sample_many(self, zc, a, b):                       # a = h[J/kg], b = p[Pa]
+        pd = self._pd(zc, a, b)
+        return {k: pd[fn] * sc for k, (fn, sc) in self.fmap.items()}
+
+    def props_grads(self, zc, a, b):
+        pd = self._pd(zc, a, b)
+        vals = {k: pd[fn] * sc for k, (fn, sc) in self.fmap.items()}
+        grd = {k: pd["grad_" + fn][:, [2, 1, 0]] * sc for k, (fn, sc) in self.fmap.items()}
+        return vals, grd
 
     def __call__(self, name, zc, a, b):
         return self.sample_many(zc, a, b)[name]
-
-
-# Driesner opensowat vtr tables (via weis_1d_solver.table_paths), the accepted set:
-# volumetric saturations, real Xl/Xv partitioning, h 0.0001..4.7 MJ/kg, p down to
-# atmospheric.  Axis units are mapped by a_in/b_in; field scales bring values to SI.
-_XPH_FIELDS = {"Rho_l": 1.0, "Rho_v": 1.0, "H_l": 1e3, "H_v": 1e3,
-               "mu_l": 1.0, "mu_v": 1.0, "S_v": 1.0, "S_h": 1.0, "Rho": 1.0,
-               "Temperature": 1.0, "Xl": 1.0, "Xv": 1.0}
-_XPH_A_IN, _XPH_B_IN = 1e-6, 1e-6
-_XPT_FIELDS = {"H": 1e3}
-_XPT_A_IN, _XPT_B_IN = 1.0, 1e-6
 
 
 # --------------------------------------------------------------------------------------- #
@@ -254,6 +175,66 @@ def eval_props(table, z, p, h):
     adv_z = x_l * mm_l + x_v * mm_v
     return Props3(rho_l, rho_v, s_v, s_l, h_l, h_v, T, rho_mix, lam_T,
                   f_l, f_v, rho_ff, mm_l, mm_v, adv_h, x_l, x_v, adv_z, s_h=s_h)
+
+
+def eval_props_and_grads(table, z, p, h):
+    """:func:`eval_props` PLUS the analytic (N,3) derivative -- columns (d/dp, d/dh, d/dz) -- of every
+    property the Jacobian needs, hand-chained from the sampler's raw-field gradients (NO AD). Values
+    are bit-identical to :func:`eval_props`; each clip/max contributes a frozen 0/1 activity mask so
+    the derivative is consistent with the value branch actually taken."""
+    vals, g = table.props_grads(z, h, p)
+
+    def col(a):
+        return a[:, None]
+
+    def msk(raw):                                          # activity of a clip to [0,1] as (N,1)
+        return ((raw > 0.0) & (raw < 1.0)).astype(float)[:, None]
+
+    rho_l = vals["Rho_l"]; rho_v = vals["Rho_v"]; h_l = vals["H_l"]; h_v = vals["H_v"]
+    mu_l = vals["mu_l"]; mu_v = vals["mu_v"]; T = vals["Temperature"]; rho_mix = vals["Rho"]
+    drho_l = g["Rho_l"]; drho_v = g["Rho_v"]; dh_l = g["H_l"]; dh_v = g["H_v"]
+    dmu_l = g["mu_l"]; dmu_v = g["mu_v"]; dT = g["Temperature"]; drho_mix = g["Rho"]
+
+    s_v = np.clip(vals["S_v"], 0.0, 1.0); ds_v = g["S_v"] * msk(vals["S_v"])
+    sh_hi = 1.0 - s_v; sh_raw = vals["S_h"]; s_h = np.clip(sh_raw, 0.0, sh_hi)   # clipped to [0, 1-s_v]
+    lo = ((sh_raw > 0.0) & (sh_raw < sh_hi)).astype(float)[:, None]              # interior branch
+    hi = (sh_raw >= sh_hi).astype(float)[:, None]                               # upper clip -> s_h=1-s_v
+    ds_h = g["S_h"] * lo + (-ds_v) * hi
+    sl_pre = 1.0 - s_v - s_h; s_l = np.clip(sl_pre, 0.0, 1.0)
+    ds_l = (-ds_v - ds_h) * (((sl_pre > 0.0) & (sl_pre < 1.0)).astype(float)[:, None])
+    x_l = np.clip(vals["Xl"], 0.0, 1.0); dx_l = g["Xl"] * msk(vals["Xl"])
+    x_v = np.clip(vals["Xv"], 0.0, 1.0); dx_v = g["Xv"] * msk(vals["Xv"])
+
+    pore = np.maximum(1.0 - s_h, 1.0e-12)
+    dpore = -ds_h * (1.0 - s_h > 1.0e-12).astype(float)[:, None]
+    arg = (s_l / pore - S_R_LIQ) / (1.0 - S_R_LIQ)
+    darg = (ds_l / col(pore) - col(s_l / pore ** 2) * dpore) / (1.0 - S_R_LIQ)   # quotient rule on s_l/pore
+    cl = np.clip(arg, 0.0, 1.0); dcl = darg * (((arg > 0.0) & (arg < 1.0)).astype(float)[:, None])
+    kr_l = pore * cl; dkr_l = dpore * col(cl) + col(pore) * dcl
+    kr_v = pore - kr_l; dkr_v = dpore - dkr_l
+    mm_l = rho_l * kr_l / mu_l
+    dmm_l = (drho_l * col(kr_l) + col(rho_l) * dkr_l) / col(mu_l) - col(mm_l / mu_l) * dmu_l
+    mm_v = rho_v * kr_v / mu_v
+    dmm_v = (drho_v * col(kr_v) + col(rho_v) * dkr_v) / col(mu_v) - col(mm_v / mu_v) * dmu_v
+    lam_T = mm_l + mm_v; dlam_T = dmm_l + dmm_v
+    pos = lam_T > 0.0; inv = 1.0 / np.where(pos, lam_T, 1.0)
+    f_l = mm_l * inv; f_v = mm_v * inv
+    num = mm_l * rho_l + mm_v * rho_v
+    dnum = dmm_l * col(rho_l) + col(mm_l) * drho_l + dmm_v * col(rho_v) + col(mm_v) * drho_v
+    rho_ff = num * inv
+    drho_ff = col(inv) * (dnum - col(rho_ff) * dlam_T) * col(pos.astype(float))
+    adv_h = h_l * mm_l + h_v * mm_v
+    dadv_h = dh_l * col(mm_l) + col(h_l) * dmm_l + dh_v * col(mm_v) + col(h_v) * dmm_v
+    adv_z = x_l * mm_l + x_v * mm_v
+    dadv_z = dx_l * col(mm_l) + col(x_l) * dmm_l + dx_v * col(mm_v) + col(x_v) * dmm_v
+
+    pr = Props3(rho_l, rho_v, s_v, s_l, h_l, h_v, T, rho_mix, lam_T,
+                f_l, f_v, rho_ff, mm_l, mm_v, adv_h, x_l, x_v, adv_z, s_h=s_h)
+    d = {"rho_l": drho_l, "rho_v": drho_v, "s_v": ds_v, "s_l": ds_l, "s_h": ds_h,
+         "h_l": dh_l, "h_v": dh_v, "T": dT, "rho_mix": drho_mix, "lam_T": dlam_T,
+         "mm_l": dmm_l, "mm_v": dmm_v, "adv_h": dadv_h, "x_l": dx_l, "x_v": dx_v,
+         "adv_z": dadv_z, "rho_ff": drho_ff}
+    return pr, d
 
 
 # --------------------------------------------------------------------------------------- #
@@ -468,7 +449,8 @@ class BoundaryState:
 
 
 # --------------------------------------------------------------------------------------- #
-#  Coloured FD Jacobian (5-point stencil, 3 vars -> 27 colours), SuperLU solve
+#  Coloured FD Jacobian (5-point stencil, 3 vars -> 27 colours) -- now the analytic-Jacobian ORACLE
+#  only (used to verify jacobian_analytic; the solver uses the analytic Jacobian by default)
 # --------------------------------------------------------------------------------------- #
 def build_jac_plan(grid):
     nc, nx = grid.ncell, grid.nx
@@ -507,22 +489,9 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
     table = args[5]
     eps = eps_rel * np.maximum(np.abs(x), plan["scale"])
     p0 = x[0::NV].copy(); h0 = x[1::NV].copy(); z0 = x[2::NV].copy()
-
-    ep = eps[0::NV]; eh = eps[1::NV]; ez = eps[2::NV]
-    # dup = SI distance from the state up to the UPPER node of its current trilinear patch, per axis;
-    # searchsorted brackets uniform AND non-uniform (graded) axes alike (bit-identical to the old
-    # uniform formula off-node, and neither flips exactly at a node).
-    pb = p0 * table.b_in
-    jb = np.clip(np.searchsorted(table.bax, pb, side="right") - 1, 0, table.nz - 2)
-    dup = (table.bax[jb + 1] - pb) / table.b_in
-    eps[0::NV] = np.where((dup > 0.0) & (dup < ep) & (p0 - ep >= table.b_min), -ep, ep)
-    ha = h0 * table.a_in
-    ja = np.clip(np.searchsorted(table.aax, ha, side="right") - 1, 0, table.ny - 2)
-    dup = (table.aax[ja + 1] - ha) / table.a_in
-    eps[1::NV] = np.where((dup > 0.0) & (dup < eh) & (h0 - eh >= table.a_min), -eh, eh)
-    jc = np.clip(np.searchsorted(table.cax, z0, side="right") - 1, 0, table.nc - 2)
-    dup = table.cax[jc + 1] - z0
-    eps[2::NV] = np.where((dup > 0.0) & (dup < ez) & (z0 - ez >= table.c_min), -ez, ez)
+    # plain forward-difference step (this routine is now only the analytic-Jacobian ORACLE); the
+    # VTKSampler returns the analytic gradient of the SAME multilinear patch it evaluates, so a
+    # small in-patch forward difference reproduces it (verify on a state away from a table node).
     pr0 = eval_props(table, z0, p0, h0)
     fields = [f.name for f in dataclasses.fields(pr0)]
 
@@ -564,6 +533,156 @@ def jacobian_fd(x, r0, args, plan, eps_rel=1e-7):
 
 
 # --------------------------------------------------------------------------------------- #
+#  Hand-coded analytic Jacobian (sparse, 5-point stencil) -- NO finite differences, NO AD
+# --------------------------------------------------------------------------------------- #
+def jacobian_analytic(x, dt, grid, table, btop, opts, ug, ud, ut):
+    """Analytic Jacobian of :func:`residual`, chaining :func:`eval_props_and_grads` through the flux
+    assembly with FROZEN upwind/buoyancy directions (ug/ud pair, ut/current-sign total flux) -- the
+    standard upwind-FV linearization. Covers HU, HU-mw (harmonic total-mobility face) and PPU, the
+    mobility-product buoyancy pair on the gravity (y) faces, and the Dirichlet top boundary; the
+    bottom heat influx is constant so it contributes no term. Row order [mass, energy, comp] scaled
+    by [1/ms, 1/es, 1/zs]; primaries (p, h, z). Returns a CSC matrix, identical layout to ``jacobian_fd``."""
+    nc = grid.ncell; fL = grid.fL; fR = grid.fR
+    p = x[0::NV]; h = x[1::NV]; z = x[2::NV]
+    pr, dP = eval_props_and_grads(table, z, p, h)
+    ep = np.array([1.0, 0.0, 0.0]); eh = np.array([0.0, 1.0, 0.0]); ez = np.array([0.0, 0.0, 1.0])
+    rs = np.array([1.0 / grid.ms, 1.0 / grid.es, 1.0 / grid.zs])[:, None]
+    Tf = grid.Tf; GAf = grid.GA; TFf = grid.TFf
+    rows = []; cols = []; data = []
+
+    def add(rc, cc, B):                                    # B (3x3): rows=eqs(mass,energy,comp), cols=(p,h,z)
+        Bs = B * rs
+        base = NV * cc
+        for e in range(3):
+            r_ = NV * rc + e
+            rows.extend((r_, r_, r_)); cols.extend((base, base + 1, base + 2))
+            data.extend((Bs[e, 0], Bs[e, 1], Bs[e, 2]))
+
+    def route(cond, aL, aR, v):
+        if cond:
+            aL += v
+        else:
+            aR += v
+
+    # --- accumulation (diagonal 3x3 blocks) ---
+    for i in range(nc):
+        B = np.empty((3, 3))
+        B[0] = grid.Vcell * PHI * dP["rho_mix"][i] / dt
+        B[1] = grid.Vcell * (PHI * (dP["rho_mix"][i] * h[i] + pr.rho_mix[i] * eh - ep)
+                             + (1 - PHI) * RHO_S * C_S * dP["T"][i]) / dt
+        B[2] = grid.Vcell * PHI * (dP["rho_mix"][i] * z[i] + pr.rho_mix[i] * ez) / dt
+        add(i, i, B)
+
+    dp_face = p[fL] - p[fR]
+    rho_l_f = 0.5 * (pr.rho_l[fL] + pr.rho_l[fR]); rho_v_f = 0.5 * (pr.rho_v[fL] + pr.rho_v[fR])
+
+    if opts.scheme == "ppu":
+        if opts.lag_upwind or opts.lag_props:
+            iu_l_a, iu_v_a = ug, ud
+        else:
+            iu_l_a = _upwind(Tf * dp_face - GAf * rho_l_f, fL, fR)
+            iu_v_a = _upwind(Tf * dp_face - GAf * rho_v_f, fL, fR)
+        for f in range(fL.size):
+            L = fL[f]; R = fR[f]; il = iu_l_a[f]; iv = iu_v_a[f]
+            dPsl_L = Tf[f] * ep.copy(); dPsl_R = -Tf[f] * ep.copy()
+            dPsv_L = Tf[f] * ep.copy(); dPsv_R = -Tf[f] * ep.copy()
+            if opts.grav_upstream:
+                route(il == L, dPsl_L, dPsl_R, -GAf[f] * dP["rho_l"][il]); Psl = Tf[f] * dp_face[f] - GAf[f] * pr.rho_l[il]
+                route(iv == L, dPsv_L, dPsv_R, -GAf[f] * dP["rho_v"][iv]); Psv = Tf[f] * dp_face[f] - GAf[f] * pr.rho_v[iv]
+            else:
+                dPsl_L -= GAf[f] * 0.5 * dP["rho_l"][L]; dPsl_R -= GAf[f] * 0.5 * dP["rho_l"][R]; Psl = Tf[f] * dp_face[f] - GAf[f] * rho_l_f[f]
+                dPsv_L -= GAf[f] * 0.5 * dP["rho_v"][L]; dPsv_R -= GAf[f] * 0.5 * dP["rho_v"][R]; Psv = Tf[f] * dp_face[f] - GAf[f] * rho_v_f[f]
+            mml = pr.mm_l[il]; mmv = pr.mm_v[iv]; dmml = dP["mm_l"][il]; dmmv = dP["mm_v"][iv]
+            dm_L = dPsl_L * mml + dPsv_L * mmv; dm_R = dPsl_R * mml + dPsv_R * mmv
+            route(il == L, dm_L, dm_R, Psl * dmml); route(iv == L, dm_L, dm_R, Psv * dmmv)
+            ql = pr.x_l[il] * mml; qv = pr.x_v[iv] * mmv
+            dql = dP["x_l"][il] * mml + pr.x_l[il] * dmml; dqv = dP["x_v"][iv] * mmv + pr.x_v[iv] * dmmv
+            dz_L = dPsl_L * ql + dPsv_L * qv; dz_R = dPsl_R * ql + dPsv_R * qv
+            route(il == L, dz_L, dz_R, Psl * dql); route(iv == L, dz_L, dz_R, Psv * dqv)
+            el = pr.h_l[il] * mml; ev = pr.h_v[iv] * mmv
+            del_ = dP["h_l"][il] * mml + pr.h_l[il] * dmml; dev_ = dP["h_v"][iv] * mmv + pr.h_v[iv] * dmmv
+            de_L = dPsl_L * el + dPsv_L * ev + TFf[f] * dP["T"][L]; de_R = dPsl_R * el + dPsv_R * ev - TFf[f] * dP["T"][R]
+            route(il == L, de_L, de_R, Psl * del_); route(iv == L, de_L, de_R, Psv * dev_)
+            BLL = np.array([dm_L, de_L, dz_L]); BLR = np.array([dm_R, de_R, dz_R])
+            add(L, L, BLL); add(L, R, BLR); add(R, L, -BLL); add(R, R, -BLR)
+    else:                                                  # hu / hu-mw
+        rho_ff_f = 0.5 * (pr.rho_ff[fL] + pr.rho_ff[fR])
+        rho_ff_g = pr.rho_ff[ut] if opts.grav_upstream else rho_ff_f
+        V_T = Tf * dp_face - GAf * rho_ff_g
+        up = ut if (opts.lag_upwind or opts.lag_props) else _upwind(V_T, fL, fR)
+        weighted = (opts.scheme == "hu-mw")
+        for f in range(fL.size):
+            L = fL[f]; R = fR[f]; uc = up[f]
+            dVT_L = Tf[f] * ep.copy(); dVT_R = -Tf[f] * ep.copy()
+            if opts.grav_upstream:
+                route(ut[f] == L, dVT_L, dVT_R, -GAf[f] * dP["rho_ff"][ut[f]])
+            else:
+                dVT_L -= GAf[f] * 0.5 * dP["rho_ff"][L]; dVT_R -= GAf[f] * 0.5 * dP["rho_ff"][R]
+            if weighted:
+                lL = pr.lam_T[L]; lR = pr.lam_T[R]; s = lL + lR
+                if s > 0.0:
+                    lam_face = 2.0 * lL * lR / s
+                    dlfL = (2.0 * lR * lR / (s * s)) * dP["lam_T"][L]; dlfR = (2.0 * lL * lL / (s * s)) * dP["lam_T"][R]
+                else:
+                    lam_face = 0.0; dlfL = np.zeros(3); dlfR = np.zeros(3)
+                F_mass = V_T[f] * lam_face
+                dm_L = dVT_L * lam_face + V_T[f] * dlfL; dm_R = dVT_R * lam_face + V_T[f] * dlfR
+                lamu = pr.lam_T[uc]; invu = (1.0 / lamu) if lamu > 0.0 else 0.0
+                hbar = pr.adv_h[uc] * invu; xbar = pr.adv_z[uc] * invu
+                dhbar = (dP["adv_h"][uc] * lamu - pr.adv_h[uc] * dP["lam_T"][uc]) * invu * invu
+                dxbar = (dP["adv_z"][uc] * lamu - pr.adv_z[uc] * dP["lam_T"][uc]) * invu * invu
+                de_L = hbar * dm_L; de_R = hbar * dm_R; dz_L = xbar * dm_L; dz_R = xbar * dm_R
+                route(uc == L, de_L, de_R, dhbar * F_mass); route(uc == L, dz_L, dz_R, dxbar * F_mass)
+            else:
+                dm_L = dVT_L * pr.lam_T[uc]; dm_R = dVT_R * pr.lam_T[uc]
+                de_L = dVT_L * pr.adv_h[uc]; de_R = dVT_R * pr.adv_h[uc]
+                dz_L = dVT_L * pr.adv_z[uc]; dz_R = dVT_R * pr.adv_z[uc]
+                route(uc == L, dm_L, dm_R, V_T[f] * dP["lam_T"][uc])
+                route(uc == L, de_L, de_R, V_T[f] * dP["adv_h"][uc])
+                route(uc == L, dz_L, dz_R, V_T[f] * dP["adv_z"][uc])
+            de_L += TFf[f] * dP["T"][L]; de_R -= TFf[f] * dP["T"][R]
+            if GAf[f] != 0.0:                              # mobility-product buoyancy pair (y-faces)
+                w_flux = -GAf[f] * (rho_l_f[f] - rho_v_f[f])
+                dwfL = -GAf[f] * 0.5 * (dP["rho_l"][L] - dP["rho_v"][L])
+                dwfR = -GAf[f] * 0.5 * (dP["rho_l"][R] - dP["rho_v"][R])
+                cg = ug[f]; cd = ud[f]
+                a = pr.mm_l[cg]; b = pr.mm_v[cd]; Gam = a + b + 1e-30; common = a * b / Gam
+                dca = b * b / (Gam * Gam); dcb = a * a / (Gam * Gam)
+                dcom_L = np.zeros(3); dcom_R = np.zeros(3)
+                route(cg == L, dcom_L, dcom_R, dca * dP["mm_l"][cg])
+                route(cd == L, dcom_L, dcom_R, dcb * dP["mm_v"][cd])
+                Hd = pr.h_l[cg] - pr.h_v[cd]; Xd = pr.x_l[cg] - pr.x_v[cd]
+                dHd_L = np.zeros(3); dHd_R = np.zeros(3); dXd_L = np.zeros(3); dXd_R = np.zeros(3)
+                route(cg == L, dHd_L, dHd_R, dP["h_l"][cg]); route(cd == L, dHd_L, dHd_R, -dP["h_v"][cd])
+                route(cg == L, dXd_L, dXd_R, dP["x_l"][cg]); route(cd == L, dXd_L, dXd_R, -dP["x_v"][cd])
+                de_L += dcom_L * w_flux * Hd + common * dwfL * Hd + common * w_flux * dHd_L
+                de_R += dcom_R * w_flux * Hd + common * dwfR * Hd + common * w_flux * dHd_R
+                dz_L += dcom_L * w_flux * Xd + common * dwfL * Xd + common * w_flux * dXd_L
+                dz_R += dcom_R * w_flux * Xd + common * dwfR * Xd + common * w_flux * dXd_R
+            BLL = np.array([dm_L, de_L, dz_L]); BLR = np.array([dm_R, de_R, dz_R])
+            add(L, L, BLL); add(L, R, BLR); add(R, L, -BLL); add(R, R, -BLR)
+
+    # --- top boundary (Dirichlet p, T, z); btop props FIXED -> the -GAb*rho_ff term is constant ---
+    tc = grid.top; prb = btop.pr
+    V_t = grid.Tb * (p[tc] - btop.p) - grid.GAb * prb.rho_ff[0]
+    dVt = grid.Tb * ep
+    for k in range(tc.size):
+        c = tc[k]; Vt = V_t[k]
+        B = np.zeros((3, 3))
+        if Vt >= 0.0:                                      # outflow: own-cell advected weights
+            B[0] = dVt * pr.lam_T[c] + Vt * dP["lam_T"][c]
+            B[1] = dVt * pr.adv_h[c] + Vt * dP["adv_h"][c] + grid.TFb * dP["T"][c]
+            B[2] = dVt * pr.adv_z[c] + Vt * dP["adv_z"][c]
+        else:                                              # inflow: fixed top-boundary weights
+            B[0] = dVt * prb.lam_T[0]
+            B[1] = dVt * prb.adv_h[0] + grid.TFb * dP["T"][c]
+            B[2] = dVt * prb.adv_z[0]
+        add(c, c, B)
+
+    return sp.coo_matrix((data, (rows, cols)), shape=(NV * nc, NV * nc)).tocsc()
+
+
+# --------------------------------------------------------------------------------------- #
 #  Newton + adaptive dt with exact schedule landing
 # --------------------------------------------------------------------------------------- #
 def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1.0e-5, maxit=17):
@@ -589,7 +708,8 @@ def newton_step(x0, x_old, dt, grid, table, btop, opts, plan, atol=1.0e-5, maxit
         m = _metric(r)
         if m <= atol:
             return x, it, m, True
-        A = jacobian_fd(x, r, args, plan)
+        A = (jacobian_analytic(x, dt, grid, table, btop, opts, ug, ud, ut)
+             if USE_ANALYTIC_JAC else jacobian_fd(x, r, args, plan))
         try:
             dx = spla.splu(A, permc_spec="MMD_AT_PLUS_A").solve(-r)
         except Exception:
@@ -625,7 +745,7 @@ def hydrostatic_column(table, xpt, ny, d, z_init):
     p = P_TOP + 1000.0 * G * depth
     zz = np.full(ny, z_init)
     for _ in range(10):
-        h = xpt("H", zz, np.full(ny, T_TOP - 273.15), p)
+        h = xpt.enth(np.full(ny, T_TOP), p, zz)
         rho = eval_props(table, zz, p, h).rho_mix
         p_new = np.empty(ny)
         p_new[-1] = P_TOP + rho[-1] * G * (d / 2.0)          # top cell: half-cell column
@@ -684,9 +804,9 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
         cfl=None, level=TABLE_LEVEL, folder=None, verbose=True):
     opts = Opts(scheme=scheme, grav_upstream=grav_upstream,
                 lag_upwind=lag_upwind, lag_props=lag_props)
-    xph_path, xpt_path = table_paths(level)[:2]
-    table = Table3(xph_path, _XPH_FIELDS, a_in=_XPH_A_IN, b_in=_XPH_B_IN)
-    xpt = Table3(xpt_path, _XPT_FIELDS, a_in=_XPT_A_IN, b_in=_XPT_B_IN)
+    xph_path, xpt_path = table_paths()[:2]              # graded brine OBL (level arg dropped upstream)
+    table = Xph3Sampler(xph_path)
+    xpt = XptSampler(xpt_path)
     if verbose:
         print(f"  tables: h [{table.a_min/1e6:g}, {table.a_max/1e6:g}] MJ/kg, "
               f"p [{table.b_min/1e6:g}, {table.b_max/1e6:g}] MPa, "
@@ -705,15 +825,14 @@ def run(scheme="hu", cell=100.0, q_anomaly=Q_ANOMALY, z_init=Z_INIT,
               f"gu={grav_upstream} ld={lag_upwind} lp={lag_props}, z_init={z_init:g}, "
               f"input {grid.q_bot.sum():.0f} W (grid-quantized inlet)")
 
-    h_top = float(xpt("H", np.array([z_init]), np.array([T_TOP - 273.15]),
-                      np.array([P_TOP]))[0])
+    h_top = float(xpt.enth(np.array([T_TOP]), np.array([P_TOP]), np.array([z_init]))[0])
     btop = BoundaryState(p=P_TOP, h=h_top, z=z_init,
                          pr=eval_props(table, np.array([z_init]), np.array([P_TOP]),
                                        np.array([h_top])),
                          T=T_TOP)
     p_col = hydrostatic_column(table, xpt, grid.ny, grid.d, z_init)
     p0 = p_col[np.arange(grid.ncell) // grid.nx]
-    h0 = xpt("H", np.full(grid.ncell, z_init), np.full(grid.ncell, T_TOP - 273.15), p0)
+    h0 = xpt.enth(np.full(grid.ncell, T_TOP), p0, np.full(grid.ncell, z_init))
     x = np.empty(NV * grid.ncell)
     x[0::NV] = p0; x[1::NV] = h0; x[2::NV] = z_init
 

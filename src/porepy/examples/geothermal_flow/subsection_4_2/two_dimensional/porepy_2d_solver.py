@@ -37,6 +37,7 @@ from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfigurat
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,
+    RelativeStorageLebesgueMetric,  # weis-matched relative (ms/es) residual bar
 )
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
@@ -370,7 +371,7 @@ tb = time.time()
 solver_params = {
     "nl_convergence_criteria": {
         "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)),
+            tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model)),
     },
     "nl_divergence_criteria": {
         "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),

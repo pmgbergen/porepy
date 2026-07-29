@@ -803,7 +803,7 @@ def residual_brine(x, acc_mass_o, acc_salt_o, acc_en_o, dt, geom, table, bleft, 
 
 
 def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
-                      atol=1e-5, maxit=20, verbose=False, grav_upstream=False,
+                      atol=1e-4, maxit=20, verbose=False, grav_upstream=False,
                       weighted_perm=False, lag_upwind=False):
     p_o = x_old[0::3]; h_o = x_old[1::3]; z_o = x_old[2::3]
     pr_o = eval_props_brine(table, p_o, h_o, z_o)
@@ -867,7 +867,7 @@ FIG5 = dict(p_left=P_BOT, T_left=T_BOT, z_left=0.0,
 
 def run_brine(N=200, scheme="hu", case="horizontal", n_steps=None, dt=None, adaptive=True,
               verbose=True, grav_upstream=False, weighted_perm=False, lag_upwind=False,
-              atol=1e-5, **fig):
+              atol=1e-4, **fig):
     """The single brine engine: mass + salt + energy, primaries [p, h, z], HU/PPU/HU-mwp buoyancy.
     Reproduces Fig 4/5 (pure water) at z=0 and Fig 6 (H2O-NaCl + immobile halite) at z>0 -- ONE
     discretization, sampling only the graded OBL (``table_paths()``). ``case``

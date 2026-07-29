@@ -105,6 +105,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
+    RelativeStorageLebesgueMetric,  # weis-matched relative (ms/es) residual bar
 )
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
@@ -747,7 +748,7 @@ def _solver_params(model) -> dict:
     return {
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)),
+                tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),

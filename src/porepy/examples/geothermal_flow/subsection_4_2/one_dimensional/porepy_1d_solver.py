@@ -198,7 +198,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-5, metric=RelativeStorageLebesgueMetric(model)),
+                tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20),
@@ -325,7 +325,7 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
     _attach_samplers(model, xph_name=xph_name, xpt_name=xpt_name)
     solver_params = {
         "nl_convergence_criteria": {"res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-5, metric=RelativeStorageLebesgueMetric(model))},
+            tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model))},
         "nl_divergence_criteria": {"max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20)},
     }
     print(f"\n=== PorePy fig6 {column} (tf={tf_years:.0f} yr, tables={xph_name}) ===", flush=True)
