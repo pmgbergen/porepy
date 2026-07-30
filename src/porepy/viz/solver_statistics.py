@@ -243,6 +243,10 @@ class SolverStatistics:
         if self.index == -1:
             return data
 
+        # Initialize global entry if non-existing.
+        if "global" not in data:
+            data["global"] = {}
+
         # Initialize index entry if non-existing.
         if str(self.index) not in data:
             data[str(self.index)] = {}
