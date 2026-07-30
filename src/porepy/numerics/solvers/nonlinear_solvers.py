@@ -536,8 +536,7 @@ class NewtonSolver(NonlinearSolverBase):
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
-            model: The model instance specifying the problem to be solved, knowing
-                of its metrics for measuring states and residuals.
+            model: The model instance specifying the problem to be solved.
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
