@@ -88,7 +88,7 @@ def test_intialization_and_run():
     )
     solver_params = {
         "initialization": {
-            "mode": "steady-state",
+            "update_reference": False,
             "pseudo_dt_init": 1000 * pp.YEAR,
             "pseudo_dt_max": 100000 * pp.YEAR,
         },

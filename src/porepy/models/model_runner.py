@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import warnings
 from abc import ABC
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional, cast
 
@@ -13,15 +12,16 @@ import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceStatusCollection,
     DivergenceCriteria,
 )
-from porepy.numerics.solvers.nonlinear_solver_status import NonlinearSolverStatus
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.time_stepper.time_stepper import TimeStepper
+from porepy.time_stepper.time_stepper import (
+    PseudoTimeStepper,
+    TimeStepper,
+)
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -66,11 +66,6 @@ class ModelRunnerStatus(ABC):
 @dataclass
 class ModelRunnerStatusSuccess(ModelRunnerStatus):
     """A status object that indicates that the simulation finished successfully."""
-
-
-@dataclass
-class ModelRunnerStatusInProgress(ModelRunnerStatus):
-    """A status object that indicates that the simulation is in progress."""
 
 
 @dataclass
@@ -329,41 +324,106 @@ class ModelRunner:
         """Formats a progressbar postfix string with dt."""
         return f"Δt={self.model.time_manager.dt:.1e}"
 
-    def initialize(self) -> None:
-        """Initializes the model for a steady-state or time-dependent simulation.
+    def initialize(self) -> ModelRunnerStatus:
+        """Initializes the model for a time-dependent simulation.
+
+        Uses pseudo time-stepping to reach steady state. Mimics the structure of
+        _run_time_dependent.
 
         Raises:
-            ValueError: If an invalid mode is provided.
+            ValueError: If model is not time-dependent.
+            RuntimeError: If initialization fails.
+
+        Returns:
+            ModelRunnerStatusSuccess: If initialization converged.
 
         """
         # Sanity check.
         if not self._is_time_dependent:
             raise ValueError("Initialization for steady-state mode is not supported.")
 
-        # Set default initialization parameters.
-        self.params.setdefault("initialization", {"mode": "steady-state"})
+        # Create initialization stepper with convergence criteria.
+        init_params = InitializationParameters.from_dict(self.params["initialization"])
+        pseudo_time_stepper = PseudoTimeStepper(
+            time_manager=self.model.time_manager,
+            convergence_criteria=init_params.convergence_criteria,
+            divergence_criteria=init_params.divergence_criteria,
+        )
 
-        # Choose initialization class based on mode.
-        mode = self.params["initialization"]["mode"]
-        if mode == "steady-state":
-            Initialization = SteadyStateInitialization
-        elif mode == "steady-reference-state":
-            Initialization = ReferenceStateInitialization
-        else:
-            raise ValueError(f"Invalid initialization mode: {mode}")
+        # Cache current time manager.
+        cached_schedule = self.model.time_manager.schedule
+        cached_dt = self.model.time_manager.dt
+        cached_dt_min_max = self.model.time_manager.dt_min_max
+        cached_constant_dt = self.model.time_manager.is_constant
+        cached_iters = self.model.time_manager._iters
 
-        # Run the initialization procedure.
-        Initialization(
-            self.model,
-            self.solver,
-            self.params["initialization"],
-        ).run()
+        # Setup pseudo time manager for initialization.
+        self.model.time_manager.schedule = [
+            self.model.time_manager.time_init,
+            self.model.time_manager.time_final + init_params.pseudo_dt_max,
+        ]
+        self.model.time_manager.dt = init_params.pseudo_dt_init
+        self.model.time_manager.dt_min_max = (
+            self.model.time_manager.dt_min_max[0],
+            init_params.pseudo_dt_max,
+        )
+        self.model.time_manager.is_constant = False
+
+        # Run initialization with pseudo time stepper.
+        with logging_redirect_tqdm([logging.root]):
+            # Run pseudo time stepping until convergence is reached.
+            is_initialized = False
+            while not is_initialized:
+                # Update the progressbar before the time step.
+                self.time_progressbar.set_postfix_str(self._progressbar_postfix())
+
+                # Perform pseudo time step.
+                time_step_status, convergence_status, divergence_status = (
+                    pseudo_time_stepper.perform_pseudo_time_step(
+                        self.model, self.solver
+                    )
+                )
+
+                # Handle mode-specific post-initialization (for now without hook).
+                if init_params.update_reference:
+                    self.model.update_reference_solution()
+
+                # Update the progressbar after the time step.
+                if isinstance(time_step_status, TimeStepperStatusSuccess):
+                    self.time_progressbar.update(n=time_step_status.dt)
+
+                # Abort simulation if time step was stopped or diveregence detected.
+                if (
+                    isinstance(time_step_status, TimeStepperStatusFailure)
+                    or divergence_status.is_failed()
+                ):
+                    logger.error(f"Initialization failed: {time_step_status.reason}")
+                    status = ModelRunnerStatusFailure(reason=time_step_status.reason)
+                    raise RuntimeError(status)
+
+                # Update initialization status.
+                is_initialized = (
+                    isinstance(time_step_status, TimeStepperStatusSuccess)
+                    and convergence_status.is_converged()
+                )
+
+        # Conclude the initialization status.
+        logger.info(
+            "Initialization converged after %d iterations",
+            pseudo_time_stepper.pseudo_steps,
+        )
+
+        # Restore time manager state.
+        self.model.time_manager.schedule = cached_schedule
+        self.model.time_manager.dt = cached_dt
+        self.model.time_manager.dt_min_max = cached_dt_min_max
+        self.model.time_manager.is_constant = cached_constant_dt
+        self.model.time_manager._iters = cached_iters
 
         # Export the initialized state.
-        # TODO: This does not overwrite the exported initial (computational) state
-        # for counter 0, but advances the exporting counter. Fix this when revising
-        # the exporting logic.
         self.model.save_data_time_step()
+
+        return ModelRunnerStatusSuccess()
 
 
 def _extract_nonlinear_solver_from_params(
@@ -410,20 +470,6 @@ def _extract_nonlinear_solver_from_params(
         return nonlinear_solver
 
 
-# NOTE: Initialization has the same structure as a time loop.
-# The only/main difference is the "convergence check" which does not
-# check the end of time, but the steady state convergence.
-# Furthermore subtle differences in the time manager, e.g., the time is not
-# updated in the same way.
-# TODO: Refactor and unify the time loop and initialization loop,
-# once upgrade of time stepping is finished.
-# NOTE: The check of steady state convergence is based on the time increment.
-# Since the time stepping updates the time step after the convergence check,
-# the time increment is not anymore accessible from outside after a time
-# step is performed. This difference in the structure does not allow for
-# direct reuse of the time stepping logic for initialization at this stage.
-
-
 @dataclass
 class InitializationParameters:
     """Dataclass to hold initialization parameters."""
@@ -432,6 +478,7 @@ class InitializationParameters:
     divergence_criteria: DivergenceCriteria
     pseudo_dt_init: float
     pseudo_dt_max: float
+    update_reference: bool = False
 
     @classmethod
     def from_dict(cls, params: dict) -> InitializationParameters:
@@ -443,6 +490,7 @@ class InitializationParameters:
             - "steady_state_divergence_criteria": DivergenceCriteria
             - "pseudo_dt_init": float
             - "pseudo_dt_max": float
+            - "update_reference": bool
 
         Returns:
             An instance of InitializationParameters with the specified or
@@ -468,6 +516,7 @@ class InitializationParameters:
             ),
             "pseudo_dt_init": 1000 * pp.YEAR,
             "pseudo_dt_max": 100000 * pp.YEAR,
+            "update_reference": False,
         }
         return cls(
             convergence_criteria=params.get(
@@ -482,183 +531,7 @@ class InitializationParameters:
                 "pseudo_dt_init", default_config["pseudo_dt_init"]
             ),
             pseudo_dt_max=params.get("pseudo_dt_max", default_config["pseudo_dt_max"]),
+            update_reference=params.get(
+                "update_reference", default_config["update_reference"]
+            ),
         )
-
-
-class SteadyStateInitialization:
-    """Class to perform iterative pseudo time stepping for initialization."""
-
-    def __init__(
-        self,
-        model: pp.SolutionStrategy,
-        solver: pp.NewtonSolver | pp.LinearSolver,
-        params: dict,
-    ):
-        self.model = model
-        """Model instance passed at instantiation."""
-        self.solver = solver
-        """Solver instance, set in :meth:`set_solver`."""
-        self.config = InitializationParameters.from_dict(params)
-        """Initialization parameters."""
-        self.iteration = 0
-        """Number of pseudo time stepping iterations performed during initialization."""
-
-    def run(self) -> None:
-        """Run the iterative pseudo time stepping for initialization."""
-        # Artificial time control for quasi-static initialization.
-        # Cache the original time manager to restore it after initialization.
-        # NOTE: Be careful with creating new instances of the time manager, as it
-        # is used as a reference in various places (model, time stepper, etc.).
-        # Instead, we modify the existing instance and restore it afterwards.
-        cached_schedule = self.model.time_manager.schedule
-        cached_dt = self.model.time_manager.dt
-        cached_dt_min_max = self.model.time_manager.dt_min_max
-        cached_constant_dt = self.model.time_manager.is_constant
-        cached_iters = self.model.time_manager._iters
-
-        # Setup pseudo time manager for initialization.
-        self.model.time_manager.schedule = [
-            self.model.time_manager.time_init,
-            self.model.time_manager.time_final + self.config.pseudo_dt_max,
-        ]
-        self.model.time_manager.dt = self.config.pseudo_dt_init
-        self.model.time_manager.dt_min_max = (
-            self.model.time_manager.dt_min_max[0],
-            self.config.pseudo_dt_max,
-        )
-        self.model.time_manager.is_constant = False
-
-        # Perform a pseudo time stepping to initialize the reference state.
-        self.iteration = 0
-        while True:
-            # Advance iter.
-            self.iteration += 1
-            logger.info("Initialization iteration %d", self.iteration)
-
-            # Communicate dt to the model and update time-dependent arrays and
-            # derived quantities.
-            self.model.before_time_step()
-
-            # Solve pseudo time step.
-            nonlinear_solver_status: NonlinearSolverStatus = self.solver.solve(
-                self.model
-            )
-
-            # Check initialization status.
-            # Based on time increment and thus needs to be checked before the time step
-            # is updated.
-            initialization_status = self.check_initialization_status(
-                nonlinear_solver_status
-            )
-
-            # React to successful solver status.
-            if nonlinear_solver_status.is_converged():
-                self.after_pseudo_time_step_convergence()
-
-            if initialization_status.is_success() or initialization_status.is_failure():
-                break
-
-        logger.info(
-            "Initialization status: %s; after %d iterations",
-            initialization_status,
-            self.iteration,
-        )
-
-        # Restore time manager.
-        self.model.time_manager.schedule = cached_schedule
-        self.model.time_manager.dt = cached_dt
-        self.model.time_manager.dt_min_max = cached_dt_min_max
-        self.model.time_manager.is_constant = cached_constant_dt
-        self.model.time_manager._iters = cached_iters
-
-    def check_initialization_status(
-        self, solver_status: NonlinearSolverStatus
-    ) -> ModelRunnerStatus:
-        """Check the initialization status based on the solver status.
-
-        Args:
-            solver_status: The status of the solver.
-
-        Returns:
-            ModelRunnerStatus: The initialization status.
-
-        """
-        # React to solver_status.
-        if solver_status.is_converged():
-            # Evaluate whether steady state has been reached.
-            steady_state_status = self.check_steady_state()
-
-            # Conclude with initialization status.
-            if steady_state_status.is_converged():
-                initialization_status = ModelRunnerStatusSuccess()
-            else:
-                initialization_status = ModelRunnerStatusInProgress()
-
-            # Update the time step magnitude if the dynamic scheme is used.
-            if not self.model.time_manager.is_constant:
-                assert isinstance(
-                    self.model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-                )  # For type checking, to ensure the method is available.
-                self.model.time_manager.compute_time_step(
-                    iterations=self.model.nonlinear_solver_statistics.num_iterations
-                )
-
-        elif solver_status.is_failed():
-            if self.model.time_manager.is_constant:
-                initialization_status = ModelRunnerStatusFailure(
-                    reason="Solver failed and time step is constant."
-                )
-
-            else:
-                try:
-                    initialization_status = ModelRunnerStatusFailure(
-                        reason="Solver failed."
-                    )
-                    self.model.time_manager.compute_time_step(recompute_solution=True)
-                except Exception as e:
-                    logger.warning(str(e))
-                    initialization_status = ModelRunnerStatusFailure(
-                        reason="Solver and time step recomputation failed."
-                    )
-        elif solver_status.is_failed():
-            initialization_status = ModelRunnerStatusFailure(
-                reason="Simulation stopped."
-            )
-
-        else:
-            raise ValueError("Unrecognized solver status.")
-
-        return initialization_status
-
-    def check_steady_state(self) -> ConvergenceStatusCollection:
-        """Check steady state convergence.
-
-        Returns:
-            ConvergenceStatus: Enum indicating whether the current state is a steady
-                state.
-
-        """
-        # Define the increment in time.
-        state = self.model.equation_system.get_variable_values(iterate_index=0)
-        prev_state = self.model.equation_system.get_variable_values(time_step_index=0)
-        time_increment = state - prev_state
-
-        # Convergence equals steady state.
-        convergence_status, convergence_info = self.config.convergence_criteria.check(
-            increment=time_increment, reference_increment=state
-        )
-
-        return convergence_status
-
-    def after_pseudo_time_step_convergence(self) -> None:
-        """Shift solution for next computation."""
-        self.model.update_time_step_solution()
-
-
-class ReferenceStateInitialization(SteadyStateInitialization):
-    """Initialization class for steady reference state initialization."""
-
-    def after_pseudo_time_step_convergence(self) -> None:
-        """Update reference state after successful step."""
-        super().after_pseudo_time_step_convergence()
-        self.model.update_reference_solution()
