@@ -58,9 +58,6 @@ class DataSavingMixin(pp.PorePyModel):
         if do_export:
             self.write_pvd_and_vtu()
 
-        # Save solver statistics to file.
-        self.nonlinear_solver_statistics.save()
-
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
         if not self._is_time_dependent():
@@ -74,6 +71,10 @@ class DataSavingMixin(pp.PorePyModel):
                 collected_data = self.collect_data()
                 if collected_data is not None:
                     self.results.append(collected_data)
+
+    def save_statistics(self):
+        """Save solver statistics to file."""
+        self.nonlinear_solver_statistics.save()
 
     def collect_data(self) -> Any:
         """Collect relevant simulation data to be stored in attr:`results`.

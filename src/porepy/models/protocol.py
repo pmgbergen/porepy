@@ -1020,9 +1020,10 @@ else:
                 * `list`: Export if time is in the list. If the list is empty, then no
                 times are exported.
 
-            In addition, save the solver statistics to file if the option is set.
-
             """
+
+        def save_statistics(self) -> None:
+            """Save the solver statistics to file if the option is set."""
 
         def initialize_data_saving(self) -> None:
             """Initialize data saving.
