@@ -1406,6 +1406,10 @@ class EquationSystem:
         # Standardize and validate input, order it according to the equation_indexer.
         equations_on_domains = self._parse_equations(equations=equations, ordered=True)
 
+        equation_indexer, variable_indexer = self.construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+
         # Distinguish equations where restriction is required by comparing requested
         # domains with domains of definition of the equation.
         equation_name_to_domains: dict[str, list[pp.GridLike]] = {}
@@ -1440,6 +1444,7 @@ class EquationSystem:
             list(equations_rows.keys()),
             derivative=evaluate_jacobian,
             state=state,
+            variable_indexer=variable_indexer,
         )
 
         for row, value in zip(equations_rows.values(), values):
@@ -1544,12 +1549,14 @@ class EquationSystem:
     def evaluate(
         self,
         operator: pp.ad.Operator,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
     def evaluate(
         self,
         operator: list[pp.ad.Operator],
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
     @overload
@@ -1558,6 +1565,7 @@ class EquationSystem:
         operator: pp.ad.Operator,
         derivative: None,
         state: np.ndarray | None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
@@ -1566,6 +1574,7 @@ class EquationSystem:
         operator: list[pp.ad.Operator],
         derivative: None,
         state: np.ndarray | None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
     @overload
@@ -1574,6 +1583,7 @@ class EquationSystem:
         operator: pp.ad.Operator,
         derivative: Literal[False] = False,
         state: Optional[np.ndarray] = None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
@@ -1582,6 +1592,7 @@ class EquationSystem:
         operator: list[pp.ad.Operator],
         derivative: Literal[False] = False,
         state: Optional[np.ndarray] = None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
     @overload
@@ -1590,6 +1601,7 @@ class EquationSystem:
         operator: pp.ad.Operator,
         derivative: Literal[True],
         state: np.ndarray | None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -1598,6 +1610,7 @@ class EquationSystem:
         operator: list[pp.ad.Operator],
         derivative: Literal[True],
         state: np.ndarray | None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(
@@ -1605,6 +1618,7 @@ class EquationSystem:
         operator: pp.ad.Operator | list[pp.ad.Operator],
         derivative: Optional[bool] = False,
         state: Optional[np.ndarray] = None,
+        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
     ) -> (
         pp.number
         | np.ndarray
@@ -1631,8 +1645,10 @@ class EquationSystem:
         # EK: Ignore a typing error regarding 'no overload variant of "evaluate" matches
         # the argument types' since the overloads are correctly defined. I have no idea
         # why this error occurs.
+        if variable_indexer is None:
+            variable_indexer = self.variable_indexer
         return self._ad_parser.evaluate(  # type: ignore[call-overload]
-            operator, self, derivative, state
+            operator, self, derivative, state, variable_indexer=variable_indexer
         )
 
     ### Special methods ----------------------------------------------------------------

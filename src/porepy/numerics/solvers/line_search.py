@@ -296,7 +296,7 @@ class LineSearchNewtonSolver(NewtonSolver):
             )
 
     def residual_objective_function(
-        self, model, dx: np.ndarray, weight: float
+        self, model: pp.PorePyModel, dx: np.ndarray, weight: float
     ) -> np.floating[Any]:
         """Compute the objective function for the current iteration.
 
@@ -311,9 +311,15 @@ class LineSearchNewtonSolver(NewtonSolver):
             The objective function value.
 
         """
-        x_0 = model.equation_system.get_variable_values(iterate_index=0)
+        variables = self.get_active_variables(model)
+        x_0 = model.equation_system.get_variable_values(
+            iterate_index=0, variables=variables
+        )
         residual = model.equation_system.assemble(
-            state=x_0 + weight * dx, evaluate_jacobian=False
+            state=x_0 + weight * dx,
+            evaluate_jacobian=False,
+            variables=variables,
+            equations=self.get_active_equations(model),
         )
         return np.linalg.norm(residual)
 
@@ -714,7 +720,7 @@ class ConstraintLineSearch:
 
     def constraint_weights(
         self,
-        model,
+        model: pp.PorePyModel,
         solution_update: np.ndarray,
         constraint_function: pp.ad.Operator,
         max_weight: float,
@@ -740,7 +746,9 @@ class ConstraintLineSearch:
         """
         # If the sign of the function defining the regions has not changed, we use
         # unitary relaxation factors.
-        x_0 = model.equation_system.get_variable_values(iterate_index=0)
+        x_0 = model.equation_system.get_variable_values(
+            iterate_index=0, variables=self.get_active_variables(model)
+        )
         violation_tol = self.params.get("constraint_violation_tolerance", 3e-1)
         relative_cell_tol = self.params.get(
             "relative_constraint_transition_tolerance", 2e-1
