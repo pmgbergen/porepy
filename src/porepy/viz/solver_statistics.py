@@ -68,10 +68,6 @@ class SolverStatistics:
         )
     )
     """Nonlinear solver status."""
-    solver_status_history: list[solvers.NonlinearSolverStatus] = field(
-        default_factory=list
-    )
-    """Nonlinear solver status history."""
     simulation_status: TimeStepperStatus = field(
         default_factory=lambda: TimeStepperStatusContinueIterating(
             attempt=-1,
@@ -145,7 +141,6 @@ class SolverStatistics:
         """
         if solver_status is not None:
             self.solver_status = solver_status
-            self.solver_status_history.append(self.solver_status)
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -336,7 +331,6 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iterations = 0
         self.convergence_status.clear()
         self.convergence_info.clear()
-        self.solver_status_history.clear()
 
     def log_convergence_status(
         self, convergence_status: solvers.ConvergenceStatusCollection, **kwargs
@@ -414,15 +408,6 @@ class NonlinearSolverStatistics(SolverStatistics):
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary at current index."""
 
-        str_solver_status_history = [
-            status.serialize() for status in self.solver_status_history
-        ]
-        str_solver_status = (
-            None
-            if len(self.solver_status_history) == 0
-            else str_solver_status_history[-1]
-        )
-
         data = super().append_iterative_data(data)
         data[str(self.index)].update(
             {
@@ -432,8 +417,7 @@ class NonlinearSolverStatistics(SolverStatistics):
                     if len(self.simulation_status_history) == 0
                     else self.simulation_status_history[-1].serialize()
                 ),
-                "solver_status_history": str_solver_status_history,
-                "solver_status": str_solver_status,
+                "solver_status": self.solver_status.serialize(),
                 "convergence_status": self.convergence_status.to_str().copy(),
                 "convergence_info": self.convergence_info.copy(),
             }
