@@ -1561,7 +1561,10 @@ def test_arithmetic_operations_on_ad_objects(
                 [equation_system.get_variable_values(time_step_index=0)]
             )[0]
             val = equation_system._ad_parser._evaluate_single(
-                expression, state, equation_system
+                expression,
+                state,
+                equation_system,
+                variable_indexer=equation_system.variable_indexer,
             )
         except (TypeError, ValueError, NotImplementedError):
             # The variable e is not used here, but it is invaluable for debugging.
