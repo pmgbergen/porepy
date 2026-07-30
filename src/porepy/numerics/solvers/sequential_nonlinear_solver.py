@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import logging
 from typing import Optional
 from warnings import warn
+import numpy as np
 
 import porepy as pp
 from porepy.numerics.solvers.convergence_check import (
@@ -171,9 +172,21 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
                 subsolver_status = subsolver.solve(model)
                 iteration_statuses.append(subsolver_status)
                 if subsolver_status.is_failed():
-                    logger.warning(
-                        f"Subsolver {i}/{len(self.subsolvers)} failed. Continue "
-                        "iterating."
+                    logger.warning(f"Subsolver {i} (counting from 0) failed.")
+                    # Check if the inner failure led to nans and there is no point to
+                    # continue.
+                    full_residual = model.equation_system.assemble(
+                        evaluate_jacobian=False,
+                        equations=self.get_active_equations(model),
+                    )
+                    if np.all(np.isfinite(full_residual)):
+                        # We can still recover.
+                        continue
+
+                    return SequentialSolverFailed(
+                        convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+                        divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+                        subsolver_statuses=subsolver_statuses,
                     )
 
             # Fetch solution after this iteration for convergence criteria.

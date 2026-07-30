@@ -60,6 +60,8 @@ __all__ = [
     "IncrementBasedCombinedDivergenceCriterion",
     "ResidualBasedCombinedDivergenceCriterion",
     "MaxIterationsCriterion",
+    "assemble_default_convergence_criteria",
+    "assemble_default_divergence_criteria",
 ]
 
 # Status and info classes

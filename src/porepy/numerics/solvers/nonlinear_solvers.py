@@ -31,6 +31,7 @@ from porepy.utils.ui_and_logging import progressbar_class
 from .convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
+    ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
     check_convergence,
@@ -609,10 +610,20 @@ class NewtonSolver(NonlinearSolverBase):
         # Update model status (iterate) before checking convergence, so that the
         # convergence check uses the updated state. Also, after_nonlinear_convergence
         # may expect the converged solution to already be stored as an iterate.
-        model.after_nonlinear_iteration(
-            nonlinear_increment=nonlinear_increment,
-            updated_variables=self.get_active_variables(model),
-        )
+        try:
+            model.after_nonlinear_iteration(
+                nonlinear_increment=nonlinear_increment,
+                updated_variables=self.get_active_variables(model),
+            )
+        except ValueError:
+            # model.after_nonlinear_iteration tends to raise this error if
+            # discretization encounter nans:
+            # "Tensor is not positive definite because of components in x-direction"
+            # If not intercepted here, this exception leads to a simulation crash
+            # instead of retrying.
+            return ConvergenceStatusCollection(), ConvergenceStatusCollection(
+                {"failed to rediscretize model": ConvergenceStatus.FAILED}
+            )
 
         # Monitor convergence.
         convergence_status, divergence_status, convergence_info = check_convergence(
@@ -629,7 +640,7 @@ class NewtonSolver(NonlinearSolverBase):
         )
 
         # Logging and progress bar update.
-        self.logging(model, convergence_info, nonlinear_increment)
+        self.logging(convergence_info)
 
         # Update (iteration-based) solver statistics.
         self.update_solver_statistics(
@@ -695,37 +706,28 @@ class NewtonSolver(NonlinearSolverBase):
         """Log the current state of the nonlinear solver.
 
         This includes printing the current iteration number, nonlinear increment norm,
-        and residual norm, as well as updating the progress bar.
+        and residual norm, as well as updating the progress bar. The norms are
+        considered only if they are computed by convergence criteria.
 
         Parameters:
-            model: The model instance specifying the problem to be solved.
-            convergence_info: Convergence information containing norms.
-            nonlinear_increment: Newly obtained solution increment vector.
+            convergence_info: Convergence information possibly containing norms.
 
         """
-        # TODO: The logging should be agnostic to the chosen criteria and metric.
-        # Use currently simple np.linalg norms for logging instead of convergence_info.
-        # To be revisited - remove nonlinear_increment parameter then as well.
+        progressbar_string = ""
+        inc_abs = convergence_info.get("inc_abs", None)
+        res_abs = convergence_info.get("res_abs", None)
+        if inc_abs is not None:
+            progressbar_string = f"{progressbar_string} {inc_abs=:.2e}"
+        if res_abs is not None:
+            progressbar_string = f"{progressbar_string} {res_abs=:.2e}"
 
-        # Log iteration number.
-        iteration_msg = f"Newton iteration number {self.iteration_index}"
-        iteration_msg += f" of {self.max_iterations}"
-        logger.info(iteration_msg)
-
-        # Log norms.
-        nonlinear_increment_norm = np.linalg.norm(nonlinear_increment)
-        residual = model.equation_system.assemble(evaluate_jacobian=False)
-        residual_norm = np.linalg.norm(residual)
         logger.info(
-            f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
-            f"Nonlinear residual norm: {residual_norm:.2e}"
+            f"Iter {self.iteration_index}/{self.max_iterations}. {progressbar_string}"
         )
 
         # Update progress bar.
         self.solver_progressbar.update(n=1)
-        self.solver_progressbar.set_postfix_str(
-            f"Increment {nonlinear_increment_norm:.2e} Residual {residual_norm:.2e}"
-        )
+        self.solver_progressbar.set_postfix_str(progressbar_string)
 
     def update_solver_statistics(
         self,
