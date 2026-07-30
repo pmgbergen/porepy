@@ -37,6 +37,20 @@ class EquationOnDomain:
     name: str
     domain: pp.GridLike
 
+    def __str__(self) -> str:
+        if isinstance(self.domain, pp.Domain):
+            return (
+                "Equation {self.name} on subdomain(id={self.domain.id}, "
+                f"dim={self.domain.dim})"
+            )
+        elif isinstance(self.domain, pp.MortarGrid):
+            return (
+                f"Equation {self.name} on interface(id={self.domain.id}, "
+                f"dim={self.domain.dim}, codim={self.domain.codim})"
+            )
+        else:
+            return f"Equation {self.name} on unknown domain"
+
 
 class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
     """An indexer determines the arrangement of indices corresponding to multiple
