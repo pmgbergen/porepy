@@ -1269,8 +1269,8 @@ class EquationSystem:
             for eq in equations:
                 if isinstance(eq, pp.ad.EquationOnDomain):
                     # This assumes that eq.domains are already sorted.
-                    self._validate_equation_name(eq.name)
-                    self._validate_equation_restriction(eq.name, domains=[eq.domain])
+                    domains: DomainList = [eq.domain]  # type: ignore[assignment]
+                    self._validate_equation_restriction(eq.name, domains=domains)
                     equations_on_domains.append(eq)
                     continue
 

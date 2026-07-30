@@ -3,10 +3,11 @@ sequential_nonlinear_solver_poromechanics.py for a usage example.
 
 """
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from typing import Optional
 from warnings import warn
+
 import numpy as np
 
 import porepy as pp

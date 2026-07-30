@@ -1,9 +1,18 @@
+"""This example shows how to use `SequentialNonlinearSolver`.
+
+It constructs a simple (not physically realistic) poromechanics model and solves it by
+decoupling nonlinear solvers for:
+- momentum balance;
+- fluid mass balance.
+
+"""
+
 import logging
 
 import porepy as pp
 
 
-class FullModel(
+class FullModel(  # type: ignore
     pp.model_geometries.SquareDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
     pp.Poromechanics,
