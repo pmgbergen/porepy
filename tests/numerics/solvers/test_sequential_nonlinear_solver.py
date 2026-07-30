@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 import porepy as pp
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable

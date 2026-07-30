@@ -8,9 +8,9 @@ Implemented classes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from time import time
 from typing import Optional, cast
 from warnings import warn
@@ -36,6 +36,7 @@ from .convergence_check import (
     DivergenceCriteria,
     check_convergence,
 )
+from .equation_variable_tags import EquationTag, VariableTag
 from .linear_solvers.linear_solver import (
     LinearSolverBase,
     LinearSolverDirect,
@@ -46,7 +47,6 @@ from .nonlinear_solver_status import (
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from .equation_variable_tags import EquationTag, VariableTag
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
