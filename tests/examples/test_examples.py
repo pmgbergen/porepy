@@ -29,6 +29,7 @@ EXCLUDED_EXAMPLE_FILENAMES = [
     "__init__.py",
     "example_params.py",
     "geothermal_reservoir.py",
+    "geothermal_reservoir_sequential_solver.py",
 ]
 EXAMPLE_FILENAMES = [
     path

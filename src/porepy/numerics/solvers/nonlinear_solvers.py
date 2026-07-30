@@ -716,9 +716,9 @@ class NewtonSolver(NonlinearSolverBase):
         progressbar_string = ""
         inc_abs = convergence_info.get("inc_abs", None)
         res_abs = convergence_info.get("res_abs", None)
-        if inc_abs is not None:
+        if inc_abs is not None and isinstance(inc_abs, str):
             progressbar_string = f"{progressbar_string} {inc_abs=:.2e}"
-        if res_abs is not None:
+        if res_abs is not None and isinstance(res_abs, str):
             progressbar_string = f"{progressbar_string} {res_abs=:.2e}"
 
         logger.info(
