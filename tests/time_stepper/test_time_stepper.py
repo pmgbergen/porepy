@@ -257,8 +257,17 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         super().__init__(params)
         self.time_step_history: list = []
 
+        self.nonlinear_solver_statistics = (
+            SolverStatisticsFactory.create_statistics_type(
+                nonlinear=True, time_dependent=True
+            )()
+        )
+
     def before_time_step(self) -> None:
         super().before_time_step()  # The AD time step is expected to update here.
+        # We need to do it, otherwise will fail with IndexError on attempt to write
+        # statistics.
+        self.nonlinear_solver_statistics.increase_index()
         self.num_nonlinear_iters = 0
         self.time_step_history.append(self.time_manager.dt)
 
