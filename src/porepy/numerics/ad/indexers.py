@@ -1,5 +1,5 @@
-"""Indexers for discretized systems of equations and variables, the values of
-which are arranged in a contiguous array.
+"""Indexers for discretized systems of equations and variables, the values of which are
+arranged in a contiguous array.
 
 Used by `EquationSystem` and nonlinear solvers.
 
@@ -41,15 +41,15 @@ class VariableIndexer:
     def __init__(self, variable_dofs: dict[pp.ad.Variable, np.ndarray]) -> None:
         self.variable_dofs: dict[pp.ad.Variable, np.ndarray] = variable_dofs
         """An ordered mapping of atomic variables to their DoF indices. The keys are
-        ordered, in a sense that if key A goes before key B, DoFs of key A are located
+        ordered, in the sense that if key A goes before key B, DoFs of key A are located
         before DoFs of key B.
 
         """
         self.num_dofs: int = sum(x.size for x in self.variable_dofs.values())
 
     def projection_indices(self, variables: list[pp.ad.Variable]) -> np.ndarray:
-        """Create a projection index array from the system vector represented
-        by this indexer to the requested subspace.
+        """Create a projection index array from the system vector represented by this
+        indexer to the requested subspace.
 
         The order of the variables in the projection is defined by the input.
 
@@ -123,6 +123,7 @@ class VariableIndexer:
             if len(dofs) == 0:
                 continue
             # Get by key variable.name, if not found, initialize it with an empty dict.
+            # Then populate the dict with the domain and dofs.
             variables.setdefault(variable.name, {})[variable.domain] = dofs
         return variables
 
@@ -160,7 +161,7 @@ class EquationIndexer:
 
         self.equation_dofs: dict[EquationOnDomain, np.ndarray] = equation_dofs
         """An ordered mapping of atomic equations to their DoF indices. The keys are
-        ordered, in a sense that if key A goes before key B, DoFs of key A are located
+        ordered, in the sense that if key A goes before key B, DoFs of key A are located
         before DoFs of key B.
 
         """
