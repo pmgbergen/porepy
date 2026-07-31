@@ -216,7 +216,7 @@ class EquationSystem:
 
         """
         # Parse and validate input arguments. Will raise if unknown equations or
-        # variables are requested
+        # variables are requested.
         equations = {eq.name for eq in self._parse_equations(equation_names)}
         variables = self._parse_variable_type(variable_names, ordered=True)
 
@@ -1646,9 +1646,9 @@ class EquationSystem:
         # on their full image, and equations specified on a subset of grids.
         # The variable primary_rows will contain the indices in the global system
         # corresponding to the primary block.
-        equations_on_domaisn = self._parse_equations(primary_equations)
+        equations_on_domains = self._parse_equations(primary_equations)
         primary_rows_lists: dict[str, list[np.ndarray]] = {}
-        for eq in equations_on_domaisn:
+        for eq in equations_on_domains:
             primary_rows_lists.setdefault(eq.name, []).append(
                 self.equation_indexer.equation_image_space_composition[eq.name][
                     eq.domain
