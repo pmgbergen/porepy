@@ -18,9 +18,12 @@ from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "TimeStepper",
+]
 
 
 class TimeStepper:
@@ -237,7 +240,7 @@ class TimeStepper:
         )
 
 
-def _log_time_step(time_manager: pp.TimeManager) -> None:
+def _log_time_step(time_manager: pp.time_stepper.TimeManager) -> None:
     """Log the current state of the time step."""
     logger.info(
         f"Time step #{time_manager.time_index}: "

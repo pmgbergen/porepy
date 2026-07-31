@@ -16,6 +16,13 @@ from dataclasses import dataclass
 
 from porepy.numerics import solvers
 
+__all__ = [
+    "TimeStepperStatus",
+    "TimeStepperStatusContinueIterating",
+    "TimeStepperStatusSuccess",
+    "TimeStepperStatusFailure",
+]
+
 
 @dataclass
 class TimeStepperStatus(ABC):

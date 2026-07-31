@@ -167,14 +167,6 @@ from porepy.numerics.ad.get_set_values import (
 
 # Time stepping control
 from porepy import time_stepper
-from porepy.time_stepper.time_step_status import (
-    TimeStepperStatus,
-    TimeStepperStatusContinueIterating,
-    TimeStepperStatusFailure,
-    TimeStepperStatusSuccess,
-)
-from porepy.time_stepper.time_stepper import TimeStepper
-from porepy.time_stepper.time_step_control import TimeManager
 
 from porepy import models
 from porepy.models.abstract_equations import (
