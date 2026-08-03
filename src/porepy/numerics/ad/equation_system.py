@@ -306,7 +306,7 @@ class EquationSystem:
 
         """
         if self._variable_indexer is None:
-            self._variable_indexer = self.construct_variable_indexer()
+            self._variable_indexer = self._construct_variable_indexer()
         return self._variable_indexer
 
     @property
@@ -327,7 +327,7 @@ class EquationSystem:
             self._equation_indexer = self.construct_equation_indexer()
         return self._equation_indexer
 
-    def construct_variable_indexer(self) -> pp.ad.VariableIndexer:
+    def _construct_variable_indexer(self) -> pp.ad.VariableIndexer:
         """Construct a variable indexer for all the variables registered in this
         equation system.
 
@@ -699,7 +699,6 @@ class EquationSystem:
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Indexer determines ordering.
         for variable in variables:
             val = pp.get_solution_values(
                 variable.name,
@@ -765,11 +764,9 @@ class EquationSystem:
         for variable in variables:
             # 1. Slice the vector to local size
             num_dofs = variable.size
-            # Extract local vector.
-            # This will raise errors if indexation is out of range.
             dof_end = dof_start + num_dofs
-            # Extract local vector.
-            # This will raise errors if indexation is out of range.
+            # Extract local vector. This will return a smaller-than-requested array if
+            # indexation is out of range.
             local_vec = values[dof_start:dof_end]
 
             # 2. Use the AD utilities to set the values
@@ -1528,7 +1525,6 @@ class EquationSystem:
         # Slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using the transposed projection to respective
         # subspace.
-        # Multiply rhs by -1 to move to the rhs.
         if variables is not None:
             variable_indexer = self.variable_indexer
             # Respect the ordering of the input list of variables.
@@ -1540,6 +1536,7 @@ class EquationSystem:
                 else np.empty(0, dtype=int)
             )
             A = A[:, column_projection]
+        # Multiply rhs by -1 to move to the rhs.
         return A, -rhs_cat
 
     def construct_assembled_matrix_indexers(

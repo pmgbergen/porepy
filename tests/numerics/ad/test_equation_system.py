@@ -1143,7 +1143,14 @@ def test_parse_variable_like(model: EquationSystemMockModel):
 def test_parse_variable_type_rejects_unknown_variable(
     model: EquationSystemMockModel, ordered: bool
 ) -> None:
-    """An unregistered Variable must not be silently discarded in parsing variables."""
+    """An unregistered Variable must not be silently discarded in parsing variables.
+
+    Parameters:
+        model: The mock PorePy model. Needs to provide `mdg` and `equation_system`.
+        ordered: The argument passed to `equation_system._parse_variable_type`. We test
+            with both values, should not affect the test result.
+
+    """
     unknown_variable = pp.ad.Variable(
         "unknown", {"cells": 1}, model.mdg.subdomains()[0]
     )
