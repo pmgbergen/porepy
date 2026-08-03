@@ -154,11 +154,6 @@ class Operator:
 
     """
 
-    # Numpy defers binary operations to the __r*__ methods below only if this is set
-    # to None; without it, `numpy_array * operator` broadcasts into an object array
-    # holding one operator tree per element (#819).
-    __array_ufunc__ = None
-
     def __init__(
         self,
         name: Optional[str] = None,

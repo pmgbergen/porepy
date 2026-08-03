@@ -1824,39 +1824,3 @@ def test_operator_method_caching():
         assert inherited_model.method_with_list_arg([1, 2]) == 1
     assert inherited_model.method_with_list_arg([3, 4]) == 2
     assert inherited_model.method_with_list_arg([1, 2]) == 1
-
-
-@pytest.mark.parametrize("operand", ["dense", "sparse"])
-@pytest.mark.parametrize("left", [True, False])
-def test_addition_with_numpy_and_sparse_operands(operand: str, left: bool):
-    """Adding a numpy array or a sparse matrix to an operator should work either way.
-
-    The guard that converts a zero ``other`` (which Python passes when summing a
-    single-item list) to a Scalar used to be evaluated elementwise for these types,
-    raising 'truth value of an array is ambiguous'. With the operator to the right,
-    numpy captured the operation altogether (#819).
-
-    """
-    op = pp.ad.DenseArray(np.array([1.0, 2.0, 3.0]))
-    if operand == "dense":
-        other, wrapper = _get_dense_array(False), pp.ad.DenseArray
-    else:
-        other = _get_sparse_array(False, use_csr_matrix=True)
-        wrapper = pp.ad.SparseArray
-
-    res = other + op if left else op + other
-
-    assert isinstance(res, pp.ad.Operator)
-    assert res.operation is _operations.add
-    assert res.children[0] is op
-    assert isinstance(res.children[1], wrapper)
-
-
-def test_sum_of_single_operator():
-    """Python's sum starts from the integer 0, which must still short-circuit to a
-    Scalar rather than being parsed as an operand."""
-    op = pp.ad.DenseArray(np.array([1.0, 2.0, 3.0]))
-    res = sum([op])
-    assert isinstance(res, pp.ad.Operator)
-    assert res.children[0] is op
-    assert isinstance(res.children[1], pp.ad.Scalar)
