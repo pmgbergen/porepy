@@ -11,6 +11,7 @@ import logging
 
 import porepy as pp
 from porepy.numerics import solvers
+from porepy.time_stepper.scheduler import CannotRecomputeTimeStep, TimeScheduler
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
@@ -36,10 +37,9 @@ class TimeStepper:
 
     Workflow:
     1. For each retry (up to max_retries):
-        a. Update trial time;
-        b. Execute trial with current dt;
-        c. If success: update solution values, adapt dt for next step, return;
-        d. If rejected: reduce dt, loop, revert trial time.
+        a. Execute trial with current dt;
+        b. If success: update solution values, adapt dt for next step, return;
+        c. If rejected: reduce dt, loop, revert trial time.
     2. If all retries exhausted: return.
 
     The constant dt case is supported internally by setting max_retries = 1.
@@ -49,22 +49,19 @@ class TimeStepper:
 
     """
 
-    def __init__(self, time_manager: TimeManager) -> None:
+    def __init__(self, scheduler: TimeScheduler, max_attempts: int) -> None:
         """Initialize the time stepper."""
-        self.time_manager = time_manager
+        self.scheduler = scheduler
+
+        # self.time_manager = time_manager
         """TimeManager for tracking time and dt."""
 
-        self.max_attempts = time_manager.recomp_max + 1
+        assert max_attempts > 0, "max_attempts must be greater than 0."
+        self.max_attempts = max_attempts
         """Maximum number of retry attempts. Set it to 1 for no retries, which is
-        equivalent to the constant_dt policy."""
-        # Note: +1 because recomp_max=0 means a single attempt.
-
-        if self.time_manager.is_constant:
-            logger.warning("Overriding time manager parameters to ensure constant_dt.")
-            self.max_attempts = 1
-            time_manager.recomp_max = 0
-
-        assert self.max_attempts > 0, "max_attempts must be greater than 0."
+        equivalent to the constant_dt policy.
+        
+        """
 
     def perform_time_step(
         self,
@@ -84,15 +81,19 @@ class TimeStepper:
 
         """
         # Cache previous time for trial.
-        previous_time = self.time_manager.time
+        previous_time = self.scheduler.time
+        dt = self.scheduler.dt
 
-        # Logging time step start.
-        _log_time_step(time_manager=self.time_manager)
+        # # Logging time step start.
+        # _log_time_step(time_manager=self.time_manager)
 
         for attempt in range(self.max_attempts):
             # Update time manager for new trial.
-            self.time_manager.time = previous_time + self.time_manager.dt
-            self.time_manager.time_index += 1
+            model.time_manager.time = previous_time + dt
+            model.time_manager.dt = dt
+            model.time_manager.time_index += 1
+
+            # self.time_manager.time = previous_time + self.time_manager.dt
 
             # Log time step information for statistics.
             self._update_time_statistics(model)
@@ -102,8 +103,23 @@ class TimeStepper:
 
             if not nonlinear_solver_status.is_converged():
                 # Roll back if the time step attempt failed.
-                self.time_manager.time = previous_time
-                self.time_manager.time_index -= 1
+                model.time_manager.time = previous_time
+                model.time_manager.dt = dt
+                model.time_manager.time_index -= 1
+
+            try:
+                dt = self.scheduler.compute_next_time_step(
+                    success=nonlinear_solver_status.is_converged(),
+                    context={
+                        "model": model,
+                        "nonlinear_solver_status": nonlinear_solver_status,
+                    },
+                )
+            except CannotRecomputeTimeStep as exc:
+                reason = str(exc.args[0])
+                return TimeStepperStatusFailure(
+                    reason=reason, nonlinear_solver_status=nonlinear_solver_status
+                )
 
             # New time step size based on trial results.
             time_step_status = self._compute_next_time_step(
