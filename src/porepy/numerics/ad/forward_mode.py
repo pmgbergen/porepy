@@ -73,9 +73,11 @@ class AdArray:
 
     """
 
-    # Numpy defers binary operations to the __r*__ methods below only if this is set
-    # to None; without it, `numpy_array * ad_array` broadcasts into an object array
-    # holding one full AdArray, Jacobian included, per element (#819).
+    # Turn off numpy's ufuncs for this class, to avoid unexpected behavior when
+    # combining with numpy arrays. See
+    # https://numpy.org/neps/nep-0013-ufunc-overrides.html#turning-ufuncs-off for
+    # technical information and GH issue #819 for a description of the problem that can
+    # arise if this is not done.
     __array_ufunc__ = None
 
     def __init__(self, val: np.ndarray, jac: sps.spmatrix) -> None:
