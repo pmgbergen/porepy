@@ -517,7 +517,9 @@ class ArraySlicer:
         This requires that the methods __rmul__ etc. are called in the first place.
         Fundamental data types in python (int, float) will do so, as will scipy sparse
         matrices. Numpy arrays do so only because this class opts out of numpy's
-        operator capture by setting __array_ufunc__ to None.
+        operator capture by setting __array_ufunc__ to None. To stay safe, it is
+        recommended to be careful when using the ArraySlicer in chanied operations, and
+        if in doubt, use parentheses to enforce the desired order of operations.
 
     Parameters:
         domain_indices: Row indices to be selected. If not provided, the dimensions of

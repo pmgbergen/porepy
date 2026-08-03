@@ -347,9 +347,6 @@ def test_matrix_slicer_delayed_evaluation_ad_dense_float(
     """Test the application of the ArraySlicer to numpy and AdArrays, as well as scalars
     (floats), with delayed evaluation.
 
-    A numpy array as the leftmost operand only works because ArraySlicer sets
-    __array_ufunc__ to None; without it numpy captures the operation and returns an
-    object array.
     """
     # The actual test is left to a backend function, to avoid code duplication.
     _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)

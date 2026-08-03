@@ -645,8 +645,7 @@ class Operator:
         """
         # When using the sum operator on a list with a single item, Python will call the
         # addition operator with other == 0. Convert that other to an Ad Scalar with
-        # value 0 to avoid errors in the addition operator. The isinstance check keeps
-        # the comparison from being elementwise for numpy arrays and sparse matrices.
+        # value 0 to avoid errors in the addition operator.
         if isinstance(other, (int, float)) and other == 0:
             other = Scalar(0)
 

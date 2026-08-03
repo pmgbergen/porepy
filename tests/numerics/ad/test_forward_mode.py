@@ -363,10 +363,11 @@ def test_logical_operation(
 
 @pytest.mark.parametrize("operator", ["+", "-", "*", "/", "**"])
 def test_numpy_array_as_left_operand(operator: str, create_csr):
-    """A numpy array to the left of an AdArray should give an AdArray (#819).
+    """A numpy array to the left of an AdArray should give an AdArray.
 
-    Without AdArray.__array_ufunc__ = None, numpy broadcasts instead of deferring to
-    __radd__ etc., and returns an object array holding one full AdArray -- values and
+    This tests the disabling of numpy's ufuncs for AdArray, by setting
+    AdArray.__array_ufunc__ = None. By this trick, numpy broadcasts instead of deferring
+    to __radd__ etc., and returns an object array holding one full AdArray -- values and
     Jacobian -- per element.
 
     """
@@ -395,7 +396,10 @@ def test_numpy_array_as_left_operand(operator: str, create_csr):
 
 @pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
 def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
-    """Comparisons are numpy ufuncs too, so they are captured the same way (#819)."""
+    """Test disabling of numpy's ufuncs for AdArray when used with logical operators.
+
+    See test test_numpy_array_as_left_operand for details.
+    """
     val = np.array([2.0, 3.0, 4.0])
     ad = AdArray(val, create_csr(np.eye(3)))
     b = np.array([3.0, 3.0, 1.0])
