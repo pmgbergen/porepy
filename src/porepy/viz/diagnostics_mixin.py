@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence, cast
 
 import matplotlib
 import numpy as np
@@ -173,7 +173,7 @@ class DiagnosticsMixin:
                 f"{grouping=} instead."
             )
         # The type is checked one line earlier.
-        grouping_: GridGroupingType = grouping  # type: ignore
+        grouping = cast(GridGroupingType, grouping)
 
         full_matrix = linear_system.matrix
         assert full_matrix is not None, (

@@ -56,6 +56,9 @@ class VariableIndexer:
         Parameters:
             variables: Input for which the subspace is requested.
 
+        Raises:
+            ValueError: If the requested variable is not known to this indexer.
+
         Returns:
             an index array of `shape=(M,)`, where `0 <= M <= num_dofs`.
 
@@ -76,7 +79,7 @@ class VariableIndexer:
 
     def construct_restricted_indexer(
         self, variables: list[pp.ad.Variable]
-    ) -> "VariableIndexer":
+    ) -> VariableIndexer:
         """Constructs a new indexer based on requested subset of variables.
 
         The order of the new indexer is defined by the input.
@@ -126,6 +129,31 @@ class VariableIndexer:
             # Then populate the dict with the domain and dofs.
             variables.setdefault(variable.name, {})[variable.domain] = dofs
         return variables
+
+    def identify_dof(self, dof: int) -> pp.ad.Variable:
+        """Identifies the variable to which a specific DOF index belongs.
+
+        The intended use is to help identify entries in the global vector or the column
+        of the Jacobian.
+
+        This operation is O(n) for n elements in the vector in the worst case. This
+        method should not be used in a hot loop.
+
+        Parameters:
+            dof: a single index in the global vector.
+
+        Returns:
+            The identified Variable object.
+
+        Raises:
+            KeyError: if the dof is out of range.
+
+        """
+        for variable, indices in self.variable_dofs.items():
+            if dof in indices:
+                return variable
+
+        raise KeyError("Dof index out of range.")
 
 
 class EquationIndexer:
@@ -203,7 +231,7 @@ class EquationIndexer:
 
     def construct_restricted_indexer(
         self, equations: list[EquationOnDomain]
-    ) -> "EquationIndexer":
+    ) -> EquationIndexer:
         """Constructs a new indexer based on requested subset of equations.
 
         The order of the new indexer is defined by the input.

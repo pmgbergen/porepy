@@ -256,7 +256,7 @@ def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model):
         result[name] = np.sqrt(result[name])
 
     # Compute Lebesgue metric values.
-    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model, equation_indexer)
+    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model)
     metric_values = m(dummy_residual_array)
 
     # Make sure that the dictionaries are the same.
@@ -454,7 +454,7 @@ def test_equation_based_lebesgue_metric_with_model(random_polynomial_setup):
         }
     )
     model.prepare_simulation()
-    m_eq = pp.EquationBasedLebesgueMetric(model, model.equation_system.equation_indexer)
+    m_eq = pp.EquationBasedLebesgueMetric(model)
 
     # Use cell centers and pass as values for the model variables.
     assert len(model.mdg.subdomains()) == 1
