@@ -119,37 +119,11 @@ class Operations(Enum):
 
         if self == Operations.matmul:
             # left @ right: target(right) must equal source(left)
-            if left.source.domain_type == DomainType.unclear:
-                raise ValueError(
-                    f"Cannot matrix multiply with {left!r} as the left operand: "
-                    "its source is unclear."
-                )
-            if not right_is_scalar and not self._spaces_compatible(
-                left.source, right.target
-            ):
-                raise ValueError(
-                    f"Incompatible matrix multiplication: the target of {right!r} "
-                    f"({right.target}) does not match the source of {left!r} "
-                    f"({left.source})."
-                )
-            return right.source, left.target
+            return self._process_matmul(left, right, right_is_scalar)
         elif self == Operations.rmatmul:
             # right @ left (dispatched as left.__rmatmul__(right)):
             # target(left) must equal source(right)
-            if right.source.domain_type == DomainType.unclear:
-                raise ValueError(
-                    f"Cannot matrix multiply with {right!r} as the left operand: "
-                    "its source is unclear."
-                )
-            if not right_is_scalar and not self._spaces_compatible(
-                right.source, left.target
-            ):
-                raise ValueError(
-                    f"Incompatible matrix multiplication: the target of {left!r} "
-                    f"({left.target}) does not match the source of {right!r} "
-                    f"({right.source})."
-                )
-            return left.source, right.target
+            return self._process_matmul(right, left, left_is_scalar)
         else:
             # Elementwise operations
             if left_is_scalar and right_is_scalar:
@@ -187,6 +161,25 @@ class Operations(Enum):
                     self._pick_source(left.source, right.source),
                     self._pick_target(left.target, right.target),
                 )
+
+    def _process_matmul(
+        self, first, second, second_is_scalar: bool
+    ) -> tuple[OperatorSpace, OperatorSpace]:
+        # left @ right: target(right) must equal source(left)
+        if first.source.domain_type == DomainType.unclear:
+            raise ValueError(
+                f"Cannot matrix multiply with {first!r} as the left operand: "
+                "its source is unclear."
+            )
+        if not second_is_scalar and not self._spaces_compatible(
+            first.source, second.target
+        ):
+            raise ValueError(
+                f"Incompatible matrix multiplication: the target of {second!r} "
+                f"({second.target}) does not match the source of {first!r} "
+                f"({first.source})."
+            )
+        return second.source, first.target
 
     def _is_cellwise_scalar(self, space: OperatorSpace) -> bool:
         """Return True if space represents exactly one DOF per grid entity.
