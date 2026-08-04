@@ -1,3 +1,7 @@
+"""The module contains the Operations enum, which is used to identify the operation
+performed by an operator and to validate the source/target spaces of the operands.
+"""
+
 from __future__ import annotations
 from enum import Enum
 
@@ -90,30 +94,24 @@ class Operations(Enum):
 
         The scalar space (:meth:`OperatorSpace.scalar`) is compatible with any space, so
         operations with a :class:`Scalar` operator are always valid and the result
-        inherits the non-scalar space. Plain Python scalars (``int``, ``float``) are
-        treated as the scalar space.
+        inherits the non-scalar space.
 
         Validation is skipped whenever either operand's space is ``None``, so operators
         that carry no space information are fully supported.
 
         Parameters:
-            left: The left operand. right: The right-hand-side operand.
+            left: The left operand.
+            right: The right-hand-side operand.
+
+        Raises:
+            ValueError: If the operands have specified spaces that are incompatible.
 
         Returns:
             A 2-tuple ``(source, target)`` where ``source`` is the inferred
             :class:`OperatorSpace` for the source and ``target`` is the inferred
             :class:`OperatorSpace` for the target.
 
-        Raises:
-            ValueError: If both operands have specified spaces that are incompatible.
-
         """
-        # A Scalar operator always parses to a plain Python float (see
-        # `Scalar.parse`), regardless of whether it was constructed with a
-        # `domains` argument. Such domain-bearing scalars carry a non-scalar
-        # `OperatorSpace` (see `Scalar.__init__`) purely for provenance/error
-        # message purposes, but are numerically compatible with (broadcastable
-        # against) any other operand, exactly like a "true" scalar space.
         left_is_scalar = left.source.domain_type == DomainType.scalar
         right_is_scalar = right.source.domain_type == DomainType.scalar
 
@@ -181,32 +179,28 @@ class Operations(Enum):
             )
         return second.source, first.target
 
-    def _is_cellwise_scalar(self, space: OperatorSpace) -> bool:
+    def _can_broadcast(self, space: OperatorSpace) -> bool:
         """Return True if space represents exactly one DOF per grid entity.
 
-        Such a space numerically broadcasts against any other space defined on the
-        same grids *and the same grid entity* (e.g. cells). This mirrors the
-        broadcast already granted to :class:`Scalar` operators, but applies to any
-        operator whose computed space happens to carry a single DOF per entity. This
-        does *not* make e.g. a cell-based space broadcastable against a face-based
-        space: the grid entity keys must still match (see ``_spaces_compatible``).
+        Such a space numerically broadcasts against any other space defined on the same
+        grids *and the same grid entity* (e.g. cells). This mirrors the broadcast of
+        :class:`Scalar` operators, but applies to any operator whose computed space
+        happens to carry a single DOF per entity.
+
+        Important cases are pure variables and constitutive relations that are defined
+        per grid entity (e.g. per cell) and hence have one DOF per entity.
 
         """
         return len(space.dof_info) == 1 and set(space.dof_info.values()) == {1}
 
     def _spaces_compatible(self, a: OperatorSpace, b: OperatorSpace) -> bool:
-        """Return True if a and b represent the same operator space.
-
-        Two spaces defined on an empty set of grids are considered compatible
-        regardless of their exact domain type, since they both carry zero actual
-        degrees of freedom (e.g. a discretization defined on an empty list of
-        interfaces, as can happen for well couplings in a model without wells,
-        must be compatible with a genuinely scalar operator).
-
-        """
+        """Return True if a and b represent compatible operator spaces."""
         if a == b:
+            # Spaces are equal. Fine.
             return True
         if len(a.grids) == 0 and len(b.grids) == 0:
+            # None of the spaces carry any grids, so they are considered compatible
+            # (even if they have different domain types).
             return True
         if (
             a.domain_type == b.domain_type
@@ -214,39 +208,38 @@ class Operations(Enum):
             and set(a.dof_info.keys()) == set(b.dof_info.keys())
             and len(a.dof_info) == 1
         ):
-            if self._is_cellwise_scalar(a) or self._is_cellwise_scalar(b):
+            # Spaces are not equal, but they are defined on the same grids, same entity
+            # type, and one of them is a cellwise scalar, hence we can broadcast the
+            # result to the other space.
+            if self._can_broadcast(a) or self._can_broadcast(b):
                 return True
         return False
 
-    def _is_vacuous(self, space: OperatorSpace) -> bool:
-        """Return True if the space carries no grids, and hence no actual dofs.
-
-        This includes the scalar space, but also spaces with a non-scalar
-        domain_type that happen to be defined on an empty grid list.
-
-        """
-        return len(space.grids) == 0
-
     def _pick_target(self, a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
-        """Return the known space when one side is unspecified.
+        """Pick the target space.
 
-        When one operand is a cellwise-scalar broadcast (see
-        ``_is_cellwise_scalar``), the result should carry the *other*
-        operand's (non-broadcast) space, since that is where the actual
-        degrees of freedom of the result live.
-
+        It assumed that the caller has already verified that the two spaces are
+        compatible.
         """
-        if self._is_cellwise_scalar(a) and not self._is_cellwise_scalar(b):
+        # When one operand is a cellwise-scalar broadcast the result should carry the
+        # other operand's (non-broadcast) space, since that is where the actual degrees
+        # of freedom of the result live.
+        if self._can_broadcast(a) and not self._can_broadcast(b):
             return b
-        if self._is_cellwise_scalar(b) and not self._is_cellwise_scalar(a):
+        if self._can_broadcast(b) and not self._can_broadcast(a):
             return a
         return a
 
     def _pick_source(self, a: OperatorSpace, b: OperatorSpace) -> OperatorSpace:
+        """Pick the source space.
+
+        It assumed that the caller has already verified that the two spaces are
+        compatible.
+        """
         if a.domain_type == DomainType.unclear or b.domain_type == DomainType.unclear:
             return OperatorSpace.unclear()
         if a != b:
-            if self._is_vacuous(a) and self._is_vacuous(b):
+            if len(a.grids) == 0 and len(b.grids) == 0:
                 # Both spaces carry no actual dofs, so their exact domain type is
                 # immaterial; arbitrarily keep the left operand's space.
                 return a
@@ -256,10 +249,11 @@ class Operations(Enum):
                 and set(a.dof_info.keys()) == set(b.dof_info.keys())
                 and len(a.dof_info) == 1
             ):
-                # Same grids/domain type/entity key, differing only in the
-                # per-entity DOF count (e.g. one side is a cellwise-scalar
-                # broadcast): resolve the same way as the target, keeping the
+                # Same grids/domain type/entity key, differing only in the per-entity
+                # DOF count (e.g. one side is a cellwise-scalar broadcast). Keep the
                 # non-broadcast space when possible.
                 return self._pick_target(a, b)
+            # If we reach this point, the spaces are incompatible, but the caller has
+            # already verified that they are compatible, so we return unclear.
             return OperatorSpace.unclear()
         return a
