@@ -582,12 +582,9 @@ class PoromechanicalTestDiffTpfa(
         # Basis vector for the yy-component
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
 
-        return (
-            pp.wrap_as_dense_ad_array(
-                all_vals, name="Constant_permeability_component", grids=subdomains
-            )
-            + e_yy @ self.pressure(subdomains) ** 2
-        )
+        return pp.wrap_as_dense_ad_array(
+            all_vals, name="Constant_permeability_component", grids=subdomains
+        ) + e_yy @ self.pressure(subdomains) ** pp.ad.Scalar(2)
 
     def ic_values_pressure(self, sd) -> np.ndarray:
         if sd.dim == 1:
