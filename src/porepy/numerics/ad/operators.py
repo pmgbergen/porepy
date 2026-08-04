@@ -620,7 +620,6 @@ class Operator:
             The difference of other and self.
 
         """
-        # consider the expression a-b. right-subtraction means self == b
         source, target = Operations.sub.infer_source_target(self, other)
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
@@ -890,12 +889,8 @@ def _check_space_shape_consistency(
     """Verify that ``space`` (if given, and if grid-based) predicts ``actual_size``
     degrees of freedom.
 
-    Used by :class:`SparseArray`/:class:`DenseArray` to catch cases where the
-    ``dof_info``/``grids`` passed in for ``source``/``target`` do not actually
-    match the shape of the wrapped array/matrix.
-
     Parameters:
-        space: The candidate source or target space, or ``None`` if not given.
+        space: The candidate source or target space.
         actual_size: The actual size (number of rows, columns, or vector
             entries) of the wrapped array/matrix along the dimension
             associated with ``space``.
@@ -2071,7 +2066,7 @@ def _ad_wrapper(
             of the returned operator. If not provided (or empty), the returned
             operator has no associated source/target space.
         grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
-            associated with. Defaults to cells.
+            associated with.
 
     Returns:
         Values wrapped as an Ad object.
@@ -2137,7 +2132,7 @@ def wrap_as_dense_ad_array(
         grids: Grids on which the wrapped array is defined. Used to construct the
             source/target space of the returned operator.
         grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
-            associated with. Defaults to cells.
+            associated with.
 
     Returns:
         Values wrapped as an ad Array.
@@ -2164,7 +2159,7 @@ def wrap_as_sparse_ad_array(
         grids: Grids on which the wrapped array is defined. Used to construct the
             source/target space of the returned operator.
         grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
-            associated with. Defaults to cells.
+            associated with.
 
     Returns:
         Values wrapped as an ad Matrix.
