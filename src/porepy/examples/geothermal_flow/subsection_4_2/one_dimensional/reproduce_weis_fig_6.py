@@ -5,8 +5,8 @@ pure water, z=salt_z for salt). The digitized Weis (2014) Fig-6 reference is ove
 benchmark_figures_data/fig_6_{pw,salt}_*.csv. If the salt column fails to converge it is drawn as a
 placeholder, so the figure always renders.
 
-    python fig_weis_fig_6.py                         # pure water + salt (z_init=0.42 -> S_h~0.1)
-    python fig_weis_fig_6.py --salt-z-init 0.3 --N 200
+    python reproduce_weis_fig_6.py                         # pure water + salt (z_init=0.42 -> S_h~0.1)
+    python reproduce_weis_fig_6.py --salt-z-init 0.3 --N 200
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ SALT_Z = 0.42                # z_init giving S_h ~ 0.1 at the IC (from the z_ini
 TF = 2000.0
 COLS = (("pw", "pure water"), ("salt", "salt + halite"))
 
-# PorePy overlay (mirrors fig_weis_fig_5): the converged HU profile from porepy_1d_solver.run_fig6_case,
+# PorePy overlay (mirrors reproduce_weis_fig_5): the converged HU profile from porepy_1d_solver.run_fig6_case,
 # cached as _cache/fig6_porepy_{pw,salt}_hu_N800_lgraded.pkl. Both columns sample the same graded OBL
 # (z=0 slice for pw, z=salt_z for salt). Black x markers.
 POREPY_C = "#0b2e6f"          # deep navy overlay, drawn as a dash-dot line (clearer than the old x)
@@ -77,7 +77,7 @@ def compute(N=N, salt_z=SALT_Z, parallel=True, skip=frozenset()):
     return {"pw": _byscheme(pw), "salt": _byscheme(salt)}
 
 
-def plot(out, stem="fig_weis_fig_6", skip=frozenset()):
+def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
@@ -169,7 +169,7 @@ def main(argv=None):
         global AUTORUN_POREPY
         AUTORUN_POREPY = False        # no auto-run; with no graded overlay cache -> weis + reference only
     skip = C.parse_skip(args.skip)
-    plot(compute(N=args.N, salt_z=args.salt_z, skip=skip), stem="fig_weis_fig_6", skip=skip)
+    plot(compute(N=args.N, salt_z=args.salt_z, skip=skip), stem="reproduce_weis_fig_6", skip=skip)
 
 
 if __name__ == "__main__":

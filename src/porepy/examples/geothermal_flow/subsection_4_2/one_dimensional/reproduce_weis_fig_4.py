@@ -4,7 +4,7 @@ pressure (blue, right axis) vs distance. The single weis brine engine at z=0 for
 overlaid on the digitized paper reference. Each panel has its own BC preset and final time; the heavy
 N=800 runs are cached in ``_cache/`` (some are 1500 yr).
 
-    python fig_weis_fig_4.py            # compute (or load cache) + render figures/fig_weis_fig_4
+    python reproduce_weis_fig_4.py            # compute (or load cache) + render figures/reproduce_weis_fig_4
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ LEVELS = ("hp", "mp", "lp")
 LEVEL_LABEL = {"hp": "high", "mp": "moderate", "lp": "low"}
 ORIENTS = ("horizontal", "vertical")
 
-# PorePy single-phase overlay (mirrors fig_weis_fig_5): the converged profile from
+# PorePy single-phase overlay (mirrors reproduce_weis_fig_5): the converged profile from
 # single_phase_porepy_1d_solver, cached as _cache/figure4_porepy_case_{hP,mP,lP}_{orient}_lgraded.pkl --
 # the SAME graded OBL as Fig 5. Drawn as black x markers over the weis-HU T/p curves.
 POREPY_C = "black"
@@ -84,7 +84,7 @@ def compute(N=N, parallel=True, skip=frozenset()):
     return C.run_tasks("fig4", tasks, parallel=parallel)
 
 
-def plot(out, stem="fig_weis_fig_4", skip=frozenset()):
+def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 

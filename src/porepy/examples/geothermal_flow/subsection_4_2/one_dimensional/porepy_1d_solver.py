@@ -289,8 +289,8 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
 
     dt_min_div = float(os.environ.get("FIG6_DT_MIN_DIV", "64"))   # deepen the dt floor for hard fronts
     time_manager = pp.TimeManager(
-        schedule=[0.0, tf], dt_init=DT, constant_dt=False,
-        dt_min_max=(DT / dt_min_div, DT), iter_max=20, iter_optimal_range=(3, 10),
+        schedule=[0.0, tf], dt_init=0.5 * DT, constant_dt=False,   # adaptive; MAX cap halved to 0.125 yr
+        dt_min_max=(DT / dt_min_div, 0.5 * DT), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,

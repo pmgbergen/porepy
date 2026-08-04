@@ -105,7 +105,6 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
-    RelativeStorageLebesgueMetric,  # weis-matched relative (ms/es) residual bar
 )
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
@@ -139,7 +138,8 @@ GRAVITY_ACCELERATION = pp.GRAVITY_ACCELERATION       # 9.80665 m/s^2 (Earth stan
 P_INLET = 20.0                           # [MPa] at the inlet corner (y = 0)
 P_OUTLET = 1.0                           # [MPa] at the outlet corner (y = 2.25)
 T_INLET = 673.15                         # [K] hot brine injected at the inlet corner
-T_OUTLET = 423.15                        # [K] cool ambient at the outlet corner / initially
+T_OUTLET = 423.15                        # [K] outlet-face Dirichlet temperature (--t-outlet / --t-ambient)
+T_AMBIENT = 423.15                       # [K] initial ambient temperature (--t-ambient); defaults to T_OUTLET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _TABLE_DIR = os.path.join(
@@ -227,7 +227,7 @@ class IC_benchmark3d(IC_two_phase_moderate_pressure):
         return _pressure_ramp(sd.cell_centers.T, *_flow_bounds(self._domain))
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
-        return np.full(sd.num_cells, T_OUTLET)
+        return np.full(sd.num_cells, T_AMBIENT)
 
     def ic_salinity(self, sd: pp.Grid) -> np.ndarray:
         return np.full(sd.num_cells, Z_INIT)
@@ -577,7 +577,8 @@ _DEFAULT_CPR_ACCURACY_TOL = 1.0e-3   # post-solve gate -> fall back to direct ab
 # step), mirroring subsection_4_2/porepy_2d_solver.  They are placed in the TimeManager schedule so
 # adaptive dt lands on them exactly, and become ``times_to_export``.  0 (the initial state) is
 # always added.  Default: 0 + every 20 yr over the ~200 yr horizon.
-_DEFAULT_SNAP_DAYS = (0.0, 7300.0, 14600.0, 29200.0, 43800.0, 58400.0, 73000.0)
+_DEFAULT_SNAP_DAYS = (0.0, 7300.0) + tuple(   # 0, 20 yr, then every 40 yr (14600 d) to 1000 yr (365000 d)
+    float(d) for d in range(14600, 365001, 14600))
 Z_INIT = 0.0                       # initial + background boundary NaCl fraction (--z-init)
 Z_INLET = None                     # inlet-face NaCl fraction (--z-inlet); None -> Z_INIT
 
@@ -602,7 +603,9 @@ def build_params(
     z_inlet: float | None = None,
     t_inlet: float | None = None,
     t_ambient: float | None = None,
+    t_outlet: float | None = None,
     p_outlet: float | None = None,
+    p_inlet: float | None = None,
     **overrides,
 ) -> dict:
     """Assemble the params dict for one 3D geothermal benchmark run.
@@ -674,15 +677,20 @@ def build_params(
 
     # Per-configuration output: folder AND file prefix encode (scheme, gravity, md, salinity) so
     # distinct runs cache to distinct folders and re-running a configuration refreshes only its own.
-    global Z_INIT, Z_INLET, T_INLET, T_OUTLET
+    global Z_INIT, Z_INLET, T_INLET, T_OUTLET, T_AMBIENT
     Z_INIT = float(z_init)
     Z_INLET = None if z_inlet is None else float(z_inlet)
     if t_inlet is not None:
         T_INLET = float(t_inlet) + 273.15          # --t-inlet is given in degC
     if t_ambient is not None:
-        T_OUTLET = float(t_ambient) + 273.15       # --t-ambient: IC + outlet [degC]
+        T_AMBIENT = float(t_ambient) + 273.15      # --t-ambient: IC (and outlet unless --t-outlet) [degC]
+        T_OUTLET = T_AMBIENT
+    if t_outlet is not None:
+        T_OUTLET = float(t_outlet) + 273.15        # --t-outlet: outlet Dirichlet temperature ONLY [degC]
     if p_outlet is not None:
         globals()["P_OUTLET"] = float(p_outlet)    # --p-outlet [MPa]
+    if p_inlet is not None:
+        globals()["P_INLET"] = float(p_inlet)      # --p-inlet [MPa]
     name = _output_name(scheme, gravity, fractures) + (f"_z{z_init:g}" if z_init else "")
     if z_inlet is not None and z_inlet != z_init:
         name += f"_zin{z_inlet:g}"
@@ -690,8 +698,12 @@ def build_params(
         name += f"_tin{t_inlet:g}"
     if t_ambient is not None and abs(t_ambient + 273.15 - 423.15) > 1e-9:
         name += f"_tamb{t_ambient:g}"
+    if t_outlet is not None and abs(t_outlet + 273.15 - 423.15) > 1e-9:
+        name += f"_tout{t_outlet:g}"
     if p_outlet is not None and abs(p_outlet - 1.0) > 1e-12:
         name += f"_pout{p_outlet:g}"
+    if p_inlet is not None and abs(p_inlet - 20.0) > 1e-12:
+        name += f"_pin{p_inlet:g}"
     # the exporter treats a dot in file_name as an extension and truncates there
     name = name.replace(".", "p")
 
@@ -748,7 +760,7 @@ def _solver_params(model) -> dict:
     return {
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model)),
+                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),
@@ -762,7 +774,8 @@ def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINE
           linear_solver: str = _DEFAULT_LINEAR_SOLVER, gravity: bool = _DEFAULT_GRAVITY,
           z_init: float = 0.0, z_inlet: float | None = None,
           t_inlet: float | None = None, t_ambient: float | None = None,
-          p_outlet: float | None = None) -> None:
+          t_outlet: float | None = None,
+          p_outlet: float | None = None, p_inlet: float | None = None) -> None:
     """Build the model, prepare the simulation, and assemble the residual + Jacobian ONCE.
 
     A cheap structural smoke test: confirms the grid (mixed-dimensional benchmark-3 with ``--md``,
@@ -776,7 +789,7 @@ def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINE
                         fractures=fractures, box_cell_size=box_cell_size,
                         geometry_scale=geometry_scale, linear_solver=linear_solver,
                         gravity=gravity, z_init=z_init, z_inlet=z_inlet, t_inlet=t_inlet,
-                        t_ambient=t_ambient, p_outlet=p_outlet)
+                        t_ambient=t_ambient, t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet)
     t0 = time.time()
     model.prepare_simulation()
     print(f"  prepare_simulation: {time.time() - t0:.1f}s", flush=True)
@@ -820,7 +833,9 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
         snap_days: Sequence[float] = _DEFAULT_SNAP_DAYS,
         z_init: float = 0.0, z_inlet: float | None = None,
         t_inlet: float | None = None, t_ambient: float | None = None,
+        t_outlet: float | None = None,
         p_outlet: float | None = None,
+        p_inlet: float | None = None,
         transport_predictor: bool = False) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     name = _output_name(scheme, gravity, fractures)
@@ -849,7 +864,7 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
                         cpr_accuracy_tol=cpr_accuracy_tol, snap_days=snap_days,
                         transport_predictor=transport_predictor, z_init=z_init,
                         z_inlet=z_inlet, t_inlet=t_inlet, t_ambient=t_ambient,
-                        p_outlet=p_outlet)
+                        t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet)
     snaps = [d for d in snap_days if 0.0 <= d <= t_end_days + 1e-6]
     print(f"  VTU export at snapshots [days]: {snaps if snaps else [0.0, t_end_days]}", flush=True)
     sp = _solver_params(model)
@@ -923,10 +938,18 @@ def _cli() -> argparse.Namespace:
                    help="initial + outlet temperature [degC] (default 150); a hot "
                         "ambient (e.g. 300) puts a boiling zone on the pressure ramp "
                         "from t=0, which the salt front then reaches and widens")
+    p.add_argument("--t-outlet", type=float, default=None, metavar="C",
+                   help="outlet Dirichlet temperature [degC] (default = --t-ambient / 150); "
+                        "overrides ONLY the north outlet face, decoupled from the initial "
+                        "ambient set by --t-ambient")
     p.add_argument("--p-outlet", type=float, default=None, metavar="MPA",
                    help="outlet pressure [MPa] (default 1); pick it between the pure "
                         "ambient's saturation pressure and the brine flash pressure to "
                         "make boiling appear ONLY where salt arrives")
+    p.add_argument("--p-inlet", type=float, default=None, metavar="MPA",
+                   help="inlet pressure [MPa] (default 20); together with --p-outlet sets "
+                        "the flash pressure drop; the inlet brine is LIQUID only if T_inlet "
+                        "stays below the boiling surface at this p_inlet")
     p.add_argument("--t-inlet", type=float, default=None, metavar="C",
                    help="inlet temperature [degC] (default 400; NOTE: brine only "
                         "enters as LIQUID -- below the boiling surface at p_inlet, "
@@ -943,7 +966,7 @@ def main() -> None:
         check(args.scheme, args.refinement_level, args.fractures, args.box_cell_size,
               args.geometry_scale, args.linear_solver, args.gravity, z_init=args.z_init,
               z_inlet=args.z_inlet, t_inlet=args.t_inlet, t_ambient=args.t_ambient,
-              p_outlet=args.p_outlet)
+              t_outlet=args.t_outlet, p_outlet=args.p_outlet, p_inlet=args.p_inlet)
     else:
         snap_days = (tuple(float(d) for d in args.snap_days.split(",") if d.strip())
                      if args.snap_days else _DEFAULT_SNAP_DAYS)
@@ -951,8 +974,9 @@ def main() -> None:
             args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
             args.gravity, args.gravity_constant, args.cpr_rtol, args.cpr_maxit,
             args.cpr_accuracy_tol, snap_days, z_init=args.z_init, z_inlet=args.z_inlet,
-            t_inlet=args.t_inlet, t_ambient=args.t_ambient, p_outlet=args.p_outlet,
-            transport_predictor=args.transport_predictor)
+            t_inlet=args.t_inlet, t_ambient=args.t_ambient, t_outlet=args.t_outlet,
+            p_outlet=args.p_outlet,
+            p_inlet=args.p_inlet, transport_predictor=args.transport_predictor)
 
 
 if __name__ == "__main__":

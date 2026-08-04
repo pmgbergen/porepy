@@ -489,6 +489,37 @@ class SecondaryEquations3N(LocalElimination):
         # ~3 its/step via the stagnation escape).  hamon's (p, s) formulation has the
         # constraint by construction and pays neither cost.
         self._refresh_substitutions(on_boundaries=False)
+        self._slave_eliminated_secondaries()          # opt-in, default OFF (see method docstring)
+
+    def _slave_eliminated_secondaries(self) -> None:
+        """Opt-in (``params['slave_eliminated_secondaries']``, default OFF): overwrite each eliminated
+        secondary VARIABLE with its exact analytic closure every iterate -- saturations ``s_i(z)`` and
+        temperature ``T = h / C_P`` (Weis-style explicit re-flash). This is the exact ``s := s(z)``
+        overwrite discussed in the ``update_derived_quantities`` note: MEASURED TO HURT here (~3 vs
+        ~2 it/step) because it shifts cell masses off the mass-exact linear Newton path and trips the
+        total-mass drift budget. Provided for A/B experimentation ONLY. The substituted-FUNCTION
+        secondaries are already refreshed by ``_refresh_substitutions``; this touches only the
+        eliminated-VARIABLE ones, reusing the SAME closures (``_saturations_from_z`` / ``T=h/C_P``)."""
+        if not self.params.get("slave_eliminated_secondaries", False):
+            return
+        es = self.equation_system
+        sds = self.mdg.subdomains()
+        present = {v.name for v in es.variables}
+        z_indep = []                                  # component-order z_1..z_{N-1} (matches the closures)
+        for k in range(1, NPHASE):
+            nm = "z_" + COMPONENT_NAMES[k]
+            if nm not in present:
+                return
+            z_indep.append(es.get_variable_values([es.md_variable(nm, sds)], iterate_index=0))
+        s_all = _saturations_from_z(z_indep)          # [s_0, s_1, ..., s_{N-1}] over the full domain
+        phases = list(self.fluid.phases)
+        for i in range(1, NPHASE):                    # eliminated (non-reference) saturations only
+            ph = phases[i]
+            if self.has_independent_saturation(ph):
+                es.set_variable_values(np.asarray(s_all[i], float), [ph.saturation(sds)], iterate_index=0)
+        if "temperature" in present:                  # T = h / C_P (the linear caloric closure)
+            h = es.get_variable_values([getattr(self, "enthalpy_variable", "enthalpy")], iterate_index=0)
+            es.set_variable_values(np.asarray(h / C_P, float), ["temperature"], iterate_index=0)
 
     def update_all_boundary_conditions(self) -> None:
         super().update_all_boundary_conditions()
@@ -1748,6 +1779,10 @@ if __name__ == "__main__":
     ap.add_argument("--drift-order", type=int, default=DRIFT_ORDER, metavar="K",
                     help=f"conservation target order K for the total-mass drift: per-step budget "
                          f"10^-(K-1) / (2 n_steps) (default {DRIFT_ORDER})")
+    ap.add_argument("--slave-secondaries", action="store_true",
+                    help="OPT-IN (default OFF, experimental): overwrite the eliminated saturations "
+                         "s:=s(z) and temperature T=h/C_P each Newton iterate; MEASURED TO HURT here "
+                         "(~3 vs ~2 it/step) -- it trips the total-mass drift budget")
     args = ap.parse_args()
 
     snaps = tuple(d for d in SNAP_DAYS if d <= args.days + 1e-9)
@@ -1760,7 +1795,8 @@ if __name__ == "__main__":
         snap_days=snaps, constant_dt=args.constant_dt, fractures=args.md,
         lagrange_linear_solver=args.linear_solver,
         cpr_rtol=args.cpr_rtol, cpr_maxit=args.cpr_maxit,
-        cpr_accuracy_tol=args.cpr_accuracy_tol)
+        cpr_accuracy_tol=args.cpr_accuracy_tol,
+        slave_eliminated_secondaries=args.slave_secondaries)
     # hu -> CompositionalFlowTemplate; hu-mw -> CompositionalFractionalFlowTemplate.
     model = flow_model_class(params)(params)
     # Per-step total-mass-drift budget: the target order split over the planned number of

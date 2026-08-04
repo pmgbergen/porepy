@@ -5,9 +5,9 @@ Builds the subsection figures from the single weis brine engine (PPU/HU/HU-mwp) 
 overlay, in dependency order:
 
   [reference]     fig_weis_reference.py -> figures/fig_weis_reference_{a,b}   (1-D convergence)
-  [figure 4]      fig_weis_fig_4.py     -> figures/fig_weis_fig_4            (single-phase, 3x2)
-  [figure 5]      fig_weis_fig_5.py     -> figures/fig_weis_fig_5            (two-phase, 2x2)
-  [figure 6]      fig_weis_fig_6.py     -> figures/fig_weis_fig_6            (brine + halite, 2x2)
+  [figure 4]      reproduce_weis_fig_4.py     -> figures/reproduce_weis_fig_4            (single-phase, 3x2)
+  [figure 5]      reproduce_weis_fig_5.py     -> figures/reproduce_weis_fig_5            (two-phase, 2x2)
+  [figure 6]      reproduce_weis_fig_6.py     -> figures/reproduce_weis_fig_6            (brine + halite, 2x2)
   [porepy 2D]     porepy_1d_solver.py   -> _cache/porepy_{case}_{scheme}_*   (heavy; hours)
   [verification]  fig_weis_verification.py -> figures/fig_weis_verification_{horizontal,vertical}
 
@@ -44,9 +44,9 @@ sys.path.insert(0, HERE)                             # so the sibling modules im
 
 import fig_weis_common as C                            # noqa: E402  (shared cache dir + scheme sweep)
 import fig_weis_reference as FR                       # noqa: E402  (1-D convergence figure)
-import fig_weis_fig_4 as F4                            # noqa: E402  (Fig 4: single-phase, weis 1-D)
-import fig_weis_fig_5 as F5                            # noqa: E402  (Fig 5: two-phase profiles)
-import fig_weis_fig_6 as F6                            # noqa: E402  (Fig 6: brine + immobile halite)
+import reproduce_weis_fig_4 as F4                            # noqa: E402  (Fig 4: single-phase, weis 1-D)
+import reproduce_weis_fig_5 as F5                            # noqa: E402  (Fig 5: two-phase profiles)
+import reproduce_weis_fig_6 as F6                            # noqa: E402  (Fig 6: brine + immobile halite)
 import fig_weis_verification as FV                    # noqa: E402  (2-D-on-1-D overlay, cache-only)
 import plot_style as PS                               # noqa: E402  (shared savefig; --pdf toggle)
 
@@ -67,7 +67,7 @@ def _sandbox_outputs(root):
     os.makedirs(figs, exist_ok=True)
     for mod in (FR, FV):
         mod.CACHE_DIR, mod.OUT_DIR = cache, figs
-    C.CACHE_DIR, C.OUT_DIR = cache, figs               # shared by fig_weis_fig_{4,5,6}
+    C.CACHE_DIR, C.OUT_DIR = cache, figs               # shared by reproduce_weis_fig_{4,5,6}
     return cache, figs
 
 

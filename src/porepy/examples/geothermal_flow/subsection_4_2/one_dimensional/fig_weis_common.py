@@ -1,4 +1,4 @@
-"""Shared compute + reference helpers for the ``fig_weis_fig_{4,5,6}`` scripts.
+"""Shared compute + reference helpers for the ``reproduce_weis_fig_{4,5,6}`` scripts.
 
 Each figure runs the single weis brine engine (``weis_1d_solver.run_brine``) for PPU / HU / HU-mwp
 and overlays the digitized Weis (2014) reference. The heavy N=800 runs are cached per (tag, scheme,

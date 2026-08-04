@@ -196,7 +196,7 @@ class XptSampler:
 #        R_l = 0.3,  R_v = 0,  k_rl + k_rv = 1,   k = k_0 (1-S_h)^2      (Eq 28)
 #        k_rl = max((s_l/(1-s_h) - 0.3)/0.7, 0),   k_rv = 1 - k_rl,   perm = (1-s_h)^2
 #    -> liquid mobility carries (1-S_h)^2.  This is the convention Weis Fig 6 (salt) was computed
-#    with, so it is the paper-faithful choice for reproducing fig_weis_fig_6.
+#    with, so it is the paper-faithful choice for reproducing reproduce_weis_fig_6.
 #
 #  NOTE: earlier code MIXED them (A's rel-perm AND B's (1-S_h)^2), giving a spurious (1-S_h)^3.
 # --------------------------------------------------------------------------------------------- #

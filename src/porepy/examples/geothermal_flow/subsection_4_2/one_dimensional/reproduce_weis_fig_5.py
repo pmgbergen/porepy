@@ -3,7 +3,7 @@ vertical 1000 yr}, rows {temperature+pressure, liquid saturation}. The single we
 z=0 (``weis_1d_solver.run_brine(**FIG5)``) for PPU / HU / HU-mwp, overlaid on the digitized paper
 reference. The heavy N=800 runs are cached in ``_cache/`` (delete to recompute).
 
-    python fig_weis_fig_5.py            # compute (or load cache) + render figures/fig_weis_fig_5
+    python reproduce_weis_fig_5.py            # compute (or load cache) + render figures/reproduce_weis_fig_5
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ PPU_WEIS_LABEL = rf"PPU-Weis ($N={PPU_WEIS_N}$)"
 POREPY_C = "black"
 POREPY_LABEL = r"HU-PorePy"
 # If a porepy overlay pickle is missing, run porepy_1d_solver to generate it (so one `python
-# fig_weis_fig_5.py` produces the porepy data AND the figure). HEAVY -- the PorePy solve is minutes
+# reproduce_weis_fig_5.py` produces the porepy data AND the figure). HEAVY -- the PorePy solve is minutes
 # per case (vertical is 1000 yr). Set False to only plot porepy caches that already exist.
 AUTORUN_POREPY = True
 
@@ -78,7 +78,7 @@ def compute(N=N, parallel=True, skip=frozenset()):
     return out
 
 
-def plot(out, stem="fig_weis_fig_5", skip=frozenset()):
+def plot(out, stem="reproduce_weis_fig_5", skip=frozenset()):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
