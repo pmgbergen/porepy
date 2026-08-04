@@ -136,9 +136,9 @@ class Operations(Enum):
         elif self == Operations.rmatmul:
             # right @ left (dispatched as left.__rmatmul__(right)):
             # target(left) must equal source(right)
-            if left.source.domain_type == DomainType.unclear:
+            if right.source.domain_type == DomainType.unclear:
                 raise ValueError(
-                    f"Cannot matrix multiply with {left!r} as the right operand: "
+                    f"Cannot matrix multiply with {right!r} as the left operand: "
                     "its source is unclear."
                 )
             if not right_is_scalar and not self._spaces_compatible(
