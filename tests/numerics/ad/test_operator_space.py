@@ -968,8 +968,8 @@ class TestInferDomainRange:
             _eye_for(face_space, face_space), source=face_space, target=face_space
         )
 
-        with pytest.raises(ValueError, match="right operand.*source is unclear"):
-            _ = unclear.__rmatmul__(lhs)
+        with pytest.raises(ValueError, match="left operand.*source is unclear"):
+            _ = lhs.__rmatmul__(unclear)
 
     # --- Scalar: always valid, inherits non-scalar space ---
 
