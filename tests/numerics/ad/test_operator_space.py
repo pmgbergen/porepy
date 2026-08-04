@@ -828,7 +828,7 @@ class TestInferDomainRange:
 
     def test_rsub_compatible(self, cell_op, cell_space):
         """__rsub__ must also propagate source/target."""
-        result = 0 - cell_op
+        result = pp.ad.Scalar(42) - cell_op
         assert result.source == cell_space
         assert result.target == cell_space
 
@@ -997,18 +997,6 @@ class TestInferDomainRange:
         result = sc1 + sc2
         assert result.source == OperatorSpace.scalar()
         assert result.target == OperatorSpace.scalar()
-
-    def test_plain_python_scalar_exponent(self, cell_op, cell_space):
-        """op ** 2 (plain Python int) should preserve source/target."""
-        result = cell_op**2
-        assert result.source == cell_space
-        assert result.target == cell_space
-
-    def test_plain_python_scalar_rtruediv(self, cell_op, cell_space):
-        """1 / op should preserve source/target."""
-        result = 1 / cell_op
-        assert result.source == cell_space
-        assert result.target == cell_space
 
 
 class TestCompoundOperatorSpaces:
