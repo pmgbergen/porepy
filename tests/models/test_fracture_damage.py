@@ -10,6 +10,7 @@ from typing import Sequence, cast
 
 import numpy as np
 import pytest
+import porepy as pp
 
 from porepy.examples import fracture_damage as damage_example
 
