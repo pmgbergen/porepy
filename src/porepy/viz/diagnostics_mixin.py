@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence, cast
+from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 import matplotlib
 import numpy as np
@@ -15,33 +15,30 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import svds
 from typing_extensions import TypeAlias
 
-from porepy import solvers
+from porepy import GridLike, solvers
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.numerics.ad.equation_system import EquationSystem
 from porepy.numerics.ad.indexers import EquationIndexer, VariableIndexer
 from porepy.numerics.ad.operators import Variable
 
-if TYPE_CHECKING:
-    from porepy import GridLike
+# Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
+GridGroupingType: TypeAlias = "list[list[GridLike]]"
+"""A type representing the structuring of grouping the diagnostics among the grids.
 
-    # Type aliases. See the docs of `DiagnosticsMixin.show_diagnostics` for the details.
-    GridGroupingType: TypeAlias = "list[list[GridLike]]"
-    """A type representing the structuring of grouping the diagnostics among the grids.
+"""
+SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
+"""A type representing the diagnostics handler function to be applied to the
+submatrix.
 
-    """
-    SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
-    """A type representing the diagnostics handler function to be applied to the
-    submatrix.
+"""
+DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
+"""A type representing the diagnostics data for each submatrix in the Jacobian.
 
-    """
-    DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
-    """A type representing the diagnostics data for each submatrix in the Jacobian.
+The key represents the pair (row, column) of the block. The value is a dictionary of
+all diagnostical values collected for this submatrix -- names and values.
 
-    The key represents the pair (row, column) of the block. The value is a dictionary of
-    all diagnostical values collected for this submatrix -- names and values.
-
-    """
+"""
 
 logger = logging.getLogger(__name__)
 
@@ -215,12 +212,12 @@ class DiagnosticsMixin:
         # Determining the block indices and collecting the submatrices.
         equation_data = self._equations_data(
             equation_indexer=equation_indexer,
-            grouping=grouping_,
+            grouping=grouping,
             add_grid_info=add_grid_info,
         )
         variable_data = self._variable_data(
             variable_indexer=variable_indexer,
-            grouping=grouping_,
+            grouping=grouping,
             add_grid_info=add_grid_info,
         )
 

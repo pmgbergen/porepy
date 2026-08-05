@@ -163,8 +163,8 @@ class VariableIndexer:
 
 
 class EquationIndexer:
-    """An equation indexer determines the arrangement of indices corresponding to multiple
-    equations on multiple grids in a contiguous array.
+    """An equation indexer determines the arrangement of indices corresponding to
+    multiple equations on multiple grids in a contiguous array.
 
     For a data array with a different arrangement (e.g., produced by taking a subset of
     equations), a new indexer needs to be constructed.
@@ -195,8 +195,8 @@ class EquationIndexer:
 
         self.indices: dict[EquationOnDomain, np.ndarray] = equation_indices
         """An ordered mapping of atomic equations to their DoF indices. The keys are
-        ordered, in the sense that if key A goes before key B, indices of key A are located
-        before indices of key B.
+        ordered, in the sense that if key A goes before key B, indices of key A are
+        located before indices of key B.
 
         """
         self.equation_image_space_composition: dict[

@@ -951,10 +951,11 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equations_per_grid_entity=dof_info_subdomain,
     )
 
-    equation_indexer = equation_system.equation_indexer
     # Check that the mapping of equation to subdomain to global dof
     # indices is correctly set.
-    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
     assert np.allclose(
         equation_subdomain_blocks[model.eq_single_subdomain.name][model.sd_top],
         np.arange(model.sd_top.num_cells * dof_info_subdomain["cells"]),
@@ -973,7 +974,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
     )
-    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
     offset = 0
     for sd in model.subdomains:
         assert np.allclose(
@@ -991,7 +994,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
     )
-    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
     offset = 0
     for intf in model.interfaces:
         assert np.allclose(
@@ -1011,7 +1016,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_all_interfaces,
     )
-    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
 
     offset = 0
     for intf in model.interfaces:
@@ -1026,7 +1033,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
     )
-    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
 
     offset = 0
     for intf in model.interfaces:

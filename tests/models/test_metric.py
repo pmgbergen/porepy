@@ -84,7 +84,7 @@ def test_euclidean_metric_on_grids(orthogonal_2d_model, assignment, expected_val
     ],
 )
 def test_variable_based_euclidean_metric_on_grids(
-    orthogonal_2d_model, assignment, expected_value
+    orthogonal_2d_model: pp.PorePyModel, assignment, expected_value
 ):
     """Test integration of VariableBasedEuclideanMetric in models with grids."""
     m = pp.VariableBasedEuclideanMetric(orthogonal_2d_model)
@@ -119,7 +119,7 @@ def test_variable_based_euclidean_metric_on_grids(
         assert np.isclose(value, expected_value(len(dofs)))
 
 
-def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model):
+def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model: pp.PorePyModel):
     """Test integration of VariableBasedLebesgueMetric in models with grids.
 
     Check that the integration of 1-s over the domain results in the expected L2 norm,
@@ -161,7 +161,7 @@ def test_variable_based_lebesgue_metric_on_grids(orthogonal_2d_model):
     ],
 )
 def test_equation_based_euclidean_metric_on_grids(
-    orthogonal_2d_model, assignment, expected_value
+    orthogonal_2d_model: pp.PorePyModel, assignment, expected_value
 ):
     """Test integration of EquationBasedEuclideanMetric in models with grids."""
     # Generate a dummy residual array filled with ones.
@@ -173,7 +173,7 @@ def test_equation_based_euclidean_metric_on_grids(
     # assembled residual.
     equation_indexer = orthogonal_2d_model.equation_system.equation_indexer
     equation_blocks: dict[str, list[np.ndarray]] = {}
-    for equation, indices in equation_indexer.equation_dofs.items():
+    for equation, indices in equation_indexer.indices.items():
         equation_blocks.setdefault(equation.name, []).append(indices)
 
     result = {}
@@ -202,7 +202,7 @@ def test_equation_based_euclidean_metric_on_grids(
 
 
 def test_equation_based_euclidean_metric_with_restricted_indexer(
-    orthogonal_2d_model,
+    orthogonal_2d_model: pp.PorePyModel,
 ):
     """Compute only equation blocks represented by a restricted indexer."""
     equation_name = next(iter(orthogonal_2d_model.equation_system.equations))
@@ -221,13 +221,13 @@ def test_equation_based_euclidean_metric_with_restricted_indexer(
     assert np.isclose(norms[equation_name], metric._euclidean_norm(residual))
 
 
-def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model):
+def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model: pp.PorePyModel):
     """Test whether the integration of 1-s over the domain results in volume."""
 
     # Fetch the equation blocks from the full-system row indexer.
     equation_indexer = orthogonal_2d_model.equation_system.equation_indexer
     equation_blocks: dict[str, list[tuple[pp.GridLike, np.ndarray]]] = {}
-    for equation, indices in equation_indexer.equation_dofs.items():
+    for equation, indices in equation_indexer.indices.items():
         equation_blocks.setdefault(equation.name, []).append((equation.domain, indices))
 
     # Generate a dummy residual array filled with ones scaled with the cell volumes.
