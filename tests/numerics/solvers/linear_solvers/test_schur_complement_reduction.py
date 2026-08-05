@@ -1,6 +1,7 @@
 """Unit tests for the Schur-complement reduction linear solver."""
 
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -60,7 +61,7 @@ def linear_system_data() -> LinearSystemData:
     primary_equation = pp.ad.EquationOnDomain("primary", domain)
     secondary_equation_1 = pp.ad.EquationOnDomain("secondary_1", domain)
     equation_indexer = pp.ad.EquationIndexer(
-        equation_dofs={
+        indices={
             secondary_equation_0: np.array([0]),
             primary_equation: np.array([1, 3]),
             secondary_equation_1: np.array([2]),
@@ -71,7 +72,7 @@ def linear_system_data() -> LinearSystemData:
     primary_variable = pp.ad.Variable("primary", {"cells": 1}, domain)
     secondary_variable_1 = pp.ad.Variable("secondary_1", {"cells": 1}, domain)
     variable_indexer = pp.ad.VariableIndexer(
-        variable_dofs={
+        indices={
             secondary_variable_0: np.array([0]),
             primary_variable: np.array([1, 3]),
             secondary_variable_1: np.array([2]),
@@ -201,10 +202,10 @@ def test_solve_reduces_system_and_wraps_primary_status(
     )
     np.testing.assert_allclose(reduced_system.rhs, np.array([19.0, 156.0]) / 11.0)
     assert reduced_system.equation_indexer.projection_indices(
-        list(reduced_system.equation_indexer.equation_dofs)
+        list(reduced_system.equation_indexer.indices)
     ).tolist() == [0, 1]
     assert reduced_system.variable_indexer.projection_indices(
-        list(reduced_system.variable_indexer.variable_dofs)
+        list(reduced_system.variable_indexer.indices)
     ).tolist() == [0, 1]
 
     assert status.primary_solver_status is primary_status
@@ -225,11 +226,11 @@ def test_solve_delegates_when_secondary_block_is_empty(
     primary_solver = MockPrimaryLinearSolver(expected_solution, primary_status)
     equation_tags = [
         pp.solvers.EquationTag(equation.name)
-        for equation in linear_system_data.linear_system.equation_indexer.equation_dofs
+        for equation in linear_system_data.linear_system.equation_indexer.indices
     ]
     variable_tags = [
         pp.solvers.VariableTag(variable.name)
-        for variable in linear_system_data.linear_system.variable_indexer.variable_dofs
+        for variable in linear_system_data.linear_system.variable_indexer.indices
     ]
     solver = pp.solvers.SchurComplementReductionLinearSolver(
         primary_equation_tags=equation_tags,

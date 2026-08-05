@@ -18,8 +18,8 @@ class MockEquationSystem:
         return pp.solvers.LinearSystem(
             matrix=csr_matrix(np.array([[1.0]])),
             rhs=np.array([1e-11]),
-            equation_indexer=pp.ad.EquationIndexer(equation_dofs={}),
-            variable_indexer=pp.ad.VariableIndexer(variable_dofs={}),
+            equation_indexer=pp.ad.EquationIndexer(indices={}),
+            variable_indexer=pp.ad.VariableIndexer(indices={}),
         )
 
     def get_variable_values(self, **kwargs) -> np.ndarray:

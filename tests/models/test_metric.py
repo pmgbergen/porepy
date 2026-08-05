@@ -93,9 +93,9 @@ def test_variable_based_euclidean_metric_on_grids(
     variable_names = set(
         [v.name for v in orthogonal_2d_model.equation_system.variables]
     )
-    variable_dofs = {name: [] for name in variable_names}
+    indices = {name: [] for name in variable_names}
     for variable in orthogonal_2d_model.equation_system.variables:
-        variable_dofs[variable.name].extend(
+        indices[variable.name].extend(
             orthogonal_2d_model.equation_system.dofs_of([variable])
         )
 
@@ -104,7 +104,7 @@ def test_variable_based_euclidean_metric_on_grids(
         time_step_index=0
     )
     for name in variable_names:
-        dofs = variable_dofs[name]
+        dofs = indices[name]
         dummy_variable[dofs] = assignment(len(dofs))
 
     # Compute the corresponding Euclidean metric.
@@ -115,7 +115,7 @@ def test_variable_based_euclidean_metric_on_grids(
 
     # Check values
     for key, value in metric_values.items():
-        dofs = variable_dofs[key]
+        dofs = indices[key]
         assert np.isclose(value, expected_value(len(dofs)))
 
 

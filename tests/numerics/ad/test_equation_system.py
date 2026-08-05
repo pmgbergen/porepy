@@ -1311,7 +1311,7 @@ def test_domain_restricted_assembly_has_local_equation_indices(
     assembled_indexer = linear_system.equation_indexer
     assert isinstance(assembled_indexer, pp.ad.EquationIndexer)
     np.testing.assert_array_equal(
-        assembled_indexer.equation_dofs[
+        assembled_indexer.indices[
             pp.ad.EquationOnDomain(name=equation.name, domain=domain)
         ],
         local_rows,
@@ -1478,21 +1478,17 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
             equations=eq_names, variables=variables
         )
     )
-    equation_dofs = equation_indexer.indices
+    indices = equation_indexer.indices
     if eq_names is None:
         eq_names = list(model.equation_system.equations)
 
     for name in eq_names:
-        num_dofs = sum(
-            [dofs.size for var, dofs in equation_dofs.items() if var.name == name]
-        )
+        num_dofs = sum([dofs.size for var, dofs in indices.items() if var.name == name])
         assert num_dofs == model.block_size(name)
 
-    variable_dofs = variable_indexer.indices
+    indices = variable_indexer.indices
     for name in var_names:
-        num_dofs = sum(
-            [dofs.size for var, dofs in variable_dofs.items() if var.name == name]
-        )
+        num_dofs = sum([dofs.size for var, dofs in indices.items() if var.name == name])
         assert num_dofs == model.dof_ind(name).size
 
 

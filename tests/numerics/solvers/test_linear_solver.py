@@ -44,8 +44,8 @@ def make_linear_system(case: Literal["nonsingular", "singular"]) -> LinearSystem
     return LinearSystem(
         matrix=mat,
         rhs=rhs,
-        equation_indexer=EquationIndexer(equation_dofs={}),
-        variable_indexer=VariableIndexer(variable_dofs={}),
+        equation_indexer=EquationIndexer(indices={}),
+        variable_indexer=VariableIndexer(indices={}),
     )
 
 
