@@ -512,7 +512,7 @@ model_params = {
 }
 
 
-def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
+def run_example(damages: Sequence[str] = ("dilation",)) -> list[pp.PorePyModel]:
     """Run a selected fracture damage example and return the model.
 
     This thin wrapper is motivated by the contract for testing of examples, namely that
@@ -520,17 +520,17 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     ``run_displacement_controlled_setup``.
 
     Parameters:
-        regimes: A list of strings specifying which damage mechanisms to activate.
-            Options are "dilation", "friction", or both. Defaults to ["dilation"].
+        damages: A sequence of strings specifying which damage mechanisms to activate.
+            Options are "dilation", "friction", or both. Defaults to ("dilation",).
 
     Returns:
         A list containing the model(s) used in the simulation. Length of the list equals
-        the number of regimes specified.
+        the number of damages specified.
     """
     _, model = run_displacement_controlled_setup(
         isotropic=True,
         dim=2,
-        damages=regimes,
+        damages=damages,
     )
     return [model]
 
