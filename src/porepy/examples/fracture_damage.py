@@ -516,8 +516,8 @@ def run_example(damages: Sequence[str] = ("dilation",)) -> list[pp.PorePyModel]:
     """Run a selected fracture damage example and return the model.
 
     This thin wrapper is motivated by the contract for testing of examples, namely that
-    the example should return a list of models. For details on setup, see the function
-    ``run_displacement_controlled_setup``.
+    the example should return a list of models. For details on the setup, see the
+    function ``run_displacement_controlled_setup``.
 
     Parameters:
         damages: A sequence of strings specifying which damage mechanisms to activate.

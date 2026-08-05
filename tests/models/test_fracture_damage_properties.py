@@ -37,7 +37,7 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
-from porepy.examples import fracture_damage as damage_examples
+from porepy.examples import fracture_damage as damage_example
 from porepy.models import fracture_damage as damage_models
 from porepy.numerics.solvers.line_search import ConstraintLineSearchNonlinearSolver
 
@@ -63,7 +63,7 @@ def _solid_params(dilation_angle: float = 0.0) -> dict:
     the example defaults) means that fracture slip approximately equals the applied BC
     displacement, making the expected behaviour easy to reason about.
     """
-    p = damage_examples.solid_params.copy()
+    p = damage_example.solid_params.copy()
     p["dilation_angle"] = dilation_angle
     return p
 
@@ -104,7 +104,7 @@ def build_and_run(
 
     num_time_steps = north_displacements.shape[1]
 
-    params = copy.deepcopy(damage_examples.model_params)
+    params = copy.deepcopy(damage_example.model_params)
     params["north_displacements"] = north_displacements
     params["time_manager"] = pp.TimeManager(np.arange(0, num_time_steps), 1, True)
     params["material_constants"] = {
@@ -113,13 +113,13 @@ def build_and_run(
     # The exact_solution key is required by DamageDataSaving.  We set it here so
     # collect_data does not raise, but the tests only inspect approx_* values.
     params["exact_solution"] = (
-        damage_examples.ExactSolutionIsotropic
+        damage_example.ExactSolutionIsotropic
         if isotropic
-        else damage_examples.ExactSolutionAnisotropic
+        else damage_example.ExactSolutionAnisotropic
     )
 
     # Assemble model class.
-    model_class = damage_examples.FractureDamageMomentumBalance
+    model_class = damage_example.FractureDamageMomentumBalance
     length_mixin = (
         damage_models.IsotropicFractureDamageLength
         if isotropic
@@ -127,7 +127,7 @@ def build_and_run(
     )
     model_class = add_mixin(length_mixin, model_class)
     for name in damages:
-        model_class = add_mixin(damage_examples.damage_types[name], model_class)
+        model_class = add_mixin(damage_example.damage_types[name], model_class)
     model_class = add_mixin(SquareDomainOrthogonalFractures, model_class)
 
     model = model_class(params)
