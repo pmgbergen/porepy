@@ -135,8 +135,6 @@ def _assert_increment_damage_length_zero(length_1: np.ndarray, step: int) -> Non
 
 
 @pytest.mark.parametrize("dim", [2, 3])
-# The tests take about a minute and are not critical, rather a supplement to test_damage
-@pytest.mark.skipped  # reason: slow
 def test_isotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
     sensible/intuitive expectations.
@@ -231,8 +229,6 @@ def test_isotropic_damage(dim: int):
 
 
 @pytest.mark.parametrize("dim", [2, 3])
-# The tests take about a minute and are not critical, rather a supplement to test_damage
-@pytest.mark.skipped  # reason: slow
 def test_anisotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
     sensible/intuitive expectations.
