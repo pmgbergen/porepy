@@ -164,7 +164,7 @@ def scheme_handles(only=None):
             for sk in keys]
 
 
-def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title="total it.", extra=None):
+def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title=r"\textbf{total it.}", extra=None):
     """Small in-panel key with this CASE's Newton-iteration count per scheme: just the coloured line
     and the number (the scheme names live in the shared bottom legend). Counts differ by orientation
     / pressure level, so they belong to the panel. ``title`` doubles as a caption (Fig 4 puts its

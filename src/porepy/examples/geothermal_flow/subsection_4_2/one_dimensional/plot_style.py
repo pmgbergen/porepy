@@ -46,7 +46,7 @@ FIELD_LABEL = {
     "p": r"Pressure $[\mathrm{MPa}]$",
     "s_liq": r"Liquid saturation $[-]$",
 }
-DIST_LABEL = r"Distance $[\mathrm{km}]$"
+DIST_LABEL = r"\textbf{Distance} $[\mathrm{km}]$"
 
 
 def apply_style(usetex=True):

@@ -75,6 +75,23 @@ CASES = {"case_hP": (BC_hP, IC_hP), "case_mP": (BC_mP, IC_mP), "case_lP": (BC_lP
 GEOMETRIES = {"horizontal": (ModelGeometryH, 0), "vertical": (ModelGeometryV, 1)}
 
 
+class PDEOnlyLebesgueMetric(pp.EquationBasedLebesgueMetric):
+    """EquationBasedLebesgueMetric restricted to the PDE (conservation) rows -- mass, energy, NaCl
+    component. Drops the eliminated-secondary CLOSURE equations (temperature, saturations, partial
+    fractions) from the convergence test, so PorePy stops on the same physics weis does. weis closes
+    those secondaries exactly from the table every residual eval (no closure residual to sub-converge),
+    so gating both solvers on the PDE residuals alone makes their iteration counts a like-for-like
+    comparison -- both settle at ~1 Newton update/step instead of PorePy paying a second iteration to
+    drive the temperature closure to tolerance."""
+
+    _PDE = ("mass_balance_equation", "energy_balance_equation",
+            "component_mass_balance_equation_NaCl")
+
+    def __call__(self, values):
+        norms = super().__call__(values)
+        return {k: v for k, v in norms.items() if k in self._PDE}
+
+
 def _attach_samplers(model) -> None:
     """Attach the C0 graded Driesner OBL samplers (phz + ptz), exactly as
     porepy_1d_solver / porepy_3d_solver do."""
@@ -104,8 +121,8 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     tf = FINAL_TIME_DAYS[geometry_case][case_name] * DAY
     BC, IC = CASES[case_name]
     ModelGeometry, axis = GEOMETRIES[geometry_case]
-    time_manager = pp.TimeManager(schedule=[0.0, tf], dt_init=365.0 * DAY,
-                                  constant_dt=True, iter_max=50, print_info=True)
+    time_manager = pp.TimeManager(schedule=[0.0, tf], dt_init=0.25 * 365.0 * DAY,
+                                  constant_dt=True, iter_max=50, print_info=True)  # 0.25 yr = weis DT0
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
                               specific_heat_capacity=880.0 * TO_MEGA)
@@ -127,6 +144,8 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     class GeothermalWaterFlowModel(ModelGeometry, BC, IC, FlowModel):
         def after_nonlinear_convergence(self) -> None:
             super().after_nonlinear_convergence()  # type:ignore[safe-super]
+            self._total_it = getattr(self, "_total_it", 0) + int(
+                self.nonlinear_solver_statistics.num_iterations)   # accumulate for the pickle
             print("Number of iterations: ",
                   self.nonlinear_solver_statistics.num_iterations)
             print("Time value (year): ", self.time_manager.time / (365.0 * DAY))
@@ -138,7 +157,7 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     solver_params = {
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=pp.EquationBasedLebesgueMetric(model)),
+                tol=1.0e-4, metric=PDEOnlyLebesgueMetric(model)),   # PDE rows only -> match weis
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=100),
@@ -165,7 +184,7 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     o = np.argsort(x)
     keep = {"case": case_name, "geometry": geometry_case,
             "t_years": tf / (365.0 * DAY), "x": x[o], "T": T[o], "p": p[o],
-            "level": TABLE_LEVEL}
+            "level": TABLE_LEVEL, "total_it": int(getattr(model, "_total_it", 0))}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(keep, f)

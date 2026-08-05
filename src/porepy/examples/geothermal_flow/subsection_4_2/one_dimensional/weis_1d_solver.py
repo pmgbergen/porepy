@@ -72,15 +72,29 @@ RHO_S = 2700.0        # rock density [kg/m^3]
 C_S = 880.0           # rock specific heat [J/(kg K)]
 S_R_LIQ = 0.3         # residual liquid saturation
 
-L_COLUMN = 2000.0     # column height [m]
-DX = 10.0             # lateral cross-section [m] (cancels in the solution)
+L_COLUMN = 2000.0     # column length [m] (800 cells -> dx = 2.5 m, = PorePy cell_size ref_level*10)
+DX = 1.25             # cross-section [m], matched to PorePy SimpleGeometry y_length = ref_level*5 =
+#                       1.25 (ref_level 0.25). Cancels in the 1-D solution, but kept identical so both
+#                       solvers discretise the same 2000 x 1.25 strip (cell volume 3.125, same faces).
 YEAR = 365.0 * 86400.0
 DT0 = 0.25 * YEAR     # nominal time step; also the reference used to row-scale residuals to O(1)
 
 # Reference scales used to row-scale the mass/energy residuals to O(1). Without this the
 # mass (~kg/s) and energy (~W) equations differ by ~1e13 and the Jacobian is unsolvable.
+# NOTE: these scale the residual for the LINEAR SOLVE (conditioning) only; the CONVERGENCE metric
+# below no longer divides by them (that rock-storage division false-converged the single-phase
+# vapor column, Fig 4 lp -- it gauged a flux-divergence imbalance against a rock-storage scale).
 RHO_REF = 800.0       # kg/m^3
 T_REF = 500.0         # K
+
+# Convergence metric = PorePy's single_phase EquationBasedLebesgueMetric: per equation
+# sqrt(sum_cells r_cell^2 / V_cell) (intensive Lebesgue L2) on the PHYSICAL residual, energy in MJ
+# (PorePy's c_p carries 1e-6), converged when EVERY equation < atol. Matches the criterion the
+# fig-4 PorePy overlay uses, so weis and PorePy converge to the same physical accuracy.
+USE_LEBESGUE_METRIC = False   # (see the lp investigation: PorePy's intensive-Lebesgue on the
+ENERGY_UNIT_SCALE = 1.0e-6    # conservation rows alone is too loose for weis -- PorePy's iterations
+#   are gated by its temperature-ELIMINATION closure, which weis has no analogue of. The real fix
+#   for weis's vapor-regime false-convergence is the >=1-Newton-update-per-step rule below.
 
 # Gravity-term density weighting on internal faces (see ``residual_brine``), run_brine(grav_upstream=):
 #   grav_upstream=False (default) -> face average 0.5*(rho_i + rho_{i+1})  (consistent, Rem.gc)
@@ -820,8 +834,19 @@ def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
     sqrtN = np.sqrt(geom.N)
 
     def _metric(rr):
-        return max(np.linalg.norm(rr[0::3]), np.linalg.norm(rr[1::3]),
-                   np.linalg.norm(rr[2::3])) / sqrtN
+        if not USE_LEBESGUE_METRIC:                          # legacy rms of the row-scaled residual
+            return max(np.linalg.norm(rr[0::3]), np.linalg.norm(rr[1::3]),
+                       np.linalg.norm(rr[2::3])) / sqrtN
+        # PorePy EquationBasedLebesgueMetric: per equation sqrt(sum r_cell^2 / V_cell) on the
+        # PHYSICAL residual (rr is row-scaled by ms/es -> multiply back), energy in MJ. Converged
+        # when the largest equation norm < atol.
+        V = geom.Vcell
+        r_mass = rr[0::3] * geom.ms
+        r_salt = rr[1::3] * geom.ms
+        r_en = rr[2::3] * geom.es * ENERGY_UNIT_SCALE
+        return max(np.sqrt(np.sum(r_mass * r_mass) / V),
+                   np.sqrt(np.sum(r_salt * r_salt) / V),
+                   np.sqrt(np.sum(r_en * r_en) / V))
 
     x = x0.copy()
     r = residual_brine(x, *args)
@@ -830,7 +855,11 @@ def newton_step_brine(x0, x_old, dt, geom, table, bleft, bright, scheme, plan,
         m = _metric(r)
         if verbose:
             print(f"    newton {it}: |r|_eq={m:.3e}")
-        if m <= atol:
+        # >=1 Newton update per step: never accept x_old unchanged at it=0. That it=0 accept IS the
+        # vapor-regime false-convergence (Fig 4 lp) -- the residual of the not-yet-advanced front sits
+        # under atol, so the step took 0 updates and the front froze. PorePy never does this (its
+        # temperature-elimination closure forces >=1 update every step); this makes weis match.
+        if it > 0 and m <= atol:
             return x, it, m, True
         ab = jacobian_analytic(x, dt, geom, table, bleft, bright, scheme, ug, ud, ut, w_dir,
                                grav_upstream, weighted_perm, lag_upwind, lam_face_old, plan)  # hand-coded, no FD

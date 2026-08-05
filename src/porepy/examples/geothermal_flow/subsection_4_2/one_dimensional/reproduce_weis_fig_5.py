@@ -111,7 +111,7 @@ def plot(out, stem="reproduce_weis_fig_5", skip=frozenset()):
                 ax.plot(x[::step], y[::step], **mk)
             extra_it.append((POREPY_C, pp_res["total_it"]))
         C.iteration_legend(ax_s, res, loc="lower right", extra=extra_it)
-        ax_tp.set_title(fr"{case} orientation, ${YEARS[case]}$ years")
+        ax_tp.set_title(fr"{case.capitalize()} (${YEARS[case]}$ yr)")
         ax_tp.set_xlim(0.0, 2.0)
         ps.panel_tag(ax_tp, tags[0][j], loc=(0.04, 0.09), va="bottom")   # T+p high at top-left -> tag low
         ps.panel_tag(ax_s, tags[1][j])                                    # s_liq low at top-left -> tag high

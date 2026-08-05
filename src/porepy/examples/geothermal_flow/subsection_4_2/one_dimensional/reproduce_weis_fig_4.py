@@ -69,8 +69,9 @@ def _load_porepy(lvl, orient):
         return None
     with open(path, "rb") as f:
         d = dict(pickle.load(f))
-    print(f"[fig4-porepy] ({case_name!r}, {orient!r})   cached", flush=True)
-    return {"y": d["x"], "T": d["T"], "p": d["p"] * 1.0e6}  # x->y[m], p MPa->Pa (SI, ps.to_plot_units)
+    print(f"[fig4-porepy] ({case_name!r}, {orient!r})   cached total_it={d.get('total_it')}", flush=True)
+    # x->y[m], p MPa->Pa (SI, ps.to_plot_units); total_it is None on pre-total_it caches (regenerate to show it)
+    return {"y": d["x"], "T": d["T"], "p": d["p"] * 1.0e6, "total_it": d.get("total_it")}
 
 
 def compute(N=N, parallel=True, skip=frozenset()):
@@ -101,6 +102,7 @@ def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
                       ref_T=C.ref_csv(f"fig_4_{lvl}_{orient}_temperature_raw.csv"),
                       ref_p=C.ref_csv(f"fig_4_{lvl}_{orient}_pressure_raw.csv"))
             pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(lvl, orient)  # PorePy overlay
+            pp_it = pp_res.get("total_it") if pp_res else None
             if pp_res is not None:
                 step = max(1, len(pp_res["y"]) // 24)       # ~24 markers across the 2 km column
                 mk = dict(color=POREPY_C, marker="x", ms=4.2, ls="none", mew=0.9, zorder=6)
@@ -110,10 +112,13 @@ def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
             ax_tp.set_xlim(0.0, 2.0)
             ps.panel_tag(ax_tp, letters[i][j], loc=(0.04, 0.09), va="bottom")
             if i == 0:
-                ax_tp.set_title(orient)
-            # per-panel iteration counts, captioned with this panel's pressure level + time
+                ax_tp.set_title(orient.capitalize())
+            # per-panel iteration counts, PPU/HU/HU-mwp + PorePy (when its cache carries total_it),
+            # under a bold "<years> yr / total it." header (the time varies per panel)
             C.iteration_legend(ax_tp, res, loc="upper right", fontsize=6.0,
-                               title=fr"{LEVEL_LABEL[lvl]} $p$, ${FIG4_TF[(lvl, orient)]}$ yr")
+                               title=(fr"\textbf{{{FIG4_TF[(lvl, orient)]} yr}}" + "\n"
+                                      + r"\textbf{total it.}"),
+                               extra=([(POREPY_C, pp_it)] if pp_it is not None else None))
             if j == 0:
                 ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
                 ax_tp.tick_params(axis="y", colors=C.WEIS_T)

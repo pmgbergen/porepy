@@ -22,7 +22,7 @@ import plot_style as ps      # noqa: E402
 N = 800                      # Fig 6 grid (dx = 10 m, paper); lighter than the N=800 Fig 4/5
 SALT_Z = 0.42                # z_init giving S_h ~ 0.1 at the IC (from the z_init sweep)
 TF = 2000.0
-COLS = (("pw", "pure water"), ("salt", "salt + halite"))
+COLS = (("pw", "Water"), ("salt", "Water + salt"))
 
 # PorePy overlay (mirrors reproduce_weis_fig_5): the converged HU profile from porepy_1d_solver.run_fig6_case,
 # cached as _cache/fig6_porepy_{pw,salt}_hu_N800_lgraded.pkl. Both columns sample the same graded OBL

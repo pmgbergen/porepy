@@ -4,12 +4,10 @@
 Builds the subsection figures from the single weis brine engine (PPU/HU/HU-mwp) plus the PorePy 2-D
 overlay, in dependency order:
 
-  [reference]     fig_weis_reference.py -> figures/fig_weis_reference_{a,b}   (1-D convergence)
   [figure 4]      reproduce_weis_fig_4.py     -> figures/reproduce_weis_fig_4            (single-phase, 3x2)
   [figure 5]      reproduce_weis_fig_5.py     -> figures/reproduce_weis_fig_5            (two-phase, 2x2)
   [figure 6]      reproduce_weis_fig_6.py     -> figures/reproduce_weis_fig_6            (brine + halite, 2x2)
   [porepy 2D]     porepy_1d_solver.py   -> _cache/porepy_{case}_{scheme}_*   (heavy; hours)
-  [verification]  fig_weis_verification.py -> figures/fig_weis_verification_{horizontal,vertical}
 
 Figures 4/5/6 all run the same ``weis_1d_solver.run_brine`` engine (Fig 4/5 at z=0, Fig 6 at z>0),
 pure numpy and self-parallelizing, cached per run in _cache/. The heavy PorePy 2-D overlay runs go
@@ -23,7 +21,7 @@ Use the porepy conda env (its interpreter is reused for the subprocesses):
     $PY run_workflow.py --quick         # coarse smoke, sandboxed to _quick/ (real cache untouched)
     $PY run_workflow.py --plot-only     # figures (PNG) from existing _cache only (no 2-D solves)
     $PY run_workflow.py --plot-only --pdf   # same, also writing a vector PDF per figure
-    $PY run_workflow.py --skip-porepy   # no 2-D overlay runs (verification shows 1-D references)
+    $PY run_workflow.py --skip-porepy   # no 2-D overlay runs (figures show the weis curves only)
     $PY run_workflow.py --porepy-schemes hu hu_mwp   # add the HU-mwp overlay (heavy new runs)
 """
 from __future__ import annotations
@@ -43,11 +41,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)                             # so the sibling modules import from anywhere
 
 import fig_weis_common as C                            # noqa: E402  (shared cache dir + scheme sweep)
-import fig_weis_reference as FR                       # noqa: E402  (1-D convergence figure)
 import reproduce_weis_fig_4 as F4                            # noqa: E402  (Fig 4: single-phase, weis 1-D)
 import reproduce_weis_fig_5 as F5                            # noqa: E402  (Fig 5: two-phase profiles)
 import reproduce_weis_fig_6 as F6                            # noqa: E402  (Fig 6: brine + immobile halite)
-import fig_weis_verification as FV                    # noqa: E402  (2-D-on-1-D overlay, cache-only)
 import plot_style as PS                               # noqa: E402  (shared savefig; --pdf toggle)
 
 PY = sys.executable                                   # reuse the invoking (porepy-env) interpreter
@@ -74,18 +70,6 @@ def _sandbox_outputs(root):
 # --------------------------------------------------------------------------------------- #
 #  Stages
 # --------------------------------------------------------------------------------------- #
-def stage_reference(quick, parallel):
-    """1-D convergence: spatial refinement (a) and OBL table-level refinement (b)."""
-    if quick:                                          # tiny N, coarse dt, short (horizontal) case,
-        dt, case = FR.m.DT0, "horizontal"              # skip the ~1.4 GB level-4 table -- smoke only
-        sp = FR.compute_spatial(N_levels=[50, 100], dt=dt, case=case, parallel=parallel)
-        ob = FR.compute_obl(levels=[0, 1], N=100, dt=dt, case=case, parallel=parallel)
-    else:
-        sp = FR.compute_spatial(parallel=parallel)
-        ob = FR.compute_obl(parallel=parallel)
-    FR.plot(sp, ob)
-
-
 def stage_fig5(quick, parallel):
     """Figure 5 -- two-phase pure-water profiles, PPU/HU/HU-mwp at z=0 + digitized reference."""
     F5.plot(F5.compute(N=100 if quick else F5.N, parallel=parallel))
@@ -108,13 +92,6 @@ def stage_porepy(orientations, schemes, no_cache):
             rc = subprocess.run([PY, "-c", code], cwd=HERE).returncode
             print(f"  [{'ok  ' if rc == 0 else 'FAIL'}] porepy {orient}/{sk}"
                   f"  ({(time.time() - t0) / 60.0:.1f} min)", flush=True)
-
-
-def stage_verification():
-    """Overlay each PorePy 2-D scheme on its 1-D reference, per orientation (cache-only, fast).
-    A scheme with no PorePy cache is drawn as its 1-D reference alone."""
-    for case in ORIENTATIONS:
-        FV.plot_verification(case, schemes=("hu", "hu_mwp"))
 
 
 def stage_fig4(quick, parallel):
@@ -192,7 +169,6 @@ def main(argv=None):
 
     t_all = time.time()
     if do_multiphase:
-        _stage("reference figure (1-D convergence)", stage_reference, args.quick, parallel)
         _stage("figure 5 (two-phase profiles)", stage_fig5, args.quick, parallel)
         _stage("figure 6 (brine + halite)", stage_fig6, args.quick, parallel)
         if not (plot_only or args.skip_porepy or args.quick):
@@ -200,7 +176,6 @@ def main(argv=None):
                    args.porepy_orientations, args.porepy_schemes, args.no_cache)
         else:
             print("\n(skipping PorePy 2-D overlay runs)", flush=True)
-        _stage("verification figure (overlay)", stage_verification)
 
     if do_single:
         _stage("figure 4 (single-phase heating)", stage_fig4, args.quick, parallel)
