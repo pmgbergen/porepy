@@ -321,7 +321,7 @@ class EquationSystem:
             The indexer.
 
         """
-        variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        indices: dict[pp.ad.Variable, np.ndarray] = {}
         offset = 0
 
         ordered_variables = cluster_dofs_gridwise(self.variables)
@@ -329,9 +329,9 @@ class EquationSystem:
         for var in ordered_variables:
             dofs_per_grid = var.size
             dofs = np.arange(dofs_per_grid) + offset
-            variable_dofs[var] = dofs
+            indices[var] = dofs
             offset += len(dofs)
-        return pp.ad.VariableIndexer(indices=variable_dofs)
+        return pp.ad.VariableIndexer(indices=indices)
 
     def construct_equation_indexer(self) -> pp.ad.EquationSystemIndexer:
         """Construct an equation indexer for all the registered equations.
@@ -344,7 +344,7 @@ class EquationSystem:
 
         """
         # Result dictionary.
-        equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        indices: dict[str, dict[pp.GridLike, np.ndarray]] = {}
 
         # self.equations defines the desired order of equations.
         for name, equation in self.equations.items():
@@ -376,11 +376,9 @@ class EquationSystem:
 
             # Filter out equations not defined anywhere.
             if len(dofs_on_domains) > 0:
-                equation_dofs[name] = dofs_on_domains
+                indices[name] = dofs_on_domains
 
-        return pp.ad.EquationSystemIndexer(
-            equation_image_space_composition=equation_dofs
-        )
+        return pp.ad.EquationSystemIndexer(equation_image_space_composition=indices)
 
     ### Variable management ------------------------------------------------------------
 

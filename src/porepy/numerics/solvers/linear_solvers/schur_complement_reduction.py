@@ -102,11 +102,11 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     ) -> _SchurComplementReductionData:
         """Construct index arrays based on the linear system indexers."""
         primary_eqs, secondary_eqs = _filter_by_tags(
-            all_operators=linear_system.equation_indexer.equation_dofs,
+            all_operators=linear_system.equation_indexer.indices,
             tags=self.primary_equation_tags,
         )
         primary_vars, secondary_vars = _filter_by_tags(
-            all_operators=linear_system.variable_indexer.variable_dofs,
+            all_operators=linear_system.variable_indexer.indices,
             tags=self.primary_variable_tags,
         )
 
@@ -248,21 +248,21 @@ def rearrange_matrix_as_array_of_structures(
             permuted matrix.
 
     """
-    unique_grids_equations = {eq.domain for eq in eq_indexer.equation_dofs}
-    unique_grids_variables = {var.domain for var in var_indexer.variable_dofs}
-    assert len(eq_indexer.equation_dofs) == len(var_indexer.variable_dofs)
+    unique_grids_equations = {eq.domain for eq in eq_indexer.indices}
+    unique_grids_variables = {var.domain for var in var_indexer.indices}
+    assert len(eq_indexer.indices) == len(var_indexer.indices)
     assert unique_grids_equations == unique_grids_variables
 
     eq_dofs_by_grid: dict[pp.GridLike, list[np.ndarray]] = {
         grid: [] for grid in unique_grids_equations
     }
-    for eq, dofs in eq_indexer.equation_dofs.items():
+    for eq, dofs in eq_indexer.indices.items():
         eq_dofs_by_grid[eq.domain].append(dofs)
 
     var_dofs_by_grid: dict[pp.GridLike, list[np.ndarray]] = {
         grid: [] for grid in unique_grids_variables
     }
-    for var, dofs in var_indexer.variable_dofs.items():
+    for var, dofs in var_indexer.indices.items():
         var_dofs_by_grid[var.domain].append(dofs)
 
     # Sanity check that assumes that the number of equations and variables is the same
@@ -285,8 +285,8 @@ def rearrange_matrix_as_array_of_structures(
     if bs == 0:
         return np.empty(0, dtype=int), np.empty(0, dtype=int), np.empty(0, dtype=int)
 
-    assert var_indexer.num_dofs % bs == 0
-    block_sizes = np.full(var_indexer.num_dofs // bs, bs, dtype=np.int64)
+    assert var_indexer.size % bs == 0
+    block_sizes = np.full(var_indexer.size // bs, bs, dtype=np.int64)
 
     eq_dofs_by_grid_rearranged = [
         np.stack(dofs).ravel(order="F") for dofs in eq_dofs_by_grid.values()
@@ -384,9 +384,7 @@ def _filter_by_tags[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
     for operator in all_operators:
         tags_for_this_name = tags_by_name[operator.name]
         matching_tags = [
-            tag
-            for tag in tags_for_this_name
-            if tag.defined_on.filter(operator.domain)
+            tag for tag in tags_for_this_name if tag.defined_on.filter(operator.domain)
         ]
         if len(matching_tags) > 1:
             # Overlapping tags would place the operator in the filtered group more than
