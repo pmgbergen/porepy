@@ -186,8 +186,8 @@ class DiagnosticsMixin:
             variable_indexer = self.equation_system.variable_indexer
 
         indexed_shape = (
-            sum(dofs.size for dofs in equation_indexer.equation_dofs.values()),
-            variable_indexer.num_dofs,
+            sum(dofs.size for dofs in equation_indexer.indices.values()),
+            variable_indexer.size,
         )
         if full_matrix.shape != indexed_shape:
             raise ValueError(
@@ -352,7 +352,7 @@ class DiagnosticsMixin:
         equations_by_name: dict[str, list[tuple[GridLike, np.ndarray]]] = defaultdict(
             list
         )
-        for equation_on_domain, dofs in equation_indexer.equation_dofs.items():
+        for equation_on_domain, dofs in equation_indexer.indices.items():
             equations_by_name[equation_on_domain.name].append(
                 (equation_on_domain.domain, dofs)
             )
@@ -409,13 +409,13 @@ class DiagnosticsMixin:
         # First, we group variables by names. We assume that variables with the same
         # name are one variable on multiple grids.
         names_to_variables: dict[str, list[Variable]] = defaultdict(list)
-        for variable in variable_indexer.variable_dofs:
+        for variable in variable_indexer.indices:
             names_to_variables[variable.name].append(variable)
 
         for variable_name, variable_on_grids in names_to_variables.items():
             for block_of_grids in grouping:
                 dof_blocks = [
-                    variable_indexer.variable_dofs[variable]
+                    variable_indexer.indices[variable]
                     for variable in variable_on_grids
                     if variable.domain in block_of_grids
                 ]

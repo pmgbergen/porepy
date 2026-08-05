@@ -96,6 +96,7 @@ def _run_buoyancy_model(
     geometry_class = geometry2d if dim == 2 else geometry3d
     model_class = add_mixin(geometry_class, model_class)
     model = model_class(model_params)
+    # TODO YZ: Address in the downstream PR. It should not need to prepare simulation.
     model.prepare_simulation()
     # Use a Lebesgue metric for the residual convergence criterion, since this will
     # strictly bound the residual error in the mass conservation equations.
