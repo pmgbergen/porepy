@@ -73,6 +73,7 @@ def run_displacement_controlled_setup(
             damages=damages,
         )
     )
+    # Copy to avoid messing with entries of the custom paramameters.
     if custom_model_params is not None:
         params.update(copy.deepcopy(custom_model_params))
     if custom_solver_params is not None:
