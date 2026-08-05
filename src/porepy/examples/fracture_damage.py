@@ -516,8 +516,8 @@ def run_example(damages: Sequence[str] = ("dilation",)) -> list[pp.PorePyModel]:
     """Run a selected fracture damage example and return the model.
 
     This thin wrapper is motivated by the contract for testing of examples, namely that
-    the example should return a list of models. For details on the setup, see the
-    function ``run_displacement_controlled_setup``.
+    the example should return a list of models. For details on the setup, see
+    ``create_displacement_controlled_setup``.
 
     Parameters:
         damages: A sequence of strings specifying which damage mechanisms to activate.
@@ -527,39 +527,38 @@ def run_example(damages: Sequence[str] = ("dilation",)) -> list[pp.PorePyModel]:
         A list containing the model(s) used in the simulation. Length of the list equals
         the number of damages specified.
     """
-    _, model = run_displacement_controlled_setup(
+    model_class, params, solver_params = create_displacement_controlled_setup(
         isotropic=True,
         dim=2,
         damages=damages,
     )
+    model = model_class(params)
+    pp.ModelRunner(
+        model,
+        nonlinear_solver=pp.solvers.ConstraintLineSearchNonlinearSolver(solver_params),
+    ).run()
     return [model]
 
 
-def run_displacement_controlled_setup(
+def create_displacement_controlled_setup(
     isotropic: bool,
     dim: int,
     damages: Sequence[str],
-    custom_model_params: dict[str, Any] | None = None,
-    custom_solver_params: dict[str, Any] | None = None,
-) -> tuple[list[Any], pp.PorePyModel]:
-    """Run a time-dependent simulation with displacement-controlled BCs.
+) -> tuple[type[Any], dict[str, Any], dict[str, Any]]:
+    """Create a displacement-controlled fracture damage setup.
 
-    This function provides a lightweight demonstration of running a fracture damage
-    model. The model is the momentum balance model including fracture damage with
-    time-dependent displacement boundary conditions set by the key "north_displacements"
-    in the parameter dictionary.
+    This builder assembles the model class and returns mutable model and solver
+    parameter dictionaries. Callers may update the returned dictionaries before
+    instantiating the model and running the simulation.
 
     Parameters:
         isotropic: If True, use isotropic damage length; otherwise anisotropic.
         dim: Spatial dimension of the bulk domain (2 or 3).
         damages: Damage types to include (subset of {"dilation", "friction"}).
-        custom_model_params: Optional dictionary of model parameters used .
-        custom_solver_params: Optional dictionary of solver parameters overriding the
-            defaults.
 
     Returns:
-        Tuple ``(results, model)`` where ``results`` contains one DamageSaveData
-        instance per forward time step.
+        Tuple ``(model_class, model_params, solver_params)`` with caller-owned mutable
+        objects ready for post-processing before execution.
     """
     params = copy.deepcopy(model_params)
     model_class: type[Any] = FractureDamageMomentumBalance
@@ -578,6 +577,7 @@ def run_displacement_controlled_setup(
         SquareDomainOrthogonalFractures if dim == 2 else CubeDomainOrthogonalFractures
     )
     model_class = add_mixin(geom, model_class)
+
     displacements = north_displacements_3d.copy()
     displacements = displacements[:dim]
     # Keep compression for the first steps and open the fracture in the last one.
@@ -590,12 +590,9 @@ def run_displacement_controlled_setup(
             "north_displacements": displacements,
         }
     )
-
     params["material_constants"] = {
         "solid": FractureDamageSolidConstants(**solid_params.copy()),  # type: ignore[arg-type]
     }
-    if custom_model_params is not None:
-        params.update(custom_model_params)
 
     solver_params = {
         "nl_max_iterations": 30,
@@ -603,15 +600,8 @@ def run_displacement_controlled_setup(
         "nl_convergence_inc_atol": 1e-8,
         "local_line_search": True,
     }
-    if custom_solver_params is not None:
-        solver_params.update(custom_solver_params)
 
-    model = model_class(params)
-    pp.ModelRunner(
-        model,
-        nonlinear_solver=pp.solvers.ConstraintLineSearchNonlinearSolver(solver_params),
-    ).run()
-    return model.results, model
+    return model_class, params, solver_params
 
 
 # If executed as main, run simulation.
