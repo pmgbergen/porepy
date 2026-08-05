@@ -11,7 +11,7 @@ from typing import Sequence, cast
 import numpy as np
 import pytest
 
-import porepy as pp
+from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.examples import fracture_damage as damage_example
 
 
@@ -50,7 +50,7 @@ def _assert_increment_damage_length_zero(length_1: np.ndarray, step: int) -> Non
 # dilation damage with zero dilation angle is mathematically well-defined.
 _solid_paramms = damage_example.solid_params.copy()
 _solid_paramms.update({"dilation_angle": 0.0})
-material_constants = {"solid": pp.FractureDamageSolidConstants(**_solid_paramms)}  # type: ignore[arg-type]
+material_constants = {"solid": FractureDamageSolidConstants(**_solid_paramms)}  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("dim", [2, 3])
