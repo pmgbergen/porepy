@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-from typing import Any, Callable, cast
+from typing import Any, Callable, Sequence, cast
 
 import numpy as np
 
@@ -10,6 +10,7 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
 )
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.model_geometries import (
+    CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models
@@ -503,8 +504,6 @@ model_params = {
     # Set the schedule using arange to save data from all time steps.
     "time_manager": pp.TimeManager(np.arange(0, num_time_steps), 1, True),
     "north_displacements": north_displacements_3d,
-    "interface_displacement_parameter_values": north_displacements_3d,
-    # "times_to_export": [],  # Suppress export of data for testing.
     "material_constants": {
         "solid": FractureDamageSolidConstants(**solid_params),  # type: ignore[arg-type]
         "numerical": pp.NumericalConstants(characteristic_displacement=1e-2),
@@ -516,10 +515,9 @@ model_params = {
 def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
     """Run a selected fracture damage example and return the model.
 
-    This function provides a lightweight demonstration of running a fracture damage
-    model. The model is the momentum balance model including fracture damage with
-    time-dependent displacement boundary conditions set by the key "north_displacements"
-    in the parameter dictionary.
+    This thin wrapper is motivated by the contract for testing of examples, namely that
+    the example should return a list of models. For details on setup, see the function
+    ``run_displacement_controlled_setup``.
 
     Parameters:
         regimes: A list of strings specifying which damage mechanisms to activate.
@@ -529,57 +527,90 @@ def run_example(regimes=["dilation"]) -> list[pp.PorePyModel]:
         A list containing the model(s) used in the simulation. Length of the list equals
         the number of regimes specified.
     """
+    _, model = run_displacement_controlled_setup(
+        isotropic=True,
+        dim=2,
+        damages=regimes,
+    )
+    return [model]
 
-    models: list[pp.PorePyModel] = []
 
-    dim = 2  # 2D case
-    time_steps = 5
+def run_displacement_controlled_setup(
+    isotropic: bool,
+    dim: int,
+    damages: Sequence[str],
+    custom_model_params: dict[str, Any] | None = None,
+    custom_solver_params: dict[str, Any] | None = None,
+) -> tuple[list[Any], pp.PorePyModel]:
+    """Run a time-dependent simulation with displacement-controlled BCs.
 
+    This function provides a lightweight demonstration of running a fracture damage
+    model. The model is the momentum balance model including fracture damage with
+    time-dependent displacement boundary conditions set by the key "north_displacements"
+    in the parameter dictionary.
+
+    Parameters:
+        isotropic: If True, use isotropic damage length; otherwise anisotropic.
+        dim: Spatial dimension of the bulk domain (2 or 3).
+        damages: Damage types to include (subset of {"dilation", "friction"}).
+        custom_model_params: Optional dictionary of model parameters used .
+        custom_solver_params: Optional dictionary of solver parameters overriding the
+            defaults.
+
+    Returns:
+        Tuple ``(results, model)`` where ``results`` contains one DamageSaveData
+        instance per forward time step.
+    """
     params = copy.deepcopy(model_params)
+    model_class = FractureDamageMomentumBalance
+
+    if isotropic:
+        params["exact_solution"] = ExactSolutionIsotropic
+        model_class = add_mixin(damage.IsotropicFractureDamageLength, model_class)
+    else:
+        params["exact_solution"] = ExactSolutionAnisotropic
+        model_class = add_mixin(damage.AnisotropicFractureDamageLength, model_class)
+
+    for name in damages:
+        model_class = add_mixin(damage_types[name], model_class)
+
+    geom = (
+        SquareDomainOrthogonalFractures if dim == 2 else CubeDomainOrthogonalFractures
+    )
+    model_class = add_mixin(geom, model_class)
+
     params.update(
         {
-            "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
+            "time_manager": pp.TimeManager(np.arange(0.0, 5.0), 1.0, True),
+            "north_displacements": params["north_displacements"][:dim],
         }
     )
 
-    # Build the model class by adding the requested damage mechanisms as mixins to the
-    # momentum balance model and the geometry mixin for the target dimension.
-    class _Model(  # type: ignore[misc]
-        SquareDomainOrthogonalFractures,
-        # Can be replaced by AnisotropicFractureDamageLength if desired:
-        damage.IsotropicFractureDamageLength,
-        FractureDamageMomentumBalance,
-    ):
-        pass
+    # Keep compression for the first steps and open the fracture in the last one.
+    params["north_displacements"][1] = 0.98e-3
+    params["north_displacements"][1, 4] = 3e-3
 
-    for regime in regimes:
-        model_class = add_mixin(
-            damage_types[regime],  # type: ignore[type-abstract]
-            _Model,  # type: ignore[type-abstract]
-        )
-
-    # Parameter setup for the momentum balance model.
-    params["exact_solution"] = ExactSolutionIsotropic
-    # Only pass active dimensions.
-    active_dimensions = params["north_displacements"][:dim]  # type: ignore[index]
-    params["north_displacements"] = active_dimensions
-
-    model = model_class(params)  # type: ignore[abstract]
-    # In some cases, the momentum balance model cannot converge with the default solver
-    # settings. A relaxed nonlinear solver setting is used for the executable example.
-    solver_params = {
-        "nl_convergence_inc_atol": 1e-6,
-        "nl_convergence_res_atol": 1e-6,
-        "nl_max_iterations": 35,
-        "nonlinear_solver": pp.solvers.ConstraintLineSearchNonlinearSolver,
-        "local_line_search": True,
-        "constraint_violation_tolerance": 1e-5,
+    params["material_constants"] = {
+        "solid": FractureDamageSolidConstants(**solid_params.copy()),  # type: ignore[arg-type]
     }
-    pp.ModelRunner(model, solver_params).run()
+    if custom_model_params is not None:
+        params.update(custom_model_params)
 
-    models.append(model)
+    solver_params = {
+        "nl_max_iterations": 30,
+        "nl_convergence_res_atol": 1e-8,
+        "nl_convergence_inc_atol": 1e-8,
+        "local_line_search": True,
+    }
+    if custom_solver_params is not None:
+        solver_params.update(custom_solver_params)
 
-    return models
+    model = model_class(params)
+    pp.ModelRunner(
+        model,
+        nonlinear_solver=pp.solvers.ConstraintLineSearchNonlinearSolver(solver_params),
+    ).run()
+    return model.results, model
 
 
 # If executed as main, run simulation.
