@@ -88,7 +88,7 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
         ax_tp, ax_s = axes[0, j], axes[1, j]
         ax_p = ax_tp.twinx(); ax_p.grid(False)
         res = out[col]
-        ax_tp.set_title(title)
+        ax_tp.set_title(fr"\textbf{{{title}}}")
         ax_tp.set_xlim(0.0, 2.0)
         ps.panel_tag(ax_tp, tags[0][j], loc=(0.04, 0.09), va="bottom")
         ps.panel_tag(ax_s, tags[1][j])

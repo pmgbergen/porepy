@@ -112,7 +112,7 @@ def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
             ax_tp.set_xlim(0.0, 2.0)
             ps.panel_tag(ax_tp, letters[i][j], loc=(0.04, 0.09), va="bottom")
             if i == 0:
-                ax_tp.set_title(orient.capitalize())
+                ax_tp.set_title(fr"\textbf{{{orient.capitalize()}}}")
             # per-panel iteration counts, PPU/HU/HU-mwp + PorePy (when its cache carries total_it),
             # under a bold "<years> yr / total it." header (the time varies per panel)
             C.iteration_legend(ax_tp, res, loc="upper right", fontsize=6.0,
