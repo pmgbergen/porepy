@@ -6,11 +6,13 @@ response to load reversal, and expected damage lengths. Tests are marked skipped
 to their runtime (~1 min each) and are intended as a complement to the unit tests.
 """
 
-from typing import Sequence, cast
+import copy
+from typing import Any, Sequence, cast
 
 import numpy as np
 import pytest
 
+import porepy as pp
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.examples import fracture_damage as damage_example
 
@@ -53,6 +55,37 @@ _solid_paramms.update({"dilation_angle": 0.0})
 material_constants = {"solid": FractureDamageSolidConstants(**_solid_paramms)}  # type: ignore[arg-type]
 
 
+def run_displacement_controlled_setup(
+    isotropic: bool,
+    dim: int,
+    damages: Sequence[str],
+    custom_model_params: dict[str, object] | None = None,
+    custom_solver_params: dict[str, object] | None = None,
+) -> tuple[list[Any], Any]:
+    """Build and run the fracture damage setup used in these integration tests.
+
+    Any custom parameters are used to update the default model or solver parameters.
+    """
+    model_class, params, solver_params = (
+        damage_example.create_displacement_controlled_setup(
+            isotropic=isotropic,
+            dim=dim,
+            damages=damages,
+        )
+    )
+    if custom_model_params is not None:
+        params.update(copy.deepcopy(custom_model_params))
+    if custom_solver_params is not None:
+        solver_params.update(copy.deepcopy(custom_solver_params))
+
+    model = model_class(params)
+    pp.ModelRunner(
+        model,
+        nonlinear_solver=pp.solvers.ConstraintLineSearchNonlinearSolver(solver_params),
+    ).run()
+    return model.results, model
+
+
 @pytest.mark.parametrize("dim", [2, 3])
 def test_isotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
@@ -75,7 +108,7 @@ def test_isotropic_damage(dim: int):
     """
     damages = ["dilation", "friction"]
     # Model instance may be useful for debugging.
-    vals, model = damage_example.run_displacement_controlled_setup(
+    vals, model = run_displacement_controlled_setup(
         True,
         dim,
         damages,
@@ -178,7 +211,7 @@ def test_anisotropic_damage(dim: int):
     damages = ["dilation", "friction"]
 
     # Model instance may be useful for debugging.
-    vals, model = damage_example.run_displacement_controlled_setup(
+    vals, model = run_displacement_controlled_setup(
         False,
         dim,
         damages,
