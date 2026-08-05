@@ -317,7 +317,7 @@ class EquationSystem:
         Initialized lazily, upon first request. Changes in equation system may
         invalidate the indexer, leading to its recomputation.
 
-        By default, the row blocks are in the same order as equations were added to this
+        The row blocks are in the same order as equations were added to this
         EquationSystem. If an equation is defined on multiple grids, the respective
         row-block is internally ordered as given by the mixed-dimensional grid
         (for sd in subdomains, for intf in interfaces).
@@ -348,7 +348,7 @@ class EquationSystem:
             dofs = np.arange(dofs_per_grid) + offset
             variable_dofs[var] = dofs
             offset += len(dofs)
-        return pp.ad.VariableIndexer(variable_dofs=variable_dofs)
+        return pp.ad.VariableIndexer(indices=variable_dofs)
 
     def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
         """Construct an equation indexer for all the registered equations.
@@ -877,7 +877,7 @@ class EquationSystem:
 
         """
         if variables is None:
-            return list(self.variable_indexer.variable_dofs.keys())
+            return list(self.variable_indexer.indices.keys())
 
         parsed_variables: list[Variable] = []
         assert isinstance(variables, list)
@@ -913,14 +913,14 @@ class EquationSystem:
 
         # Order variables according to the indexer.
         parsed_variables_ordered: list[Variable] = []
-        for variable in self.variable_indexer.variable_dofs:
+        for variable in self.variable_indexer.indices:
             if variable in parsed_variables_lookup:
                 parsed_variables_ordered.append(variable)
         return parsed_variables_ordered
 
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
-        return self.variable_indexer.num_dofs
+        return self.variable_indexer.size
 
     def projection_to(self, variables: Optional[VariableList] = None) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
@@ -978,15 +978,13 @@ class EquationSystem:
         """
         # Respect the ordering of the input list of variables.
         variables = self._parse_variable_type(variables, ordered=False)
-        unknown_variables = set(variables).difference(
-            self.variable_indexer.variable_dofs
-        )
+        unknown_variables = set(variables).difference(self.variable_indexer.indices)
         if unknown_variables:
             raise ValueError(
                 "Variables not registered by this equation system: "
                 f"{unknown_variables}."
             )
-        dofs = [self.variable_indexer.variable_dofs[var] for var in variables]
+        dofs = [self.variable_indexer.indices[var] for var in variables]
         return np.concatenate(dofs) if len(dofs) > 0 else np.empty(0, dtype=np.int64)
 
     ### Equation management ------------------------------------------------------------
@@ -1163,10 +1161,12 @@ class EquationSystem:
             equations_per_grid_entity=equations_per_grid_entity,
         )
 
-    def update_variable_num_dofs(self) -> None:
-        """Update the count of degrees of freedom related to a MixedDimensionalGrid.
+    def reset_variable_equation_indices(self) -> None:
+        """Inform the equation system that the domain of definition of variables and/or
+        equations has been changed externally, and it needs to recompute the data
+        arrangement in a contiguous vector.
 
-        Used if the domain of definition of variables has been changed externally.
+        Known use case is the dynamic fracture propagation.
 
         """
         # Invalidate indexers to force their recomputation next time they are accessed.
@@ -1301,9 +1301,7 @@ class EquationSystem:
             return equations_on_domains
 
         # Order according to equation_indexer.
-        equation_order = {
-            eq: i for i, eq in enumerate(self.equation_indexer.equation_dofs)
-        }
+        equation_order = {eq: i for i, eq in enumerate(self.equation_indexer.indices)}
         return list(sorted(equations_on_domains, key=lambda eq: equation_order[eq]))
 
     def _gridbased_equation_complement(
@@ -1529,7 +1527,7 @@ class EquationSystem:
             variable_indexer = self.variable_indexer
             # Respect the ordering of the input list of variables.
             variables_ = self._parse_variable_type(variables=variables, ordered=True)
-            col_proj = [variable_indexer.variable_dofs[var] for var in variables_]
+            col_proj = [variable_indexer.indices[var] for var in variables_]
             column_projection = (
                 np.concatenate(col_proj)
                 if len(col_proj) > 0

@@ -207,7 +207,7 @@ class FracturePropagation(abc.ABC):
         # Update the equation system's counting of dofs. Note that this update has no
         # proper testing and may not cover all necessary updates of dof management. In
         # particular, the image spaces of the equations are left untouched here.
-        self.equation_system.update_variable_num_dofs()
+        self.equation_system.reset_variable_equation_indices()
 
         x_new = np.zeros(self.equation_system.num_dofs())
         # For each variable, map old solution and initialize for new DOFs.

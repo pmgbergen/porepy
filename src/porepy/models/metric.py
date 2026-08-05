@@ -96,6 +96,8 @@ class EquationBasedEuclideanMetric(EuclideanMetric):
         equation_indexer: Optional[pp.ad.EquationIndexer] = None,
     ) -> None:
         self.model = model
+        # TODO YZ: Norms should accept equation tags instead of the indexer. This will
+        # be addressed in the PR downstream.
         if equation_indexer is None:
             equation_indexer = model.equation_system.equation_indexer
         self.equation_indexer = equation_indexer
@@ -186,18 +188,18 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         variable_indexer = self.variable_indexer
 
         # Sanity check: Ensure that variables are defined on cells.
-        for variable in variable_indexer.variable_dofs:
+        for variable in variable_indexer.indices:
             if not variable._faces == 0 and variable._nodes == 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
                 )
 
-        norms = {v.name: 0.0 for v in variable_indexer.variable_dofs}
+        norms = {v.name: 0.0 for v in variable_indexer.indices}
 
-        for variable, indices in variable_indexer.variable_dofs.items():
+        for variable, indices in variable_indexer.indices.items():
             variable_values = pp.ad.DenseArray(values[indices])
-            dim = variable.dof_info["cells"]  # + variable._faces + variable._nodes,
+            dim = variable.dof_info["cells"]
             domains: pp.GridLikeSequence = [variable.domain]  # type: ignore[assignment]
             norms[variable.name] += (
                 self._lebesgue2_norm(variable_values, dim, domains) ** 2
@@ -226,6 +228,8 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
         equation_indexer: Optional[pp.ad.EquationIndexer] = None,
     ) -> None:
         super().__init__(model)
+        # TODO YZ: Norms should accept equation tags instead of the indexer. This will
+        # be addressed in the PR downstream.
         if equation_indexer is None:
             equation_indexer = model.equation_system.equation_indexer
         self.equation_indexer = equation_indexer

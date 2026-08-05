@@ -30,22 +30,30 @@ class EquationOnDomain:
 
 
 class VariableIndexer:
-    """A variable indexer determines the arrangement of DoFs corresponding to multiple
-    variables on multiple grids in a contiguous array.
+    """A variable indexer determines the arrangement of indices corresponding to
+    multiple variables on multiple grids in a contiguous array.
 
     For a data array with a different arrangement (e.g., produced by taking a subset of
     variables), a new indexer needs to be constructed.
 
+    Parameters:
+        indices: A mapping of atomic variables to their indices. It should be ordered
+            in a sense that if key A goes before key B, indices of key A are located
+            before indices of key B. Ordering is not validated, so passing incorrect
+            ordering may lead to errors.
+
     """
 
-    def __init__(self, variable_dofs: dict[pp.ad.Variable, np.ndarray]) -> None:
-        self.variable_dofs: dict[pp.ad.Variable, np.ndarray] = variable_dofs
-        """An ordered mapping of atomic variables to their DoF indices. The keys are
-        ordered, in the sense that if key A goes before key B, DoFs of key A are located
-        before DoFs of key B.
+    def __init__(self, indices: dict[pp.ad.Variable, np.ndarray]) -> None:
+        self.indices: dict[pp.ad.Variable, np.ndarray] = indices
+        """An ordered mapping of atomic variables to their indices. The keys are
+        ordered, in the sense that if key A goes before key B, indices of key A are
+        located before indices of key B. 
 
         """
-        self.num_dofs: int = sum(x.size for x in self.variable_dofs.values())
+        # TODO YZ: Is it meaningful to enable iterations over this attribute directly
+        # through the class? (addressed in the downstream PR).
+        self.size: int = sum(x.size for x in self.indices.values())
 
     def projection_indices(self, variables: list[pp.ad.Variable]) -> np.ndarray:
         """Create a projection index array from the system vector represented by this
@@ -60,17 +68,17 @@ class VariableIndexer:
             ValueError: If the requested variable is not known to this indexer.
 
         Returns:
-            an index array of `shape=(M,)`, where `0 <= M <= num_dofs`.
+            an index array of `shape=(M,)`, where `0 <= M <= size`.
 
         """
         projections = []
         for variable in variables:
-            dofs = self.variable_dofs.get(variable, None)
-            if dofs is None:
+            indices = self.indices.get(variable, None)
+            if indices is None:
                 raise ValueError(
                     f"Requested variable is not known to this indexer: {variable}."
                 )
-            projections.append(dofs)
+            projections.append(indices)
         return (
             np.concatenate(projections)
             if len(projections) > 0
@@ -94,40 +102,38 @@ class VariableIndexer:
             A new instance of VariableIndexer.
 
         """
-        new_variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        new_variable_indices: dict[pp.ad.Variable, np.ndarray] = {}
         offset = 0
         for variable in variables:
-            dofs = self.variable_dofs.get(variable, None)
-            if dofs is None:
+            indices = self.indices.get(variable, None)
+            if indices is None:
                 raise ValueError(
                     f"Requested variable is not known to this indexer: {variable}."
                 )
-            new_variable_dofs[variable] = np.arange(dofs.size) + offset
-            offset += dofs.size
+            new_variable_indices[variable] = np.arange(indices.size) + offset
+            offset += indices.size
 
-        if len(new_variable_dofs) != len(variables):
+        if len(new_variable_indices) != len(variables):
             raise ValueError(f"Requested variables are duplicated: {variable}.")
 
-        return VariableIndexer(variable_dofs=new_variable_dofs)
+        return VariableIndexer(indices=new_variable_indices)
 
     def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
-        """Group :attr:`variable_dofs` by variable names.
+        """Group :attr:`indices` by variable names.
 
-        Domains with no dofs are ignored.
-
-        Offset between variables is assumed.
+        Domains with no indices are ignored.
 
         Return:
-            A nested mapping "variable_name" -> "domain" -> "dofs".
+            A nested mapping "variable_name" -> "domain" -> "indices".
 
         """
         variables: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        for variable, dofs in self.variable_dofs.items():
-            if len(dofs) == 0:
+        for variable, indices in self.indices.items():
+            if len(indices) == 0:
                 continue
             # Get by key variable.name, if not found, initialize it with an empty dict.
-            # Then populate the dict with the domain and dofs.
-            variables.setdefault(variable.name, {})[variable.domain] = dofs
+            # Then populate the dict with the domain and indices.
+            variables.setdefault(variable.name, {})[variable.domain] = indices
         return variables
 
     def identify_dof(self, dof: int) -> pp.ad.Variable:
@@ -149,7 +155,7 @@ class VariableIndexer:
             KeyError: if the dof is out of range.
 
         """
-        for variable, indices in self.variable_dofs.items():
+        for variable, indices in self.indices.items():
             if dof in indices:
                 return variable
 
@@ -157,7 +163,7 @@ class VariableIndexer:
 
 
 class EquationIndexer:
-    """An equation indexer determines the arrangement of DoFs corresponding to multiple
+    """An equation indexer determines the arrangement of indices corresponding to multiple
     equations on multiple grids in a contiguous array.
 
     For a data array with a different arrangement (e.g., produced by taking a subset of
@@ -167,7 +173,7 @@ class EquationIndexer:
     :class:`VariableIndexer` in the way these classes are initialized and what fields
     they expose. This is done to support convenient operations in `EquationSystem`. The
     preferred way to interact with this class outside `EquationSystem` is by using
-    :class:`EquationOnDomain` to query DoFs and not
+    :class:`EquationOnDomain` to query indices and not
     `dict[str, dict[pp.GridLike, np.ndarray]]`. See also the docstring of
     :attr:`equation_image_space_composition`.
 
@@ -176,31 +182,31 @@ class EquationIndexer:
     def __init__(
         self, equation_image_composition: dict[str, dict[pp.GridLike, np.ndarray]]
     ) -> None:
-        equation_dofs: dict[EquationOnDomain, np.ndarray] = {}
+        equation_indices: dict[EquationOnDomain, np.ndarray] = {}
         global_offset = 0
-        for eq_name, dofs_on_domains in equation_image_composition.items():
+        for eq_name, indices_on_domains in equation_image_composition.items():
             offset_per_equation = 0
-            for domain, dofs in dofs_on_domains.items():
-                equation_dofs[EquationOnDomain(name=eq_name, domain=domain)] = (
-                    dofs + global_offset
+            for domain, indices in indices_on_domains.items():
+                equation_indices[EquationOnDomain(name=eq_name, domain=domain)] = (
+                    indices + global_offset
                 )
-                offset_per_equation += dofs.size
+                offset_per_equation += indices.size
             global_offset += offset_per_equation
 
-        self.equation_dofs: dict[EquationOnDomain, np.ndarray] = equation_dofs
+        self.indices: dict[EquationOnDomain, np.ndarray] = equation_indices
         """An ordered mapping of atomic equations to their DoF indices. The keys are
-        ordered, in the sense that if key A goes before key B, DoFs of key A are located
-        before DoFs of key B.
+        ordered, in the sense that if key A goes before key B, indices of key A are located
+        before indices of key B.
 
         """
         self.equation_image_space_composition: dict[
             str, dict[pp.GridLike, np.ndarray]
         ] = equation_image_composition
-        """A mapping `equation_name` -> `domains` -> `dofs`.
+        """A mapping `equation_name` -> `domains` -> `indices`.
 
-        The dofs stored here start from 0 for each equation, i.e. the offset is only
-        relative to domains. The DoFs with the "global" offset can be found in
-        :attr:`equation_dofs`. This is done to respect the implementation of
+        The indices stored here start from 0 for each equation, i.e. the offset is only
+        relative to domains. The indices with the "global" offset can be found in
+        :attr:`indices`. This is done to respect the implementation of
         `EquationSystem`, where both types of offsets are needed.
 
         Note: It does not include equations with empty domains.
@@ -208,9 +214,9 @@ class EquationIndexer:
         """
 
     def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
-        """Group :attr:`equation_dofs` by equation names.
+        """Group :attr:`indices` by equation names.
 
-        Domains with no dofs are ignored.
+        Domains with no indices are ignored.
 
         Offset between equations is assumed.
 
@@ -218,15 +224,15 @@ class EquationIndexer:
             because the latter does not include offset between equation.
 
         Return:
-            A nested mapping "equation_name" -> "domain" -> "dofs".
+            A nested mapping "equation_name" -> "domain" -> "indices".
 
         """
         equations: dict[str, dict[pp.GridLike, np.ndarray]] = {}
-        for equation, dofs in self.equation_dofs.items():
-            if len(dofs) == 0:
+        for equation, indices in self.indices.items():
+            if len(indices) == 0:
                 continue
             # Get by key equation.name, if not found, initialize it with an empty dict.
-            equations.setdefault(equation.name, {})[equation.domain] = dofs
+            equations.setdefault(equation.name, {})[equation.domain] = indices
         return equations
 
     def construct_restricted_indexer(
@@ -246,18 +252,18 @@ class EquationIndexer:
             A new instance of EquationIndexer.
 
         """
-        new_equation_dofs: dict[pp.ad.EquationOnDomain, np.ndarray] = {}
+        new_equation_indices: dict[pp.ad.EquationOnDomain, np.ndarray] = {}
         offset = 0
         for equation in equations:
-            dofs = self.equation_dofs.get(equation, None)
-            if dofs is None:
+            indices = self.indices.get(equation, None)
+            if indices is None:
                 raise ValueError(
                     f"Requested equation is not known to this indexer: {equation}."
                 )
-            new_equation_dofs[equation] = np.arange(dofs.size) + offset
-            offset += dofs.size
+            new_equation_indices[equation] = np.arange(indices.size) + offset
+            offset += indices.size
 
-        if len(new_equation_dofs) != len(equations):
+        if len(new_equation_indices) != len(equations):
             raise ValueError(f"Requested equations are duplicated: {equations}.")
 
         # YZ: This is a little hack to be removed in the next PR. Now for simplicity,
@@ -265,11 +271,11 @@ class EquationIndexer:
         # equation_image_composition, so we reconstruct it here.
         equation_image_composition: dict[str, dict[pp.GridLike, np.ndarray]] = {}
         offsets_per_equation: dict[str, int] = {}
-        for equation, dofs in new_equation_dofs.items():
+        for equation, indices in new_equation_indices.items():
             equation_offset = offsets_per_equation.get(equation.name, 0)
             equation_image_composition.setdefault(equation.name, {})[
                 equation.domain
-            ] = np.arange(dofs.size) + equation_offset
-            offsets_per_equation[equation.name] = equation_offset + dofs.size
+            ] = np.arange(indices.size) + equation_offset
+            offsets_per_equation[equation.name] = equation_offset + indices.size
 
         return EquationIndexer(equation_image_composition=equation_image_composition)

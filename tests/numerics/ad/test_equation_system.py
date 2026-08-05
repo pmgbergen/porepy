@@ -251,7 +251,7 @@ def test_remove_variables(variable_to_be_removed):
         )
         assert all(
             variable.name != variable_to_be_removed
-            for variable in equation_system.variable_indexer.variable_dofs
+            for variable in equation_system.variable_indexer.indices
         )
         # Check that trying to remove the variable again raises an error.
         with pytest.raises(ValueError):
@@ -951,11 +951,10 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         equations_per_grid_entity=dof_info_subdomain,
     )
 
+    equation_indexer = equation_system.equation_indexer
     # Check that the mapping of equation to subdomain to global dof
     # indices is correctly set.
-    equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_image_space_composition
-    )
+    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
     assert np.allclose(
         equation_subdomain_blocks[model.eq_single_subdomain.name][model.sd_top],
         np.arange(model.sd_top.num_cells * dof_info_subdomain["cells"]),
@@ -974,9 +973,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
     )
-    equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_image_space_composition
-    )
+    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
     offset = 0
     for sd in model.subdomains:
         assert np.allclose(
@@ -994,9 +991,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
     )
-    equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_image_space_composition
-    )
+    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
     offset = 0
     for intf in model.interfaces:
         assert np.allclose(
@@ -1016,9 +1011,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_all_interfaces,
     )
-    equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_image_space_composition
-    )
+    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
 
     offset = 0
     for intf in model.interfaces:
@@ -1033,9 +1026,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
     )
-    equation_subdomain_blocks = (
-        equation_system.equation_indexer.equation_image_space_composition
-    )
+    equation_subdomain_blocks = equation_indexer.equation_image_space_composition
 
     offset = 0
     for intf in model.interfaces:
@@ -1333,15 +1324,13 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
     )
     for name in model.equation_system.equations:
         actual_dofs = [
-            dofs
-            for eq, dofs in equation_indexer.equation_dofs.items()
-            if eq.name == name
+            dofs for eq, dofs in equation_indexer.indices.items() if eq.name == name
         ]
         assert np.allclose(np.concatenate(actual_dofs), model.eq_ind(name))
 
     # Check that the sizes of variable blocks were correctly recorded.
     for var in variables:
-        assert variable_indexer.variable_dofs[var].size == model.dof_ind(var).size
+        assert variable_indexer.indices[var].size == model.dof_ind(var).size
 
 
 @pytest.mark.parametrize(
@@ -1442,7 +1431,7 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
             equations=eq_names, variables=variables
         )
     )
-    equation_dofs = equation_indexer.equation_dofs
+    equation_dofs = equation_indexer.indices
     if eq_names is None:
         eq_names = list(model.equation_system.equations)
 
@@ -1452,7 +1441,7 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
         )
         assert num_dofs == model.block_size(name)
 
-    variable_dofs = variable_indexer.variable_dofs
+    variable_dofs = variable_indexer.indices
     for name in var_names:
         num_dofs = sum(
             [dofs.size for var, dofs in variable_dofs.items() if var.name == name]
@@ -1491,18 +1480,18 @@ def test_assembled_matrix_indexers_match_assembly_order(
 
     expected_equations = [
         equation
-        for equation in equation_system.equation_indexer.equation_dofs
+        for equation in equation_system.equation_indexer.indices
         if equation.name in equations
     ]
     expected_variables = [
         variable
-        for variable in equation_system.variable_indexer.variable_dofs
+        for variable in equation_system.variable_indexer.indices
         if variable.name in variables
     ]
 
     actual_order = (
-        [equation.name for equation in equation_indexer.equation_dofs],
-        [variable.name for variable in variable_indexer.variable_dofs],
+        [equation.name for equation in equation_indexer.indices],
+        [variable.name for variable in variable_indexer.indices],
     )
     expected_order = (
         [equation.name for equation in expected_equations],
@@ -1733,7 +1722,7 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     # Check bookkeeping does not suddenly include the empty equation.
     equation_indexer, _ = equation_system.construct_assembled_matrix_indexers()
 
-    for eq_on_domain in equation_indexer.equation_dofs:
+    for eq_on_domain in equation_indexer.indices:
         assert eq_on_domain.name != "empty_equation"
     assert "empty_equation" not in equation_indexer.equation_image_space_composition
 
