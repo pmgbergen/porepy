@@ -6,101 +6,12 @@ response to load reversal, and expected damage lengths. Tests are marked skipped
 to their runtime (~1 min each) and are intended as a complement to the unit tests.
 """
 
-import copy
 from typing import Sequence, cast
 
 import numpy as np
 import pytest
 
-import porepy as pp
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-    SquareDomainOrthogonalFractures,
-)
-from porepy.applications.test_utils.models import add_mixin
-from porepy.compositional.materials import FractureDamageSolidConstants
-from porepy.examples import fracture_damage as damage_examples
-from porepy.models import fracture_damage as damage_models
-from porepy.numerics.solvers.line_search import ConstraintLineSearchNonlinearSolver
-
-
-def run_displacement_controlled_setup(
-    isotropic: bool,
-    dim: int,
-    damages: Sequence[str],
-):
-    """Run a time-dependent simulation with displacement-controlled BCs.
-
-    Parameters:
-        isotropic: If True, use isotropic damage length; otherwise anisotropic.
-        dim: Spatial dimension of the bulk domain (2 or 3).
-        damages: Iterable of damage types to include (subset of
-            {"dilation", "friction"}).
-
-    Returns:
-        A list of VerificationDataSaving instances containing results for each time
-        step.
-    """
-    params = copy.deepcopy(damage_examples.model_params)
-    model_class = damage_examples.FractureDamageMomentumBalance
-
-    # Choose damage length (isotropic vs anisotropic) and exact solution.
-    if isotropic:
-        params["exact_solution"] = damage_examples.ExactSolutionIsotropic
-        model_class = add_mixin(
-            damage_models.IsotropicFractureDamageLength, model_class
-        )
-    else:
-        params["exact_solution"] = damage_examples.ExactSolutionAnisotropic
-        model_class = add_mixin(
-            damage_models.AnisotropicFractureDamageLength, model_class
-        )
-
-    # Add requested damage equations and variables.
-    for name in damages:
-        model_class = add_mixin(damage_examples.damage_types[name], model_class)
-
-    # Add geometry mixin for the target dimension.
-    geom = (
-        SquareDomainOrthogonalFractures if dim == 2 else CubeDomainOrthogonalFractures
-    )
-    model_class = add_mixin(geom, model_class)
-
-    # 5 time instants => 4 forward steps.
-    params.update(
-        {
-            "time_manager": pp.TimeManager(np.arange(0, 5), 1, True),
-            "north_displacements": params["north_displacements"][:dim],
-        }
-    )
-    params["material_constants"] = {
-        "solid": FractureDamageSolidConstants(**damage_examples.solid_params),  # type: ignore[arg-type]
-    }
-    solver_params = {
-        "nl_max_iterations": 50,  # Hard nonlinear problems - expect slow convergence
-        "nl_convergence_res_atol": 1e-8,
-        "nl_convergence_inc_atol": 1e-8,
-        "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
-        "local_line_search": True,
-    }
-
-    # Set y component somewhat smaller than (fracture gap + maximum elastic opening).
-    # This results in compression and sensible tractions.
-    params["north_displacements"][1] = 0.98e-3
-    # Modify north displacement BC to get open fracture (=> no additional damage) in
-    # 4th time increment.
-    params["north_displacements"][1, 4] = 3e-3
-    # Turn off shear dilation to better control the test. Although physically
-    # nonsensical, dilation damage with zero dilation angle is mathematically
-    # well-defined.
-    solid_params = damage_examples.solid_params.copy()
-    solid_params["dilation_angle"] = 0.0
-    # Similarly, simplify problem by removing elastic normal deformation.
-    params["material_constants"]["solid"] = FractureDamageSolidConstants(**solid_params)  # type: ignore[arg-type]
-    m = model_class(params)
-    pp.ModelRunner(m, solver_params).run()
-
-    return m.results, m
+from porepy.examples import fracture_damage as damage_example
 
 
 def _assert_damage_values_equal_between_steps(
@@ -134,6 +45,13 @@ def _assert_increment_damage_length_zero(length_1: np.ndarray, step: int) -> Non
     )
 
 
+# Turn off shear dilation to better control the test. Although physically nonsensical,
+# dilation damage with zero dilation angle is mathematically well-defined.
+_solid_paramms = damage_example.solid_params.copy()
+_solid_paramms.update({"dilation_angle": 0.0})
+material_constants = {"solid": pp.FractureDamageSolidConstants(**_solid_paramms)}  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize("dim", [2, 3])
 def test_isotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
@@ -156,7 +74,15 @@ def test_isotropic_damage(dim: int):
     """
     damages = ["dilation", "friction"]
     # Model instance may be useful for debugging.
-    vals, model = run_displacement_controlled_setup(True, dim, damages)
+    vals, model = damage_example.run_displacement_controlled_setup(
+        True,
+        dim,
+        damages,
+        custom_model_params={
+            "material_constants": material_constants,
+            "times_to_export": [],  # Suppress export of data for testing.
+        },
+    )
     # Note on counting time steps: The initial time step is not included in the results.
     # Thus, vals[0] corresponds to t=1 in the time manager, and vals[1]-vals[0] is
     # referred to as "first increment" below.
@@ -249,8 +175,17 @@ def test_anisotropic_damage(dim: int):
         AssertionError: If the results do not match the exact solution.
     """
     damages = ["dilation", "friction"]
+
     # Model instance may be useful for debugging.
-    vals, model = run_displacement_controlled_setup(False, dim, damages)
+    vals, model = damage_example.run_displacement_controlled_setup(
+        False,
+        dim,
+        damages,
+        custom_model_params={
+            "material_constants": material_constants,
+            "times_to_export": [],
+        },  # Suppress export of data for testing.
+    )
     # Note on counting time steps: The initial time step is not included in the results.
     # Thus, vals[0] corresponds to t=1 in the time manager, and vals[1]-vals[0] is
     # referred to as "first increment" below.
