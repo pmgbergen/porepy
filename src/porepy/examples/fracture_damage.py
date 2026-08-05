@@ -562,7 +562,7 @@ def run_displacement_controlled_setup(
         instance per forward time step.
     """
     params = copy.deepcopy(model_params)
-    model_class = FractureDamageMomentumBalance
+    model_class: type[Any] = FractureDamageMomentumBalance
 
     if isotropic:
         params["exact_solution"] = ExactSolutionIsotropic
