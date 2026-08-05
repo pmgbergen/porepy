@@ -148,6 +148,7 @@ def test_equation_indexer_restriction(
         }
     )
 
+    # Only equation b on sd 2, equation b on sd 3, equation a on sd 2.
     restricted = indexer.construct_restricted_indexer(
         [equation_b_second, equation_b_third, equation_a_second]
     )
@@ -157,8 +158,11 @@ def test_equation_indexer_restriction(
         equation_b_third,
         equation_a_second,
     ]
+    # Equation b on sd 2 should have a single dof.
     np.testing.assert_array_equal(restricted.indices[equation_b_second], np.arange(1))
+    # Equation b on sd 3 should have two dofs: [1, 2].
     np.testing.assert_array_equal(restricted.indices[equation_b_third], np.arange(1, 3))
+    # Equation a on sd 2 should have 3 dofs: [3, 4, 5].
     np.testing.assert_array_equal(
         restricted.indices[equation_a_second], np.arange(3, 6)
     )
