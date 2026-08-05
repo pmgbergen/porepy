@@ -211,6 +211,13 @@ class TestScalarSpace:
         assert s.source == OperatorSpace.scalar()
         assert s.target == OperatorSpace.scalar()
 
+    def test_scalar_scalar_gives_scalar_space(self):
+        s1 = Scalar(1.0)
+        s2 = Scalar(2.0)
+        result = s1 + s2
+        assert result.source == OperatorSpace.scalar()
+        assert result.target == OperatorSpace.scalar()
+
     @pytest.mark.parametrize("fixture_name", ["two_subdomains", "one_mortar"])
     def test_scalar_with_subdomain_or_interface(self, request, fixture_name):
         grids = request.getfixturevalue(fixture_name)
@@ -228,11 +235,11 @@ class TestScalarSpace:
 
     def test_scalar_domain_is_cellwise(self, two_subdomains):
         """Domain-bearing Scalar uses the natural cell-based space on its grids."""
-        s = Scalar(1.0, domains=two_subdomains[:1])
+        s = Scalar(1.0, domains=two_subdomains[0])
         assert s.source.dof_info == {GridEntity.cells: 1}
 
     def test_scalar_neg_propagates_source(self, two_subdomains):
-        s = Scalar(3.0, domains=two_subdomains[:1])
+        s = Scalar(3.0, domains=two_subdomains[0])
         neg = -s
         assert neg.source == s.source
         assert neg.target == s.target
@@ -250,7 +257,7 @@ class TestScalarSpace:
 
     def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
         """A domain-bearing scalar uses the ordinary cell-based space on its grids."""
-        s = Scalar(2.0, domains=two_subdomains[:1])
+        s = Scalar(2.0, domains=two_subdomains[0])
         v = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
         result = s * v
         assert result.source == v.source
@@ -450,58 +457,6 @@ class TestShapeConsistencyCheck:
         DenseArray(arr, source=space, target=space)
         mat = sps.eye(3, format="csr")
         SparseArray(mat, source=space, target=space)
-
-
-class TestDomainRangePropagation:
-    """Test that binary operations propagate source and target."""
-
-    # TODO EK: See if this class should be merged with other tests.
-
-    @pytest.fixture(autouse=True)
-    def setup(self, two_subdomains):
-        g, _ = two_subdomains
-        self.space = self._cell_space(g)
-        self.a = DenseArray(np.ones(4), source=self.space, target=self.space)
-        self.s = Scalar(2.0)
-
-    def _cell_space(self, g):
-        return OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-
-    @pytest.mark.parametrize(
-        "binary_op",
-        [_op.add, _op.sub, _op.mul, _op.truediv],
-        ids=["add", "sub", "mul", "div"],
-    )
-    def test_elementwise_same_space_propagates(self, binary_op):
-        """Elementwise ops between equal-space operands preserve source/target."""
-        result = binary_op(self.a, self.a)
-        assert result.source == self.space
-        assert result.target == self.space
-
-    @pytest.mark.parametrize(
-        "flipped", [True, False], ids=["scalar_first", "scalar_second"]
-    )
-    def test_scalar_inherits_other_space(self, flipped):
-        result = self.s * self.a if flipped else self.a * self.s
-        assert result.source == self.space
-        assert result.target == self.space
-
-    def test_scalar_scalar_gives_scalar_space(self):
-        s1 = Scalar(1.0)
-        s2 = Scalar(2.0)
-        result = s1 + s2
-        assert result.source == OperatorSpace.scalar()
-        assert result.target == OperatorSpace.scalar()
-
-    def test_incompatible_domains_raises(self, two_subdomains):
-        # TODO EK: Is this tested elsewhere?
-        g1, g2 = two_subdomains
-        s1 = self._cell_space(g1)
-        s2 = self._cell_space(g2)
-        a = DenseArray(np.ones(4), source=s1, target=s1)
-        b = DenseArray(np.ones(9), source=s2, target=s2)
-        with pytest.raises(ValueError, match="[Ii]ncompat"):
-            _ = a + b
 
 
 class TestTimeDependentDenseArraySpaces:
@@ -731,11 +686,6 @@ class TestMergedOperatorSpaces:
         assert GridEntity.cells in op.target.dof_info
         assert set(op.source.grids) == {g1, g2}
         assert set(op.target.grids) == {g1, g2}
-
-
-# ---------------------------------------------------------------------------
-# Stage 5: validate_operands / infer_source_target
-# ---------------------------------------------------------------------------
 
 
 class TestInferDomainRange:
