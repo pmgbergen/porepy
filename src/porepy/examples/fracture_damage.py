@@ -578,17 +578,18 @@ def run_displacement_controlled_setup(
         SquareDomainOrthogonalFractures if dim == 2 else CubeDomainOrthogonalFractures
     )
     model_class = add_mixin(geom, model_class)
+    displacements = north_displacements_3d.copy()
+    displacements = displacements[:dim]
+    # Keep compression for the first steps and open the fracture in the last one.
+    displacements[1] = 0.98e-3
+    displacements[1, 4] = 3e-3
 
     params.update(
         {
             "time_manager": pp.TimeManager(np.arange(0.0, 5.0), 1.0, True),
-            "north_displacements": params["north_displacements"][:dim],
+            "north_displacements": displacements,
         }
     )
-
-    # Keep compression for the first steps and open the fracture in the last one.
-    params["north_displacements"][1] = 0.98e-3
-    params["north_displacements"][1, 4] = 3e-3
 
     params["material_constants"] = {
         "solid": FractureDamageSolidConstants(**solid_params.copy()),  # type: ignore[arg-type]
