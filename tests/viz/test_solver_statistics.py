@@ -624,6 +624,9 @@ def test_solver_statistics_save_in_model(path, exists):
     model = DummyModel(params)
     model.prepare_simulation()
 
+    # Save the solver statistics explicitly.
+    model.save_statistics()
+
     # Check whether file was saved and has correct suffix.
     if exists:
         assert model.nonlinear_solver_statistics.path.exists()
