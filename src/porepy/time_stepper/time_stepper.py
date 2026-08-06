@@ -273,13 +273,14 @@ class PseudoTimeStepper(TimeStepper):
         self.pseudo_steps = 0
         """Internal counter for pseudo time-stepping iterations."""
 
-    def perform_pseudo_time_step(
+    def perform_time_step(
         self,
         model: pp.PorePyModel,
         solver: pp.solvers.NonlinearSolverBase,
     ) -> tuple[
         TimeStepperStatusSuccess | TimeStepperStatusFailure,
-        solvers.NonlinearSolverStatus,
+        solvers.ConvergenceStatusCollection,
+        solvers.ConvergenceStatusCollection,
     ]:
         """Perform a single pseudo-time step.
 
@@ -298,8 +299,8 @@ class PseudoTimeStepper(TimeStepper):
         # Close to perform_time_step, but we don't advance time. Instead, we check for
         # convergence to a steady state.
         for attempt in range(self.max_attempts):
-            # Communicate pseudo-dt to the model (regularization parameter).
-            model.before_time_step()
+            # Log time step for statistics.
+            self._update_time_statistics(model)
 
             # Attempt a trial step.
             nonlinear_solver_status = self._perform_trial_time_step(model, solver)
@@ -309,16 +310,17 @@ class PseudoTimeStepper(TimeStepper):
             # it uses the current iterate.
             convergence_status, divergence_status = self.check_convergence(model)
 
-            # Update model based on trial results.
-            self._after_trial_time_step(model, nonlinear_solver_status)
-
             # Check time step status
             time_step_status = self._compute_next_time_step(
                 nonlinear_solver_status, model, attempt
             )
 
-            # Save statistics.
-            self._update_time_statistics(model, time_step_status)
+            # Log time step status for statistics.
+            self._update_statistics(model, time_step_status)
+
+            # Update model based on trial results.
+            # NOTE: Do this as last step as this saves statistics.
+            self._after_trial_time_step(model, nonlinear_solver_status)
 
             # Return on success or error when there is no way to continue trying.
             if isinstance(
@@ -336,12 +338,39 @@ class PseudoTimeStepper(TimeStepper):
             ),
         )
 
+    def _perform_trial_time_step(
+        self,
+        model: pp.PorePyModel,
+        solver: pp.solvers.NonlinearSolverBase,
+    ) -> solvers.NonlinearSolverStatus:
+        """Perform a nonlinear solve to make the time step.
+
+        Returns:
+            The nonlinear solver status (converged/failed).
+
+        """
+        # Execute trial time step.
+        model.before_time_step()
+        nonlinear_solver_status = solver.solve(model)  # type: ignore
+        return nonlinear_solver_status
+
+    def _after_trial_time_step(
+        self,
+        model: pp.PorePyModel,
+        nonlinear_solver_status: solvers.NonlinearSolverStatus,
+    ) -> None:
+        """Perform post-processing after a trial time step."""
+        # Model update based on trial results.
+        if nonlinear_solver_status.is_converged():
+            model.after_time_step_convergence()
+        elif nonlinear_solver_status.is_failed():
+            model.after_time_step_failure()
+
     def check_convergence(
         self, model: pp.PorePyModel
     ) -> tuple[
         solvers.ConvergenceStatusCollection,
         solvers.ConvergenceStatusCollection,
-        solvers.ConvergenceInfoCollection,
     ]:
         """Check convergence and divergence based on passed criteria.
 

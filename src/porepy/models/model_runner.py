@@ -379,9 +379,7 @@ class ModelRunner:
 
                 # Perform pseudo time step.
                 time_step_status, convergence_status, divergence_status = (
-                    pseudo_time_stepper.perform_pseudo_time_step(
-                        self.model, self.solver
-                    )
+                    pseudo_time_stepper.perform_time_step(self.model, self.solver)
                 )
 
                 # Handle mode-specific post-initialization (for now without hook).
