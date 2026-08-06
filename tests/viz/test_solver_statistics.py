@@ -143,7 +143,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
         {
             # NonlinearSolverStatistics data for first outer iteration
             "num_iterations": 2,
-            "solver_status": None,
+            "solver_status": "successful",
             "simulation_status": "failed",
             "convergence_status": {
                 "crit1": [
@@ -165,7 +165,7 @@ def reference_nonlinear_solver_statistics_dict() -> dict:
         {
             # NonlinearSolverStatistics data for second outer iteration
             "num_iterations": 1,
-            "solver_status": None,
+            "solver_status": "successful",
             "simulation_status": "successful",
             "convergence_status": {
                 "crit1": ["converged"],
