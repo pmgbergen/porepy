@@ -113,6 +113,11 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         eq_indexer = linear_system.equation_indexer
         var_indexer = linear_system.variable_indexer
 
+        # The function below requires that the secondary equations and variables are
+        # defined on all subdomains (and does not care about where primary equations and
+        # variables are defined). It will validate it and raise otherwise. If this ever
+        # happens, a slower alternative function is available that handles the  general
+        # case: generate_permutation_to_block_diag_matrix.
         secondary_eq_perm, secondary_var_perm, block_sizes = (
             rearrange_matrix_as_array_of_structures(
                 eq_indexer=eq_indexer.construct_restricted_indexer(secondary_eqs),
@@ -226,7 +231,8 @@ def rearrange_matrix_as_array_of_structures(
     A_n0 A_n1 . A_nn
     ```
     Each block A_ij corresponds to a single equation-variable pair defined on a single
-    grid. All equation-variable pairs must be defined on the same set of grids.
+    grid. All equation-variable pairs must be defined on the same set of grids. For a
+    more general case, see :func:`generate_permutation_to_block_diag_matrix`.
 
     There is no requirement on how blocks A_ij should be arranged, e.g., different
     equation-variable pairs can live next to each other, and the order of grids can be

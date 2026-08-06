@@ -83,6 +83,12 @@ class VariableTag:
     """
 
 
+# Below are namespaces of default tags for equations and variables, default to PorePy.
+# Compositional model equations and variables are omitted, since their names depend on
+# the composition. See how to construct custom tags for them in
+# schur_complement_reduction_linear_tracer_3p.py example.
+
+
 class DefaultEquationTags:
     """A namespace for all known equations defined by standard PorePy models."""
 
