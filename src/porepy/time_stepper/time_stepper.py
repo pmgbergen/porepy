@@ -100,9 +100,6 @@ class TimeStepper:
             # Attempt a standard time step.
             nonlinear_solver_status = self._perform_trial_time_step(model, solver)
 
-            # Update model based on trial results.
-            self._after_trial_time_step(model, nonlinear_solver_status)
-
             if not nonlinear_solver_status.is_converged():
                 # Roll back if the time step attempt failed.
                 self.time_manager.time = previous_time
@@ -209,6 +206,7 @@ class TimeStepper:
         # Execute trial time step.
         model.before_time_step()
         nonlinear_solver_status = solver.solve(model)  # type: ignore
+
         return nonlinear_solver_status
 
     def _update_model_after_trial(
