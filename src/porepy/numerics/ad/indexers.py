@@ -62,7 +62,7 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
 
     def __init__(self, indices: dict[EquationOrVariableType, np.ndarray]) -> None:
         self.indices: dict[EquationOrVariableType, np.ndarray] = indices
-        """An ordered mapping of atomic operators to their DoF indices. The keys are
+        """An ordered mapping of atomic operators to their indices. The keys are
         ordered, in a sense that if key A goes before key B, indices of key A are
         located before indices of key B.
 
