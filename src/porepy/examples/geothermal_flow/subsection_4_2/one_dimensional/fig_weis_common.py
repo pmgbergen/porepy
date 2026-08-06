@@ -160,8 +160,8 @@ def scheme_handles(only=None):
     (a list of scheme keys, e.g. :func:`active_schemes`) restricts the handles to those schemes."""
     from matplotlib.lines import Line2D
     keys = [sk for sk in ps.SCHEMES if only is None or sk in only]
-    return [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=1.8, label=ps.SCHEMES[sk]["label"])
-            for sk in keys]
+    return [Line2D([0], [0], color=ps.SCHEMES[sk]["warm"], ls=ps.SCHEMES[sk]["dash"], lw=ps.CURVE_LW,
+                   label=ps.SCHEMES[sk]["label"]) for sk in keys]   # scheme = dash (shown in its warm shade)
 
 
 def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title=r"\textbf{total it.}", extra=None):
@@ -172,10 +172,10 @@ def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title=r"\text
     PPU-Weis curve)."""
     from matplotlib.lines import Line2D
     schemes = [sk for sk in ps.SCHEMES if sk in results]
-    h = [Line2D([0], [0], color=ps.SCHEMES[sk]["color"], lw=2.2) for sk in schemes]
+    h = [Line2D([0], [0], color=ps.SCHEMES[sk]["warm"], ls=ps.SCHEMES[sk]["dash"], lw=2.4) for sk in schemes]
     lab = [fr"${int(results[sk]['total_it'])}$" for sk in schemes]
-    for color, count in (extra or []):
-        h.append(Line2D([0], [0], color=color, lw=2.2)); lab.append(fr"${int(count)}$")
+    for color, dash, count in (extra or []):        # extra = [(colour, dash, count), ...]
+        h.append(Line2D([0], [0], color=color, ls=dash, lw=2.4)); lab.append(fr"${int(count)}$")
     leg = ax.legend(h, lab, loc=loc, fontsize=fontsize, frameon=True, fancybox=True, framealpha=0.9,
                     edgecolor="0.7", borderpad=0.3, handlelength=0.9, handletextpad=0.4,
                     labelspacing=0.2, title=title, title_fontsize=fontsize)
@@ -192,18 +192,12 @@ def draw_tp(ax_tp, ax_p, results, ref_T=None, ref_p=None, label_it=True):
         _ref_plot(ax_tp, ref_T, WEIS_T, "o", "-")
     if ref_p is not None:
         _ref_plot(ax_p, ref_p, WEIS_P, "^", P_LS)
-    handles, labels = [], []
-    from matplotlib.lines import Line2D
     for sk in ps.SCHEMES:
         if sk not in results:
             continue
-        cfg = ps.SCHEMES[sk]
-        r = results[sk]
-        ax_tp.plot(*ps.to_plot_units(r, "T"), color=cfg["color"], ls="-", lw=1.3, zorder=3)
-        ax_p.plot(*ps.to_plot_units(r, "p"), color=cfg["color"], ls=P_LS, lw=1.1, zorder=3)
-        handles.append(Line2D([0], [0], color=cfg["color"], lw=1.6))
-        labels.append(fr"{cfg['label']} (${r['total_it']}$ it.)" if label_it else cfg["label"])
-    return handles, labels
+        cfg = ps.SCHEMES[sk]; r = results[sk]
+        ax_tp.plot(*ps.to_plot_units(r, "T"), color=cfg["warm"], ls=cfg["dash"], lw=ps.CURVE_LW, zorder=3)  # T -> warm (left)
+        ax_p.plot(*ps.to_plot_units(r, "p"), color=cfg["cool"], ls=cfg["dash"], lw=ps.CURVE_LW, zorder=3)   # p -> cool (right)
 
 
 def draw_s(ax_s, results, ref_s=None, halite=False):
@@ -215,11 +209,10 @@ def draw_s(ax_s, results, ref_s=None, halite=False):
     for sk in ps.SCHEMES:
         if sk not in results:
             continue
-        cfg = ps.SCHEMES[sk]
-        r = results[sk]
-        ax_s.plot(*ps.to_plot_units(r, "s_liq"), color=cfg["color"], lw=1.3, zorder=3)
+        cfg = ps.SCHEMES[sk]; r = results[sk]
+        ax_s.plot(*ps.to_plot_units(r, "s_liq"), color=cfg["warm"], ls=cfg["dash"], lw=ps.CURVE_LW, zorder=3)  # liquid sat -> warm (left)
         if halite and np.max(np.abs(r.get("s_halite", 0.0))) > 1e-6:
             if ax_h is None:
                 ax_h = ax_s.twinx(); ax_h.grid(False); ax_h.set_ylim(-0.03, 1.03)
-            ax_h.plot(r["y"] / 1e3, r["s_halite"], color=cfg["color"], lw=1.1, ls=(0, (1, 1)), zorder=2)
+            ax_h.plot(r["y"] / 1e3, r["s_halite"], color=cfg["cool"], ls=cfg["dash"], lw=ps.CURVE_LW, zorder=2)  # halite sat -> cool (right)
     return ax_h

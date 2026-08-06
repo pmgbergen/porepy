@@ -17,19 +17,26 @@ import matplotlib.pyplot as plt  # noqa: E402
 # Text width [in] of the paper; a full-width figure spans it, two panels sharing it side by side.
 TEXTWIDTH_IN = 6.5
 
-# Okabe-Ito colour-blind-safe triad for the three schemes.
-_BLUE, _VERMILLION, _GREEN = "#0072B2", "#D55E00", "#009E73"
-
-# The three schemes carried through the §4.1 comparison, mapped to weis_1d_solver.run kwargs.
-#   key -> run kwargs (scheme, weighted_perm) + display label / colour / marker
+# Curve encoding (all three figures): the WARM palette is the LEFT-axis quantity (temperature,
+# liquid saturation); the COOL palette is the RIGHT-axis quantity (pressure, halite saturation).
+# Scheme identity is the DASH pattern -- distinct periods, so where curves coincide the dashes
+# interleave instead of hiding each other; the per-scheme shade is a redundant second cue. Validated
+# (OKLab dE): warm<->cool family gap ~29 (holds under deuteranopia), within-family adjacent ~10-13
+# (the dash carries scheme identity, so that is below the colour-only floor by design).
 SCHEMES = {
-    "ppu":   dict(scheme="ppu", weighted_perm=False, label="PPU",
-                  color=_BLUE, marker="o"),
-    "hu":    dict(scheme="hu",  weighted_perm=False, label="HU",
-                  color=_VERMILLION, marker="s"),
+    "ppu":    dict(scheme="ppu", weighted_perm=False, label="PPU",
+                   warm="#F5A623", cool="#5FB0E0", dash=(0, (1, 1.4))),
+    "hu":     dict(scheme="hu",  weighted_perm=False, label="HU",
+                   warm="#EE6C2C", cool="#3E8FCA", dash=(0, (5.5, 2.2))),
     "hu_mwp": dict(scheme="hu",  weighted_perm=True,  label=r"HU-$\mathrm{mwp}$",
-                  color=_GREEN, marker="^"),
+                   warm="#D6352A", cool="#2666AE", dash=(0, (6.5, 1.6, 1.2, 1.6))),
 }
+# Overlay curves (not weis schemes): same warm/cool idiom, own distinct dash. PorePy takes the
+# darkest shade (the reference dark red/blue sits just beyond it); the fig-5 PPU-Weis curve reuses
+# PPU's shade -- it IS PPU under Weis's discretisation -- and is told apart by its dash alone.
+POREPY = dict(label=r"HU-PorePy", warm="#A81D2E", cool="#143C86", dash=(0, (3.0, 2.6)))
+PPU_WEIS = dict(warm=SCHEMES["ppu"]["warm"], cool=SCHEMES["ppu"]["cool"], dash=(0, (7, 1.5, 1.5, 1.5)))
+CURVE_LW = 2.0        # scheme / overlay line width (the reference band stays thin, ~1.0)
 
 # Gravity-term density treatment (fig weis_verification) -> run kwarg + line style.
 DENSITY = {

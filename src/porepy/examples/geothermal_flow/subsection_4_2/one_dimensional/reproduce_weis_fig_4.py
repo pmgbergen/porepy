@@ -103,12 +103,10 @@ def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
                       ref_p=C.ref_csv(f"fig_4_{lvl}_{orient}_pressure_raw.csv"))
             pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(lvl, orient)  # PorePy overlay
             pp_it = pp_res.get("total_it") if pp_res else None
-            if pp_res is not None:
-                step = max(1, len(pp_res["y"]) // 24)       # ~24 markers across the 2 km column
-                mk = dict(color=POREPY_C, marker="x", ms=4.2, ls="none", mew=0.9, zorder=6)
-                for ax, fld in ((ax_tp, "T"), (ax_p, "p")):
+            if pp_res is not None:                          # PorePy overlay: warm T / cool p, PorePy dash
+                for ax, fld, col in ((ax_tp, "T", ps.POREPY["warm"]), (ax_p, "p", ps.POREPY["cool"])):
                     xx, yy = ps.to_plot_units(pp_res, fld)
-                    ax.plot(xx[::step], yy[::step], **mk)
+                    ax.plot(xx, yy, color=col, ls=ps.POREPY["dash"], lw=ps.CURVE_LW, zorder=6)
             ax_tp.set_xlim(0.0, 2.0)
             ps.panel_tag(ax_tp, letters[i][j], loc=(0.04, 0.09), va="bottom")
             if i == 0:
@@ -118,7 +116,7 @@ def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
             C.iteration_legend(ax_tp, res, loc="upper right", fontsize=6.0,
                                title=(fr"\textbf{{{FIG4_TF[(lvl, orient)]} yr}}" + "\n"
                                       + r"\textbf{total it.}"),
-                               extra=([(POREPY_C, pp_it)] if pp_it is not None else None))
+                               extra=([(ps.POREPY["warm"], ps.POREPY["dash"], pp_it)] if pp_it is not None else None))
             if j == 0:
                 ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
                 ax_tp.tick_params(axis="y", colors=C.WEIS_T)
@@ -132,9 +130,10 @@ def plot(out, stem="reproduce_weis_fig_4", skip=frozenset()):
 
     handles = C.scheme_handles(only=C.active_schemes(skip))
     if not C.is_skipped("hu-porepy", skip):
-        handles.append(Line2D([0], [0], color=POREPY_C, marker="x", ms=5, mew=1.2, ls="none", label=POREPY_LABEL))
-    handles += [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-                Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
+        handles.append(Line2D([0], [0], color=ps.POREPY["warm"], ls=ps.POREPY["dash"], lw=ps.CURVE_LW,
+                              label=POREPY_LABEL))
+    handles += [Line2D([0], [0], color=ps.SCHEMES["hu"]["warm"], ls="-", lw=3, label=r"$T$ (warm, left)"),
+                Line2D([0], [0], color=ps.SCHEMES["hu"]["cool"], ls="-", lw=3, label=r"$p$ (cool, right)"),
                 C.ref_legend_handle()]
     fig.tight_layout()
     ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)

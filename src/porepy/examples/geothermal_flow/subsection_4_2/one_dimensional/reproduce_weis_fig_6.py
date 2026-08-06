@@ -115,15 +115,16 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
                         va="top", fontsize=9, color="0.55", style="italic")
         else:
             pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(col)  # PorePy HU overlay
-            extra = [(POREPY_C, pp_res["total_it"])] if pp_res is not None else None
+            extra = [(ps.POREPY["warm"], ps.POREPY["dash"], pp_res["total_it"])] if pp_res is not None else None
             C.iteration_legend(ax_s, res, loc="center left", extra=extra)  # empty vapor column, clear
-            if pp_res is not None:
-                mk = dict(color=POREPY_C, ls=POREPY_LS, lw=1.3, zorder=6)  # navy dash-dot line
-                for ax, fld in ((ax_tp, "T"), (ax_p, "p"), (ax_s, "s_liq")):
+            if pp_res is not None:                           # warm T/liq-sat, cool p/halite, PorePy dash
+                for ax, fld, cc in ((ax_tp, "T", ps.POREPY["warm"]), (ax_p, "p", ps.POREPY["cool"]),
+                                    (ax_s, "s_liq", ps.POREPY["warm"])):
                     xx, yy = ps.to_plot_units(pp_res, fld)
-                    ax.plot(xx, yy, **mk)
-                if ax_h is not None:                         # halite saturation on its own twin axis
-                    ax_h.plot(pp_res["y"] / 1000.0, pp_res["s_halite"], **mk)
+                    ax.plot(xx, yy, color=cc, ls=ps.POREPY["dash"], lw=ps.CURVE_LW, zorder=6)
+                if ax_h is not None:                         # halite saturation on its own twin axis (cool)
+                    ax_h.plot(pp_res["y"] / 1000.0, pp_res["s_halite"], color=ps.POREPY["cool"],
+                              ls=ps.POREPY["dash"], lw=ps.CURVE_LW, zorder=6)
         # left column: T / s_liq axes; right column: p (+ halite) axes
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
@@ -141,10 +142,10 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
 
     handles = C.scheme_handles(only=C.active_schemes(skip))
     if not C.is_skipped("hu-porepy", skip):
-        handles.append(Line2D([0], [0], color=POREPY_C, ls=POREPY_LS, lw=1.6, label=POREPY_LABEL))
-    handles += [Line2D([0], [0], color="black", ls="-", label=r"$T$ (left)"),
-                Line2D([0], [0], color="black", ls=C.P_LS, label=r"$p$ (right)"),
-                Line2D([0], [0], color="black", ls=(0, (1, 1)), label=r"halite sat.")]
+        handles.append(Line2D([0], [0], color=ps.POREPY["warm"], ls=ps.POREPY["dash"], lw=ps.CURVE_LW, label=POREPY_LABEL))
+    handles += [Line2D([0], [0], color=ps.SCHEMES["hu"]["warm"], ls="-", lw=3, label=r"warm: $T$ / liq. sat. (left)"),
+                Line2D([0], [0], color=ps.SCHEMES["hu"]["cool"], ls="-", lw=3, label=r"cool: $p$ / halite (right)"),
+                C.ref_legend_handle()]
     fig.tight_layout()
     ps.bottom_legend(fig, handles, [h.get_label() for h in handles], ncol=4)
     ps.savefig(fig, stem, C.OUT_DIR)
