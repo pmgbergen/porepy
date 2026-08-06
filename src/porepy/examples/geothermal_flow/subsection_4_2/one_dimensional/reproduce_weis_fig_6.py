@@ -84,6 +84,7 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
     ps.apply_style()
     fig, axes = plt.subplots(2, 2, figsize=(ps.TEXTWIDTH_IN, 5.4), sharex="col")
     tags = (("(a)", "(b)"), ("(c)", "(d)"))
+    has_pp = False                                       # True once a PorePy overlay is actually drawn
     for j, (col, title) in enumerate(COLS):
         ax_tp, ax_s = axes[0, j], axes[1, j]
         ax_p = ax_tp.twinx(); ax_p.grid(False)
@@ -118,6 +119,7 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
             extra = [(ps.POREPY["warm"], ps.POREPY["dash"], pp_res["total_it"])] if pp_res is not None else None
             C.iteration_legend(ax_s, res, loc="center left", extra=extra)  # empty vapor column, clear
             if pp_res is not None:                           # warm T/liq-sat, cool p/halite, PorePy dash
+                has_pp = True
                 for ax, fld, cc in ((ax_tp, "T", ps.POREPY["warm"]), (ax_p, "p", ps.POREPY["cool"]),
                                     (ax_s, "s_liq", ps.POREPY["warm"])):
                     xx, yy = ps.to_plot_units(pp_res, fld)
@@ -129,7 +131,8 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
             ax_tp.tick_params(axis="y", colors=C.WEIS_T)
-            ax_s.set_ylabel(ps.FIELD_LABEL["s_liq"])
+            ax_s.set_ylabel(ps.FIELD_LABEL["s_liq"], color=C.WEIS_T)   # liquid sat = warm (left)
+            ax_s.tick_params(axis="y", colors=C.WEIS_T)
             ax_p.tick_params(axis="y", labelright=False)
         else:
             ax_p.set_ylabel(ps.FIELD_LABEL["p"], color=C.WEIS_P)
@@ -137,11 +140,12 @@ def plot(out, stem="reproduce_weis_fig_6", skip=frozenset()):
             ax_tp.tick_params(axis="y", labelleft=False)
             ax_s.tick_params(axis="y", labelleft=False)
             if ax_h is not None:
-                ax_h.set_ylabel(r"Halite saturation $[-]$")
+                ax_h.set_ylabel(r"Halite saturation $[-]$", color=C.WEIS_P)  # halite sat = cool (right)
+                ax_h.tick_params(axis="y", colors=C.WEIS_P)
         ax_s.set_xlabel(ps.DIST_LABEL)
 
     handles = C.scheme_handles(only=C.active_schemes(skip))
-    if not C.is_skipped("hu-porepy", skip):
+    if has_pp:                                          # key the overlay only when it was actually drawn
         handles.append(Line2D([0], [0], color=ps.POREPY["warm"], ls=ps.POREPY["dash"], lw=ps.CURVE_LW, label=POREPY_LABEL))
     handles += [Line2D([0], [0], color=ps.SCHEMES["hu"]["warm"], ls="-", lw=3, label=r"warm: $T$ / liq. sat. (left)"),
                 Line2D([0], [0], color=ps.SCHEMES["hu"]["cool"], ls="-", lw=3, label=r"cool: $p$ / halite (right)"),

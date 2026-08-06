@@ -29,7 +29,7 @@ PPU_WEIS_N = 200
 PPU_WEIS_LABEL = rf"PPU-Weis ($N={PPU_WEIS_N}$)"
 
 # PorePy approximation overlay: the converged HU profile from porepy_1d_solver, cached as
-# _cache/figure5_porepy_{case}_hu_N800_l<level>.pkl. Drawn as black x markers over the weis-HU reference so the
+# _cache/fig5_porepy_{case}_hu_N800_l<level>.pkl. Drawn as black x markers over the weis-HU reference so the
 # agreement (or drift) reads directly.
 POREPY_C = "black"
 POREPY_LABEL = r"HU-PorePy"
@@ -45,7 +45,7 @@ def _load_porepy(case, scheme="hu", N=N):
     and ``AUTORUN_POREPY``, run ``porepy_1d_solver.run_case`` to make it (lazy import, so a warm-cache
     re-plot never imports porepy). Returns the dict, or None if unavailable."""
     import pickle
-    path = os.path.join(C.CACHE_DIR, f"figure5_porepy_{case}_{scheme}_N{N}_l{m.TABLE_LEVEL}.pkl")
+    path = os.path.join(C.CACHE_DIR, f"fig5_porepy_{case}_{scheme}_N{N}_l{m.TABLE_LEVEL}.pkl")
     if not os.path.exists(path) and AUTORUN_POREPY:
         try:
             import porepy_1d_solver as pp1d                 # lazy: only imports porepy on a cold cache
@@ -86,6 +86,7 @@ def plot(out, stem="reproduce_weis_fig_5", skip=frozenset()):
     fig, axes = plt.subplots(2, 2, figsize=(ps.TEXTWIDTH_IN, 5.6), sharex="col")
     tags = (("(a)", "(b)"), ("(c)", "(d)"))
     panels = []
+    has_pp = False                                       # True once a PorePy overlay is actually drawn
     for j, case in enumerate(CASES):
         ax_tp, ax_s = axes[0, j], axes[1, j]
         ax_p = ax_tp.twinx(); ax_p.grid(False)
@@ -104,6 +105,7 @@ def plot(out, stem="reproduce_weis_fig_5", skip=frozenset()):
             extra_it.append((ps.PPU_WEIS["warm"], ps.PPU_WEIS["dash"], w["total_it"]))
         pp_res = None if C.is_skipped("hu-porepy", skip) else _load_porepy(case)  # PorePy HU overlay
         if pp_res is not None:                                # warm T / cool p / warm s_liq, PorePy dash
+            has_pp = True
             for ax, fld, col in ((ax_tp, "T", ps.POREPY["warm"]), (ax_p, "p", ps.POREPY["cool"]),
                                  (ax_s, "s_liq", ps.POREPY["warm"])):
                 x, y = ps.to_plot_units(pp_res, fld)
@@ -118,7 +120,8 @@ def plot(out, stem="reproduce_weis_fig_5", skip=frozenset()):
         if j == 0:
             ax_tp.set_ylabel(ps.FIELD_LABEL["T"], color=C.WEIS_T)
             ax_tp.tick_params(axis="y", colors=C.WEIS_T)
-            ax_s.set_ylabel(ps.FIELD_LABEL["s_liq"])
+            ax_s.set_ylabel(ps.FIELD_LABEL["s_liq"], color=C.WEIS_T)   # liquid sat = warm (left)
+            ax_s.tick_params(axis="y", colors=C.WEIS_T)
             ax_p.tick_params(axis="y", labelright=False)
         else:
             ax_p.set_ylabel(ps.FIELD_LABEL["p"], color=C.WEIS_P)
@@ -132,7 +135,7 @@ def plot(out, stem="reproduce_weis_fig_5", skip=frozenset()):
     handles = C.scheme_handles(only=C.active_schemes(skip))
     if not C.is_skipped("ppu-weis", skip):
         handles.append(Line2D([0], [0], color=ps.PPU_WEIS["warm"], ls=ps.PPU_WEIS["dash"], lw=ps.CURVE_LW, label=PPU_WEIS_LABEL))
-    if not C.is_skipped("hu-porepy", skip):
+    if has_pp:                                          # key the overlay only when it was actually drawn
         handles.append(Line2D([0], [0], color=ps.POREPY["warm"], ls=ps.POREPY["dash"], lw=ps.CURVE_LW, label=POREPY_LABEL))
     handles += [Line2D([0], [0], color=ps.SCHEMES["hu"]["warm"], ls="-", lw=3, label=r"$T$ (warm, left)"),
                 Line2D([0], [0], color=ps.SCHEMES["hu"]["cool"], ls="-", lw=3, label=r"$p$ (cool, right)"),

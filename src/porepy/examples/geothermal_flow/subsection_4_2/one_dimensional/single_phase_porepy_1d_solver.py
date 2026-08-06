@@ -107,7 +107,7 @@ def _attach_samplers(model) -> None:
 
 def _cache_path(case_name, geometry_case):
     return os.path.join(CACHE_DIR,
-                        f"figure4_porepy_{case_name}_{geometry_case}_l{TABLE_LEVEL}.pkl")
+                        f"fig4_porepy_{case_name}_{geometry_case}_l{TABLE_LEVEL}.pkl")
 
 
 def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
@@ -121,8 +121,8 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     tf = FINAL_TIME_DAYS[geometry_case][case_name] * DAY
     BC, IC = CASES[case_name]
     ModelGeometry, axis = GEOMETRIES[geometry_case]
-    time_manager = pp.TimeManager(schedule=[0.0, tf], dt_init=0.25 * 365.0 * DAY,
-                                  constant_dt=True, iter_max=50, print_info=True)  # 0.25 yr = weis DT0
+    time_manager = pp.TimeManager(schedule=[0.0, tf], dt_init=365.0 * DAY,
+                                  constant_dt=True, iter_max=50, print_info=True)  # 1 yr = weis DT0
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
                               specific_heat_capacity=880.0 * TO_MEGA)

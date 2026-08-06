@@ -21,7 +21,7 @@ Use the porepy conda env (its interpreter is reused for the subprocesses):
     $PY run_workflow.py --quick         # coarse smoke, sandboxed to _quick/ (real cache untouched)
     $PY run_workflow.py --plot-only     # figures (PNG) from existing _cache only (no 2-D solves)
     $PY run_workflow.py --plot-only --pdf   # same, also writing a vector PDF per figure
-    $PY run_workflow.py --skip-porepy   # no 2-D overlay runs (figures show the weis curves only)
+    $PY run_workflow.py --no-porepy     # skip ALL PorePy overlays (weis curves + reference only)
     $PY run_workflow.py --porepy-schemes hu hu_mwp   # add the HU-mwp overlay (heavy new runs)
 """
 from __future__ import annotations
@@ -70,14 +70,14 @@ def _sandbox_outputs(root):
 # --------------------------------------------------------------------------------------- #
 #  Stages
 # --------------------------------------------------------------------------------------- #
-def stage_fig5(quick, parallel):
+def stage_fig5(quick, parallel, skip=frozenset()):
     """Figure 5 -- two-phase pure-water profiles, PPU/HU/HU-mwp at z=0 + digitized reference."""
-    F5.plot(F5.compute(N=100 if quick else F5.N, parallel=parallel))
+    F5.plot(F5.compute(N=100 if quick else F5.N, parallel=parallel, skip=skip), skip=skip)
 
 
-def stage_fig6(quick, parallel):
+def stage_fig6(quick, parallel, skip=frozenset()):
     """Figure 6 -- H2O-NaCl brine: pure-water and salt (+ immobile halite) columns, PPU/HU/HU-mwp."""
-    F6.plot(F6.compute(N=60 if quick else F6.N, parallel=parallel))
+    F6.plot(F6.compute(N=60 if quick else F6.N, parallel=parallel, skip=skip), skip=skip)
 
 
 def stage_porepy(orientations, schemes, no_cache):
@@ -94,10 +94,10 @@ def stage_porepy(orientations, schemes, no_cache):
                   f"  ({(time.time() - t0) / 60.0:.1f} min)", flush=True)
 
 
-def stage_fig4(quick, parallel):
+def stage_fig4(quick, parallel, skip=frozenset()):
     """Figure 4 -- six single-phase heating fronts ({hP,mP,lP} x {horizontal,vertical}), PPU/HU/HU-mwp
     at z=0 via the weis engine + digitized reference. (No PorePy 2-D runs -- this is now weis-native.)"""
-    F4.plot(F4.compute(N=80 if quick else F4.N, parallel=parallel))
+    F4.plot(F4.compute(N=80 if quick else F4.N, parallel=parallel, skip=skip), skip=skip)
 
 
 def _stage(label, fn, *a):
@@ -128,8 +128,9 @@ def main(argv=None):
     ap.add_argument("--plot-only", action="store_true",
                     help="build every figure from existing _cache only; run no heavy 2-D solves")
     ap.add_argument("--skip-run", action="store_true", help="alias of --plot-only")
-    ap.add_argument("--skip-porepy", action="store_true",
-                    help="skip the PorePy 2-D overlay runs (verification then shows 1-D references)")
+    ap.add_argument("--no-porepy", action="store_true",
+                    help="skip ALL PorePy overlays -- weis curves + reference only. No overlay auto-run, "
+                         "no PorePy curve/count/legend; the figures render resiliently without PorePy data.")
     ap.add_argument("--skip-single-phase", action="store_true",
                     help="skip the single-phase track (its 2-D runs and figure)")
     ap.add_argument("--single-phase-only", action="store_true",
@@ -152,6 +153,12 @@ def main(argv=None):
     PS.SAVE_PDF = args.pdf     # figures are PNG-only unless --pdf (the vector PDF is the slow part)
 
     plot_only = args.plot_only or args.skip_run
+    # --no-porepy: drop the PorePy overlay entirely. skip={"hu-porepy"} makes each figure omit the
+    # overlay curve, its iteration count AND its legend entry (even when a cache exists); disabling
+    # AUTORUN_POREPY stops the plot generating one on a cold cache. The weis figures stand on their own.
+    porepy_skip = frozenset({"hu-porepy"}) if args.no_porepy else frozenset()
+    if args.no_porepy:
+        F4.AUTORUN_POREPY = F5.AUTORUN_POREPY = F6.AUTORUN_POREPY = False
     # Quick mode forces serial: the sandbox redirection below patches the figure modules' CACHE_DIR
     # in THIS process, but a spawn worker pool re-imports them fresh and would revert to the real
     # _cache/. Serial keeps every run in-process, so the sandbox holds.
@@ -169,16 +176,16 @@ def main(argv=None):
 
     t_all = time.time()
     if do_multiphase:
-        _stage("figure 5 (two-phase profiles)", stage_fig5, args.quick, parallel)
-        _stage("figure 6 (brine + halite)", stage_fig6, args.quick, parallel)
-        if not (plot_only or args.skip_porepy or args.quick):
+        _stage("figure 5 (two-phase profiles)", stage_fig5, args.quick, parallel, porepy_skip)
+        _stage("figure 6 (brine + halite)", stage_fig6, args.quick, parallel, porepy_skip)
+        if not (plot_only or args.no_porepy or args.quick):
             _stage("PorePy 2-D overlay runs (heavy)", stage_porepy,
                    args.porepy_orientations, args.porepy_schemes, args.no_cache)
         else:
             print("\n(skipping PorePy 2-D overlay runs)", flush=True)
 
     if do_single:
-        _stage("figure 4 (single-phase heating)", stage_fig4, args.quick, parallel)
+        _stage("figure 4 (single-phase heating)", stage_fig4, args.quick, parallel, porepy_skip)
 
     out = "_quick/figures" if args.quick else "figures"
     print(f"\n{'=' * 70}\n workflow complete in {(time.time() - t_all) / 60.0:.1f} min "

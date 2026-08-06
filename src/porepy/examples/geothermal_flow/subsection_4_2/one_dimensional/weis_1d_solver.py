@@ -77,7 +77,9 @@ DX = 1.25             # cross-section [m], matched to PorePy SimpleGeometry y_le
 #                       1.25 (ref_level 0.25). Cancels in the 1-D solution, but kept identical so both
 #                       solvers discretise the same 2000 x 1.25 strip (cell volume 3.125, same faces).
 YEAR = 365.0 * 86400.0
-DT0 = 0.25 * YEAR     # nominal time step; also the reference used to row-scale residuals to O(1)
+DT0 = 1.0 * YEAR      # max time step (adaptive cap) + residual row-scale reference. 1 yr (not 0.25):
+#                       larger steps are more nonlinear per step, so PPU / HU / HU-mwp separate in the
+#                       iteration count -- at 0.25 yr the >=1-update floor flattened them to ~1/step.
 
 # Reference scales used to row-scale the mass/energy residuals to O(1). Without this the
 # mass (~kg/s) and energy (~W) equations differ by ~1e13 and the Jacobian is unsolvable.

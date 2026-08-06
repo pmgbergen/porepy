@@ -4,7 +4,7 @@ Runs the four cases needed by the figure overlays -- {horizontal, vertical} x {H
 geometry's native N=800 and nominal dt = 0.25 yr, graded Driesner OBL tables (matching weis_1d_solver),
 and writes each converged 1D profile (distance, T, p, s_liq) extracted from the live model to
 
-    _cache/figure5_porepy_{case}_{scheme}_N800_l<level>.pkl
+    _cache/fig5_porepy_{case}_{scheme}_N800_l<level>.pkl
 
 with keys y[m], T[K], p[Pa], s_liq -- exactly what plot_style.to_plot_units consumes. PorePy still
 writes its usual VTU/PVD output alongside (periodic snapshots).
@@ -59,8 +59,8 @@ from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 # --------------------------------------------------------------------------------------------- #
 DAY = 86400.0
 TO_MEGA = 1.0e-6
-DT = 0.25 * 365.0 * DAY                  # nominal time step: 0.25 yr (matches the 1D solver DT0)
-DT_MAX = 10.0 * 365.0 * DAY              # cap adaptive dt at 10 yr (grows from DT on easy steps)
+DT = 1.0 * 365.0 * DAY                   # nominal time step: 1 yr (matches the weis DT0)
+DT_MAX = 1.0 * 365.0 * DAY               # max adaptive dt cap: 1 yr (so all figures share the same cap)
 TABLE_LEVEL = "graded"                    # the single OBL: the C0 graded brine tables (matches
 #                                           weis_1d_solver); doubles as the cache tag (_lgraded)
 EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
@@ -83,19 +83,19 @@ _TABLE_DIR = os.path.join(
 def _pickle_path(geometry_case: str, scheme: str) -> str:
     """Per-case output pickle path in _cache/ (keyed by orientation, scheme, N, table level)."""
     return os.path.join(
-        CACHE_DIR, f"figure5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
+        CACHE_DIR, f"fig5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}.pkl")
 
 
 def _stats_path(geometry_case: str, scheme: str) -> str:
     """Companion human-readable solver-statistics text file next to the pickle."""
     return os.path.join(
-        CACHE_DIR, f"figure5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.txt")
+        CACHE_DIR, f"fig5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.txt")
 
 
 def _stats_pkl_path(geometry_case: str, scheme: str) -> str:
     """Companion pickle holding the model's :class:`NonlinearRunStats` dataclass."""
     return os.path.join(
-        CACHE_DIR, f"figure5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.pkl")
+        CACHE_DIR, f"fig5_porepy_{geometry_case}_{scheme}_N{N_CELLS}_l{TABLE_LEVEL}_stats.pkl")
 
 
 def _save_stats(geometry_case: str, scheme: str, stats, tf: float) -> tuple[int, int]:
@@ -289,8 +289,8 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
 
     dt_min_div = float(os.environ.get("FIG6_DT_MIN_DIV", "64"))   # deepen the dt floor for hard fronts
     time_manager = pp.TimeManager(
-        schedule=[0.0, tf], dt_init=0.5 * DT, constant_dt=False,   # adaptive; MAX cap halved to 0.125 yr
-        dt_min_max=(DT / dt_min_div, 0.5 * DT), iter_max=20, iter_optimal_range=(3, 10),
+        schedule=[0.0, tf], dt_init=0.5 * DT, constant_dt=False,   # adaptive; MAX cap = DT_MAX (1 yr)
+        dt_min_max=(DT / dt_min_div, DT_MAX), iter_max=20, iter_optimal_range=(3, 10),
         recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
