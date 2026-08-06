@@ -91,6 +91,9 @@ class TimeStepper:
             self.time_manager.time = previous_time + self.time_manager.dt
             self.time_manager.time_index += 1
 
+            # Log time step information for statistics.
+            self._update_time_statistics(model)
+
             # Attempt a standard time step.
             nonlinear_solver_status = self._perform_trial_time_step(model, solver)
 
@@ -104,8 +107,8 @@ class TimeStepper:
                 nonlinear_solver_status, model, attempt
             )
 
-            # Save statistics.
-            self._update_time_statistics(model, time_step_status)
+            # Log time step status for statistics.
+            self._update_statistics(model, time_step_status)
 
             # Return on success or error when there is no way to continue trying.
             if isinstance(
@@ -206,19 +209,22 @@ class TimeStepper:
 
         return nonlinear_solver_status
 
-    def _update_time_statistics(
-        self, model: pp.PorePyModel, time_step_status: TimeStepperStatus
-    ) -> None:
+    def _update_time_statistics(self, model: pp.PorePyModel) -> None:
         """Update statistics from the time step."""
         assert isinstance(model.nonlinear_solver_statistics, pp.TimeStatistics)
-        model.nonlinear_solver_statistics.log_simulation_status(
-            simulation_status=time_step_status
-        )
         model.nonlinear_solver_statistics.log_time_information(
             self.time_manager.time_index,
             self.time_manager.time,
             self.time_manager.dt,
             self.time_manager.final_time_reached(),
+        )
+
+    def _update_statistics(
+        self, model: pp.PorePyModel, time_step_status: TimeStepperStatus
+    ) -> None:
+        """Update statistics from the time step."""
+        model.nonlinear_solver_statistics.log_simulation_status(
+            simulation_status=time_step_status
         )
 
 
