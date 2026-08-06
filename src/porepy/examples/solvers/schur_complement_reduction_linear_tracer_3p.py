@@ -19,7 +19,7 @@ def run_example():
     model_params = {
         "material_constants": {
             "solid": pp.SolidConstants(
-                porosity=1.0, permeability=1.0, residual_aperture=1
+                porosity=1.0, residual_aperture=1
             ),
         },
         "meshing_arguments": {"cell_size": SimplePipe2D.pipe_length / 10},
