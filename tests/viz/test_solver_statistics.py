@@ -845,6 +845,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
             "crit2": [2.0, 1.5],
         }
     )
+    stats.solver_status = nonlinear_solver_status("failed")
 
     # Make sure that the data dict has the correct 'index' key before appending.
     # Typically prepared when calling the `append_data` method.
@@ -854,8 +855,7 @@ def test_nonlinear_solver_statistics_append_iterative_data():
     # Compare against reference data. Restrict to "0", ignore custom data, and cast.
     reference_data = {"0": reference_nonlinear_solver_statistics_dict()["0"]}
     reference_data["0"].pop("foo")
-    failed_solver_status = "failed"
-    reference_data["0"]["solver_status"] = failed_solver_status
+    reference_data["0"]["solver_status"] = nonlinear_solver_status("failed").serialize()
     assert (
         DeepDiff(
             out,
