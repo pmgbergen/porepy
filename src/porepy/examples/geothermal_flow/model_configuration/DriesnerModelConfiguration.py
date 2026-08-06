@@ -547,14 +547,6 @@ class _DriesnerBrineBase(  # type:ignore[misc]
             new_q = np.clip(new_q, 0.0, 1.0)
             delta_x[dof_idx] = new_q - x0[dof_idx]
 
-        # Optional bound on the per-iteration gas-saturation step: damps the vapor phase-appearance
-        # oscillation (s_gas flip-flopping ~0.2 <-> 1.0 at the vapor/liquid+halite boundary) that
-        # stalls Newton on the strongly halite-forming Fig-6 salt column, while leaving the physical-
-        # bound clip untouched. params["max_gas_saturation_step"] = 0 (default) disables it.
-        ds_max = self.params.get("max_gas_saturation_step", 0.0)
-        if ds_max > 0.0:
-            delta_x[s_dof_idx] = np.clip(delta_x[s_dof_idx], -ds_max, ds_max)
-
         te = time.time()
         print("Elapsed time for postprocessing overshoots: ", te - tb)
         return np.min([p_scale,z_scale,h_scale,t_scale])

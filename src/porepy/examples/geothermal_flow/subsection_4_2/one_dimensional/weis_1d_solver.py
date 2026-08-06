@@ -77,7 +77,7 @@ DX = 1.25             # cross-section [m], matched to PorePy SimpleGeometry y_le
 #                       1.25 (ref_level 0.25). Cancels in the 1-D solution, but kept identical so both
 #                       solvers discretise the same 2000 x 1.25 strip (cell volume 3.125, same faces).
 YEAR = 365.0 * 86400.0
-DT0 = 1.0 * YEAR      # max time step (adaptive cap) + residual row-scale reference. 1 yr (not 0.25):
+DT0 = 0.5 * YEAR      # max time step (adaptive cap) + residual row-scale reference. 0.5 yr:
 #                       larger steps are more nonlinear per step, so PPU / HU / HU-mwp separate in the
 #                       iteration count -- at 0.25 yr the >=1-update floor flattened them to ~1/step.
 

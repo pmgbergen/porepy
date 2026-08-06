@@ -50,17 +50,17 @@ from porepy.examples.geothermal_flow.model_configuration.geothermal_export impor
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,  # NewtonSolver that dispatches to model.solve_linear_system
-    RelativeStorageLebesgueMetric,  # weis-matched relative (ms/es) residual bar
 )
 from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
+
 
 # --------------------------------------------------------------------------------------------- #
 #  Fixed benchmark parameters (shared by all four cases)
 # --------------------------------------------------------------------------------------------- #
 DAY = 86400.0
 TO_MEGA = 1.0e-6
-DT = 1.0 * 365.0 * DAY                   # nominal time step: 1 yr (matches the weis DT0)
-DT_MAX = 1.0 * 365.0 * DAY               # max adaptive dt cap: 1 yr (so all figures share the same cap)
+DT = 0.5 * 365.0 * DAY                   # nominal time step: 0.5 yr (matches the weis DT0)
+DT_MAX = 0.5 * 365.0 * DAY               # max adaptive dt cap: 0.5 yr (all figures share the same cap)
 TABLE_LEVEL = "graded"                    # the single OBL: the C0 graded brine tables (matches
 #                                           weis_1d_solver); doubles as the cache tag (_lgraded)
 EXPORT_EVERY = 4                          # VTU snapshot cadence (in time steps)
@@ -174,7 +174,8 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
         "time_manager": time_manager,
         "times_to_export": times_to_export,
         "use_petsc": False,
-        "step_control_method": "None",
+        "step_control_method": "LS",            # weis backtracking line search (all solvers)
+        "slave_eliminated_secondaries": True,   # weis-faithful exact flash each iteration (all solvers)
     }
 
     ModelGeometry = GEOMETRY[geometry_case]
@@ -195,15 +196,7 @@ def run_case(geometry_case: str, weighted_perm: bool, cache: bool = True) -> dic
     model = GeothermalWaterFlowModel(params)
     _attach_samplers(model)
 
-    solver_params = {
-        "nl_convergence_criteria": {
-            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model)),
-        },
-        "nl_divergence_criteria": {
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20),
-        },
-    }
+    solver_params = model.default_nonlinear_criteria()   # shared base bar (relative 1e-4; slave -> exact closures)
 
     print(f"\n=== PorePy {geometry_case} / {scheme}  "
           f"(tf={tf / (365.0 * DAY):.0f} yr, dt=0.25 yr, level {TABLE_LEVEL}) ===", flush=True)
@@ -299,7 +292,7 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
         "ad_backend": "native", "fractional_flow": False, "enable_buoyancy_effects": True,
         "buoyancy_upwinding": "hybrid", "material_constants": {"solid": solid},
         "time_manager": time_manager, "times_to_export": [tf],       # final snapshot only (save disk)
-        "use_petsc": False, "step_control_method": "None",
+        "use_petsc": False, "step_control_method": "LS",   # weis backtracking line search (all solvers)
         # thermal-overshoot postprocessing destabilises the strongly halite-forming salt column;
         # disable it (the physical-bound clip stays on). No effect where s_h = 0 (pw column).
         "enable_thermal_overshoot_postprocessing": False,
@@ -308,9 +301,6 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
         # phase fronts (boiling for pw, halite for salt) that otherwise multiply the iteration count
         # and collapse dt to dt_min. Both columns benefit -- pw has a boiling front too.
         "slave_eliminated_secondaries": True,
-        # bound the per-iteration gas-saturation step to damp the vapor phase-appearance oscillation
-        # at the inlet (s_gas flip-flopping 0.2<->1.0) that otherwise stalls the salt column.
-        "max_gas_saturation_step": 0.2,
     }
 
     class GeothermalWaterFlowModel(DriesnerPhaseExport, ModelGeometryH, BC_fig6, ICcls,
@@ -323,16 +313,11 @@ def run_fig6_case(column: str, cache: bool = True, tf_years: float = FIG6_TF_YEA
 
     model = GeothermalWaterFlowModel(params)
     _attach_samplers(model, xph_name=xph_name, xpt_name=xpt_name)
-    solver_params = {
-        # Fig-6 needs its known-good bar: the salt halite/boiling front makes the enthalpy Newton
-        # step stiff, and at tol 1e-4 (or the relative metric) the slaved-but-less-converged state
-        # drifts into an energy limit cycle (increment ~1e3, |r| oscillates ~0.1-2.8). Absolute
-        # Lebesgue at 1e-5 keeps each state accurate enough that the front stays well conditioned --
-        # the config that completes the 2000 yr run. (run_case / 2D / 3D keep the relative 1e-4 bar.)
-        "nl_convergence_criteria": {"res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model))},
-        "nl_divergence_criteria": {"max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=20)},
-    }
+    # Shared base bar (relative 1e-4) -- same criterion as every other Driesner solver.
+    # NOTE: the salt column historically needed an absolute 1e-5 bar to avoid an energy limit cycle at
+    # the halite/boiling front (see git history). If it re-appears on this column, override here, e.g.
+    # ``model.default_nonlinear_criteria(tol=1.0e-5)`` or a pp.EquationBasedLebesgueMetric at 1e-5.
+    solver_params = model.default_nonlinear_criteria()
     print(f"\n=== PorePy fig6 {column} (tf={tf_years:.0f} yr, tables={xph_name}) ===", flush=True)
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))

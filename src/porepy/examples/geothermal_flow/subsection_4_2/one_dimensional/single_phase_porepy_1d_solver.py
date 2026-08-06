@@ -31,7 +31,7 @@ from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_marke
     BC_single_phase_moderate_pressure as BC_mP,
 )
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
-    DriesnerBrineFractionalFlowModel as FlowModel,   # fractional_flow=True pairs with the FF template
+    DriesnerBrineFlowModel as FlowModel,   # HU: standard primary equations (FlowModelBase), == fig 5/6 HU
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,
@@ -75,23 +75,6 @@ CASES = {"case_hP": (BC_hP, IC_hP), "case_mP": (BC_mP, IC_mP), "case_lP": (BC_lP
 GEOMETRIES = {"horizontal": (ModelGeometryH, 0), "vertical": (ModelGeometryV, 1)}
 
 
-class PDEOnlyLebesgueMetric(pp.EquationBasedLebesgueMetric):
-    """EquationBasedLebesgueMetric restricted to the PDE (conservation) rows -- mass, energy, NaCl
-    component. Drops the eliminated-secondary CLOSURE equations (temperature, saturations, partial
-    fractions) from the convergence test, so PorePy stops on the same physics weis does. weis closes
-    those secondaries exactly from the table every residual eval (no closure residual to sub-converge),
-    so gating both solvers on the PDE residuals alone makes their iteration counts a like-for-like
-    comparison -- both settle at ~1 Newton update/step instead of PorePy paying a second iteration to
-    drive the temperature closure to tolerance."""
-
-    _PDE = ("mass_balance_equation", "energy_balance_equation",
-            "component_mass_balance_equation_NaCl")
-
-    def __call__(self, values):
-        norms = super().__call__(values)
-        return {k: v for k, v in norms.items() if k in self._PDE}
-
-
 def _attach_samplers(model) -> None:
     """Attach the C0 graded Driesner OBL samplers (phz + ptz), exactly as
     porepy_1d_solver / porepy_3d_solver do."""
@@ -121,15 +104,20 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     tf = FINAL_TIME_DAYS[geometry_case][case_name] * DAY
     BC, IC = CASES[case_name]
     ModelGeometry, axis = GEOMETRIES[geometry_case]
-    time_manager = pp.TimeManager(schedule=[0.0, tf], dt_init=365.0 * DAY,
-                                  constant_dt=True, iter_max=50, print_info=True)  # 1 yr = weis DT0
+    dt_max = 0.5 * 365.0 * DAY                                # 0.5 yr cap = weis DT0
+    time_manager = pp.TimeManager(                            # adaptive in [1/64, 1] yr, like fig 5/6
+        schedule=[0.0, tf], dt_init=dt_max, constant_dt=False,
+        dt_min_max=(dt_max / 64.0, dt_max), iter_max=20, iter_optimal_range=(3, 10),
+        recomp_factor=0.5, recomp_max=10, print_info=True)
     solid = pp.SolidConstants(permeability=1e-15, porosity=0.1,
                               thermal_conductivity=2.0 * TO_MEGA, density=2700.0,
                               specific_heat_capacity=880.0 * TO_MEGA)
     params = {
         "folder_name": os.path.join(HERE, "single_phase_visualization",
                                     f"{case_name}_{geometry_case}"),
-        "fractional_flow": True,
+        "fractional_flow": False,      # HU (standard form), matching fig 5/6; was True (FF) -> now == HU
+        "slave_eliminated_secondaries": True,   # weis-faithful exact flash each iteration (all solvers)
+        "step_control_method": "LS",            # weis backtracking line search (all solvers); dormant here
         "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid},
         "time_manager": time_manager,
@@ -137,32 +125,15 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
         #                                         so per-step VTUs are pure disk waste (was ~1500/case)
         "prepare_simulation": False,
         "apply_schur_complement_reduction": False,
-        "use_petsc": True,
-        "petsc_preconditioner": "lu",
+        "use_petsc": False,      # direct solver, matching fig 5/6
     }
 
     class GeothermalWaterFlowModel(ModelGeometry, BC, IC, FlowModel):
-        def after_nonlinear_convergence(self) -> None:
-            super().after_nonlinear_convergence()  # type:ignore[safe-super]
-            self._total_it = getattr(self, "_total_it", 0) + int(
-                self.nonlinear_solver_statistics.num_iterations)   # accumulate for the pickle
-            print("Number of iterations: ",
-                  self.nonlinear_solver_statistics.num_iterations)
-            print("Time value (year): ", self.time_manager.time / (365.0 * DAY))
-            print("Time index: ", self.time_manager.time_index)
-            print("")
+        pass
 
     model = GeothermalWaterFlowModel(params)
     _attach_samplers(model)
-    solver_params = {
-        "nl_convergence_criteria": {
-            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-4, metric=PDEOnlyLebesgueMetric(model)),   # PDE rows only -> match weis
-        },
-        "nl_divergence_criteria": {
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=100),
-        },
-    }
+    solver_params = model.default_nonlinear_criteria()   # shared base bar (relative 1e-4; slave -> exact closures)
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     print(f"=== {case_name} / {geometry_case}: tf = {tf / (365.0 * DAY):.0f} yr, "

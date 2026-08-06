@@ -14,6 +14,32 @@ pure numpy and self-parallelizing, cached per run in _cache/. The heavy PorePy 2
 through subprocesses (clean per-run PETSc state) and are resumable -- an existing cache pickle is
 loaded and its run skipped, so re-running only computes what is missing.
 
+PorePy overlay solver config -- fig 4/5/6 are deliberately identical (all HU; the nonlinear criterion
+and the slave default live in flow_model_base, so they cannot drift). The weis engine shares the same
+0.5-yr dt cap (weis_1d_solver.DT0).
+
+    property          fig 4             fig 5             fig 6
+    ----------------  ----------------  ----------------  ----------------
+    model class       FlowModel (HU)    FlowModel (HU)    FlowModel (HU)
+    primary-eq form   FlowBase          FlowBase          FlowBase
+    fractional_flow   False             False             False
+    flux / buoyancy   TPFA / on         TPFA / on         TPFA / on
+    dt stepping       adaptive          adaptive          adaptive
+    max dt cap (yr)   0.5               0.5               0.5
+    min dt (yr)       1/128 ~ 0.008     1/128 ~ 0.008     1/128 ~ 0.008
+    secondaries       slave=True        slave=True        slave=True
+    metric            relative (base)   relative (base)   relative (base)
+    tol               1e-4              1e-4              1e-4
+    linear solver     direct            direct            direct
+    step control      LS (weis)         LS (weis)         LS (weis)
+
+    Step control "LS" is the weis (2014) backtracking line search (monotone residual decrease,
+    alpha=1 halved until the clipped step reduces |r|; flow_model_base.backtracking_line_search).
+    Dormant on the smooth Fig 4/5 fronts (alpha=1 accepted); engages only at the Fig-6 salt front,
+    matching weis_1d_solver.newton_step_brine's inner backtracking so all schemes globalize alike.
+
+    Sole fig-6 exception: enable_thermal_overshoot_postprocessing=False (salt-column safeguard).
+
 Use the porepy conda env (its interpreter is reused for the subprocesses):
 
     PY=~/miniconda/envs/porepy/bin/python
