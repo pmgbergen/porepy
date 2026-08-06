@@ -201,6 +201,30 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
 
         return selected, not_selected
 
+    def identify_dof(self, index: int) -> EquationOrVariableType:
+        """Identifies the variable/equation to which a specific index belongs.
+
+        The intended use is to help identify entries in the row/column of the Jacobian.
+
+        This operation is O(n) for n elements in the vector in the worst case. This
+        method should not be used in a hot loop.
+
+        Parameters:
+            index: a single index in the vector corresponding to this indexer.
+
+        Returns:
+            The identified Variable object.
+
+        Raises:
+            KeyError: if the dof is out of range.
+
+        """
+        for operator, indices in self.indices.items():
+            if index in indices:
+                return operator
+
+        raise KeyError("Dof index out of range.")
+
 
 class EquationSystemIndexer(Indexer[EquationOnDomain]):
     """Equation indexer for the block arrangement used by :class:`EquationSystem`.
