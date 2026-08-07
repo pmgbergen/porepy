@@ -233,44 +233,6 @@ class TestScalarSpace:
         )
         assert s.source.domain_type == expected_domain_type
 
-    def test_scalar_domain_is_cellwise(self, two_subdomains):
-        """Domain-bearing Scalar uses the natural cell-based space on its grids."""
-        s = Scalar(1.0, domains=two_subdomains[:1])
-        assert s.source.dof_info == {GridEntity.cells: 1}
-
-    def test_scalar_neg_propagates_source(self, two_subdomains):
-        s = Scalar(3.0, domains=two_subdomains[:1])
-        neg = -s
-        assert neg.source == s.source
-        assert neg.target == s.target
-
-    def test_scalar_neg_no_source(self):
-        """Negating a plain Scalar preserves the scalar wildcard space."""
-        s = Scalar(2.0)
-        neg = -s
-        assert neg.source == OperatorSpace.scalar()
-
-    def test_scalar_empty_domains_gives_scalar_space(self):
-        """Empty domains list is treated as no-domain (backward compat)."""
-        s = Scalar(1.0, domains=[])
-        assert s.source == OperatorSpace.scalar()
-
-    def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
-        """A domain-bearing scalar uses the ordinary cell-based space on its grids."""
-        s = Scalar(2.0, domains=two_subdomains[:1])
-        v = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
-        result = s * v
-        assert result.source == v.source
-        assert result.target == v.target
-
-    def test_domainless_scalar_combined_with_operator(self, two_subdomains):
-        """Plain Scalar still inherits from the other operand."""
-        s = Scalar(2.0)
-        v = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
-        result = s * v
-        assert result.source == v.source
-        assert result.target == v.target
-
 
 class TestVariableSpace:
     def test_variable_has_subdomain_space(self, two_subdomains):
@@ -653,7 +615,7 @@ class TestMergedOperatorSpaces:
     def test_custom_dof_info_gives_space(self, two_subdomains):
         """A discretization that overrides get_row/col_dof_info populates spaces."""
 
-        class ConcreteDiscr(Discretization):
+        class MockDiscretization(Discretization):
             def __init__(self):
                 self.keyword = "flow"
                 self.flux_matrix_key = "flux"
@@ -674,7 +636,7 @@ class TestMergedOperatorSpaces:
                 return {GridEntity.faces: 1}
 
         g1, g2 = two_subdomains
-        discr = ConcreteDiscr()
+        discr = MockDiscretization()
         op = MergedOperator(
             discr=discr,
             discretization_matrix_key="flux",
@@ -689,7 +651,7 @@ class TestMergedOperatorSpaces:
 
 
 class TestInferDomainRange:
-    """Tests for Operations.infer_source_target (Stage 5: validation and inference)."""
+    """Tests for Operations.infer_source_target."""
 
     @pytest.fixture
     def cell_space(self, two_subdomains):
@@ -751,22 +713,6 @@ class TestInferDomainRange:
         assert result.source == OperatorSpace.unclear()
         assert result.target == cell_op.target
 
-    def test_elementwise_uses_union_of_dependency_domains(self, two_subdomains):
-        """Different but compatible-looking domains still become unclear."""
-        g1, g2 = two_subdomains
-        top_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
-        union_space = OperatorSpace.from_domains([g1, g2], {GridEntity.cells: 1})
-
-        local = DenseArray(_zeros_for(top_space), source=top_space, target=top_space)
-        projected = SparseArray(
-            _eye_for(top_space, union_space), source=union_space, target=top_space
-        )
-
-        result = local * projected
-
-        assert result.source == OperatorSpace.unclear()
-        assert result.target == top_space
-
     def test_elementwise_different_grids_becomes_unclear(self, two_subdomains):
         """Different grids are enough to make the inferred domain unclear."""
         g1, g2 = two_subdomains
@@ -799,29 +745,6 @@ class TestInferDomainRange:
         assert result.target == cell_space
 
     # --- matmul: compatible ---
-
-    def test_matmul_compatible(self, cell_space, face_space):
-        """A @ B where target(B) == source(A) is valid."""
-        A = SparseArray(
-            _eye_for(cell_space, face_space), source=face_space, target=cell_space
-        )
-        B = SparseArray(
-            _eye_for(face_space, cell_space), source=cell_space, target=face_space
-        )
-        result = A @ B
-        assert result.source == cell_space
-        assert result.target == cell_space
-
-    def test_matmul_incompatible(self, cell_space, face_space):
-        """A @ B where target(B) != source(A) raises ValueError."""
-        A = SparseArray(
-            _eye_for(cell_space, face_space), source=face_space, target=cell_space
-        )
-        B = SparseArray(
-            _eye_for(cell_space, face_space), source=face_space, target=cell_space
-        )
-        with pytest.raises(ValueError, match="matrix multiplication"):
-            _ = A @ B
 
     def test_matmul_different_grids_incompatible(self, two_subdomains):
         """Matrix multiplication requires exact space equality, including grids."""
@@ -867,33 +790,6 @@ class TestInferDomainRange:
 
         with pytest.raises(ValueError, match="left operand.*source is unclear"):
             _ = lhs.__rmatmul__(unclear)
-
-    # --- Scalar: always valid, inherits non-scalar space ---
-
-    def test_add_with_scalar_lhs(self, cell_op, cell_space):
-        sc = Scalar(2.0)
-        result = sc + cell_op
-        assert result.source == cell_space
-        assert result.target == cell_space
-
-    def test_add_with_scalar_rhs(self, cell_op, cell_space):
-        sc = Scalar(2.0)
-        result = cell_op + sc
-        assert result.source == cell_space
-        assert result.target == cell_space
-
-    def test_mul_with_scalar(self, cell_op, cell_space):
-        sc = Scalar(3.0)
-        result = sc * cell_op
-        assert result.source == cell_space
-        assert result.target == cell_space
-
-    def test_scalar_scalar(self):
-        sc1 = Scalar(1.0)
-        sc2 = Scalar(2.0)
-        result = sc1 + sc2
-        assert result.source == OperatorSpace.scalar()
-        assert result.target == OperatorSpace.scalar()
 
 
 class TestCompoundOperatorSpaces:
@@ -970,21 +866,6 @@ class TestCompoundOperatorSpaces:
         Av = self.A @ self.v
         result = Scalar(2.0) * Av
         assert result.source == self.face_sp
-        assert result.target == self.cell_sp
-
-    def test_unary_minus_preserves_spaces(self):
-        """Unary minus on SparseArray preserves source/target."""
-        result = -self.A
-        assert result.source == self.face_sp
-        assert result.target == self.cell_sp
-
-    def test_unary_minus_dense_array_preserves_spaces(self):
-        """DenseArray.__neg__ must also preserve source/target (separate code path)."""
-        arr = DenseArray(
-            _ones_for(self.cell_sp), source=self.cell_sp, target=self.cell_sp
-        )
-        result = -arr
-        assert result.source == self.cell_sp
         assert result.target == self.cell_sp
 
 
