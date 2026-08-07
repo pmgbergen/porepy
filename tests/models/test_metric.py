@@ -186,7 +186,7 @@ def test_equation_based_euclidean_metric_on_grids(
         result[name] = expected_value(indices.size)
 
     # Compute Lebesgue metric values.
-    m = pp.EquationBasedEuclideanMetric(orthogonal_2d_model, equation_indexer)
+    m = pp.EquationBasedEuclideanMetric(orthogonal_2d_model)
     metric_values = m(dummy_residual_array)
 
     # Make sure that the dictionaries are the same.
