@@ -253,7 +253,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
 
         # Sanity check: Ensure that variables are defined on cells.
         for variable in variable_indexer.indices:
-            dof_info = variable.operator_range.dof_info
+            dof_info = variable.source.dof_info
 
             if (
                 not dof_info.get(GridEntity.faces, 0) == 0
@@ -267,7 +267,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         norms = {v.name: 0.0 for v in variable_indexer.indices}
 
         for variable, indices in variable_indexer.indices.items():
-            dim = variable.dof_info[GridEntity.cells]
+            dim = variable.source.dof_info[GridEntity.cells]
             space = OperatorSpace.from_domains(
                 [variable.domains[0]], {GridEntity.cells: dim}
             )
