@@ -105,8 +105,8 @@ def bottom_legend(fig, handles, labels, ncol, y=-0.02, fontsize=9):
     tight save bbox includes it). ``loc='upper center'`` anchors its top so it sits clear beneath
     the axis label."""
     leg = fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, y), ncol=ncol,
-                     columnspacing=1.2, handlelength=1.6, fontsize=fontsize, borderpad=0.5,
-                     frameon=True, fancybox=True, framealpha=1.0, edgecolor="0.6")
+                     columnspacing=1.4, handlelength=2.8, handletextpad=0.6, fontsize=fontsize,
+                     borderpad=0.5, frameon=True, fancybox=True, framealpha=1.0, edgecolor="0.6")
     leg.get_frame().set_boxstyle("round,pad=0.3,rounding_size=0.4")
     return leg
 

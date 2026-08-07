@@ -33,12 +33,21 @@ and the slave default live in flow_model_base, so they cannot drift). The weis e
     linear solver     direct            direct            direct
     step control      LS (weis)         LS (weis)         LS (weis)
 
-    Step control "LS" is the weis (2014) backtracking line search (monotone residual decrease,
-    alpha=1 halved until the clipped step reduces |r|; flow_model_base.backtracking_line_search).
-    Dormant on the smooth Fig 4/5 fronts (alpha=1 accepted); engages only at the Fig-6 salt front,
-    matching weis_1d_solver.newton_step_brine's inner backtracking so all schemes globalize alike.
+    Step control "LS" is the weis (2014) globalization: an ARMIJO-FREE BACKTRACKING LINE SEARCH
+    with geometric step halving (rho=0.5, up to 10 trials) and a monotone residual-norm acceptance
+    test -- take the first alpha whose physically-clipped step lowers |r|, else the smallest step
+    tried (it never rejects a step). alpha=1 is a no-op when the full Newton step already reduces
+    |r|, so it stays dormant on the smooth Fig 4/5 fronts and engages only at the Fig-6 salt front.
+    A faithful port of weis_1d_solver.newton_step_brine's inner backtracking, in
+    flow_model_base.backtracking_line_search, so weis and PorePy globalize identically. (Not Armijo,
+    not trust-region: TR / TR-LS remain selectable via params but are unused here.)
 
     Sole fig-6 exception: enable_thermal_overshoot_postprocessing=False (salt-column safeguard).
+
+    Full-run cost (reference; all three figures with the PorePy overlays, from a cold _cache):
+        python run_workflow.py  ->  38057.66s user  17261.73s system  303% cpu  5:03:23.97 total
+        i.e. ~5 h 03 m wall (~15.4 CPU-h; the heavy PorePy 2-D overlay solves dominate). With the
+        caches warm, or via --plot-only / --no-porepy, the run is minutes.
 
 Use the porepy conda env (its interpreter is reused for the subprocesses):
 

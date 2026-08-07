@@ -177,7 +177,7 @@ def iteration_legend(ax, results, loc="lower right", fontsize=6.0, title=r"\text
     for color, dash, count in (extra or []):        # extra = [(colour, dash, count), ...]
         h.append(Line2D([0], [0], color=color, ls=dash, lw=2.4)); lab.append(fr"${int(count)}$")
     leg = ax.legend(h, lab, loc=loc, fontsize=fontsize, frameon=True, fancybox=True, framealpha=0.9,
-                    edgecolor="0.7", borderpad=0.3, handlelength=0.9, handletextpad=0.4,
+                    edgecolor="0.7", borderpad=0.3, handlelength=3.8, handletextpad=0.5,
                     labelspacing=0.2, title=title, title_fontsize=fontsize)
     leg.get_frame().set_boxstyle("round,pad=0.18,rounding_size=0.22")
     ax.add_artist(leg)

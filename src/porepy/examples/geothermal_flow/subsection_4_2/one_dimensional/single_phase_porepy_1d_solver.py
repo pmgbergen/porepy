@@ -155,7 +155,10 @@ def run_case(case_name: str, geometry_case: str, cache: bool = True) -> dict:
     o = np.argsort(x)
     keep = {"case": case_name, "geometry": geometry_case,
             "t_years": tf / (365.0 * DAY), "x": x[o], "T": T[o], "p": p[o],
-            "level": TABLE_LEVEL, "total_it": int(getattr(model, "_total_it", 0))}
+            "level": TABLE_LEVEL,
+            # accepted Newton iterations, via the base accumulator (== figs 5/6). The old
+            # getattr(model, "_total_it", 0) read a non-existent attribute -> always 0.
+            "total_it": int(model.collect_run_stats().total_newton_iterations)}
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(keep, f)
