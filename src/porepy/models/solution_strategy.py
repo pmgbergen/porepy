@@ -467,7 +467,6 @@ class SolutionStrategy(pp.PorePyModel):
         Use this method for loop-specific post-processing.
 
         """
-        pass
 
     def after_nonlinear_failure(self) -> None:
         """Called after a nonlinear solver loop fails to converge.
@@ -478,7 +477,6 @@ class SolutionStrategy(pp.PorePyModel):
         nonlinear loops per time step and call this method after each failed loop.
 
         """
-        pass
 
     def after_time_step_convergence(self) -> None:
         """Called after a new time step solution has been achieved.
