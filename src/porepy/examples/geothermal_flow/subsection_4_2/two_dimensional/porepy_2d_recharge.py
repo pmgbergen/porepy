@@ -80,16 +80,33 @@ P_TOP_IC = 2.0              # IC pressure at the top [MPa] (LOW -> shallow steam
 RHO_REF = 1000.0            # brine reference density for the linear hydrostatic gradient [kg/m^3]
 T_TOP_IC = 250.0 + 273.15   # top temperature [K]
 T_BOT_IC = 350.0 + 273.15   # base temperature [K]  (mean 300 C)
-Z_TOP = 0.80                 # NaCl overall fraction at the top [-]  (keeps S_h <= 0.15)
+Z_TOP = 0.90                 # NaCl overall fraction at the top [-]  (keeps S_h <= 0.15)
 Z_BOTTOM = 0.95              # NaCl overall fraction at the base [-]  (S_h peaks ~0.13 at the base)
 
 # ------------------------------------------------------------------ boundary conditions
 P_RECHARGE = 15.0           # recharge (inlet) pressure [MPa]  (high head -> liquid inflow)
 T_RECHARGE = 100.0 + 273.15 # recharge temperature [K]  (cold meteoric water)
 Z_RECHARGE = 0.0            # recharge salinity [-]  (dilute / fresh)
-P_DISCHARGE = 1.0           # discharge (outlet) pressure [MPa]  (low head -> steam vent)
+P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]  (low head -> steam vent)
 T_DISCHARGE = 250.0 + 273.15# discharge temperature [K]
 T_BOTTOM_BC = 350.0 + 273.15# fixed base temperature [K]  (the geothermal heat source)
+
+
+# ------------------------------------------------------------------ low-k barriers (aquitards)
+# Staggered partial aquitard lenses: a cell whose CENTROID falls inside a bounding box has its
+# permeability cut by --barrier-factor (~impervious). Six lenses at six stratigraphic levels,
+# laterally offset with alternating gaps, so no level is fully sealed and flow weaves down around
+# the lens ends -- a geological confining-bed stack over the recharge->discharge cell. Boxes are
+# (x_min, x_max, y_min, y_max) in metres; y is elevation (y=LZ top, y=0 base).
+BARRIER_PERM_FACTOR = 1.0e-3
+_BARRIERS = [   # thin (~100 m / single cell-layer) beds
+    (   0.0, 1800.0, 1700.0, 1800.0),   # shallow, left        (gap: x > 1800)
+    (2200.0, 4000.0, 1500.0, 1600.0),   # shallow-mid, right   (gap: x < 2200)
+    ( 500.0, 2500.0, 1200.0, 1300.0),   # mid, centre          (gaps: both ends)
+    (2600.0, 4000.0,  900.0, 1000.0),   # mid-deep, right      (gap: x < 2600)
+    (   0.0, 1400.0,  600.0,  700.0),   # deep, left           (gap: x > 1400)
+    (1800.0, 3600.0,  300.0,  400.0),   # deep, centre-right   (gaps: both ends)
+]
 
 
 def _linear_z(depth: np.ndarray) -> np.ndarray:
@@ -278,6 +295,10 @@ _ap.add_argument("--dt-nominal", type=float, default=1.0, metavar="YR")
 _ap.add_argument("--dt-min", type=float, default=0.0001, metavar="YR")
 _ap.add_argument("--dt-max", type=float, default=10.0, metavar="YR")
 _ap.add_argument("--lag-buoyancy", action="store_true")
+_ap.add_argument("--barriers", action="store_true",
+                 help="insert the staggered low-k aquitard lenses (see _BARRIERS)")
+_ap.add_argument("--barrier-factor", type=float, default=BARRIER_PERM_FACTOR, metavar="F",
+                 dest="barrier_factor", help="barrier permeability = matrix * F (default 1e-4)")
 _args = _ap.parse_args()
 
 P_RECHARGE = _args.p_recharge
@@ -290,14 +311,17 @@ if _args.report_every_years is not None and _args.report_every_years > 0.0:
     _n = _args.report_every_years                    # regular reporting: 0, N, 2N, ... up to end
     _args.snap_years = [float(y) for y in np.arange(0.0, _args.end_years + 0.5 * _n, _n)]
 
-schedule = [y * year_to_second for y in _args.snap_years]
-# dt_init must not overshoot the first scheduled (report) time: a first step past several
-# schedule points leaves the time manager trying to "correct" backward -> negative dt. Cap it.
-_dt_init = _args.dt_nominal * year_to_second
-if len(schedule) >= 2 and schedule[1] - schedule[0] > 0.0:
-    _dt_init = min(_dt_init, schedule[1] - schedule[0])
+# Export cadence is DECOUPLED from the time-step hard-stops. Putting every report time in the
+# TimeManager schedule makes each a hard stop that clamps dt to the report interval, so dt can
+# never grow. Instead the schedule is just [0, final]: dt starts at --dt-nominal and the time
+# manager grows it (up to --dt-max) by iteration count. VTU export fires on CROSSING each report
+# time (GeothermalRechargeModel.save_data_time_step), so output stays regular while dt adapts.
+_export_times = [y * year_to_second for y in _args.snap_years]
+_export_times_pos = [t for t in _export_times if t > 1.0e-9]     # t=0 is written before run()
+_final_time = max(_export_times) if _export_times else _args.end_years * year_to_second
+schedule = [0.0, _final_time]
 time_manager = pp.TimeManager(
-    schedule=schedule, dt_init=_dt_init,
+    schedule=schedule, dt_init=_args.dt_nominal * year_to_second,
     dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
     constant_dt=False, iter_max=13, iter_optimal_range=(3, 8),
     iter_relax_factors=(0.5, 1.5), recomp_factor=0.3, print_info=True)
@@ -345,6 +369,52 @@ class GeothermalRechargeModel(
         super().before_nonlinear_loop()
         self.update_derived_quantities()
 
+    _export_idx = 0
+
+    def save_data_time_step(self) -> None:
+        # Export on CROSSING the next report time, decoupled from the dt hard-stops, so dt grows
+        # adaptively while output stays regular. VTU is written at the first step at/after each
+        # report time (i.e. at the actual sim time, slightly past the nominal mark).
+        t = self.time_manager.time
+        crossed = False
+        while (self._export_idx < len(_export_times_pos)
+               and t >= _export_times_pos[self._export_idx] - 1.0e-6):
+            self._export_idx += 1
+            crossed = True
+        if crossed or self.time_manager.final_time_reached():
+            self.write_pvd_and_vtu()
+        self.nonlinear_solver_statistics.save()
+
+    def _absolute_permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        # Matrix permeability everywhere; cells whose centroid falls inside a barrier box are cut
+        # to matrix * --barrier-factor. Boxes are in metres -> convert to the solver's length units.
+        cu = self.units.convert_units
+        vals = []
+        for sd in subdomains:
+            k = np.full(sd.num_cells, self.solid.permeability)
+            if _args.barriers and sd.dim == self.mdg.dim_max():
+                xc, yc = sd.cell_centers[0], sd.cell_centers[1]
+                inside = np.zeros(sd.num_cells, dtype=bool)
+                for x0, x1, y0, y1 in _BARRIERS:
+                    inside |= ((xc >= cu(x0, "m")) & (xc <= cu(x1, "m"))
+                               & (yc >= cu(y0, "m")) & (yc <= cu(y1, "m")))
+                k[inside] *= _args.barrier_factor
+            vals.append(k)
+        return np.concatenate(vals) if vals else np.zeros(0)
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        # Per-cell absolute permeability (with barriers) instead of the homogeneous solid scalar,
+        # keeping the base HU (isotropic tensor) and HU-mw (mass-mobility-weighted) forms.
+        perm = pp.wrap_as_dense_ad_array(
+            self._absolute_permeability(subdomains), name="permeability")
+        if pp.compositional_flow.is_fractional_flow(self):
+            op = self.isotropic_second_order_tensor(
+                subdomains, self.total_mass_mobility(subdomains) * perm)
+            op.set_name("diffusive_tensor_darcy")
+        else:
+            op = self.isotropic_second_order_tensor(subdomains, perm)
+        return op
+
 
 model = GeothermalRechargeModel(params)
 
@@ -375,7 +445,12 @@ if __name__ == "__main__":
         pp.compositional_flow.get_primary_equations_cf(model))
     model.schur_complement_primary_variables = (
         pp.compositional_flow.get_primary_variables_cf(model))
-    model.exporter.write_vtu()
+    # VTU #0 = the initial condition. Use the same export path as the run (write_pvd_and_vtu ->
+    # data_to_export), NOT exporter.write_vtu() with no data -- that writes geometry only, so VTU #0
+    # had no IC fields. update_derived_quantities first flashes the IC secondaries (e.g. s_halite,
+    # which the IC does not set directly) so the exported t=0 state is fully consistent.
+    model.update_derived_quantities()
+    model.write_pvd_and_vtu()
     tb = time.time()
     runner.run()
     print("Elapsed time run:", time.time() - tb)
