@@ -110,6 +110,9 @@ class TimeStepper:
             # Log time step status for statistics.
             self._update_statistics(model, time_step_status)
 
+            # Update model (also saves logged statistics) based on trial results.
+            self._update_model_after_trial(model, time_step_status)
+
             # Return on success or error when there is no way to continue trying.
             if isinstance(
                 time_step_status, (TimeStepperStatusSuccess, TimeStepperStatusFailure)
@@ -201,13 +204,16 @@ class TimeStepper:
         model.before_time_step()
         nonlinear_solver_status = solver.solve(model)  # type: ignore
 
-        # Model update based on trial results.
-        if nonlinear_solver_status.is_converged():
-            model.after_time_step_convergence()
-        elif nonlinear_solver_status.is_failed():
-            model.after_time_step_failure()
-
         return nonlinear_solver_status
+
+    def _update_model_after_trial(
+        self, model: pp.PorePyModel, time_step_status: TimeStepperStatus
+    ) -> None:
+        """Model update based on trial results."""
+        if time_step_status.is_success():
+            model.after_time_step_convergence()
+        elif time_step_status.is_failure():
+            model.after_time_step_failure()
 
     def _update_time_statistics(self, model: pp.PorePyModel) -> None:
         """Update statistics from the time step."""
