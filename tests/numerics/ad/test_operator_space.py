@@ -235,11 +235,11 @@ class TestScalarSpace:
 
     def test_scalar_domain_is_cellwise(self, two_subdomains):
         """Domain-bearing Scalar uses the natural cell-based space on its grids."""
-        s = Scalar(1.0, domains=two_subdomains[0])
+        s = Scalar(1.0, domains=two_subdomains[:1])
         assert s.source.dof_info == {GridEntity.cells: 1}
 
     def test_scalar_neg_propagates_source(self, two_subdomains):
-        s = Scalar(3.0, domains=two_subdomains[0])
+        s = Scalar(3.0, domains=two_subdomains[:1])
         neg = -s
         assert neg.source == s.source
         assert neg.target == s.target
@@ -257,7 +257,7 @@ class TestScalarSpace:
 
     def test_domain_bearing_scalar_combined_with_operator(self, two_subdomains):
         """A domain-bearing scalar uses the ordinary cell-based space on its grids."""
-        s = Scalar(2.0, domains=two_subdomains[0])
+        s = Scalar(2.0, domains=two_subdomains[:1])
         v = Variable("p", {GridEntity.cells: 1}, two_subdomains[0])
         result = s * v
         assert result.source == v.source
