@@ -32,10 +32,19 @@ __all__ = [
     "TargetNonlinearIterations",
     "TimeInterval",
     "CannotRecomputeTimeStep",
+    "CourantTimeStepConstraint",
     "TimeScheduler",
+    "SimulationTimeData",
+    "assemble_default_time_scheduler",
 ]
 
 logger = getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SimulationTimeData:
+    time: float
+    dt: float
 
 
 class TimeStepConstraint(ABC):
@@ -77,6 +86,26 @@ class TargetNonlinearIterations(TimeStepConstraint):
                 return dt
         else:
             return dt * self.retry_factor
+
+
+class CourantTimeStepConstraint(TimeStepConstraint):
+    def __init__(self, target_cfl: float = 1.0, tol: float = 1e-10) -> None:
+        self.target_cfl = target_cfl
+        self.tol = tol
+
+    def suggest_dt(self, dt: float, context: dict) -> float:
+        model: pp.PorePyModel | None = context.get("model", None)
+        if model is None:
+            # TODO YZ: Should warn
+            assert False
+        dt = float("inf")
+        for subdomain in model.mdg.subdomains():
+            v = model.equation_system.evaluate(model.darcy_flux([subdomain])).max()
+            if v < self.tol:
+                continue
+            x = subdomain.cell_diameters().min()
+            dt = min(dt, self.target_cfl * x / v)
+        return dt
 
 
 @dataclass
@@ -147,18 +176,24 @@ class TimeScheduler:
         self.t_end: float = t_end
         self.dt: float = intervals[0].dt_start
         self.tol: float = tol
+        self.time_step_index: int = 0
+        """Not used for anything, just for logging."""
 
         increments = np.ediff1d(self.interval_dict.interval_starts + [self.t_end])
         assert np.all(increments > self.tol)
 
     def compute_next_time_step(self, success: bool, context: dict) -> float:
+        if self.is_finished():
+            return self.dt
+
         current_interval, next_interval = self.interval_dict.get(time=self.time)
         dt = self.dt
         t = self.time
         t_end = self.t_end
         assert t <= t_end
 
-        if success and self.is_hitting_schedule(current_interval):
+        next_checkpoint = t_end if next_interval is None else next_interval.t_start
+        if success and self.is_hitting_schedule(interval=current_interval):
             dt = current_interval.dt_start
             if dt < self.tol:
                 logger.warning(
@@ -166,14 +201,23 @@ class TimeScheduler:
                     f"scheduler's minimum resolution ({self.tol:.1e}); quantizing it."
                 )
                 dt = self.tol
+            log_message = "Reached new schedule interval"
+            if current_interval.name != "":
+                log_message += f' "{current_interval.name}"'
+            delta = next_checkpoint - current_interval.t_start
+            log_message += (
+                f" [{current_interval.t_start:.1e}, {current_interval.t_start:.1e} + "
+                f"{delta:.1e})."
+            )
 
-        next_checkpoint = t_end if next_interval is None else next_interval.t_start
+            logger.info(log_message)
 
-        suggested_dt = [
-            constraint.suggest_dt(dt=dt, context=context)
-            for constraint in current_interval.constraints
-        ]
-        dt = min(suggested_dt)
+        if len(current_interval.constraints) > 0:
+            suggested_dt = [
+                constraint.suggest_dt(dt=dt, context=context)
+                for constraint in current_interval.constraints
+            ]
+            dt = min(suggested_dt)
 
         if t + dt > next_checkpoint:
             dt = next_checkpoint - t
@@ -193,11 +237,45 @@ class TimeScheduler:
         return current_interval
 
     def is_hitting_schedule(self, interval: TimeInterval) -> bool:
-        t = self.time
-        return interval.t_start < t < (interval.t_start + self.tol)
+        return interval.t_start <= self.time < (interval.t_start + self.tol)
 
     def is_finished(self) -> bool:
-        return self.time < self.t_end
+        return self.time >= self.t_end
 
 
-# def assemble_default_time_scheduler()
+def assemble_default_time_scheduler(
+    schedule: np.ndarray,
+    dt_init: float,
+    constant_dt: bool,
+    dt_min: Optional[float] = None,
+    dt_max: Optional[float] = None,
+    nonlinear_iter_optimal_range: tuple[int, int] = (4, 7),
+    nonlinear_iter_relax_factors: tuple[float, float] = (0.7, 1.3),
+    nonlinear_iter_retry_factor: float = 0.5,
+) -> TimeScheduler:
+    iter_min, iter_max = nonlinear_iter_optimal_range
+    increase_factor, decrease_factor = nonlinear_iter_relax_factors
+    constraints: list[TimeStepConstraint] = []
+    if not constant_dt:
+        constraints.append(
+            TargetNonlinearIterations(
+                iter_min=iter_min,
+                iter_max=iter_max,
+                increase_factor=increase_factor,
+                decrease_factor=decrease_factor,
+                retry_factor=nonlinear_iter_retry_factor,
+            )
+        )
+    return TimeScheduler(
+        intervals=[
+            TimeInterval.create(
+                t_start=t_start,
+                dt_start=dt_init,
+                constraints=constraints,
+                dt_min=dt_min,
+                dt_max=dt_max,
+            )
+            for t_start in schedule[:-1]
+        ],
+        t_end=schedule[-1],
+    )

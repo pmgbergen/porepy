@@ -174,13 +174,6 @@ class ModelRunner:
         self.model = model
         """Model instance passed at instantiation."""
 
-        # Construct the default if not provided. This time stepper is constructed even
-        # for a stationary problem, but used only for time-dependent problems.
-        if time_stepper is None:
-            time_stepper = TimeStepper(time_manager=model.time_manager)
-        self.time_stepper: TimeStepper = time_stepper
-        """Responsible for the time stepping logic."""
-
         if self.params.get("prepare_simulation", True):
             self.model.prepare_simulation()
 
@@ -190,6 +183,34 @@ class ModelRunner:
         self._is_time_dependent = self.model._is_time_dependent()
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
+
+        # Construct the default if not provided. This time stepper used only for
+        # time-dependent problems.
+        if time_stepper is None and self._is_time_dependent:
+            time_manager = model.params.get("time_manager", None)
+            if time_manager is None:
+                raise TypeError(
+                    "ModelRunner missing a required argument: 'time_stepper',"
+                )
+            assert isinstance(time_manager, pp.TimeManager)
+            if time_manager.dt_min_max is not None:
+                dt_min, dt_max = time_manager.dt_min_max
+            else:
+                dt_min = dt_max = None
+            time_stepper = TimeStepper(
+                scheduler=pp.time_stepper.assemble_default_time_scheduler(
+                    schedule=time_manager.schedule,
+                    dt_init=time_manager.dt_init,
+                    constant_dt=time_manager.is_constant,
+                    dt_min=dt_min,
+                    dt_max=dt_max,
+                    nonlinear_iter_optimal_range=time_manager.iter_optimal_range,
+                    nonlinear_iter_relax_factors=time_manager.iter_relax_factors,
+                    nonlinear_iter_retry_factor=time_manager.recomp_factor,
+                )
+            )
+        self.time_stepper: Optional[TimeStepper] = time_stepper
+        """Responsible for the time stepping logic."""
 
         self.solver: pp.solvers.NonlinearSolverBase = (
             _extract_nonlinear_solver_from_params(
@@ -290,9 +311,10 @@ class ModelRunner:
 
     def _run_time_dependent(self) -> ModelRunnerStatus:
         """Run a time-dependent model with trial-based time stepping."""
+        assert self.time_stepper is not None
 
         with logging_redirect_tqdm([logging.root]):
-            while not self.model.time_manager.final_time_reached():
+            while not self.time_stepper.scheduler.is_finished():
                 # Update the progressbar before the time step.
                 self.time_progressbar.set_postfix_str(self._progressbar_postfix())
 
@@ -311,13 +333,14 @@ class ModelRunner:
                     return ModelRunnerStatusFailure(reason=time_step_status.reason)
 
             # Conclude the simulation status.
-            if self.model.time_manager.final_time_reached():
+            if self.time_stepper.scheduler.is_finished():
                 return ModelRunnerStatusSuccess()
             return ModelRunnerStatusFailure("Final time was not reached.")
 
     def _progressbar_postfix(self) -> str:
         """Formats a progressbar postfix string with dt."""
-        return f"Δt={self.model.time_manager.dt:.1e}"
+        assert self.time_stepper is not None
+        return f"Δt={self.time_stepper.scheduler.dt:.1e}"
 
 
 def _extract_nonlinear_solver_from_params(
