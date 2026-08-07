@@ -12,10 +12,9 @@ import logging
 import porepy as pp
 from porepy.numerics import solvers
 from porepy.time_stepper.scheduler import CannotRecomputeTimeStep, TimeScheduler
-from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_step_status import (
+    TimeStepperAttemptData,
     TimeStepperStatus,
-    TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
@@ -49,7 +48,7 @@ class TimeStepper:
 
     """
 
-    def __init__(self, scheduler: TimeScheduler, max_attempts: int) -> None:
+    def __init__(self, scheduler: TimeScheduler, max_attempts: int = 10) -> None:
         """Initialize the time stepper."""
         self.scheduler = scheduler
 
@@ -67,7 +66,7 @@ class TimeStepper:
         self,
         model: pp.PorePyModel,
         solver: pp.solvers.NonlinearSolverBase,
-    ) -> TimeStepperStatusSuccess | TimeStepperStatusFailure:
+    ) -> TimeStepperStatus:
         """Perform a time step. If the nonlinear solver fails, alter the time step and
         retry.
 
@@ -84,30 +83,46 @@ class TimeStepper:
         previous_time = self.scheduler.time
         dt = self.scheduler.dt
 
-        # # Logging time step start.
-        # _log_time_step(time_manager=self.time_manager)
+        attempts_data = []
 
         for attempt in range(self.max_attempts):
-            # Update time manager for new trial.
-            model.time_manager.time = previous_time + dt
-            model.time_manager.dt = dt
-            model.time_manager.time_index += 1
+            # Logging time step start.
+            log_message = (
+                f"Time step #{self.scheduler.time_step_index}: dt={dt:.2e}, "
+                f"time={previous_time:.2e} of {self.scheduler.t_end:.2e}"
+            )
+            if attempt > 0:
+                log_message += f", attempt={attempt} of {self.max_attempts}"
+            logger.info(log_message)
 
-            # self.time_manager.time = previous_time + self.time_manager.dt
+            # Update time manager for new trial.
+            previous_time_data = model.time_data
+            model.time_data = pp.time_stepper.SimulationTimeData(
+                time=previous_time + dt, dt=dt
+            )
 
             # Log time step information for statistics.
             self._update_time_statistics(model)
 
             # Attempt a standard time step.
             nonlinear_solver_status = self._perform_trial_time_step(model, solver)
+            attempt_data = TimeStepperAttemptData(
+                dt=dt, nonlinear_solve_status=nonlinear_solver_status
+            )
+            attempts_data.append(attempt_data)
+            # Save statistics.
+            self._update_time_statistics(model, attempt_data)
 
-            if not nonlinear_solver_status.is_converged():
+            if nonlinear_solver_status.is_converged():
+                # Success, accepting this solution.
+                self.scheduler.time += dt
+                self.scheduler.time_step_index += 1
+            else:
                 # Roll back if the time step attempt failed.
-                model.time_manager.time = previous_time
-                model.time_manager.dt = dt
-                model.time_manager.time_index -= 1
+                model.time_data = previous_time_data
 
             try:
+                # New time step size based on trial results.
                 dt = self.scheduler.compute_next_time_step(
                     success=nonlinear_solver_status.is_converged(),
                     context={
@@ -118,7 +133,9 @@ class TimeStepper:
             except CannotRecomputeTimeStep as exc:
                 reason = str(exc.args[0])
                 return TimeStepperStatusFailure(
-                    reason=reason, nonlinear_solver_status=nonlinear_solver_status
+                    reason=reason,
+                    time=previous_time,
+                    attempts=attempts_data,
                 )
 
             # New time step size based on trial results.
@@ -141,73 +158,9 @@ class TimeStepper:
         # We should never reach this code, but it is added as a safeguard.
         return TimeStepperStatusFailure(
             reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
-            nonlinear_solver_status=solvers.NewtonSolverFailed(
-                linear_solver_statuses=[],
-                convergence_statuses=solvers.ConvergenceStatusCollection(),
-                divergence_statuses=solvers.ConvergenceStatusCollection(),
-            ),
+            time=previous_time,
+            attempts=attempts_data,
         )
-
-    def _compute_next_time_step(
-        self,
-        nonlinear_solver_status: solvers.NonlinearSolverStatus,
-        model: pp.PorePyModel,
-        attempt: int,
-    ) -> TimeStepperStatus:
-        """Compute the new dt based on the convergence status and solver performance.
-        Decides what to do next (end or continue iterating) by returning the
-        TimeStepperStatus.
-
-        Parameters:
-            nonlinear_solver_status: Nonlinear solver status (converged/failed).
-            model: The PorePy model (for accessing statistics).
-            attempt: The number of attempt to make a time step.
-
-        """
-        # YZ: This currently uses time_manager, but this logic is to be outsourced and
-        # will be more elegant.
-
-        if isinstance(nonlinear_solver_status, solvers.NonlinearSolverStatusConverged):
-            # For accepted steps, we may want to increase dt for the next step.
-            # This logic can be based on solver performance (e.g., #iterations).
-            num_iterations = nonlinear_solver_status.number_of_iterations()
-
-            current_dt = self.time_manager.dt
-            new_time = self.time_manager.time
-            self.time_manager.compute_time_step(iterations=num_iterations)
-            return TimeStepperStatusSuccess(
-                dt=current_dt,
-                time=new_time,
-                nonlinear_solver_status=nonlinear_solver_status,
-            )
-
-        elif isinstance(nonlinear_solver_status, solvers.NonlinearSolverStatusFailed):
-            if attempt >= (self.max_attempts - 1):
-                # Limit of attempts was reached, failing.
-                return TimeStepperStatusFailure(
-                    nonlinear_solver_status=nonlinear_solver_status,
-                    reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
-                )
-            try:
-                # For rejected steps, we want to reduce dt for the next attempt.
-                self.time_manager.compute_time_step(recompute_solution=True)
-                return TimeStepperStatusContinueIterating(
-                    attempt=attempt, nonlinear_solver_status=nonlinear_solver_status
-                )
-            except ValueError as e:
-                # Time manager raises a value error if dt cannot be reduced any further.
-                return TimeStepperStatusFailure(
-                    nonlinear_solver_status=nonlinear_solver_status, reason=str(e)
-                )
-
-        # This should never happen since the contract is that the nonlinear solver
-        # should return either CONVERGED or FAILED.
-        else:
-            error_msg = f"Unknown nonlinear solver status: {nonlinear_solver_status}"
-            logger.error(error_msg)
-            return TimeStepperStatusFailure(
-                reason=error_msg, nonlinear_solver_status=nonlinear_solver_status
-            )
 
     def _perform_trial_time_step(
         self,
