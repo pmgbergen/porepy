@@ -160,9 +160,9 @@ class Operator:
     @property
     def domains(self) -> list:
         """List of domains where the operator is defined."""
-        if self._source is None:
+        if self._target is None:
             return []
-        return list(self._source.grids)
+        return list(self._target.grids)
 
     @property
     def name(self) -> str:
