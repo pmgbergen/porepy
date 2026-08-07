@@ -212,7 +212,9 @@ class TimeStepper:
         """Model update based on trial results."""
         if time_step_status.is_success():
             model.after_time_step_convergence()
-        elif time_step_status.is_failure():
+        elif time_step_status.is_failure() or isinstance(
+            time_step_status, TimeStepperStatusContinueIterating
+        ):
             model.after_time_step_failure()
 
     def _update_time_statistics(self, model: pp.PorePyModel) -> None:
