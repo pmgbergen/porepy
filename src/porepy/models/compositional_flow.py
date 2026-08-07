@@ -611,7 +611,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         for component in self.fluid.components:
             if self.has_independent_fraction(component):
                 sd_eq = self.component_mass_balance_equation(component, subdomains)
-                self.equation_system.set_equation(sd_eq, subdomains, {pp.ad.GridEntity.cells: 1})
+                self.equation_system.set_equation(sd_eq, {pp.ad.GridEntity.cells: 1})
 
     def component_mass_balance_equation(
         self, component: pp.Component, subdomains: list[pp.Grid]
