@@ -147,6 +147,15 @@ T_AMBIENT = 423.15                       # [K] initial ambient temperature (--t-
 P_TOP = 1.5                              # [MPa] top-face pressure of the hydrostatic column (--p-top)
 TOP_BC_ONLY = False                      # --top-bc: hydrostatic isothermal IC + top-only Dirichlet BC
 
+# --bottom-bc: add a Dirichlet BOTTOM (z = z_min) face on top of the --top-bc column to DRIVE the
+# dynamics -- a hot (T_BOTTOM) and/or saline (Z_BOTTOM) and/or over-pressured (P_BOTTOM) inflow at
+# depth.  P_BOTTOM None -> the hydrostatic bottom value (buoyancy-driven: a hot base is lighter than
+# the column above it -> convective rise); set it above hydrostatic for a forced upflow.
+BOTTOM_BC = False                        # --bottom-bc: also impose Dirichlet on the bottom face
+P_BOTTOM = None                          # [MPa] bottom-face pressure (--p-bottom); None -> hydrostatic
+T_BOTTOM = 673.15                        # [K] bottom-face temperature (--t-bottom); default 400 degC
+Z_BOTTOM = 0.0                           # bottom-face NaCl fraction (--z-bottom); default = Z_INIT
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 _TABLE_DIR = os.path.join(
     HERE, os.pardir, os.pardir, "model_configuration", "constitutive_description",
@@ -190,14 +199,32 @@ class BC_benchmark3d(BC_two_phase_moderate_pressure):
     2000 m column.
     """
 
+    def _is_bottom(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Boolean mask of boundary cells on the bottom (z = z_min) face."""
+        bb = self._domain.bounding_box
+        tol = 1.0e-6 * (bb["zmax"] - bb["zmin"])
+        return bg.cell_centers[2] <= bb["zmin"] + tol
+
+    def _is_top(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Boolean mask of boundary cells on the top (z = z_max) face."""
+        bb = self._domain.bounding_box
+        tol = 1.0e-6 * (bb["zmax"] - bb["zmin"])
+        return bg.cell_centers[2] >= bb["zmax"] - tol
+
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        if TOP_BC_ONLY:                          # top face carries the hydrostatic value at z_max = P_TOP
-            return self._hydrostatic_p(boundary_grid.cell_centers[2])
+        if TOP_BC_ONLY:                          # hydrostatic; top face -> P_TOP (bottom -> hydrostatic)
+            p = self._hydrostatic_p(boundary_grid.cell_centers[2])
+            if BOTTOM_BC and P_BOTTOM is not None:    # forced over-/under-pressure at the base
+                p = np.where(self._is_bottom(boundary_grid), P_BOTTOM, p)
+            return p
         return _pressure_ramp(boundary_grid.cell_centers.T, *_flow_bounds(self._domain))
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        if TOP_BC_ONLY:                          # isothermal column -> top temperature = ambient
-            return np.full(boundary_grid.num_cells, T_AMBIENT)
+        if TOP_BC_ONLY:                          # isothermal column; hot bottom inflow at T_BOTTOM
+            T = np.full(boundary_grid.num_cells, T_AMBIENT)
+            if BOTTOM_BC:
+                T = np.where(self._is_bottom(boundary_grid), T_BOTTOM, T)
+            return T
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         T = T_OUTLET * np.ones(boundary_grid.num_cells)
         T[inlet_idx] = T_INLET
@@ -205,12 +232,20 @@ class BC_benchmark3d(BC_two_phase_moderate_pressure):
         return T
 
     def bc_salinity(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # background Z_INIT everywhere; the inlet (high-pressure south flank)
-        # carries Z_INLET when set -- the inlet enthalpy follows automatically,
-        # since bc_values_enthalpy samples the table through this salinity.
-        # In the top-BC stage the column is iso-composition (Z_INLET ignored).
+        # background Z_INIT everywhere; the inlet (high-pressure south flank in flow mode, or the
+        # bottom face in --bottom-bc) carries the entering salinity -- the inlet enthalpy follows
+        # automatically, since bc_values_enthalpy samples the table through this salinity.
         z = np.full(boundary_grid.num_cells, Z_INIT)
-        if not TOP_BC_ONLY and Z_INLET is not None:
+        if TOP_BC_ONLY:
+            # Top is an OUTFLOW: on genuine outflow the interior (mobile-phase) composition is
+            # upwinded out and z_bc is ignored.  But a Dirichlet-p face that momentarily reverses
+            # to inflow would otherwise inject Z_INIT -> spurious salt from the top.  Set the top to
+            # fresh water (z = 0) so a reversal can never inject salt (physical: meteoric recharge).
+            z = np.where(self._is_top(boundary_grid), 0.0, z)
+            if BOTTOM_BC:                        # saline inflow at the base
+                z = np.where(self._is_bottom(boundary_grid), Z_BOTTOM, z)
+            return z
+        if Z_INLET is not None:
             inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
             z[inlet_idx] = Z_INLET
         return z
@@ -240,27 +275,38 @@ class IC_benchmark3d(IC_two_phase_moderate_pressure):
         return _pressure_ramp(sd.cell_centers.T, *_flow_bounds(self._domain))
 
     def _rho_ptz(self, z_na: float, T_K: float, p_MPa: float) -> float:
-        """Mixture density [kg/m^3] from the ptz OBL table at (z, T[K], p[MPa])."""
+        """Mixture density [kg/m^3] from the ptz OBL table at (z, T[K], p[MPa]) -- the
+        self-consistent hydrostatic density (equals the phase density in a single-phase cell)."""
         self.obl_sampler_ptz.sample_at(np.array([[z_na, T_K, p_MPa]]))
         return float(self.obl_sampler_ptz.sampled_could.point_data["Rho"][0])
 
     def _hydrostatic_p(self, zc: np.ndarray) -> np.ndarray:
-        """Hydrostatic pressure [MPa] at vertical coordinates ``zc`` for the isothermal,
-        iso-composition column: p = P_TOP at z = z_max, integrated downward with the OBL mixture
-        density rho(p, T_AMBIENT, Z_INIT).  With gravity off (g = 0) this is uniform P_TOP."""
+        """(Non-equilibrium) initial pressure [MPa] for the isothermal iso-composition column:
+        p = P_TOP at z = z_max, built on the BRINE (liquid) density so p reaches liquid pressures at
+        depth -> the flash then gives LIQUID below and VAPOR + HALITE above (the diagram state).
+
+        At the hot low-pressure top the fluid flashes to vapor (rho ~ 8 kg/m^3), which cannot build
+        the ~10 MPa needed for a liquid base; integrating that density leaves the whole column at
+        ~P_TOP (all vapor).  So we use a BRINE reference density found by a short fixed-point on the
+        base pressure (self-consistent for the liquid part) and lay down a linear brine-hydrostatic
+        profile.  This is deliberately NOT a static equilibrium -- the vapor top is lighter than this
+        profile assumes -- so mode 1 runs from it to see where the state evolves.  g = 0 -> uniform."""
         zc = np.asarray(zc, dtype=float)
         prof = getattr(self, "_hydro_profile", None)
-        if prof is None:                                 # integrate once (fixed T, z, P_TOP, g)
+        if prof is None:
             bb = self._domain.bounding_box
             ztop, zbot = float(bb["zmax"]), float(bb["zmin"])
             g = float(self.params.get("gravity_constant", GRAVITY_ACCELERATION))   # 0.0 with --no-gravity
+            H = ztop - zbot
+            rho = 1000.0                                 # brine reference density [kg/m^3]
+            for _ in range(6):                           # fixed-point at the base pressure (liquid)
+                p_base = P_TOP + rho * g * H * 1.0e-6
+                rho = self._rho_ptz(Z_INIT, T_AMBIENT, max(p_base, P_TOP))
             n = 400
-            zs = np.linspace(ztop, zbot, n)              # top -> bottom
-            ps = np.empty(n); ps[0] = P_TOP
-            for k in range(n - 1):
-                rho = self._rho_ptz(Z_INIT, T_AMBIENT, ps[k])
-                ps[k + 1] = ps[k] + rho * g * (zs[k] - zs[k + 1]) * 1.0e-6     # Pa -> MPa
-            prof = (ztop, ztop - zs, ps)                 # (z_top, depth grid [increasing], p)
+            zs = np.linspace(ztop, zbot, n)
+            depth = ztop - zs                            # 0 at top, increasing downward
+            ps = P_TOP + rho * g * depth * 1.0e-6        # linear brine-hydrostatic profile
+            prof = (ztop, depth, ps)
             self._hydro_profile = prof
         ztop, depth_grid, ps = prof
         return np.interp(ztop - zc, depth_grid, ps)      # interpolate by depth
@@ -284,12 +330,16 @@ class IC_benchmark3d(IC_two_phase_moderate_pressure):
         return self.obl_sampler_ptz.sampled_could.point_data
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        # A two-phase state is NOT determined by (T, p): at saturation the vapor
-        # fraction is free, so seeding the lever-rule bulk H there gives 900
-        # mutually inconsistent cells and Newton diverges at t = 0.  Start in-band
-        # cells as SATURATED LIQUID (h = H_l, well-posed on the boiling curve) and
-        # let the steam zone develop self-consistently in the first steps.
         pd = self._ic_ptz_state(sd)
+        if TOP_BC_ONLY:
+            # Column (equilibrium) IC: seed the table's EQUILIBRIUM enthalpy so t=0 already has
+            # liquid in the deep (high-p) part and vapor + halite in the shallow (low-p) part --
+            # the state in the diagram, not a placeholder that develops it over the first steps.
+            return pd["H"] * 1.0e-3
+        # Benchmark ramp IC: a two-phase state is NOT fixed by (T, p) (the vapor fraction is free),
+        # so seeding the lever-rule bulk H at cells right ON the boiling curve gives inconsistent
+        # cells and Newton diverges at t=0.  Start in-band cells as SATURATED LIQUID (h = H_l) and
+        # let the steam zone develop over the first steps.
         Sv = np.clip(pd["S_v"], 0.0, 1.0)
         two = (Sv > 0.0) & (Sv < 1.0)
         return np.where(two, pd["H_l"] * 1.0e-3, pd["H"] * 1.0e-3)
@@ -297,6 +347,8 @@ class IC_benchmark3d(IC_two_phase_moderate_pressure):
     def ic_values_gas_saturation(self, sd: pp.Grid) -> np.ndarray:
         pd = self._ic_ptz_state(sd)
         Sv = np.clip(pd["S_v"], 0.0, 1.0)
+        if TOP_BC_ONLY:                          # equilibrium vapor saturation from the table
+            return Sv
         two = (Sv > 0.0) & (Sv < 1.0)
         return np.where(two, 0.0, Sv)
 
@@ -476,8 +528,11 @@ def _build_model_class(FlowModel):
             the BC mixin expects.
             """
             sides = self.domain_boundary_sides(sd)
-            if TOP_BC_ONLY:                            # only the top (z = z_max) face is Dirichlet
-                return np.where(sides.top)[0], np.array([], dtype=int)
+            if TOP_BC_ONLY:                            # top (z = z_max) Dirichlet; +bottom if --bottom-bc
+                top = np.where(sides.top)[0]
+                if BOTTOM_BC:                          # bottom = inlet (drive), top = outlet
+                    return np.where(sides.bottom)[0], top
+                return top, np.array([], dtype=int)
             inlet_facets = np.where(sides.south)[0]    # y = y_min  (full face)
             outlet_facets = np.where(sides.north)[0]   # y = y_max  (full face)
             return inlet_facets, outlet_facets
@@ -659,6 +714,10 @@ def build_params(
     top_bc: bool = False,
     p_top: float = _DEFAULT_P_TOP,
     t_init: float | None = None,
+    bottom_bc: bool = False,
+    p_bottom: float | None = None,
+    t_bottom: float | None = None,
+    z_bottom: float | None = None,
     **overrides,
 ) -> dict:
     """Assemble the params dict for one 3D geothermal benchmark run.
@@ -731,6 +790,7 @@ def build_params(
     # Per-configuration output: folder AND file prefix encode (scheme, gravity, md, salinity) so
     # distinct runs cache to distinct folders and re-running a configuration refreshes only its own.
     global Z_INIT, Z_INLET, T_INLET, T_OUTLET, T_AMBIENT, P_TOP, TOP_BC_ONLY
+    global BOTTOM_BC, P_BOTTOM, T_BOTTOM, Z_BOTTOM
     Z_INIT = float(z_init)
     Z_INLET = None if z_inlet is None else float(z_inlet)
     if t_inlet is not None:
@@ -744,14 +804,18 @@ def build_params(
         globals()["P_OUTLET"] = float(p_outlet)    # --p-outlet [MPa]
     if p_inlet is not None:
         globals()["P_INLET"] = float(p_inlet)      # --p-inlet [MPa]
-    TOP_BC_ONLY = bool(top_bc)
+    TOP_BC_ONLY = bool(top_bc or bottom_bc)        # --bottom-bc implies the hydrostatic column
     P_TOP = float(p_top)
-    if top_bc:                                     # isothermal column: --t-init sets IC + top T [degC]
+    if TOP_BC_ONLY:                                # isothermal column: --t-init sets IC + top T [degC]
         T_AMBIENT = (330.0 if t_init is None else float(t_init)) + 273.15
         T_OUTLET = T_AMBIENT
+    BOTTOM_BC = bool(bottom_bc)                    # driving inflow at the base (z = z_min)
+    P_BOTTOM = None if p_bottom is None else float(p_bottom)      # None -> hydrostatic bottom value
+    T_BOTTOM = 673.15 if t_bottom is None else float(t_bottom) + 273.15   # default 400 degC (hot)
+    Z_BOTTOM = Z_INIT if z_bottom is None else float(z_bottom)
     name = _output_name(scheme, gravity, fractures) + (f"_z{z_init:g}" if z_init else "")
-    if top_bc:
-        name += "_topbc"
+    if TOP_BC_ONLY:
+        name += "_botbc" if bottom_bc else "_topbc"
     if z_inlet is not None and z_inlet != z_init:
         name += f"_zin{z_inlet:g}"
     if t_inlet is not None and abs(t_inlet + 273.15 - 673.15) > 1e-9:
@@ -832,6 +896,8 @@ def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINE
           t_outlet: float | None = None,
           p_outlet: float | None = None, p_inlet: float | None = None,
           top_bc: bool = False, p_top: float = _DEFAULT_P_TOP, t_init: float | None = None,
+          bottom_bc: bool = False, p_bottom: float | None = None,
+          t_bottom: float | None = None, z_bottom: float | None = None,
           nx: int | None = None, ny: int | None = None, nz: int | None = None,
           lx: float | None = None, ly: float | None = None, lz: float | None = None) -> None:
     """Build the model, prepare the simulation, and assemble the residual + Jacobian ONCE.
@@ -849,6 +915,7 @@ def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINE
                         gravity=gravity, z_init=z_init, z_inlet=z_inlet, t_inlet=t_inlet,
                         t_ambient=t_ambient, t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet,
                         top_bc=top_bc, p_top=p_top, t_init=t_init,
+                        bottom_bc=bottom_bc, p_bottom=p_bottom, t_bottom=t_bottom, z_bottom=z_bottom,
                         nx=nx, ny=ny, nz=nz, lx=lx, ly=ly, lz=lz)
     t0 = time.time()
     model.prepare_simulation()
@@ -897,6 +964,8 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
         p_outlet: float | None = None,
         p_inlet: float | None = None,
         top_bc: bool = False, p_top: float = _DEFAULT_P_TOP, t_init: float | None = None,
+        bottom_bc: bool = False, p_bottom: float | None = None,
+        t_bottom: float | None = None, z_bottom: float | None = None,
         nx: int | None = None, ny: int | None = None, nz: int | None = None,
         lx: float | None = None, ly: float | None = None, lz: float | None = None,
         transport_predictor: bool = False) -> None:
@@ -929,6 +998,7 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
                         z_inlet=z_inlet, t_inlet=t_inlet, t_ambient=t_ambient,
                         t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet,
                         top_bc=top_bc, p_top=p_top, t_init=t_init,
+                        bottom_bc=bottom_bc, p_bottom=p_bottom, t_bottom=t_bottom, z_bottom=z_bottom,
                         nx=nx, ny=ny, nz=nz, lx=lx, ly=ly, lz=lz)
     snaps = [d for d in snap_days if 0.0 <= d <= t_end_days + 1e-6]
     print(f"  VTU export at snapshots [days]: {snaps if snaps else [0.0, t_end_days]}", flush=True)
@@ -971,6 +1041,11 @@ def _cli() -> argparse.Namespace:
                    help="comma-separated days at which to write VTU snapshots (placed in the "
                         "schedule so adaptive dt hits them exactly; default: 0 + every 20 yr).  "
                         "VTU is written ONLY at these instants, not every step.")
+    p.add_argument("--report-every-years", type=float, default=None, dest="report_every_years",
+                   metavar="N",
+                   help="write a VTU snapshot every N years (0, N, 2N, ... up to --days); a regular "
+                        "reporting schedule that OVERRIDES --snap-days.  E.g. --days 182500 "
+                        "--report-every-years 25 -> a snapshot every 25 yr over 500 yr.")
     p.add_argument("--ad-backend", choices=["native", "sparsa"], default=_DEFAULT_AD_BACKEND)
     p.add_argument("--linear-solver", choices=["direct", "cpr", "lu"],
                    default=_DEFAULT_LINEAR_SOLVER,
@@ -1035,6 +1110,18 @@ def _cli() -> argparse.Namespace:
                    help="top-face pressure [MPa] for --top-bc (default 1.5)")
     p.add_argument("--t-init", type=float, default=None, dest="t_init",
                    help="isothermal initial (and top) temperature [degC] for --top-bc (default 330)")
+    p.add_argument("--bottom-bc", dest="bottom_bc", action="store_true",
+                   help="add a Dirichlet BOTTOM (z=z_min) face to the column to DRIVE the dynamics: "
+                        "a hot (--t-bottom) / saline (--z-bottom) / over-pressured (--p-bottom) inflow "
+                        "at depth (implies --top-bc)")
+    p.add_argument("--p-bottom", type=float, default=None, dest="p_bottom",
+                   help="bottom-face pressure [MPa] for --bottom-bc; default = the hydrostatic bottom "
+                        "value (buoyancy-driven); set it higher for a forced upflow")
+    p.add_argument("--t-bottom", type=float, default=None, dest="t_bottom",
+                   help="bottom-face temperature [degC] for --bottom-bc (default 400; hotter than the "
+                        "column -> buoyant convective rise -> boiling near the low-pressure top)")
+    p.add_argument("--z-bottom", type=float, default=None, dest="z_bottom",
+                   help="bottom-face NaCl fraction for --bottom-bc (default = --z-init)")
     p.add_argument("--check", action="store_true",
                    help="build + assemble once (structural smoke test), no transient solve")
     return p.parse_args()
@@ -1048,10 +1135,17 @@ def main() -> None:
               z_inlet=args.z_inlet, t_inlet=args.t_inlet, t_ambient=args.t_ambient,
               t_outlet=args.t_outlet, p_outlet=args.p_outlet, p_inlet=args.p_inlet,
               top_bc=args.top_bc, p_top=args.p_top, t_init=args.t_init,
+              bottom_bc=args.bottom_bc, p_bottom=args.p_bottom,
+              t_bottom=args.t_bottom, z_bottom=args.z_bottom,
               nx=args.nx, ny=args.ny, nz=args.nz, lx=args.lx, ly=args.ly, lz=args.lz)
     else:
-        snap_days = (tuple(float(d) for d in args.snap_days.split(",") if d.strip())
-                     if args.snap_days else _DEFAULT_SNAP_DAYS)
+        if args.report_every_years is not None and args.report_every_years > 0.0:
+            step = args.report_every_years * 365.0          # regular schedule: 0, N, 2N, ... yr
+            snap_days = tuple(float(d) for d in np.arange(0.0, args.days + 0.5 * step, step))
+        elif args.snap_days:
+            snap_days = tuple(float(d) for d in args.snap_days.split(",") if d.strip())
+        else:
+            snap_days = _DEFAULT_SNAP_DAYS
         run(args.scheme, args.refinement_level, args.days, args.dt_days, args.ad_backend,
             args.fractures, args.box_cell_size, args.geometry_scale, args.linear_solver,
             args.gravity, args.gravity_constant, args.cpr_rtol, args.cpr_maxit,
@@ -1060,6 +1154,8 @@ def main() -> None:
             p_outlet=args.p_outlet,
             p_inlet=args.p_inlet, transport_predictor=args.transport_predictor,
             top_bc=args.top_bc, p_top=args.p_top, t_init=args.t_init,
+            bottom_bc=args.bottom_bc, p_bottom=args.p_bottom,
+            t_bottom=args.t_bottom, z_bottom=args.z_bottom,
             nx=args.nx, ny=args.ny, nz=args.nz, lx=args.lx, ly=args.ly, lz=args.lz)
 
 
