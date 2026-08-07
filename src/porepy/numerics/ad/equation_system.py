@@ -1459,7 +1459,7 @@ class EquationSystem:
         if not evaluate_jacobian:
             return -rhs_cat
 
-        equation_indexer, variable_indexer = self.construct_assembled_matrix_indexers(
+        equation_indexer, variable_indexer = self._construct_assembled_matrix_indexers(
             equations=equations, variables=variables
         )
 
@@ -1485,7 +1485,7 @@ class EquationSystem:
             variable_indexer=variable_indexer,
         )
 
-    def construct_assembled_matrix_indexers(
+    def _construct_assembled_matrix_indexers(
         self,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,

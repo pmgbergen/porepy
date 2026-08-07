@@ -210,7 +210,7 @@ def test_equation_based_euclidean_metric_with_restricted_indexer(
         evaluate_jacobian=False, equations=[equation_name]
     )
     equation_indexer, _ = (
-        orthogonal_2d_model.equation_system.construct_assembled_matrix_indexers(
+        orthogonal_2d_model.equation_system._construct_assembled_matrix_indexers(
             equations=[equation_name]
         )
     )

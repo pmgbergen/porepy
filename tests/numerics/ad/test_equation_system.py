@@ -1364,7 +1364,7 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
     )
     # Check that the equation blocks were correctly recorded.
     equation_indexer, variable_indexer = (
-        model.equation_system.construct_assembled_matrix_indexers(variables=variables)
+        model.equation_system._construct_assembled_matrix_indexers(variables=variables)
     )
     for name in model.equation_system.equations:
         actual_dofs = [
@@ -1474,7 +1474,7 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
 
     # Also check that the equation row sizes were correctly recorded.
     equation_indexer, variable_indexer = (
-        equation_system.construct_assembled_matrix_indexers(
+        equation_system._construct_assembled_matrix_indexers(
             equations=eq_names, variables=variables
         )
     )
@@ -1516,7 +1516,7 @@ def test_assembled_matrix_indexers_match_assembly_order(
 
     _ = equation_system.assemble(equations=equations, variables=variables)
     equation_indexer, variable_indexer = (
-        equation_system.construct_assembled_matrix_indexers(
+        equation_system._construct_assembled_matrix_indexers(
             equations=equations, variables=variables
         )
     )
@@ -1643,7 +1643,7 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     assert pp.test_utils.arrays.compare_matrices(A, A_ref)
 
     # Check bookkeeping does not suddenly include the empty equation.
-    equation_indexer, _ = equation_system.construct_assembled_matrix_indexers()
+    equation_indexer, _ = equation_system._construct_assembled_matrix_indexers()
 
     for eq_on_domain in equation_indexer.indices:
         assert eq_on_domain.name != "empty_equation"
