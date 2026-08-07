@@ -14,6 +14,7 @@ from typing import Final, Sequence
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.operators import Variable
 
 __all__ = [
     "EquationOnDomain",
@@ -37,7 +38,7 @@ class EquationOnDomain:
     domain: pp.GridLike
 
 
-class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
+class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
     """An indexer determines the arrangement of indices corresponding to multiple
     operators (variables or equations) on multiple grids in a contiguous array.
 
@@ -135,6 +136,28 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, pp.ad.Variable)]:
             raise ValueError(f"Requested operators are duplicated: {operators}.")
 
         return Indexer(indices=new_indices)
+
+    def construct_restricted_indexer_from_tags(
+        self,
+        tags: Sequence[pp.solvers.OperatorTag[EquationOrVariableType]],
+        model: pp.PorePyModel,
+    ) -> Indexer[EquationOrVariableType]:
+        """Constructs a new indexer based on requested subset of operators, defined by
+        tags.
+
+        Parameters:
+            tags: Define the requested subspace.
+            model: Used to apply tag filters.
+
+        Raises:
+            ValueError: If a tag requests an operator not known to this indexer.
+
+        Returns:
+            A new instance of Indexer.
+
+        """
+        restricted, _ = self.filter_by_tags(tags=tags, model=model)
+        return self.construct_restricted_indexer(restricted)
 
     def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
         """Group :attr:`indices` by operator names.
@@ -278,4 +301,4 @@ class EquationSystemIndexer(Indexer[EquationOnDomain]):
 
 # Specified parametrization.
 EquationIndexer = Indexer[EquationOnDomain]
-VariableIndexer = Indexer[pp.ad.Variable]
+VariableIndexer = Indexer[Variable]
