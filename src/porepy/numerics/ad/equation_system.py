@@ -985,7 +985,6 @@ class EquationSystem:
     def set_equation(
         self,
         equation: Operator,
-        grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
         """Sets an equation using the passed operator and uses its name as an
@@ -1006,8 +1005,6 @@ class EquationSystem:
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
-            grids: A list of subdomain *or* interface grids on which the equation is
-                defined.
             equations_per_grid_entity: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space.
@@ -1033,7 +1030,8 @@ class EquationSystem:
             )
 
         # If no grids are specified, there is nothing to do
-        if not grids:
+        grids = equation.target.grids
+        if len(grids) == 0:
             # Information on the size of the equation, in terms of the grids it is
             # defined on.
             self._equation_image_size_info.update({name: equations_per_grid_entity})
@@ -1064,18 +1062,6 @@ class EquationSystem:
         assert not unknown_domains, (
             f"Equation defined on unknown domains: {unknown_domains}"
         )
-
-        # Store the ordered equation domains. The equation may
-        # already contain domains, in which case make sure they are equal.
-        ordered_domain_indices = self.mdg.argsort_grids(grids)
-        ordered_domains = [grids[i] for i in ordered_domain_indices]
-        if equation.domains is None or len(equation.domains) == 0:
-            equation._domains = ordered_domains
-        elif equation.domains != ordered_domains:
-            raise ValueError(
-                "Attempting to register an equation on domains that do not match "
-                "equation.domains."
-            )
 
         # If all good, we store the information:
         # Information on the size of the equation, in terms of the grids it is defined
@@ -1150,7 +1136,6 @@ class EquationSystem:
         new_equation.set_name(equation_name)
         self.set_equation(
             equation=new_equation,
-            grids=grids,
             equations_per_grid_entity=equations_per_grid_entity,
         )
 

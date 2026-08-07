@@ -493,12 +493,10 @@ class EquationSystemMockModel:
 
         equation_system.set_equation(
             self.eq_all_subdomains,
-            grids=subdomains,
             equations_per_grid_entity=dof_all_subdomains,
         )
         equation_system.set_equation(
             self.eq_single_subdomain,
-            grids=[sd_top],
             equations_per_grid_entity=dof_single_subdomain,
         )
 
@@ -515,12 +513,10 @@ class EquationSystemMockModel:
         dof_single_interface = {GridEntity.cells: 2}
         equation_system.set_equation(
             self.eq_all_interfaces,
-            grids=interfaces,
             equations_per_grid_entity=dof_all_interfaces,
         )
         equation_system.set_equation(
             self.eq_single_interface,
-            grids=[intf_top],
             equations_per_grid_entity=dof_single_interface,
         )
         self.eq_inds = np.array(
@@ -538,7 +534,7 @@ class EquationSystemMockModel:
             self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
             equation_system.set_equation(
-                self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
+                self.eq_combined, equations_per_grid_entity=dof_combined
             )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
@@ -615,7 +611,7 @@ class EquationSystemMockModel:
         empty_equation = empty_var * empty_var
         empty_equation.set_name("empty_equation")
         self.equation_system.set_equation(
-            empty_equation, grids=[], equations_per_grid_entity={GridEntity.cells: 1}
+            empty_equation,  equations_per_grid_entity={GridEntity.cells: 1}
         )
 
 
@@ -930,7 +926,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     with pytest.raises(ValueError):
         equation_system.set_equation(
             model.eq_all_subdomains,
-            grids=model.subdomains,
             equations_per_grid_entity=dof_info_subdomain,
         )
 
@@ -946,7 +941,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Now set the equation again.
     equation_system.set_equation(
         model.eq_single_subdomain,
-        grids=[model.sd_top],
         equations_per_grid_entity=dof_info_subdomain,
     )
 
@@ -973,7 +967,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Add a second equation, defined on both subdomains
     equation_system.set_equation(
         model.eq_all_subdomains,
-        grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
     )
     equation_subdomain_blocks = (
@@ -993,7 +986,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # mdg.interfaces()
     equation_system.set_equation(
         model.eq_all_interfaces,
-        grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
     )
     equation_subdomain_blocks = (
@@ -1015,7 +1007,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     equation_system.update_equation(
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
-        grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_all_interfaces,
     )
     equation_subdomain_blocks = (
