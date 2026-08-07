@@ -37,7 +37,6 @@ from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfigurat
 )
 from porepy.examples.geothermal_flow.model_configuration.flow_model_base import (  # noqa: E501
     geothermal_nonlinear_solver,
-    RelativeStorageLebesgueMetric,  # weis-matched relative (ms/es) residual bar
 )
 from porepy.examples.geothermal_flow.model_configuration.geothermal_export import (  # noqa: E501
     DriesnerPhaseExport,
@@ -309,7 +308,7 @@ params = {
     "cpr_rtol": 1.0e-5,           # CPR GMRES relative tolerance
     "cpr_maxit": 400,             # CPR GMRES iteration cap
     "cpr_accuracy_tol": 1.0e-3,   # post-solve gate -> direct fallback above this
-    "step_control_method": "None",
+    "step_control_method": "LS",   # weis backtracking line search (== subsection_4_2 1D/3D solvers)
     # Slave the eliminated secondaries (T, s_gas/halite, x_NaCl_liq/gas/halite) to their exact
     # OBL value f(p,h,z) each Newton iterate -- Weis-style explicit flash. Removes the lagged
     # elimination residual (e.g. the wide-open liquid NaCl fraction) that limit-cycles at phase
@@ -368,15 +367,9 @@ _attach_samplers(model)
 
 
 tb = time.time()
-solver_params = {
-    "nl_convergence_criteria": {
-        "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-            tol=1.0e-4, metric=RelativeStorageLebesgueMetric(model)),
-    },
-    "nl_divergence_criteria": {
-        "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),
-    },
-}
+# Shared base stopping criterion (== subsection_4_2 1D/3D solvers): relative-storage Lebesgue
+# metric, tol 1e-4, max_iter 20. Was an inline dict at max_iter 13.
+solver_params = model.default_nonlinear_criteria()
 runner = pp.ModelRunner(model, solver_params,
                         nonlinear_solver=geothermal_nonlinear_solver(solver_params))
 te = time.time()

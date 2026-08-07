@@ -116,7 +116,7 @@ from porepy.examples.geothermal_flow.obl_sampler import VTKSampler
 # --------------------------------------------------------------------------------------------- #
 DAY = 86400.0
 TO_MEGA = 1.0e-6
-TABLE_LEVEL = 3                          # Driesner opensowat .vtr level (matches subsection_4_1)
+TABLE_LEVEL = "graded"                   # graded Driesner OBL (brine_graded_x{ph,pt}.vtr); == subsection_4_2 1D
 
 # Benchmark-3 box (raw metres, as read from fracture_network.csv; benchmark_3d_case_3 does NOT
 # apply unit scaling to the imported coordinates).  Flow (and the pressure ramp) is along y.
@@ -140,6 +140,12 @@ P_OUTLET = 1.0                           # [MPa] at the outlet corner (y = 2.25)
 T_INLET = 673.15                         # [K] hot brine injected at the inlet corner
 T_OUTLET = 423.15                        # [K] outlet-face Dirichlet temperature (--t-outlet / --t-ambient)
 T_AMBIENT = 423.15                       # [K] initial ambient temperature (--t-ambient); defaults to T_OUTLET
+
+# --top-bc scenario: hydrostatic isothermal iso-composition IC + top-only Dirichlet BC (the
+# first-stage equilibration run).  P_TOP is the pressure imposed on the top (z = z_max) face and
+# the top of the hydrostatic initial profile; TOP_BC_ONLY switches IC/BC to this scenario.
+P_TOP = 1.5                              # [MPa] top-face pressure of the hydrostatic column (--p-top)
+TOP_BC_ONLY = False                      # --top-bc: hydrostatic isothermal IC + top-only Dirichlet BC
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _TABLE_DIR = os.path.join(
@@ -185,9 +191,13 @@ class BC_benchmark3d(BC_two_phase_moderate_pressure):
     """
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        if TOP_BC_ONLY:                          # top face carries the hydrostatic value at z_max = P_TOP
+            return self._hydrostatic_p(boundary_grid.cell_centers[2])
         return _pressure_ramp(boundary_grid.cell_centers.T, *_flow_bounds(self._domain))
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        if TOP_BC_ONLY:                          # isothermal column -> top temperature = ambient
+            return np.full(boundary_grid.num_cells, T_AMBIENT)
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         T = T_OUTLET * np.ones(boundary_grid.num_cells)
         T[inlet_idx] = T_INLET
@@ -197,9 +207,10 @@ class BC_benchmark3d(BC_two_phase_moderate_pressure):
     def bc_salinity(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         # background Z_INIT everywhere; the inlet (high-pressure south flank)
         # carries Z_INLET when set -- the inlet enthalpy follows automatically,
-        # since bc_values_enthalpy samples the table through this salinity
+        # since bc_values_enthalpy samples the table through this salinity.
+        # In the top-BC stage the column is iso-composition (Z_INLET ignored).
         z = np.full(boundary_grid.num_cells, Z_INIT)
-        if Z_INLET is not None:
+        if not TOP_BC_ONLY and Z_INLET is not None:
             inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
             z[inlet_idx] = Z_INLET
         return z
@@ -224,7 +235,35 @@ class IC_benchmark3d(IC_two_phase_moderate_pressure):
     """
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        if TOP_BC_ONLY:                                  # hydrostatic profile, P_TOP at z = z_max
+            return self._hydrostatic_p(sd.cell_centers[2])
         return _pressure_ramp(sd.cell_centers.T, *_flow_bounds(self._domain))
+
+    def _rho_ptz(self, z_na: float, T_K: float, p_MPa: float) -> float:
+        """Mixture density [kg/m^3] from the ptz OBL table at (z, T[K], p[MPa])."""
+        self.obl_sampler_ptz.sample_at(np.array([[z_na, T_K, p_MPa]]))
+        return float(self.obl_sampler_ptz.sampled_could.point_data["Rho"][0])
+
+    def _hydrostatic_p(self, zc: np.ndarray) -> np.ndarray:
+        """Hydrostatic pressure [MPa] at vertical coordinates ``zc`` for the isothermal,
+        iso-composition column: p = P_TOP at z = z_max, integrated downward with the OBL mixture
+        density rho(p, T_AMBIENT, Z_INIT).  With gravity off (g = 0) this is uniform P_TOP."""
+        zc = np.asarray(zc, dtype=float)
+        prof = getattr(self, "_hydro_profile", None)
+        if prof is None:                                 # integrate once (fixed T, z, P_TOP, g)
+            bb = self._domain.bounding_box
+            ztop, zbot = float(bb["zmax"]), float(bb["zmin"])
+            g = float(self.params.get("gravity_constant", GRAVITY_ACCELERATION))   # 0.0 with --no-gravity
+            n = 400
+            zs = np.linspace(ztop, zbot, n)              # top -> bottom
+            ps = np.empty(n); ps[0] = P_TOP
+            for k in range(n - 1):
+                rho = self._rho_ptz(Z_INIT, T_AMBIENT, ps[k])
+                ps[k + 1] = ps[k] + rho * g * (zs[k] - zs[k + 1]) * 1.0e-6     # Pa -> MPa
+            prof = (ztop, ztop - zs, ps)                 # (z_top, depth grid [increasing], p)
+            self._hydro_profile = prof
+        ztop, depth_grid, ps = prof
+        return np.interp(ztop - zc, depth_grid, ps)      # interpolate by depth
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         return np.full(sd.num_cells, T_AMBIENT)
@@ -381,28 +420,36 @@ def _build_model_class(FlowModel):
             K-orthogonal.  ``set_wells`` is seeded first (no wells here).
             """
             self.set_wells()                       # -> self._wells = [] (no wells here)
-            self.set_domain()                      # -> self._domain (scaled box; used by BC/IC)
+            self.set_domain()                      # -> self._domain (box; used by BC/IC)
+            bb = self._domain.bounding_box
+            physdims = np.array([bb["xmax"] - bb["xmin"], bb["ymax"] - bb["ymin"],
+                                 bb["zmax"] - bb["zmin"]])
+            # Cell counts: explicit --nx/--ny/--nz if given, else derived from the base cell size
+            # (box_cell_size / 2**refinement_level, scaled).  Each refinement level halves h.
             s = float(self.params.get("geometry_scale", 1.0))
-            physdims = np.array([1.0, _Y_MAX, 1.0]) * s
-            # Refinement: each level halves the cell size (2**level cells per direction per level).
             level = int(self.params.get("refinement_level", 0))
             h = float(self.params.get("box_cell_size", 0.1)) / (2 ** level) * s
-            nx = np.maximum(np.round(physdims / h).astype(int), 1)
+            default_n = np.maximum(np.round(physdims / h).astype(int), 1)
+            nx = np.array([int(self.params.get("nx") or default_n[0]),
+                           int(self.params.get("ny") or default_n[1]),
+                           int(self.params.get("nz") or default_n[2])])
             fracs = (_axis_aligned_fractures(physdims)
                      if self.params.get("fractures", False) else [])
-            self.mdg = pp.meshing.cart_grid(fracs, nx, physdims=physdims)
+            self.mdg = pp.meshing.cart_grid(fracs, list(nx), physdims=physdims)
             self.nd = self.mdg.dim_max()
             pp.set_local_coordinate_projections(self.mdg)
             self.set_well_network()
 
         # ---- fracture-free box geometry (used only when params["fractures"] is False) ----
         def set_domain(self) -> None:
-            """The benchmark-3 bounding box, scaled by ``geometry_scale`` (matches the fractured
-            grid + BC/IC)."""
+            """Bounding box: explicit --lx/--ly/--lz [m] if given, else the benchmark-3 box scaled
+            by ``geometry_scale``.  z is the vertical (gravity) axis; z = z_max is the top."""
             s = float(self.params.get("geometry_scale", 1.0))
+            lx = float(self.params.get("lx") or 1.0 * s)
+            ly = float(self.params.get("ly") or _Y_MAX * s)
+            lz = float(self.params.get("lz") or 1.0 * s)
             self._domain = pp.Domain(
-                {"xmin": 0.0, "xmax": 1.0 * s, "ymin": _Y_MIN * s, "ymax": _Y_MAX * s,
-                 "zmin": 0.0, "zmax": 1.0 * s})
+                {"xmin": 0.0, "xmax": lx, "ymin": 0.0, "ymax": ly, "zmin": 0.0, "zmax": lz})
 
         def set_fractures(self) -> None:
             self._fractures = []
@@ -429,6 +476,8 @@ def _build_model_class(FlowModel):
             the BC mixin expects.
             """
             sides = self.domain_boundary_sides(sd)
+            if TOP_BC_ONLY:                            # only the top (z = z_max) face is Dirichlet
+                return np.where(sides.top)[0], np.array([], dtype=int)
             inlet_facets = np.where(sides.south)[0]    # y = y_min  (full face)
             outlet_facets = np.where(sides.north)[0]   # y = y_max  (full face)
             return inlet_facets, outlet_facets
@@ -573,6 +622,7 @@ _DEFAULT_AD_BACKEND = "native"
 _DEFAULT_CPR_RTOL = 1.0e-5             # CPR GMRES relative tolerance
 _DEFAULT_CPR_MAXIT = 400              # CPR GMRES iteration cap
 _DEFAULT_CPR_ACCURACY_TOL = 1.0e-3   # post-solve gate -> fall back to direct above this
+_DEFAULT_P_TOP = 1.5                 # [MPa] top-face pressure for the --top-bc hydrostatic column
 # VTU snapshot schedule [days]: the transient writes VTU/PVD ONLY at these instants (not every
 # step), mirroring subsection_4_2/porepy_2d_solver.  They are placed in the TimeManager schedule so
 # adaptive dt lands on them exactly, and become ``times_to_export``.  0 (the initial state) is
@@ -606,6 +656,9 @@ def build_params(
     t_outlet: float | None = None,
     p_outlet: float | None = None,
     p_inlet: float | None = None,
+    top_bc: bool = False,
+    p_top: float = _DEFAULT_P_TOP,
+    t_init: float | None = None,
     **overrides,
 ) -> dict:
     """Assemble the params dict for one 3D geothermal benchmark run.
@@ -677,7 +730,7 @@ def build_params(
 
     # Per-configuration output: folder AND file prefix encode (scheme, gravity, md, salinity) so
     # distinct runs cache to distinct folders and re-running a configuration refreshes only its own.
-    global Z_INIT, Z_INLET, T_INLET, T_OUTLET, T_AMBIENT
+    global Z_INIT, Z_INLET, T_INLET, T_OUTLET, T_AMBIENT, P_TOP, TOP_BC_ONLY
     Z_INIT = float(z_init)
     Z_INLET = None if z_inlet is None else float(z_inlet)
     if t_inlet is not None:
@@ -691,7 +744,14 @@ def build_params(
         globals()["P_OUTLET"] = float(p_outlet)    # --p-outlet [MPa]
     if p_inlet is not None:
         globals()["P_INLET"] = float(p_inlet)      # --p-inlet [MPa]
+    TOP_BC_ONLY = bool(top_bc)
+    P_TOP = float(p_top)
+    if top_bc:                                     # isothermal column: --t-init sets IC + top T [degC]
+        T_AMBIENT = (330.0 if t_init is None else float(t_init)) + 273.15
+        T_OUTLET = T_AMBIENT
     name = _output_name(scheme, gravity, fractures) + (f"_z{z_init:g}" if z_init else "")
+    if top_bc:
+        name += "_topbc"
     if z_inlet is not None and z_inlet != z_init:
         name += f"_zin{z_inlet:g}"
     if t_inlet is not None and abs(t_inlet + 273.15 - 673.15) > 1e-9:
@@ -730,7 +790,7 @@ def build_params(
         times_to_export=times_to_export,       # write VTU only at the scheduled snapshots
         folder_name=os.path.join("output", name),
         file_name=name,
-        step_control_method="None",
+        step_control_method="LS",   # weis backtracking line search (== subsection_4_2 1D solvers)
         # Slave the eliminated secondaries (T, s_gas/halite, x_NaCl_liq/gas/halite) to their exact
         # OBL value f(p,h,z) each Newton iterate -- Weis-style explicit flash. Removes the lagged
         # elimination residual that limit-cycles at phase fronts; same fix as the 1D fig-6 / 2D runs.
@@ -757,15 +817,10 @@ def build_model(scheme: str = "HU", **kw):
 #  Drivers
 # --------------------------------------------------------------------------------------------- #
 def _solver_params(model) -> dict:
-    return {
-        "nl_convergence_criteria": {
-            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=1.0e-5, metric=pp.EquationBasedLebesgueMetric(model)),
-        },
-        "nl_divergence_criteria": {
-            "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=13),
-        },
-    }
+    """Shared base stopping criterion (== subsection_4_2 1D solvers): the weis-matched
+    relative-storage Lebesgue metric at tol 1e-4, max_iter 20. Previously an absolute
+    EquationBasedLebesgueMetric at tol 1e-5 / max_iter 13."""
+    return model.default_nonlinear_criteria()
 
 
 def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEMENT_LEVEL,
@@ -775,7 +830,10 @@ def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINE
           z_init: float = 0.0, z_inlet: float | None = None,
           t_inlet: float | None = None, t_ambient: float | None = None,
           t_outlet: float | None = None,
-          p_outlet: float | None = None, p_inlet: float | None = None) -> None:
+          p_outlet: float | None = None, p_inlet: float | None = None,
+          top_bc: bool = False, p_top: float = _DEFAULT_P_TOP, t_init: float | None = None,
+          nx: int | None = None, ny: int | None = None, nz: int | None = None,
+          lx: float | None = None, ly: float | None = None, lz: float | None = None) -> None:
     """Build the model, prepare the simulation, and assemble the residual + Jacobian ONCE.
 
     A cheap structural smoke test: confirms the grid (mixed-dimensional benchmark-3 with ``--md``,
@@ -789,7 +847,9 @@ def check(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINE
                         fractures=fractures, box_cell_size=box_cell_size,
                         geometry_scale=geometry_scale, linear_solver=linear_solver,
                         gravity=gravity, z_init=z_init, z_inlet=z_inlet, t_inlet=t_inlet,
-                        t_ambient=t_ambient, t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet)
+                        t_ambient=t_ambient, t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet,
+                        top_bc=top_bc, p_top=p_top, t_init=t_init,
+                        nx=nx, ny=ny, nz=nz, lx=lx, ly=ly, lz=lz)
     t0 = time.time()
     model.prepare_simulation()
     print(f"  prepare_simulation: {time.time() - t0:.1f}s", flush=True)
@@ -836,6 +896,9 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
         t_outlet: float | None = None,
         p_outlet: float | None = None,
         p_inlet: float | None = None,
+        top_bc: bool = False, p_top: float = _DEFAULT_P_TOP, t_init: float | None = None,
+        nx: int | None = None, ny: int | None = None, nz: int | None = None,
+        lx: float | None = None, ly: float | None = None, lz: float | None = None,
         transport_predictor: bool = False) -> None:
     """Run the transient 3D geothermal benchmark to ``t_end_days``."""
     name = _output_name(scheme, gravity, fractures)
@@ -864,7 +927,9 @@ def run(scheme: str = _DEFAULT_SCHEME, refinement_level: int = _DEFAULT_REFINEME
                         cpr_accuracy_tol=cpr_accuracy_tol, snap_days=snap_days,
                         transport_predictor=transport_predictor, z_init=z_init,
                         z_inlet=z_inlet, t_inlet=t_inlet, t_ambient=t_ambient,
-                        t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet)
+                        t_outlet=t_outlet, p_outlet=p_outlet, p_inlet=p_inlet,
+                        top_bc=top_bc, p_top=p_top, t_init=t_init,
+                        nx=nx, ny=ny, nz=nz, lx=lx, ly=ly, lz=lz)
     snaps = [d for d in snap_days if 0.0 <= d <= t_end_days + 1e-6]
     print(f"  VTU export at snapshots [days]: {snaps if snaps else [0.0, t_end_days]}", flush=True)
     sp = _solver_params(model)
@@ -955,6 +1020,21 @@ def _cli() -> argparse.Namespace:
                         "enters as LIQUID -- below the boiling surface at p_inlet, "
                         "e.g. < ~365 C at 20 MPa; at 400 C the inflow is nearly "
                         "salt-free vapor and the salty liquid is immobile)")
+    p.add_argument("--nx", type=int, default=None, help="cells along x (default: from --box-cell-size)")
+    p.add_argument("--ny", type=int, default=None, help="cells along y (default: from --box-cell-size)")
+    p.add_argument("--nz", type=int, default=None,
+                   help="cells along z / vertical (default: from --box-cell-size)")
+    p.add_argument("--lx", type=float, default=None, help="domain size along x [m] (default: scale*1000)")
+    p.add_argument("--ly", type=float, default=None, help="domain size along y [m] (default: scale*2250)")
+    p.add_argument("--lz", type=float, default=None,
+                   help="domain size along z / height [m] (default: scale*1000); z is the gravity axis")
+    p.add_argument("--top-bc", dest="top_bc", action="store_true",
+                   help="first-stage run: hydrostatic isothermal iso-composition IC + a top-only "
+                        "Dirichlet BC (p=--p-top, T=--t-init at z=z_max); all other faces no-flow")
+    p.add_argument("--p-top", type=float, default=_DEFAULT_P_TOP, dest="p_top",
+                   help="top-face pressure [MPa] for --top-bc (default 1.5)")
+    p.add_argument("--t-init", type=float, default=None, dest="t_init",
+                   help="isothermal initial (and top) temperature [degC] for --top-bc (default 330)")
     p.add_argument("--check", action="store_true",
                    help="build + assemble once (structural smoke test), no transient solve")
     return p.parse_args()
@@ -966,7 +1046,9 @@ def main() -> None:
         check(args.scheme, args.refinement_level, args.fractures, args.box_cell_size,
               args.geometry_scale, args.linear_solver, args.gravity, z_init=args.z_init,
               z_inlet=args.z_inlet, t_inlet=args.t_inlet, t_ambient=args.t_ambient,
-              t_outlet=args.t_outlet, p_outlet=args.p_outlet, p_inlet=args.p_inlet)
+              t_outlet=args.t_outlet, p_outlet=args.p_outlet, p_inlet=args.p_inlet,
+              top_bc=args.top_bc, p_top=args.p_top, t_init=args.t_init,
+              nx=args.nx, ny=args.ny, nz=args.nz, lx=args.lx, ly=args.ly, lz=args.lz)
     else:
         snap_days = (tuple(float(d) for d in args.snap_days.split(",") if d.strip())
                      if args.snap_days else _DEFAULT_SNAP_DAYS)
@@ -976,7 +1058,9 @@ def main() -> None:
             args.cpr_accuracy_tol, snap_days, z_init=args.z_init, z_inlet=args.z_inlet,
             t_inlet=args.t_inlet, t_ambient=args.t_ambient, t_outlet=args.t_outlet,
             p_outlet=args.p_outlet,
-            p_inlet=args.p_inlet, transport_predictor=args.transport_predictor)
+            p_inlet=args.p_inlet, transport_predictor=args.transport_predictor,
+            top_bc=args.top_bc, p_top=args.p_top, t_init=args.t_init,
+            nx=args.nx, ny=args.ny, nz=args.nz, lx=args.lx, ly=args.ly, lz=args.lz)
 
 
 if __name__ == "__main__":
