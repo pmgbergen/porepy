@@ -140,9 +140,9 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
         well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, subdomains, {pp.ad.GridEntity.cells: 1})
-        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {pp.ad.GridEntity.cells: 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(sd_eq, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(intf_eq, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(well_eq, {pp.ad.GridEntity.cells: 1})
 
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.

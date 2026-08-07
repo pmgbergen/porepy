@@ -74,12 +74,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         interfaces = self.mdg.interfaces(dim=self.nd - 1, codim=1)
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         intf_eq = self.interface_force_balance_equation(interfaces)
-        self.equation_system.set_equation(
-            matrix_eq, matrix_subdomains, {pp.ad.GridEntity.cells: self.nd}
-        )
-        self.equation_system.set_equation(
-            intf_eq, interfaces, {pp.ad.GridEntity.cells: self.nd}
-        )
+        self.equation_system.set_equation(matrix_eq, {pp.ad.GridEntity.cells: self.nd})
+        self.equation_system.set_equation(intf_eq, {pp.ad.GridEntity.cells: self.nd})
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
@@ -240,7 +236,6 @@ class AngularMomentumEquation(pp.PorePyModel):
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
         self.equation_system.set_equation(
             angular_momentum,
-            matrix_subdomains,
             {pp.ad.GridEntity.cells: self.rotation_dimension()},
         )
 
@@ -333,9 +328,7 @@ class SolidMassEquation(pp.PorePyModel):
 
         solid_mass = self.solid_mass_equation(matrix_subdomains)
 
-        self.equation_system.set_equation(
-            solid_mass, matrix_subdomains, {pp.ad.GridEntity.cells: 1}
-        )
+        self.equation_system.set_equation(solid_mass, {pp.ad.GridEntity.cells: 1})
 
     def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the solid mass conservation equation and add it to the EquationSystem.
