@@ -46,9 +46,9 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     primary block is defined by parameters `primary_equation_tags` and
     `primary_variable_tags`. The secondary block is a complement to it.
 
-    The submatrix `A_ss` must be invertible, and computing its inverse must be cheap
-    computationally, e.g., it should be block diagonal. Then, the Schur complement
-    of this system is assembled:
+    The present implementation assumes `A_ss` is invertible and can be permuted in a
+    block diagonal form, as this is the most relevant case for the intended usage. The
+    Schur complement of this system is assembled:
     ```
     S_pp = A_pp - A_ps * (A_ss)^-1 * A_sp.
     ```
@@ -101,17 +101,14 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         self, linear_system: LinearSystem
     ) -> _SchurComplementReductionData:
         """Construct index arrays based on the linear system indexers."""
-        primary_eqs, secondary_eqs = _filter_by_tags(
-            all_operators=linear_system.equation_indexer.indices,
-            tags=self.primary_equation_tags,
-        )
-        primary_vars, secondary_vars = _filter_by_tags(
-            all_operators=linear_system.variable_indexer.indices,
-            tags=self.primary_variable_tags,
-        )
-
         eq_indexer = linear_system.equation_indexer
         var_indexer = linear_system.variable_indexer
+        primary_eqs, secondary_eqs = _filter_by_tags(
+            all_operators=eq_indexer.indices, tags=self.primary_equation_tags
+        )
+        primary_vars, secondary_vars = _filter_by_tags(
+            all_operators=var_indexer.indices, tags=self.primary_variable_tags
+        )
 
         # The function below requires that the secondary equations and variables are
         # defined on all subdomains (and does not care about where primary equations and
