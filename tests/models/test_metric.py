@@ -370,7 +370,7 @@ class DummyEquations(pp.PorePyModel):
         """Set dummy equations based on the polynomial expression."""
         subdomains = self.mdg.subdomains()
         sd_eq = self.sd_eq(subdomains)
-        self.equation_system.set_equation(sd_eq, subdomains, {GridEntity.cells: 1})
+        self.equation_system.set_equation(sd_eq, {GridEntity.cells: 1})
 
 
 class SimpleVolumeIntegralMixin(pp.models.constitutive_laws.DimensionReduction):

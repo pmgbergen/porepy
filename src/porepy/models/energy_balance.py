@@ -157,18 +157,10 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
         intf_adv = self.interface_enthalpy_flux_equation(codim_1_interfaces)
         well_eq = self.well_enthalpy_flux_equation(codim_2_interfaces)
 
-        self.equation_system.set_equation(
-            sd_eq, subdomains, {pp.ad.GridEntity.cells: 1}
-        )
-        self.equation_system.set_equation(
-            intf_cond, codim_1_interfaces, {pp.ad.GridEntity.cells: 1}
-        )
-        self.equation_system.set_equation(
-            intf_adv, codim_1_interfaces, {pp.ad.GridEntity.cells: 1}
-        )
-        self.equation_system.set_equation(
-            well_eq, codim_2_interfaces, {pp.ad.GridEntity.cells: 1}
-        )
+        self.equation_system.set_equation(sd_eq, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(intf_cond, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(intf_adv, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(well_eq, {pp.ad.GridEntity.cells: 1})
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy balance equation for subdomains.
