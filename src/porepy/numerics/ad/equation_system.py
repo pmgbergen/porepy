@@ -689,7 +689,7 @@ class EquationSystem:
         for variable in variables:
             val = pp.get_solution_values(
                 variable.name,
-                self._get_data(variable.domain),
+                self._get_data(variable.domains[0]),
                 time_step_index=time_step_index,
                 iterate_index=iterate_index,
                 reference=reference,
@@ -760,7 +760,7 @@ class EquationSystem:
             pp.set_solution_values(
                 variable.name,
                 local_vec,
-                self._get_data(grid=variable.domain),
+                self._get_data(grid=variable.domains[0]),
                 time_step_index=time_step_index,
                 iterate_index=iterate_index,
                 additive=additive,
@@ -1719,7 +1719,7 @@ def cluster_dofs_gridwise(variables: list[pp.ad.Variable]) -> list[pp.ad.Variabl
     """
     mapping_grid_to_domains = defaultdict(lambda: [])
     for variable in variables:
-        mapping_grid_to_domains[variable.domain].append(variable)
+        mapping_grid_to_domains[variable.domains[0]].append(variable)
 
     known_grids = list(
         sorted(
