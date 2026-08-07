@@ -18,7 +18,6 @@ from porepy.numerics import solvers
 
 __all__ = [
     "TimeStepperStatus",
-    "TimeStepperStatusContinueIterating",
     "TimeStepperStatusSuccess",
     "TimeStepperStatusFailure",
 ]
@@ -28,7 +27,7 @@ __all__ = [
 class TimeStepperStatus(ABC):
     """A status object used to indicate the TimeStepper state. This is an enum of three
     allowed states: success / failure / continue_iterating. Each state can have data
-    associated with it. `TimeStepperStatusContinueIterating`, `TimeStepperStatusSuccess`
+    associated with it. `TimeStepperStatusSuccess`
     and `TimeStepperStatusFailure` can be subclassed to (i) introduce specific cases of
     these states and (ii) associate additional data with them. The base class
     `TimeStepperStatus` should NOT be subclassed.
@@ -57,46 +56,42 @@ class TimeStepperStatus(ABC):
 
 
 @dataclass
-class TimeStepperStatusContinueIterating(TimeStepperStatus):
-    """The TimeStepper attempted to make a time step, failed, but continue trying.
-
-    Note: Read the module docstring for a related discussion.
-
-    """
-
-    attempt: int
-    """Retry attempt number."""
-    nonlinear_solver_status: solvers.NonlinearSolverStatus
-    """Nonlinear solver status that caused the time step retry."""
-
-    def serialize(self) -> str:
-        return "in_progress"
+class TimeStepperAttemptData:
+    dt: float
+    nonlinear_solve_status: solvers.NonlinearSolverStatus
 
 
 @dataclass
 class TimeStepperStatusSuccess(TimeStepperStatus):
     """The TimeStepper made a time step successfully."""
 
-    dt: float
-    """Simulation time step magnitude."""
     time: float
-    """Simulation time at the end of the time step (t0 + dt)."""
+    """Simulation time at the start of the time step (t0)."""
 
-    nonlinear_solver_status: solvers.NonlinearSolverStatusConverged
-    """Nonlinear solver status that caused the time step success."""
+    attempts: list[TimeStepperAttemptData]
 
     def serialize(self) -> str:
         return "successful"
+
+    @property
+    def dt(self) -> float:
+        """Simulation time step magnitude."""
+        if len(self.attempts) == 0:
+            raise ValueError
+        return self.attempts[-1].dt
 
 
 @dataclass
 class TimeStepperStatusFailure(TimeStepperStatus):
     """The TimeStepper attempted to make a time step, but failed and gave up."""
 
-    nonlinear_solver_status: solvers.NonlinearSolverStatus
-    """Nonlinear solver status that caused the time step failure."""
     reason: str
     """Reason of failure."""
+
+    time: float
+    """Simulation time at the start of the time step (t0)."""
+
+    attempts: list[TimeStepperAttemptData]
 
     def serialize(self) -> str:
         return "failed"

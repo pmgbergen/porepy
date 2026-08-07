@@ -29,7 +29,7 @@ from porepy.numerics.solvers.nonlinear_solvers import (
     NonlinearSolverStatusFailed,
 )
 from porepy.time_stepper.time_step_status import (
-    TimeStepperStatusContinueIterating,
+    # TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
@@ -67,16 +67,16 @@ def time_step_failure() -> TimeStepperStatusFailure:
     )
 
 
-def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
-    """Create an in-progress time-step status for statistics tests."""
-    return TimeStepperStatusContinueIterating(
-        attempt=0,
-        nonlinear_solver_status=NewtonSolverFailed(
-            linear_solver_statuses=linear_solver_statuses(2),
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
-        ),
-    )
+# def time_step_status_in_progress() -> TimeStepperStatusContinueIterating:
+#     """Create an in-progress time-step status for statistics tests."""
+#     return TimeStepperStatusContinueIterating(
+#         attempt=0,
+#         nonlinear_solver_status=NewtonSolverFailed(
+#             linear_solver_statuses=linear_solver_statuses(2),
+#             convergence_statuses=ConvergenceStatusCollection(),
+#             divergence_statuses=ConvergenceStatusCollection(),
+#         ),
+#     )
 
 
 def default_newton_solver(nonlinear_increment_history: Optional[np.ndarray] = None):

@@ -591,8 +591,8 @@ else:
         See also :meth:`set_materials`.
 
         """
-        time_manager: pp.TimeManager
-        """Time manager for the simulation."""
+        time_data: pp.time_stepper.SimulationTimeData
+        """TODO YZ Time manager for the simulation."""
         restart_options: dict
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         ad_time_step: pp.ad.Scalar

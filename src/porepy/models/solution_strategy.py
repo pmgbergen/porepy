@@ -82,16 +82,13 @@ class SolutionStrategy(pp.PorePyModel):
         Reference values can be provided through ``params['reference_values']``.
 
         """
-        # The explicit check (not get with a default) is to avoid instantiating a
-        # TimeManager if it is not needed. This is done to avoid unnecessary checks
-        # run in the manager.
-        if "time_manager" not in params:
-            self.time_manager = pp.TimeManager(
-                schedule=[0, 1], dt_init=1, constant_dt=True
+        self.time_data = pp.time_stepper.SimulationTimeData(time=0.0, dt=1.0)
+        if "time_manager" in params:
+            warn(message="", category=FutureWarning, stacklevel=2)
+            time_manager = params["time_manager"]
+            self.time_data = pp.time_stepper.SimulationTimeData(
+                time=time_manager.schedule[0], dt=time_manager.dt_init
             )
-            """Time manager for the simulation."""
-        else:
-            self.time_manager = params["time_manager"]
 
         self.restart_options = params.get(
             "restart_options",
@@ -142,6 +139,11 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
+    @property
+    def time_manager(self) -> pp.TimeManager:
+        warn(message="", category=FutureWarning, stacklevel=2)
+        return pp.TimeManager(schedule=[self.time_data.time], dt_init=self.time_data.dt)
+
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
@@ -178,9 +180,9 @@ class SolutionStrategy(pp.PorePyModel):
         self.discretize()
         self.set_nonlinear_discretizations()
 
-        # Export initial condition (only if time-dependent)
-        if self._is_time_dependent():
-            self.save_data_time_step()
+        # # Export initial condition (only if time-dependent)
+        # if self._is_time_dependent():
+        #     self.save_data_time_step()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in
@@ -327,7 +329,7 @@ class SolutionStrategy(pp.PorePyModel):
            time-dependent values.
 
         """
-        self.ad_time_step.set_value(self.time_manager.dt)
+        self.ad_time_step.set_value(self.time_data.dt)
         self.initialize_nonlinear_solution()
         self.update_time_dependent_ad_arrays()
         self.update_derived_quantities()

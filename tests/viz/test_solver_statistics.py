@@ -10,7 +10,6 @@ from deepdiff import DeepDiff
 import porepy as pp
 from porepy.numerics.solvers import ConvergenceInfoHistory
 from porepy.time_stepper.time_step_status import (
-    TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
@@ -77,10 +76,10 @@ def time_stepper_status(
         return TimeStepperStatusSuccess(
             time=1.0, dt=0.5, nonlinear_solver_status=solver_status
         )
-    elif status == "continue_iterating":
-        return TimeStepperStatusContinueIterating(
-            attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")
-        )
+    # elif status == "continue_iterating":
+    #     return TimeStepperStatusContinueIterating(
+    #         attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")
+    #     )
     elif status == "failed":
         return TimeStepperStatusFailure(
             nonlinear_solver_status=nonlinear_solver_status("failed"),
@@ -270,14 +269,14 @@ def test_solver_statistics_initialization():
     assert stats.path is None
     assert stats.num_cells == {}
     assert stats.num_domains == {}
-    assert stats.simulation_status == TimeStepperStatusContinueIterating(
-        attempt=-1,
-        nonlinear_solver_status=pp.solvers.NewtonSolverConverged(
-            linear_solver_statuses=[],
-            convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-            divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
-        ),
-    )
+    # assert stats.simulation_status == TimeStepperStatusContinueIterating(
+    #     attempt=-1,
+    #     nonlinear_solver_status=pp.solvers.NewtonSolverConverged(
+    #         linear_solver_statuses=[],
+    #         convergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+    #         divergence_statuses=pp.solvers.ConvergenceStatusCollection(),
+    #     ),
+    # )
     assert stats.simulation_status_history == []
     assert stats.solver_status == pp.solvers.NewtonSolverConverged(
         linear_solver_statuses=[],

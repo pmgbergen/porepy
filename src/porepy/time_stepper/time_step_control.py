@@ -89,114 +89,16 @@ Algorithm Workflow in Pseudocode:
 
 from __future__ import annotations
 
-import json
-import warnings
-from pathlib import Path
+from warnings import warn
 from typing import Optional, Union
-
 import numpy as np
 from numpy.typing import ArrayLike
 
-import porepy as pp
 
 __all__ = ["TimeManager"]
 
 
 class TimeManager:
-    """Parent class for iteration-based time-stepping control routine.
-
-    Parameters:
-        schedule: Array-like object containing the target times for the simulation.
-            Unless a constant time step is prescribed, the time-stepping algorithm will
-            adapt the time step so that the scheduled times are guaranteed to be hit.
-
-            The `schedule` must contain minimally two elements, corresponding to the
-            initial and final simulation times. Schedules of size > 2 must contain
-            strictly increasing times. Examples of VALID inputs are: [0, 1],
-            np.array([0, 10, 30, 50]), and [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of
-            INVALID inputs are: [1], [1, 0], and np.array([0, 1, 1, 2]).
-
-            If a constant time step is used (`constant_dt = True`), then the time step
-            (`dt_init`) is required to be compatible with the scheduled times in
-            `schedule`. Otherwise, an error will be raised. Examples of VALID inputs for
-            `constant_dt = True` and `dt_init = 2` are: [0, 2] and np.array([0, 4, 6,
-            10]). Examples of INVALID inputs for `constant_dt = True` and `dt_init = 2`
-            are [0, 3] and np.array([0, 4, 5, 10]).
-        dt_init: Initial time step. The initial time step is required to be positive and
-            less or equal than the final simulation time.
-        constant_dt: Whether to treat the time step as constant or not.
-            If True, then the time-stepping control algorithm is effectively bypassed.
-            The algorithm will NOT adapt the time step in any situation, even if the
-            user attempts to recompute the solution. Nevertheless, the attributes such
-            as scheduled times will still be accessible, provided `dt_init` and
-            `schedule` are compatible.
-        dt_min_max: Minimum and maximum permissible time steps.
-            If None, then the minimum time step is set to 0.1% of the final simulation
-            time or the initial time step if it is smaller than that. The maximum time
-            step is set to 10% of the final simulation time. If given, then the first
-            and second elements of the tuple corresponds to the minimum and maximum time
-            steps, respectively.
-
-            To avoid oscillations and ensure a stable time step adaptation in
-            combination with the relaxation factors, we further require:
-                dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and dt_min_max[1]
-                * iter_relax_factors[0] > dt_min_max[0].
-            Note that in practical applications, these conditions are usually met.
-        iter_max: Maximum number of iterations.
-        iter_optimal_range: Optimal iteration range. The first and second elements of
-            the tuple correspond to the lower and upper endpoints of the optimal
-            iteration range.
-        iter_relax_factors: Relaxation factors.
-            The first and second elements of the tuple corresponds to the
-            under-relaxation and over-relaxation factors, respectively. We require the
-            under-relaxation factor to be strictly lower than one, whereas the
-            over-relaxation factor is required to be strictly greater than one. Note
-            that the values of `iter_relax_factors` must be selected such that they
-            avoid oscillations in combination with `dt_min_max`. Refer to the
-            documentation of `dt_min_max` for the explicit condition to be satisfied.
-        recomp_factor: Failed-to-converge solution recomputation factor.
-            Factor by which the time step will be multiplied in case the solution must
-            be recomputed. We require `recomp_factor` to be strictly less than one.
-        recomp_max: Failed-to-converge maximum recomputation attempts. The maximum
-            allowable number of consecutive recomputation attempts.
-        print_info. Whether to print on-the-fly time-stepping information or not.
-        rtol: Relative tolerance parameter for float point equality.
-        atol: Absolute tolerance parameter for float point equality.
-
-    Example:
-        # The following is an example on how to initialize a time-stepping object
-        time_manager = pp.TimeManager(
-            schedule=[0, 10],
-            dt_init=0.5,
-            dt_min_max=(0.1, 2),
-            iter_max=10,
-            iter_optimal_range=(3, 8),
-            iter_relax_factors=(0.9, 1.1),
-            recomp_factor=0.1,
-            recomp_max=5,
-            print_info=True
-        )
-        # To inspect the attributes of the object
-        print(time_manager)
-
-    Attributes:
-        dt (float): Time step.
-        dt_init (float): Initial time step.
-        dt_min_max (tuple[Union[int, float], Union[int, float]]): Min and max time
-            steps.
-        is_constant (bool): Constant time step flag.
-        iter_max (int): Maximum number of iterations.
-        iter_optimal_range (tuple[int, int]): Optimal iteration range.
-        iter_relax_factors (tuple[float, float]): Relaxation factors.
-        recomp_factor (float): Recomputation factor. Strictly lower than one.
-        recomp_max (int): Maximum number of recomputation attempts.
-        schedule (ArrayLike): List of scheduled times including initial and final times.
-        time (float): Current time.
-        time_final (float): Final simulation time.
-        time_init (float): Initial simulation time.
-
-    """
-
     def __init__(
         self,
         schedule: ArrayLike,
@@ -212,164 +114,15 @@ class TimeManager:
         rtol: float = 1e-10,
         atol: float = 1e-16,
     ) -> None:
-        schedule = np.array(schedule)
-        # Sanity checks for schedule
-        if np.size(schedule) < 2:
-            raise ValueError("Expected schedule with at least two elements.")
-        elif any(time < 0 for time in schedule):
-            raise ValueError("Encountered at least one negative time in schedule.")
-        elif not self._is_strictly_increasing(schedule):
-            raise ValueError("Schedule must contain strictly increasing times.")
-
-        # Sanity checks for initial time step
-        if dt_init <= 0:
-            raise ValueError("Initial time step must be positive.")
-        elif dt_init > schedule[-1]:
-            raise ValueError(
-                "Initial time step cannot be larger than final simulation time."
-            )
-
-        self.rtol = rtol
-        self.atol = atol
-
-        # If dt_min_max is not given, set dt_min=min(0.001*final_time, dt_init) and
-        # dt_max=0.1*final_time
-        dt_min_max_passed = dt_min_max  # store for later use
-        if dt_min_max is None:
-            dt_min_max = (min(dt_init, 0.001 * schedule[-1]), 0.1 * schedule[-1])
-
-        # More sanity checks below. Note that all the remaining sanity checks (but one)
-        # are only needed when constant_dt = False. Thus, to save time when constant_dt
-        # = True, we use this rather ugly if-statement from below.
-
-        if not constant_dt:
-            # Sanity checks for dt_min and dt_max
-            msg_dtmin = "Initial time step cannot be smaller than minimum time step. "
-            msg_dtmax = "Initial time step cannot be larger than maximum time step. "
-            msg_unset = (
-                "This error was raised since `dt_min_max` was not set on "
-                "initialization. Thus, values of dt_min and dt_max were assigned "
-                "based on the final simulation time. If you still want to use this "
-                "initial time step, consider passing `dt_min_max` explicitly."
-            )
-
-            if dt_init < dt_min_max[0]:
-                raise ValueError(msg_dtmin)
-
-            if dt_init > dt_min_max[1]:
-                if dt_min_max_passed is not None:
-                    raise ValueError(msg_dtmax)
-                else:
-                    raise ValueError(msg_dtmax + msg_unset)
-
-            # NOTE: The above checks guarantee that minimum time step <= maximum time
-            # step.
-
-            # Sanity checks for maximum number of iterations.
-            # Note that iter_max = 1 is a possibility. This will imply that the solver
-            # reaches convergence directly, e.g., as in direct solvers.
-            if iter_max <= 0:
-                raise ValueError("Maximum number of iterations must be positive.")
-
-            # Sanity checks for optimal iteration range
-            if iter_optimal_range[0] > iter_optimal_range[1]:
-                msg = (
-                    f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
-                    "range cannot be larger than upper endpoint "
-                    f"'{iter_optimal_range[1]}'."
-                )
-                raise ValueError(msg)
-            elif iter_optimal_range[1] > iter_max:
-                msg = (
-                    f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration "
-                    "range cannot be larger than maximum number of iterations "
-                    f"'{iter_max}'."
-                )
-                raise ValueError(msg)
-            elif iter_optimal_range[0] < 0:
-                msg = (
-                    f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration "
-                    "range cannot be negative."
-                )
-                raise ValueError(msg)
-
-            # Sanity checks for relaxation factors
-            if iter_relax_factors[0] >= 1:
-                raise ValueError("Expected under-relaxation factor < 1.")
-            elif iter_relax_factors[1] <= 1:
-                raise ValueError("Expected over-relaxation factor > 1.")
-
-            # Checks for sensible combinations of iter_optimal_range and
-            # iter_relax_factors
-            msg_dtmin_over = "Encountered dt_min * over_relax_factor > dt_max. "
-            msg_dtmax_under = "Encountered dt_max * under_relax_factor < dt_min. "
-            msg_osc = (
-                "The algorithm will behave erratically for such a combination of "
-                "parameters. See documentation of `dt_min_max` or `iter_relax_factors`."
-            )
-            if dt_min_max[0] * iter_relax_factors[1] > dt_min_max[1]:
-                raise ValueError(msg_dtmin_over + msg_osc)
-            elif dt_min_max[1] * iter_relax_factors[0] < dt_min_max[0]:
-                raise ValueError(msg_dtmax_under + msg_osc)
-
-            # Sanity check for recomputation factor
-            if recomp_factor >= 1:
-                raise ValueError("Expected recomputation factor < 1.")
-
-            # Sanity check for maximum number of recomputation attempts
-            if recomp_max <= 0:
-                raise ValueError("Number of recomputation attempts must be > 0.")
-
-        else:
-            # If the time step is constant, check that the scheduled times and the time
-            # step are compatible. See documentation of ``schedule``.
-            sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
-            is_compatible = self.is_schedule_in_simulated_times(
-                schedule,
-                sim_times,
-                rtol=self.rtol,
-                atol=self.atol,
-            )
-            if not is_compatible:
-                msg = (
-                    "Mismatch between the time step and scheduled time. Make sure the"
-                    " two are compatible, or consider adjusting the tolerances of the"
-                    " sanity check."
-                )
-                raise ValueError(msg)
-
-        # Schedule, initial, and final times
-        self.schedule = schedule
+        warn(message="", category=FutureWarning, stacklevel=2)
+        self.schedule = np.array(schedule)
         self.time_init = schedule[0]
         self.time_final = schedule[-1]
-        self._is_about_to_hit_schedule: bool = False
-        """This flag indicates that we expect the current time step to step over the
-        schedule point. Used to step back in the schedule if we did not converge."""
-
-        # Initial time step
         self.dt_init = dt_init
-
-        # Minimum and maximum allowable time steps
         self.dt_min_max = dt_min_max
-
-        # Maximum number of iterations TODO: This is really a property of the nonlinear
-        # solver. A full integration will most likely required "pulling" this parameter
-        # from the solver side.
-        self.iter_max = iter_max
-
-        # Optimal iteration range
         self.iter_optimal_range = iter_optimal_range
-
-        # Relaxation factors
         self.iter_relax_factors = iter_relax_factors
-
-        # Recomputation multiplication factor
         self.recomp_factor = recomp_factor
-
-        # Number of permissible re-computation attempts
-        self.recomp_max = recomp_max
-
-        # Constant time step flag
         self.is_constant = constant_dt
 
         # Time
