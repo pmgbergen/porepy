@@ -973,32 +973,32 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     Scalar = pp.ad.Scalar
     expr_p1 = p1 + s1 * Scalar(2.0) - Scalar(1.0)
     expr_p1.set_name("eq_p1")
-    equation_system.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_p1, eq_per_gridEntity)
 
     expr_p2 = p2 * Scalar(1.0) + s2 * Scalar(2.0) - Scalar(2.0)
     expr_p2.set_name("eq_p2")
-    equation_system.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_p2, eq_per_gridEntity)
 
     expr_s1 = p1 * Scalar(3.0) + s1 * Scalar(1.0) - Scalar(3.0)
     expr_s1.set_name("eq_s1")
-    equation_system.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_s1, eq_per_gridEntity)
 
     expr_s2 = p2 * Scalar(3.0) + s2 * Scalar(1.0) - Scalar(4.0)
     expr_s2.set_name("eq_s2")
-    equation_system.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_s2, eq_per_gridEntity)
 
     # On each interface, register 3 equations.
     eq_pf = pf ** Scalar(2.0) - Scalar(2.0)
     eq_pf.set_name("eq_p_f")
-    equation_system.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_pf, eq_per_gridEntity)
 
     eq_sf1 = pf + sf2 + sf1 * Scalar(2.5) - Scalar(1.0)
     eq_sf1.set_name("eq_s_f_1")
-    equation_system.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_sf1, eq_per_gridEntity)
 
     eq_sf2 = pf + sf2 * sf1 + sf1 - Scalar(10.0)
     eq_sf2.set_name("eq_s_f_2")
-    equation_system.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_sf2, eq_per_gridEntity)
 
     # Define "secondary" list of equations & variables.
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
