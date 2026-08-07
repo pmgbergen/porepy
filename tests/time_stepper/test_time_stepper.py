@@ -96,9 +96,13 @@ class MockModel(PorePyModel):
 
     def after_time_step_convergence(self):
         self.sequence_of_calls.append("after_time_step_convergence")
+        # Mimick the behavior of the real model.
+        self.nonlinear_solver_statistics.save()
 
     def after_time_step_failure(self):
         self.sequence_of_calls.append("after_time_step_failure")
+        # Mimick the behavior of the real model.
+        self.nonlinear_solver_statistics.save()
 
 
 class MockLinearSolver(pp.solvers.LinearSolverBase):
@@ -660,11 +664,9 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
     # Making two time steps.
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
-    model.nonlinear_solver_statistics.save()
 
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
-    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open(statistics_path, "r") as f:
@@ -690,24 +692,16 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
     # fail after two unsuccessful nonlinear iterations.
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_failure()
-    # Note that the first attempt (with dt=1) will not be saved in the file. The second
-    # attempt overrides it, because `model.save_data_time_step()` is not called in
-    # `model.after_time_step_failure()` in the SolutionStrategy. This behavior is
-    # inconsistent, but EK and YZ decided to keep it for compatability. This must be
-    # revisited when the whole statistics logging is reconsidered.
-    model.nonlinear_solver_statistics.save()
 
     # The time stepper gave up and the real simulation would be stopped at this moment.
     # But we use a mock convergence criterion, so we can try one more time with the same
     # dt=0.5. This time, the time step will converge after 1 nonlinear iteration.
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
-    model.nonlinear_solver_statistics.save()
 
     # The 4th time step will converge after 1 iteration with dt=4.
     status = time_stepper.perform_time_step(model=model, solver=solver)
     assert status.is_success()
-    model.nonlinear_solver_statistics.save()
 
     # Check solver statistics.
     with open(statistics_path, "r") as f:
@@ -744,13 +738,31 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
                 "res_nan": "converged",
             },
         },
-        # Note that the key "0" is abscent. See the comment above for details.
+        "0": {
+            "simulation_status": "in_progress",
+            "solver_status": "failed",
+            "final_time_reached": 1,
+            "time_index": 1,
+            "time": 1,
+            "dt": 1,
+            "num_iterations": 2,
+            "convergence_status": {
+                "crit1": ["converged", "converged"],
+                "crit2": ["continue_iterating", "continue_iterating"],
+                "max_iter": ["converged", "failed"],
+                "inc_inf": ["converged", "converged"],
+                "res_inf": ["converged", "converged"],
+                "inc_nan": ["converged", "converged"],
+                "res_nan": ["converged", "converged"],
+            },
+            "convergence_info": {"crit1": [0, 0], "crit2": [0.1, 0.1]},
+        },
         "1": {
             "simulation_status": "failed",
             "solver_status": "failed",
             "final_time_reached": 0,
-            "time_index": 0,
-            "time": 0,
+            "time_index": 1,
+            "time": 0.5,
             "dt": 0.5,
             "num_iterations": 2,
             "convergence_status": {
