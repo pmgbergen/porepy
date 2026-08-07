@@ -100,7 +100,13 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
     def _initialize_data(
         self, linear_system: LinearSystem
     ) -> _SchurComplementReductionData:
-        """Construct index arrays based on the linear system indexers."""
+        """Construct index arrays based on the linear system indexers.
+
+        Raises:
+            ValueError: If A_pp and A_ss are not square matrices according to the tags
+                passed to the solver.
+
+        """
         eq_indexer = linear_system.equation_indexer
         var_indexer = linear_system.variable_indexer
         primary_eqs, secondary_eqs = _filter_by_tags(
@@ -110,6 +116,22 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
             all_operators=var_indexer.indices, tags=self.primary_variable_tags
         )
 
+        # Validate that A_pp and A_ss are square matrices.
+        primary_eq_indexer = eq_indexer.construct_restricted_indexer(primary_eqs)
+        primary_var_indexer = var_indexer.construct_restricted_indexer(primary_vars)
+        secondary_eq_indexer = eq_indexer.construct_restricted_indexer(secondary_eqs)
+        secondary_var_indexer = var_indexer.construct_restricted_indexer(secondary_vars)
+        if primary_eq_indexer.size != primary_var_indexer.size:
+            raise ValueError(
+                "Primary submatrix is not square with shape: "
+                f"({primary_eq_indexer.size}, {primary_var_indexer.size})"
+            )
+        if secondary_eq_indexer.size != secondary_var_indexer.size:
+            raise ValueError(
+                "Secondary submatrix is not square with shape: "
+                f"({secondary_eq_indexer.size}, {secondary_var_indexer.size})"
+            )
+
         # The function below requires that the secondary equations and variables are
         # defined on all subdomains (and does not care about where primary equations and
         # variables are defined). It will validate it and raise otherwise. If this ever
@@ -117,14 +139,13 @@ class SchurComplementReductionLinearSolver(LinearSolverBase):
         # case: generate_permutation_to_block_diag_matrix.
         secondary_eq_perm, secondary_var_perm, block_sizes = (
             rearrange_matrix_as_array_of_structures(
-                eq_indexer=eq_indexer.construct_restricted_indexer(secondary_eqs),
-                var_indexer=var_indexer.construct_restricted_indexer(secondary_vars),
+                eq_indexer=secondary_eq_indexer, var_indexer=secondary_var_indexer
             )
         )
 
         return _SchurComplementReductionData(
-            primary_eq_indexer=eq_indexer.construct_restricted_indexer(primary_eqs),
-            primary_var_indexer=var_indexer.construct_restricted_indexer(primary_vars),
+            primary_eq_indexer=primary_eq_indexer,
+            primary_var_indexer=primary_var_indexer,
             primary_eq_dofs=eq_indexer.projection_indices(primary_eqs),
             primary_var_dofs=var_indexer.projection_indices(primary_vars),
             secondary_eq_dofs=eq_indexer.projection_indices(secondary_eqs),

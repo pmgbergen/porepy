@@ -181,6 +181,7 @@ class EquationIndexer:
     def __init__(self, indices: dict[EquationOnDomain, np.ndarray]) -> None:
         self.indices: Final[dict[EquationOnDomain, np.ndarray]] = indices
         """Mapping of atomic equations to their DoF indices."""
+        self.size: int = sum(x.size for x in self.indices.values())
 
     def group_by_name(self) -> dict[str, dict[pp.GridLike, np.ndarray]]:
         """Group :attr:`indices` by equation names.
