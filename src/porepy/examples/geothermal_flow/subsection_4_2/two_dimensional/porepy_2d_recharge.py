@@ -104,34 +104,31 @@ CELL_SIZE = 100.0           # target cell size [m]
 RECHARGE_FRAC = 0.25        # recharge patch: top face, x < RECHARGE_FRAC*LX
 DISCHARGE_FRAC = 0.75       # discharge patch: top face, x > DISCHARGE_FRAC*LX
 
-# ------------------------------------------------------------------ initial condition (linear)
-# Liquid-dominated reservoir + boiling discharge vent.  The reservoir is a DEEP, high-pressure
-# liquid brine column (P_TOP_IC = 5 MPa -> the whole IC is single-phase liquid, s_v = 0), so the
-# thick, nearly incompressible liquid PINS the pressure and the IC is well-conditioned.  Halite is
-# present throughout (z = 0.5 -> s_h ~ 0.1): the required second phase (liquid + halite).  Vapor --
-# needed for HU (hybrid upwinding only does work with >=2 MOBILE phases; halite is immobile) -- is
-# NOT in the IC; it forms DYNAMICALLY at the low-pressure discharge vent, where the upflowing hot
-# brine crosses the boiling curve (P_DISCHARGE = 2 MPa << reservoir p).  There liquid and vapor
-# coexist and counter-flow -> HU is active, but the zone is localized and its pressure is pinned by
-# the Dirichlet discharge BC (unlike the free-floating steam column, which was ill-posed).
-P_TOP_IC = 2.0              # IC pressure at the top [MPa] (= boiling p at T_equil -> thin vapor cap)
-RHO_REF = 1000.0            # brine reference density for the linear hydrostatic gradient [kg/m^3]
-# Deep liquid IC: p is liquid-hydrostatic (rho_ff = rho_liquid, integrated in _hydrostatic_p); T is a
-# geothermal gradient 250 -> 350 C; z is halite-saturated so s_h ~ 0.1 (liquid + halite everywhere).
-# At P_TOP_IC = 5 MPa the top (250 C) sits above the boiling pressure p_sat(250 C) ~ 4 MPa, so no
-# steam anywhere in the IC -- the boiling is confined to the discharge vent during the run.
-T_TOP_IC = 250.0 + 273.15   # IC top temperature [K]  (geothermal gradient, cool top)
-T_BOT_IC = 350.0 + 273.15   # IC base temperature [K]  (hot base)
-Z_TOP = 0.5                  # NaCl overall fraction [-] (z=0.5 -> s_h ~ 0.1, liquid + halite)
-Z_BOTTOM = 0.5               # NaCl overall fraction [-]
+# ------------------------------------------------------------------ initial condition
+# Option 2 -- VAPOR + halite reservoir, cold-liquid recharge.  IC = the isothermal vapor+halite
+# equilibrium (T = 300 C, z = 0.95, P_TOP = 2 MPa -> s_v ~ 0.93 mobile vapor, s_h ~ 0.06 halite, no
+# liquid); it holds at machine zero (see the --equilibrate block in the module docstring). Cold
+# LIQUID recharges the top-left (60 C, 2.5 MPa, fresh): the dense brine plunges into the light vapor
+# -> a ~100x density contrast drives vigorous buoyant counter-flow (HU active) WITHOUT boiling, and
+# being under-saturated it DISSOLVES halite -> s_h decreases, staying away from the s_h -> 1
+# permeability singularity that a boiling/precipitation plume would hit (loss of coercivity).
+P_TOP_IC = 2.0              # IC pressure at the top [MPa]  (whole column vapor at 300 C)
+RHO_REF = 1000.0            # brine reference density for the hydrostatic first guess [kg/m^3]
+# Isothermal vapor+halite IC: p is vapor-hydrostatic (rho_ff = rho_v ~ 9, so p barely builds, 2.0 ->
+# 2.14 MPa), h from the phz flash search at the constant T, z halite-saturated (s_h > 0). At 300 C
+# the halite-brine boiling pressure is ~6-7 MPa >> P_TOP, so the column is single-phase vapor.
+T_TOP_IC = 300.0 + 273.15   # IC temperature [K]  (ISOTHERMAL -- the equilibrium state)
+T_BOT_IC = 300.0 + 273.15   # IC temperature [K]  (= T_TOP_IC)
+Z_TOP = 0.95                 # NaCl overall fraction [-] (z=0.95 -> s_h ~ 0.06 in the vapor)
+Z_BOTTOM = 0.95              # NaCl overall fraction [-]
 
 # ------------------------------------------------------------------ boundary conditions
-P_RECHARGE = 6.0            # recharge (inlet) pressure [MPa]  (gentle head over the 5 MPa top)
-T_RECHARGE = 100.0 + 273.15 # recharge temperature [K]  (cold meteoric water)
-Z_RECHARGE = 0.0            # recharge salinity [-]  (dilute / fresh)
-P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]  (low head -> boiling/steam vent)
-T_DISCHARGE = 250.0 + 273.15# discharge temperature [K]
-T_BOTTOM_BC = 350.0 + 273.15# fixed base temperature [K]  (the geothermal heat source)
+P_RECHARGE = 4.0            # recharge (inlet) pressure [MPa] 
+T_RECHARGE = 80.0 + 273.15  # recharge temperature [K]  (COLD liquid meteoric water)
+Z_RECHARGE = 0.0            # recharge salinity [-]  (dilute / fresh -> dissolves halite)
+P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]
+T_DISCHARGE = 300.0 + 273.15# discharge temperature [K]  (not imposed: energy is Neumann at the outlet)
+T_BOTTOM_BC = 300.0 + 273.15# fixed base temperature [K]  (matches the 300 C IC -> no thermal driving)
 
 
 # ------------------------------------------------------------------ low-k barriers (aquitards)
@@ -410,9 +407,9 @@ _ap.add_argument("--equilibrate", action="store_true",
                  help="IC-evolution test: ISOTHERMAL column at --t-equil (no recharge/discharge "
                       "forcing, base BC matched to the column T), so the system just relaxes the IC "
                       "toward equilibrium -- a true static check of the initial condition")
-_ap.add_argument("--t-equil", type=float, default=230.0, metavar="C",
+_ap.add_argument("--t-equil", type=float, default=300.0, metavar="C",
                  help="--equilibrate isothermal temperature [degC] (also the matched base BC); "
-                      "low enough (~230) that the column is liquid-dominated -> pressure is pinned")
+                      "300 -> vapor+halite (Option 2 IC); ~230 -> liquid+halite")
 _ap.add_argument("--p-top", type=float, default=P_TOP_IC, metavar="MPA",
                  help="IC pressure at the top [MPa]; > boiling p at --t-equil -> whole column liquid "
                       "(no vapor cap), = boiling p -> thin cap over liquid (default %(default)s)")
