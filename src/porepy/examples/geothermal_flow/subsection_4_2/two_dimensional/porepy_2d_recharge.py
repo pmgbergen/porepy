@@ -101,8 +101,8 @@ G = pp.GRAVITY_ACCELERATION
 LX = 4000.0                 # domain width [m]
 LZ = 2000.0                 # domain height [m]  (y vertical: y=LZ top, y=0 base)
 CELL_SIZE = 100.0           # target cell size [m]
-RECHARGE_FRAC = 0.25        # recharge patch: top face, x < RECHARGE_FRAC*LX
-DISCHARGE_FRAC = 0.75       # discharge patch: top face, x > DISCHARGE_FRAC*LX
+RECHARGE_FRAC = 0.125       # recharge patch: top face, x < RECHARGE_FRAC*LX (0-500 m, half length)
+DISCHARGE_FRAC = 0.875      # discharge patch: top face, x > DISCHARGE_FRAC*LX (3500-4000 m, half length)
 
 # ------------------------------------------------------------------ initial condition
 # Option 2 -- VAPOR + halite reservoir, cold-liquid recharge.  IC = the isothermal vapor+halite
@@ -582,7 +582,7 @@ _attach_samplers(model)
 
 if __name__ == "__main__":
     tb = time.time()
-    solver_params = model.default_nonlinear_criteria(tol=1.0e-3)   # looser than the 1e-4 default
+    solver_params = model.default_nonlinear_criteria()
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     print("Elapsed time prepare simulation:", time.time() - tb)
@@ -600,3 +600,6 @@ if __name__ == "__main__":
     tb = time.time()
     runner.run()
     print("Elapsed time run:", time.time() - tb)
+
+# fixed dimensional setting: python porepy_2d_recharge.py --report-every-years 10 --end-years 2000 --dt-nominal 1 --dt-min 0.0125 --dt-max 50
+
