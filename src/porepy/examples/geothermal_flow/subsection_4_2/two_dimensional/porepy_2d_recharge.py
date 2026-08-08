@@ -16,11 +16,10 @@ Initial condition -- phz-consistent hydrostatic column (enthalpy from the SOLVER
                 In the two-phase band T is flat in h, so enthalpy -- not T -- resolves the phase
                 split; searching the phz flash directly (not bridging through the ptz H) makes the
                 eliminated-T/saturation closure residual EXACTLY 0 at t=0.
-    NaCl z    : constant 0.5 (halite-saturated -> s_h ~ 0.1)
-At a liquid-dominated T (~230 C, --equilibrate) the column is a thin vapor cap (top, p = boiling p)
-over a deep liquid + halite body that pins the pressure. With the previous-time-step store synced to
-the IC (_sync_prev_timestep_to_ic -> accumulation = 0 at t=0), --equilibrate holds at MACHINE ZERO
-(residual ~1e-15); the forced recharge/discharge run starts from ~1e-1 with no recomputes.
+    NaCl z    : constant (halite-saturated -> s_h > 0)
+With the previous-time-step store synced to the IC (_sync_prev_timestep_to_ic -> accumulation = 0 at
+t=0), this IC is an EXACT discrete equilibrium: --equilibrate holds at MACHINE ZERO (residual ~1e-15,
+0 recomputes); the forced recharge/discharge run starts from ~1e-1 with no recomputes.
 
 Boundary conditions:
     recharge  (Dirichlet p, T, z): p = P_RECHARGE (high head), T = T_RECHARGE (cold), z = 0 (dilute)
@@ -28,6 +27,27 @@ Boundary conditions:
               fluid temperature is advected out (not pinned to a boundary value)
     base      (Dirichlet T only, no fluid flow): T = T_BOTTOM_BC (350 C) -- the geothermal heat
     every other face: no-flow, adiabatic
+
+--equilibrate (static IC check): drops all recharge/discharge forcing, holds the column ISOTHERMAL at
+--t-equil (base BC matched to it, so nothing drives the system), and lets the solver sit on the IC --
+a direct test that the initial condition is a discrete equilibrium. It now holds at machine zero.
+Which single mobile phase the column settles on is set by TEMPERATURE (through the boiling pressure),
+NOT by --p-top: the boiling curve is bistable and the liquid-seeded hydrostatic Picard resolves it.
+
+    --t-equil  --z    p (MPa)        state                                 mobile phase
+    230 C      0.5    2.55 -> 23.45  liquid + halite  (s_v 0,   s_h 0.15)  liquid
+    350 C      0.95   2.00 ->  2.14  vapor  + halite  (s_v 0.93, s_h 0.06) vapor
+
+  230 C: boiling p ~2 MPa -> the column is on the LIQUID branch (rho ~1100, builds to 23 MPa and pins
+         its own pressure); two phases, liquid + immobile halite, no vapor.
+  350 C: boiling p ~16 MPa >> P_TOP -> the whole column is on the VAPOR branch (rho ~9, nearly
+         weightless, barely reaches 2.14 MPa). This is the volcanic vapor+halite state that used to
+         collapse (p 2.0 -> 0.22, -89 % mass); it now holds exactly -- the collapse was the
+         previous-time-step accumulation artifact, not vapor compressibility.
+  Both hold at machine zero. HU is idle in either static equilibrium (a single mobile phase); it does
+  its work in the FORCED run launched from the IC. Examples:
+    liquid: python porepy_2d_recharge.py --equilibrate --no-barriers --t-equil 230 --z-top 0.5  --z-bottom 0.5  --p-top 2 --report-every-years 0.2 --end-years 1
+    vapor : python porepy_2d_recharge.py --equilibrate --no-barriers --t-equil 350 --z-top 0.95 --z-bottom 0.95 --p-top 2 --report-every-years 0.2 --end-years 1
 
 Reuses the subsection_4_2 machinery: graded OBL tables, Schur-CPR (PETSc), the weis backtracking
 line search, the slave (exact flash each iterate) and the shared base nonlinear criterion.
