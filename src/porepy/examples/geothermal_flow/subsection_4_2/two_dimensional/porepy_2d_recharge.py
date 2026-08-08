@@ -1,27 +1,41 @@
 """Meteoric-recharge / halite-dissolution 2D solver (subsection 4.2, two_dimensional).
 
-A gravity/head-driven flow cell through a halite-bearing HOT aquifer (the reverse of the
-boiling-precipitation column): dilute meteoric water recharges at a topographic high (high head),
-flows through the aquifer dissolving the immobile halite, and discharges as brine at a low (low
-head).  Kept single-phase LIQUID by a deep, high-pressure regime, so it dissolves rather than boils.
+A gravity/head-driven flow cell through a halite-bearing HOT aquifer: dilute meteoric water
+recharges at a topographic high (high head), flows through the deep LIQUID + halite reservoir
+dissolving the immobile halite, and rises to a low-pressure discharge vent where it FLASHES to
+steam.  The reservoir is liquid (deep, high-p -> well-conditioned); the boiling is confined to the
+vent, giving the mobile vapor + liquid that HU (hybrid upwinding) needs to do anything.
 
 Geometry (RechargeGeometry2D): a LX x LZ rectangle; y is vertical (y = LZ top, y = 0 base).
     recharge  = top face, x < RECHARGE_FRAC*LX   (top-left)
     discharge = top face, x > DISCHARGE_FRAC*LX  (top-right)
 
-Initial condition (all LINEAR with depth; the halite is whatever the flash returns from these):
-    pressure     : brine-hydrostatic, P_TOP_IC at the top -> ~+RHO_REF g LZ at the base
-    temperature  : T_TOP_IC (250 C) -> T_BOT_IC (350 C), mean 300 C
-    NaCl frac z  : Z_TOP -> Z_BOTTOM  (increasing downward -> halite precipitates at depth)
+Initial condition -- phz-consistent hydrostatic column (enthalpy from the SOLVER's flash):
+    pressure  : hydrostatic  dp/dx3 = rho_ff g  (rho_ff = fractional-flow density; _hydrostatic_p)
+    enthalpy  : h(x3) found by a phz FLASH SEARCH so the flash returns the target T (_h_from_T_phz).
+                In the two-phase band T is flat in h, so enthalpy -- not T -- resolves the phase
+                split; searching the phz flash directly (not bridging through the ptz H) makes the
+                eliminated-T/saturation closure residual EXACTLY 0 at t=0.
+    NaCl z    : constant 0.5 (halite-saturated -> s_h ~ 0.1)
+At a liquid-dominated T (~230 C, --equilibrate) the column is a thin vapor cap (top, p = boiling p)
+over a deep liquid + halite body that pins the pressure. With the previous-time-step store synced to
+the IC (_sync_prev_timestep_to_ic -> accumulation = 0 at t=0), --equilibrate holds at MACHINE ZERO
+(residual ~1e-15); the forced recharge/discharge run starts from ~1e-1 with no recomputes.
 
 Boundary conditions:
-    recharge  (Dirichlet): p = P_RECHARGE (high head), T = T_RECHARGE (cold), z = 0 (dilute)
-    discharge (Dirichlet): p = P_DISCHARGE (low head), T = T_DISCHARGE
+    recharge  (Dirichlet p, T, z): p = P_RECHARGE (high head), T = T_RECHARGE (cold), z = 0 (dilute)
+    discharge (Dirichlet p, Neumann T): p = P_DISCHARGE (low head); zero conductive flux so the
+              fluid temperature is advected out (not pinned to a boundary value)
     base      (Dirichlet T only, no fluid flow): T = T_BOTTOM_BC (350 C) -- the geothermal heat
     every other face: no-flow, adiabatic
 
 Reuses the subsection_4_2 machinery: graded OBL tables, Schur-CPR (PETSc), the weis backtracking
 line search, the slave (exact flash each iterate) and the shared base nonlinear criterion.
+
+Reference run (now the defaults, so bare ``python porepy_2d_recharge.py`` reproduces it):
+    --p-recharge 2.5 --report-every-years 10 --end-years 2000   with the barriers ON.
+Robust, shows clean results. Timing on the dev machine: ~1:16 h wall
+(25799.97 s user + 15377.62 s system, ~902% CPU), 200 VTU snapshots. Use --no-barriers to disable.
 """
 from __future__ import annotations
 
@@ -71,23 +85,31 @@ RECHARGE_FRAC = 0.25        # recharge patch: top face, x < RECHARGE_FRAC*LX
 DISCHARGE_FRAC = 0.75       # discharge patch: top face, x > DISCHARGE_FRAC*LX
 
 # ------------------------------------------------------------------ initial condition (linear)
-# Volcanic-hosted regime: LOW top pressure so the shallow, hot part flashes to a STEAM + HALITE
-# cap, while the deeper (higher-p) part stays LIQUID -> a single model with both the Morgan
-# recharge-discharge flow structure and a volcanic vapor-dominated cap over a liquid dissolution
-# zone.  The steam+halite cap forms DYNAMICALLY where upflowing saline brine crosses the boiling
-# curve (the IC seeds a salt-poor steam cap over the deep liquid+halite reservoir).
-P_TOP_IC = 2.0              # IC pressure at the top [MPa] (LOW -> shallow steam cap)
+# Liquid-dominated reservoir + boiling discharge vent.  The reservoir is a DEEP, high-pressure
+# liquid brine column (P_TOP_IC = 5 MPa -> the whole IC is single-phase liquid, s_v = 0), so the
+# thick, nearly incompressible liquid PINS the pressure and the IC is well-conditioned.  Halite is
+# present throughout (z = 0.5 -> s_h ~ 0.1): the required second phase (liquid + halite).  Vapor --
+# needed for HU (hybrid upwinding only does work with >=2 MOBILE phases; halite is immobile) -- is
+# NOT in the IC; it forms DYNAMICALLY at the low-pressure discharge vent, where the upflowing hot
+# brine crosses the boiling curve (P_DISCHARGE = 2 MPa << reservoir p).  There liquid and vapor
+# coexist and counter-flow -> HU is active, but the zone is localized and its pressure is pinned by
+# the Dirichlet discharge BC (unlike the free-floating steam column, which was ill-posed).
+P_TOP_IC = 2.0              # IC pressure at the top [MPa] (= boiling p at T_equil -> thin vapor cap)
 RHO_REF = 1000.0            # brine reference density for the linear hydrostatic gradient [kg/m^3]
-T_TOP_IC = 250.0 + 273.15   # top temperature [K]
-T_BOT_IC = 350.0 + 273.15   # base temperature [K]  (mean 300 C)
-Z_TOP = 0.90                 # NaCl overall fraction at the top [-]  (keeps S_h <= 0.15)
-Z_BOTTOM = 0.95              # NaCl overall fraction at the base [-]  (S_h peaks ~0.13 at the base)
+# Deep liquid IC: p is liquid-hydrostatic (rho_ff = rho_liquid, integrated in _hydrostatic_p); T is a
+# geothermal gradient 250 -> 350 C; z is halite-saturated so s_h ~ 0.1 (liquid + halite everywhere).
+# At P_TOP_IC = 5 MPa the top (250 C) sits above the boiling pressure p_sat(250 C) ~ 4 MPa, so no
+# steam anywhere in the IC -- the boiling is confined to the discharge vent during the run.
+T_TOP_IC = 250.0 + 273.15   # IC top temperature [K]  (geothermal gradient, cool top)
+T_BOT_IC = 350.0 + 273.15   # IC base temperature [K]  (hot base)
+Z_TOP = 0.5                  # NaCl overall fraction [-] (z=0.5 -> s_h ~ 0.1, liquid + halite)
+Z_BOTTOM = 0.5               # NaCl overall fraction [-]
 
 # ------------------------------------------------------------------ boundary conditions
-P_RECHARGE = 15.0           # recharge (inlet) pressure [MPa]  (high head -> liquid inflow)
+P_RECHARGE = 6.0            # recharge (inlet) pressure [MPa]  (gentle head over the 5 MPa top)
 T_RECHARGE = 100.0 + 273.15 # recharge temperature [K]  (cold meteoric water)
 Z_RECHARGE = 0.0            # recharge salinity [-]  (dilute / fresh)
-P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]  (low head -> steam vent)
+P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]  (low head -> boiling/steam vent)
 T_DISCHARGE = 250.0 + 273.15# discharge temperature [K]
 T_BOTTOM_BC = 350.0 + 273.15# fixed base temperature [K]  (the geothermal heat source)
 
@@ -100,7 +122,7 @@ T_BOTTOM_BC = 350.0 + 273.15# fixed base temperature [K]  (the geothermal heat s
 # (x_min, x_max, y_min, y_max) in metres; y is elevation (y=LZ top, y=0 base).
 BARRIER_PERM_FACTOR = 1.0e-3
 _BARRIERS = [   # thin (~100 m / single cell-layer) beds
-    (   0.0, 1800.0, 1700.0, 1800.0),   # shallow, left        (gap: x > 1800)
+    ( 400.0, 1800.0, 1700.0, 1800.0),   # shallow, left  (+4-cell far-left sink gap: recharge descends)
     (2200.0, 4000.0, 1500.0, 1600.0),   # shallow-mid, right   (gap: x < 2200)
     ( 500.0, 2500.0, 1200.0, 1300.0),   # mid, centre          (gaps: both ends)
     (2600.0, 4000.0,  900.0, 1000.0),   # mid-deep, right      (gap: x < 2600)
@@ -121,15 +143,55 @@ def _linear_p(depth: np.ndarray) -> np.ndarray:
     return P_TOP_IC + RHO_REF * G * depth * to_Mega
 
 
+def _fractional_flow_density(pd) -> np.ndarray:
+    """Buoyancy density used by the pressure equation's gravity term: the MASS-fractional-flow
+    weighted density  rho = sum_j f_j rho_j,  f_j = m_j / sum_k m_k,  m_j = rho_j k_r(s_j) / mu_j
+    (fluid_property_library.fractionally_weighted_density). This is NOT the VTR 'Rho' field, which
+    is the saturation-weighted bulk density sum_j s_j rho_j -- a different quantity that includes
+    the IMMOBILE halite's weight. Integrating the fluid hydrostatic with the bulk density leaves
+    dp/dz != (solver buoyancy) g, so the first step relaxes the pressure and it never returns.
+    Weis option-B rel-perm (the (1-s_h)^2 abs-perm factor cancels in f_j); halite has k_r = 0."""
+    sl = np.asarray(pd["S_l"], float); sv = np.asarray(pd["S_v"], float); sh = np.asarray(pd["S_h"], float)
+    rho_l = np.asarray(pd["Rho_l"], float); rho_v = np.asarray(pd["Rho_v"], float)
+    mu_l = np.asarray(pd["mu_l"], float);   mu_v = np.asarray(pd["mu_v"], float)
+    kr_l = np.clip((sl / np.clip(1.0 - sh, 1.0e-12, None) - 0.3) / 0.7, 0.0, None)   # Weis liquid k_r
+    kr_v = 1.0 - kr_l                                                                # option B: sum = 1
+    m_l = np.where(kr_l > 0.0, rho_l * kr_l / np.clip(mu_l, 1.0e-30, None), 0.0)     # rho_j k_r/mu_j
+    m_v = np.where(kr_v > 0.0, rho_v * kr_v / np.clip(mu_v, 1.0e-30, None), 0.0)
+    mt = m_l + m_v
+    return np.where(mt > 0.0, (m_l * rho_l + m_v * rho_v) / np.where(mt > 0.0, mt, 1.0), rho_v)
+
+
+def _h_from_T_phz(z, p, T_K, sampler_phz) -> np.ndarray:
+    """Enthalpy h [MJ/kg] such that the PHZ flash returns temperature T_K [K], per node
+    (vectorised bisection; T(h) is monotone non-decreasing at fixed z, p). This is the
+    phz-consistent way to impose a constant-T column: enthalpy varies with depth to hold T fixed.
+    In the two-phase band T is flat in h, so it lands on the saturated edge; in the single-phase
+    liquid body (the bulk of a liquid-dominated column) h is unique. Searching the phz flash
+    directly -- not bridging through the ptz H -- keeps the IC exactly consistent with the flash
+    the solver evaluates, so the eliminated-T closure residual is ~0 at t = 0."""
+    z = np.asarray(z, float); p = np.asarray(p, float); T_K = np.asarray(T_K, float)
+    lo = np.full(p.shape, 1.0e-4); hi = np.full(p.shape, 4.7)              # phz h-axis bounds [MJ/kg]
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        sampler_phz.sample_at(np.column_stack([z, mid, p]))
+        Tm = np.asarray(sampler_phz.sampled_could.point_data["Temperature"], float)   # [K]
+        below = Tm < T_K
+        lo = np.where(below, mid, lo)
+        hi = np.where(below, hi, mid)
+    return 0.5 * (lo + hi)
+
+
 _HYDRO_CACHE: dict = {}
 
 
-def _hydrostatic_p(depth: np.ndarray, sampler) -> np.ndarray:
-    """IC pressure in true hydrostatic balance: integrate dp = rho_mix(z,T,p) g dz down from
-    P_TOP_IC at the surface, using the flash MIXTURE density (not the constant RHO_REF, not a
-    phase density). A constant-density column leaves dp/dz != rho_mix g everywhere, i.e. a
-    spurious vertical Darcy flux the solver can never null -- the first step then stalls at every
-    dt. rho depends (weakly) on p, so Picard-iterate. Cached per (P_TOP_IC, z/T profile)."""
+def _hydrostatic_p(depth: np.ndarray, sampler, sampler_phz=None) -> np.ndarray:
+    """IC pressure in true hydrostatic balance with the SOLVER's gravity term: integrate
+    dp = rho_ff(z,T,p) g dz down from P_TOP_IC, where rho_ff is the mass-fractional-flow density
+    (:func:`_fractional_flow_density`), i.e. sum_j f_j rho_j -- exactly the buoyancy density the
+    pressure equation uses. Using the saturation-weighted VTR 'Rho' instead (sum_j s_j rho_j, which
+    counts the immobile halite's weight) leaves dp/dz != (solver buoyancy) g, so the first step
+    relaxes the pressure. rho depends (weakly) on p, so Picard-iterate. Cached per (P_TOP_IC, z/T)."""
     key = (P_TOP_IC, Z_TOP, Z_BOTTOM, T_TOP_IC, T_BOT_IC)
     prof = _HYDRO_CACHE.get(key)
     if prof is None:
@@ -140,11 +202,14 @@ def _hydrostatic_p(depth: np.ndarray, sampler) -> np.ndarray:
         p = P_TOP_IC + RHO_REF * G * dc * to_Mega            # constant-rho first guess
         rho = np.full(n, RHO_REF)
         for _ in range(50):
-            sampler.sample_at(np.column_stack([z, T, p]))
-            pd = sampler.sampled_could.point_data
-            if "Rho" not in pd:
-                raise KeyError(f"mixture density 'Rho' not in flash output; have {list(pd)}")
-            rho = np.asarray(pd["Rho"], float)
+            if sampler_phz is not None:                          # phz-consistent: search h so the phz
+                H = _h_from_T_phz(z, p, T, sampler_phz)           # flash returns the target T, then read
+                sampler_phz.sample_at(np.column_stack([z, H, p])) # phase props at (z, h, p) from it
+                pd = sampler_phz.sampled_could.point_data
+            else:                                                # fallback: ptz T -> H bridge
+                sampler.sample_at(np.column_stack([z, T, p]))
+                pd = sampler.sampled_could.point_data
+            rho = _fractional_flow_density(pd)               # solver buoyancy density, NOT pd["Rho"]
             pn = np.empty_like(p)
             pn[0] = P_TOP_IC + rho[0] * G * (dz * 0.5) * to_Mega        # surface -> first center
             for k in range(1, n):
@@ -189,17 +254,35 @@ class BCRecharge(BC):
     """Recharge / discharge Dirichlet on the top, a fixed-T geothermal base, no-flow elsewhere."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        rech, disch = self.get_inlet_outlet_sides(sd)
+        if _args.equilibrate:                       # IC-evolution test: closed box, but PIN ONE cell's
+            top = np.where(self.domain_boundary_sides(sd).north)[0]   # pressure (Dirichlet reference)
+            pin = top[len(top) // 2:len(top) // 2 + 1]               # to fix the gauge: pure Neumann
+            return pp.BoundaryCondition(sd, pin, "dir")              # leaves the constant mode free ->
+        rech, disch = self.get_inlet_outlet_sides(sd)               # level drifts -> uniform collapse
         return pp.BoundaryCondition(sd, np.concatenate((rech, disch)), "dir")
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        rech, disch = self.get_inlet_outlet_sides(sd)
+        # Dirichlet (fixed T) only where temperature is genuinely imposed: the recharge inflow
+        # (known inlet T) and the geothermal base. The DISCHARGE is an outflow -> Neumann (zero
+        # conductive flux), so the fluid's own temperature is advected out with the flow instead
+        # of being pinned to a boundary value.
         base = np.where(self.domain_boundary_sides(sd).south)[0]      # geothermal base (fixed T)
-        return pp.BoundaryCondition(sd, np.concatenate((rech, disch, base)), "dir")
+        if _args.equilibrate:                       # only the base is heated; the whole top adiabatic
+            return pp.BoundaryCondition(sd, base, "dir")
+        rech, _disch = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, np.concatenate((rech, base)), "dir")
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # Advective enthalpy follows the Darcy BC (its default). In --equilibrate that means only the
+        # single pinned pressure cell carries advective enthalpy, and its boundary value is the same
+        # isothermal interior state (uniform T, z), so nothing spurious enters.
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         depth = LZ - bg.cell_centers[1]
-        p = _hydrostatic_p(depth, self.obl_sampler_ptz)              # same hydrostatic column as the IC
+        p = _hydrostatic_p(depth, self.obl_sampler_ptz, self.obl_sampler)              # same hydrostatic column as the IC
+        if _args.equilibrate:                        # no forcing: the top keeps the IC top pressure
+            return p                                 # (= P_TOP_IC at depth 0), uniform across the top
         rech, disch = self.get_inlet_outlet_sides(bg)
         p[rech] = P_RECHARGE
         p[disch] = P_DISCHARGE
@@ -208,17 +291,19 @@ class BCRecharge(BC):
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
         depth = LZ - bg.cell_centers[1]
         T = _linear_T(depth)                                          # valid everywhere
-        rech, disch = self.get_inlet_outlet_sides(bg)
-        T[self.domain_boundary_sides(bg).south] = T_BOTTOM_BC
-        T[rech] = T_RECHARGE
-        T[disch] = T_DISCHARGE
+        T[self.domain_boundary_sides(bg).south] = T_BOTTOM_BC         # geothermal base
+        if not _args.equilibrate:                                     # no recharge/discharge forcing
+            rech, disch = self.get_inlet_outlet_sides(bg)             # in the IC-evolution test: the
+            T[rech] = T_RECHARGE                                      # whole top keeps the interior T
+            T[disch] = T_DISCHARGE
         return T
 
     def bc_salinity(self, bg: pp.BoundaryGrid) -> np.ndarray:
         # background = the local IC z (so no-flow / outflow faces match the interior); recharge fresh.
         z = _linear_z(LZ - bg.cell_centers[1])
-        rech, _ = self.get_inlet_outlet_sides(bg)
-        z[rech] = Z_RECHARGE
+        if not _args.equilibrate:                                     # no fresh recharge when equilibrating
+            rech, _ = self.get_inlet_outlet_sides(bg)
+            z[rech] = Z_RECHARGE
         return z
 
     def bc_values_overall_fraction(self, component: pp.Component, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -226,8 +311,7 @@ class BCRecharge(BC):
 
     def bc_values_enthalpy(self, bg: pp.BoundaryGrid) -> np.ndarray:
         p, t, z = self.bc_values_pressure(bg), self.bc_values_temperature(bg), self.bc_salinity(bg)
-        self.obl_sampler_ptz.sample_at(np.array((z, t, p)).T)
-        return self.obl_sampler_ptz.sampled_could.point_data["H"] * 1.0e-3
+        return _h_from_T_phz(z, p, t, self.obl_sampler)          # phz-consistent (matches the IC)
 
     def bc_values_fractional_flow_component(self, component: pp.Component, bg: pp.BoundaryGrid) -> np.ndarray:
         z = self.bc_salinity(bg)
@@ -240,12 +324,15 @@ class ICRecharge(IC):
 
     def _profiles(self, sd: pp.Grid):
         depth = LZ - sd.cell_centers[1]
-        return _hydrostatic_p(depth, self.obl_sampler_ptz), _linear_T(depth), _linear_z(depth)
+        return _hydrostatic_p(depth, self.obl_sampler_ptz, self.obl_sampler), _linear_T(depth), _linear_z(depth)
 
     def _sampled(self, sd: pp.Grid):
+        # phz-consistent IC: enthalpy h from a phz search for the target (constant) T, then the
+        # secondaries (S_v, Xl, Xv, ...) from the SAME phz flash at (z, h, p). Returns (point_data, h).
         p, t, z = self._profiles(sd)
-        self.obl_sampler_ptz.sample_at(np.array((z, t, p)).T)
-        return self.obl_sampler_ptz.sampled_could.point_data
+        h = _h_from_T_phz(z, p, t, self.obl_sampler)
+        self.obl_sampler.sample_at(np.column_stack([z, h, p]))
+        return self.obl_sampler.sampled_could.point_data, h
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         return self._profiles(sd)[0]
@@ -257,14 +344,14 @@ class ICRecharge(IC):
         return self._profiles(sd)[2]
 
     def ic_values_partial_fractions(self, sd: pp.Grid) -> np.ndarray:
-        d = self._sampled(sd)
+        d, _ = self._sampled(sd)
         return np.clip(d["Xl"], 0.0, 1.0), np.clip(d["Xv"], 0.0, 1.0)
 
     def ic_values_gas_saturation(self, sd: pp.Grid) -> np.ndarray:
-        return np.clip(self._sampled(sd)["S_v"], 0.0, 1.0)
+        return np.clip(self._sampled(sd)[0]["S_v"], 0.0, 1.0)
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        return self._sampled(sd)["H"] * 1.0e-3
+        return self._sampled(sd)[1]
 
 
 # --------------------------------------------------------------------------- CLI + run
@@ -286,19 +373,29 @@ _ap.add_argument("--t-recharge", type=float, default=T_RECHARGE - 273.15, metava
 _ap.add_argument("--z-top", type=float, default=Z_TOP, metavar="Z", help="IC NaCl fraction at the top")
 _ap.add_argument("--z-bottom", type=float, default=Z_BOTTOM, metavar="Z", help="IC NaCl fraction at the base")
 _ap.add_argument("--snap-years", type=float, nargs="+", default=list(_DEFAULT_SNAP_YEARS), metavar="YR")
-_ap.add_argument("--report-every-years", type=float, default=None, dest="report_every_years", metavar="N",
+_ap.add_argument("--report-every-years", type=float, default=10.0, dest="report_every_years", metavar="N",
                  help="regular VTU cadence: report every N years up to --end-years (0, N, 2N, ...); "
-                      "overrides --snap-years")
-_ap.add_argument("--end-years", type=float, default=50000.0, dest="end_years", metavar="YR",
-                 help="total simulation time [years] used with --report-every-years (default 50000)")
+                      "overrides --snap-years (default 10)")
+_ap.add_argument("--end-years", type=float, default=2000.0, dest="end_years", metavar="YR",
+                 help="total simulation time [years] used with --report-every-years (default 2000)")
 _ap.add_argument("--dt-nominal", type=float, default=1.0, metavar="YR")
 _ap.add_argument("--dt-min", type=float, default=0.0001, metavar="YR")
 _ap.add_argument("--dt-max", type=float, default=10.0, metavar="YR")
 _ap.add_argument("--lag-buoyancy", action="store_true")
-_ap.add_argument("--barriers", action="store_true",
-                 help="insert the staggered low-k aquitard lenses (see _BARRIERS)")
+_ap.add_argument("--no-barriers", dest="barriers", action="store_false", default=True,
+                 help="disable the staggered low-k aquitard beds (ON by default; see _BARRIERS)")
 _ap.add_argument("--barrier-factor", type=float, default=BARRIER_PERM_FACTOR, metavar="F",
                  dest="barrier_factor", help="barrier permeability = matrix * F (default 1e-4)")
+_ap.add_argument("--equilibrate", action="store_true",
+                 help="IC-evolution test: ISOTHERMAL column at --t-equil (no recharge/discharge "
+                      "forcing, base BC matched to the column T), so the system just relaxes the IC "
+                      "toward equilibrium -- a true static check of the initial condition")
+_ap.add_argument("--t-equil", type=float, default=230.0, metavar="C",
+                 help="--equilibrate isothermal temperature [degC] (also the matched base BC); "
+                      "low enough (~230) that the column is liquid-dominated -> pressure is pinned")
+_ap.add_argument("--p-top", type=float, default=P_TOP_IC, metavar="MPA",
+                 help="IC pressure at the top [MPa]; > boiling p at --t-equil -> whole column liquid "
+                      "(no vapor cap), = boiling p -> thin cap over liquid (default %(default)s)")
 _args = _ap.parse_args()
 
 P_RECHARGE = _args.p_recharge
@@ -306,6 +403,11 @@ P_DISCHARGE = _args.p_discharge
 T_RECHARGE = _args.t_recharge + 273.15
 Z_TOP = _args.z_top
 Z_BOTTOM = _args.z_bottom
+P_TOP_IC = _args.p_top
+
+if _args.equilibrate:                       # isothermal equilibrium: constant-T column, base matched
+    T_TOP_IC = T_BOT_IC = _args.t_equil + 273.15    # (no geothermal gradient -> nothing drives it)
+    T_BOTTOM_BC = _args.t_equil + 273.15
 
 if _args.report_every_years is not None and _args.report_every_years > 0.0:
     _n = _args.report_every_years                    # regular reporting: 0, N, 2N, ... up to end
@@ -328,7 +430,7 @@ time_manager = pp.TimeManager(
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 tag = _args.scheme + ("_mpfa" if _args.consistent else "") + (
-    f"_{_args.grid_type}" if _args.grid_type else "")
+    f"_{_args.grid_type}" if _args.grid_type else "") + ("_equilibrate" if _args.equilibrate else "")
 params = {
     "folder_name": os.path.join(HERE, "visualization_recharge_" + tag),
     "enable_buoyancy_effects": True,
@@ -368,6 +470,33 @@ class GeothermalRechargeModel(
         # giant bogus first step it never recovers from. Sync the surrogate to f(p,h,z) here.
         super().before_nonlinear_loop()
         self.update_derived_quantities()
+        if not getattr(self, "_ic_prev_synced", False):
+            self._sync_prev_timestep_to_ic()   # accumulation(t=0) = 0 (see method docstring)
+            self._ic_prev_synced = True
+
+    def _sync_prev_timestep_to_ic(self) -> None:
+        """One-time (t=0) sync: copy the slaved IC iterate into the PREVIOUS-time-step store so the
+        accumulation term (storage(x) - storage(x_prev))/dt is exactly 0 at t=0.
+
+        The framework sets the time-step store at ``initial_condition``, but ``before_nonlinear_loop``
+        then runs ``_slave_eliminated_secondaries``, which overwrites the ITERATE saturations (and the
+        surrogate density recomputed from them) with the exact OBL flash -- while the time-step store
+        keeps the pre-slave values. The mismatch is a spurious accumulation source that scales as
+        1/dt: negligible at large dt, but it dominates and destabilises the static balance at small
+        dt (the equilibration then chatters even though the IC's true FLUX residual is ~1e-3)."""
+        es = self.equation_system
+        subs = self.mdg.subdomains()
+        nt = self.time_step_indices.size
+        for v in es.variables:                                   # primaries + eliminated secondaries
+            vals = es.get_variable_values(variables=[v.name], iterate_index=0)
+            for ti in range(nt):
+                es.set_variable_values(vals, variables=[v.name], time_step_index=ti)
+        for phase in self.fluid.phases:                          # surrogate phase props in accumulation
+            for prop in (getattr(phase, "density", None),
+                         getattr(phase, "specific_enthalpy", None),
+                         getattr(phase, "specific_internal_energy", None)):
+                if isinstance(prop, pp.ad.SurrogateFactory):
+                    prop.progress_values_in_time(subs, depth=nt)
 
     _export_idx = 0
 
@@ -436,7 +565,7 @@ _attach_samplers(model)
 
 if __name__ == "__main__":
     tb = time.time()
-    solver_params = model.default_nonlinear_criteria()
+    solver_params = model.default_nonlinear_criteria(tol=1.0e-3)   # looser than the 1e-4 default
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     print("Elapsed time prepare simulation:", time.time() - tb)
