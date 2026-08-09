@@ -1,24 +1,21 @@
-"""
-Tests for the N-phase, N-component buoyancy-driven flow model.
+"""N-phase, N-component buoyancy-driven flow under gravity: conservation and hybrid-upwinding
+monotonicity.
 
-This file verifies mass and energy conservation and the reciprocity of buoyancy
-fluxes in an immiscible flow simulation under gravity.
+The domain is closed (no-flow Neumann on all boundaries), so pressure is determined only up to
+an additive constant. The constant is fixed by a null-mean-pressure gauge, Sum(p_matrix) = 0,
+imposed by NullMeanPressureSolve / NullMeanPressureLinearSolver. Fluids: N = 2 (liquid, gas;
+H2O, CH4) and N = 3 (liquid, oil, gas; H2O, CO2, CH4), in 2D and 3D.
 
-It covers two multicomponent fluid systems:
-- N = 2: Two phases (aqueous liquid, gas) and two components (e.g., H₂O, CH₄).
-- N = 3: Three phases (aqueous liquid, oleic liquid, gas) and
-three components (e.g., H₂O, CO₂, CH₄).
+Conservation -- test_buoyancy_model, on each accepted time step:
+  (i)   reciprocity: paired component buoyancy fluxes are equal and opposite (sum to 0);
+  (ii)  |Δ total independent-phase volume| ≤ tol      (mass, to the expected order);
+  (iii) |Δ total fluid energy| ≤ tol                  (energy, to the expected order);
+  (iv)  the null-mean-pressure residual stays ≤ null_mean_res_tolerance (NullSpaceCriterion).
 
-Simulations are run in 2D and 3D for several conservation tolerances, and
-the observed conservation is checked to be of the expected order. After each
-time step the following are tested:
-1. Reciprocal buoyancy fluxes: Component buoyancy fluxes are equal and opposite.
-2. Mass conservation: The change in the total volume of independent phases over
-   the simulation time remains within the specified tolerance, demonstrating a
-   mass-conservative discretization of the buoyancy term.
-3. Energy conservation: The change in total fluid energy over the simulation
-   time remains within the specified tolerance, demonstrating an energy-conservative
-   discretization of the energy convective buoyancy terms.
+Monotonicity -- test_buoyancy_flux_monotonicity, test_buoyancy_interface_flux_monotonicity:
+the component buoyancy flux is monotone in the swept cell's overall composition -- the
+hybrid-upwinding property of Hamon & Tchelepi (SIAM J. Numer. Anal. 54(3), 2016) -- checked on
+a subdomain internal face and across each matrix-fracture mortar side.
 """
 
 from typing import Literal
@@ -34,7 +31,7 @@ from tests.functional.setups.buoyancy_flow_model import (
     ModelMDGeometry2D,
     ModelMDGeometry3D,
     NullMeanPressureLinearSolver,
-    NullSpaceDriftCriterion,
+    NullSpaceCriterion,
     buoyancy_flow_model,
     to_Mega,
 )
@@ -71,10 +68,10 @@ def _run_buoyancy_model(
         dt = 1.0 * day
         geometry2d = ModelGeometry2D
         geometry3d = ModelGeometry3D
-    # Per-step total-mass-drift budget: the conservation threshold split over the
-    # steps with a factor-2 margin.
+    # Per-step null-mean-pressure residual budget: the conservation threshold
+    # 10^-(order-1) split over n_steps, with a factor-2 margin.
     n_steps = round(tf / dt)
-    drift_tolerance = 10.0 ** (-(expected_order_loss - 1)) / (2 * n_steps)
+    null_mean_res_tolerance = 10.0 ** (-(expected_order_loss - 1)) / (2 * n_steps)
 
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
@@ -100,7 +97,7 @@ def _run_buoyancy_model(
         "expected_order_loss": expected_order_loss,
         # Tolerances exposed to the model for the converged-state checks.
         "residual_tolerance": residual_tolerance,
-        "drift_tolerance": drift_tolerance,
+        "null_mean_res_tolerance": null_mean_res_tolerance,
     }
     # Build the model with the fractional_flow-selected template, then mix in geometry.
     geometry_class = geometry2d if dim == 2 else geometry3d
@@ -114,9 +111,9 @@ def _run_buoyancy_model(
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
                 tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
             ),
-            # The residual is a rate; the drift criterion bounds what the
-            # conservation checks accumulate per step.
-            "null_drift": NullSpaceDriftCriterion(model, tol=drift_tolerance),
+            # The residual is a rate; the null-mean-pressure criterion bounds what
+            # the conservation checks accumulate per step.
+            "null_mean_res": NullSpaceCriterion(model, tol=null_mean_res_tolerance),
         },
         "nl_divergence_criteria": {
             "max_iter": pp.solvers.MaxIterationsCriterion(max_iterations=50),
@@ -186,21 +183,16 @@ class _CompositionSweepIC(pp.PorePyModel):
         return vals
 
 
-@pytest.mark.parametrize("fractional_flow", [False, True])
-@pytest.mark.parametrize("swept_cell", [0, 1])
-# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
-@pytest.mark.parametrize(
-    "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
-)
-def test_buoyancy_flux_monotonicity(
-    swept_component: str, swept_cell: int, fractional_flow: bool
-):
-    """Buoyant component flux is monotone in the swept cell's overall composition.
+@pytest.fixture(scope="module", params=[False, True], ids=["hu", "hu_mwp"])
+def subdomain_sweep_model(request):
+    """Two-cell buoyancy model built once per formulation, shared across ``swept_cell`` and the
+    composition sweep.
 
-    Flux monotonicity with respect to its own saturation is the hybrid-upwinding property of
-    Hamon and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept and both
-    flux formulations (total-mass, CFF) are covered.
+    The mesh and equations depend only on ``fractional_flow``; the test re-sets the IC (and the
+    flash-derived quantities, required for the state-dependent HU-mwp flux) per sweep point,
+    which is bit-identical to rebuilding the model and collapses N builds into one.
     """
+    fractional_flow = request.param
     base = add_mixin(
         _TwoCellColumn, buoyancy_flow_model(3, fractional_flow=fractional_flow)
     )
@@ -212,34 +204,53 @@ def test_buoyancy_flux_monotonicity(
         permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
         density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
     )
-    z_sweep = np.linspace(0.05, 0.55, 15)
+    model = Model(
+        {
+            "fractional_flow": fractional_flow,
+            "enable_buoyancy_effects": True,
+            "material_constants": {"solid": solid_constants},
+            "time_manager": pp.TimeManager(
+                schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True,
+                iter_max=50, print_info=False,
+            ),
+            "expected_order_loss": 3,
+            "residual_tolerance": 1e-4,
+            "null_mean_res_tolerance": 1e-4,
+        }
+    )
+    model.prepare_simulation()
+    return model
+
+
+@pytest.mark.parametrize("swept_cell", [0, 1])
+# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
+@pytest.mark.parametrize(
+    "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
+)
+def test_buoyancy_flux_monotonicity(
+    subdomain_sweep_model, swept_component: str, swept_cell: int
+):
+    """Buoyant component flux is monotone in the swept cell's overall composition.
+
+    Flux monotonicity with respect to its own saturation is the hybrid-upwinding property of
+    Hamon and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept and both
+    flux formulations (total-mass, CFF) are covered.
+    """
+    model = subdomain_sweep_model
+    model._swept_component = swept_component
+    model._swept_cell = swept_cell
+    subdomains = model.mdg.subdomains()
+    internal_face = subdomains[0].get_internal_faces()[0]
+    component = next(c for c in model.fluid.components if c.name == swept_component)
+
+    z_sweep = np.linspace(0.05, 1.0, 11)
     fluxes = []
     for z in z_sweep:
-        time_manager = pp.TimeManager(
-            schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True, iter_max=50,
-            print_info=False,
-        )
-        model = Model(
-            {
-                "fractional_flow": fractional_flow,
-                "enable_buoyancy_effects": True,
-                "material_constants": {"solid": solid_constants},
-                "time_manager": time_manager,
-                "expected_order_loss": 3,
-                "residual_tolerance": 1e-4,
-                "drift_tolerance": 1e-4,
-            }
-        )
-        model._swept_component = swept_component
-        model._swept_cell = swept_cell
         model._swept_value = float(z)
-        model.prepare_simulation()          # IC builds the flash-consistent state for this z
-        model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
-        subdomains = model.mdg.subdomains()
-        internal_face = subdomains[0].get_internal_faces()[0]
-        component = next(
-            c for c in model.fluid.components if c.name == swept_component
-        )
+        model.initial_condition()             # flash-consistent IC state for this z
+        model.update_all_boundary_conditions()
+        model.update_derived_quantities()     # refresh flash-derived quantities (HU-mwp flux)
+        model.before_nonlinear_iteration()    # activate the hybrid-upwind directions
         flux = model.component_buoyancy(component, subdomains).value(
             model.equation_system
         )
@@ -352,22 +363,13 @@ _MD_INTERFACE_CHECKS = [
 ]
 
 
-@pytest.mark.parametrize("fractional_flow", [False, True])
-@pytest.mark.parametrize("side, swept_target", _MD_INTERFACE_CHECKS)
-# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
-@pytest.mark.parametrize(
-    "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
-)
-def test_buoyancy_interface_flux_monotonicity(
-    swept_component: str, side: str, swept_target: str, fractional_flow: bool
-):
-    """Buoyant component flux across each matrix-fracture mortar side is monotone in the
-    composition of each cell it couples.
-
-    Mixed-dimensional analogue of the hybrid-upwinding flux monotonicity of Hamon and Tchelepi
-    (SIAM J. Numer. Anal. 54(3), 2016); the "below" side couples the bottom matrix cell and the
-    fracture, the "above" side the top cell and the fracture. Both flux formulations are covered.
+@pytest.fixture(scope="module", params=[False, True], ids=["hu", "hu_mwp"])
+def interface_sweep_model(request):
+    """MD column-with-fracture buoyancy model built once per formulation, shared across the
+    interface-side checks and the composition sweep. Same reuse rationale as
+    :func:`subdomain_sweep_model`.
     """
+    fractional_flow = request.param
     base = add_mixin(
         _MDColumnFracture, buoyancy_flow_model(3, fractional_flow=fractional_flow)
     )
@@ -379,33 +381,53 @@ def test_buoyancy_interface_flux_monotonicity(
         permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
         density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
     )
+    model = Model(
+        {
+            "fractional_flow": fractional_flow,
+            "enable_buoyancy_effects": True,
+            "material_constants": {"solid": solid_constants},
+            "time_manager": pp.TimeManager(
+                schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True,
+                iter_max=50, print_info=False,
+            ),
+            "expected_order_loss": 3,
+            "residual_tolerance": 1e-4,
+            "null_mean_res_tolerance": 1e-4,
+        }
+    )
+    model.prepare_simulation()
+    return model
+
+
+@pytest.mark.parametrize("side, swept_target", _MD_INTERFACE_CHECKS)
+# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
+@pytest.mark.parametrize(
+    "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
+)
+def test_buoyancy_interface_flux_monotonicity(
+    interface_sweep_model, swept_component: str, side: str, swept_target: str
+):
+    """Buoyant component flux across each matrix-fracture mortar side is monotone in the
+    composition of each cell it couples.
+
+    Mixed-dimensional analogue of the hybrid-upwinding flux monotonicity of Hamon and Tchelepi
+    (SIAM J. Numer. Anal. 54(3), 2016); the "below" side couples the bottom matrix cell and the
+    fracture, the "above" side the top cell and the fracture. Both flux formulations are covered.
+    """
+    model = interface_sweep_model
+    model._swept_component = swept_component
+    model._swept_target = swept_target
+    below, above = _below_above_mortar_indices(model)
+    component = next(c for c in model.fluid.components if c.name == swept_component)
+
     z_sweep = np.linspace(0.05, 1.0, 11)
     fluxes = []
     for z in z_sweep:
-        time_manager = pp.TimeManager(
-            schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True, iter_max=50,
-            print_info=False,
-        )
-        model = Model(
-            {
-                "fractional_flow": fractional_flow,
-                "enable_buoyancy_effects": True,
-                "material_constants": {"solid": solid_constants},
-                "time_manager": time_manager,
-                "expected_order_loss": 3,
-                "residual_tolerance": 1e-4,
-                "drift_tolerance": 1e-4,
-            }
-        )
-        model._swept_component = swept_component
-        model._swept_target = swept_target
         model._swept_value = float(z)
-        model.prepare_simulation()          # IC builds the flash-consistent state for this z
-        model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
-        below, above = _below_above_mortar_indices(model)
-        component = next(
-            c for c in model.fluid.components if c.name == swept_component
-        )
+        model.initial_condition()             # flash-consistent IC state for this z
+        model.update_all_boundary_conditions()
+        model.update_derived_quantities()     # refresh flash-derived quantities (HU-mwp flux)
+        model.before_nonlinear_iteration()    # activate the hybrid-upwind directions
         mortar_flux = model.equation_system.evaluate(
             _component_interface_flux(model, component)
         )
