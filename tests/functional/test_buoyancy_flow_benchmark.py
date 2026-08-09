@@ -640,7 +640,9 @@ def _run_buoyancy_case(
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("fractional_flow", [True, False])
 @pytest.mark.parametrize("rho_idx, delta_rho, n_steps", _CASES)
-def test_buoyancy_flow_benchmark(
+# EK: This test is too computationally intensive to be run even among the skipped tests.
+# It is kept as an invaluable reference for future changes to the buoyancy model.
+def slow_test_buoyancy_flow_benchmark(
     rho_idx, delta_rho, n_steps, fractional_flow, saturation_at_5_days
 ):
     """Run one density contrast for one formulation (hybrid upwinding).
