@@ -483,8 +483,9 @@ class FluidMobility(pp.PorePyModel):
 
 
 def _phase_density_weight(z: pp.ad.AdArray) -> pp.ad.AdArray:
-    """Phase density weight ``m = 1/2(1 + sgn(z)) in {0, 1/2, 1}`` (Heaviside at 1/2): zero
-    Jacobian, and ``z`` is a product of density differences, so no ``rho_a - rho_b`` division.
+    """Phase density weight ``m = 1/2(1 + sgn(z)) in {0, 1/2, 1}`` (Heaviside at 1/2):
+    zero Jacobian, and ``z`` is a product of density differences, so no
+    ``rho_a - rho_b`` division.
     """
     return pp.ad.heaviside(0.5, z)
 
@@ -831,18 +832,19 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> tuple[pp.ad.Operator | None, pp.ad.Operator | None]:
         r"""Passive-phase background mass mobility, split by the phase density weights.
 
-        For every phase :math:`e` outside the active pair (:math:`\gamma`, :math:`\delta`) the
-        density weight
+        For every phase :math:`e` outside the active pair (:math:`\gamma`,
+        :math:`\delta`) the density weight
 
         .. math::
 
             m_e = \tfrac12\bigl(1 + \operatorname{sgn}\bigl[(\rho_\gamma - \rho_\delta)
-                  (2\rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\}
+            (2\rho_e - \rho_\gamma - \rho_\delta)\bigr]\bigr) \in \{0, \tfrac12, 1\}
 
-        assigns :math:`e` to the side of the pair member it is closer to on the density line
-        (:math:`\tfrac12` exactly on the arithmetic-mean separator). The weight is built with
-        :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is only a product of density
-        differences, so no :math:`\rho_\gamma - \rho_\delta` division). Returns the two summed
+        assigns :math:`e` to the side of the pair member it is closer to on the density
+        line (:math:`\tfrac12` exactly on the arithmetic-mean separator). The weight is
+        built with :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is only
+        a product of density differences, so no :math:`\rho_\gamma - \rho_\delta`
+        division). Returns the two summed
         cell quantities
 
         .. math::
@@ -852,8 +854,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         returned as ``(bg_co_gamma, bg_co_delta)``: the background that multiplies the
         pair's :math:`\gamma` upwind (``upwind_gamma``) and the one that multiplies its
-        :math:`\delta` upwind (``upwind_delta``), folded in before the single upwind per side (so
-        the pair members and the background phases share one upwind per side, not two).
+        :math:`\delta` upwind (``upwind_delta``), folded in before the single upwind per
+        side (so the pair members and the background phases share one upwind per side,
+        not two).
         ``(None, None)`` when there are no passive phases (two-phase systems).
         """
         phases = list(self.fluid.phases)
@@ -895,9 +898,9 @@ class FluidBuoyancy(pp.PorePyModel):
         r"""Total mass mobility upwinded onto the interface for the (gamma, delta) pair.
 
         Each passive phase is split between the two inter-phase directions by its phase
-        density weight (see :meth:`_passive_background_split`) before being projected onto the
-        mortar, so the two inter-phase directions carry the background. Flux and jump share
-        this expression, which keeps the mortar coupling conservative.
+        density weight (see :meth:`_passive_background_split`) before being projected onto
+        the mortar, so the two inter-phase directions carry the background. Flux and jump
+        share this expression, which keeps the mortar coupling conservative.
 
         Parameters:
             gamma: The first (reference) phase of the pair.
@@ -928,12 +931,10 @@ class FluidBuoyancy(pp.PorePyModel):
         l_gamma = self._phase_mass_mobility(gamma, domains)
         l_delta = self._phase_mass_mobility(delta, domains)
 
-        # Background: split each passive phase between the two sides by its density weight BEFORE
-        # projecting to the mortar, so the two inter-phase directions carry it -- 2 to_interface
-        # calls (lam_co_gamma / lam_co_delta) instead of 4.
-        bg_co_gamma, bg_co_delta = self._passive_background_split(
-            gamma, delta, domains
-        )
+        # Background: split each passive phase between the sides by its density weight
+        # BEFORE projecting to the mortar, so the two inter-phase directions carry it --
+        # 2 to_interface calls (lam_co_gamma / lam_co_delta) instead of 4.
+        bg_co_gamma, bg_co_delta = self._passive_background_split(gamma, delta, domains)
         lam_co_gamma = l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
         lam_co_delta = l_delta if bg_co_delta is None else l_delta + bg_co_delta
         co_gamma_interface = to_interface(
@@ -1014,28 +1015,28 @@ class FluidBuoyancy(pp.PorePyModel):
             l_gamma = self._phase_mass_mobility(gamma, domains)
             l_delta = self._phase_mass_mobility(delta, domains)
             l_delta_upwind = discr.upwind_delta() @ (l_delta)
-            # Background: each passive phase e gets a density weight m_e in {0, 1/2, 1}. A weight
-            # of 1 (resp. 0) groups it with the pair member it advects co-current with, gamma
-            # (resp. delta), and folds it into that side BEFORE the upwind, so the pair's own two
-            # upwinds carry it:
-            #   lambda_upwind = U_gamma(l_gamma + bg_co_gamma) + U_delta(l_delta + bg_co_delta).
-            # The exact 1/2 at a tie (a phase on the pair's density separator) is what makes the
-            # scheme reduction-consistent when two densities coincide. Reuse l_delta_upwind on the
-            # delta side (the numerator shares it).
+            # Background: each passive phase e gets a density weight m_e in {0, 1/2, 1}.
+            # A weight of 1 (resp. 0) groups it with the pair member it advects
+            # co-current with, gamma (resp. delta), and folds it into that side BEFORE
+            # the upwind, so the pair's own two upwinds carry it:
+            #   lambda_upwind = U_gamma(l_gamma + bg_co_gamma)
+            #                 + U_delta(l_delta + bg_co_delta).
+            # The exact 1/2 at a tie (a phase on the pair's density separator) is what
+            # makes the scheme reduction-consistent when two densities coincide. Reuse
+            # l_delta_upwind on the delta side (the numerator shares it).
             bg_co_gamma, bg_co_delta = self._passive_background_split(
                 gamma, delta, domains
             )
-            lam_co_gamma = (
-                l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
-            )
+            lam_co_gamma = l_gamma if bg_co_gamma is None else l_gamma + bg_co_gamma
             gamma_side = discr.upwind_gamma() @ (lam_co_gamma)
             delta_side = (
                 l_delta_upwind
                 if bg_co_delta is None
                 else l_delta_upwind + discr.upwind_delta() @ (bg_co_delta)
             )
-            # Floor keeps lambda_upwind (the mobility-product kernel's denominator) strictly
-            # positive at fully-segregated faces where every mobility on both sides vanishes.
+            # Floor keeps lambda_upwind (the mobility-product kernel's denominator)
+            # strictly positive at fully-segregated faces where every mobility on both
+            # sides vanishes.
             lambda_upwind = gamma_side + delta_side + pp.ad.Scalar(1.0e-15)
         return w_flux_gamma_delta, f_delta_upwind, lambda_upwind, l_delta_upwind
 
