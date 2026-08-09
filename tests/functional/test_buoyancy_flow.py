@@ -342,9 +342,9 @@ class _MDCompositionSweepIC(pp.PorePyModel):
 
 
 def _component_interface_flux(model, component):
-    """The per-mortar-cell component buoyancy flux (no public accessor exists): the same pair
-    sum as ``component_buoyancy_jump`` but taken on the interface, before projection onto the
-    fracture subdomain."""
+    """The per-mortar-cell component buoyancy flux (no public accessor): the same pair
+    sum as ``component_buoyancy_jump`` but taken on the interface, before projection
+    onto the fracture subdomain."""
     subdomains = model.mdg.subdomains()
     terms = []
     for phase in model.fluid.phases:
@@ -355,7 +355,10 @@ def _component_interface_flux(model, component):
 
 
 def _below_above_mortar_indices(model):
-    """Mortar-cell indices of the (below, above) sides: below couples the lower-y matrix cell."""
+    """Mortar-cell indices of the (below, above) sides.
+
+    ``below`` couples the lower-y matrix cell, ``above`` the higher-y one.
+    """
     interface = model.mdg.interfaces()[0]
     matrix, _ = model.mdg.interface_to_subdomain_pair(interface)
     y_of_cell = matrix.cell_centers[1]
@@ -369,9 +372,9 @@ def _below_above_mortar_indices(model):
     return int(np.argmin(mortar_y)), int(np.argmax(mortar_y))
 
 
-# Each interface side is checked against both cells it couples: the "below" side against the
-# bottom matrix cell and the fracture, the "above" side against the top matrix cell and the
-# fracture.
+# Each interface side is checked against both cells it couples: the "below" side against
+# the bottom matrix cell and the fracture, the "above" side against the top matrix cell
+# and the fracture.
 _MD_INTERFACE_CHECKS = [
     ("below", "bottom"),
     ("below", "fracture"),
@@ -382,8 +385,8 @@ _MD_INTERFACE_CHECKS = [
 
 @pytest.fixture(scope="module", params=[False, True], ids=["hu", "hu_mwp"])
 def interface_sweep_model(request):
-    """MD column-with-fracture buoyancy model built once per formulation, shared across the
-    interface-side checks and the composition sweep. Same reuse rationale as
+    """MD column-with-fracture buoyancy model built once per formulation, shared across
+    the interface-side checks and the composition sweep. Same reuse rationale as
     :func:`subdomain_sweep_model`.
     """
     fractional_flow = request.param
@@ -434,9 +437,10 @@ def test_buoyancy_interface_flux_monotonicity(
     """Buoyant component flux across each matrix-fracture mortar side is monotone in the
     composition of each cell it couples.
 
-    Mixed-dimensional analogue of the hybrid-upwinding flux monotonicity of Hamon and Tchelepi
-    (SIAM J. Numer. Anal. 54(3), 2016); the "below" side couples the bottom matrix cell and the
-    fracture, the "above" side the top cell and the fracture. Both flux formulations are covered.
+    Mixed-dimensional analogue of the hybrid-upwinding flux monotonicity of Hamon and
+    Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); the "below" side couples the bottom
+    matrix cell and the fracture, the "above" side the top cell and the fracture. Both
+    flux formulations are covered.
     """
     model = interface_sweep_model
     model._swept_component = swept_component
@@ -466,6 +470,7 @@ def test_buoyancy_interface_flux_monotonicity(
     atol = 1e-9 * scale
     monotone = np.all(diffs >= -atol) or np.all(diffs <= atol)
     assert monotone, (
-        f"{side}-side interface buoyancy flux for {swept_component} is not monotone in the "
-        f"{swept_target}-cell composition (a phase-potential-upwinding kink): diffs={diffs}"
+        f"{side}-side interface buoyancy flux for {swept_component} is not monotone "
+        f"in the {swept_target}-cell composition (a phase-potential-upwinding kink): "
+        f"diffs={diffs}"
     )
