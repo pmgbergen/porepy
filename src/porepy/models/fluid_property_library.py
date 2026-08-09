@@ -842,8 +842,8 @@ class FluidBuoyancy(pp.PorePyModel):
 
         assigns :math:`e` to the side of the pair member it is closer to on the density
         line (:math:`\tfrac12` exactly on the arithmetic-mean separator). The weight is
-        built with :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is only
-        a product of density differences, so no :math:`\rho_\gamma - \rho_\delta`
+        built with :func:`_phase_density_weight` (Heaviside, zero Jacobian; ``z`` is
+        only a product of density differences, so no :math:`\rho_\gamma - \rho_\delta`
         division). Returns the two summed
         cell quantities
 
@@ -898,9 +898,9 @@ class FluidBuoyancy(pp.PorePyModel):
         r"""Total mass mobility upwinded onto the interface for the (gamma, delta) pair.
 
         Each passive phase is split between the two inter-phase directions by its phase
-        density weight (see :meth:`_passive_background_split`) before being projected onto
-        the mortar, so the two inter-phase directions carry the background. Flux and jump
-        share this expression, which keeps the mortar coupling conservative.
+        density weight (see :meth:`_passive_background_split`) before being projected
+        onto the mortar, so the two inter-phase directions carry the background. Flux
+        and jump share this expression, which keeps the mortar coupling conservative.
 
         Parameters:
             gamma: The first (reference) phase of the pair.
