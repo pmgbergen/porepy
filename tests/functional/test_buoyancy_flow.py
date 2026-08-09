@@ -188,7 +188,10 @@ class _CompositionSweepIC(pp.PorePyModel):
 
 @pytest.mark.parametrize("fractional_flow", [False, True])
 @pytest.mark.parametrize("swept_cell", [0, 1])
-@pytest.mark.parametrize("swept_component", ["CH4", "C5H12"])
+# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
+@pytest.mark.parametrize(
+    "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
+)
 def test_buoyancy_flux_monotonicity(
     swept_component: str, swept_cell: int, fractional_flow: bool
 ):
@@ -351,7 +354,10 @@ _MD_INTERFACE_CHECKS = [
 
 @pytest.mark.parametrize("fractional_flow", [False, True])
 @pytest.mark.parametrize("side, swept_target", _MD_INTERFACE_CHECKS)
-@pytest.mark.parametrize("swept_component", ["CH4", "C5H12"])
+# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
+@pytest.mark.parametrize(
+    "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
+)
 def test_buoyancy_interface_flux_monotonicity(
     swept_component: str, side: str, swept_target: str, fractional_flow: bool
 ):
@@ -373,7 +379,7 @@ def test_buoyancy_interface_flux_monotonicity(
         permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
         density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
     )
-    z_sweep = np.linspace(0.05, 0.55, 11)
+    z_sweep = np.linspace(0.05, 1.0, 11)
     fluxes = []
     for z in z_sweep:
         time_manager = pp.TimeManager(
