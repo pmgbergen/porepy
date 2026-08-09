@@ -247,8 +247,8 @@ def test_buoyancy_flux_monotonicity(
 ):
     """Buoyant component flux is monotone in the swept cell's overall composition.
 
-    Flux monotonicity with respect to its own saturation is the hybrid-upwinding property of
-    Hamon and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept and both
+    Flux monotonicity w.r.t. its own saturation is the hybrid-upwinding property of Hamon
+    and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept and both
     flux formulations (total-mass, CFF) are covered.
     """
     model = subdomain_sweep_model
@@ -287,9 +287,9 @@ def test_buoyancy_flux_monotonicity(
 class _MDColumnFracture(ModelGeometry2D):
     """[0,1] x [0,2] matrix column (1 x 2) split by a single horizontal fracture at y=1.
 
-    Yields two matrix cells (cell 0 = bottom at y=0.5, cell 1 = top at y=1.5), one fracture
-    cell, and one interface whose 2-cell mortar has a "below" side (bottom cell <-> fracture)
-    and an "above" side (top cell <-> fracture).
+    Yields two matrix cells (cell 0 = bottom at y=0.5, cell 1 = top at y=1.5), one
+    fracture cell, and one interface whose 2-cell mortar has a "below" side (bottom cell
+    <-> fracture) and an "above" side (top cell <-> fracture).
     """
 
     def set_domain(self) -> None:
@@ -311,10 +311,10 @@ class _MDColumnFracture(ModelGeometry2D):
 
 
 class _MDCompositionSweepIC(pp.PorePyModel):
-    """Impose the swept component's overall fraction in one target cell of the MD column.
+    """Impose the swept component's overall fraction in one target MD-column cell.
 
-    Targets: "bottom"/"top" (the two matrix cells) or "fracture" (the fracture cell). The
-    model's initial_condition propagates the composition to consistent saturations on every
+    Targets: "bottom"/"top" (matrix cells) or "fracture" (fracture cell). The model's
+    initial_condition propagates the composition to consistent saturations on every
     subdomain via its own map, so each sweep point is a flash-consistent state.
     """
 
