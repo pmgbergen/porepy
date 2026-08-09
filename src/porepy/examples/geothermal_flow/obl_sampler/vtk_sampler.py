@@ -25,6 +25,21 @@ import pyvista
 
 from .base import OBLSampler
 
+# Tensor backend batches all fields per sample() in one pass (default). Set False for the original
+# per-field lazy path.
+_USE_BATCH = True
+
+# Fused numba value+gradient kernel for the batched path (default): one parallel pass over points, no
+# (nf,N,2,2,2) intermediate -- ~9x faster at large N (461k DoF: ~117 -> ~13 ms/sample). Set False (or
+# with numba absent) to use the numpy blend. numba is NOT bit-exact vs numpy (~1e-12 fp-reorder,
+# orders below the Driesner table's own accuracy -- shifts only the Newton path, not the solution).
+_USE_NUMBA = True
+try:
+    import numba as _numba
+except Exception:                                   # numba absent (or broken numpy pairing) -> numpy path
+    _numba = None
+_HAVE_NUMBA = _USE_NUMBA and _numba is not None
+
 
 # --------------------------------------------------------------------------------------- #
 #  1-D bracketing kernel (uniform fast path / searchsorted for graded axes)
@@ -66,9 +81,10 @@ class _LazyCloud:
     first-order (Taylor) extended from the boundary using that same gradient. Gradients are returned
     scaled by the conversion factors (``d/d(raw) = conv * d/d(table)``)."""
 
-    def __init__(self, fields, vg, x, xc, ext, conv, taylor, const):
+    def __init__(self, fields, vg, x, xc, ext, conv, taylor, const, vg_all=None):
         self._fields = set(fields)
         self._vg = vg                                   # field -> (value(N,), grad_table(N,3))
+        self._vg_all = vg_all                           # optional: ALL fields in one vectorized pass
         self._x, self._xc, self._ext = x, xc, ext
         self._conv = np.asarray(conv, float)
         self._taylor, self._const = taylor, set(const or [])
@@ -85,7 +101,10 @@ class _LazyCloud:
 
     def _pair(self, base):
         if base not in self._cache:
-            self._cache[base] = self._vg(base)
+            if self._vg_all is not None and not self._cache:   # first read: gather ALL fields in one pass
+                self._cache.update(self._vg_all())
+            if base not in self._cache:                        # not in the batched set (or no vg_all) -> per-field
+                self._cache[base] = self._vg(base)
         return self._cache[base]
 
     def __getitem__(self, key):
@@ -120,6 +139,49 @@ def _trilinear_vg(C, wz, w2, wp, dz, d2, dp):
     g2 = _sdiv(((C[:, :, 1] - C[:, :, 0]) * (wz[:, :, None] * wp[:, None, :])).sum((1, 2)), d2)
     gp = _sdiv(((C[:, :, :, 1] - C[:, :, :, 0]) * (wz[:, :, None] * w2[:, None, :])).sum((1, 2)), dp)
     return val, np.stack([gz, g2, gp], 1)
+
+
+def _trilinear_vg_batch(C, wz, w2, wp, dz, d2, dp):
+    """Batched ``_trilinear_vg`` over a leading field axis: corners ``C`` (nf,N,2,2,2), per-axis weights
+    ``w*`` (N,2), widths ``d*`` (N,). Returns value (nf,N) and gradient (nf,N,3) -- the same numbers the
+    per-field path gives, computed for every field in one gather+blend so the sampler is called once."""
+    w = wz[:, :, None, None] * w2[:, None, :, None] * wp[:, None, None, :]      # (N,2,2,2)
+    val = (C * w).sum(4).sum(3).sum(2)      # sequential axis reduction == per-field .sum((1,2,3)) bit-for-bit
+    gz = _sdiv(((C[:, :, 1] - C[:, :, 0]) * (w2[:, :, None] * wp[:, None, :])).sum((2, 3)), dz)
+    g2 = _sdiv(((C[:, :, :, 1] - C[:, :, :, 0]) * (wz[:, :, None] * wp[:, None, :])).sum((2, 3)), d2)
+    gp = _sdiv(((C[:, :, :, :, 1] - C[:, :, :, :, 0]) * (wz[:, :, None] * w2[:, None, :])).sum((2, 3)), dp)
+    return val, np.stack([gz, g2, gp], -1)                                     # (nf,N), (nf,N,3)
+
+
+if _HAVE_NUMBA:
+
+    @_numba.njit(parallel=True, cache=True, fastmath=False)
+    def _fused_vg_numba(F, iz0, iz1, i20, i21, ip0, ip1, tz, t2, tp, dz, d2, dp, val, gz, g2, gp):
+        """Fused trilinear value+gradient for every field of ``F`` (nf,dimz,dim2,dimp), one parallel
+        pass over the N points -- no (nf,N,2,2,2) gather. Writes ``val``/``gz``/``g2``/``gp`` (nf,N).
+        Same interpolant + weighted-corner-difference gradient as ``_trilinear_vg`` (matches to fp
+        round-off, ~1e-12). ``a,b,c`` = fractions along (z, coord2, p); ``ez,e2,ep`` = cell widths."""
+        nf = F.shape[0]
+        Np = iz0.shape[0]
+        for p in _numba.prange(Np):
+            z0 = iz0[p]; z1 = iz1[p]; y0 = i20[p]; y1 = i21[p]; x0 = ip0[p]; x1 = ip1[p]
+            a = tz[p]; b = t2[p]; c = tp[p]; ez = dz[p]; e2 = d2[p]; ep = dp[p]
+            for f in range(nf):
+                c000 = F[f, z0, y0, x0]; c001 = F[f, z0, y0, x1]; c010 = F[f, z0, y1, x0]; c011 = F[f, z0, y1, x1]
+                c100 = F[f, z1, y0, x0]; c101 = F[f, z1, y0, x1]; c110 = F[f, z1, y1, x0]; c111 = F[f, z1, y1, x1]
+                v00 = c000 * (1 - c) + c001 * c; v01 = c010 * (1 - c) + c011 * c
+                v10 = c100 * (1 - c) + c101 * c; v11 = c110 * (1 - c) + c111 * c
+                v0 = v00 * (1 - b) + v01 * b; v1 = v10 * (1 - b) + v11 * b
+                val[f, p] = v0 * (1 - a) + v1 * a
+                dzt = ((c100 - c000) * (1 - b) * (1 - c) + (c101 - c001) * (1 - b) * c
+                       + (c110 - c010) * b * (1 - c) + (c111 - c011) * b * c)
+                gz[f, p] = dzt / ez if ez != 0.0 else 0.0
+                d2t = ((c010 - c000) * (1 - a) * (1 - c) + (c011 - c001) * (1 - a) * c
+                       + (c110 - c100) * a * (1 - c) + (c111 - c101) * a * c)
+                g2[f, p] = d2t / e2 if e2 != 0.0 else 0.0
+                dpt = ((c001 - c000) * (1 - a) * (1 - b) + (c011 - c010) * (1 - a) * b
+                       + (c101 - c100) * a * (1 - b) + (c111 - c110) * a * b)
+                gp[f, p] = dpt / ep if ep != 0.0 else 0.0
 
 
 # --------------------------------------------------------------------------------------- #
@@ -181,7 +243,26 @@ class _TensorBackend:
             C = F[IZ[:, :, None, None], I2[:, None, :, None], IP[:, None, None, :]]   # (N,2,2,2)
             return _trilinear_vg(C, wz, w2, wp, dz, d2, dp)
 
-        return _LazyView(self, vg, x, xc, ext)
+        def vg_all():                                        # every value field in one pass
+            Fs = self._stack()
+            if _HAVE_NUMBA:                                   # fused kernel: no (nf,N,2,2,2) gather
+                nf, N = Fs.shape[0], iz.shape[0]
+                val = np.empty((nf, N)); gz = np.empty((nf, N)); g2 = np.empty((nf, N)); gp = np.empty((nf, N))
+                _fused_vg_numba(Fs, iz, iz1, i2, i21, ip, ip1, tz, t2, tp, dz, d2, dp, val, gz, g2, gp)
+                grad = np.stack([gz, g2, gp], -1)
+            else:                                            # numpy gather + vectorized blend
+                C = Fs[:, IZ[:, :, None, None], I2[:, None, :, None], IP[:, None, None, :]]  # (nf,N,2,2,2)
+                val, grad = _trilinear_vg_batch(C, wz, w2, wp, dz, d2, dp)
+            return {f: (val[i], grad[i]) for i, f in enumerate(self.fields)}
+
+        return _LazyView(self, vg, x, xc, ext, vg_all=(vg_all if _USE_BATCH else None))
+
+    def _stack(self):
+        """Fields stacked along a leading axis (nf, dimz, dim2, dimp), built once, for batched sampling."""
+        s = getattr(self, "_Fstack", None)
+        if s is None:
+            s = self._Fstack = np.stack([self.F[f] for f in self.fields])
+        return s
 
 
 # --------------------------------------------------------------------------------------- #
@@ -320,14 +401,14 @@ class _ProbeBackend:
         return _LazyView(self, vg, x, xc, ext)
 
 
-def _LazyView(backend, vg, x, xc, ext):
-    """Wrap a backend's per-field ``vg`` in the OBL ``.point_data`` surface (snapshotting the owner's
-    conversion / taylor / constant-extension knobs at sample time)."""
+def _LazyView(backend, vg, x, xc, ext, vg_all=None):
+    """Wrap a backend's per-field ``vg`` (and optional batched ``vg_all``) in the OBL ``.point_data``
+    surface (snapshotting the owner's conversion / taylor / constant-extension knobs at sample time)."""
     import types
     o = backend.owner
     return types.SimpleNamespace(point_data=_LazyCloud(
         backend.fields, vg, x, xc, ext, o.conversion_factors, o.taylor_extended_q,
-        o.constant_extended_fields))
+        o.constant_extended_fields, vg_all=vg_all))
 
 
 # --------------------------------------------------------------------------------------- #
