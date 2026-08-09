@@ -859,6 +859,21 @@ def build_params(
         # OBL value f(p,h,z) each Newton iterate -- Weis-style explicit flash. Removes the lagged
         # elimination residual that limit-cycles at phase fronts; same fix as the 1D fig-6 / 2D runs.
         slave_eliminated_secondaries=True,
+        # --- mixed-dimensional (--md) assembly performance (all validated Newton-identical) ---
+        # Bit-exact: sample the OBL / EoS once over ALL subdomains and scatter, instead of looping
+        # per grid (collapses n_subdomains table samples + AD tree walks into one; the 5-yr --md
+        # flash-proper drops ~4x). Harmless on the single-grid box.
+        batch_local_elimination_flash=True,   # secondaries T, s, x
+        batch_phase_property_flash=True,       # phase density / enthalpy / viscosity
+        # Skip provably-dead re-discretizations: the restore-side rebuild in a line-search residual
+        # (overwritten before anything reads it) and the after-iteration rebuild (overwritten by
+        # check_convergence). Both bit-transparent.
+        lazy_residual_restore=True,
+        skip_after_iteration_discretization=True,
+        # Freeze the state-dependent upwind matrices during line-search backtracking trials (weis
+        # uses the old velocity field for the whole step). Changes the Newton PATH, not the fixed
+        # point; validated Newton-identical on fig-6 and the 3D --md case.
+        lag_discretization_in_line_search=True,
     )
     params.update(_linear_solvers[linear_solver])
     params.update(_SCHEME_CONFIG[scheme])

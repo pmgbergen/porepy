@@ -60,6 +60,7 @@ import argparse
 import os
 import sys
 import time
+import warnings
 from typing import cast
 
 import numpy as np
@@ -97,7 +98,10 @@ G = pp.GRAVITY_ACCELERATION
 # ------------------------------------------------------------------ geometry
 LX = 4000.0                 # domain width [m]
 LZ = 2000.0                 # domain height [m]  (y vertical: y=LZ top, y=0 base)
-CELL_SIZE = 100.0           # target cell size [m]
+CELL_SIZE = 100.0           # horizontal (x) cell size [m]
+CELL_SIZE_Y = 10.0          # vertical (y) cell size [m]; cartesian barriers are one cell (10 m)
+BARRIER_THICKNESS = 10.0    # seal thickness [m]; on --simplex the aperture of the 1D barrier lines
+FAULT_CELL_SIZE_FACTOR = 0.5   # --simplex: triangle size along the faults = this * CELL_SIZE
 RECHARGE_FRAC = 0.125       # recharge patch: top face, x < RECHARGE_FRAC*LX (0-500 m, half length)
 DISCHARGE_FRAC = 0.875      # discharge patch: top face, x > DISCHARGE_FRAC*LX (3500-4000 m, half length)
 
@@ -135,14 +139,126 @@ T_BOTTOM_BC = 300.0 + 273.15# fixed base temperature [K]  (matches the 300 C IC 
 # the lens ends -- a geological confining-bed stack over the recharge->discharge cell. Boxes are
 # (x_min, x_max, y_min, y_max) in metres; y is elevation (y=LZ top, y=0 base).
 BARRIER_PERM_FACTOR = 1.0e-3
-_BARRIERS = [   # thin (~100 m / single cell-layer) beds
-    ( 400.0, 1800.0, 1700.0, 1800.0),   # shallow, left  (+4-cell far-left sink gap: recharge descends)
-    (2200.0, 4000.0, 1500.0, 1600.0),   # shallow-mid, right   (gap: x < 2200)
-    ( 500.0, 2500.0, 1200.0, 1300.0),   # mid, centre          (gaps: both ends)
-    (2600.0, 4000.0,  900.0, 1000.0),   # mid-deep, right      (gap: x < 2600)
-    (   0.0, 1400.0,  600.0,  700.0),   # deep, left           (gap: x > 1400)
-    (1800.0, 3600.0,  300.0,  400.0),   # deep, centre-right   (gaps: both ends)
+# 10 m-thick sealing beds (geologically realistic aquitard/shale thickness). y-bands are
+# top-aligned to the same tops as before. On the cartesian grid a barrier is one vertical cell,
+# so CELL_SIZE_Y = 10 m; on --simplex the barriers are exact constraints (thickness independent
+# of triangle size), which is the efficient home for thin seals.
+_BARRIERS = [   # thin (10 m / single vertical cell-layer) beds
+    ( 400.0, 1800.0, 1790.0, 1800.0),   # shallow, left  (+4-cell far-left sink gap: recharge descends)
+    (2200.0, 4000.0, 1590.0, 1600.0),   # shallow-mid, right   (gap: x < 2200)
+    ( 500.0, 2500.0, 1290.0, 1300.0),   # mid, centre          (gaps: both ends)
+    (2600.0, 4000.0,  990.0, 1000.0),   # mid-deep, right      (gap: x < 2600)
+    (   0.0, 1400.0,  690.0,  700.0),   # deep, left           (gap: x > 1400)
+    (1800.0, 3600.0,  390.0,  400.0),   # deep, centre-right   (gaps: both ends)
 ]
+
+
+# ---------------------------------------------------------------- --md fracture network
+# 22 conforming fractures forming a CONNECTED discrete-fracture-matrix (DFM) network for --md,
+# with a geological (not lattice) spatial distribution. cart_grid only permits axis-aligned
+# fractures -- that is what keeps the matrix K-orthogonal so TPFA discretises the gravity source
+# exactly -- so this is an orthogonal joint network whose REALISM comes from the distribution:
+#   * twelve VERTICAL joints (constant x) clustered into two dense fracture CORRIDORS (left
+#     x~600-1100 breaching B5/B3/B1, right x~2700-3300 breaching B6/B4/B2) plus an isolated
+#     master joint in the sparse middle; en-echelon offsets and power-law-ish lengths, each x
+#     interior to a lens x-range with its y-span covering the whole (50 m) band;
+#   * ten HORIZONTAL bedding-parallel fractures (constant y) at IRREGULAR horizons in the
+#     permeable inter-lens layers (never inside a lens), one long master conduit linking the two
+#     corridors and the rest shorter and clustered by corridor (variable fracture density).
+# The union percolates as ONE connected cluster (hydraulic communication) with 35 intersections.
+# x-endpoints land on 100 m faces, y-endpoints on 50 m faces, so pp.meshing.cart_grid snaps them
+# and builds the 0D intersection grids. Verified by scratchpad/verify_dfm.py (breaches, barrier
+# clearance, single connected component, cart_grid build). Entries are (x0, x1, y0, y1) in metres.
+_MD_FRAC_PERM_FACTOR = 1000.0           # fracture k (in-plane and normal) = rock * this
+_MD_FRACTURES = [
+    # -- left fracture corridor (dense swarm), en-echelon; comment lists the lenses each breaches
+    ( 600.0,  600.0,  300.0, 1650.0),   # VL1  B3, B5
+    ( 700.0,  700.0,  550.0, 1800.0),   # VL2  B1, B3, B5  (through-going, offset up)
+    ( 900.0,  900.0,  400.0, 1300.0),   # VL3  B3, B5      (shorter)
+    (1100.0, 1100.0,  600.0, 1650.0),   # VL4  B3, B5
+    # -- middle relay pair, offset
+    (1300.0, 1300.0,  150.0, 1000.0),   # VM1  B5          (basal)
+    (1500.0, 1500.0,  850.0, 1550.0),   # VM2  B3          (upper, short)
+    # -- sparse-zone master joints
+    (2000.0, 2000.0,  250.0, 1650.0),   # VS1  B3, B6      (isolated long joint)
+    (2100.0, 2100.0,  700.0, 1450.0),   # VS2  B3          (short companion)
+    # -- right fracture corridor (dense swarm), en-echelon
+    (2700.0, 2700.0,  300.0, 1600.0),   # VR1  B2, B4, B6
+    (2800.0, 2800.0,  500.0, 1800.0),   # VR2  B2, B4      (through-going, offset up)
+    (3000.0, 3000.0,  250.0, 1350.0),   # VR3  B4, B6      (shorter)
+    (3300.0, 3300.0,  600.0, 1650.0),   # VR4  B2, B4
+    # -- bedding-parallel fractures at irregular horizons (y0==y1)
+    ( 500.0, 3400.0, 1400.0, 1400.0),   # H1  master bedding conduit -> links both corridors
+    ( 500.0, 1100.0,  850.0,  850.0),   # H2  left corridor
+    ( 500.0, 1000.0,  500.0,  500.0),   # H3  left corridor (shallow)
+    ( 600.0, 1200.0, 1150.0, 1150.0),   # H4  left corridor
+    (1300.0, 2100.0,  850.0,  850.0),   # H5  middle relay bridge
+    (2600.0, 3400.0, 1150.0, 1150.0),   # H6  right corridor
+    (2600.0, 3100.0,  500.0,  500.0),   # H7  right corridor (shallow)
+    (2700.0, 3400.0, 1650.0, 1650.0),   # H8  right corridor (upper)
+    (1800.0, 2200.0, 1450.0, 1450.0),   # H9  sparse-zone bedding fracture
+    (1100.0, 1400.0,  200.0,  200.0),   # H10 basal bedding fracture
+]
+
+# --md on a SIMPLEX mesh (--simplex --md) is not restricted to axis-aligned fractures, so it uses
+# this INCLINED, geologically-reasoned fault network instead of _MD_FRACTURES. It is an extensional
+# rift section, oriented for the solver convention y = ELEVATION (y=LZ surface, y=0 base): a western
+# basin-bounding MASTER fault that roots to the base (its deep tip sits on the bottom boundary y=0),
+# a domino array of synthetic normal faults dipping ~60 deg east, and antithetic faults dipping west
+# -- so the grabens between them WIDEN UPWARD toward the surface (correct normal-fault polarity, not
+# the mirror image). Faults have varied lengths and no two same-dip faults crowd. Each fault crosses
+# and hydraulically breaches the aquitards; five gently-dipping bedding-parallel fractures in the
+# permeable aquifers link everything into ONE percolating cluster. Coordinates are free (gmsh
+# conforms exactly). Entries are (x0, y0, x1, y1) in metres with the DEEP (low-y) endpoint first.
+# Verified by scratchpad/verify_faults.py (dips, spacing, base-cut, breaches, bedding clearance,
+# connectivity, gmsh build).
+_FAULTS = [
+    # -- western basin-bounding MASTER fault: top above B1, roots to the base, cuts y=0 --
+    (1553.0,    0.0,  500.0, 1900.0),   # fully crosses B1, B3, B5
+    # -- synthetic domino array, dip ~60 deg EAST, varied length; tops above the shallowest
+    #    barrier so each fault fully crosses (not clips) every barrier it meets --
+    (2155.0,  250.0, 1350.0, 1900.0),   # fully crosses B1, B3, B6
+    (3174.0,  200.0, 2250.0, 1800.0),   # fully crosses B2, B4, B6
+    (3788.0,  400.0, 3100.0, 1750.0),   # fully crosses B2, B4
+    # -- antithetic faults, dip WEST (conjugate; grabens widen up toward the surface) --
+    (1200.0,  250.0, 1900.0, 1750.0),   # breaches B3, B5
+    (2706.0,  350.0, 3450.0, 1750.0),   # breaches B2, B4, B6
+    # -- second-order antithetic splays inside the tilted blocks (short, well spaced) --
+    ( 646.0,  600.0, 1050.0, 1300.0),   # breaches B3
+    (2438.0,  550.0, 2900.0, 1350.0),   # breaches B4
+    # -- gently-dipping bedding-parallel fractures in the aquifers (fault-linking connectors) --
+    ( 350.0, 1420.0, 3450.0, 1370.0),   # mid aquifer (~1400), spans the section
+    ( 450.0,  830.0, 3400.0,  870.0),   # lower aquifer (~850)
+    ( 700.0, 1180.0, 3550.0, 1150.0),   # mid aquifer (~1150), single span (no sliver)
+    ( 500.0,  520.0, 1950.0,  500.0),   # shallow aquifer (~510)
+    (2100.0,  490.0, 3450.0,  520.0),   # shallow-right aquifer (~500)
+]
+
+
+def _md_fractures(cu) -> list[np.ndarray]:
+    """The 22 --md line fractures as ``(2, 2)`` endpoint arrays in the solver's length units."""
+    return [
+        np.array([[cu(x0, "m"), cu(x1, "m")], [cu(y0, "m"), cu(y1, "m")]])
+        for x0, x1, y0, y1 in _MD_FRACTURES
+    ]
+
+
+def _fault_line_fractures(cu) -> list:
+    """The inclined :data:`_FAULTS` network as ``pp.LineFracture`` objects (simplex --md)."""
+    return [pp.LineFracture(np.array([[cu(x0, "m"), cu(x1, "m")], [cu(y0, "m"), cu(y1, "m")]]))
+            for x0, y0, x1, y1 in _FAULTS]
+
+
+# Each barrier is a thin seal, so on --simplex it is a 1D LINE (a blocking fracture) at the band's
+# mid-height rather than a 2D region -- far fewer cells, no slivers. (x0, x1, y_line) in metres.
+_BARRIER_LINES = [(x0, x1, 0.5 * (y0 + y1)) for x0, x1, y0, y1 in _BARRIERS]
+
+
+def _barrier_fracture_lines(cu) -> list:
+    """The barriers as horizontal ``pp.LineFracture`` seals (1D blocking fractures) for --simplex,
+    one per :data:`_BARRIER_LINES` at the band mid-height."""
+    return [pp.LineFracture(np.array([[cu(x0, "m"), cu(x1, "m")], [cu(yl, "m"), cu(yl, "m")]]))
+            for x0, x1, yl in _BARRIER_LINES]
 
 
 def _linear_z(depth: np.ndarray) -> np.ndarray:
@@ -252,7 +368,59 @@ class RechargeGeometry2D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        return {"cell_size": self.units.convert_units(CELL_SIZE, "m")}
+        # Anisotropic cells: 100 m in x, 50 m in y so each barrier is one vertical cell (50 m).
+        cu = self.units.convert_units
+        hx = CELL_SIZE if _args.cell_size is None else _args.cell_size
+        return {"cell_size_x": cu(hx, "m"), "cell_size_y": cu(CELL_SIZE_Y, "m")}
+
+    def set_geometry(self) -> None:
+        """Fixed-dimensional Cartesian box by default. ``--md`` builds a mixed-dimensional
+        Cartesian grid (:meth:`_set_geometry_cartesian_md`). ``--simplex`` builds an unstructured
+        gmsh triangular grid that conforms to the barriers (:meth:`_set_geometry_simplex`)."""
+        if _args.simplex:
+            return self._set_geometry_simplex()
+        if not _args.md:
+            return super().set_geometry()
+        return self._set_geometry_cartesian_md()
+
+    def _set_geometry_cartesian_md(self) -> None:
+        """--md: axis-aligned DFM via ``pp.meshing.cart_grid``. Fractures snap to cell faces, so
+        the matrix stays K-orthogonal (TPFA discretises the gravity source exactly). Cells are
+        100 m x 50 m (y resolves the 50 m-thick barriers)."""
+        self.set_domain()
+        cu = self.units.convert_units
+        bb = self._domain.bounding_box
+        physdims = np.array([bb["xmax"] - bb["xmin"], bb["ymax"] - bb["ymin"]])
+        hx = cu(CELL_SIZE if _args.cell_size is None else _args.cell_size, "m")
+        hy = cu(CELL_SIZE_Y, "m")
+        nx = np.maximum(np.round(physdims / np.array([hx, hy])).astype(int), 1)
+        self.mdg = pp.meshing.cart_grid(_md_fractures(cu), list(nx), physdims=physdims)
+        self.nd = self.mdg.dim_max()
+        pp.set_local_coordinate_projections(self.mdg)
+
+    def _set_geometry_simplex(self) -> None:
+        """--simplex: unstructured gmsh triangular mesh. The thin seals are promoted to 1D BLOCKING
+        FRACTURES (:func:`_barrier_fracture_lines`): each barrier is a horizontal lower-dim line
+        with LOW tangential and normal permeability (``--barrier-factor`` * rock), which reproduces
+        the seal effect far more cheaply than a thin 2D region (no slivers). With ``--md`` the
+        inclined :data:`_FAULTS` network is added as high-permeability fractures (1000 * rock) --
+        gmsh honours arbitrary orientations, so these are the geological dipping faults. NOTE: a
+        simplex matrix is not K-orthogonal, so TPFA's gravity vector source is inconsistent -- pair
+        with ``--consistent`` (MPFA) for a well-balanced buoyancy term."""
+        self.set_domain()
+        cu = self.units.convert_units
+        faults = _fault_line_fractures(cu) if _args.md else []
+        barriers = _barrier_fracture_lines(cu) if _args.barriers else []
+        network = pp.create_fracture_network(faults + barriers, self._domain)
+        h = cu(CELL_SIZE if _args.cell_size is None else _args.cell_size, "m")
+        h_frac = FAULT_CELL_SIZE_FACTOR * h                         # finer triangles on the faults
+        mesh_args = {"cell_size": h, "cell_size_boundary": h, "cell_size_fracture": h_frac,
+                     "cell_size_min": h_frac}
+        with warnings.catch_warnings():                             # spurious "fractures outside
+            warnings.filterwarnings("ignore", message=".*outside the domain boundary.*")
+            self.mdg = pp.create_mdg("simplex", mesh_args, network)
+        self.nd = self.mdg.dim_max()
+        pp.set_local_coordinate_projections(self.mdg)
 
     def get_inlet_outlet_sides(self, sd):
         fc = sd.face_centers.T if isinstance(sd, pp.Grid) else sd.cell_centers.T
@@ -405,6 +573,16 @@ _ap.add_argument("--no-barriers", dest="barriers", action="store_false", default
                  help="disable the staggered low-k aquitard beds (ON by default; see _BARRIERS)")
 _ap.add_argument("--barrier-factor", type=float, default=BARRIER_PERM_FACTOR, metavar="F",
                  dest="barrier_factor", help="barrier permeability = matrix * F (default 1e-4)")
+_ap.add_argument("--md", action="store_true", default=False,
+                 help="mixed-dimensional: connected DFM of 22 conforming fractures (12 vertical "
+                      "joints clustered in two corridors breaching the aquitards, 10 bedding "
+                      "fractures linking them into one percolating cluster); k_frac = 1000 * rock")
+_ap.add_argument("--simplex", action="store_true", default=False,
+                 help="unstructured gmsh triangular mesh; the thin seals become 1D BLOCKING "
+                      "fractures (low k = --barrier-factor * rock, aperture = seal thickness), and "
+                      "--md adds the inclined geological faults as conductive 1D fractures (1000 * "
+                      "rock). Pair with --consistent (MPFA) for buoyancy: a simplex matrix is not "
+                      "K-orthogonal so TPFA's gravity source is inconsistent")
 _ap.add_argument("--equilibrate", action="store_true",
                  help="IC-evolution test: ISOTHERMAL column at --t-equil (no recharge/discharge "
                       "forcing, base BC matched to the column T), so the system just relaxes the IC "
@@ -416,6 +594,11 @@ _ap.add_argument("--p-top", type=float, default=P_TOP_IC, metavar="MPA",
                  help="IC pressure at the top [MPa]; > boiling p at --t-equil -> whole column liquid "
                       "(no vapor cap), = boiling p -> thin cap over liquid (default %(default)s)")
 _args = _ap.parse_args()
+
+if _args.simplex and not _args.consistent:
+    print("NOTE: --simplex without --consistent: the simplex matrix is not K-orthogonal, so "
+          "TPFA's gravity vector source is inconsistent. Add --consistent (MPFA) for a "
+          "well-balanced buoyancy term.", file=sys.stderr)
 
 P_RECHARGE = _args.p_recharge
 P_DISCHARGE = _args.p_discharge
@@ -448,7 +631,8 @@ time_manager = pp.TimeManager(
     iter_relax_factors=(0.5, 1.5), recomp_factor=0.3, print_info=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-tag = _args.scheme + ("_mpfa" if _args.consistent else "") + (
+tag = _args.scheme + ("_mpfa" if _args.consistent else "") + ("_simplex" if _args.simplex else "") \
+    + ("_md" if _args.md else "") + (
     f"_{_args.grid_type}" if _args.grid_type else "") + ("_equilibrate" if _args.equilibrate else "")
 params = {
     "folder_name": os.path.join(HERE, "visualization_recharge_" + tag),
@@ -465,6 +649,15 @@ params = {
     "slave_eliminated_secondaries": True,  # exact flash each Newton iterate
     "consistent_discretization": _args.consistent,
     "lag_buoyancy_direction": _args.lag_buoyancy,
+    # --- mixed-dimensional (--md) assembly performance (all validated Newton-identical) ---
+    # Bit-exact: sample the OBL / EoS once over ALL subdomains and scatter, instead of looping per
+    # grid; the 5 options collapse n_subdomains table samples + AD tree walks into one and skip
+    # provably-dead re-discretizations. Harmless on the single-grid box (see the 3D --md solver).
+    "batch_local_elimination_flash": True,   # secondaries T, s, x
+    "batch_phase_property_flash": True,      # phase density / enthalpy / viscosity
+    "lazy_residual_restore": True,           # line-search restore rebuild (overwritten before read)
+    "skip_after_iteration_discretization": True,   # rebuild overwritten by check_convergence
+    "lag_discretization_in_line_search": True,     # freeze upwind matrices during backtracking
 }
 if _args.grid_type is not None:
     params["grid_type"] = _args.grid_type
@@ -476,12 +669,6 @@ FlowModel = (DriesnerBrineFractionalFlowModel if params["fractional_flow"]
 class GeothermalRechargeModel(
     DriesnerPhaseExport, RechargeGeometry2D, BCRecharge, ICRecharge, FlowModel
 ):
-    def meshing_arguments(self) -> dict:
-        mesh_args = super().meshing_arguments()
-        if _args.cell_size is not None:
-            mesh_args = {**mesh_args, "cell_size": self.units.convert_units(_args.cell_size, "m")}
-        return mesh_args
-
     def before_nonlinear_loop(self) -> None:
         # The iteration-0 assembly reads the flash surrogate directly (no update_derived_quantities
         # runs before it -- that only happens inside check_convergence, after the first solve). On the
@@ -534,14 +721,47 @@ class GeothermalRechargeModel(
             self.write_pvd_and_vtu()
         self.nonlinear_solver_statistics.save()
 
+    def _is_barrier_subdomain(self, sd: pp.Grid) -> bool:
+        """True if ``sd`` is a 1D barrier seal: a lower-dim subdomain lying along one of the
+        horizontal :data:`_BARRIER_LINES` within its x-range (--simplex only; on the cartesian
+        grid the barriers are 2D and no lower-dim subdomain matches)."""
+        if sd.dim != self.mdg.dim_max() - 1 or sd.num_cells == 0:
+            return False
+        cu = self.units.convert_units
+        xc, yc = sd.cell_centers[0], sd.cell_centers[1]
+        tol = cu(1.0, "m")
+        for x0, x1, yl in _BARRIER_LINES:
+            if (np.all(np.abs(yc - cu(yl, "m")) < tol)
+                    and np.all((xc >= cu(x0, "m") - tol) & (xc <= cu(x1, "m") + tol))):
+                return True
+        return False
+
+    def _fracture_perm_factor(self, sd: pp.Grid) -> float:
+        """Rock-permeability multiplier for a lower-dim subdomain: low (``--barrier-factor``,
+        blocking) for a barrier seal, high (``_MD_FRAC_PERM_FACTOR``, conductive) for a fault."""
+        return _args.barrier_factor if self._is_barrier_subdomain(sd) else _MD_FRAC_PERM_FACTOR
+
+    def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
+        # A 1D barrier seal carries the physical seal thickness as its aperture (so the cross-flow
+        # resistance ~ aperture / normal_permeability matches a BARRIER_THICKNESS-thick low-k bed);
+        # faults keep the default residual aperture.
+        if self._is_barrier_subdomain(grid):
+            return np.full(grid.num_cells,
+                           self.units.convert_units(BARRIER_THICKNESS, "m"))
+        return super().grid_aperture(grid)
+
     def _absolute_permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
-        # Matrix permeability everywhere; cells whose centroid falls inside a barrier box are cut
-        # to matrix * --barrier-factor. Boxes are in metres -> convert to the solver's length units.
+        # Lower-dim subdomains (--md / --simplex): conductive faults get rock * _MD_FRAC_PERM_FACTOR,
+        # barrier seals get rock * --barrier-factor. Matrix cells inside a barrier BOX are cut to
+        # rock * --barrier-factor, but only on the cartesian grid (--simplex represents the barriers
+        # as the 1D seals above, so the matrix is left homogeneous). Boxes are metres -> length unit.
         cu = self.units.convert_units
         vals = []
         for sd in subdomains:
             k = np.full(sd.num_cells, self.solid.permeability)
-            if _args.barriers and sd.dim == self.mdg.dim_max():
+            if sd.dim < self.mdg.dim_max():
+                k *= self._fracture_perm_factor(sd)       # fault 1000x, barrier seal --barrier-factor
+            elif _args.barriers and not _args.simplex:
                 xc, yc = sd.cell_centers[0], sd.cell_centers[1]
                 inside = np.zeros(sd.num_cells, dtype=bool)
                 for x0, x1, y0, y1 in _BARRIERS:
@@ -563,6 +783,64 @@ class GeothermalRechargeModel(
         else:
             op = self.isotropic_second_order_tensor(subdomains, perm)
         return op
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        # Normal (out-of-plane) permeability projected from the lower-dim subdomain to the mortar:
+        # conductive faults get rock * _MD_FRAC_PERM_FACTOR, barrier seals get rock *
+        # --barrier-factor (low normal k -> impedes matrix<->matrix flux across the seal). NOT the
+        # base MassWeightedPermeability weighting (total_mass_mobility * k): on the highly conductive
+        # fracture interfaces that double-counts the separately-applied mobility and blows the Newton
+        # iteration up (same fix as the 3D --md / benchmark-3 solver).
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        kn_sd = pp.wrap_as_dense_ad_array(
+            np.concatenate(
+                [np.full(sd.num_cells, self._fracture_perm_factor(sd) * self.solid.permeability)
+                 for sd in subdomains]
+            ) if subdomains else np.zeros(0),
+            name="normal_k",
+        )
+        kn = projection.secondary_to_mortar_avg() @ kn_sd
+        kn.set_name("normal_permeability")
+        return kn
+
+    def _material_id(self, sd: pp.Grid) -> np.ndarray:
+        """Per-cell integer material tag (cached): 0 = rock, 1 = barrier seal, 2 + frac_num = each
+        individual conductive fracture (fault/bedding). 0D intersections inherit the highest
+        material of a connected fracture (so a fault reads continuously through its crossings)."""
+        cache = self.__dict__.setdefault("_material_id_cache", {})
+        if id(sd) in cache:
+            return cache[id(sd)]
+        n, dmax = sd.num_cells, self.mdg.dim_max()
+        if sd.dim == dmax:
+            m = np.zeros(n)                                   # rock
+            if _args.barriers and not _args.simplex:          # cartesian: 2D barrier boxes -> 1
+                cu = self.units.convert_units
+                xc, yc = sd.cell_centers[0], sd.cell_centers[1]
+                for x0, x1, y0, y1 in _BARRIERS:
+                    m[(xc >= cu(x0, "m")) & (xc <= cu(x1, "m"))
+                      & (yc >= cu(y0, "m")) & (yc <= cu(y1, "m"))] = 1.0
+        elif self._is_barrier_subdomain(sd):
+            m = np.ones(n)                                    # barrier seal
+        elif sd.dim == dmax - 1:
+            m = np.full(n, 2.0 + int(sd.frac_num))            # conductive fracture (fault/bedding)
+        else:                                                 # 0D intersection: inherit a neighbour
+            nb = []
+            for intf in self.mdg.subdomain_to_interfaces(sd):
+                a, b = self.mdg.interface_to_subdomain_pair(intf)
+                other = a if b is sd else b
+                if other is not sd and other.dim > sd.dim:
+                    nb.append(float(self._material_id(other)[0]))
+            m = np.full(n, max(nb) if nb else 0.0)
+        cache[id(sd)] = m
+        return m
+
+    def data_to_export(self):
+        """Add a per-cell ``material`` tag (see :meth:`_material_id`) to the exported fields."""
+        data = super().data_to_export()
+        for sd in self.mdg.subdomains():
+            data.append((sd, "material", self._material_id(sd)))
+        return data
 
 
 model = GeothermalRechargeModel(params)

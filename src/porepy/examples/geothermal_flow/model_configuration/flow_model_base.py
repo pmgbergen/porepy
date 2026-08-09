@@ -7,13 +7,16 @@ import json
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse.csgraph import reverse_cuthill_mckee
+import dataclasses
 from dataclasses import dataclass, field, asdict
 from typing import Callable, Optional, cast, Any
 
 import porepy as pp
+import porepy.compositional as pc
 from porepy.models.compositional_flow import (
     CompositionalFlowTemplate,
     CompositionalFractionalFlowTemplate,
+    update_phase_properties,
 )
 from .transport_predictor import ReorderedTransportPredictor
 
@@ -42,6 +45,26 @@ logging.getLogger('porepy').setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 to_Mega = 1.0e-6
+
+
+def _slice_phase_properties(
+    props: pc.PhaseProperties, sl: slice, n_total: int
+) -> pc.PhaseProperties:
+    """Return a view of ``props`` restricted to the cells in ``sl``.
+
+    Every stored array whose last axis spans the full cell count ``n_total`` (values along
+    ``(N,)``, derivatives along ``(..., N)``) is sliced along that axis; scalar fields and the
+    empty defaults are left untouched. Used to scatter a batched (all-subdomain) property
+    computation back to a single grid, so the ``*_ext`` chain-rule properties -- computed on
+    demand from the sliced ``x`` / derivatives -- stay consistent per grid.
+    """
+    kw = {}
+    for f in dataclasses.fields(props):
+        v = getattr(props, f.name)
+        if isinstance(v, np.ndarray) and v.ndim >= 1 and v.shape[-1] == n_total:
+            kw[f.name] = v[..., sl]
+    return dataclasses.replace(props, **kw)
+
 
 class _CachingSurrogateFactory(pp.ad.SurrogateFactory):
     """A ``SurrogateFactory`` that memoizes ``__call__`` per domain set.
@@ -336,6 +359,52 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         # inheriting this base gets it; a solver that truly wants the lagged flash sets it False.
         if self.params.get("slave_eliminated_secondaries", True):
             self._slave_eliminated_secondaries()
+
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
+        """Batched phase-property flash over all subdomains (opt-in, bit-exact).
+
+        The CF template flashes each phase per grid (``update_thermodynamic_properties_of_phases_on_grid``);
+        ``compute_properties`` is cellwise and ``evaluate`` concatenates subdomains in order, so
+        evaluating each dependency over the whole md-domain once, calling the EoS once, and
+        scattering the per-cell property blocks back per grid is identical -- it just collapses
+        ``n_subdomains`` AD tree walks + table samples per phase into one (the dominant flash cost
+        on many-subdomain / mixed-dimensional runs). Gated by ``batch_phase_property_flash``;
+        default off falls back to the per-grid template method.
+        """
+        if not self.params.get("batch_phase_property_flash", False):
+            super().update_thermodynamic_properties_of_phases(state=state)
+            return
+
+        subdomains = self.mdg.subdomains()
+        if not subdomains:
+            return
+        n_total = sum(g.num_cells for g in subdomains)
+        equilibrium_defined = pc.has_equilibrium_specified(self)
+        is_persistent = pc.is_persistent_variable_form(self)
+
+        for phase in self.fluid.phases:
+            dep_vals = [
+                self.equation_system.evaluate(d(subdomains), state=state)
+                for d in self.dependencies_of_phase_properties(phase)
+            ]
+            phase_state = phase.compute_properties(
+                *cast(list[np.ndarray], dep_vals),
+                params=self.params.get("phase_property_params", None),
+            )
+            offset = 0
+            for grid in subdomains:
+                sl = slice(offset, offset + grid.num_cells)
+                update_phase_properties(
+                    grid,
+                    phase,
+                    _slice_phase_properties(phase_state, sl, n_total),
+                    0,
+                    use_extended_derivatives=is_persistent,
+                    update_fugacities=equilibrium_defined,
+                )
+                offset += grid.num_cells
 
     # Locally-eliminated secondary variable -> its OBL flash function (Driesner brine model). Slaving
     # ALL of them each iteration is the full Weis-style explicit flash (T alone is insufficient: the
@@ -1268,8 +1337,15 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         # Update buoyancy-driven fluxes (skipped when the direction is lagged/frozen)
         self.refresh_buoyancy_direction()
 
-        # Rediscretize
-        self.rediscretize()
+        # Rediscretize the state-dependent flux operators (upwind directions, mobility-weighted
+        # permeability). ``lag_discretization_in_line_search`` freezes them at the base-state
+        # discretization (from the Newton-iteration assemble) during backtracking: a trial residual is
+        # then evaluated against the frozen upwind matrices -- an approximation of the true residual
+        # that keeps the monotone-decrease line search valid while avoiding a full re-discretization
+        # over every subdomain on every trial (the dominant cost on many-subdomain / MD runs). Default
+        # off (exact per-trial re-discretization); it changes the Newton PATH, not the fixed point.
+        if not self.params.get("lag_discretization_in_line_search", False):
+            self.rediscretize()
 
         # Assemble the current nonlinear residual
         current_nonlinear_residual = self.equation_system.assemble(evaluate_jacobian=False)
@@ -1401,8 +1477,14 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
 
     def  after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         super().after_nonlinear_iteration(nonlinear_increment)
-        self.refresh_buoyancy_direction()
-        self.rediscretize()
+        # check_convergence (called immediately after this by the nonlinear solver) re-runs
+        # update_derived_quantities + refresh_buoyancy_direction + rediscretize on the FRESH flash and
+        # nothing reads the discretization in between -- so this refresh+rediscretize is on stale flash
+        # and is fully overwritten (dead work). ``skip_after_iteration_discretization`` drops it; kept
+        # by default for any model whose check_convergence does NOT rediscretize.
+        if not self.params.get("skip_after_iteration_discretization", False):
+            self.refresh_buoyancy_direction()
+            self.rediscretize()
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         # ``params["gravity"]=False`` (or 0) sets g=0 -- removes BOTH the buoyant phase
