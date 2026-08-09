@@ -100,7 +100,7 @@ LX = 4000.0                 # domain width [m]
 LZ = 2000.0                 # domain height [m]  (y vertical: y=LZ top, y=0 base)
 CELL_SIZE = 100.0           # horizontal (x) cell size [m]
 CELL_SIZE_Y = 10.0          # vertical (y) cell size [m]; cartesian barriers are one cell (10 m)
-BARRIER_THICKNESS = 10.0    # seal thickness [m]; on --simplex the aperture of the 1D barrier lines
+BARRIER_THICKNESS = 5.0     # seal thickness [m]; on --simplex the aperture of the 1D barrier lines
 FAULT_CELL_SIZE_FACTOR = 0.5   # --simplex: triangle size along the faults = this * CELL_SIZE
 RECHARGE_FRAC = 0.125       # recharge patch: top face, x < RECHARGE_FRAC*LX (0-500 m, half length)
 DISCHARGE_FRAC = 0.875      # discharge patch: top face, x > DISCHARGE_FRAC*LX (3500-4000 m, half length)
