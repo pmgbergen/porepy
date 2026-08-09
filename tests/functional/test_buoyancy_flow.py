@@ -247,9 +247,9 @@ def test_buoyancy_flux_monotonicity(
 ):
     """Buoyant component flux is monotone in the swept cell's overall composition.
 
-    Flux monotonicity w.r.t. its own saturation is the hybrid-upwinding property of Hamon
-    and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept and both
-    flux formulations (total-mass, CFF) are covered.
+    Flux monotonicity w.r.t. its own saturation is the hybrid-upwinding property of
+    Hamon and Tchelepi (SIAM J. Numer. Anal. 54(3), 2016); both matrix cells are swept
+    and both flux formulations (total-mass, CFF) are covered.
     """
     model = subdomain_sweep_model
     model._swept_component = swept_component

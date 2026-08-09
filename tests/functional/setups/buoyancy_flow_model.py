@@ -486,11 +486,12 @@ class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
 class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
     """Converge the null-mean-pressure residual r_nm = |Σ_c r_c| · Δt / V.
 
-    r_c is the per-cell mass-balance residual (a rate) and Σ_c projects onto the constant
-    mode -- the pressure null space of the closed Neumann problem, which the gauge-fixed
-    solve cannot reduce. The Δt converts the rate into the per-step mass change the
-    conservation checks accumulate; V (total volume) normalizes. Once Newton stagnates
-    r_nm freezes, so the criterion stops objecting and defers to the test's assertion.
+    r_c is the per-cell mass-balance residual (a rate) and Σ_c projects onto the
+    constant mode -- the pressure null space of the closed Neumann problem, which the
+    gauge-fixed solve cannot reduce. The Δt converts the rate into the per-step mass
+    change the conservation checks accumulate; V (total volume) normalizes. Once Newton
+    stagnates r_nm freezes, so the criterion stops objecting and defers to the test's
+    assertion.
     """
 
     #: Consecutive checks with relative residual change below this count as frozen.
@@ -530,8 +531,8 @@ class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
         self._history.append(null_mean_res)
         if null_mean_res <= self.tol:
             return pp.solvers.ConvergenceStatus.CONVERGED, null_mean_res
-        # Stagnation escape: the null-mean-pressure residual has frozen (quadratic basin)
-        # and cannot improve.
+        # Stagnation escape: the null-mean-pressure residual has frozen (quadratic
+        # basin) and cannot improve.
         recent = self._history[-self._stagnation_checks :]
         if len(recent) == self._stagnation_checks and all(
             abs(a - b) <= self._stagnation_rtol * max(abs(b), 1e-300)
