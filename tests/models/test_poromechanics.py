@@ -657,32 +657,28 @@ def test_poromechanics_empty_equation_filter(model_class):
     # regardless of whether the corresponding domains are present in the model.
     all_equations = list(equation_system.equations.keys())
 
-    # Parsed equations after discarding those whose image space is empty.
-    # In poromechanics models without fractures, fracture-related equations are
-    # also registered but have empty image spaces, and are therefore removed here.
-    parsed_equations = list(equation_system._parse_equations().keys())
-
     # Check empty domain equations exist.
     empty_equations = []
+    not_empty_equations = []
     for name in equation_system.equations:
-        total = sum(
-            len(indices)
-            for indices in equation_system.equation_image_space_composition[
-                name
-            ].values()
-        )
-        if total == 0:
+        if len(equation_system.equations[name].domains) == 0:
             empty_equations.append(name)
+        else:
+            not_empty_equations.append(name)
 
     assert len(empty_equations) > 0
+    assert len(not_empty_equations) > 0
 
     # Check empty domain equations are filtered.
     for name in empty_equations:
-        assert name not in parsed_equations
+        assert (
+            name
+            not in equation_system.equation_indexer.equation_image_space_composition
+        )
 
     # Check that the assembled system does not include empty domain equations.
     A_all, b_all = equation_system.assemble(all_equations)
-    A_filtered, b_filtered = equation_system.assemble(parsed_equations)
+    A_filtered, b_filtered = equation_system.assemble(not_empty_equations)
 
     assert A_all.shape == A_filtered.shape
     assert np.allclose(b_all, b_filtered)

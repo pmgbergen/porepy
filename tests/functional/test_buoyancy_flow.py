@@ -106,12 +106,18 @@ def _run_buoyancy_model(
     model_class = buoyancy_flow_model(n_phases, fractional_flow)
     model_class = add_mixin(geometry_class, model_class)
     model = model_class(model_params)
+    # TODO YZ: Address in the downstream PR. It should not need to prepare simulation.
+    model.prepare_simulation()
     # Use a Lebesgue metric for the residual convergence criterion, since this will
     # strictly bound the residual error in the mass conservation equations.
     solver_params = {
+        "prepare_simulation": False,
         "nl_convergence_criteria": {
             "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
-                tol=residual_tolerance, metric=pp.EquationBasedLebesgueMetric(model)
+                tol=residual_tolerance,
+                metric=pp.EquationBasedLebesgueMetric(
+                    model, model.equation_system.equation_indexer
+                ),
             ),
             # The residual is a rate; the null-mean-pressure criterion bounds what
             # the conservation checks accumulate per step.

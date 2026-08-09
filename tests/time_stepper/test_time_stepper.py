@@ -621,7 +621,6 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
             "dt": 0.5,
             "num_iterations": 2,
             "simulation_status": "successful",
-            "solver_status_history": ["successful"],
             "solver_status": "successful",
             "convergence_status": {
                 "crit1": ["converged", "converged"],
@@ -643,7 +642,6 @@ def test_solve_convergence_time_dependent_statistics(statistics_path: Path):
             "dt": 0.5,
             "num_iterations": 1,
             "simulation_status": "successful",
-            "solver_status_history": ["successful"],
             "solver_status": "successful",
             "convergence_status": {
                 "crit1": ["converged"],
@@ -757,7 +755,6 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
             "time": 0,
             "dt": 0.5,
             "num_iterations": 2,
-            "solver_status_history": ["failed"],
             "convergence_status": {
                 "crit1": ["converged", "converged"],
                 "crit2": ["continue_iterating", "continue_iterating"],
@@ -777,7 +774,6 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
             "time": 0.5,
             "dt": 0.5,
             "num_iterations": 1,
-            "solver_status_history": ["successful"],
             "convergence_status": {
                 "crit1": ["converged"],
                 "crit2": ["converged"],
@@ -797,7 +793,6 @@ def test_solve_failure_time_dependent_statistics(statistics_path: Path):
             "time": 1.0,
             "dt": 0.5,
             "num_iterations": 1,
-            "solver_status_history": ["successful"],
             "convergence_status": {
                 "crit1": ["converged"],
                 "crit2": ["converged"],

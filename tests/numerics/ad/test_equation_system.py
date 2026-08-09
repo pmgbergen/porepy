@@ -8,8 +8,7 @@ The tests focus on various assembly methods:
     * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
     * test_set_get_methods: Get and set methods for variables, including methods for
         shifting between time steps and iterates.
-    * test_projection_matrix: Projection from a global vector to one defined on a subset
-        of variables.
+    * test_variable_indexer_subset: Indexing a subset of variables.
     * test_set_remove_equations: Set and remove equations from an EquationSystem.
     * test_parse_variable_like, test_parse_single_equation, test_parse_equations:
         Parsing of equations, and the methods used to do so. Thorough testing here means
@@ -246,8 +245,14 @@ def test_remove_variables(variable_to_be_removed):
         var_to_remove = equation_system.md_variable(variable_to_be_removed)
         equation_system.remove_variables([var_to_remove])
         # Check that the EquationSystem does not contain the removed variable anymore.
-        for field in ["_variables", "_variable_numbers", "_variable_dof_type"]:
-            assert variable_to_be_removed not in getattr(equation_system, field).keys()
+        assert all(
+            variable.name != variable_to_be_removed
+            for variable in equation_system.variables
+        )
+        assert all(
+            variable.name != variable_to_be_removed
+            for variable in equation_system.variable_indexer.indices
+        )
         # Check that trying to remove the variable again raises an error.
         with pytest.raises(ValueError):
             equation_system.remove_variables([var_to_remove])
@@ -621,15 +626,6 @@ def model() -> EquationSystemMockModel:
     return EquationSystemMockModel()
 
 
-def _eliminate_rows_from_matrix(A, indices, reverse):
-    # Helper method to extract submatrix by row indices
-    if reverse:
-        inds = np.setdiff1d(np.arange(A.shape[0]), indices)
-    else:
-        inds = indices
-    return A[inds]
-
-
 def _variable_from_model(
     model: EquationSystemMockModel,
     as_str: bool,
@@ -957,7 +953,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
 
     # Check that the mapping of equation to subdomain to global dof
     # indices is correctly set.
-    equation_subdomain_blocks = equation_system.equation_image_space_composition
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
     assert np.allclose(
         equation_subdomain_blocks[model.eq_single_subdomain.name][model.sd_top],
         np.arange(model.sd_top.num_cells * dof_info_subdomain["cells"]),
@@ -976,6 +974,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
     )
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
     offset = 0
     for sd in model.subdomains:
         assert np.allclose(
@@ -992,6 +993,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_all_interfaces,
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
+    )
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
     )
     offset = 0
     for intf in model.interfaces:
@@ -1012,6 +1016,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_all_interfaces,
     )
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
 
     offset = 0
     for intf in model.interfaces:
@@ -1026,6 +1033,9 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
     )
+    equation_subdomain_blocks = (
+        equation_system.equation_indexer.equation_image_space_composition
+    )
 
     offset = 0
     for intf in model.interfaces:
@@ -1038,6 +1048,18 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     assert (
         list(equation_subdomain_blocks["eq_all_interfaces"].keys()) == model.interfaces
     )
+
+
+def test_update_equation_on_empty_domain(model: EquationSystemMockModel) -> None:
+    """Updating an empty-domain equation should reuse its empty domain by default."""
+    equation_system = model.equation_system
+    model.add_equation_on_empty_domain()
+    old_equation = equation_system.equations["empty_equation"]
+    new_equation = old_equation * old_equation
+
+    equation_system.update_equation("empty_equation", new_equation)
+
+    assert equation_system.equations["empty_equation"] is new_equation
 
 
 def test_parse_variable_like(model: EquationSystemMockModel):
@@ -1117,6 +1139,26 @@ def test_parse_variable_like(model: EquationSystemMockModel):
     )
 
 
+@pytest.mark.parametrize("ordered", [True, False])
+def test_parse_variable_type_rejects_unknown_variable(
+    model: EquationSystemMockModel, ordered: bool
+) -> None:
+    """An unregistered Variable must not be silently discarded in parsing variables.
+
+    Parameters:
+        model: The mock PorePy model. Needs to provide `mdg` and `equation_system`.
+        ordered: The argument passed to `equation_system._parse_variable_type`. We test
+            with both values, should not affect the test result.
+
+    """
+    unknown_variable = pp.ad.Variable(
+        "unknown", {"cells": 1}, model.mdg.subdomains()[0]
+    )
+
+    with pytest.raises(ValueError, match="not registered"):
+        model.equation_system._parse_variable_type([unknown_variable], ordered=ordered)
+
+
 def test_parse_single_equation(model: EquationSystemMockModel):
     """Test the helper function for parsing a single equation.
 
@@ -1128,39 +1170,51 @@ def test_parse_single_equation(model: EquationSystemMockModel):
 
     """
     equation_system = model.equation_system
+    equation_indexer = equation_system.equation_indexer
+
+    def get_restriction_dofs(equations: list[pp.ad.EquationOnDomain]):
+        return np.concatenate(
+            [
+                equation_indexer.equation_image_space_composition[eq.name][eq.domain]
+                for eq in equations
+            ]
+        )
 
     # Represent the equation both by its string and its operator form.
     # This could have been parametrized to the price of computational higher cost
     # (Pytest assembly overhead).
-    for eq in [model.eq_all_subdomains, model.eq_all_subdomains.name]:
+    for eq_or_name in [model.eq_all_subdomains, model.eq_all_subdomains.name]:
         # The equation name.
-        name = eq if isinstance(eq, str) else eq.name
+        name = eq_or_name if isinstance(eq_or_name, str) else eq_or_name.name
+        eq = equation_system.equations[name]
 
         # First parse the equation as it is, without any restriction.
         # This should give back the full equation with no restriction.
-        restriction_1 = equation_system._parse_single_equation(eq)
-        assert len(restriction_1) == 1
+        restriction_1 = equation_system._parse_equations([eq_or_name])
+        assert len(restriction_1) == 4
 
-        assert name in restriction_1
-        assert restriction_1[name] is None
+        assert all(eq.name == eq_on_domain.name for eq_on_domain in restriction_1)
 
         # Next, restrict the equation to a single subdomain.
-        restriction_2 = equation_system._parse_single_equation({eq: [model.sd_top]})
+        restriction_2 = equation_system._parse_equations({eq_or_name: [model.sd_top]})
         assert len(restriction_2) == 1
         # The numbering of the subdomanis in the EquationSystem is the same as that of
         # the MixedDimensionalGrid, thus the indices associated with this subdomain
         # will be 0-offset.
-        assert np.allclose(restriction_2[name], np.arange(model.sd_top.num_cells))
+        assert np.allclose(
+            get_restriction_dofs(restriction_2), np.arange(model.sd_top.num_cells)
+        )
 
         # Next, permute the subdomains before sending them in. All subdomains are
         # present, thus the indices should cover all cells in the md-grid. Moreover,
         # the EquationSystem will sort the subdomains according in the same order as
         # the MixedDimensionalGrid.subdomains() method, thus the indices should again
         # be linear.
-        eq_def = {eq: model.subdomains[::-1]}
-        restriction_3 = equation_system._parse_single_equation(eq_def)
+        eq_def = {eq_or_name: model.subdomains[::-1]}
+        restriction_3 = equation_system._parse_equations(eq_def)
         assert np.allclose(
-            restriction_3[name], np.arange(model.mdg.num_subdomain_cells())
+            get_restriction_dofs(restriction_3),
+            np.arange(model.mdg.num_subdomain_cells()),
         )
 
 
@@ -1180,41 +1234,45 @@ def test_parse_equations(model: EquationSystemMockModel):
     # All equations. The order is the same as that in the helper class
     # EquationSystemSetup.
     all_equation_names = model.all_equation_names
+    all_equations = [
+        equation_system.equations[eq_name] for eq_name in all_equation_names
+    ]
 
     # First pass None. This should give as all equations on all subdomains.
     received_equations_1 = equation_system._parse_equations(None)
-    received_keys_1 = list(received_equations_1.keys())
 
-    # We expect to receive all equations, thus the length of the dictionary should be
-    # the same as the number of equations.
-    assert len(received_equations_1) == len(all_equation_names)
+    # We expect all equations, thus names must be identical and ordered the same way.
+    # The domains must be the same and also ordered the same way.
+    expected_equations_1 = [
+        pp.ad.EquationOnDomain(name=eq.name, domain=domain)
+        for eq in all_equations
+        for domain in eq.domains
+    ]
+    assert received_equations_1 == expected_equations_1
 
-    for eq, key in zip(all_equation_names, received_keys_1):
-        # The keys of the received dictionary should be the same as the names of the
-        # equations as they were set in the model, and the order should be preserved.
-        assert eq == key
-        # There should be no restriction on indices.
-        assert received_equations_1[eq] is None
+    # Next, pass the single subdomain and all subdomains, in that order.
 
-    # Next, pass the single subdomain and all subdomains, in that order. We should
-    # receive the same keys, but in reverse order.
+    # Next, pass two equation names in the reversed order. We should receive the same
+    # keys, but in canonical order.
     received_equations_2 = equation_system._parse_equations(
         [all_equation_names[1], all_equation_names[0]]
     )
-    received_keys_2 = list(received_equations_2.keys())
-    assert len(received_keys_2) == 2
-    for i in range(len(received_keys_2)):
-        assert received_keys_2[i] == all_equation_names[i]
+    expected_equations_2 = [
+        pp.ad.EquationOnDomain(name=name, domain=domain)
+        for name in [all_equation_names[0], all_equation_names[1]]
+        for domain in equation_system.equations[name].domains
+    ]
+    assert received_equations_2 == expected_equations_2
 
     # Send in the all_subdomains equation in both unrestricted and restricted form.
     # The restriction should override the unrestricted form.
     received_equations_3 = equation_system._parse_equations(
         {all_equation_names[0]: None, all_equation_names[0]: [model.sd_top]}
     )
-    assert len(received_equations_3) == 1
-    assert np.allclose(
-        received_equations_3[all_equation_names[0]], np.arange(model.sd_top.num_cells)
-    )
+    expected_equation_3 = [
+        pp.ad.EquationOnDomain(name=all_equation_names[0], domain=model.sd_top)
+    ]
+    assert received_equations_3 == expected_equation_3
 
     # Add an equation on an empty domain to the equation system.
     model.add_equation_on_empty_domain()
@@ -1223,7 +1281,9 @@ def test_parse_equations(model: EquationSystemMockModel):
     assert "empty_equation" in equation_system.equations
 
     # Check that _parse_equations filters out equations on empty domain.
-    assert "empty_equation" not in equation_system._parse_equations()
+    assert "empty_equation" not in {
+        eq.name for eq in equation_system._parse_equations()
+    }
 
 
 @pytest.mark.parametrize(
@@ -1267,11 +1327,19 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
     assert pp.test_utils.arrays.compare_matrices(
         A, _eliminate_columns_from_matrix(model.A, dofs, reverse=True)
     )
-    # Check that the size of equation blocks (rows) were correctly recorded
+    # Check that the equation blocks were correctly recorded.
+    equation_indexer, variable_indexer = (
+        model.equation_system.construct_assembled_matrix_indexers(variables=variables)
+    )
     for name in model.equation_system.equations:
-        assert np.allclose(
-            model.equation_system.assembled_equation_indices[name], model.eq_ind(name)
-        )
+        actual_dofs = [
+            dofs for eq, dofs in equation_indexer.indices.items() if eq.name == name
+        ]
+        assert np.allclose(np.concatenate(actual_dofs), model.eq_ind(name))
+
+    # Check that the sizes of variable blocks were correctly recorded.
+    for var in variables:
+        assert variable_indexer.indices[var].size == model.dof_ind(var).size
 
 
 @pytest.mark.parametrize(
@@ -1367,18 +1435,78 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
     assert pp.test_utils.arrays.compare_matrices(A_sub, model.A[rows][:, cols])
 
     # Also check that the equation row sizes were correctly recorded.
-    if eq_names is not None:
-        for name in eq_names:
-            assert np.allclose(
-                model.equation_system.assembled_equation_indices[name].size,
-                model.block_size(name),
-            )
-    else:
-        for name in model.equation_system.equations:
-            assert np.allclose(
-                model.equation_system.assembled_equation_indices[name].size,
-                model.block_size(name),
-            )
+    equation_indexer, variable_indexer = (
+        equation_system.construct_assembled_matrix_indexers(
+            equations=eq_names, variables=variables
+        )
+    )
+    equation_dofs = equation_indexer.indices
+    if eq_names is None:
+        eq_names = list(model.equation_system.equations)
+
+    for name in eq_names:
+        num_dofs = sum(
+            [dofs.size for var, dofs in equation_dofs.items() if var.name == name]
+        )
+        assert num_dofs == model.block_size(name)
+
+    variable_dofs = variable_indexer.indices
+    for name in var_names:
+        num_dofs = sum(
+            [dofs.size for var, dofs in variable_dofs.items() if var.name == name]
+        )
+        assert num_dofs == model.dof_ind(name).size
+
+
+@pytest.mark.parametrize(
+    "equations",
+    [
+        ["eq_single_interface", "eq_all_subdomains"],
+        ["eq_all_subdomains", "eq_single_interface"],
+    ],
+)
+@pytest.mark.parametrize(
+    "variables",
+    [
+        ["w", "x"],
+        ["x", "w"],
+    ],
+)
+def test_assembled_matrix_indexers_match_assembly_order(
+    model: EquationSystemMockModel,
+    equations: list[str],
+    variables: list[str],
+) -> None:
+    """Restricted indexers must use the canonical matrix assembly order."""
+    equation_system = model.equation_system
+
+    _, _ = equation_system.assemble(equations=equations, variables=variables)
+    equation_indexer, variable_indexer = (
+        equation_system.construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+    )
+
+    expected_equations = [
+        equation
+        for equation in equation_system.equation_indexer.indices
+        if equation.name in equations
+    ]
+    expected_variables = [
+        variable
+        for variable in equation_system.variable_indexer.indices
+        if variable.name in variables
+    ]
+
+    actual_order = (
+        [equation.name for equation in equation_indexer.indices],
+        [variable.name for variable in variable_indexer.indices],
+    )
+    expected_order = (
+        [equation.name for equation in expected_equations],
+        [variable.name for variable in expected_variables],
+    )
+    assert actual_order == expected_order
 
 
 @pytest.mark.parametrize(
@@ -1504,10 +1632,11 @@ def test_schur_complement(eq_var_to_exclude):
     if eq_to_exclude[0] == "eq_all_subdomains":
         # In this case, we use a dictionary to define the equations to keep.
         # For all equations not to be eliminated (e.g., present in eq_names), they are
-        # kept on all subdomains (which we somewhat cumbersomely obtain from a private
-        # variable of EquationSystem).
+        # kept on all subdomains.
         equations = {
-            eq: list(equation_system.equation_image_space_composition[eq].keys())
+            eq: list(
+                equation_system.equation_indexer.equation_image_space_composition[eq]
+            )
             for eq in eq_names
         }
         # In addition, we keep 'eq_all_subdomains' on the top subdomain.
@@ -1600,7 +1729,11 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     assert pp.test_utils.arrays.compare_matrices(A, A_ref)
 
     # Check bookkeeping does not suddenly include the empty equation.
-    assert "empty_equation" not in equation_system.assembled_equation_indices
+    equation_indexer, _ = equation_system.construct_assembled_matrix_indexers()
+
+    for eq_on_domain in equation_indexer.indices:
+        assert eq_on_domain.name != "empty_equation"
+    assert "empty_equation" not in equation_indexer.equation_image_space_composition
 
 
 def test_schur_complement_empty_equation_filter():
@@ -1628,8 +1761,10 @@ def test_schur_complement_empty_equation_filter():
 
     # Check the empty equation exists in system.
     assert "empty_equation" in equation_system.equations
-    # Check whether the parse filter the empty equation out.
-    assert "empty_equation" not in equation_system._parse_equations()
+    # Check whether parsing filters the empty equation out.
+    assert "empty_equation" not in {
+        item.name for item in equation_system._parse_equations(None)
+    }
 
     # Check Schur complement should be unchanged.
     S, bS = equation_system.assemble_schur_complement_system(

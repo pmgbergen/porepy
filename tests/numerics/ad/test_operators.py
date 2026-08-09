@@ -1479,18 +1479,6 @@ def test_arithmetic_operations_on_ad_objects(
         # correctly implemented. For the wrapped case, we need to test that the parsing
         # is okay, thus we do not skip if wrapped is True.
         return
-    if not wrapped and var_1 == "dense" and var_2 == "ad":
-        # This is the case where the first operand is a numpy array. This is a
-        # problematic setting, since numpy's operators (__add__ etc.) will be invoked.
-        # Despite numpy not knowing anything about AdArrays, numpy somehow uses
-        # broadcasting to compute and return a value, but the result is not in any sense
-        # what is to be expected. In forward mode there is nothing we can do about this
-        # (see GH issue #819, tagged as won't fix); the user just has to know that this
-        # should not be done. If the arrays are wrapped, we can circumvent the problem
-        # in parsing by rewriting the expression so that the AdArray's right  operators
-        # (e.g., __radd__) are invoked instead of numpy's left operators. Thus, if
-        # wrapped is True, we do not skip the test.
-        return
 
     def _var_from_string(v, do_wrap: bool):
         if v == "scalar":

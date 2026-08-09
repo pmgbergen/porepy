@@ -58,9 +58,6 @@ class DataSavingMixin(pp.PorePyModel):
         if do_export:
             self.write_pvd_and_vtu()
 
-        # Save solver statistics to file.
-        self.nonlinear_solver_statistics.save()
-
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
         if not self._is_time_dependent():
@@ -74,6 +71,10 @@ class DataSavingMixin(pp.PorePyModel):
                 collected_data = self.collect_data()
                 if collected_data is not None:
                     self.results.append(collected_data)
+
+    def save_statistics(self):
+        """Save solver statistics to file."""
+        self.nonlinear_solver_statistics.save()
 
     def collect_data(self) -> Any:
         """Collect relevant simulation data to be stored in attr:`results`.
@@ -389,7 +390,7 @@ class ResidualExporting:
             # GridEntity = Literal["cells", "faces", "nodes"]
             image_info = self.equation_system.equation_image_size_info[name]
             dof_start, dof_end = 0, 0
-            for g in self.equation_system.equation_image_space_composition[name].keys():
+            for g in operator.domains:
                 # Add number of dofs for each entity in image_info.
                 for entity, num in image_info.items():
                     dof_end += getattr(g, "num_" + entity) * num

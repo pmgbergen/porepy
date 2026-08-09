@@ -313,10 +313,17 @@ def subdomains_or_interfaces_from_method_name(
 _T = TypeVar("_T", bound=pp.PorePyModel)
 
 
-def add_mixin(mixin: type[pp.PorePyModel], parent: type[_T]) -> type[_T]:
+def add_mixin(mixin: type[Any], parent: type[_T]) -> type[_T]:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.
+
+    Typing notes:
+        - ``parent`` is typed as ``type[_T]`` (with ``_T`` bound to
+            :class:`pp.PorePyModel`). The return class is also cast to ``type[_T]`` so
+            callers keep a useful model-class return type.
+        - ``mixin`` is intentionally typed as ``type[Any]`` to allow abstract mixins and
+            protocol-like classes in dynamic class assembly.
 
     Reference:
         https://www.geeksforgeeks.org/create-classes-dynamically-in-python/
@@ -330,7 +337,7 @@ def add_mixin(mixin: type[pp.PorePyModel], parent: type[_T]) -> type[_T]:
     # this as an extra parameter to this function, but at the moment it is unclear why
     # such an addition could not be made in the mixin class instead.
     cls = type(name, (mixin, parent), {})
-    return cls
+    return cast(type[_T], cls)
 
 
 def create_local_model_class(

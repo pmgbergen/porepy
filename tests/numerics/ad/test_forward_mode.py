@@ -359,3 +359,52 @@ def test_logical_operation(
         assert result_ad.shape == result_numpy.shape
         assert result_ad.dtype == result_numpy.dtype
         assert np.all(result_ad == result_numpy)
+
+
+@pytest.mark.parametrize("operator", ["+", "-", "*", "/", "**"])
+def test_numpy_array_as_left_operand(operator: str, create_csr):
+    """A numpy array to the left of an AdArray should give an AdArray.
+
+    This tests the disabling of numpy's ufuncs for AdArray, by setting
+    AdArray.__array_ufunc__ = None. By this trick, numpy broadcasts instead of deferring
+    to __radd__ etc., and returns an object array holding one full AdArray -- values and
+    Jacobian -- per element.
+
+    """
+    val = np.array([2.0, 3.0, 4.0])
+    jac = create_csr(np.diag([5.0, 6.0, 7.0]))
+    ad = AdArray(val, jac)
+    b = np.array([3.0, 2.0, 5.0])
+
+    res = eval(f"b {operator} ad")
+
+    # d/dx of (b op x), differentiated by hand.
+    derivative = {
+        "+": np.ones_like(val),
+        "-": -np.ones_like(val),
+        "*": b,
+        "/": -b / val**2,
+        "**": b**val * np.log(b),
+    }[operator]
+
+    assert isinstance(res, AdArray)
+    assert np.allclose(res.val, eval(f"b {operator} val"))
+    assert np.allclose(res.jac.toarray(), np.diag(derivative) @ jac.toarray())
+    # One Jacobian, not one per element.
+    assert res.jac.nnz == jac.nnz
+
+
+@pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
+def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
+    """Test disabling of numpy's ufuncs for AdArray when used with logical operators.
+
+    See test test_numpy_array_as_left_operand for details.
+    """
+    val = np.array([2.0, 3.0, 4.0])
+    ad = AdArray(val, create_csr(np.eye(3)))
+    b = np.array([3.0, 3.0, 1.0])
+
+    res = eval(f"b {logical_op} ad")
+
+    assert isinstance(res, np.ndarray) and res.dtype == np.bool_
+    assert np.all(res == eval(f"b {logical_op} val"))

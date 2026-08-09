@@ -485,18 +485,22 @@ class SolutionStrategy(pp.PorePyModel):
 
         1. Call :meth:`update_time_step_solution`.
         2. Call :meth:`save_data_time_step`.
+        3. Call :meth:`save_statistics`.
 
         """
         self.update_time_step_solution()
         self.save_data_time_step()
+        self.save_statistics()
 
     def after_time_step_failure(self) -> None:
         """Called after a time step has failed to converge.
 
         The base method reverts the trial time step being executed.
+        It also calls :meth:`save_statistics`.
 
         """
         self.revert_trial_time_step_solution()
+        self.save_statistics()
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -777,7 +781,7 @@ class SolutionStrategy(pp.PorePyModel):
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
-        pass
+        self.save_statistics()
 
     def assemble_linear_system(self) -> solvers.LinearSystem:
         """Assemble and return the linearized system.

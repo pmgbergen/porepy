@@ -427,7 +427,6 @@ def test_solve_convergence_statistics():
                 "0": {
                     "num_iterations": 2,
                     "simulation_status": "successful",
-                    "solver_status_history": ["successful"],
                     "solver_status": "successful",
                     "convergence_status": {
                         "inc_abs": ["continue_iterating", "converged"],
@@ -537,7 +536,6 @@ def test_solve_failure_statistics():
                 "0": {
                     "num_iterations": 2,
                     "simulation_status": "failed",
-                    "solver_status_history": ["failed"],
                     "solver_status": "failed",
                     "convergence_status": {
                         "inc_abs": ["continue_iterating", "continue_iterating"],
@@ -716,14 +714,6 @@ def test_summarize_solver_status(
     solver.solver_progressbar = DummyProgressBar()
 
     # Minimal mimicking of loop.
-    model.nonlinear_solver_statistics.solver_status_history = [
-        NonlinearSolverStatusConverged(
-            linear_solver_statuses=linear_solver_statuses(2),
-            convergence_statuses=ConvergenceStatusCollection(),
-            divergence_statuses=ConvergenceStatusCollection(),
-        )
-    ]
-
     solver_status = _summarize_solver_status(
         ConvergenceStatusCollection({"convergence": convergence_status}),
         ConvergenceStatusCollection({"divergence": divergence_status}),
