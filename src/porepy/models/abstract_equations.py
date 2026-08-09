@@ -463,8 +463,34 @@ class LocalElimination(EquationMixin):
                 f"Model class {type(self)} does not have a SolutionStrategy included."
             )
 
+        batch = self.params.get("batch_local_elimination_flash", False)
+
         for elimination in self.__local_eliminations.values():
             _, expr, func, domains, _ = elimination
+
+            if not domains:
+                continue
+
+            if batch:
+                # Batched flash: the elimination function is cellwise (it maps the value of
+                # each dependency at a cell to that cell's value + derivatives), so evaluating
+                # every dependency over ALL grids at once, calling ``func`` a single time, and
+                # scattering the value/derivative blocks back per grid is identical to the
+                # per-grid loop below -- ``evaluate`` concatenates grids in ``domains`` order,
+                # the same order the scatter walks. This collapses ``len(domains)`` table
+                # samples (and per-grid AD tree walks) into one, which dominates the update on
+                # many-subdomain / mixed-dimensional runs.
+                dom = cast(list[pp.Grid] | list[pp.MortarGrid], list(domains))
+                X = [self.equation_system.evaluate(d(dom)) for d in expr._dependencies]
+                vals, diffs = func(*X)
+                offset = 0
+                for grid in domains:
+                    n = expr.num_dofs_on_grid(grid)
+                    sl = slice(offset, offset + n)
+                    expr.set_values_on_grid(vals[sl], grid)
+                    expr.set_derivatives_on_grid(diffs[:, sl], grid)
+                    offset += n
+                continue
 
             for grid in domains:
                 X = [
