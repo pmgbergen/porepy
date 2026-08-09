@@ -484,16 +484,16 @@ class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
 
 
 class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
-    """Converge the null-mean-pressure residual: the dt-scaled total summed-mass residual.
+    """Converge the null-mean-pressure residual (the dt-scaled summed-mass residual).
 
-    The summed mass residual is the residual's component along the pressure null space (the
-    constant-pressure mode of the closed Neumann problem), which the linear solve cannot
-    reduce; it is a rate, so scaled by ``dt`` it is what the conservation checks accumulate.
-    Once Newton stagnates it is frozen, so the criterion stops objecting and leaves the
-    verdict to the test's assertion.
+    The summed mass residual is the residual's component along the pressure null space
+    (the constant-pressure mode of the closed Neumann problem), which the linear solve
+    cannot reduce; it is a rate, so scaled by ``dt`` it is what the conservation checks
+    accumulate. Once Newton stagnates it is frozen, so the criterion stops objecting and
+    leaves the verdict to the test's assertion.
     """
 
-    #: Consecutive checks with relative residual change below this are considered frozen.
+    #: Consecutive checks with relative residual change below this count as frozen.
     _stagnation_rtol: float = 1.0e-3
     _stagnation_checks: int = 3
 
@@ -835,9 +835,9 @@ class BaseFlowModel(FullIterateCacheMixin):
         raise NotImplementedError
 
     def null_mean_pressure_residual(self) -> float:
-        """The dt-scaled, volume-normalized summed-mass residual -- the residual's component
-        along the pressure null space: what the conservation checks accumulate per accepted
-        step.
+        """The dt-scaled, volume-normalized summed-mass residual -- the residual's
+        component along the pressure null space: what the conservation checks accumulate
+        per accepted step.
         """
         eq = self.equation_system.equations["mass_balance_equation"]
         r = np.asarray(self.equation_system.evaluate(eq), dtype=float)
@@ -869,8 +869,8 @@ class BaseFlowModel(FullIterateCacheMixin):
         )
 
     def assert_null_space_residual_converged(self) -> None:
-        """The null-mean-pressure residual of the converged state must be within the per-step
-        conservation budget; if not, the convergence criteria need
+        """The null-mean-pressure residual of the converged state must be within the
+        per-step conservation budget; if not, the convergence criteria need
         :class:`NullSpaceCriterion`.
         """
         null_mean_res = self.null_mean_pressure_residual()
@@ -1139,8 +1139,8 @@ class FlowModel2N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        # Measure the gauge and the null-mean-pressure residual before super() shifts the
-        # time-step solutions; afterwards the accumulation term is zero.
+        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # the time-step solutions; afterwards the accumulation term is zero.
         self.assert_pressure_null_mean_converged()
         self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()
@@ -1580,8 +1580,8 @@ class FlowModel3N(
 ):
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
-        # Measure the gauge and the null-mean-pressure residual before super() shifts the
-        # time-step solutions; afterwards the accumulation term is zero.
+        # Measure the gauge and the null-mean-pressure residual before super() shifts
+        # the time-step solutions; afterwards the accumulation term is zero.
         self.assert_pressure_null_mean_converged()
         self.assert_null_space_residual_converged()
         super().after_nonlinear_convergence()

@@ -1,21 +1,23 @@
-"""N-phase, N-component buoyancy-driven flow under gravity: conservation and hybrid-upwinding
-monotonicity.
+"""N-phase, N-component buoyancy-driven flow under gravity: conservation and
+hybrid-upwinding monotonicity.
 
-The domain is closed (no-flow Neumann on all boundaries), so pressure is determined only up to
-an additive constant. The constant is fixed by a null-mean-pressure gauge, Sum(p_matrix) = 0,
-imposed by NullMeanPressureSolve / NullMeanPressureLinearSolver. Fluids: N = 2 (liquid, gas;
-H2O, CH4) and N = 3 (liquid, oil, gas; H2O, CO2, CH4), in 2D and 3D.
+The domain is closed (no-flow Neumann on all boundaries), so pressure is determined
+only up to an additive constant, fixed by a null-mean-pressure gauge, Sum(p_matrix) = 0,
+imposed by NullMeanPressureSolve / NullMeanPressureLinearSolver. Fluids: N = 2 (liquid,
+gas; H2O, CH4) and N = 3 (liquid, oil, gas; H2O, CO2, CH4), in 2D and 3D.
 
 Conservation -- test_buoyancy_model, on each accepted time step:
   (i)   reciprocity: paired component buoyancy fluxes are equal and opposite (sum to 0);
   (ii)  |Δ total independent-phase volume| ≤ tol      (mass, to the expected order);
   (iii) |Δ total fluid energy| ≤ tol                  (energy, to the expected order);
-  (iv)  the null-mean-pressure residual stays ≤ null_mean_res_tolerance (NullSpaceCriterion).
+  (iv)  the null-mean-pressure residual stays ≤ null_mean_res_tolerance
+        (NullSpaceCriterion).
 
-Monotonicity -- test_buoyancy_flux_monotonicity, test_buoyancy_interface_flux_monotonicity:
-the component buoyancy flux is monotone in the swept cell's overall composition -- the
-hybrid-upwinding property of Hamon & Tchelepi (SIAM J. Numer. Anal. 54(3), 2016) -- checked on
-a subdomain internal face and across each matrix-fracture mortar side.
+Monotonicity -- test_buoyancy_flux_monotonicity and
+test_buoyancy_interface_flux_monotonicity: the component buoyancy flux is monotone in
+the swept cell's overall composition -- the hybrid-upwinding property of Hamon &
+Tchelepi (SIAM J. Numer. Anal. 54(3), 2016), on a subdomain internal face and across
+each matrix-fracture mortar side.
 """
 
 from typing import Literal
@@ -149,13 +151,17 @@ class _TwoCellColumn(ModelGeometry2D):
 
     def set_domain(self) -> None:
         self._domain = pp.Domain(
-            {"xmax": self.units.convert_units(1.0, "m"),
-             "ymax": self.units.convert_units(2.0, "m")}
+            {
+                "xmax": self.units.convert_units(1.0, "m"),
+                "ymax": self.units.convert_units(2.0, "m"),
+            }
         )
 
     def meshing_arguments(self) -> dict:
-        return {"cell_size_x": self.units.convert_units(1.0, "m"),
-                "cell_size_y": self.units.convert_units(1.0, "m")}
+        return {
+            "cell_size_x": self.units.convert_units(1.0, "m"),
+            "cell_size_y": self.units.convert_units(1.0, "m"),
+        }
 
 
 class _CompositionSweepIC(pp.PorePyModel):
@@ -201,8 +207,11 @@ def subdomain_sweep_model(request):
         pass
 
     solid_constants = pp.SolidConstants(
-        permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
-        density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
+        permeability=1.0e-14,
+        porosity=0.1,
+        thermal_conductivity=2.0 * to_Mega,
+        density=2500.0,
+        specific_heat_capacity=1000.0 * to_Mega,
     )
     model = Model(
         {
@@ -210,8 +219,11 @@ def subdomain_sweep_model(request):
             "enable_buoyancy_effects": True,
             "material_constants": {"solid": solid_constants},
             "time_manager": pp.TimeManager(
-                schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True,
-                iter_max=50, print_info=False,
+                schedule=[0.0, 86400.0],
+                dt_init=86400.0,
+                constant_dt=True,
+                iter_max=50,
+                print_info=False,
             ),
             "expected_order_loss": 3,
             "residual_tolerance": 1e-4,
@@ -247,10 +259,10 @@ def test_buoyancy_flux_monotonicity(
     fluxes = []
     for z in z_sweep:
         model._swept_value = float(z)
-        model.initial_condition()             # flash-consistent IC state for this z
+        model.initial_condition()  # flash-consistent IC state for this z
         model.update_all_boundary_conditions()
-        model.update_derived_quantities()     # refresh flash-derived quantities (HU-mwp flux)
-        model.before_nonlinear_iteration()    # activate the hybrid-upwind directions
+        model.update_derived_quantities()  # refresh flash-derived quantities (HU-mwp flux)
+        model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
         flux = model.component_buoyancy(component, subdomains).value(
             model.equation_system
         )
@@ -279,8 +291,10 @@ class _MDColumnFracture(ModelGeometry2D):
 
     def set_domain(self) -> None:
         self._domain = pp.Domain(
-            {"xmax": self.units.convert_units(1.0, "m"),
-             "ymax": self.units.convert_units(2.0, "m")}
+            {
+                "xmax": self.units.convert_units(1.0, "m"),
+                "ymax": self.units.convert_units(2.0, "m"),
+            }
         )
 
     def set_fractures(self) -> None:
@@ -378,8 +392,11 @@ def interface_sweep_model(request):
         pass
 
     solid_constants = pp.SolidConstants(
-        permeability=1.0e-14, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
-        density=2500.0, specific_heat_capacity=1000.0 * to_Mega,
+        permeability=1.0e-14,
+        porosity=0.1,
+        thermal_conductivity=2.0 * to_Mega,
+        density=2500.0,
+        specific_heat_capacity=1000.0 * to_Mega,
     )
     model = Model(
         {
@@ -387,8 +404,11 @@ def interface_sweep_model(request):
             "enable_buoyancy_effects": True,
             "material_constants": {"solid": solid_constants},
             "time_manager": pp.TimeManager(
-                schedule=[0.0, 86400.0], dt_init=86400.0, constant_dt=True,
-                iter_max=50, print_info=False,
+                schedule=[0.0, 86400.0],
+                dt_init=86400.0,
+                constant_dt=True,
+                iter_max=50,
+                print_info=False,
             ),
             "expected_order_loss": 3,
             "residual_tolerance": 1e-4,
@@ -424,10 +444,10 @@ def test_buoyancy_interface_flux_monotonicity(
     fluxes = []
     for z in z_sweep:
         model._swept_value = float(z)
-        model.initial_condition()             # flash-consistent IC state for this z
+        model.initial_condition()  # flash-consistent IC state for this z
         model.update_all_boundary_conditions()
-        model.update_derived_quantities()     # refresh flash-derived quantities (HU-mwp flux)
-        model.before_nonlinear_iteration()    # activate the hybrid-upwind directions
+        model.update_derived_quantities()  # refresh flash-derived quantities (HU-mwp flux)
+        model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
         mortar_flux = model.equation_system.evaluate(
             _component_interface_flux(model, component)
         )
@@ -435,7 +455,9 @@ def test_buoyancy_interface_flux_monotonicity(
 
     fluxes = np.array(fluxes)
     scale = np.max(np.abs(fluxes))
-    assert scale > 1e-8, "interface buoyant flux is ~zero over the sweep; test is vacuous"
+    assert scale > 1e-8, (
+        "interface buoyant flux is ~zero over the sweep; test is vacuous"
+    )
     diffs = np.diff(fluxes)
     atol = 1e-9 * scale
     monotone = np.all(diffs >= -atol) or np.all(diffs <= atol)
