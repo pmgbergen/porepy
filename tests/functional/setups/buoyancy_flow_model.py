@@ -484,13 +484,13 @@ class NullMeanPressureLinearSolver(SchurEliminationDirectSolver):
 
 
 class NullSpaceCriterion(pp.solvers.ConvergenceCriterion):
-    """Converge the null-mean-pressure residual (the dt-scaled summed-mass residual).
+    """Converge the null-mean-pressure residual r_nm = |Σ_c r_c| · Δt / V.
 
-    The summed mass residual is the residual's component along the pressure null space
-    (the constant-pressure mode of the closed Neumann problem), which the linear solve
-    cannot reduce; it is a rate, so scaled by ``dt`` it is what the conservation checks
-    accumulate. Once Newton stagnates it is frozen, so the criterion stops objecting and
-    leaves the verdict to the test's assertion.
+    r_c is the per-cell mass-balance residual (a rate) and Σ_c projects onto the constant
+    mode -- the pressure null space of the closed Neumann problem, which the gauge-fixed
+    solve cannot reduce. The Δt converts the rate into the per-step mass change the
+    conservation checks accumulate; V (total volume) normalizes. Once Newton stagnates
+    r_nm freezes, so the criterion stops objecting and defers to the test's assertion.
     """
 
     #: Consecutive checks with relative residual change below this count as frozen.

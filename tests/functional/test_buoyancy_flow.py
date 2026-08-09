@@ -165,10 +165,11 @@ class _TwoCellColumn(ModelGeometry2D):
 
 
 class _CompositionSweepIC(pp.PorePyModel):
-    """Impose the swept component's overall fraction in one cell of the column (the rest fixed).
+    """Impose the swept component's overall fraction in one column cell (rest fixed).
 
-    The model's ``initial_condition`` propagates the imposed composition to consistent phase
-    saturations through its own saturation map, so each sweep point is a flash-consistent state.
+    ``initial_condition`` propagates the imposed composition to consistent phase
+    saturations through the model's saturation map, so each sweep point is
+    flash-consistent.
     """
 
     _swept_component: str = "CH4"
@@ -191,12 +192,13 @@ class _CompositionSweepIC(pp.PorePyModel):
 
 @pytest.fixture(scope="module", params=[False, True], ids=["hu", "hu_mwp"])
 def subdomain_sweep_model(request):
-    """Two-cell buoyancy model built once per formulation, shared across ``swept_cell`` and the
-    composition sweep.
+    """Two-cell buoyancy model built once per formulation, shared across ``swept_cell``
+    and the composition sweep.
 
-    The mesh and equations depend only on ``fractional_flow``; the test re-sets the IC (and the
-    flash-derived quantities, required for the state-dependent HU-mwp flux) per sweep point,
-    which is bit-identical to rebuilding the model and collapses N builds into one.
+    The mesh and equations depend only on ``fractional_flow``; the test re-sets the IC
+    (and the flash-derived quantities, required for the state-dependent HU-mwp flux) per
+    sweep point, which is bit-identical to rebuilding the model and collapses N builds
+    into one.
     """
     fractional_flow = request.param
     base = add_mixin(
@@ -235,7 +237,8 @@ def subdomain_sweep_model(request):
 
 
 @pytest.mark.parametrize("swept_cell", [0, 1])
-# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
+# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly).
+# |components| 2->1 halves the per-PR suite.
 @pytest.mark.parametrize(
     "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
 )
@@ -261,7 +264,7 @@ def test_buoyancy_flux_monotonicity(
         model._swept_value = float(z)
         model.initial_condition()  # flash-consistent IC state for this z
         model.update_all_boundary_conditions()
-        model.update_derived_quantities()  # refresh flash-derived quantities (HU-mwp flux)
+        model.update_derived_quantities()  # flash refresh for the HU-mwp flux
         model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
         flux = model.component_buoyancy(component, subdomains).value(
             model.equation_system
@@ -420,7 +423,8 @@ def interface_sweep_model(request):
 
 
 @pytest.mark.parametrize("side, swept_target", _MD_INTERFACE_CHECKS)
-# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly). |components| 2->1 halves it.
+# CI: CH4 only; C5H12 -> ``skipped`` (--run-skipped, nightly).
+# |components| 2->1 halves the per-PR suite.
 @pytest.mark.parametrize(
     "swept_component", ["CH4", pytest.param("C5H12", marks=pytest.mark.skipped)]
 )
@@ -446,7 +450,7 @@ def test_buoyancy_interface_flux_monotonicity(
         model._swept_value = float(z)
         model.initial_condition()  # flash-consistent IC state for this z
         model.update_all_boundary_conditions()
-        model.update_derived_quantities()  # refresh flash-derived quantities (HU-mwp flux)
+        model.update_derived_quantities()  # flash refresh for the HU-mwp flux
         model.before_nonlinear_iteration()  # activate the hybrid-upwind directions
         mortar_flux = model.equation_system.evaluate(
             _component_interface_flux(model, component)
