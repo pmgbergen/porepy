@@ -49,9 +49,6 @@ NOT by --p-top: the boiling curve is bistable and the liquid-seeded hydrostatic 
     liquid: python porepy_2d_recharge.py --equilibrate --no-barriers --t-equil 230 --z-top 0.5  --z-bottom 0.5  --p-top 2 --report-every-years 0.2 --end-years 1
     vapor : python porepy_2d_recharge.py --equilibrate --no-barriers --t-equil 350 --z-top 0.95 --z-bottom 0.95 --p-top 2 --report-every-years 0.2 --end-years 1
 
-Reuses the subsection_4_2 machinery: graded OBL tables, Schur-CPR (PETSc), the weis backtracking
-line search, the slave (exact flash each iterate) and the shared base nonlinear criterion.
-
 Reference run (now the defaults, so bare ``python porepy_2d_recharge.py`` reproduces it):
     --p-recharge 2.5 --report-every-years 10 --end-years 2000   with the barriers ON.
 Robust, shows clean results. Timing on the dev machine: ~1:16 h wall
@@ -399,6 +396,11 @@ _ap.add_argument("--dt-nominal", type=float, default=1.0, metavar="YR")
 _ap.add_argument("--dt-min", type=float, default=0.0001, metavar="YR")
 _ap.add_argument("--dt-max", type=float, default=10.0, metavar="YR")
 _ap.add_argument("--lag-buoyancy", action="store_true")
+_ap.add_argument("--step-control", default="LS", choices=["None", "LS"],
+                 help="Newton globalisation: LS = weis backtracking line search (DEFAULT); None = plain")
+_ap.add_argument("--reduced-solver", default="auto", choices=["auto", "splu", "pardiso", "cpr"],
+                 help="reduced Schur-system solver: direct sparse LU (auto=splu<20k DOF else pardiso; "
+                      "DEFAULT) is ~10x faster and exact here; cpr = the iterative PETSc CPR")
 _ap.add_argument("--no-barriers", dest="barriers", action="store_false", default=True,
                  help="disable the staggered low-k aquitard beds (ON by default; see _BARRIERS)")
 _ap.add_argument("--barrier-factor", type=float, default=BARRIER_PERM_FACTOR, metavar="F",
@@ -458,7 +460,8 @@ params = {
     "times_to_export": list(schedule),
     "use_petsc": True, "petsc_preconditioner": "cpr",
     "cpr_rtol": 1.0e-5, "cpr_maxit": 400, "cpr_accuracy_tol": 1.0e-3,
-    "step_control_method": "LS",          # weis backtracking line search
+    "reduced_solver": _args.reduced_solver,   # direct LU of the reduced system (~10x faster than cpr)
+    "step_control_method": _args.step_control,          # LS (default) | None
     "slave_eliminated_secondaries": True,  # exact flash each Newton iterate
     "consistent_discretization": _args.consistent,
     "lag_buoyancy_direction": _args.lag_buoyancy,
@@ -582,7 +585,10 @@ _attach_samplers(model)
 
 if __name__ == "__main__":
     tb = time.time()
-    solver_params = model.default_nonlinear_criteria()
+    # Newton criterion cap must sit ABOVE the TimeManager's iter_max (13): a step in the (13, 20]
+    # band is then accepted while signalling "shrink dt", instead of failing outright and collapsing
+    # to dt_min. Setting the cap == iter_max removed that headroom and crashed the stiff cell-25 run.
+    solver_params = model.default_nonlinear_criteria(max_iterations=20)
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     print("Elapsed time prepare simulation:", time.time() - tb)
@@ -601,5 +607,5 @@ if __name__ == "__main__":
     runner.run()
     print("Elapsed time run:", time.time() - tb)
 
-# fixed dimensional setting: python porepy_2d_recharge.py --report-every-years 10 --end-years 2000 --dt-nominal 1 --dt-min 0.0125 --dt-max 50
+# fixed dimensional setting: python porepy_2d_recharge.py --report-every-years 10 --end-years 2000  1    5  26224.54s user 15169.00s system 749% cpu 1:32:02.61 total
 

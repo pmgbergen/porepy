@@ -423,7 +423,7 @@ class _DriesnerBrineBase(  # type:ignore[misc]
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve the linear system, report residuals by category, and apply brine-specific
-        post-processing. The actual step control (None / LS / TR / TR-LS) is delegated to
+        post-processing. Step control (``"None"`` / ``"LS"``) is delegated to
         :meth:`FlowModelBase.solve_linear_system`.
 
         Returns:
@@ -453,7 +453,7 @@ class _DriesnerBrineBase(  # type:ignore[misc]
             sample = idxs[:10].tolist() if count > 0 else []
             print(f"  - {name}: {count} cells (examples: {sample})")
 
-        # Step control (None / LS / TR / TR-LS) handled by FlowModelBase.
+        # Step control (None / LS) is handled by FlowModelBase.solve_linear_system.
         solution = super().solve_linear_system()
 
         end_time = time.time()
@@ -478,9 +478,6 @@ class _DriesnerBrineBase(  # type:ignore[misc]
                       f"Algebraic norm ({algebraic_residual_norm:.4e})")
 
         return solution
-
-
-
 
     def postprocessing_overshoots(self, delta_x):
 

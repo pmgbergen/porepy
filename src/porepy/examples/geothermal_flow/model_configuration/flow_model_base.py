@@ -224,9 +224,6 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
     with one of the two compositional-flow templates below to form a concrete base; its ``super()``
     calls resolve to whichever template is mixed in after it in the concrete class's MRO."""
 
-    # Trust-region state, persistent across nonlinear iterations (reset each time step).
-    _trust_radius: float = None
-
     def __init__(self, params):
         super().__init__(params)
         self.newton_iterations_per_timestep = []
@@ -920,11 +917,22 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         t_step2 = time.perf_counter() - t1
 
         t2 = time.perf_counter()
-        xk, cpr_its, cpr_blocks = self._cpr_petsc_solve(
-            Sc, gc, n_p,
-            lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 60000)),
-            rtol=float(self.params.get("cpr_rtol", 1.0e-8)),
-            maxit=int(self.params.get("cpr_maxit", 300)))
+        reduced_solver = self.params.get("reduced_solver", "cpr")
+        use_cpr = reduced_solver == "cpr"
+        if use_cpr:
+            xk, cpr_its, cpr_blocks = self._cpr_petsc_solve(
+                Sc, gc, n_p,
+                lu_pressure_max=int(self.params.get("cpr_lu_pressure_max", 60000)),
+                rtol=float(self.params.get("cpr_rtol", 1.0e-8)),
+                maxit=int(self.params.get("cpr_maxit", 300)))
+        else:
+            # Direct sparse LU of the reduced primary system. The Dirichlet inlet/outlet pressure
+            # makes it non-singular, and below ~1e5 DOF a single LU beats CPR by ~10x: the iterative
+            # machinery's fixed per-solve overhead dwarfs the actual work at these sizes.
+            if reduced_solver == "auto":
+                reduced_solver = "splu" if Sc.shape[0] < 20000 else "pardiso"
+            xk, actual_solver = self._direct_reduced_solve(Sc, gc, reduced_solver)
+            cpr_its, cpr_blocks = 0, [("direct", Sc.shape[0], actual_solver)]
         xp = np.concatenate([xk, lu_i.solve(gl - Slk @ xk)]) if n_i else xk
         t_cpr = time.perf_counter() - t2
 
@@ -940,19 +948,38 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         rhs_s = bs - Asp @ xp
         xs = rhs_s if lu is None else lu.solve(rhs_s)       # back-substitute the secondaries
 
-        logger.info(
-            "Schur-CPR solve: %.3fs (%d KSP its, res %.1e)",
-            time.perf_counter() - t0, cpr_its, rel)
+        if use_cpr:
+            logger.info("Schur-CPR solve: %.3fs (%d KSP its, res %.1e)",
+                        time.perf_counter() - t0, cpr_its, rel)
+        else:
+            logger.info("Schur-direct solve: %.3fs (%s, res %.1e)",
+                        time.perf_counter() - t0, cpr_blocks[0][2], rel)
         logger.info("  reduced %d = %s", m,
                     " + ".join(f"{nm} {sz} ({pcname})" for nm, sz, pcname in cpr_blocks))
         logger.info("  eliminated: %d interface + %d secondary", n_i, len(sr))
-        logger.info("  cost: extract %.3fs + step1 %.3fs + step2 %.3fs + cpr %.3fs",
+        logger.info("  cost: extract %.3fs + step1 %.3fs + step2 %.3fs + solve %.3fs",
                     t_extract, t_step1, t_step2, t_cpr)
 
         x = np.empty(n, dtype=float)
         x[pc] = xp
         x[sc] = xs
         return x
+
+    @staticmethod
+    def _direct_reduced_solve(S, g, kind="splu"):
+        """Exact sparse LU of the reduced primary system (non-singular under Dirichlet inlet/outlet
+        pressure). ``'splu'`` = scipy, fastest below ~2e4 DOF; ``'pardiso'`` = MKL PARDISO, faster
+        above. Returns ``(x, actual_solver)`` -- ``actual_solver`` reports what really ran, so a
+        pypardiso failure/absence (falls back to scipy splu) is visible in the log, not silent."""
+        g = np.asarray(g, dtype=float)
+        if kind == "pardiso":
+            try:
+                from pypardiso import spsolve as _pardiso
+                return np.asarray(_pardiso(S.tocsr(), g), dtype=float), "pardiso"
+            except Exception as exc:
+                logger.warning("pypardiso unavailable/failed (%s); falling back to scipy splu.", exc)
+        from scipy.sparse.linalg import splu
+        return splu(S.tocsc()).solve(g), "splu"
 
     @staticmethod
     def _cpr_petsc_solve(S, g, n_p, lu_pressure_max=60000, rtol=1.0e-8, maxit=300):
@@ -1167,8 +1194,6 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         - ``"None"``  : plain Newton, no step control.
         - ``"LS"``    : backtracking line search (Armijo), applied only when the full
           Newton step would increase the residual.
-        - ``"TR"``    : CFL-based trust region.
-        - ``"TR-LS"`` : trust region followed by a line-search refinement.
 
         Residual reporting and solution post-processing are intentionally left to the
         model (see the overridable hooks :meth:`compute_residuals_by_category`,
@@ -1176,18 +1201,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         this method only chooses and applies the step.
         """
         _, residual_vector = self.linear_system
-        residual_norm_current = np.linalg.norm(residual_vector)
-
         step_control_method = self.params.get("step_control_method", "None")
-        step_control_alpha_min = self.params.get("step_control_alpha_min", 0.01)
-        activate_after_iteration = self.params.get("activate_step_control_after_iter", 1)
-        activate_step_control_Q = (
-            self.nonlinear_solver_statistics.num_iterations > activate_after_iteration
-        )
-
-        # Reset the trust radius at the start of each time step (iteration 0).
-        if self.nonlinear_solver_statistics.num_iterations == 0:
-            self._trust_radius = 1.0
 
         if step_control_method == "None":
             solution = self._solve_linear_system_core()
@@ -1202,35 +1216,10 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             alpha = self.backtracking_line_search(delta_x, residual_vector)
             solution = alpha * delta_x
 
-        elif step_control_method == "TR":
-            if activate_step_control_Q:
-                print("Step control: Trust Region (TR)")
-                solution, self._trust_radius = self.trust_region_solve(
-                    trust_radius=self._trust_radius
-                )
-            else:
-                solution = self._solve_linear_system_core()
-
-        elif step_control_method == "TR-LS":
-            if activate_step_control_Q:
-                print("Step control: Trust Region + Line Search (TR-LS)")
-                solution, self._trust_radius = self.trust_region_solve(
-                    trust_radius=self._trust_radius
-                )
-                residual_after_tr = self.compute_residual_from_increment(
-                    solution, restore_state=True
-                )
-                if np.linalg.norm(residual_after_tr) > residual_norm_current * 0.9:
-                    alpha = self.backtracking_line_search(solution, residual_vector)
-                    solution *= alpha
-                    print(f"  TR-LS: line search alpha = {alpha:.4f}")
-            else:
-                solution = self._solve_linear_system_core()
-
         else:
             raise ValueError(
                 f"Unknown step_control_method: {step_control_method}. "
-                f"Valid options are: 'None', 'LS', 'TR', 'TR-LS'"
+                f"Valid options are: 'None', 'LS'"
             )
 
         if self.params.get("reduce_linear_system_q", False):
@@ -1292,159 +1281,19 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             except TypeError:
                 self.equation_system.set_variable_values(x_current)
 
-            # CRITICAL: Must also restore derived quantities and discretization
-            # Otherwise the state is corrupted for the next iteration
-            self.update_derived_quantities()
-            self.refresh_buoyancy_direction()
-            self.rediscretize()
+            # The variable VALUES above are always restored (the accepted step is applied additively,
+            # so the base iterate must be back in place). The derived quantities + discretization,
+            # however, are rebuilt for the BASE state only to be overwritten by the next line-search
+            # trial (or, after the search, by after_nonlinear_iteration / check_convergence) before
+            # anything reads them -- so for a line-search caller this rebuild is dead work (~39% of the
+            # eval). ``lazy_residual_restore`` skips it; default keeps the full restore for any caller
+            # that does read the base derived state back (Fig-8 / 3D stay byte-identical by default).
+            if not self.params.get("lazy_residual_restore", False):
+                self.update_derived_quantities()
+                self.refresh_buoyancy_direction()
+                self.rediscretize()
 
         return current_nonlinear_residual
-
-    def estimate_mixed_dimensional_cfl_number(self) -> tuple[float, float, float]:
-        """
-        Estimate the MD-CFL number
-
-        Uses the same divergence operator as mass balance equations:
-            ∂(φρ)/∂t + ∇·(ρ q) = 0
-
-        where div = pp.ad.Divergence(subdomains, dim=1)
-
-        Returns:
-            tuple: (cfl_max, div_max, dx_min)
-                - cfl_max: Maximum CFL number over all cells
-                - div_max: Maximum divergence magnitude [1/s]
-                - dx_min: Minimum cell size [m]
-        """
-
-        # Get the subdomains
-        subdomains = self.mdg.subdomains(dim=self.nd)
-        # Get current time step
-        dt = self.time_manager.dt
-
-        # Get characteristic cell size
-        cell_diameters = self.volume_integral(1,subdomains,dim=1).value(self.equation_system)
-        dx_min = np.min(cell_diameters)
-
-        # === Use PorePy's AD operators (same as mass balance equations) ===
-
-        # 1. Get Darcy flux using AD operator
-        darcy_flux_ad = self.darcy_flux(subdomains)
-
-        # 2. Get density on cells
-        density_ad = self.fluid.density(subdomains)
-        density_values = density_ad.value(self.equation_system)
-
-        # 3. Use PorePy's Divergence operator (consistent with mass balance)
-        div_operator = pp.ad.Divergence(subdomains, dim=1)
-
-        # Compute divergence of Darcy flux [m³/s/m³ = 1/s]
-        div_darcy_ad = div_operator @ darcy_flux_ad
-        div_mass_flux = div_darcy_ad.value(self.equation_system)
-
-        # Absolute divergence
-        abs_div = np.abs(div_mass_flux)
-
-        # 4. Get accumulation density: φρ [kg/m³]
-        porosity_op = self.porosity(subdomains)
-        porosity = porosity_op.value(self.equation_system)
-
-        accumulation_density = porosity * density_values
-
-        # 5. CFL number: CFL = dt * |∇·(ρq)| / (φρ)
-        cfl_per_cell = np.nan_to_num(dt * abs_div / (accumulation_density) , nan=0.0, posinf=0.0)
-        cfl_max = np.max(cfl_per_cell)
-        div_max = np.max(np.nan_to_num(abs_div / (accumulation_density) , nan=0.0, posinf=0.0))
-
-        return cfl_per_cell, cfl_max, div_max, dx_min
-
-    def trust_region_solve(
-            self,
-            trust_radius: float = 1.0,
-            eta: float = 0.1,
-    ) -> tuple[np.ndarray, float]:
-        """
-        Simplified CFL-based Trust Region solver.
-
-        Strategy:
-        - Calculate effective trust radius as: cfl_target / cfl_current
-        - Trust pressure Newton step completely (parabolic, well-behaved)
-        - Apply CFL-based trust region to hyperbolic variables (enthalpy, composition)
-        """
-        # Get target CFL parameter
-        cfl_target = self.params.get("trust_region_cfl_max_target", 1.0)
-
-        # Get Jacobian and residual
-        jacobian_matrix, residual_vector = self.linear_system
-        residual_norm_current = np.linalg.norm(residual_vector)
-
-        # Estimate current CFL number
-        cfl_per_cell, cfl_current, div_max, dx_min = self.estimate_mixed_dimensional_cfl_number()
-        print(f"  TR-CFL: Current CFL={cfl_current:.4f}, div_max={div_max:.2e} 1/s, dx_min={dx_min:.2e} m")
-
-        h_op = self.enthalpy(self.mdg.subdomains())
-        h_values = h_op.value(self.equation_system)
-        CFL_energy = np.max(cfl_per_cell * np.abs(h_values))
-
-        # Calculate effective trust radius: cfl_target / cfl_current
-        if CFL_energy > 1e-3:
-            trust_radius = cfl_target / CFL_energy
-            print(f"  TR-CFL: Effective trust_radius = {cfl_target:.2f} / {cfl_current:.4f} = {trust_radius:.4e}")
-        else:
-            trust_radius = 1.0
-            print(f"  TR-CFL: Low CFL, using trust_radius = 1.0")
-
-        # Compute pure Newton step
-        pk_newton = self._solve_linear_system_core()
-        self.postprocessing_overshoots(pk_newton)
-
-        # Get DOF indices for each variable
-        p_dof_idx = self.equation_system.dofs_of(['pressure'])
-        z_dof_idx = self.equation_system.dofs_of(['z_NaCl'])
-        h_dof_idx = self.equation_system.dofs_of(['enthalpy'])
-
-        # Compute norms for each block
-        p_step_norm = np.linalg.norm(pk_newton[p_dof_idx])
-        h_step_norm = np.linalg.norm(pk_newton[h_dof_idx])
-        z_step_norm = np.linalg.norm(pk_newton[z_dof_idx])
-        hyperbolic_step_norm = np.sqrt(h_step_norm**2 + z_step_norm**2)
-
-        print(f"  TR: ||Δp||={p_step_norm:.2e}, ||Δh||={h_step_norm:.2e}, ||Δz||={z_step_norm:.2e}")
-        print(f"  TR: ||Δ_hyperbolic||={hyperbolic_step_norm:.2e}, trust_radius={trust_radius:.2e}")
-
-        # # Trust parabolic (pressure), limit hyperbolic (enthalpy, composition)
-        pk_solution = pk_newton.copy()
-        residual_full_vec = self.compute_residual_from_increment(pk_newton, restore_state=True)
-        residual_norm_full_vec = np.linalg.norm(residual_full_vec)
-
-        #
-        # if hyperbolic_step_norm > trust_radius:
-        #     # Scale back ONLY the hyperbolic components
-        #     scaling_factor = trust_radius / hyperbolic_step_norm
-        #     pk_solution[h_dof_idx] *= scaling_factor
-        #     pk_solution[z_dof_idx] *= scaling_factor
-        #     print(f"  TR: Scaling hyperbolic by {scaling_factor:.4f} (CFL limit)")
-        #     print(f"  TR: Pressure step UNTOUCHED (parabolic)")
-        # else:
-        #     print(f"  TR: Full Newton step (hyperbolic within CFL-based radius)")
-
-        pk_solution *= trust_radius
-        # Evaluate step quality
-        residual_new_vec = self.compute_residual_from_increment(pk_solution, restore_state=True)
-        residual_norm_new = np.linalg.norm(residual_new_vec)
-
-        print(f"  TR: ||R_full_step||={residual_norm_full_vec:.4e}, ||R_new||={residual_norm_new:.4e}")
-
-        # Accept step if residual decreased or near convergence
-        accept_step = residual_norm_new <  residual_norm_full_vec
-
-        if accept_step:
-            print(f"  TR: ✓ ACCEPTING")
-        else:
-            print(f"  TR: ✗ REJECTING")
-            pk_solution = np.zeros_like(pk_solution)
-
-        # Return solution and new trust radius (recalculate next iteration)
-        return pk_solution, trust_radius
 
     def backtracking_line_search(
         self,
