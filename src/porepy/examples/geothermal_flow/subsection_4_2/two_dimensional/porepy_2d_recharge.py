@@ -885,5 +885,8 @@ if __name__ == "__main__":
     runner.run()
     print("Elapsed time run:", time.time() - tb)
 
-# fixed dimensional setting: python porepy_2d_recharge.py --report-every-years 10 --end-years 2000  1    5  26224.54s user 15169.00s system 749% cpu 1:32:02.61 total
+# new setting with simplexes:
+# python porepy_2d_recharge.py --report-every-years 1 --end-years 1000 --dt-nominal 1 --dt-min 0.0015625  --dt-max 50 --cell-size 50 --reduced-solver pardiso --simplex --md
+# python porepy_2d_recharge.py --report-every-years 1 --end-years 1000 --dt-nominal 1 --dt-min 0.0015625  --dt-max 50 --cell-size 50 --reduced-solver pardiso --simplex --consistent --md
+
 
