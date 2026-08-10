@@ -14,6 +14,7 @@ The tests combine simple unit tests and comparisons of norm computations for:
 
 """
 
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
@@ -201,6 +202,20 @@ def test_equation_based_euclidean_metric_on_grids(
     assert deepdiff_result == {}
 
 
+@dataclass(frozen=True)
+class OnDomain(pp.solvers.DomainFilter):
+    """Helper domain filter used in the tests:
+    - :func:`test_equation_based_metric_with_restricted_indexer`
+    - :func:`test_variable_based_metric_with_restricted_indexer`
+
+    """
+
+    domain: pp.GridLike
+
+    def filter(self, domain, model: pp.PorePyModel) -> bool:
+        return domain == self.domain
+
+
 @pytest.mark.parametrize(
     "metric_class", [pp.EquationBasedEuclideanMetric, pp.EquationBasedLebesgueMetric]
 )
@@ -210,26 +225,26 @@ def test_equation_based_metric_with_restricted_indexer(
     """Metric must compute residual only for the given equations."""
     # Get the first 3 equations an assemble residual only for them. They are:
     # [normal contact on grid 1; normal contact on grid 2; tangential contact on grid 1]
+    all_fractures = orthogonal_2d_model.mdg.subdomains(dim=1)
     equations = {
-        "normal_fracture_deformation_equation": orthogonal_2d_model.mdg.subdomains(
-            dim=1
-        ),
-        "tangential_fracture_deformation_equation": [
-            orthogonal_2d_model.mdg.subdomains(dim=1)[0]
-        ],
+        "normal_fracture_deformation_equation": all_fractures,
+        "tangential_fracture_deformation_equation": [all_fractures[0]],
     }
     residual = orthogonal_2d_model.equation_system.assemble(
-        evaluate_jacobian=False,
-        equations=equations,
+        evaluate_jacobian=False, equations=equations
     )
-    # Get the corresponding indexer.
-    equation_indexer, _ = (
-        orthogonal_2d_model.equation_system._construct_assembled_matrix_indexers(
-            equations=equations
-        )
-    )
+
     # Assemble and evaluate the metric.
-    metric = metric_class(orthogonal_2d_model, equation_indexer)
+    metric = metric_class(
+        orthogonal_2d_model,
+        equation_tags=[
+            pp.solvers.EquationTag(name="normal_fracture_deformation_equation"),
+            pp.solvers.EquationTag(
+                name="tangential_fracture_deformation_equation",
+                defined_on=OnDomain(domain=all_fractures[0]),
+            ),
+        ],
+    )
     norms = metric(residual)
 
     # It will be only 2 norms: for normal contact (on both grids) and tangential (on a
@@ -254,14 +269,20 @@ def test_variable_based_metric_with_restricted_indexer(
     residual = orthogonal_2d_model.equation_system.assemble(
         evaluate_jacobian=False, variables=variables
     )
-    # Get the corresponding indexer.
-    _, variable_indexer = (
-        orthogonal_2d_model.equation_system._construct_assembled_matrix_indexers(
-            variables=variables
-        )
-    )
+
     # Assemble and evaluate the metric.
-    metric = metric_class(orthogonal_2d_model, variable_indexer)
+    metric = metric_class(
+        orthogonal_2d_model,
+        variable_tags=[
+            pp.solvers.VariableTag(name="contact_traction"),
+            pp.solvers.VariableTag(
+                name="pressure",
+                defined_on=OnDomain(
+                    domain=orthogonal_2d_model.mdg.subdomains(dim=2)[0]
+                ),
+            ),
+        ],
+    )
     norms = metric(residual)
 
     # It will be only 2 norms: for contact traction (on both grids) and pressure.
