@@ -102,7 +102,7 @@ def linear_system_data() -> LinearSystemData:
 def test_initialize_with_model() -> None:
     """Test that initialization forwards a model mock to the inner solver."""
 
-    class ShallowMockModel:
+    class MockModel:
         pass
 
     primary_solver = MockPrimaryLinearSolver(
@@ -114,7 +114,7 @@ def test_initialize_with_model() -> None:
         primary_variable_tags=[],
         primary_linear_solver=primary_solver,
     )
-    model = ShallowMockModel()
+    model = MockModel()
 
     solver.initialize_with_model(model)
 
@@ -122,11 +122,15 @@ def test_initialize_with_model() -> None:
 
 
 @pytest.mark.parametrize("primary_solver_succeeds", [True, False])
-def test_solve_reduces_system_and_wraps_primary_status(
+def test_solve(
     linear_system_data: LinearSystemData,
     primary_solver_succeeds: bool,
 ) -> None:
-    """The inner solver receives the Schur system and its status is preserved."""
+    """Solve the linear system with the Schur complement solver. The inner solver may
+    fail, then the Schur complement solver should fail as well.
+
+    """
+    # Construct an inner solver that will either succeed or fail.
     if primary_solver_succeeds:
         primary_status: pp.solvers.LinearSolverStatus = (
             pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)
@@ -137,6 +141,8 @@ def test_solve_reduces_system_and_wraps_primary_status(
         solution=np.array([-1.0, 3.0]),
         status=primary_status,
     )
+
+    # Construct the Schur complement solver.
     solver = pp.solvers.SchurComplementReductionLinearSolver(
         primary_equation_tags=[linear_system_data.primary_equation_tag],
         primary_variable_tags=[linear_system_data.primary_variable_tag],
@@ -337,10 +343,12 @@ def test_schur_complement_reduction_on_model(
 
     primary_eq_tags, primary_var_tags = get_primary_tags(model)
 
+    # First solve the full linear system with the direct solver.
     direct_solver = pp.solvers.LinearSolverDirect()
     expected_sol, status = direct_solver.solve_linear_system(linear_system)
     assert status.is_success()
 
+    # Then solve with the Schur complement elimination.
     schur_solver = pp.solvers.SchurComplementReductionLinearSolver(
         primary_equation_tags=primary_eq_tags,
         primary_variable_tags=primary_var_tags,
@@ -349,4 +357,5 @@ def test_schur_complement_reduction_on_model(
     actual_sol, status = schur_solver.solve_linear_system(linear_system)
     assert status.is_success()
 
+    # Compare.
     np.testing.assert_allclose(expected_sol - actual_sol, 0, atol=1e-9, rtol=0)
