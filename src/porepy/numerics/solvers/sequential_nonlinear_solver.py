@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import Optional
 from warnings import warn
-import numpy as np
 
 import numpy as np
 
