@@ -26,8 +26,8 @@ from porepy.viz.solver_statistics import SolverStatisticsFactory
 class MockEquationSystem:
     """Used internally in MockModel."""
 
-    equation_indexer = pp.ad.EquationIndexer(operators_to_dofs={})
-    variable_indexer = pp.ad.VariableIndexer(operators_to_dofs={})
+    equation_indexer = pp.ad.EquationIndexer(indices={})
+    variable_indexer = pp.ad.VariableIndexer(indices={})
 
     def assemble(self, evaluate_jacobian: bool = True, **kwargs):
         if not evaluate_jacobian:
