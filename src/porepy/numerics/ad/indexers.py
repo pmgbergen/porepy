@@ -99,7 +99,7 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
                 )
             projections.append(indices)
         return (
-            np.concatenate(projections)
+            np.concatenate(projections, dtype=int)
             if len(projections) > 0
             else np.empty(0, dtype=int)
         )
