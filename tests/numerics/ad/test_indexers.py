@@ -1,4 +1,11 @@
-"""Unit tests for indexers used by the AD equation system."""
+"""Unit tests for indexers used by the AD equation system.
+
+TODO YZ: These tests should be generalized and test all methods of the equation and
+variable indexers. It would be convinient to do it in #1727 (generic indexer PR).
+
+"""
+
+from dataclasses import dataclass
 
 import numpy as np
 import pytest
@@ -9,6 +16,9 @@ from porepy.numerics.ad.indexers import (
     EquationOnDomain,
     EquationSystemIndexer,
     VariableIndexer,
+)
+from porepy.numerics.solvers.linear_solvers.schur_complement_reduction import (
+    _filter_by_tags,
 )
 
 
@@ -184,3 +194,41 @@ def test_empty_indexers() -> None:
     assert restricted_indexer.indices == {}
     assert equation_indexer.indices == {}
     assert equation_indexer.equation_image_space_composition == {}
+
+
+# TODO YZ: Filter by tags is about to become a method of indexers in the next PR
+# (generic indexer).
+
+
+def test_filter_by_tags_handles_duplicate_tags() -> None:
+    """Must raise ValueError if tags lead to duplicated operators."""
+
+    domain = pp.CartGrid([1])
+    variable = pp.ad.Variable("x", {"cells": 1}, domain)
+    tags = [pp.solvers.VariableTag("x"), pp.solvers.VariableTag("x")]
+
+    with pytest.raises(ValueError):
+        _ = _filter_by_tags([variable], tags)
+
+
+def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
+    """Tags with the same name may select disjoint subsets of domains."""
+
+    @dataclass(frozen=True)
+    class OnDomain(pp.solvers.DomainFilter):
+        domain: pp.GridLike
+
+        def filter(self, domain: pp.GridLike) -> bool:
+            return domain is self.domain
+
+    domains = [pp.CartGrid([1]) for _ in range(3)]
+    variables = [pp.ad.Variable("x", {"cells": 1}, domain) for domain in domains]
+    tags = [
+        pp.solvers.VariableTag("x", defined_on=OnDomain(domain))
+        for domain in domains[:2]
+    ]
+
+    filtered, not_filtered = _filter_by_tags(variables, tags)
+
+    assert filtered == variables[:2]
+    assert not_filtered == variables[2:]

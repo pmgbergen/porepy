@@ -1,3 +1,16 @@
+"""This module provides the Schur complement reduction-based linear solver.
+
+Its intended usage is the compositional flow model, but it can be used for any model
+that generates linear systems of the following structure:
+```
+A_pp A_ps
+A_sp A_ss
+```
+where p and s subscripts denote "prmimary" and "secondary" equations / variables. It
+should be possible to permute `A_ss` in a block-diagonal form.
+
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict

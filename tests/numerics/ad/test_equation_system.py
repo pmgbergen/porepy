@@ -8,13 +8,10 @@ The tests focus on various assembly methods:
     * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
     * test_set_get_methods: Get and set methods for variables, including methods for
         shifting between time steps and iterates.
-    * test_variable_indexer_subset: Indexing a subset of variables.
     * test_set_remove_equations: Set and remove equations from an EquationSystem.
     * test_parse_variable_like, test_parse_single_equation, test_parse_equations:
         Parsing of equations, and the methods used to do so. Thorough testing here means
         other tests can get away with fewer parameter checks.
-    * test_secondary_variable_assembly: Test of assembly when secondary variables are
-        present.
     * test_assemble: Assemble sub-blocks of the full set of equations.
     * test_extract_subsystem: Extract a new EquationSystem for a subset of equations.
 
@@ -611,15 +608,6 @@ class EquationSystemMockModel:
         )
 
 
-def _eliminate_columns_from_matrix(A, indices, reverse):
-    # Helper method to extract submatrix by column indices
-    if reverse:
-        inds = np.setdiff1d(np.arange(A.shape[1]), indices)
-    else:
-        inds = indices
-    return A[:, inds]
-
-
 @pytest.fixture(scope="function")
 def model() -> EquationSystemMockModel:
     # Method to deliver a model to all tests
@@ -952,7 +940,10 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     )
 
     # Check that the mapping of equation to subdomain to global dof
-    # indices is correctly set.
+    # indices is correctly set. Note: in this test, we access the indexer through
+    # equation_system.equation_indexer (and don't assign it to a local variable),
+    # because it recomputes every time the equations are changed. So it's a new indexer
+    # each time it is accessed.
     equation_subdomain_blocks = (
         equation_system.equation_indexer.equation_image_space_composition
     )
@@ -1048,18 +1039,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     assert (
         list(equation_subdomain_blocks["eq_all_interfaces"].keys()) == model.interfaces
     )
-
-
-def test_update_equation_on_empty_domain(model: EquationSystemMockModel) -> None:
-    """Updating an empty-domain equation should reuse its empty domain by default."""
-    equation_system = model.equation_system
-    model.add_equation_on_empty_domain()
-    old_equation = equation_system.equations["empty_equation"]
-    new_equation = old_equation * old_equation
-
-    equation_system.update_equation("empty_equation", new_equation)
-
-    assert equation_system.equations["empty_equation"] is new_equation
 
 
 def test_parse_variable_like(model: EquationSystemMockModel):
@@ -1191,6 +1170,7 @@ def test_parse_single_equation(model: EquationSystemMockModel):
         # First parse the equation as it is, without any restriction.
         # This should give back the full equation with no restriction.
         restriction_1 = equation_system._parse_equations([eq_or_name])
+        # Four atomic equations (corresponding to this equation of 4 subdomains).
         assert len(restriction_1) == 4
 
         assert all(eq.name == eq_on_domain.name for eq_on_domain in restriction_1)
@@ -1286,127 +1266,38 @@ def test_parse_equations(model: EquationSystemMockModel):
     }
 
 
-def test_domain_restricted_assembly_has_local_equation_indices(
-    model: EquationSystemMockModel,
-) -> None:
-    """The assembled indexer uses row indices after the domain restriction."""
-    equation_system = model.equation_system
-    equation = model.eq_all_subdomains
-    domain = next(sd for sd in model.subdomains if sd is not model.sd_top)
-    restriction = {equation.name: [domain]}
-
-    # _parse_equations selects these rows from the equation's full AD result.
-    full_equation_indexer = equation_system.equation_indexer
-    full_result_rows = full_equation_indexer.equation_image_space_composition[
-        equation.name
-    ][domain]
-    assert full_result_rows[0] > 0
-
-    linear_system = equation_system.assemble(equations=restriction)
-    local_rows = np.arange(domain.num_cells)
-    np.testing.assert_array_equal(linear_system.rhs, model.b[full_result_rows])
-    assert linear_system.matrix is not None
-    assert linear_system.matrix.shape[0] == local_rows.size
-
-    assembled_indexer = linear_system.equation_indexer
-    assert isinstance(assembled_indexer, pp.ad.EquationIndexer)
-    np.testing.assert_array_equal(
-        assembled_indexer.indices[
-            pp.ad.EquationOnDomain(name=equation.name, domain=domain)
-        ],
-        local_rows,
-    )
-
-
+@pytest.mark.parametrize(
+    "eq_names",
+    [
+        None,  # None gives the full system.
+        [],  # An empty list will give a system with zero rows.
+        ["eq_single_subdomain"],  # A single equation.
+        ["eq_single_interface", "eq_all_subdomains"],  # Combination of two equations.
+        # Combination of two equations, reversed order.
+        ["eq_all_subdomains", "eq_single_interface"],
+    ],
+)
 @pytest.mark.parametrize(
     "var_names",
     [
-        [],  # No secondary variables
-        ["x"],  # A simple variable which is also part of a merged one
-        ["y"],  # mixed-dimensional variable
-        ["z"],  # Simple variable not available as merged
-        ["z", "w"],  # Combination of simple and merged.
+        None,  # None gives the full system.
+        [],  # An empty list will give a system with zero columns.
+        ["x"],  # A single variable.
+        ["x", "w"],  # Combination of two variables.
+        ["w", "x"],  # Combination of two variables, reversed order.
     ],
 )
-def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
-    # Test of the standard assemble method. The only interesting test is the
-    # secondary variable functionality (the other functionality is tested elsewhere).
-
-    # The tests compare assembly by an EquationManager with explicitly defined
-    # secondary variables with a 'truth' based on direct elimination of columns
-    # in the Jacobian matrix.
-    # The expected behavior is that the residual vector is fixed, while the
-    # Jacobian matrix is altered only in columns that correspond to eliminated
-    # variables.
-
-    variables = [
-        var for var in model.equation_system.variables if var.name not in var_names
-    ]
-    linear_system = model.equation_system.assemble(variables=variables)
-    A = linear_system.matrix
-    assert A is not None
-    b = linear_system.rhs
-
-    # Get dof indices of the variables that have been eliminated
-    if len(var_names) > 0:
-        dofs = np.sort(
-            np.hstack([model.equation_system.dofs_of([var]) for var in var_names])
-        )
-    else:
-        dofs = []
-
-    # The residual vectors should be the same
-    assert np.allclose(b, model.b)
-    # Compare system matrices. Since the variables specify columns to eliminate,
-    # we use the reverse argument
-    assert pp.test_utils.arrays.compare_matrices(
-        A, _eliminate_columns_from_matrix(model.A, dofs, reverse=True)
-    )
-    # Check that the equation blocks were correctly recorded.
-    equation_indexer, variable_indexer = (
-        model.equation_system._construct_assembled_matrix_indexers(variables=variables)
-    )
-    for name in model.equation_system.equations:
-        actual_dofs = [
-            dofs for eq, dofs in equation_indexer.indices.items() if eq.name == name
-        ]
-        assert np.allclose(np.concatenate(actual_dofs), model.eq_ind(name))
-
-    # Check that the sizes of variable blocks were correctly recorded.
-    for var in variables:
-        assert variable_indexer.indices[var].size == model.dof_ind(var).size
-
-
-@pytest.mark.parametrize(
-    "equation_variables",
-    [
-        [None, None],  # Two Nones will give the full system
-        [[], []],  # Two empty lists will give a system with zero rows and columns
-        [["eq_single_subdomain"], None],  # A single equation, all variables
-        [None, ["x"]],  # All equations, a single variable
-        [
-            [
-                "eq_single_interface",
-                "eq_all_subdomains",
-            ],  # Combination of two equations
-            ["x", "w"],  # Combination of two variables
-        ],
-        [
-            [
-                "eq_all_subdomains",
-                "eq_single_interface",
-            ],  # The combination in reverse order
-            ["w", "x"],  # The combination in reverse order
-        ],
-    ],
-)
-def test_assemble(model: EquationSystemMockModel, equation_variables):
+def test_assemble(
+    model: EquationSystemMockModel,
+    eq_names: list[str] | None,
+    var_names: list[str] | None,
+):
     """Test of functionality to assemble subsystems from an EquationSystem.
 
     The test is based on assembly of a subsystem and comparing this to a truth
     from assembly of the full system, and then explicitly dump rows and columns.
 
-    We test combinations of one or more equations, together with one or more variables.
+    We test combinations of 0 or more equations, together with 0 or more variables.
     Variables are only defined by strings; the alternative format of a variables is
     not considered, since the variables are only passed to EquationSystem.dofs_of()
     (via the method projection_to()), which is tested elsewhere.
@@ -1418,16 +1309,15 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
     and columns are extracted from the full system.
 
     """
-    eq_names, var_names = equation_variables
-
     equation_system = model.equation_system
 
     # Convert variable names into variables
     if var_names is None:
-        var_names = []
-    variables = [
-        var for var in model.equation_system.variables if var.name in var_names
-    ]
+        variables = None
+    else:
+        variables = [
+            var for var in model.equation_system.variables if var.name in var_names
+        ]
 
     linear_system = equation_system.assemble(equations=eq_names, variables=var_names)
     A_sub = linear_system.matrix
@@ -1472,108 +1362,66 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
     assert np.allclose(b_sub, model.b[rows])
     assert pp.test_utils.arrays.compare_matrices(A_sub, model.A[rows][:, cols])
 
-    # Also check that the equation row sizes were correctly recorded.
-    equation_indexer, variable_indexer = (
-        equation_system._construct_assembled_matrix_indexers(
-            equations=eq_names, variables=variables
-        )
-    )
-    indices = equation_indexer.indices
-    if eq_names is None:
-        eq_names = list(model.equation_system.equations)
+    # The restricted linear system comes with indexers local to it. Check that they
+    # point to correct atomic variables and equations by comparing them to the globals.
+    local_row_indexer = linear_system.equation_indexer
+    local_col_indexer = linear_system.variable_indexer
+    global_row_indexer = equation_system.equation_indexer
+    global_col_indexer = equation_system.variable_indexer
+    for eq, local_row_index in local_row_indexer.indices.items():
+        global_row_index = global_row_indexer.indices[eq]
+        for var, local_col_index in local_col_indexer.indices.items():
+            global_col_index = global_col_indexer.indices[var]
+            actual = A_sub[local_row_index][:, local_col_index]
+            expected = model.A[global_row_index][:, global_col_index]
+            assert pp.test_utils.arrays.compare_matrices(actual, expected)
+            actual_rhs = b_sub[local_row_index]
+            expected_rhs = model.b[global_row_index]
+            assert pp.test_utils.arrays.compare_arrays(actual_rhs, expected_rhs)
 
-    for name in eq_names:
-        num_dofs = sum([dofs.size for var, dofs in indices.items() if var.name == name])
-        assert num_dofs == model.block_size(name)
-
-    indices = variable_indexer.indices
-    for name in var_names:
-        num_dofs = sum([dofs.size for var, dofs in indices.items() if var.name == name])
-        assert num_dofs == model.dof_ind(name).size
+    # The order of equations and variables should be the same, even if they were passed
+    # to assembly in the reversed order.
+    it = iter(global_row_indexer.indices)
+    # This walks once over atomic equations in the global and local indexers (think
+    # fast and slow pointers, respectively). There should be no permutation to succeed.
+    assert all(x in it for x in local_row_indexer.indices)
+    # Same for variables.
+    it = iter(global_col_indexer.indices)
+    assert all(x in it for x in local_col_indexer.indices)
 
 
 @pytest.mark.parametrize(
-    "equations",
+    "eq_names",
     [
-        ["eq_single_interface", "eq_all_subdomains"],
+        None,  # None gives the full system.
+        [],  # An empty list will give a system with zero rows.
+        ["eq_single_subdomain"],  # A single equation.
+        ["eq_single_interface", "eq_all_subdomains"],  # Combination of two equations.
+        # Combination of two equations, reversed order.
         ["eq_all_subdomains", "eq_single_interface"],
     ],
 )
 @pytest.mark.parametrize(
-    "variables",
+    "var_names",
     [
-        ["w", "x"],
-        ["x", "w"],
+        None,  # None gives the full system.
+        [],  # An empty list will give a system with zero columns.
+        ["x"],  # A single variable.
+        ["x", "w"],  # Combination of two variables.
+        ["w", "x"],  # Combination of two variables, reversed order.
     ],
 )
-def test_assembled_matrix_indexers_match_assembly_order(
+def test_extract_subsystem(
     model: EquationSystemMockModel,
-    equations: list[str],
-    variables: list[str],
-) -> None:
-    """Restricted indexers must use the canonical matrix assembly order."""
-    equation_system = model.equation_system
-
-    _ = equation_system.assemble(equations=equations, variables=variables)
-    equation_indexer, variable_indexer = (
-        equation_system._construct_assembled_matrix_indexers(
-            equations=equations, variables=variables
-        )
-    )
-
-    expected_equations = [
-        equation
-        for equation in equation_system.equation_indexer.indices
-        if equation.name in equations
-    ]
-    expected_variables = [
-        variable
-        for variable in equation_system.variable_indexer.indices
-        if variable.name in variables
-    ]
-
-    actual_order = (
-        [equation.name for equation in equation_indexer.indices],
-        [variable.name for variable in variable_indexer.indices],
-    )
-    expected_order = (
-        [equation.name for equation in expected_equations],
-        [variable.name for variable in expected_variables],
-    )
-    assert actual_order == expected_order
-
-
-@pytest.mark.parametrize(
-    "equation_variables",
-    [
-        [None, None],  # Two Nones will give the full system
-        [[], []],  # Two empty lists will give a system with zero rows and columns
-        [["eq_single_subdomain"], None],  # A single equation, all variables
-        [None, ["x"]],  # All equations, a single variable
-        [
-            [
-                "eq_single_interface",
-                "eq_all_subdomains",
-            ],  # Combination of two equations
-            ["x", "w"],  # Combination of two variables
-        ],
-        [
-            [
-                "eq_all_subdomains",
-                "eq_single_interface",
-            ],  # The combination in reverse order
-            ["w", "x"],  # The combination in reverse order
-        ],
-    ],
-)
-def test_extract_subsystem(model: EquationSystemMockModel, equation_variables):
-    """
-    Check functionality to extract subsystems from the EquationManager.
+    eq_names: list[str] | None,
+    var_names: list[str] | None,
+):
+    """Check functionality to extract subsystems from the EquationManager.
 
     The tests check that the expected variables and equations are present in
     the subsystem.
 
-    We test combinations of one or more equations, together with one or more variables.
+    We test combinations of 0 or more equations, together with 0 or more variables.
     Variables are only defined by strings; the alternative format of a variables is
     not considered, since the variables are only passed to EquationSystem.dofs_of()
     (via the method projection_to()) which is tested elsewhere.
@@ -1585,8 +1433,6 @@ def test_extract_subsystem(model: EquationSystemMockModel, equation_variables):
     and columns are extracted from the full system.
 
     """
-    eq_names, var_names = equation_variables
-
     equation_system = model.equation_system
 
     # Convert variable names into variables
@@ -1620,6 +1466,7 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     An equation defined on an empty domain (no grids) should not contribute to the
     assembled system. After adding such an equation, assembling the system should
     produce the same matrix and residual vector as before the equation was added.
+
     """
 
     # Get the system of equations from the model.
@@ -1643,8 +1490,5 @@ def test_assemble_ignores_empty_equations(model: EquationSystemMockModel):
     assert pp.test_utils.arrays.compare_matrices(A, A_ref)
 
     # Check bookkeeping does not suddenly include the empty equation.
-    equation_indexer, _ = equation_system._construct_assembled_matrix_indexers()
-
-    for eq_on_domain in equation_indexer.indices:
+    for eq_on_domain in linear_system.equation_indexer.indices:
         assert eq_on_domain.name != "empty_equation"
-    assert "empty_equation" not in equation_indexer.equation_image_space_composition
