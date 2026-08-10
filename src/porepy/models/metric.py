@@ -141,7 +141,9 @@ class EquationBasedEuclideanMetric(EuclideanMetric):
         """
         # Lazy initialization of equation indexer.
         if self.equation_indexer is None:
-            equation_indexer = self.model.equation_system.equation_indexer
+            equation_indexer: pp.ad.EquationIndexer = (
+                self.model.equation_system.equation_indexer
+            )
             if self.equation_tags is not None:
                 # Restrict to a subset of equations.
                 equation_indexer = (
