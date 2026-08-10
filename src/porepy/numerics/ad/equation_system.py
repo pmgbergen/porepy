@@ -1481,20 +1481,6 @@ class EquationSystem:
             equations=equations, variables=variables
         )
 
-        # Slice out the columns belonging to the requested subsets of variables and
-        # grid-related column blocks by using the transposed projection to respective
-        # subspace.
-        if variables is not None:
-            # Respect the ordering of the input list of variables.
-            variables_ = self._parse_variable_type(variables=variables, ordered=True)
-            col_proj = [self.variable_indexer.indices[var] for var in variables_]
-            column_projection = (
-                np.concatenate(col_proj)
-                if len(col_proj) > 0
-                else np.empty(0, dtype=int)
-            )
-            A = A[:, column_projection]
-
         # Multiply rhs by -1 to move to the rhs.
         return pp.solvers.LinearSystem(
             matrix=A,
@@ -1602,7 +1588,9 @@ class EquationSystem:
             derivative: Whether to evaluate the derivative of the operator. Defaults to
                 False.
             state: State vector to evaluate the operator on. By default, the current
-                state is used.
+                state is used. TODO YZ: What if state if variable_indexer is used? The
+                full state? Or the local state corresponding to variable indexer?
+                Unclear API.
 
         Returns:
             The operator evaluated on the current state. If the operator is a list, a
