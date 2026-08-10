@@ -6,10 +6,7 @@ import pytest
 import porepy as pp
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
-from porepy.numerics.solvers.convergence_check import (
-    ConvergenceCriteria,
-    ConvergenceStatus,
-)
+from porepy.numerics.solvers.convergence_check import ConvergenceStatus
 from porepy.numerics.solvers.nonlinear_solver_status import NonlinearSolverStatus
 
 
@@ -50,10 +47,12 @@ class MockFailure(pp.solvers.NonlinearSolverStatusFailed):
 
 
 def _make_var(name: str):
+    """Create a variable for tests in this file."""
     return pp.ad.Variable(name=name, ndof={"cells": 1}, domain=pp.CartGrid(1))
 
 
 def _make_eq(name: str):
+    """Create an equation for tests in this file."""
     return pp.ad.EquationOnDomain(name=name, domain=pp.CartGrid(1))
 
 

@@ -1266,7 +1266,6 @@ def test_parse_equations(model: EquationSystemMockModel):
     }
 
 
-
 @pytest.mark.parametrize(
     "eq_names",
     [
