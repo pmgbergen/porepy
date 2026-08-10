@@ -1267,6 +1267,17 @@ def test_parse_equations(model: EquationSystemMockModel):
 
 
 @pytest.mark.parametrize(
+    "eq_names",
+    [
+        None,  # None gives the full system.
+        [],  # An empty list will give a system with zero rows.
+        ["eq_single_subdomain"],  # A single equation.
+        ["eq_single_interface", "eq_all_subdomains"],  # Combination of two equations.
+        # Combination of two equations, reversed order.
+        ["eq_all_subdomains", "eq_single_interface"],
+    ],
+)
+@pytest.mark.parametrize(
     "var_names",
     [
         None,  # None gives the full system.

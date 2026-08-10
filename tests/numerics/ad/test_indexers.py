@@ -335,7 +335,7 @@ def test_equation_system_indexer() -> None:
     equation_image_space_composition = {
         "x": {
             grid_0: np.array([0, 1, 2]),
-            grid_1: np.array([3, 4]),
+            grid_1: np.array([], dtype=int),  # Empty.
         },
         "y": {
             grid_1: np.array([0, 1]),
@@ -347,12 +347,20 @@ def test_equation_system_indexer() -> None:
     indexer = pp.ad.EquationSystemIndexer(
         equation_image_space_composition=copy(equation_image_space_composition)
     )
-    expected = get_equation_indexer(get_equations([grid_0, grid_1, grid_2]))
+    assert indexer.size == 9
+
+    x0, x1, y1, y2 = get_equations([grid_0, grid_1, grid_2])
+    expected = {
+        x0: np.array([0, 1, 2]),
+        x1: np.array([], dtype=int),
+        y1: np.array([3, 4]),
+        y2: np.array([5, 6, 7, 8]),
+    }
 
     # Keys must be equal.
-    assert list(indexer.indices) == list(expected.indices)
+    assert list(indexer.indices) == list(expected)
     # Values must be equal.
-    for key, expected_val in expected.indices.items():
+    for key, expected_val in expected.items():
         np.testing.assert_array_equal(indexer.indices[key], expected_val)
     assert indexer.equation_image_space_composition == equation_image_space_composition
 
