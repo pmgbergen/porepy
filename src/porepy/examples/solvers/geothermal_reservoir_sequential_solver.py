@@ -12,7 +12,6 @@ Known issues:
 
 import logging
 
-
 import porepy as pp
 from porepy.examples.geothermal_reservoir import (
     GeothermalReservoirWellBCs,

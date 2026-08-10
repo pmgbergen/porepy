@@ -1406,7 +1406,7 @@ class EquationSystem:
         # Standardize and validate input, order it according to the equation_indexer.
         equations_on_domains = self._parse_equations(equations=equations, ordered=True)
 
-        equation_indexer, variable_indexer = self.construct_assembled_matrix_indexers(
+        equation_indexer, variable_indexer = self._construct_assembled_matrix_indexers(
             equations=equations, variables=variables
         )
 

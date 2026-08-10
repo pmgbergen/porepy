@@ -645,6 +645,8 @@ class ConstraintLineSearch:
     """Method for computing the relaxation factors for the current iteration based on
     the residual."""
 
+    get_active_variables: Callable[[pp.PorePyModel], list[pp.ad.Variable]]
+
     def nonlinear_line_search(self, model, dx: np.ndarray) -> np.ndarray:
         """Perform a line search along the Newton step.
 
@@ -747,7 +749,8 @@ class ConstraintLineSearch:
         # If the sign of the function defining the regions has not changed, we use
         # unitary relaxation factors.
         x_0 = model.equation_system.get_variable_values(
-            iterate_index=0, variables=self.get_active_variables(model)
+            iterate_index=0,
+            variables=self.get_active_variables(model),
         )
         violation_tol = self.params.get("constraint_violation_tolerance", 3e-1)
         relative_cell_tol = self.params.get(
