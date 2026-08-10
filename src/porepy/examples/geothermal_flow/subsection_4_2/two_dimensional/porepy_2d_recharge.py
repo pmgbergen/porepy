@@ -564,8 +564,15 @@ _ap.add_argument("--dt-nominal", type=float, default=1.0, metavar="YR")
 _ap.add_argument("--dt-min", type=float, default=0.0001, metavar="YR")
 _ap.add_argument("--dt-max", type=float, default=10.0, metavar="YR")
 _ap.add_argument("--lag-buoyancy", action="store_true")
+_ap.add_argument("--no-gravity", dest="gravity", action="store_false", default=True,
+                 help="set the gravity coefficient g=0 (gravity-free flow) while KEEPING "
+                      "enable_buoyancy_effects on: the buoyancy code path still runs but multiplies "
+                      "by g=0, removing buoyant segregation and the hydrostatic Darcy term")
 _ap.add_argument("--step-control", default="LS", choices=["None", "LS"],
                  help="Newton globalisation: LS = weis backtracking line search (DEFAULT); None = plain")
+_ap.add_argument("--ls-max-iter", type=int, default=10, metavar="N",
+                 help="cap the LS backtracking to N trials per Newton iteration (default 10): "
+                      "smaller = fewer residual re-evals and a larger min step (0.5^(N-1))")
 _ap.add_argument("--reduced-solver", default="auto", choices=["auto", "splu", "pardiso", "cpr"],
                  help="reduced Schur-system solver: direct sparse LU (auto=splu<20k DOF else pardiso; "
                       "DEFAULT) is ~10x faster and exact here; cpr = the iterative PETSc CPR")
@@ -594,6 +601,12 @@ _ap.add_argument("--p-top", type=float, default=P_TOP_IC, metavar="MPA",
                  help="IC pressure at the top [MPa]; > boiling p at --t-equil -> whole column liquid "
                       "(no vapor cap), = boiling p -> thin cap over liquid (default %(default)s)")
 _args = _ap.parse_args()
+
+if not _args.gravity:
+    # Gravity-aware IC: with g=0 the hydrostatic integration (_hydrostatic_p and the linear guess,
+    # the only users of G) collapses to a CONSTANT pressure = P_TOP_IC, matching the gravity-free
+    # Darcy flux -- so the run starts in balance instead of relaxing a hydrostatic column.
+    G = 0.0
 
 if _args.simplex and not _args.consistent:
     print("NOTE: --simplex without --consistent: the simplex matrix is not K-orthogonal, so "
@@ -627,16 +640,17 @@ schedule = [0.0, _final_time]
 time_manager = pp.TimeManager(
     schedule=schedule, dt_init=_args.dt_nominal * year_to_second,
     dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
-    constant_dt=False, iter_max=13, iter_optimal_range=(3, 8),
+    constant_dt=False, iter_max=20, iter_optimal_range=(3, 8),
     iter_relax_factors=(0.5, 1.5), recomp_factor=0.3, print_info=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 tag = _args.scheme + ("_mpfa" if _args.consistent else "") + ("_simplex" if _args.simplex else "") \
-    + ("_md" if _args.md else "") + (
+    + ("_md" if _args.md else "") + ("_g0" if not _args.gravity else "") + (
     f"_{_args.grid_type}" if _args.grid_type else "") + ("_equilibrate" if _args.equilibrate else "")
 params = {
     "folder_name": os.path.join(HERE, "visualization_recharge_" + tag),
     "enable_buoyancy_effects": True,
+    "gravity": _args.gravity,          # --no-gravity sets g=0 (buoyancy path stays on, coeff = 0)
     "material_constants": {"solid": pp.SolidConstants(
         permeability=1e-15, porosity=0.1, thermal_conductivity=2.0 * to_Mega,
         density=2700.0, specific_heat_capacity=880.0 * to_Mega)},
@@ -646,6 +660,7 @@ params = {
     "cpr_rtol": 1.0e-5, "cpr_maxit": 400, "cpr_accuracy_tol": 1.0e-3,
     "reduced_solver": _args.reduced_solver,   # direct LU of the reduced system (~10x faster than cpr)
     "step_control_method": _args.step_control,          # LS (default) | None
+    "line_search_max_iterations": _args.ls_max_iter,    # cap LS backtracking trials (default 3)
     "slave_eliminated_secondaries": True,  # exact flash each Newton iterate
     "consistent_discretization": _args.consistent,
     "lag_buoyancy_direction": _args.lag_buoyancy,
@@ -863,9 +878,9 @@ _attach_samplers(model)
 
 if __name__ == "__main__":
     tb = time.time()
-    # Newton criterion cap must sit ABOVE the TimeManager's iter_max (13): a step in the (13, 20]
-    # band is then accepted while signalling "shrink dt", instead of failing outright and collapsing
-    # to dt_min. Setting the cap == iter_max removed that headroom and crashed the stiff cell-25 run.
+    # Newton criterion cap = TimeManager iter_max = 20: there is no longer an "accept-but-shrink-dt"
+    # headroom band (previously iter_max=13 < cap=20 accepted 14-20-iter steps while signalling a
+    # dt reduction); now a step is either converged at <=19 iters or fails at 20 and the dt is cut.
     solver_params = model.default_nonlinear_criteria(max_iterations=20)
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))

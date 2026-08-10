@@ -89,6 +89,33 @@ class _CachingSurrogateFactory(pp.ad.SurrogateFactory):
 
 
 @dataclass
+class StepTiming:
+    """Per-accepted-step cost breakdown [ms] and counts, filled live by :class:`_FlowModelBaseCore`.
+
+    The five ``t_*`` buckets cover one time step's whole Newton loop (summed over its iterations):
+    ``before``/``after`` = the before_/after_nonlinear_iteration hooks (rediscretize + buoyancy /
+    the flash update_derived_quantities); ``assembly`` = Jacobian+residual; ``linear`` = the reduced
+    linear solve; ``linesearch`` = the weis backtracking (residual re-evaluations + clip)."""
+
+    newton_iterations: int = 0
+    n_line_searches: int = 0      # total backtracking trials (residual re-evals) over the step
+    n_cuts: int = 0               # dt-cuts (failed attempts) preceding this accepted step
+    t_before_ms: float = 0.0
+    t_assembly_ms: float = 0.0
+    t_linear_ms: float = 0.0
+    t_linesearch_ms: float = 0.0
+    t_after_ms: float = 0.0
+    wall_ms: float = 0.0          # total wall time of the accepted step's Newton loop
+    dt_begin_s: float = 0.0       # time-step size [s] at the start of the step
+    dt_end_s: float = 0.0         # time-step size [s] recorded at the end of the step
+
+    @property
+    def t_total_ms(self) -> float:
+        return (self.t_before_ms + self.t_assembly_ms + self.t_linear_ms
+                + self.t_linesearch_ms + self.t_after_ms)
+
+
+@dataclass
 class NonlinearRunStats:
     """Picklable summary of a simulation's nonlinear-solver behaviour.
 
@@ -108,11 +135,22 @@ class NonlinearRunStats:
     """Newton iterations of the worst accepted step (0 if there are none)."""
     iterations_per_step: list[int] = field(default_factory=list)
     """Per-accepted-step Newton-iteration counts, in solve order."""
+    step_timings: list[StepTiming] = field(default_factory=list)
+    """Per-accepted-step cost breakdown (:class:`StepTiming`), in solve order."""
+    t_cut_ms: float = 0.0
+    """Wall time [ms] burned in rejected (dt-cut) Newton loops (not tied to an accepted step)."""
 
     @property
     def avg_newton_iterations(self) -> float:
         """Mean Newton iterations per accepted step (0.0 if no steps were accepted)."""
         return self.total_newton_iterations / self.n_accepted_steps if self.n_accepted_steps else 0.0
+
+    def _timing_totals_ms(self) -> dict[str, float]:
+        """Sum each cost bucket [ms] over the accepted steps."""
+        keys = ("t_before_ms", "t_assembly_ms", "t_linear_ms", "t_linesearch_ms", "t_after_ms")
+        tot = {k: sum(getattr(s, k) for s in self.step_timings) for k in keys}
+        tot["t_total_ms"] = sum(tot.values())
+        return tot
 
     def as_text(self) -> str:
         """Render a self-documenting, human-readable summary (used for ``.txt`` dumps)."""
@@ -130,6 +168,39 @@ class NonlinearRunStats:
             "# step_index  newton_iterations",
         ]
         lines += [f"{i} {it}" for i, it in enumerate(self.iterations_per_step)]
+
+        if self.step_timings:
+            t = self._timing_totals_ms()
+            tot = t["t_total_ms"] or 1.0
+            wall_total = sum(s.wall_ms for s in self.step_timings)
+
+            def _pct(x):  # noqa: E306
+                return f"{100.0 * x / tot:4.1f}%"
+            lines += [
+                "",
+                "# cost breakdown over accepted steps [s]  (fraction of the summed step cost)",
+                f"before_newton     {t['t_before_ms'] / 1e3:10.2f}   {_pct(t['t_before_ms'])}",
+                f"assembly          {t['t_assembly_ms'] / 1e3:10.2f}   {_pct(t['t_assembly_ms'])}",
+                f"linear_solver     {t['t_linear_ms'] / 1e3:10.2f}   {_pct(t['t_linear_ms'])}",
+                f"line_search       {t['t_linesearch_ms'] / 1e3:10.2f}   {_pct(t['t_linesearch_ms'])}",
+                f"after_newton      {t['t_after_ms'] / 1e3:10.2f}   {_pct(t['t_after_ms'])}",
+                f"accepted_total    {t['t_total_ms'] / 1e3:10.2f}",
+                f"accepted_wall     {wall_total / 1e3:10.2f}   (measured step wall; overhead = "
+                f"wall - buckets)",
+                f"cut_loops_wasted  {self.t_cut_ms / 1e3:10.2f}   (time in rejected dt-cut loops)",
+                "",
+                "# per-step: cost [ms] (before assembly linear line_search after) | wall [ms] | "
+                "dt_beg=this step's dt, dt_end=next step's dt [yr] | it, n_ls trials, n_cut",
+                "# step  before assembly   linear linesrch    after      wall     dt_beg    dt_end"
+                "   it n_ls n_cut",
+            ]
+            _YR = 365.0 * 86400.0
+            for i, s in enumerate(self.step_timings):
+                lines.append(
+                    f"{i:<6d} {s.t_before_ms:6.1f} {s.t_assembly_ms:8.1f} {s.t_linear_ms:8.1f} "
+                    f"{s.t_linesearch_ms:8.1f} {s.t_after_ms:8.1f} {s.wall_ms:9.1f} "
+                    f"{s.dt_begin_s / _YR:9.4g} {s.dt_end_s / _YR:9.4g} {s.newton_iterations:4d} "
+                    f"{s.n_line_searches:4d} {s.n_cuts:4d}")
         return "\n".join(lines) + "\n"
 
 
@@ -253,6 +324,14 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         self.total_newton_iterations = 0
         # Rejected nonlinear loops (time-step cuts); incremented in after_nonlinear_failure.
         self.n_time_step_cuts = 0
+        # Per-step cost instrumentation (see StepTiming): the live accumulator for the current
+        # attempt, the finished per-accepted-step records, dt-cuts pending since the last accepted
+        # step, and wall time [ms] burned in rejected loops.
+        self._cur_step_timing = StepTiming()
+        self.step_timings: list[StepTiming] = []
+        self._pending_cuts = 0
+        self._cut_time_ms = 0.0
+        self._step_wall_t0 = time.perf_counter()
         # Flag to use PETSc with MUMPS solver
         self.use_petsc = params.get("use_petsc", False)
 
@@ -1273,7 +1352,9 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         step_control_method = self.params.get("step_control_method", "None")
 
         if step_control_method == "None":
+            t = time.perf_counter()
             solution = self._solve_linear_system_core()
+            self._accum_step("t_linear_ms", (time.perf_counter() - t) * 1e3)
 
         elif step_control_method == "LS":
             # weis (2014) globalization: full Newton step, then backtrack EVERY iteration
@@ -1281,8 +1362,12 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
             # no-op when the full step already reduces it (the smooth single-phase case), so
             # this is dormant on Fig 4/5 and only bites at the Fig-6 salt front -- exactly
             # like weis_1d_solver.newton_step_brine. See backtracking_line_search.
+            t = time.perf_counter()
             delta_x = self._solve_linear_system_core()
+            self._accum_step("t_linear_ms", (time.perf_counter() - t) * 1e3)
+            t = time.perf_counter()
             alpha = self.backtracking_line_search(delta_x, residual_vector)
+            self._accum_step("t_linesearch_ms", (time.perf_counter() - t) * 1e3)
             solution = alpha * delta_x
 
         else:
@@ -1390,7 +1475,12 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
 
         Returns the accepted step length ``alpha``; the caller forms ``alpha * delta_x`` and the
         model's post-processing re-applies the same clip to that accepted increment.
+
+        The trial cap is ``params["line_search_max_iterations"]`` (default = the ``max_iterations``
+        argument): a smaller cap means fewer (expensive) residual re-evaluations per Newton
+        iteration and a larger minimum step (``rho**(cap-1)``), at the cost of a coarser search.
         """
+        max_iterations = int(self.params.get("line_search_max_iterations", max_iterations))
         nrm_current = float(np.linalg.norm(current_residual))
         alpha = 1.0
         for i in range(max_iterations):
@@ -1411,7 +1501,9 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                     print(f"  Line search (weis): alpha={alpha:.4f}, "
                           f"||r||={float(np.linalg.norm(residual_trial)):.4e} "
                           f"< {nrm_current:.4e}")
+                self._cur_step_timing.n_line_searches += i + 1   # backtracking trials this call
                 return alpha
+        self._cur_step_timing.n_line_searches += max_iterations
         return alpha
 
     # ----------------------------------------------------------------------------------
@@ -1682,6 +1774,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
                     self.linear_system = self.equation_system.assemble()
 
         t_1 = time.time()
+        self._accum_step("t_assembly_ms", (t_1 - t_0) * 1e3)
         mode = (
             "Jacobian + residual"
             if (iteration_num % 2 == 0 or iteration_num < 10)
@@ -1691,6 +1784,29 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         matrix, rhs = self.linear_system
         return pp.solvers.LinearSystem(matrix=matrix.tocsr(), rhs=np.asarray(rhs))
 
+    def _accum_step(self, field: str, ms: float) -> None:
+        """Add ``ms`` to bucket ``field`` of the current step's :class:`StepTiming`."""
+        st = self._cur_step_timing
+        setattr(st, field, getattr(st, field) + ms)
+
+    def before_nonlinear_loop(self) -> None:
+        # Fresh cost accumulator for every step ATTEMPT (incl. retries after a dt-cut); the accepted
+        # attempt's record is the one after_nonlinear_convergence keeps.
+        self._cur_step_timing = StepTiming()
+        self._cur_step_timing.dt_begin_s = float(getattr(self.time_manager, "dt", 0.0))
+        self._step_wall_t0 = time.perf_counter()
+        super().before_nonlinear_loop()
+
+    def before_nonlinear_iteration(self) -> None:
+        t = time.perf_counter()
+        super().before_nonlinear_iteration()
+        self._accum_step("t_before_ms", (time.perf_counter() - t) * 1e3)
+
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        t = time.perf_counter()
+        super().after_nonlinear_iteration(nonlinear_increment)
+        self._accum_step("t_after_ms", (time.perf_counter() - t) * 1e3)
+
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
 
@@ -1698,6 +1814,14 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         current_iterations = self.nonlinear_solver_statistics.num_iterations
         self.newton_iterations_per_timestep.append(current_iterations)
         self.total_newton_iterations += current_iterations
+
+        # Finalise this accepted step's cost record (wall time, dt, iterations, preceding dt-cuts).
+        self._cur_step_timing.wall_ms = (time.perf_counter() - self._step_wall_t0) * 1e3
+        self._cur_step_timing.dt_end_s = float(getattr(self.time_manager, "dt", 0.0))
+        self._cur_step_timing.newton_iterations = current_iterations
+        self._cur_step_timing.n_cuts = self._pending_cuts
+        self.step_timings.append(self._cur_step_timing)
+        self._pending_cuts = 0
 
         # Print Newton iteration info for current timestep
         current_time = self.time_manager.time
@@ -1717,6 +1841,10 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
     def after_nonlinear_failure(self) -> None:
         """Count a rejected nonlinear loop (a time-step cut) before deferring to the template."""
         self.n_time_step_cuts = getattr(self, "n_time_step_cuts", 0) + 1
+        # The rejected attempt's cost is not attributed to any accepted step; tally it separately
+        # and remember the cut so the next accepted step records how many cuts preceded it.
+        self._cut_time_ms += self._cur_step_timing.t_total_ms
+        self._pending_cuts += 1
         super().after_nonlinear_failure()
 
     def darcy_flux_discretization(self, subdomains):
@@ -1796,12 +1924,21 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         (e.g. in ``after_simulation`` or right after ``run_time_dependent_model``) to persist or
         inspect the solver behaviour without touching PorePy's non-picklable statistics object."""
         hist = list(self.newton_iterations_per_timestep)
+        timings = list(getattr(self, "step_timings", []))
+        # dt is constant within a step (the TimeManager adapts it only AFTER convergence), so
+        # dt_end = the dt the NEXT accepted step actually ran with -- this is what exposes the
+        # adaptive dt trajectory (growth after easy steps, collapse after cuts). The last step keeps
+        # its own dt.
+        for a, b in zip(timings, timings[1:]):
+            a.dt_end_s = b.dt_begin_s
         return NonlinearRunStats(
             n_accepted_steps=len(hist),
             n_time_step_cuts=getattr(self, "n_time_step_cuts", 0),
             total_newton_iterations=int(self.total_newton_iterations),
             max_newton_iterations=max(hist) if hist else 0,
             iterations_per_step=hist,
+            step_timings=timings,
+            t_cut_ms=float(getattr(self, "_cut_time_ms", 0.0)),
         )
 
     def dof_summary(self) -> DofSummary:
@@ -1891,6 +2028,7 @@ class _FlowModelBaseCore(ReorderedTransportPredictor):
         dof_json.update(n_primary_dofs=dof.n_primary_dofs, n_secondary_dofs=dof.n_secondary_dofs)
         stats_json = asdict(stats)
         stats_json["avg_newton_iterations"] = stats.avg_newton_iterations
+        stats_json["timing_totals_ms"] = stats._timing_totals_ms()
         payload = {"config": config, "dof_summary": dof_json, "run_stats": stats_json}
         if predictor:
             payload["transport_predictor"] = predictor
