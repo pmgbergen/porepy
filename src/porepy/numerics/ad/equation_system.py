@@ -1549,50 +1549,18 @@ class EquationSystem:
     def evaluate(
         self,
         operator: pp.ad.Operator,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+        derivative: Literal[False] | None = False,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
     def evaluate(
         self,
         operator: list[pp.ad.Operator],
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
-    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: pp.ad.Operator,
-        derivative: None,
-        state: np.ndarray | None,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
-    ) -> pp.number | np.ndarray | sps.spmatrix: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: list[pp.ad.Operator],
-        derivative: None,
-        state: np.ndarray | None,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
-    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: pp.ad.Operator,
-        derivative: Literal[False] = False,
-        state: Optional[np.ndarray] = None,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
-    ) -> pp.number | np.ndarray | sps.spmatrix: ...
-
-    @overload
-    def evaluate(
-        self,
-        operator: list[pp.ad.Operator],
-        derivative: Literal[False] = False,
-        state: Optional[np.ndarray] = None,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+        derivative: Literal[False] | None = False,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
     @overload
@@ -1600,8 +1568,8 @@ class EquationSystem:
         self,
         operator: pp.ad.Operator,
         derivative: Literal[True],
-        state: np.ndarray | None,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> pp.ad.AdArray: ...
 
     @overload
@@ -1609,8 +1577,8 @@ class EquationSystem:
         self,
         operator: list[pp.ad.Operator],
         derivative: Literal[True],
-        state: np.ndarray | None,
-        variable_indexer: Optional[pp.ad.VariableIndexer] = None,
+        state: np.ndarray | None = None,
+        variable_indexer: pp.ad.VariableIndexer | None = None,
     ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(
