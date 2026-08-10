@@ -128,7 +128,7 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
         Returns: Union of each subsolvers' active equations without duplicates.
 
         """
-        all_equations = set(model.equation_system.equation_indexer.operators_to_dofs)
+        all_equations = set(model.equation_system.equation_indexer.indices)
         return _get_active_operators(
             active_operators_per_subsolver=[
                 subsolver.get_active_equations(model) for subsolver in self.subsolvers

@@ -406,7 +406,7 @@ class NewtonSolver(NonlinearSolverBase):
                 )
             else:
                 # Empty equation_tags implies we use all equations.
-                self._active_equations = list(eq_indexer.operators_to_dofs)
+                self._active_equations = list(eq_indexer.indices)
         return self._active_equations
 
     def get_active_variables(self, model: pp.PorePyModel) -> list[pp.ad.Variable]:
@@ -420,7 +420,7 @@ class NewtonSolver(NonlinearSolverBase):
                 )
             else:
                 # Empty variable_tags implies we use all variables.
-                self._active_variables = list(var_indexer.operators_to_dofs)
+                self._active_variables = list(var_indexer.indices)
         return self._active_variables
 
     def increase_iteration_index(self) -> None:
@@ -697,12 +697,7 @@ class NewtonSolver(NonlinearSolverBase):
 
         return convergence_status, divergence_status, convergence_info
 
-    def logging(
-        self,
-        model: pp.PorePyModel,
-        convergence_info: dict[str, dict | float],
-        nonlinear_increment: np.ndarray,
-    ) -> None:
+    def logging(self, convergence_info: dict[str, dict | float]) -> None:
         """Log the current state of the nonlinear solver.
 
         This includes printing the current iteration number, nonlinear increment norm,

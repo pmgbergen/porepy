@@ -17,7 +17,7 @@ class MockEquationSystem:
     """Equation-system mock with an empty solution and residual vectors."""
 
     variables = []
-    equation_indexer = pp.ad.EquationIndexer(operators_to_dofs={})
+    equation_indexer = pp.ad.EquationIndexer(indices={})
 
     def get_variable_values(self, variables, iterate_index):
         return np.zeros(0)
