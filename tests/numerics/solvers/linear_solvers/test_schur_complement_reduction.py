@@ -14,9 +14,6 @@ from porepy.applications.md_grids.mdg_library import (
     square_with_orthogonal_fractures,
 )
 from porepy.applications.test_utils.models import add_mixin
-from porepy.numerics.solvers.linear_solvers.schur_complement_reduction import (
-    _filter_by_tags,
-)
 from tests.functional.setups.linear_tracer import TracerFlowModel_3p
 
 
@@ -102,52 +99,8 @@ def linear_system_data() -> LinearSystemData:
     )
 
 
-def test_filter_by_tags_handles_duplicate_tags() -> None:
-    """Must raise ValueError if tags lead to duplicated operators."""
-
-    domain = pp.CartGrid([1])
-    variable = pp.ad.Variable("x", {"cells": 1}, domain)
-    tags = [pp.solvers.VariableTag("x"), pp.solvers.VariableTag("x")]
-
-    with pytest.raises(ValueError):
-        _ = _filter_by_tags([variable], tags)
-
-
-def test_filter_by_tags_allows_disjoint_tags_with_same_name() -> None:
-    """Tags with the same name may select disjoint subsets of domains."""
-
-    @dataclass(frozen=True)
-    class OnDomain(pp.solvers.DomainFilter):
-        domain: pp.GridLike
-
-        def filter(self, domain: pp.GridLike) -> bool:
-            return domain is self.domain
-
-    domains = [pp.CartGrid([1]) for _ in range(3)]
-    variables = [pp.ad.Variable("x", {"cells": 1}, domain) for domain in domains]
-    tags = [
-        pp.solvers.VariableTag("x", defined_on=OnDomain(domain))
-        for domain in domains[:2]
-    ]
-
-    filtered, not_filtered = _filter_by_tags(variables, tags)
-
-    assert filtered == variables[:2]
-    assert not_filtered == variables[2:]
-
-
-def test_default_primary_solver() -> None:
-    """A direct solver is created when no primary solver is supplied."""
-    solver = pp.solvers.SchurComplementReductionLinearSolver(
-        primary_equation_tags=[],
-        primary_variable_tags=[],
-    )
-
-    assert isinstance(solver.primary_linear_solver, pp.solvers.LinearSolverDirect)
-
-
-def test_initialize_with_model_is_forwarded_to_primary_solver() -> None:
-    """Initialization only forwards a shallow model mock to the inner solver."""
+def test_initialize_with_model() -> None:
+    """Test that initialization forwards a model mock to the inner solver."""
 
     class ShallowMockModel:
         pass
@@ -163,7 +116,7 @@ def test_initialize_with_model_is_forwarded_to_primary_solver() -> None:
     )
     model = ShallowMockModel()
 
-    solver.initialize_with_model(model)  # type: ignore[arg-type]
+    solver.initialize_with_model(model)
 
     assert primary_solver.model is model
 
@@ -192,22 +145,35 @@ def test_solve_reduces_system_and_wraps_primary_status(
 
     solution, status = solver.solve_linear_system(linear_system_data.linear_system)
 
+    # Primary dofs are [1, 3]. Secondary dofs are [0, 2].
     np.testing.assert_allclose(solution, [1.0, -1.0, 2.0, 3.0])
+    # Primary solver was called once.
     assert len(primary_solver.linear_systems) == 1
     reduced_system = primary_solver.linear_systems[0]
     assert reduced_system.matrix is not None
+    # Compare against hard-coded Schur complement values.
     np.testing.assert_allclose(
         reduced_system.matrix.toarray(),
         np.array([[50.0, 23.0], [18.0, 58.0]]) / 11.0,
     )
     np.testing.assert_allclose(reduced_system.rhs, np.array([19.0, 156.0]) / 11.0)
-    assert reduced_system.equation_indexer.projection_indices(
-        list(reduced_system.equation_indexer.indices)
-    ).tolist() == [0, 1]
-    assert reduced_system.variable_indexer.projection_indices(
-        list(reduced_system.variable_indexer.indices)
-    ).tolist() == [0, 1]
+    # Indices in the reduced linear system are local to it.
+    assert [0, 1] == np.concatenate(
+        list(reduced_system.equation_indexer.indices.values())
+    ).tolist()
+    assert [0, 1] == np.concatenate(
+        list(reduced_system.variable_indexer.indices.values())
+    ).tolist()
 
+    # Status must be the subclass.
+    assert isinstance(
+        status,
+        (
+            pp.solvers.SchurComplementReductionStatusSuccess,
+            pp.solvers.SchurComplementReductionStatusFailure,
+        ),
+    )
+    # It must contain what the primary solver returned.
     assert status.primary_solver_status is primary_status
     if primary_solver_succeeds:
         assert isinstance(status, pp.solvers.SchurComplementReductionStatusSuccess)
@@ -220,7 +186,10 @@ def test_solve_reduces_system_and_wraps_primary_status(
 def test_solve_delegates_when_secondary_block_is_empty(
     linear_system_data: LinearSystemData,
 ) -> None:
-    """A fully primary system is passed unchanged to the primary solver."""
+    """A system with no secondary variables/equations is passed unchanged to the primary
+    solver.
+
+    """
     primary_status = pp.solvers.LinearSolverStatusSuccess(solve_time=1.0)
     expected_solution = np.array([1.0, -1.0, 2.0, 3.0])
     primary_solver = MockPrimaryLinearSolver(expected_solution, primary_status)

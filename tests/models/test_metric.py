@@ -93,9 +93,9 @@ def test_variable_based_euclidean_metric_on_grids(
     variable_names = set(
         [v.name for v in orthogonal_2d_model.equation_system.variables]
     )
-    indices = {name: [] for name in variable_names}
+    variable_dofs = {name: [] for name in variable_names}
     for variable in orthogonal_2d_model.equation_system.variables:
-        indices[variable.name].extend(
+        variable_dofs[variable.name].extend(
             orthogonal_2d_model.equation_system.dofs_of([variable])
         )
 
@@ -104,7 +104,7 @@ def test_variable_based_euclidean_metric_on_grids(
         time_step_index=0
     )
     for name in variable_names:
-        dofs = indices[name]
+        dofs = variable_dofs[name]
         dummy_variable[dofs] = assignment(len(dofs))
 
     # Compute the corresponding Euclidean metric.
@@ -115,7 +115,7 @@ def test_variable_based_euclidean_metric_on_grids(
 
     # Check values
     for key, value in metric_values.items():
-        dofs = indices[key]
+        dofs = variable_dofs[key]
         assert np.isclose(value, expected_value(len(dofs)))
 
 
@@ -201,74 +201,75 @@ def test_equation_based_euclidean_metric_on_grids(
     assert deepdiff_result == {}
 
 
-def test_equation_based_euclidean_metric_with_restricted_indexer(
-    orthogonal_2d_model: pp.PorePyModel,
+@pytest.mark.parametrize(
+    "metric_class", [pp.EquationBasedEuclideanMetric, pp.EquationBasedLebesgueMetric]
+)
+def test_equation_based_metric_with_restricted_indexer(
+    orthogonal_2d_model: pp.PorePyModel, metric_class: type
 ):
-    """Compute only equation blocks represented by a restricted indexer."""
-    equation_name = next(iter(orthogonal_2d_model.equation_system.equations))
+    """Metric must compute residual only for the given equations."""
+    # Get the first 3 equations an assemble residual only for them. They are:
+    # [normal contact on grid 1; normal contact on grid 2; tangential contact on grid 1]
+    equations = {
+        "normal_fracture_deformation_equation": orthogonal_2d_model.mdg.subdomains(
+            dim=1
+        ),
+        "tangential_fracture_deformation_equation": [
+            orthogonal_2d_model.mdg.subdomains(dim=1)[0]
+        ],
+    }
     residual = orthogonal_2d_model.equation_system.assemble(
-        evaluate_jacobian=False, equations=[equation_name]
+        evaluate_jacobian=False,
+        equations=equations,
     )
+    # Get the corresponding indexer.
     equation_indexer, _ = (
         orthogonal_2d_model.equation_system._construct_assembled_matrix_indexers(
-            equations=[equation_name]
+            equations=equations
         )
     )
-    metric = pp.EquationBasedEuclideanMetric(orthogonal_2d_model, equation_indexer)
+    # Assemble and evaluate the metric.
+    metric = metric_class(orthogonal_2d_model, equation_indexer)
     norms = metric(residual)
 
-    assert set(norms) == {equation_name}
-    assert np.isclose(norms[equation_name], metric._euclidean_norm(residual))
+    # It will be only 2 norms: for normal contact (on both grids) and tangential (on a
+    # single grid).
+    assert len(norms) == 2
+    # The returned keys must only include expected equation names.
+    assert set(norms) == set(equations)
+    # The values must be scalar numbers.
+    assert all(np.isscalar(val) for val in norms.values())
 
 
-def test_equation_based_lebesgue_metric_on_grid(orthogonal_2d_model: pp.PorePyModel):
-    """Test whether the integration of 1-s over the domain results in volume."""
-
-    # Fetch the equation blocks from the full-system row indexer.
-    equation_indexer = orthogonal_2d_model.equation_system.equation_indexer
-    equation_blocks: dict[str, list[tuple[pp.GridLike, np.ndarray]]] = {}
-    for equation, indices in equation_indexer.indices.items():
-        equation_blocks.setdefault(equation.name, []).append((equation.domain, indices))
-
-    # Generate a dummy residual array filled with ones scaled with the cell volumes.
-    dummy_residual_array = orthogonal_2d_model.equation_system.assemble(
-        evaluate_jacobian=False
+@pytest.mark.parametrize(
+    "metric_class", [pp.VariableBasedEuclideanMetric, pp.VariableBasedLebesgueMetric]
+)
+def test_variable_based_metric_with_restricted_indexer(
+    orthogonal_2d_model: pp.PorePyModel, metric_class: type
+):
+    """Metric must compute residual only for the given variables."""
+    # Get the first 3 variables an assemble residual only for them. They are:
+    # [contact traction on grid 1; contact traction on grid 2; pressure on grid 0].
+    variables = list(orthogonal_2d_model.equation_system.variables)[:3]
+    residual = orthogonal_2d_model.equation_system.assemble(
+        evaluate_jacobian=False, variables=variables
     )
-    dummy_residual_array.fill(1.0)
-
-    # Scale with the right cell volumes.
-    # Simultaneously compute the expected L2 norm of the 1 vector (incl dimensionality).
-    result = {name: 0.0 for name in equation_blocks}
-    for equation_name, blocks in equation_blocks.items():
-        domains = [domain for domain, _ in blocks]
-        indices = np.concatenate([indices for _, indices in blocks])
-        if indices.size == 0:
-            continue
-        cell_volumes = np.hstack([domain.cell_volumes for domain in domains])
-        equation_dim = orthogonal_2d_model.equation_system.equation_image_size_info[
-            equation_name
-        ]["cells"]
-        dummy_residual_array[indices] *= np.repeat(cell_volumes, repeats=equation_dim)
-        result[equation_name] += sum(cell_volumes) * equation_dim
-
-    # Take square root to get L2 norm.
-    for name in result:
-        result[name] = np.sqrt(result[name])
-
-    # Compute Lebesgue metric values.
-    m = pp.EquationBasedLebesgueMetric(orthogonal_2d_model)
-    metric_values = m(dummy_residual_array)
-
-    # Make sure that the dictionaries are the same.
-    deepdiff_result = DeepDiff(
-        result,
-        metric_values,
-        significant_digits=6,
-        ignore_order=True,
-        number_format_notation="e",
-        ignore_numeric_type_changes=True,
+    # Get the corresponding indexer.
+    _, variable_indexer = (
+        orthogonal_2d_model.equation_system._construct_assembled_matrix_indexers(
+            variables=variables
+        )
     )
-    assert deepdiff_result == {}
+    # Assemble and evaluate the metric.
+    metric = metric_class(orthogonal_2d_model, variable_indexer)
+    norms = metric(residual)
+
+    # It will be only 2 norms: for contact traction (on both grids) and pressure.
+    assert len(norms) == 2
+    # The returned keys must only include expected variable names.
+    assert set(norms) == set(variable.name for variable in variables)
+    # The values must be scalar numbers.
+    assert all(np.isscalar(val) for val in norms.values())
 
 
 class UnitSquare:

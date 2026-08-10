@@ -57,6 +57,10 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     )
     model.ad_time_step.set_value(dt)
     model.time_manager = time_manager
+
+    # The linear tracer model is solved with the Schur complement reduction linear
+    # solver. It is the intended solver for this model. It does not affect the test
+    # performance, as the linear systems are small.
     nonlinear_solver = pp.solvers.NewtonSolver(
         linear_solver=pp.solvers.SchurComplementReductionLinearSolver(
             primary_equation_tags=[
