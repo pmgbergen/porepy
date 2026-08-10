@@ -135,7 +135,7 @@ class AdParser:
         # Get the state of the system, if not provided.
         if state is None:
             state = equation_system.get_variable_values(
-                iterate_index=0, variables=list(variable_indexer.operators_to_dofs)
+                iterate_index=0, variables=list(variable_indexer.indices)
             )
 
         # Create an AdArray representation of the state, if the derivative is requested.
@@ -164,7 +164,7 @@ class AdParser:
                 if isinstance(res, np.ndarray) and len(res.shape) == 1:
                     # Convert numpy arrays to AdArrays and update result_list.
                     result_list[index] = pp.ad.AdArray(
-                        res, sps.csr_matrix((res.shape[0], variable_indexer.num_dofs))
+                        res, sps.csr_matrix((res.shape[0], variable_indexer.size))
                     )
                 elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
@@ -226,8 +226,7 @@ class AdParser:
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
                 not_active_variable = any(
-                    sub_var not in variable_indexer.operators_to_dofs
-                    for sub_var in op.sub_vars
+                    sub_var not in variable_indexer.indices for sub_var in op.sub_vars
                 )
                 if (
                     op.is_previous_iterate
@@ -241,8 +240,7 @@ class AdParser:
                     return np.concatenate(vals) if len(vals) else np.array([])
                 else:
                     dofs_list = [
-                        variable_indexer.operators_to_dofs[sub_var]
-                        for sub_var in op.sub_vars
+                        variable_indexer.indices[sub_var] for sub_var in op.sub_vars
                     ]
                     dofs = (
                         np.concatenate(dofs_list)
@@ -254,7 +252,7 @@ class AdParser:
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
-                not_active_variable = op not in variable_indexer.operators_to_dofs
+                not_active_variable = op not in variable_indexer.indices
                 # If a variable represents a previous iteration or time, parse values.
                 if (
                     op.is_previous_iterate
@@ -265,7 +263,7 @@ class AdParser:
                     return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[variable_indexer.operators_to_dofs[op]]
+                    return ad_base[variable_indexer.indices[op]]
             # All other leafs like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
