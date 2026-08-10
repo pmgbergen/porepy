@@ -325,7 +325,7 @@ class DynamicNewtonSolver(pp.solvers.NonlinearSolverBase):
                 model.before_nonlinear_iteration()
                 model.after_nonlinear_iteration(
                     nonlinear_increment=np.zeros(
-                        model.equation_system.equation_indexer.num_dofs
+                        model.equation_system.equation_indexer.size
                     )
                 )
             if is_success:

@@ -200,10 +200,6 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
         Multiple tags may have the same name when their domain filters are disjoint.
         A ``ValueError`` is raised if multiple tags select the same operator.
 
-        The parametrized signature should be read as:
-        - An equation indexer accepts equation tags and return a tuple of equations.
-        - A variable indexer accepts variable tags and returns a tuple of variables.
-
         Parameters:
             tags: A list of tags to use for filtering.
             model: The PorePy model. Needed for some domain filters.
@@ -250,7 +246,7 @@ class Indexer[EquationOrVariableType: (EquationOnDomain, Variable)]:
             index: a single index in the vector corresponding to this indexer.
 
         Returns:
-            The identified Variable object.
+            The identified `Variable` or `EquationOnDomain` object.
 
         Raises:
             KeyError: if the dof is out of range.
@@ -302,7 +298,7 @@ class EquationSystemIndexer(Indexer[EquationOnDomain]):
 
         The DoFs stored here refer to rows in each equation's separate AD result. The
         consecutive indices of the selected rows after global concatenation can be
-        found in :attr:`equation_dofs`. The equation-local indices allow
+        found in :attr:`indices`. The equation-local indices allow
         :class:`EquationSystem` to select rows before concatenating the per-equation
         results into the global matrix and residual vector.
 
