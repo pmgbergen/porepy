@@ -3,6 +3,8 @@ sequential_nonlinear_solver_poromechanics.py for a usage example.
 
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import Optional
