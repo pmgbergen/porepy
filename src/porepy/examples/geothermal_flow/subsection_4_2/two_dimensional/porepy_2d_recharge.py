@@ -124,7 +124,7 @@ Z_TOP = 0.95                 # NaCl overall fraction [-] (z=0.95 -> s_h ~ 0.06 i
 Z_BOTTOM = 0.95              # NaCl overall fraction [-]
 
 # ------------------------------------------------------------------ boundary conditions
-P_RECHARGE = 4.0            # recharge (inlet) pressure [MPa] 
+P_RECHARGE = 3.0            # recharge (inlet) pressure [MPa] 
 T_RECHARGE = 80.0 + 273.15  # recharge temperature [K]  (COLD liquid meteoric water)
 Z_RECHARGE = 0.0            # recharge salinity [-]  (dilute / fresh -> dissolves halite)
 P_DISCHARGE = 2.0           # discharge (outlet) pressure [MPa]
@@ -432,6 +432,16 @@ class RechargeGeometry2D(Geometry):
         return recharge, discharge
 
 
+def _ramp_factor(t: float) -> float:
+    """Smoothstep 0->1 of the recharge/discharge forcing over ``[0, RAMP_SECONDS]``; returns 1
+    (full forcing, instantaneous) when no ramp is requested. C1 (zero slope at both ends) so the
+    forcing is introduced without a temporal kink."""
+    if RAMP_SECONDS <= 0.0:
+        return 1.0
+    x = min(max(t / RAMP_SECONDS, 0.0), 1.0)
+    return x * x * (3.0 - 2.0 * x)
+
+
 class BCRecharge(BC):
     """Recharge / discharge Dirichlet on the top, a fixed-T geothermal base, no-flow elsewhere."""
 
@@ -451,8 +461,11 @@ class BCRecharge(BC):
         base = np.where(self.domain_boundary_sides(sd).south)[0]      # geothermal base (fixed T)
         if _args.equilibrate:                       # only the base is heated; the whole top adiabatic
             return pp.BoundaryCondition(sd, base, "dir")
-        rech, _disch = self.get_inlet_outlet_sides(sd)
-        return pp.BoundaryCondition(sd, np.concatenate((rech, base)), "dir")
+        rech, disch = self.get_inlet_outlet_sides(sd)
+        dir_faces = np.concatenate((rech, base))
+        if _args.bc_ic_top:                        # no-drive test: impose IC-top T at the discharge too
+            dir_faces = np.concatenate((dir_faces, disch))
+        return pp.BoundaryCondition(sd, dir_faces, "dir")
 
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Advective enthalpy follows the Darcy BC (its default). In --equilibrate that means only the
@@ -466,8 +479,9 @@ class BCRecharge(BC):
         if _args.equilibrate:                        # no forcing: the top keeps the IC top pressure
             return p                                 # (= P_TOP_IC at depth 0), uniform across the top
         rech, disch = self.get_inlet_outlet_sides(bg)
-        p[rech] = P_RECHARGE
-        p[disch] = P_DISCHARGE
+        s = _ramp_factor(self.time_manager.time)     # 0 at t=0 (BC = IC top) -> 1 (full forcing)
+        p[rech] += (P_RECHARGE - p[rech]) * s
+        p[disch] += (P_DISCHARGE - p[disch]) * s
         return p
 
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -476,8 +490,9 @@ class BCRecharge(BC):
         T[self.domain_boundary_sides(bg).south] = T_BOTTOM_BC         # geothermal base
         if not _args.equilibrate:                                     # no recharge/discharge forcing
             rech, disch = self.get_inlet_outlet_sides(bg)             # in the IC-evolution test: the
-            T[rech] = T_RECHARGE                                      # whole top keeps the interior T
-            T[disch] = T_DISCHARGE
+            s = _ramp_factor(self.time_manager.time)                  # whole top keeps the interior T
+            T[rech] += (T_RECHARGE - T[rech]) * s
+            T[disch] += (T_DISCHARGE - T[disch]) * s
         return T
 
     def bc_salinity(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -485,7 +500,8 @@ class BCRecharge(BC):
         z = _linear_z(LZ - bg.cell_centers[1])
         if not _args.equilibrate:                                     # no fresh recharge when equilibrating
             rech, _ = self.get_inlet_outlet_sides(bg)
-            z[rech] = Z_RECHARGE
+            s = _ramp_factor(self.time_manager.time)
+            z[rech] += (Z_RECHARGE - z[rech]) * s
         return z
 
     def bc_values_overall_fraction(self, component: pp.Component, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -563,6 +579,10 @@ _ap.add_argument("--end-years", type=float, default=2000.0, dest="end_years", me
 _ap.add_argument("--dt-nominal", type=float, default=1.0, metavar="YR")
 _ap.add_argument("--dt-min", type=float, default=0.0001, metavar="YR")
 _ap.add_argument("--dt-max", type=float, default=10.0, metavar="YR")
+_ap.add_argument("--constant-dt", action="store_true", default=False,
+                 help="hold the time step FIXED at --dt-nominal (no adaptation, no dt growth/cuts). "
+                      "--dt-min/--dt-max are ignored; if a step fails to converge there is no cut "
+                      "safety net, so pick a dt that always converges")
 _ap.add_argument("--lag-buoyancy", action="store_true")
 _ap.add_argument("--no-gravity", dest="gravity", action="store_false", default=True,
                  help="set the gravity coefficient g=0 (gravity-free flow) while KEEPING "
@@ -600,6 +620,17 @@ _ap.add_argument("--t-equil", type=float, default=300.0, metavar="C",
 _ap.add_argument("--p-top", type=float, default=P_TOP_IC, metavar="MPA",
                  help="IC pressure at the top [MPa]; > boiling p at --t-equil -> whole column liquid "
                       "(no vapor cap), = boiling p -> thin cap over liquid (default %(default)s)")
+_ap.add_argument("--bc-ic-top", action="store_true", default=False,
+                 help="stiffness diagnostic: set recharge AND discharge to the IC-top state (same "
+                      "p, T, z), removing the head/thermal/salinity drive. A well-equilibrated IC "
+                      "should then converge trivially; residual stiffness here is INTRINSIC (flash "
+                      "/ discretisation), not from the recharge->discharge forcing")
+_ap.add_argument("--ramp-years", type=float, default=0.0, metavar="YR",
+                 help="ramp the recharge/discharge BC values SMOOTHLY (smoothstep) from the IC-top "
+                      "state to their targets over YR years, instead of applying them "
+                      "instantaneously at t=0. Removes the unresolved boundary layer that the step "
+                      "change creates -- the source of the stiff, cut-prone early steps. 0 = "
+                      "instantaneous (default)")
 _args = _ap.parse_args()
 
 if not _args.gravity:
@@ -613,6 +644,13 @@ if _args.simplex and not _args.consistent:
           "TPFA's gravity vector source is inconsistent. Add --consistent (MPFA) for a "
           "well-balanced buoyancy term.", file=sys.stderr)
 
+if _args.ramp_years > 0:
+    _mode = ("CONSTANT dt throughout (--constant-dt: no hand-off)" if _args.constant_dt
+             else f"CONSTANT dt during the {_args.ramp_years:g}-yr ramp, then ADAPTIVE dt")
+    print(f"NOTE: --ramp-years -> {_mode}. dt is held at --dt-nominal while the recharge/discharge "
+          f"forcing ramps in (uniform, stable increments -- pure adaptive dt during a ramp fights "
+          f"the moving BC and is avoided).", file=sys.stderr)
+
 P_RECHARGE = _args.p_recharge
 P_DISCHARGE = _args.p_discharge
 T_RECHARGE = _args.t_recharge + 273.15
@@ -624,28 +662,45 @@ if _args.equilibrate:                       # isothermal equilibrium: constant-T
     T_TOP_IC = T_BOT_IC = _args.t_equil + 273.15    # (no geothermal gradient -> nothing drives it)
     T_BOTTOM_BC = _args.t_equil + 273.15
 
+if _args.bc_ic_top:                         # stiffness diagnostic: no recharge/discharge drive --
+    P_RECHARGE = P_DISCHARGE = P_TOP_IC     # both patches impose the IC-top state (same p, T, z), so
+    T_RECHARGE = T_DISCHARGE = T_TOP_IC     # a truly equilibrated IC should converge trivially. The
+    Z_RECHARGE = Z_TOP                      # discharge T is also made Dirichlet (bc_type_fourier_flux)
+
+RAMP_SECONDS = _args.ramp_years * year_to_second   # BC forcing ramp length (0 = instantaneous)
+
 if _args.report_every_years is not None and _args.report_every_years > 0.0:
     _n = _args.report_every_years                    # regular reporting: 0, N, 2N, ... up to end
     _args.snap_years = [float(y) for y in np.arange(0.0, _args.end_years + 0.5 * _n, _n)]
 
-# Export cadence is DECOUPLED from the time-step hard-stops. Putting every report time in the
-# TimeManager schedule makes each a hard stop that clamps dt to the report interval, so dt can
-# never grow. Instead the schedule is just [0, final]: dt starts at --dt-nominal and the time
-# manager grows it (up to --dt-max) by iteration count. VTU export fires on CROSSING each report
-# time (GeothermalRechargeModel.save_data_time_step), so output stays regular while dt adapts.
+# The report times are SOFT STOPS in the TimeManager schedule: the adaptive dt grows freely
+# BETWEEN them (up to --dt-max) but is clamped to land exactly on each, so a VTU is written at every
+# report time -- crucially after the ramp hands off to adaptive dt, where a single large step would
+# otherwise jump over many report times and only ONE VTU (at the actual sim time) would be written.
+# dt is therefore bounded by the report interval; set --report-every-years to trade reporting
+# frequency against how large dt may grow. save_data_time_step still writes on CROSSING (so the
+# constant-dt ramp phase, which does not land on schedule points, also reports regularly).
 _export_times = [y * year_to_second for y in _args.snap_years]
 _export_times_pos = [t for t in _export_times if t > 1.0e-9]     # t=0 is written before run()
 _final_time = max(_export_times) if _export_times else _args.end_years * year_to_second
-schedule = [0.0, _final_time]
+schedule = sorted(set(_export_times)) if len(_export_times) >= 2 else [0.0, _final_time]
+# Ramp-then-adaptive hand-off (--ramp-years without --constant-dt): dt is held CONSTANT at
+# --dt-nominal (the ramp's delta-t) through the WHOLE ramp [0, RAMP_SECONDS], so the recharge/
+# discharge forcing is introduced in uniform, stable increments (pick --dt-nominal small enough to
+# carry the mid-ramp phase front). before_nonlinear_loop then switches to ADAPTIVE dt once the ramp
+# completes, so the steady phase grows/cuts dt on its own.
+_RAMP_ADAPTIVE = RAMP_SECONDS > 0.0 and not _args.constant_dt
 time_manager = pp.TimeManager(
     schedule=schedule, dt_init=_args.dt_nominal * year_to_second,
     dt_min_max=(_args.dt_min * year_to_second, _args.dt_max * year_to_second),
-    constant_dt=False, iter_max=20, iter_optimal_range=(3, 8),
+    constant_dt=(_args.constant_dt or _RAMP_ADAPTIVE), iter_max=20, iter_optimal_range=(3, 8),
     iter_relax_factors=(0.5, 1.5), recomp_factor=0.3, print_info=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 tag = _args.scheme + ("_mpfa" if _args.consistent else "") + ("_simplex" if _args.simplex else "") \
-    + ("_md" if _args.md else "") + ("_g0" if not _args.gravity else "") + (
+    + ("_md" if _args.md else "") + ("_g0" if not _args.gravity else "") \
+    + ("_bcic" if _args.bc_ic_top else "") + (f"_ramp{_args.ramp_years:g}" if _args.ramp_years > 0
+                                              else "") + (
     f"_{_args.grid_type}" if _args.grid_type else "") + ("_equilibrate" if _args.equilibrate else "")
 params = {
     "folder_name": os.path.join(HERE, "visualization_recharge_" + tag),
@@ -685,6 +740,16 @@ class GeothermalRechargeModel(
     DriesnerPhaseExport, RechargeGeometry2D, BCRecharge, ICRecharge, FlowModel
 ):
     def before_nonlinear_loop(self) -> None:
+        # Ramp-then-adaptive hand-off: dt is held CONSTANT (= --dt-nominal) during the BC ramp
+        # [0, RAMP_SECONDS] so the forcing is introduced in uniform, stable increments (~free, 1
+        # Newton iter/step); once the ramp completes, switch to ADAPTIVE dt so the solver can cut
+        # the step through the phase-front events that a constant dt cannot. --constant-dt disables
+        # the hand-off (constant throughout).
+        if (RAMP_SECONDS > 0.0 and not _args.constant_dt and self.time_manager.is_constant
+                and self.time_manager.time >= RAMP_SECONDS):
+            self.time_manager.is_constant = False
+            print(f"  [ramp complete at t={self.time_manager.time / year_to_second:.2f} yr] "
+                  f"-> handing off to adaptive dt", file=sys.stderr)
         # The iteration-0 assembly reads the flash surrogate directly (no update_derived_quantities
         # runs before it -- that only happens inside check_convergence, after the first solve). On the
         # first step the surrogate is still at its init value, so the eliminated-temperature closure
@@ -881,7 +946,7 @@ if __name__ == "__main__":
     # Newton criterion cap = TimeManager iter_max = 20: there is no longer an "accept-but-shrink-dt"
     # headroom band (previously iter_max=13 < cap=20 accepted 14-20-iter steps while signalling a
     # dt reduction); now a step is either converged at <=19 iters or fails at 20 and the dt is cut.
-    solver_params = model.default_nonlinear_criteria(max_iterations=20)
+    solver_params = model.default_nonlinear_criteria(tol=1.0e-4, max_iterations=20)
     runner = pp.ModelRunner(model, solver_params,
                             nonlinear_solver=geothermal_nonlinear_solver(solver_params))
     print("Elapsed time prepare simulation:", time.time() - tb)
