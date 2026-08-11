@@ -89,11 +89,11 @@ Algorithm Workflow in Pseudocode:
 
 from __future__ import annotations
 
-from warnings import warn
 from typing import Optional, Union
+from warnings import warn
+
 import numpy as np
 from numpy.typing import ArrayLike
-
 
 __all__ = ["TimeManager"]
 
@@ -116,8 +116,8 @@ class TimeManager:
     ) -> None:
         warn(message="", category=FutureWarning, stacklevel=2)
         self.schedule = np.array(schedule)
-        self.time_init = schedule[0]
-        self.time_final = schedule[-1]
+        self.time_init = self.schedule[0]
+        self.time_final = self.schedule[-1]
         self.dt_init = dt_init
         self.dt_min_max = dt_min_max
         self.iter_optimal_range = iter_optimal_range

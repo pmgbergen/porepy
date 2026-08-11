@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 from bisect import bisect_right
-from typing import Optional
-import porepy as pp
-import numpy as np
 from dataclasses import dataclass
+from typing import Optional
+
+import numpy as np
+
+import porepy as pp
 
 __all__ = [
     "TimeStepConstraint",
