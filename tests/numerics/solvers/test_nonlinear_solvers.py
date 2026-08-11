@@ -29,7 +29,6 @@ from porepy.numerics.solvers.nonlinear_solvers import (
     NonlinearSolverStatusFailed,
 )
 from porepy.time_stepper.time_step_status import (
-    # TimeStepperStatusContinueIterating,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
