@@ -531,7 +531,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
         """
         datum_lithostatic_stress = self.params.get(
-            "datum_lithostatic_stress", np.zeros(3)
+            "datum_lithostatic_stress", np.zeros(self.nd)
         )
         return self.units.convert_units(datum_lithostatic_stress, units="Pa")
 
@@ -544,7 +544,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
             Default is an array of ones.
 
         """
-        return self.params.get("lithostatic_stress_multipliers", np.ones(3))
+        return self.params.get("lithostatic_stress_multipliers", np.ones(self.nd))
 
     def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Stress values.
@@ -558,7 +558,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
         """
         # Initialize array for stress values.
-        values = np.zeros((3, boundary_grid.num_cells))
+        values = np.zeros((self.nd, boundary_grid.num_cells))
         # Assume zero initial stress state.
         if self.time_manager.is_at_initial_time():
             return values.ravel("F")
