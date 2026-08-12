@@ -108,7 +108,7 @@ class TimeStepper:
             )
 
             # Log time step status for statistics.
-            self._update_statistics(model, time_step_status)
+            self._update_nonlinear_solver_statistics(model, time_step_status)
 
             # Update model (also saves logged statistics) based on trial results.
             self._update_model_after_trial(model, time_step_status)
@@ -227,7 +227,7 @@ class TimeStepper:
             self.time_manager.final_time_reached(),
         )
 
-    def _update_statistics(
+    def _update_nonlinear_solver_statistics(
         self, model: pp.PorePyModel, time_step_status: TimeStepperStatus
     ) -> None:
         """Update statistics from the time step."""
