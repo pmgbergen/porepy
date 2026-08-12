@@ -381,10 +381,11 @@ class TerzaghiUtils(VerificationUtils):
         h = self.height()  # scaled [m]
         m_v = self.confined_compressibility()  # scaled [m * s^-2]
         vertical_load = self.applied_load()  # scaled [Pa]
-        t = self.time_manager.time  # scaled [s]
         u_faces = self.face_displacement(sd)
 
-        if t == 0:  # initially, the soil is unconsolidated
+        if (
+            self.time_manager.is_at_initial_time()
+        ):  # initially, the soil is unconsolidated
             consol_deg = 0.0
         else:
             u_inf = m_v * h * vertical_load

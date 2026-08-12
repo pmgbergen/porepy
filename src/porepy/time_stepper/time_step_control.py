@@ -427,6 +427,16 @@ class TimeManager:
 
         return s
 
+    def elapsed_time(self) -> float:
+        """Return the elapsed simulation time."""
+        return self.time - self.time_init
+
+    def is_at_initial_time(self) -> bool:
+        """Check whether the time manager is at the initial time."""
+        return self.time < self.time_init or np.isclose(
+            self.time, self.time_init, rtol=self.rtol, atol=self.dt_min_max[0]
+        )
+
     def final_time_reached(self) -> bool:
         """Check whether the time manager has reached the end of the schedule.
 
