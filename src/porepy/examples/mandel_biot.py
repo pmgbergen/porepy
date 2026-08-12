@@ -824,12 +824,10 @@ class MandelUtils(VerificationUtils):
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
 
-        t = self.time_manager.time  # scaled [s]
-
         # Retrieve face displacement
         u_faces = self.face_displacement(sd)
 
-        if t == 0:  # soil is initially unconsolidated
+        if self.time_manager.is_at_initial_time():  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
         else:
             # Consolidation degree in the horizontal direction
