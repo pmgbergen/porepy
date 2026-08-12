@@ -374,6 +374,10 @@ class ModelRunner:
             # Run pseudo time stepping until convergence is reached.
             is_initialized = False
             while not is_initialized:
+                # Reset exporter to overwrite previous time step data.
+                # TODO: Revisit when revisiting exporter...
+                self.model.exporter._time_step_counter = 0
+
                 # Update the progressbar before the time step.
                 self.time_progressbar.set_postfix_str(self._progressbar_postfix())
 
@@ -417,9 +421,6 @@ class ModelRunner:
         self.model.time_manager.dt_min_max = cached_dt_min_max
         self.model.time_manager.is_constant = cached_constant_dt
         self.model.time_manager._iters = cached_iters
-
-        # Export the initialized state.
-        self.model.save_data_time_step()
 
         return ModelRunnerStatusSuccess()
 
