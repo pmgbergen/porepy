@@ -356,8 +356,8 @@ class BoundaryConditionsMechanicsNeumann:
                 raise ValueError(
                     f"Anchor mask shape {mask.shape} incompatible with nd={self.nd}."
                 )
-            bc.is_dir[:, face] = mask
-            bc.is_neu[:, face] = ~mask  # Negate for Neumann
+            bc.is_dir[:, np.atleast_1d(face)] = mask[:, None]
+            bc.is_neu[:, np.atleast_1d(face)] = ~mask[:, None]  # Negate for Neumann
         return bc
 
     def _anchor_dirichlet_component_masks(self) -> list[np.ndarray]:
