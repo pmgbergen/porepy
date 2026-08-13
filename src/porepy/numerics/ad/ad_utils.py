@@ -13,12 +13,6 @@ Functions:
     discretize_from_list: Perform the actual discretization for a list of AD
         discretizations.
 
-    set_solution_values: Set values to the data dictionary providing parameter name and
-        time step/iterate index.
-
-    get_solution_values: Get values from the data dictionary providing parameter name
-        and time step/iterate index.
-
 Classes:
     MergedOperator: Representation of specific discretization fields for an AD
         discretization or a set of AD discretizations.
