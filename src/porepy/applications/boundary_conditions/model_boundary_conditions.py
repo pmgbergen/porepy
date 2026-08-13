@@ -636,9 +636,7 @@ class HydrostaticPressureValues(GravityMagnitude):
 
         """
         gravity = self.gravity_force_magnitude("fluid")
-        pressure = gravity * depth + self.units.convert_units(
-            self.hydrostatic_pressure_offset, units="Pa"
-        )
+        pressure = gravity * depth + self.hydrostatic_pressure_offset
         return pressure
 
 
