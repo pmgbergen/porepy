@@ -434,7 +434,7 @@ class TimeManager:
     def is_at_initial_time(self) -> bool:
         """Check whether the time manager is at the initial time."""
         return self.time < self.time_init or np.isclose(
-            self.time, self.time_init, rtol=self.rtol, atol=self.dt_min_max[0]
+            self.time, self.time_init, rtol=self.rtol, atol=0.5 * self.dt_min_max[0]
         )
 
     def final_time_reached(self) -> bool:
