@@ -1302,12 +1302,6 @@ def test_assemble(
     not considered, since the variables are only passed to EquationSystem.dofs_of()
     (via the method projection_to()), which is tested elsewhere.
 
-    This test is run on a relatively limited set of equation-variable combinations
-    (in particular compared to how the test was set up in the past). The reason is that
-    parsing of variable and equation input is tested in separate tests, thus what
-    remains is to test that given a set of equations and variables, the correct rows
-    and columns are extracted from the full system.
-
     """
     equation_system = model.equation_system
 
@@ -1368,13 +1362,16 @@ def test_assemble(
     local_col_indexer = linear_system.variable_indexer
     global_row_indexer = equation_system.equation_indexer
     global_col_indexer = equation_system.variable_indexer
+
     for eq, local_row_index in local_row_indexer.indices.items():
         global_row_index = global_row_indexer.indices[eq]
+
         for var, local_col_index in local_col_indexer.indices.items():
             global_col_index = global_col_indexer.indices[var]
             actual = A_sub[local_row_index][:, local_col_index]
             expected = model.A[global_row_index][:, global_col_index]
             assert pp.test_utils.arrays.compare_matrices(actual, expected)
+
             actual_rhs = b_sub[local_row_index]
             expected_rhs = model.b[global_row_index]
             assert pp.test_utils.arrays.compare_arrays(actual_rhs, expected_rhs)
