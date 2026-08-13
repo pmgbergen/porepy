@@ -505,6 +505,8 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
 
     """
 
+    nd: int
+    """Number of spatial dimensions."""
     params: dict
     """Model parameters."""
     depth: Callable[[np.ndarray], np.ndarray]
