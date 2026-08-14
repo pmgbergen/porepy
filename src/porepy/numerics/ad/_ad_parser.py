@@ -17,6 +17,7 @@ import porepy as pp
 from porepy.numerics import ad
 
 from .operators import Operations
+from .operator_space import DomainType
 
 # Maps each binary Operations member to the callable that implements it, so
 # _evaluate_single can dispatch directly instead of building and eval()-ing a source
@@ -214,11 +215,15 @@ class AdParser:
                     other_variables.append(op)
                     continue
                 # TODO: This should be an enum.
-                if op.domain_type == "interfaces" or op.domain_type == "boundary grids":
+                source = op.source
+                if source.domain_type in [
+                    DomainType.interfaces,
+                    DomainType.boundary_grids,
+                ]:
                     # For now, we only support diagonal representations of variables defined on subdomains.
                     other_variables.append(op)
                     continue
-                domains = op.domains
+                domains = source.grids
                 if len(domains) < self._num_subdomains:
                     # This variable is not defined on all subdomains, so we cannot readily use a diagonal representation. This can be improved, but does not seem worth the effort at the moment.
                     other_variables.append(op)
