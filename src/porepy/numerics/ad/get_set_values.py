@@ -47,8 +47,8 @@ def set_solution_values(
         iterate_index:
 
             Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``.
-            0 is the current iterate, 1 the previous iterate, and so on.
+            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current (last accepted)
+            value, 1 the previous value, and so on.
         additive:
 
             Flag to decide whether the values already stored in the data dictionary
@@ -123,8 +123,8 @@ def get_solution_values(
         iterate_index:
 
             Determines the key of where ``values`` are to be stored in
-            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current iterate, 1 the
-            previous iterate, and so on.
+            ``data[pp.ITERATE_SOLUTIONS][name]``. 0 is the current (last accepted)
+            value, 1 the second-to-last accepted value, and so on.
         reference:
             Flag to decide whether reference values should be fetched instead of time
             step or iterate values. If ``True``, the getter will look for values in
