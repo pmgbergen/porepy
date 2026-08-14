@@ -155,7 +155,7 @@ class MandelDataSaving(pp.PorePyModel):
         # Retrieve information from setup
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
-        t: number = self.time_manager.time
+        t: number = self.time_data.time
 
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd, t)
@@ -1312,7 +1312,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
         face_centers = bg.cell_centers
         yf_north = face_centers[1, domain_sides.north]
 
-        t = self.time_manager.time  # scaled [s]
+        t = self.time_data.time  # scaled [s]
         uy_north_bc = self.exact_sol.vertical_displacement_profile(yf_north, t)
         bc_vals[1::2][domain_sides.north] = uy_north_bc
 
