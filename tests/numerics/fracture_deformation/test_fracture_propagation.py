@@ -37,10 +37,10 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import GridEntity
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.numerics.ad.equation_system import GridEntity
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
@@ -864,7 +864,9 @@ class TestVariableMappingInitializationUnderPropagation:
 
         for g in g_1d:
             d = mdg.subdomain_data(g)
-            equation_system.create_variables(self.cv1, {GridEntity.cells: var_sz_1d}, [g])
+            equation_system.create_variables(
+                self.cv1, {GridEntity.cells: var_sz_1d}, [g]
+            )
 
             val_sol = cell_val_1d[g]
             val_it = 2 * cell_val_1d[g]

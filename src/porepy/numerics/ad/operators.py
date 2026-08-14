@@ -30,6 +30,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from ._operations import Operations
 from ._operator_states import (
     IterativeOperator,
     ReferenceOperator,
@@ -37,10 +38,9 @@ from ._operator_states import (
     _get_previous_time_or_iterate,
     _get_reference,
 )
-from .grid_entity import GridEntity
 from .forward_mode import AdArray
+from .grid_entity import GridEntity
 from .operator_space import DomainType, OperatorSpace
-from ._operations import Operations
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence

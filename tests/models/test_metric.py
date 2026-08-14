@@ -23,11 +23,11 @@ import sympy as sp
 from deepdiff import DeepDiff
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import GridEntity
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.numerics.ad.equation_system import GridEntity
 
 
 @pytest.fixture(scope="module")

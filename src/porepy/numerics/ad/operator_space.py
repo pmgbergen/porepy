@@ -5,8 +5,8 @@ represent the mathematical domain and range of an AD operator.
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING, Sequence
 from enum import Enum
+from typing import TYPE_CHECKING, Sequence
 
 import porepy as pp
 

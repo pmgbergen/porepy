@@ -25,12 +25,12 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.equation_system import GridEntity
-from porepy.numerics.ad.operators import DomainType
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.numerics.ad.equation_system import GridEntity
+from porepy.numerics.ad.operators import DomainType
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
 

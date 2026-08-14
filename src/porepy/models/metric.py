@@ -13,8 +13,8 @@ import numpy as np
 
 import porepy as pp
 from porepy.numerics.ad.grid_entity import GridEntity
-from porepy.numerics.ad.operators import DenseArray
 from porepy.numerics.ad.operator_space import OperatorSpace
+from porepy.numerics.ad.operators import DenseArray
 
 
 class EuclideanMetric:
