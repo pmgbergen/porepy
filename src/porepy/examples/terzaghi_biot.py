@@ -147,7 +147,7 @@ class TerzaghiDataSaving(pp.PorePyModel):
 
         """
         sd = self.mdg.subdomains()[0]
-        t = self.time_manager.time  # scaled [s]
+        t = self.time_data.time  # scaled [s]
 
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
@@ -416,7 +416,7 @@ class TerzaghiUtils(VerificationUtils):
 
         fig, ax = plt.subplots(figsize=(9, 8))
         y_ex = np.linspace(0, self.params.get("height", 1.0), 400)
-        t = self.time_manager.time  # scaled [s]
+        t = self.time_data.time  # scaled [s]
         for idx, result in enumerate(self.results):
             ax.plot(
                 self.nondim_pressure(self.exact_sol.pressure(y=y_ex, t=t)),
@@ -458,7 +458,7 @@ class TerzaghiUtils(VerificationUtils):
 
         # Retrieve data
         t_ex = np.linspace(
-            self.time_manager.time_init, self.time_manager.time_final, 400
+            self.time_data.schedule[0], self.time_data.schedule[-1], 400
         )  # scaled [s]
         nondim_t_ex = np.asarray([self.nondim_time(t) for t in t_ex])  # [-]
         exact_consolidation = np.asarray(
@@ -466,7 +466,7 @@ class TerzaghiUtils(VerificationUtils):
         )  # [-]
 
         nondim_t = np.asarray(
-            [self.nondim_time(t) for t in self.time_manager.schedule[1:]]
+            [self.nondim_time(t) for t in self.time_data.schedule[1:]]
         )  # scaled [s]
         numerical_consolidation = np.asarray(
             [result.approx_consolidation_degree for result in self.results]

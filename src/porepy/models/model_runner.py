@@ -398,11 +398,11 @@ def _extract_time_stepper_from_params(
             stacklevel=3,
         )
         assert isinstance(time_manager, pp.TimeManager)
+        dt_min: float | None = None
+        dt_max: float | None = None
         if time_manager.dt_min_max is not None:
             dt_min = float(time_manager.dt_min_max[0])
             dt_max = float(time_manager.dt_min_max[1])
-        else:
-            dt_min = dt_max = None
         return TimeStepper(
             scheduler=pp.time_stepper.assemble_default_time_scheduler(
                 schedule=time_manager.schedule,
