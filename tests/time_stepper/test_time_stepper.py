@@ -76,6 +76,9 @@ class MockModel(PorePyModel):
             self.nonlinear_solver_statistics.path = Path(statistics_path)
         """Used by the TimeStepper and the NewtonSolver."""
 
+        self.time_data = None
+        """Used by the TimeStepper."""
+
     def before_time_step(self):
         self.sequence_of_calls.append("before_time_step")
 
@@ -196,8 +199,8 @@ def test_model_delegate_methods_called(
 
     # Initialize the real TimeStepper and the MockModel.
     time_stepper = TimeStepper(
-        time_manager=TimeManager(
-            schedule=[0, 1], dt_init=1, constant_dt=False, dt_min_max=(0.1, 2)
+        scheduler=pp.time_stepper.assemble_default_time_scheduler(
+            schedule=[0, 1], dt_init=1, constant_dt=False, dt_min=0.1, dt_max=2
         )
     )
 
