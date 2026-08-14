@@ -352,8 +352,8 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
             )
             intensive_equation_values = pp.ad.DenseArray(
                 np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights,
-                space,
-                space,
+                source=space,
+                target=space,
             )
             norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, domains)
 
