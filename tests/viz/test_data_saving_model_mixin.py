@@ -11,6 +11,7 @@ The following is covered:
 """
 
 import json
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -25,8 +26,23 @@ from porepy.models.momentum_balance import MomentumBalance
 from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 
+@pytest.fixture
+def data_folder(request):
+    """Fixture with cleanup of the file. Making the file name unique for each test to
+    facilitate runing in parallel without collisions.
+
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / str(request.node.originalname)
+        yield path
+
+
 class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
     """Model for testing data saving."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exported_times = []
 
     def write_pvd_and_vtu(self) -> None:
         """Logger for the times that are exported.
@@ -36,7 +52,8 @@ class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance
         logged in the model attribute exported_times.
 
         """
-        self.exported_times.append(self.time_manager.time)
+
+        self.exported_times.append(self.time_data.time)
 
 
 @pytest.mark.parametrize(
@@ -56,20 +73,18 @@ def test_export_chosen_times(times_to_export):
     tf = 1.0
     dt = tf / time_steps
 
-    time_manager = pp.TimeManager(
-        schedule=[0.0, tf],
-        dt_init=dt,
-        constant_dt=True,
+    time_stepper = pp.time_stepper.TimeStepper(
+        scheduler=pp.time_stepper.assemble_default_time_scheduler(
+            schedule=[0.0, tf],
+            dt_init=dt,
+            constant_dt=True,
+        )
     )
 
-    model_params = {
-        "time_manager": time_manager,
-        "times_to_export": times_to_export,
-    }
+    model_params = {"times_to_export": times_to_export}
 
     model = DataSavingModelMixinModel(model_params)
-    model.exported_times = []
-    pp.ModelRunner(model).run()
+    pp.ModelRunner(model, time_stepper=time_stepper).run()
 
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:
@@ -89,7 +104,9 @@ def test_export_chosen_times(times_to_export):
         ([0.0, 0.1, 0.2], [0.0, 0.1, 0.2]),
     ],
 )
-def test_exported_times_consistency_with_files(times_to_export, expected_times):
+def test_exported_times_consistency_with_files(
+    times_to_export, expected_times, data_folder
+):
     """Verify consistency between exported times and visualization files.
 
     The test ensures that:
@@ -97,28 +114,28 @@ def test_exported_times_consistency_with_files(times_to_export, expected_times):
         * Exported times align with the timesteps in the `data.pvd` file.
         * The correct number of visualization files are generated.
     """
-    folder_name = "viz_test_data_saving"
     time_steps = 10
     tf = 0.25
     dt = tf / time_steps
 
-    time_manager = pp.TimeManager(
-        schedule=[0.0, tf],
-        dt_init=dt,
-        constant_dt=True,
+    time_stepper = pp.time_stepper.TimeStepper(
+        scheduler=pp.time_stepper.assemble_default_time_scheduler(
+            schedule=[0.0, tf],
+            dt_init=dt,
+            constant_dt=True,
+        )
     )
 
     params = {
-        "time_manager": time_manager,
         "times_to_export": times_to_export,
-        "folder_name": folder_name,
+        "folder_name": data_folder,
     }
 
     model = pp.SinglePhaseFlow(params)
-    pp.ModelRunner(model).run()
+    pp.ModelRunner(model, time_stepper=time_stepper).run()
 
     # Read times.json to get time data.
-    times_file = Path(folder_name) / "times.json"
+    times_file = data_folder / "times.json"
     with open(times_file, "r") as f:
         times_data = json.load(f)
 
@@ -130,7 +147,7 @@ def test_exported_times_consistency_with_files(times_to_export, expected_times):
 
     # Check that the correct number of files are exported.
     # Parse the PVD file.
-    pvd_file = Path(folder_name) / "data.pvd"
+    pvd_file = data_folder / "data.pvd"
     tree = ET.parse(pvd_file)
     root = tree.getroot()
 

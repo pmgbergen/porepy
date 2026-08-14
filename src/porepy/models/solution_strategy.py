@@ -132,7 +132,7 @@ class SolutionStrategy(pp.PorePyModel):
             },
         )
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
-        self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
+        self.ad_time_step = pp.ad.Scalar(self.time_data.dt)
         """Time step as an automatic differentiation scalar."""
         self.results: list[Any] = []
         """A list of results collected by the data saving mixin in
@@ -151,7 +151,14 @@ class SolutionStrategy(pp.PorePyModel):
 
     @property
     def time_manager(self) -> pp.TimeManager:
-        warn(message="", category=FutureWarning, stacklevel=2)
+        warn(
+            message=(
+                "model.time_manager is deprecated. Access it through model.time_data or"
+                " model_runner.time_stepper.scheduler."
+            ),
+            category=FutureWarning,
+            stacklevel=2,
+        )
         time_manager = pp.TimeManager(
             schedule=self.time_data.schedule,
             dt_init=self.time_data.dt,
