@@ -192,14 +192,15 @@ class UnitTestAdTpfaFlux(
 
         # Non-constant component of the permeability in cell 0
         cell_0_permeability = (
-            e_xx @ cell_0_projection @ p + e_yy @ cell_0_projection @ p**2
+            e_xx @ cell_0_projection @ p
+            + e_yy @ cell_0_projection @ p ** pp.ad.Scalar(2)
         )
         # Non-constant component of the permeability in cell 1
         cell_1_permeability = (
-            pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p**2
+            pp.ad.Scalar(2) * e_xx @ cell_1_projection @ p ** pp.ad.Scalar(2)
             + e_xy @ cell_1_projection @ p
             + e_yx @ cell_1_projection @ p
-            + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p**2
+            + pp.ad.Scalar(3) * e_yy @ cell_1_projection @ p ** pp.ad.Scalar(2)
         )
 
         return (
@@ -639,12 +640,9 @@ class DiffTpfaGridsOfAllDimensions(
         # Basis vector for the yy-component
         e_yy = self.e_i(subdomains, i=4, dim=tensor_dim)
 
-        return (
-            pp.wrap_as_dense_ad_array(
-                all_vals, name="Constant_permeability_component", grids=subdomains
-            )
-            + e_yy @ self.pressure(subdomains) ** 2
-        )
+        return pp.wrap_as_dense_ad_array(
+            all_vals, name="Constant_permeability_component", grids=subdomains
+        ) + e_yy @ self.pressure(subdomains) ** pp.ad.Scalar(2)
 
     def initial_condition(self):
         """Set a random initial condition, to avoid the trivial case of a constant
