@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from porepy.numerics.ad.operator_space import DomainType, OperatorSpace
 
 if TYPE_CHECKING:
-    from porepy.numerics.ad.operator import Operator
+    from .operators import Operator
 
 
 class Operations(Enum):
@@ -77,9 +77,7 @@ class Operations(Enum):
         return strings.get(value, "unknown")
 
     def infer_source_target(
-        self,
-        left: Operator,
-        right: Operator | int | float,
+        self, left: Operator, right: Operator
     ) -> tuple[OperatorSpace, OperatorSpace]:
         """Validate operand spaces and infer the source/target of the result.
 
