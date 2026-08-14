@@ -3,11 +3,11 @@ performed by an operator and to validate the source/target spaces of the operand
 """
 
 from __future__ import annotations
+
 from enum import Enum
-
-
 from typing import TYPE_CHECKING
-from porepy.numerics.ad.operator_space import OperatorSpace, DomainType
+
+from porepy.numerics.ad.operator_space import DomainType, OperatorSpace
 
 if TYPE_CHECKING:
     from porepy.numerics.ad.operator import Operator
@@ -152,9 +152,11 @@ class Operations(Enum):
                 # We need compatibility between the targets (since this is where the
                 # quantity of interest lives), but the sources can be different.
                 if not self._spaces_compatible(left.target, right.target):
-                    raise ValueError(
-                        f"Incompatible operator targets: {left.target} vs {right.target}."
+                    s = (
+                        "Incompatible operator targets:"
+                        f" {left.target} vs {right.target}."
                     )
+                    raise ValueError(s)
                 return (
                     self._pick_source(left.source, right.source),
                     self._pick_target(left.target, right.target),

@@ -21,6 +21,7 @@ WARNING: This should be considered experimental code and should be used with
 from __future__ import annotations
 
 import abc
+
 import numpy as np
 import scipy.sparse as sps
 

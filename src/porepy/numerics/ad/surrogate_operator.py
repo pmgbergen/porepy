@@ -132,8 +132,8 @@ from porepy.numerics.ad.forward_mode import AdArray
 
 from ._operator_states import IterativeOperator, TimeDependentOperator
 from .functions import FloatType
-from .operators import Operations, Operator
 from .grid_entity import GridEntity
+from .operators import Operations, Operator
 
 __all__ = [
     "SurrogateOperator",
