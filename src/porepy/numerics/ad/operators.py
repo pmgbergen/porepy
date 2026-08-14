@@ -1512,6 +1512,13 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         return self._tags
 
     @property
+    def domain(self) -> pp.Grid | pp.MortarGrid:
+        """Returns the subdomain or interface on which this variable is defined."""
+        # This method is added to the atomic variable for the purpose of filtering
+        # in the Indexer class.
+        return cast(pp.Grid | pp.MortarGrid, self.source.grids[0])
+
+    @property
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
         assert self.target is not None
