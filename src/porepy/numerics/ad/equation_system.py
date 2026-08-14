@@ -360,19 +360,27 @@ class EquationSystem:
                 dofs_info = self.equation_image_size_info[name]
                 if isinstance(domain, pp.Grid):
                     dofs_per_grid = (
-                        domain.num_cells * dofs_info.get("cells", 0)  # cells
-                        + domain.num_faces * dofs_info.get("faces", 0)  # faces
-                        + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
+                        domain.num_cells
+                        * dofs_info.get(pp.ad.GridEntity.cells, 0)  # cells
+                        + domain.num_faces
+                        * dofs_info.get(pp.ad.GridEntity.faces, 0)  # faces
+                        + domain.num_nodes
+                        * dofs_info.get(pp.ad.GridEntity.nodes, 0)  # nodes
                     )
                 elif isinstance(domain, pp.MortarGrid):
                     # Mortar grid has no faces.
                     dofs_per_grid = (
-                        domain.num_cells * dofs_info.get("cells", 0)  # cells
-                        + domain.num_nodes * dofs_info.get("nodes", 0)  # nodes
+                        domain.num_cells
+                        * dofs_info.get(pp.ad.GridEntity.cells, 0)  # cells
+                        + domain.num_nodes
+                        * dofs_info.get(pp.ad.GridEntity.nodes, 0)  # nodes
                     )
                 else:
                     raise ValueError(f"Unknown domain type: {domain}")
 
+                assert dofs_per_grid > 0, (
+                    f"Equation {name} has no DOFs on domain {domain}."
+                )
                 dofs = np.arange(dofs_per_grid) + offset
                 dofs_on_domains[domain] = dofs
                 offset += dofs_per_grid
