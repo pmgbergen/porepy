@@ -32,8 +32,9 @@ from itertools import combinations
 from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 
 import numpy as np
-from porepy.numerics.ad import OperatorSpace, GridEntity
+
 import porepy as pp
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 __all__ = [
     "FluidDensityFromPressure",

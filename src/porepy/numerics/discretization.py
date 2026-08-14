@@ -225,7 +225,8 @@ class InterfaceDiscretization(abc.ABC):
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
-        """Return the DOF information for the columns (domain) of a discretization matrix.
+        """Return the DOF information for the columns (domain) of a discretization
+        matrix.
 
         Parameters:
             matrix_key: Attribute-name fragment identifying the matrix (e.g. ``"flux"``
