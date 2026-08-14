@@ -27,12 +27,8 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     material_constants = {
         "solid": pp.SolidConstants(porosity=1.0, permeability=1.0, residual_aperture=1),
     }
-    time_manager = pp.TimeManager(
-        schedule=[0, 10, 30, 80, 100], dt_init=10, constant_dt=True
-    )
     model_params = {
         "material_constants": material_constants,
-        "time_manager": time_manager,
         "meshing_arguments": {"cell_size": cell_size},
         "prepare_simulation": False,
         "times_to_export": [],
@@ -49,14 +45,13 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     # flow velocity. Works only assuming the test does not work with I/O of times.
     sd = model.mdg.subdomains()[0]
     dt = model.exact_sol.dt_from_cfl(sd)
-
-    time_manager = pp.TimeManager(
-        schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
-        dt_init=dt,
-        constant_dt=True,
+    time_stepper = pp.time_stepper.TimeStepper(
+        scheduler=pp.time_stepper.assemble_default_time_scheduler(
+            schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
+            dt_init=dt,
+            constant_dt=True,
+        )
     )
-    model.ad_time_step.set_value(dt)
-    model.time_manager = time_manager
 
     # The linear tracer model is solved with the Schur complement reduction linear
     # solver. It is the intended solver for this model. It does not affect the test
@@ -76,7 +71,12 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
             primary_linear_solver=pp.solvers.LinearSolverDirect(),
         )
     )
-    pp.ModelRunner(model, model_params, nonlinear_solver=nonlinear_solver).run()
+    pp.ModelRunner(
+        model,
+        model_params,
+        nonlinear_solver=nonlinear_solver,
+        time_stepper=time_stepper,
+    ).run()
     return model.results
 
 

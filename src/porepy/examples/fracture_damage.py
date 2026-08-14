@@ -125,7 +125,7 @@ class DamageDataSaving(pp.PorePyModel):
         # Retrieve information from setup.
         sds = self.mdg.subdomains(dim=self.nd - 1)
         sd = sds[0]
-        n: int = self.time_manager.time_index
+        n: int = self.time_data.time_index_successful
         names = DATA_SAVING_METHOD_NAMES
         vals = {}
         for name in names:

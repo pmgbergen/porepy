@@ -7,6 +7,7 @@ import warnings
 from abc import ABC
 from dataclasses import dataclass
 from typing import Optional, cast
+import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
@@ -184,33 +185,13 @@ class ModelRunner:
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
 
-        # Construct the default if not provided. This time stepper used only for
-        # time-dependent problems.
-        if time_stepper is None and self._is_time_dependent:
-            time_manager = model.params.get("time_manager", None)
-            if time_manager is None:
-                raise TypeError(
-                    "ModelRunner missing a required argument: 'time_stepper',"
-                )
-            assert isinstance(time_manager, pp.TimeManager)
-            if time_manager.dt_min_max is not None:
-                dt_min, dt_max = time_manager.dt_min_max
-            else:
-                dt_min = dt_max = None
-            time_stepper = TimeStepper(
-                scheduler=pp.time_stepper.assemble_default_time_scheduler(
-                    schedule=time_manager.schedule,
-                    dt_init=time_manager.dt_init,
-                    constant_dt=time_manager.is_constant,
-                    dt_min=dt_min,
-                    dt_max=dt_max,
-                    nonlinear_iter_optimal_range=time_manager.iter_optimal_range,
-                    nonlinear_iter_relax_factors=time_manager.iter_relax_factors,
-                    nonlinear_iter_retry_factor=time_manager.recomp_factor,
-                )
-            )
-        self.time_stepper: Optional[TimeStepper] = time_stepper
-        """Responsible for the time stepping logic."""
+        self.time_stepper: TimeStepper = _extract_time_stepper_from_params(
+            time_stepper=time_stepper,
+            model_params=model.params,
+            is_time_dependent=self._is_time_dependent,
+        )
+        """Responsible for the time stepping logic. Used only in time-dependent
+        simulations."""
 
         self.solver: pp.solvers.NonlinearSolverBase = (
             _extract_nonlinear_solver_from_params(
@@ -255,6 +236,7 @@ class ModelRunner:
         self.params.update({"_nl_progress_bar_position": 1})
 
         if use_progress_bar:
+            scheduler = self.time_stepper.scheduler
             # Create a time bar of length of expected simulation time.
 
             # Creating a custom format string. Difference from the default: it converts
@@ -265,7 +247,7 @@ class ModelRunner:
 
             # NOTE: If tqdm is not installed, this returns a DummyProgressBar instance.
             self.time_progressbar = progressbar_class(
-                total=self.model.time_manager.schedule[-1],
+                total=scheduler.get_time_end(),
                 desc="Time loop",
                 position=0,
                 dynamic_ncols=True,
@@ -311,8 +293,6 @@ class ModelRunner:
 
     def _run_time_dependent(self) -> ModelRunnerStatus:
         """Run a time-dependent model with trial-based time stepping."""
-        assert self.time_stepper is not None
-
         with logging_redirect_tqdm([logging.root]):
             while not self.time_stepper.scheduler.is_finished():
                 # Update the progressbar before the time step.
@@ -340,7 +320,7 @@ class ModelRunner:
     def _progressbar_postfix(self) -> str:
         """Formats a progressbar postfix string with dt."""
         assert self.time_stepper is not None
-        return f"Δt={self.time_stepper.scheduler.dt:.1e}"
+        return f"Δt={self.time_stepper.scheduler.get_dt():.1e}"
 
 
 def _extract_nonlinear_solver_from_params(
@@ -367,10 +347,12 @@ def _extract_nonlinear_solver_from_params(
     """
     solver_from_params = params.get("nonlinear_solver", None)
     if solver_from_params is not None and nonlinear_solver is None:
-        logger.warning(
+        warnings.warn(
             "You should pass the nonlinear solver directly to the ModelRunner: use "
             "ModelRunner(nonlinear_solver=...). Passing it through params will be "
-            "deprecated."
+            "deprecated.",
+            category=FutureWarning,
+            stacklevel=3,
         )
         return cast(type[pp.solvers.NewtonSolver], solver_from_params)(params)
     if solver_from_params is not None and nonlinear_solver is not None:
@@ -385,3 +367,71 @@ def _extract_nonlinear_solver_from_params(
         )
     else:
         return nonlinear_solver
+
+
+def _extract_time_stepper_from_params(
+    time_stepper: pp.time_stepper.TimeStepper | None,
+    model_params: dict,
+    is_time_dependent: bool,
+) -> pp.time_stepper.TimeStepper:
+    time_manager = model_params.get("time_manager", None)
+    # Return early if time_stepper is provided.
+    if time_stepper is not None:
+        if time_manager is not None:
+            warnings.warn(
+                "TimeStepper is passed to ModelRunner, and TimeManager is found in "
+                "model.params. The latter is deprecated and will be ignored. Remove it "
+                "from model.params.",
+                category=FutureWarning,
+                stacklevel=3,
+            )
+        return time_stepper
+
+    # Construct time_stepper based on time_manager.
+    if time_manager is not None:
+        warnings.warn(
+            "model.params['time_manager'] is deprecated and will be removed. Set the "
+            "simulation schedule by using "
+            "TimeStepper(scheduler=pp.time_stepper.assemble_default_time_scheduler())",
+            category=FutureWarning,
+            stacklevel=3,
+        )
+        assert isinstance(time_manager, pp.TimeManager)
+        if time_manager.dt_min_max is not None:
+            dt_min = float(time_manager.dt_min_max[0])
+            dt_max = float(time_manager.dt_min_max[1])
+        else:
+            dt_min = dt_max = None
+        return TimeStepper(
+            scheduler=pp.time_stepper.assemble_default_time_scheduler(
+                schedule=time_manager.schedule,
+                dt_init=time_manager.dt_init,
+                constant_dt=time_manager.is_constant,
+                dt_min=dt_min,
+                dt_max=dt_max,
+                nonlinear_iter_optimal_range=time_manager.iter_optimal_range,
+                nonlinear_iter_relax_factors=time_manager.iter_relax_factors,
+                nonlinear_iter_retry_factor=time_manager.recomp_factor,
+            )
+        )
+
+    if is_time_dependent:
+        # The user has not provided neither time_manager nor time_stepper. We are either
+        # (i) in a unit test that does not care about time, or (ii) the user forgot it.
+        # Printing a warning and initializing default. In case (i), the warning will be
+        # omitted by pytest. In case (ii), it will be useful.
+        warnings.warn(
+            "Initializing the default simulatuion schedule: [0, 1] seconds, dt=1. Set "
+            "the simulation schedule by using "
+            "TimeStepper(scheduler=pp.time_stepper.assemble_default_time_scheduler())",
+            category=FutureWarning,
+            stacklevel=3,
+        )
+
+    return TimeStepper(
+        scheduler=pp.time_stepper.assemble_default_time_scheduler(
+            schedule=np.array([0, 1], dtype=float),
+            dt_init=1.0,
+            constant_dt=True,
+        )
+    )

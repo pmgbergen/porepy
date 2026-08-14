@@ -178,14 +178,14 @@ def test_gradient_scalar_boundary_values(params, model_dim: int):
         )
 
 
-def test_lithostatic_boundary_stress_values(momentum_model):
+def test_lithostatic_boundary_stress_values(momentum_model: pp.PorePyModel):
     # Scaling of the lithostatic stress.
     stress_multipliers = np.array([1, 2, 0.1])
     model = momentum_model
     model.params.update({"lithostatic_stress_multipliers": stress_multipliers})
 
     # Lithostatic boundary condition requires non-zero time.
-    model.time_manager.time = 1
+    model.time_data.time = 1
 
     nd = model.nd
 

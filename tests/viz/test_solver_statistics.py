@@ -10,6 +10,7 @@ from deepdiff import DeepDiff
 import porepy as pp
 from porepy.numerics.solvers import ConvergenceInfoHistory
 from porepy.time_stepper.time_step_status import (
+    TimeStepperAttemptData,
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
@@ -71,18 +72,25 @@ def time_stepper_status(
 ):
     """Create a time-stepper status equivalent to an old convergence status."""
     if status == "converged":
-        solver_status = nonlinear_solver_status(status)
-        assert isinstance(solver_status, pp.solvers.NonlinearSolverStatusConverged)
         return TimeStepperStatusSuccess(
-            time=1.0, dt=0.5, nonlinear_solver_status=solver_status
+            time=1.0,
+            attempts=[
+                TimeStepperAttemptData(
+                    dt=0.5, nonlinear_solve_status=nonlinear_solver_status(status)
+                )
+            ],
         )
-    # elif status == "continue_iterating":
-    #     return TimeStepperStatusContinueIterating(
-    #         attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")
-    #     )
-    elif status == "failed":
+    elif status in ["continue_iterating", "failed"]:
+        # return TimeStepperStatusContinueIterating(
+        #     attempt=0, nonlinear_solver_status=nonlinear_solver_status("failed")
+        # )
         return TimeStepperStatusFailure(
-            nonlinear_solver_status=nonlinear_solver_status("failed"),
+            time=1.0,
+            attempts=[
+                TimeStepperAttemptData(
+                    dt=0.5, nonlinear_solve_status=nonlinear_solver_status("failed")
+                )
+            ],
             reason="Nonlinear solver failed.",
         )
     else:

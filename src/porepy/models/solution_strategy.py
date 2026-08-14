@@ -82,12 +82,22 @@ class SolutionStrategy(pp.PorePyModel):
         Reference values can be provided through ``params['reference_values']``.
 
         """
-        self.time_data = pp.time_stepper.SimulationTimeData(time=0.0, dt=1.0)
+        self.time_data = pp.time_stepper.SimulationTimeData(
+            time=0.0,
+            dt=1.0,
+            time_index_successful=0,
+            schedule=np.array([0.0, 1.0]),
+            constant_dt=True,
+        )
         if "time_manager" in params:
             warn(message="", category=FutureWarning, stacklevel=2)
             time_manager = params["time_manager"]
             self.time_data = pp.time_stepper.SimulationTimeData(
-                time=time_manager.schedule[0], dt=time_manager.dt_init
+                time=time_manager.schedule[0],
+                dt=time_manager.dt_init,
+                time_index_successful=0,
+                schedule=time_manager.schedule,
+                constant_dt=time_manager.is_constant,
             )
 
         self.restart_options = params.get(
@@ -142,7 +152,14 @@ class SolutionStrategy(pp.PorePyModel):
     @property
     def time_manager(self) -> pp.TimeManager:
         warn(message="", category=FutureWarning, stacklevel=2)
-        return pp.TimeManager(schedule=[self.time_data.time], dt_init=self.time_data.dt)
+        time_manager = pp.TimeManager(
+            schedule=self.time_data.schedule,
+            dt_init=self.time_data.dt,
+            time_index=self.time_data.time_index_successful,
+            constant_dt=self.time_data.constant_dt,
+        )
+        time_manager._time = self.time_data.time
+        return time_manager
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""

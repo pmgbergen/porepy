@@ -109,7 +109,7 @@ class ContactMechanicsTester(ContactMechanics):
         param_values = cast(
             np.ndarray, self.params["interface_displacement_parameter_values"]
         )
-        top_val = param_values[:, self.time_manager.time_index]
+        top_val = param_values[:, self.time_data.time_index_successful]
         # Broadcast and assign.
         vals[:, top_side] = np.tile(top_val, (top_side.shape[0], 1)).T
         return vals
