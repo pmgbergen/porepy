@@ -13,7 +13,6 @@ import porepy as pp
 from porepy.numerics import solvers
 from porepy.time_stepper.scheduler import (
     CannotRecomputeTimeStep,
-    TimeScheduler,
     TimeSchedulerBase,
 )
 from porepy.time_stepper.time_step_status import (
@@ -56,14 +55,11 @@ class TimeStepper:
         """Initialize the time stepper."""
         self.scheduler = scheduler
 
-        # self.time_manager = time_manager
-        """TimeManager for tracking time and dt."""
-
         assert max_attempts > 0, "max_attempts must be greater than 0."
         self.max_attempts = max_attempts
         """Maximum number of retry attempts. Set it to 1 for no retries, which is
         equivalent to the constant_dt policy.
-        
+
         """
 
     def perform_time_step(
@@ -102,7 +98,7 @@ class TimeStepper:
             model.time_data = pp.time_stepper.SimulationTimeData(
                 time=previous_time + dt,
                 dt=dt,
-                time_index_successful=self.scheduler.get_time_index_successful(),
+                time_index_successful=(self.scheduler.get_time_index_successful() + 1),
                 schedule=self.scheduler.get_schedule(),
                 constant_dt=isinstance(
                     self.scheduler, pp.time_stepper.scheduler.TimeSchedulerConstantDt

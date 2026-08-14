@@ -455,6 +455,10 @@ def assemble_default_time_scheduler(
         raise ValueError("Schedule must have at least two points (t_start and t_end).")
 
     schedule = np.array(schedule, dtype=float)
+    if dt_min is None:
+        dt_min = float(dt_init) * 1e-3
+    if dt_max is None:
+        dt_max = float(dt_init) * 1e3
     iter_min, iter_max = nonlinear_iter_optimal_range
     decrease_factor, increase_factor = nonlinear_iter_relax_factors
     if constraints is None:

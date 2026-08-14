@@ -95,3 +95,10 @@ class TimeStepperStatusFailure(TimeStepperStatus):
 
     def serialize(self) -> str:
         return "failed"
+
+    @property
+    def dt(self) -> float:
+        """Simulation time step magnitude."""
+        if len(self.attempts) == 0:
+            raise ValueError
+        return self.attempts[-1].dt
