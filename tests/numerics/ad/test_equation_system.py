@@ -19,6 +19,7 @@ The tests focus on various assembly methods:
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
