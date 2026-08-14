@@ -113,16 +113,17 @@ class TimeManager:
         print_info: bool = False,
         rtol: float = 1e-10,
         atol: float = 1e-16,
+        time_index: int = 0,
     ) -> None:
         warn(message="", category=FutureWarning, stacklevel=2)
-        self.schedule = np.array(schedule)
-        self.time_init = self.schedule[0]
-        self.time_final = self.schedule[-1]
-        self.dt_init = dt_init
+        self.schedule = np.array(schedule, dtype=float)
+        self.time_init = float(self.schedule[0])
+        self._time_final = float(self.schedule[-1])
+        self.dt_init = float(dt_init)
         self.dt_min_max = dt_min_max
         self.iter_optimal_range = iter_optimal_range
         self.iter_relax_factors = iter_relax_factors
-        self.recomp_factor = recomp_factor
+        self.recomp_factor = float(recomp_factor)
         self.is_constant = constant_dt
 
         # Time

@@ -8,10 +8,14 @@ perform_time_step() orchestrates the workflow and is called from the model runne
 from __future__ import annotations
 
 import logging
-
+import numpy as np
 import porepy as pp
 from porepy.numerics import solvers
-from porepy.time_stepper.scheduler import CannotRecomputeTimeStep, TimeScheduler
+from porepy.time_stepper.scheduler import (
+    CannotRecomputeTimeStep,
+    TimeScheduler,
+    TimeSchedulerBase,
+)
 from porepy.time_stepper.time_step_status import (
     TimeStepperAttemptData,
     TimeStepperStatus,
@@ -48,7 +52,7 @@ class TimeStepper:
 
     """
 
-    def __init__(self, scheduler: TimeScheduler, max_attempts: int = 10) -> None:
+    def __init__(self, scheduler: TimeSchedulerBase, max_attempts: int = 10) -> None:
         """Initialize the time stepper."""
         self.scheduler = scheduler
 
@@ -79,26 +83,30 @@ class TimeStepper:
                 or dt_min is reached, or something went unexpectedly wrong.
 
         """
-        # Cache previous time for trial.
-        previous_time = self.scheduler.time
-        dt = self.scheduler.dt
-
+        previous_time = self.scheduler.get_time()
+        dt = self.scheduler.get_dt()
         attempts_data = []
 
         for attempt in range(self.max_attempts):
             # Logging time step start.
             log_message = (
-                f"Time step #{self.scheduler.time_step_index}: dt={dt:.2e}, "
-                f"time={previous_time:.2e} of {self.scheduler.t_end:.2e}"
+                f"Time step #{self.scheduler.get_time_index_successful()}: dt={dt:.2e},"
+                f" time={previous_time:.2e} of {self.scheduler.get_time_end():.2e}"
             )
             if attempt > 0:
-                log_message += f", attempt={attempt} of {self.max_attempts}"
+                log_message += f", retry={attempt + 1} / {self.max_attempts}"
             logger.info(log_message)
 
             # Update time manager for new trial.
             previous_time_data = model.time_data
             model.time_data = pp.time_stepper.SimulationTimeData(
-                time=previous_time + dt, dt=dt
+                time=previous_time + dt,
+                dt=dt,
+                time_index_successful=self.scheduler.get_time_index_successful(),
+                schedule=self.scheduler.get_schedule(),
+                constant_dt=isinstance(
+                    self.scheduler, pp.time_stepper.scheduler.TimeSchedulerConstantDt
+                ),
             )
 
             # Log time step information for statistics.
@@ -113,12 +121,10 @@ class TimeStepper:
             # Save statistics.
             self._update_time_statistics(model, attempt_data)
 
-            if nonlinear_solver_status.is_converged():
-                # Success, accepting this solution.
-                self.scheduler.time += dt
-                self.scheduler.time_step_index += 1
-            else:
-                # Roll back if the time step attempt failed.
+            if not nonlinear_solver_status.is_converged():
+                # Roll back if the time step attempt failed. This is needed in case if
+                # the simulation stops and the time_data is not reassigned above in the
+                # next loop iteration.
                 model.time_data = previous_time_data
 
             try:

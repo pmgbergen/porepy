@@ -245,7 +245,7 @@ class FractureDamageEquations(pp.PorePyModel):
         Returns:
             Operator for the damage equation.
         """
-        num_steps = self.time_manager.time_index
+        num_steps = self.time_data.time_index_successful
 
         # Current time step contribution (implicit part). 0 = current time step.
         damage_coefficient = damage_coefficient_function(subdomains)

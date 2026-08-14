@@ -59,12 +59,14 @@ def well_subdomains(neuBC_model):
     return wells
 
 
-def test_NeumannWellBCs_in_FirstTimeInterval(neuBC_model, well_subdomains):
+def test_NeumannWellBCs_in_FirstTimeInterval(
+    neuBC_model: pp.PorePyModel, well_subdomains
+):
     """
     Test that well grids have Neumann BCs during the first time interval.
     """
     model = neuBC_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_data.time = model.time_data.schedule[0]
     for sd in well_subdomains:
         bc = model.bc_type_darcy_flux(sd)
         assert not np.any(bc.is_dir)
@@ -104,7 +106,7 @@ def test_well_bcs_pressure(well_bc_model):
     Test the boundary conditions of one well for pressure.
     """
     model = well_bc_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_data.time = model.time_data.schedule[0]
     wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
     assert len(wells) == 1
 
@@ -121,7 +123,7 @@ def test_well_bcs_temperature(well_bc_model):
     Test the boundary conditions of one well for temperature.
     """
     model = well_bc_model
-    model.time_manager.time = model.time_manager.schedule[0]
+    model.time_data.time = model.time_data.schedule[0]
     wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
     assert len(wells) == 1
 
