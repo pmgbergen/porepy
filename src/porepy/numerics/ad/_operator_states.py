@@ -91,8 +91,9 @@ class TimeDependentOperator:
 
         - None indicates the current time (unknown value) or that the operator
           represents a reference value.
-        - 0 indicates this is an operator at the first previous time step
-        - 1 at the time step before
+        - 0 indicates this is an operator at the first previous time step (the last
+          accepted time step).
+        - 1 at the time step before that
         - ...
 
         """
@@ -111,9 +112,6 @@ class TimeDependentOperator:
         """Returns a copy of the time-dependent operator with an advanced time-step
         index.
 
-        Time-dependent operators do not invoke the recursion (like the base class), but
-        represent a leaf in the recursion tree.
-
         Note:
             You cannot create operators at the previous time step from operators which
             are at some previous iterate. Use the :attr:`original_operator` instead.
@@ -121,12 +119,12 @@ class TimeDependentOperator:
         Parameters:
             steps: ``default=1``
 
-                Number of steps backwards in time. If steps=0, the current time is
-                represented.
+                Number of steps backwards in time. If steps=0, a copy of the operator at
+                the current time is represented.
 
         Raises:
             ValueError: If this instance represents an operator at a previous iterate.
-            ValueError: If ``steps`` is not non-negative.
+            ValueError: If ``steps`` is negative.
 
         """
         if isinstance(self, ReferenceOperator) and self.is_reference:
@@ -212,13 +210,18 @@ class IterativeOperator:
         """Returns the iterate index this instance represents, at the current time.
 
         - None indicates this instance is at a previous time or reference.
-        - 0 represents the most recently computed iterate.
+        - 0 represents the most recently computed iterate (e.g. the last accepted
+          iterate of a non-linear solver).
         - 1 represents the iterate before that
         - ...
 
         Note:
-            Operators at current time (unknown value) also have the index 0, since those
-            values are used to linearize the system and construct the Jacobian.
+            Operators representing the current iterate (that is, an operator on which
+            the method previous_iteration has not been called, hence it represents the
+            next iterate to be computed in an iterative scheme) will also have the index
+            0, since it will also evaluate to the last accepted iterate. The difference
+            is that the current iterate will have a non-zero Jacobian, while the
+            previous iterate will not.
 
         """
         # Operators at previous time have no iterate indices.
@@ -243,8 +246,14 @@ class IterativeOperator:
     ) -> _IterativeOperator:
         """Returns a copy of the iterative operator with an advanced iterate index.
 
-        Iterative operators do not invoke the recursion (like the base class),
-        but represent a leaf in the recursion tree.
+        Note:
+            Calling this method on an operator, with steps=1, on an operator
+            representing the current iterate (the next iterate to be computed in an
+            iterative scheme) will return an operator representing the last accepted
+            iterate. When evaluated, the current and last accepted iterate will return
+            the same values, but only the former will have a non-zero Jacobian. To get
+            the difference between the current and second to last accepted iterate, call
+            this method with steps=2.
 
         Note:
             You cannot create operators at the previous iterates from operators which
@@ -253,12 +262,12 @@ class IterativeOperator:
         Parameters:
             steps: ``default=1``
 
-                Number of steps backwards in the iterate sense. If ``steps`` is 0, the
-                current iterate is returned.
+                Number of steps backwards in the iterate sense. If ``steps`` is 0, a
+                copy of the operator at the same iteration index is returned.
 
         Raises:
             ValueError: If this instance represents an operator at a previous time step.
-            ValueError: If ``steps`` is not non-negative.
+            ValueError: If ``steps`` is negative.
 
         """
         if isinstance(self, ReferenceOperator) and self.is_reference:
