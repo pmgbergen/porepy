@@ -161,6 +161,13 @@ class SolutionStrategy(pp.PorePyModel):
         time_manager._time = self.time_data.time
         return time_manager
 
+    @time_manager.setter
+    def time_manager(self, time_manager: pp.TimeManager) -> None:
+        raise ValueError(
+            "model.time_manager is deprecated. Please set ModelRunner(time_stepper="
+            "TimeStepper(scheduler=assemble_default_time_scheduler(...)) instead."
+        )
+
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
@@ -197,9 +204,9 @@ class SolutionStrategy(pp.PorePyModel):
         self.discretize()
         self.set_nonlinear_discretizations()
 
-        # # Export initial condition (only if time-dependent)
-        # if self._is_time_dependent():
-        #     self.save_data_time_step()
+        # Export initial condition (only if time-dependent).
+        if self._is_time_dependent():
+            self.save_data_time_step()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in

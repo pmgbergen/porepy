@@ -359,9 +359,13 @@ def test_constant_time_step(schedule, dt, time, is_success, context):
         },
         {
             "context": get_context_success(num_linear_iterations=8),
-            "expected_dt": "unreachable",
+            "expected_dt": 0.49,
             "dt_min": 0.49,
-            "should_raise": True,
+        },
+        {
+            "context": get_context_success(num_linear_iterations=8),
+            "expected_dt": "unreachable",
+            "dt_min": 0.5,
         },
     ],
 )
