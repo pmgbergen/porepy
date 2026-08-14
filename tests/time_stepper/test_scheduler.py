@@ -1,9 +1,9 @@
-from itertools import repeat
 import logging
+from itertools import repeat
 from typing import Iterable, Optional
 
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.time_stepper.scheduler import (
@@ -446,3 +446,13 @@ def test_time_step_match_schedule_exactly(constant_dt: bool):
     times, checkpoint_hits = run_scheduler_collect_data(scheduler)
     np.testing.assert_array_equal(checkpoint_hits, scheduler.get_schedule())
     np.testing.assert_array_equal(times, checkpoint_hits)
+
+
+def test_time_manager_deprecation():
+    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5)
+
+    with pytest.raises(ValueError):
+        time_manager.time = 1
+
+    with pytest.raises(ValueError):
+        time_manager.dt = 1

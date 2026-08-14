@@ -8,13 +8,12 @@ perform_time_step() orchestrates the workflow and is called from the model runne
 from __future__ import annotations
 
 import logging
+
 import numpy as np
+
 import porepy as pp
 from porepy.numerics import solvers
-from porepy.time_stepper.scheduler import (
-    CannotRecomputeTimeStep,
-    TimeSchedulerBase,
-)
+from porepy.time_stepper.scheduler import CannotRecomputeTimeStep, TimeSchedulerBase
 from porepy.time_stepper.time_step_status import (
     TimeStepperAttemptData,
     TimeStepperStatus,
