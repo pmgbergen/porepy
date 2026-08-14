@@ -19,7 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.compositional.materials import FractureDamageSolidConstants
-from porepy.numerics.ad import OperatorSpace, GridEntity
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 from .fluid_property_library import *  # noqa: F403, F401
 from .fluid_property_library import (

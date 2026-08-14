@@ -20,7 +20,7 @@ from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFr
 from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
 from porepy.applications.test_utils.models import add_mixin
-from porepy.numerics.ad import OperatorSpace, GridEntity
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 """Local utility functions."""
 

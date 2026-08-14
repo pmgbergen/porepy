@@ -8,8 +8,8 @@ Verifies:
   5. ``set_equation`` works with enum-keyed ``equations_per_grid_entity`` dicts.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity

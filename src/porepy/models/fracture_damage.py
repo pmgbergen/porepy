@@ -35,7 +35,7 @@ from typing import Callable, cast
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad import OperatorSpace, GridEntity
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 
 class FractureDamageVariables(pp.VariableMixin):
@@ -288,9 +288,7 @@ class DilationDamageEquation(FractureDamageEquations):
 
         dilation_eq = self.dilation_damage_equation(fractures)
         dilation_eq.set_name(self.dilation_damage_equation_name)
-        self.equation_system.set_equation(
-            dilation_eq, {pp.ad.GridEntity.cells: 1}
-        )
+        self.equation_system.set_equation(dilation_eq, {pp.ad.GridEntity.cells: 1})
 
     def before_nonlinear_loop(self):
         """Update the dilation damage equation to include new term."""
