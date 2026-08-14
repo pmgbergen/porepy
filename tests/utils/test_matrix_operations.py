@@ -967,7 +967,11 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     sf2 = equation_system.create_variables(name="sf2", interfaces=mdg.interfaces())
 
     # Define equation‐to‐grid-entity mapping: one equation per cell.
-    eq_per_gridEntity = {"cells": 1, "faces": 0, "nodes": 0}
+    eq_per_gridEntity = {
+        pp.ad.GridEntity.cells: 1,
+        pp.ad.GridEntity.faces: 0,
+        pp.ad.GridEntity.nodes: 0,
+    }
 
     # On each subdomain cell, register 4 equations.
     Scalar = pp.ad.Scalar
