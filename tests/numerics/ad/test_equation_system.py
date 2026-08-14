@@ -611,7 +611,7 @@ class EquationSystemMockModel:
         empty_equation = empty_var * empty_var
         empty_equation.set_name("empty_equation")
         self.equation_system.set_equation(
-            empty_equation,  equations_per_grid_entity={GridEntity.cells: 1}
+            empty_equation, equations_per_grid_entity={GridEntity.cells: 1}
         )
 
 

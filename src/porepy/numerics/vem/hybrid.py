@@ -4,10 +4,11 @@
 @author: fumagalli, alessio
 """
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.sparse as sps
 from numpy.linalg import solve
-from typing import TYPE_CHECKING
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data

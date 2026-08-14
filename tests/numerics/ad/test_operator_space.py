@@ -8,15 +8,16 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.grid_entity import GridEntity
+from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 from porepy.numerics.ad.ad_utils import MergedOperator
+from porepy.numerics.ad.grid_entity import GridEntity
 from porepy.numerics.ad.operators import (
     DenseArray,
     DomainType,
     MixedDimensionalVariable,
+    Operations,
     Operator,
     OperatorSpace,
-    Operations,
     Scalar,
     SparseArray,
     Variable,
@@ -24,7 +25,6 @@ from porepy.numerics.ad.operators import (
 )
 from porepy.numerics.ad.surrogate_operator import SurrogateOperator
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
-from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 
 
 def _grid_for_dim(dim: int) -> pp.Grid:
@@ -293,7 +293,8 @@ class TestSurrogateOperatorSpace:
         return simple_mdg, var
 
     def test_surrogate_source_with_dof_info(self, surrogate_setup):
-        """SurrogateFactory with explicit dof_info: the produced operator has a space."""
+        """SurrogateFactory with explicit dof_info: the produced operator has a
+        space."""
         mdg, var = surrogate_setup
         factory = pp.ad.SurrogateFactory(
             name="f",
@@ -822,7 +823,7 @@ class TestCompoundOperatorSpaces:
         return cell_sp, face_sp
 
     def test_chained_matmul_source_target(self):
-        """(A @ B): target(B) == source(A) → result.source=B.source, result.target=A.target"""
+        """(A @ B): result.source=B.source, result.target=A.target."""
         result = self.A @ self.B
         assert result.source == self.cell_sp
         assert result.target == self.cell_sp

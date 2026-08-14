@@ -25,8 +25,8 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
-from .operators import Operations, Operator
 from .operator_space import OperatorSpace
+from .operators import Operations, Operator
 
 __all__ = [
     "AbstractFunction",
@@ -105,7 +105,8 @@ class AbstractFunction(Operator):
         )
 
         # Space intentionally unspecified: the function application node only stores the
-        # evaluation structure, and does not infer result spaces from arbitrary callables.
+        # evaluation structure, and does not infer result spaces from arbitrary
+        # callables.
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
             operation=pp.ad.operators.Operations.evaluate,

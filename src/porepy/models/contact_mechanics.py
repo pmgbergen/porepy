@@ -15,7 +15,7 @@ import numpy as np
 import porepy as pp
 from porepy.models import constitutive_laws
 from porepy.models.abstract_equations import VariableMixin
-from porepy.numerics.ad import OperatorSpace, GridEntity
+from porepy.numerics.ad import GridEntity, OperatorSpace
 
 
 class ContactMechanicsEquations(pp.BalanceEquation):
