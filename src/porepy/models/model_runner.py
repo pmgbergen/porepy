@@ -487,11 +487,11 @@ class InitializationParameters:
     update_reference: bool = False
 
     @classmethod
-    def from_dict(cls, params: dict) -> InitializationParameters:
+    def from_dict(cls, config: dict) -> InitializationParameters:
         """Create an InitializationParameters instance from a dictionary.
 
         Parameters:
-            params: A dictionary containing initialization parameters.
+            config: A dictionary containing initialization parameters.
             - "steady_state_convergence_criteria": ConvergenceCriteria
             - "steady_state_divergence_criteria": DivergenceCriteria
             - "pseudo_dt_init": float
@@ -525,19 +525,19 @@ class InitializationParameters:
             "update_reference": False,
         }
         return cls(
-            convergence_criteria=params.get(
+            convergence_criteria=config.get(
                 "steady_state_convergence_criteria",
                 default_config["steady_state_convergence_criteria"],
             ),
-            divergence_criteria=params.get(
+            divergence_criteria=config.get(
                 "steady_state_divergence_criteria",
                 default_config["steady_state_divergence_criteria"],
             ),
-            pseudo_dt_init=params.get(
+            pseudo_dt_init=config.get(
                 "pseudo_dt_init", default_config["pseudo_dt_init"]
             ),
-            pseudo_dt_max=params.get("pseudo_dt_max", default_config["pseudo_dt_max"]),
-            update_reference=params.get(
+            pseudo_dt_max=config.get("pseudo_dt_max", default_config["pseudo_dt_max"]),
+            update_reference=config.get(
                 "update_reference", default_config["update_reference"]
             ),
         )
