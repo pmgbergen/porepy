@@ -273,7 +273,7 @@ class PseudoTimeStepper(TimeStepper):
         self.pseudo_steps = 0
         """Internal counter for pseudo time-stepping iterations."""
 
-    def perform_time_step(
+    def perform_pseudo_time_step(
         self,
         model: pp.PorePyModel,
         solver: pp.solvers.NonlinearSolverBase,
@@ -334,13 +334,17 @@ class PseudoTimeStepper(TimeStepper):
                 return time_step_status, convergence_status, divergence_status
 
         # We should never reach this code, but it is added as a safeguard.
-        return TimeStepperStatusFailure(
-            reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
-            nonlinear_solver_status=solvers.NonlinearSolverStatusFailed(
-                linear_solver_statuses=[],
-                convergence_statuses=solvers.ConvergenceStatusCollection(),
-                divergence_statuses=solvers.ConvergenceStatusCollection(),
+        return (
+            TimeStepperStatusFailure(
+                reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
+                nonlinear_solver_status=solvers.NonlinearSolverStatusFailed(
+                    linear_solver_statuses=[],
+                    convergence_statuses=solvers.ConvergenceStatusCollection(),
+                    divergence_statuses=solvers.ConvergenceStatusCollection(),
+                ),
             ),
+            solvers.ConvergenceStatusCollection(),
+            solvers.ConvergenceStatusCollection(),
         )
 
     def _perform_trial_time_step(

@@ -8,6 +8,8 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Optional, cast
 
+import numpy as np
+
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.solvers.convergence_check import (
@@ -18,10 +20,7 @@ from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.time_stepper.time_stepper import (
-    PseudoTimeStepper,
-    TimeStepper,
-)
+from porepy.time_stepper.time_stepper import PseudoTimeStepper, TimeStepper
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -358,10 +357,12 @@ class ModelRunner:
         cached_iters = self.model.time_manager._iters
 
         # Setup pseudo time manager for initialization.
-        self.model.time_manager.schedule = [
-            self.model.time_manager.time_init,
-            self.model.time_manager.time_final + init_params.pseudo_dt_max,
-        ]
+        self.model.time_manager.schedule = np.array(
+            [
+                self.model.time_manager.time_init,
+                self.model.time_manager.time_final + init_params.pseudo_dt_max,
+            ]
+        )
         self.model.time_manager.dt = init_params.pseudo_dt_init
         self.model.time_manager.dt_min_max = (
             self.model.time_manager.dt_min_max[0],
@@ -383,7 +384,9 @@ class ModelRunner:
 
                 # Perform pseudo time step.
                 time_step_status, convergence_status, divergence_status = (
-                    pseudo_time_stepper.perform_time_step(self.model, self.solver)
+                    pseudo_time_stepper.perform_pseudo_time_step(
+                        self.model, self.solver
+                    )
                 )
 
                 # Handle mode-specific post-initialization (for now without hook).
@@ -394,13 +397,17 @@ class ModelRunner:
                 if isinstance(time_step_status, TimeStepperStatusSuccess):
                     self.time_progressbar.update(n=time_step_status.dt)
 
-                # Abort simulation if time step was stopped or diveregence detected.
-                if (
-                    isinstance(time_step_status, TimeStepperStatusFailure)
-                    or divergence_status.is_failed()
-                ):
+                # Abort simulation if time step was stopped.
+                if isinstance(time_step_status, TimeStepperStatusFailure):
                     logger.error(f"Initialization failed: {time_step_status.reason}")
                     status = ModelRunnerStatusFailure(reason=time_step_status.reason)
+                    raise RuntimeError(status)
+
+                # Abort simulation if divergence was detected.
+                if divergence_status.is_failed():
+                    reason = "Initialization failed: divergence detected."
+                    logger.error(reason)
+                    status = ModelRunnerStatusFailure(reason=reason)
                     raise RuntimeError(status)
 
                 # Update initialization status.
