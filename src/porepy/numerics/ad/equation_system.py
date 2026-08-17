@@ -1388,24 +1388,24 @@ class EquationSystem:
 
         for row, value in zip(equations_rows.values(), values):
             # Extract residual vector and possibly Jacobian matrix.
-            rhs_value = ad.val if evaluate_jacobian else ad
+            rhs_value = value.val if evaluate_jacobian else value
             if row is not None:
                 # If restriction to grid-related row blocks was made, perform row
                 # slicing based on information we have obtained from parsing.
                 rhs.append(rhs_value[row])
                 if evaluate_jacobian:
-                    if ad._is_diagonal:
-                        mat.append(ad.to_full().jac[row])
+                    if value._is_diagonal:
+                        mat.append(value.to_full().jac[row])
                     else:
-                        mat.append(ad.jac[row])
+                        mat.append(value.jac[row])
             else:
                 # If no grid-related row restriction was made, append the whole thing.
                 rhs.append(rhs_value)
                 if evaluate_jacobian:
-                    if ad._is_diagonal:
-                        mat.append(ad.to_full().jac)
+                    if value._is_diagonal:
+                        mat.append(value.to_full().jac)
                     else:
-                        mat.append(ad.jac)
+                        mat.append(value.jac)
 
         # Concatenate results equation-wise.
         if len(rhs) > 0:
