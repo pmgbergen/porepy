@@ -577,14 +577,16 @@ class NewtonSolver(NonlinearSolverBase):
                 nonlinear_increment=nonlinear_increment,
                 updated_variables=self.get_active_variables(model),
             )
-        except ValueError:
+        except ValueError as e:
             # model.after_nonlinear_iteration tends to raise this error if
             # discretization encounter nans:
             # "Tensor is not positive definite because of components in x-direction"
             # If not intercepted here, this exception leads to a simulation crash
             # instead of retrying.
+            message = "model.after_nonlinear_iteration failed"
+            logger.exception(message, stack_info=True)
             return ConvergenceStatusCollection(), ConvergenceStatusCollection(
-                {"failed to rediscretize model": ConvergenceStatus.FAILED}
+                {message: ConvergenceStatus.FAILED}
             )
 
         # Monitor convergence.
