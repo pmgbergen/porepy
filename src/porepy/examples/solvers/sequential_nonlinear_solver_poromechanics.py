@@ -5,11 +5,18 @@ decoupling nonlinear solvers for:
 - momentum balance;
 - fluid mass balance.
 
+This example also shows how to encorporate custom convergence criteria.
+
 """
 
 import logging
 
 import porepy as pp
+from porepy.models.metric import (
+    EquationBasedEuclideanMetric,
+    EquationBasedLebesgueMetric,
+    VariableBasedEuclideanMetric,
+)
 
 
 class FullModel(  # type: ignore
@@ -25,9 +32,7 @@ def run_example():
 
     # Silence the Newton and linear solver convergence info printing, because it becomes
     # poorly readible when both the outer and inner nonlinear solvers log info.
-    logging.getLogger("porepy.numerics.solvers.nonlinear_solvers").setLevel(
-        logging.WARNING
-    )
+    logging.getLogger("porepy.numerics.solvers.newton_solver").setLevel(logging.WARNING)
     logging.getLogger("porepy.numerics.solvers.linear_solvers.linear_solver").setLevel(
         logging.WARNING
     )
@@ -39,6 +44,7 @@ def run_example():
         "fracture_indices": [0, 1],
         "u_north": -0.001,
         "meshing_arguments": {"cell_size": 0.1},
+        "time_manager": pp.TimeManager(schedule=[0, 5], dt_init=1, constant_dt=True),
     }
     model_2d = FullModel(model_params_2d)
 
@@ -67,17 +73,55 @@ def run_example():
         pp.solvers.DefaultVariableTags.well_flux,
     ]
 
+    # Set up separate convergence criteria for each subsolver.
+    convergence_mechanics = pp.solvers.ConvergenceCriteria(
+        {
+            "res_rel": pp.solvers.ResidualBasedRelativeCriterion(
+                tol=1e-5,
+                metric=EquationBasedLebesgueMetric(
+                    model=model_2d, equation_tags=mechanics_equations
+                ),
+            ),
+        }
+    )
+    convergence_flow = pp.solvers.ConvergenceCriteria(
+        {
+            "inc_abs": pp.solvers.IncrementBasedAbsoluteCriterion(
+                tol=1e-5,
+                metric=VariableBasedEuclideanMetric(
+                    model=model_2d, variable_tags=flow_variables
+                ),
+            )
+        }
+    )
+    # Set up convergence criteria for the outer solver.
+    convergence_full = pp.solvers.ConvergenceCriteria(
+        {
+            "res_abs": pp.solvers.ResidualBasedAbsoluteCriterion(
+                tol=1e-5,
+                metric=EquationBasedEuclideanMetric(
+                    model=model_2d, equation_tags=mechanics_equations
+                ),
+            ),
+        }
+    )
+
     # Create the sequential solver that takes two subsolvers: Newton for flow and Newton
     # for mechanics.
     nonlinear_solver = pp.solvers.SequentialNonlinearSolver(
         subsolvers=[
             pp.solvers.NewtonSolver(
-                equation_tags=mechanics_equations, variable_tags=mechanics_variables
+                equation_tags=mechanics_equations,
+                variable_tags=mechanics_variables,
+                params={"nl_convergence_criteria": convergence_mechanics},
             ),
             pp.solvers.NewtonSolver(
-                equation_tags=flow_equations, variable_tags=flow_variables
+                equation_tags=flow_equations,
+                variable_tags=flow_variables,
+                params={"nl_convergence_criteria": convergence_flow},
             ),
-        ]
+        ],
+        convergence_criteria=convergence_full,
     )
 
     pp.ModelRunner(model_2d, nonlinear_solver=nonlinear_solver).run()
