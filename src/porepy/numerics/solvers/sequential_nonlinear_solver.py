@@ -124,7 +124,14 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
     def get_active_equations(
         self, model: pp.PorePyModel
     ) -> list[pp.ad.EquationOnDomain]:
-        """Collects active equations of each subsolver and checks them for duplicates.
+        """Collects active equations of each subsolver.
+
+        Overlapping equations are in principle permitted, but the user must know what
+        they are doing. Since it is possible to do it by mistake, a warning is logged.
+
+        Incomplete equations are also permited, e.g., when using nested sequential
+        nonlinear solvers. But the user must know what they are doing, thus a warning is
+        logged.
 
         Returns: Union of each subsolvers' active equations without duplicates.
 
@@ -138,7 +145,14 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
         )
 
     def get_active_variables(self, model: pp.PorePyModel) -> list[pp.ad.Variable]:
-        """Collects active variables of each subsolver and checks them for duplicates.
+        """Collects active variables of each subsolver.
+
+        Overlapping variables are in principle permitted, but the user must know what
+        they are doing. Since it is possible to do it by mistake, a warning is logged.
+
+        Incomplete variables are also permited, e.g., when using nested sequential
+        nonlinear solvers. But the user must know what they are doing, thus a warning is
+        logged.
 
         Returns: Union of each subsolvers' active variables without duplicates.
 
@@ -273,7 +287,14 @@ def _get_active_operators[T: (pp.ad.EquationOnDomain, pp.ad.Variable)](
     all_operators: set[T],
 ) -> list[T]:
     """Collects active equations / variables of each subsolver and checks them for
-    duplicates and completeness.
+    duplicates and overlapping.
+
+    Overlapping equations / variables are in principle permitted, but the user must know
+    what they are doing. Since it is possible to do it by mistake, a warning is logged.
+
+    Incomplete equations / variables are also permited, e.g., when using nested
+    sequential nonlinear solvers. But the user must know what they are doing, thus a
+    warning is logged.
 
     Parameters:
         active_operators_per_subsolver: Active equations / variables for each subsolver.

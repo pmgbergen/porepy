@@ -54,8 +54,7 @@ class NonlinearSolverStatus(ABC):
         :class:`porepy.ModelRunner`, can always request the number of its iterations and
         adjust based on this information. It is important, however, that the meaning of
         a single iteration is different in Newton's method, or a sequential iterative
-        solver, or a nonlinear Richardson iteration. YZ has an uneasy feeling about
-        introducing this as a part of the API.
+        solver, or a nonlinear Richardson iteration.
 
         """
 
