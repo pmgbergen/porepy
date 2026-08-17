@@ -1076,26 +1076,27 @@ def _get_ad_array(
 
 
 def _get_diag_array(
-    wrapped: bool,
+    wrapped: bool, mdg
 ) -> pp.ad.AdArray | tuple[pp.ad.AdArray, pp.ad.EquationSystem]:
     variable_val = np.array([1, 2, 3])
     jac = np.array([6, 7.5, 8])  # Diagonal entries
 
     if wrapped:
-        g = pp.CartGrid([3, 1])
-        mdg = pp.MixedDimensionalGrid()
-        mdg.add_subdomains([g])
-
         equation_system = pp.ad.EquationSystem(mdg)
-        equation_system.create_variables("foo", subdomains=[g])
+        equation_system.create_variables(
+            "foo", subdomains=mdg.subdomains(), dof_info={GridEntity.cells: 1}
+        )
         var = equation_system.variables[0]
-        d = mdg.subdomain_data(g)
+        d = mdg.subdomain_data(mdg.subdomains()[0])
         pp.set_solution_values(
             name="foo", values=variable_val, data=d, time_step_index=0
         )
         pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
 
-        vec = pp.ad.DenseArray(jac)
+        space = pp.ad.OperatorSpace.from_domains(
+            mdg.subdomains(), dof_info={GridEntity.cells: 1}
+        )
+        vec = pp.ad.DenseArray(jac, source=space, target=space)
 
         return vec * var, equation_system
     else:
@@ -1750,7 +1751,7 @@ def test_arithmetic_operations_on_ad_objects(
         elif v == "ad":
             return _get_ad_array(do_wrap, mdg)
         elif v == "diag":
-            return _get_diag_array(do_wrap)
+            return _get_diag_array(do_wrap, mdg)
         else:
             raise ValueError("Unknown variable type")
 
