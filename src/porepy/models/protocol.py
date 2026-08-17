@@ -751,6 +751,7 @@ else:
         def after_nonlinear_iteration(
             self,
             nonlinear_increment: np.ndarray,
+            updated_variables: Optional[list[pp.ad.Variable]] = None,
         ) -> None:
             """Method to be called after every non-linear iteration.
 
