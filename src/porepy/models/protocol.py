@@ -722,7 +722,7 @@ else:
             """Called from the outside of the model at the start of each time step.
 
             The model must prepare its state for the target simulation time ``t``,
-            available through ``model.time_manager``. The nonlinear solver then attempts
+            available through ``model.time_data``. The nonlinear solver then attempts
             to advance the discretized problem to that time. If the solve fails, it may
             be retried with a different time-step size, so this method may be called
             multiple times with different target times.

@@ -43,7 +43,7 @@ class CustomBoundaryCondition(pp.PorePyModel):
         Note: the values are time dependent.
 
         """
-        t = self.time_manager.time
+        t = self.time_data.time
         return np.arange(bg.num_cells) * bg.parent.dim * t
 
     def bc_type_dummy(self, sd: pp.Grid) -> pp.BoundaryCondition:

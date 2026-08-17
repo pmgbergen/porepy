@@ -166,7 +166,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
         mdg: pp.MixedDimensionalGrid = self.mdg
         sd: pp.Grid = mdg.subdomains()[0]
-        t: number = self.time_manager.time
+        t: number = self.time_data.time
 
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
@@ -1052,7 +1052,7 @@ class ManuThermoPoroMechSolutionStrategy2d(
 
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-        t = self.time_manager.time
+        t = self.time_data.time
 
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
