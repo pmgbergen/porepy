@@ -22,6 +22,9 @@ class FullModel(  # type: ignore
 
 def run_example():
     logging.basicConfig(level=logging.INFO)
+
+    # Silence the Newton and linear solver convergence info printing, because it becomes
+    # poorly readible when both the outer and inner nonlinear solvers log info.
     logging.getLogger("porepy.numerics.solvers.nonlinear_solvers").setLevel(
         logging.WARNING
     )
@@ -39,32 +42,40 @@ def run_example():
     }
     model_2d = FullModel(model_params_2d)
 
+    # List equations and variables corresponding to the first subsolver (mechanics).
+    mechanics_equations = [
+        pp.solvers.DefaultEquationTags.momentum_balance,
+        pp.solvers.DefaultEquationTags.interface_force_balance,
+        pp.solvers.DefaultEquationTags.normal_fracture_deformation,
+        pp.solvers.DefaultEquationTags.tangential_fracture_deformation,
+    ]
+    mechanics_variables = [
+        pp.solvers.DefaultVariableTags.displacement,
+        pp.solvers.DefaultVariableTags.interface_displacement,
+        pp.solvers.DefaultVariableTags.contact_traction,
+    ]
+
+    # List equations and variables corresponding to the second subsolver (flow).
+    flow_equations = [
+        pp.solvers.DefaultEquationTags.mass_balance,
+        pp.solvers.DefaultEquationTags.interface_darcy_flux,
+        pp.solvers.DefaultEquationTags.well_flux,
+    ]
+    flow_variables = [
+        pp.solvers.DefaultVariableTags.pressure,
+        pp.solvers.DefaultVariableTags.interface_darcy_flux,
+        pp.solvers.DefaultVariableTags.well_flux,
+    ]
+
+    # Create the sequential solver that takes two subsolvers: Newton for flow and Newton
+    # for mechanics.
     nonlinear_solver = pp.solvers.SequentialNonlinearSolver(
         subsolvers=[
             pp.solvers.NewtonSolver(
-                equation_tags=[
-                    pp.solvers.DefaultEquationTags.momentum_balance,
-                    pp.solvers.DefaultEquationTags.interface_force_balance,
-                    pp.solvers.DefaultEquationTags.normal_fracture_deformation,
-                    pp.solvers.DefaultEquationTags.tangential_fracture_deformation,
-                ],
-                variable_tags=[
-                    pp.solvers.DefaultVariableTags.displacement,
-                    pp.solvers.DefaultVariableTags.interface_displacement,
-                    pp.solvers.DefaultVariableTags.contact_traction,
-                ],
+                equation_tags=mechanics_equations, variable_tags=mechanics_variables
             ),
             pp.solvers.NewtonSolver(
-                equation_tags=[
-                    pp.solvers.DefaultEquationTags.mass_balance,
-                    pp.solvers.DefaultEquationTags.interface_darcy_flux,
-                    pp.solvers.DefaultEquationTags.well_flux,
-                ],
-                variable_tags=[
-                    pp.solvers.DefaultVariableTags.pressure,
-                    pp.solvers.DefaultVariableTags.interface_darcy_flux,
-                    pp.solvers.DefaultVariableTags.well_flux,
-                ],
+                equation_tags=flow_equations, variable_tags=flow_variables
             ),
         ]
     )
