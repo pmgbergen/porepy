@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from numbers import Real
 from typing import Optional
 from warnings import warn
 
@@ -15,6 +16,8 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.solvers.convergence_check import (
     ConvergenceCriteria,
+    ConvergenceInfo,
+    ConvergenceInfoCollection,
     ConvergenceStatus,
     ConvergenceStatusCollection,
     DivergenceCriteria,
@@ -259,7 +262,7 @@ def _log_convergence_info(
     inner_solver_statuses: list[NonlinearSolverStatus],
     iteration_index: int,
     max_iterations: int,
-    convergence_info: dict,
+    convergence_info: ConvergenceInfoCollection,
 ):
     """Format the status string and log it."""
     num_iterations = [x.number_of_iterations() for x in inner_solver_statuses]
@@ -270,13 +273,13 @@ def _log_convergence_info(
     inc_rel = convergence_info.get("inc_rel", None)
     res_abs = convergence_info.get("res_abs", None)
     res_rel = convergence_info.get("res_rel", None)
-    if np.isscalar(inc_abs):
+    if isinstance(inc_abs, Real):
         log_string = f"{log_string} {inc_abs=:.1e}"
-    if np.isscalar(inc_rel):
+    if isinstance(inc_rel, Real):
         log_string = f"{log_string} {inc_rel=:.1e}"
-    if np.isscalar(res_abs):
+    if isinstance(res_abs, Real):
         log_string = f"{log_string} {res_abs=:.1e}"
-    if np.isscalar(res_rel):
+    if isinstance(res_rel, Real):
         log_string = f"{log_string} {res_rel=:.1e}"
 
     logger.info(log_string)
