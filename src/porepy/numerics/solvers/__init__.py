@@ -17,7 +17,11 @@ from .convergence_check import *
 from .equation_variable_tags import *
 from .line_search import *
 from .linear_solvers import *
-from .linear_solvers.linear_solver import LinearSolverStatus, LinearSystem
+from .linear_solvers.linear_solver import (
+    LinearSolverBase,
+    LinearSolverStatus,
+    LinearSystem,
+)
 from .newton_solver import *
 from .nonlinear_solvers import *
 from .sequential_nonlinear_solver import *
