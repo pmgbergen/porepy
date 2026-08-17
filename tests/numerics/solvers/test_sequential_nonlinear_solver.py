@@ -7,7 +7,7 @@ import porepy as pp
 from porepy.numerics.ad.indexers import EquationOnDomain
 from porepy.numerics.ad.operators import Variable
 from porepy.numerics.solvers.convergence_check import ConvergenceStatus
-from porepy.numerics.solvers.nonlinear_solver_status import NonlinearSolverStatus
+from porepy.numerics.solvers.nonlinear_solvers import NonlinearSolverStatus
 
 
 class MockEquationSystem:

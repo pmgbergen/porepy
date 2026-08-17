@@ -36,7 +36,7 @@ import scipy
 
 import porepy as pp
 
-from .nonlinear_solvers import NewtonSolver
+from .newton_solver import NewtonSolver
 
 logger = logging.getLogger(__name__)
 

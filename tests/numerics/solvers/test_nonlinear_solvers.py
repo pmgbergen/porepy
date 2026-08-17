@@ -18,15 +18,15 @@ from porepy.numerics.solvers.convergence_check import (
     ConvergenceStatusCollection,
     check_convergence,
 )
-from porepy.numerics.solvers.nonlinear_solver_status import (
-    NonlinearSolverStatus,
-    NonlinearSolverStatusConverged,
-    NonlinearSolverStatusFailed,
-)
-from porepy.numerics.solvers.nonlinear_solvers import (
+from porepy.numerics.solvers.newton_solver import (
     NewtonSolverConverged,
     NewtonSolverFailed,
     _summarize_solver_status,
+)
+from porepy.numerics.solvers.nonlinear_solvers import (
+    NonlinearSolverStatus,
+    NonlinearSolverStatusConverged,
+    NonlinearSolverStatusFailed,
 )
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatusContinueIterating,

@@ -8,7 +8,7 @@ from . import (
     equation_variable_tags,
     line_search,
     linear_solvers,
-    nonlinear_solver_status,
+    newton_solver,
     nonlinear_solvers,
     sequential_nonlinear_solver,
 )
@@ -18,14 +18,14 @@ from .equation_variable_tags import *
 from .line_search import *
 from .linear_solvers import *
 from .linear_solvers.linear_solver import LinearSolverStatus, LinearSystem
-from .nonlinear_solver_status import *
+from .newton_solver import *
 from .nonlinear_solvers import *
 from .sequential_nonlinear_solver import *
 
 __all__.extend(anderson_acceleration.__all__)
 __all__.extend(convergence_check.__all__)
 __all__.extend(line_search.__all__)
-__all__.extend(nonlinear_solver_status.__all__)
+__all__.extend(newton_solver.__all__)
 __all__.extend(nonlinear_solvers.__all__)
 __all__.extend(linear_solvers.__all__)
 __all__.extend(equation_variable_tags.__all__)

@@ -22,12 +22,12 @@ from porepy.numerics.solvers.convergence_check import (
     assemble_default_divergence_criteria,
     check_convergence,
 )
-from porepy.numerics.solvers.nonlinear_solver_status import (
+from porepy.numerics.solvers.nonlinear_solvers import (
+    NonlinearSolverBase,
     NonlinearSolverStatus,
     NonlinearSolverStatusConverged,
     NonlinearSolverStatusFailed,
 )
-from porepy.numerics.solvers.nonlinear_solvers import NonlinearSolverBase
 
 __all__ = [
     "SequentialSolverConverged",
