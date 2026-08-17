@@ -827,7 +827,7 @@ class MandelUtils(VerificationUtils):
         # Retrieve face displacement
         u_faces = self.face_displacement(sd)
 
-        if self.time_manager.is_at_initial_time():  # soil is initially unconsolidated
+        if self.time_data.is_at_initial_time():  # soil is initially unconsolidated
             consol_deg_x, consol_deg_y = 0, 0
         else:
             # Consolidation degree in the horizontal direction
@@ -847,7 +847,7 @@ class MandelUtils(VerificationUtils):
     # -----> Plotting methods
     def plot_results(self):
         """Plot results."""
-        num_lines = len(self.time_manager.schedule) - 1
+        num_lines = len(self.time_data.schedule) - 1
         cmap = mcolors.ListedColormap(plt.cm.tab20.colors[:num_lines])
 
         self._plot_pressure(color_map=cmap)
@@ -1167,7 +1167,7 @@ class MandelUtils(VerificationUtils):
         )
 
         # Numerical consolidation degrees
-        times = self.time_manager.schedule[1:]
+        times = self.time_data.schedule[1:]
         approx_consol_degree_x = np.array(
             [result.approx_consolidation_degree[0] for result in self.results]
         )

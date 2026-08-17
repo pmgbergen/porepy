@@ -93,18 +93,18 @@ class DataSavingMixin(pp.PorePyModel):
 
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
-        # self.time_manager.write_time_information(
-        #     Path(self.params["folder_name"]) / "times.json"
-        # )
+        self.time_data.write_time_information(
+            Path(self.params["folder_name"]) / "times.json"
+        )
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
-        # times = np.array(self.time_manager.exported_times)
-        # if self.restart_options.get("restart", False):
-        #     # For a pvd file addressing all time steps (before and after restart
-        #     # time), resume based on restart input pvd file through append.
-        #     pvd_file = self.restart_options["pvd_file"]
-        #     self.exporter.write_pvd(times=times, append=True, from_pvd_file=pvd_file)
-        # else:
-        #     self.exporter.write_pvd(times=times)
+        times = np.array(self.time_data.exported_times)
+        if self.restart_options.get("restart", False):
+            # For a pvd file addressing all time steps (before and after restart
+            # time), resume based on restart input pvd file through append.
+            pvd_file = self.restart_options["pvd_file"]
+            self.exporter.write_pvd(times=times, append=True, from_pvd_file=pvd_file)
+        else:
+            self.exporter.write_pvd(times=times)
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -246,8 +246,8 @@ class DataSavingMixin(pp.PorePyModel):
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
 
         # # Load time and time step size.
-        # self.time_manager.load_time_information(times_file)
-        # self.time_manager.set_time_and_dt_from_exported_steps(time_index)
+        self.time_data.load_time_information(times_file)
+        self.time_data.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
     def load_data_from_pvd(
@@ -285,8 +285,8 @@ class DataSavingMixin(pp.PorePyModel):
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
 
         # # Load time and time step size.
-        # self.time_manager.load_time_information(times_file)
-        # self.time_manager.set_time_and_dt_from_exported_steps(time_index)
+        self.time_data.load_time_information(times_file)
+        self.time_data.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
 
@@ -334,7 +334,7 @@ class IterationExporting(pp.PorePyModel):
             self.data_to_export_iteration(),
             time_dependent=True,
             time_step=self.nonlinear_solver_statistics.num_iterations
-            + 10**r * self.time_manager.time_index,
+            + 10**r * self.time_data.time_index_successful,
         )
 
     def after_nonlinear_iteration(

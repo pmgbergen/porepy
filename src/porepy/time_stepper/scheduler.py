@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from bisect import bisect_right
 from dataclasses import dataclass
+import json
+from pathlib import Path
 from typing import Optional, cast
 
 import numpy as np
@@ -44,6 +46,91 @@ __all__ = [
 logger = getLogger(__name__)
 
 
+def singleton(cls):
+    instances = {}
+
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+
+    return get_instance
+
+
+# TODO: I/O (Methods below are copied from TimeManager and should be removed).
+@singleton
+class TimeIO:
+    def __init__(self):
+        self.exported_dt: list[float] = list()
+        self.exported_times: list[float] = list()
+
+    def write_time_information(self, time, dt, path: Path) -> None:
+        """Keep track of history of time and time step size and store as json file
+        storing lists the evolution of both as lists.
+
+        NOTE: The history only contains time and dt for all occasions when this routine
+        is called. This routine does neither guarantee completeness, nor duplicated.
+
+        Parameters:
+            path: Specified path for storing time and dt.
+
+        """
+
+        # Bookkeeping
+        self.exported_times.append(
+            int(time) if isinstance(time, np.integer) else float(time)
+        )
+        self.exported_dt.append(int(dt) if isinstance(dt, np.integer) else float(dt))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as out_file:
+            json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
+
+    def load_time_information(self, path: Path) -> None:
+        """Keep track of history of time and time step size and store.
+
+        Mirrors :meth:`write_time_information`.
+
+        Parameters:
+            path: Specified path for retrieving time and dt.
+
+        """
+        with path.open("r") as in_file:
+            data = json.load(in_file)
+            self.exported_times = data["time"]
+            self.exported_dt = data["dt"]
+
+    def set_time_and_dt_from_exported_steps(
+        self, time_index: int = -1
+    ) -> tuple[float, float]:
+        """Load time and dt (time step) and cut off all later times and time steps.
+
+        NOTE: This method by itself does NOT update the simulation state arrays.
+
+        NOTE: It is implicitly assumed that the first entry of the history corresponds
+        to the initial solution.
+
+        Parameters:
+            time_index: reference index addressing the currently stored history. By
+                default, the latest accessible time and dt is retrieved.
+
+        Raises:
+            ValueError
+
+        """
+        if not hasattr(self, "exported_times") or not hasattr(self, "exported_dt"):
+            raise ValueError(
+                """The time manager does not hold information on previously used time
+                and dt."""
+            )
+
+        time = self.exported_times[time_index]
+        dt = self.exported_dt[time_index]
+
+        self.exported_times = self.exported_times[:time_index]
+        self.exported_dt = self.exported_dt[:time_index]
+        return time, dt
+
+
 @dataclass
 class SimulationTimeData:
     time: float
@@ -56,6 +143,38 @@ class SimulationTimeData:
     should a physics provider care if dt is constant?
 
     """
+    io: TimeIO = TimeIO()
+    """TODO: I/O"""
+
+    def is_at_initial_time(self) -> bool:
+        # TODO YZ: Should respect scheduler's t_snap.
+        return self.time == self.schedule[0]
+
+    def final_time_reached(self) -> bool:
+        # TODO YZ: Should respect scheduler's t_snap.
+        return self.time == self.schedule[-1]
+
+    def write_time_information(self, path):
+        assert self.io is not None
+        self.io.write_time_information(time=self.time, dt=self.dt, path=path)
+
+    def load_time_information(self, path):
+        assert self.io is not None
+        self.io.load_time_information(path)
+
+    def set_time_and_dt_from_exported_steps(self, time_index):
+        assert self.io is not None
+        self.time, self.dt = self.io.set_time_and_dt_from_exported_steps(time_index)
+
+    @property
+    def exported_times(self):
+        assert self.io is not None
+        return self.io.exported_times
+
+    @property
+    def exported_dt(self):
+        assert self.io is not None
+        return self.io.exported_dt
 
 
 class TimeStepConstraint(ABC):
@@ -246,6 +365,7 @@ class TimeSchedulerConstantDt(TimeSchedulerBase):
         _validate_schedule_constant_dt(
             schedule=self.schedule, dt=self.dt, atol=self.atol
         )
+        self.io = TimeIO()
 
     def get_schedule(self) -> np.ndarray:
         return self.schedule
@@ -343,6 +463,8 @@ class TimeScheduler(TimeSchedulerBase):
 
         current_interval, next_interval = self.get_current_next_intervals()
         self._adjust_dt_min_max_schedule(self.dt, current_interval, next_interval)
+
+        self.io = TimeIO()
 
     def get_schedule(self) -> np.ndarray:
         return np.array(

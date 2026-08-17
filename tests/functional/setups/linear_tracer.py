@@ -269,8 +269,8 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
     def collect_data(self) -> LinearTracerSaveData:
         subdomains = self.mdg.subdomains()
 
-        t = self.time_manager.time
-        dt = self.time_manager.dt
+        t = self.time_data.time
+        dt = self.time_data.dt
         num_iter = self.nonlinear_solver_statistics.num_iterations
 
         _, tracer = self.fluid.components

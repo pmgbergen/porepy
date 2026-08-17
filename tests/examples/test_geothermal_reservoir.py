@@ -241,8 +241,8 @@ def test_geothermal_reservoir():
             super().after_nonlinear_convergence()
             mdg: pp.MixedDimensionalGrid = self.mdg
             matrix = mdg.subdomains(dim=self.nd)
-            t = self.time_manager.time
-            if t <= self.time_manager.schedule[1]:
+            t = self.time_data.time
+            if t <= self.time_data.schedule[1]:
                 pressure_data_initialization.append(
                     self.equation_system.evaluate(self.pressure(matrix))
                 )
@@ -253,7 +253,7 @@ def test_geothermal_reservoir():
                     self.equation_system.evaluate(self.displacement(matrix))
                 )
 
-            if np.any(abs(t - self.time_manager.schedule) < 1e-6):
+            if np.any(abs(t - self.time_data.schedule) < 1e-6):
                 # Hitting the checkpoint.
                 self._collect_data_for_tests()
 

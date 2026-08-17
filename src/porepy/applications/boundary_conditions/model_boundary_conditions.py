@@ -287,7 +287,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         else:
             frac_val = 0
         values[1, domain_sides.north] = frac_val
-        if not self.time_manager.is_at_initial_time():
+        if not self.time_data.is_at_initial_time():
             return values.ravel("F") + super().bc_values_displacement(bg)
         else:
             return values.ravel("F")
@@ -562,7 +562,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
         # Initialize array for stress values.
         values = np.zeros((self.nd, boundary_grid.num_cells))
         # Assume zero initial stress state.
-        if self.time_manager.is_at_initial_time():
+        if self.time_data.is_at_initial_time():
             return values.ravel("F")
 
         gravity = self.gravity_force_magnitude("bulk")

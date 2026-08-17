@@ -108,7 +108,7 @@ class ManuCompDataSaving(pp.PorePyModel):
         sd_frac: pp.Grid = self.mdg.subdomains()[1]
         intf: pp.MortarGrid = self.mdg.interfaces()[0]
         exact_sol: ManuCompExactSolution2d = self.exact_sol
-        t: number = self.time_manager.time
+        t: number = self.time_data.time
 
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix, t)
@@ -627,7 +627,7 @@ class ManuCompBoundaryConditions(
 
         """
         # Retrieve current time
-        t = self.time_manager.time
+        t = self.time_data.time
 
         sd_matrix = self.mdg.subdomains()[0]
         sd_frac = self.mdg.subdomains()[1]
@@ -711,7 +711,7 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         data_frac = self.mdg.subdomain_data(sd_frac)
 
         # Retrieve current time
-        t = self.time_manager.time
+        t = self.time_data.time
 
         # Sources
         matrix_source = self.exact_sol.matrix_source(sd_matrix, t)
