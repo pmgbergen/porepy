@@ -33,8 +33,9 @@ def data_folder(request):
 
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / str(request.node.originalname)
+        path = Path(tmpdir) / str(request.node.nodeid)
         yield path
+        path.unlink()
 
 
 class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
@@ -140,10 +141,10 @@ def test_exported_times_consistency_with_files(
         times_data = json.load(f)
 
     # Compare exported times with the times in times.json.
-    assert np.allclose(model.time_manager.exported_times, times_data["time"])
+    assert np.allclose(model.time_data.exported_times, times_data["time"])
 
     # Compare exported times with the expected times.
-    assert np.allclose(model.time_manager.exported_times, expected_times)
+    assert np.allclose(model.time_data.exported_times, expected_times)
 
     # Check that the correct number of files are exported.
     # Parse the PVD file.

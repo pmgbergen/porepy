@@ -272,11 +272,11 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         # statistics.
         self.nonlinear_solver_statistics.increase_index()
         self.num_nonlinear_iters = 0
-        self.time_step_history.append(self.time_manager.dt)
+        self.time_step_history.append(self.time_data.dt)
 
-        assert (
-            self.equation_system.evaluate(self.ad_time_step) == self.time_manager.dt
-        ), "The AD time step value conflicts with the value from the time_manager."
+        assert self.equation_system.evaluate(self.ad_time_step) == self.time_data.dt, (
+            "The AD time step value conflicts with the value from the time_manager."
+        )
 
         # The initial guess for the unknown time step values should be equal to the
         # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.

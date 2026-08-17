@@ -383,9 +383,7 @@ class TerzaghiUtils(VerificationUtils):
         vertical_load = self.applied_load()  # scaled [Pa]
         u_faces = self.face_displacement(sd)
 
-        if (
-            self.time_manager.is_at_initial_time()
-        ):  # initially, the soil is unconsolidated
+        if self.time_data.is_at_initial_time():  # initially, the soil is unconsolidated
             consol_deg = 0.0
         else:
             u_inf = m_v * h * vertical_load

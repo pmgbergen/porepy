@@ -99,13 +99,25 @@ def run_example() -> list[pp.PorePyModel]:
     )
     models: list[pp.PorePyModel] = []
     model = GeothermalReservoirWellBCs(set_model_params())
-    model.time_manager.dt_min_max = (
-        0.1 * pp.SECOND,  # decreased the lower bound.
-        max(pp.YEAR, model.time_manager.dt_init),
+
+    time_manager: pp.TimeManager = model.params["time_manager"]
+    assert time_manager.dt_min_max is not None
+
+    time_stepper = pp.time_stepper.TimeStepper(
+        scheduler=pp.time_stepper.assemble_default_time_scheduler(
+            schedule=time_manager.schedule,
+            dt_init=time_manager.dt_init,
+            constant_dt=time_manager.is_constant,
+            dt_min=0.1 * pp.SECOND,  # decreased the lower bound.
+            dt_max=max(pp.YEAR, time_manager.dt_init),
+            nonlinear_iter_optimal_range=(10, 15),
+            nonlinear_iter_relax_factors=time_manager.iter_relax_factors,
+        )
     )
-    model.time_manager.iter_optimal_range = (10, 15)
     # Increasing target interval because sequential solver requires more iteration.
-    pp.ModelRunner(model, nonlinear_solver=nonlinear_solver).run()
+    pp.ModelRunner(
+        model, nonlinear_solver=nonlinear_solver, time_stepper=time_stepper
+    ).run()
     models.append(model)
     return models
 

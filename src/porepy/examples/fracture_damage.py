@@ -55,7 +55,9 @@ class TimeDependentDamageBCs:
 
         # Wrap as array for convert_units. Thus, the passed values can be scalar or
         # list. Then tile for correct broadcasting below.
-        u_north = self.params["north_displacements"][:, self.time_manager.time_index]
+        u_north = self.params["north_displacements"][
+            :, self.time_data.time_index_successful
+        ]
         u_n = np.tile(u_north, (bg.num_cells, 1)).T
         north_sides = bg.cell_centers[1] > 0.5
         values[:, north_sides] = self.units.convert_units(u_n, "m")[:, north_sides]

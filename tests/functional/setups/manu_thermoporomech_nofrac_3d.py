@@ -895,7 +895,7 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-        t = self.time_manager.time
+        t = self.time_data.time
 
         # Mechanics source
         mech_source = self.exact_sol.mechanics_source(sd=sd, time=t)
