@@ -124,8 +124,7 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
     def get_active_equations(
         self, model: pp.PorePyModel
     ) -> list[pp.ad.EquationOnDomain]:
-        """Collects active equations of each subsolver and checks them for duplicates
-        and completeness.
+        """Collects active equations of each subsolver and checks them for duplicates.
 
         Returns: Union of each subsolvers' active equations without duplicates.
 
@@ -139,8 +138,7 @@ class SequentialNonlinearSolver(NonlinearSolverBase):
         )
 
     def get_active_variables(self, model: pp.PorePyModel) -> list[pp.ad.Variable]:
-        """Collects active variables of each subsolver and checks them for duplicates
-        and completeness.
+        """Collects active variables of each subsolver and checks them for duplicates.
 
         Returns: Union of each subsolvers' active variables without duplicates.
 
@@ -258,13 +256,13 @@ def _log_convergence_info(
     inc_rel = convergence_info.get("inc_rel", None)
     res_abs = convergence_info.get("res_abs", None)
     res_rel = convergence_info.get("res_rel", None)
-    if inc_abs is not None:
+    if np.isscalar(inc_abs):
         log_string = f"{log_string} {inc_abs=:.1e}"
-    if inc_rel is not None:
+    if np.isscalar(inc_rel):
         log_string = f"{log_string} {inc_rel=:.1e}"
-    if res_abs is not None:
+    if np.isscalar(res_abs):
         log_string = f"{log_string} {res_abs=:.1e}"
-    if res_rel is not None:
+    if np.isscalar(res_rel):
         log_string = f"{log_string} {res_rel=:.1e}"
 
     logger.info(log_string)
