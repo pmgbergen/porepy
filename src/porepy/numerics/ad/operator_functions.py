@@ -205,9 +205,9 @@ class AbstractFunction(Operator):
                 assert jac.shape[1] == values.size, (
                     "Inconsistent shape of values and Jacobian for diagonal AdArray"
                 )
-                num_derivatives = args[0]._num_derivatives
-                primary_indices = [args[i]._row_indices for i in range(len(args))]
-                column_indices = args[0]._col_indices
+                num_derivatives = args[0].num_derivatives
+                primary_indices = [args[i].row_indices for i in range(len(args))]
+                column_indices = args[0].col_indices
                 # The Jacobian only contains derivatives with respect to the primary
                 # variables, while the diagonal AdArray must have values and indices
                 # also for derivatives with respect to secondary variables. By

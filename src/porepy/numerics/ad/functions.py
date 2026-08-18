@@ -26,7 +26,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.ad.forward_mode import AdArray, DiagonalAdArray
+from porepy.numerics.ad.forward_mode import AdArray
 
 FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
 
@@ -63,11 +63,9 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        if var._is_diagonal:
+        if var.is_diagonal:
             der = val * var.jac
-            return DiagonalAdArray(
-                val, der, var._row_indices, var._col_indices, var._num_derivatives
-            )
+            return var.replace(val, der)
         else:
             der = var.diagvec_mul_jac(np.exp(var.val))
             return AdArray(val, der)
@@ -78,11 +76,9 @@ def exp(var: FloatType) -> FloatType:
 def log(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.log(var.val)
-        if var._is_diagonal:
+        if var.is_diagonal:
             der = var.jac / var.val
-            return DiagonalAdArray(
-                val, der, var._row_indices, var._col_indices, var._num_derivatives
-            )
+            return var.replace(val, der)
         else:
             der = var.diagvec_mul_jac(1 / var.val)
             return AdArray(val, der)
@@ -126,11 +122,9 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
 def abs(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.abs(var.val)
-        if var._is_diagonal:
+        if var.is_diagonal:
             der = np.sign(var.val)
-            return DiagonalAdArray(
-                val, der, var._row_indices, var._col_indices, var._num_derivatives
-            )
+            return var.replace(val, der)
         else:
             jac = var.diagvec_mul_jac(np.sign(var.val))
             return AdArray(val, jac)
