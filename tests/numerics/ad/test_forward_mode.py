@@ -506,3 +506,20 @@ def test_initialize_diagonal_ad_arrays_custom_derivatives():
 def test_initialize_diagonal_ad_arrays_mismatched(vals, indices, num_derivatives):
     with pytest.raises(ValueError):
         initialize_diagonal_ad_arrays(vals, indices, num_derivatives)
+
+
+def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
+    """DiagonalAdArray should enforce the same float-dtype invariant as AdArray."""
+    val = np.array([1, 2, 3])
+    jac = np.array([4, 5, 6])
+
+    var = DiagonalAdArray(
+        val,
+        jac,
+        row_indices=np.arange(3),
+        col_indices=[np.arange(3)],
+        num_derivatives=3,
+    )
+
+    assert var.val.dtype == float
+    assert var.jac.dtype == float

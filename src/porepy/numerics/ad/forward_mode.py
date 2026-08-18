@@ -15,6 +15,31 @@ _SPARSE_TYPES = (sps.spmatrix, sps.sparray)
 """Convenience tuple for isinstance checks accepting both scipy sparse matrix and
 sparse array types."""
 
+
+def _check_1d(val: np.ndarray) -> None:
+    """Raise a ValueError unless ``val`` is a one dimensional array."""
+    if val.ndim != 1:
+        raise ValueError("The Ad array value should be one dimensional")
+
+
+def _as_float(
+    array: np.ndarray | sps.spmatrix | sps.sparray,
+) -> np.ndarray | sps.spmatrix | sps.sparray:
+    """Coerce a dense array, or the data of a sparse matrix/array, to float dtype.
+
+    Enforcing float format for all data limits the number of cases that need to be
+    handled and tested elsewhere.
+
+    """
+    if isinstance(array, _SPARSE_TYPES):
+        if array.data.dtype != float:
+            array.data = array.data.astype(float)
+        return array
+    if array.dtype != float:
+        array = array.astype(float)
+    return array
+
+
 __all__ = [
     "initAdArrays",
     "AdArray",
@@ -121,8 +146,7 @@ class AdArray:
     ) -> None:
         # Consistency checks, to limit the possibilities for errors when combining this
         # array with other objects.
-        if val.ndim != 1:
-            raise ValueError("The Ad array value should be one dimensional")
+        _check_1d(val)
 
         self._is_diagonal = False
 
@@ -135,14 +159,10 @@ class AdArray:
 
         # Enforce float format of all data to limit the number of cases we need to
         # handle and test.
-        self.val: np.ndarray = val
-        if self.val.dtype != float:
-            self.val = self.val.astype(float)
+        self.val: np.ndarray = _as_float(val)
         """The value of the AdArray, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix | sps.sparray | np.ndarray = jac
-        if self.jac.data.dtype != float:
-            self.jac.data = self.jac.data.astype(float)
+        self.jac: sps.spmatrix | sps.sparray | np.ndarray = _as_float(jac)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __str__(self) -> str:
@@ -849,11 +869,17 @@ class DiagonalAdArray(AdArray):
         col_indices: list[np.ndarray],
         num_derivatives,
     ) -> None:
+        _check_1d(val)
         jac = np.atleast_2d(jac)
         self._is_diagonal = True
 
-        self.val = val
-        self.jac = jac
+        # Enforce float format, consistent with AdArray.__init__. Note that we
+        # cannot call super().__init__() here: jac.shape[0] is the number of
+        # stacked diagonal argument blocks, not the number of degrees of freedom
+        # (val.size), so AdArray.__init__'s consistency check between the two does
+        # not apply to the diagonal representation.
+        self.val = _as_float(val)
+        self.jac = _as_float(jac)
 
         self._num_derivatives = num_derivatives
         """Total number of derivatives in the system."""
