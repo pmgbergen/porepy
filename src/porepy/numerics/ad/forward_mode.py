@@ -130,8 +130,9 @@ class AdArray:
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __str__(self) -> str:
+        num_jac_elements = self.jac.size if self._is_diagonal else self.jac.data.size
         s = f"Ad array of size {self.val.size}\n"
-        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size if not self._is_diagonal else self.jac.size}"
+        s += f"Jacobian is of size {self.jac.shape} and has {num_jac_elements}"
         s += " elements."
         return s
 
@@ -190,10 +191,6 @@ class AdArray:
             self.jac[key] = new_value.jac
         else:
             raise NotImplementedError("Setting")
-
-    def _same_format(self, other: AdArray) -> bool:
-        """Check if two arrays have the same format."""
-        return self._is_diagonal == other._is_diagonal
 
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
@@ -312,7 +309,7 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other.
             # Achieve this by left-multiplying with other, represented as a diagonal
             # matrix.
-            new_jac = self._diagvec_mul_jac(other)
+            new_jac = self.diagvec_mul_jac(other)
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, _SPARSE_TYPES):
@@ -337,9 +334,7 @@ class AdArray:
             # Compute the derivative of the product using the product rule. Since
             # the gradients in jac is stored row-wise, the columns in self.jac
             # should be scaled with the values of other and vice versa.
-            new_jac = self._diagvec_mul_jac(other.val) + other._diagvec_mul_jac(
-                self.val
-            )
+            new_jac = self.diagvec_mul_jac(other.val) + other.diagvec_mul_jac(self.val)
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
@@ -401,7 +396,7 @@ class AdArray:
             # Left-multiply jac with a diagonal-matrix version of the differentiated
             # polynomial, this will give the desired column-wise scaling of the
             # gradients.
-            new_jac = self._diagvec_mul_jac(float(other) * self.val ** float(other - 1))
+            new_jac = self.diagvec_mul_jac(float(other) * self.val ** float(other - 1))
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
@@ -417,7 +412,7 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other,
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
-            new_jac = self._diagvec_mul_jac(other * (self.val ** (other - 1)))
+            new_jac = self.diagvec_mul_jac(other * (self.val ** (other - 1)))
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, _SPARSE_TYPES):
@@ -443,9 +438,9 @@ class AdArray:
             # avoid spurious behavior form numpy, just to be sure.
             new_val = self.val ** other.val.astype(float)
             # The derivative, computed by the chain rule.
-            new_jac = self._diagvec_mul_jac(
+            new_jac = self.diagvec_mul_jac(
                 other.val * self.val ** (other.val.astype(float) - 1.0)
-            ) + other._diagvec_mul_jac(
+            ) + other.diagvec_mul_jac(
                 self.val ** other.val.astype(float) * np.log(self.val)
             )
 
@@ -472,7 +467,7 @@ class AdArray:
             # Left-multiply jac with a diagonal-matrix version of the differentiated
             # polynomial, this will give the desired column-wise scaling of the
             # gradients.
-            new_jac = self._diagvec_mul_jac(
+            new_jac = self.diagvec_mul_jac(
                 (float(other) ** self.val) * np.log(float(other))
             )
             return AdArray(new_val, new_jac)
@@ -492,7 +487,7 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other, again
             # in array-form. Achieve this by left-multiplying with other, represented as
             # a diagonal matrix.
-            new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
+            new_jac = self.diagvec_mul_jac((other**self.val) * np.log(other))
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, _SPARSE_TYPES):
@@ -539,7 +534,7 @@ class AdArray:
             # The Jacobian will have its columns scaled with the values in other,
             # again in array-form. Achieve this by left-multiplying with other,
             # represented as a diagonal matrix.
-            new_jac = self._diagvec_mul_jac(other.astype(float) ** (-1.0))
+            new_jac = self.diagvec_mul_jac(other.astype(float) ** (-1.0))
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, _SPARSE_TYPES):
@@ -674,7 +669,26 @@ class AdArray:
         b = AdArray(self.val.copy(), self.jac.copy())
         return b
 
-    def _diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
+    @property
+    def is_diagonal(self) -> bool:
+        """Whether the Jacobian is stored in the compact diagonal representation.
+
+        See :class:`DiagonalAdArray`.
+
+        """
+        return self._is_diagonal
+
+    def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
+        """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
+
+        Parameters:
+            a: The diagonal entries of the (implicit) diagonal matrix to
+                left-multiply the Jacobian with.
+
+        Returns:
+            The product, as a sparse matrix.
+
+        """
         if self._is_diagonal:
             return sps.diags(a * self.jac)
         else:
@@ -756,7 +770,6 @@ def initialize_diagonal_ad_arrays(
             raise ValueError("Number of variables should match number of indices.")
 
     num_vars = len(variables)
-    num_indices = len(variables)
     sz_vars = variables[0].size if len(variables) > 0 else 0
 
     diagonal_variables = []
@@ -804,6 +817,23 @@ class DiagonalAdArray(AdArray):
         """Total number of derivatives in the system."""
         self._row_indices = row_indices
         self._col_indices = col_indices
+
+    @property
+    def row_indices(self) -> np.ndarray:
+        """The row indices of this array's entries in the full, non-diagonal
+        representation of the Jacobian."""
+        return self._row_indices
+
+    @property
+    def col_indices(self) -> list[np.ndarray]:
+        """The column indices of this array's entries in the full, non-diagonal
+        representation of the Jacobian."""
+        return self._col_indices
+
+    @property
+    def num_derivatives(self) -> int:
+        """Total number of derivatives in the system."""
+        return self._num_derivatives
 
     def __getitem__(self, key: slice | np.ndarray[Any, np.dtype[np.int_]]) -> AdArray:
         vals = self.val[key]
