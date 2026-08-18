@@ -54,15 +54,31 @@ def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
     return ad_arrays
 
 
-def init_partial_ad_array(state: np.ndarray, indices: np.ndarray):
-    # Helper method to create the part of the system that is not represented by a
-    # diagonal ad array. TODO: Should be modified before PR.
+def init_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArray:
+    """Initialize an AdArray for the part of a system not represented by
+    :class:`DiagonalAdArray`.
+
+    The returned array has one entry (and one derivative) per entry of ``state``.
+    Only the entries at ``indices`` are treated as independent variables (a unit
+    derivative with respect to themselves); all other entries get a zero
+    derivative row, since they are assumed to be represented elsewhere by a
+    :class:`DiagonalAdArray` (see :func:`initialize_diagonal_ad_arrays`).
+
+    Parameters:
+        state: The full state vector for this part of the system.
+        indices: Indices, into ``state``, of the entries that should be treated as
+            independent variables.
+
+    Returns:
+        An AdArray with value ``state`` and a diagonal Jacobian that is the
+        identity restricted to ``indices``.
+
+    """
     sz = state.size
     derivatives = np.zeros(sz, dtype=float)
     derivatives[indices] = 1.0
     jac = sps.dia_matrix((derivatives, 0), shape=(sz, sz)).tocsr()
-    var = AdArray(state, jac)
-    return var
+    return AdArray(state, jac)
 
 
 class AdArray:
@@ -760,9 +776,35 @@ def initialize_diagonal_ad_arrays(
     variables: list[np.ndarray],
     indices: list[np.ndarray],
     num_derivatives: int,
-    # Use derivatives for SurrogateOperators?
     derivatives: list[np.ndarray] | None = None,
-) -> list[AdArray]:
+) -> list[DiagonalAdArray]:
+    """Initialize a set of DiagonalAdArrays, each depending only on itself.
+
+    Each returned array has, by default, a unit derivative with respect to its own
+    entries and no dependence on the other variables in ``variables``.
+
+    Parameters:
+        variables: A list of numpy arrays, each of which will be represented by a
+            DiagonalAdArray.
+        indices: For each array in ``variables``, the indices, into the full system
+            of ``num_derivatives`` degrees of freedom, of that array's entries.
+        num_derivatives: Total number of derivatives (degrees of freedom) in the
+            full system.
+        derivatives: If provided, the diagonal Jacobian entries to use for each
+            variable, instead of the default of 1.0 (a unit derivative). Used e.g.
+            to represent the derivative of a SurrogateOperator with respect to its
+            primary variable.
+
+    Returns:
+        A list of DiagonalAdArrays, each of which represents one of the variables
+        in the ``variables`` list.
+
+    Raises:
+        ValueError: If the number of ``variables`` and ``indices`` do not match, or
+            if the size of an array in ``variables`` does not match the size of the
+            corresponding array in ``indices``.
+
+    """
     if len(variables) != len(indices):
         raise ValueError("Number of variables should match number of offsets.")
     for var, ind in zip(variables, indices):
