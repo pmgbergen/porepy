@@ -1023,8 +1023,24 @@ class EquationsChemical(EquationMixin):
                         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # set the relation between temperature and enthalpy
-        equ = self.mixture_enthalpy_constraint(subdomains)
-        self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+        #applicable for the case where both temperature and enthalpy are variables
+        if hasattr(self, "temperature") and hasattr(self, "enthalpy"):
+            equ = self.mixture_enthalpy_constraint(subdomains)
+            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+        if hasattr(self,"reactions") and self.reactions:
+            for reaction in self.reactions:
+                if reaction.has_independent_variable:
+                    #extract the mineral saturation variable from the reaction
+                    corresponding_mineral = reaction.corresponding_mineral
+                    #equ=reaction.actual_reaction_rate(subdomains)-reaction.reaction_rate(subdomains)
+                    #Fischer–Burmeister equation, ref: Kräutle, S. (2011). The semismooth Newton method for multicomponent reactive transport with minerals. Advances in water resources, 34(1), 137-151.
+                    part1=reaction.reaction_rate(subdomains)-reaction.actual_reaction_rate(subdomains)
+                    part2=corresponding_mineral.mineral_saturation(subdomains)
+                    equ = ((part1 ** pp.ad.Scalar(2) + part2 ** pp.ad.Scalar(2)) ** pp.ad.Scalar(0.5))-part2-part1
+
+                    equ.set_name(f"actual_reaction_rate_{reaction.name}")
+                    self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # set the equation for mineral saturation
         """
@@ -1046,6 +1062,9 @@ class EquationsChemical(EquationMixin):
             equ.set_name(f"mineral_saturation_time_derivative_{comp.name}")
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
             """
+
+
+
 
     def mixture_enthalpy_constraint(
         self, subdomains: Sequence[pp.Grid]
@@ -1556,6 +1575,18 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
                     function=bc_vals,
                 )
 
+        if hasattr(self, "reactions") and self.reactions:
+            for reaction in self.reactions:
+                if reaction.has_independent_variable:
+                    bc_vals = cast(
+                        Callable[[pp.BoundaryGrid], np.ndarray],
+                        partial(self.bc_values_actual_reaction_rate, reaction),
+                    )
+                    self.update_boundary_condition(
+                        name=self._actual_reaction_rate_variable(reaction),
+                        function=bc_vals,
+                    )
+
         self.update_boundary_condition(
             name=self.bc_data_fluid_flux_key_reactive_transport,
             function=self.bc_values_fluid_flux_reactive_transport,
@@ -1602,6 +1633,15 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
         for ele in self.fluid.elements:
             total_flux += self.bc_values_element_flux(ele, bg)
         return total_flux
+
+
+    def bc_values_actual_reaction_rate(
+        self, reaction: pp.Reaction, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """BC values for the actual reaction rate of a reaction (primary variable)."""
+        return np.zeros(bg.num_cells)
+
+
 
 
 class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
@@ -2170,6 +2210,15 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
                         iterate_index=0,
                     )
 
+            if hasattr(self, "reactions") and self.reactions:
+                for reaction in self.reactions:
+                    if reaction.has_independent_variable:
+                        self.equation_system.set_variable_values(
+                            self.ic_values_actual_reaction_rate(reaction, sd),
+                            [cast(pp.ad.Variable, reaction.actual_reaction_rate([sd]))],
+                            iterate_index=0,
+                        )
+
     def ic_values_element_fraction(
         self, element: pp.Element, sd: pp.Grid
     ) -> np.ndarray:
@@ -2302,6 +2351,12 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             ic_subdomains.append(ic)
 
         return np.hstack(ic_subdomains)
+
+    def ic_values_actual_reaction_rate(
+        self, reaction: pp.Reaction, sd: pp.Grid
+    ) -> np.ndarray:
+        return np.zeros(sd.num_cells)
+
 
 
 

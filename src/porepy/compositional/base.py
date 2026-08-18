@@ -1389,10 +1389,18 @@ class Reaction:
 
     def __init__(self, *args, **kwargs) -> None:
         self.formula: str = str(kwargs.get("formula", ""))
-        """Formula of the element. Can be named by providing a keyword argument 'name'
+        """Formula of the reaction. Can be named by providing a keyword argument 'name'
         when instantiating."""
 
         self.is_kinetic: bool = kwargs.get("is_kinetic", True)
 
         self.reaction_rate: DomainFunctionType
         """Reaction rate of the reaction in ``[mol / m^3 / s]`` ."""
+
+        self.actual_reaction_rate: DomainFunctionType
+        """Actual reaction rate of the reaction in ``[mol / m^3 / s]`` ."""
+
+        self.name: str = str(kwargs.get("name", "unnamed_reaction"))
+
+        self.has_independent_variable: bool=False
+        self.corresponding_mineral: ComponentLike = None

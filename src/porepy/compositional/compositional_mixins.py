@@ -606,6 +606,11 @@ class _MixtureDOFHandler(pp.PorePyModel):
     def _equilibrium_stability_index_variable(self, component: Component) -> str:
         return f"{symbols['equilibrium_stability_index']}_{component.name}"
 
+
+    def _actual_reaction_rate_variable(self, reaction: pp.Reaction) -> str:
+        return f"{symbols['actual_reaction_rate']}_{reaction.name}"
+
+
     def _fraction_factory(self, name: str) -> DomainFunctionType:
         """Factory method to create a callable representing any independent fraction
         with given ``name`` on subdomain or boundary grids."""
@@ -848,6 +853,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         if reactions:
             self.set_kinetic_reaction_rates(reactions)
+            for reaction in reactions:
+                reaction.actual_reaction_rate = self.actual_reaction_rate_of(reaction)
 
     def overall_fraction(
         self,
@@ -1490,7 +1497,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
             # Map species name -> AD function
             r_funcs = {
-                reaction.formula: reaction.reaction_rate for reaction in reactions
+                reaction.formula: reaction.actual_reaction_rate for reaction in reactions
             }
 
             # Evaluate z_ξ(subdomains) to get a list of Operators
@@ -1519,6 +1526,50 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         op = self.total_molar_concentration(domains) * comp.fraction(domains)
         op.set_name(f"molar_bulk_concentration_of_{comp.name}")
         return op
+
+
+    def actual_reaction_rate_of(self, reaction: pp.Reaction) -> DomainFunctionType:
+        """Actual reaction rate of the reaction in ``[mol / m^3 / s]`` ."""
+
+        if reaction.is_kinetic and reaction.has_independent_variable:
+            # create the variable
+            name = self._actual_reaction_rate_variable(reaction)
+            r = self._actual_reaction_rate_factory(name)
+            return r
+        else:
+            return reaction.reaction_rate
+
+
+
+    def _actual_reaction_rate_factory(self, name: str) -> DomainFunctionType:
+        """Factory method to create a callable representing any independent fraction
+        with given ``name`` on subdomain or boundary grids."""
+
+        # If the factory is called the first time for a specific variable name,
+        # create the variable.
+        if name not in set([var.name for var in self.equation_system.variables]):
+            self.equation_system.create_variables(
+                name=name,
+                subdomains=self.equation_system.mdg.subdomains(),
+                tags={"si_units": "mol * m^-3 * s^-1"},
+            )
+            
+        def r(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            if len(domains) > 0 and all(
+                [isinstance(g, pp.BoundaryGrid) for g in domains]
+            ):
+                return self.create_boundary_operator(
+                    name=name, domains=cast(Sequence[pp.BoundaryGrid], domains)
+                )
+            # Check that the domains are grids.
+            if not all([isinstance(g, pp.Grid) for g in domains]):
+                raise ValueError(
+                    """Argument 'domains' a mixture of subdomain and boundaries."""
+                )
+            domains = cast(list[pp.Grid], domains)
+            return self.equation_system.md_variable(name, domains)
+
+        return r
 
 
 
@@ -2546,9 +2597,16 @@ class ChemicalSystem(FluidMixin):
         self.fluid.num_reactions = len(reactions)
         self.fluid.stoichiometric_matrix = self.build_stoichiometric_matrix(reactions)
 
-        # reactions = self.set_kinetic_reaction_rates(reactions)
+        new_reactions = self.set_kinetic_reaction_rate_variable(reactions)
 
-        self.reactions = reactions
+        self.reactions = new_reactions
+
+    def set_kinetic_reaction_rate_variable(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> Sequence[pp.Reaction]:
+        return reactions
+
+
 
     _COEFF_RE = re.compile(
         r"""
@@ -2732,6 +2790,45 @@ class ActivityModels(pp.PorePyModel):
                 return op
 
             return activity
+
+
+class CreateVariablesForSpecificReactions:
+    def set_kinetic_reaction_rate_variable(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> Sequence[pp.Reaction]:
+        """Sets the reaction rates for kinetic reactions.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        This needs to be overridden to provide actual reaction rates.
+        """
+        S = self.fluid.stoichiometric_matrix
+        reaction_formulas = self.reaction_formulas
+        for reaction in reactions:
+            if reaction.is_kinetic:
+                rxn_index = reaction_formulas.index(reaction.formula)
+
+                nu = S[rxn_index, :]
+                reactive_species = []
+                reactive_coeffs = []
+                for comp in self.fluid.components:
+                    if comp.name in self.species_names:
+                        sp_index = self.species_names.index(comp.name)
+                        if nu[sp_index] != 0:
+                            # Build subarrays for reactive species and their coefficients in this reaction
+                            reactive_species.append(comp)
+                            reactive_coeffs.append(nu[sp_index])
+                for comp in reactive_species:
+                    if comp in self.fluid.solid_components:
+                        # for reactions involving minerals, create independent variables
+                        reaction.has_independent_variable=True
+                        reaction.corresponding_mineral=comp
+                        break
+        
+        return reactions
+
+
+
 
 
 class ReactionRatesKineticArrhenius:

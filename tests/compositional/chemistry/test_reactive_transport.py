@@ -261,6 +261,84 @@ class SolutionStrategyMyModel(pp.PorePyModel):
         super().after_nonlinear_convergence()
 
 
+    # Defining left-to-right flow with Dirichlet-type data for pressure.
+    def print_variables_and_equations(self) -> None:
+        model = self
+        sds = model.mdg.subdomains()
+        print(
+            "Overall fraction is variable:fraction,   mineral_saturation,    bulk_conc"
+        )
+        for comp in model.fluid.components:
+            print(
+                comp.name,
+                isinstance(comp.fraction(sds), pp.ad.Variable),
+                model.equation_system.evaluate(comp.fraction(sds)),
+                model.equation_system.evaluate(comp.mineral_saturation(sds)),
+                model.equation_system.evaluate(
+                    model.molar_bulk_concentration(comp, sds)
+                ),
+            )
+
+        print(
+            "Saturation is variable:",
+            [
+                (phase.name, isinstance(phase.saturation(sds), pp.ad.Variable))
+                for phase in model.fluid.phases
+            ],
+        )
+
+        for phase in model.fluid.phases:
+            print("---")
+            print(f"{phase.name} phase:")
+            print(
+                "Partial fraction is variable:",
+                [
+                    (
+                        comp.name,
+                        isinstance(
+                            phase.partial_fraction_of[comp](sds), pp.ad.Variable
+                        ),
+                        model.equation_system.evaluate(
+                            phase.partial_fraction_of[comp](sds)
+                        ),
+                    )
+                    for comp in phase
+                ],
+            )
+
+        for phase in model.fluid.phases:
+            print("---")
+            print(f"{phase.name} phase:")
+            mu = phase.viscosity(sds)
+            mu_val = model.equation_system.evaluate(mu)
+            print("Type and value of viscosity:", type(mu), mu_val)
+            rho = phase.density(sds)
+            rho_val = model.equation_system.evaluate(rho)
+            print("Type and value of density:", type(rho), rho_val)
+
+        print("---variables---")
+
+        for var in model.equation_system.variables:
+            print(
+                var.name,
+                model.equation_system.get_variable_values([var], iterate_index=0),
+            )
+
+        print("---equations---")
+
+        for equ in model.equation_system._equations.keys():
+            print(
+                equ,
+                model.equation_system.evaluate(model.equation_system._equations[equ]),
+            )
+
+        print(
+            "total_molar_concentration: ",
+            model.total_molar_concentration(sds).value(model.equation_system),
+        )
+
+
+
 class MyCompositionalFlowModel(
     ModifiedGeometry,
     ReactionRatesKineticZero,
@@ -271,7 +349,7 @@ class MyCompositionalFlowModel(
     pp.ChemicalSystem,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
     pp.compositional.CompositionalVariables,
-    pp.compositional_flow.EquationsChemicalWithoutEnergy,
+    pp.compositional_flow.EquationsChemical,
     pp.compositional_flow.ElementMassBalanceEquations,
     pp.compositional_flow.ComponentMassBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquationsReactiveTransport,
