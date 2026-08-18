@@ -175,7 +175,7 @@ def _expected_ad_ad(
                 j1[2] / var_2.val[2] - var_1.val[2] * j2[2] / var_2.val[2] ** 2,
             )
         )
-    else:
+    else:  # op == "**", since "@" is handled separately
         val = var_1.val**var_2.val
         jac = np.vstack(
             (
@@ -190,367 +190,359 @@ def _expected_ad_ad(
     return pp.ad.AdArray(val, sps.csr_matrix(jac))
 
 
+def _safe_eval(
+    var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
+) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
+    try:
+        return eval(f"var_1 {op} var_2")
+    except (TypeError, ValueError, NotImplementedError):
+        return False
+
+
+def _is_sparse(value: AdType) -> bool:
+    return isinstance(value, (sps.spmatrix, sps.sparray))
+
+
+def _expected_value_no_ad(
+    var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
+    var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | float | np.ndarray | sps.spmatrix:
+    # Keep explicit policy for sparse powers: SciPy may behave inconsistently here.
+    if _is_sparse(var_1) and isinstance(var_2, (float, np.ndarray)) and op == "**":
+        return False
+    if isinstance(var_1, float) and _is_sparse(var_2) and op != "*":
+        return False
+    if isinstance(var_1, np.ndarray) and _is_sparse(var_2) and op in ["/", "**"]:
+        return False
+    if _is_sparse(var_1) and isinstance(var_2, float) and op not in ["*", "/"]:
+        return False
+
+    return _safe_eval(var_1, var_2, op)
+
+
+def _expected_value_sparse_ad(
+    var_1: sps.spmatrix | sps.sparray,
+    var_2: pp.ad.AdArray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | pp.ad.AdArray:
+    if op != "@":
+        return False
+
+    if isinstance(var_1, sps.spmatrix):
+        val = var_1 * var_2.val
+        if var_2._is_diagonal:
+            jac = var_1 @ sps.diags(var_2.jac.ravel())
+        else:
+            jac = var_1 * var_2.jac
+    else:
+        val = var_1 @ var_2.val
+        if var_2._is_diagonal:
+            jac = var_1 @ sps.diags(var_2.jac.ravel())
+        else:
+            jac = var_1 @ var_2.jac
+    return pp.ad.AdArray(val, jac)
+
+
+def _create_adarray(
+    val: np.ndarray, jac: np.ndarray | sps.spmatrix
+) -> pp.ad.AdArray:
+    if isinstance(jac, np.ndarray):
+        jac = sps.dia_matrix((jac, [0]), shape=(jac.size, jac.size))
+    return pp.ad.AdArray(val, jac)
+
+
+def _expected_ad_scalar(
+    var_1: pp.ad.AdArray, op: Literal["+", "-", "*", "/", "**"]
+) -> pp.ad.AdArray:
+    # var_1 has value [6, 15, 24] and, if not diagonal, jac rows [1, 2, 3],
+    # [4, 5, 6], [7, 8, 9]; the scalar is 2.0.
+    if op == "+":
+        val = np.array([8, 17, 26])
+        if var_1._is_diagonal:
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([4, 13, 22])
+        if var_1._is_diagonal:
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "*":
+        val = np.array([12, 30, 48])
+        if var_1._is_diagonal:
+            jac = np.array([12, 15, 16])
+        else:
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+    elif op == "/":
+        val = np.array([6 / 2, 15 / 2, 24 / 2])
+        if var_1._is_diagonal:
+            jac = np.array([6 / 2, 7.5 / 2, 8 / 2])
+        else:
+            jac = sps.csr_matrix(
+                np.array(
+                    [
+                        [1 / 2, 2 / 2, 3 / 2],
+                        [4 / 2, 5 / 2, 6 / 2],
+                        [7 / 2, 8 / 2, 9 / 2],
+                    ]
+                )
+            )
+    else:  # op == "**"
+        val = np.array([6**2, 15**2, 24**2])
+        if var_1._is_diagonal:
+            jac = 2 * var_1.val * var_1.jac
+        else:
+            jac = sps.csr_matrix(
+                2
+                * np.vstack(
+                    (
+                        var_1.val[0] * var_1.jac[0].toarray(),
+                        var_1.val[1] * var_1.jac[1].toarray(),
+                        var_1.val[2] * var_1.jac[2].toarray(),
+                    )
+                ),
+            )
+    return _create_adarray(val, jac)
+
+
+def _expected_scalar_ad(
+    var_2: pp.ad.AdArray, op: Literal["+", "-", "*", "/", "**"]
+) -> pp.ad.AdArray:
+    # var_2 has value [6, 15, 24] and, if not diagonal, jac rows [1, 2, 3],
+    # [4, 5, 6], [7, 8, 9]; the scalar is 2.0.
+    if op == "+":
+        val = np.array([8, 17, 26])
+        if var_2._is_diagonal:
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([-4, -13, -22])
+        if var_2._is_diagonal:
+            jac = -np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+    elif op == "*":
+        val = np.array([12, 30, 48])
+        if var_2._is_diagonal:
+            jac = np.array([12, 15, 16])
+        else:
+            jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
+    elif op == "/":
+        val = np.array([2 / 6, 2 / 15, 2 / 24])
+        if var_2._is_diagonal:
+            jac = -2 / var_2.val**2 * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
+                        -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
+                        -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
+                    )
+                ),
+            )
+    else:  # op == "**"
+        val = np.array([2**6, 2**15, 2**24])
+        if var_2._is_diagonal:
+            jac = np.log(2.0) * (2**var_2.val) * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
+                        np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
+                    )
+                ),
+            )
+    return _create_adarray(val, jac)
+
+
+def _expected_ad_dense(
+    var_1: pp.ad.AdArray, var_2: np.ndarray, op: Literal["+", "-", "*", "/", "**"]
+) -> pp.ad.AdArray:
+    # var_1 has value [6, 15, 24] and, if not diagonal, jac rows [1, 2, 3],
+    # [4, 5, 6], [7, 8, 9]; var_2 is the dense array [1, 2, 3].
+    if op == "+":
+        val = np.array([7, 17, 27])
+        if var_1._is_diagonal:
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([5, 13, 21])
+        if var_1._is_diagonal:
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "*":
+        val = np.array([6, 30, 72])
+        if var_1._is_diagonal:
+            jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+    elif op == "/":
+        val = np.array([6 / 1, 15 / 2, 24 / 3])
+        if var_1._is_diagonal:
+            jac = np.array([6 / 1, 7.5 / 2, 8 / 3])
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1.jac[0].toarray() / var_2[0],
+                        var_1.jac[1].toarray() / var_2[1],
+                        var_1.jac[2].toarray() / var_2[2],
+                    )
+                )
+            )
+    else:  # op == "**"
+        val = np.array([6, 15**2, 24**3])
+        if var_1._is_diagonal:
+            jac = var_2 * (var_1.val ** (var_2 - 1.0)) * var_1.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_2[0]
+                        * (var_1.val[0] ** (var_2[0] - 1.0))
+                        * var_1.jac[0].toarray(),
+                        var_2[1]
+                        * (var_1.val[1] ** (var_2[1] - 1.0))
+                        * var_1.jac[1].toarray(),
+                        var_2[2]
+                        * (var_1.val[2] ** (var_2[2] - 1.0))
+                        * var_1.jac[2].toarray(),
+                    )
+                )
+            )
+    return _create_adarray(val, jac)
+
+
+def _expected_dense_ad(
+    var_1: np.ndarray, var_2: pp.ad.AdArray, op: Literal["+", "-", "*", "/", "**"]
+) -> pp.ad.AdArray:
+    # var_2 has value [6, 15, 24] and, if not diagonal, jac rows [1, 2, 3],
+    # [4, 5, 6], [7, 8, 9]; var_1 is the dense array [1, 2, 3].
+    if op == "+":
+        val = np.array([7, 17, 27])
+        if var_2._is_diagonal:
+            jac = np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    elif op == "-":
+        val = np.array([-5, -13, -21])
+        if var_2._is_diagonal:
+            jac = -np.array([6, 7.5, 8])
+        else:
+            jac = sps.csr_matrix(np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]]))
+    elif op == "*":
+        val = np.array([6, 30, 72])
+        if var_2._is_diagonal:
+            jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
+        else:
+            jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
+    elif op == "/":
+        val = np.array([1 / 6, 2 / 15, 3 / 24])
+        if var_2._is_diagonal:
+            jac = -1 / var_2.val**2 * var_2.jac * np.array([1, 2, 3])
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
+                        -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
+                        -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
+                    )
+                )
+            )
+    else:  # op == "**"
+        val = np.array([1, 2**15, 3**24])
+        if var_2._is_diagonal:
+            jac = (var_1**var_2.val) * np.log(var_1) * var_2.jac
+        else:
+            jac = sps.csr_matrix(
+                np.vstack(
+                    (
+                        var_1[0] ** var_2.val[0]
+                        * np.log(var_1[0])
+                        * var_2.jac[0].toarray(),
+                        var_1[1] ** var_2.val[1]
+                        * np.log(var_1[1])
+                        * var_2.jac[1].toarray(),
+                        var_1[2] ** var_2.val[2]
+                        * np.log(var_1[2])
+                        * var_2.jac[2].toarray(),
+                    )
+                )
+            )
+    return _create_adarray(val, jac)
+
+
+def _expected_value_ad_nonad(
+    var_1: pp.ad.AdArray,
+    var_2: float | np.ndarray | sps.spmatrix | sps.sparray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | pp.ad.AdArray:
+    if op == "@":
+        return False
+    if isinstance(var_2, float):
+        return _expected_ad_scalar(var_1, op)
+    if isinstance(var_2, np.ndarray):
+        return _expected_ad_dense(var_1, var_2, op)
+    return False
+
+
+def _expected_value_nonad_ad(
+    var_1: float | np.ndarray | sps.spmatrix | sps.sparray,
+    var_2: pp.ad.AdArray,
+    op: Literal["+", "-", "*", "/", "**", "@"],
+) -> bool | pp.ad.AdArray:
+    if _is_sparse(var_1):
+        return _expected_value_sparse_ad(var_1, var_2, op)
+    if op == "@":
+        return False
+    if isinstance(var_1, float):
+        return _expected_scalar_ad(var_2, op)
+    return _expected_dense_ad(var_1, var_2, op)
+
+
+def _is_nonad(var: AdType) -> bool:
+    return isinstance(var, (float, np.ndarray, sps.spmatrix, sps.sparray))
+
+
+def _is_ad(var: AdType) -> bool:
+    return isinstance(var, pp.ad.AdArray)
+
+
 def _expected_value(
     var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
 ) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-    def create_adarray(val, jac):
-        if isinstance(jac, np.ndarray):
-            jac = sps.dia_matrix((jac, [0]), shape=(jac.size, jac.size))
-        return pp.ad.AdArray(val, jac)
-
-    if isinstance(var_1, float) and isinstance(var_2, float):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, float) and isinstance(var_2, np.ndarray):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except ValueError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, float) and isinstance(var_2, (sps.spmatrix, sps.sparray)):
-        try:
-            val = eval(f"var_1 {op} var_2")
-            assert op == "*"
-            return val
-        except (ValueError, NotImplementedError, TypeError):
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, float):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except ValueError:
-            assert op in ["@"]
-            return False
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
-        return eval(f"var_1 {op} var_2")
-    elif isinstance(var_1, np.ndarray) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["/", "**"]
-            return False
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(var_2, float):
-        if op == "**":
-            return False
-
-        try:
-            val = eval(f"var_1 {op} var_2")
-            assert op in ["*", "/"]
-            return val
-        except (ValueError, NotImplementedError):
-            return False
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
-        var_2, np.ndarray
-    ):
-        if op == "**":
-            return False
-        try:
-            return eval(f"var_1 {op} var_2")
-        except TypeError:
-            assert op in ["**"]
-            return False
-
-    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        try:
-            return eval(f"var_1 {op} var_2")
-        except (ValueError, TypeError, NotImplementedError):
-            assert op in ["**"]
-            return False
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, float):
-        if op == "@":
-            return False
-        if op == "+":
-            val = np.array([8, 17, 26])
-            if var_1._is_diagonal:
-                jac = np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-        elif op == "-":
-            val = np.array([4, 13, 22])
-            if var_1._is_diagonal:
-                jac = np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-        elif op == "*":
-            val = np.array([12, 30, 48])
-            if var_1._is_diagonal:
-                jac = np.array([12, 15, 16])
-            else:
-                jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-        elif op == "/":
-            val = np.array([6 / 2, 15 / 2, 24 / 2])
-            if var_1._is_diagonal:
-                jac = np.array([6 / 2, 7.5 / 2, 8 / 2])
-            else:
-                jac = sps.csr_matrix(
-                    np.array(
-                        [
-                            [1 / 2, 2 / 2, 3 / 2],
-                            [4 / 2, 5 / 2, 6 / 2],
-                            [7 / 2, 8 / 2, 9 / 2],
-                        ]
-                    )
-                )
-        elif op == "**":
-            val = np.array([6**2, 15**2, 24**2])
-            if var_1._is_diagonal:
-                jac = 2 * var_1.val * var_1.jac
-            else:
-                jac = sps.csr_matrix(
-                    2
-                    * np.vstack(
-                        (
-                            var_1.val[0] * var_1.jac[0].toarray(),
-                            var_1.val[1] * var_1.jac[1].toarray(),
-                            var_1.val[2] * var_1.jac[2].toarray(),
-                        )
-                    ),
-                )
-        return create_adarray(val, jac)
-
-    elif isinstance(var_1, float) and isinstance(var_2, pp.ad.AdArray):
-        if op == "@":
-            return False
-        if op == "+":
-            val = np.array([8, 17, 26])
-            if var_2._is_diagonal:
-                jac = np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-        elif op == "-":
-            val = np.array([-4, -13, -22])
-            if var_2._is_diagonal:
-                jac = -np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(
-                    np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]])
-                )
-        elif op == "*":
-            val = np.array([12, 30, 48])
-            if var_2._is_diagonal:
-                jac = np.array([12, 15, 16])
-            else:
-                jac = sps.csr_matrix(np.array([[2, 4, 6], [8, 10, 12], [14, 16, 18]]))
-        elif op == "/":
-            val = np.array([2 / 6, 2 / 15, 2 / 24])
-            if var_2._is_diagonal:
-                jac = -2 / var_2.val**2 * var_2.jac
-            else:
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            -2 / var_2.val[0] ** 2 * var_2.jac[0].toarray(),
-                            -2 / var_2.val[1] ** 2 * var_2.jac[1].toarray(),
-                            -2 / var_2.val[2] ** 2 * var_2.jac[2].toarray(),
-                        )
-                    ),
-                )
-        elif op == "**":
-            val = np.array([2**6, 2**15, 2**24])
-            if var_2._is_diagonal:
-                jac = np.log(2.0) * (2**var_2.val) * var_2.jac
-            else:
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            np.log(2.0) * (2 ** var_2.val[0]) * var_2.jac[0].toarray(),
-                            np.log(2.0) * (2 ** var_2.val[1]) * var_2.jac[1].toarray(),
-                            np.log(2.0) * (2 ** var_2.val[2]) * var_2.jac[2].toarray(),
-                        )
-                    ),
-                )
-        return create_adarray(val, jac)
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, np.ndarray):
-        if op == "@":
-            return False
-
-        if op == "+":
-            val = np.array([7, 17, 27])
-            if var_1._is_diagonal:
-                jac = np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-        elif op == "-":
-            val = np.array([5, 13, 21])
-            if var_1._is_diagonal:
-                jac = np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-        elif op == "*":
-            val = np.array([6, 30, 72])
-            if var_1._is_diagonal:
-                jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-        elif op == "/":
-            val = np.array([6 / 1, 15 / 2, 24 / 3])
-            if var_1._is_diagonal:
-                jac = np.array([6 / 1, 7.5 / 2, 8 / 3])
-            else:
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            var_1.jac[0].toarray() / var_2[0],
-                            var_1.jac[1].toarray() / var_2[1],
-                            var_1.jac[2].toarray() / var_2[2],
-                        )
-                    )
-                )
-        elif op == "**":
-            val = np.array([6, 15**2, 24**3])
-            if var_1._is_diagonal:
-                jac = var_2 * (var_1.val ** (var_2 - 1.0)) * var_1.jac
-            else:
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            var_2[0]
-                            * (var_1.val[0] ** (var_2[0] - 1.0))
-                            * var_1.jac[0].toarray(),
-                            var_2[1]
-                            * (var_1.val[1] ** (var_2[1] - 1.0))
-                            * var_1.jac[1].toarray(),
-                            var_2[2]
-                            * (var_1.val[2] ** (var_2[2] - 1.0))
-                            * var_1.jac[2].toarray(),
-                        )
-                    )
-                )
-        return create_adarray(val, jac)
-
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, pp.ad.AdArray):
-        if op == "@":
-            return False
-
-        if op == "+":
-            val = np.array([7, 17, 27])
-            if var_2._is_diagonal:
-                jac = np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-        elif op == "-":
-            val = np.array([-5, -13, -21])
-            if var_2._is_diagonal:
-                jac = -np.array([6, 7.5, 8])
-            else:
-                jac = sps.csr_matrix(
-                    np.array([[-1, -2, -3], [-4, -5, -6], [-7, -8, -9]])
-                )
-        elif op == "*":
-            val = np.array([6, 30, 72])
-            if var_2._is_diagonal:
-                jac = np.array([6 * 1, 7.5 * 2, 8 * 3])
-            else:
-                jac = sps.csr_matrix(np.array([[1, 2, 3], [8, 10, 12], [21, 24, 27]]))
-        elif op == "/":
-            val = np.array([1 / 6, 2 / 15, 3 / 24])
-            if var_2._is_diagonal:
-                jac = -1 / var_2.val**2 * var_2.jac * np.array([1, 2, 3])
-            else:
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            -var_1[0] * var_2.jac[0].toarray() / var_2.val[0] ** 2,
-                            -var_1[1] * var_2.jac[1].toarray() / var_2.val[1] ** 2,
-                            -var_1[2] * var_2.jac[2].toarray() / var_2.val[2] ** 2,
-                        )
-                    )
-                )
-        elif op == "**":
-            val = np.array([1, 2**15, 3**24])
-            if var_2._is_diagonal:
-                jac = (var_1**var_2.val) * np.log(var_1) * var_2.jac
-            else:
-                jac = sps.csr_matrix(
-                    np.vstack(
-                        (
-                            var_1[0] ** var_2.val[0]
-                            * np.log(var_1[0])
-                            * var_2.jac[0].toarray(),
-                            var_1[1] ** var_2.val[1]
-                            * np.log(var_1[1])
-                            * var_2.jac[1].toarray(),
-                            var_1[2] ** var_2.val[2]
-                            * np.log(var_1[2])
-                            * var_2.jac[2].toarray(),
-                        )
-                    )
-                )
-        return create_adarray(val, jac)
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(
-        var_2, (sps.spmatrix, sps.sparray)
-    ):
-        return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
-        if op == "@":
-            val = var_1 * var_2.val
-            if var_2._is_diagonal:
-                jac = var_1 @ sps.diags(var_2.jac.ravel())
-            else:
-                jac = var_1 * var_2.jac
-            return pp.ad.AdArray(val, jac)
-        return False
-    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.AdArray):
-        if op == "@":
-            val = var_1 @ var_2.val
-            if var_2._is_diagonal:
-                jac = var_1 @ sps.diags(var_2.jac.ravel())
-            else:
-                jac = var_1 @ var_2.jac
-            return pp.ad.AdArray(val, jac)
-        return False
-
-    elif isinstance(var_1, pp.ad.DiagonalAdArray) and isinstance(
-        var_2, pp.ad.DiagonalAdArray
-    ):
-        if op == "@":
-            return False
-
-        if op == "+":
-            val = var_1.val + var_2.val
-            jac = var_1.jac + var_2.jac
-        elif op == "-":
-            val = var_1.val - var_2.val
-            jac = var_1.jac - var_2.jac
-        elif op == "*":
-            val = var_1.val * var_2.val
-            jac = var_1.val * var_2.jac + var_2.val * var_1.jac
-        elif op == "/":
-            val = var_1.val / var_2.val
-            jac = var_1.jac / var_2.val - var_1.val * var_2.jac / var_2.val**2
-        elif op == "**":
-            val = var_1.val**var_2.val
-            jac = (
-                var_2.val * var_1.val ** (var_2.val - 1.0) * var_1.jac
-                + np.log(var_1.val) * (var_1.val**var_2.val) * var_2.jac
-            )
-        return pp.ad.DiagonalAdArray(
-            val,
-            jac,
-            row_indices=np.arange(3),
-            col_indices=[np.arange(3)],
-            num_derivatives=3,
-        )
-
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, pp.ad.AdArray):
+    if _is_ad(var_1) and _is_ad(var_2):
         if op == "@":
             return False
         return _expected_ad_ad(var_1, var_2, op)
+
+    if _is_ad(var_1):
+        if not _is_nonad(var_2):
+            raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
+        return _expected_value_ad_nonad(var_1, var_2, op)
+
+    if _is_ad(var_2):
+        if not _is_nonad(var_1):
+            raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
+        return _expected_value_nonad_ad(var_1, var_2, op)
+
+    if _is_nonad(var_1) and _is_nonad(var_2):
+        return _expected_value_no_ad(var_1, var_2, op)
 
     raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
 
 def _compare(actual, expected) -> None:
-    if not (isinstance(actual, pp.ad.AdArray) and isinstance(expected, pp.ad.AdArray)):
+    if not (_is_ad(actual) and _is_ad(expected)):
         assert isinstance(actual, expected.__class__)
     if isinstance(actual, float):
         assert np.isclose(actual, expected)
@@ -558,7 +550,7 @@ def _compare(actual, expected) -> None:
         assert np.allclose(actual, expected)
     elif isinstance(actual, (sps.spmatrix, sps.sparray)):
         assert np.allclose(actual.toarray(), expected.toarray())
-    elif isinstance(actual, pp.ad.AdArray):
+    elif _is_ad(actual):
         assert np.allclose(actual.val, expected.val)
         jac = _jac_to_dense(actual)
         expected_jac = _jac_to_dense(expected)
@@ -589,14 +581,12 @@ def _expand_adarray_derivatives(
 def _expected_wrapped_value(
     var_1: AdType, var_2: AdType, op: Literal["+", "-", "*", "/", "**", "@"]
 ) -> bool | float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
-    n_ad_operands = int(isinstance(var_1, pp.ad.AdArray)) + int(
-        isinstance(var_2, pp.ad.AdArray)
-    )
-    if isinstance(var_1, pp.ad.AdArray):
+    n_ad_operands = int(_is_ad(var_1)) + int(_is_ad(var_2))
+    if _is_ad(var_1):
         slot_1 = 0
         var_1 = _expand_adarray_derivatives(var_1, slot_1, max(1, n_ad_operands))
-    if isinstance(var_2, pp.ad.AdArray):
-        slot_2 = 1 if isinstance(var_1, pp.ad.AdArray) and n_ad_operands == 2 else 0
+    if _is_ad(var_2):
+        slot_2 = 1 if _is_ad(var_1) and n_ad_operands == 2 else 0
         var_2 = _expand_adarray_derivatives(var_2, slot_2, max(1, n_ad_operands))
 
     try:
