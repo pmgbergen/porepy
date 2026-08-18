@@ -4480,23 +4480,42 @@ class FrictionDamage(pp.PorePyModel):
         1. the computation of the friction coefficient from the frictional damage,
         2. the computation of the friction damage state from the history variable.
 
-
-    The friction damage state is the factor by which the friction coefficient is
-    modified compared to the non-damaged case:
+    The friction coefficient is split into a basic and a roughness contribution, of
+    which only the latter degrades,
 
     .. math::
-        F = d F_0,
+        \mu = \mu_b + d^f \mu_r,
 
-    where :math:`F_0` is the non-damaged friction coefficient. d is dimensionless and
-    takes values between 0 and 1, where 0 means no friction and 1 means intact friction.
-    The damage evolution coefficient is computed from the history variable
-    :math:`\Lambda`, according to J. White (2014) https://doi.org/10.1002/nag.2247 and
-    Stefansson in preparation, as
+    so that the friction bound of Hager et al. (2009)
+    https://doi.org/10.1002/nme.2712 becomes :math:`(\mu_b + d^f \mu_r)\max(0,
+    -\lambda_n)`. The basic coefficient :math:`\mu_b = \tan\varphi_b` arises from
+    adhesion at the real contact area, which for plastically deforming asperity contacts
+    is a ratio of junction shear strength to indentation hardness, hence a property of
+    the mineral phase rather than of the surface geometry. Wear removes material but
+    exposes fresh surface with the same properties, so :math:`\mu_b` provides a floor.
+    The roughness coefficient :math:`\mu_r = \tan\theta` arises from asperities that are
+    indented and ploughed through rather than ridden over, is governed by the asperity
+    inclination along the shear direction, and being geometric is progressively removed
+    by abrasive wear. This decomposition follows the energy-balance formulation of Gao
+    et al. (2024) https://doi.org/10.1016/j.ijrmms.2023.105623, in which the residual
+    shear resistance of a fully degraded fracture reduces to basic friction.
+
+    Note that this is *not* the decomposition of Patton (1966), whose inclination term
+    represents override of asperities rather than shear-through. Override enters here
+    only indirectly, through the increase in normal traction generated when the fracture
+    dilates against the stiffness of the surrounding rock.
+
+    :math:`d^f` is dimensionless and takes values between 0 and 1, where 0 means fully
+    degraded roughness and 1 means intact roughness. It is computed from the history
+    variable :math:`\Lambda`, according to J. White (2014)
+    https://doi.org/10.1002/nag.2247 and Stefansson in preparation, as
 
     .. math::
         d = d_0 + (1 - d_0) \exp(-\Lambda)
 
-    where :math:`d_0` is the residual friction damage.
+    where :math:`d_0` is the residual friction damage. With the roughness contribution
+    carried by :math:`\mu_r`, the natural residual is :math:`d_0 = 0`, for which the
+    fully worn fracture retains exactly basic friction.
 
     """
 
@@ -4547,8 +4566,51 @@ class FrictionDamage(pp.PorePyModel):
             self.solid.residual_friction_damage, "residual_friction_damage"
         )
 
+    def basic_friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        r"""Basic friction coefficient :math:`\mu_b` [-].
+
+        The non-degrading part of the friction coefficient.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Scalar for the basic friction coefficient.
+
+        """
+        return pp.ad.Scalar(
+            self.solid.basic_friction_coefficient, "basic_friction_coefficient"
+        )
+
+    def roughness_friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        r"""Roughness friction coefficient :math:`\mu_r` [-].
+
+        The part of the friction coefficient which degrades with damage.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Scalar for the roughness friction coefficient.
+
+        """
+        return pp.ad.Scalar(
+            self.solid.roughness_friction_coefficient, "roughness_friction_coefficient"
+        )
+
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction coefficient [-].
+        r"""Friction coefficient [-].
+
+        Implements :math:`\mu = \mu_b + d^f \mu_r`. The friction coefficient of the
+        super class is deliberately not used: the split into a degrading and a
+        non-degrading part is a property of the damage model, so
+        :attr:`~porepy.compositional.materials.SolidConstants.friction_coefficient` has
+        no role once this mixin is active.
+
+        Consequently, an undamaged reference run should be configured by setting the
+        residual friction damage to one, *not* by omitting the damage mixins -- the
+        latter falls back to :class:`CoulombFrictionBound`, which reads a different
+        parameter.
 
         Parameters:
             subdomains: List of fracture subdomains.
@@ -4557,16 +4619,11 @@ class FrictionDamage(pp.PorePyModel):
             Friction coefficient operator.
 
         """
-        if not hasattr(super(), "friction_coefficient"):
-            raise ValueError(
-                "The super class of FrictionDamage must have a friction_coefficient "
-                "method."
-            )
-        # After the check, we can safely call the super class method to get the
-        # non-damaged friction, ignoring the type checker.
-        intact_bound = super().friction_coefficient(subdomains)  # type: ignore[misc]
-        intact_bound.set_name("intact_friction_coefficient")
-        op = self.friction_damage_state(subdomains) * intact_bound
+        roughness = self.friction_damage_state(subdomains) * (
+            self.roughness_friction_coefficient(subdomains)
+        )
+        roughness.set_name("damaged_roughness_friction_coefficient")
+        op = self.basic_friction_coefficient(subdomains) + roughness
         op.set_name("damaged_friction_coefficient")
         return op
 

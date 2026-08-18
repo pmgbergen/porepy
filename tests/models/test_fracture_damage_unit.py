@@ -410,6 +410,68 @@ class TestDamageEvolutionCoefficients:
 
 
 # ---------------------------------------------------------------------------
+# 2b. Friction coefficient split
+# ---------------------------------------------------------------------------
+
+
+class TestFrictionCoefficientSplit:
+    r"""Tests for :math:`\mu = \mu_b + d^f \mu_r`.
+
+    Only the roughness contribution degrades, so the friction coefficient decays from
+    the intact total towards the basic coefficient rather than towards zero.
+    """
+
+    @staticmethod
+    def _fractures(model):
+        return model.mdg.subdomains(dim=model.nd - 1)
+
+    def _set_history(self, model, value: float) -> None:
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        model.equation_system.set_variable_values(
+            np.full(nc, value),
+            variables=[model.friction_damage_history(fractures)],
+            iterate_index=0,
+        )
+
+    def test_intact_at_zero_history(self):
+        """Zero history gives d^f = 1, hence the intact total mu_b + mu_r."""
+        model = _prepared_model(damages=["friction"])
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        self._set_history(model, 0.0)
+
+        expected = (
+            model.solid.basic_friction_coefficient
+            + model.solid.roughness_friction_coefficient
+        )
+        result = model.friction_coefficient(fractures).value(model.equation_system)
+        np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-10)
+
+    def test_approaches_basic_friction_at_large_history(self):
+        """Large history drives d^f to the residual, leaving basic friction.
+
+        With the default residual friction damage of zero, the fully worn fracture
+        retains exactly mu_b.
+        """
+        model = _prepared_model(damages=["friction"])
+        fractures = self._fractures(model)
+        nc = sum(sd.num_cells for sd in fractures)
+        self._set_history(model, 10.0)
+
+        d0 = model.solid.residual_friction_damage
+        mu_b = model.solid.basic_friction_coefficient
+        mu_r = model.solid.roughness_friction_coefficient
+        damage_state = d0 + (1.0 - d0) * np.exp(-10.0)
+        expected = mu_b + damage_state * mu_r
+
+        result = model.friction_coefficient(fractures).value(model.equation_system)
+        np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-10)
+        # The surviving roughness contribution is a negligible fraction of mu_r, so the
+        # coefficient has effectively decayed to the basic friction floor.
+        assert np.all((result - mu_b) < 1e-4 * mu_r)
+
+# ---------------------------------------------------------------------------
 # 3.  Damage length kernel
 # ---------------------------------------------------------------------------
 

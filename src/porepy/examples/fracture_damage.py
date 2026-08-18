@@ -481,9 +481,14 @@ solid_params = pp.solid_values.extended_granite_values_for_testing.copy()
 solid_params.update(
     {
         "friction_coefficient": 0.01,  # Low friction => slip \approx bc displacement
+        # The intact friction coefficient above is split into a non-degrading basic part
+        # and a degrading roughness part, mu_b + mu_r = 0.01.
+        "basic_friction_coefficient": 0.003,
+        "roughness_friction_coefficient": 0.007,
         "uniaxial_compressive_strength": 1e8,
         "characteristic_fracture_roughness": 1e-4,  # Same order as bc displacements.
-        "residual_friction_damage": 0.3,
+        # Zero is the natural residual since the friction floor lives in mu_b.
+        "residual_friction_damage": 0.0,
         "residual_dilation_damage": 0.6,
         "dilation_angle": 0.01,  # [rad] # Low but nonzero dilation angle to get some
         # dilation damage without incurring too much normal opening and stress.

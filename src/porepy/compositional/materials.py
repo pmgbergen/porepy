@@ -438,6 +438,8 @@ class FractureDamageSolidConstants(SolidConstants):
             "residual_friction_damage": "-",
             "dilation_damage_decay": "-",
             "friction_damage_decay": "-",
+            "basic_friction_coefficient": "-",
+            "roughness_friction_coefficient": "-",
             "characteristic_fracture_roughness": "m",
             "uniaxial_compressive_strength": "Pa",
         }
@@ -448,6 +450,25 @@ class FractureDamageSolidConstants(SolidConstants):
     friction_damage_decay: float = 0.0
     residual_dilation_damage: float = 1.0
     dilation_damage_decay: float = 0.0
+    basic_friction_coefficient: float = 1.0
+    r"""Basic friction coefficient :math:`\mu_b = \tan\varphi_b` [-].
+
+    The non-degrading part of the friction bound. It arises from adhesion at the real
+    contact area, which is a property of the mineral phase rather than of the surface
+    geometry, so wear exposes fresh surface with the same value. It is therefore
+    assignable directly from tabulated basic friction angles.
+    """
+
+    roughness_friction_coefficient: float = 0.0
+    r"""Roughness friction coefficient :math:`\mu_r = \tan\theta` [-].
+
+    The degrading part of the friction bound, arising from asperities that are indented
+    and ploughed through rather than ridden over. Being geometric, it is progressively
+    removed by abrasive wear, and is the only part multiplied by the friction damage
+    state.
+
+    """
+
     characteristic_fracture_roughness: float = 1.0
     uniaxial_compressive_strength: float = 1.0
 
