@@ -9,7 +9,11 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-AdType = Union[float, np.ndarray, sps.spmatrix, "AdArray"]
+AdType = Union[int, float, np.ndarray, sps.spmatrix, sps.sparray, "AdArray"]
+
+_SPARSE_TYPES = (sps.spmatrix, sps.sparray)
+"""Convenience tuple for isinstance checks accepting both scipy sparse matrix and
+sparse array types."""
 
 __all__ = [
     "initAdArrays",
@@ -96,7 +100,9 @@ class AdArray:
     # arise if this is not done.
     __array_ufunc__ = None
 
-    def __init__(self, val: np.ndarray, jac: sps.spmatrix | np.ndarray) -> None:
+    def __init__(
+        self, val: np.ndarray, jac: sps.spmatrix | sps.sparray | np.ndarray
+    ) -> None:
         # Consistency checks, to limit the possibilities for errors when combining this
         # array with other objects.
         if val.ndim != 1:
@@ -118,7 +124,7 @@ class AdArray:
             self.val = self.val.astype(float)
         """The value of the AdArray, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix | np.ndarray = jac
+        self.jac: sps.spmatrix | sps.sparray | np.ndarray = jac
         if self.jac.data.dtype != float:
             self.jac.data = self.jac.data.astype(float)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
@@ -203,8 +209,8 @@ class AdArray:
             An AdArray which combines ``self`` and ``other``.
 
         """
-        # Use if-else with isinstance (would have preferred match-case, but that is
-        # only available in python 3.10)
+        # Dispatch on the type of other via isinstance, consistent with the rest of
+        # the ad package.
         if isinstance(other, (int, float)):
             # Strictly speaking, we require scalars to be floats, but add casting of
             # ints to floats for convenience.
@@ -215,7 +221,7 @@ class AdArray:
                 raise ValueError("Only 1d numpy arrays can be added to AdArrays")
             return AdArray(self.val + other, self.jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Sparse matrices cannot be added to AdArrays")
 
         elif isinstance(other, pp.ad.AdArray):
@@ -309,7 +315,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac(other)
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError(
                 """Sparse matrices cannot be multiplied with  AdArrays elementwise.
                 Did you mean to use the @ operator?
@@ -359,7 +365,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, sps.spmatrix, sps.sparray, np.ndarray, int)):
+        if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
             # In these cases, there is no difference between left and right
             # multiplication, so we simply invoke the standard __mul__ function.
             return self.__mul__(other)
@@ -414,7 +420,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac(other * (self.val ** (other - 1)))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Cannot raise AdArrays to power of sparse matrices.")
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
@@ -489,7 +495,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
 
         elif isinstance(other, pp.ad.AdArray):
@@ -536,7 +542,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac(other.astype(float) ** (-1.0))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("AdArrays cannot be divided by sparse matrices.")
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
@@ -569,7 +575,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, int, np.ndarray, sps.spmatrix, sps.sparray)):
+        if isinstance(other, (float, int, np.ndarray, *_SPARSE_TYPES)):
             # Divide a float or a numpy array by self is the same as raising self to
             # the power of -1 and multiplying by the float. The multiplication will
             # end up calling self.__mul__, which will do the right checks for numpy
@@ -609,7 +615,7 @@ class AdArray:
                 f""" {type(other)}."""
             )
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             # This goes against the way equations should be formulated in the AD
             # framework, variables should not be right-multiplied by anything. Raise
             # a value error to make sure this is not done.
@@ -638,7 +644,7 @@ class AdArray:
                 f""" {type(other)}."""
             )
 
-        elif isinstance(other, (sps.spmatrix, sps.sparray)):
+        elif isinstance(other, _SPARSE_TYPES):
             # This is the standard matrix-vector multiplication
             if self.jac.shape[0] != other.shape[1]:
                 raise ValueError(
