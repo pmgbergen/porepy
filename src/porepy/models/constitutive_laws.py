@@ -4276,33 +4276,41 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
 
 
 class FractureDamageEvolutionCoefficients:
-    r"""Fracture damage coefficients according to Gao et al. (2024). These are used for
-    computing the history variables according to
+    r"""Damage evolution coefficients following Archard's wear law.
 
-    ... math::
-        \Lambda^{\alpha} = \int_0^t k^{\alpha} l dt
+    These are used for computing the history variables according to
+
+    .. math::
+        \Lambda^{\alpha}(t) = \int_0^t k^{\alpha}(s)\, \ell(t, s)\, \mathrm{d}s,
 
     where :math:`k^{\alpha}` is the damage evolution coefficient for damage type
-    :math:`\alpha` (friction or dilation) and :math:`l` is a length function defined in
-    :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
+    :math:`\alpha` (friction or dilation) and :math:`\ell` is a length function defined
+    in :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` or
     :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength`.
 
-    The damage evolution coefficients are computed as functions of the contact traction,
-    the characteristic fracture roughness, and the uniaxial compressive strength of the
-    solid. For dilation, we have
+    Archard's law states that the volume of material removed by sliding wear is
+    proportional to the normal load and the sliding distance, and inversely proportional
+    to the hardness of the softer material (Archard, 1953,
+    https://doi.org/10.1063/1.1721448). Taking the damage increment to be proportional
+    to the volume worn and identifying the hardness with the uniaxial compressive
+    strength gives, for both damage types,
 
     .. math::
-        k^{dilation} = K_ad \frac{t_n,p}{t_trans \cdot u_char},
+        k^{\alpha} = \frac{-\lambda_n}{\mathrm{UCS} \cdot u_{char}^{\alpha}},
+        \quad \alpha \in \{d, f\},
 
-    where :math:`K_ad=log(UCS/t_n,p)` is the logarithm of the ratio of the uniaxial
-    compressive strength and the positive normal traction, :math:`t_n,p`, t_trans is the
-    transitional normal strength, and :math:`u_char` is the characteristic fracture
-    roughness.
+    with the convention of negative compressive stress implying
+    :math:`k^{\alpha} \geq 0`. The two channels are distinguished solely by their
+    characteristic slip lengths :math:`u_{char}^{\alpha}`, which absorb Archard's
+    dimensionless wear coefficient and thereby acquire a direct interpretation: the
+    sliding distance required to accumulate unit damage at a normal traction equal to
+    the uniaxial compressive strength.
 
-    For friction damage, we have
-
-    .. math::
-        k^{friction} = 3 \frac{t_n,p}{t_trans \cdot u_char}.
+    The framework requires only that :math:`k^{\alpha}` be a non-negative function of
+    the local state. Richer descriptions -- multi-scale roughness, stress-dependent wear
+    coefficients, or explicitly distinguished adhesive and abrasive mechanisms -- may be
+    substituted by overriding the two coefficient methods, without altering the
+    formulation, its discretisation, or the rest of this implementation.
 
     """
 
@@ -4318,42 +4326,48 @@ class FractureDamageEvolutionCoefficients:
     solid: FractureDamageSolidConstants
     """SolidConstants with damage parameters."""
 
-    def characteristic_fracture_roughness(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Characteristic roughness of the fracture [-].
+    def dilation_characteristic_slip(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Characteristic slip for dilation damage :math:`u_{char}^d` [m].
+
+        Associated with the longer-wavelength waviness of the fracture surface, which is
+        the scale producing resolvable aperture change.
 
         Parameters:
-            subdomains: List of subdomains where the characteristic roughness is
-                defined.
+            subdomains: List of subdomains where the characteristic slip is defined.
 
         Returns:
-            Operator for the characteristic roughness.
+            Operator for the dilation characteristic slip.
+
         """
         return Scalar(
-            self.solid.characteristic_fracture_roughness,
-            "characteristic_fracture_roughness",
+            self.solid.dilation_characteristic_slip,
+            "dilation_characteristic_slip",
         )
 
-    def transitional_normal_strength(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Transitional normal strength for fractures [Pa].
+    def friction_characteristic_slip(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Characteristic slip for friction damage :math:`u_{char}^f` [m].
 
-        From Li et al. (2020), https://doi.org/10.1007/s00603-019-01976-5.
+        Associated with the shorter-wavelength unevenness, which contributes frictional
+        resistance without geometrically resolvable dilation.
 
         Parameters:
-            subdomains: List of subdomains where the strength is defined.
+            subdomains: List of subdomains where the characteristic slip is defined.
 
         Returns:
-            Operator for the transitional normal strength.
+            Operator for the friction characteristic slip.
+
         """
-        strength = Scalar(0.2) * self.uniaxial_compressive_strength(subdomains)
-        strength.set_name("transitional_normal_strength")
-        return strength
+        return Scalar(
+            self.solid.friction_characteristic_slip,
+            "friction_characteristic_slip",
+        )
 
     def dilation_damage_evolution_coefficient(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Damage evolution coefficient for dilation damage [-].
+        r"""Damage evolution coefficient for dilation damage [1/m].
+
+        Implements :math:`k^d = -\lambda_n / (\mathrm{UCS} \cdot u_{char}^d)`.
 
         Parameters:
             subdomains: List of subdomains where the damage coefficient is defined.
@@ -4361,24 +4375,35 @@ class FractureDamageEvolutionCoefficients:
 
         Returns:
             Operator for the dilation damage evolution coefficient.
-        """
-        # The damage evolution coefficient is defined as the logarithm of the ratio of
-        # the uniaxial compressive strength and the tangential component of the contact
-        # traction.
-        f_log = Function(pp.ad.functions.log, "log")
 
-        # Nondimensionlize, since the contact traction is nondimensionalized.
-        dimensionless_strength = self.uniaxial_compressive_strength(
-            subdomains
-        ) / self.characteristic_contact_traction(subdomains)
-        K_ad = f_log(
-            dimensionless_strength / self._positive_normal_traction(subdomains)
-        )
-        coefficient = K_ad * (
-            self.normalized_traction_for_damage(subdomains)
-            / self.characteristic_fracture_roughness(subdomains)
+        """
+        coefficient = self._damage_evolution_coefficient(
+            subdomains, self.dilation_characteristic_slip(subdomains)
         )
         coefficient.set_name("dilation_damage_evolution_coefficient")
+        return coefficient
+
+    def friction_damage_evolution_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        r"""Damage evolution coefficient for friction damage [1/m].
+
+        Implements :math:`k^f = -\lambda_n / (\mathrm{UCS} \cdot u_{char}^f)`. Identical
+        in form to the dilation coefficient; the two differ only by the characteristic
+        slip length.
+
+        Parameters:
+            subdomains: List of subdomains where the damage evolution coefficient is
+                defined. Should be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the friction damage evolution coefficient.
+
+        """
+        coefficient = self._damage_evolution_coefficient(
+            subdomains, self.friction_characteristic_slip(subdomains)
+        )
+        coefficient.set_name("friction_damage_evolution_coefficient")
         return coefficient
 
     def _positive_normal_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -4389,13 +4414,14 @@ class FractureDamageEvolutionCoefficients:
 
         Returns:
             Operator for the positive normal traction.
+
         """
-        # Clip the contact traction to avoid division by zero. The clip is set to
-        # negative values, since the contact traction is negative when the fracture is
-        # in contact, and the dilation effect is only relevant when the fracture is in
-        # contact. As used in this class, the below common factor is linear in traction.
-        # Thus, the product with the log(1/traction) should indeed vanish in the limit
-        # of zero traction.
+        # Clip the contact traction to negative values, i.e. compression, so that the
+        # returned quantity is non-negative. Wear is driven by contact, and a fracture
+        # in tension carries no load to wear against; without the clip a tensile state
+        # would give a negative damage evolution coefficient, i.e. healing. The open
+        # state is additionally excluded by the open-state characteristic in the damage
+        # equations, so this clip guards only the intermediate evaluation.
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
             "clip_function",
@@ -4423,54 +4449,44 @@ class FractureDamageEvolutionCoefficients:
             name="uniaxial_compressive_strength",
         )
 
-    def friction_damage_evolution_coefficient(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Damage evolution coefficient for friction damage [-].
-
-        Parameters:
-            subdomains: List of subdomains where the damage evolution coefficient is
-                defined. Should be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Operator for the friction damage evolution coefficient.
-        """
-        # The damage evolution coefficient is, according to Gao et al (2024), a purely
-        # geometric factor which may be set to 3.
-        characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
-
-        coefficient = Scalar(3.0) * (
-            self.normalized_traction_for_damage(subdomains) / characteristic_roughness
-        )
-        coefficient.set_name("friction_damage_evolution_coefficient")
-        return coefficient
-
-    def normalized_traction_for_damage(
+    def _damage_evolution_coefficient(
         self,
         subdomains: list[pp.Grid],
+        characteristic_slip: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """Utility method used for the normalized traction in damage calculations.
+        r"""Archard damage evolution coefficient for a given characteristic slip [1/m].
 
-        The traction is normalized by the transitional normal strength. We use the
-        positive normal traction to helper method to avoid upstream issues if the
-        traction is passed to a logarithm function, as in the dilation damage
-        coefficient.
+        Implements :math:`k^{\alpha} = -\lambda_n / (\mathrm{UCS} \cdot
+        u_{char}^{\alpha})`. Both channels share this expression and differ only in
+        :math:`u_{char}^{\alpha}`, which is why it is written once here.
+
+        The dimensionless group :math:`-\lambda_n / \mathrm{UCS}` is also the real
+        contact area fraction of adhesion theory, up to the difference between
+        indentation hardness and the uniaxial compressive strength.
+
+        Since :meth:`_positive_normal_traction` clips to the compressive branch, the
+        coefficient is non-negative. This is unconditional, unlike the previous
+        formulation which carried a :math:`\log(\mathrm{UCS}/|\lambda_n|)` factor: that
+        factor changed sign for :math:`|\lambda_n| > \mathrm{UCS}`, implying healing,
+        and made the damage rate peak at :math:`|\lambda_n| = \mathrm{UCS}/e \approx
+        0.37\,\mathrm{UCS}` and decrease above it.
 
         Parameters:
-            subdomains: List of subdomains where the traction is defined.
+            subdomains: List of subdomains where the coefficient is defined.
+            characteristic_slip: The characteristic slip of the damage channel.
 
-            Returns:
-                Operator for the normalized traction.
+        Returns:
+            Operator for the damage evolution coefficient.
+
         """
-        # Nondimensionalize the characteristic contact traction, since the contact
-        # traction is nondimensional.
-        strength = self.transitional_normal_strength(
+        # Nondimensionalize the strength, since the contact traction is nondimensional.
+        strength = self.uniaxial_compressive_strength(
             subdomains
         ) / self.characteristic_contact_traction(subdomains)
 
-        coefficient = self._positive_normal_traction(subdomains) / strength
-        coefficient.set_name("normalized_traction_for_damage")
-        return coefficient
+        return self._positive_normal_traction(subdomains) / (
+            strength * characteristic_slip
+        )
 
 
 class FrictionDamage(pp.PorePyModel):

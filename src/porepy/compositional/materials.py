@@ -440,7 +440,8 @@ class FractureDamageSolidConstants(SolidConstants):
             "friction_damage_decay": "-",
             "basic_friction_coefficient": "-",
             "roughness_friction_coefficient": "-",
-            "characteristic_fracture_roughness": "m",
+            "dilation_characteristic_slip": "m",
+            "friction_characteristic_slip": "m",
             "uniaxial_compressive_strength": "Pa",
         }
     )
@@ -469,7 +470,29 @@ class FractureDamageSolidConstants(SolidConstants):
 
     """
 
-    characteristic_fracture_roughness: float = 1.0
+    dilation_characteristic_slip: float = 1.0
+    r"""Characteristic slip for dilation damage :math:`u_{char}^d` [m].
+
+    The sliding distance required to accumulate unit dilation damage at a normal
+    traction equal to the uniaxial compressive strength; see
+    :class:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients`. It absorbs
+    Archard's dimensionless wear coefficient and is therefore an effective calibrated
+    length rather than a purely geometric one.
+
+    Associated with the longer-wavelength waviness of the fracture surface, which is the
+    scale that produces resolvable aperture change.
+
+    """
+
+    friction_characteristic_slip: float = 1.0
+    r"""Characteristic slip for friction damage :math:`u_{char}^f` [m].
+
+    As :attr:`dilation_characteristic_slip`, but for the friction channel, and
+    associated with the shorter-wavelength unevenness, which contributes frictional
+    resistance without geometrically resolvable dilation.
+
+    """
+
     uniaxial_compressive_strength: float = 1.0
 
 

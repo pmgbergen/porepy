@@ -12,12 +12,10 @@ Covered formulas
 ----------------
 - Damage factor:
     ``d = d0 + (1 - d0) * exp(-clip(Lambda, 0, 10))``
-- Normalized traction:
-    ``(-t_n_nondim) / (0.2 * UCS / char_traction)``
-- Friction damage evolution coefficient:
-    ``3 * normalized_traction / roughness``
-- Dilation damage evolution coefficient:
-    ``log(UCS / (char_traction * pos_normal)) * normalized_traction / roughness``
+- Friction coefficient:
+    ``mu = mu_b + d_f * mu_r``
+- Damage evolution coefficients (both channels, Archard):
+    ``k_alpha = pos_normal / ((UCS / char_traction) * u_char_alpha)``
 - Damage length:
     - Isotropic, k=0: ``L = |u_t_iterate − u_t_ts0|``
     - Anisotropic, k=0: ``L = |max(0, m · u_t_ts0) − |u_t_iterate||``
@@ -195,16 +193,23 @@ class TestDamageStateFormula:
 
 
 class TestDamageEvolutionCoefficients:
-    """Tests for the damage evolution coefficient formulas and normalized traction.
+    r"""Tests for the damage evolution coefficient formulas and normalized traction.
 
     All tests prescribe the contact traction variable to a known nondimensional normal
     value (zero tangential component) and compare the evaluated operator with the
     analytically computed reference.
 
-    The key material parameters (from the default example solid constants) are:
+    The coefficients implement Archard's wear law,
+
+    .. math::
+        k^{\alpha} = |t_n| / (UCS \cdot u_{char}^{\alpha}),
+
+    so both are *linear* in the normal traction and differ only by the characteristic
+    slip length. The key material parameters (from the default example solid constants)
+    are:
 
     - ``UCS = 1e8 Pa``
-    - ``roughness = 1e-4 m``
+    - ``friction_characteristic_slip``, ``dilation_characteristic_slip`` (order 1e-6 m)
     - ``char_traction = numerical.characteristic_contact_traction = 1.0 Pa`` (the
       default in ``NumericalConstants``)
 
@@ -239,7 +244,7 @@ class TestDamageEvolutionCoefficients:
         )
 
     def _material_constants(self, model):
-        """Return (char_traction, UCS, roughness) as floats.
+        """Return (char_traction, UCS, u_char_dilation, u_char_friction) as floats.
 
         ``char_traction`` is obtained by evaluating the operator, which uses the Young's
         modulus and characteristic displacement (not the scalar stored in
@@ -254,147 +259,101 @@ class TestDamageEvolutionCoefficients:
             )
         )
         ucs = float(model.solid.uniaxial_compressive_strength)
-        roughness = float(model.solid.characteristic_fracture_roughness)
-        return char_t, ucs, roughness
+        slip_d = float(model.solid.dilation_characteristic_slip)
+        slip_f = float(model.solid.friction_characteristic_slip)
+        return char_t, ucs, slip_d, slip_f
 
-    def test_normalized_traction_at_transitional_strength(self):
-        """At the transitional normal strength the normalized traction equals 1.
-
-        The transitional strength is ``0.2 * UCS``.  Setting ``t_n_nondim = -0.2 * UCS /
-        char_traction`` places the traction exactly at this level, so the normalized
-        traction should equal 1.
-        """
-        model = _prepared_model(damages=["dilation"])
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_evolution_coefficient_formula(self, damage: str):
+        """Coefficient equals ``|t_n| / (UCS * u_char)`` for both channels."""
+        model = _prepared_model(damages=[damage])
         fractures = self._fractures(model)
         nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, _ = self._material_constants(model)
+        char_t, ucs, slip_d, slip_f = self._material_constants(model)
+        slip = slip_d if damage == "dilation" else slip_f
 
-        self._set_normal_traction(model, -0.2 * ucs / char_t)
-
-        result = model.normalized_traction_for_damage(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, np.ones(nc), rtol=1e-10)
-
-    def test_normalized_traction_scales_linearly_with_traction(self):
-        """Doubling the compressive traction doubles the normalized traction."""
-        model = _prepared_model(damages=["dilation"])
-        fractures = self._fractures(model)
-        char_t, ucs, _ = self._material_constants(model)
-        base_t = -0.2 * ucs / char_t  # normalized = 1 at this level
-
-        def _eval(factor: float) -> np.ndarray:
-            self._set_normal_traction(model, factor * base_t)
-            return model.normalized_traction_for_damage(fractures).value(
-                model.equation_system
-            )
-
-        np.testing.assert_allclose(_eval(2.0), 2.0 * _eval(1.0), rtol=1e-10)
-
-    def test_friction_damage_evolution_coefficient_formula(self):
-        """Friction coefficient equals ``3 * normalized_traction / roughness``.
-
-        At a traction of ``0.4 * UCS / char_traction`` (twice the transitional strength)
-        the normalized traction is 2, so the coefficient should equal ``3 * 2 /
-        roughness = 6 / roughness``.
-        """
-        model = _prepared_model(damages=["friction"])
-        fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, roughness = self._material_constants(model)
-
-        # normalized_traction = 2
+        # Normalized traction = 0.4 at this level.
         self._set_normal_traction(model, -0.4 * ucs / char_t)
-        normalized = 2.0
-        expected = 3.0 * normalized / roughness
+        expected = 0.4 / slip
 
-        result = model.friction_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
+        result = getattr(model, f"{damage}_damage_evolution_coefficient")(
+            fractures
+        ).value(model.equation_system)
         np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-10)
 
-    def test_friction_coefficient_is_negligible_at_zero_traction(self):
-        """Zero normal traction (open fracture) → negligible friction coefficient.
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_evolution_coefficient_is_linear_in_traction(self, damage: str):
+        """The coefficient is linear in the normal traction, with no turning point.
+
+        This is the substantive difference from the previous formulation, whose dilation
+        coefficient carried a ``log(UCS/|t_n|)`` factor: that made the damage rate peak
+        at ``|t_n| = UCS/e`` and *decrease* above it. Linearity is checked across that
+        former turning point.
+        """
+        model = _prepared_model(damages=[damage])
+        fractures = self._fractures(model)
+        char_t, ucs, _, _ = self._material_constants(model)
+        method = getattr(model, f"{damage}_damage_evolution_coefficient")
+
+        def _eval(fraction_of_ucs: float) -> np.ndarray:
+            self._set_normal_traction(model, -fraction_of_ucs * ucs / char_t)
+            return method(fractures).value(model.equation_system)
+
+        # 1/e ~ 0.368 was the old maximum; sample either side of it.
+        base = _eval(0.1)
+        for factor in (2.0, 3.68, 5.0, 9.0):
+            np.testing.assert_allclose(_eval(0.1 * factor), factor * base, rtol=1e-10)
+
+    def test_coefficients_differ_only_by_characteristic_slip(self):
+        """The two channels are distinguished solely by their characteristic slips.
+
+        Their ratio is therefore ``u_char^f / u_char^d``, independent of traction.
+        """
+        model = _prepared_model(damages=["dilation", "friction"])
+        fractures = self._fractures(model)
+        char_t, ucs, slip_d, slip_f = self._material_constants(model)
+
+        for fraction in (0.05, 0.5, 2.0):
+            self._set_normal_traction(model, -fraction * ucs / char_t)
+            c_dil = model.dilation_damage_evolution_coefficient(fractures).value(
+                model.equation_system
+            )
+            c_fri = model.friction_damage_evolution_coefficient(fractures).value(
+                model.equation_system
+            )
+            np.testing.assert_allclose(c_dil / c_fri, slip_f / slip_d, rtol=1e-10)
+
+    @pytest.mark.parametrize("damage", ["dilation", "friction"])
+    def test_coefficient_is_negligible_at_zero_traction(self, damage: str):
+        """Zero normal traction (open fracture) gives a negligible coefficient.
 
         The positive-normal-traction helper clips the contact traction to a maximum of
         ``-1e-15`` (nondim) before negating, so a traction of zero produces ``pos_normal
-        = 1e-15`` rather than exactly zero.  The resulting friction coefficient is then:
-
-        .. math::
-
-            k_{f} = \\frac{3 \\cdot 10^{-15}}{0.2 \\, UCS / t_{char} \\cdot
-                \\text{roughness}}
-
-        which is many orders of magnitude smaller than any physically relevant value.
+        = 1e-15`` rather than exactly zero. The resulting coefficient is
+        ``1e-15 / (UCS/t_char) / u_char``, many orders of magnitude below any physically
+        relevant value.
         """
-        model = _prepared_model(damages=["friction"])
+        model = _prepared_model(damages=[damage])
         fractures = self._fractures(model)
         nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, roughness = self._material_constants(model)
+        char_t, ucs, slip_d, slip_f = self._material_constants(model)
+        slip = slip_d if damage == "dilation" else slip_f
 
         self._set_normal_traction(model, 0.0)
 
         clip_floor = 1e-15  # pos_normal_nondim produced by the clip
-        transitional_nondim = 0.2 * ucs / char_t
-        expected_clip_value = 3.0 * (clip_floor / transitional_nondim) / roughness
+        expected = (clip_floor / (ucs / char_t)) / slip
 
-        result = model.friction_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, expected_clip_value * np.ones(nc), rtol=1e-6)
-
-    def test_dilation_damage_evolution_coefficient_formula(self):
-        """Dilation coefficient equals ``K_ad * normalized_traction / roughness``.
-
-        At a traction of ``0.4 * UCS / char_traction`` the parameters are::
-
-            pos_normal = 0.4 * UCS / char_traction
-            K_ad = log(UCS / (char_traction * pos_normal)) = log(1 / 0.4)
-            normalized_traction = 2.0
-            expected = K_ad * 2.0 / roughness
-        """
-        model = _prepared_model(damages=["dilation"])
-        fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, roughness = self._material_constants(model)
-
-        t_n_nondim = -0.4 * ucs / char_t
-        self._set_normal_traction(model, t_n_nondim)
-
-        pos_normal_nondim = -t_n_nondim  # = 0.4 * ucs / char_t
-        dimensionless_strength = ucs / char_t
-        K_ad = np.log(dimensionless_strength / pos_normal_nondim)
-        normalized = 2.0
-        expected = K_ad * normalized / roughness
-
-        result = model.dilation_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-10)
-
-    def test_dilation_damage_evolution_coefficient_at_ucs(self):
-        """Dilation coefficient diverges (K_ad → 0) as traction approaches UCS.
-
-        At ``t_n_nondim = -UCS / char_traction`` the positive normal traction equals
-        ``UCS / char_traction``, so ``K_ad = log(1) = 0`` and the coefficient is zero.
-        """
-        model = _prepared_model(damages=["dilation"])
-        fractures = self._fractures(model)
-        nc = sum(sd.num_cells for sd in fractures)
-        char_t, ucs, _ = self._material_constants(model)
-
-        self._set_normal_traction(model, -ucs / char_t)
-
-        result = model.dilation_damage_evolution_coefficient(fractures).value(
-            model.equation_system
-        )
-        np.testing.assert_allclose(result, np.zeros(nc), atol=1e-6)
+        result = getattr(model, f"{damage}_damage_evolution_coefficient")(
+            fractures
+        ).value(model.equation_system)
+        np.testing.assert_allclose(result, expected * np.ones(nc), rtol=1e-6)
 
     def test_dilation_and_friction_coefficients_have_same_sign(self):
         """Both coefficients are non-negative under compression."""
         model = _prepared_model(damages=["dilation", "friction"])
         fractures = self._fractures(model)
-        char_t, ucs, _ = self._material_constants(model)
+        char_t, ucs, _, _ = self._material_constants(model)
 
         # Traction well inside the valid range (0.1 * UCS, below UCS)
         self._set_normal_traction(model, -0.1 * ucs / char_t)

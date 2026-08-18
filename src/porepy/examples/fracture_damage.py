@@ -63,7 +63,6 @@ class TimeDependentDamageBCs:
 
 
 DATA_SAVING_METHOD_NAMES = [
-    "normalized_traction_for_damage",
     "damage_length",
     "dilation_damage_state",
     "dilation_damage_evolution_coefficient",
@@ -372,21 +371,32 @@ class ExactSolution:
             var += var_i
         return var
 
-    def normalized_traction_for_damage(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Convenience funtion for common parts of the damage functions.
+    def _damage_evolution_coefficient(
+        self, sd: pp.Grid, n: int, characteristic_slip: float
+    ) -> np.ndarray:
+        """Archard damage evolution coefficient, ``k = -t_n / (UCS * u_char)``.
+
+        Mirrors the constitutive-law method of the same name in
+        :class:`~porepy.constitutive_laws.FractureDamageEvolutionCoefficients`; the two
+        must be changed together.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
             n: Time step index.
+            characteristic_slip: Characteristic slip of the damage channel.
 
         Returns:
-            Array of damage for the given time step."""
+            Array of damage evolution coefficients for the given time step.
+
+        """
         t = self.normal_traction(sd, n)
-        transitional_strength = 0.2 * self.model.solid.uniaxial_compressive_strength
-        return -t / (transitional_strength)
+        ucs = self.model.solid.uniaxial_compressive_strength
+        return -t / (ucs * characteristic_slip)
 
     def dilation_damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the dilation damage coefficient at time step n.
+
+        Archard's law, ``k^d = t_normalized / u_char^d = (-t_n / UCS) / u_char^d``.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
@@ -396,16 +406,14 @@ class ExactSolution:
             Array of dilation damage for the given time step.
 
         """
-        K_ad = np.log(
-            -self.model.solid.uniaxial_compressive_strength
-            / np.clip(self.normal_traction(sd, n), None, -1e-15)
-        )
-        roughness = self.model.solid.characteristic_fracture_roughness
+        slip = self.model.solid.dilation_characteristic_slip
 
-        return self.normalized_traction_for_damage(sd, n) * K_ad / roughness
+        return self._damage_evolution_coefficient(sd, n, slip)
 
     def friction_damage_evolution_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the friction damage coefficient at time step n.
+
+        Archard's law, ``k^f = -t_n / (UCS * u_char^f)``.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
@@ -415,9 +423,9 @@ class ExactSolution:
             Array of friction damage for the given time step.
 
         """
-        roughness = self.model.solid.characteristic_fracture_roughness
+        slip = self.model.solid.friction_characteristic_slip
 
-        return self.normalized_traction_for_damage(sd, n) * 3 / roughness
+        return self._damage_evolution_coefficient(sd, n, slip)
 
 
 class ExactSolutionIsotropic(ExactSolution):
@@ -486,7 +494,16 @@ solid_params.update(
         "basic_friction_coefficient": 0.003,
         "roughness_friction_coefficient": 0.007,
         "uniaxial_compressive_strength": 1e8,
-        "characteristic_fracture_roughness": 1e-4,  # Same order as bc displacements.
+        # Characteristic slips, mapped from the previous single roughness length of 1e-4
+        # m (same order as the bc displacements) so that this fixture keeps its damage
+        # magnitudes. Under the old law k^f = 15|t_n|/(UCS u_char), giving u_char^f =
+        # u_char/15 exactly; k^d additionally carried log(UCS/|t_n|), so u_char^d =
+        # u_char/(5 ln(UCS/|t_n|)) matches only at a reference traction, here the
+        # slip-weighted median 7.51e5 Pa of the previous runs. IS: Could be changed
+        # later to a more physically motivated value, e.g., 1e-5 m for friction and 1e-6
+        # m for dilation. Kept for now to demonstrate coherence with previous results.
+        "friction_characteristic_slip": 6.666666666666667e-06,
+        "dilation_characteristic_slip": 4.088726586591035e-06,
         # Zero is the natural residual since the friction floor lives in mu_b.
         "residual_friction_damage": 0.0,
         "residual_dilation_damage": 0.6,
