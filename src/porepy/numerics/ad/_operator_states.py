@@ -247,13 +247,13 @@ class IterativeOperator:
         """Returns a copy of the iterative operator with an advanced iterate index.
 
         Note:
-            Calling this method on an operator, with ``steps=1``, on an operator
-            representing the current iterate (the next iterate to be computed in an
-            iterative scheme) will return an operator representing the last accepted
-            iterate. When evaluated, the current and last accepted iterate will return
-            the same values, but only the former will have a non-zero Jacobian. To get
-            the difference between the current and second to last accepted iterate, call
-            this method with ``steps=2``.
+            Calling this method with ``steps=1`` on an operator representing the current
+            iterate (the next iterate to be computed in an iterative scheme) will return
+            an operator representing the last accepted iterate. When evaluated, the
+            current and last accepted iterate will return the same values, but only the
+            former will have a non-zero Jacobian. To get the difference between the
+            current and second to last accepted iterate, call this method with
+            ``steps=2``.
 
         Example:
             To obtain the Newton update of an operator
