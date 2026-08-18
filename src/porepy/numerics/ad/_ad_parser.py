@@ -461,7 +461,7 @@ class AdParser:
                         )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                    child_values[1], pp.ad.AdArray
                 ):
                     if operation == Operations.mul:
                         # In the implementation of multiplication between an AdArray and
