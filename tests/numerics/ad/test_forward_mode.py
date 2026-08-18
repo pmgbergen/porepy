@@ -523,3 +523,28 @@ def test_diagonal_ad_array_coerces_int_val_and_jac_to_float():
 
     assert var.val.dtype == float
     assert var.jac.dtype == float
+
+
+def test_diagonal_ad_array_replace():
+    """replace() should build a new DiagonalAdArray with new value/Jacobian data,
+    while reusing (not copying) the original's structural indices."""
+    row_indices = np.array([2, 5])
+    col_indices = [np.array([2, 5])]
+    var = DiagonalAdArray(
+        np.array([1.0, 2.0]),
+        np.array([3.0, 4.0]),
+        row_indices=row_indices,
+        col_indices=col_indices,
+        num_derivatives=6,
+    )
+
+    new_val = np.array([10.0, 20.0])
+    new_jac = np.array([30.0, 40.0])
+    new_var = var.replace(new_val, new_jac)
+
+    assert isinstance(new_var, DiagonalAdArray)
+    assert np.allclose(new_var.val, new_val)
+    assert np.allclose(new_var.jac, new_jac)
+    assert new_var.row_indices is row_indices
+    assert new_var.col_indices is col_indices
+    assert new_var.num_derivatives == 6
