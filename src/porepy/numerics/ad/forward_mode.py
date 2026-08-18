@@ -228,6 +228,40 @@ class AdArray:
         else:
             raise NotImplementedError("Setting")
 
+    def _prepare_other_ad(self, other: AdArray, op_name: str) -> AdArray:
+        """Convert a diagonal ``other`` to full format and validate that its size and
+        Jacobian shape are compatible with this array, ahead of a binary operation
+        between two AdArrays.
+
+        Parameters:
+            other: The other AdArray in the operation.
+            op_name: Name of the operation, used in the error message if the sizes
+                are incompatible.
+
+        Raises:
+            ValueError: If the sizes of the two arrays are incompatible.
+
+        Returns:
+            ``other``, converted to full (non-diagonal) format if necessary.
+
+        """
+        if other._is_diagonal:
+            other = other.to_full()
+        if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
+            raise ValueError(f"Incompatible sizes for AdArray {op_name}.")
+        return other
+
+    def _check_1d_operand(self, other: np.ndarray, op_name: str) -> None:
+        """Raise a ValueError unless ``other`` is a one dimensional numpy array.
+
+        Parameters:
+            other: The numpy array to check.
+            op_name: Name of the operation, used in the error message.
+
+        """
+        if other.ndim != 1:
+            raise ValueError(f"Only 1d numpy arrays can be used for AdArray {op_name}.")
+
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
 
@@ -250,18 +284,14 @@ class AdArray:
             return AdArray(self.val + float(other), self.jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError("Only 1d numpy arrays can be added to AdArrays")
+            self._check_1d_operand(other, "addition")
             return AdArray(self.val + other, self.jac)
 
         elif isinstance(other, _SPARSE_TYPES):
             raise ValueError("Sparse matrices cannot be added to AdArrays")
 
         elif isinstance(other, pp.ad.AdArray):
-            if other._is_diagonal:
-                other = other.to_full()
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError("Incompatible sizes for AdArray addition")
+            other = self._prepare_other_ad(other, "addition")
             return AdArray(self.val + other.val, self.jac + other.jac)
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray addition")
@@ -336,10 +366,7 @@ class AdArray:
             return AdArray(self.val * other, self.jac * other)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError(
-                    "Only 1d numpy arrays can be multiplied elementwise with AdArrays."
-                )
+            self._check_1d_operand(other, "elementwise multiplication")
             # The below line will invoke numpy's __mul__ method on the values.
             new_val = self.val * other
             # The Jacobian will have its columns scaled with the values in other.
@@ -356,13 +383,7 @@ class AdArray:
             )
 
         elif isinstance(other, pp.ad.AdArray):
-            if other._is_diagonal:
-                other = other.to_full()
-
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible sizes for AdArray elementwise multiplication."
-                )
+            other = self._prepare_other_ad(other, "elementwise multiplication")
 
             # For the values, use elementwise multiplication, as implemented by
             # numpy's __mul__ method
@@ -436,10 +457,7 @@ class AdArray:
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError(
-                    "AdArrays can only be raised to powers of 1d numpy arrays."
-                )
+            self._check_1d_operand(other, "power")
             # This is a polynomial, but with different coefficients for each element
             # in self.val. Numpy can be picky on raising arrays to negative powers,
             # without EK ever understanding why, so we convert to a float
@@ -458,13 +476,7 @@ class AdArray:
             return other.__rpow__(self)
 
         elif isinstance(other, pp.ad.AdArray):
-            if other._is_diagonal:
-                other = other.to_full()
-
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible sizes for AdArray elementwise multiplication."
-                )
+            other = self._prepare_other_ad(other, "power")
 
             # This is an expression of the type f = x^y, with derivative
             #
@@ -509,10 +521,7 @@ class AdArray:
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError(
-                    "Only 1d numpy arrays can be raised to the power of an AdArray."
-                )
+            self._check_1d_operand(other, "power")
             # This is an exponent with different coefficients for each element in
             # self.val. Numpy appears to be using dtype instead of values to determine
             # the output type. Consequently, the multiplicative inverse / negative
@@ -530,14 +539,7 @@ class AdArray:
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
 
         elif isinstance(other, pp.ad.AdArray):
-            if other._is_diagonal:
-                other = other.to_full()
-
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible sizes for AdArray elementwise multiplication."
-                )
-
+            other = self._prepare_other_ad(other, "power")
             return other.__pow__(self)
 
         else:
@@ -563,8 +565,7 @@ class AdArray:
             return AdArray(new_val, new_jac)
 
         elif isinstance(other, np.ndarray):
-            if other.ndim != 1:
-                raise ValueError("AdArrays can only be divided by 1d numpy arrays.")
+            self._check_1d_operand(other, "division")
 
             new_val = self.val * other.astype(float) ** (-1.0)
             # The Jacobian will have its columns scaled with the values in other,
@@ -580,14 +581,7 @@ class AdArray:
             return other.__rtruediv__(self)
 
         elif isinstance(other, pp.ad.AdArray):
-            if other._is_diagonal:
-                other = other.to_full()
-
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible sizes for AdArray elementwise multiplication."
-                )
-
+            other = self._prepare_other_ad(other, "division")
             return self.__mul__(other.__pow__(-1.0))
 
         else:
@@ -614,14 +608,7 @@ class AdArray:
             return self.__pow__(-1.0) * other
 
         elif isinstance(other, pp.ad.AdArray):
-            if other._is_diagonal:
-                other = other.to_full()
-
-            if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
-                raise ValueError(
-                    "Incompatible sizes for AdArray elementwise multiplication."
-                )
-
+            other = self._prepare_other_ad(other, "division")
             return other.__mul__(self.__pow__(-1.0))
 
         else:
