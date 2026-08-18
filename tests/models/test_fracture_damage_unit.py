@@ -11,7 +11,7 @@ initialize the equation system and geometry. Values are then injected directly v
 Covered formulas
 ----------------
 - Damage factor:
-    ``d = d0 + (1 - d0) * exp(-clip(Lambda, 0, 10))``
+    ``d = d0 + (1 - d0) * exp(-max(Lambda, 0))``
 - Friction coefficient:
     ``mu = mu_b + d_f * mu_r``
 - Damage evolution coefficients (both channels, Archard):
@@ -83,7 +83,6 @@ def _prepared_model(
         if isotropic
         else damage_example.ExactSolutionAnisotropic
     )
-
     model = model_class(params)
     model.prepare_simulation()
     return model
@@ -429,6 +428,7 @@ class TestFrictionCoefficientSplit:
         # The surviving roughness contribution is a negligible fraction of mu_r, so the
         # coefficient has effectively decayed to the basic friction floor.
         assert np.all((result - mu_b) < 1e-4 * mu_r)
+
 
 # ---------------------------------------------------------------------------
 # 3.  Damage length kernel

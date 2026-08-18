@@ -4552,11 +4552,17 @@ class FrictionDamage(pp.PorePyModel):
             Operator for nondimensionalized frictional damage.
 
         """
+        # Guard against negative history. The history is non-decreasing in exact
+        # arithmetic, since both the evolution coefficient and the length function are
+        # non-negative, but it is a solved variable and a Newton iterate may undershoot.
+        # A negative value would make exp(-history) blow up rather than decay, so the
+        # lower bound is retained. No upper bound is imposed: exp(-history) decays
+        # smoothly and underflows gracefully, whereas clipping introduces a kink in the
+        # Jacobian at the clip value.
         f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=np.inf),
             "clip_function",
         )
-        # Get the history variable. Guard against negative values.
         history = f_clip(self.friction_damage_history(subdomains))
 
         # Get the material parameter.
@@ -4652,19 +4658,30 @@ class DilationDamage(pp.PorePyModel):
         2. the computation of the dilation damage state from the history variable.
 
     The dilation damage state is the factor by which shear dilation is modified compared
-    to the non-damaged case:
+    to the intact case:
 
     .. math::
-        g = d g_0,
+        \widetilde{g} = d^d \tan\psi \left\| u_t^p \right\|,
 
-    where :math:`g_0` is the non-damaged dilation gap. The dilation damage state is
-    computed from the damage history variable :math:`\Lambda` according to J. White
-    (2014) https://doi.org/10.1002/nag.2247, as
+    with :math:`\psi` the dilation angle. Note that no residual gap is included; a
+    fracture with a non-vanishing aperture in the mated configuration would add one, and
+    the residual *hydraulic* aperture enters through the permeability relation instead.
+
+    The damage state is computed from the damage history variable :math:`\Lambda`
+    following the exponential softening of J. White (2014)
+    https://doi.org/10.1002/nag.2247, as
 
     .. math::
         d = d_0 + (1 - d_0)  \exp⁡(-\Lambda)
 
-    where :math:`d_0` is the initial dilation  damage.
+    where :math:`d_0` is the *residual* dilation damage, towards which the value
+    :math:`d` decays. Applying the damage to the dilation angle is an extension of
+    White, who applies his multiplier to the yield function alone and leaves the
+    dilation curve unaltered.
+
+    Unlike the friction channel, the natural choice here is :math:`d_0 > 0`: taking
+    :math:`d_0 = 0` would drive the aperture back to zero under sustained shear, since
+    the gap is proportional to :math:`d^d`.
 
     """
 
@@ -4685,11 +4702,17 @@ class DilationDamage(pp.PorePyModel):
             Operator for dimensionless dilation damage.
 
         """
+        # Guard against negative history. The history is non-decreasing in exact
+        # arithmetic, since both the evolution coefficient and the length function are
+        # non-negative, but it is a solved variable and a Newton iterate may undershoot.
+        # A negative value would make exp(-history) blow up rather than decay, so the
+        # lower bound is retained. No upper bound is imposed: exp(-history) decays
+        # smoothly and underflows gracefully, whereas clipping introduces a kink in the
+        # Jacobian at the clip value.
         f_clip = Function(
-            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=np.inf),
             "clip_function",
         )
-        # Get the history variable. Guard against negative values.
         history = f_clip(self.dilation_damage_history(subdomains))
 
         # Get the material parameter.

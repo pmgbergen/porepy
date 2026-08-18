@@ -165,8 +165,13 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
 
     This model combines fracture damage mechanics with momentum balance and force
     balance across interfaces. Variables are matrix and interface displacements, contact
-    traction, and damage. The model is isotropic, i.e., the damage is independent of the
-    loading direction.
+    traction, and damage.
+
+    The class carries no damage length of its own: mix in either
+    :class:`~porepy.models.fracture_damage.IsotropicFractureDamageLength` or
+    :class:`~porepy.models.fracture_damage.AnisotropicFractureDamageLength` to choose
+    whether the damage depends on the loading direction, as
+    :func:`create_displacement_controlled_setup` does via its ``isotropic`` argument.
 
     Also contains specifics defining a test case in terms of the boundary conditions.
 
@@ -494,17 +499,18 @@ solid_params.update(
         "basic_friction_coefficient": 0.003,
         "roughness_friction_coefficient": 0.007,
         "uniaxial_compressive_strength": 1e8,
-        # Characteristic slips, mapped from the previous single roughness length of 1e-4
-        # m (same order as the bc displacements) so that this fixture keeps its damage
-        # magnitudes. Under the old law k^f = 15|t_n|/(UCS u_char), giving u_char^f =
-        # u_char/15 exactly; k^d additionally carried log(UCS/|t_n|), so u_char^d =
-        # u_char/(5 ln(UCS/|t_n|)) matches only at a reference traction, here the
-        # slip-weighted median 7.51e5 Pa of the previous runs. IS: Could be changed
-        # later to a more physically motivated value, e.g., 1e-5 m for friction and 1e-6
-        # m for dilation. Kept for now to demonstrate coherence with previous results.
+        # Characteristic slips, mapped from the previous single roughness length of
+        # 1e-4 m (same order as the bc displacements) so that this fixture keeps its
+        # damage magnitudes. Under the old law k^f = 15|t_n|/(UCS u_char), giving
+        # u_char^f = u_char/15 exactly; k^d additionally carried log(UCS/|t_n|), so
+        # u_char^d = u_char/(5 ln(UCS/|t_n|)) matches only at a reference traction,
+        # here the slip-weighted median 7.51e5 Pa of the previous runs. . IS: Could be
+        # changed later to a more physically motivated value, e.g., 1e-5 m for friction
+        # and 1e-6 m for dilation. Kept for now to demonstrate compliance with previous
+        # results.
         "friction_characteristic_slip": 6.666666666666667e-06,
         "dilation_characteristic_slip": 4.088726586591035e-06,
-        # Zero is the natural residual since the friction floor lives in mu_b.
+        # Zero is the natural residual now that the friction floor lives in mu_b.
         "residual_friction_damage": 0.0,
         "residual_dilation_damage": 0.6,
         "dilation_angle": 0.01,  # [rad] # Low but nonzero dilation angle to get some

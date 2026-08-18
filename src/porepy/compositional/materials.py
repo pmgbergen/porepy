@@ -436,8 +436,6 @@ class FractureDamageSolidConstants(SolidConstants):
         {
             "residual_dilation_damage": "-",
             "residual_friction_damage": "-",
-            "dilation_damage_decay": "-",
-            "friction_damage_decay": "-",
             "basic_friction_coefficient": "-",
             "roughness_friction_coefficient": "-",
             "dilation_characteristic_slip": "m",
@@ -445,12 +443,33 @@ class FractureDamageSolidConstants(SolidConstants):
             "uniaxial_compressive_strength": "Pa",
         }
     )
-    # Initial value 1 implies no frictional damage, 0.0 implies no damage at all.
-    # Consider renaming to `friction_damage_weight`.
     residual_friction_damage: float = 1.0
-    friction_damage_decay: float = 0.0
+    r"""Residual friction damage state :math:`d_0^f` [-].
+
+    The value the friction damage state decays to as the history variable grows, in
+    :math:`d^f = d_0^f + (1 - d_0^f)\exp(-\Lambda^f)`.
+
+    :math:`d_0^f = 1` holds :math:`d^f \equiv 1` and thereby switches friction damage
+    off, leaving the intact coefficient :math:`\mu_b + \mu_r`; this is how an undamaged
+    reference run is configured. :math:`d_0^f = 0` is the natural residual now that the
+    friction floor is carried by :attr:`basic_friction_coefficient`: a fully worn
+    fracture retains exactly basic friction.
+
+    """
+
     residual_dilation_damage: float = 1.0
-    dilation_damage_decay: float = 0.0
+    r"""Residual dilation damage state :math:`d_0^d` [-].
+
+    As :attr:`residual_friction_damage`, but multiplying the shear dilation gap.
+
+    :math:`d_0^d = 1` switches dilation damage off. Unlike the friction channel, the
+    natural choice here is :math:`d_0^d > 0`, leaving a finite residual dilation rate
+    and hence a bounded but non-vanishing aperture; :math:`d_0^d = 0` would drive the
+    aperture back to zero under sustained shear, since the gap is proportional to
+    :math:`d^d`. The asymmetry with the friction channel is deliberate.
+
+    """
+
     basic_friction_coefficient: float = 1.0
     r"""Basic friction coefficient :math:`\mu_b = \tan\varphi_b` [-].
 
