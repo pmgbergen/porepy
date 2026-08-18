@@ -142,7 +142,6 @@ class Discretization(abc.ABC):
             DOFs per grid entity that occupy the rows of the named matrix.
 
         """
-        pass
 
     @abc.abstractmethod
     def get_col_dof_info(
@@ -165,7 +164,6 @@ class Discretization(abc.ABC):
             DOFs per grid entity that occupy the columns of the named matrix.
 
         """
-        pass
 
 
 class InterfaceDiscretization(abc.ABC):
