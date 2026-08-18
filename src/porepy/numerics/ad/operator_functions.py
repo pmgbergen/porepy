@@ -103,10 +103,6 @@ class AbstractFunction(Operator):
         assert len(args) > 0, (
             "Operator functions must be called with at least 1 argument."
         )
-
-        # Space intentionally unspecified: the function application node only stores the
-        # evaluation structure, and does not infer result spaces from arbitrary
-        # callables.
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
             operation=pp.ad.operators.Operations.evaluate,

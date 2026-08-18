@@ -115,11 +115,15 @@ class DualElliptic(Discretization):
     def get_row_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
+        # Though the method is present in the base class, it is not expected to be used
+        # by the dual elliptic methods. Return empty.
         return {}
 
     def get_col_dof_info(
         self, matrix_key: str = "", nd: int = 1
     ) -> dict["GridEntity", int]:
+        # Though the method is present in the base class, it is not expected to be used
+        # by the dual elliptic methods. Return empty.
         return {}
 
     def assemble_matrix_rhs(
