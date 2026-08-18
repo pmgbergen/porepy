@@ -325,7 +325,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
 
         all_diagonal = True
         for arg in args:
-            if not isinstance(arg, AdArray) or not arg._is_diagonal:
+            if not isinstance(arg, AdArray) or not arg.is_diagonal:
                 all_diagonal = False
                 break
 
@@ -342,7 +342,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
             csr_jacs = []
             for arg in args:
                 if isinstance(arg, AdArray):
-                    if arg._is_diagonal:
+                    if arg.is_diagonal:
                         # If the arguments are a mix of diagonal and standard AdArrays,
                         # we will need to convert the former to full beore constructing
                         # the Jacobian matrix for the surrogate operator.
