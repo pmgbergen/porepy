@@ -158,11 +158,11 @@ class Operator:
         return self._target
 
     @property
-    def domains(self) -> list:
+    def domains(self) -> tuple[GridLike, ...]:
         """List of domains where the operator is defined."""
         if self._target is None:
-            return []
-        return list(self._target.grids)
+            return ()
+        return self._target.grids
 
     @property
     def name(self) -> str:
