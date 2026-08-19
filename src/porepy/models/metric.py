@@ -269,12 +269,12 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         for variable, indices in variable_indexer.indices.items():
             dim = variable.source.dof_info[GridEntity.cells]
             space = OperatorSpace.from_domains(
-                [variable.domains[0]], {GridEntity.cells: dim}
+                [variable.domain], {GridEntity.cells: dim}
             )
             variable_values = pp.ad.DenseArray(
                 values[indices], source=space, target=space
             )
-            domains: pp.GridLikeSequence = [variable.domains[0]]  # type: ignore[assignment]
+            domains: pp.GridLikeSequence = [variable.domain]  # type: ignore[assignment]
             norms[variable.name] += (
                 self._lebesgue2_norm(variable_values, dim, domains) ** 2
             )
