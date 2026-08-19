@@ -204,6 +204,8 @@ class OperatorSpace:
                 domain type, and an empty ``domains`` sequence will *not* be interpreted
                 as a scalar space. Needed by grid operators whose domain type is known
                 from context even if they are constructed on an empty list of grids.
+                If not given (the default), the domain type is inferred from the grid
+                types found in ``domains``.
 
         Raises:
             ValueError: If ``domains`` contains a mix of grid types.

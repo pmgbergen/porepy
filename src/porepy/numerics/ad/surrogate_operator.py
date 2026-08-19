@@ -517,10 +517,7 @@ class SurrogateFactory:
             )
         # On the boundary, this is a Time-Dependent dense array
         elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
-            # TODO: domains should be non-empty. Can we drop domain_type here?
-            return pp.ad.TimeDependentDenseArray(
-                self.name, domains, domain_type=pp.ad.DomainType.boundary_grids
-            )
+            return pp.ad.TimeDependentDenseArray(self.name, domains)
         # On subdomains or interfaces, create the surrogate operators
         elif all(isinstance(grid, pp.Grid) for grid in domains) or all(
             isinstance(grid, pp.MortarGrid) for grid in domains
