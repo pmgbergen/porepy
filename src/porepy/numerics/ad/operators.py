@@ -1485,7 +1485,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     def _key(self):
         if self._cached_key is None:
             self._cached_key = (
-                f"(var, name={self.name}, domain={str(self.domains[0].id)})"
+                f"(var, name={self.name}, domain={str(self.domain.id)})"
             )
         return self._cached_key
 
@@ -1548,10 +1548,10 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self.domains[0], pp.Grid):
-            data = mdg.subdomain_data(self.domains[0])
-        elif isinstance(self.domains[0], pp.MortarGrid):
-            data = mdg.interface_data(self.domains[0])
+        if isinstance(self.domain, pp.Grid):
+            data = mdg.subdomain_data(self.domain)
+        elif isinstance(self.domain, pp.MortarGrid):
+            data = mdg.interface_data(self.domain)
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa
@@ -1565,10 +1565,10 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
 
     def __repr__(self) -> str:
         s = f"Variable {self.name} with id {self.id}"
-        if isinstance(self.domains[0], pp.MortarGrid):
-            s += f" on interface {self.domains[0].id}\n"
+        if isinstance(self.domain, pp.MortarGrid):
+            s += f" on interface {self.domain.id}\n"
         else:
-            s += f" on grid {self.domains[0].id}\n"
+            s += f" on grid {self.domain.id}\n"
 
         assert self.target is not None
         dof_info = self.target.dof_info
@@ -1648,7 +1648,7 @@ class MixedDimensionalVariable(Variable):
             current_iter.append(var.is_current_iterate)
             reference.append(var.is_reference)
             names.append(var.name)
-            domains.append(var.domains[0])
+            domains.append(var.domain)
             # Every Variable (atomic or itself a MixedDimensionalVariable) is
             # guaranteed a non-None source by its own constructor (see
             # Variable.__init__ and the else-branch below for the 0-variable case),
