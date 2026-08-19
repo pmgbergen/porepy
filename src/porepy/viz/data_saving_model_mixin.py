@@ -125,7 +125,7 @@ class DataSavingMixin(pp.PorePyModel):
             )
             units = var.tags["si_units"]
             values = self.units.convert_units(scaled_values, units, to_si=True)
-            data.append((var.domains[0], var.name, values))
+            data.append((var.domain, var.name, values))
 
         # Add secondary variables/derived quantities.
         # All models are expected to have the dimension reduction methods for aperture

@@ -277,7 +277,7 @@ class EquationSystem:
         """List containing all domains where at least one variable is defined."""
         domains = set()
         for var in self.variables:
-            domains.add(var.domains[0])
+            domains.add(var.domain)
         return list(domains)
 
     ### Indexers -----------------------------------------------------------------------
@@ -416,13 +416,13 @@ class EquationSystem:
             # We don't allow combinations of variables with different domain types
             # in a md variable.
             heterogeneous_domain = False
-            if isinstance(variables[0].domains[0], pp.Grid):
+            if isinstance(variables[0].domain, pp.Grid):
                 heterogeneous_domain = any(
-                    [isinstance(var.domains[0], pp.MortarGrid) for var in variables]
+                    [isinstance(var.domain, pp.MortarGrid) for var in variables]
                 )
-            elif isinstance(variables[0].domains[0], pp.MortarGrid):
+            elif isinstance(variables[0].domain, pp.MortarGrid):
                 heterogeneous_domain = any(
-                    [isinstance(var.domains[0], pp.Grid) for var in variables]
+                    [isinstance(var.domain, pp.Grid) for var in variables]
                 )
             else:
                 raise ValueError("Unknown domain type for variable")
@@ -434,7 +434,7 @@ class EquationSystem:
             variables = [
                 var
                 for var in self.variables
-                if var.name == name and var.domains[0] in domains
+                if var.name == name and var.domain in domains
             ]
         return MixedDimensionalVariable(variables)
 
@@ -513,8 +513,8 @@ class EquationSystem:
 
         # Check if a md variable was already defined under that name on any of grids.
         for var in self.variables:
-            if var.name == name and var.domains[0] in grids:
-                raise KeyError(f"Variable {name} already defined on {var.domains[0]}.")
+            if var.name == name and var.domain in grids:
+                raise KeyError(f"Variable {name} already defined on {var.domain}.")
 
         for grid in grids:
             if subdomains:
@@ -645,7 +645,7 @@ class EquationSystem:
         # Using the ordering of the input list.
         variables = self._parse_variable_type(variables, ordered=False)
         for var in variables:
-            if var.domains[0] in grids:
+            if var.domain in grids:
                 # Add variable if tag_name is not specified or if the variable has the
                 # tag and the tag value matches the requested value.
                 if tag_name is None:
@@ -697,7 +697,7 @@ class EquationSystem:
         for variable in variables:
             val = pp.get_solution_values(
                 variable.name,
-                self._get_data(variable.domains[0]),
+                self._get_data(variable.domain),
                 time_step_index=time_step_index,
                 iterate_index=iterate_index,
                 reference=reference,
@@ -768,7 +768,7 @@ class EquationSystem:
             pp.set_solution_values(
                 variable.name,
                 local_vec,
-                self._get_data(grid=variable.domains[0]),
+                self._get_data(grid=variable.domain),
                 time_step_index=time_step_index,
                 iterate_index=iterate_index,
                 additive=additive,
@@ -808,7 +808,7 @@ class EquationSystem:
         for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
                 var.name,
-                self._get_data(var.domains[0]),
+                self._get_data(var.domain),
                 pp.TIME_STEP_SOLUTIONS,
                 max_index,
             )
@@ -823,7 +823,7 @@ class EquationSystem:
         for var in self._parse_variable_type(variables, ordered=False):
             pp.shift_solution_values(
                 var.name,
-                self._get_data(var.domains[0]),
+                self._get_data(var.domain),
                 pp.ITERATE_SOLUTIONS,
                 max_index,
             )
@@ -1663,7 +1663,7 @@ class EquationSystem:
         all_variables: set[str] = set([var.name for var in self.variables])
         variable_grid: dict[str, list[pp.GridLike]] = {var: [] for var in all_variables}
         for var in self.variables:
-            variable_grid[var.name].append(var.domains[0])
+            variable_grid[var.name].append(var.domain)
 
         s += (
             f"There are in total {len(all_variables)} variables,"
@@ -1712,7 +1712,7 @@ def cluster_dofs_gridwise(variables: list[pp.ad.Variable]) -> list[pp.ad.Variabl
     """
     mapping_grid_to_domains = defaultdict(lambda: [])
     for variable in variables:
-        mapping_grid_to_domains[variable.domains[0]].append(variable)
+        mapping_grid_to_domains[variable.domain].append(variable)
 
     known_grids = list(
         sorted(
