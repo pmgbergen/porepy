@@ -1516,7 +1516,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         """Returns the subdomain or interface on which this variable is defined."""
         # This method is added to the atomic variable for the purpose of filtering
         # in the Indexer class.
-        return cast(pp.Grid | pp.MortarGrid, self.source.grids[0])
+        return cast(pp.Grid | pp.MortarGrid, self.target.grids[0])
 
     @property
     def size(self) -> int:
