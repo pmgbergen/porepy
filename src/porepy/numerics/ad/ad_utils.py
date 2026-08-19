@@ -267,12 +267,12 @@ def uniquify_discretization_list(
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
-            # Add new discretization with associated list of grids.
-            # Need a copy here to avoid assigning additional grids to this
-            # discretization (if not copy, this may happen if
-            # the key-discr combination is encountered a second time and the
-            # code enters the if part of this if-else).
-            grid_likes = discr.domains.copy()
+            # Add new discretization with associated list of grids. Conversoin to list
+            # creates a copy, which avoids assigning additional grids to this
+            # discretization (if not copy, this may happen if the key-discr combination
+            # is encountered a second time and the code enters the if part of this
+            # if-else).
+            grid_likes = list(discr.domains)
             unique_discr_grids[discr._discr] = grid_likes
 
     return unique_discr_grids
@@ -385,8 +385,8 @@ class MergedOperator(operators.Operator):
         self._inner_physics_key = inner_physics_key
 
     @property
-    def domains(self) -> list[pp.GridLike]:
-        return list(self._merged_domains)
+    def domains(self) -> tuple[pp.GridLike, ...]:
+        return tuple(self._merged_domains)
 
     def __repr__(self) -> str:
         domain_label = (

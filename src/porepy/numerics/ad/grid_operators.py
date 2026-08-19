@@ -5,7 +5,7 @@ defined here are mainly wrappers that constructs Ad matrices based on grid infor
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -1101,7 +1101,10 @@ class Divergence(Operator):
             multiple subdomains.
 
         """
-        mat = [sd.divergence(dim=self.dim) for sd in self.domains]
+        # Divergence operators are always constructed on subdomains (see __init__),
+        # so self.domains only ever contains pp.Grid instances here.
+        subdomains = cast(Sequence[pp.Grid], self.domains)
+        mat = [sd.divergence(dim=self.dim) for sd in subdomains]
         matrix = pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)
         return matrix
 
