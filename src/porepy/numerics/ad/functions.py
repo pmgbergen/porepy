@@ -214,7 +214,11 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
     vals[nonzero_inds] = _val[nonzero_inds] ** power
     if isinstance(var, np.ndarray):
         return vals
-    new_jac = var.diagvec_mul_jac(power * vals ** (power - 1.0))
+    der_factor = np.zeros_like(_val)
+    der_factor[nonzero_inds] = power * _val[nonzero_inds] ** (power - 1.0)
+    if var.is_diagonal:
+        return var.replace(vals, der_factor * var.jac)
+    new_jac = var.diagvec_mul_jac(der_factor)
     return AdArray(vals, new_jac)
 
 
