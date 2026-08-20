@@ -65,9 +65,15 @@ def linear_system_data() -> LinearSystemData:
         }
     )
 
-    secondary_variable_0 = pp.ad.Variable("secondary_0", {"cells": 1}, domain)
-    primary_variable = pp.ad.Variable("primary", {"cells": 1}, domain)
-    secondary_variable_1 = pp.ad.Variable("secondary_1", {"cells": 1}, domain)
+    secondary_variable_0 = pp.ad.Variable(
+        "secondary_0", {pp.ad.GridEntity.cells: 1}, domain
+    )
+    primary_variable = pp.ad.Variable(
+        "primary", {pp.ad.GridEntity.cells: 1}, domain
+    )
+    secondary_variable_1 = pp.ad.Variable(
+        "secondary_1", {pp.ad.GridEntity.cells: 1}, domain
+    )
     variable_indexer = pp.ad.VariableIndexer(
         indices={
             secondary_variable_0: np.array([0]),

@@ -39,7 +39,7 @@ from ._operator_states import (
     _get_reference,
 )
 from .forward_mode import AdArray
-from .grid_entity import GridEntity
+from .grid_entity import GridEntities, GridEntity
 from .operator_space import DomainType, OperatorSpace
 
 if TYPE_CHECKING:
@@ -1640,7 +1640,7 @@ class MixedDimensionalVariable(Variable):
         reference = []
         names = []
         domains = []
-        dof_infos: list[dict[GridEntity, int]] = []
+        dof_infos: list[GridEntities] = []
 
         for var in variables:
             time_indices.append(var.time_step_index)

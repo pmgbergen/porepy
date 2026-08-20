@@ -77,7 +77,7 @@ class FracturePropagation(abc.ABC):
         domain: pp.Grid | pp.MortarGrid,
         d: dict,
         var: str,
-        dofs: dict[pp.ad.GridEntity, int],
+        dofs: pp.ad.GridEntities,
     ) -> np.ndarray:
         """Initialize a new variable field with the right size for a new variable.
 
@@ -89,8 +89,8 @@ class FracturePropagation(abc.ABC):
             d: Data dictionary. Should contain a field cell_index_map (an sps.spmatrix)
                 which maps from old to new cell indices.
             var: Name of variable.
-            dofs: Dictionary with number of DOFs per cell (or face/node). In practice,
-                use the standard way of defining variables.
+            dofs: Number of DOFs per cell (or face/node). In practice, use the standard
+                way of defining variables.
 
         Returns:
             vals: np.ndarray
