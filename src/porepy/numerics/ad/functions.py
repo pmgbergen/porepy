@@ -353,8 +353,11 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
         or ndarray (depending on the input).
     """
     if isinstance(var, pp.ad.AdArray):
+        val = np.heaviside(var.val, zerovalue)
+        if var.is_diagonal:
+            return var.replace(val, np.zeros_like(var.jac))
         zero_jac = sps.csr_matrix(var.jac.shape)
-        return pp.ad.AdArray(np.heaviside(var.val, zerovalue), zero_jac)
+        return pp.ad.AdArray(val, zero_jac)
     else:
         return np.heaviside(var, zerovalue)
 
@@ -528,6 +531,8 @@ def characteristic_function(tol: float, var: FloatType) -> FloatType:
     vals = np.zeros(var.val.size)
     zero_inds = np.isclose(var.val, 0, atol=tol)
     vals[zero_inds] = 1.0
+    if var.is_diagonal:
+        return var.replace(vals, np.zeros_like(var.jac))
     jac = sps.csr_matrix(var.jac.shape)
     return AdArray(vals, jac)
 
