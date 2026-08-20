@@ -86,7 +86,12 @@ class Operator:
         children (optional): List of children, other AD operators. Defaults to empty
             list.
         source: Algebraic source space of this operator.
-        target: Algebraic target space of this operator.
+        target: Algebraic target space of this operator. If not given (or explicitly
+            ``None``), defaults to ``source``, i.e. the operator is assumed to be a
+            self-mapping. Subclasses representing a genuinely non-self-mapping
+            operator (source and target differ) should declare ``target`` as a
+            required parameter in their own ``__init__`` rather than relying on this
+            default.
 
     """
 
@@ -97,16 +102,18 @@ class Operator:
         children: Optional[Sequence[Operator]] = None,
         *,
         source: OperatorSpace,
-        target: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
-        self._source: OperatorSpace = source
-        self._target: OperatorSpace = target
-
-        if source is None or target is None:
+        if source is None:
             raise TypeError(
                 f"{self.__class__.__name__} must be constructed with a non-None "
-                "source and target OperatorSpace."
+                "source OperatorSpace."
             )
+        if target is None:
+            target = source
+
+        self._source: OperatorSpace = source
+        self._target: OperatorSpace = target
 
         self.func: Callable[..., float | np.ndarray | AdArray]
         """Functional representation of this operator.
