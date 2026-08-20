@@ -106,6 +106,8 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
         mask = (var.val > min_val) & (var.val < max_val)
         mask_diag = mask.astype(float)
 
+        if var.is_diagonal:
+            return var.replace(val, var.jac * mask_diag)
         mask_matrix = sps.diags(mask_diag)
         jac = mask_matrix @ var.jac
         return AdArray(val, jac)
@@ -621,6 +623,9 @@ def mask_by_threshold(tol: float, char_var: FloatType, var: FloatType) -> FloatT
                 return float(char_inds) * var
     vals = var.val.copy()
     vals[np.logical_not(char_inds)] = 0.0
-    jac = var.jac.copy()
+    if var.is_diagonal:
+        return var.replace(vals, var.jac * char_inds.astype(float))
+    # zero_rows requires csr format; var.jac may be csc (or another sparse format).
+    jac = var.jac.tocsr() if var.jac.getformat() != "csr" else var.jac.copy()
     pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
     return AdArray(vals, jac)
