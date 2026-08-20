@@ -1573,9 +1573,9 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
         assert self.target is not None
         dof_info = self.target.dof_info
         s += (
-            f"Degrees of freedom: cells ({dof_info.get(GridEntity.cells, 0)}), "
-            f"faces ({dof_info.get(GridEntity.faces, 0)}), "
-            f"nodes ({dof_info.get(GridEntity.nodes, 0)})\n"
+            f"Degrees of freedom: cells ({dof_info.cells}), "
+            f"faces ({dof_info.faces}), "
+            f"nodes ({dof_info.nodes})\n"
         )
         if self.is_reference:
             s += f"Evaluated at the reference solution.\n"
