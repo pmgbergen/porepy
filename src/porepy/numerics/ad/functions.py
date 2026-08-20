@@ -442,10 +442,11 @@ class RegularizedHeaviside:
         if isinstance(var, AdArray):
             val = np.heaviside(var.val, 0.0)
             regularization = self._regularization(var)
-            jac = regularization.jac
-            return AdArray(val, jac)
+            if regularization.is_diagonal:
+                return regularization.replace(val, regularization.jac)
+            return AdArray(val, regularization.jac)
         else:
-            return np.heaviside(var)  # type: ignore
+            return np.heaviside(var, zerovalue)
 
 
 def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:

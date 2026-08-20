@@ -207,6 +207,47 @@ def test_zero_derivative_function(func_name: str, representation: str):
         assert result.is_diagonal
 
 
+# Function: RegularizedHeaviside
+def test_regularized_heaviside_ndarray():
+    reg = af.RegularizedHeaviside(af.heaviside_smooth)
+    val = np.linspace(-1.0, 1.0, 3)
+    assert np.allclose(reg(val, zerovalue=0.5), np.heaviside(val, 0.5))
+
+
+@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+def test_regularized_heaviside(representation: str):
+    """Value and Jacobian of RegularizedHeaviside (using heaviside_smooth as the
+    regularization), for a full AdArray and a DiagonalAdArray argument.
+
+    The Jacobian is inherited entirely from the regularization function, so this
+    doubles as a check that RegularizedHeaviside forwards it (and the diagonal
+    representation) rather than rebuilding it.
+    """
+    reg = af.RegularizedHeaviside(af.heaviside_smooth)
+    heaviside_smooth_der = ELEMENTWISE_FUNCTIONS["heaviside_smooth"]["derivative"]
+    val = np.linspace(-1.0, 1.0, 3)
+    expected_val = np.heaviside(val, 0.0)
+
+    if representation == "full_ad":
+        var = AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
+        expected_jac = np.diag(heaviside_smooth_der(val)) @ _FULL_CHAIN_JAC
+    else:
+        var = DiagonalAdArray(
+            val,
+            np.atleast_2d(_DIAGONAL_CHAIN_JAC),
+            np.arange(val.size),
+            [np.arange(val.size)],
+            val.size,
+        )
+        expected_jac = np.diag(heaviside_smooth_der(val) * _DIAGONAL_CHAIN_JAC)
+
+    result = reg(var)
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+    if representation == "diagonal_ad":
+        assert result.is_diagonal
+
+
 # Function: mask_by_threshold
 @pytest.mark.parametrize(
     "char_var,var,tol,expected_val,expected_jac",
