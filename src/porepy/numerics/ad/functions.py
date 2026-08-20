@@ -486,6 +486,25 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
         # FIXME: According to the type hints, this should not be possible.
         return np.maximum(var_0, var_1)
 
+    # Diagonal AdArrays have a Jacobian shape the rest of this function does not
+    # understand. If both arguments are diagonal, the maximum can be computed
+    # directly in the diagonal representation; otherwise, convert any diagonal
+    # argument to full (non-diagonal) format before proceeding as before.
+    if isinstance(var_0, AdArray) and isinstance(var_1, AdArray):
+        if var_0.is_diagonal and var_1.is_diagonal:
+            val = np.maximum(var_0.val, var_1.val)
+            pick_1 = var_1.val > var_0.val
+            jac = np.where(pick_1, var_1.jac, var_0.jac)
+            return var_0.replace(val, jac)
+        if var_0.is_diagonal:
+            var_0 = var_0.to_full()
+        if var_1.is_diagonal:
+            var_1 = var_1.to_full()
+    elif isinstance(var_0, AdArray) and var_0.is_diagonal:
+        var_0 = var_0.to_full()
+    elif isinstance(var_1, AdArray) and var_1.is_diagonal:
+        var_1 = var_1.to_full()
+
     # Make a fall-back zero Jacobian for constant arguments.
     # EK: It is not clear if this is relevant, or if we filter out these cases with the
     # above parsing of numpy arrays. Keep it for now, but we should revisit once we
