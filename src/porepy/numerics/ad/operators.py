@@ -1522,17 +1522,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
         assert self.target is not None
-        dof_info = self.target.dof_info
-        if isinstance(self.domains[0], pp.MortarGrid):
-            # This is a mortar grid. Assume that there are only cell dofs
-            return self.domains[0].num_cells * dof_info.get(GridEntity.cells, 0)
-        if isinstance(self.domains[0], pp.Grid):
-            return (
-                self.domains[0].num_cells * dof_info.get(GridEntity.cells, 0)
-                + self.domains[0].num_faces * dof_info.get(GridEntity.faces, 0)
-                + self.domains[0].num_nodes * dof_info.get(GridEntity.nodes, 0)
-            )
-        raise ValueError()
+        return self.target.num_dofs()
 
     def set_name(self, name: str) -> None:
         """
