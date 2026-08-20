@@ -346,6 +346,75 @@ def test_maximum_ad_representations(representation_0: str, representation_1: str
         assert not result.is_diagonal
 
 
+# Function: l2_norm
+def test_l2_norm_ndarray():
+    # Two 2-vectors, ordered [u0, v0, u1, v1] (Fortran/dim-major order): (3, 4) has
+    # norm 5; (0, 0) has norm 0.
+    var = np.array([3.0, 4.0, 0.0, 0.0])
+    assert np.allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
+
+
+@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+def test_l2_norm_dim_one_delegates_to_abs(representation: str):
+    """For dim=1, l2_norm is documented to be equivalent to abs (and implemented by
+    delegating to it), so it inherits abs's diagonal support directly."""
+    val = np.array([-2.0, 3.0, -0.5])
+    var = _make_ad(val, representation)
+    result = af.l2_norm(1, var)
+    expected = af.abs(var)
+    assert np.allclose(result.val, expected.val)
+    assert np.allclose(_dense_jac(result), _dense_jac(expected))
+    if representation == "diagonal_ad":
+        assert result.is_diagonal
+
+
+# A genuinely non-diagonal chain Jacobian (4 degrees of freedom, matching two
+# dim=2 vectors below) and its diagonal counterpart, distinct from the identity so the
+# chain rule through l2_norm's own (dim-reducing) Jacobian is actually exercised.
+_L2_NORM_FULL_CHAIN_JAC = np.array(
+    [
+        [2.0, 0.0, 1.0, 0.0],
+        [0.0, 3.0, 0.0, 1.0],
+        [1.0, 0.0, 2.0, 0.0],
+        [0.0, 1.0, 0.0, 3.0],
+    ]
+)
+_L2_NORM_DIAGONAL_CHAIN_JAC = np.array([2.0, 3.0, 2.0, 3.0])
+
+
+@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+def test_l2_norm_dim_two(representation: str):
+    """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray input
+    must densify (to_full) rather than stay diagonal."""
+    # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm 0
+    # (per the module docstring, a zero vector gets a Jacobian entry of 1, not 0).
+    val = np.array([3.0, 4.0, 0.0, 0.0])
+
+    if representation == "full_ad":
+        var = AdArray(val, sps.csc_matrix(_L2_NORM_FULL_CHAIN_JAC))
+        chain_jac = _L2_NORM_FULL_CHAIN_JAC
+    else:
+        var = DiagonalAdArray(
+            val,
+            np.atleast_2d(_L2_NORM_DIAGONAL_CHAIN_JAC),
+            np.arange(val.size),
+            [np.arange(val.size)],
+            val.size,
+        )
+        chain_jac = np.diag(_L2_NORM_DIAGONAL_CHAIN_JAC)
+
+    result = af.l2_norm(2, var)
+
+    expected_val = np.array([5.0, 0.0])
+    d_norm_d_val = np.array([[0.6, 0.8, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+    expected_jac = d_norm_d_val @ chain_jac
+
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+    # dim > 1 always densifies, regardless of the input's representation.
+    assert not result.is_diagonal
+
+
 # Function: mask_by_threshold
 @pytest.mark.parametrize(
     "char_var,var,tol,expected_val,expected_jac",

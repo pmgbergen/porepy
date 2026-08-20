@@ -162,6 +162,10 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
         # For scalar variables, the cell-wise L2 norm is equivalent to
         # taking the absolute value.
         return pp.ad.functions.abs(var)
+    if var.is_diagonal:
+        # The norm mixes dim separate degrees of freedom into one output entry, which
+        # cannot be represented in the diagonal format.
+        var = var.to_full()
     resh = np.reshape(var.val, (dim, -1), order="F")
     vals = np.linalg.norm(resh, axis=0)
     # Avoid dividing by zero
