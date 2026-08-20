@@ -941,7 +941,11 @@ class SparseArray(Operator):
         mat: Sparse matrix to be wrapped as an AD operator.
         name: Name of this operator
         source: Source space of this operator.
-        target: Target space of this operator.
+        target: Target space of this operator. Deliberately required (unlike
+            :class:`Operator`, which defaults ``target`` to ``source``): a
+            ``SparseArray`` is routinely used to wrap genuinely rectangular matrices
+            where source and target differ, so silently defaulting here would risk
+            masking a forgotten ``target`` rather than raising a clear error.
 
     """
 
@@ -1115,7 +1119,8 @@ class DenseArray(Operator):
         values: Numpy array to be represented.
         name: Name of the DenseArray.
         source: Source space of the DenseArray.
-        target: Target space of the DenseArray.
+        target: Target space of the DenseArray. Deliberately required (unlike
+            :class:`Operator`, which defaults ``target`` to ``source``).
 
     """
 
@@ -1491,9 +1496,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
 
     def _key(self):
         if self._cached_key is None:
-            self._cached_key = (
-                f"(var, name={self.name}, domain={str(self.domain.id)})"
-            )
+            self._cached_key = f"(var, name={self.name}, domain={str(self.domain.id)})"
         return self._cached_key
 
     @property
