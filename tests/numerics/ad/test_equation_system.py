@@ -958,9 +958,8 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     )
     # Check that the mapping of equation to grid entity block size
     # is set correctly.
-    equation_grid_entity_blocks = equation_system.equation_image_size_info
     assert (
-        equation_grid_entity_blocks[model.eq_single_subdomain.name]
+        equation_system.equations[model.eq_single_subdomain.name].target.dof_info
         == dof_info_subdomain
     )
 
@@ -1002,7 +1001,16 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     # Test updating an existing equation. Here we update the equation with a different
     # equation expression and a different number of degrees of freedom per cell. We
     # switch the order of the interfaces here as well, similarly to in the test above.
-    mock_equation = model.intf_variable * model.intf_variable * model.intf_variable
+    # The new equation is built from a genuinely 3-dofs-per-cell variable (not a mock
+    # dof count grafted onto model.intf_variable, which has only 2), so that the
+    # equation operator's own target.dof_info actually matches the declared
+    # equations_per_grid_entity below.
+    mock_variable = equation_system.create_variables(
+        "mock_interface_variable_dof3",
+        dof_info={GridEntity.cells: 3},
+        interfaces=model.interfaces,
+    )
+    mock_equation = mock_variable * mock_variable
     dof_all_interfaces = {GridEntity.cells: 3}
     equation_system.update_equation(
         new_equation=mock_equation,
