@@ -693,14 +693,36 @@ class TestInferDomainRange:
         assert result.source == cell_space
         assert result.target == cell_space
 
-    # --- elementwise: incompatible domains become unclear ---
+    # --- elementwise: incompatible targets raise before AD parsing ---
 
     @pytest.mark.parametrize(
         "binary_op",
         [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
         ids=["add", "sub", "mul", "div", "pow"],
     )
-    def test_elementwise_incompatible_domain_becomes_unclear(
+    def test_elementwise_incompatible_targets_raises_at_construction(
+        self, cell_op, face_op, binary_op
+    ):
+        """Elementwise ops between operators whose *targets* are genuinely
+        incompatible (same grids, but different grid entities, hence different
+        actual DOF counts) must raise at operator-construction time, before any AD
+        parsing/evaluation is attempted.
+
+        This is distinct from :meth:`test_elementwise_incompatible_domain_becomes_unclear`
+        above, where the two operands' targets are made equal via an explicit
+        projection first (so no error occurs, only the *source* becomes unclear).
+        Here, ``cell_op`` and ``face_op`` are combined directly, with their
+        cell-wise and face-wise targets left unreconciled.
+        """
+        with pytest.raises(ValueError, match="Incompatible operator targets"):
+            _ = binary_op(cell_op, face_op)
+
+    @pytest.mark.parametrize(
+        "binary_op",
+        [_op.add, _op.sub, _op.mul, _op.truediv, _op.pow],
+        ids=["add", "sub", "mul", "div", "pow"],
+    )
+    def test_elementwise_incompatible_source_becomes_unclear(
         self, cell_op, face_op, binary_op
     ):
         """Elementwise ops with different domains get the unclear-domain sentinel."""
@@ -714,7 +736,7 @@ class TestInferDomainRange:
         assert result.source == OperatorSpace.unclear()
         assert result.target == cell_op.target
 
-    def test_elementwise_different_grids_becomes_unclear(self, two_subdomains):
+    def test_elementwise_different_grids_becomes_unclear_source(self, two_subdomains):
         """Different grids are enough to make the inferred domain unclear."""
         g1, g2 = two_subdomains
         left_space = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
