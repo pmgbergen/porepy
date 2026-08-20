@@ -226,7 +226,10 @@ def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArr
 def sin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sin(var.val)
-        jac = var.diagvec_mul_jac(np.cos(var.val))
+        der_factor = np.cos(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.sin(var)
@@ -235,7 +238,10 @@ def sin(var: FloatType) -> FloatType:
 def cos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cos(var.val)
-        jac = var.diagvec_mul_jac(-np.sin(var.val))
+        der_factor = -np.sin(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.cos(var)
@@ -244,7 +250,10 @@ def cos(var: FloatType) -> FloatType:
 def tan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tan(var.val)
-        jac = var.diagvec_mul_jac((np.cos(var.val) ** 2) ** (-1))
+        der_factor = (np.cos(var.val) ** 2) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.tan(var)
@@ -253,7 +262,10 @@ def tan(var: FloatType) -> FloatType:
 def arcsin(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsin(var.val)
-        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-0.5))
+        der_factor = (1 - var.val**2) ** (-0.5)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arcsin(var)
@@ -262,7 +274,10 @@ def arcsin(var: FloatType) -> FloatType:
 def arccos(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arccos(var.val)
-        jac = var.diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
+        der_factor = -((1 - var.val**2) ** (-0.5))
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arccos(var)
@@ -271,7 +286,10 @@ def arccos(var: FloatType) -> FloatType:
 def arctan(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctan(var.val)
-        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-1))
+        der_factor = (var.val**2 + 1) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arctan(var)
@@ -281,7 +299,10 @@ def arctan(var: FloatType) -> FloatType:
 def sinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.sinh(var.val)
-        jac = var.diagvec_mul_jac(np.cosh(var.val))
+        der_factor = np.cosh(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.sinh(var)
@@ -290,7 +311,10 @@ def sinh(var: FloatType) -> FloatType:
 def cosh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.cosh(var.val)
-        jac = var.diagvec_mul_jac(np.sinh(var.val))
+        der_factor = np.sinh(var.val)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.cosh(var)
@@ -299,7 +323,10 @@ def cosh(var: FloatType) -> FloatType:
 def tanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.tanh(var.val)
-        jac = var.diagvec_mul_jac(np.cosh(var.val) ** (-2))
+        der_factor = np.cosh(var.val) ** (-2)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.tanh(var)
@@ -308,7 +335,10 @@ def tanh(var: FloatType) -> FloatType:
 def arcsinh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arcsinh(var.val)
-        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
+        der_factor = (var.val**2 + 1) ** (-0.5)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arcsinh(var)
@@ -319,7 +349,10 @@ def arccosh(var: FloatType) -> FloatType:
         val = np.arccosh(var.val)
         den1 = (var.val - 1) ** (-0.5)
         den2 = (var.val + 1) ** (-0.5)
-        jac = var.diagvec_mul_jac(den1 * den2)
+        der_factor = den1 * den2
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arccosh(var)
@@ -328,7 +361,10 @@ def arccosh(var: FloatType) -> FloatType:
 def arctanh(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.arctanh(var.val)
-        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-1))
+        der_factor = (1 - var.val**2) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return np.arctanh(var)
@@ -389,7 +425,10 @@ def heaviside_smooth(var, eps: float = 1e-3):
     """
     if isinstance(var, AdArray):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
-        jac = var.diagvec_mul_jac(np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1))
+        der_factor = np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
+        if var.is_diagonal:
+            return var.replace(val, der_factor * var.jac)
+        jac = var.diagvec_mul_jac(der_factor)
         return AdArray(val, jac)
     else:
         return 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var * eps ** (-1)))
