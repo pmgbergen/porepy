@@ -1141,7 +1141,7 @@ def test_parse_variable_type_rejects_unknown_variable(
 
     """
     unknown_variable = pp.ad.Variable(
-        "unknown", {"cells": 1}, model.mdg.subdomains()[0]
+        "unknown", {GridEntity.cells: 1}, model.mdg.subdomains()[0]
     )
 
     with pytest.raises(ValueError, match="not registered"):

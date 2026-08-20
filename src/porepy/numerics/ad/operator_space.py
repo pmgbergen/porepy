@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import dataclasses
 from enum import Enum
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Mapping, Sequence
 
 import porepy as pp
 
-from .grid_entity import GridEntity
+from .grid_entity import GridEntities, GridEntity
 
 if TYPE_CHECKING:
     from porepy.utils.porepy_types import GridLike, GridLikeSequence
@@ -49,8 +49,8 @@ class OperatorSpace:
 
     - A :class:`DomainType` indicating the kind of grids.
     - A tuple of grids over which the space is defined.
-    - A ``dof_info`` dictionary mapping each :class:`~porepy.numerics.ad.GridEntity`
-      to the number of degrees of freedom *per grid entity*.
+    - A ``dof_info`` :class:`~porepy.numerics.ad.grid_entity.GridEntities` giving the
+      number of degrees of freedom *per grid entity*.
 
     Use the class methods :meth:`scalar`, :meth:`from_domains`, :meth:`unclear` and
     :meth:`waived` to construct instances instead of calling the constructor directly.
@@ -63,7 +63,7 @@ class OperatorSpace:
     grids: tuple[pp.Grid | pp.MortarGrid | pp.BoundaryGrid, ...]
     """Grids that define the space."""
 
-    dof_info: dict[GridEntity, int]
+    dof_info: GridEntities
     """Number of DOFs per grid entity for each entity type present in the space."""
 
     def __post_init__(self) -> None:
@@ -84,14 +84,14 @@ class OperatorSpace:
                     " dof_info."
                 )
                 raise ValueError(s)
-            self.dof_info = {}
+            self.dof_info = GridEntities()
             return
 
         if not self.dof_info:
             raise ValueError(
                 f"{self.domain_type.value.capitalize()} spaces must define dof_info."
             )
-        self.dof_info = dict(self.dof_info)
+        self.dof_info = GridEntities.from_mapping(self.dof_info)
 
         # Note: self.grids may legitimately be empty for operators that are constructed
         # on an empty list of subdomains/interfaces/boundary grids, but whose
@@ -173,23 +173,23 @@ class OperatorSpace:
     @classmethod
     def scalar(cls) -> OperatorSpace:
         """Return the trivial (scalar / zero-dimensional) operator space."""
-        return cls(DomainType.scalar, (), {})
+        return cls(DomainType.scalar, (), GridEntities())
 
     @classmethod
     def unclear(cls) -> OperatorSpace:
         """Return a sentinel space for operators with no clear mathematical domain."""
-        return cls(DomainType.unclear, (), {})
+        return cls(DomainType.unclear, (), GridEntities())
 
     @classmethod
     def waived(cls) -> OperatorSpace:
         """Return a sentinel space for operators whose domain/range check is waived."""
-        return cls(DomainType.waived, (), {})
+        return cls(DomainType.waived, (), GridEntities())
 
     @classmethod
     def from_domains(
         cls,
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        dof_info: dict[GridEntity, int],
+        dof_info: Mapping[GridEntity, int] | GridEntities,
         domain_type: DomainType | None = None,
     ) -> OperatorSpace:
         """Construct an :class:`OperatorSpace` from a sequence of grids.
@@ -199,7 +199,8 @@ class OperatorSpace:
                 (all :class:`~porepy.Grid`, all :class:`~porepy.MortarGrid`, or all
                 :class:`~porepy.BoundaryGrid`).
             dof_info: Mapping from :class:`~porepy.numerics.ad.GridEntity` to the number
-                of DOFs per entity.
+                of DOFs per entity, or an existing
+                :class:`~porepy.numerics.ad.grid_entity.GridEntities`.
             domain_type: If given, the returned space is forced to have this
                 domain type, and an empty ``domains`` sequence will *not* be interpreted
                 as a scalar space. Needed by grid operators whose domain type is known
@@ -216,8 +217,9 @@ class OperatorSpace:
         """
         if domains is None:
             raise ValueError("`domains` must be a sequence of grids, not None.")
+        dof_info = GridEntities.from_mapping(dof_info)
         if domain_type is not None:
-            return cls(domain_type, tuple(domains), dict(dof_info))
+            return cls(domain_type, tuple(domains), dof_info)
         if len(domains) == 0:
             return cls.scalar()
         grids = tuple(domains)
@@ -232,4 +234,4 @@ class OperatorSpace:
                 "All grids in `domains` must have the same type (pp.Grid, "
                 "pp.MortarGrid, or pp.BoundaryGrid)."
             )
-        return cls(domain_type, grids, dict(dof_info))
+        return cls(domain_type, grids, dof_info)
