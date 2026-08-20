@@ -108,11 +108,14 @@ ELEMENTWISE_FUNCTIONS = {
 }
 
 # A genuinely non-diagonal Jacobian, to make sure the chain rule is applied correctly
-# for a full AdArray.
+# for a full AdArray. A second, unrelated variant is used where a test combines two
+# independently-represented AdArrays (e.g. maximum).
 _FULL_CHAIN_JAC = np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]])
-# The diagonal counterpart: a per-entry scalar derivative, distinct from the identity
+_FULL_CHAIN_JAC_2 = np.array([[9.0, 9.0, 9.0], [8.0, 8.0, 8.0], [7.0, 7.0, 7.0]])
+# The diagonal counterparts: a per-entry scalar derivative, distinct from the identity
 # so that the chain rule is exercised (not just the local derivative).
 _DIAGONAL_CHAIN_JAC = np.array([2.0, -1.0, 0.5])
+_DIAGONAL_CHAIN_JAC_2 = np.array([4.0, 3.0, -2.0])
 
 
 def _dense_jac(result: AdArray) -> np.ndarray:
@@ -120,22 +123,39 @@ def _dense_jac(result: AdArray) -> np.ndarray:
     return (result.to_full() if result.is_diagonal else result).jac.toarray()
 
 
-def _make_ad(val: np.ndarray, representation: str) -> AdArray:
+def _make_ad(val: np.ndarray, representation: str, variant: str = "1") -> AdArray:
     """Build a full or diagonal AdArray for ``val``, using the chain Jacobians above.
 
     Used where a test needs to construct AdArray/DiagonalAdArray arguments outside of
     the ``test_elementwise_function`` / ``test_zero_derivative_function`` tables, e.g.
-    to combine two independently-represented arguments.
+    to combine two independently-represented arguments. ``variant="2"`` selects the
+    second, unrelated chain Jacobian, for tests combining two AdArrays where using the
+    same Jacobian for both would hide bugs (see comment above).
     """
+    full_jac = _FULL_CHAIN_JAC if variant == "1" else _FULL_CHAIN_JAC_2
+    diagonal_jac = _DIAGONAL_CHAIN_JAC if variant == "1" else _DIAGONAL_CHAIN_JAC_2
     if representation == "full_ad":
-        return AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
+        return AdArray(val, sps.csc_matrix(full_jac))
     return DiagonalAdArray(
         val,
-        np.atleast_2d(_DIAGONAL_CHAIN_JAC),
+        np.atleast_2d(diagonal_jac),
         np.arange(val.size),
         [np.arange(val.size)],
         val.size,
     )
+
+
+# The dense-Jacobian equivalent of _make_ad(val, representation, variant), independent
+# of val (all chain Jacobians above are constant), used to build expected results for
+# functions combining two independently-represented AdArray arguments.
+_DENSE_CHAIN_JAC = {
+    "full_ad": _FULL_CHAIN_JAC,
+    "diagonal_ad": np.diag(_DIAGONAL_CHAIN_JAC),
+}
+_DENSE_CHAIN_JAC_2 = {
+    "full_ad": _FULL_CHAIN_JAC_2,
+    "diagonal_ad": np.diag(_DIAGONAL_CHAIN_JAC_2),
+}
 
 
 @pytest.mark.parametrize("func_name", list(ELEMENTWISE_FUNCTIONS))
@@ -264,6 +284,66 @@ def test_regularized_heaviside(representation: str):
     assert np.allclose(_dense_jac(result), expected_jac)
     if representation == "diagonal_ad":
         assert result.is_diagonal
+
+
+# Function: maximum
+def test_maximum_ndarray_only():
+    a = np.array([1.0, 5.0, 2.0])
+    b = np.array([3.0, 2.0, 2.0])
+    assert np.allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
+
+
+@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+def test_maximum_ad_and_ndarray(representation: str):
+    """One argument is an AdArray (full or diagonal), the other a plain ndarray with
+    an implicit zero Jacobian."""
+    val_0 = np.array([1.0, 5.0, 2.0])
+    val_1 = np.array([3.0, 2.0, 2.0])
+    var_0 = _make_ad(val_0, representation)
+
+    result = af.maximum(var_0, val_1)
+
+    expected_val = np.array([3.0, 5.0, 2.0])
+    pick_1 = val_1 > val_0
+    expected_jac = np.where(pick_1[:, None], 0.0, _DENSE_CHAIN_JAC[representation])
+
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+
+
+@pytest.mark.parametrize(
+    "representation_0,representation_1",
+    [
+        ("full_ad", "full_ad"),
+        ("diagonal_ad", "diagonal_ad"),
+        ("diagonal_ad", "full_ad"),
+        ("full_ad", "diagonal_ad"),
+    ],
+)
+def test_maximum_ad_representations(representation_0: str, representation_1: str):
+    """maximum with var_0 and var_1 independently full or diagonal AdArrays,
+    including the two mixed combinations. Index 2 is a tie (equal values), where the
+    documented convention is that var_0's Jacobian is used."""
+    val_0 = np.array([1.0, 5.0, 2.0])
+    val_1 = np.array([3.0, 2.0, 2.0])
+
+    var_0 = _make_ad(val_0, representation_0, variant="1")
+    var_1 = _make_ad(val_1, representation_1, variant="2")
+
+    result = af.maximum(var_0, var_1)
+
+    expected_val = np.array([3.0, 5.0, 2.0])
+    pick_1 = val_1 > val_0
+    jac_0 = _DENSE_CHAIN_JAC[representation_0]
+    jac_1 = _DENSE_CHAIN_JAC_2[representation_1]
+    expected_jac = np.where(pick_1[:, None], jac_1, jac_0)
+
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+    if representation_0 == "diagonal_ad" and representation_1 == "diagonal_ad":
+        assert result.is_diagonal
+    else:
+        assert not result.is_diagonal
 
 
 # Function: mask_by_threshold
