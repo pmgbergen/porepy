@@ -255,10 +255,7 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
         for variable in variable_indexer.indices:
             dof_info = variable.source.dof_info
 
-            if (
-                not dof_info.get(GridEntity.faces, 0) == 0
-                and dof_info.get(GridEntity.nodes, 0) == 0
-            ):
+            if not dof_info.faces == 0 and dof_info.nodes == 0:
                 raise NotImplementedError(
                     """VariableBasedLebesgueMetric currently only supports """
                     """variables defined on cells."""
