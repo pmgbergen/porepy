@@ -662,20 +662,9 @@ class SurrogateFactory:
             TypeError: If ``grid`` is neither a boundary, interface or subdomain.
 
         """
-        if isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid)):
-            # NOTE using default value of 1, because this is the general default value
-            # and only cells are supported on boundaries and interfaces
-            return self._dof_info.get(GridEntity.cells, 1) * grid.num_cells
-        elif isinstance(grid, pp.Grid):
-            # NOTE cannot use default value of scalar, cell-wise, to not mess with
-            # cases where the user defines only node- or face-wise dofs.
-            return (
-                self._dof_info.get(GridEntity.cells, 0) * grid.num_cells
-                + self._dof_info.get(GridEntity.faces, 0) * grid.num_faces
-                + self._dof_info.get(GridEntity.nodes, 0) * grid.num_nodes
-            )
-        else:
+        if not isinstance(grid, (pp.BoundaryGrid, pp.MortarGrid, pp.Grid)):
             raise TypeError(f"Unsupported type of grid {type(grid)}.")
+        return pp.ad.OperatorSpace.from_domains((grid,), self._dof_info).num_dofs()
 
     @property
     def name(self) -> str:
