@@ -28,7 +28,7 @@ class GridEntity(enum.Enum):
     nodes = "nodes"
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False)
 class GridEntities:
     """Number of degrees of freedom (DOFs) per grid entity.
 
@@ -40,6 +40,9 @@ class GridEntities:
     the convention previously used for ``dict[GridEntity, int]``-typed ``dof_info``,
     where an entity simply wasn't a dict key if its count was 0: an absent entity and
     an explicit zero count are treated identically here too.
+
+    Equality (and thus set/dict-key usage) is also supported against a plain
+    ``Mapping[GridEntity, int]`` (e.g. a ``dict`` literal).
 
     Use :meth:`from_mapping` to construct an instance from a plain
     ``dict[GridEntity, int]`` (or an existing ``GridEntities``, returned unchanged).
@@ -64,6 +67,20 @@ class GridEntities:
                     f"{value}."
                 )
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, GridEntities):
+            return (self.cells, self.faces, self.nodes) == (
+                other.cells,
+                other.faces,
+                other.nodes,
+            )
+        if isinstance(other, Mapping):
+            return self == GridEntities.from_mapping(other)
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self.cells, self.faces, self.nodes))
+
     @classmethod
     def from_mapping(
         cls, dof_info: Union[GridEntities, Mapping[GridEntity, int]]
@@ -76,13 +93,25 @@ class GridEntities:
                 mapping from :class:`GridEntity` to the number of DOFs per that entity
                 type. Entity types not present in the mapping default to 0.
 
+        Raises:
+            TypeError: If ``dof_info`` contains a key that is not a :class:`GridEntity`
+                (e.g. a plain string).
+
         Returns:
             A ``GridEntities`` instance.
 
         """
         if isinstance(dof_info, GridEntities):
             return dof_info
-        kwargs = {entity.value: count for entity, count in dof_info.items()}
+        kwargs = {}
+        for entity, count in dof_info.items():
+            if not isinstance(entity, GridEntity):
+                raise TypeError(
+                    f"Non-admissible DOF type key {entity!r} in dof_info; expected a "
+                    "GridEntity member (e.g. GridEntity.cells), not "
+                    f"{type(entity).__name__}."
+                )
+            kwargs[entity.value] = count
         return cls(**kwargs)
 
     def get(self, entity: GridEntity, default: int = 0) -> int:
