@@ -288,7 +288,7 @@ class DilationDamageEquation(FractureDamageEquations):
 
         dilation_eq = self.dilation_damage_equation(fractures)
         dilation_eq.set_name(self.dilation_damage_equation_name)
-        self.equation_system.set_equation(dilation_eq, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(dilation_eq)
 
     def before_nonlinear_loop(self):
         """Update the dilation damage equation to include new term."""
@@ -344,7 +344,7 @@ class FrictionDamageEquation(FractureDamageEquations):
 
         friction_eq = self.friction_damage_equation(fractures)
         friction_eq.set_name(self.friction_damage_equation_name)
-        self.equation_system.set_equation(friction_eq, {pp.ad.GridEntity.cells: 1})
+        self.equation_system.set_equation(friction_eq)
 
     def before_nonlinear_loop(self):
         """Update the friction damage equation to include new term."""

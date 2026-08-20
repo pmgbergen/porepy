@@ -71,12 +71,8 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         fracture_eq_tangential = self.tangential_fracture_deformation_equation(
             fracture_subdomains
         )
-        self.equation_system.set_equation(
-            fracture_eq_normal, {pp.ad.GridEntity.cells: 1}
-        )
-        self.equation_system.set_equation(
-            fracture_eq_tangential, {pp.ad.GridEntity.cells: self.nd - 1}
-        )
+        self.equation_system.set_equation(fracture_eq_normal)
+        self.equation_system.set_equation(fracture_eq_tangential)
 
     def normal_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
