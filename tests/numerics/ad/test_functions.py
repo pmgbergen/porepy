@@ -8,6 +8,9 @@ parametrized test, run against a plain ndarray, a full (non-diagonal) AdArray, a
 DiagonalAdArray. Functions with more specific behavior (mask_by_threshold, clip) keep
 dedicated parametrized tests.
 
+Tests that exercise a single function are grouped into a ``Test<FunctionName>`` class;
+the table-driven tests above, which each cover many functions, are not.
+
 """
 
 import functools
@@ -245,396 +248,404 @@ def test_zero_derivative_function(func_name: str, representation: str):
         assert result.is_diagonal
 
 
-# Function: RegularizedHeaviside
-def test_regularized_heaviside_ndarray():
-    reg = af.RegularizedHeaviside(af.heaviside_smooth)
-    val = np.linspace(-1.0, 1.0, 3)
-    assert np.allclose(reg(val, zerovalue=0.5), np.heaviside(val, 0.5))
+class TestRegularizedHeaviside:
+    def test_ndarray(self):
+        reg = af.RegularizedHeaviside(af.heaviside_smooth)
+        val = np.linspace(-1.0, 1.0, 3)
+        assert np.allclose(reg(val, zerovalue=0.5), np.heaviside(val, 0.5))
+
+    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    def test_ad_representations(self, representation: str):
+        """Value and Jacobian of RegularizedHeaviside (using heaviside_smooth as the
+        regularization), for a full AdArray and a DiagonalAdArray argument.
+
+        The Jacobian is inherited entirely from the regularization function, so this
+        doubles as a check that RegularizedHeaviside forwards it (and the diagonal
+        representation) rather than rebuilding it.
+        """
+        reg = af.RegularizedHeaviside(af.heaviside_smooth)
+        heaviside_smooth_der = ELEMENTWISE_FUNCTIONS["heaviside_smooth"]["derivative"]
+        val = np.linspace(-1.0, 1.0, 3)
+        expected_val = np.heaviside(val, 0.0)
+
+        if representation == "full_ad":
+            var = AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
+            expected_jac = np.diag(heaviside_smooth_der(val)) @ _FULL_CHAIN_JAC
+        else:
+            var = DiagonalAdArray(
+                val,
+                np.atleast_2d(_DIAGONAL_CHAIN_JAC),
+                np.arange(val.size),
+                [np.arange(val.size)],
+                val.size,
+            )
+            expected_jac = np.diag(heaviside_smooth_der(val) * _DIAGONAL_CHAIN_JAC)
+
+        result = reg(var)
+        assert np.allclose(result.val, expected_val)
+        assert np.allclose(_dense_jac(result), expected_jac)
+        if representation == "diagonal_ad":
+            assert result.is_diagonal
 
 
-@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-def test_regularized_heaviside(representation: str):
-    """Value and Jacobian of RegularizedHeaviside (using heaviside_smooth as the
-    regularization), for a full AdArray and a DiagonalAdArray argument.
+class TestMaximum:
+    def test_ndarray_only(self):
+        a = np.array([1.0, 5.0, 2.0])
+        b = np.array([3.0, 2.0, 2.0])
+        assert np.allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
 
-    The Jacobian is inherited entirely from the regularization function, so this
-    doubles as a check that RegularizedHeaviside forwards it (and the diagonal
-    representation) rather than rebuilding it.
-    """
-    reg = af.RegularizedHeaviside(af.heaviside_smooth)
-    heaviside_smooth_der = ELEMENTWISE_FUNCTIONS["heaviside_smooth"]["derivative"]
-    val = np.linspace(-1.0, 1.0, 3)
-    expected_val = np.heaviside(val, 0.0)
+    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    def test_ad_and_ndarray(self, representation: str):
+        """One argument is an AdArray (full or diagonal), the other a plain ndarray
+        with an implicit zero Jacobian."""
+        val_0 = np.array([1.0, 5.0, 2.0])
+        val_1 = np.array([3.0, 2.0, 2.0])
+        var_0 = _make_ad(val_0, representation)
 
-    if representation == "full_ad":
-        var = AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
-        expected_jac = np.diag(heaviside_smooth_der(val)) @ _FULL_CHAIN_JAC
-    else:
-        var = DiagonalAdArray(
-            val,
-            np.atleast_2d(_DIAGONAL_CHAIN_JAC),
-            np.arange(val.size),
-            [np.arange(val.size)],
-            val.size,
-        )
-        expected_jac = np.diag(heaviside_smooth_der(val) * _DIAGONAL_CHAIN_JAC)
+        result = af.maximum(var_0, val_1)
 
-    result = reg(var)
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
-    if representation == "diagonal_ad":
-        assert result.is_diagonal
+        expected_val = np.array([3.0, 5.0, 2.0])
+        pick_1 = val_1 > val_0
+        expected_jac = np.where(pick_1[:, None], 0.0, _DENSE_CHAIN_JAC[representation])
 
+        assert np.allclose(result.val, expected_val)
+        assert np.allclose(_dense_jac(result), expected_jac)
 
-# Function: maximum
-def test_maximum_ndarray_only():
-    a = np.array([1.0, 5.0, 2.0])
-    b = np.array([3.0, 2.0, 2.0])
-    assert np.allclose(af.maximum(a, b), np.array([3.0, 5.0, 2.0]))
+    @pytest.mark.parametrize(
+        "representation_0,representation_1",
+        [
+            ("full_ad", "full_ad"),
+            ("diagonal_ad", "diagonal_ad"),
+            ("diagonal_ad", "full_ad"),
+            ("full_ad", "diagonal_ad"),
+        ],
+    )
+    def test_ad_representations(self, representation_0: str, representation_1: str):
+        """maximum with var_0 and var_1 independently full or diagonal AdArrays,
+        including the two mixed combinations. Index 2 is a tie (equal values), where
+        the documented convention is that var_0's Jacobian is used."""
+        val_0 = np.array([1.0, 5.0, 2.0])
+        val_1 = np.array([3.0, 2.0, 2.0])
 
+        var_0 = _make_ad(val_0, representation_0, variant="1")
+        var_1 = _make_ad(val_1, representation_1, variant="2")
 
-@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-def test_maximum_ad_and_ndarray(representation: str):
-    """One argument is an AdArray (full or diagonal), the other a plain ndarray with
-    an implicit zero Jacobian."""
-    val_0 = np.array([1.0, 5.0, 2.0])
-    val_1 = np.array([3.0, 2.0, 2.0])
-    var_0 = _make_ad(val_0, representation)
+        result = af.maximum(var_0, var_1)
 
-    result = af.maximum(var_0, val_1)
+        expected_val = np.array([3.0, 5.0, 2.0])
+        pick_1 = val_1 > val_0
+        jac_0 = _DENSE_CHAIN_JAC[representation_0]
+        jac_1 = _DENSE_CHAIN_JAC_2[representation_1]
+        expected_jac = np.where(pick_1[:, None], jac_1, jac_0)
 
-    expected_val = np.array([3.0, 5.0, 2.0])
-    pick_1 = val_1 > val_0
-    expected_jac = np.where(pick_1[:, None], 0.0, _DENSE_CHAIN_JAC[representation])
-
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
+        assert np.allclose(result.val, expected_val)
+        assert np.allclose(_dense_jac(result), expected_jac)
+        if representation_0 == "diagonal_ad" and representation_1 == "diagonal_ad":
+            assert result.is_diagonal
+        else:
+            assert not result.is_diagonal
 
 
-@pytest.mark.parametrize(
-    "representation_0,representation_1",
-    [
-        ("full_ad", "full_ad"),
-        ("diagonal_ad", "diagonal_ad"),
-        ("diagonal_ad", "full_ad"),
-        ("full_ad", "diagonal_ad"),
-    ],
-)
-def test_maximum_ad_representations(representation_0: str, representation_1: str):
-    """maximum with var_0 and var_1 independently full or diagonal AdArrays,
-    including the two mixed combinations. Index 2 is a tie (equal values), where the
-    documented convention is that var_0's Jacobian is used."""
-    val_0 = np.array([1.0, 5.0, 2.0])
-    val_1 = np.array([3.0, 2.0, 2.0])
+class TestL2Norm:
+    # A genuinely non-diagonal chain Jacobian (4 degrees of freedom, matching two
+    # dim=2 vectors below) and its diagonal counterpart, distinct from the identity so
+    # the chain rule through l2_norm's own (dim-reducing) Jacobian is actually
+    # exercised.
+    _FULL_CHAIN_JAC = np.array(
+        [
+            [2.0, 0.0, 1.0, 0.0],
+            [0.0, 3.0, 0.0, 1.0],
+            [1.0, 0.0, 2.0, 0.0],
+            [0.0, 1.0, 0.0, 3.0],
+        ]
+    )
+    _DIAGONAL_CHAIN_JAC = np.array([2.0, 3.0, 2.0, 3.0])
 
-    var_0 = _make_ad(val_0, representation_0, variant="1")
-    var_1 = _make_ad(val_1, representation_1, variant="2")
+    def test_ndarray(self):
+        # Two 2-vectors, ordered [u0, v0, u1, v1] (Fortran/dim-major order): (3, 4)
+        # has norm 5; (0, 0) has norm 0.
+        var = np.array([3.0, 4.0, 0.0, 0.0])
+        assert np.allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
 
-    result = af.maximum(var_0, var_1)
+    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    def test_dim_one_delegates_to_abs(self, representation: str):
+        """For dim=1, l2_norm is documented to be equivalent to abs (and implemented
+        by delegating to it), so it inherits abs's diagonal support directly."""
+        val = np.array([-2.0, 3.0, -0.5])
+        var = _make_ad(val, representation)
+        result = af.l2_norm(1, var)
+        expected = af.abs(var)
+        assert np.allclose(result.val, expected.val)
+        assert np.allclose(_dense_jac(result), _dense_jac(expected))
+        if representation == "diagonal_ad":
+            assert result.is_diagonal
 
-    expected_val = np.array([3.0, 5.0, 2.0])
-    pick_1 = val_1 > val_0
-    jac_0 = _DENSE_CHAIN_JAC[representation_0]
-    jac_1 = _DENSE_CHAIN_JAC_2[representation_1]
-    expected_jac = np.where(pick_1[:, None], jac_1, jac_0)
+    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    def test_dim_two(self, representation: str):
+        """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray
+        input must densify (to_full) rather than stay diagonal."""
+        # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm
+        # 0 (per the module docstring, a zero vector gets a Jacobian entry of 1, not
+        # 0).
+        val = np.array([3.0, 4.0, 0.0, 0.0])
 
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
-    if representation_0 == "diagonal_ad" and representation_1 == "diagonal_ad":
-        assert result.is_diagonal
-    else:
+        if representation == "full_ad":
+            var = AdArray(val, sps.csc_matrix(self._FULL_CHAIN_JAC))
+            chain_jac = self._FULL_CHAIN_JAC
+        else:
+            var = DiagonalAdArray(
+                val,
+                np.atleast_2d(self._DIAGONAL_CHAIN_JAC),
+                np.arange(val.size),
+                [np.arange(val.size)],
+                val.size,
+            )
+            chain_jac = np.diag(self._DIAGONAL_CHAIN_JAC)
+
+        result = af.l2_norm(2, var)
+
+        expected_val = np.array([5.0, 0.0])
+        d_norm_d_val = np.array([[0.6, 0.8, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+        expected_jac = d_norm_d_val @ chain_jac
+
+        assert np.allclose(result.val, expected_val)
+        assert np.allclose(_dense_jac(result), expected_jac)
+        # dim > 1 always densifies, regardless of the input's representation.
         assert not result.is_diagonal
 
 
-# Function: l2_norm
-def test_l2_norm_ndarray():
-    # Two 2-vectors, ordered [u0, v0, u1, v1] (Fortran/dim-major order): (3, 4) has
-    # norm 5; (0, 0) has norm 0.
-    var = np.array([3.0, 4.0, 0.0, 0.0])
-    assert np.allclose(af.l2_norm(2, var), np.array([5.0, 0.0]))
+class TestMaskByThreshold:
+    @pytest.mark.parametrize(
+        "char_var,var,tol,expected_val,expected_jac",
+        [
+            # Test case 1: scalar, no AdArray
+            pytest.param(
+                np.array([0.5, -0.1, 2.0]),
+                10.0,
+                0.0,
+                np.array([10.0, 0.0, 10.0]),
+                None,
+                id="scalar_no_advar",
+            ),
+            # Test case 2: ndarray, no AdArray
+            pytest.param(
+                np.array([0.5, -0.1, 2.0]),
+                np.array([10, 20, 30]),
+                0.0,
+                np.array([10, 0, 30]),
+                None,
+                id="array_no_advar",
+            ),
+            # Test case 3: NaN * 0 = 0
+            pytest.param(
+                np.array([0.5, -0.1, 2.0]),
+                np.array([10.0, np.nan, 30.0]),
+                0.0,
+                np.array([10.0, 0.0, 30.0]),
+                None,
+                id="nan_times_zero",
+            ),
+            # Test case 4: AdArray with tolerance
+            pytest.param(
+                AdArray(np.array([0.05, 0.1, 1.0]), sps.csr_matrix((3, 3))),
+                AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
+                0.08,
+                np.array([0, 20, 30]),
+                np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]]),
+                id="adarray_with_tolerance",
+            ),
+            # Test case 5: all masked
+            pytest.param(
+                AdArray(np.array([0.1, 0.2, 0.3]), sps.csr_matrix((3, 3))),
+                AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
+                0.5,
+                np.array([0, 0, 0]),
+                np.zeros((3, 3)),
+                id="all_masked",
+            ),
+            # Test case 6: all kept
+            pytest.param(
+                AdArray(np.array([0.5, 1.0, 2.0]), sps.csr_matrix((3, 3))),
+                AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
+                0.0,
+                np.array([10, 20, 30]),
+                np.diag([1, 1, 1]),
+                id="all_kept",
+            ),
+        ],
+    )
+    def test_cases(self, char_var, var, tol, expected_val, expected_jac):
+        """Parametrized test for mask_by_threshold covering multiple cases."""
+        result = af.mask_by_threshold(tol, char_var, var)
 
-
-@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-def test_l2_norm_dim_one_delegates_to_abs(representation: str):
-    """For dim=1, l2_norm is documented to be equivalent to abs (and implemented by
-    delegating to it), so it inherits abs's diagonal support directly."""
-    val = np.array([-2.0, 3.0, -0.5])
-    var = _make_ad(val, representation)
-    result = af.l2_norm(1, var)
-    expected = af.abs(var)
-    assert np.allclose(result.val, expected.val)
-    assert np.allclose(_dense_jac(result), _dense_jac(expected))
-    if representation == "diagonal_ad":
-        assert result.is_diagonal
-
-
-# A genuinely non-diagonal chain Jacobian (4 degrees of freedom, matching two
-# dim=2 vectors below) and its diagonal counterpart, distinct from the identity so the
-# chain rule through l2_norm's own (dim-reducing) Jacobian is actually exercised.
-_L2_NORM_FULL_CHAIN_JAC = np.array(
-    [
-        [2.0, 0.0, 1.0, 0.0],
-        [0.0, 3.0, 0.0, 1.0],
-        [1.0, 0.0, 2.0, 0.0],
-        [0.0, 1.0, 0.0, 3.0],
-    ]
-)
-_L2_NORM_DIAGONAL_CHAIN_JAC = np.array([2.0, 3.0, 2.0, 3.0])
-
-
-@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-def test_l2_norm_dim_two(representation: str):
-    """L2 norm reduces dim=2 components per output entry, so a DiagonalAdArray input
-    must densify (to_full) rather than stay diagonal."""
-    # Two 2-vectors, ordered [u0, v0, u1, v1]: (3, 4) has norm 5; (0, 0) has norm 0
-    # (per the module docstring, a zero vector gets a Jacobian entry of 1, not 0).
-    val = np.array([3.0, 4.0, 0.0, 0.0])
-
-    if representation == "full_ad":
-        var = AdArray(val, sps.csc_matrix(_L2_NORM_FULL_CHAIN_JAC))
-        chain_jac = _L2_NORM_FULL_CHAIN_JAC
-    else:
-        var = DiagonalAdArray(
-            val,
-            np.atleast_2d(_L2_NORM_DIAGONAL_CHAIN_JAC),
-            np.arange(val.size),
-            [np.arange(val.size)],
-            val.size,
+        # Check values
+        assert np.allclose(
+            result.val if hasattr(result, "val") else result, expected_val
         )
-        chain_jac = np.diag(_L2_NORM_DIAGONAL_CHAIN_JAC)
 
-    result = af.l2_norm(2, var)
+        # Check Jacobian if expected
+        if expected_jac is not None:
+            assert hasattr(result, "jac"), "Expected AdArray with Jacobian"
+            assert np.allclose(result.jac.toarray(), expected_jac)
 
-    expected_val = np.array([5.0, 0.0])
-    d_norm_d_val = np.array([[0.6, 0.8, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-    expected_jac = d_norm_d_val @ chain_jac
-
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
-    # dim > 1 always densifies, regardless of the input's representation.
-    assert not result.is_diagonal
-
-
-# Function: mask_by_threshold
-@pytest.mark.parametrize(
-    "char_var,var,tol,expected_val,expected_jac",
-    [
-        # Test case 1: scalar, no AdArray
-        pytest.param(
-            np.array([0.5, -0.1, 2.0]),
-            10.0,
-            0.0,
-            np.array([10.0, 0.0, 10.0]),
-            None,
-            id="scalar_no_advar",
-        ),
-        # Test case 2: ndarray, no AdArray
-        pytest.param(
-            np.array([0.5, -0.1, 2.0]),
-            np.array([10, 20, 30]),
-            0.0,
-            np.array([10, 0, 30]),
-            None,
-            id="array_no_advar",
-        ),
-        # Test case 3: NaN * 0 = 0
-        pytest.param(
-            np.array([0.5, -0.1, 2.0]),
-            np.array([10.0, np.nan, 30.0]),
-            0.0,
-            np.array([10.0, 0.0, 30.0]),
-            None,
-            id="nan_times_zero",
-        ),
-        # Test case 4: AdArray with tolerance
-        pytest.param(
-            AdArray(np.array([0.05, 0.1, 1.0]), sps.csr_matrix((3, 3))),
-            AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
-            0.08,
-            np.array([0, 20, 30]),
-            np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]]),
-            id="adarray_with_tolerance",
-        ),
-        # Test case 5: all masked
-        pytest.param(
-            AdArray(np.array([0.1, 0.2, 0.3]), sps.csr_matrix((3, 3))),
-            AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
-            0.5,
-            np.array([0, 0, 0]),
-            np.zeros((3, 3)),
-            id="all_masked",
-        ),
-        # Test case 6: all kept
-        pytest.param(
-            AdArray(np.array([0.5, 1.0, 2.0]), sps.csr_matrix((3, 3))),
-            AdArray(np.array([10, 20, 30]), sps.csr_matrix(np.diag([1, 1, 1]))),
-            0.0,
-            np.array([10, 20, 30]),
-            np.diag([1, 1, 1]),
-            id="all_kept",
-        ),
-    ],
-)
-def test_mask_by_threshold(char_var, var, tol, expected_val, expected_jac):
-    """Parametrized test for mask_by_threshold covering multiple cases."""
-    result = af.mask_by_threshold(tol, char_var, var)
-
-    # Check values
-    assert np.allclose(result.val if hasattr(result, "val") else result, expected_val)
-
-    # Check Jacobian if expected
-    if expected_jac is not None:
-        assert hasattr(result, "jac"), "Expected AdArray with Jacobian"
-        assert np.allclose(result.jac.toarray(), expected_jac)
-
-
-@pytest.mark.parametrize(
-    "char_representation,var_representation",
-    [
-        ("full_ad", "full_ad"),
-        ("diagonal_ad", "diagonal_ad"),
-        ("diagonal_ad", "full_ad"),
-        ("full_ad", "diagonal_ad"),
-    ],
-)
-def test_mask_by_threshold_representations(
-    char_representation: str, var_representation: str
-):
-    """mask_by_threshold with char_var and var independently full or diagonal
-    AdArrays, including the two mixed combinations."""
-    tol = 0.15
-    char_val = np.array([0.05, 0.2, 0.3])
-    var_val = np.array([10.0, 20.0, 30.0])
-    char_inds = char_val > tol
-
-    char_var = _make_ad(char_val, char_representation)
-    var = _make_ad(var_val, var_representation)
-
-    result = af.mask_by_threshold(tol, char_var, var)
-
-    expected_val = var_val.copy()
-    expected_val[~char_inds] = 0.0
-    if var_representation == "full_ad":
-        expected_jac = np.diag(char_inds.astype(float)) @ _FULL_CHAIN_JAC
-    else:
-        expected_jac = np.diag(char_inds.astype(float) * _DIAGONAL_CHAIN_JAC)
-
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
-    if var_representation == "diagonal_ad":
-        assert result.is_diagonal
-
-
-# Function: clip
-
-
-def test_clip_ndarray():
-    # Values entirely within bounds, at min, at max, and outside both bounds.
-    var = np.array([-2.0, 0.0, 1.5, 5.0])
-    result = af.clip(var, 0.0, 3.0)
-    assert np.allclose(result, np.array([0.0, 0.0, 1.5, 3.0]))
-
-
-def test_clip_float():
-    assert af.clip(2.0, 0.0, 3.0) == 2.0
-    assert af.clip(-1.0, 0.0, 3.0) == 0.0
-    assert af.clip(5.0, 0.0, 3.0) == 3.0
-
-
-def test_clip_adarray_values():
-    # Check that values are clipped correctly.
-    val = np.array([-1.0, 1.0, 4.0])
-    J = sps.eye(3, format="csr")
-    a = AdArray(val, J)
-    b = af.clip(a, 0.0, 3.0)
-    assert np.allclose(b.val, np.array([0.0, 1.0, 3.0]))
-
-
-def test_clip_adarray_jacobian_interior():
-    # For values strictly inside [min_val, max_val], the Jacobian is preserved.
-    val = np.array([1.0, 2.0])
-    J = sps.csr_matrix(np.array([[3.0, 0.0], [0.0, 5.0]]))
-    a = AdArray(val, J)
-    b = af.clip(a, 0.0, 3.0)
-    assert np.allclose(b.jac.toarray(), J.toarray())
-
-
-def test_clip_adarray_jacobian_at_bounds():
-    # For values exactly at min or max, the Jacobian is zeroed out.
-    val = np.array([0.0, 3.0])
-    J = sps.eye(2, format="csr")
-    a = AdArray(val, J)
-    b = af.clip(a, 0.0, 3.0)
-    assert np.allclose(b.jac.toarray(), np.zeros((2, 2)))
-
-
-def test_clip_adarray_jacobian_outside_bounds():
-    # For values outside [min_val, max_val], the Jacobian is zeroed out.
-    val = np.array([-1.0, 5.0])
-    J = sps.eye(2, format="csr")
-    a = AdArray(val, J)
-    b = af.clip(a, 0.0, 3.0)
-    assert np.allclose(b.jac.toarray(), np.zeros((2, 2)))
-
-
-def test_clip_adarray_mixed():
-    # Mix of clipped (below, above) and interior values.
-    val = np.array([-1.0, 1.0, 2.0, 5.0])
-    J = sps.csr_matrix(
-        np.array([[1, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 4]], dtype=float)
+    @pytest.mark.parametrize(
+        "char_representation,var_representation",
+        [
+            ("full_ad", "full_ad"),
+            ("diagonal_ad", "diagonal_ad"),
+            ("diagonal_ad", "full_ad"),
+            ("full_ad", "diagonal_ad"),
+        ],
     )
-    a = AdArray(val, J)
-    b = af.clip(a, 0.0, 3.0)
+    def test_ad_representations(
+        self, char_representation: str, var_representation: str
+    ):
+        """mask_by_threshold with char_var and var independently full or diagonal
+        AdArrays, including the two mixed combinations."""
+        tol = 0.15
+        char_val = np.array([0.05, 0.2, 0.3])
+        var_val = np.array([10.0, 20.0, 30.0])
+        char_inds = char_val > tol
 
-    expected_val = np.array([0.0, 1.0, 2.0, 3.0])
-    # Interior rows (indices 1 and 2) keep their Jacobian; clipped rows (0, 3) are zero.
-    expected_jac = np.array(
-        [[0, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 0]], dtype=float
+        char_var = _make_ad(char_val, char_representation)
+        var = _make_ad(var_val, var_representation)
+
+        result = af.mask_by_threshold(tol, char_var, var)
+
+        expected_val = var_val.copy()
+        expected_val[~char_inds] = 0.0
+        if var_representation == "full_ad":
+            expected_jac = np.diag(char_inds.astype(float)) @ _FULL_CHAIN_JAC
+        else:
+            expected_jac = np.diag(char_inds.astype(float) * _DIAGONAL_CHAIN_JAC)
+
+        assert np.allclose(result.val, expected_val)
+        assert np.allclose(_dense_jac(result), expected_jac)
+        if var_representation == "diagonal_ad":
+            assert result.is_diagonal
+
+
+class TestClip:
+    """Tests for clip, parametrized over representative combinations of input type,
+    values relative to the bounds, and Jacobian structure."""
+
+    @pytest.mark.parametrize(
+        "var,expected_val,expected_jac",
+        [
+            pytest.param(
+                np.array([-2.0, 0.0, 1.5, 5.0]),
+                np.array([0.0, 0.0, 1.5, 3.0]),
+                None,
+                id="ndarray",
+            ),
+            pytest.param(2.0, 2.0, None, id="float_interior"),
+            pytest.param(-1.0, 0.0, None, id="float_below"),
+            pytest.param(5.0, 3.0, None, id="float_above"),
+            pytest.param(
+                AdArray(np.array([-1.0, 1.0, 4.0]), sps.eye(3, format="csr")),
+                np.array([0.0, 1.0, 3.0]),
+                None,
+                id="adarray_values_only",
+            ),
+            pytest.param(
+                AdArray(
+                    np.array([1.0, 2.0]),
+                    sps.csr_matrix(np.array([[3.0, 0.0], [0.0, 5.0]])),
+                ),
+                np.array([1.0, 2.0]),
+                # Strictly interior values: the Jacobian is preserved.
+                np.array([[3.0, 0.0], [0.0, 5.0]]),
+                id="adarray_jacobian_interior",
+            ),
+            pytest.param(
+                AdArray(np.array([0.0, 3.0]), sps.eye(2, format="csr")),
+                np.array([0.0, 3.0]),
+                # Values exactly at the bounds: the Jacobian is zeroed out.
+                np.zeros((2, 2)),
+                id="adarray_jacobian_at_bounds",
+            ),
+            pytest.param(
+                AdArray(np.array([-1.0, 5.0]), sps.eye(2, format="csr")),
+                np.array([0.0, 3.0]),
+                # Values outside the bounds: the Jacobian is zeroed out.
+                np.zeros((2, 2)),
+                id="adarray_jacobian_outside_bounds",
+            ),
+            pytest.param(
+                AdArray(
+                    np.array([-1.0, 1.0, 2.0, 5.0]),
+                    sps.csr_matrix(
+                        np.array(
+                            [
+                                [1, 0, 0, 0],
+                                [0, 2, 0, 0],
+                                [0, 0, 3, 0],
+                                [0, 0, 0, 4],
+                            ],
+                            dtype=float,
+                        )
+                    ),
+                ),
+                np.array([0.0, 1.0, 2.0, 3.0]),
+                # Interior rows (1, 2) keep their Jacobian; clipped rows (0, 3) are
+                # zeroed.
+                np.array(
+                    [[0, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 0]],
+                    dtype=float,
+                ),
+                id="adarray_mixed",
+            ),
+            pytest.param(
+                AdArray(
+                    np.array([0.5, 2.5]),
+                    sps.csr_matrix(np.array([[1.0, 2.0], [3.0, 4.0]])),
+                ),
+                np.array([0.5, 2.5]),
+                # Non-diagonal (dense) Jacobian, entirely interior: preserved as-is.
+                np.array([[1.0, 2.0], [3.0, 4.0]]),
+                id="adarray_dense_jacobian",
+            ),
+        ],
     )
-    assert np.allclose(b.val, expected_val)
-    assert np.allclose(b.jac.toarray(), expected_jac)
+    def test_cases(self, var, expected_val, expected_jac):
+        result = af.clip(var, 0.0, 3.0)
+        assert np.allclose(
+            result.val if hasattr(result, "val") else result, expected_val
+        )
+        if expected_jac is not None:
+            assert np.allclose(result.jac.toarray(), expected_jac)
 
+    def test_does_not_mutate_input(self):
+        # Ensure the original AdArray is unchanged after clipping.
+        val = np.array([-1.0, 2.0, 5.0])
+        J = sps.eye(3, format="csr")
+        a = AdArray(val.copy(), J.copy())
+        # Perform clipping, but ignore the result to check that 'a' is unchanged. The
+        # clip affects the values -1 and 5.
+        _ = af.clip(a, 0.0, 3.0)
+        assert np.allclose(a.val, np.array([-1.0, 2.0, 5.0]))
+        assert np.allclose(a.jac.toarray(), sps.eye(3).toarray())
 
-def test_clip_adarray_dense_jacobian():
-    # Verify correctness with a non-diagonal (dense) Jacobian.
-    val = np.array([0.5, 2.5])
-    J = sps.csr_matrix(np.array([[1.0, 2.0], [3.0, 4.0]]))
-    a = AdArray(val, J)
-    b = af.clip(a, 0.0, 3.0)
-    assert np.allclose(b.val, np.array([0.5, 2.5]))
-    assert np.allclose(b.jac.toarray(), J.toarray())
+    @pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+    def test_ad_representations(self, representation: str):
+        """Mix of clipped (below, above) and interior values, for a full AdArray and
+        a DiagonalAdArray argument (mirrors the 'adarray_mixed' case in test_cases
+        above)."""
+        val = np.array([-1.0, 1.0, 5.0])
+        var = _make_ad(val, representation)
 
+        result = af.clip(var, 0.0, 3.0)
 
-def test_clip_does_not_mutate_input():
-    # Ensure the original AdArray is unchanged after clipping.
-    val = np.array([-1.0, 2.0, 5.0])
-    J = sps.eye(3, format="csr")
-    a = AdArray(val.copy(), J.copy())
-    # Perform clipping, but ignore the result to check that 'a' is unchanged. The clip
-    # affects the values -1 and 5.
-    _ = af.clip(a, 0.0, 3.0)
-    assert np.allclose(a.val, np.array([-1.0, 2.0, 5.0]))
-    assert np.allclose(a.jac.toarray(), sps.eye(3).toarray())
+        expected_val = np.array([0.0, 1.0, 3.0])
+        # Interior entry (index 1) keeps its Jacobian; clipped entries (0, 2) are
+        # zeroed.
+        mask = np.array([0.0, 1.0, 0.0])
+        if representation == "full_ad":
+            expected_jac = np.diag(mask) @ _FULL_CHAIN_JAC
+        else:
+            expected_jac = np.diag(mask * _DIAGONAL_CHAIN_JAC)
 
-
-@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
-def test_clip_adarray_representations(representation: str):
-    """Mix of clipped (below, above) and interior values, for a full AdArray and a
-    DiagonalAdArray argument (mirrors test_clip_adarray_mixed above)."""
-    val = np.array([-1.0, 1.0, 5.0])
-    var = _make_ad(val, representation)
-
-    result = af.clip(var, 0.0, 3.0)
-
-    expected_val = np.array([0.0, 1.0, 3.0])
-    # Interior entry (index 1) keeps its Jacobian; clipped entries (0, 2) are zeroed.
-    mask = np.array([0.0, 1.0, 0.0])
-    if representation == "full_ad":
-        expected_jac = np.diag(mask) @ _FULL_CHAIN_JAC
-    else:
-        expected_jac = np.diag(mask * _DIAGONAL_CHAIN_JAC)
-
-    assert np.allclose(result.val, expected_val)
-    assert np.allclose(_dense_jac(result), expected_jac)
-    if representation == "diagonal_ad":
-        assert result.is_diagonal
+        assert np.allclose(result.val, expected_val)
+        assert np.allclose(_dense_jac(result), expected_jac)
+        if representation == "diagonal_ad":
+            assert result.is_diagonal
