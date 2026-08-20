@@ -18,10 +18,10 @@ def get_domains() -> list[pp.Grid]:
 def get_variables(domains: list[pp.Grid]) -> list[pp.ad.Variable]:
     """Four distinct variables for indexer tests."""
     return [
-        pp.ad.Variable("x", {"cells": 1}, domains[0]),
-        pp.ad.Variable("x", {"cells": 1}, domains[1]),
-        pp.ad.Variable("y", {"cells": 1}, domains[1]),
-        pp.ad.Variable("y", {"cells": 1}, domains[2]),
+        pp.ad.Variable("x", {pp.ad.GridEntity.cells: 1}, domains[0]),
+        pp.ad.Variable("x", {pp.ad.GridEntity.cells: 1}, domains[1]),
+        pp.ad.Variable("y", {pp.ad.GridEntity.cells: 1}, domains[1]),
+        pp.ad.Variable("y", {pp.ad.GridEntity.cells: 1}, domains[2]),
     ]
 
 
@@ -83,7 +83,7 @@ def get_unknown_key(indexer_type: str):
         return pp.ad.EquationOnDomain(name="unknown", domain=get_domains()[1])
     elif indexer_type == "variable_indexer":
         return pp.ad.Variable(
-            name="unknown", ndof={"cells": 1}, domain=get_domains()[1]
+            name="unknown", ndof={pp.ad.GridEntity.cells: 1}, domain=get_domains()[1]
         )
     raise ValueError(indexer_type)
 
@@ -121,7 +121,7 @@ def test_comparison_by_name_and_domain(indexer_type: str):
         same_as_first = pp.ad.EquationOnDomain(name=first.name, domain=first.domain)
     elif indexer_type == "variable_indexer":
         same_as_first = pp.ad.Variable(
-            name=first.name, ndof={"cells": 1}, domain=first.domain
+            name=first.name, ndof={pp.ad.GridEntity.cells: 1}, domain=first.domain
         )
     else:
         raise ValueError(indexer_type)
