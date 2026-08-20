@@ -977,16 +977,12 @@ class EquationSystem:
     def set_equation(
         self,
         equation: Operator,
-        equations_per_grid_entity: dict[GridEntity, int],
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
     ) -> None:
         """Sets an equation using the passed operator and uses its name as an
         identifier.
 
         If an equation already exists under that name, it is overwritten.
-
-        Information about the image space must be provided for now, such that grid-wise
-        row slicing is possible. This will hopefully be provided automatically in the
-        future.
 
         Note:
             Regarding the number of equations, this method assumes that the AD framework
@@ -998,16 +994,19 @@ class EquationSystem:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
             equations_per_grid_entity: a dictionary describing how many equations
-                ``equation_operator`` provides. This is a temporary work-around until
-                operators are able to provide information on their image space.
-                The dictionary must contain the number of equations per grid entity
-                (cells, faces, nodes) for the operator.
+                ``equation_operator`` provides, i.e. the number of equations per grid
+                entity (cells, faces, nodes) for the operator. If None, this is inferred
+                from the equation operator's own ``target.dof_info``. Providing it
+                explicitly is optional and kept for backwards compatibility and as an
+                extra safety net.
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
                 previously set equation.
             ValueError: If the equation is defined on both subdomains and interfaces.
             AssertionError: If the equation is defined on an unknown grid.
+            AssertionError: If ``equations_per_grid_entity`` is given explicitly and
+                does not match the equation operator's own ``target.dof_info``.
             ValueError: If indicated number of equations does not match the actual
                 number as per evaluation of operator.
 
@@ -1030,17 +1029,15 @@ class EquationSystem:
             self._equations.update({name: equation})
             return
 
-        # equations_per_grid_entity is a temporary work-around (see docstring); the
-        # equation operator's own target.dof_info should carry the same information.
-        # Validate that the two agree, so this parameter cannot silently diverge from
-        # the operator's actual image space. TODO: Drop the parameter
-        # equations_per_grid_entity once the operator's target.dof_info is guaranteed to
-        # be correct.
-        assert dict(equation.target.dof_info) == dict(equations_per_grid_entity), (
-            f"equations_per_grid_entity {equations_per_grid_entity} does not match "
-            f"the equation operator's own target.dof_info {equation.target.dof_info} "
-            f"for equation {name}."
-        )
+        # If provided, check that the number of equations per grid entity is consistent
+        # with the equation operator's own target.dof_info.
+        if equations_per_grid_entity is not None:
+            if dict(equation.target.dof_info) != dict(equations_per_grid_entity):
+                s = (
+                    f"equations_per_grid_entity {equations_per_grid_entity} does not "
+                    f"match the equation operator's own target.dof_info "
+                    f" {equation.target.dof_info} for equation {name}."
+                )
 
         # We require that equations are defined either on a set of subdomains, or a set
         # of interfaces. The combination of the two is mathematically possible, provided
