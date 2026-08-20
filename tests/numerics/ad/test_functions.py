@@ -15,135 +15,74 @@ import scipy.sparse as sps
 
 from porepy.numerics.ad import AdArray
 from porepy.numerics.ad import functions as af
+from porepy.numerics.ad.forward_mode import DiagonalAdArray
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 
 
-def test_exp_scalar():
-    a = AdArray(np.array([1]), sps.csr_matrix(np.array([0])))
-    b = af.exp(a)
-    assert b.val == np.exp(1) and b.jac == 0
-    assert a.val == 1 and a.jac == 0
+# --- Shared scaffolding for elementwise functions, across representations ---
+#
+# Each entry maps a function name to the callable, a reference value function, and a
+# reference (elementwise) derivative function. Used by test_elementwise_function below
+# to check the same function against a plain ndarray, a full (non-diagonal) AdArray,
+# and a DiagonalAdArray, without hand-writing a test per representation per function.
+#
+# `domain` gives a value range avoiding singularities of the function or its
+# derivative (e.g. log needs positive values, arcsin/arccos need [-1, 1]).
+ELEMENTWISE_FUNCTIONS = {
+    "exp": dict(func=af.exp, value=np.exp, derivative=np.exp, domain=(0.5, 3.5)),
+    "log": dict(
+        func=af.log, value=np.log, derivative=lambda v: 1 / v, domain=(0.5, 3.5)
+    ),
+    "abs": dict(func=af.abs, value=np.abs, derivative=np.sign, domain=(-3.5, -0.5)),
+}
+
+# A genuinely non-diagonal Jacobian, to make sure the chain rule is applied correctly
+# for a full AdArray.
+_FULL_CHAIN_JAC = np.array([[3.0, 2.0, 1.0], [5.0, 6.0, 1.0], [2.0, 3.0, 5.0]])
+# The diagonal counterpart: a per-entry scalar derivative, distinct from the identity
+# so that the chain rule is exercised (not just the local derivative).
+_DIAGONAL_CHAIN_JAC = np.array([2.0, -1.0, 0.5])
 
 
-def test_exp_advar():
-    a = AdArray(np.array([2]), sps.csr_matrix(np.array([3])))
-    b = af.exp(a)
-    assert b.val == np.exp(2) and b.jac == 3 * np.exp(2)
-    assert a.val == 2 and a.jac == 3
+def _dense_jac(result: AdArray) -> np.ndarray:
+    """Jacobian of an AdArray or DiagonalAdArray, as a dense array."""
+    return (result.to_full() if result.is_diagonal else result).jac.toarray()
 
 
-def test_exp_vector():
-    val = np.array([1, 2, 3])
-    J = np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]])
-    a = AdArray(val, sps.csc_matrix(J))
-    b = af.exp(a)
-    jac = np.dot(np.diag(np.exp(val)), J)
+@pytest.mark.parametrize("func_name", list(ELEMENTWISE_FUNCTIONS))
+@pytest.mark.parametrize("representation", ["ndarray", "full_ad", "diagonal_ad"])
+def test_elementwise_function(func_name: str, representation: str):
+    """Value and Jacobian of an elementwise AD function, for a plain ndarray, a full
+    (non-diagonal) AdArray, and a DiagonalAdArray argument."""
+    spec = ELEMENTWISE_FUNCTIONS[func_name]
+    lo, hi = spec["domain"]
+    val = np.linspace(lo, hi, 3)
+    expected_val = spec["value"](val)
 
-    assert np.all(b.val == np.exp(val)) and np.all(b.jac == jac)
-    assert np.all(J == np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]]))
+    if representation == "ndarray":
+        result = spec["func"](val)
+        assert np.allclose(result, expected_val)
+        return
 
+    if representation == "full_ad":
+        var = AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
+        expected_jac = np.diag(spec["derivative"](val)) @ _FULL_CHAIN_JAC
+    else:
+        var = DiagonalAdArray(
+            val,
+            np.atleast_2d(_DIAGONAL_CHAIN_JAC),
+            np.arange(val.size),
+            [np.arange(val.size)],
+            val.size,
+        )
+        expected_jac = np.diag(spec["derivative"](val) * _DIAGONAL_CHAIN_JAC)
 
-def test_exp_sparse_jac():
-    val = np.array([1, 2, 3])
-    J = sps.csc_matrix(np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]]))
-    a = AdArray(val, J)
-    b = af.exp(a)
-    jac = np.dot(np.diag(np.exp(val)), J.toarray())
-    assert np.all(b.val == np.exp(val)) and np.all(b.jac == jac)
-
-
-def test_exp_scalar_times_ad_var():
-    val = np.array([1, 2, 3])
-    J = sps.diags(np.array([1, 1, 1]))
-    a = AdArray(val, J)
-    c = 2.0
-    b = af.exp(c * a)
-    jac = c * sps.diags(np.exp(c * val)) * J
-
-    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(
-        b.jac.toarray(), jac.toarray()
-    )
-    assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
-
-
-# Function: log
-def test_log_scalar():
-    a = AdArray(np.array([2]), sps.csr_matrix(np.array([0])))
-    b = af.log(a)
-    assert b.val == np.log(2) and b.jac == 0
-    assert a.val == 2 and a.jac == 0
-
-
-def test_log_advar():
-    a = AdArray(np.array([2]), sps.csr_matrix(np.array([3])))
-    b = af.log(a)
-    assert b.val == np.log(2) and b.jac == 1 / 2 * 3
-    assert a.val == 2 and a.jac == 3
-
-
-def test_log_vector():
-    val = np.array([1, 2, 3])
-    J = sps.csc_matrix(np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]]))
-    a = AdArray(val, J)
-    b = af.log(a)
-    jac = sps.diags(1 / val) * J
-
-    assert np.all(b.val == np.log(val)) and np.all(b.jac.toarray() == jac)
-
-
-def test_log_sparse_jac():
-    val = np.array([1, 2, 3])
-    J = sps.csc_matrix(np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]]))
-    a = AdArray(val, J)
-    b = af.log(a)
-    jac = np.dot(np.diag(1 / val), J.toarray())
-    assert np.all(b.val == np.log(val)) and np.all(b.jac == jac)
-
-
-def test_log_scalar_times_ad_var():
-    val = np.array([1, 2, 3])
-    J = sps.diags(np.array([1, 1, 1]))
-    a = AdArray(val, J)
-    c = 2.0
-    b = af.log(c * a)
-    jac = sps.diags(1 / val) * J
-
-    assert np.allclose(b.val, np.log(c * val)) and np.allclose(
-        b.jac.toarray(), jac.toarray()
-    )
-    assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
-
-
-# Function: abs
-def test_abs_no_advar():
-    a = np.array([1, -10, 3, -np.pi])
-    a_abs = af.abs(a)
-    assert np.allclose(a_abs, [1, 10, 3, np.pi])
-    assert np.allclose(a, [1, -10, 3, -np.pi])
-
-
-def test_abs_advar():
-    J = np.array([[1, -1, -np.pi, 3], [0, 0, 0, 0], [1, 2, -3.2, 4], [4, 2, 300000, 1]])
-    a = AdArray(np.array([1, -10, 3, -np.pi]), sps.csc_matrix(J))
-    a_abs = af.abs(a)
-    J_abs = np.array(
-        [[1, -1, -np.pi, 3], [0, 0, 0, 0], [1, 2, -3.2, 4], [-4, -2, -300000, -1]]
-    )
-
-    assert np.allclose(
-        J,
-        np.array(
-            [
-                [1, -1, -np.pi, 3],
-                [0, 0, 0, 0],
-                [1, 2, -3.2, 4],
-                [4, 2, 300000, 1],
-            ]
-        ),
-    )
-    assert np.allclose(a_abs.val, [1, 10, 3, np.pi])
-    assert np.allclose(a_abs.jac.toarray(), J_abs)
+    result = spec["func"](var)
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+    if representation == "diagonal_ad":
+        assert result.is_diagonal
 
 
 # Function: sin
