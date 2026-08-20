@@ -342,7 +342,7 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
         for name, grids_dofs in self.equation_indexer.group_by_name().items():
             indices = np.concatenate(list(grids_dofs.values()))
             domains = cast(pp.GridLikeSequence, list(grids_dofs.keys()))
-            equation_dim = equation_system.equation_image_size_info[name][
+            equation_dim = equation_system.equations[name].target.dof_info[
                 GridEntity.cells
             ]
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
