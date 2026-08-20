@@ -120,6 +120,24 @@ def _dense_jac(result: AdArray) -> np.ndarray:
     return (result.to_full() if result.is_diagonal else result).jac.toarray()
 
 
+def _make_ad(val: np.ndarray, representation: str) -> AdArray:
+    """Build a full or diagonal AdArray for ``val``, using the chain Jacobians above.
+
+    Used where a test needs to construct AdArray/DiagonalAdArray arguments outside of
+    the ``test_elementwise_function`` / ``test_zero_derivative_function`` tables, e.g.
+    to combine two independently-represented arguments.
+    """
+    if representation == "full_ad":
+        return AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
+    return DiagonalAdArray(
+        val,
+        np.atleast_2d(_DIAGONAL_CHAIN_JAC),
+        np.arange(val.size),
+        [np.arange(val.size)],
+        val.size,
+    )
+
+
 @pytest.mark.parametrize("func_name", list(ELEMENTWISE_FUNCTIONS))
 @pytest.mark.parametrize("representation", ["ndarray", "full_ad", "diagonal_ad"])
 def test_elementwise_function(func_name: str, representation: str):
@@ -321,6 +339,43 @@ def test_mask_by_threshold(char_var, var, tol, expected_val, expected_jac):
         assert np.allclose(result.jac.toarray(), expected_jac)
 
 
+@pytest.mark.parametrize(
+    "char_representation,var_representation",
+    [
+        ("full_ad", "full_ad"),
+        ("diagonal_ad", "diagonal_ad"),
+        ("diagonal_ad", "full_ad"),
+        ("full_ad", "diagonal_ad"),
+    ],
+)
+def test_mask_by_threshold_representations(
+    char_representation: str, var_representation: str
+):
+    """mask_by_threshold with char_var and var independently full or diagonal
+    AdArrays, including the two mixed combinations."""
+    tol = 0.15
+    char_val = np.array([0.05, 0.2, 0.3])
+    var_val = np.array([10.0, 20.0, 30.0])
+    char_inds = char_val > tol
+
+    char_var = _make_ad(char_val, char_representation)
+    var = _make_ad(var_val, var_representation)
+
+    result = af.mask_by_threshold(tol, char_var, var)
+
+    expected_val = var_val.copy()
+    expected_val[~char_inds] = 0.0
+    if var_representation == "full_ad":
+        expected_jac = np.diag(char_inds.astype(float)) @ _FULL_CHAIN_JAC
+    else:
+        expected_jac = np.diag(char_inds.astype(float) * _DIAGONAL_CHAIN_JAC)
+
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+    if var_representation == "diagonal_ad":
+        assert result.is_diagonal
+
+
 # Function: clip
 
 
@@ -411,3 +466,26 @@ def test_clip_does_not_mutate_input():
     _ = af.clip(a, 0.0, 3.0)
     assert np.allclose(a.val, np.array([-1.0, 2.0, 5.0]))
     assert np.allclose(a.jac.toarray(), sps.eye(3).toarray())
+
+
+@pytest.mark.parametrize("representation", ["full_ad", "diagonal_ad"])
+def test_clip_adarray_representations(representation: str):
+    """Mix of clipped (below, above) and interior values, for a full AdArray and a
+    DiagonalAdArray argument (mirrors test_clip_adarray_mixed above)."""
+    val = np.array([-1.0, 1.0, 5.0])
+    var = _make_ad(val, representation)
+
+    result = af.clip(var, 0.0, 3.0)
+
+    expected_val = np.array([0.0, 1.0, 3.0])
+    # Interior entry (index 1) keeps its Jacobian; clipped entries (0, 2) are zeroed.
+    mask = np.array([0.0, 1.0, 0.0])
+    if representation == "full_ad":
+        expected_jac = np.diag(mask) @ _FULL_CHAIN_JAC
+    else:
+        expected_jac = np.diag(mask * _DIAGONAL_CHAIN_JAC)
+
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), expected_jac)
+    if representation == "diagonal_ad":
+        assert result.is_diagonal
