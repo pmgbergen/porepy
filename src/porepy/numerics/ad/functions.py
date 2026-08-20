@@ -123,7 +123,7 @@ def abs(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.abs(var.val)
         if var.is_diagonal:
-            der = np.sign(var.val)
+            der = np.sign(var.val) * var.jac
             return var.replace(val, der)
         else:
             jac = var.diagvec_mul_jac(np.sign(var.val))
