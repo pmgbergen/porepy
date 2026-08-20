@@ -704,6 +704,8 @@ class AdArray:
     def diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
         """Left-multiply the Jacobian by a diagonal matrix represented as a vector.
 
+        Only defined for the non-diagonal representation.
+
         Parameters:
             a: The diagonal entries of the (implicit) diagonal matrix to
                 left-multiply the Jacobian with.
@@ -712,10 +714,7 @@ class AdArray:
             The product, as a sparse matrix.
 
         """
-        if self._is_diagonal:
-            return sps.diags(a * self.jac)
-        else:
-            return sps.diags(a) * self.jac
+        return sps.diags(a) * self.jac
 
     def __lt__(self, other: AdType) -> bool | np.ndarray:
         """Overload of operation ``self < other``.
