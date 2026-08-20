@@ -7,6 +7,7 @@ scalar times a variable.
 
 """
 
+import functools
 import warnings
 
 import numpy as np
@@ -81,6 +82,58 @@ def test_elementwise_function(func_name: str, representation: str):
     result = spec["func"](var)
     assert np.allclose(result.val, expected_val)
     assert np.allclose(_dense_jac(result), expected_jac)
+    if representation == "diagonal_ad":
+        assert result.is_diagonal
+
+
+# --- Shared scaffolding for zero-derivative functions ---
+#
+# characteristic_function and heaviside are locally constant (almost everywhere), so
+# their Jacobian is defined to be identically zero, regardless of the chain rule
+# through the argument's own Jacobian (unlike the elementwise functions above).
+ZERO_DERIVATIVE_FUNCTIONS = {
+    "characteristic_function": dict(
+        func=functools.partial(af.characteristic_function, 0.5),
+        value=lambda v: np.isclose(v, 0, atol=0.5).astype(float),
+        domain=(-2.0, 2.0),
+    ),
+    "heaviside": dict(
+        func=functools.partial(af.heaviside, 0.5),
+        value=lambda v: np.heaviside(v, 0.5),
+        domain=(-2.0, 2.0),
+    ),
+}
+
+
+@pytest.mark.parametrize("func_name", list(ZERO_DERIVATIVE_FUNCTIONS))
+@pytest.mark.parametrize("representation", ["ndarray", "full_ad", "diagonal_ad"])
+def test_zero_derivative_function(func_name: str, representation: str):
+    """Value and (identically zero) Jacobian of characteristic_function/heaviside,
+    for a plain ndarray, a full AdArray, and a DiagonalAdArray argument."""
+    spec = ZERO_DERIVATIVE_FUNCTIONS[func_name]
+    lo, hi = spec["domain"]
+    val = np.linspace(lo, hi, 3)
+    expected_val = spec["value"](val)
+
+    if representation == "ndarray":
+        result = spec["func"](val)
+        assert np.allclose(result, expected_val)
+        return
+
+    if representation == "full_ad":
+        var = AdArray(val, sps.csc_matrix(_FULL_CHAIN_JAC))
+    else:
+        var = DiagonalAdArray(
+            val,
+            np.atleast_2d(_DIAGONAL_CHAIN_JAC),
+            np.arange(val.size),
+            [np.arange(val.size)],
+            val.size,
+        )
+
+    result = spec["func"](var)
+    assert np.allclose(result.val, expected_val)
+    assert np.allclose(_dense_jac(result), np.zeros((3, 3)))
     if representation == "diagonal_ad":
         assert result.is_diagonal
 
