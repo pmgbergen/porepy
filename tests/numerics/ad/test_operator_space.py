@@ -187,16 +187,24 @@ class TestOperatorSpaceInequality:
 
 
 class TestOperatorProperties:
-    def test_operator_requires_explicit_source_and_target(self):
+    def test_operator_requires_explicit_source(self):
         with pytest.raises(TypeError):
             Operator(name="test")
 
-    def test_none_source_target_raises(self, two_subdomains):
+    def test_none_source_raises(self, two_subdomains):
         space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
         with pytest.raises(TypeError):
             Operator(name="test", source=None, target=space)
-        with pytest.raises(TypeError):
-            Operator(name="test", source=space, target=None)
+
+    def test_target_defaults_to_source(self, two_subdomains):
+        """If target is omitted, or explicitly None, it defaults to source (i.e. the
+        operator is assumed to be a self-mapping)."""
+        space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
+        op_omitted = Operator(name="test", source=space)
+        assert op_omitted.target == space
+
+        op_explicit_none = Operator(name="test", source=space, target=None)
+        assert op_explicit_none.target == space
 
     def test_set_source_target_in_init(self, two_subdomains):
         space = OperatorSpace.from_domains([two_subdomains[0]], {GridEntity.cells: 1})
