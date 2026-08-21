@@ -1355,7 +1355,7 @@ class Scalar(Operator):
         self._value = float(value)
         # Domain-bearing scalars are cell-wise quantities on the provided grids.
         if domains:
-            space = OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
+            space = OperatorSpace.from_domains(domains)
         else:
             space = OperatorSpace.scalar()
         # Call the super constructor after setting the value.

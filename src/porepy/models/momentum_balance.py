@@ -382,9 +382,7 @@ class SolidMassEquation:
 
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
-        space = pp.ad.OperatorSpace.from_domains(
-            subdomains, {pp.ad.GridEntity.cells: 1}
-        )
+        space = pp.ad.OperatorSpace.from_domains(subdomains)
         return pp.ad.DenseArray(
             np.zeros(num_cells),
             "zero solid mass source",
@@ -571,7 +569,6 @@ class VariablesThreeFieldMomentumBalance:
             tags={"si_units": "Pa"},
         )
         self.equation_system.create_variables(
-            dof_info={pp.ad.GridEntity.cells: 1},
             name=self.total_pressure_variable,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
