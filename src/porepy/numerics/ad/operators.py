@@ -1240,10 +1240,9 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
         dof_info: Optional[dict[GridEntity, int]] = None,
         domain_type: Optional[DomainType] = None,
     ):
-        resolved_dof_info = dof_info if dof_info is not None else {GridEntity.cells: 1}
         if domains or domain_type is not None:
             space = OperatorSpace.from_domains(
-                list(domains), resolved_dof_info, domain_type=domain_type
+                list(domains), dof_info, domain_type=domain_type
             )
         else:
             f = (
@@ -1446,7 +1445,8 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     Parameters:
         name: Variable name.
         ndof: Number of dofs per grid element.
-            Valid keys are ``cells``, ``faces`` and ``nodes``.
+            Valid keys are ``cells``, ``faces`` and ``nodes``. If not given, one DOF
+            per cell is assumed.
         domain: A subdomain or interface on which the variable is defined.
         tags: A dictionary of tags.
 
@@ -1464,7 +1464,7 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     def __init__(
         self,
         name: str,
-        ndof: dict[GridEntity, int],
+        ndof: Optional[dict[GridEntity, int]],
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:

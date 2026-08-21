@@ -466,16 +466,15 @@ class EquationSystem:
             KeyError: If a variable with given name is already defined.
 
         """
-        # Set default value for dof_info. This is a mutable object, so we need to
-        # create a new one each time and not set the default in the signature.
-        if dof_info is None:
-            dof_info = {GridEntity.cells: 1}
-
-        # Sanity check for admissible DOF types.
-        requested_type = set(dof_info.keys())
-        if not requested_type.issubset(set(self.admissible_dof_types)):
-            non_admissible = requested_type.difference(self.admissible_dof_types)
-            raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
+        # Sanity check for admissible DOF types. A dof_info of None defaults to one DOF
+        # per cell (see Variable.__init__), which is always admissible.
+        if dof_info is not None:
+            requested_type = set(dof_info.keys())
+            if not requested_type.issubset(set(self.admissible_dof_types)):
+                non_admissible = requested_type.difference(self.admissible_dof_types)
+                raise ValueError(
+                    f"Non-admissible DOF types {non_admissible} requested."
+                )
 
         # Container for all grid variables.
         variables = []
