@@ -1092,7 +1092,6 @@ class EquationSystem:
         self,
         equation_name: str,
         new_equation: Operator,
-        grids: Optional[DomainList] = None,
         equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
     ) -> None:
         """Updates an existing equation with a new equation operator.
@@ -1103,9 +1102,6 @@ class EquationSystem:
         Parameters:
             equation_name: Name of the equation to be updated.
             new_equation: New equation in AD form.
-            grids: A list of subdomain *or* interface grids on which the equation is
-                defined. The default value is None, and in that case, the grids of the
-                previous equation are used.
             equations_per_grid_entity: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space. The
@@ -1114,12 +1110,6 @@ class EquationSystem:
                 case, the equations_per_grid_entity of the previous equation are used.
 
         """
-        if grids is None:
-            grids = self._equations[equation_name].domains  # type: ignore[assignment]
-            assert grids is not None, (
-                "Domains must be initialized in equation_system.set_equations."
-            )
-
         if equations_per_grid_entity is None:
             equations_per_grid_entity = dict(
                 self._equations[equation_name].target.dof_info
