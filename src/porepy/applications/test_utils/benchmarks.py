@@ -85,8 +85,8 @@ class EffectivePermeability:
             values.append(val_loc)
         return pp.wrap_as_dense_ad_array(
             np.hstack(values),
-            size,
-            "effective_tangential_permeability",
+            size=size,
+            name="effective_tangential_permeability",
             grids=subdomains,
         )
 
