@@ -178,9 +178,7 @@ class SurrogateOperator(TimeDependentOperator, IterativeOperator, Operator):
         domain_type: Optional[pp.ad.DomainType] = None,
     ) -> None:
         op_space = pp.ad.OperatorSpace.from_domains(
-            list(domains),
-            dof_info if dof_info is not None else {GridEntity.cells: 1},
-            domain_type=domain_type,
+            list(domains), dof_info, domain_type=domain_type
         )
 
         super().__init__(
@@ -469,12 +467,6 @@ class SurrogateFactory:
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
 
-        if dof_info is None:
-            dof_info = {GridEntity.cells: 1}
-
-        # help mypy with default values
-        dof_info = cast(dict[GridEntity, int], dof_info)
-
         self._dependencies: Sequence[
             Callable[[pp.GridLikeSequence], pp.ad.Variable]
         ] = dependencies
@@ -484,8 +476,9 @@ class SurrogateFactory:
         self._name: str = name
         """See :meth:`name`."""
 
-        self._dof_info: dict[GridEntity, int] = dof_info
-        """Passed at insantiation, with default value leading to scalar, cell-wise dofs.
+        self._dof_info: Optional[dict[GridEntity, int]] = dof_info
+        """Passed at insantiation. ``None`` leads to scalar, cell-wise dofs (see
+        :meth:`~porepy.numerics.ad.operator_space.OperatorSpace.from_domains`).
         """
 
         self.mdg: pp.MixedDimensionalGrid = mdg
