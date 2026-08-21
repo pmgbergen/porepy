@@ -127,7 +127,6 @@ class FluidDensityFromPressure(pp.PorePyModel):
             pp.ad.exp,
             "density_exponential",
             source=domain_and_range,
-            target=domain_and_range,
         )
 
         # Reference variables are defined in a variables class which is assumed to be
@@ -205,7 +204,6 @@ class FluidDensityFromTemperature(pp.PorePyModel):
             pp.ad.exp,
             "density_exponential",
             source=domain_and_range,
-            target=domain_and_range,
         )
 
         # Reference variables are defined in a variables class which is assumed to be
