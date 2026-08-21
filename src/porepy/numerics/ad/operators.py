@@ -2018,9 +2018,10 @@ class ProjectionList(Operator):
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: Literal[False],
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids: Optional[Sequence[GridLike]] = None,
     grid_entity: GridEntity = GridEntity.cells,
 ) -> SparseArray:
     # See md_grid for explanation of overloading and type hints.
@@ -2031,9 +2032,10 @@ def _ad_wrapper(
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: Literal[True],
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids: Optional[Sequence[GridLike]] = None,
     grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray: ...
 
@@ -2041,9 +2043,10 @@ def _ad_wrapper(
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
     as_array: bool,
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids: Optional[Sequence[GridLike]] = None,
     grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray | pp.ad.SparseArray:
     """Create ad array or diagonal matrix.
@@ -2053,12 +2056,10 @@ def _ad_wrapper(
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
         array: Whether to return a matrix or vector.
+        grids: Grids on which the wrapped object is defined.If empty, the returned
+            operator has the scalar source/target space.
         size: Size of the array or matrix. If not set, the size is inferred from vals.
         name: Name of ad object.
-        grids: Grids on which the wrapped object is defined. Used to construct the
-            source/target :class:`~porepy.numerics.ad.operator_space.OperatorSpace`
-            of the returned operator. If not provided (or empty), the returned
-            operator has no associated source/target space.
         grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
             associated with.
 
@@ -2095,7 +2096,7 @@ def _ad_wrapper(
         domain_and_range = pp.ad.OperatorSpace.from_domains(
             grids, {grid_entity: dofs_per_entity}
         )
-    elif grids is not None:
+    else:
         # Empty sequence of grids: interpret as the scalar space.
         domain_and_range = pp.ad.OperatorSpace.scalar()
 
@@ -2112,19 +2113,20 @@ def _ad_wrapper(
 
 def wrap_as_dense_ad_array(
     vals: pp.number | np.ndarray,
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids: Optional[Sequence[GridLike]] = None,
     grid_entity: GridEntity = GridEntity.cells,
 ) -> DenseArray:
     """Wrap a number or array as ad array.
 
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
+        grids: Grids on which the wrapped array is defined. If empty, the returned
+            operator has the scalar source/target space.
         size: Size of the array. If not set, the size is inferred from vals.
         name: Name of ad object.
-        grids: Grids on which the wrapped array is defined. Used to construct the
-            source/target space of the returned operator.
         grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
             associated with.
 
@@ -2133,25 +2135,26 @@ def wrap_as_dense_ad_array(
 
     """
     return _ad_wrapper(
-        vals, True, size=size, name=name, grids=grids, grid_entity=grid_entity
+        vals, True, grids=grids, size=size, name=name, grid_entity=grid_entity
     )
 
 
 def wrap_as_sparse_ad_array(
     vals: Union[pp.number, np.ndarray],
+    *,
+    grids: Sequence[GridLike],
     size: Optional[int] = None,
     name: Optional[str] = None,
-    grids: Optional[Sequence[GridLike]] = None,
     grid_entity: GridEntity = GridEntity.cells,
 ) -> SparseArray:
     """Wrap a number or array as ad matrix.
 
     Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
+        grids: Grids on which the wrapped array is defined. If empty, the returned
+            operator has the scalar source/target space.
         size: Size of the array. If not set, the size is inferred from vals.
         name: Name of ad object.
-        grids: Grids on which the wrapped array is defined. Used to construct the
-            source/target space of the returned operator.
         grid_entity: The grid entity (cells, faces or nodes) the wrapped values are
             associated with.
 
@@ -2160,7 +2163,7 @@ def wrap_as_sparse_ad_array(
 
     """
     return _ad_wrapper(
-        vals, False, size=size, name=name, grids=grids, grid_entity=grid_entity
+        vals, False, grids=grids, size=size, name=name, grid_entity=grid_entity
     )
 
 
