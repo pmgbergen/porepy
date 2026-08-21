@@ -979,13 +979,10 @@ class ContactIndicators(pp.PorePyModel):
             np.zeros(num_cells), source=domain_and_range, target=domain_and_range
         )
 
-        f_max = pp.ad.Function(
-            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
-        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd - 1),
             "norm_function",
-            domain_and_range,
             domain_and_range,
         )
         # Heaviside function. The 0 as the second argument to partial() implies
@@ -994,7 +991,6 @@ class ContactIndicators(pp.PorePyModel):
         f_heaviside = pp.ad.Function(
             partial(pp.ad.heaviside, 0),
             "heaviside_function",
-            domain_and_range,
             domain_and_range,
         )
 
@@ -1046,7 +1042,6 @@ class ContactIndicators(pp.PorePyModel):
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd),
             "norm_function",
-            domain_and_range,
             domain_and_range,
         )
         return f_norm(t) + f_norm(c_num * u)
