@@ -176,12 +176,6 @@ class ModelRunner:
         self.model = model
         """Model instance passed at instantiation."""
 
-        if self.params.get("prepare_simulation", True):
-            self.model.prepare_simulation()
-
-        self._is_nonlinear = self.model._is_nonlinear_problem()
-        """Flag indicating whether the problem is nonlinear, set at initialization."""
-
         self._is_time_dependent = self.model._is_time_dependent()
         """Flag indicating whether the problem is time-dependent, set at
         initialization."""
@@ -193,6 +187,32 @@ class ModelRunner:
         )
         """Responsible for the time stepping logic. Used only in time-dependent
         simulations."""
+
+        if self._is_time_dependent:
+            # Seed the model's time data from the resolved time stepper's scheduler
+            # before preparing the simulation. Without this, prepare_simulation (which
+            # e.g. sets up time-dependent boundary conditions) would run against the
+            # placeholder time data set in SolutionStrategy.__init__ (schedule [0, 1]),
+            # rather than the actual simulation schedule.
+            scheduler = self.time_stepper.scheduler
+            self.model.time_data = pp.time_stepper.SimulationTimeData(
+                time=scheduler.get_time(),
+                dt=scheduler.get_dt(),
+                time_index_successful=scheduler.get_time_index_successful(),
+                schedule=scheduler.get_schedule(),
+                constant_dt=isinstance(
+                    scheduler, pp.time_stepper.scheduler.TimeSchedulerConstantDt
+                ),
+                io=scheduler.io,
+            )
+
+        if self.params.get("prepare_simulation", True):
+            self.model.prepare_simulation()
+
+        # Some models (e.g. contact mechanics) determine nonlinearity from the mixed-
+        # dimensional grid, which is only available after prepare_simulation.
+        self._is_nonlinear = self.model._is_nonlinear_problem()
+        """Flag indicating whether the problem is nonlinear, set at initialization."""
 
         self.solver: pp.solvers.NonlinearSolverBase = (
             _extract_nonlinear_solver_from_params(

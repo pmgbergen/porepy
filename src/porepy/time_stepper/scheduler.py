@@ -316,6 +316,9 @@ class CannotRecomputeTimeStep(Exception):
 
 
 class TimeSchedulerBase(ABC):
+    io: TimeIO
+    """I/O bookkeeping for exported times, set by subclasses on construction."""
+
     @abstractmethod
     def get_schedule(self) -> np.ndarray:
         pass
