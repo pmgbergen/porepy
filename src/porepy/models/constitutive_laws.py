@@ -391,7 +391,6 @@ class DisplacementJumpAperture(DimensionReduction):
                     pp.ad.maximum,
                     "maximum_function",
                     domain_and_range,
-                    domain_and_range,
                 )
 
                 a_ref = self.residual_aperture(subdomains_of_dim)
@@ -2047,7 +2046,6 @@ class PeacemanWellFlux(pp.PorePyModel):
         f_log = Function(
             pp.ad.functions.log,
             "log_function_Piecmann",
-            domain_and_range,
             domain_and_range,
         )
 
@@ -4121,11 +4119,8 @@ class ShearDilation(pp.PorePyModel):
             partial(pp.ad.functions.l2_norm, self.nd - 1),
             "norm_function",
             domain_and_range,
-            domain_and_range,
         )
-        f_tan = Function(
-            pp.ad.functions.tan, "tan_function", domain_and_range, domain_and_range
-        )
+        f_tan = Function(pp.ad.functions.tan, "tan_function", domain_and_range)
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
             self.tangential_component(subdomains)
             @ self.plastic_displacement_jump(subdomains)
@@ -4527,7 +4522,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # traction.
         domain_and_range = OperatorSpace.from_domains(subdomains)
 
-        f_log = Function(pp.ad.functions.log, "log", domain_and_range, domain_and_range)
+        f_log = Function(pp.ad.functions.log, "log", domain_and_range)
 
         # Nondimensionlize, since the contact traction is nondimensionalized.
         dimensionless_strength = self.uniaxial_compressive_strength(
@@ -4567,7 +4562,6 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
             "clip_function",
-            domain_and_range,
             domain_and_range,
         )
         t = self.normal_component(subdomains) @ f_clip(
@@ -4693,7 +4687,6 @@ class FrictionDamage(pp.PorePyModel):
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
             "clip_function",
             domain_and_range,
-            domain_and_range,
         )
         # Get the history variable. Guard against negative values.
         history = f_clip(self.friction_damage_history(subdomains))
@@ -4702,7 +4695,7 @@ class FrictionDamage(pp.PorePyModel):
         d0 = self.residual_friction_damage(subdomains)
 
         # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp", domain_and_range, domain_and_range)
+        f_exp = Function(pp.ad.functions.exp, "exp", domain_and_range)
         one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
@@ -4794,7 +4787,6 @@ class DilationDamage(pp.PorePyModel):
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
             "clip_function",
             domain_and_range,
-            domain_and_range,
         )
         # Get the history variable. Guard against negative values.
         history = f_clip(self.dilation_damage_history(subdomains))
@@ -4803,7 +4795,7 @@ class DilationDamage(pp.PorePyModel):
         d0 = self.residual_dilation_damage(subdomains)
 
         # Compute the damage.
-        f_exp = Function(pp.ad.functions.exp, "exp", domain_and_range, domain_and_range)
+        f_exp = Function(pp.ad.functions.exp, "exp", domain_and_range)
         one = pp.ad.Scalar(1.0, domains=subdomains)
         return d0 + (one - d0) * f_exp(-history)
 
