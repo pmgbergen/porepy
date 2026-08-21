@@ -633,7 +633,7 @@ class ConstantPermeability(pp.PorePyModel):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.permeability, size, name="permeability", grids=subdomains
+            self.solid.permeability, size=size, name="permeability", grids=subdomains
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -823,7 +823,7 @@ class DimensionDependentPermeability(ConstantPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(
-            1, size, name="permeability", grids=subdomains
+            1, size=size, name="permeability", grids=subdomains
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -843,7 +843,7 @@ class DimensionDependentPermeability(ConstantPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(
-            1, size, name="permeability", grids=subdomains
+            1, size=size, name="permeability", grids=subdomains
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -2378,7 +2378,7 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
             size = sum(sd.num_cells for sd in subdomains)
-            phi = phi * pp.wrap_as_dense_ad_array(1, size, grids=subdomains)
+            phi = phi * pp.wrap_as_dense_ad_array(1, size=size, grids=subdomains)
         conductivity = phi * self.fluid.thermal_conductivity(subdomains) + (
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
