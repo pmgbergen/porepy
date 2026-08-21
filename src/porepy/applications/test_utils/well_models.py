@@ -232,6 +232,6 @@ class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
         """
         size = sum(sd.num_cells for sd in subdomains)
         permeability = pp.wrap_as_dense_ad_array(
-            1, size, name="well permeability", grids=subdomains
+            1, size=size, name="well permeability", grids=subdomains
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)

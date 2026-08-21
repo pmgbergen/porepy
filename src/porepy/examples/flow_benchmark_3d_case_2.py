@@ -143,7 +143,7 @@ class PermeabilitySpecification(Permeability):
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
             self.solid.fracture_permeability,
-            size,
+            size=size,
             name="intersection_permeability",
             grids=subdomains,
         )
