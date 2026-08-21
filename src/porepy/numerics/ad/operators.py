@@ -167,8 +167,6 @@ class Operator:
     @property
     def domains(self) -> tuple[GridLike, ...]:
         """List of domains where the operator is defined."""
-        if self._target is None:
-            return ()
         return self._target.grids
 
     @property
@@ -1291,7 +1289,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             reference = False
             index_kwarg = {"iterate_index": 0}
 
-        domain_type = self.target.domain_type if self.target else None
+        domain_type = self.target.domain_type
         for grid in self.domains:
             if domain_type == DomainType.subdomains:
                 assert isinstance(grid, pp.Grid)
@@ -1319,8 +1317,7 @@ class TimeDependentDenseArray(TimeDependentOperator, ReferenceOperator, Operator
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
-        domain_type = self._source.domain_type if self._source else None
-        domain_label = domain_type.value if domain_type is not None else "unknown"
+        domain_label = self._source.domain_type.value
         msg = (
             f"Wrapped time-dependent array with name {self._name}.\n"
             f"Defined on {len(self.domains)} {domain_label}.\n"
@@ -1394,7 +1391,7 @@ class Scalar(Operator):
         new_name = None if self.name is None else f"minus {self.name}"
         # Propagate any grid context attached to this Scalar.
         doms: Optional[list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid]] = (
-            list(self._source.grids) if self._source and self._source.grids else None
+            list(self._source.grids) if self._source.grids else None
         )
         return Scalar(value=-self._value, name=new_name, domains=doms)
 
@@ -1531,7 +1528,6 @@ class Variable(TimeDependentOperator, IterativeOperator, ReferenceOperator, Oper
     @property
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
-        assert self.target is not None
         return self.target.num_dofs()
 
     def set_name(self, name: str) -> None:
