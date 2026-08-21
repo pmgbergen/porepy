@@ -184,7 +184,7 @@ class LebesgueMetric:
             float: measure of values
 
         """
-        domain_and_range = OperatorSpace.from_domains(grids, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(grids)
         l2_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, dim), "l2_norm", domain_and_range, domain_and_range
         )

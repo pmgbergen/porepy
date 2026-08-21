@@ -19,7 +19,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics import solvers
-from porepy.numerics.ad import GridEntity, OperatorSpace
+from porepy.numerics.ad import OperatorSpace
 from porepy.viz.solver_statistics import SolverStatisticsFactory
 
 logger = logging.getLogger(__name__)
@@ -974,7 +974,7 @@ class ContactIndicators(pp.PorePyModel):
         u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
         zeros_frac = pp.ad.DenseArray(
             np.zeros(num_cells), source=domain_and_range, target=domain_and_range
         )
@@ -1042,7 +1042,7 @@ class ContactIndicators(pp.PorePyModel):
 
         u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd),
             "norm_function",
