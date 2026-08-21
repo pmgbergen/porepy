@@ -41,7 +41,7 @@ class DomainType(Enum):
     """
 
 
-@dataclasses.dataclass(eq=False)
+@dataclasses.dataclass(frozen=True)
 class OperatorSpace:
     """Represents the mathematical domain or range of an AD operator.
 
@@ -55,6 +55,8 @@ class OperatorSpace:
     Use the class methods :meth:`scalar`, :meth:`from_domains`, :meth:`unclear` and
     :meth:`waived` to construct instances instead of calling the constructor directly.
 
+    An ``OperatorSpace`` is immutable.
+
     """
 
     domain_type: DomainType
@@ -67,7 +69,7 @@ class OperatorSpace:
     """Number of DOFs per grid entity for each entity type present in the space."""
 
     def __post_init__(self) -> None:
-        self.grids = tuple(self.grids)
+        object.__setattr__(self, "grids", tuple(self.grids))
 
         if self.domain_type in (
             DomainType.scalar,
@@ -84,14 +86,14 @@ class OperatorSpace:
                     " dof_info."
                 )
                 raise ValueError(s)
-            self.dof_info = GridEntities()
+            object.__setattr__(self, "dof_info", GridEntities())
             return
 
         if not self.dof_info:
             raise ValueError(
                 f"{self.domain_type.value.capitalize()} spaces must define dof_info."
             )
-        self.dof_info = GridEntities.from_mapping(self.dof_info)
+        object.__setattr__(self, "dof_info", GridEntities.from_mapping(self.dof_info))
 
         # Note: self.grids may legitimately be empty for operators that are constructed
         # on an empty list of subdomains/interfaces/boundary grids, but whose
@@ -112,18 +114,6 @@ class OperatorSpace:
             raise ValueError(
                 "Boundary-grid spaces must be defined on pp.BoundaryGrid objects."
             )
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, OperatorSpace):
-            return NotImplemented
-        return (
-            self.domain_type == other.domain_type
-            and self.grids == other.grids
-            and self.dof_info == other.dof_info
-        )
-
-    def __hash__(self) -> int:
-        return hash((self.domain_type, self.grids, frozenset(self.dof_info.items())))
 
     def num_dofs(self) -> int:
         """Total number of degrees of freedom represented by this space.
