@@ -143,7 +143,7 @@ class Permeability(DimensionDependentPermeability):
         size = sum([sd.num_cells for sd in subdomains])
         permeability = pp.wrap_as_dense_ad_array(
             self.solid.fracture_permeability,
-            size,
+            size=size,
             name="fracture permeability",
             grids=subdomains,
         )
