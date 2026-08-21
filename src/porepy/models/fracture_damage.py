@@ -504,9 +504,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
 
         # Length is evaluated using the ramp function max(x, 0)
         domain_and_range = OperatorSpace.from_domains(subdomains)
-        f_max = pp.ad.Function(
-            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
-        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         zero = pp.ad.Scalar(0.0)
         max_0 = f_max(
             tangential_to_scalar @ (m_t * u_t_0),
@@ -516,9 +514,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             tangential_to_scalar @ (m_t * u_t_1),
             zero,
         )
-        f_abs = pp.ad.Function(
-            pp.ad.abs, "abs_function", domain_and_range, domain_and_range
-        )
+        f_abs = pp.ad.Function(pp.ad.abs, "abs_function", domain_and_range)
         contribution = f_abs(max_1 - max_0)
         # If time_step_index > 0, we can safely disregard the contribution if the
         # displacement increment is zero. Return increment for checking before adding

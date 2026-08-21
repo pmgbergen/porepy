@@ -114,9 +114,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
 
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
-        max_function = pp.ad.Function(
-            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
-        )
+        max_function = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         zeros_frac = pp.ad.DenseArray(
             np.zeros(num_cells),
             "zeros_frac",
@@ -215,13 +213,10 @@ class ContactMechanicsEquations(pp.BalanceEquation):
             np.zeros(num_cells), source=domain_and_range, target=domain_and_range
         )
 
-        f_max = pp.ad.Function(
-            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
-        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd - 1),
             "norm_function",
-            domain_and_range,
             domain_and_range,
         )
 
@@ -574,7 +569,6 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             partial(pp.ad.functions.characteristic_function, tol),
             "characteristic_function_for_zero_normal_traction",
             domain_and_range,
-            domain_and_range,
         )
 
         # Composing b_p = max(friction_bound, 0).
@@ -582,9 +576,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         zeros_frac = pp.ad.DenseArray(
             np.zeros(num_cells), source=domain_and_range, target=domain_and_range
         )
-        f_max = pp.ad.Function(
-            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
-        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
@@ -713,13 +705,10 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         # Auxiliary functions.
         domain_and_range = OperatorSpace.from_domains(subdomains)
 
-        f_max = pp.ad.Function(
-            pp.ad.maximum, "max_function", domain_and_range, domain_and_range
-        )
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function", domain_and_range)
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd - 1),
             "norm_function",
-            domain_and_range,
             domain_and_range,
         )
         f_mask_by_threshold = pp.ad.Function(
@@ -728,7 +717,6 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
                 self.numerical.open_state_tolerance,
             ),
             "mask_by_threshold_function",
-            domain_and_range,
             domain_and_range,
         )
 
