@@ -58,6 +58,9 @@ class AbstractFunction(Operator):
 
     Parameters:
         name: Name of this instance as an AD operator.
+        source: Algebraic source space of this function.
+        target: Algebraic target space of this function. Defaults to ``source`` if not
+            given.
 
     """
 
@@ -71,7 +74,7 @@ class AbstractFunction(Operator):
         children: Optional[Sequence[Operator]] = None,
         *,
         source: OperatorSpace,
-        target: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
         # NOTE Constructor is overwritten to have a consistent signature
@@ -311,7 +314,8 @@ class Function(AbstractFunction):
         func: A callable returning a numpy array for numpy array arguments, and an
             Ad array for arguments containing Ad arrays.
         source: The source of the function.
-        target: The target of the function.
+        target: The target of the function. If not given (or explicitly ``None``),
+            defaults to ``source``.
 
     """
 
@@ -320,7 +324,7 @@ class Function(AbstractFunction):
         func: Callable[..., FloatType],
         name: str,
         source: OperatorSpace,
-        target: OperatorSpace,
+        target: Optional[OperatorSpace] = None,
     ) -> None:
         super().__init__(name=name, source=source, target=target)
 
