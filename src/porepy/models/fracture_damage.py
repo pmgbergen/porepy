@@ -351,8 +351,6 @@ class FrictionDamageEquation(FractureDamageEquations):
         self.equation_system.update_equation(
             equation_name=self.friction_damage_equation_name,
             new_equation=self.friction_damage_equation(fractures),
-            grids=fractures,
-            equations_per_grid_entity={pp.ad.GridEntity.cells: 1},
         )
 
     def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
