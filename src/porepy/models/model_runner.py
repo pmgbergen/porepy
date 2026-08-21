@@ -129,10 +129,10 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         params: Parameters related to the solution procedure.
 
     """
-    warnings.deprecated(
-        "run_time_dependent_model is deprecated in favor of ModelRunner.run and will be"
-        " removed in future versions."
-    )
+    # warnings.deprecated(
+    #     "run_time_dependent_model is deprecated in favor of ModelRunner.run and will be"
+    #     " removed in future versions."
+    # )
     runner = ModelRunner(model, params)
     runner.run()
 
