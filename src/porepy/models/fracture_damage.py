@@ -162,7 +162,6 @@ class DilationDamageVariable(FractureDamageVariables):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={pp.ad.GridEntity.cells: 1},
             name=self.dilation_damage_history_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -200,7 +199,6 @@ class FrictionDamageVariable(FractureDamageVariables):
         super().create_variables()
 
         self.equation_system.create_variables(
-            dof_info={pp.ad.GridEntity.cells: 1},
             name=self.friction_damage_history_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
             tags={"si_units": "-"},
@@ -428,7 +426,7 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
         tangential_domain = OperatorSpace.from_domains(
             subdomains, {GridEntity.cells: self.nd - 1}
         )
-        scalar_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        scalar_range = OperatorSpace.from_domains(subdomains)
 
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd - 1),
@@ -505,7 +503,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         u_t_0 = u_t.previous_timestep(time_step_index)
 
         # Length is evaluated using the ramp function max(x, 0)
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
         f_max = pp.ad.Function(
             pp.ad.maximum, "max_function", domain_and_range, domain_and_range
         )
@@ -555,9 +553,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         tangential_domain = OperatorSpace.from_domains(
             subdomains, {GridEntity.cells: self.nd - 1}
         )
-        scalar_domain_and_range = OperatorSpace.from_domains(
-            subdomains, {GridEntity.cells: 1}
-        )
+        scalar_domain_and_range = OperatorSpace.from_domains(subdomains)
         # Define the functions for the norm and zero-division-safe power.
         f_norm = pp.ad.Function(
             partial(pp.ad.l2_norm, self.nd - 1),

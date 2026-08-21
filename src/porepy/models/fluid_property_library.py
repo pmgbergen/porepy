@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.ad import GridEntity, OperatorSpace
+from porepy.numerics.ad import OperatorSpace
 
 __all__ = [
     "FluidDensityFromPressure",
@@ -121,7 +121,7 @@ class FluidDensityFromPressure(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         exp = pp.ad.Function(
             pp.ad.exp,
@@ -200,7 +200,7 @@ class FluidDensityFromTemperature(pp.PorePyModel):
             Exponential term in the fluid density as a function of pressure.
 
         """
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
         exp = pp.ad.Function(
             pp.ad.exp,
             "density_exponential",
