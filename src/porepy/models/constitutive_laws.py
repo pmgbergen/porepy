@@ -381,9 +381,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 normal_jump = self.normal_component(
                     subdomains_of_dim
                 ) @ self.displacement_jump(subdomains_of_dim)
-                domain_and_range = OperatorSpace.from_domains(
-                    subdomains_of_dim, {GridEntity.cells: 1}
-                )
+                domain_and_range = OperatorSpace.from_domains(subdomains_of_dim)
                 # The jump should be bounded below by gap function. This is not
                 # guaranteed in the non-converged state. As this (especially
                 # non-positive values) may give significant trouble in the aperture.
@@ -1369,7 +1367,6 @@ class AdTpfaFlux(pp.PorePyModel):
         )
         cell_scalar_space = pp.ad.OperatorSpace.from_domains(
             domains,
-            {pp.ad.GridEntity.cells: 1},
             domain_type=pp.ad.DomainType.subdomains,
         )
         # Build a mapping for the cell-wise vector source, unravelled from the right:
@@ -1438,7 +1435,7 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_flux_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-                source=OperatorSpace.from_domains(domains, {GridEntity.cells: 1}),
+                source=OperatorSpace.from_domains(domains),
                 target=target,
             )(t_f, potential_difference, potential(domains), t_bnd, boundary_value)
             # Define the Ad function for the vector source
@@ -2045,7 +2042,7 @@ class PeacemanWellFlux(pp.PorePyModel):
         skin_factor = self.skin_factor(interfaces)
         r_e = self.equivalent_well_radius(subdomains)
 
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         f_log = Function(
             pp.ad.functions.log,
@@ -3552,9 +3549,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             stiffness = self.stiffness_tensor(sd)
             lmbda.append(stiffness.lmbda)
 
-        space = pp.ad.OperatorSpace.from_domains(
-            subdomains, {pp.ad.GridEntity.cells: 1}
-        )
+        space = pp.ad.OperatorSpace.from_domains(subdomains)
         return pp.ad.DenseArray(
             np.hstack(lmbda), name="second_lame_parameter", source=space, target=space
         )
@@ -4119,7 +4114,7 @@ class ShearDilation(pp.PorePyModel):
             Cell-wise shear dilation.
 
         """
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
         f_norm = Function(
@@ -4232,9 +4227,7 @@ class BartonBandis(pp.PorePyModel):
         val = self.equation_system.evaluate(maximum_opening)
         if np.any(val == 0):
             num_cells = sum(sd.num_cells for sd in subdomains)
-            space = pp.ad.OperatorSpace.from_domains(
-                subdomains, {pp.ad.GridEntity.cells: 1}
-            )
+            space = pp.ad.OperatorSpace.from_domains(subdomains)
             return pp.ad.DenseArray(
                 np.zeros(num_cells),
                 "zero_Barton-Bandis_opening",
@@ -4532,7 +4525,7 @@ class FractureDamageEvolutionCoefficients(pp.PorePyModel):
         # The damage evolution coefficient is defined as the logarithm of the ratio of
         # the uniaxial compressive strength and the tangential component of the contact
         # traction.
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         f_log = Function(pp.ad.functions.log, "log", domain_and_range, domain_and_range)
 
@@ -4695,7 +4688,7 @@ class FrictionDamage(pp.PorePyModel):
             Operator for nondimensionalized frictional damage.
 
         """
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
             "clip_function",
@@ -4795,7 +4788,7 @@ class DilationDamage(pp.PorePyModel):
             Operator for dimensionless dilation damage.
 
         """
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),

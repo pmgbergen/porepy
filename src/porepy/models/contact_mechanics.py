@@ -110,7 +110,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         # Maximum function
         num_cells: int = sum([sd.num_cells for sd in subdomains])
@@ -210,7 +210,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
             source=tangential_domain,
             target=tangential_domain,
         )
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
         zeros_frac = pp.ad.DenseArray(
             np.zeros(num_cells), source=domain_and_range, target=domain_and_range
         )
@@ -568,7 +568,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         tol = self.numerical.open_state_tolerance
         # The characteristic function will evaluate to 1 if the argument is less than
         # the tolerance, and 0 otherwise.
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         f_characteristic = pp.ad.Function(
             partial(pp.ad.functions.characteristic_function, tol),
@@ -711,7 +711,7 @@ class RadialReturnTangentialContactMechanicsEquation(pp.PorePyModel):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Auxiliary functions.
-        domain_and_range = OperatorSpace.from_domains(subdomains, {GridEntity.cells: 1})
+        domain_and_range = OperatorSpace.from_domains(subdomains)
 
         f_max = pp.ad.Function(
             pp.ad.maximum, "max_function", domain_and_range, domain_and_range

@@ -546,7 +546,7 @@ class ModelGeometry(pp.PorePyModel):
             target: pp.ad.OperatorSpace = pp.ad.OperatorSpace.unclear()
         else:
             source = pp.ad.OperatorSpace.from_domains(
-                list(grids), {pp.ad.GridEntity.cells: 1}, domain_type=domain_type
+                list(grids), domain_type=domain_type
             )
             target = pp.ad.OperatorSpace.from_domains(
                 list(grids), {pp.ad.GridEntity.cells: dim}, domain_type=domain_type
