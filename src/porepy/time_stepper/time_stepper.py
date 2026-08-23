@@ -11,6 +11,10 @@ import logging
 
 import porepy as pp
 from porepy.numerics import solvers
+from porepy.numerics.solvers.convergence_check import (
+    ConvergenceCriteria,
+    DivergenceCriteria,
+)
 from porepy.time_stepper.time_step_control import TimeManager
 from porepy.time_stepper.time_step_status import (
     TimeStepperStatus,
@@ -18,7 +22,6 @@ from porepy.time_stepper.time_step_status import (
     TimeStepperStatusFailure,
     TimeStepperStatusSuccess,
 )
-from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 logger = logging.getLogger(__name__)
 
@@ -245,3 +248,155 @@ def _log_time_step(time_manager: pp.TimeManager) -> None:
         f"time={time_manager.time:.2e} of "
         f"{time_manager.time_final:.2e}"
     )
+
+
+class PseudoTimeStepper(TimeStepper):
+    """A pseudo-time stepper that does not advance time, but instead mimicks
+    the structure of a pp.solvers.NewtonSolver (iterative solver).
+
+    Parameters:
+        time_manager: TimeManager instance.
+        convergence_criteria: Convergence criteria for convergence check.
+        divergence_criteria: Divergence criteria for convergence check.
+
+    """
+
+    def __init__(
+        self,
+        time_manager: TimeManager,
+        convergence_criteria: ConvergenceCriteria,
+        divergence_criteria: DivergenceCriteria,
+    ) -> None:
+        """Initialize the pseudo-time stepper."""
+        super().__init__(time_manager)
+        self.convergence_criteria = convergence_criteria
+        self.divergence_criteria = divergence_criteria
+        self.pseudo_steps = 0
+        """Internal counter for pseudo time-stepping iterations."""
+
+    def perform_pseudo_time_step(
+        self,
+        model: pp.PorePyModel,
+        solver: pp.solvers.NonlinearSolverBase,
+    ) -> tuple[
+        TimeStepperStatusSuccess | TimeStepperStatusFailure,
+        solvers.ConvergenceStatusCollection,
+        solvers.ConvergenceStatusCollection,
+    ]:
+        """Perform a single pseudo-time step.
+
+        Parameters:
+            model: The PorePy model to perform a pseudo-time step on.
+            solver: The nonlinear solver to integrate the discretized problem.
+
+        Returns:
+            TimeStepperStatus: Success if pseudo-time step converged, Failure if max
+                retries exhausted, or ContinueIterating to repeat.
+
+        """
+        # Keep track of the number of pseudo-time steps taken.
+        self.pseudo_steps += 1
+
+        # Close to perform_time_step, but we don't advance time. Instead, we check for
+        # convergence to a steady state.
+        for attempt in range(self.max_attempts):
+            # Hop over updating time manager.
+            ...
+
+            # Log time step for statistics.
+            self._update_time_statistics(model)
+
+            # Attempt a standard time step.
+            nonlinear_solver_status = self._perform_trial_time_step(model, solver)
+
+            # No rolling back of time etc.
+            ...
+
+            # Check if initialization has converged (steady state reached).
+            # NOTE: Needs to be performed before _after_trial_time_step because
+            # it uses the current iterate.
+            convergence_status, divergence_status = self.check_convergence(model)
+
+            # New time step size based on trial results.
+            time_step_status = self._compute_next_time_step(
+                nonlinear_solver_status, model, attempt
+            )
+
+            # Log time step status for statistics.
+            self._update_nonlinear_solver_statistics(model, time_step_status)
+
+            # Update model (also saves logged statistics) based on trial results.
+            self._update_model_after_trial(model, time_step_status)
+
+            # Return on success or error when there is no way to continue trying.
+            if isinstance(
+                time_step_status, (TimeStepperStatusSuccess, TimeStepperStatusFailure)
+            ):
+                return time_step_status, convergence_status, divergence_status
+
+        # We should never reach this code, but it is added as a safeguard.
+        return (
+            TimeStepperStatusFailure(
+                reason=f"Max retries ({self.max_attempts}) exhausted; stopping.",
+                nonlinear_solver_status=solvers.NonlinearSolverStatusFailed(
+                    linear_solver_statuses=[],
+                    convergence_statuses=solvers.ConvergenceStatusCollection(),
+                    divergence_statuses=solvers.ConvergenceStatusCollection(),
+                ),
+            ),
+            solvers.ConvergenceStatusCollection(),
+            solvers.ConvergenceStatusCollection(),
+        )
+
+    def _perform_trial_time_step(
+        self,
+        model: pp.PorePyModel,
+        solver: pp.solvers.NonlinearSolverBase,
+    ) -> solvers.NonlinearSolverStatus:
+        """Perform a nonlinear solve to make the time step.
+
+        Returns:
+            The nonlinear solver status (converged/failed).
+
+        """
+        # Execute trial time step.
+        model.before_time_step()
+        nonlinear_solver_status = solver.solve(model)  # type: ignore
+        return nonlinear_solver_status
+
+    def check_convergence(
+        self, model: pp.PorePyModel
+    ) -> tuple[
+        solvers.ConvergenceStatusCollection,
+        solvers.ConvergenceStatusCollection,
+    ]:
+        """Check convergence and divergence based on passed criteria.
+
+        Parameters:
+            model: The PorePy model instance.
+
+        Returns:
+            Tuple containing:
+                - ConvergenceStatusCollection: Status and info about convergence.
+                - ConvergenceStatusCollection: Status and info about divergence.
+                - ConvergenceInfoCollection: Detailed information about the
+                    convergence process.
+
+        """
+        # Compute the pseudo-time increment.
+        state = model.equation_system.get_variable_values(iterate_index=0)
+        prev_state = model.equation_system.get_variable_values(time_step_index=0)
+        pseudo_time_increment = state - prev_state
+
+        # Check convergence criteria for the pseudo-time increment.
+        convergence_status, _ = self.convergence_criteria.check(
+            increment=pseudo_time_increment, reference_increment=state
+        )
+
+        divergence_status = self.divergence_criteria.check(
+            increment=pseudo_time_increment,
+            reference_increment=state,
+            num_iterations=self.pseudo_steps,
+        )
+
+        return convergence_status, divergence_status
