@@ -689,6 +689,8 @@ class SolutionStrategy(pp.PorePyModel):
 
         for key in ["subdomains", "interfaces", "boundaries"]:
             for _, data in getattr(self.mdg, key)(return_data=True):
+                if pp.TIME_STEP_SOLUTIONS not in data:
+                    continue
                 for name in data[pp.TIME_STEP_SOLUTIONS].keys():
                     pp.shift_solution_values(
                         name=name,
