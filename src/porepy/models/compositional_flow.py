@@ -213,7 +213,6 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
     et = compositional.get_local_equilibrium_condition(model)
-    schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -223,7 +222,6 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
         f"Configuration of model {model}:\n"
         + f"\tEquilibrium condition: {et}\n"
         + f"\tFractional flow: {is_ff}"
-        + f"\tEliminating secondary block via Schur complement: {schur}"
         + f"\tNumber of phases: {model.fluid.num_phases}\n"
         + f"\tNumber of components: {model.fluid.num_components}\n"
         + f"\tReference phase eliminated: {p_elim}\n"

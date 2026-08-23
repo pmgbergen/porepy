@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 

@@ -36,7 +36,7 @@ import scipy
 
 import porepy as pp
 
-from .nonlinear_solvers import NewtonSolver
+from .newton_solver import NewtonSolver
 
 logger = logging.getLogger(__name__)
 
@@ -830,3 +830,20 @@ class ConstraintLineSearchNonlinearSolver(
     LineSearchNewtonSolver,
 ):
     """A mixer class combining all available line search strategies."""
+
+    def __init__(
+        self,
+        params: dict | None = None,
+        is_nonlinear_problem: bool = True,
+        linear_solver: pp.solvers.LinearSolverBase | None = None,
+        equation_tags: list[pp.solvers.EquationTag] | None = None,
+        variable_tags: list[pp.solvers.VariableTag] | None = None,
+    ) -> None:
+        if equation_tags is not None or variable_tags is not None:
+            raise ValueError(
+                "The line search temporarily does not support solving restricted "
+                "problems with a subset of variables / equations."
+            )
+        super().__init__(
+            params, is_nonlinear_problem, linear_solver, equation_tags, variable_tags
+        )

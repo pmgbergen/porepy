@@ -61,7 +61,7 @@ class SolverStatistics:
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
     solver_status: solvers.NonlinearSolverStatus = field(
-        default_factory=lambda: solvers.NonlinearSolverStatusConverged(
+        default_factory=lambda: solvers.NewtonSolverConverged(
             linear_solver_statuses=[],
             convergence_statuses=solvers.ConvergenceStatusCollection(),
             divergence_statuses=solvers.ConvergenceStatusCollection(),
@@ -71,7 +71,7 @@ class SolverStatistics:
     simulation_status: TimeStepperStatus = field(
         default_factory=lambda: TimeStepperStatusContinueIterating(
             attempt=-1,
-            nonlinear_solver_status=solvers.NonlinearSolverStatusConverged(
+            nonlinear_solver_status=solvers.NewtonSolverConverged(
                 linear_solver_statuses=[],
                 convergence_statuses=solvers.ConvergenceStatusCollection(),
                 divergence_statuses=solvers.ConvergenceStatusCollection(),

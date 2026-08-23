@@ -427,7 +427,7 @@ def test_robin_limit_case(
     reference_model_class: type[pp.PorePyModel],
     alpha: float,
 ):
-    """Test Robin limit cases.
+    r"""Test Robin limit cases.
 
     The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
     means that setting Robin conditions with alpha = 0 should correspond to setting

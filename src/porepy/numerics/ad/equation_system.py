@@ -6,7 +6,7 @@ using the AD framework.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Literal, Optional, Sequence, Union, overload
 from warnings import warn
 
 import numpy as np
@@ -47,12 +47,18 @@ This type is accepted as input to various methods and parsed to a list of
 
 """
 
-EquationList: TypeAlias = "Union[list[str], list[Operator]]"
-"""A union type representing equations through either names (:class:`str`), or
-:class:`~porepy.numerics.ad.operators.Operator`.
+EquationList: TypeAlias = (
+    "Union[list[str], list[Operator], list[pp.ad.EquationOnDomain]]"
+)
+"""A union type representing equations through:
+- their names (:class:`str`)
+- operators (:class:`~porepy.numerics.ad.operators.Operator`)
+- atomic identifiers (:class:`~porepy.numerics.ad.indexers.EquationOnDomain`), each
+    defining a single equation on a single domain, similarly to atomic variables
+    (:class:`~porepy.numerics.ad.operators.Variable`).
 
 This type is accepted as input to various methods and parsed to a list of
-:class:`~porepy.numerics.ad.operators.Operator` using
+:class:`~porepy.numerics.ad.indexers.EquationOnDomain` using
 :meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_equations`.
 
 """
@@ -159,7 +165,7 @@ class EquationSystem:
 
         """
 
-        self._equation_indexer: pp.ad.EquationIndexer | None = None
+        self._equation_indexer: pp.ad.EquationSystemIndexer | None = None
         """Indexer defining the ordering of the equations (rows) when multiple equation
         values are packed in a single vector.
 
@@ -169,24 +175,7 @@ class EquationSystem:
         variable values are packed in a single vector.
 
         """
-        # Schur complement related stuff (to be removed in the next PR).
-        self._Schur_complement: Optional[tuple] = None
-        """Contains block matrices and the rhs of the last assembled Schur complement.
-
-        """
         self._ad_parser = _ad_parser.AdParser(self.mdg)
-
-        self._secondary_block_permutation: dict[
-            Literal["row_perm_indices", "col_perm_indices", "block_sizes"], np.ndarray
-        ] = {}
-        """Stores the information on the permutations in the secondary block of the
-        linear system, which is to be eliminated when
-        ``model.params['apply_schur_complement_reduction'] == True``.
-
-        Permutations generated and stored using :func:`~porepy.numerics.linalg.
-        matrix_operations.generate_permutation_to_block_diag_matrix`.
-
-        """
 
     def SubSystem(
         self,
@@ -310,7 +299,7 @@ class EquationSystem:
         return self._variable_indexer
 
     @property
-    def equation_indexer(self) -> pp.ad.EquationIndexer:
+    def equation_indexer(self) -> pp.ad.EquationSystemIndexer:
         """Indexer defining the ordering of the equations (rows) when multiple
         equation values are packed in a single vector.
 
@@ -338,7 +327,7 @@ class EquationSystem:
             The indexer.
 
         """
-        variable_dofs: dict[pp.ad.Variable, np.ndarray] = {}
+        indices: dict[pp.ad.Variable, np.ndarray] = {}
         offset = 0
 
         ordered_variables = cluster_dofs_gridwise(self.variables)
@@ -346,11 +335,11 @@ class EquationSystem:
         for var in ordered_variables:
             dofs_per_grid = var.size
             dofs = np.arange(dofs_per_grid) + offset
-            variable_dofs[var] = dofs
+            indices[var] = dofs
             offset += len(dofs)
-        return pp.ad.VariableIndexer(indices=variable_dofs)
+        return pp.ad.VariableIndexer(indices=indices)
 
-    def construct_equation_indexer(self) -> pp.ad.EquationIndexer:
+    def construct_equation_indexer(self) -> pp.ad.EquationSystemIndexer:
         """Construct an equation indexer for all the registered equations.
 
         Equation ordering follows registration order. Equations not defined anywhere
@@ -361,7 +350,7 @@ class EquationSystem:
 
         """
         # Result dictionary.
-        equation_dofs: dict[str, dict[pp.GridLike, np.ndarray]] = {}
+        indices: dict[str, dict[pp.GridLike, np.ndarray]] = {}
 
         # self.equations defines the desired order of equations.
         for name, equation in self.equations.items():
@@ -386,15 +375,16 @@ class EquationSystem:
                     )
                 else:
                     raise ValueError(f"Unknown domain type: {domain}")
+
                 dofs = np.arange(dofs_per_grid) + offset
                 dofs_on_domains[domain] = dofs
-                offset += len(dofs)
+                offset += dofs_per_grid
 
             # Filter out equations not defined anywhere.
             if len(dofs_on_domains) > 0:
-                equation_dofs[name] = dofs_on_domains
+                indices[name] = dofs_on_domains
 
-        return pp.ad.EquationIndexer(equation_image_composition=equation_dofs)
+        return pp.ad.EquationSystemIndexer(equation_image_space_composition=indices)
 
     ### Variable management ------------------------------------------------------------
 
@@ -948,7 +938,7 @@ class EquationSystem:
             variables = self._parse_variable_type(variables, ordered=True)
             # Array for the indices associated with argument.
             # The ordering is preserved in variable_indexer.
-            indices = self.variable_indexer.projection_indices(variables=variables)
+            indices = self.variable_indexer.projection_indices(operators=variables)
             # case where no dofs where found for the VariableType input
             if len(indices) == 0:
                 return sps.csr_matrix((0, num_dofs))
@@ -1277,6 +1267,13 @@ class EquationSystem:
         if isinstance(equations, list):
             # Equation names are restricted, domains are not restricted (None).
             for eq in equations:
+                if isinstance(eq, pp.ad.EquationOnDomain):
+                    # This assumes that eq.domains are already sorted.
+                    domains: DomainList = [eq.domain]  # type: ignore[assignment]
+                    self._validate_equation_restriction(eq.name, domains=domains)
+                    equations_on_domains.append(eq)
+                    continue
+
                 eq = self._validate_equation_name(eq)
                 for domain in eq.domains:
                     # This assumes that eq.domains are already sorted.
@@ -1303,48 +1300,6 @@ class EquationSystem:
         # Order according to equation_indexer.
         equation_order = {eq: i for i, eq in enumerate(self.equation_indexer.indices)}
         return list(sorted(equations_on_domains, key=lambda eq: equation_order[eq]))
-
-    def _gridbased_equation_complement(
-        self, equations: dict[str, None | np.ndarray]
-    ) -> dict[str, None | np.ndarray]:
-        """Takes the information from equation parsing and finds for each equation
-        (identified by its name string) the indices which were excluded in the
-        grid-sense.
-
-        Parameters:
-            equations: Dictionary with equation names as keys and indices as values.
-                The indices are the indices of the rows in the global system that
-                were included in the last parsing of the equations.
-
-        Returns:
-            A dictionary with the name of the equation as key and the grid-complement
-            as values. If the complement is empty, the value is None.
-
-        """
-        equation_indexer = self.equation_indexer
-
-        complement: dict[str, None | np.ndarray] = dict()
-        for name, idx in equations.items():
-            # If indices were filtered based on grids, we find the complementing
-            # indices.
-            # If idx is None, this means no filtering was done.
-            if idx is not None:
-                # Get the indices associated with this equation.
-                all_idx_list = equation_indexer.equation_image_space_composition[name]
-                all_idx = (
-                    np.concatenate(list(all_idx_list.values()))
-                    if len(all_idx_list) > 0
-                    else np.empty(0, dtype=int)
-                )
-
-                # Complementing indices are found by deleting the filtered indices.
-                complement_idx = np.delete(all_idx, idx)
-                complement.update({name: complement_idx})
-
-            # If there was no grid-based row filtering, the complement is empty.
-            else:
-                complement.update({name: None})
-        return complement
 
     def discretize(
         self, equations: Optional[EquationList | EquationRestriction] = None
@@ -1391,7 +1346,7 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]: ...
+    ) -> pp.solvers.LinearSystem: ...
 
     @overload
     def assemble(
@@ -1408,11 +1363,11 @@ class EquationSystem:
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray] | np.ndarray:
+    ) -> pp.solvers.LinearSystem | np.ndarray:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations, variables and grids.
 
-        The ordering of rows and columns in the returned EquationSystem are defined
+        The ordering of rows and columns in the returned LinearSystem are defined
         by the equation system's :attr:`equation_indexer` and
         :attr:`variable_indexer`, respectively.
 
@@ -1438,16 +1393,13 @@ class EquationSystem:
                 they are not registered by this equation system.
 
         Returns:
-            Tuple with two elements
-
-                spmatrix: (Part of the) Jacobian matrix corresponding to the targeted
-                variable state, for the specified equations and variables.
-                ndarray: Residual vector corresponding to the targeted variable state,
-                for the specified equations. Scaled with -1 (moved to rhs).
+            A linear system containing (requested part of) the Jacobian matrix and
+                residual vector. The residual is scaled with -1 (moved to the right-hand
+                side).
 
             or, if ``evaluate_jacobian`` is False,
 
-                ndarray: Residual vector corresponding to the targeted variable state,
+            ndarray: Residual vector corresponding to the targeted variable state,
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
@@ -1520,24 +1472,33 @@ class EquationSystem:
         if not evaluate_jacobian:
             return -rhs_cat
 
+        equation_indexer, variable_indexer = self._construct_assembled_matrix_indexers(
+            equations=equations, variables=variables
+        )
+
         # Slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using the transposed projection to respective
         # subspace.
         if variables is not None:
-            variable_indexer = self.variable_indexer
             # Respect the ordering of the input list of variables.
             variables_ = self._parse_variable_type(variables=variables, ordered=True)
-            col_proj = [variable_indexer.indices[var] for var in variables_]
+            col_proj = [self.variable_indexer.indices[var] for var in variables_]
             column_projection = (
                 np.concatenate(col_proj)
                 if len(col_proj) > 0
                 else np.empty(0, dtype=int)
             )
             A = A[:, column_projection]
-        # Multiply rhs by -1 to move to the rhs.
-        return A, -rhs_cat
 
-    def construct_assembled_matrix_indexers(
+        # Multiply rhs by -1 to move to the rhs.
+        return pp.solvers.LinearSystem(
+            matrix=A,
+            rhs=-rhs_cat,
+            equation_indexer=equation_indexer,
+            variable_indexer=variable_indexer,
+        )
+
+    def _construct_assembled_matrix_indexers(
         self,
         equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
@@ -1569,293 +1530,6 @@ class EquationSystem:
             equation_indexer = self.equation_indexer
 
         return equation_indexer, variable_indexer
-
-    def assemble_schur_complement_system(
-        self,
-        primary_equations: EquationList | EquationRestriction,
-        primary_variables: VariableList,
-        inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
-        state: Optional[np.ndarray] = None,
-    ) -> tuple[sps.spmatrix, np.ndarray]:
-        r"""Assemble Jacobian matrix and residual vector using a Schur complement
-        elimination of the variables and equations not to be included.
-
-        The specified equations and variables will define blocks of the linearized
-        system as
-
-        .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
-            \right]
-            \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
-            = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right]
-
-
-        where subscripts p and s define primary and secondary blocks.
-        The Schur complement system is then given by
-
-        .. math::
-
-            \left( A_{pp} - A_{ps} * A_{ss}^{-1} * A_{sp}\right) * x_p
-            = b_p - A_{ps} * A_{ss}^{-1} * b_s
-
-        The Schur complement is well-defined only if the inverse of :math:`A_{ss}`
-        exists, and the efficiency of the approach assumes that an efficient inverter
-        for :math:`A_{ss}` can be found.
-        **The user must ensure both requirements are fulfilled.**
-
-        Parameters:
-            primary_equations: A subset of equations specifying the primary subspace in
-                row-sense.
-            primary_variables: A subset of variables specifying the primary subspace in
-                column-sense.
-            inverter: ``default=None``
-
-                Callable to compute the inverse of the matrix :math:`A_{ss}`.
-                :meth:`default_schur_complement_inverter` is used if not provided.
-            state: ``default=None``
-
-                See :meth:`assemble`. Defaults to None.
-
-        Returns:
-            Tuple containing
-
-                sps.spmatrix: Jacobian matrix representing the Schur complement with
-                respect to the targeted state.
-                np.ndarray: Residual vector for the Schur complement with respect to the
-                targeted state. Scaled with -1 (moved to rhs).
-
-        Raises:
-            AssertionError:
-
-                - If the primary block would have 0 rows or columns.
-                - If the secondary block would have 0 rows or columns.
-                - If the secondary block is not square.
-
-            ValueError: If primary and secondary columns overlap.
-
-        """
-        if inverter is None:
-            inverter = self.default_schur_complement_inverter
-
-        # Find the rows of the primary block. This can include both equations defined
-        # on their full image, and equations specified on a subset of grids.
-        # The variable primary_rows will contain the indices in the global system
-        # corresponding to the primary block.
-        equations_on_domains = self._parse_equations(primary_equations)
-        primary_rows_lists: dict[str, list[np.ndarray]] = {}
-        for eq in equations_on_domains:
-            primary_rows_lists.setdefault(eq.name, []).append(
-                self.equation_indexer.equation_image_space_composition[eq.name][
-                    eq.domain
-                ]
-            )
-        primary_rows: dict[str, None | np.ndarray] = {
-            name: np.concatenate(dofs) for name, dofs in primary_rows_lists.items()
-        }
-        # Find indices of equations involved in the primary block, but on grids that
-        # were filtered out. These will be added to the secondary block.
-        excluded_primary_rows = self._gridbased_equation_complement(primary_rows)
-
-        # Names of equations that form the primary block.
-        primary_equation_names = list(primary_rows.keys())
-
-        # Get the primary variables, represented as Ad variables.
-        active_variables = self._parse_variable_type(primary_variables, ordered=False)
-
-        # Projection of variables to the set of primary blocks.
-        primary_projection = self.projection_to(active_variables)
-
-        # Assert non-emptiness of primary block.
-        assert len(primary_rows) > 0
-        assert primary_projection.shape[0] > 0
-
-        # Equations that are not part of the primary block. These will form parts of the
-        # secondary block, as will the equations that are defined on grids that were
-        # excluded.
-        secondary_equation_names: list[str] = list(
-            set(self._equations.keys()).difference(set(primary_rows.keys()))
-        )
-        secondary_variables = list(set(self.variables).difference(active_variables))
-        secondary_projection = self.projection_to(secondary_variables)
-
-        # Assert non-emptiness of secondary block. We do not check the length of
-        # sequandary_equation_names, since this can empty if the secondary block is
-        # defined by a subset of grids.
-        assert secondary_projection.shape[0] > 0
-
-        # Storage of primary and secondary row blocks.
-        A_sec: list[sps.csr_matrix] = list()
-        b_sec: list[np.ndarray] = list()
-        A_prim: list[sps.csr_matrix] = list()
-        b_prim: list[np.ndarray] = list()
-
-        # Keep track of indices or primary block.
-        ind_start = 0
-
-        # We loop over stored equations to ensure the correct order but process only
-        # primary equations.
-        # Excluded local primary blocks are stored as top rows in the secondary block.
-        for name in self._equations:
-            if name in primary_equation_names:
-                A_temp, b_temp = self.assemble(equations=[name], state=state)
-                idx_p = primary_rows[name]
-                # Check if a grid filter was applied for that equation
-                if idx_p is not None:
-                    # Append the respective rows.
-                    A_prim.append(A_temp[idx_p])
-                    b_prim.append(b_temp[idx_p])
-                    # If requested, the excluded primary rows are appended as secondary.
-                    idx_excl_p = excluded_primary_rows[name]
-                    A_sec.append(A_temp[idx_excl_p])
-                    b_sec.append(b_temp[idx_excl_p])
-                else:
-                    # If no filter was applied, the whole row block is appended.
-                    A_prim.append(A_temp)
-                    b_prim.append(b_temp)
-
-                block_length = b_prim[-1].size
-                # Create indices range and shift to correct position.
-                block_indices = np.arange(block_length) + ind_start
-                # Extract last index and add 1 to get the starting point for next block
-                # of indices.
-                if block_length > 0:
-                    ind_start = block_indices[-1] + 1
-
-        # We loop again over stored equation to ensure a correct order
-        # but process only secondary equations.
-        for name in self._equations:
-            # Secondary equations (those not explicitly given as being primary) are
-            # assembled wholesale to the secondary block.
-            if name in secondary_equation_names:
-                A_temp, b_temp = self.assemble(equations=[name], state=state)
-                A_sec.append(A_temp)
-                b_sec.append(b_temp)
-
-                block_length = b_sec[-1].size
-                block_indices = np.arange(block_length) + ind_start
-                if block_length > 0:
-                    ind_start = block_indices[-1] + 1
-
-        # stack the results
-        A_p = sps.vstack(A_prim, format="csr")
-        b_p = np.concatenate(b_prim)
-        A_s = sps.vstack(A_sec, format="csr")
-        b_s = np.concatenate(b_sec)
-
-        # turn the projections into prolongations
-        primary_projection = primary_projection.transpose()
-        secondary_projection = secondary_projection.transpose()
-
-        # Matrices involved in the Schur complements
-        A_pp = A_p * primary_projection
-        A_ps = A_p * secondary_projection
-        A_sp = A_s * primary_projection
-        A_ss = A_s * secondary_projection
-
-        # Last sanity check, if A_ss is square.
-        assert A_ss.shape[0] == A_ss.shape[1]
-
-        # Compute the inverse of A_ss using the passed inverter.
-        inv_A_ss = inverter(A_ss)
-
-        S = A_pp - A_ps * inv_A_ss * A_sp
-        rhs_S = b_p - A_ps * inv_A_ss * b_s
-
-        # Store information necessary for expanding the Schur complement later.
-        self._Schur_complement = (
-            inv_A_ss,
-            b_s,
-            A_sp,
-            primary_projection,
-            secondary_projection,
-        )
-
-        return S, rhs_S
-
-    def expand_schur_complement_solution(
-        self, reduced_solution: np.ndarray
-    ) -> np.ndarray:
-        r"""Expands the solution of the *last assembled* Schur complement system to the
-        whole solution.
-
-        With ``reduced_solution`` as :math:`x_p` from
-
-        .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
-            \right]
-            \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
-            = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right],
-
-        the method returns the whole vector :math:`[x_p, x_s]`, where
-
-        .. math::
-            x_s = A_{ss}^{-1} * (b_s - A_{sp} * x_p).
-
-        Note:
-            Independent of how the primary and secondary blocks were chosen, this method
-            always returns a vector of size ``num_dofs``.
-            Especially when the primary and secondary variables did not constitute the
-            whole vector of unknowns, the result is still of size ``num_dofs``.
-            The entries corresponding to the excluded grid variables are zero.
-
-        Parameters:
-            reduced_solution: Solution to the linear system returned by
-                :meth:`assemble_schur_complement_system`.
-
-        Returns:
-            The expanded Schur solution in global size.
-
-        Raises:
-            ValueError: If the Schur complement system was not assembled before.
-
-        """
-        if self._Schur_complement is None:
-            raise ValueError("Schur complement system was not assembled before.")
-
-        # Get data stored from last constructed Schur complement.
-        inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._Schur_complement
-
-        # Calculate the complement solution.
-        x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
-
-        # Prolong primary and secondary block to global-sized arrays
-        X = prolong_p * reduced_solution + prolong_s * x_s
-        return X
-
-    def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:
-        """The inverter for the secondary block in the Schur complement
-        reduction.
-
-        The default implementation assumes the secondary block to be a permuted, block
-        diagonal matrix (local equations), and computes and stores the permutation
-        only *once*. It then proceeds to call an efficient, parallelized block-diagonal
-        matrix inverter.
-
-        See also:
-
-            - :func:`~porepy.numerics.linalg.matrix_operations.
-              generate_permutation_to_block_diag_matrix`
-            - :func:`~porepy.numerics.linalg.matrix_operations.
-              invert_permuted_block_diag_matrix`
-
-        """
-
-        # Generate permutations only once, if not already present.
-        if not self._secondary_block_permutation:
-            row_perm, col_perm, block_sizes = (
-                pp.matrix_operations.generate_permutation_to_block_diag_matrix(A)
-            )
-            self._secondary_block_permutation["row_perm_indices"] = row_perm
-            self._secondary_block_permutation["col_perm_indices"] = col_perm
-            self._secondary_block_permutation["block_sizes"] = block_sizes
-        else:
-            row_perm = self._secondary_block_permutation["row_perm_indices"]
-            col_perm = self._secondary_block_permutation["col_perm_indices"]
-            block_sizes = self._secondary_block_permutation["block_sizes"]
-
-        return pp.matrix_operations.invert_permuted_block_diag_matrix(
-            A, row_perm, col_perm, block_sizes
-        )
 
     ### Evaluate Ad operators ----------------------------------------------------------
 

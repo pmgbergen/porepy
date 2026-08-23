@@ -187,25 +187,28 @@ def test_lithostatic_boundary_stress_values(momentum_model):
     # Lithostatic boundary condition requires non-zero time.
     model.time_manager.time = 1
 
+    nd = model.nd
+
     for boundary_grid in model.mdg.boundaries():
         values = model.bc_values_stress(boundary_grid)
         sides = model.domain_boundary_sides(boundary_grid)
 
-        # Expanding the indices to reflect vector data, 3 DoFs per cell.
-        bottom = np.repeat(sides.bottom, 3)
-        top = np.repeat(sides.top, 3)
-        west = np.repeat(sides.west, 3)
-        east = np.repeat(sides.east, 3)
-        north = np.repeat(sides.north, 3)
-        south = np.repeat(sides.south, 3)
+        # Expanding the indices to reflect vector data, `nd` DoFs per cell.
+        bottom = np.repeat(sides.bottom, nd)
+        top = np.repeat(sides.top, nd)
+        west = np.repeat(sides.west, nd)
+        east = np.repeat(sides.east, nd)
+        north = np.repeat(sides.north, nd)
+        south = np.repeat(sides.south, nd)
 
         # Shear stresses must be zeros.
-        np.testing.assert_array_equal(values[bottom | top][0::3], 0)
-        np.testing.assert_array_equal(values[bottom | top][1::3], 0)
-        np.testing.assert_array_equal(values[east | west][1::3], 0)
-        np.testing.assert_array_equal(values[east | west][2::3], 0)
-        np.testing.assert_array_equal(values[north | south][0::3], 0)
-        np.testing.assert_array_equal(values[north | south][2::3], 0)
+        np.testing.assert_array_equal(values[east | west][1::nd], 0)
+        np.testing.assert_array_equal(values[north | south][0::nd], 0)
+        if model.nd == 3:
+            np.testing.assert_array_equal(values[bottom | top][0::nd], 0)
+            np.testing.assert_array_equal(values[bottom | top][1::nd], 0)
+            np.testing.assert_array_equal(values[east | west][2::nd], 0)
+            np.testing.assert_array_equal(values[north | south][2::nd], 0)
 
         vertical_index = 2 if model.nd == 3 else 1
 
@@ -229,13 +232,13 @@ def test_lithostatic_boundary_stress_values(momentum_model):
         # Values from the model should be equal to explicitly expected results.
         expected_east = -expected_stress[0][sides.east]
         expected_west = +expected_stress[0][sides.east]
-        np.testing.assert_allclose(values[east][0::3], expected_east)
-        np.testing.assert_allclose(values[west][0::3], expected_west)
+        np.testing.assert_allclose(values[east][0::nd], expected_east)
+        np.testing.assert_allclose(values[west][0::nd], expected_west)
         if model.nd == 3:
             expected_north = -expected_stress[1][sides.north]
             expected_south = +expected_stress[1][sides.south]
-            np.testing.assert_allclose(values[north][1::3], expected_north)
-            np.testing.assert_allclose(values[south][1::3], expected_south)
+            np.testing.assert_allclose(values[north][1::nd], expected_north)
+            np.testing.assert_allclose(values[south][1::nd], expected_south)
 
         # For this geometry, some sides contain no cells for the fracture boundary.
         east_value = values[east].mean() if np.any(east) else 0.0

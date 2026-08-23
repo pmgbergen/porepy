@@ -105,6 +105,16 @@ class LinearSystem:
 
     matrix: Optional[csr_matrix]
     rhs: np.ndarray
+    equation_indexer: pp.ad.EquationIndexer
+    """Indexer to map equations and their definition domains to the DoFs of the `matrix`
+    and the `rhs`.
+
+    """
+    variable_indexer: pp.ad.VariableIndexer
+    """Indexer to map variables and their definition domains to the DoFs of the
+    `matrix`.
+
+    """
 
     def release_matrix_reference(self) -> None:
         """Release this container's reference to the matrix.
