@@ -44,11 +44,11 @@ __all__ = [
     "AdArray",
     "DiagonalAdArray",
     "initialize_diagonal_ad_arrays",
-    "init_partial_ad_array",
+    "initialize_partial_ad_array",
 ]
 
 
-def init_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArray:
+def initialize_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArray:
     """Initialize an AdArray for the part of a system not represented by
     :class:`DiagonalAdArray`.
 

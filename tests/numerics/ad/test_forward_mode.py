@@ -17,7 +17,7 @@ from porepy.numerics.ad import functions as af
 from porepy.numerics.ad.forward_mode import (
     AdArray,
     DiagonalAdArray,
-    init_partial_ad_array,
+    initialize_partial_ad_array,
     initialize_diagonal_ad_arrays,
 )
 
@@ -451,10 +451,10 @@ def test_numpy_array_as_left_operand_logical(logical_op: str, create_csr):
         (np.array([1.0, 2.0, 3.0]), np.array([], dtype=int), np.zeros((3, 3))),
     ],
 )
-def test_init_partial_ad_array(state, indices, expected_jac):
+def test_initialize_partial_ad_array(state, indices, expected_jac):
     """The returned AdArray has a unit derivative at the given indices, and a zero
     derivative everywhere else."""
-    var = init_partial_ad_array(state, indices)
+    var = initialize_partial_ad_array(state, indices)
 
     assert isinstance(var, AdArray)
     assert np.allclose(var.val, state)
