@@ -577,8 +577,9 @@ class TestInferDomainRange:
         actual DOF counts) must raise at operator-construction time, before any AD
         parsing/evaluation is attempted.
 
-        This is distinct from :meth:`test_elementwise_incompatible_domain_becomes_unclear`
-        above, where the two operands' targets are made equal via an explicit
+        This is distinct from
+        :meth:`test_elementwise_incompatible_domain_becomes_unclear` above, where the
+        two operands' targets are made equal via an explicit
         projection first (so no error occurs, only the *source* becomes unclear).
         Here, ``cell_op`` and ``face_op`` are combined directly, with their
         cell-wise and face-wise targets left unreconciled.
