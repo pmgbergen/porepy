@@ -331,23 +331,24 @@ class TestSurrogateOperatorSpace:
         assert op.target.dof_info == {GridEntity.cells: 1}
 
 
-class TestDenseArraySpace:
-    def test_dense_array_with_explicit_space(self, two_subdomains):
+class TestArraySpace:
+    """DenseArray and SparseArray both carry the explicit source/target OperatorSpace
+    passed to their constructor."""
+
+    @pytest.mark.parametrize(
+        "array_cls, make_data",
+        [
+            (DenseArray, _ones_for),
+            (SparseArray, lambda space: sps.eye(space.num_dofs(), format="csr")),
+        ],
+        ids=["dense", "sparse"],
+    )
+    def test_array_with_explicit_space(self, two_subdomains, array_cls, make_data):
         g, _ = two_subdomains
         space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        arr = DenseArray(_ones_for(space), source=space, target=space)
+        arr = array_cls(make_data(space), source=space, target=space)
         assert arr.source == space
         assert arr.target == space
-
-
-class TestSparseArraySpace:
-    def test_sparse_array_with_explicit_space(self, two_subdomains):
-        g, _ = two_subdomains
-        space = OperatorSpace.from_domains([g], {GridEntity.cells: 1})
-        mat = sps.eye(4, format="csr")
-        op = SparseArray(mat, source=space, target=space)
-        assert op.source == space
-        assert op.target == space
 
 
 class TestShapeConsistencyCheck:
