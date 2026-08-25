@@ -18,9 +18,33 @@ from porepy.numerics.ad.forward_mode import (
     AdArray,
     DiagonalAdArray,
     init_partial_ad_array,
-    initAdArrays,
     initialize_diagonal_ad_arrays,
 )
+
+
+def initAdArrays(variables: list[np.ndarray]) -> list[AdArray]:
+    """Initialize a set of AdArrays, jointly dependent on each other.
+
+    Test helper: creates one AdArray per entry in ``variables``, with the
+    gradients taken with respect to all variables jointly (i.e. each returned
+    AdArray has a unit derivative with respect to itself and a zero derivative
+    with respect to the other variables).
+
+    """
+    num_values_per_variable = [v.size for v in variables]
+    ad_arrays: list[AdArray] = []
+
+    for i, val in enumerate(variables):
+        # initiate zero jacobian
+        n = num_values_per_variable[i]
+        jac = [sps.csc_matrix((n, m)) for m in num_values_per_variable]
+        # Set jacobian of variable i to I
+        jac[i] = sps.diags(np.ones(num_values_per_variable[i])).tocsr()
+        # initiate AdArray
+        jac = sps.bmat([jac])
+        ad_arrays.append(AdArray(val, jac))
+
+    return ad_arrays
 
 
 @pytest.fixture(params=[sps.csc_matrix, sps.csc_array])
@@ -258,9 +282,9 @@ def test_get_set_slice_ad_var(
     # Testing slicing
     a_slice = a[index]
 
-    # `initAdArrays` is used in the core of the AD parser, and it works only with the
-    # spmatrices, not sparrays. Their slicing behavior is different: spmatrix does not
-    # flatten the result, while sparray does. Some parts of the code may rely on this
+    # `initAdArrays` (the test helper above) builds its Jacobians with spmatrices,
+    # not sparrays. Their slicing behavior is different: spmatrix does not flatten
+    # the result, while sparray does. Some parts of the code may rely on this
     # assumption. This code will signalize if this assumption ever breaks.
     if isinstance(index, int):
         assert len(a_slice.jac.shape) == 2
