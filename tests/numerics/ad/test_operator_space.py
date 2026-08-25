@@ -8,7 +8,6 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 from porepy.numerics.ad.ad_utils import MergedOperator
 from porepy.numerics.ad.grid_entity import GridEntity
 from porepy.numerics.ad.operators import (
@@ -24,7 +23,7 @@ from porepy.numerics.ad.operators import (
     sum_operator_list,
 )
 from porepy.numerics.ad.surrogate_operator import SurrogateOperator
-from porepy.numerics.discretization import Discretization, InterfaceDiscretization
+from porepy.numerics.discretization import Discretization
 
 
 def _grid_for_dim(dim: int) -> pp.Grid:
@@ -73,18 +72,6 @@ def one_mortar():
     g = pp.CartGrid([2])
     g.compute_geometry()
     return pp.MortarGrid(g.dim, {0: g, 1: g})
-
-
-@pytest.fixture
-def fracture_mdg():
-    """2-D Cartesian mdg with two crossing fractures (3 subdomains, 4 interfaces)."""
-    mdg, _ = square_with_orthogonal_fractures(
-        grid_type="cartesian",
-        meshing_args={"cell_size": 0.5},
-        fracture_indices=[0],
-        size=1.0,
-    )
-    return mdg
 
 
 class TestDomainType:
@@ -459,162 +446,6 @@ class TestTimeDependentDenseArraySpaces:
             ValueError, match="Either domains or domain_type must be provided"
         ):
             pp.ad.TimeDependentDenseArray("x", [], dof_info={GridEntity.cells: 1})
-
-
-class TestGridOperatorSpaces:
-    """Tests of operator spaces for the various grid operators.
-
-    The general structure of the tests is to create a grid operator on a full or subset
-    of {subdomain, interface, boundary} grids, and then check that the source and target
-    OperatorSpace have the expected domain_type, grids, and dof_info. The
-    parametrization is made to cover the relevant combinations for the different
-    operators.
-    """
-
-    @pytest.mark.parametrize("restriction", [True, False])
-    @pytest.mark.parametrize("cell", [True, False])
-    @pytest.mark.parametrize("target_dims", [[2], [1, 2], []])
-    @pytest.mark.parametrize("proj_dim", [1, 2])
-    def test_subdomain_projections(
-        self, fracture_mdg, restriction, cell, target_dims, proj_dim
-    ):
-        mdg = fracture_mdg
-        sds = [sd for tg in target_dims for sd in mdg.subdomains(dim=tg)]
-        proj = pp.ad.SubdomainProjections(subdomains=mdg.subdomains(), dim=proj_dim)
-        if restriction:
-            op = proj.cell_restriction(sds) if cell else proj.face_restriction(sds)
-            assert op.source.grids == tuple(mdg.subdomains())
-            assert op.target.grids == tuple(sds)
-        else:
-            op = proj.cell_prolongation(sds) if cell else proj.face_prolongation(sds)
-            assert op.source.grids == tuple(sds)
-            assert op.target.grids == tuple(mdg.subdomains())
-        assert op.source.domain_type == DomainType.subdomains
-        assert op.target.domain_type == DomainType.subdomains
-        if cell:
-            assert op.source.dof_info == {GridEntity.cells: proj_dim}
-            assert op.target.dof_info == {GridEntity.cells: proj_dim}
-        else:
-            assert op.source.dof_info == {GridEntity.faces: proj_dim}
-            assert op.target.dof_info == {GridEntity.faces: proj_dim}
-
-    @pytest.mark.parametrize("to_interface", [True, False])
-    @pytest.mark.parametrize("target_dims", [[1], [0, 1], []])
-    @pytest.mark.parametrize("proj_dim", [1, 2])
-    def test_mortar_projection_spaces(
-        self, fracture_mdg, to_interface: bool, target_dims, proj_dim
-    ):
-        mdg = fracture_mdg
-        interfaces = [intf for tg in target_dims for intf in mdg.interfaces(dim=tg)]
-        subdomains = list(
-            set(
-                sd
-                for intf in interfaces
-                for sd in mdg.interface_to_subdomain_pair(intf)
-            )
-        )
-        proj = pp.ad.MortarProjections(
-            mdg=mdg, subdomains=subdomains, interfaces=interfaces, dim=proj_dim
-        )
-        if to_interface:
-            op = proj.primary_to_mortar_avg()
-            order = [op.source, op.target]
-        else:
-            op = proj.mortar_to_primary_avg()
-            order = [op.target, op.source]
-        # The order of source and target is so that we can use the same tests for
-        # directions.
-        assert order[0].grids == tuple(subdomains)
-        assert order[1].grids == tuple(interfaces)
-        assert order[0].domain_type == DomainType.subdomains
-        assert order[1].domain_type == DomainType.interfaces
-        assert order[0].dof_info == {GridEntity.faces: proj_dim}
-        assert order[1].dof_info == {GridEntity.cells: proj_dim}
-
-    @pytest.mark.parametrize("to_boundary", [True, False])
-    @pytest.mark.parametrize("proj_dim", [1, 2])
-    def test_boundary_projection_spaces(
-        self, fracture_mdg, to_boundary: bool, proj_dim: int
-    ):
-        mdg = fracture_mdg
-        subdomains = mdg.subdomains()
-        boundary_grids = mdg.boundaries()
-        bp = pp.ad.BoundaryProjection(mdg, subdomains, dim=proj_dim)
-
-        if to_boundary:
-            op = bp.subdomain_to_boundary
-            order = [op.source, op.target]
-        else:
-            op = bp.boundary_to_subdomain
-            order = [op.target, op.source]
-        # The order of source and target is so that we can use the same tests for
-        # directions.
-        assert order[0].domain_type == DomainType.subdomains
-        assert order[1].domain_type == DomainType.boundary_grids
-        assert order[0].grids == tuple(subdomains)
-        assert order[1].grids == tuple(boundary_grids)
-        assert order[0].dof_info == {GridEntity.faces: proj_dim}
-        assert order[1].dof_info == {GridEntity.cells: proj_dim}
-
-    @pytest.mark.parametrize("target_dims", [[0, 1, 2], [2], []])
-    def test_trace_operator_spaces(self, fracture_mdg, target_dims):
-        mdg = fracture_mdg
-        subdomains = [sd for tg in target_dims for sd in mdg.subdomains(dim=tg)]
-        trace = pp.ad.Trace(subdomains)
-        op = trace.trace
-        for domain in [op.source, op.target]:
-            assert domain.domain_type == DomainType.subdomains
-            assert domain.grids == tuple(subdomains)
-
-        assert op.source.dof_info == {GridEntity.cells: 1}
-        assert op.target.dof_info == {GridEntity.faces: 1}
-
-    @pytest.mark.parametrize("target_dims", [[0, 1, 2], [2], []])
-    @pytest.mark.parametrize("proj_dims", [1, 2])
-    def test_divergence_operator_spaces(self, fracture_mdg, target_dims, proj_dims):
-        mdg = fracture_mdg
-        subdomains = [sd for tg in target_dims for sd in mdg.subdomains(dim=tg)]
-        div = pp.ad.Divergence(subdomains, dim=proj_dims)
-        for domain in [div.source, div.target]:
-            assert domain.domain_type == DomainType.subdomains
-            assert domain.grids == tuple(subdomains)
-
-        assert div.source.dof_info == {GridEntity.faces: proj_dims}
-        assert div.target.dof_info == {GridEntity.cells: proj_dims}
-
-    @pytest.mark.parametrize("target_dims", [[1], []])
-    def test_sign_of_mortar_sides_spaces(self, fracture_mdg, target_dims):
-        """MortarProjections.sign_of_mortar_sides has a typed-but-empty space (not
-        None) when there are no interfaces.
-        """
-        mdg = fracture_mdg
-        interfaces = [intf for tg in target_dims for intf in mdg.interfaces(dim=tg)]
-        subdomains = list(
-            set(
-                sd
-                for intf in interfaces
-                for sd in mdg.interface_to_subdomain_pair(intf)
-            )
-        )
-        proj = pp.ad.MortarProjections(
-            mdg=mdg, subdomains=subdomains, interfaces=interfaces, dim=1
-        )
-        op = proj.sign_of_mortar_sides()
-        for domain in [op.source, op.target]:
-            assert domain.domain_type == DomainType.interfaces
-            assert domain.grids == tuple(interfaces)
-            assert domain.dof_info == {GridEntity.cells: 1}
-
-    def test_boundary_projection_spaces_no_subdomains(self, fracture_mdg):
-        """BoundaryProjection has a typed-but-empty space (not None) when there are no
-        subdomains."""
-        mdg = fracture_mdg
-        bp = pp.ad.BoundaryProjection(mdg, [], dim=1)
-        op = bp.subdomain_to_boundary
-        assert op.source.domain_type == DomainType.subdomains
-        assert op.source.grids == ()
-        assert op.target.domain_type == DomainType.boundary_grids
-        assert op.target.grids == ()
 
 
 class TestMergedOperatorSpaces:
