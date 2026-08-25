@@ -856,7 +856,8 @@ class DiagonalAdArray(AdArray):
         num_derivatives,
     ) -> None:
         _check_1d(val)
-        jac = np.atleast_2d(jac)
+        if jac.ndim == 1:
+            jac = jac[np.newaxis, :]
         self._is_diagonal = True
 
         # Enforce float format, consistent with AdArray.__init__. Note that we
@@ -967,9 +968,10 @@ class DiagonalAdArray(AdArray):
             return self.replace(self.val * other, self.jac * other)
         elif isinstance(other, AdArray) and other._is_diagonal:
             val = self.val * other.val
-            # Do atleast 2d to make sure the shapes are compatible for broadcasting,
-            jac = self.jac * np.atleast_2d(other.val) + other.jac * np.atleast_2d(
-                self.val
+            # Row-broadcast against self.jac/other.jac (shape (num_blocks, n)).
+            jac = (
+                self.jac * other.val[np.newaxis, :]
+                + other.jac * self.val[np.newaxis, :]
             )
             return self.replace(val, jac)
 
