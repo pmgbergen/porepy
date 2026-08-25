@@ -1,15 +1,21 @@
-"""Test collection for Ad representations of grid-related operators.
+"""Tests for the AD representations of grid-related operators: projections between
+subdomains, mortar (interface) grids and boundary grids, plus the Trace and
+Divergence operators.
 
-Checks performed include the following:
-    test_subdomain_projections: Operators for restriction and prolongation are checked
-        for both faces and cells;
-    test_mortar_projections_empty_list: Projections between empty lists of subdomains
-        and interfaces;
-    test_mortar_projections: Projections between mortar grids and subdomain grids;
-    test_boundary_grid_projection:  Tests are conducted on the boundary projection
-        operator and its inverse;
-    test_trace and test_divergence: Operators for discrete traces and divergences;
-    test_ad_discretization_class: test for AD discretizations.
+``TestSubdomainProjections``, ``TestMortarProjections`` and ``TestBoundaryProjection``
+(and, more narrowly, ``test_trace``/``test_divergence``) each check two things about
+their operator: numerical correctness of the assembled projection matrix, and that
+``source``/``target`` (an ``OperatorSpace``) reports the expected ``DomainType``,
+grids and ``dof_info``.
+
+Covers, in order (see the ``# MARK:`` comments below for navigation):
+  - Subdomain restriction/prolongation, for both faces and cells:
+    ``TestSubdomainProjections``.
+  - Mortar<->primary/secondary subdomain projections, including empty-list and
+    ``sign_of_mortar_sides`` edge cases: ``TestMortarProjections``.
+  - Subdomain<->boundary-grid projections and their consistency:
+    ``TestBoundaryProjection``.
+  - The discrete Trace and Divergence operators: ``test_trace``, ``test_divergence``.
 
 """
 
@@ -27,6 +33,8 @@ def mdg():
     md_grid = pp.meshing.cart_grid(fracs, np.array([2, 2]))
     return md_grid
 
+
+# MARK: Subdomain restriction/prolongation ----------------------------------------
 
 #: (SubdomainProjections method name, GridEntity, is_restriction) for each of the four
 #: cell/face x restriction/prolongation combinations tested in TestSubdomainProjections.
@@ -201,6 +209,8 @@ class TestSubdomainProjections:
         assert _compare_matrices(op, expected)
         self._check_space(op, subdomains, proj_dim, entity, [g1, g2], is_restriction)
 
+
+# MARK: Mortar<->primary/secondary subdomain projections ---------------------------
 
 #: (method_name, pair, kind, is_to_mortar) for each of the eight mortar<->primary/
 #: secondary projection directions tested in TestMortarProjections.test_projection.
@@ -552,6 +562,9 @@ class TestMortarProjections:
         self._check_space(op, subdomains, interfaces, proj_dim, pair, is_to_mortar)
 
 
+# MARK: Subdomain<->boundary-grid projections --------------------------------------
+
+
 class TestBoundaryProjection:
     """Subdomain<->boundary-grid projections, via ``pp.ad.BoundaryProjection``.
 
@@ -671,7 +684,7 @@ class TestBoundaryProjection:
         assert op.target.grids == ()
 
 
-# Geometry based operators
+# MARK: Trace and Divergence operators ----------------------------------------------
 def test_trace(mdg: pp.MixedDimensionalGrid):
     """Test Trace operator.
 

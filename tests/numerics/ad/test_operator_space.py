@@ -1,5 +1,25 @@
-"""Tests for Stage 2 of GH discussion #1601: DomainType, OperatorSpace and
-source/target propagation."""
+"""Tests for ``DomainType`` and ``OperatorSpace``, the classes representing an AD
+operator's mathematical domain/range, and for the ``source``/``target`` attributes
+they back on every ``Operator``.
+
+Covers three things, each marked with a ``# MARK:`` comment below for navigation:
+  - OperatorSpace/DomainType construction, equality and hashing: ``OperatorSpace``
+    itself (and its ``scalar``/``unclear``/``waived`` sentinel spaces).
+  - How each operator type acquires its source/target: the various operator types
+    (``Scalar``, ``Variable``, ``MixedDimensionalVariable``, ``SurrogateOperator``,
+    ``DenseArray``/``SparseArray``, ``TimeDependentDenseArray``, ``MergedOperator``)
+    acquiring their ``source``/``target`` from their constructor arguments, including
+    the shape-consistency check between a grid-based space and the wrapped
+    array/matrix.
+  - Propagation through arithmetic and composition: ``source``/``target`` propagating
+    through operator arithmetic and composition (elementwise operations, ``@``,
+    ``sum_operator_list``), including the ``unclear``-domain sentinel and the errors
+    raised for incompatible spaces.
+
+Space checks for the grid operators themselves (``SubdomainProjections``,
+``MortarProjections``, ``BoundaryProjection``, ``Trace``, ``Divergence``) live
+alongside their numerical-correctness tests in ``test_grid_operators.py`` instead.
+"""
 
 import operator as _op
 
@@ -72,6 +92,9 @@ def one_mortar():
     g = pp.CartGrid([2])
     g.compute_geometry()
     return pp.MortarGrid(g.dim, {0: g, 1: g})
+
+
+# MARK: OperatorSpace/DomainType construction, equality and hashing -------------
 
 
 class TestDomainType:
@@ -171,6 +194,9 @@ class TestOperatorSpaceInequality:
         s1 = OperatorSpace.from_domains([g1], {GridEntity.cells: 1})
         s2 = OperatorSpace.from_domains([one_mortar], {GridEntity.cells: 1})
         assert s1 != s2
+
+
+# MARK: How each operator type acquires its source/target -----------------------
 
 
 class TestOperatorProperties:
@@ -489,6 +515,9 @@ class TestMergedOperatorSpaces:
         assert GridEntity.cells in op.target.dof_info
         assert set(op.source.grids) == {g1, g2}
         assert set(op.target.grids) == {g1, g2}
+
+
+# MARK: Propagation through arithmetic and composition ---------------------------
 
 
 class TestInferDomainRange:
