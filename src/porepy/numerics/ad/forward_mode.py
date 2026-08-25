@@ -52,11 +52,11 @@ def initialize_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArr
     """Initialize an AdArray for the part of a system not represented by
     :class:`DiagonalAdArray`.
 
-    The returned array has one entry (and one derivative) per entry of ``state``.
-    Only the entries at ``indices`` are treated as independent variables (a unit
-    derivative with respect to themselves); all other entries get a zero
-    derivative row, since they are assumed to be represented elsewhere by a
-    :class:`DiagonalAdArray` (see :func:`initialize_diagonal_ad_arrays`).
+    The returned array has one entry (and one derivative) per entry of ``state``. Only
+    the entries at ``indices`` are treated as independent variables (a unit derivative
+    with respect to themselves); all other entries get a zero derivative row, since they
+    are assumed to be represented elsewhere by a :class:`DiagonalAdArray` (see
+    :func:`initialize_diagonal_ad_arrays`).
 
     Parameters:
         state: The full state vector for this part of the system.
@@ -64,8 +64,8 @@ def initialize_partial_ad_array(state: np.ndarray, indices: np.ndarray) -> AdArr
             independent variables.
 
     Returns:
-        An AdArray with value ``state`` and a diagonal Jacobian that is the
-        identity restricted to ``indices``.
+        An AdArray with value ``state`` and a diagonal Jacobian that is the identity
+        restricted to ``indices``.
 
     """
     sz = state.size
@@ -808,11 +808,11 @@ class DiagonalAdArray(AdArray):
     """An AdArray where the Jacobian is stored as a 1d numpy array, representing the
     diagonal of the Jacobian matrix.
 
-    This is a special case of AdArray, where the Jacobian is stored as a 1d numpy
-    array, representing the diagonal of the Jacobian matrix. This can be used for
-    quantities which only depend on themselves, and not on any other variables. The
-    operations are implemented in a way that they take advantage of this structure to
-    speed up calculations.
+    This is a special case of AdArray, where the Jacobian is stored as a 1d numpy array,
+    representing the diagonal of the Jacobian matrix. This can be used for quantities
+    which only depend on themselves, and not on any other variables. The operations are
+    implemented in a way that they take advantage of this structure to speed up
+    calculations.
 
     """
 
@@ -829,11 +829,11 @@ class DiagonalAdArray(AdArray):
             jac = jac[np.newaxis, :]
         self._is_diagonal = True
 
-        # Enforce float format, consistent with AdArray.__init__. Note that we
-        # cannot call super().__init__() here: jac.shape[0] is the number of
-        # stacked diagonal argument blocks, not the number of degrees of freedom
-        # (val.size), so AdArray.__init__'s consistency check between the two does
-        # not apply to the diagonal representation.
+        # Enforce float format, consistent with AdArray.__init__. Note that we cannot
+        # call super().__init__() here: jac.shape[0] is the number of stacked diagonal
+        # argument blocks, not the number of degrees of freedom (val.size), so
+        # AdArray.__init__'s consistency check between the two does not apply to the
+        # diagonal representation.
         self.val = _as_float(val)
         self.jac = _as_float(jac)
 
@@ -864,17 +864,17 @@ class DiagonalAdArray(AdArray):
         reusing this array's structural indices (row indices, column indices, and
         total number of derivatives).
 
-        Intended both to avoid repeated reconstruction boilerplate in the
-        arithmetic dunders below, and as the sanctioned way for external code
-        to build a new diagonal-representation result from an existing one.
+        Intended both to avoid repeated reconstruction boilerplate in the arithmetic
+        dunders below, and as the sanctioned way for external code to build a new
+        diagonal-representation result from an existing one.
 
         Parameters:
             val: Value for the new array.
             jac: Jacobian, in diagonal representation, for the new array.
 
         Returns:
-            A new DiagonalAdArray with the given ``val`` and ``jac``, and this
-            array's row indices, column indices and number of derivatives.
+            A new DiagonalAdArray with the given ``val`` and ``jac``, and this array's
+            row indices, column indices and number of derivatives.
 
         """
         return DiagonalAdArray(
@@ -883,8 +883,8 @@ class DiagonalAdArray(AdArray):
 
     def __getitem__(self, key: slice | np.ndarray[Any, np.dtype[np.int_]]) -> AdArray:
         # Slicing changes the structural indices themselves (row/column indices are
-        # sliced along with the values), so replace() -- which reuses self's
-        # indices unchanged -- does not apply here.
+        # sliced along with the values), so replace() -- which reuses self's indices
+        # unchanged -- does not apply here.
         vals = self.val[key]
         jac = self.jac[:, key]
 
