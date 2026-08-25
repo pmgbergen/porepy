@@ -344,9 +344,7 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
             ]
             equation_values = values[indices].reshape((equation_dim, -1), order="F")
             cell_weights = np.hstack([domain.cell_volumes for domain in domains])
-            space = OperatorSpace.from_domains(
-                domains, {GridEntity.cells: equation_dim}
-            )
+            space = OperatorSpace.from_domains(domains, {GridEntity.cells: 1})
             intensive_equation_values = pp.ad.DenseArray(
                 np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights,
                 source=space,
